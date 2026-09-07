@@ -11,7 +11,7 @@ from expression import Error, Ok, Result
 import msgspec
 import structlog
 
-from eng.scripts.provision import exit_code, Failure, FileMissing, NoMutants, repository_root, run
+from eng.scripts.provision import exit_code, Failure, FileMissing, message, NoMutants, repository_root, run
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -83,7 +83,7 @@ def _report(mutated: Mutated) -> None:
     _log.info("mutated", language=mutated.language, mutants=mutated.mutants)
 
 
-_app.result_action = (exit_code(_report), "sys_exit")
+_app.result_action = (exit_code(_report, message), "sys_exit")
 
 
 @_app.default

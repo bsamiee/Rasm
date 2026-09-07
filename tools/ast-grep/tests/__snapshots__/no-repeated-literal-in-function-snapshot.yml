@@ -1,0 +1,465 @@
+id: no-repeated-literal-in-function
+snapshots:
+  ? |
+    async def check(fs):
+        await fs.pipe_file("nest/deep/blob.bin")
+        await fs.rm("nest/deep/blob.bin")
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 82
+      end: 102
+    - source: |-
+        async def check(fs):
+            await fs.pipe_file("nest/deep/blob.bin")
+            await fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 0
+      end: 103
+    - source: |-
+        await fs.pipe_file("nest/deep/blob.bin")
+            await fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 25
+      end: 103
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 44
+      end: 64
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 44
+      end: 64
+    - source: await fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 70
+      end: 103
+  ? |
+    class Reader:
+        def check(self, fs):
+            fs.pipe_file("nest/deep/blob.bin")
+            fs.rm("nest/deep/blob.bin")
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 96
+      end: 116
+    - source: |-
+        def check(self, fs):
+                fs.pipe_file("nest/deep/blob.bin")
+                fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 18
+      end: 117
+    - source: |-
+        fs.pipe_file("nest/deep/blob.bin")
+                fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 47
+      end: 117
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 60
+      end: 80
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 60
+      end: 80
+    - source: fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 90
+      end: 117
+  ? |
+    def check(fs):
+        fs.pipe_file("blob", b"content-bytes")
+        assert fs.cat_file("blob") == b"content-bytes"
+  : labels:
+    - source: b"content-bytes"
+      style: primary
+      start: 92
+      end: 108
+    - source: |-
+        def check(fs):
+            fs.pipe_file("blob", b"content-bytes")
+            assert fs.cat_file("blob") == b"content-bytes"
+      style: secondary
+      start: 0
+      end: 108
+    - source: |-
+        fs.pipe_file("blob", b"content-bytes")
+            assert fs.cat_file("blob") == b"content-bytes"
+      style: secondary
+      start: 19
+      end: 108
+    - source: b"content-bytes"
+      style: secondary
+      start: 40
+      end: 56
+    - source: b"content-bytes"
+      style: secondary
+      start: 40
+      end: 56
+    - source: assert fs.cat_file("blob") == b"content-bytes"
+      style: secondary
+      start: 62
+      end: 108
+  ? |
+    def check(fs):
+        fs.pipe_file("nest/deep/blob.bin")
+        # The copy
+        fs.rm("nest/deep/blob.bin")
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 79
+      end: 99
+    - source: |-
+        def check(fs):
+            fs.pipe_file("nest/deep/blob.bin")
+            # The copy
+            fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 0
+      end: 100
+    - source: |-
+        fs.pipe_file("nest/deep/blob.bin")
+            # The copy
+            fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 19
+      end: 100
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 73
+      end: 100
+  ? |
+    def check(fs):
+        fs.pipe_file("nest/deep/blob.bin")
+        if fs:
+            fs.rm("nest/deep/blob.bin")
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 79
+      end: 99
+    - source: |-
+        def check(fs):
+            fs.pipe_file("nest/deep/blob.bin")
+            if fs:
+                fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 0
+      end: 100
+    - source: |-
+        fs.pipe_file("nest/deep/blob.bin")
+            if fs:
+                fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 19
+      end: 100
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: |-
+        if fs:
+                fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 58
+      end: 100
+  ? |
+    def check(fs):
+        fs.pipe_file("nest/deep/blob.bin")
+        log(fs)
+        fs.rm("nest/deep/blob.bin")
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 76
+      end: 96
+    - source: |-
+        def check(fs):
+            fs.pipe_file("nest/deep/blob.bin")
+            log(fs)
+            fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 0
+      end: 97
+    - source: |-
+        fs.pipe_file("nest/deep/blob.bin")
+            log(fs)
+            fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 19
+      end: 97
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 70
+      end: 97
+  ? |
+    def check(fs):
+        fs.pipe_file("nest/deep/blob.bin")
+        run(lambda: fs.rm("nest/deep/blob.bin"))
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 76
+      end: 96
+    - source: |-
+        def check(fs):
+            fs.pipe_file("nest/deep/blob.bin")
+            run(lambda: fs.rm("nest/deep/blob.bin"))
+      style: secondary
+      start: 0
+      end: 98
+    - source: |-
+        fs.pipe_file("nest/deep/blob.bin")
+            run(lambda: fs.rm("nest/deep/blob.bin"))
+      style: secondary
+      start: 19
+      end: 98
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 32
+      end: 52
+    - source: 'run(lambda: fs.rm("nest/deep/blob.bin"))'
+      style: secondary
+      start: 58
+      end: 98
+  ? |
+    def check(fs):
+        if fs:
+            fs.pipe_file("nest/deep/blob.bin")
+        fs.rm("nest/deep/blob.bin")
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 79
+      end: 99
+    - source: |-
+        def check(fs):
+            if fs:
+                fs.pipe_file("nest/deep/blob.bin")
+            fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 0
+      end: 100
+    - source: |-
+        if fs:
+                fs.pipe_file("nest/deep/blob.bin")
+            fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 19
+      end: 100
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 47
+      end: 67
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 47
+      end: 67
+    - source: fs.rm("nest/deep/blob.bin")
+      style: secondary
+      start: 73
+      end: 100
+  ? |
+    def check(fs, root):
+        fs.pipe_file(f"{root}nest/deep/blob.bin", b"content")
+        assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content"
+  : labels:
+    - source: f"{root}nest/deep/blob.bin"
+      style: primary
+      start: 102
+      end: 129
+    - source: |-
+        def check(fs, root):
+            fs.pipe_file(f"{root}nest/deep/blob.bin", b"content")
+            assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content"
+      style: secondary
+      start: 0
+      end: 144
+    - source: |-
+        fs.pipe_file(f"{root}nest/deep/blob.bin", b"content")
+            assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content"
+      style: secondary
+      start: 25
+      end: 144
+    - source: f"{root}nest/deep/blob.bin"
+      style: secondary
+      start: 38
+      end: 65
+    - source: f"{root}nest/deep/blob.bin"
+      style: secondary
+      start: 38
+      end: 65
+    - source: assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content"
+      style: secondary
+      start: 83
+      end: 144
+  ? |
+    def check(fs, root):
+        fs.pipe_file(t"{root}nest/deep/blob.bin")
+        fs.rm(t"{root}nest/deep/blob.bin")
+  : labels:
+    - source: t"{root}nest/deep/blob.bin"
+      style: primary
+      start: 77
+      end: 104
+    - source: |-
+        def check(fs, root):
+            fs.pipe_file(t"{root}nest/deep/blob.bin")
+            fs.rm(t"{root}nest/deep/blob.bin")
+      style: secondary
+      start: 0
+      end: 105
+    - source: |-
+        fs.pipe_file(t"{root}nest/deep/blob.bin")
+            fs.rm(t"{root}nest/deep/blob.bin")
+      style: secondary
+      start: 25
+      end: 105
+    - source: t"{root}nest/deep/blob.bin"
+      style: secondary
+      start: 38
+      end: 65
+    - source: t"{root}nest/deep/blob.bin"
+      style: secondary
+      start: 38
+      end: 65
+    - source: fs.rm(t"{root}nest/deep/blob.bin")
+      style: secondary
+      start: 71
+      end: 105
+  ? |
+    def name(value):
+        match value:
+            case "nest/deep/blob.bin":
+                return 1
+        return "nest/deep/blob.bin"
+  : labels:
+    - source: '"nest/deep/blob.bin"'
+      style: primary
+      start: 101
+      end: 121
+    - source: |-
+        def name(value):
+            match value:
+                case "nest/deep/blob.bin":
+                    return 1
+            return "nest/deep/blob.bin"
+      style: secondary
+      start: 0
+      end: 121
+    - source: |-
+        match value:
+                case "nest/deep/blob.bin":
+                    return 1
+            return "nest/deep/blob.bin"
+      style: secondary
+      start: 21
+      end: 121
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 47
+      end: 67
+    - source: '"nest/deep/blob.bin"'
+      style: secondary
+      start: 47
+      end: 67
+    - source: return "nest/deep/blob.bin"
+      style: secondary
+      start: 94
+      end: 121
+  ? |
+    def size(node):
+        lower = node.get("frame_rate")
+        upper = node.get("frame_rate")
+  : labels:
+    - source: '"frame_rate"'
+      style: primary
+      start: 72
+      end: 84
+    - source: |-
+        def size(node):
+            lower = node.get("frame_rate")
+            upper = node.get("frame_rate")
+      style: secondary
+      start: 0
+      end: 85
+    - source: |-
+        lower = node.get("frame_rate")
+            upper = node.get("frame_rate")
+      style: secondary
+      start: 20
+      end: 85
+    - source: '"frame_rate"'
+      style: secondary
+      start: 37
+      end: 49
+    - source: '"frame_rate"'
+      style: secondary
+      start: 37
+      end: 49
+    - source: upper = node.get("frame_rate")
+      style: secondary
+      start: 55
+      end: 85
+  ? |
+    def stage(space):
+        work = space.artifacts / "sqlitevec-loadable"
+        return read_manifest(space.manifests / "sqlitevec-loadable")
+  : labels:
+    - source: '"sqlitevec-loadable"'
+      style: primary
+      start: 111
+      end: 131
+    - source: |-
+        def stage(space):
+            work = space.artifacts / "sqlitevec-loadable"
+            return read_manifest(space.manifests / "sqlitevec-loadable")
+      style: secondary
+      start: 0
+      end: 132
+    - source: |-
+        work = space.artifacts / "sqlitevec-loadable"
+            return read_manifest(space.manifests / "sqlitevec-loadable")
+      style: secondary
+      start: 22
+      end: 132
+    - source: '"sqlitevec-loadable"'
+      style: secondary
+      start: 47
+      end: 67
+    - source: '"sqlitevec-loadable"'
+      style: secondary
+      start: 47
+      end: 67
+    - source: return read_manifest(space.manifests / "sqlitevec-loadable")
+      style: secondary
+      start: 72
+      end: 132

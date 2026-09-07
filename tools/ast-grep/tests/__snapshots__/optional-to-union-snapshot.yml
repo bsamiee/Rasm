@@ -1,0 +1,169 @@
+id: optional-to-union
+snapshots:
+  ? |
+    from typing import Any, Union
+
+    value = cast(Union[int, str], raw)
+  : fixed: |
+      from typing import Any, Union
+
+      value = cast(int | str, raw)
+    labels:
+    - source: Union[int, str]
+      style: primary
+      start: 44
+      end: 59
+    - source: Union
+      style: secondary
+      start: 44
+      end: 49
+  ? |
+    from typing import Optional
+
+    def read(path: Optional[Path] = None) -> str:
+        return ""
+  : fixed: |
+      from typing import Optional
+
+      def read(path: Path | None = None) -> str:
+          return ""
+    labels:
+    - source: Optional[Path]
+      style: primary
+      start: 44
+      end: 58
+    - source: Optional
+      style: secondary
+      start: 44
+      end: 52
+  ? |
+    from typing import Optional, Union
+
+    def read(path: Union[Optional[Path], str]) -> str:
+        return ""
+  : fixed: |
+      from typing import Optional, Union
+
+      def read(path: Optional[Path] | str) -> str:
+          return ""
+    labels:
+    - source: Union[Optional[Path], str]
+      style: primary
+      start: 51
+      end: 77
+    - source: Union
+      style: secondary
+      start: 51
+      end: 56
+  ? |
+    from typing import Optional, cast
+
+    value = cast(Optional[int], raw)
+  : fixed: |
+      from typing import Optional, cast
+
+      value = cast(int | None, raw)
+    labels:
+    - source: Optional[int]
+      style: primary
+      start: 48
+      end: 61
+    - source: Optional
+      style: secondary
+      start: 48
+      end: 56
+  ? |
+    from typing import Union
+
+    def read(path: Union[Path, dict[str, int], None]) -> str:
+        return ""
+  : fixed: |
+      from typing import Union
+
+      def read(path: Path | dict[str, int] | None) -> str:
+          return ""
+    labels:
+    - source: Union[Path, dict[str, int], None]
+      style: primary
+      start: 41
+      end: 74
+    - source: Union
+      style: secondary
+      start: 41
+      end: 46
+  ? |
+    from typing import Union
+
+    def read(path: Union[Path, str]) -> str:
+        return ""
+  : fixed: |
+      from typing import Union
+
+      def read(path: Path | str) -> str:
+          return ""
+    labels:
+    - source: Union[Path, str]
+      style: primary
+      start: 41
+      end: 57
+    - source: Union
+      style: secondary
+      start: 41
+      end: 46
+  ? |
+    from typing_extensions import Optional
+
+    def read(path: Optional[Path] = None) -> str:
+        return ""
+  : fixed: |
+      from typing_extensions import Optional
+
+      def read(path: Path | None = None) -> str:
+          return ""
+    labels:
+    - source: Optional[Path]
+      style: primary
+      start: 55
+      end: 69
+    - source: Optional
+      style: secondary
+      start: 55
+      end: 63
+  ? |
+    import typing
+
+    def read(path: typing.Optional[Path] = None) -> str:
+        return ""
+  : fixed: |
+      import typing
+
+      def read(path: Path | None = None) -> str:
+          return ""
+    labels:
+    - source: typing.Optional[Path]
+      style: primary
+      start: 30
+      end: 51
+    - source: typing.Optional
+      style: secondary
+      start: 30
+      end: 45
+  ? |
+    import typing as t
+
+    def read(path: t.Union[Path, str]) -> str:
+        return ""
+  : fixed: |
+      import typing as t
+
+      def read(path: Path | str) -> str:
+          return ""
+    labels:
+    - source: t.Union[Path, str]
+      style: primary
+      start: 35
+      end: 53
+    - source: t.Union
+      style: secondary
+      start: 35
+      end: 42

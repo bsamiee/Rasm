@@ -5,6 +5,6 @@ language: tsx
 rule:
     any:
         - kind: pair
-          has: {field: key, regex: '^(provider|providers)$'}
+          has: {field: key, regex: "^['\"]?(provider|providers)['\"]?$"}
         - kind: shorthand_property_identifier
           regex: '^(provider|providers)$'

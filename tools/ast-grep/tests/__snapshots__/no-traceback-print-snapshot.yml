@@ -1,0 +1,27 @@
+id: no-traceback-print
+snapshots:
+  ? |
+    from traceback import print_exception
+  : labels:
+    - source: print_exception
+      style: primary
+      start: 22
+      end: 37
+  ? |
+    import traceback
+
+    traceback.print_exc()
+  : labels:
+    - source: traceback.print_exc
+      style: primary
+      start: 18
+      end: 37
+  ? |
+    import traceback as tb
+
+    tb.print_stack()
+  : labels:
+    - source: tb.print_stack
+      style: primary
+      start: 24
+      end: 38

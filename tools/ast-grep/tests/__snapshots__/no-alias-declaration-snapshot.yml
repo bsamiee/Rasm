@@ -1,0 +1,58 @@
+id: no-alias-declaration
+snapshots:
+  const tick = MS_PER_HOUR;:
+    labels:
+    - source: MS_PER_HOUR
+      message: The name the declaration repeats
+      style: primary
+      start: 13
+      end: 24
+  export const rows = table;:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 20
+      end: 25
+  export type Row = Item;:
+    labels:
+    - source: Item
+      message: The name the declaration repeats
+      style: primary
+      start: 18
+      end: 22
+  export type { Row as Item };:
+    labels:
+    - source: Row
+      message: The name the declaration repeats
+      style: primary
+      start: 14
+      end: 17
+  export { table as rows };:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 9
+      end: 14
+  export { table as rows, other };:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 9
+      end: 14
+  let rows = table;:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 11
+      end: 16
+  type Row = Item;:
+    labels:
+    - source: Item
+      message: The name the declaration repeats
+      style: primary
+      start: 11
+      end: 15

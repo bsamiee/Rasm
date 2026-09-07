@@ -1,5 +1,13 @@
 id: no-explicit-provider
 snapshots:
+  'const ami = aws.ec2.getAmi({ mostRecent: true }, { provider: usEast });':
+    fixed: 'const ami = aws.ec2.getAmi({ mostRecent: true });'
+    labels:
+    - source: 'provider: usEast'
+      message: The explicit provider option
+      style: primary
+      start: 51
+      end: 67
   ? |
     const project = new Project(
         name,
@@ -34,6 +42,27 @@ snapshots:
       style: primary
       start: 109
       end: 126
+  ? |
+    const project = new Project(name, args, {
+        protect: true,
+        provider: doppler,
+    });
+  : fixed: |
+      const project = new Project(name, args, { protect: true });
+    labels:
+    - source: 'provider: doppler'
+      message: The explicit provider option
+      style: primary
+      start: 65
+      end: 82
+  'const project = new Project(name, args, { "provider": doppler });':
+    fixed: const project = new Project(name, args);
+    labels:
+    - source: '"provider": doppler'
+      message: The explicit provider option
+      style: primary
+      start: 42
+      end: 61
   const project = new Project(name, args, { ...opts, provider });:
     fixed: const project = new Project(name, args, { ...opts });
     labels:
@@ -42,6 +71,14 @@ snapshots:
       style: primary
       start: 51
       end: 59
+  'const project = new Project(name, args, { [key]: value, provider: doppler });':
+    fixed: 'const project = new Project(name, args, { [key]: value });'
+    labels:
+    - source: 'provider: doppler'
+      message: The explicit provider option
+      style: primary
+      start: 56
+      end: 73
   'const project = new Project(name, args, { protect: true, provider: doppler /* shared */ });':
     fixed: 'const project = new Project(name, args, { protect: true, /* shared */ });'
     labels:
@@ -68,6 +105,14 @@ snapshots:
       end: 50
   'const project = new Project(name, args, { provider: doppler, parent: make(a, b) });':
     fixed: 'const project = new Project(name, args, { parent: make(a, b) });'
+    labels:
+    - source: 'provider: doppler'
+      message: The explicit provider option
+      style: primary
+      start: 42
+      end: 59
+  'const project = new Project(name, args, { provider: doppler, transform() { return undefined; } });':
+    fixed: const project = new Project(name, args, { transform() { return undefined; } });
     labels:
     - source: 'provider: doppler'
       message: The explicit provider option

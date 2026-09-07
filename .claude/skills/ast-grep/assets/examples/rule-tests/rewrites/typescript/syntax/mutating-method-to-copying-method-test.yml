@@ -1,0 +1,37 @@
+id: mutating-method-to-copying-method
+valid:
+    # The copying sort
+    - 'const ordered = [...rows].toSorted(compare);'
+    # Sort on a binding another scope holds, the write is the finding of no-array-mutation
+    - 'rows.sort(compare);'
+    # Sort on a member another scope holds
+    - 'state.rows.sort(compare);'
+    # Sort on the result of a call outside the copying set, the array can be shared
+    - 'const ordered = load().sort(compare);'
+    # Push on a fresh array has no copying counterpart
+    - '[...rows].push(row);'
+    # Fill on a fresh array
+    - 'new Array(3).fill(0);'
+    # The effect Array module sorts as a value
+    - 'const ordered = Array.sort(rows, Order.number);'
+invalid:
+    # The instance, a spread copy sorted in place
+    - 'const ordered = [...rows].sort((left, right) => right.start - left.start);'
+    # Reverse on a spread copy
+    - 'const backwards = [...rows].reverse();'
+    # Splice on a spread copy
+    - 'const without = [...rows].splice(index, 1);'
+    # Sort on the fresh array a flatMap answers
+    - 'const ordered = entries.flatMap(read).sort(compare);'
+    # Sort on the fresh array a map answers
+    - 'const ordered = items.map((item) => item.id).sort(compare);'
+    # Sort on the fresh array a filter answers
+    - 'const ordered = items.filter(isLive).sort(compare);'
+    # Sort on the fresh array Object.keys answers
+    - 'const names = Object.keys(table).sort();'
+    # Sort on the fresh array Array.from answers
+    - 'const names = Array.from(set).sort(compare);'
+    # Sort on the fresh array a split answers
+    - 'const words = line.split(" ").sort();'
+    # Sort on an array literal with elements
+    - 'const ordered = [b, a].sort(compare);'

@@ -1,0 +1,107 @@
+id: no-filter-over-lifted-value
+snapshots:
+  const checked = Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error);:
+    fixed: const checked = Effect.liftPredicate(report, (held) => held.verdict !== 'regression', () => error);
+    labels:
+    - source: Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error)
+      style: primary
+      start: 16
+      end: 113
+  const checked = Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error));:
+    fixed: const checked = Effect.liftPredicate(report, (held) => held.ok, () => error);
+    labels:
+    - source: Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error))
+      style: primary
+      start: 16
+      end: 96
+  const checked = Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize));:
+    fixed: const checked = Effect.liftPredicate(report, (held) => held.ok, () => error).pipe(Effect.map(summarize));
+    labels:
+    - source: Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize))
+      style: primary
+      start: 16
+      end: 119
+  const checked = Either.filterOrLeft(Either.right(report), (held) => held.ok, () => left);:
+    fixed: const checked = Either.liftPredicate(report, (held) => held.ok, () => left);
+    labels:
+    - source: Either.filterOrLeft(Either.right(report), (held) => held.ok, () => left)
+      style: primary
+      start: 16
+      end: 88
+  const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left));:
+    fixed: const checked = Either.liftPredicate(report, (held) => held.ok, () => left);
+    labels:
+    - source: Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left))
+      style: primary
+      start: 16
+      end: 93
+  const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));:
+    fixed: const checked = Either.liftPredicate(report, (held) => held.ok, () => left).pipe(Either.map(summarize));
+    labels:
+    - source: Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize))
+      style: primary
+      start: 16
+      end: 116
+  const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error));:
+    fixed: const checked = Effect.liftPredicate(report, (held) => held.ok, () => error);
+    labels:
+    - source: pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error))
+      style: primary
+      start: 16
+      end: 97
+  const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize));:
+    fixed: const checked = Effect.liftPredicate(report, (held) => held.ok, () => error).pipe(Effect.map(summarize));
+    labels:
+    - source: pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize))
+      style: primary
+      start: 16
+      end: 120
+  const checked = pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left));:
+    fixed: const checked = Either.liftPredicate(report, (held) => held.ok, () => left);
+    labels:
+    - source: pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left))
+      style: primary
+      start: 16
+      end: 94
+  const checked = pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));:
+    fixed: const checked = Either.liftPredicate(report, (held) => held.ok, () => left).pipe(Either.map(summarize));
+    labels:
+    - source: pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize))
+      style: primary
+      start: 16
+      end: 117
+  const named = Option.filter(Option.some(name), String.isNonEmpty);:
+    fixed: const named = Option.liftPredicate(name, String.isNonEmpty);
+    labels:
+    - source: Option.filter(Option.some(name), String.isNonEmpty)
+      style: primary
+      start: 14
+      end: 65
+  const named = Option.some(name).pipe(Option.filter(String.isNonEmpty));:
+    fixed: const named = Option.liftPredicate(name, String.isNonEmpty);
+    labels:
+    - source: Option.some(name).pipe(Option.filter(String.isNonEmpty))
+      style: primary
+      start: 14
+      end: 70
+  const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim));:
+    fixed: const named = Option.liftPredicate(name, String.isNonEmpty).pipe(Option.map(String.trim));
+    labels:
+    - source: Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim))
+      style: primary
+      start: 14
+      end: 95
+  const named = pipe(Option.some(name), Option.filter(String.isNonEmpty));:
+    fixed: const named = Option.liftPredicate(name, String.isNonEmpty);
+    labels:
+    - source: pipe(Option.some(name), Option.filter(String.isNonEmpty))
+      style: primary
+      start: 14
+      end: 71
+  const named = pipe(Option.some(name), Option.filter(String.isNonEmpty), Option.map(String.trim));:
+    fixed: const named = Option.liftPredicate(name, String.isNonEmpty).pipe(Option.map(String.trim));
+    labels:
+    - source: pipe(Option.some(name), Option.filter(String.isNonEmpty), Option.map(String.trim))
+      style: primary
+      start: 14
+      end: 96

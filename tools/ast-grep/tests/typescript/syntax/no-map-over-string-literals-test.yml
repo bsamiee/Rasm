@@ -14,8 +14,20 @@ valid:
     - 'const same = ["a", "b"].map((item) => { return item; });'
     # Template with a substitution in the list, the strings vary at run time
     - 'const varying = [`${root}/a`, `b`].map((item) => `x/${item}`);'
+    # Name bound to a list holding a template with a substitution
+    - |
+      const parts = [`${root}/a`, 'b'];
+      const inputs = parts.map((item) => `x/${item}`);
+    # Name bound to a call, the list is read at run time
+    - |
+      const parts = read();
+      const inputs = parts.map((item) => `x/${item}`);
     # Filter step before the map, the produced set depends on the predicate
     - 'const kept = pipe(["a", "b"], Array.filter(wanted), Array.map((item) => `x/${item}`));'
+    # Call inside the template, the produced strings are known at run time alone
+    - 'const resolved = ["a", "b"].map((item) => `x/${resolve(item)}`);'
+    # Call inside the concatenation
+    - 'const resolved = Array.map(["a", "b"], (item) => "x/" + resolve(item));'
 invalid:
     # List of template strings without a substitution
     - 'const inputs = [`props`, `targets`].map((suffix) => `Directory.Build.${suffix}`);'
@@ -27,11 +39,25 @@ invalid:
     - 'const inputs = Array.map(["props", "targets"], (suffix) => "Directory.Build." + suffix);'
     # The data-last Array.map in a pipe over the literal list
     - 'const inputs = pipe(["props", "targets"], Array.map((suffix) => `Directory.Build.${suffix}`), Array.join(","));'
+    # The data-last Array.map as the one step of the pipe function
+    - 'const inputs = pipe(["props", "targets"], Array.map((suffix) => `Directory.Build.${suffix}`));'
     # The data-last Array.map applied to the literal list directly
     - 'const inputs = Array.map((suffix) => `Directory.Build.${suffix}`)(["props", "targets"]);'
     # Block body returning the template
     - 'const inputs = ["props", "targets"].map((suffix) => { return `Directory.Build.${suffix}`; });'
     # Function expression building the template
     - 'const inputs = ["props", "targets"].map(function (suffix) { return `Directory.Build.${suffix}`; });'
+    # Name bound to the literal list in the same file
+    - |
+      const parts = ['props', 'targets'];
+      const inputs = parts.map((suffix) => `Directory.Build.${suffix}`);
+    # Name bound to the literal list under as const
+    - |
+      const parts = ['props', 'targets'] as const;
+      const inputs = Array.map(parts, (suffix) => `Directory.Build.${suffix}`);
     # Comment between the literals
     - 'const inputs = ["props", /* shared */ "targets"].map((suffix) => `Directory.Build.${suffix}`);'
+    # The literal list under as const as the data-first argument
+    - 'const inputs = Array.map(["props", "targets"] as const, (suffix) => `Directory.Build.${suffix}`);'
+    # The literal list under as const in the parentheses the method call needs
+    - 'const inputs = (["props", "targets"] as const).map((suffix) => `Directory.Build.${suffix}`);'

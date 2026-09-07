@@ -1,0 +1,70 @@
+id: restated-default-argument-to-omitted
+valid:
+    # The corrected form, the default omitted
+    - |
+      httpx.get(url)
+    # A timeout other than the default
+    - |
+      httpx.get(url, timeout=2.0)
+    # A comment among the arguments, the joined list has no line for it
+    - |
+      httpx.get(
+          url,  # the url
+          timeout=5.0,
+      )
+    # A positional argument after the dropped positional, it takes the mode's place
+    - |
+      gzip.open(archive, "rb", 9)
+invalid:
+    # The instance, the restated default last
+    - |
+      httpx.get(url, timeout=5.0)
+    # The restated default first among keywords
+    - |
+      httpx.Client(timeout=5.0, http2=True)
+    # The positional mode of gzip.open
+    - |
+      gzip.open(archive, "rb")
+    # The call split over lines, the join rebuilds one line
+    - |
+      httpx.post(
+          url,
+          timeout=5.0,
+      )
+    # The mode keyword of gzip.open
+    - |
+      gzip.open(archive, mode="rb")
+    # The only argument dropped, the list left empty
+    - |
+      process.cpu_percent(interval=None)
+    # The integer timeout
+    - |
+      httpx.post(url, timeout=5)
+    # The client constructor a from-import binds
+    - |
+      from httpx import AsyncClient
+
+      client = AsyncClient(timeout=5.0)
+    # The interval default on a Process the call constructs
+    - |
+      load = psutil.Process(pid).cpu_percent(interval=None)
+    # Splats kept around the dropped keyword
+    - |
+      httpx.get(*args, timeout=5.0, **kwargs)
+    # A keyword after the dropped positional, its place fixed by its name
+    - |
+      gzip.open(archive, "rb", compresslevel=9)
+    # A dictionary splat after the dropped positional, its place fixed by its names
+    - |
+      gzip.open(archive, "rb", **options)
+    # The client constructor a from-import under a try binds, the import search past the module's direct children
+    - |
+      try:
+          from httpx import AsyncClient
+      except ImportError:
+          AsyncClient = None
+
+      client = AsyncClient(timeout=5.0)
+    # The redirect default between two kept arguments
+    - |
+      httpx.get(url, follow_redirects=False, timeout=2.0)

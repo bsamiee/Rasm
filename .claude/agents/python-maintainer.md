@@ -6,8 +6,8 @@ skills:
   - ast-grep
   - clean-prose
   - manage-repo
-  - python-document
   - search-context7
+  - search-tavily
 ---
 
 # [PYTHON_MAINTAINER]
@@ -35,7 +35,7 @@ Decide every question in the run from `README.md`, `CLAUDE.md`, the repository a
 <context_gathering>
 Read in order before the first edit:
 1. `README.md`, `CLAUDE.md`, and `references/python.md` of the `manage-repo` skill
-2. `.claude/settings.json`, its `permissions.deny` list names the command patterns a proof must avoid
+2. `.claude/plugins/function-hooks/hooks/policies/shell.ts` and `git.ts`, their rows name the commands a proof avoids and the form each refusal names
 3. Every file in scope, whole, through `Read`, and the file on disk overrides the copy in the prompt or the system context
 4. The `[tool.*]` table and the `addopts` a command reads before changing its flags, `required_plugins` rejects `-p no:` of a listed plugin
 5. The baseline gate, `uv run ruff check`, `uv run ty check`, and `uv run mypy` over the scope, and the report then attributes your lines alone
@@ -57,11 +57,11 @@ Every change names the page or source line that decides it:
 <ownership>
 You own these files, read whole with every file that reads or supplies their facts:
 
-| [INDEX] | [FILES]                                                    | [CONTENT]                                         |
-| :-----: | :--------------------------------------------------------- | :------------------------------------------------ |
-|  [01]   | `pyproject.toml`, `uv.lock`                                | Groups, sources, every `[tool.*]` table, the lock |
-|  [02]   | `eng/scripts/**`, `eng/project.json`, `.claude/hooks/*.py` | Target scripts, provisioning, hooks               |
-|  [03]   | `tests/python/**`, `libs/python/**`                        | Test support and packages                         |
+| [INDEX] | [FILES]                              | [CONTENT]                                         |
+| :-----: | :----------------------------------- | :------------------------------------------------ |
+|  [01]   | `pyproject.toml`, `uv.lock`          | Groups, sources, every `[tool.*]` table, the lock |
+|  [02]   | `eng/scripts/**`, `eng/project.json` | Target scripts and provisioning                   |
+|  [03]   | `tests/python/**`, `libs/python/**`  | Test support and packages                         |
 
 Changes outside the table go through `SendMessage`:
 - Send a change outside the table to its owner, or to `main` when the prompt names none, as file, current text, proposed text, reason, and dependency
@@ -74,7 +74,9 @@ Changes outside the table go through `SendMessage`:
 Every `Bash` command runs under the environment the `SessionStart` and `CwdChanged` hooks in `.claude/settings.json` write to `CLAUDE_ENV_FILE`:
 - Machine exports override the manifest and `[env]`, and `uv cache dir` printing a path outside `.cache/` names a shell export to report
 - Before trusting a tool version, run `mise ls --current` and `mise which python` from the repository root, a `/nix/store` path is the machine copy
-- Prove the shell with `mise env -s bash > <scratch>/env.sh` then `bash -c "source <scratch>/env.sh; uv python find; ruff --version"`
+- Prove the shell with `uv python find` and `ruff --version` under the hook's environment, the `.venv` copies
+- The shell holds the exports the hook wrote and not `CLAUDE_ENV_FILE` itself, the variable belongs to the hook alone
+- Nested `claude -p` runs from `Bash` hold the agent session's environment, and `nx run rasm:harness` proves from a subagent
 - Tell the other language agents the row and its consumer when a mise change touches `_.path`, `.venv`, `[env]`, or a tool their targets run
 </mise>
 
@@ -86,7 +88,7 @@ Every `Bash` command runs under the environment the `SessionStart` and `CwdChang
 5. Prove a group stands alone with `UV_PROJECT_ENVIRONMENT=.cache/uv-<group> uv sync --locked --only-group <group>` and an import of each module
 6. Prove a plugin's startup cost with `uv run pytest --co -q -p no:<plugin>` and the warning count
 7. Prove the coverage flow with `COVERAGE_FILE` set as `nx.json` sets it, then `.venv/bin/python -m eng.scripts.coverage --language python`
-8. Prove the environment hook with `CLAUDE_ENV_FILE=<scratch>/env.sh sh -c 'mise env -s bash > "$CLAUDE_ENV_FILE"'` and a read of the file
+8. Prove the environment hook with `mise which python` and `python --version` agreeing under `Bash`
 9. Snapshot `pyproject.toml` and `uv.lock` before `uv lock` or `rasm:upgrade`, diff afterward, and run checks with `uv run --no-sync` meanwhile
 10. Apply each edit as an exact-string replacement that asserts one match, and match a multi-line constant in the form `ruff format` left it
 11. Trace sync, lint, format, typecheck, test, coverage merge, provision, stage, and publish end to end after the change, with inputs and outputs
@@ -96,7 +98,7 @@ Every `Bash` command runs under the environment the `SessionStart` and `CwdChang
 <gate>
 Every command returns zero warnings and zero errors:
 - `uv sync --locked --all-groups`
-- `pnpm exec nx run-many -t check -p tag:language:python`, then `git diff --exit-code`
+- `git diff | shasum` before and after `pnpm exec nx run-many -t check -p tag:language:python`, equal hashes prove the targets rewrote nothing
 - `uv run pytest tests/python -q -rs --cov`, every skip with a reason the report states
 - `pnpm exec nx run rasm:coverage --language python`, the combine line and the lcov and xml files
 - `.venv/bin/python -m eng.scripts.<module> --help` for each changed script

@@ -1,0 +1,35 @@
+id: no-any
+valid:
+    # The corrected form, object at the boundary
+    - |
+      def record(value: object) -> None:
+          log.info("value", value=value)
+    # Another member of typing
+    - |
+      from typing import TypeIs
+    # Attribute named like the member on another object
+    - |
+      schema = registry.Any
+invalid:
+    # The instance, the member imported from typing
+    - |
+      from typing import Any
+    # The member imported from typing_extensions
+    - |
+      from typing_extensions import Any
+    # The member imported under an alias
+    - |
+      from typing import Any as Whatever
+    # The attribute read as spelled
+    - |
+      import typing
+
+      value: typing.Any = load()
+    # The attribute read through the alias the import binds
+    - |
+      import typing as t
+
+      value: t.Any = load()
+    # The member second in a from-import of two names, the first name carries the field a relation reads
+    - |
+      from typing import TypeIs, Any

@@ -1,0 +1,93 @@
+id: require-context-on-policy-rewrite
+valid:
+    # The correction, the changed copy with the line naming the change
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command: next }, [`Ran rg in place of grep: ${next}`]);
+    # The pass form, the event unchanged
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(e, []);
+    # Context lines computed from the rows, no literal array
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, text: replacement.text }, notes(replacement));
+    # Copy with no changed field
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e }, []);
+    # Restoration, the one silent rewrite
+    - |
+      const restore = (pairs: readonly Pair[]) => (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command: replace(pairs, 'backward')(e.command).text }, []);
+    # Local held copy passed with its context
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => {
+          const input = { ...e, command };
+          return rewrite(input, ['Ran pnpm in place of npm']);
+      };
+    # Call other than rewrite over a changed copy
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => deny(`${{ ...e, command }.command} is refused`);
+    # Copy through a call other than Object.assign, the object is no copy the util reads
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(merge(e, { command }), []);
+    # Call other than rewrite over the same arguments
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => answer({ ...e, command }, []);
+    # Context array with one line
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command }, ['Ran pnpm in place of npm']);
+    # Three-argument copy through a call other than Object.assign
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(merge({}, e, { command }), []);
+    # Object.assign over a populated target, the object is no copy of the event alone
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(Object.assign({ tool: 'Bash' }, e, { command }), []);
+    # Object.assign with the event as its target, the frozen event throws and the object is no copy
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(Object.assign(e, {}, { command }), []);
+    # Object.assign with no event between the target and the patch
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(Object.assign({}, { command }), []);
+    # Object.assign with no patch beside the event
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(Object.assign({}, e), []);
+    # Context array holding a spread of earlier lines
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command }, [...context]);
+    # Restoration as a function declaration
+    - |
+      function restore(e: Bash): Decision<Bash, unknown, string> { return rewrite({ ...e, command: replace(pairs, 'backward')(e.command).text }, []); }
+invalid:
+    # The instance, a changed copy with an empty context outside restore
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command: replace(pairs, 'backward')(e.command).text }, []);
+    # Shorthand beside the spread
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command }, []);
+    # Two fields changed
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, command, timeout: bound }, []);
+    # Second spread beside the event's spread, the patch changes fields
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, ...patch }, []);
+    # Object.assign copy with a changed field
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite(Object.assign({}, e, { command: 'ls' }), []);
+    # Copy held in a local and passed later
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => {
+          const input = { ...e, command };
+          return rewrite(input, []);
+      };
+    # Binding named other than restore
+    - |
+      const redact = (pairs: readonly Pair[]) => (e: Prompt): Decision<Prompt, unknown, string> => rewrite({ ...e, text: replace(pairs, 'forward')(e.text).text }, []);
+    # Event under another name
+    - |
+      const rule = (input: Bash): Decision<Bash, unknown, string> => rewrite({ ...input, command }, []);
+    # Copy held in a local of an outer block, the rewrite in a nested arrow
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => {
+          const input = { ...e, command };
+          return fromBoolean(held).match<Decision<Bash, unknown, string>>({ some: () => rewrite(input, []), none: () => rewrite(e, []) });
+      };
+    # Nested copy of a member beside the event's spread
+    - |
+      const rule = (e: Bash): Decision<Bash, unknown, string> => rewrite({ ...e, input: { ...e.input, command } }, []);

@@ -16,6 +16,12 @@ valid:
     - 'const value = x !== undefined ? Effect.succeed(x) : Effect.fail(error);'
     # Two success arms are a choice
     - 'const checked = present ? Effect.succeed(a) : Effect.succeed(b);'
+    # Await inside the condition, the thunk the lift takes is synchronous
+    - 'const checked = check(await load()) ? Effect.succeed(item) : Effect.fail(error);'
+    # Await inside the failing arm, the error thunk the lift takes is synchronous
+    - 'const checked = present ? Effect.succeed(item) : Effect.fail(await load());'
+    # Yield inside the failing arm in the other arm order
+    - 'const checked = missing ? Effect.fail(yield* load) : Effect.succeed(item);'
 invalid:
     # The instance, a name succeeds when the condition holds and the error is built in the failing arm
     - 'const checked = present ? Effect.succeed(item) : Effect.fail(new LoadError({ message: detail }));'

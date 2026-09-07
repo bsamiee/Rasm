@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Constructor that takes a promise or an async iterable into an effect, the one place a promise is consumed
+id: effect-promise-boundary
+language: tsx
+rule:
+    kind: call_expression
+    has:
+        field: function
+        kind: member_expression
+        # Effect.tryMapPromise takes the promise thunk as its try option, Stream.fromAsyncIterable takes the iterable whole
+        regex: '^(Effect|Micro)\.(promise|tryPromise|tryMapPromise)$|^Stream\.fromAsyncIterable$'

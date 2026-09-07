@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-pydantic-validator
+language: python
+severity: error
+rule:
+    matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: '^(validator|root_validator)$', pattern: $NAME}}}
+message: '`pydantic.$NAME` is the pydantic 1 validator decorator, deprecated in pydantic 2'
+note: Decorate with `@field_validator("<field>")` or `@model_validator(mode="after")`

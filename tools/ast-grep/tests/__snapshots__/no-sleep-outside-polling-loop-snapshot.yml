@@ -1,0 +1,103 @@
+id: no-sleep-outside-polling-loop
+snapshots:
+  (sleep 1; cmd):
+    labels:
+    - source: sleep 1
+      style: primary
+      start: 1
+      end: 8
+    - source: sleep
+      style: secondary
+      start: 1
+      end: 6
+  ? |
+    f() { sleep 3; }
+  : labels:
+    - source: sleep 3
+      style: primary
+      start: 6
+      end: 13
+    - source: sleep
+      style: secondary
+      start: 6
+      end: 11
+  for ((i = 0; i < 3; i++)); do sleep 1; done:
+    labels:
+    - source: sleep 1
+      style: primary
+      start: 30
+      end: 37
+    - source: sleep
+      style: secondary
+      start: 30
+      end: 35
+  for f in a b; do sleep 5; done:
+    labels:
+    - source: sleep 5
+      style: primary
+      start: 17
+      end: 24
+    - source: sleep
+      style: secondary
+      start: 17
+      end: 22
+  sleep 0.5:
+    labels:
+    - source: sleep 0.5
+      style: primary
+      start: 0
+      end: 9
+    - source: sleep
+      style: secondary
+      start: 0
+      end: 5
+  sleep 5:
+    labels:
+    - source: sleep 5
+      style: primary
+      start: 0
+      end: 7
+    - source: sleep
+      style: secondary
+      start: 0
+      end: 5
+  sleep 75 && curl -sf "$url":
+    labels:
+    - source: sleep 75
+      style: primary
+      start: 0
+      end: 8
+    - source: sleep
+      style: secondary
+      start: 0
+      end: 5
+  while :; do cmd; sleep 5; done:
+    labels:
+    - source: sleep 5
+      style: primary
+      start: 17
+      end: 24
+    - source: sleep
+      style: secondary
+      start: 17
+      end: 22
+  while true; do sleep 60; done:
+    labels:
+    - source: sleep 60
+      style: primary
+      start: 15
+      end: 23
+    - source: sleep
+      style: secondary
+      start: 15
+      end: 20
+  x=$(sleep 1; cmd):
+    labels:
+    - source: sleep 1
+      style: primary
+      start: 4
+      end: 11
+    - source: sleep
+      style: secondary
+      start: 4
+      end: 9

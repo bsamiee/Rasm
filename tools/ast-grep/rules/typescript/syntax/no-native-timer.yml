@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-native-timer
+language: tsx
+severity: error
+ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, Effect.sleep and Schedule have no place there
+rule:
+    kind: call_expression
+    has:
+        field: function
+        pattern: $NAME
+        # The global timers, the same names timers/promises exports, the scheduler of timers/promises, and the abort timer
+        regex: "^(globalThis\\.)?(setTimeout|setInterval|setImmediate|queueMicrotask|clearTimeout|clearInterval|clearImmediate|\
+            scheduler\\.(wait|yield)|AbortSignal\\.timeout)$"
+message: '`$NAME` schedules work through the host timer outside the effect runtime'
+note: >-
+    Schedule through the runtime, `Effect.sleep(duration)`, `Effect.repeat(effect, Schedule.spaced(duration))`, `Effect.yieldNow()`,
+    `Effect.timeout(effect, duration)` to bound a step, and interrupt the fiber to cancel

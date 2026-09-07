@@ -36,6 +36,8 @@ const _benchmarkDirectory = (
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
         const directory = yield* fs.makeTempDirectoryScoped();
+        // Array.map passes the index into the optional replacer of JSON.stringify
+        // ast-grep-ignore: no-forwarding-arrow
         const lines = Array.map(history, (row) => JSON.stringify(row));
         yield* fs.writeFileString(path.join(directory, 'history.ndjson'), `${lines.join('\n')}\n`);
         yield* fs.writeFileString(path.join(directory, 'latest.json'), _LATEST);

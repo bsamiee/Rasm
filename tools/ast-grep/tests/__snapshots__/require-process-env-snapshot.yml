@@ -1,0 +1,119 @@
+id: require-process-env
+snapshots:
+  ? |
+    const version = $.process.run(['ast-grep', '--version']);
+  : labels:
+    - source: $.process.run(['ast-grep', '--version'])
+      style: primary
+      start: 16
+      end: 56
+  ? |
+    on('session.start', async ($, e, next) => {
+        const answered = await $.process.run(['env', 'mise']);
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run(['env', 'mise'])
+      style: primary
+      start: 71
+      end: 101
+  ? |
+    on('session.start', async ($, e, next) => {
+        const answered = await $.process.run(['sh', '-c', 'mise env --json']);
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run(['sh', '-c', 'mise env --json'])
+      style: primary
+      start: 71
+      end: 117
+  ? |
+    on('session.start', async ($, e, next) => {
+        const answered = await $.process.run([...prefix, 'mise', 'env', '--json']);
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run([...prefix, 'mise', 'env', '--json'])
+      style: primary
+      start: 71
+      end: 122
+  ? |
+    on('session.start', async ($, e, next) => {
+        const home = await $.process.run(['printenv', 'HOME']);
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run(['printenv', 'HOME'])
+      style: primary
+      start: 67
+      end: 102
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv);
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run(argv)
+      style: primary
+      start: 62
+      end: 81
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv, { ['env']: env });
+        return next(e);
+    });
+  : labels:
+    - source: '$.process.run(argv, { [''env'']: env })'
+      style: primary
+      start: 62
+      end: 99
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv, { cwd, stdin: text });
+        return next(e);
+    });
+  : labels:
+    - source: '$.process.run(argv, { cwd, stdin: text })'
+      style: primary
+      start: 62
+      end: 103
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv, { options: { env } });
+        return next(e);
+    });
+  : labels:
+    - source: '$.process.run(argv, { options: { env } })'
+      style: primary
+      start: 62
+      end: 103
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv, { timeoutMs });
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run(argv, { timeoutMs })
+      style: primary
+      start: 62
+      end: 96
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv, { timeoutMs, extra: { ...init } });
+        return next(e);
+    });
+  : labels:
+    - source: '$.process.run(argv, { timeoutMs, extra: { ...init } })'
+      style: primary
+      start: 62
+      end: 116
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const run = await $.process.run(argv, {});
+        return next(e);
+    });
+  : labels:
+    - source: $.process.run(argv, {})
+      style: primary
+      start: 62
+      end: 85

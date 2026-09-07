@@ -18,6 +18,8 @@ valid:
     - 'const squashed = Micro.catchAllCause(program, (cause) => Micro.fail(Micro.causeSquash(cause)));'
     # Micro.match on another value inside a Micro cause handler, a match on Micro reads no cause
     - 'const matched = Micro.catchAllCause(program, (cause) => Micro.match(other, { onFailure: report, onSuccess: keep }));'
+    # Channel.foldChannel receives the error alone, the reader inside it reads another cause
+    - 'const folded = Channel.foldChannel(channel, { onFailure: (error) => Channel.fail(Cause.isDie(error.cause)), onSuccess: Channel.succeed });'
     # Exit.mapErrorCause receives the Cause and Exit has no defect combinator to split it toward
     - 'const mapped = Exit.mapErrorCause(exit, (cause) => Cause.stripFailures(cause));'
 invalid:
@@ -63,6 +65,10 @@ invalid:
     - 'const layered = Layer.tapErrorCause(layer, (cause) => Effect.when(report(cause), () => Cause.isFailure(cause)));'
     # Channel sibling, Channel.catchAll takes the failure and the defect passes through
     - 'const channeled = Channel.catchAllCause(channel, (cause) => Channel.fromEffect(Effect.when(retry(), () => Cause.isDie(cause))));'
+    # Channel cause fold, Channel.foldChannel receives the error apart from the defect
+    - 'const folded = Channel.foldCauseChannel(channel, { onFailure: (cause) => Channel.fail(Cause.failures(cause)), onSuccess: Channel.succeed });'
+    # Channel read with the cause, Channel.readWith receives the error
+    - 'const read = Channel.readWithCause({ onInput: emit, onFailure: (cause) => Channel.failCause(Cause.stripFailures(cause)), onDone: end });'
     # Micro sibling, the MicroCause read through its own predicate
     - 'const micro = Micro.catchAllCause(program, (cause) => Micro.when(retry(), () => Micro.causeIsDie(cause)));'
     # Micro tap handler with the fail predicate

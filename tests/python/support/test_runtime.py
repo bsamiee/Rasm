@@ -4,7 +4,7 @@
 
 from pathlib import Path
 
-from honeybee_energy.config import folders
+lazy from honeybee_energy.config import folders
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 

@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-eval
+language: bash
+severity: error
+rule:
+    kind: command
+    pattern: $CMD
+    any:
+        - has: {field: name, regex: '^(\\|["''])?eval["'']?$'} # The name bare, quoted, or behind a backslash
+        # The builtin and command prefixes reach eval by its name in the first argument, command -v looks it up alone
+        - all:
+              - has: {field: name, regex: '^(builtin|command)$'}
+              - has: {field: argument, kind: word, regex: '^eval$'}
+        # A shell run over a string built at run time parses it the same way, a literal program after -c is a script
+        - all:
+              - has: {field: name, regex: '^(bash|sh)$'}
+              - has: {matches: bash-expanding-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$'}} # -c alone or joined, -ec, -xc, -lc
+message: '`$CMD` parses its arguments as shell code a second time'
+note: Build the command in an array, `cmd=(<word> ...)` then `"${cmd[@]}"`, read a name through `${!name}`, and pass a value to `bash -c` as `$1`

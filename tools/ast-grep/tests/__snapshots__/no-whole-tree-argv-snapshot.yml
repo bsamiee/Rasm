@@ -1,0 +1,340 @@
+id: no-whole-tree-argv
+snapshots:
+  ? |
+    const SCAN = [{ match: _isUtil, 'argv': (_path): readonly string[] => ['ast-grep', 'test'] }];
+  : labels:
+    - source: '''argv'': (_path): readonly string[] => [''ast-grep'', ''test'']'
+      style: primary
+      start: 32
+      end: 90
+    - source: '''argv'''
+      style: secondary
+      start: 32
+      end: 38
+    - source: _path
+      style: secondary
+      start: 41
+      end: 46
+    - source: _path
+      style: secondary
+      start: 41
+      end: 46
+    - source: _path
+      style: secondary
+      start: 41
+      end: 46
+    - source: '''test'''
+      style: secondary
+      start: 83
+      end: 89
+    - source: '''test'''
+      style: secondary
+      start: 83
+      end: 89
+    - source: '(_path): readonly string[] => [''ast-grep'', ''test'']'
+      style: secondary
+      start: 40
+      end: 90
+  ? |
+    const SCAN = [{ match: _isUtil, argv(_path): readonly string[] { return ['ast-grep', 'test']; } }];
+  : labels:
+    - source: 'argv(_path): readonly string[] { return [''ast-grep'', ''test'']; }'
+      style: primary
+      start: 32
+      end: 95
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 37
+      end: 42
+    - source: _path
+      style: secondary
+      start: 37
+      end: 42
+    - source: _path
+      style: secondary
+      start: 37
+      end: 42
+    - source: '''test'''
+      style: secondary
+      start: 85
+      end: 91
+    - source: '''test'''
+      style: secondary
+      start: 85
+      end: 91
+  ? |
+    const SCAN = [{ match: _isUtil, argv: (_): readonly string[] => ['ast-grep', 'test'] }];
+  : labels:
+    - source: 'argv: (_): readonly string[] => [''ast-grep'', ''test'']'
+      style: primary
+      start: 32
+      end: 84
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _
+      style: secondary
+      start: 39
+      end: 40
+    - source: _
+      style: secondary
+      start: 39
+      end: 40
+    - source: _
+      style: secondary
+      start: 39
+      end: 40
+    - source: '''test'''
+      style: secondary
+      start: 77
+      end: 83
+    - source: '''test'''
+      style: secondary
+      start: 77
+      end: 83
+    - source: '(_): readonly string[] => [''ast-grep'', ''test'']'
+      style: secondary
+      start: 38
+      end: 84
+  ? |
+    const SCAN = [{ match: _isUtil, argv: (_path) => ['ast-grep', 'test', '--include-off'] }];
+  : labels:
+    - source: 'argv: (_path) => [''ast-grep'', ''test'', ''--include-off'']'
+      style: primary
+      start: 32
+      end: 86
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: '''test'''
+      style: secondary
+      start: 62
+      end: 68
+    - source: '''test'''
+      style: secondary
+      start: 62
+      end: 68
+    - source: (_path) => ['ast-grep', 'test', '--include-off']
+      style: secondary
+      start: 38
+      end: 86
+  ? |
+    const SCAN = [{ match: _isUtil, argv: (_path): readonly string[] => ['ast-grep', 'scan', '--json=compact'] }];
+  : labels:
+    - source: 'argv: (_path): readonly string[] => [''ast-grep'', ''scan'', ''--json=compact'']'
+      style: primary
+      start: 32
+      end: 106
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: '''scan'''
+      style: secondary
+      start: 81
+      end: 87
+    - source: '''scan'''
+      style: secondary
+      start: 81
+      end: 87
+    - source: '(_path): readonly string[] => [''ast-grep'', ''scan'', ''--json=compact'']'
+      style: secondary
+      start: 38
+      end: 106
+  ? |
+    const SCAN = [{ match: _isUtil, argv: (_path): readonly string[] => ['ast-grep', 'scan', 'tools'] }];
+  : labels:
+    - source: 'argv: (_path): readonly string[] => [''ast-grep'', ''scan'', ''tools'']'
+      style: primary
+      start: 32
+      end: 97
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: '''scan'''
+      style: secondary
+      start: 81
+      end: 87
+    - source: '''scan'''
+      style: secondary
+      start: 81
+      end: 87
+    - source: '(_path): readonly string[] => [''ast-grep'', ''scan'', ''tools'']'
+      style: secondary
+      start: 38
+      end: 97
+  ? |
+    const SCAN = [{ match: _isUtil, argv: (_path): readonly string[] => ['ast-grep', 'test', '--include-off'] }];
+  : labels:
+    - source: 'argv: (_path): readonly string[] => [''ast-grep'', ''test'', ''--include-off'']'
+      style: primary
+      start: 32
+      end: 105
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: '''test'''
+      style: secondary
+      start: 81
+      end: 87
+    - source: '''test'''
+      style: secondary
+      start: 81
+      end: 87
+    - source: '(_path): readonly string[] => [''ast-grep'', ''test'', ''--include-off'']'
+      style: secondary
+      start: 38
+      end: 105
+  ? |
+    const SCAN = [{ match: _isUtil, argv: (_path): readonly string[] => { return ['ast-grep', 'test', '--include-off']; } }];
+  : labels:
+    - source: 'argv: (_path): readonly string[] => { return [''ast-grep'', ''test'', ''--include-off'']; }'
+      style: primary
+      start: 32
+      end: 117
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: _path
+      style: secondary
+      start: 39
+      end: 44
+    - source: '''test'''
+      style: secondary
+      start: 90
+      end: 96
+    - source: '''test'''
+      style: secondary
+      start: 90
+      end: 96
+    - source: '(_path): readonly string[] => { return [''ast-grep'', ''test'', ''--include-off'']; }'
+      style: secondary
+      start: 38
+      end: 117
+  ? |
+    const SCAN = [{ match: _isUtil, argv: _path => ['ast-grep', 'test'] }];
+  : labels:
+    - source: 'argv: _path => [''ast-grep'', ''test'']'
+      style: primary
+      start: 32
+      end: 67
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 38
+      end: 43
+    - source: '''test'''
+      style: secondary
+      start: 60
+      end: 66
+    - source: '''test'''
+      style: secondary
+      start: 60
+      end: 66
+    - source: _path => ['ast-grep', 'test']
+      style: secondary
+      start: 38
+      end: 67
+  ? |
+    const SCAN = [{ match: _isUtil, argv: function (_path): readonly string[] { return ['ast-grep', 'test']; } }];
+  : labels:
+    - source: 'argv: function (_path): readonly string[] { return [''ast-grep'', ''test'']; }'
+      style: primary
+      start: 32
+      end: 106
+    - source: argv
+      style: secondary
+      start: 32
+      end: 36
+    - source: _path
+      style: secondary
+      start: 48
+      end: 53
+    - source: _path
+      style: secondary
+      start: 48
+      end: 53
+    - source: _path
+      style: secondary
+      start: 48
+      end: 53
+    - source: '''test'''
+      style: secondary
+      start: 96
+      end: 102
+    - source: '''test'''
+      style: secondary
+      start: 96
+      end: 102
+    - source: 'function (_path): readonly string[] { return [''ast-grep'', ''test'']; }'
+      style: secondary
+      start: 38
+      end: 106

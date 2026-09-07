@@ -1,0 +1,134 @@
+id: no-exit-status-binding
+valid:
+    # The corrected form
+    - |
+      cmd
+      case $? in
+          4) ;;
+      esac
+    # Two reads keep the binding, $? is gone after the first
+    - |
+      cmd
+      rc=$?
+      case $rc in
+          4) ;;
+      esac
+      ((rc == 0)) || exit "$rc"
+    # A statement between the binding and the read changes $?
+    - |
+      cmd
+      rc=$?
+      printf '%s\n' done
+      case $rc in
+          4) ;;
+      esac
+    # A binding no statement reads
+    - |
+      cmd
+      rc=$?
+    # The next statement assigns the name, an assignment is no read
+    - |
+      cmd
+      rc=$?
+      rc=0
+    # Two reads separated by ; inside a group
+    - '{ cmd; rc=$?; case $rc in 4) ;; esac; ((rc == 0)) || exit 1; }'
+    # Two reads with a statement between them
+    - |
+      cmd
+      rc=$?
+      case $rc in
+          4) ;;
+      esac
+      printf '%s\n' done
+      ((rc == 0)) || exit 1
+    # A binding of another parameter
+    - |
+      cmd
+      n=$#
+      case $n in
+          4) ;;
+      esac
+    # A string holding more than the status
+    - |
+      cmd
+      rc="$?:$x"
+      case $rc in
+          4) ;;
+      esac
+    # A string binding of another special parameter
+    - |
+      cmd
+      rc="$#"
+      case $rc in
+          4) ;;
+      esac
+    # A comment between the binding and the reader, then a second read
+    - |
+      cmd
+      rc=$?
+      # note
+      case $rc in
+          4) ;;
+      esac
+      exit "$rc"
+invalid:
+    # A comment between the binding and its one reader
+    - |
+      cmd
+      rc=$?
+      # note
+      case $rc in
+          4) ;;
+      esac
+    # Read by an if condition
+    - |
+      cmd
+      rc=$?
+      if ((rc == 0)); then printf '%s\n' ok; fi
+    # Read by a command argument
+    - |
+      cmd
+      rc=$?
+      printf '%s\n' "$rc"
+    # The binding under export
+    - |
+      cmd
+      export rc=$?
+      printf '%s\n' "$rc"
+    # The binding under local
+    - |
+      f() {
+          cmd
+          local rc=$?
+          case $rc in
+              4) ;;
+          esac
+      }
+    # The binding under declare with an attribute
+    - |
+      cmd
+      declare -i rc=$?
+      ((rc == 0)) || exit 1
+    # The status as the whole of a double-quoted string
+    - |
+      cmd
+      rc="$?"
+      ((rc == 0)) || exit 1
+    # The instance, bound and read by the next statement
+    - |
+      cmd
+      rc=$?
+      case $rc in
+          4) ;;
+      esac
+    # Read by an arithmetic command inside a function
+    - |
+      f() {
+          cmd
+          rc=$?
+          ((rc == 0)) || return 1
+      }
+    # Statements separated by ; inside a group
+    - |
+      { cmd; rc=$?; [[ $rc == 0 ]] || exit 1; }

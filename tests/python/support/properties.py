@@ -2,7 +2,7 @@
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 import enum
 import functools
@@ -11,7 +11,6 @@ import inspect
 from pathlib import Path
 import sys
 from typing import get_args, TypeAliasType, TypeForm, TypeIs
-import weakref
 
 from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
 import msgspec
@@ -24,8 +23,6 @@ lazy from tests.python.support.strategies import strategy_for
 
 _TEST_FILE_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
 _IMPORT_ROOTS: frozenset[Path] = frozenset({REPO_ROOT, REPO_ROOT / "libs" / "python"})  # The pythonpath rows of the root pyproject.toml
-
-_ABSENT: object = object()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -46,12 +43,12 @@ class PackageUnderTest(msgspec.Struct, frozen=True):
     suite: Path | None = None
 
 
-# --- [TABLES] ---------------------------------------------------------------------------
+# --- [STASH] ----------------------------------------------------------------------------
 
-PROPERTY_TESTS: list[PropertyRecord] = []
-PACKAGES_UNDER_TEST: dict[str, PackageUnderTest] = {}
-_RECORDED: set[str] = set()
-_DECORATED: weakref.WeakSet[object] = weakref.WeakSet()
+PROPERTY_RECORDS: pytest.StashKey[tuple[PropertyRecord, ...]] = (
+    pytest.StashKey()
+)  # Written once at collection from the property marks and the COVERS tuples
+PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest.StashKey()  # Written by register_package at configure
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -111,10 +108,9 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
             [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
         )
         for name in names:
-            member = getattr(mod, name, _ABSENT)
-            if member is _ABSENT:
+            if not hasattr(mod, name):
                 failures.append((getattr(mod, "__name__", "<module>"), f"__all__ names {name!r} but the module never defines it"))
-            elif not inspect.ismodule(member):
+            elif not inspect.ismodule(member := getattr(mod, name)):
                 public_api.setdefault(name, member)
 
     return public_api, tuple(failures)
@@ -142,19 +138,17 @@ def property_test[**P](
         events: Drawn-value event taggers for Hypothesis statistics.
 
     Returns:
-        The decorator recording the test in ``PROPERTY_TESTS``.
+        The decorator marking the test with its ``PropertyRecord``, collection records it.
     """
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
-        if fn in _DECORATED:
-            msg = f"@property_test applied twice to {fn!r}, remove the duplicate decorator"
-            raise TypeError(msg)
+        if any(mark.name == "property" and "record" in mark.kwargs for mark in getattr(fn, "pytestmark", ())):
+            raise TypeError(f"@property_test applied twice to {fn!r}, remove the duplicate decorator")
 
         match given:
             case True:
                 if not _resolvable(subject):
-                    msg = f"@property_test given=True requires a resolvable type form, got {subject!r}"
-                    raise TypeError(msg)
+                    raise TypeError(f"@property_test given=True requires a resolvable type form, got {subject!r}")
                 drawn = next(reversed(inspect.signature(fn).parameters), "")
                 target = (
                     functools.wraps(fn)(
@@ -182,60 +176,53 @@ def property_test[**P](
             case (parent, ceiling):
                 with_settings = hyp_settings(parent=parent, deadline=ceiling)(with_given)
 
-        result = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), markers, with_settings)
-        _DECORATED.add(result)
-
-        fn_name: str = getattr(fn, "__name__", repr(fn))
-        PROPERTY_TESTS.append(
-            PropertyRecord(
-                subject=_qualname(subject),
-                property_name=property_name or fn_name,
-                module=getattr(fn, "__module__", "<unknown>"),
-                subject_module=getattr(subject, "__module__", "") or "",
-            )
+        record = PropertyRecord(
+            subject=_qualname(subject),
+            property_name=property_name or getattr(fn, "__name__", repr(fn)),
+            module=getattr(fn, "__module__", "<unknown>"),
+            subject_module=getattr(subject, "__module__", "") or "",
         )
-
-        return result
+        marked: Callable[P, None] = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), markers, with_settings)
+        return pytest.mark.property(record=record)(marked)
 
     return _decorator
 
 
-def record_coverage_declarations(module: object) -> None:
-    """Record a test module's declarative ``COVERS`` tuple once.
+def record_coverage_declarations(module: object) -> tuple[PropertyRecord, ...]:
+    """Return the records a test module's declarative ``COVERS`` tuple declares.
 
     Raises:
         TypeError: A ``COVERS`` entry is neither a type nor a callable.
     """
     name: str = getattr(module, "__name__", "")
-    covers = getattr(module, "COVERS", None)
-    if not name or name in _RECORDED or covers is None:
-        return
-    _RECORDED.add(name)
-    for subject in covers:
-        if not (isinstance(subject, type) or inspect.isroutine(subject)):
-            msg = f"COVERS in {name} lists {subject!r}: entries must be types or callables"
-            raise TypeError(msg)
-        PROPERTY_TESTS.append(
-            PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", "") or "")
-        )
+    covers: tuple[object, ...] = getattr(module, "COVERS", ()) if name else ()
+    match [subject for subject in covers if not (isinstance(subject, type) or inspect.isroutine(subject))]:
+        case [value, *_]:
+            raise TypeError(f"COVERS in {name} lists {value!r}: entries must be types or callables")
+        case _:
+            return tuple(
+                PropertyRecord(
+                    subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", "") or ""
+                )
+                for subject in covers
+            )
 
 
-def register_package(package: str, *, exempt: frozenset[str] = frozenset(), suite: Path | None = None) -> None:
-    """Register a package for public-API test coverage, repeat calls merge exemptions.
+def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
+    """Register a package for public-API test coverage on the session stash, repeat calls merge exemptions and keep the first test directory.
 
     Args:
+        stash: Session stash the ``PACKAGES_UNDER_TEST`` key lives on.
         package: Fully-qualified package name.
+        suite: Package test directory.
         exempt: Public names explicitly exempt from the coverage requirement.
-        suite: Package test directory, ``None`` derives the caller's directory.
     """
-    frame = inspect.currentframe()
-    caller_file = frame.f_back.f_globals.get("__file__") if frame is not None and frame.f_back is not None else None
-    derived = suite if suite is not None else (Path(caller_file).resolve().parent if isinstance(caller_file, str) else None)
-    prior = PACKAGES_UNDER_TEST.get(package)
-    PACKAGES_UNDER_TEST[package] = PackageUnderTest(
-        exempt=(prior.exempt if prior is not None else frozenset()) | exempt,
-        suite=prior.suite if prior is not None and prior.suite is not None else derived,
+    packages = stash.get(PACKAGES_UNDER_TEST, frozendict())
+    prior = packages.get(package)
+    registration = PackageUnderTest(
+        exempt=(prior.exempt if prior is not None else frozenset()) | exempt, suite=suite if prior is None or prior.suite is None else prior.suite
     )
+    stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
 
 
 def _importable(folder: Path) -> str:
@@ -245,7 +232,7 @@ def _importable(folder: Path) -> str:
     return ".".join(folder.relative_to(REPO_ROOT).parts)
 
 
-def register_package_tree(source_root: Path, suite_root: Path) -> tuple[str, ...]:
+def register_package_tree(stash: pytest.Stash, source_root: Path, suite_root: Path) -> tuple[str, ...]:
     """Register each Python package directly beneath ``source_root`` under the name its modules import by, with the same-named folder under ``suite_root`` as the test directory.
 
     Returns:
@@ -255,7 +242,7 @@ def register_package_tree(source_root: Path, suite_root: Path) -> tuple[str, ...
     authored = tuple(child for child in children if any(child.rglob("*.py")))
     names = tuple(_importable(child) for child in authored)
     for name, child in zip(names, authored, strict=True):
-        register_package(name, suite=suite_root / child.name)
+        register_package(stash, name, suite=suite_root / child.name)
     return names
 
 
@@ -268,34 +255,38 @@ def _test_modules(suite: Path) -> frozenset[str]:
     return frozenset(_module_name(py) for pattern in _TEST_FILE_GLOBS for py in suite.rglob(pattern))
 
 
-def uncollected_test_modules() -> dict[str, tuple[str, ...]]:
+def uncollected_test_modules(packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
     """Return package test modules that pytest did not import during collection, their coverage declarations were not recorded.
 
     Collection imports every selected test module, a dotted name absent from ``sys.modules`` marks an uncollected module.
     """
     gaps = {
         package: tuple(sorted(name for name in _test_modules(registration.suite) if name not in sys.modules))
-        for package, registration in PACKAGES_UNDER_TEST.items()
+        for package, registration in packages.items()
         if registration.suite is not None
     }
     return {package: missing for package, missing in gaps.items() if missing}
 
 
-def assert_property_coverage(*, only: frozenset[str] | None = None) -> None:
+def assert_property_coverage(
+    records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest], *, only: frozenset[str] | None = None
+) -> None:
     """Assert every registered public API has a property test or an explicit exemption.
 
     Args:
+        records: Property records collection recorded, the ``PROPERTY_RECORDS`` stash value.
+        packages: Registered packages, the ``PACKAGES_UNDER_TEST`` stash value.
         only: Packages to inspect, ``None`` inspects every registration.
     """
-    global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in PROPERTY_TESTS if not record.subject_module)
+    global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in records if not record.subject_module)
 
-    for package, registration in PACKAGES_UNDER_TEST.items():
+    for package, registration in packages.items():
         if only is not None and package not in only:
             continue
         public_api, failures = _public_api(package)
         covered = global_covered | frozenset(
             record.subject.rsplit(".", 1)[-1]
-            for record in PROPERTY_TESTS
+            for record in records
             if record.subject_module == package or record.subject_module.startswith(f"{package}.")
         )
         uncovered = frozenset(
@@ -320,7 +311,7 @@ __all__ = [
     "assert_property_coverage",
     "is_automatically_exempt",
     "uncollected_test_modules",
-    "PROPERTY_TESTS",
+    "PROPERTY_RECORDS",
     "PACKAGES_UNDER_TEST",
     "PropertyRecord",
     "PackageUnderTest",

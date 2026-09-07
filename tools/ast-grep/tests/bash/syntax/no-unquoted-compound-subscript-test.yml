@@ -1,0 +1,61 @@
+id: no-unquoted-compound-subscript
+valid:
+    # The corrected expansion form
+    - w=${text["invalid,$id,$c"]}
+    # The corrected assignment form
+    - count["valid,$id"]=$v
+    # The corrected test form
+    - '[[ -v snapshot_key["$id,${text[a]}"] ]] && y=1'
+    # One expansion as the index
+    - q=${a[$i]}
+    # One word as the index
+    - r=${a[k]}
+    # Every key
+    - z=${!m[@]}
+    # One expansion under -v
+    - '[[ -v describe[$1] ]] && y=1'
+    # An arithmetic index
+    - s=${a[i+1]}
+    # Another unary operator reads the text as a string
+    - '[[ -n text[k,$b] ]] && y=1'
+    # An arithmetic index holding an expansion, no comma
+    - x=${a[$i+1]}
+    # The corrected compound assignment element
+    - declare -A m=(["x,$i"]=v)
+    # An index of one word holding a comma
+    - w=${a[k,v]}
+    # The unset argument is a string
+    - unset 'a[x,$i]'
+invalid:
+    # A compound element with a quoted value, the value keeps its quotes
+    - declare -A m=([x,$i]="v w")
+    # The append compound assignment
+    - m+=([x,$i]=v)
+    # An assignment with a quoted value
+    - a[x,$i]="v w"
+    # The expansion first in the index
+    - z=${a[$i,1]}
+    # The -v test joined to another test
+    - '[[ -v a[x,$i] && -v b ]]'
+    # The expansion inside a string
+    - printf '%s\n' "${a[x,$i]}"
+    # The append assignment
+    - a[x,$i]+=v
+    # The length of the element
+    - n=${#a[x,$i]}
+    # An operator after the subscript
+    - y=${a[x,$i]:-d}
+    # Inside an arithmetic command
+    - ((a[x,$i]++))
+    # A quoted piece, the quotes move to the whole index
+    - w=${a[x,"$i"]}
+    # The -v test with a quoted piece
+    - '[[ -v a[x,"$i"] ]] && y=1'
+    # A compound assignment element
+    - declare -A m=([x,$i]=v)
+    # The instance, an expansion with an index joining a word and an expansion
+    - x=${count[valid,$id]}
+    # An assignment with the same index, and two expansions in one index parse as ERROR, tree-sitter-bash#268
+    - count[valid,$id]=$v
+    # The -v test over a compound index
+    - '[[ -v snapshot_key[$id,${text[a]}] ]] && y=1'

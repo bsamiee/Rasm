@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-sentinel-object
+language: python
+severity: error
+rule:
+    kind: assignment
+    all:
+        - has: {field: left, kind: identifier, pattern: $NAME}
+        - has: {field: right, any: [{pattern: object()}, {pattern: sentinel($$$)}]} # Plain instances and sentinels are an identity alone
+        - inside: # Module or class attribute through any branch, a local instance is a key or a token the scope consumes
+              kind: expression_statement
+              inside: {any: [{kind: module}, {kind: class_definition}], stopBy: {matches: python-function-boundary}}
+message: '`$NAME` is a sentinel object, a value that stands for absence by identity'
+note: Test presence with `hasattr` or `in`, or represent absence as a case of the value, `T | None` at the boundary

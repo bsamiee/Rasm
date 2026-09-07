@@ -1,0 +1,258 @@
+id: no-stamp-literal
+snapshots:
+  ? |
+    await $.store.set(key('dns', session, domain), { at: now, session: id });
+  : fixed: |
+      await $.store.set(key('dns', session, domain), stamp(id, now));
+    labels:
+    - source: '{ at: now, session: id }'
+      style: primary
+      start: 47
+      end: 71
+    - source: session
+      style: secondary
+      start: 58
+      end: 65
+    - source: 'session: id'
+      style: secondary
+      start: 58
+      end: 69
+    - source: at
+      style: secondary
+      start: 49
+      end: 51
+    - source: 'at: now'
+      style: secondary
+      start: 49
+      end: 56
+  ? |
+    await $.store.set(key('injected', session, name), { session: id, at: now });
+  : fixed: |
+      await $.store.set(key('injected', session, name), stamp(id, now));
+    labels:
+    - source: '{ session: id, at: now }'
+      style: primary
+      start: 50
+      end: 74
+    - source: session
+      style: secondary
+      start: 52
+      end: 59
+    - source: 'session: id'
+      style: secondary
+      start: 52
+      end: 63
+    - source: at
+      style: secondary
+      start: 65
+      end: 67
+    - source: 'at: now'
+      style: secondary
+      start: 65
+      end: 72
+  ? |
+    await $.store.set(key('loaded', session, e.skill), { 'session': session, 'at': now });
+  : fixed: |
+      await $.store.set(key('loaded', session, e.skill), stamp(session, now));
+    labels:
+    - source: '{ ''session'': session, ''at'': now }'
+      style: primary
+      start: 51
+      end: 84
+    - source: '''session'''
+      style: secondary
+      start: 53
+      end: 62
+    - source: '''session'': session'
+      style: secondary
+      start: 53
+      end: 71
+    - source: '''at'''
+      style: secondary
+      start: 73
+      end: 77
+    - source: '''at'': now'
+      style: secondary
+      start: 73
+      end: 82
+  ? |
+    await $.store.set(key('loaded', session, e.skill), { at, session });
+  : fixed: |
+      await $.store.set(key('loaded', session, e.skill), stamp(session, at));
+    labels:
+    - source: '{ at, session }'
+      style: primary
+      start: 51
+      end: 66
+    - source: session
+      style: secondary
+      start: 57
+      end: 64
+    - source: at
+      style: secondary
+      start: 53
+      end: 55
+  ? |
+    await $.store.set(key('loaded', session, e.skill), { at, session: id });
+  : fixed: |
+      await $.store.set(key('loaded', session, e.skill), stamp(id, at));
+    labels:
+    - source: '{ at, session: id }'
+      style: primary
+      start: 51
+      end: 70
+    - source: session
+      style: secondary
+      start: 57
+      end: 64
+    - source: 'session: id'
+      style: secondary
+      start: 57
+      end: 68
+    - source: at
+      style: secondary
+      start: 53
+      end: 55
+  ? |
+    await $.store.set(key('loaded', session, e.skill), { session, at });
+  : fixed: |
+      await $.store.set(key('loaded', session, e.skill), stamp(session, at));
+    labels:
+    - source: '{ session, at }'
+      style: primary
+      start: 51
+      end: 66
+    - source: session
+      style: secondary
+      start: 53
+      end: 60
+    - source: at
+      style: secondary
+      start: 62
+      end: 64
+  ? |
+    await $.store.set(key('loaded', session, e.skill), { session, at: $.clock.now() });
+  : fixed: |
+      await $.store.set(key('loaded', session, e.skill), stamp(session, $.clock.now()));
+    labels:
+    - source: '{ session, at: $.clock.now() }'
+      style: primary
+      start: 51
+      end: 81
+    - source: session
+      style: secondary
+      start: 53
+      end: 60
+    - source: at
+      style: secondary
+      start: 62
+      end: 64
+    - source: 'at: $.clock.now()'
+      style: secondary
+      start: 62
+      end: 79
+  ? |
+    await $.store.set(key('loaded', session, e.skill), { session: id, at });
+  : fixed: |
+      await $.store.set(key('loaded', session, e.skill), stamp(id, at));
+    labels:
+    - source: '{ session: id, at }'
+      style: primary
+      start: 51
+      end: 70
+    - source: session
+      style: secondary
+      start: 53
+      end: 60
+    - source: 'session: id'
+      style: secondary
+      start: 53
+      end: 64
+    - source: at
+      style: secondary
+      start: 66
+      end: 68
+  ? |
+    await $.store.set(key('snapshot', session, vm), { at: $.clock.now(), session });
+  : fixed: |
+      await $.store.set(key('snapshot', session, vm), stamp(session, $.clock.now()));
+    labels:
+    - source: '{ at: $.clock.now(), session }'
+      style: primary
+      start: 48
+      end: 78
+    - source: session
+      style: secondary
+      start: 69
+      end: 76
+    - source: at
+      style: secondary
+      start: 50
+      end: 52
+    - source: 'at: $.clock.now()'
+      style: secondary
+      start: 50
+      end: 67
+  ? |
+    const row = (): Stamp => ({ session, at: $.clock.now() });
+  : fixed: |
+      const row = (): Stamp => (stamp(session, $.clock.now()));
+    labels:
+    - source: '{ session, at: $.clock.now() }'
+      style: primary
+      start: 26
+      end: 56
+    - source: session
+      style: secondary
+      start: 28
+      end: 35
+    - source: at
+      style: secondary
+      start: 37
+      end: 39
+    - source: 'at: $.clock.now()'
+      style: secondary
+      start: 37
+      end: 54
+  ? |
+    const row = { session, at: $.clock.now() } as Stamp;
+  : fixed: |
+      const row = stamp(session, $.clock.now()) as Stamp;
+    labels:
+    - source: '{ session, at: $.clock.now() }'
+      style: primary
+      start: 12
+      end: 42
+    - source: session
+      style: secondary
+      start: 14
+      end: 21
+    - source: at
+      style: secondary
+      start: 23
+      end: 25
+    - source: 'at: $.clock.now()'
+      style: secondary
+      start: 23
+      end: 40
+  ? |
+    const row = { session, at: $.clock.now() };
+  : fixed: |
+      const row = stamp(session, $.clock.now());
+    labels:
+    - source: '{ session, at: $.clock.now() }'
+      style: primary
+      start: 12
+      end: 42
+    - source: session
+      style: secondary
+      start: 14
+      end: 21
+    - source: at
+      style: secondary
+      start: 23
+      end: 25
+    - source: 'at: $.clock.now()'
+      style: secondary
+      start: 23
+      end: 40

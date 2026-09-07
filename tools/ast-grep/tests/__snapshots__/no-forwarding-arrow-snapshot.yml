@@ -1,0 +1,732 @@
+id: no-forwarding-arrow
+snapshots:
+  'const absent = { none: () => none() };':
+    labels:
+    - source: () => none()
+      style: primary
+      start: 23
+      end: 35
+    - source: none()
+      style: secondary
+      start: 29
+      end: 35
+    - source: none()
+      style: secondary
+      start: 29
+      end: 35
+  'const annotated = (a): Item => handle(a);':
+    labels:
+    - source: '(a): Item => handle(a)'
+      style: primary
+      start: 18
+      end: 40
+    - source: handle(a)
+      style: secondary
+      start: 31
+      end: 40
+    - source: a
+      style: secondary
+      start: 19
+      end: 20
+    - source: a
+      style: secondary
+      start: 19
+      end: 20
+    - source: a
+      style: secondary
+      start: 19
+      end: 20
+    - source: (a)
+      style: secondary
+      start: 18
+      end: 21
+    - source: handle(a)
+      style: secondary
+      start: 31
+      end: 40
+  const bare = a => handle(a);:
+    labels:
+    - source: a => handle(a)
+      style: primary
+      start: 13
+      end: 27
+    - source: handle(a)
+      style: secondary
+      start: 18
+      end: 27
+    - source: a
+      style: secondary
+      start: 13
+      end: 14
+    - source: handle(a)
+      style: secondary
+      start: 18
+      end: 27
+  const block = (a) => { return handle(a); };:
+    labels:
+    - source: (a) => { return handle(a); }
+      style: primary
+      start: 14
+      end: 42
+    - source: handle(a)
+      style: secondary
+      start: 30
+      end: 39
+    - source: return handle(a);
+      style: secondary
+      start: 23
+      end: 40
+    - source: '{ return handle(a); }'
+      style: secondary
+      start: 21
+      end: 42
+    - source: a
+      style: secondary
+      start: 15
+      end: 16
+    - source: a
+      style: secondary
+      start: 15
+      end: 16
+    - source: a
+      style: secondary
+      start: 15
+      end: 16
+    - source: (a)
+      style: secondary
+      start: 14
+      end: 17
+    - source: handle(a)
+      style: secondary
+      start: 30
+      end: 39
+    - source: return handle(a);
+      style: secondary
+      start: 23
+      end: 40
+    - source: '{ return handle(a); }'
+      style: secondary
+      start: 21
+      end: 42
+  const blockThree = (a, b, c) => { return combine(a, b, c); };:
+    labels:
+    - source: (a, b, c) => { return combine(a, b, c); }
+      style: primary
+      start: 19
+      end: 60
+    - source: combine(a, b, c)
+      style: secondary
+      start: 41
+      end: 57
+    - source: return combine(a, b, c);
+      style: secondary
+      start: 34
+      end: 58
+    - source: '{ return combine(a, b, c); }'
+      style: secondary
+      start: 32
+      end: 60
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: b
+      style: secondary
+      start: 23
+      end: 24
+    - source: b
+      style: secondary
+      start: 23
+      end: 24
+    - source: b
+      style: secondary
+      start: 23
+      end: 24
+    - source: c
+      style: secondary
+      start: 26
+      end: 27
+    - source: c
+      style: secondary
+      start: 26
+      end: 27
+    - source: c
+      style: secondary
+      start: 26
+      end: 27
+    - source: (a, b, c)
+      style: secondary
+      start: 19
+      end: 28
+    - source: combine(a, b, c)
+      style: secondary
+      start: 41
+      end: 57
+    - source: return combine(a, b, c);
+      style: secondary
+      start: 34
+      end: 58
+    - source: '{ return combine(a, b, c); }'
+      style: secondary
+      start: 32
+      end: 60
+  const blockThunk = () => { return load(); };:
+    labels:
+    - source: () => { return load(); }
+      style: primary
+      start: 19
+      end: 43
+    - source: load()
+      style: secondary
+      start: 34
+      end: 40
+    - source: return load();
+      style: secondary
+      start: 27
+      end: 41
+    - source: '{ return load(); }'
+      style: secondary
+      start: 25
+      end: 43
+    - source: load()
+      style: secondary
+      start: 34
+      end: 40
+    - source: return load();
+      style: secondary
+      start: 27
+      end: 41
+    - source: '{ return load(); }'
+      style: secondary
+      start: 25
+      end: 43
+  const blockTwo = (a, b) => { return pair(a, b); };:
+    labels:
+    - source: (a, b) => { return pair(a, b); }
+      style: primary
+      start: 17
+      end: 49
+    - source: pair(a, b)
+      style: secondary
+      start: 36
+      end: 46
+    - source: return pair(a, b);
+      style: secondary
+      start: 29
+      end: 47
+    - source: '{ return pair(a, b); }'
+      style: secondary
+      start: 27
+      end: 49
+    - source: a
+      style: secondary
+      start: 18
+      end: 19
+    - source: a
+      style: secondary
+      start: 18
+      end: 19
+    - source: a
+      style: secondary
+      start: 18
+      end: 19
+    - source: b
+      style: secondary
+      start: 21
+      end: 22
+    - source: b
+      style: secondary
+      start: 21
+      end: 22
+    - source: b
+      style: secondary
+      start: 21
+      end: 22
+    - source: (a, b)
+      style: secondary
+      start: 17
+      end: 23
+    - source: pair(a, b)
+      style: secondary
+      start: 36
+      end: 46
+    - source: return pair(a, b);
+      style: secondary
+      start: 29
+      end: 47
+    - source: '{ return pair(a, b); }'
+      style: secondary
+      start: 27
+      end: 49
+  'const cases = { some: (reason) => deny(reason) };':
+    labels:
+    - source: (reason) => deny(reason)
+      style: primary
+      start: 22
+      end: 46
+    - source: deny(reason)
+      style: secondary
+      start: 34
+      end: 46
+    - source: reason
+      style: secondary
+      start: 23
+      end: 29
+    - source: reason
+      style: secondary
+      start: 23
+      end: 29
+    - source: reason
+      style: secondary
+      start: 23
+      end: 29
+    - source: (reason)
+      style: secondary
+      start: 22
+      end: 30
+    - source: deny(reason)
+      style: secondary
+      start: 34
+      end: 46
+  const deep = (row) => Schema.Struct.Field.make(row);:
+    labels:
+    - source: (row) => Schema.Struct.Field.make(row)
+      style: primary
+      start: 13
+      end: 51
+    - source: Schema.Struct.Field.make(row)
+      style: secondary
+      start: 22
+      end: 51
+    - source: row
+      style: secondary
+      start: 14
+      end: 17
+    - source: row
+      style: secondary
+      start: 14
+      end: 17
+    - source: row
+      style: secondary
+      start: 14
+      end: 17
+    - source: (row)
+      style: secondary
+      start: 13
+      end: 18
+    - source: Schema.Struct.Field.make(row)
+      style: secondary
+      start: 22
+      end: 51
+    - source: Schema
+      style: secondary
+      start: 22
+      end: 28
+    - source: Schema.Struct
+      style: secondary
+      start: 22
+      end: 35
+    - source: Schema.Struct.Field
+      style: secondary
+      start: 22
+      end: 41
+  const empty = () => Option.none();:
+    labels:
+    - source: () => Option.none()
+      style: primary
+      start: 14
+      end: 33
+    - source: Option.none()
+      style: secondary
+      start: 20
+      end: 33
+    - source: Option.none()
+      style: secondary
+      start: 20
+      end: 33
+    - source: Option
+      style: secondary
+      start: 20
+      end: 26
+  'const generic = <T>(a: T) => handle(a);':
+    labels:
+    - source: '<T>(a: T) => handle(a)'
+      style: primary
+      start: 16
+      end: 38
+    - source: handle(a)
+      style: secondary
+      start: 29
+      end: 38
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'a: T'
+      style: secondary
+      start: 20
+      end: 24
+    - source: '(a: T)'
+      style: secondary
+      start: 19
+      end: 25
+    - source: handle(a)
+      style: secondary
+      start: 29
+      end: 38
+  'const lifted = (input: number) => Effect.succeed(input);':
+    labels:
+    - source: '(input: number) => Effect.succeed(input)'
+      style: primary
+      start: 15
+      end: 55
+    - source: Effect.succeed(input)
+      style: secondary
+      start: 34
+      end: 55
+    - source: input
+      style: secondary
+      start: 16
+      end: 21
+    - source: input
+      style: secondary
+      start: 16
+      end: 21
+    - source: 'input: number'
+      style: secondary
+      start: 16
+      end: 29
+    - source: '(input: number)'
+      style: secondary
+      start: 15
+      end: 30
+    - source: Effect.succeed(input)
+      style: secondary
+      start: 34
+      end: 55
+    - source: Effect
+      style: secondary
+      start: 34
+      end: 40
+  const lines = Array.map(history, (row) => JSON.stringify(row));:
+    labels:
+    - source: (row) => JSON.stringify(row)
+      style: primary
+      start: 33
+      end: 61
+    - source: JSON.stringify(row)
+      style: secondary
+      start: 42
+      end: 61
+    - source: row
+      style: secondary
+      start: 34
+      end: 37
+    - source: row
+      style: secondary
+      start: 34
+      end: 37
+    - source: row
+      style: secondary
+      start: 34
+      end: 37
+    - source: (row)
+      style: secondary
+      start: 33
+      end: 38
+    - source: JSON.stringify(row)
+      style: secondary
+      start: 42
+      end: 61
+    - source: JSON
+      style: secondary
+      start: 42
+      end: 46
+  const listed = (values) => Array.from(values);:
+    labels:
+    - source: (values) => Array.from(values)
+      style: primary
+      start: 15
+      end: 45
+    - source: Array.from(values)
+      style: secondary
+      start: 27
+      end: 45
+    - source: values
+      style: secondary
+      start: 16
+      end: 22
+    - source: values
+      style: secondary
+      start: 16
+      end: 22
+    - source: values
+      style: secondary
+      start: 16
+      end: 22
+    - source: (values)
+      style: secondary
+      start: 15
+      end: 23
+    - source: Array.from(values)
+      style: secondary
+      start: 27
+      end: 45
+    - source: Array
+      style: secondary
+      start: 27
+      end: 32
+  const made = (row) => Schema.Struct.make(row);:
+    labels:
+    - source: (row) => Schema.Struct.make(row)
+      style: primary
+      start: 13
+      end: 45
+    - source: Schema.Struct.make(row)
+      style: secondary
+      start: 22
+      end: 45
+    - source: row
+      style: secondary
+      start: 14
+      end: 17
+    - source: row
+      style: secondary
+      start: 14
+      end: 17
+    - source: row
+      style: secondary
+      start: 14
+      end: 17
+    - source: (row)
+      style: secondary
+      start: 13
+      end: 18
+    - source: Schema.Struct.make(row)
+      style: secondary
+      start: 22
+      end: 45
+    - source: Schema
+      style: secondary
+      start: 22
+      end: 28
+    - source: Schema.Struct
+      style: secondary
+      start: 22
+      end: 35
+  const rows = (values) => ArrayView.from(values);:
+    labels:
+    - source: (values) => ArrayView.from(values)
+      style: primary
+      start: 13
+      end: 47
+    - source: ArrayView.from(values)
+      style: secondary
+      start: 25
+      end: 47
+    - source: values
+      style: secondary
+      start: 14
+      end: 20
+    - source: values
+      style: secondary
+      start: 14
+      end: 20
+    - source: values
+      style: secondary
+      start: 14
+      end: 20
+    - source: (values)
+      style: secondary
+      start: 13
+      end: 21
+    - source: ArrayView.from(values)
+      style: secondary
+      start: 25
+      end: 47
+    - source: ArrayView
+      style: secondary
+      start: 25
+      end: 34
+  const rows = Effect.forEach(lines, (line) => _decodeResult(line));:
+    labels:
+    - source: (line) => _decodeResult(line)
+      style: primary
+      start: 35
+      end: 64
+    - source: _decodeResult(line)
+      style: secondary
+      start: 45
+      end: 64
+    - source: line
+      style: secondary
+      start: 36
+      end: 40
+    - source: line
+      style: secondary
+      start: 36
+      end: 40
+    - source: line
+      style: secondary
+      start: 36
+      end: 40
+    - source: (line)
+      style: secondary
+      start: 35
+      end: 41
+    - source: _decodeResult(line)
+      style: secondary
+      start: 45
+      end: 64
+  'const text = (value: number) => String(value);':
+    labels:
+    - source: '(value: number) => String(value)'
+      style: primary
+      start: 13
+      end: 45
+    - source: String(value)
+      style: secondary
+      start: 32
+      end: 45
+    - source: value
+      style: secondary
+      start: 14
+      end: 19
+    - source: value
+      style: secondary
+      start: 14
+      end: 19
+    - source: 'value: number'
+      style: secondary
+      start: 14
+      end: 27
+    - source: '(value: number)'
+      style: secondary
+      start: 13
+      end: 28
+    - source: String(value)
+      style: secondary
+      start: 32
+      end: 45
+  const three = (a, b, c) => combine(a, b, c);:
+    labels:
+    - source: (a, b, c) => combine(a, b, c)
+      style: primary
+      start: 14
+      end: 43
+    - source: combine(a, b, c)
+      style: secondary
+      start: 27
+      end: 43
+    - source: a
+      style: secondary
+      start: 15
+      end: 16
+    - source: a
+      style: secondary
+      start: 15
+      end: 16
+    - source: a
+      style: secondary
+      start: 15
+      end: 16
+    - source: b
+      style: secondary
+      start: 18
+      end: 19
+    - source: b
+      style: secondary
+      start: 18
+      end: 19
+    - source: b
+      style: secondary
+      start: 18
+      end: 19
+    - source: c
+      style: secondary
+      start: 21
+      end: 22
+    - source: c
+      style: secondary
+      start: 21
+      end: 22
+    - source: c
+      style: secondary
+      start: 21
+      end: 22
+    - source: (a, b, c)
+      style: secondary
+      start: 14
+      end: 23
+    - source: combine(a, b, c)
+      style: secondary
+      start: 27
+      end: 43
+  const thunk = () => load();:
+    labels:
+    - source: () => load()
+      style: primary
+      start: 14
+      end: 26
+    - source: load()
+      style: secondary
+      start: 20
+      end: 26
+    - source: load()
+      style: secondary
+      start: 20
+      end: 26
+  const two = (a, b) => pair(a, b);:
+    labels:
+    - source: (a, b) => pair(a, b)
+      style: primary
+      start: 12
+      end: 32
+    - source: pair(a, b)
+      style: secondary
+      start: 22
+      end: 32
+    - source: a
+      style: secondary
+      start: 13
+      end: 14
+    - source: a
+      style: secondary
+      start: 13
+      end: 14
+    - source: a
+      style: secondary
+      start: 13
+      end: 14
+    - source: b
+      style: secondary
+      start: 16
+      end: 17
+    - source: b
+      style: secondary
+      start: 16
+      end: 17
+    - source: b
+      style: secondary
+      start: 16
+      end: 17
+    - source: (a, b)
+      style: secondary
+      start: 12
+      end: 18
+    - source: pair(a, b)
+      style: secondary
+      start: 22
+      end: 32

@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: chain-to-unpacking
+language: python
+severity: off
+utils:
+    # The chain callee, the name a from-import binds or the attribute read off itertools
+    chain-callee:
+        any:
+            - matches: {python-imported-name: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
+            - matches: {python-module-member: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
+    # Arguments listed without a splat, each spread into the display, a splat among them is the next pass of the other arm
+    listed-arguments:
+        kind: argument_list
+        not: {has: {kind: list_splat}}
+rule:
+    kind: call
+    pattern: $CALL
+    all:
+        # The wrapped arms first, the bare arms match the list constructor itself with the wrong callee and the constraint never retries an arm
+        - any:
+              # The call under the list constructor the display replaces
+              - pattern: list($F(*$ITERABLES))
+              - pattern: list($F.from_iterable($ITERABLES))
+              - pattern: list($F($$$ARGS))
+                has: {field: arguments, has: {kind: call, has: {field: arguments, matches: listed-arguments}}}
+              # One splatted iterable of iterables, or the class method over it
+              - pattern: $F(*$ITERABLES)
+              - pattern: $F.from_iterable($ITERABLES)
+              # Iterables listed as arguments
+              - pattern: $F($$$ARGS)
+                has: {field: arguments, matches: listed-arguments}
+        # Calls under next read an iterator, a list has none, and the call under the list constructor is the constructor's own match
+        - not: {inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^(next|list)$'}}}}
+constraints:
+    F: {matches: chain-callee}
+rewriters:
+    - id: spread # Each captured argument, the rewriter consumes it before its descendants are tried
+      rule: {pattern: $ARG}
+      fix: '*$ARG'
+transform:
+    ITER: replace($ITERABLES, replace='(?s)^(.+)$', by='*item for item in $1') # The comprehension form, empty when the arguments were listed
+    SPREAD: rewrite($$$ARGS, rewriters=[spread], joinBy=', ') # The display form, empty when one iterable was splatted
+fix: '[$ITER$SPREAD]'
+message: '`$CALL` flattens through itertools.chain'
+note: Unpack in a comprehension, `[*<item> for <item> in <items>]`, or in a display, `[*<a>, *<b>]`

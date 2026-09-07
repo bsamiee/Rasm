@@ -16,6 +16,14 @@ snapshots:
       style: primary
       start: 49
       end: 58
+  const known = Iterable.contains(Record.keys(packaging), target);:
+    fixed: const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 44
+      end: 53
   const known = Record.keys(packaging).includes(target);:
     fixed: const known = Record.has(packaging, target);
     labels:
@@ -41,6 +49,14 @@ snapshots:
       start: 26
       end: 35
   const known = pipe(Record.keys(packaging), Array.contains(target));:
+    fixed: const known = Record.has(packaging, target);
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 31
+      end: 40
+  const known = pipe(Record.keys(packaging), Iterable.contains(target));:
     fixed: const known = Record.has(packaging, target);
     labels:
     - source: packaging

@@ -17,6 +17,7 @@ Facts are settled by the highest-ranked source that states them, and a disagreem
 |  [07]   | Maintained rule sets   | Folder layouts, naming, utils, tests, CI steps in real use    |
 |  [08]   | Subcommand help        | Flag set and defaults of the installed version                |
 |  [09]   | MCP server source      | What each tool passes, returns, hides, and rejects            |
+|  [10]   | Run report             | Nothing, every claim it makes is probed before it lands       |
 
 Probes are one scratch project, one rule, one file, the command, and the exit code, and their result outranks every page. The crate sources that decide a rule question sit under `crates/config/src` and `crates/core/src` at the installed tag, the CLI under `crates/cli/src`, and the schemas under `schemas/`. The documentation states intent and lags the binary in both directions: a claim a probe disproves (`regex` matching the whole node text, the binary matches an unanchored substring), a type the schema widens (`metadata` as string to string, the value is free-form), a value the site keeps to the CLI and the schema accepts in a rule (`template` strictness in a pattern object), a capability the site omits (parameterized utils, the `matches` call object, the `fix` list, `$CONTENT`, `$LANG`, `metaVarChar`), and a worked example that fails as written (the two-document rewrite with no `language` on the second document), each settled by the source ranked above the site. Thread answers describe the version of their date, and a thread claim about order or scope gets the source read at the installed tag before it lands.
 
@@ -70,15 +71,15 @@ SOURCE  crates/config/src/fixer.rs walks node.next() under neighbor and node.nex
 
 Real opportunities are documented or proven capabilities an agent following the skill needs on a task it names and no section uses, or sections with steps an agent can follow and still produce a weak result. Each lands in the section that owns its mechanism, as one line with a criterion, and stays out when no task in the skill's scope reaches it. The source rows yield candidates in each listed category, and the check for each is the run that exposes it:
 
-| [INDEX] | [CATEGORY]                                         | [CHECK]                                                             |
-| :-----: | :------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | Flag conflict that silently drops an operation     | Two flags on one command, the file and the exit code read afterward |
-|  [02]   | Default that decides what a green run proved       | Flag omitted, the severity or the threshold read from the output    |
-|  [03]   | Path resolved against a root the caller is not     | Command run from a subdirectory, the reported paths compared        |
-|  [04]   | Output field a format holds and another does not   | Both formats over one match, the key sets diffed                    |
-|  [05]   | Interactive key or prompt the session depends on   | Prompt source at the installed tag, the keys read                   |
-|  [06]   | Filter or severity flag that hides a rule          | Scan with and without it, the rule counts compared                  |
-|  [07]   | Tool wrapper folding two outcomes into one         | Tool call and the CLI form over one input, exit codes compared      |
+| [INDEX] | [CATEGORY]                                       | [CHECK]                                                             |
+| :-----: | :----------------------------------------------- | :------------------------------------------------------------------ |
+|  [01]   | Flag conflict that silently drops an operation   | Two flags on one command, the file and the exit code read afterward |
+|  [02]   | Default that decides what a green run proved     | Flag omitted, the severity or the threshold read from the output    |
+|  [03]   | Path resolved against a root the caller is not   | Command run from a subdirectory, the reported paths compared        |
+|  [04]   | Output field a format holds and another does not | Both formats over one match, the key sets diffed                    |
+|  [05]   | Interactive key or prompt the session depends on | Prompt source at the installed tag, the keys read                   |
+|  [06]   | Filter or severity flag that hides a rule        | Scan with and without it, the rule counts compared                  |
+|  [07]   | Tool wrapper folding two outcomes into one       | Tool call and the CLI form over one input, exit codes compared      |
 
 ## [05]-[CRITERIA]
 

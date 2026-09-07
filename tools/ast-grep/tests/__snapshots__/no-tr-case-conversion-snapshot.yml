@@ -1,0 +1,502 @@
+id: no-tr-case-conversion
+snapshots:
+  ? |
+    lang=$(awk '{print tolower($0)}' <<<"$lang")
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(awk '{print tolower($0)}' <<<"$lang")
+      style: primary
+      start: 5
+      end: 44
+    - source: '"$lang"'
+      style: secondary
+      start: 36
+      end: 43
+    - source: <<<"$lang"
+      style: secondary
+      start: 33
+      end: 43
+    - source: awk '{print tolower($0)}' <<<"$lang"
+      style: secondary
+      start: 7
+      end: 43
+  ? |
+    lang=$(printf '%s' "$lang" | sed 's/.*/\U&/')
+  : fixed: |
+      lang=${lang^^}
+    labels:
+    - source: $(printf '%s' "$lang" | sed 's/.*/\U&/')
+      style: primary
+      start: 5
+      end: 45
+    - source: printf '%s' "$lang"
+      style: secondary
+      start: 7
+      end: 26
+    - source: '"$lang"'
+      style: secondary
+      start: 19
+      end: 26
+    - source: '"$lang"'
+      style: secondary
+      start: 19
+      end: 26
+    - source: sed 's/.*/\U&/'
+      style: secondary
+      start: 29
+      end: 44
+    - source: printf '%s' "$lang" | sed 's/.*/\U&/'
+      style: secondary
+      start: 7
+      end: 44
+  ? |
+    lang=$(printf '%s' "$lang" | tr '[:upper:]' '[:lower:]')
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(printf '%s' "$lang" | tr '[:upper:]' '[:lower:]')
+      style: primary
+      start: 5
+      end: 56
+    - source: printf '%s' "$lang"
+      style: secondary
+      start: 7
+      end: 26
+    - source: '"$lang"'
+      style: secondary
+      start: 19
+      end: 26
+    - source: '"$lang"'
+      style: secondary
+      start: 19
+      end: 26
+    - source: tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 29
+      end: 55
+    - source: printf '%s' "$lang" | tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 7
+      end: 55
+  ? |
+    lang=$(printf '%s' "${lang}" | tr '[:upper:]' '[:lower:]')
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(printf '%s' "${lang}" | tr '[:upper:]' '[:lower:]')
+      style: primary
+      start: 5
+      end: 58
+    - source: printf '%s' "${lang}"
+      style: secondary
+      start: 7
+      end: 28
+    - source: '"${lang}"'
+      style: secondary
+      start: 19
+      end: 28
+    - source: '"${lang}"'
+      style: secondary
+      start: 19
+      end: 28
+    - source: tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 31
+      end: 57
+    - source: printf '%s' "${lang}" | tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 7
+      end: 57
+  ? |
+    lang=$(printf '%s\n' "$lang" | awk '{print toupper($0)}')
+  : fixed: |
+      lang=${lang^^}
+    labels:
+    - source: $(printf '%s\n' "$lang" | awk '{print toupper($0)}')
+      style: primary
+      start: 5
+      end: 57
+    - source: printf '%s\n' "$lang"
+      style: secondary
+      start: 7
+      end: 28
+    - source: '"$lang"'
+      style: secondary
+      start: 21
+      end: 28
+    - source: '"$lang"'
+      style: secondary
+      start: 21
+      end: 28
+    - source: awk '{print toupper($0)}'
+      style: secondary
+      start: 31
+      end: 56
+    - source: printf '%s\n' "$lang" | awk '{print toupper($0)}'
+      style: secondary
+      start: 7
+      end: 56
+  ? |
+    lang=$(sed 's/.*/\L&/' <<<"$lang")
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(sed 's/.*/\L&/' <<<"$lang")
+      style: primary
+      start: 5
+      end: 34
+    - source: '"$lang"'
+      style: secondary
+      start: 26
+      end: 33
+    - source: <<<"$lang"
+      style: secondary
+      start: 23
+      end: 33
+    - source: sed 's/.*/\L&/' <<<"$lang"
+      style: secondary
+      start: 7
+      end: 33
+  ? |
+    lang=$(sed 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/' <<<"$lang")
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(sed 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/' <<<"$lang")
+      style: primary
+      start: 5
+      end: 81
+    - source: '"$lang"'
+      style: secondary
+      start: 73
+      end: 80
+    - source: <<<"$lang"
+      style: secondary
+      start: 70
+      end: 80
+    - source: sed 'y/ABCDEFGHIJKLMNOPQRSTUVWXYZ/abcdefghijklmnopqrstuvwxyz/' <<<"$lang"
+      style: secondary
+      start: 7
+      end: 80
+  ? |
+    lang=$(tr '[:upper:]' '[:lower:]' <<<"$lang")
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(tr '[:upper:]' '[:lower:]' <<<"$lang")
+      style: primary
+      start: 5
+      end: 45
+    - source: '"$lang"'
+      style: secondary
+      start: 37
+      end: 44
+    - source: <<<"$lang"
+      style: secondary
+      start: 34
+      end: 44
+    - source: tr '[:upper:]' '[:lower:]' <<<"$lang"
+      style: secondary
+      start: 7
+      end: 44
+  ? |
+    lang=$(tr '[:upper:]' '[:lower:]' <<<"${BASH_REMATCH[1]}")
+  : fixed: |
+      lang=${BASH_REMATCH[1],,}
+    labels:
+    - source: $(tr '[:upper:]' '[:lower:]' <<<"${BASH_REMATCH[1]}")
+      style: primary
+      start: 5
+      end: 58
+    - source: '"${BASH_REMATCH[1]}"'
+      style: secondary
+      start: 37
+      end: 57
+    - source: <<<"${BASH_REMATCH[1]}"
+      style: secondary
+      start: 34
+      end: 57
+    - source: tr '[:upper:]' '[:lower:]' <<<"${BASH_REMATCH[1]}"
+      style: secondary
+      start: 7
+      end: 57
+  ? |
+    lang=$(tr '[:upper:]' '[:lower:]' <<<"${lang}")
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(tr '[:upper:]' '[:lower:]' <<<"${lang}")
+      style: primary
+      start: 5
+      end: 47
+    - source: '"${lang}"'
+      style: secondary
+      start: 37
+      end: 46
+    - source: <<<"${lang}"
+      style: secondary
+      start: 34
+      end: 46
+    - source: tr '[:upper:]' '[:lower:]' <<<"${lang}"
+      style: secondary
+      start: 7
+      end: 46
+  ? |
+    lang=$(tr '[:upper:]' '[:lower:]' <<<$lang)
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: $(tr '[:upper:]' '[:lower:]' <<<$lang)
+      style: primary
+      start: 5
+      end: 43
+    - source: $lang
+      style: secondary
+      start: 37
+      end: 42
+    - source: <<<$lang
+      style: secondary
+      start: 34
+      end: 42
+    - source: tr '[:upper:]' '[:lower:]' <<<$lang
+      style: secondary
+      start: 7
+      end: 42
+  ? |
+    lang=`printf '%s' "$lang" | tr '[:upper:]' '[:lower:]'`
+  : fixed: |
+      lang=${lang,,}
+    labels:
+    - source: '`printf ''%s'' "$lang" | tr ''[:upper:]'' ''[:lower:]''`'
+      style: primary
+      start: 5
+      end: 55
+    - source: printf '%s' "$lang"
+      style: secondary
+      start: 6
+      end: 25
+    - source: '"$lang"'
+      style: secondary
+      start: 18
+      end: 25
+    - source: '"$lang"'
+      style: secondary
+      start: 18
+      end: 25
+    - source: tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 28
+      end: 54
+    - source: printf '%s' "$lang" | tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 6
+      end: 54
+  ? |
+    name=$(echo "$name" | tr '[:lower:]' '[:upper:]')
+  : fixed: |
+      name=${name^^}
+    labels:
+    - source: $(echo "$name" | tr '[:lower:]' '[:upper:]')
+      style: primary
+      start: 5
+      end: 49
+    - source: echo "$name"
+      style: secondary
+      start: 7
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: tr '[:lower:]' '[:upper:]'
+      style: secondary
+      start: 22
+      end: 48
+    - source: echo "$name" | tr '[:lower:]' '[:upper:]'
+      style: secondary
+      start: 7
+      end: 48
+  ? |
+    name=$(echo "$name" | tr '[A-Z]' '[a-z]')
+  : fixed: |
+      name=${name,,}
+    labels:
+    - source: $(echo "$name" | tr '[A-Z]' '[a-z]')
+      style: primary
+      start: 5
+      end: 41
+    - source: echo "$name"
+      style: secondary
+      start: 7
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: tr '[A-Z]' '[a-z]'
+      style: secondary
+      start: 22
+      end: 40
+    - source: echo "$name" | tr '[A-Z]' '[a-z]'
+      style: secondary
+      start: 7
+      end: 40
+  ? |
+    name=$(echo "$name" | tr A-Z a-z)
+  : fixed: |
+      name=${name,,}
+    labels:
+    - source: $(echo "$name" | tr A-Z a-z)
+      style: primary
+      start: 5
+      end: 33
+    - source: echo "$name"
+      style: secondary
+      start: 7
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: tr A-Z a-z
+      style: secondary
+      start: 22
+      end: 32
+    - source: echo "$name" | tr A-Z a-z
+      style: secondary
+      start: 7
+      end: 32
+  ? |
+    name=$(echo "$name" | tr a-z A-Z)
+  : fixed: |
+      name=${name^^}
+    labels:
+    - source: $(echo "$name" | tr a-z A-Z)
+      style: primary
+      start: 5
+      end: 33
+    - source: echo "$name"
+      style: secondary
+      start: 7
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: '"$name"'
+      style: secondary
+      start: 12
+      end: 19
+    - source: tr a-z A-Z
+      style: secondary
+      start: 22
+      end: 32
+    - source: echo "$name" | tr a-z A-Z
+      style: secondary
+      start: 7
+      end: 32
+  ? |
+    out=$(awk '{ print tolower($0) }' <<<"$name")
+  : fixed: |
+      out=${name,,}
+    labels:
+    - source: $(awk '{ print tolower($0) }' <<<"$name")
+      style: primary
+      start: 4
+      end: 45
+    - source: '"$name"'
+      style: secondary
+      start: 37
+      end: 44
+    - source: <<<"$name"
+      style: secondary
+      start: 34
+      end: 44
+    - source: awk '{ print tolower($0) }' <<<"$name"
+      style: secondary
+      start: 6
+      end: 44
+  ? |
+    out=$(printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]')
+  : fixed: |
+      out=${name,,}
+    labels:
+    - source: $(printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]')
+      style: primary
+      start: 4
+      end: 57
+    - source: printf '%s\n' "$name"
+      style: secondary
+      start: 6
+      end: 27
+    - source: '"$name"'
+      style: secondary
+      start: 20
+      end: 27
+    - source: '"$name"'
+      style: secondary
+      start: 20
+      end: 27
+    - source: tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 30
+      end: 56
+    - source: printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 6
+      end: 56
+  ? |
+    out=$(sed 's/.*/\U&/' <<<"$name")
+  : fixed: |
+      out=${name^^}
+    labels:
+    - source: $(sed 's/.*/\U&/' <<<"$name")
+      style: primary
+      start: 4
+      end: 33
+    - source: '"$name"'
+      style: secondary
+      start: 25
+      end: 32
+    - source: <<<"$name"
+      style: secondary
+      start: 22
+      end: 32
+    - source: sed 's/.*/\U&/' <<<"$name"
+      style: secondary
+      start: 6
+      end: 32
+  ? |
+    out=$(tr "[:lower:]" "[:upper:]" <<< "$name")
+  : fixed: |
+      out=${name^^}
+    labels:
+    - source: $(tr "[:lower:]" "[:upper:]" <<< "$name")
+      style: primary
+      start: 4
+      end: 45
+    - source: '"$name"'
+      style: secondary
+      start: 37
+      end: 44
+    - source: <<< "$name"
+      style: secondary
+      start: 33
+      end: 44
+    - source: tr "[:lower:]" "[:upper:]" <<< "$name"
+      style: secondary
+      start: 6
+      end: 44

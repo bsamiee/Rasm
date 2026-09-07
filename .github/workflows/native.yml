@@ -57,8 +57,10 @@ jobs:
         with:
           path: .cache/emgucv/artifacts
           key: ${{ steps.cache.outputs.emgucv-key }}
-      - run: tar -czf "$RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz" native/*/stage
+      - run: tar -czf "$RUNNER_TEMP/native-stage-$RID.tar.gz" native/*/stage
         working-directory: .artifacts
+        env:
+          RID: ${{ matrix.rid }}
       - uses: actions/upload-artifact@v7
         with:
           path: ${{ runner.temp }}/native-stage-${{ matrix.rid }}.tar.gz

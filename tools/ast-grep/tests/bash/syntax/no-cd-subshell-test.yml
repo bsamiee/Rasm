@@ -1,0 +1,82 @@
+id: no-cd-subshell
+valid:
+    # The tool's own directory option
+    - |
+      ast-grep test -c "$root/sgconfig.yml" --filter "^$id\$"
+    # git with -C
+    - |
+      git -C "$dir" status --short
+    # pushd and popd around several commands
+    - |
+      pushd "$dir" >/dev/null && make && make install
+      popd >/dev/null
+    # A subshell without cd
+    - |
+      (make && make install)
+    # cd at the top level with a guard
+    - |
+      cd "$dir" || exit 1
+    # cd after another command in the subshell
+    - |
+      (make; cd "$out" && tar -czf ../out.tgz .)
+    # cd after another command in one list
+    - |
+      (make && cd "$out")
+    # A substitution without cd
+    - |
+      here=$(pwd)
+    # Process substitutions without cd
+    - |
+      diff <(ls "$a") <(ls "$b")
+    # cd in a list at the top level, the directory change persists
+    - |
+      cd "$dir" && make
+    # pushd inside a subshell
+    - |
+      (pushd "$d" >/dev/null && make; popd >/dev/null)
+invalid:
+    # An assignment prefix before cd
+    - |
+      x=$(CDPATH= cd -- "$d" && pwd)
+    # The subshell under a redirect
+    - |
+      (cd "$d" && make) 2>/dev/null
+    # cd under its own redirects
+    - |
+      (cd "$d" >/dev/null 2>&1 && pwd -P)
+    # exec after cd
+    - |
+      (cd "$d"; exec make)
+    # A comment before the cd, the first statement of the subshell
+    - |
+      (
+          # enter
+          cd "$d" && make
+      )
+    # The instance, cd and one command
+    - |
+      (cd "$scratch" && ast-grep test --filter "^$id\$" --color never >/dev/null 2>&1)
+    # cd with a semicolon
+    - |
+      (cd "$dir"; make)
+    # cd with a guard then the command
+    - |
+      (cd "$dir" || exit 1; make)
+    # cd and several commands
+    - |
+      (cd "$dir" && make && make install)
+    # Inside a command substitution's subshell
+    - |
+      out=$( (cd "$dir" && pwd) )
+    # A command substitution, the directory resolved by cd and pwd
+    - |
+      root=$(cd "$dir" && pwd)
+    # Backticks
+    - |
+      root=`cd "$dir" && pwd`
+    # A process substitution
+    - |
+      diff <(cd "$a" && ls) list.txt
+    # The script's own directory resolved by cd and pwd
+    - |
+      here=$(cd "${0%/*}" && pwd)

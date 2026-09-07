@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-gnu-only-command
+language: bash
+severity: error
+rule:
+    kind: command
+    pattern: $CMD
+    # Each arm reads the command text from its name, the command or option the BSD userland of macOS 26 lacks, probed on that userland
+    any:
+        - has: {field: name, regex: '^g?timeout$'} # No timeout binary on macOS, gtimeout is the coreutils install name
+        - has: {field: name, regex: '^(nproc|tac|shuf)$'} # Absent on macOS
+        - regex: '^sed\s(.*\s)?-i\s+(["''][^"''\s]|[^"''\s])' # -i with the script or an option as the next word, BSD sed reads it as the suffix
+        - regex: '^sed\s(.*\s)?-[a-zA-Z]*z(\s|$)' # NUL-separated lines
+        - regex: '^date\s(.*\s)?(-d|--date)(\s|=)'
+        - regex: '^stat\s(.*\s)?(-c|--format|--printf)(\s|=)'
+        - regex: '^xargs\s(.*\s)?(-d|--delimiter)(\s|=)'
+        - regex: '^grep\s(.*\s)?(-[a-zA-Z]*P|--perl-regexp)(\s|$)'
+        - regex: '^find\s(.*\s)?(-printf|-regextype)(\s|$)'
+        - regex: '^(cp|mv|ln)\s(.*\s)?-[a-zA-Z]*T(\s|$)' # The destination as a file, never a directory
+        - regex: '^cp\s(.*\s)?-[a-zA-Z]*u(\s|$)' # Copy the newer file alone
+        - regex: '^ln\s(.*\s)?-[a-zA-Z]*r(\s|$)' # A relative symbolic link
+        - regex: '^head\s(.*\s)?-[nc]\s*-[0-9]' # A negative count, every line or byte but the last n
+        - regex: '^base64\s(.*\s)?-w' # The wrap column
+        - regex: '^readlink\s(.*\s)?-[a-zA-Z]*[em](\s|$)' # Canonicalize with the existence checks
+        - regex: '^du\s(.*\s)?-[a-zA-Z]*b(\s|$)' # Bytes
+        - regex: '^touch\s(.*\s)?-d(\s|=)' # A date string
+        - regex: '^tar\s(.*\s)?--wildcards(\s|$)' # bsdtar matches member globs by default
+        # A long option on a command with a BSD form that takes short options alone
+        - all:
+              - has: {field: name, regex: '^(sed|stat|find|wc|cut|tr|du|df|uname|tee|paste|nl|fold|comm|join|split|od|touch|readlink|date|cp|mv|ln|cat|sleep|chmod|chown|mkdir|rm|realpath)$'}
+              - has: {kind: word, regex: '^--[a-z]'}
+message: '`$CMD` runs on GNU coreutils alone, macOS ships the BSD form'
+note: 'Take the portable form, a bounded `wait` on a background job for `timeout`, `getconf _NPROCESSORS_ONLN`, `tail -r`, `sort -R`, `sed -i.bak` then `rm <file>.bak` or a parameter expansion, `date -j -f <format>` or `date -r <epoch>`, `stat -f`, `xargs -0` over `-print0`, `rg -P`, `find -exec` with `printf`, `find -E`, the destination path in place of `-T`, `sed ''$d''` for `head -n -1`, `base64 | tr -d ''\n''`, `realpath`, `wc -c`, `touch -t`, the member pattern alone, and the short option'

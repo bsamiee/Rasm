@@ -1,0 +1,1256 @@
+id: require-when-enabled
+snapshots:
+  ? |
+    const gate = (on: On, settings: Options): void => fromBoolean(settings.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
+  : fixed: |
+      const gate = (on: On, settings: Options): void => whenEnabled(settings.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(settings.dispatch).match<void>({ some: () => _serve(on), none: () => undefined })'
+      style: primary
+      start: 50
+      end: 143
+    - source: fromBoolean
+      style: secondary
+      start: 50
+      end: 61
+    - source: settings.dispatch
+      style: secondary
+      start: 62
+      end: 79
+    - source: settings.dispatch
+      style: secondary
+      start: 62
+      end: 79
+    - source: fromBoolean(settings.dispatch)
+      style: secondary
+      start: 50
+      end: 80
+    - source: match
+      style: secondary
+      start: 81
+      end: 86
+    - source: fromBoolean(settings.dispatch).match
+      style: secondary
+      start: 50
+      end: 86
+    - source: some
+      style: secondary
+      start: 95
+      end: 99
+    - source: () => _serve(on)
+      style: secondary
+      start: 101
+      end: 117
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 95
+      end: 117
+    - source: none
+      style: secondary
+      start: 119
+      end: 123
+    - source: undefined
+      style: secondary
+      start: 131
+      end: 140
+    - source: () => undefined
+      style: secondary
+      start: 125
+      end: 140
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 119
+      end: 140
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 93
+      end: 142
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 93
+      end: 142
+  ? |
+    fromBoolean(!options.dispatch && interactive).match<void>({ some: () => _plain(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(!options.dispatch && interactive, () => _plain(on));
+    labels:
+    - source: 'fromBoolean(!options.dispatch && interactive).match<void>({ some: () => _plain(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 108
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 13
+      end: 29
+    - source: '!options.dispatch && interactive'
+      style: secondary
+      start: 12
+      end: 44
+    - source: '!options.dispatch && interactive'
+      style: secondary
+      start: 12
+      end: 44
+    - source: fromBoolean(!options.dispatch && interactive)
+      style: secondary
+      start: 0
+      end: 45
+    - source: match
+      style: secondary
+      start: 46
+      end: 51
+    - source: fromBoolean(!options.dispatch && interactive).match
+      style: secondary
+      start: 0
+      end: 51
+    - source: some
+      style: secondary
+      start: 60
+      end: 64
+    - source: () => _plain(on)
+      style: secondary
+      start: 66
+      end: 82
+    - source: 'some: () => _plain(on)'
+      style: secondary
+      start: 60
+      end: 82
+    - source: none
+      style: secondary
+      start: 84
+      end: 88
+    - source: undefined
+      style: secondary
+      start: 96
+      end: 105
+    - source: () => undefined
+      style: secondary
+      start: 90
+      end: 105
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 84
+      end: 105
+    - source: '{ some: () => _plain(on), none: () => undefined }'
+      style: secondary
+      start: 58
+      end: 107
+    - source: '{ some: () => _plain(on), none: () => undefined }'
+      style: secondary
+      start: 58
+      end: 107
+  ? |
+    fromBoolean(!options.dispatch).match<void>({ some: () => _plain(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(!options.dispatch, () => _plain(on));
+    labels:
+    - source: 'fromBoolean(!options.dispatch).match<void>({ some: () => _plain(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 93
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 13
+      end: 29
+    - source: '!options.dispatch'
+      style: secondary
+      start: 12
+      end: 29
+    - source: '!options.dispatch'
+      style: secondary
+      start: 12
+      end: 29
+    - source: fromBoolean(!options.dispatch)
+      style: secondary
+      start: 0
+      end: 30
+    - source: match
+      style: secondary
+      start: 31
+      end: 36
+    - source: fromBoolean(!options.dispatch).match
+      style: secondary
+      start: 0
+      end: 36
+    - source: some
+      style: secondary
+      start: 45
+      end: 49
+    - source: () => _plain(on)
+      style: secondary
+      start: 51
+      end: 67
+    - source: 'some: () => _plain(on)'
+      style: secondary
+      start: 45
+      end: 67
+    - source: none
+      style: secondary
+      start: 69
+      end: 73
+    - source: undefined
+      style: secondary
+      start: 81
+      end: 90
+    - source: () => undefined
+      style: secondary
+      start: 75
+      end: 90
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 69
+      end: 90
+    - source: '{ some: () => _plain(on), none: () => undefined }'
+      style: secondary
+      start: 43
+      end: 92
+    - source: '{ some: () => _plain(on), none: () => undefined }'
+      style: secondary
+      start: 43
+      end: 92
+  ? |
+    fromBoolean(options.dispatch && interactive).match<void>({ some: () => _serve(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch && interactive, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch && interactive).match<void>({ some: () => _serve(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 107
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch && interactive
+      style: secondary
+      start: 12
+      end: 43
+    - source: options.dispatch && interactive
+      style: secondary
+      start: 12
+      end: 43
+    - source: fromBoolean(options.dispatch && interactive)
+      style: secondary
+      start: 0
+      end: 44
+    - source: match
+      style: secondary
+      start: 45
+      end: 50
+    - source: fromBoolean(options.dispatch && interactive).match
+      style: secondary
+      start: 0
+      end: 50
+    - source: some
+      style: secondary
+      start: 59
+      end: 63
+    - source: () => _serve(on)
+      style: secondary
+      start: 65
+      end: 81
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 59
+      end: 81
+    - source: none
+      style: secondary
+      start: 83
+      end: 87
+    - source: undefined
+      style: secondary
+      start: 95
+      end: 104
+    - source: () => undefined
+      style: secondary
+      start: 89
+      end: 104
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 83
+      end: 104
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 57
+      end: 106
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 57
+      end: 106
+  ? |
+    fromBoolean(options.dispatch).match({ some: () => _serve(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match({ some: () => _serve(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 86
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 38
+      end: 42
+    - source: () => _serve(on)
+      style: secondary
+      start: 44
+      end: 60
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 38
+      end: 60
+    - source: none
+      style: secondary
+      start: 62
+      end: 66
+    - source: undefined
+      style: secondary
+      start: 74
+      end: 83
+    - source: () => undefined
+      style: secondary
+      start: 68
+      end: 83
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 62
+      end: 83
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 36
+      end: 85
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 36
+      end: 85
+  ? |
+    fromBoolean(options.dispatch).match<void>({ none: () => undefined, some: () => _dispatch(on) });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _dispatch(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ none: () => undefined, some: () => _dispatch(on) })'
+      style: primary
+      start: 0
+      end: 95
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 67
+      end: 71
+    - source: () => _dispatch(on)
+      style: secondary
+      start: 73
+      end: 92
+    - source: 'some: () => _dispatch(on)'
+      style: secondary
+      start: 67
+      end: 92
+    - source: none
+      style: secondary
+      start: 44
+      end: 48
+    - source: undefined
+      style: secondary
+      start: 56
+      end: 65
+    - source: () => undefined
+      style: secondary
+      start: 50
+      end: 65
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 44
+      end: 65
+    - source: '{ none: () => undefined, some: () => _dispatch(on) }'
+      style: secondary
+      start: 42
+      end: 94
+    - source: '{ none: () => undefined, some: () => _dispatch(on) }'
+      style: secondary
+      start: 42
+      end: 94
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 92
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: undefined
+      style: secondary
+      start: 80
+      end: 89
+    - source: () => undefined
+      style: secondary
+      start: 74
+      end: 89
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 68
+      end: 89
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 42
+      end: 91
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 42
+      end: 91
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => void 0 });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => void 0 })'
+      style: primary
+      start: 0
+      end: 89
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: void 0
+      style: secondary
+      start: 80
+      end: 86
+    - source: () => void 0
+      style: secondary
+      start: 74
+      end: 86
+    - source: 'none: () => void 0'
+      style: secondary
+      start: 68
+      end: 86
+    - source: '{ some: () => _serve(on), none: () => void 0 }'
+      style: secondary
+      start: 42
+      end: 88
+    - source: '{ some: () => _serve(on), none: () => void 0 }'
+      style: secondary
+      start: 42
+      end: 88
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return undefined; } });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return undefined; } })'
+      style: primary
+      start: 0
+      end: 104
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: '{ return undefined; }'
+      style: secondary
+      start: 80
+      end: 101
+    - source: () => { return undefined; }
+      style: secondary
+      start: 74
+      end: 101
+    - source: 'none: () => { return undefined; }'
+      style: secondary
+      start: 68
+      end: 101
+    - source: '{ some: () => _serve(on), none: () => { return undefined; } }'
+      style: secondary
+      start: 42
+      end: 103
+    - source: '{ some: () => _serve(on), none: () => { return undefined; } }'
+      style: secondary
+      start: 42
+      end: 103
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return; } });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return; } })'
+      style: primary
+      start: 0
+      end: 94
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: '{ return; }'
+      style: secondary
+      start: 80
+      end: 91
+    - source: () => { return; }
+      style: secondary
+      start: 74
+      end: 91
+    - source: 'none: () => { return; }'
+      style: secondary
+      start: 68
+      end: 91
+    - source: '{ some: () => _serve(on), none: () => { return; } }'
+      style: secondary
+      start: 42
+      end: 93
+    - source: '{ some: () => _serve(on), none: () => { return; } }'
+      style: secondary
+      start: 42
+      end: 93
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => {} });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => {} })'
+      style: primary
+      start: 0
+      end: 85
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: '{}'
+      style: secondary
+      start: 80
+      end: 82
+    - source: () => {}
+      style: secondary
+      start: 74
+      end: 82
+    - source: 'none: () => {}'
+      style: secondary
+      start: 68
+      end: 82
+    - source: '{ some: () => _serve(on), none: () => {} }'
+      style: secondary
+      start: 42
+      end: 84
+    - source: '{ some: () => _serve(on), none: () => {} }'
+      style: secondary
+      start: 42
+      end: 84
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: (): undefined => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: (): undefined => undefined })'
+      style: primary
+      start: 0
+      end: 103
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: undefined
+      style: secondary
+      start: 91
+      end: 100
+    - source: '(): undefined => undefined'
+      style: secondary
+      start: 74
+      end: 100
+    - source: 'none: (): undefined => undefined'
+      style: secondary
+      start: 68
+      end: 100
+    - source: '{ some: () => _serve(on), none: (): undefined => undefined }'
+      style: secondary
+      start: 42
+      end: 102
+    - source: '{ some: () => _serve(on), none: (): undefined => undefined }'
+      style: secondary
+      start: 42
+      end: 102
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: (): void => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: (): void => undefined })'
+      style: primary
+      start: 0
+      end: 98
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => _serve(on)
+      style: secondary
+      start: 50
+      end: 66
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 66
+    - source: none
+      style: secondary
+      start: 68
+      end: 72
+    - source: undefined
+      style: secondary
+      start: 86
+      end: 95
+    - source: '(): void => undefined'
+      style: secondary
+      start: 74
+      end: 95
+    - source: 'none: (): void => undefined'
+      style: secondary
+      start: 68
+      end: 95
+    - source: '{ some: () => _serve(on), none: (): void => undefined }'
+      style: secondary
+      start: 42
+      end: 97
+    - source: '{ some: () => _serve(on), none: (): void => undefined }'
+      style: secondary
+      start: 42
+      end: 97
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => { _serve(on); }, none: () => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch, () => { _serve(on); });
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => { _serve(on); }, none: () => undefined })'
+      style: primary
+      start: 0
+      end: 97
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: () => { _serve(on); }
+      style: secondary
+      start: 50
+      end: 71
+    - source: 'some: () => { _serve(on); }'
+      style: secondary
+      start: 44
+      end: 71
+    - source: none
+      style: secondary
+      start: 73
+      end: 77
+    - source: undefined
+      style: secondary
+      start: 85
+      end: 94
+    - source: () => undefined
+      style: secondary
+      start: 79
+      end: 94
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 73
+      end: 94
+    - source: '{ some: () => { _serve(on); }, none: () => undefined }'
+      style: secondary
+      start: 42
+      end: 96
+    - source: '{ some: () => { _serve(on); }, none: () => undefined }'
+      style: secondary
+      start: 42
+      end: 96
+  ? |
+    fromBoolean(options.dispatch).match<void>({ some: async () => _serve(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(options.dispatch, async () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: async () => _serve(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 98
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: options.dispatch
+      style: secondary
+      start: 12
+      end: 28
+    - source: fromBoolean(options.dispatch)
+      style: secondary
+      start: 0
+      end: 29
+    - source: match
+      style: secondary
+      start: 30
+      end: 35
+    - source: fromBoolean(options.dispatch).match
+      style: secondary
+      start: 0
+      end: 35
+    - source: some
+      style: secondary
+      start: 44
+      end: 48
+    - source: async () => _serve(on)
+      style: secondary
+      start: 50
+      end: 72
+    - source: 'some: async () => _serve(on)'
+      style: secondary
+      start: 44
+      end: 72
+    - source: none
+      style: secondary
+      start: 74
+      end: 78
+    - source: undefined
+      style: secondary
+      start: 86
+      end: 95
+    - source: () => undefined
+      style: secondary
+      start: 80
+      end: 95
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 74
+      end: 95
+    - source: '{ some: async () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 42
+      end: 97
+    - source: '{ some: async () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 42
+      end: 97
+  ? |
+    fromBoolean(options.speak).match<void>({ some: register, none: () => undefined });
+  : fixed: |
+      whenEnabled(options.speak, register);
+    labels:
+    - source: 'fromBoolean(options.speak).match<void>({ some: register, none: () => undefined })'
+      style: primary
+      start: 0
+      end: 81
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options.speak
+      style: secondary
+      start: 12
+      end: 25
+    - source: options.speak
+      style: secondary
+      start: 12
+      end: 25
+    - source: fromBoolean(options.speak)
+      style: secondary
+      start: 0
+      end: 26
+    - source: match
+      style: secondary
+      start: 27
+      end: 32
+    - source: fromBoolean(options.speak).match
+      style: secondary
+      start: 0
+      end: 32
+    - source: some
+      style: secondary
+      start: 41
+      end: 45
+    - source: register
+      style: secondary
+      start: 47
+      end: 55
+    - source: 'some: register'
+      style: secondary
+      start: 41
+      end: 55
+    - source: none
+      style: secondary
+      start: 57
+      end: 61
+    - source: undefined
+      style: secondary
+      start: 69
+      end: 78
+    - source: () => undefined
+      style: secondary
+      start: 63
+      end: 78
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 57
+      end: 78
+    - source: '{ some: register, none: () => undefined }'
+      style: secondary
+      start: 39
+      end: 80
+    - source: '{ some: register, none: () => undefined }'
+      style: secondary
+      start: 39
+      end: 80
+  ? |
+    fromBoolean(options?.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(options?.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options?.dispatch).match<void>({ some: () => _serve(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 93
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options?.dispatch
+      style: secondary
+      start: 12
+      end: 29
+    - source: options?.dispatch
+      style: secondary
+      start: 12
+      end: 29
+    - source: fromBoolean(options?.dispatch)
+      style: secondary
+      start: 0
+      end: 30
+    - source: match
+      style: secondary
+      start: 31
+      end: 36
+    - source: fromBoolean(options?.dispatch).match
+      style: secondary
+      start: 0
+      end: 36
+    - source: some
+      style: secondary
+      start: 45
+      end: 49
+    - source: () => _serve(on)
+      style: secondary
+      start: 51
+      end: 67
+    - source: 'some: () => _serve(on)'
+      style: secondary
+      start: 45
+      end: 67
+    - source: none
+      style: secondary
+      start: 69
+      end: 73
+    - source: undefined
+      style: secondary
+      start: 81
+      end: 90
+    - source: () => undefined
+      style: secondary
+      start: 75
+      end: 90
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 69
+      end: 90
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 43
+      end: 92
+    - source: '{ some: () => _serve(on), none: () => undefined }'
+      style: secondary
+      start: 43
+      end: 92
+  ? |
+    fromBoolean(options['classify']).match<void>({ some: () => _classify(on), none: () => undefined });
+  : fixed: |
+      whenEnabled(options['classify'], () => _classify(on));
+    labels:
+    - source: 'fromBoolean(options[''classify'']).match<void>({ some: () => _classify(on), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 98
+    - source: fromBoolean
+      style: secondary
+      start: 0
+      end: 11
+    - source: options['classify']
+      style: secondary
+      start: 12
+      end: 31
+    - source: options['classify']
+      style: secondary
+      start: 12
+      end: 31
+    - source: fromBoolean(options['classify'])
+      style: secondary
+      start: 0
+      end: 32
+    - source: match
+      style: secondary
+      start: 33
+      end: 38
+    - source: fromBoolean(options['classify']).match
+      style: secondary
+      start: 0
+      end: 38
+    - source: some
+      style: secondary
+      start: 47
+      end: 51
+    - source: () => _classify(on)
+      style: secondary
+      start: 53
+      end: 72
+    - source: 'some: () => _classify(on)'
+      style: secondary
+      start: 47
+      end: 72
+    - source: none
+      style: secondary
+      start: 74
+      end: 78
+    - source: undefined
+      style: secondary
+      start: 86
+      end: 95
+    - source: () => undefined
+      style: secondary
+      start: 80
+      end: 95
+    - source: 'none: () => undefined'
+      style: secondary
+      start: 74
+      end: 95
+    - source: '{ some: () => _classify(on), none: () => undefined }'
+      style: secondary
+      start: 45
+      end: 97
+    - source: '{ some: () => _classify(on), none: () => undefined }'
+      style: secondary
+      start: 45
+      end: 97

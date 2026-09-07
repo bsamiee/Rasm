@@ -14,13 +14,35 @@ utils:
               not: {has: {pattern: $_}}
             - kind: call_expression
               has: {field: function, regex: '^Mutable(Ref|HashMap|HashSet|List|Queue)\.\w+$|^(\w*Ref|Deferred)\.unsafeMake\w*$'}
+            # satisfies keeps the expression's own type and a readonly type under it freezes nothing
+            - kind: satisfies_expression
+              has: {matches: mutable-container}
+            # A cast to a mutable type keeps every write, as const freezes the literal and a readonly type freezes the binding
+            - kind: as_expression
+              has: {matches: mutable-container}
+              not: {any: [{regex: '\bas\s+const$'}, {has: {matches: readonly-annotation}}]}
+    # Readonly utility and collection types, and the readonly array modifier, anchored names leave ReadonlyThing a mutable annotation
+    readonly-annotation:
+        any:
+            - kind: generic_type
+              has: {field: name, regex: '^(ReadonlySet|ReadonlyMap|ReadonlyArray)$'}
+            # Readonly over a Map or a Set marks the properties and leaves set, add, and delete callable, ReadonlyMap and ReadonlySet drop them
+            - kind: generic_type
+              all:
+                  - has: {field: name, regex: '^Readonly$'}
+                  - not: {has: {field: type_arguments, has: {kind: generic_type, has: {field: name, regex: '^(Map|Set|WeakMap|WeakSet)$'}}}}
+            - kind: readonly_type
 rule:
     # Biome noVar reports every var, the arms read let and the const bindings over a mutable container
     any:
         - kind: lexical_declaration
           regex: '^let\b'
         - kind: lexical_declaration
-          has: {kind: variable_declarator, has: {field: value, matches: mutable-container}}
+          has:
+              kind: variable_declarator
+              has: {field: value, matches: mutable-container}
+              # Readonly annotations freeze the binding under the type checker
+              not: {has: {field: type, has: {matches: readonly-annotation}}}
     inside:
         any:
             - kind: program

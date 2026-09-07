@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nullable-return
+language: tsx
+severity: error
+# Spec translates the Option into the test host's representation at the assertion boundary, `getOrElse(() => null)` beside `toBe(null)`
+ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+utils:
+    # Return type annotation naming a value type, void, undefined, and a Promise of either return nothing
+    value-annotation:
+        kind: type_annotation
+        not:
+            has:
+                any:
+                    - {kind: predefined_type, regex: '^void$'}
+                    - {kind: literal_type, has: {kind: undefined}}
+                    - kind: generic_type
+                      all:
+                          - has: {field: name, regex: '^Promise$'}
+                          - has:
+                                field: type_arguments
+                                has: {any: [{kind: predefined_type, regex: '^void$'}, {kind: literal_type, has: {kind: undefined}}]}
+    # Function annotated with a value type, the nearest boundary of a return statement
+    value-function:
+        matches: syntax-function-boundary
+        has: {field: return_type, matches: value-annotation}
+    # Undefined as written or as the void operator over a number, the two spellings of the same value
+    nothing:
+        any:
+            - kind: undefined
+            - kind: unary_expression
+              all: [{has: {field: operator, regex: '^void$'}}, {has: {field: argument, kind: number}}]
+    # Expression answering null on one path, the literal, a ternary arm, the right operand of a logical operator, or one in parentheses
+    null-answer:
+        any:
+            - kind: 'null'
+            - kind: parenthesized_expression
+              has: {matches: null-answer}
+            - kind: ternary_expression
+              any: [{has: {field: consequence, matches: null-answer}}, {has: {field: alternative, matches: null-answer}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-answer}}]
+    # The same paths answering undefined
+    undefined-answer:
+        any:
+            - matches: nothing
+            - kind: parenthesized_expression
+              has: {matches: undefined-answer}
+            - kind: ternary_expression
+              any: [{has: {field: consequence, matches: undefined-answer}}, {has: {field: alternative, matches: undefined-answer}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-answer}}]
+    # Thunk passed to getOrElse inside the arguments of a store write, the JSON row of the store holds null for absence at that boundary alone
+    store-boundary-thunk:
+        kind: arrow_function
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, regex: '^getOrElse$'}
+                inside: {kind: arguments, stopBy: end, inside: {kind: call_expression, has: {field: function, regex: '^\$\.store\.set$'}}}
+rule:
+    # The store boundary thunk itself, or a return in its own body, the walk stops at the nearest function
+    not:
+        any:
+            - matches: store-boundary-thunk
+            - inside: {matches: store-boundary-thunk, stopBy: {matches: syntax-function-boundary}}
+    any:
+        # Null returned, or answered by an arrow body, null is the spelling of absence alone
+        - kind: return_statement
+          has: {matches: null-answer}
+        - kind: arrow_function
+          has: {field: body, matches: null-answer}
+        # Undefined returned under an annotation naming a value type, Biome noUselessUndefined reports the return under no annotation
+        - kind: return_statement
+          has: {matches: undefined-answer}
+          inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
+        # Undefined as the body of an arrow annotated with a value type, the type of an unannotated arrow comes from its site
+        - kind: arrow_function
+          all:
+              - has: {field: body, matches: undefined-answer}
+              - has: {field: return_type, matches: value-annotation}
+message: The function returns `null` or `undefined` to stand for absence
+note: Represent absence as an Option, `Option.fromNullable(value)` at the boundary and `Option.none()` inside, and read it through `Option.match`

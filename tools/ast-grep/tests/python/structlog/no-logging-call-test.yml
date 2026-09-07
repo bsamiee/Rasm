@@ -1,0 +1,44 @@
+id: no-logging-call
+valid:
+    # The corrected form, structlog configured once and its logger called
+    - |
+      import structlog
+
+      structlog.configure(processors=[structlog.processors.JSONRenderer()])
+      _log = structlog.get_logger(__name__)
+      _log.info("staged", path=str(path))
+    # Level constant of the module
+    - |
+      import logging
+
+      level = logging.INFO
+    # The handler type of the module, the structlog stdlib integration reads it
+    - |
+      from logging import Handler
+    # Attribute named like the member on another object
+    - |
+      log.info("staged")
+invalid:
+    # The instance, the configuration read as spelled
+    - |
+      import logging
+
+      logging.basicConfig(level=logging.INFO)
+    # The root logger call as spelled
+    - |
+      import logging
+
+      logging.info("staged")
+    # The logger factory as spelled
+    - |
+      import logging
+
+      log = logging.getLogger(__name__)
+    # The member imported from the module
+    - |
+      from logging import getLogger
+    # The exception level through the alias the import binds
+    - |
+      import logging as lg
+
+      lg.exception("failed")

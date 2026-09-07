@@ -1,0 +1,67 @@
+id: no-unknown-error-channel
+valid:
+    # The named failures
+    - 'const load = (path: string): Effect.Effect<Config, LoadError | ParseError> => decode(path);'
+    # No failure
+    - 'const load = (path: string): Effect.Effect<Config> => decode(path);'
+    # Never as the failure
+    - 'const load = (path: string): Effect.Effect<Config, never> => decode(path);'
+    # Unknown as the success
+    - 'const load = (path: string): Effect.Effect<unknown, LoadError> => decode(path);'
+    # Unknown as the requirement
+    - 'const load = (path: string): Effect.Effect<Config, LoadError, unknown> => decode(path);'
+    # Exit with an unknown failure, the Tracer.Span contract passes it
+    - 'const end = (exit: Exit.Exit<unknown, unknown>): void => record(exit);'
+    # Generic type outside the carrier set
+    - 'const rows: ReadonlyArray<unknown> = [];'
+    # Type parameter as the failure
+    - 'const load = <E>(work: Effect.Effect<Config, E>): Effect.Effect<Config, E> => work;'
+    # Channel holds its error past the second argument, the second is the input element
+    - 'const channel: Channel.Channel<Row, unknown> = make();'
+    # Cause holds its error first, and a Logger receives Cause<unknown> by contract
+    - 'const cause: Cause.Cause<unknown> = make();'
+    # FiberHandle defaults both arguments to unknown
+    - 'const handle: FiberHandle.FiberHandle<unknown, unknown> = make();'
+    # Sink holds its error fourth
+    - 'const sink: Sink.Sink<Row, unknown> = make();'
+invalid:
+    # The instance, unknown in the error channel
+    - 'const load = (path: string): Effect.Effect<Config, unknown> => decode(path);'
+    # Unknown beside a requirement
+    - 'const load = (path: string): Effect.Effect<Config, unknown, FileSystem> => decode(path);'
+    # Bare carrier name
+    - 'const load = (path: string): Effect<Config, unknown> => decode(path);'
+    # Micro sibling
+    - 'const load = (path: string): Micro.Micro<Config, unknown> => decode(path);'
+    # Stream sibling
+    - 'const rows: Stream.Stream<Row, unknown> = read(path);'
+    # Layer sibling
+    - 'const live: Layer.Layer<Service, unknown> = make();'
+    # Either sibling, the left channel
+    - 'const decoded: Either.Either<Config, unknown> = parse(raw);'
+    # Unknown in a type alias
+    - 'type Loaded = Effect.Effect<Config, unknown>;'
+    # Unknown in a parameter type
+    - 'const run = (work: Effect.Effect<Config, unknown>): void => start(work);'
+    # STM sibling
+    - 'const transaction: STM.STM<Row, unknown> = read(path);'
+    # Fiber sibling
+    - 'const fiber: Fiber.Fiber<Row, unknown> = fork(path);'
+    # Runtime fiber
+    - 'const fiber: Fiber.RuntimeFiber<Row, unknown> = fork(path);'
+    # Bare runtime fiber name
+    - 'const fiber: RuntimeFiber<Row, unknown> = fork(path);'
+    # Deferred sibling
+    - 'const deferred: Deferred.Deferred<Row, unknown> = make();'
+    # Take sibling
+    - 'const take: Take.Take<Row, unknown> = make();'
+    # Pool sibling
+    - 'const pool: Pool.Pool<Row, unknown> = make();'
+    # Resource sibling
+    - 'const resource: Resource.Resource<Row, unknown> = make();'
+    # Request sibling
+    - 'const request: Request.Request<Row, unknown> = make();'
+    # Mailbox sibling
+    - 'const mailbox: Mailbox.Mailbox<Row, unknown> = make();'
+    # ManagedRuntime, the error sits second after the requirements
+    - 'const runtime: ManagedRuntime.ManagedRuntime<Services, unknown> = make();'

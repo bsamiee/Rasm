@@ -1,0 +1,34 @@
+id: no-type-alias
+snapshots:
+  ? |
+    from typing import TypeAlias
+  : labels:
+    - source: TypeAlias
+      style: primary
+      start: 19
+      end: 28
+  ? |
+    from typing_extensions import TypeAlias
+  : labels:
+    - source: TypeAlias
+      style: primary
+      start: 30
+      end: 39
+  ? |
+    import typing
+
+    Schema: typing.TypeAlias = dict[str, object]
+  : labels:
+    - source: typing.TypeAlias
+      style: primary
+      start: 23
+      end: 39
+  ? |
+    import typing as t
+
+    Schema: t.TypeAlias = dict[str, object]
+  : labels:
+    - source: t.TypeAlias
+      style: primary
+      start: 28
+      end: 39

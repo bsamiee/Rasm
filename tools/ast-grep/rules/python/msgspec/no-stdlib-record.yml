@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-stdlib-record
+language: python
+severity: error
+rule:
+    any:
+        # The factory of collections, the base of typing, and the decorator and factory of dataclasses, each under its own module
+        - matches: {python-module-member: {module: {regex: '^collections$'}, name: {regex: '^namedtuple$', pattern: $NAME}}}
+        - matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^NamedTuple$', pattern: $NAME}}}
+        - matches: {python-module-member: {module: {regex: '^dataclasses$'}, name: {regex: '^(dataclass|make_dataclass)$', pattern: $NAME}}}
+message: '`$NAME` declares a record without runtime validation'
+note: Declare the record as `class <Name>(msgspec.Struct, frozen=True)` with its fields, or `pydantic.BaseModel(frozen=True)` at a validated boundary

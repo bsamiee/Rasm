@@ -1,0 +1,497 @@
+id: no-text-tool-after-jq
+snapshots:
+  ? |
+    jq -c . f | cut -d, -f1
+  : labels:
+    - source: cut -d, -f1
+      style: primary
+      start: 12
+      end: 23
+    - source: cut
+      style: secondary
+      start: 12
+      end: 15
+    - source: jq -c . f | cut -d, -f1
+      style: secondary
+      start: 0
+      end: 23
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -c . f
+      style: secondary
+      start: 0
+      end: 9
+  ? |
+    jq -r '.[]' f | grep -q x && exit 1
+  : labels:
+    - source: grep -q x
+      style: primary
+      start: 16
+      end: 25
+    - source: grep
+      style: secondary
+      start: 16
+      end: 20
+    - source: jq -r '.[]' f | grep -q x
+      style: secondary
+      start: 0
+      end: 25
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' f
+      style: secondary
+      start: 0
+      end: 13
+  ? |
+    jq -r '.[]' rules.json | egrep '^no-'
+  : labels:
+    - source: egrep '^no-'
+      style: primary
+      start: 25
+      end: 37
+    - source: egrep
+      style: secondary
+      start: 25
+      end: 30
+    - source: jq -r '.[]' rules.json | egrep '^no-'
+      style: secondary
+      start: 0
+      end: 37
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' rules.json
+      style: secondary
+      start: 0
+      end: 22
+  ? |
+    jq -r '.[]' rules.json | nl
+  : labels:
+    - source: nl
+      style: primary
+      start: 25
+      end: 27
+    - source: nl
+      style: secondary
+      start: 25
+      end: 27
+    - source: jq -r '.[]' rules.json | nl
+      style: secondary
+      start: 0
+      end: 27
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' rules.json
+      style: secondary
+      start: 0
+      end: 22
+  ? |
+    jq -r '.[]' rules.json | paste -sd, -
+  : labels:
+    - source: paste -sd, -
+      style: primary
+      start: 25
+      end: 37
+    - source: paste
+      style: secondary
+      start: 25
+      end: 30
+    - source: jq -r '.[]' rules.json | paste -sd, -
+      style: secondary
+      start: 0
+      end: 37
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' rules.json
+      style: secondary
+      start: 0
+      end: 22
+  ? |
+    jq -r '.[]' rules.json | rev
+  : labels:
+    - source: rev
+      style: primary
+      start: 25
+      end: 28
+    - source: rev
+      style: secondary
+      start: 25
+      end: 28
+    - source: jq -r '.[]' rules.json | rev
+      style: secondary
+      start: 0
+      end: 28
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' rules.json
+      style: secondary
+      start: 0
+      end: 22
+  ? |
+    jq -r '.[]' rules.json | tac
+  : labels:
+    - source: tac
+      style: primary
+      start: 25
+      end: 28
+    - source: tac
+      style: secondary
+      start: 25
+      end: 28
+    - source: jq -r '.[]' rules.json | tac
+      style: secondary
+      start: 0
+      end: 28
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' rules.json
+      style: secondary
+      start: 0
+      end: 22
+  ? |
+    jq -r '.[]' rules.json | wc -l
+  : labels:
+    - source: wc -l
+      style: primary
+      start: 25
+      end: 30
+    - source: wc
+      style: secondary
+      start: 25
+      end: 27
+    - source: jq -r '.[]' rules.json | wc -l
+      style: secondary
+      start: 0
+      end: 30
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[]' rules.json
+      style: secondary
+      start: 0
+      end: 22
+  ? |
+    jq -r '.[].id' rules.json 2>/dev/null | sort
+  : labels:
+    - source: sort
+      style: primary
+      start: 40
+      end: 44
+    - source: sort
+      style: secondary
+      start: 40
+      end: 44
+    - source: jq -r '.[].id' rules.json 2>/dev/null | sort
+      style: secondary
+      start: 0
+      end: 44
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+    - source: jq -r '.[].id' rules.json 2>/dev/null
+      style: secondary
+      start: 0
+      end: 37
+  ? |
+    jq -r '.[].id' rules.json | cat 2>/dev/null | sort
+  : labels:
+    - source: sort
+      style: primary
+      start: 46
+      end: 50
+    - source: sort
+      style: secondary
+      start: 46
+      end: 50
+    - source: jq -r '.[].id' rules.json | cat 2>/dev/null | sort
+      style: secondary
+      start: 0
+      end: 50
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+    - source: jq -r '.[].id' rules.json | cat
+      style: secondary
+      start: 0
+      end: 31
+    - source: jq -r '.[].id' rules.json | cat 2>/dev/null
+      style: secondary
+      start: 0
+      end: 43
+  ? |
+    jq -r '.[].id' rules.json | cat | sort
+  : labels:
+    - source: sort
+      style: primary
+      start: 34
+      end: 38
+    - source: sort
+      style: secondary
+      start: 34
+      end: 38
+    - source: jq -r '.[].id' rules.json | cat | sort
+      style: secondary
+      start: 0
+      end: 38
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+  ? |
+    jq -r '.[].id' rules.json | cat | sort 2>/dev/null | head -1
+  : labels:
+    - source: sort
+      style: primary
+      start: 34
+      end: 38
+    - source: sort
+      style: secondary
+      start: 34
+      end: 38
+    - source: jq -r '.[].id' rules.json | cat | sort
+      style: secondary
+      start: 0
+      end: 38
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+  ? |
+    jq -r '.[].id' rules.json | rg '^no-'
+  : labels:
+    - source: rg '^no-'
+      style: primary
+      start: 28
+      end: 37
+    - source: rg
+      style: secondary
+      start: 28
+      end: 30
+    - source: jq -r '.[].id' rules.json | rg '^no-'
+      style: secondary
+      start: 0
+      end: 37
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+  ? |
+    jq -r '.[].id' rules.json | sort 2>/dev/null | head -1
+  : labels:
+    - source: sort
+      style: primary
+      start: 28
+      end: 32
+    - source: sort
+      style: secondary
+      start: 28
+      end: 32
+    - source: jq -r '.[].id' rules.json | sort
+      style: secondary
+      start: 0
+      end: 32
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+  ? |
+    jq -r '.[].id' rules.json | sort >ids.txt
+  : labels:
+    - source: sort
+      style: primary
+      start: 28
+      end: 32
+    - source: sort
+      style: secondary
+      start: 28
+      end: 32
+    - source: jq -r '.[].id' rules.json | sort
+      style: secondary
+      start: 0
+      end: 32
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.[].id' rules.json
+      style: secondary
+      start: 0
+      end: 25
+  ? |
+    jq -r '.language' rule.yml | tr '[:upper:]' '[:lower:]'
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]'
+      style: primary
+      start: 29
+      end: 55
+    - source: tr
+      style: secondary
+      start: 29
+      end: 31
+    - source: jq -r '.language' rule.yml | tr '[:upper:]' '[:lower:]'
+      style: secondary
+      start: 0
+      end: 55
+    - source: jq
+      style: secondary
+      start: 0
+      end: 2
+    - source: jq -r '.language' rule.yml
+      style: secondary
+      start: 0
+      end: 26
+  ? |
+    sort ids.txt | jq -R . | wc -l
+  : labels:
+    - source: wc -l
+      style: primary
+      start: 25
+      end: 30
+    - source: wc
+      style: secondary
+      start: 25
+      end: 27
+    - source: sort ids.txt | jq -R . | wc -l
+      style: secondary
+      start: 0
+      end: 30
+    - source: jq
+      style: secondary
+      start: 15
+      end: 17
+    - source: jq -R .
+      style: secondary
+      start: 15
+      end: 22
+  ? |
+    x=$(jq -r '.n' f | tr -d '\n')
+  : labels:
+    - source: tr -d '\n'
+      style: primary
+      start: 19
+      end: 29
+    - source: tr
+      style: secondary
+      start: 19
+      end: 21
+    - source: jq -r '.n' f | tr -d '\n'
+      style: secondary
+      start: 4
+      end: 29
+    - source: jq
+      style: secondary
+      start: 4
+      end: 6
+    - source: jq -r '.n' f
+      style: secondary
+      start: 4
+      end: 16
+  ? |
+    yq '.a' f.yml | awk '{print $1}'
+  : labels:
+    - source: awk '{print $1}'
+      style: primary
+      start: 16
+      end: 32
+    - source: awk
+      style: secondary
+      start: 16
+      end: 19
+    - source: yq '.a' f.yml | awk '{print $1}'
+      style: secondary
+      start: 0
+      end: 32
+    - source: yq
+      style: secondary
+      start: 0
+      end: 2
+    - source: yq '.a' f.yml
+      style: secondary
+      start: 0
+      end: 13
+  ? |
+    yq -o=json -I=0 "$arms" "$rule" | jq -c "$paths" | sort -u
+  : labels:
+    - source: sort -u
+      style: primary
+      start: 51
+      end: 58
+    - source: sort
+      style: secondary
+      start: 51
+      end: 55
+    - source: yq -o=json -I=0 "$arms" "$rule" | jq -c "$paths" | sort -u
+      style: secondary
+      start: 0
+      end: 58
+    - source: jq
+      style: secondary
+      start: 34
+      end: 36
+    - source: jq -c "$paths"
+      style: secondary
+      start: 34
+      end: 48
+  ? |
+    yq -r '.ruleDirs[]' sgconfig.yml | head -1
+  : labels:
+    - source: head -1
+      style: primary
+      start: 35
+      end: 42
+    - source: head
+      style: secondary
+      start: 35
+      end: 39
+    - source: yq -r '.ruleDirs[]' sgconfig.yml | head -1
+      style: secondary
+      start: 0
+      end: 42
+    - source: yq
+      style: secondary
+      start: 0
+      end: 2
+    - source: yq -r '.ruleDirs[]' sgconfig.yml
+      style: secondary
+      start: 0
+      end: 32

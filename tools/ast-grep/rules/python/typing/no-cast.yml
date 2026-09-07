@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-cast
+language: python
+severity: error
+rule:
+    matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^cast$', pattern: $NAME}}}
+message: '`$NAME` asserts a type the checker has no evidence for'
+note: Narrow through `TypeIs`, a validated adapter, or a `match` pattern

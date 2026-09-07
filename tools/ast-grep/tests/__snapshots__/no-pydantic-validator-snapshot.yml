@@ -1,0 +1,38 @@
+id: no-pydantic-validator
+snapshots:
+  ? |
+    from pydantic import root_validator
+  : labels:
+    - source: root_validator
+      style: primary
+      start: 21
+      end: 35
+  ? |
+    from pydantic import validator
+  : labels:
+    - source: validator
+      style: primary
+      start: 21
+      end: 30
+  ? |
+    import pydantic
+
+    @pydantic.validator("port")
+    def positive(cls, value):
+        return value
+  : labels:
+    - source: pydantic.validator
+      style: primary
+      start: 18
+      end: 36
+  ? |
+    import pydantic as pd
+
+    @pd.root_validator
+    def whole(cls, values):
+        return values
+  : labels:
+    - source: pd.root_validator
+      style: primary
+      start: 24
+      end: 41

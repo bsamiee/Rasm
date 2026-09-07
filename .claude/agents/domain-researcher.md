@@ -52,7 +52,7 @@ Every finding names the command that gathered it:
 |  [11]   | One raw file           | `gh api "repos/<owner>/<repo>/contents/<path>" -H "Accept: application/vnd.github.raw"`               |
 |  [12]   | Whole repository       | `git clone --depth 1 https://github.com/<owner>/<repo>.git <dir>` under `repos/`                      |
 |  [13]   | Guides and talks       | `exa` MCP `web_search_exa` for discovery, then `tvly extract <url> -o <file>` to disk                 |
-|  [14]   | A disputed behavior    | A scratch project, one configuration, a rule, an input, the command, `echo $?`                        |
+|  [14]   | Disputed behavior      | Scratch project, one configuration, a rule, an input, the command, `echo $?`                          |
 
 `tvly crawl` and `tvly extract` take `--extract-depth advanced`, `get_discussion_comments` takes `includeReplies` true, `search_code` takes `perPage` up to 60 with `fields` limited to the path and the repository, and `get_repository_tree` takes `path_filter` for one subtree.
 </sources>
@@ -95,19 +95,19 @@ Every run passes each check:
 </gate>
 
 <anti_patterns>
-| [INDEX] | [SMELL]                                             | [CORRECT_FORM]                                                |
-| :-----: | :-------------------------------------------------- | :------------------------------------------------------------ |
-|  [01]   | Claim landed from one page with no rank             | The source rank, a probe when the page is the only source     |
-|  [02]   | Disagreement decided by reading                     | The scratch project, the command, the exit code               |
-|  [03]   | Bulk page or repository content pulled into context | `--output-dir` and `gh api` to disk, the findings file read   |
-|  [04]   | Gathering through a fork or a Fable agent           | `opus` general-purpose gatherers, one source kind each        |
-|  [05]   | Gathering a source an existing archive holds        | The findings files first, the new gathering aimed at the gaps |
-|  [06]   | Earlier research left wrong beside a new fact       | The correction written into the findings file that holds it   |
-|  [07]   | Whole-file rewrite in one write                     | One section at a time, read between edits                     |
-|  [08]   | Rebuild landed without the history read             | `git log -p`, each dropped criterion and flag restored        |
-|  [09]   | Findings file as a narrative of the run             | One heading per capability, one fact and one source per line  |
-|  [10]   | Version marker or "since" in a target line          | The behavior of the installed release as a fact               |
-|  [11]   | Coupling to one repository's paths in a target      | Placeholder paths, the packages as vocabulary                 |
+| [INDEX] | [SMELL]                                             | [CORRECT_FORM]                                               |
+| :-----: | :-------------------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | Claim landed from one page with no rank             | Source rank, a probe when the page is the only source        |
+|  [02]   | Disagreement decided by reading                     | Scratch project, command, exit code                          |
+|  [03]   | Bulk page or repository content pulled into context | `--output-dir` and `gh api` to disk, the findings file read  |
+|  [04]   | Gathering through a fork or a Fable agent           | `opus` general-purpose gatherers, one source kind each       |
+|  [05]   | Gathering a source an existing archive holds        | Findings files first, new gathering aimed at the gaps        |
+|  [06]   | Earlier research left wrong beside a new fact       | Correction written into the findings file that holds it      |
+|  [07]   | Whole-file rewrite in one write                     | One section at a time, read between edits                    |
+|  [08]   | Rebuild landed without the history read             | `git log -p`, each dropped criterion and flag restored       |
+|  [09]   | Findings file as a narrative of the run             | One heading per capability, one fact and one source per line |
+|  [10]   | Version marker or "since" in a target line          | Behavior of the installed release as a fact                  |
+|  [11]   | Coupling to one repository's paths in a target      | Placeholder paths, the packages as vocabulary                |
 </anti_patterns>
 
 <output_contract>

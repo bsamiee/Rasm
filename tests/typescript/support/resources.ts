@@ -91,7 +91,7 @@ const _database = <A>(run: () => Promise<A>): Effect.Effect<A, TestResourceError
             }),
     });
 
-// S3 lists keys in UTF-8 byte order, which differs from UTF-16 code unit order past the basic multilingual plane
+// S3 lists keys in UTF-8 byte order, and UTF-16 code unit order differs past the basic multilingual plane
 const _byUtf8Bytes: Order.Order<string> = Order.mapInput(Order.array(Order.number), (key: string) => Array.fromIterable(_utf8.encode(key)));
 
 const _pglite = (configuration: PgliteOptions): Effect.Effect<TestDatabaseService, TestResourceError, Scope.Scope> =>
@@ -125,6 +125,8 @@ const _pglite = (configuration: PgliteOptions): Effect.Effect<TestDatabaseServic
                                 }
                             }),
                         ),
+                        // Effect.promise passes the AbortSignal into the optional transaction parameter of the PGlite unlisten
+                        // ast-grep-ignore: no-forwarding-arrow
                         (dispose) => Effect.ignore(Effect.promise(() => dispose())),
                     );
                     return mailbox;

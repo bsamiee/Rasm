@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-socket-module
+language: python
+severity: error
+rule:
+    matches: {python-module-member: {module: {regex: '^socket$'}, name: {regex: '^(socket|create_connection|create_server)$', pattern: $NAME}}}
+message: '`socket.$NAME` opens a raw socket without a deadline'
+note: >-
+    Connect through `anyio.connect_tcp(<host>, <port>)` or serve through `anyio.create_tcp_listener(local_port=<port>)`
+    under a cancel scope, and send HTTP through httpx

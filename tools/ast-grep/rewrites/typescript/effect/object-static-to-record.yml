@@ -47,5 +47,5 @@ rewriters:
 transform:
     NEW_P: rewrite($P, rewriters=[record-import, record-call]) # No joinBy, the rewritten nodes splice back into the program text
 fix: $NEW_P
-message: Record members are read through the global Object and the effect Record module owns the typed form
+message: Record members are read through the global Object, the effect Record module types the reads
 note: Read a record through `Record.keys`, `Record.values`, `Record.toEntries`, and `Record.fromEntries` from the effect package

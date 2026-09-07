@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discarding-catch-all
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    any:
+        # Handler answering a lifted value on the carriers that export orElseSucceed, the void handler keeps the success value beside
+        # the void and the sibling no-discarding-cause-handler reports it
+        - all:
+              - has: {field: function, regex: '^(Effect|Micro|STM|Stream)\.(catchAll|orElse)$'}
+              - has: {field: arguments, has: {matches: {effect-constant-handler: {answer: {pattern: $_.succeed($_)}}}}}
+        # Handler answering a constant failure on the carriers that export orElseFail, Micro renames its failure through mapError
+        - all:
+              - has: {field: function, regex: '^(Effect|STM|Stream)\.(catchAll|orElse)$'}
+              - has: {field: arguments, has: {matches: {effect-constant-handler: {answer: {pattern: $_.fail($_)}}}}}
+rewriters:
+    # The constant as the handler's answer, the handler text keeps its block or expression form
+    - id: unlift-object # Object literal as an arrow body takes parentheses, the braces read as a block otherwise
+      rule: {pattern: $_.$_($V), has: {field: arguments, has: {kind: object}}}
+      fix: ($V)
+    - id: unlift
+      rule: {pattern: $_.$_($V)}
+      fix: $V
+    # The member the handler's constructor selects, orElseSucceed for succeed and orElseFail for fail, each overload its own rewriter
+    - id: succeed-first
+      rule: {pattern: '$M.$_($SELF, $H)', has: {field: arguments, has: {pattern: $H, has: {stopBy: end, pattern: $_.succeed($_)}}}}
+      transform:
+          FALLBACK: rewrite($H, rewriters=[unlift-object, unlift])
+      fix: $M.orElseSucceed($SELF, $FALLBACK)
+    - id: succeed-last
+      rule: {pattern: $M.$_($H), has: {field: arguments, has: {pattern: $H, has: {stopBy: end, pattern: $_.succeed($_)}}}}
+      transform:
+          FALLBACK: rewrite($H, rewriters=[unlift-object, unlift])
+      fix: $M.orElseSucceed($FALLBACK)
+    - id: fail-first
+      rule: {pattern: '$M.$_($SELF, $H)'}
+      transform:
+          FALLBACK: rewrite($H, rewriters=[unlift-object, unlift])
+      fix: $M.orElseFail($SELF, $FALLBACK)
+    - id: fail-last
+      rule: {pattern: $M.$_($H)}
+      transform:
+          FALLBACK: rewrite($H, rewriters=[unlift-object, unlift])
+      fix: $M.orElseFail($FALLBACK)
+transform:
+    RECOVERED: rewrite($CALL, rewriters=[succeed-first, succeed-last, fail-first, fail-last])
+fix: $RECOVERED
+message: The handler discards every typed failure and answers a constant, the fallback the carrier states in one member
+note: >-
+    State the fallback in one member, `Effect.orElseSucceed(effect, () => value)` for a value and `Effect.orElseFail(effect, () => error)`
+    for a failure, and recover a named failure by its tag with `Effect.catchTag` or `Effect.catchTags`

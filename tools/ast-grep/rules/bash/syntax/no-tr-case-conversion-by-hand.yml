@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-tr-case-conversion-by-hand
+language: bash
+severity: error
+utils:
+    parameter: {matches: {bash-parameter-string: {name: {any: [{kind: variable_name}, {kind: subscript}]}}}}
+    conversion: {matches: {bash-case-conversion: {target: {any: [{kind: raw_string}, {kind: string}, {kind: word}]}}}} # The class quoted or bare
+    # The forms no-tr-case-conversion rewrites, one parameter into the conversion inside a command substitution
+    rewritten-input:
+        any:
+            - kind: pipeline
+              all:
+                  - has: {matches: {bash-parameter-writer: {value: {matches: parameter}}}}
+                  - not: {has: {nthChild: 3}}
+            - has:
+                  field: redirect
+                  kind: herestring_redirect
+                  has: {matches: {bash-parameter: {name: {any: [{kind: variable_name}, {kind: subscript}]}}}}
+rule:
+    matches: conversion
+    pattern: $STAGE
+    not:
+        any:
+            - all: # The last stage of the two-stage pipeline
+                  - nthChild: {position: 1, reverse: true}
+                  - inside: {matches: rewritten-input, inside: {kind: command_substitution}}
+            - all: [{matches: rewritten-input}, {inside: {kind: command_substitution}}]
+message: '`$STAGE` forks a process to change the case of its input'
+note: 'Bind the input once and convert by expansion, `${<name>,,}` for lower and `${<name>^^}` for upper, at the site that reads it'

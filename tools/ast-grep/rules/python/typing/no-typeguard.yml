@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-typeguard
+language: python
+severity: error
+rule:
+    matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^TypeGuard$', pattern: $NAME}}}
+message: '`$NAME` narrows the positive branch alone'
+note: Return `TypeIs[<type>]`, it narrows both branches

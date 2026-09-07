@@ -1,0 +1,310 @@
+id: no-echo-of-expansion
+snapshots:
+  echo "$#":
+    fixed: printf '%s\n' "$#"
+    labels:
+    - source: echo "$#"
+      style: primary
+      start: 0
+      end: 9
+    - source: '"$#"'
+      style: secondary
+      start: 5
+      end: 9
+  echo "$((1 + 2))":
+    fixed: printf '%s\n' "$((1 + 2))"
+    labels:
+    - source: echo "$((1 + 2))"
+      style: primary
+      start: 0
+      end: 17
+    - source: '"$((1 + 2))"'
+      style: secondary
+      start: 5
+      end: 17
+  echo "$(cmd)":
+    fixed: printf '%s\n' "$(cmd)"
+    labels:
+    - source: echo "$(cmd)"
+      style: primary
+      start: 0
+      end: 13
+    - source: '"$(cmd)"'
+      style: secondary
+      start: 5
+      end: 13
+  echo "$a" -n:
+    fixed: printf '%s %s\n' "$a" -n
+    labels:
+    - source: echo "$a" -n
+      style: primary
+      start: 0
+      end: 12
+    - source: '"$a"'
+      style: secondary
+      start: 5
+      end: 9
+  echo "$x" >&2:
+    fixed: printf '%s\n' "$x" >&2
+    labels:
+    - source: echo "$x"
+      style: primary
+      start: 0
+      end: 9
+    - source: '"$x"'
+      style: secondary
+      start: 5
+      end: 9
+  echo "$x"y:
+    fixed: printf '%s\n' "$x"y
+    labels:
+    - source: echo "$x"y
+      style: primary
+      start: 0
+      end: 10
+    - source: '"$x"y'
+      style: secondary
+      start: 5
+      end: 10
+  echo "${#arr[@]}":
+    fixed: printf '%s\n' "${#arr[@]}"
+    labels:
+    - source: echo "${#arr[@]}"
+      style: primary
+      start: 0
+      end: 17
+    - source: '"${#arr[@]}"'
+      style: secondary
+      start: 5
+      end: 17
+  echo "${arr[0]}":
+    fixed: printf '%s\n' "${arr[0]}"
+    labels:
+    - source: echo "${arr[0]}"
+      style: primary
+      start: 0
+      end: 16
+    - source: '"${arr[0]}"'
+      style: secondary
+      start: 5
+      end: 16
+  echo "${x:-none}":
+    fixed: printf '%s\n' "${x:-none}"
+    labels:
+    - source: echo "${x:-none}"
+      style: primary
+      start: 0
+      end: 17
+    - source: '"${x:-none}"'
+      style: secondary
+      start: 5
+      end: 17
+  echo "sgconfig.yml not found in $PWD":
+    fixed: printf '%s\n' "sgconfig.yml not found in $PWD"
+    labels:
+    - source: echo "sgconfig.yml not found in $PWD"
+      style: primary
+      start: 0
+      end: 37
+    - source: '"sgconfig.yml not found in $PWD"'
+      style: secondary
+      start: 5
+      end: 37
+  echo $((1 + 2)):
+    fixed: printf '%s\n' $((1 + 2))
+    labels:
+    - source: echo $((1 + 2))
+      style: primary
+      start: 0
+      end: 15
+    - source: $((1 + 2))
+      style: secondary
+      start: 5
+      end: 15
+  echo $(cmd):
+    fixed: printf '%s\n' $(cmd)
+    labels:
+    - source: echo $(cmd)
+      style: primary
+      start: 0
+      end: 11
+    - source: $(cmd)
+      style: secondary
+      start: 5
+      end: 11
+  echo $x:
+    fixed: printf '%s\n' $x
+    labels:
+    - source: echo $x
+      style: primary
+      start: 0
+      end: 7
+    - source: $x
+      style: secondary
+      start: 5
+      end: 7
+  echo ${x:-d}:
+    fixed: printf '%s\n' ${x:-d}
+    labels:
+    - source: echo ${x:-d}
+      style: primary
+      start: 0
+      end: 12
+    - source: ${x:-d}
+      style: secondary
+      start: 5
+      end: 12
+  echo -- "$x":
+    fixed: printf '%s %s\n' -- "$x"
+    labels:
+    - source: echo -- "$x"
+      style: primary
+      start: 0
+      end: 12
+    - source: '"$x"'
+      style: secondary
+      start: 8
+      end: 12
+  echo -E "$z":
+    fixed: printf '%s\n' "$z"
+    labels:
+    - source: echo -E "$z"
+      style: primary
+      start: 0
+      end: 12
+    - source: '"$z"'
+      style: secondary
+      start: 8
+      end: 12
+  echo -E -e "$x":
+    fixed: printf '%b\n' "$x"
+    labels:
+    - source: echo -E -e "$x"
+      style: primary
+      start: 0
+      end: 15
+    - source: '"$x"'
+      style: secondary
+      start: 11
+      end: 15
+  echo -e "$z":
+    fixed: printf '%b\n' "$z"
+    labels:
+    - source: echo -e "$z"
+      style: primary
+      start: 0
+      end: 12
+    - source: '"$z"'
+      style: secondary
+      start: 8
+      end: 12
+  echo -e -n "$x":
+    fixed: printf '%b' "$x"
+    labels:
+    - source: echo -e -n "$x"
+      style: primary
+      start: 0
+      end: 15
+    - source: '"$x"'
+      style: secondary
+      start: 11
+      end: 15
+  echo -e -n -E "$x":
+    fixed: printf '%s' "$x"
+    labels:
+    - source: echo -e -n -E "$x"
+      style: primary
+      start: 0
+      end: 18
+    - source: '"$x"'
+      style: secondary
+      start: 14
+      end: 18
+  echo -eE "$x":
+    fixed: printf '%s\n' "$x"
+    labels:
+    - source: echo -eE "$x"
+      style: primary
+      start: 0
+      end: 13
+    - source: '"$x"'
+      style: secondary
+      start: 9
+      end: 13
+  echo -n "$y":
+    fixed: printf '%s' "$y"
+    labels:
+    - source: echo -n "$y"
+      style: primary
+      start: 0
+      end: 12
+    - source: '"$y"'
+      style: secondary
+      start: 8
+      end: 12
+  echo -n -e "$x":
+    fixed: printf '%b' "$x"
+    labels:
+    - source: echo -n -e "$x"
+      style: primary
+      start: 0
+      end: 15
+    - source: '"$x"'
+      style: secondary
+      start: 11
+      end: 15
+  echo -n text "$y":
+    fixed: printf '%s %s' text "$y"
+    labels:
+    - source: echo -n text "$y"
+      style: primary
+      start: 0
+      end: 17
+    - source: '"$y"'
+      style: secondary
+      start: 13
+      end: 17
+  echo -ne "$z" "$w":
+    fixed: printf '%b %b' "$z" "$w"
+    labels:
+    - source: echo -ne "$z" "$w"
+      style: primary
+      start: 0
+      end: 18
+    - source: '"$z"'
+      style: secondary
+      start: 9
+      end: 13
+  echo -neE "$x":
+    fixed: printf '%s' "$x"
+    labels:
+    - source: echo -neE "$x"
+      style: primary
+      start: 0
+      end: 14
+    - source: '"$x"'
+      style: secondary
+      start: 10
+      end: 14
+  echo a$x:
+    fixed: printf '%s\n' a$x
+    labels:
+    - source: echo a$x
+      style: primary
+      start: 0
+      end: 8
+    - source: a$x
+      style: secondary
+      start: 5
+      end: 8
+  echo text "$y":
+    fixed: printf '%s %s\n' text "$y"
+    labels:
+    - source: echo text "$y"
+      style: primary
+      start: 0
+      end: 14
+    - source: '"$y"'
+      style: secondary
+      start: 10
+      end: 14

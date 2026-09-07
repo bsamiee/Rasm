@@ -23,13 +23,13 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [03]   | `AfterTargets="ResolvePackageAssets"`         | After the assets file is read          | `@(RuntimeCopyLocalItems)`, native items    |
 |  [04]   | `AfterTargets="ResolveProjectReferences"`     | After every `ProjectReference` built   | `@(_ResolvedProjectReferencePaths)`         |
 |  [05]   | `AfterTargets="ResolveAssemblyReferences"`    | After the reference closure            | `@(ReferencePath)`, copy-local paths        |
-|  [06]   | `AfterTargets="ResolveReferences"`            | After `AfterResolveReferences`         | The complete reference set                  |
+|  [06]   | `AfterTargets="ResolveReferences"`            | After `AfterResolveReferences`         | Complete reference set                      |
 |  [07]   | `BeforeTargets="AssignTargetPaths"`           | Before `TargetPath` is assigned        | Last point to add a copied or embedded item |
 |  [08]   | `AfterTargets="AssignTargetPaths"`            | After `TargetPath` is assigned         | `@(ContentWithTargetPath)`                  |
 |  [09]   | `BeforeTargets="CoreCompile"`                 | Before the compiler, design-time too   | `@(Compile)`, reference assemblies          |
 |  [10]   | `AfterTargets="CoreCompile"`                  | After the compiler, unless up to date  | `@(IntermediateAssembly)`                   |
-|  [11]   | `AfterTargets="Compile"`                      | After `AfterCompile`                   | The intermediate assembly                   |
-|  [12]   | `BeforeTargets="GenerateBuildDependencyFile"` | Before `deps.json` is written          | The resolved copy-local items               |
+|  [11]   | `AfterTargets="Compile"`                      | After `AfterCompile`                   | Intermediate assembly                       |
+|  [12]   | `BeforeTargets="GenerateBuildDependencyFile"` | Before `deps.json` is written          | Resolved copy-local items                   |
 |  [13]   | `AfterTargets="CopyFilesToOutputDirectory"`   | After every copy into `$(OutDir)`      | `$(TargetPath)`, `@(FileWrites)` recorded   |
 |  [14]   | `BeforeTargets="IncrementalClean"`            | Before `PostBuildEvent`                | `@(FileWrites)` complete                    |
 |  [15]   | `AfterTargets="Build"`                        | After `AfterBuild`                     | `$(TargetPath)`, `@(InnerOutput)` outer     |
@@ -47,7 +47,7 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [01]   | `AfterTargets="PrepareForPublish"`                  | After the publish options check     | `$(PublishDir)`, `$(_IsPublishing)`        |
 |  [02]   | `BeforeTargets="ComputeResolvedFilesToPublishList"` | Before the list is computed         | `@(ReferenceCopyLocalPaths)`               |
 |  [03]   | `AfterTargets="ComputeFilesToPublish"`              | After the list, before the copy     | `@(ResolvedFileToPublish)`, `RelativePath` |
-|  [04]   | `AfterTargets="CopyFilesToPublishDirectory"`        | After every copy to `$(PublishDir)` | The publish directory                      |
+|  [04]   | `AfterTargets="CopyFilesToPublishDirectory"`        | After every copy to `$(PublishDir)` | Publish directory                          |
 |  [05]   | `AfterTargets="Publish"`                            | After `PublishItemsOutputGroup`     | `@(PublishItemsOutputGroupOutputs)`        |
 
 - `_ResolveCopyLocalAssetsForPublish` fills `_ResolvedCopyLocalPublishAssets` from `@(_ResolvedCopyLocalBuildAssets)` with `CopyToPublishDirectory` not `false`, and a native item added to `@(NativeCopyLocalItems)` publishes without a second hook

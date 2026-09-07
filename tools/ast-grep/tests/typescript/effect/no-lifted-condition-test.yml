@@ -24,6 +24,12 @@ valid:
     # Effect.filter keeps the elements with an effect that yields true, the elements are the conditions and no value is guarded
     - |
       Effect.filter(checks, identity)
+    # Negation of another name, the predicate reads no argument
+    - |
+      Option.liftPredicate(name, (held) => !other)
+    # Unary minus over the argument yields a number, no negation
+    - |
+      Option.liftPredicate(count, (held) => -held)
 invalid:
     # The instance, a boolean lifted to stand for presence
     - |
@@ -46,3 +52,12 @@ invalid:
     # Array sibling, the data-last lift applied to the boolean
     - |
       Array.liftPredicate(identity)(production)
+    # The negated boolean lifted through Boolean.not
+    - |
+      Option.liftPredicate(hidden, Boolean.not)
+    # Negation spelled as an arrow
+    - |
+      Option.liftPredicate(hidden, (held) => !held)
+    # Effect sibling under the negation
+    - |
+      Effect.liftPredicate(hidden, (held) => !held, () => error)

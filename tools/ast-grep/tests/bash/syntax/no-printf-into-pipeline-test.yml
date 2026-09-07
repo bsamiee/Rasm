@@ -1,0 +1,104 @@
+id: no-printf-into-pipeline
+valid:
+    # The here string
+    - |
+      while IFS= read -r line; do finding "$line"; done <<<"$out"
+    # Two parameters written
+    - |
+      printf '%s\n' "$first" "$second" | sort
+    # An array written
+    - |
+      printf '%s\n' "${names[@]}" | sort
+    # A literal written
+    - |
+      printf 'x\n' | cat
+    # A third stage
+    - |
+      printf '%s\n' "$out" | rg FAIL | head -1
+    # A format beside the parameter
+    - |
+      printf 'id=%s\n' "$id" | cat
+    # printf of a here document
+    - |
+      cat <<EOF | jq .
+      $body
+      EOF
+    # A command's output piped
+    - |
+      cmd | rg FAIL
+    # The parameter as the format
+    - |
+      printf "$format" x | cat
+    # The writer as the second stage
+    - |
+      cmd | printf '%s\n' "$done"
+    # Two parameters in one string
+    - |
+      printf '%s\n' "$first$second" | sort
+    # echo of two parameters
+    - |
+      echo "$first" "$second" | sort
+    # A file read by cat
+    - |
+      cat "$file" | sort
+    # Another command over a format and the parameter
+    - |
+      format '%s\n' "$value" | sort
+    # echo without the newline, the here string appends one
+    - |
+      echo -n "$out" | cat
+    # An operator beside the name, the expansion result is written
+    - |
+      printf '%s\n' "${out%x}" | sort
+    # printf without the newline, the here string would append one
+    - |
+      printf '%s' "$json" | jq -r .a
+    # The appended newline changes the digest
+    - |
+      printf '%s' "$x" | sha256sum
+    # A bare parameter, word-split into lines
+    - |
+      printf '%s\n' $x | sort
+    # An option end before the format
+    - |
+      printf -- '%s\n' "$x" | sort
+    # The reader is a writer
+    - |
+      printf '%s\n' "$x" | printf '%s\n' "$y"
+    # A group as the reader, the grammar reads no here string after a group
+    - |
+      printf '%s\n' "$x" | { read -r a; printf '%s\n' "$a"; }
+invalid:
+    # The instance, printf of the parameter filtered by rg
+    - |
+      printf '%s\n' "$out" | rg 'Configuration not found|SKIP|FAIL'
+    # echo of the parameter
+    - |
+      echo "$out" | jq -r .a
+    # Standard error merged into the pipe, printf writes none
+    - |
+      printf '%s\n' "$x" |& sort
+    # The pipeline as an if condition
+    - |
+      if printf '%s\n' "$x" | rg -q FAIL; then exit 1; fi
+    # A double-quoted format
+    - |
+      printf "%s\n" "$out" | sort -u
+    # A reader with a redirect
+    - |
+      printf '%s\n' "$out" | sort >sorted.txt
+    # Inside a command substitution
+    - |
+      first=$(printf '%s\n' "$out" | head -1)
+    # Inside a loop's input
+    - |
+      while IFS= read -r line; do finding "$line"; done < <(printf '%s\n' "$out" | rg FAIL)
+    # The braced parameter
+    - |
+      printf '%s\n' "${out}" | rg FAIL
+    # An array element
+    - |
+      printf '%s\n' "${lines[0]}" | rg FAIL
+    # A loop as the reader, the here string feeds the loop after done
+    - |
+      printf '%s\n' "$out" | while IFS= read -r line; do finding "$line"; done

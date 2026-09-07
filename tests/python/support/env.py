@@ -81,7 +81,6 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
     class _Host(asyncssh.SSHServer):
         @override
         def begin_auth(self, username: str) -> bool:
-            _ = username
             return False
 
     async def _exec(process: asyncssh.SSHServerProcess[str]) -> None:  # ruff:ignore[unused-async]
@@ -92,7 +91,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
     def _sftp(chan: asyncssh.SSHServerChannel[bytes]) -> asyncssh.SFTPServer:
         return asyncssh.SFTPServer(chan, chroot=os.fsencode(spec.sftp_root) if spec.sftp_root is not None else None)
 
-    async def _serve(sock: socket.socket) -> None:  # ruff:ignore[banned-api]
+    async def _serve(sock: socket.socket) -> None:  # ast-grep-ignore: no-socket-module, asyncssh serves the socket pair the test owns
         await asyncssh.run_server(
             sock, server_factory=_Host, server_host_keys=[key], process_factory=_exec, sftp_factory=_sftp if spec.sftp_root is not None else None
         )
@@ -116,9 +115,10 @@ def _provision_filesystem(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
     memory.makedirs(scoped, exist_ok=True)
 
     def _teardown() -> None:
-        memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+        if memory.exists(scoped):
+            memory.rm(scoped, recursive=True)
 
-    return Provisioned(url=f"memory://{scoped}", client_factory=lambda: DirFileSystem(path=scoped, fs=MemoryFileSystem()), teardown=_teardown)
+    return Provisioned(url=f"memory://{scoped}", client_factory=lambda: DirFileSystem(path=scoped, fs=memory), teardown=_teardown)
 
 
 def _provision_object_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]:
@@ -138,7 +138,8 @@ def _provision_object_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]
             skip_instance_cache=True,
         )
         constraint = {"CreateBucketConfiguration": {"LocationConstraint": spec.region}} if spec.region != "us-east-1" else {}
-        filesystem.exists(spec.bucket) or filesystem.call_s3("create_bucket", Bucket=spec.bucket, **constraint)
+        if not filesystem.exists(spec.bucket):
+            filesystem.call_s3("create_bucket", Bucket=spec.bucket, **constraint)
         return filesystem
 
     def _stop() -> None:
@@ -146,11 +147,9 @@ def _provision_object_store(spec: ObjectStore) -> Provisioned[s3fs.S3FileSystem]
             return
         server_handle = live.pop()
         try:
-            httpx.post(f"{endpoint}/moto-api/reset", timeout=5.0)
-        except httpx.HTTPError:
+            httpx.post(f"{endpoint}/moto-api/reset")
+        finally:
             server_handle.stop()
-            return
-        server_handle.stop()
 
     return Provisioned(url=endpoint, client_factory=_store, teardown=_stop)
 

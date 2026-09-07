@@ -8,9 +8,10 @@ description: Use when reading, searching, or rewriting code by its syntax tree, 
 Structural code work (map, find, prove, lint, or rewrite code by its syntax tree) runs on ast-grep. The MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) run every search and proof that answers with a match list or a tree, and the CLI runs what maps (`ast-grep outline`), scans project rules (`ast-grep scan`), tests (`ast-grep test`), writes (`-U`, `-i`), or needs an exit code, because a failed tool call reaches the agent as `Error executing tool` with no cause. Search rules stay inline, and durable rules are project rule files discovered through `sgconfig.yml`. Examples use the packages of the workspace as vocabulary (Effect modules, generated unions, result types), and a rule names the package it reads.
 
 [REQUIRED]:
-- Run `tree .claude/skills/ast-grep/assets/examples` to list every example, a new language or package takes the directory the rules tree layout names
+- `assets/examples` holds one example per construct under `rules|rewrites/<language>/<package>/`, its tests under `rule-tests/`
+- Command forms assume bash 5.3, the shell the `env` block of `.claude/settings.json` names for the agent
 - Start a rule from the template of its file kind and the example of its construct, keep the shape the example proves and the fields the task needs
-- Run `.claude/skills/ast-grep/scripts/rule-checks.sh` with no argument to list its commands and the moment to run each
+- Run `.claude/skills/ast-grep/scripts/rule-checks.sh` with no argument to list its commands, `gate <ext> '^<id>$'` proves one rule
 
 [REFERENCES]: Criteria and runner facts the workflows read:
 - [01]-[SKILL_IMPROVEMENT](references/skill-improvement.md): Source rank, comparison sequence, text smells, and opportunity checks for the skill
@@ -27,7 +28,7 @@ Structural code work (map, find, prove, lint, or rewrite code by its syntax tree
 - [06]-[OUTLINE_RULES](assets/templates/outline-rules.yml): Outline extractors, an item document and the member document that attaches under it
 
 [SCRIPTS]:
-- [01]-[RULE_CHECKS](scripts/rule-checks.sh): Proves the rules tree `sgconfig.yml` names, one line per finding and exit 1 on any line
+- [01]-[RULE_CHECKS](scripts/rule-checks.sh): Proves the rules tree `sgconfig.yml` names and measures a scope, one line per finding and exit 1 on any
 
 ## [01]-[OUTLINE]
 
@@ -59,21 +60,25 @@ Resolve target paths from the task, search hits, or `git diff --name-only`, run 
 Structural search runs on the MCP tools with inline YAML rules. Patterns are valid code under the language's tree-sitter grammar with whole-node metavariables: `$VAR` one named node, `$$VAR` one unnamed node (an operator, a keyword), `$$$MULTI` lazy zero-or-more without backtracking, `$_` and `$_NAME` non-capturing. Smart matching skips unnamed target nodes: the less a pattern specifies, the more it matches. Specify only what the query fixes.
 
 Each search runs in sequence:
-1. When the query fits one AST node, run `find_code` with the pattern, an absolute `project_folder`, and a bounded `max_results`
+1. When the query fits one AST node, run `find_code` with the pattern and a bounded `max_results`
 2. For a structural query, start from the most specific positive rule, refine relationally, then filter captures
 3. For an unknown node kind, run `dump_syntax_tree` with `format=cst` on one top-level node, or `format=pattern` for a mis-parsing pattern
 4. Multi-statement snippets take `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree prints on stderr before exit 8
 5. Prove with `test_match_code_rule` on the matching snippet, then on the non-matching one, and return to the tree on a miss
 6. When a trusted rule fails the call, run `printf '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?` and read the exit code
-7. Run `find_code_by_rule` with absolute `project_folder`, bounded `max_results`, `output_format=json` when captures or ranges feed the next step
+7. Run `find_code_by_rule` with bounded `max_results`, `output_format=json` when captures or ranges feed the next step
 
 The proof and the search fold three outcomes into one failure, and the exit code of the `--stdin` scan separates them:
 - `[]` with 0 is no match, 8 prints the parse error of a rule the binary rejects, and 1 with the JSON is an `error` diagnostic
 - The matching snippet run first proves the rule parses, and the failure on the non-matching one reads as no match
 - Both calls take severity omitted or under `error`, and the durable file sets `error`
-- The search tools run `--json=stream` over the path as given, and a relative path resolves against the server working directory, the repository root
-- `language` follows the `languageGlobs` entry of `sgconfig.yml`, a `.ts` file mapped to `tsx` matches under `tsx` and `typescript` finds nothing
+- The search tools run `--json=stream` over the path as given
+- `language` follows the `languageGlobs` entry of `sgconfig.yml`, a `.ts` file mapped to `tsx` matches under `tsx`
 - Results past the harness cap land in a file the result names, `jq -r .result <file>` reads it, and `max_results` bounds the context
+- `languageGlobs` reach every path the command names, outside the root included, and a run from outside the tree parses `.ts` as `typescript`
+- Inline rules bind local `utils` and never `utilDirs`, even under `--config`, and a global util proves under a scratch `sgconfig.yml`
+- `scan -r <file>` refuses `--filter`, one file proves by `-r` alone and a tree rule by `scan --filter '^<id>$' <file>`
+- `--stdin` takes one rule through `-r` or `--inline-rules`, and a project config holding more rules exits 3
 
 ```yaml
 id: <query-id>
@@ -96,6 +101,7 @@ constraints:
 - `pattern` and `kind` never combine to reparse, a wrong-kind pattern takes `pattern: { context: <full-code>, selector: <kind> }`
 - Prefix name searches capture whole nodes with `$NAME($$$)` and `constraints: NAME: { regex: '^<prefix>' }`, and `use$HOOK` is no metavariable
 - `$$$` before a node ends at the first sibling the node fits, `f($$$H, { $$$P })` misses `f(x, { a }, { b })` and `f($$$H, { $$$P }, $$$T)` hits it
+- `$$$` after a comma needs the comma under `smart` and `cst`, `f($A, $$$R)` misses `f(x)` and hits `f(x,)`, and `ast` down binds `R` empty on `f(x)`
 - `field: <role>` on `has`/`inside` pins same-kind children by parent relation, `field: key` splits an object key from its value
 - Rules need a kind set from `pattern` or `kind`, `regex`, `range`, `nthChild`, or `not` alone aborts with a missing-kind error
 - Empty `run` results read their exit code, 1 is no match, 8 a rejected pattern (a lone `$$$VAR`), and 0 with a warning an `ERROR` root
@@ -110,6 +116,50 @@ constraints:
 - `find_code` returns `No matches found` for an `ERROR` pattern, a missing path, and a `language` no glob maps, `ast-grep run` separates them
 - On Windows the server runs `ast-grep.cmd` through a shell, and a call holding `$` or parentheses takes the CLI form
 - `template` needs a `kind` beside it, and a comment inside the code takes `kind` with relational rules over a lower strictness
+
+Shapes of tree-sitter-python that a rule reads through a field, a wrapper, or a token, each read off `dump_syntax_tree`:
+
+| [INDEX] | [CONSTRUCT]                      | [SHAPE]                                                                                               |
+| :-----: | :------------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `except A, B:`                   | One `except_clause` with two `value` fields, the trailing comma form parses too                       |
+|  [02]   | `from __future__ import a, b`    | `future_import_statement` with one `name: dotted_name` per name                                       |
+|  [03]   | `def f(x: int)`                  | `typed_parameter` with the name as its unfielded first `identifier` and `type` as the field           |
+|  [04]   | `lambda p: k(1)`                 | `lambda` with `parameters` and `body`, no statement, a literal in it belongs to the enclosing one     |
+|  [05]   | `(v := a if b else c)`           | `conditional_expression` over a `named_expression`, the walrus binds the first arm alone              |
+|  [06]   | `[i async for i in g]`           | `for_in_clause` with `async` as an unnamed child                                                      |
+|  [07]   | `match x:` with `case C() if g:` | `body: block` over `alternative: case_clause`, fields `guard: if_clause` and `consequence: block`     |
+|  [08]   | `case Result(ok=_)`              | `case_pattern` > `class_pattern` > `dotted_name`, `ok=_` an unnamed `_` leaf, `ok=v` a `dotted_name`  |
+|  [09]   | `case Result()`                  | `class_pattern` with no `case_pattern` child                                                          |
+|  [10]   | `t"a{b}"`                        | Every node of `f"a{b}"`, the `string_start` text differs, `has: {kind: string_start, regex: '^[tT]'}` |
+|  [11]   | Comment on a body's first line   | `case_clause` child before `consequence: block`, a comment after a statement is a block child         |
+|  [12]   | `lazy import json`               | `import_statement` with an `ERROR` child, `import $M` matches it, ruff `TID254` owns the form         |
+|  [13]   | `Optional[X]`                    | `type` > `generic_type` > `type_parameter` in an annotation, `subscript` in a value position          |
+
+Shapes of tree-sitter-bash 0.25.0 that a rule reads through a field, a wrapper, or a token, each read off `ast-grep run -l bash --debug-query=cst`:
+
+| [INDEX] | [CONSTRUCT]                     | [SHAPE]                                                                                                |
+| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `[ x = y ]`, `[[ x = y ]]`      | `test_command` with the bracket unnamed over a `binary_expression` with `left`, `operator`, `right`    |
+|  [02]   | `$(cmd)`, backticks             | `command_substitution` with the delimiter unnamed and one `command` child per simple command           |
+|  [03]   | `echo $x`, `echo "$x"`          | `simple_expansion` under `command` when bare and under `string` when double-quoted                     |
+|  [04]   | `$1`, `$@`, `$?`                | `simple_expansion` over `variable_name` for `$1`, `special_variable_name` for `$@`, `$*`, `$#`, `$?`   |
+|  [05]   | `${x#*/}`, `${x:-d}`            | `expansion` with `variable_name` and an `operator` child, the pattern a `regex` or `word` child        |
+|  [06]   | `a[k,$b]`, `${a[k,$b]}`         | `subscript` with `index: concatenation`, `${a["k,$b"]}` a `string` index                               |
+|  [07]   | `${a[$a,$b]}`, `${a[k,$b,$c]}`  | `subscript` with an `ERROR` child in place of `index` (tree-sitter-bash issue 268)                     |
+|  [08]   | `x=${ ls -1;}`, `x=${\| cmd;}`  | `ERROR` over the statement at top level (issue 301), a bare `${ cmd;}` an `expansion` with `MISSING }` |
+|  [09]   | `cmd <<<"$x"`                   | `command` with `redirect: herestring_redirect`                                                         |
+|  [10]   | `cmd > f`, `done < <(p)`        | `redirected_statement` with `body` and `redirect: file_redirect` wrapping the whole list or pipeline   |
+|  [11]   | `a \| b > f \| c`               | `redirected_statement(body: pipeline)` over the earlier stages, the later stage a sibling of it        |
+|  [12]   | `ls \| while ...; done`         | `pipeline` with a `while_statement` stage, `until` a `while_statement` with an unnamed `until` child   |
+|  [13]   | `for f in $(ls); do`            | `for_statement` with `variable`, `value: command_substitution`, and `body: do_group`                   |
+|  [14]   | `for ((i = 0; ...))`            | `c_style_for_statement` with `initializer`, `condition`, and `update`                                  |
+|  [15]   | `(( x += 1 ))`, `(( x++ ))`     | `compound_statement` over a `binary_expression`, a `postfix_expression` for `x++`                      |
+|  [16]   | `$((x + 1))`                    | `arithmetic_expansion` over the same expression kinds in a value position                              |
+|  [17]   | `local -n r=$1`, `declare -A m` | `declaration_command` with the keyword, an option `word`, and `variable_assignment` children           |
+|  [18]   | `f() { ...; }`                  | `function_definition` with `name: word` and `body: compound_statement`, the `function` spelling too    |
+|  [19]   | `(cd d && cmd)`                 | `subshell` holding a `list`, the first command under nested `list` and `redirected_statement` wrappers |
+|  [20]   | `run: \|` block scalar          | `ERROR` token for the `\|` indicator before the first `command`, the commands after it parse           |
+|  [21]   | `${{ inputs.x }}` in a step     | `ERROR` node, the yaml rule `no-expression-in-run-step` owns the form                                  |
 
 ## [03]-[REWRITE]
 
@@ -127,6 +177,8 @@ Rewrite extends a proven search rule with patching fields, each match replacing 
 - Declared but unmatched metavariables substitute empty in `fix` and as a `rewrite()` source
 - `$VARName` lexes as `$VARN` followed by `ame`, and appended text takes a `replace` transform
 - Multiline templates re-indent relative to the match's column
+- Transform outputs drop the indentation of the line their source node starts on, a source on a deeper line than the match keeps none
+- Multi-line fixes over a statement take a rewriter template over the match node itself, and its output round-trips the indentation
 - `run -r` covers the pattern-only path, and `fix`, `FixConfig`, titled alternatives, `transform`, and `rewriters` run under `scan --inline-rules`
 
 Each rewrite runs in sequence:
@@ -134,7 +186,7 @@ Each rewrite runs in sequence:
 2. Attach the rewrite row for the edit, derived text goes in `transform` and multi-node edits in `rewriters`
 3. Prove the fix through `test_match_code_rule`, the JSON holds `replacement` and `replacementOffsets`, and the replacement must re-parse
 4. Preview the tree diff: `ast-grep scan --inline-rules '<yaml>' <paths>` prints diffs and writes nothing
-5. Apply with `-U`, which overrides `-i`, and re-run until stderr prints no `Applied N changes`, nested matches rewrite outer-first per pass
+5. Apply with `-U` and re-run until stderr prints no `Applied N changes`, nested matches rewrite outer-first per pass
 6. Re-run once per region of an injected host file, each pass writes the last matching region alone and `Applied N` counts every match
 7. Close with `fmt <target>`, comments never rewrite, find leftovers through a search `regex`
 
@@ -155,22 +207,27 @@ Each rewrite runs in sequence:
 - `rewriters` run in order: per node the first match wins, a consumed subtree never re-matches, an unmatched node keeps its text, descendants match
 - `joinBy` set drops an unmatched node's text and joins its rewritten descendants into the output, a member filter pins the list with `inside`
 - Rewriters hold `id`, `rule`, `fix`, and their own `constraints`, `transform`, and `utils`, and `rewrite()` names them by id
+- Rewriter rules name the rule's local `utils` through `matches` and re-match the outer capture
+- One `rewrite()` per output (a method name, a body) over one capture gives a conditional transform with no split capture
 - Rewriters read the outer rule's captures and none of its `transform` outputs, and export none to the rule or to another rewriter
 - Rewriter rules re-match an outer capture, and `inside` in a rewriter rule reads the real ancestors of the node
 - Statement templates spell their `;`, the pattern matches the statement without it and the fix drops it otherwise
 - Two filtering rewriters over one `$$$` capture partition it, one `rewrite` per group, and the fix places each joined group
 - `replace` reads regex capture groups, `by` names them `$1` or `${NAME}` and doubles `$$` for a literal dollar
 - `transform` takes the object form `<NEW>: {<op>: {source: $VAR, <key>: <value>}}` or the string form `<NEW>: <op>($VAR, <key>=<value>)`
-- Ops with no key keep the comma in the string form, `substring($VAR,)`
+- String-form ops take keyword arguments, `substring($VAR, startChar=<n>)`, a positional one fails the load, and no key keeps the comma
+- String-form `replace` splits at a comma or a quote inside its regex and fails the load, the object form holds both
 - Transform entries chain, a later `source` names an earlier output, and a five-stage `replace` pipeline ends in one `fix: $LAST`
 - Rewriters narrow nothing, the parent rule reports every match when no rewriter fires, membership goes in `rule` or `constraints`
 - `-i` prompts per diff: `y` accepts, `n` skips, `a` accepts the rest, `q` keeps accepted diffs, `e` opens `$EDITOR` and skips, Tab cycles a fix list
 - Sequenced rewrites run the specific pattern before the general one, the general form consumes the arguments the specific one keeps
-- `$$$` after a pattern comma binds nothing from `ast` down, a trailing comma matches at every value, `joinBy` unset splices, set drops unmatched text
-- Risk splits into sibling documents, the guarded rule holds `fix` and the residual holds `severity: error` with a `note` for manual action
+- `joinBy` unset splices each rewritten node's text into the capture's own text
+- Risk splits into a guarded rewrite holding `fix` and an `<id>-by-hand` residual at `severity: error` with the manual form in its `note`
 - Captures in an operator, member-access, or return position take template parentheses, because substitution ignores precedence
+- Object arms as an arrow body take parentheses, an `object-arm` rewriter (`kind: object`, `pattern: $O`, `fix: ($O)`) beside `other-arm` adds them
+- Rewriters are per document, and a rewriter pair two rules share is copied into each rule
 - `run` exits 1 on zero matches and 0 on a hit, the inverse of `scan`, and `run` ignores suppression comments that `scan` honors
-- `--json` beside `-U` writes nothing, and a `run -U` needs `-r`
+- `run -U` needs `-r`
 
 ## [04]-[RULE_CRAFT]
 
@@ -183,8 +240,9 @@ Each device is the standard form for its problem, developed through search and w
 - `has` binds `$VAR` to the earliest matching child and a later clause rejecting that child fails the rule, the narrower `has` precedes the wider
 - Unification compares nodes, a name wrapped in another kind never unifies, `has: {field: name, pattern: $VAR}` reaches the identifier
 - Named leaves unify by text, an `identifier` capture re-matches a `shorthand_property_identifier` and a `property_identifier` of its text
+- Strings unify by text under one quote style, and a string with an `escape_sequence` child unifies by structure, `"\nstoreDir"` with `"\ncacheDir"`
 - Captures bound on one node re-match their text inside a later `not: {has: ...}`, the device for a fact every sibling repeats
-- `nthChild: <n>` counts named siblings, comments included, and `{position: <n>, ofRule: <rule>, reverse: true}` counts matching siblings from the end
+- `nthChild: <n>` counts named siblings, comments the block holds included, and `{position: <n>, ofRule: <rule>, reverse: true}` counts from the end
 - `nthChild: {position: 1, ofRule: {not: {kind: comment}}}` is the first non-comment child, the device for a required first statement
 - Pattern bodies match by containment, `not: {has: {nthChild: 2}}` on the container proves exactly one child
 - `nthChild: 1` with `nthChild: {position: 1, reverse: true}` under `all` proves the only child from the child's side
@@ -203,7 +261,9 @@ Each device is the standard form for its problem, developed through search and w
 - `field:` binds the final relation and survives `stopBy: end` (callee vs argument, key vs value), field names read off the `dump_syntax_tree` cst
 - Relational objects hold a rule key beside `field` and `stopBy`, `has: {field: <role>}` alone aborts on `Rule must have one positive matcher`
 - The positive-matcher abort names `utils` when the relation sits in a util, and `has: {field: <role>, kind: <kind>}` is the parsing form
+- `field:` sits beside `has` or `inside` alone, and an `any:` branch under them refuses it as `unknown field`
 - `has: {field: <role>, stopBy: end}` tests the field node, then its whole subtree, `has: {stopBy: end}` without a field skips the target node
+- `has: {field: <role>}` tests the first child with the field alone, a repeated field (`argument`) takes `nthChild` or a fieldless `has`
 - `has: {field: <role>, stopBy: <rule>}` tests the field node and its direct children alone, `stopBy: end` beside `field` walks its whole subtree
 - `precedes` and `follows` walk the sibling list alone, unnamed siblings included, and reject `field`
 - Nested `follows` under `stopBy: end` count earlier siblings, three levels fire on the third counted sibling with no arithmetic
@@ -219,14 +279,31 @@ Each device is the standard form for its problem, developed through search and w
 - `expandStart`/`expandEnd` extend the fix range to the first sibling matching the sub-rule, the adjacent one by default and any under `stopBy: end`
 - An `expandStart`/`expandEnd` miss keeps the match's own range, a sibling-less inner node no-ops silently, and a key with no value fails the parse
 - Metavariables bound in `all`, relational rules, and the matching `any:` branch export to `fix`, `message`, and `transform`
+- Failed `any:` branches bind nothing, and the next branch binds the same name afresh
+- `any:` keeps the first arm that matches structurally and `constraints` retries no other, the wrapped pattern goes before the bare one
+- Captures a `fix` or `constraints` names bind in every `any:` arm, or the gate's arm mutation exits 8, and a local util per arm declares them
 - Names bound only under `not:` expand empty, `note` and a label `message` interpolate nothing, `labels` take rule/constraints captures only
 - Two `labels:` entries serialize in random order and the snapshot run flakes, one entry per rule, a second span is its own rule and case
 - Suppression binds to the match's first or last line, report the tight offender node to put the waiver beside the defect
 - `strictness: signature` matches shape while keeping capture identity, the device for a duplicate-shape search and useless as a name ban
 - Scan a real codebase and count the matches before a rule is written to its file, a rule firing wider than meant is a semantic invariant in disguise
-- `dump_syntax_tree` decides node wrapping and field names, a construct parsing as `ERROR` is unenforceable
+- `dump_syntax_tree` decides wrapping and field names, an `ERROR` construct is unenforceable, and its statement's pattern still matches it
+- Bash rules prove no hit on a fixture holding the `ERROR` forms, `${| cmd;}` and `${a[$a,$b]}` among them
+- Scripts a bash rule reads spell `$( )` and a quoted comma key (`${arr["a,$b"]}`), the forms the grammar parses
 
-## [05]-[DURABLE_RULES]
+## [05]-[INTENT]
+
+The rule families hold code to one shape, and the code reads as follows when every rule holds:
+- Types, classes, constants, helpers, and aliases have a second reader or add a domain type, a boundary conversion, or a composed policy
+- Branches dispatch on the value (a match, a lifted option, a predicate), a fold is the fold, a chain is one pipe, and depth leaves by expression
+- The newest feature (walrus, `match`, `type` statements, `satisfies`, copying array methods, collection expressions) stands over its older form
+- The standard package (Effect, msgspec, anyio, httpx, structlog, pydantic, LanguageExt, Thinktecture) stands in its documented direct form
+- Every mechanical fix is a rewrite under `rewrites/<language>/` that lands every site in one run
+- Waits read a condition, a blocking option, or a status, invocations take the set, and proofs take the changed path
+
+A value states its fact at its site, and depth leaves by a better expression at the same site with the function count held. A flag states a fact the manifest lacks. The older form and the native counterpart of a package capability are reported and rewritten where the fix re-parses, and a naive, missed, or incorrect spelling of a package member is reported with the correct call. A correction a fix cannot state is a `<id>-by-hand` residual with the manual form in its `note`.
+
+## [06]-[DURABLE_RULES]
 
 Durable rules are project structural rules enforced by a scanned gate, `sgconfig.yml` at the root and every YAML under `ruleDirs` a rule. Rules start from a correction made to real code under the workspace standards and generalize it: the correction ends with fewer elements and no extraction, wrapper, indirection, throw, drop, or deferral, and a run proves it before any rule is derived, the higher-order pattern is the shape before the correction, the shape after it, and the reason, and the rule catches every form the same correction applies to. Rules qualify on proofs: the violation is provable by node shape alone, no existing gate (linter, analyzer, type checker, compiler, generator diagnostic) reports it, and it encodes a project rule, generic hygiene stays with the linter. Scope-, type-, or cross-file-dependent invariants fail the first proof. Every lint rule under `rules/` is `severity: error`, and the scan exits nonzero and blocks.
 
@@ -237,16 +314,21 @@ utils/<language>/<util-id>.yml                     # Global utils with explicit 
 rewrites/<language>/<package>/<id>.yml             # On-demand rewrites under a second ruleDirs entry, the fix is the rule, ids read <before>-to-<after>
 tests/<language>/<package>/<rule-id>-test.yml      # Test bound to its rule by id, one file per rule, the tree matches rules/
 tests/rewrites/<language>/<package>/<id>-test.yml  # Run by ast-grep test --include-off, one file per rewrite, the tree matches rewrites/
-tests/__snapshots__/<rule-id>-snapshot.yml         # Written by ast-grep test -U, flat under the test directory, rewrite snapshots beside the rest
+tests/__snapshots__/<rule-id>-snapshot.yml         # Written by ast-grep test -U --filter '^<id>$', flat, rewrite snapshots beside the rest
 ```
 
 - `testConfigs` holds `testDir` and `snapshotDir`, relative to `testDir` and `__snapshots__` by default
+- Entries of `testConfigs` sharing one `snapshotDir` fail `No <id> baseline found` on the snapshot `-U` wrote, one entry per snapshot directory
 - `customLanguages.<name>` holds `libraryPath`, `extensions`, `expandoChar`, `languageSymbol`, and `outlineRules`
 - Rule directories declare the policy and the test tree validates it, a directory is a category under its language mirrored under `tests/`
 - Directories are named for the package (`effect`, `pulumi`) or the language (`syntax`) their rules read, and a later rule over it joins them
 - Directories subdivide by module or construct when they outgrow one screen, and the move renames no id
-- Files hold one rule each, the id is the file stem, unique project-wide, in `no-<construct>` or `require-<shape>` form
+- Files hold one rule each, the id is the file stem, unique across every language, in `no-<construct>` or `require-<shape>` form
+- `rg -l '^id: <id>$' tools/ast-grep/{rules,utils,rewrites}` clears a new id before its file lands
+- Fixes that import a package skip the host globs that load no package import (`.claude/plugins/**`) through `ignores:`
+- Rules over a domain form skip `*.spec.ts`, `*.test.ts`, and `*.bench.ts`, because a spec translates the value at its assertion boundary
 - Rewrites under `rewrites/` are `severity: off` (no plain `scan` or `scan -r` runs them), hold `fix`, `message`, and `note`, and apply one correction
+- Rules hold one `fix` template, and a correction with a second template is its own rewrite file
 - Rewrite ids read `<before>-to-<after>` in the vocabulary of the package they read, `object-static-to-record`, `ternary-to-boolean-match`
 - `ast-grep scan --filter '^<id>$' --error=<id> -U <paths>` applies one rewrite under the root config, re-run until `Applied N changes` stops
 - The rewrite call without `-U` exits 0 when no match remains, the check after every apply, and an unknown id exits 3
@@ -257,24 +339,31 @@ tests/__snapshots__/<rule-id>-snapshot.yml         # Written by ast-grep test -U
 - Sub-rules copied into a second arm or a second rule become a util, local at one rule, global at two, and size alone extracts nothing
 - Deep structure shared across split rules goes in a parameterized global util with an explicit `kind` guard
 - Global utils are named `<package>-<shape>` and hold `id`, `language`, `arguments`, `rule`, `constraints`, `utils`, and `transform`, no `fix`
+- Global util ids share one namespace across languages, a second language's util of one id fails the load as `Duplicate rule id`
+- Syntax utils of a second language take the language name as their package, `python-function-boundary` beside `syntax-function-boundary`
+- Mutation lists are one global util (`syntax-mutating-array-call`) that the mutation rules and the copying rewrite call
+- `no-fold-by-loop` folds a `push` step as `map` for one element per item and `flatMap` for a spread, and a reassignment step as `reduce`
 - Consumers name the util directory under `utilDirs`, and `scan -r`, `--inline-rules`, and the MCP load none
 - Parameterized utils take `arguments` at the global level alone, every argument is mandatory, and a string `matches: <id>` of one exits 8
 - Rules call a parameterized util as `matches: {<util-id>: {<arg>: <rule>}}`, each argument a rule, and calls under one `matches` combine as `all`
 - Argument rules can be a `matches` to a zero-argument util or a parameterized call, and two calls of one util in a rule bind apart
 - Parameterized utils call another at the rule root or under `all`, `any`, or `not`, forwarding a slot as `{<slot>: {matches: <own-slot>}}`
 - Parameterized calls under `has` or `inside` in a util file record no load-order edge and fail random loads as `Rule <id> is not defined`
-- Callers read a capture from a slot the called util's own body matches, a slot forwarded into a nested call exports nothing
+- Slots the called util's body matches export their captures, a forwarded slot exports none and the caller binds it by its own `has`
 - String `matches: <name>` resolves a parameter, then a local util, then a global util
 - Parameterized utils never recurse, their own id as a string in the body matches nothing and the id with arguments fails the load as a cycle
 - Zero-argument global utils recurse into themselves and each other through `has` or `inside`, and a global util file holds a local `utils:` block
 - Patterns holding a comma take the block form or quotes, a YAML flow map splits at the comma into an unknown field
 - Local utils declare no `arguments`, an inline copy of a parameterized util exits 8, and a draft naming one sits under a scratch `ruleDirs`
-- `scan -c <config> <path>` scans outside the config's directory, a scratch config with `utilDirs` set to the real utils counts a util alone
+- Utils rooted on a kind `any:` take a further alternative under `all: [{any: ...}]`, a sibling `any` key fails the load as `duplicate field any`
+- `scan -c <config> <path>` and `test -c <config>` run from any directory, and a scratch config counts a util alone through a rule `matches: <id>`
+- Scratch configs name `ruleDirs` and `testConfigs` at the family and `utilDirs` at the language directory, a custom language they lack fails the load
 - Captures a local util binds reach the caller's `fix`, a global util file's own never do, a collision with a caller binding fails the call
 - Argument rules bind their captures at the call site (`source: {pattern: $SOURCE, regex: '<re>'}`, `pattern: _NAME` under an `expandoChar`)
 - Captures an argument rule binds reach the caller's `fix`, `message`, and `labels`
 - Missing `ruleDirs` or `utilDirs` directories abort the scan, an empty one holds a `.gitkeep`, a shared rule set joins as a submodule or package
 - Symlinked directories under `ruleDirs` load, a symlinked rule file is skipped with `Configuration not found!`, a hard link loads
+- `files:` globs never match a path reached through a symlinked directory component, a scoped case under a linked tree reads as no hit
 
 ```yaml
 id: <rule-id>                    # Imperative grammar: no-<construct> / require-<shape>
@@ -300,14 +389,14 @@ Each rule is added in sequence:
 6. Prove the node shape with `dump_syntax_tree` on the real violating code and each sibling, a shape parsing as `ERROR` is unenforceable, stop
 7. Author from the matching `assets/templates/` file: the shared shape in a `utils` entry, `constraints` for the name grammar, `stopBy` per relation
 8. Write `message` naming the violation and `note` stating the correction, and add `fix` when the replacement re-parses
-9. Route an import the fix needs through the header rewrite, which blocks every other fix in the file, or leave the fix out
+9. Route an import the fix needs through the header rewrite (it blocks every other fix in the file), and a fix with no route is a `-by-hand` residual
 10. Write the test file with matching id, the corrected code and each near miss under `valid:`, the instance and each sibling under `invalid:`
-11. Comment each case with the shape it covers, run `ast-grep test -U` to write the snapshots the first run fails without, and keep them
+11. Comment each case with the shape it covers, run `ast-grep test -U --filter '^<id>$'` to write the snapshots, and keep them
 12. Read a fix as the snapshot's fixed text, and an `expandStart`/`expandEnd` consumption in `scan --json` `replacementOffsets` alone
 13. Place the rule in its directory, `ast-grep scan --inspect entity` proves registration, `--filter '<rule-id>'` iterates it alone
 14. Scan the codebase, read every hit as a real finding or a rule defect, and correct the code or the rule before the rule joins the gate
 15. Check the correction the `note` prescribes against every other gate, a data-last step another gate rejects binds a local and stays data-first
-16. Gate with `ast-grep scan --error=unused-suppression --error=no-suppress-all` and `rule-checks.sh gate <ext>`, `--format github` annotates CI
+16. Gate with `ast-grep scan --error=unused-suppression --error=no-suppress-all` and `pnpm exec nx run rasm:rules:<ext>`
 
 | [INDEX] | [RULE_CLASS]           | [MECHANISM]                                                                                                   |
 | :-----: | :--------------------- | :------------------------------------------------------------------------------------------------------------ |
@@ -322,36 +411,49 @@ Each rule is added in sequence:
 |  [09]   | Repeated fact          | Pair bound on the first row, `not: {has: <row>, not: {has: <bound pair>}}` proves every row repeats it        |
 
 - Unparseable rules or duplicate ids abort the whole scan, an inline `---` bundle tolerates duplicate ids alone, drafts stay outside `ruleDirs`
+- Drafts, fixtures, and scratch configs sit under the harness scratchpad in a directory named for the agent, one session's agents share the scratchpad
+- `message` and `note` text holding `: ` is quoted or a `>-` scalar, because one unparseable file fails every run of every agent
+- Each rule file proves by `ast-grep scan --filter '^<id>$' <path>` on the real tree before the next file lands
+- Sibling files mid-edit fail every load of the root config, and the family proves through `-c <scratch>/sgconfig.yml` over the real directories
+- Per-rule proofs are `rule-checks.sh gate <ext> '^<id>$'`, and the whole gate runs once at the family's close as `pnpm exec nx run rasm:rules:<ext>`
+- Rule cost is measured under a one-rule scratch config, the root-tree number adds the tree's load and holds the 100 ms bar the edit-time hook pays
 - `sgconfig.yml` accepts unknown keys silently, scoping uses per-rule `files:`/`ignores:` only
 - `language:` is single-valued, similar languages share rules via a `languageGlobs` superset entry, embedded languages use `languageInjections`
+- Injected regions parse as the injected language, a `kind: program` rule fires per region and takes `files: ['**/*.sh']` to stay on scripts
+- Parse proofs over a host file pass `-l <language>`, because the run without it reports the injected region's indicator as the `ERROR`
 - Copied examples take the `language` the `languageGlobs` entry names for their files, `--inspect entity` lists it and `--filter` counts a known hit
 - Suppression is rule-scoped, `ast-grep-ignore: <rule-id>` opens the comment on the same, last, or preceding line of the match
+- `ast-grep-ignore: <rule-id>, <reason>` keeps the reason after the comma, and an id no match on its line carries reports as `unused-suppression`
 - `unused-suppression` is `hint` while no `--filter`, `--off`, or `--min-severity` narrows the rules, `no-suppress-all` is `off`, `--error=` gates
 - Whole-file rules waive only file-wide, the suppression comment on line 1 over an empty line 2, a line-scoped comment joins the match
 - `files:` globs match the path relative to `sgconfig.yml`, or to the working directory under `--inline-rules`
 - Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, and `**/<name>` every file so named
 - A `./` prefix or a `!` glob in `files:` matches nothing, exclusion is `ignores:`, and `scan -r` reads globs relative to the rule file
-- Dot-directory scopes (`.github/`, `.claude/`) need `--no-ignore hidden` on the gate command
+- Dot directories beneath a scope need `--no-ignore hidden`, and a dot-directory root named on the command is walked
 - Green can prove nothing: omitted `severity` is `hint`, `--min-severity` drops rules, `test` passes zero cases, the snapshot run is the gate
 - Cases hold one violation each, and every arm of the rule has the case that fails when the arm is deleted
 - `metadata:` holds routing facts and appears under `--json --include-metadata`, `url:` shows in the editor and SARIF and never in `--json`
 
-## [06]-[INTEGRATIONS]
+## [07]-[INTEGRATIONS]
 
 Hosts consume the scan through its exit codes, its output formats, and the library bindings, and each host takes the row for the result it needs.
 
-| [INDEX] | [HOST]        | [SHAPE]                                                                                                                |
-| :-----: | :------------ | :--------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | CI annotation | `ast-grep scan --format github` prints `::error file=,line=,title=<rule-id>::` per finding above `hint`, no upload     |
-|  [02]   | Code scanning | `ast-grep scan --format sarif > <file>` then `github/codeql-action/upload-sarif`, `--format` excludes `--json`         |
-|  [03]   | Hook          | `ast-grep scan --report-style short --color never <staged>`, then `rule-checks.sh gate <ext>` per language             |
-|  [04]   | Changed files | `ast-grep scan $(git diff --name-only <base>... -- '*.<ext>')`, an empty list exits before the scan                    |
-|  [05]   | Pipeline      | `ast-grep scan --json=stream \| jq -c '<filter>'` — one match per line, `ruleId`, `range.byteOffset`, captures         |
-|  [06]   | Baseline      | `ast-grep scan --filter '^<rule-id>$' --json=stream \| wc -l` against a recorded count, one rule's width over the tree |
-|  [07]   | Parse gate    | `ast-grep run -k ERROR -l <lang> --json=compact <paths>` exits 1 when every file parses                                |
-|  [08]   | Editor        | `ast-grep lsp` over the root `sgconfig.yml`: diagnostics, `labels`, a code action per `fix`, reload on any YAML change |
-|  [09]   | Model text    | `--json=stream` selects the nodes, the model returns one replacement per match, edits splice by `byteOffset`           |
-|  [10]   | Library       | `@ast-grep/napi` or `ast-grep-py` when a replacement is computed, arguments take per-position checks, or files cross   |
+| [INDEX] | [HOST]        | [SHAPE]                                                                                                                 |
+| :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------------- |
+|  [01]   | CI annotation | `ast-grep scan --format github` prints `::error file=,line=,title=<rule-id>::` per finding above `hint`, no upload      |
+|  [02]   | Code scanning | `ast-grep scan --format sarif > <file>` then `github/codeql-action/upload-sarif`, `--format` excludes `--json`          |
+|  [03]   | Hook          | `ast-grep scan --report-style short --color never <staged>`, then `pnpm exec nx run rasm:rules:<ext>` per language      |
+|  [04]   | Changed files | `ast-grep scan $(git diff --name-only <base>... -- '*.<ext>')`, an empty list exits before the scan                     |
+|  [05]   | Pipeline      | `ast-grep scan --json=stream \| jq -c '<filter>'` — one match per line, `ruleId`, `range.byteOffset`, captures          |
+|  [06]   | Baseline      | `ast-grep scan --filter '^<rule-id>$' --json=stream \| wc -l` against a recorded count, one rule's width over the tree  |
+|  [07]   | Parse gate    | `ast-grep run -k ERROR -l <lang> --json=compact <paths>` exits 1 when every file parses                                 |
+|  [08]   | Editor        | `ast-grep lsp` over the root `sgconfig.yml`: diagnostics, `labels`, a code action per `fix`, reload on any YAML change  |
+|  [09]   | Model text    | `--json=stream` selects the nodes, the model returns one replacement per match, edits splice by `byteOffset`            |
+|  [10]   | Library       | `@ast-grep/napi` or `ast-grep-py` when a replacement is computed, arguments take per-position checks, or files cross    |
+|  [11]   | Edit scan     | `hooks/policies/scan.ts` in the function-hooks plugin runs `ast-grep scan --json=compact <file>` after an Edit or Write |
+|  [12]   | Edit context  | Each hit reaches the model as `<file>:<line> <ruleId>: <note>` and writes one `scan/<id>` row the telemetry block reads |
+|  [13]   | Tree edit     | `ast-grep test --include-off` runs after an edit under `tools/ast-grep/`, `--filter` on a rule, test, or snapshot id    |
+|  [14]   | Tree pairing  | `rule-checks.sh pairing` runs after the same edit over the whole tree, no extension and no test run                    |
 
 - Match objects hold `text`, `range` (`byteOffset`, zero-based `start`/`end`), `replacement`, `replacementOffsets`, and `metaVariables`
 - `findInFiles` resolves with the file count before every callback ran, count the callbacks against it before reading results
@@ -362,7 +464,7 @@ Hosts consume the scan through its exit codes, its output formats, and the libra
 - `ast-grep-py` is `SgRoot(src, language)` alone, rules pass as keyword arguments (`find(pattern=<code>)`), and file discovery is the caller's
 - One directory argument beats a batched file list, the walk parses in parallel and `--globs '!<glob>'` excludes inside it
 
-## [07]-[WORKFLOWS]
+## [08]-[WORKFLOWS]
 
 Each workflow extends the skill with a reference and an agent that runs one scope per pass, and a main agent working alone reads the reference:
 
@@ -383,5 +485,8 @@ The main agent orchestrates the agents and keeps its own understanding of their 
 - Read each changed file as it lands, and judge agents converging on one approach against their scopes, the shared approach is a finding
 - Hold no work back for a later pass, and defer, store, or hedge nothing
 - After each agent returns, dispatch a fresh agent over the same scope that attacks every decision
+
+Each dispatched agent runs under the harness the brief names:
+- `main` in a brief is the address of the agent that launched the worker, and `to: main` reaches that orchestrator
 
 Implement each improvement to the skill, a reference, or an agent file that a run or an agent identifies in place: delete, reframe, or correct.

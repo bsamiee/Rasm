@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: guard-return-to-ternary
+language: tsx
+severity: off
+utils:
+    # Expression the ternary template cannot hold without parentheses, a comma or an assignment binds looser than the operator
+    low-precedence:
+        any: [{kind: sequence_expression}, {kind: assignment_expression}, {kind: augmented_assignment_expression}]
+rule:
+    kind: if_statement
+    matches: syntax-guard-return
+    # The one branch no-return-by-branch accepts in the plugin keeps its statement form, the walk stops at the nearest binding
+    not:
+        inside:
+            stopBy: {any: [{kind: variable_declarator}, {kind: function_declaration}]}
+            matches: claude-code-from-predicate-binding
+    all:
+        # Ternaries as the condition parse as the alternate of the outer ternary
+        - has:
+              field: condition
+              kind: parenthesized_expression
+              has: {pattern: $C, not: {any: [{matches: low-precedence}, {kind: ternary_expression}]}}
+        # The guard's value, bare or as the block's one return, an object literal parses as a ternary arm without parentheses
+        - has:
+              field: consequence
+              any:
+                  - kind: return_statement
+                    has: {pattern: $A, not: {matches: low-precedence}}
+                  - kind: statement_block
+                    not: {has: {kind: comment}} # The join drops a comment in the block
+                    has: {kind: return_statement, has: {pattern: $A, not: {matches: low-precedence}}}
+        # The neighbor default refuses a comment between the guard and the return, the join drops it
+        - precedes: {kind: return_statement, has: {pattern: $B, not: {matches: low-precedence}}}
+fix:
+    template: 'return $C ? $A : $B;'
+    expandEnd: {kind: return_statement}
+message: The guard and the return after it choose one value through two statements
+note: >-
+    Return the choice as one expression, `return condition ? value : other`, then lift it through the ternary rewrites,
+    a chain of guards rewrites one guard per run and its nested ternary ends as `Match.value`

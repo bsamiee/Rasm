@@ -1,0 +1,88 @@
+id: require-strict-mode
+valid:
+    # Strict mode at file level
+    - |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      printf '%s\n' hello
+    # Split across lines
+    - |
+      #!/usr/bin/env bash
+      set -eu
+      set -o pipefail
+      printf '%s\n' hello
+    # Long options
+    - |
+      #!/usr/bin/env bash
+      set -o errexit -o nounset -o pipefail
+      printf '%s\n' hello
+    # A second statement on the set line, the two parse as top-level siblings
+    - |
+      #!/usr/bin/env bash
+      set -euo pipefail; IFS=$'\n\t'
+      printf '%s\n' hello
+    # Errtrace joined to the flags
+    - |
+      #!/usr/bin/env bash
+      set -Eeuo pipefail
+      printf '%s\n' hello
+    # Flags after the long option
+    - |
+      #!/usr/bin/env bash
+      set -o pipefail -eu
+      printf '%s\n' hello
+invalid:
+    # A later set + turns errexit off for the rest of the script
+    - |
+      #!/usr/bin/env bash
+      set -euxo pipefail
+      set +e
+      printf '%s\n' hello
+    # A set + inside a function, the option is process-wide
+    - |
+      #!/usr/bin/env bash
+      set -euo pipefail
+      run() { set +u; printf '%s\n' "$1"; }
+      run
+    # Strict mode inside a branch is no top-level statement
+    - |
+      #!/usr/bin/env bash
+      if true; then set -euo pipefail; fi
+      printf '%s\n' hello
+    # Strict mode behind a list operator runs on a condition
+    - |
+      #!/usr/bin/env bash
+      true && set -euo pipefail
+      printf '%s\n' hello
+    # No strict mode
+    - |
+      #!/usr/bin/env bash
+      printf '%s\n' hello
+    # Errexit alone
+    - |
+      #!/usr/bin/env bash
+      set -e
+      printf '%s\n' hello
+    # Nounset and pipefail without errexit, the instance
+    - |
+      #!/usr/bin/env bash
+      set -uo pipefail
+      printf '%s\n' hello
+    # Errexit and pipefail without nounset
+    - |
+      #!/usr/bin/env bash
+      set -eo pipefail
+      printf '%s\n' hello
+    # Errexit and nounset without pipefail
+    - |
+      #!/usr/bin/env bash
+      set -eu
+      printf '%s\n' hello
+    # Strict mode inside a function scopes the function
+    - |
+      #!/usr/bin/env bash
+      run() {
+        set -euo pipefail
+        printf '%s\n' hello
+      }
+      run

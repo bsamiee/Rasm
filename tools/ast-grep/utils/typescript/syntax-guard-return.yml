@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Guard that returns and the return after it, a chain of guards reports once at the guard the final return follows
+id: syntax-guard-return
+language: tsx
+utils:
+    # One return as the whole consequence, bare or as the only statement of a block, a comment beside it is no statement
+    one-return:
+        any:
+            - kind: return_statement
+            - kind: statement_block
+              all:
+                  - has: {kind: return_statement}
+                  - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+rule:
+    kind: if_statement
+    all:
+        - not: {has: {field: alternative, kind: else_clause}}
+        - has: {field: consequence, matches: one-return}
+        # The walk crosses comment siblings alone and tests the first statement after them
+        - precedes: {kind: return_statement, stopBy: {not: {kind: comment}}}

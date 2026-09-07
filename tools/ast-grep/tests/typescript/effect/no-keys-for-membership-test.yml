@@ -14,6 +14,8 @@ valid:
     - 'const some = Record.keys(packaging).some((key) => key === target);'
     # Key list as the searched element, the second argument of the data-first search
     - 'const listed = Array.contains(groups, Record.keys(packaging));'
+    # Equivalence-based search, Record.has reads key equality alone
+    - 'const known = Array.containsWith(caseFold)(Record.keys(packaging), target);'
     # Value list searched, no key list
     - 'const known = Object.values(packaging).includes(target);'
     # Key list mapped before the data-last search, the searched list holds no keys
@@ -85,6 +87,10 @@ invalid:
     - 'const known = pipe(Record.keys(packaging), Array.contains(target));'
     # Data-last search applied directly to the key list
     - 'const known = Array.contains(target)(Record.keys(packaging));'
+    # Iterable spelling of the data-first search
+    - 'const known = Iterable.contains(Record.keys(packaging), target);'
+    # Iterable spelling of the data-last search through the pipe function
+    - 'const known = pipe(Record.keys(packaging), Iterable.contains(target));'
     # Struct spelling of the key list
     - 'const known = Struct.keys(packaging).includes(target);'
     # The Object spelling in a file that binds Record

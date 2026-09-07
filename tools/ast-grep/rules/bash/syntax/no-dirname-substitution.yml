@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-dirname-substitution
+language: bash
+severity: error
+rule:
+    kind: command_substitution
+    pattern: $SUB
+    has:
+        kind: command
+        all:
+            - has: {field: name, regex: '^(dirname|basename)$', pattern: $CMD}
+            # The one argument is a parameter read whole, bare or double-quoted, $name, ${name}, or ${name[index]}
+            - has: {field: argument, matches: {bash-parameter: {name: {pattern: $NAME}}}}
+            - not: {has: {nthChild: 3}} # A suffix, an option, or a second path belongs to no-dirname-substitution-by-hand
+transform:
+    HEAD: replace($CMD, replace='^dirname$', by='%/*')
+    OPERATOR: replace($HEAD, replace='^basename$', by='##*/')
+fix: '${$NAME$OPERATOR}'
+message: '`$SUB` forks a process for a path the shell derives by expansion'
+# A path with no / keeps itself under ${<name>%/*} where dirname prints ., a script run as bash <name> reads $0 without a /
+note: Strip the shortest trailing `/`-run with `${<name>%/*}` for the directory and the longest leading one with `${<name>##*/}` for the base name

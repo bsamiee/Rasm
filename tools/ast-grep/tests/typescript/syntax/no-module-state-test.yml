@@ -29,12 +29,28 @@ valid:
     - 'const frozen = Object.freeze({ retries: 3 });'
     # Empty array under as const, an immutable tuple
     - const none = [] as const;
+    # Empty array under as const and a satisfies, the tuple stays immutable
+    - 'const none = [] as const satisfies readonly string[];'
     # Immutable HashMap outside the mutable module grammar
     - const table = HashMap.empty();
     # Ref.make describes the Ref inside an effect, nothing is held at load
     - const described = Ref.make(0);
     # Var declaration, biome noVar reports it
     - var legacy;
+    # ReadonlySet annotation, the type checker refuses every write
+    - 'const held: ReadonlySet<string> = new Set();'
+    # ReadonlyMap annotation
+    - 'const index: ReadonlyMap<string, number> = new Map();'
+    # ReadonlyArray annotation over an empty array
+    - 'const rows: ReadonlyArray<string> = [];'
+    # Readonly array modifier
+    - 'const names: readonly string[] = [];'
+    # Readonly utility over an empty object
+    - 'const table: Readonly<Record<string, number>> = {};'
+    # Readonly utility over an Array type, the utility is the readonly array
+    - 'const rows: Readonly<Array<string>> = [];'
+    # Empty array cast to a readonly array, the cast freezes the binding
+    - 'const rows = [] as readonly string[];'
 invalid:
     # The instance, a counter every constructor increments
     - let nextSpanId = 0;
@@ -56,3 +72,17 @@ invalid:
     - const current = Ref.unsafeMake(0);
     # Const over a SynchronizedRef built outside an effect
     - const guarded = SynchronizedRef.unsafeMake(0);
+    # Empty array under a satisfies, the binding keeps the mutable array type
+    - 'const seen = [] satisfies readonly string[];'
+    # Map constructor under a satisfies of a readonly type, the binding keeps the Map type
+    - 'const index = new Map() satisfies ReadonlyMap<string, number>;'
+    # Mutable annotation over a Set, the annotation freezes nothing
+    - 'const seen: Set<string> = new Set();'
+    # Annotation named like the utility, the anchored names read the exact type alone
+    - 'const held: ReadonlyThing = new Map();'
+    # Readonly utility over a Map, the utility marks the properties and set stays callable
+    - 'const index: Readonly<Map<string, number>> = new Map();'
+    # Readonly utility over a Set
+    - 'const seen: Readonly<Set<string>> = new Set();'
+    # Empty object cast to a mutable record type, the cast keeps every write
+    - 'const cache = {} as Record<string, number>;'

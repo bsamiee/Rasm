@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: no-succeed-in-flat-map
+language: typescript
+severity: error
+utils:
+    # The value lifted back into the carrier the bind reads, the same module on both sides
+    lifted-body:
+        kind: call_expression
+        has: {field: function, pattern: $M.$C}
+    # Callback answering the lifted value as an expression body or a block with the one return
+    lifting-callback:
+        any: [{kind: arrow_function}, {kind: function_expression}]
+        has:
+            field: body
+            any:
+                - matches: lifted-body
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: lifted-body}}
+                  not: {has: {nthChild: 2}}
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, pattern: $M.$F}
+        # The point-free constructor as the callback is the identity bind, no callback holds it and the step is deleted by hand
+        - has: {field: arguments, has: {matches: lifting-callback}}
+constraints:
+    # Layer stays out, Layer.succeed takes a tag beside its value and lifts no plain value
+    M: {regex: '^(Effect|Micro|STM|Stream|Channel|Sink|Exit|Option|Either)$'}
+    F: {regex: '^(flatMap|andThen)$'}
+    C: {regex: '^(succeed|some|right)$'}
+rewriters: # The fix selects the member by the callback's shape, as when it ignores its input and map when it reads it
+    - id: unlift-object # Object literal as an arrow body takes parentheses, the braces read as a block otherwise
+      rule: {pattern: $_.$_($V), matches: lifted-body, has: {field: arguments, has: {kind: object}}}
+      fix: ($V)
+    - id: unlift
+      rule: {pattern: $_.$_($V), matches: lifted-body}
+      fix: $V
+    # Thunk callbacks on carriers with an as member, Either keeps the map over a thunk
+    - id: as-first
+      rule:
+          any:
+              - pattern: '$M.$_($SELF, () => $_.$_($V))'
+              - pattern: '$M.$_($SELF, () => { return $_.$_($V); })'
+              - pattern: '$M.$_($SELF, function () { return $_.$_($V); })'
+      constraints: {M: {regex: '^(Effect|Micro|STM|Stream|Channel|Sink|Exit|Option)$'}}
+      fix: $M.as($SELF, $V)
+    - id: as-last
+      rule:
+          any:
+              - pattern: '$M.$_(() => $_.$_($V))'
+              - pattern: '$M.$_(() => { return $_.$_($V); })'
+              - pattern: '$M.$_(function () { return $_.$_($V); })'
+      constraints: {M: {regex: '^(Effect|Micro|STM|Stream|Channel|Sink|Exit|Option)$'}}
+      fix: $M.as($V)
+    - id: map-first
+      rule: {pattern: '$M.$_($SELF, $CB)', has: {field: arguments, has: {pattern: $CB, matches: lifting-callback}}}
+      transform:
+          MAPPED: rewrite($CB, rewriters=[unlift-object, unlift])
+      fix: $M.map($SELF, $MAPPED)
+    - id: map-last
+      rule: {pattern: '$M.$_($CB)', has: {field: arguments, has: {pattern: $CB, matches: lifting-callback}}}
+      transform:
+          MAPPED: rewrite($CB, rewriters=[unlift-object, unlift])
+      fix: $M.map($MAPPED)
+transform:
+    BOUND: rewrite($CALL, rewriters=[as-first, as-last, map-first, map-last]) # The first rewriter that matches the call wins
+fix: $BOUND
+message: The bind callback lifts a pure value back into `$M`, the map or the as of one value
+note: >-
+    Map the value, `Effect.map(effect, (value) => next)`, and replace it when the callback ignores its input,
+    `Effect.as(effect, next)`

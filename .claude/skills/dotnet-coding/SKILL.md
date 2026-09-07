@@ -151,9 +151,9 @@ Recursive functions need a base case that returns the final value, a recursive c
 
 | [INDEX] | [APPROACH]                | [USE_WHEN]                                                     | [COST]                                   |
 | :-----: | :------------------------ | :------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | Direct recursion          | The maximum depth is small and bounded                         | Unbounded calls grow the stack           |
-|  [02]   | `Trampoline<A>`           | The transition is pure and the depth is unbounded              | Every step is a deferred call            |
-|  [03]   | `Monad.recur`             | The transition is an effect and only the final value is needed | Intermediate states are lost             |
+|  [01]   | Direct recursion          | Maximum depth small and bounded                                | Unbounded calls grow the stack           |
+|  [02]   | `Trampoline<A>`           | Pure transition, unbounded depth                               | Every step is a deferred call            |
+|  [03]   | `Monad.recur`             | Effectful transition, only the final value needed              | Intermediate states are lost             |
 |  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>`   | Each `unfold` call reruns the transition |
 
 ## [03]-[IMMUTABILITY]
@@ -297,8 +297,8 @@ internal abstract partial record Identity {
 |  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
 |  [08]   | Separate result and error fields, or `default` on failure                 | One result type with mutually exclusive cases |
-|  [09]   | A flag with fields that are meaningful for one flag value                 | One union case per valid state                |
-|  [10]   | A union case that extends a sibling case                                  | Sibling cases with their own data             |
+|  [09]   | Flag with fields that are meaningful for one flag value                   | One union case per valid state                |
+|  [10]   | Union case that extends a sibling case                                    | Sibling cases with their own data             |
 
 ## [05]-[EFFECTS]
 

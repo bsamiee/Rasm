@@ -1,0 +1,29 @@
+id: no-native-date
+valid:
+    # The DateTime built from an input
+    - "const cutoff = DateTime.unsafeMake('2026-01-01');"
+    # The DateTime built as an Option
+    - "const cutoff = DateTime.make('2026-01-01');"
+    # The current time as a Date, no-ambient-read reports it
+    - 'const now = new Date();'
+    # The clock read, no-ambient-read reports it
+    - 'const now = Date.now();'
+    # Constructor named like Date on another path
+    - "const value = new schema.Date('2026-01-01');"
+    # Static named like parse on another object
+    - "const value = Duration.parse('1 second');"
+invalid:
+    # The instance, a Date built from a string
+    - "const cutoff = new Date('2026-01-01');"
+    # Date built from a number
+    - 'const cutoff = new Date(millis);'
+    # Date built from parts
+    - 'const cutoff = new Date(2026, 0, 1);'
+    # The parse static
+    - "const millis = Date.parse('2026-01-01');"
+    # The UTC static
+    - 'const millis = Date.UTC(2026, 0, 1);'
+    # The constructor through globalThis
+    - "const cutoff = new globalThis.Date('2026-01-01');"
+    # The parse static through globalThis
+    - "const millis = globalThis.Date.parse('2026-01-01');"

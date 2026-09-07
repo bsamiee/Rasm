@@ -1,0 +1,48 @@
+id: no-any
+snapshots:
+  ? |
+    from typing import Any
+  : labels:
+    - source: Any
+      style: primary
+      start: 19
+      end: 22
+  ? |
+    from typing import Any as Whatever
+  : labels:
+    - source: Any
+      style: primary
+      start: 19
+      end: 22
+  ? |
+    from typing import TypeIs, Any
+  : labels:
+    - source: Any
+      style: primary
+      start: 27
+      end: 30
+  ? |
+    from typing_extensions import Any
+  : labels:
+    - source: Any
+      style: primary
+      start: 30
+      end: 33
+  ? |
+    import typing
+
+    value: typing.Any = load()
+  : labels:
+    - source: typing.Any
+      style: primary
+      start: 22
+      end: 32
+  ? |
+    import typing as t
+
+    value: t.Any = load()
+  : labels:
+    - source: t.Any
+      style: primary
+      start: 27
+      end: 32

@@ -8,8 +8,9 @@ Read in order before the first edit, and stop at the first step with a failing c
 1. The package manifests and lock files of the scope, the resolved versions decide which capability is available
 2. The installed sources of each external package the scope imports, whole for the modules it uses
 3. The exported functions and types of the internal packages the scope depends on
-4. The rules of every checker the scope runs, a pattern a checker reports takes no rule
+4. The rules of every checker the scope runs (ruff, biome, shellcheck, the analyzers), a pattern a checker reports takes no rule
 5. The existing logic, whole from its entry point
+6. The facts file the brief names under the scratchpad, ranked as a gathering report, each claim probed before it lands
 
 Every documented default, combinator, and option of a package is a candidate replacement for a hand-written equivalent, and a capability an internal package exports once replaces a local copy. Compose the capabilities of packages into one form (a package default read from the environment, a memoizing combinator over a shared read, a config default keyed by a tag), the form replaces every hand-written layer between them, and a capability found in one package is checked against the rest of the scope for other uses. Read the logic for what it computes twice, what it derives from an input it holds, and what it branches on that the type decides.
 
@@ -17,43 +18,63 @@ Every documented default, combinator, and option of a package is a candidate rep
 
 Smells are code the checkers accept and the standards reject, and each category states the criterion an agent applies to the next unseen case:
 
-| [INDEX] | [CATEGORY]                 | [CRITERION]                                                                              |
-| :-----: | :------------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | Deep nesting               | Callback or block nesting past three levels, each level a scope the reader holds         |
-|  [02]   | Elements for one fact      | Constant, enum, string, class, type, or object that names what one value states          |
-|  [03]   | Repeated logic             | Same read, decode, or computation at two sites over one input                            |
-|  [04]   | Wrapper                    | Function with a body of one call on the same arguments and no domain type added          |
-|  [05]   | Forwarder, service locator | Layer that reaches a dependency the runtime or the function supplies                     |
-|  [06]   | Threaded value             | Value curried or passed through every call that one runtime or one scope owns            |
-|  [07]   | Constant column            | Flag or field that holds one value on every row of a collection                          |
-|  [08]   | Restated tool fact         | Table or option the code emits that the tool's own configuration owns                    |
-|  [09]   | Element order              | Declarations ordered against dependency, or a specific rewrite run after a general one   |
-|  [10]   | Missed capability          | Hand-written logic where the package documents the same operation                        |
-|  [11]   | Presence by branch         | Branch with one arm that stands for absence or failure and one arm that passes the value |
-|  [12]   | Re-lifted carrier          | Value matched into the type it is, an option, an either, or an exit into an effect       |
-|  [13]   | Known discriminator        | Match inside a callee on a value every call site knows                                   |
-|  [14]   | Deprecated member          | Member the package marks deprecated for a replacement it names                           |
+| [INDEX] | [CATEGORY]                 | [CRITERION]                                                                                           |
+| :-----: | :------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | Deep nesting               | Callback or block nesting past three levels, each level a scope the reader holds                      |
+|  [02]   | Elements for one fact      | Constant, enum, string, class, type, or object that names what one value states                       |
+|  [03]   | Repeated logic             | Same read, decode, or computation at two sites over one input                                         |
+|  [04]   | Wrapper                    | Function with a body of one call on the same arguments and no domain type added                       |
+|  [05]   | Alias binding              | Module-level binding or type alias with one name as its value                                         |
+|  [06]   | Suffix variant             | Sibling operations named by an input suffix (Many, All, ByIds, By<Field>)                             |
+|  [07]   | Double assertion           | Value cast through unknown or never to a type the boundary decodes                                    |
+|  [08]   | Forwarder, service locator | Layer that reaches a dependency the runtime or the function supplies                                  |
+|  [09]   | Threaded value             | Value curried or passed through every call that one runtime or one scope owns                         |
+|  [10]   | Constant column            | Flag or field that holds one value on every row of a collection                                       |
+|  [11]   | Restated tool fact         | Table or option the code emits that the tool's own configuration owns                                 |
+|  [12]   | Element order              | Declarations ordered against dependency, or a specific rewrite run after a general one                |
+|  [13]   | Missed capability          | Hand-written logic where the package documents the same operation                                     |
+|  [14]   | Native primitive           | Global constructor, static, or method beside an import of the package that owns the capability        |
+|  [15]   | Ambient read               | Clock, randomness, or environment read through a global in domain code                                |
+|  [16]   | Untyped failure            | Literal, untagged Error, unknown channel, or try with no catch where the consumer matches the failure |
+|  [17]   | Standalone refinement      | Brand or validator declared at module level while a schema class owns the field                       |
+|  [18]   | Presence by branch         | Branch with one arm that stands for absence or failure and one arm that passes the value              |
+|  [19]   | Re-lifted carrier          | Value matched into the type it is, an option, an either, or an exit into an effect                    |
+|  [20]   | Known discriminator        | Match inside a callee on a value every call site knows                                                |
+|  [21]   | Deprecated member          | Member the package marks deprecated for a replacement it names                                        |
+|  [22]   | Fixed delay                | Sleep on a literal or unsourced delay, or with no abort signal, in place of a state read or a signal  |
+|  [23]   | Whole-tree run             | Checker or test run over a root while the edited path or id is in hand                                |
+|  [24]   | Restated environment flag  | Flag in a command string that restates a value the manifest's environment table sets                  |
 
 Flag each category with `find_code_by_rule` over a `kind` and a relational rule:
 
-| [INDEX] | [CATEGORY]                 | [FLAG]                                                                             |
-| :-----: | :------------------------- | :--------------------------------------------------------------------------------- |
-|  [01]   | Deep nesting               | Callback kind `inside` three callback kinds, `stopBy: end` on each                 |
-|  [02]   | Elements for one fact      | Declaration with one use site, or a table with values that collapse to one rule    |
-|  [03]   | Repeated logic             | Two calls on one callee with the same argument in one scope                        |
-|  [04]   | Wrapper                    | Function body that is one call forwarding every parameter                          |
-|  [05]   | Forwarder, service locator | Tag or container holding other services beside a scalar                            |
-|  [06]   | Threaded value             | Parameter every callee passes unchanged to the next call                           |
-|  [07]   | Constant column            | Pair bound on the first row and repeated on every row                              |
-|  [08]   | Restated tool fact         | Literal that names a tool's default or a tool's configuration key                  |
-|  [09]   | Element order              | Use that precedes its declaration, a general pattern before its specific form      |
-|  [10]   | Missed capability          | Loop, probe, or conversion beside an import of the package that owns the operation |
-|  [11]   | Presence by branch         | Two-arm match with an empty arm, or with a fail arm beside a pass arm              |
-|  [12]   | Re-lifted carrier          | Match on a carrier with arms that rebuild the carrier's own cases                  |
-|  [13]   | Known discriminator        | Parameter matched inside the callee and known at every caller                      |
-|  [14]   | Deprecated member          | Member's name, read from the deprecation in the package source                     |
+| [INDEX] | [CATEGORY]                 | [FLAG]                                                                                                     |
+| :-----: | :------------------------- | :--------------------------------------------------------------------------------------------------------- |
+|  [01]   | Deep nesting               | Callback kind `inside` three callback kinds, `stopBy: end` on each                                         |
+|  [02]   | Elements for one fact      | Declaration with one use site, or a table with values that collapse to one rule                            |
+|  [03]   | Repeated logic             | Two calls on one callee with the same argument in one scope                                                |
+|  [04]   | Wrapper                    | Function body that is one call forwarding every parameter                                                  |
+|  [05]   | Alias binding              | Declarator or type alias with an identifier as its `value` field at the program root                       |
+|  [06]   | Suffix variant             | Name-position `regex` over the suffix grammar, a Many, All, or ByIds tail and a verb before a By clause    |
+|  [07]   | Double assertion           | `as_expression` with an `as_expression` to `unknown` or `never` as its value, parentheses included         |
+|  [08]   | Forwarder, service locator | Tag or container holding other services beside a scalar                                                    |
+|  [09]   | Threaded value             | Parameter every callee passes unchanged to the next call                                                   |
+|  [10]   | Constant column            | Pair bound on the first row and repeated on every row                                                      |
+|  [11]   | Restated tool fact         | Literal that names a tool's default or a tool's configuration key                                          |
+|  [12]   | Element order              | Use that precedes its declaration, a general pattern before its specific form                              |
+|  [13]   | Missed capability          | Loop, probe, or conversion beside an import of the package that owns the operation                         |
+|  [14]   | Native primitive           | Callee `regex` over the global names, `inside: {kind: program, has: <import of the package>}`              |
+|  [15]   | Ambient read               | Global callee `regex` in one util per language, `syntax-ambient-read`, that every stability rule calls     |
+|  [16]   | Untyped failure            | Fail constructor over a literal or `new Error`, `unknown` in `type_arguments`, try over an inline function |
+|  [17]   | Standalone refinement      | `variable_declarator` with a value that holds the refining call, not inside the class body                 |
+|  [18]   | Presence by branch         | Two-arm match with an empty arm, or with a fail arm beside a pass arm                                      |
+|  [19]   | Re-lifted carrier          | Match on a carrier with arms that rebuild the carrier's own cases                                          |
+|  [20]   | Known discriminator        | Parameter matched inside the callee and known at every caller                                              |
+|  [21]   | Deprecated member          | Member's name, read from the deprecation in the package source                                             |
+|  [22]   | Fixed delay                | Sleep callee with a number literal, an identifier with no comment naming a source line, or no signal init  |
+|  [23]   | Whole-tree run             | Command row `argv` discarding its path parameter, spelling scan or test with no --filter, --files, or path |
+|  [24]   | Restated environment flag  | String, template, or argv array holding the tool word and the flag, in either spelling                     |
 
-The categories a package member decides (missed capability, presence by branch, re-lifted carrier, known discriminator, deprecated member) need the package source open beside the code, and the search flags the call sites once the member is named. Categories the scope's own gates already report yield a finding and no rule. Read the rule list of each linter, analyzer, and plugin the scope runs before searching a category, and leave the pattern with the gate that reports it.
+The categories a package member decides (missed capability, native primitive, ambient read, presence by branch, re-lifted carrier, known discriminator, deprecated member) need the package source open beside the code, and the search flags the call sites once the member is named. Categories the scope's own gates already report yield a finding and no rule. Read the rule list of each linter and analyzer the scope runs before searching a category, and leave the pattern with the gate that reports it. The probe is the before text under the checker's widest selection, `uv run ruff check --select ALL --isolated --target-version py315 --preview <scratch>` then `uv run ruff rule <code>`, and `pnpm exec biome lint --only=<group>/<rule> <scratch>` (a form Biome reports stays with Biome), and `shellcheck -o all -f gcc <scratch>` then `shellcheck --list-optional` for the optional checks, and a diagnostic leaves the pattern with the checker.
 
 ## [03]-[FINDING]
 
@@ -73,14 +94,18 @@ Findings are one higher-order pattern when the same correction applies for the s
 ## [04]-[FIX]
 
 Fixes are the direct form the owning package documents, landed in place, and proven by a run before any rule is derived:
-- The scope ends with fewer constants, types, schemas, classes, and objects, at most three callback levels, and fewer lines
+- The scope ends with fewer constants, types, schemas, classes, and objects, at most three callback levels, and zero hits of the pattern
+- Pattern hits are `git ls-files <scope> | xargs ast-grep scan --inline-rules "$(cat <draft>)" --json=stream | wc -l` before and after the fix
+- The hit count over the listed files holds under a concurrent edit, and a line count moves
 - Callback levels are functions directly under an argument list that declare a parameter
 - Thunks, initializers, curried returns, and pair values add no callback level
 - The correction lands at the site it corrects, and a fix that names a new function, type, file, or alias to hold what the site held is rejected
 - Each library in the fix is used for a capability its source documents, in the direct form, with no wrapper, helper, forwarder, or alias added
+- A copying method that exists for the mutating one is the newest form, and the rewrite lands every site in one `nx run rasm:rewrite`
 - No error the code handled is thrown, dropped, or deferred, and the result type of the scope stays the one its boundary chose
 - Every checker passes at zero warnings, and the artifact the scope emits (a graph, a file, an exit code, a response) matches the baseline
 - The element count and the nesting count are measured before and after under the same commands, each against the baseline the scope already held
+- Functions moved to their owning module count against the sites they remove in every file, a count before a sibling adopts them is no rise
 
 Up to 25 added lines are acceptable for a capability the scope lacked, and the element count still falls.
 
@@ -106,8 +131,11 @@ The branch, both arms, and the empty object leave, because `Record.getSomes` wri
 
 ## [05]-[DERIVATION]
 
-Enumerate siblings per module function with the same meaning, per carrier module that exports the function (`Option`, `Either`, `Effect`), per overload of a `dual` export (data-first and data-last), per container kind (object, array, argument list), per spelling of the same operation, and per position the shape occupies (a spread, an argument, a local, a return). Siblings are real when the correction produces the same after form from them, proven by writing the after form once per sibling. Near misses are real when the after form adds an element or changes behavior, and every near miss becomes a `valid` test case. Patterns with one form and no sibling are instances, and their rule waits for the second instance that proves the category.
+Enumerate siblings per module function with the same meaning, per carrier module that exports the function (`Option`, `Either`, `Effect`), per overload of a `dual` export (data-first and data-last), per container kind (object, array, argument list), per spelling of the same operation, and per position the shape occupies (a spread, an argument, a local, a return). Siblings are real when the correction produces the same after form from them, proven by writing the after form once per sibling. Near misses are real when the after form adds an element or changes behavior, and every near miss becomes a `valid` test case. Patterns with one form and no sibling are instances, and their rule waits for the second instance that proves the category. Rows of a proven before-and-after set each count as an instance with its fix, the before text the instance and the after text the fix, and two rows derive a rule. A script's commits are a before-and-after set (`git log -p`), one row per removed shape with the `shellcheck -o all` code over the before text and the manual sentence, and the residual forms of a family take a `<id>-by-hand` sibling with no fix.
 
-Write the shape the siblings share as a util with a `kind` at its rule root and each narrower sibling as a refinement of it, the rule references one util and the family is enumerated as util variants before the rule widens.
+Write the shape the siblings share as a util with a `kind` at its rule root and each narrower sibling as a refinement of it, the rule references one util and the family is enumerated as util variants before the rule widens. The near misses bound the rule to what its fix states:
+- Fixes narrow to the replacement the target form can state, a default parameter takes a literal or a module-level name
+- Guards over a position leave when the shape fixes the position, a return in both arms makes every later statement dead
+- Notes state every operation a fix selects by shape, the map and the bind of one match
 
 The BEFORE and AFTER pair yields the pattern statement: a two-arm branch over a boolean, an option, or an either with one arm that yields an empty container stands for absence, the present value is lifted as an option and spread, because absence is a case of the value and not of the control flow. Its siblings are each carrier's match, the matcher chain of two steps, and the conjunction spread, in an object, an array, a local, and a return. Its near misses are a match with two value arms, a dispatch of more than two arms, and a nullish default spread.

@@ -2,7 +2,7 @@
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
-from collections.abc import Callable, Iterable, Mapping, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from functools import partial
 import hashlib
 import os
@@ -19,13 +19,11 @@ import cyclopts
 from expression import Error, Ok, Result
 import httpx
 import msgspec
-import stamina
 import structlog
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Rid = Literal["osx-arm64", "linux-x64", "linux-arm64", "win-x64"]
-type ArchiveFormat = Literal["tar", "zip", "pkg", "nsis"]
 
 
 class CommandFailed(msgspec.Struct, frozen=True, gc=False):
@@ -91,7 +89,7 @@ class Asset(msgspec.Struct, frozen=True, gc=False):
 
     name: str
     sha256: str
-    format: ArchiveFormat
+    format: Literal["tar", "zip", "pkg", "nsis"]
     path: str
 
 
@@ -141,11 +139,10 @@ class SourceManifest(msgspec.Struct, frozen=True, gc=False, rename={"version": "
 
 
 class Workspace(msgspec.Struct, frozen=True, gc=False):
-    """Repository root, host runtime identifier, the vcpkg environment, and the directories every operation reads."""
+    """Repository root, host runtime identifier, and the directories every operation reads."""
 
     root: Path
     host: Rid
-    environment: Mapping[str, str]
     binary_cache: Path
     downloads: Path
     cache: Path
@@ -153,16 +150,8 @@ class Workspace(msgspec.Struct, frozen=True, gc=False):
     artifacts: Path
 
 
-class ToolSet(msgspec.Struct, frozen=True, gc=False):
-    """Pinned vcpkg executable and the environment its builds run under."""
-
-    vcpkg: Path
-    env: Mapping[str, str]
-
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_VCPKG_URL = "https://github.com/microsoft/vcpkg"
 _LOCK_FILE = "uv.lock"
 _HOST_TOOLS = ("energyplus", "ktx")  # Executable folders linked under .cache/tools, the sqlite-vec loadable stays a stage input
 
@@ -202,13 +191,13 @@ def repository_root(start: Path) -> Result[Path, Failure]:
 
 
 def workspace(start: Path, host_system: str, host_machine: str) -> Result[Workspace, Failure]:
-    """Detect the host and find the repository root, every cache and artifact directory derives from the root."""
+    """Detect the host, find the repository root, and point vcpkg at the cache directories, every directory derives from the root."""
 
     def build(root: Path, host: Rid) -> Workspace:
         binary_cache, downloads = root / ".cache" / "vcpkg-archives", root / ".cache" / "vcpkg-downloads"
-        # vcpkg inherits the process environment with its cache directories, the native-cache action names the same paths
-        environment = {**os.environ, "VCPKG_DEFAULT_BINARY_CACHE": str(binary_cache), "VCPKG_DOWNLOADS": str(downloads)}  # ruff:ignore[banned-api]
-        return Workspace(root, host, environment, binary_cache, downloads, root / ".cache", root / "eng" / "native", root / ".artifacts" / "native")
+        # ast-grep-ignore: no-os-environ, the write names the cache directories of the native-cache action for every vcpkg child process
+        os.environ.update(VCPKG_DEFAULT_BINARY_CACHE=str(binary_cache), VCPKG_DOWNLOADS=str(downloads))
+        return Workspace(root, host, binary_cache, downloads, root / ".cache", root / "eng" / "native", root / ".artifacts" / "native")
 
     return repository_root(start).map2(host_rid(host_system, host_machine), build)
 
@@ -230,9 +219,9 @@ def http_client() -> httpx.AsyncClient:
 # --- [PROCESSES] ------------------------------------------------------------------------
 
 
-async def run(args: Sequence[str], cwd: Path, env: Mapping[str, str] | None = None, *, capture: bool = False) -> Result[str, CommandFailed]:
-    """Run a build tool to completion on the inherited console and return its standard output when captured."""
-    process = partial(anyio.run_process, args, cwd=cwd, env=env, stderr=None, check=False)
+async def run(args: Sequence[str], cwd: Path, *, capture: bool = False) -> Result[str, CommandFailed]:
+    """Run a build tool to completion on the inherited console and environment and return its standard output when captured."""
+    process = partial(anyio.run_process, args, cwd=cwd, stderr=None, check=False)
     try:
         completed = await (process() if capture else process(stdout=None))
     except OSError as error:
@@ -242,10 +231,10 @@ async def run(args: Sequence[str], cwd: Path, env: Mapping[str, str] | None = No
     return Ok(completed.stdout.decode() if capture else "")
 
 
-async def run_each(commands: Iterable[Sequence[str]], cwd: Path, env: Mapping[str, str] | None = None) -> Result[None, CommandFailed]:
+async def run_each(commands: Iterable[Sequence[str]], cwd: Path) -> Result[None, CommandFailed]:
     """Run dependent build tool commands in order, stopping at the first failure."""
     for command in commands:
-        match await run(command, cwd, env):
+        match await run(command, cwd):
             case Result(tag="error", error=failure):
                 return Error(failure)
             case Result():
@@ -274,7 +263,6 @@ async def checkout(root: Path, url: str, commit: str, submodules: Sequence[str] 
 # --- [ARCHIVES] -------------------------------------------------------------------------
 
 
-@stamina.retry(on=httpx.TransportError, attempts=3)
 async def _transfer(client: httpx.AsyncClient, url: str, target: Path) -> str:
     """Stream a URL into the target file and return the SHA-256 digest of its bytes."""
     digest = hashlib.sha256()
@@ -426,7 +414,7 @@ async def _vcpkg(space: Workspace) -> Result[Path, Failure]:
             return Error(failure)
         case Result(ok=baseline):
             pass
-    match await checkout(root, _VCPKG_URL, baseline):
+    match await checkout(root, "https://github.com/microsoft/vcpkg", baseline):
         case Result(tag="error", error=checkout_error):
             return Error(checkout_error)
         case Result() if exe.exists():
@@ -436,38 +424,35 @@ async def _vcpkg(space: Workspace) -> Result[Path, Failure]:
             return (await run([str(bootstrap), "-disableMetrics"], root)).map(lambda _: exe)
 
 
-async def _pkg_config(space: Workspace, vcpkg: Path) -> Result[Mapping[str, str], CommandFailed]:
-    """Build pkgconf as a host tool where vcpkg finds no pkg-config and return the environment naming it."""
+async def _pkg_config(space: Workspace, vcpkg: Path) -> Result[None, CommandFailed]:
+    """Build pkgconf as a host tool where vcpkg finds no pkg-config and name it in the environment every vcpkg child process inherits."""
     if system(space.host) == "win":
-        return Ok(space.environment)
+        return Ok(None)
     host_tools = space.cache / "vcpkg-hosttools"
     name, _, arch = space.host.partition("-")
     triplet = f"{arch}-{name}"
     tool = host_tools / "installed" / triplet / "tools" / "pkgconf" / "pkgconf"
-    if not tool.exists():
-        # The pkgconf port validates its own pc file with pkg-config, absent on this machine
-        overlay = host_tools / "overlay"
-        _ = shutil.copytree(vcpkg.parent / "ports" / "pkgconf", overlay / "pkgconf", dirs_exist_ok=True)
-        portfile = overlay / "pkgconf" / "portfile.cmake"
-        _ = portfile.write_text(portfile.read_text().replace("vcpkg_fixup_pkgconfig()", "vcpkg_fixup_pkgconfig(SKIP_CHECK)"))
-        install = [str(vcpkg), "install", f"pkgconf:{triplet}", "--overlay-ports", str(overlay), "--x-install-root", str(host_tools / "installed")]
-        match await run([*install, "--no-print-usage"], space.root):
-            case Result(tag="error", error=failure):
-                return Error(failure)
-            case Result():
-                pass
-    return Ok({**space.environment, "PKG_CONFIG": str(tool)})
+    os.environ["PKG_CONFIG"] = str(tool)  # ast-grep-ignore: no-os-environ, the write names the host pkgconf for every vcpkg child process
+    if tool.exists():
+        return Ok(None)
+    # The pkgconf port validates its own pc file with pkg-config, absent on this machine
+    overlay = host_tools / "overlay"
+    _ = shutil.copytree(vcpkg.parent / "ports" / "pkgconf", overlay / "pkgconf", dirs_exist_ok=True)
+    portfile = overlay / "pkgconf" / "portfile.cmake"
+    _ = portfile.write_text(portfile.read_text().replace("vcpkg_fixup_pkgconfig()", "vcpkg_fixup_pkgconfig(SKIP_CHECK)"))
+    install = [str(vcpkg), "install", f"pkgconf:{triplet}", "--overlay-ports", str(overlay), "--x-install-root", str(host_tools / "installed")]
+    return (await run([*install, "--no-print-usage"], space.root)).map(lambda _: None)
 
 
-async def native_build_tools(space: Workspace) -> Result[ToolSet, Failure]:
-    """Ensure vcpkg, its binary cache and downloads directories, and the pkgconf host tool exist and return the set."""
+async def native_build_tools(space: Workspace) -> Result[Path, Failure]:
+    """Ensure vcpkg, its binary cache and downloads directories, and the pkgconf host tool exist and return the vcpkg executable."""
     space.binary_cache.mkdir(parents=True, exist_ok=True)
     space.downloads.mkdir(parents=True, exist_ok=True)
     match await _vcpkg(space):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=vcpkg):
-            return (await _pkg_config(space, vcpkg)).map(lambda env: ToolSet(vcpkg, env))
+            return (await _pkg_config(space, vcpkg)).map(lambda _: vcpkg)
 
 
 # --- [TOOLS] ----------------------------------------------------------------------------
@@ -502,13 +487,13 @@ def message(failure: Failure) -> str:
             return f"Mutation run of {language} discovered zero mutants, {report} holds none, point the mutate globs of its Stryker configuration at source with tests"
 
 
-def exit_code[T](report: Callable[[T], None]) -> Callable[[Result[T, Failure]], int]:
-    """Return the result action that reports an ok value, logs a failure, and yields the exit code."""
+def exit_code[T, E](report: Callable[[T], None], render: Callable[[E], str]) -> Callable[[Result[T, E]], int]:
+    """Return the result action that reports an ok value, logs a rendered failure, and yields the exit code."""
 
-    def action(result: Result[T, Failure]) -> int:
+    def action(result: Result[T, E]) -> int:
         match result:
             case Result(tag="error", error=failure):
-                _log.error(message(failure))
+                _log.error(render(failure))
                 return 1
             case Result(ok=value):
                 report(value)
@@ -527,21 +512,22 @@ async def _provision(start: Path, host_system: str, host_machine: str) -> Result
     match await native_build_tools(space):
         case Result(tag="error", error=failure):
             return Error(failure)
-        case Result(ok=tools):
-            placed = [tools.vcpkg]
+        case Result(ok=vcpkg):
+            placed = [vcpkg]
     async with http_client() as client:
-        for library in ("energyplus", "ktx", "sqlitevec"):
+        for library in (*_HOST_TOOLS, "sqlitevec"):
             match await release_tool(space, client, library):
                 case Result(tag="error", error=failure):
                     return Error(failure)
                 case Result(ok=path):
                     placed.append(_tool_link(space, library, path) if library in _HOST_TOOLS else path)
-        match read_manifest(space.manifests / "duckdbextensions" / "extensions.json", ExtensionManifest):
+        extensions = "duckdbextensions"
+        match read_manifest(space.manifests / extensions / "extensions.json", ExtensionManifest):
             case Result(tag="error", error=failure):
                 return Error(failure)
             case Result(ok=manifest):
                 pass
-        match await extension_archives(space, client, "duckdbextensions", manifest, space.host):
+        match await extension_archives(space, client, extensions, manifest, space.host):
             case Result(tag="error", error=failure):
                 return Error(failure)
             case Result(ok=archives):
@@ -554,7 +540,7 @@ def _report(placed: list[Path]) -> None:
     _log.info("provisioned", placed=[str(path) for path in placed])
 
 
-_app.result_action = (exit_code(_report), "sys_exit")
+_app.result_action = (exit_code(_report, message), "sys_exit")
 
 
 @_app.default
@@ -571,6 +557,7 @@ if __name__ == "__main__":
 __all__ = [
     "Rid",
     "Failure",
+    "CommandFailed",
     "PinMismatch",
     "HostUnsupported",
     "FileMissing",
@@ -581,7 +568,6 @@ __all__ = [
     "Build",
     "SourceManifest",
     "Workspace",
-    "ToolSet",
     "system",
     "repository_root",
     "workspace",
@@ -594,6 +580,7 @@ __all__ = [
     "pinned_tree",
     "extension_archives",
     "native_build_tools",
+    "message",
     "exit_code",
     "main",
 ]

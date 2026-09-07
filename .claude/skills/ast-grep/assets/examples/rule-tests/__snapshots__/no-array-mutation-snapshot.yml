@@ -1,0 +1,100 @@
+id: no-array-mutation
+snapshots:
+  KIND_NAMES.sort();:
+    labels:
+    - source: sort
+      message: The method that writes in place
+      style: primary
+      start: 11
+      end: 15
+  captured.push(span);:
+    labels:
+    - source: push
+      message: The method that writes in place
+      style: primary
+      start: 9
+      end: 13
+  const first = queue.shift();:
+    labels:
+    - source: shift
+      message: The method that writes in place
+      style: primary
+      start: 20
+      end: 25
+  const last = stack.pop();:
+    labels:
+    - source: pop
+      message: The method that writes in place
+      style: primary
+      start: 19
+      end: 22
+  load().push(row);:
+    labels:
+    - source: push
+      message: The method that writes in place
+      style: primary
+      start: 7
+      end: 11
+  out.push(...parts);:
+    labels:
+    - source: push
+      message: The method that writes in place
+      style: primary
+      start: 4
+      end: 8
+  queue.unshift(job);:
+    labels:
+    - source: unshift
+      message: The method that writes in place
+      style: primary
+      start: 6
+      end: 13
+  rows.reverse();:
+    labels:
+    - source: reverse
+      message: The method that writes in place
+      style: primary
+      start: 5
+      end: 12
+  rows.sort(compare);:
+    labels:
+    - source: sort
+      message: The method that writes in place
+      style: primary
+      start: 5
+      end: 9
+  rows.splice(index, 1);:
+    labels:
+    - source: splice
+      message: The method that writes in place
+      style: primary
+      start: 5
+      end: 11
+  slots.copyWithin(0, 2);:
+    labels:
+    - source: copyWithin
+      message: The method that writes in place
+      style: primary
+      start: 6
+      end: 16
+  slots.fill(0);:
+    labels:
+    - source: fill
+      message: The method that writes in place
+      style: primary
+      start: 6
+      end: 10
+  state.rows.push(row);:
+    labels:
+    - source: push
+      message: The method that writes in place
+      style: primary
+      start: 11
+      end: 15
+  this.events.push({ name, attributes });:
+    labels:
+    - source: push
+      message: The method that writes in place
+      style: primary
+      start: 12
+      end: 16

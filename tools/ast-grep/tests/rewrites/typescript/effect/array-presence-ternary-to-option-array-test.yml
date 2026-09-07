@@ -24,6 +24,8 @@ valid:
     - 'const params = [...(seed !== null ? [seed] : [])];'
     # Two present arms are a choice
     - 'const files = [...(browser ? [a] : [b])];'
+    # Await inside the condition, the thunk the lift takes is synchronous
+    - 'const files = [...(check(await load()) ? [a] : [])];'
 invalid:
     # The instance, a member read present when a flag holds, the branch outside a spread as a property value
     - 'const configuration = { implicitDependencies: item.managed ? [native.name] : [] };'

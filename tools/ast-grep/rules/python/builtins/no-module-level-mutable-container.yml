@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-module-level-mutable-container
+language: python
+severity: error
+utils:
+    # Displays, comprehensions, and constructors of the mutable containers, the read-only proxy among them because frozendict replaces it
+    mutable-container:
+        any:
+            - kind: dictionary
+            - kind: list
+            - kind: set
+            - kind: dictionary_comprehension
+            - kind: list_comprehension
+            - kind: set_comprehension
+            - kind: call
+              has:
+                  field: function
+                  regex: '^(dict|list|set|bytearray|(collections\.)?(defaultdict|deque|OrderedDict|Counter|ChainMap)|(types\.)?MappingProxyType|(weakref\.)?(WeakSet|WeakKeyDictionary|WeakValueDictionary))$'
+rule:
+    kind: assignment
+    all:
+        - has: {field: left, kind: identifier, pattern: $NAME}
+        - has: {field: right, matches: mutable-container}
+        # Binding outside every def and class, a class attribute is ruff mutable-class-default and its scope owns a local
+        - inside: {kind: expression_statement, not: {inside: {stopBy: end, any: [{matches: python-function-boundary}, {kind: class_definition}]}}}
+constraints:
+    NAME: {not: {regex: '^__all__$'}} # The export list the language reference spells as a list, read once by import
+message: 'Module-level `$NAME` holds a mutable container, ambient state every function of the module can write'
+note: >-
+    Bind an immutable value, `frozendict(...)`, a tuple, or `frozenset(...)`, and hold changing state where one scope owns it,
+    a local, a `pytest.StashKey`, or a value the caller passes

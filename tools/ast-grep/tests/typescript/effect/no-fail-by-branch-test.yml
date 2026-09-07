@@ -3,9 +3,9 @@ valid:
     # The guard names the predicate and the error beside each other
     - |
       Effect.filterOrFail(work, (held) => held.ok, () => new PolicyError({ reason: 'rejected' }))
-    # Local inspected through the guard, the value enters as a succeeded effect
+    # Local guarded through the lift
     - |
-      Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error)
+      Effect.liftPredicate(report, (held) => held.verdict !== 'regression', () => error)
     # Option as the Effect it is, the failure renamed in place
     - |
       Effect.mapError(found, () => new MissingError({ name }))
@@ -30,9 +30,18 @@ valid:
     # Layer match with layer arms, the rule reads the effect constructors alone
     - |
       Layer.match(layer, { onFailure: () => Layer.fail(error), onSuccess: Layer.succeedContext })
-    # Block-bodied arm, the constructor sits in a return statement
+    # Block-bodied arm with a statement before the return, the arm runs an operation
     - |
-      Effect.if(holds, { onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void })
+      Effect.if(holds, { onTrue: () => { report(); return Effect.fail(error); }, onFalse: () => Effect.void })
+    # Array match with a failing empty arm beside an arm that runs an operation, a dispatch
+    - |
+      Array.match(rows, { onEmpty: () => Effect.fail(error), onNonEmpty: (rows) => write(rows) })
+    # Block-bodied passing arm with a statement before the return, the arm runs an operation
+    - |
+      Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => { report(); return Effect.succeed(value); } })
+    # Effect constant outside the pass set as the arm, Effect.interrupt runs an operation
+    - |
+      Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.interrupt })
     # Two-step chain with a failing arm beside an arm that runs an operation, a dispatch
     - |
       Match.value(kind).pipe(Match.when("a", () => Effect.fail(error)), Match.orElse(() => run))
@@ -85,9 +94,51 @@ invalid:
     # Either re-lifted into an STM through the point-free failure and the void pass
     - |
       Either.match(decoded, { onLeft: STM.fail, onRight: () => STM.void })
+    # Defect in one arm, the guard is Effect.filterOrDie
+    - |
+      Effect.if(holds, { onTrue: () => Effect.die(new Error('counterexample')), onFalse: () => Effect.void })
+    # Defect message in one arm, the guard is Effect.filterOrDieMessage
+    - |
+      Effect.if(holds, { onTrue: () => Effect.dieMessage('counterexample'), onFalse: () => Effect.succeed(value) })
+    # Micro defect beside the Micro pass
+    - |
+      Boolean.match(flag, { onFalse: () => Micro.succeed(value), onTrue: () => Micro.die(error) })
+    # STM defect passed point-free
+    - |
+      Either.match(decoded, { onLeft: STM.die, onRight: STM.succeed })
+    # Exit re-lifted through the cause match, the failure arm receives the cause it fails with
+    - |
+      Exit.matchCauseEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
+    # Effect matched through matchCause into a renamed failure and the value
+    - |
+      Effect.matchCause(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })
     # Two-step chain over the boolean, Match.when fails and Match.orElse passes nothing through
     - |
       Match.value(holds).pipe(Match.when(true, () => Effect.fail(error)), Match.orElse(() => Effect.void))
     # Two-step chain through the pipe function with the point-free failure and the lifted value
     - |
       pipe(Match.value(holds), Match.when(true, Effect.fail), Match.orElse(() => Effect.succeed(value)))
+    # Sync defect thunk beside the pass, the orDieWith slot of Effect.filterOrDie takes the thunk
+    - |
+      Effect.if(holds, { onTrue: () => Effect.dieSync(() => new Error('x')), onFalse: () => Effect.void })
+    # Sync failure thunk beside the lifted value, the orFailWith slot of Effect.filterOrFail takes the thunk
+    - |
+      Effect.if(holds, { onTrue: () => Effect.succeed(value), onFalse: () => Effect.failSync(() => error) })
+    # Micro sync failure passed point-free beside the Micro pass
+    - |
+      Either.match(decoded, { onLeft: Micro.failSync, onRight: Micro.succeed })
+    # Block-bodied failing arm with the one return, the constructor is the answer
+    - |
+      Effect.if(holds, { onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void })
+    # Block-bodied passing arm with the one return
+    - |
+      Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => { return Effect.succeed(value); } })
+    # STM branch, the guard is STM.filterOrFail
+    - |
+      STM.if(holds, { onTrue: () => STM.fail(error), onFalse: () => STM.void })
+    # Array matched into a failure on the empty case, the guard is Effect.liftPredicate under Array.isNonEmptyArray
+    - |
+      Array.match(rows, { onEmpty: () => Effect.fail(new EmptyError({ name })), onNonEmpty: Effect.succeed })
+    # Array matched at its left end
+    - |
+      Array.matchLeft(rows, { onEmpty: () => Effect.fail(error), onNonEmpty: (head) => Effect.succeed(head) })

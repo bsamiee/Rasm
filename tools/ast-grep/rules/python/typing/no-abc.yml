@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-abc
+language: python
+severity: error
+rule:
+    matches:
+        python-module-member:
+            module: {regex: '^abc$'}
+            name: {regex: '^(ABC|ABCMeta|abstractmethod|abstractproperty|abstractclassmethod|abstractstaticmethod)$', pattern: $NAME}
+message: '`abc.$NAME` declares a nominal base class'
+note: Declare the interface as `class <Name>(typing.Protocol)`, structural subtyping needs no base

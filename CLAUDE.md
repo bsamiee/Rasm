@@ -9,23 +9,25 @@
 
 ## [01]-[LANGUAGE_STANDARDS]
 
-NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, languages have specialized skills/mcp servers, and `ast-grep` skill and mcp for general usage.
+NEVER use `Grep` or `Glob` to navigate code, languages have specialized skills and MCP servers, and the `ast-grep` skill and MCP serve general usage.
 
 [TOOL_ROUTING]:
-- ALWAYS use `exa` MCP to start open-web search with neural discovery
-- ALWAYS use `search-tavily` skill on known sites, extract or crawl a site, or run a multi-source report, REPLACES `WebFetch` entirely
-- ALWAYS use `search-context7` skill when working with external dependencies, never use training data, never guess SDK/framework/API capabilities
+- ALWAYS use `exa` MCP for open-web search
+- ALWAYS use `search-tavily` skill for known sites, extracts, crawls, and multi-source reports
+- ALWAYS use `search-context7` skill for external dependencies, never use training data, never guess SDK/framework/API capabilities
 - ALWAYS use `github` MCP to explore, read, and search repositories on GitHub and to work their issues, pull requests, and runs
-- ALWAYS use `dotnet-roslyn-codelens` skill to read, navigate, diagnose, and refactor C# files and code
-- ALWAYS use `dotnet-coding` skill for any C# code, in a file or a fence, it routes to the LanguageExt, Thinktecture, and Mapperly skills
-- ALWAYS use `dotnet-msbuild-evaluation` skill for property, item, condition, and import placement across `.props`, `.targets`, and `.csproj` files
-- ALWAYS use `dotnet-msbuild-antipatterns` skill to review or audit a `.props`, `.targets`, or `.csproj` file before changing it
-- ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` ordering, `DependsOn` chains, incremental `Inputs`/`Outputs`, and generated files
-- ALWAYS use `dotnet-msbuild-diagnostics` skill for `.binlog` work, build failures, shared output paths, and timing, NEVER read a `.binlog` directly
-- ALWAYS use `dotnet-msbuild-packaging` skill for package references, versions, sources, package projects, `.slnx`, and CI properties
-- ALWAYS use `manage-repo` skill for Nx targets, the toolchain, configuration ownership, `eng/`, `infra/`, CI, and release
+- ALWAYS use `dotnet-roslyn-codelens` skill for C# files and code
+- ALWAYS use `dotnet-coding` skill for any C# code, in a file or a fence
+- ALWAYS use `dotnet-msbuild-evaluation` skill for `.props`, `.targets`, and `.csproj` declarations
+- ALWAYS use `dotnet-msbuild-antipatterns` skill before changing a `.props`, `.targets`, or `.csproj` file
+- ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` work
+- ALWAYS use `dotnet-msbuild-diagnostics` skill for `.binlog` work and build failures
+- ALWAYS use `dotnet-msbuild-packaging` skill for package references, sources, package projects, and `.slnx`
+- ALWAYS use `manage-repo` skill for Nx targets, the toolchain, `eng/`, `infra/`, `.github/`, CI, and release
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
+
+The policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and rewrite tool calls, and a denied call names the correct form.
 
 [CLI_TOOLING]: All tools are available from `Parametric_Forge`, prefer them to standard Unix tools where applicable
 
@@ -34,7 +36,7 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 |  [01]   | `tree`    | `tree <dir>` lists all directories and files, `-D` for dirs only                                            |
 |  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file                               |
 |  [03]   | `fd`      | Use for ALL normal filesystem queries/actions, superseded by specialized skills/mcp depending on context    |
-|  [04]   | `rg`      | REPLACES `grep`, NEVER use for code search, superseded by language skills/mcp depending on context          |
+|  [04]   | `rg`      | `rg <pattern> <paths>` for literals, comments, and prose, never for code search                             |
 |  [05]   | `gh`      | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
 |  [06]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
 
@@ -91,6 +93,4 @@ NEVER use `Grep`, `Glob`, Bash `grep`/`rg` to navigate code source files, langua
 - ALWAYS pin a runtime or standalone binary in `mise.toml` at `latest`
 - ALWAYS let a manifest, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
-- ALWAYS spell ALL Python dependency rows as unpinned names, `uv.lock` alone pins versions
-- ALWAYS use `pnpm-workspace.yaml` for TypeScript dependency versions and align each `package.json` entry with its catalog entry
 - ALWAYS map every package id to one source in `NuGet.config`, `Rasm.*` to the local `.artifacts/nuget` feed and every other id to nuget.org

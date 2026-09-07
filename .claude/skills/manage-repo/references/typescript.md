@@ -48,7 +48,8 @@ The `typecheck` default runs `tsc --build --pretty false` in the project root an
 - The formatter sets four-space indentation and a 150-column width, single quotes, semicolons always, and trailing commas everywhere
 - The linter enables every group at `error` under the `all` preset with four domains at `all`, and each nursery rule is named, the preset skips them
 - `overrides` hold the per-path exceptions: a rule off for one or every file, a naming convention for a program file, a domain off for a config file
-- The GritQL plugins under `tools/biome/` apply to library, application, tool, and infrastructure sources and stay off test and benchmark files
+- The structural rules under `tools/ast-grep/rules/typescript/` scan every TypeScript root at `lint` through `ast-grep scan`
+- A rule whose correction needs the effect package ignores `.claude/plugins/**` and the spec, test, and bench globs, with the reason in its comment
 - `assist` actions sort imports, attributes, manifest fields, and object properties on every check
 - `javascript.resolver.experimentalPnpmCatalogs` resolves `catalog:` entries when a rule reads a manifest
 

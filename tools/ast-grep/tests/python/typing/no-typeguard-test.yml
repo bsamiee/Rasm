@@ -1,0 +1,30 @@
+id: no-typeguard
+valid:
+    # The corrected form, the predicate that narrows both branches
+    - |
+      from typing import TypeIs
+
+      def is_schema(value: object) -> TypeIs[Schema]:
+          return isinstance(value, Mapping)
+    # Attribute named like the member on another object
+    - |
+      guard = checks.TypeGuard
+invalid:
+    # The instance, the member imported from typing
+    - |
+      from typing import TypeGuard
+    # The member imported from typing_extensions
+    - |
+      from typing_extensions import TypeGuard
+    # The attribute read as spelled
+    - |
+      import typing
+
+      def is_schema(value: object) -> typing.TypeGuard[Schema]:
+          return isinstance(value, Mapping)
+    # The attribute read through the alias the import binds
+    - |
+      import typing as t
+
+      def is_schema(value: object) -> t.TypeGuard[Schema]:
+          return isinstance(value, Mapping)

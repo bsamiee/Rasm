@@ -9,7 +9,7 @@ Change only the input or setting under measurement. Hold the command, properties
 | [INDEX] | [CAPTURE]     | [COMMANDS]                                                                   | [MEASURES]                               |
 | :-----: | :------------ | :--------------------------------------------------------------------------- | :--------------------------------------- |
 |  [01]   | Clean build   | `dotnet build -t:Rebuild -tl:off -bl:<dir>/rebuild-{}.binlog`                | Every target and task from empty outputs |
-|  [02]   | Changed input | One successful build, one representative edit, the same command with `-bl`   | The work one edit causes                 |
+|  [02]   | Changed input | One successful build, one representative edit, the same command with `-bl`   | Work one edit causes                     |
 |  [03]   | No change     | One successful build, then the same command again with `-bl`                 | Targets that run with nothing changed    |
 |  [04]   | Build only    | `dotnet restore -bl:<dir>/restore-{}.binlog`, then `--no-restore` with `-bl` | Execution without restore                |
 

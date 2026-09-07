@@ -1,0 +1,32 @@
+id: no-asyncio-module
+valid:
+    # The corrected form, anyio runs the coroutine
+    - |
+      import anyio
+
+      anyio.run(main)
+    # Package with the module name as a prefix
+    - |
+      import asyncio_extras
+    # Attribute named like the module on another object
+    - |
+      loop = runtime.asyncio.get_event_loop()
+invalid:
+    # The instance, the module imported whole
+    - |
+      import asyncio
+    # Member imported from the module
+    - |
+      from asyncio import sleep
+    # Submodule imported from the package
+    - |
+      from asyncio.subprocess import PIPE
+    # The attribute read as spelled
+    - |
+      asyncio.run(main())
+    # The module imported under an alias
+    - |
+      import asyncio as aio
+    # The attribute chain rooted at the module, reported once at its outermost link
+    - |
+      pipe = asyncio.subprocess.PIPE

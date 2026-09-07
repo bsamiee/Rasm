@@ -1,0 +1,110 @@
+id: require-catch-on-try
+snapshots:
+  const loaded = Effect.tryPromise(() => load(path));:
+    labels:
+    - source: Effect.tryPromise(() => load(path))
+      style: primary
+      start: 15
+      end: 50
+    - source: Effect.tryPromise
+      style: secondary
+      start: 15
+      end: 32
+    - source: () => load(path)
+      style: secondary
+      start: 33
+      end: 49
+    - source: () => load(path)
+      style: secondary
+      start: 33
+      end: 49
+  const loaded = Effect.tryPromise((signal) => load(path, signal));:
+    labels:
+    - source: Effect.tryPromise((signal) => load(path, signal))
+      style: primary
+      start: 15
+      end: 64
+    - source: Effect.tryPromise
+      style: secondary
+      start: 15
+      end: 32
+    - source: (signal) => load(path, signal)
+      style: secondary
+      start: 33
+      end: 63
+    - source: (signal) => load(path, signal)
+      style: secondary
+      start: 33
+      end: 63
+  const parsed = Effect.try(() => parse(raw));:
+    labels:
+    - source: Effect.try(() => parse(raw))
+      style: primary
+      start: 15
+      end: 43
+    - source: Effect.try
+      style: secondary
+      start: 15
+      end: 25
+    - source: () => parse(raw)
+      style: secondary
+      start: 26
+      end: 42
+    - source: () => parse(raw)
+      style: secondary
+      start: 26
+      end: 42
+  const parsed = Effect.try(function () { return parse(raw); });:
+    labels:
+    - source: Effect.try(function () { return parse(raw); })
+      style: primary
+      start: 15
+      end: 61
+    - source: Effect.try
+      style: secondary
+      start: 15
+      end: 25
+    - source: function () { return parse(raw); }
+      style: secondary
+      start: 26
+      end: 60
+    - source: function () { return parse(raw); }
+      style: secondary
+      start: 26
+      end: 60
+  const parsed = Either.try(() => parse(raw));:
+    labels:
+    - source: Either.try(() => parse(raw))
+      style: primary
+      start: 15
+      end: 43
+    - source: Either.try
+      style: secondary
+      start: 15
+      end: 25
+    - source: () => parse(raw)
+      style: secondary
+      start: 26
+      end: 42
+    - source: () => parse(raw)
+      style: secondary
+      start: 26
+      end: 42
+  const parsed = STM.try(() => parse(raw));:
+    labels:
+    - source: STM.try(() => parse(raw))
+      style: primary
+      start: 15
+      end: 40
+    - source: STM.try
+      style: secondary
+      start: 15
+      end: 22
+    - source: () => parse(raw)
+      style: secondary
+      start: 23
+      end: 39
+    - source: () => parse(raw)
+      style: secondary
+      start: 23
+      end: 39

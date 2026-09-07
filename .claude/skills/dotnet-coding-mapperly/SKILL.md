@@ -322,14 +322,14 @@ Mapperly calls `TryGetReference` before it creates a target, a `true` result set
 
 | [INDEX] | [WRONG_FORM]                                                      | [CORRECT_FORM]                                             |
 | :-----: | :---------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type | The hand-written `From` factory over `Validate`            |
-|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union        | The generated exhaustive `Switch`, one mapper call per arm |
-|  [03]   | `EnabledConversions` on a mapper naming the one added bit         | The whole allowlist, the value replaces and never merges   |
+|  [01]   | Mapper conversion that calls `Create` or `Parse` on a domain type | Hand-written `From` factory over `Validate`                |
+|  [02]   | `MapDerivedType` or a partial `Switch` over a closed union        | Generated exhaustive `Switch`, one mapper call per arm     |
+|  [03]   | `EnabledConversions` on a mapper naming the one added bit         | Whole allowlist, the value replaces and never merges       |
 |  [04]   | Mapper method that returns `Fin<T>` or unwraps one                | Mapper over the success value, `Map` keeps the context     |
-|  [05]   | `ToString()` as the wire contract of a value object               | The key member, or `ToValue` of an `[ObjectFactory<T>]`    |
+|  [05]   | `ToString()` as the wire contract of a value object               | Key member, or `ToValue` of an `[ObjectFactory<T>]`        |
 |  [06]   | Validation or effects inside a query projection                   | Project, materialize, then validate and construct          |
 |  [07]   | Existing-target mapping over a value the caller published         | New-instance mapping, or a target that never escapes       |
 |  [08]   | Private `[UserMapping]` repeated in every mapper that needs it    | One `internal static class` behind `[UseStaticMapper<T>]`  |
 |  [09]   | Mapper-built `Option`, `Either`, `Validation`, `Try`, `IO`, or `Eff` | Value passed through, cases selected in boundary code      |
-|  [10]   | An unsafe accessor over a private constructor or hidden member    | The declared factory of the constrained type               |
-|  [11]   | An object factory that resolves services                          | A pure factory over its parameters                         |
+|  [10]   | Unsafe accessor over a private constructor or hidden member       | Declared factory of the constrained type                   |
+|  [11]   | Object factory that resolves services                             | Pure factory over its parameters                           |

@@ -1,0 +1,25 @@
+id: no-fetch-outside-boundary
+valid:
+    # The client from the context
+    - 'const response = Effect.flatMap(HttpClient.HttpClient, (client) => client.get(url));'
+    # Platform fetch inside the boundary
+    - 'const response = Effect.tryPromise({ try: () => fetch(url), catch: (cause) => new LoadError({ cause }) });'
+    # Platform fetch under the global object inside the boundary
+    - 'const response = Effect.promise(() => globalThis.fetch(url));'
+    # Method named fetch on a value, no global
+    - 'const rows = client.fetch(url);'
+    # The global named without a call
+    - 'const run = fetch;'
+invalid:
+    # The instance, the global called in domain code
+    - 'const response = fetch(url);'
+    # The global through globalThis
+    - 'const response = globalThis.fetch(url);'
+    # The global through window
+    - 'const response = window.fetch(url);'
+    # The global through self
+    - 'const response = self.fetch(url);'
+    # Fetch inside a callback the boundary does not hold
+    - 'const response = Effect.sync(() => fetch(url));'
+    # Fetch with an init object
+    - "const response = fetch(url, { method: 'POST' });"

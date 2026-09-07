@@ -1,0 +1,37 @@
+id: no-os-environ
+valid:
+    # The corrected form, the typed settings read once
+    - |
+      from pydantic_settings import BaseSettings
+
+      class Settings(BaseSettings):
+          nuget_api_key: str
+
+      settings = Settings()
+    # Another member of the module
+    - |
+      import os
+
+      pid = os.getpid()
+    # Attribute named like the member on another object
+    - |
+      variables = process.environ
+invalid:
+    # The instance, the mapping read as spelled
+    - |
+      import os
+
+      home = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")
+    # The getter read as spelled
+    - |
+      import os
+
+      home = os.getenv("HOME")
+    # The member imported from the module
+    - |
+      from os import environ
+    # The attribute read through the alias the import binds
+    - |
+      import os as system
+
+      home = system.environ["HOME"]

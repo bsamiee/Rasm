@@ -1,0 +1,105 @@
+id: no-expression-in-run-step
+valid:
+    # The correction, the expression under env and the variable read in the run text
+    - |
+      steps:
+        - env:
+            PROJECTS: ${{ inputs.projects }}
+          run: pnpm exec nx release ${PROJECTS:+--projects=$PROJECTS}
+    # Shell expansions with no expression delimiter
+    - |
+      steps:
+        - run: echo "$VAR" "${VAR}" $((1 + 2))
+    # Expression under with, the action takes it as an argument
+    - |
+      steps:
+        - uses: fakeaction/checktitle@v3
+          with:
+            title: ${{ github.event.pull_request.title }}
+    # Expression under if, name, and working-directory beside a plain run
+    - |
+      steps:
+        - if: ${{ always() }}
+          name: ${{ matrix.rid }}
+          working-directory: ${{ runner.temp }}
+          run: pnpm exec nx run-many -t stage
+    # The defaults shell entry, a mapping under run
+    - |
+      defaults:
+        run:
+          shell: bash
+    # Block scalar with no expression
+    - |
+      steps:
+        - run: |
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+    # An action input named run under with, the action takes it as an argument
+    - |
+      steps:
+        - uses: some/action@v1
+          with:
+            run: ${{ inputs.command }}
+invalid:
+    # A flow mapping step, the value quoted
+    - |
+      steps:
+        - {run: "echo ${{ inputs.command }}"}
+    # A stripped block scalar
+    - |
+      steps:
+        - run: |-
+            echo ${{ inputs.command }}
+    # A stripped folded scalar
+    - |
+      steps:
+        - run: >-
+            echo ${{ inputs.command }}
+    # The run key between other step keys
+    - |
+      steps:
+        - name: a
+          run: "echo ${{ inputs.command }}"
+          shell: bash
+    # The instance, an input expression in a plain scalar
+    - |
+      steps:
+        - run: uv sync --locked ${{ inputs.python }}
+    # A format call in the middle of the text
+    - |
+      steps:
+        - run: pnpm exec nx release --skip-publish ${{ inputs.projects != '' && format('--projects={0}', inputs.projects) || '' }}
+    # Double-quoted scalar
+    - |
+      steps:
+        - run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"
+    # Single-quoted scalar
+    - |
+      steps:
+        - run: 'echo ${{ steps.cache.outputs.vcpkg-key }}'
+    # Block scalar with the expression on a later line
+    - |
+      steps:
+        - run: |
+            echo start
+            echo ${{ github.event.pull_request.title }}
+    # Folded scalar
+    - |
+      steps:
+        - run: >
+            echo
+            ${{ runner.temp }}
+    # Expression on a comment line of a block scalar, substituted before the shell reads the comment, a newline in the value leaves it
+    - |
+      steps:
+        - run: |
+            # ${{ github.event.issue.title }}
+            echo start
+    # Expression at the start of the text
+    - |
+      steps:
+        - run: ${{ inputs.command }} --version
+    # The key quoted
+    - |
+      steps:
+        - "run": echo ${{ inputs.command }}

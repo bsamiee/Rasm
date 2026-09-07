@@ -62,8 +62,9 @@ class _Displacement:
     angular: float = case()
 
 
+# ast-grep-ignore: no-init-only-class
 class _Opaque:
-    """Schema-opaque leaf with no msgspec projection, Hypothesis resolves it through the registered strategy."""
+    """Schema-opaque leaf with no msgspec projection, a Struct would have one, Hypothesis resolves it through the registered strategy."""
 
     def __init__(self, token: int) -> None:
         self.token = token

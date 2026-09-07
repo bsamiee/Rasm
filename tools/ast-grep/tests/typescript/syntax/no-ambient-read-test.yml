@@ -1,0 +1,63 @@
+id: no-ambient-read
+valid:
+    # The clock service
+    - 'const now = yield* Clock.currentTimeMillis;'
+    # The DateTime read of now
+    - 'const now = yield* DateTime.now;'
+    # The random service
+    - 'const value = yield* Random.next;'
+    # Date built from an input, no-native-date reports it
+    - "const cutoff = new Date('2026-01-01');"
+    # Parse over an input, no-native-date reports it
+    - "const cutoff = Date.parse('2026-01-01');"
+    # Member named like the clock on another object
+    - 'const now = clock.now();'
+    # Math member outside the random source
+    - 'const rounded = Math.round(value);'
+    # Date as a type annotation
+    - 'const held: Date = cutoff;'
+    # Member named env on another object
+    - 'const home = settings.env.HOME;'
+    # Temporal built from an input
+    - 'const at = Temporal.Instant.from(text);'
+    # The environment variable read through Config
+    - "const home = yield* Config.string('HOME');"
+    # One environment variable, Biome noProcessEnv reports the process.env read
+    - 'const home = process.env.HOME;'
+    # The environment as a whole, Biome noProcessEnv reports it
+    - 'const env = process.env;'
+    # The environment through globalThis, Biome noProcessEnv reports it
+    - 'const home = globalThis.process.env.HOME;'
+invalid:
+    # The current time as a string, the constructor called without new
+    - 'const now = Date();'
+    # The Temporal clock
+    - 'const now = Temporal.Now.instant();'
+    # Random integer
+    - 'const roll = crypto.randomInt(10);'
+    # Random bytes
+    - 'const salt = crypto.randomBytes(8);'
+    # The process uptime
+    - 'const alive = process.uptime();'
+    # The host uptime
+    - 'const alive = os.uptime();'
+    # The instance, the clock read through Date.now
+    - 'const now = Date.now();'
+    # The current time as a Date
+    - 'const now = new Date();'
+    # The constructor without parentheses
+    - 'const now = new Date;'
+    # The random source
+    - 'const salt = Math.random();'
+    # Random id
+    - 'const id = crypto.randomUUID();'
+    # Random bytes
+    - 'const bytes = crypto.getRandomValues(new Uint8Array(8));'
+    # The high-resolution clock
+    - 'const started = performance.now();'
+    # The process clock
+    - 'const started = process.hrtime.bigint();'
+    # The clock through globalThis
+    - 'const now = globalThis.Date.now();'
+    # The random source through globalThis
+    - 'const id = globalThis.crypto.randomUUID();'

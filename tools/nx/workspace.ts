@@ -161,7 +161,7 @@ const _packagingNode = (
             metadata: { description: `Stage the ${library} files for a runtime identifier`, technologies: ['python', 'vcpkg'] },
         };
         const pack: TargetConfiguration = {
-            command: `dotnet pack ${root} --configuration Release --output ${source} --nologo`,
+            command: `dotnet pack ${root} --configuration Release --output ${source}`,
             cache: true,
             dependsOn: [{ projects: [native], target: 'stage' }],
             inputs: [

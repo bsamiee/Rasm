@@ -485,6 +485,9 @@ catalogs:
     '@perspective-dev/viewer-datagrid':
       specifier: 5.3.0
       version: 5.3.0
+    '@playwright/mcp':
+      specifier: 0.0.80
+      version: 0.0.80
     '@pulumi/aws':
       specifier: 7.44.0
       version: 7.44.0
@@ -719,6 +722,9 @@ catalogs:
     hash-wasm:
       specifier: 4.12.0
       version: 4.12.0
+    hostinger-api-mcp:
+      specifier: 1.57.0
+      version: 1.57.0
     hucre:
       specifier: 1.1.0
       version: 1.1.0
@@ -1327,6 +1333,9 @@ importers:
       '@perspective-dev/viewer-datagrid':
         specifier: 'catalog:'
         version: 5.3.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
+      '@playwright/mcp':
+        specifier: 'catalog:'
+        version: 0.0.80
       '@pulumi/aws':
         specifier: 'catalog:'
         version: 7.44.0(supports-color@7.2.0)(typescript@7.0.2)
@@ -1561,6 +1570,9 @@ importers:
       hash-wasm:
         specifier: 'catalog:'
         version: 4.12.0
+      hostinger-api-mcp:
+        specifier: 'catalog:'
+        version: 1.57.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)(zod@4.5.4)
       hucre:
         specifier: 'catalog:'
         version: 1.1.0
@@ -1777,6 +1789,12 @@ importers:
       yaml:
         specifier: 'catalog:'
         version: 2.9.0
+
+  .claude/plugins/function-hooks:
+    devDependencies:
+      vitest:
+        specifier: 'catalog:'
+        version: 4.1.11(@opentelemetry/api@1.9.1)(@types/node@26.4.1)(@vitest/coverage-v8@4.1.11)(jsdom@30.0.1(@noble/hashes@2.4.0))(vite@8.2.2)
 
   tests/typescript/support:
     dependencies:
@@ -5398,6 +5416,11 @@ packages:
     resolution: {integrity: sha512-+1VkjdD0QBLPodGrJUeqarH8VAIvQODIbwh9XpP5Syisf7YoQgsJKPNFoqqLQlu+VQ/tVSshMR6loPMn8U+dPg==}
     engines: {node: '>=14'}
 
+  '@playwright/mcp@0.0.80':
+    resolution: {integrity: sha512-FOPXHm2SvFhAQylm10jMZ35B/SR2TaMLVkavAlwoG4N2qCb5RqbvhQYcu3zmXNyxR2DW0Ooxe+9XPVt5UjKRCQ==}
+    engines: {node: '>=18'}
+    hasBin: true
+
   '@polka/url@1.0.0-next.29':
     resolution: {integrity: sha512-wwQAWhWSuHaag8c4q/KN/vCoeOJYshAIvMQwD4GpSb3OiZklFfvAgmj0VCBBImRpuF/aFgIRzllXlVX93Jevww==}
 
@@ -8396,6 +8419,10 @@ packages:
     resolution: {integrity: sha512-47qPchRCykZC03FhkYAhrvwU4xDBFIj1QPqaarj6mdM/hgUzfPHcpkHJOn3mJAufFeeAxAzeGsr5X0M4k6fLZQ==}
     engines: {node: '>=12'}
 
+  dotenv@17.4.2:
+    resolution: {integrity: sha512-nI4U3TottKAcAD9LLud4Cb7b2QztQMUEfHbvhTH09bqXTxnSie8WnjPALV/WMCrJZ6UV/qHJ6L03OqO3LcdYZw==}
+    engines: {node: '>=12'}
+
   draco3d@1.5.7:
     resolution: {integrity: sha512-m6WCKt/erDXcw+70IJXnG7M3awwQPAsZvJGX5zY7beBqpELw6RDGkYVU0W43AFxye4pDZ5i2Lbyc/NNGqwjUVQ==}
 
@@ -9016,6 +9043,11 @@ packages:
   hosted-git-info@9.0.3:
     resolution: {integrity: sha512-Hc+ghLoSt6QaYZUv0WBiIvmMDZuZZ7oaDvdH8MbfOO4lOsxdXLEvuC6ePoGs9H1X9oCLyq6+NVN0MKqD+ydxyg==}
     engines: {node: ^20.17.0 || >=22.9.0}
+
+  hostinger-api-mcp@1.57.0:
+    resolution: {integrity: sha512-KdXcAZbAdnlYbHFeoE9vtqDoIEgRKF6MM96CgANdwp2bVUE6g9j9fZyzegO4kcKyEfsa3BwL1z7r/ZxIhikmPg==}
+    engines: {node: '>=20.0.0'}
+    hasBin: true
 
   hot-patcher@2.0.1:
     resolution: {integrity: sha512-ECg1JFG0YzehicQaogenlcs2qg6WsXQsxtnbr1i696u5tLUjtJdQAh0u2g0Q5YV45f263Ta1GnUJsc8WIfJf4Q==}
@@ -10576,6 +10608,16 @@ packages:
 
   pkg-types@2.3.1:
     resolution: {integrity: sha512-y+ichcgc2LrADuhLNAx8DFjVfgz91pRxfZdI3UDhxHvcVEZsenLO+7XaU5vOp0u/7V/wZ+plyuQxtrDlZJ+yeg==}
+
+  playwright-core@1.63.0-alpha-2026-08-31:
+    resolution: {integrity: sha512-1ek0Lyr12h6jcs/WTcNoVtzZkQp7D/90PsMuBW/Rm6h3AsWAbzpqj0geMv8+8Tzzr9CSUYvg9kznrVZINQMXXw==}
+    engines: {node: '>=20'}
+    hasBin: true
+
+  playwright@1.63.0-alpha-2026-08-31:
+    resolution: {integrity: sha512-3XAsuznfu8jBVJ4QxdGvBkt0+b8ZFwuwJYyOfiIw5ZjUOrNLNRhKxzLzLuydou3gJ9c6eMwVqgzdiOwhy54Kzw==}
+    engines: {node: '>=20'}
+    hasBin: true
 
   point-in-polygon-hao@1.2.4:
     resolution: {integrity: sha512-x2pcvXeqhRHlNRdhLs/tgFapAbSSe86wa/eqmj1G6pWftbEs5aVRJhRGM6FYSUERKu0PjekJzMq0gsI2XyiclQ==}
@@ -16585,6 +16627,11 @@ snapshots:
   '@pkgjs/parseargs@0.11.0':
     optional: true
 
+  '@playwright/mcp@0.0.80':
+    dependencies:
+      playwright: 1.63.0-alpha-2026-08-31
+      playwright-core: 1.63.0-alpha-2026-08-31
+
   '@polka/url@1.0.0-next.29': {}
 
   '@probe.gl/env@4.1.1': {}
@@ -20558,6 +20605,8 @@ snapshots:
 
   dotenv@16.4.7: {}
 
+  dotenv@17.4.2: {}
+
   draco3d@1.5.7: {}
 
   dunder-proto@1.0.1:
@@ -21269,6 +21318,21 @@ snapshots:
   hosted-git-info@9.0.3:
     dependencies:
       lru-cache: 11.5.2
+
+  hostinger-api-mcp@1.57.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)(zod@4.5.4):
+    dependencies:
+      '@modelcontextprotocol/sdk': 1.30.0(supports-color@7.2.0)(zod@4.5.4)
+      axios: 1.20.0(debug@4.4.3(supports-color@7.2.0))(supports-color@7.2.0)
+      cors: 2.8.6
+      dotenv: 17.4.2
+      express: 5.2.1(supports-color@7.2.0)
+      minimist: 1.2.8
+      tus-js-client: 4.3.1
+    transitivePeerDependencies:
+      - '@cfworker/json-schema'
+      - debug
+      - supports-color
+      - zod
 
   hot-patcher@2.0.1: {}
 
@@ -22988,6 +23052,12 @@ snapshots:
       confbox: 0.2.4
       exsolve: 1.1.1
       pathe: 2.0.3
+
+  playwright-core@1.63.0-alpha-2026-08-31: {}
+
+  playwright@1.63.0-alpha-2026-08-31:
+    dependencies:
+      playwright-core: 1.63.0-alpha-2026-08-31
 
   point-in-polygon-hao@1.2.4:
     dependencies:

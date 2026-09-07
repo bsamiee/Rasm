@@ -8,6 +8,8 @@ skills:
   - dotnet-msbuild-execution
   - dotnet-msbuild-packaging
   - dotnet-roslyn-codelens
+  - search-context7
+  - search-tavily
 ---
 
 # [MSBUILD_FIXER]

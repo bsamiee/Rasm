@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fetch-outside-boundary
+language: tsx
+severity: error
+# The plugin loader accepts claude-code and relative .ts imports alone, a config root and a spec are the host's boundary
+ignores: ['.claude/plugins/**', '**/*.config.ts', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+rule:
+    all:
+        - kind: call_expression
+        # The global spelled bare or through the global object of the platform, tested before the walk to the boundary
+        - has: {field: function, regex: '^((globalThis|window|self)\.)?fetch$'}
+        - not: {inside: {stopBy: end, matches: effect-promise-boundary}}
+message: The platform fetch runs outside the boundary and answers an untyped promise
+note: >-
+    Take `HttpClient` from the context for typed errors, `Schedule` retries, and traced spans,
+    and a platform fetch runs inside `Effect.tryPromise` at the boundary alone

@@ -33,17 +33,7 @@ rule:
                   - all: [{nthChild: {position: 1, ofRule: {kind: object}}}, {inside: {matches: array-rows}}]
                   - inside: {kind: pair, nthChild: {position: 1, ofRule: {kind: pair}}, field: value, inside: {matches: object-rows}}
 constraints:
-    VALUE:
-        any:
-            - matches: syntax-string-literal
-            - kind: number
-            - kind: unary_expression
-              has: {kind: number}
-            - kind: 'true'
-            - kind: 'false'
-            - kind: 'null'
-            - kind: undefined
-            - kind: regex
+    VALUE: {matches: syntax-literal-value}
 message: Every row holds $KEY as $VALUE, the column states one fact for the whole collection
 note: >-
     Delete the column and apply the value once where the rows are consumed,

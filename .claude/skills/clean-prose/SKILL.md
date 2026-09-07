@@ -105,7 +105,7 @@ Each sentence states one instruction or one fact in active voice and simple pres
 - Warnings precede the step they guard and state the command or condition, then the risk
 - Verbs name actions, and nominalizations and phrasal verbs take the verb from the word map
 - Statements name the actor as their subject, and passive voice stays for an unknown actor
-- Articles stay before a noun the context identifies, and generic nouns, listing lines, tree comments, and a noun followed by an identifier (`restart pod web-7f9b2`) take none
+- Articles stay before a noun the context identifies, and generic nouns, listing lines, tree comments, and a noun before an identifier take none
 - One word names one concept for the whole file: "check" or "verify" for one operation
 - Contractions expand, and spelling is American
 
@@ -127,6 +127,7 @@ Sections follow the order of work or dependency under `## [NN]-[NOUN]` headings 
 - The opening sentence states the scope as one category, and every other sentence about the file, the section, or the skill goes
 - Pointers to another file or skill are one line, `Use <name> for <purpose>`, with the purpose as one clause for the whole file
 - Lines that describe a file, directory, section, or diagram node state its purpose, and the contents stay in it
+- Layout entries with the list as their fact (a tree line, a memory index line) keep the list
 - Prose about code names the command, identifier, or file and states its purpose, and the steps it performs stay in the code
 - Facts sit where the reader needs them, and a link is the location of a thing the reader opens
 - Paragraphs hold one topic, and parallel cases sit in one list, or in one sentence when each case is a phrase
@@ -159,6 +160,7 @@ Comments state intent or a constraint the code cannot show, in one line and one 
 - The first letter is capitalized unless the comment starts with a backticked identifier or a tool name
 - Each sentence stays whole on its line within the language line length, and intent that needs two lines moves to documentation or goes
 - Consecutive full-line comments merge into one, or the one that repeats the code goes
+- Comments that name the source a value was ported from go once that source leaves the repository, or names a file the repository does not hold
 - Inline comments stay and get the same removals
 - Section dividers, structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
 - Doc comment summaries are one sentence that states what the member returns or does, and remarks keep one fact per sentence
@@ -202,13 +204,13 @@ New text follows the same rules from the first draft and gets the table and scan
 |  [15]   | Consecutive comment lines outside doc comments and sample labels  | Stacked comment         | Merge or delete                           |
 |  [16]   | Period before a cell boundary inside a table                      | Cell period             | Rewrite the cell                          |
 |  [17]   | Entry over 150 columns                                            | Entry width             | One fact, shorter cells, or fewer columns |
-|  [18]   | `above`, `below`, `see `, `[NN]` in a sentence, `this file`       | Cross-reference or meta | Delete, place the fact where it is needed |
-|  [19]   | `this`, `these`, `that`, `those` before a noun or as the subject  | Demonstrative           | Delete, or repeat the noun                |
+|  [18]   | `above` or `below` as a reference, `see `, `[NN]`, `this file`    | Cross-reference or meta | Delete, place the fact where it is needed |
+|  [19]   | `this`, `these`, `that`, `those` as a determiner or the subject   | Demonstrative           | Delete, or repeat the noun                |
 |  [20]   | `<name>` owns, `is responsible for` before a topic                | Ownership statement     | `Use <name> for <purpose>`                |
 |  [21]   | File, directory, or reference line holding a comma list           | Content enumeration     | State the purpose                         |
 |  [22]   | `**`, emoji, or an uppercase word outside code and `[LABELS]`     | Emphasis markup         | Label or sentence position                |
 |  [23]   | External URL outside a package page, download, or tool document   | Citation                | Delete, state the fact                    |
-|  [24]   | `never`, `instead of`, `not`, or `only` forbidding a form         | Negative framing        | State the form, forbidden form to a row   |
+|  [24]   | Sentence opening with `never`, `not`, or `no` before a form       | Negative framing        | State the form, forbidden form to a row   |
 |  [25]   | Sentence that walks the steps a command, target, or script runs   | Paraphrased code        | Name it, state its purpose                |
 |  [26]   | Opening sentence or docstring with a `:` list of the contents     | Scope enumeration       | One category, or delete                   |
 |  [27]   | `?` outside a quoted message                                      | Question                | State the fact or the purpose             |

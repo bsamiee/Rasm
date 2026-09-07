@@ -1,0 +1,98 @@
+id: no-ambient-read
+snapshots:
+  const alive = os.uptime();:
+    labels:
+    - source: os.uptime()
+      style: primary
+      start: 14
+      end: 25
+  const alive = process.uptime();:
+    labels:
+    - source: process.uptime()
+      style: primary
+      start: 14
+      end: 30
+  const bytes = crypto.getRandomValues(new Uint8Array(8));:
+    labels:
+    - source: crypto.getRandomValues(new Uint8Array(8))
+      style: primary
+      start: 14
+      end: 55
+  const id = crypto.randomUUID();:
+    labels:
+    - source: crypto.randomUUID()
+      style: primary
+      start: 11
+      end: 30
+  const id = globalThis.crypto.randomUUID();:
+    labels:
+    - source: globalThis.crypto.randomUUID()
+      style: primary
+      start: 11
+      end: 41
+  const now = Date();:
+    labels:
+    - source: Date()
+      style: primary
+      start: 12
+      end: 18
+  const now = Date.now();:
+    labels:
+    - source: Date.now()
+      style: primary
+      start: 12
+      end: 22
+  const now = Temporal.Now.instant();:
+    labels:
+    - source: Temporal.Now.instant()
+      style: primary
+      start: 12
+      end: 34
+  const now = globalThis.Date.now();:
+    labels:
+    - source: globalThis.Date.now()
+      style: primary
+      start: 12
+      end: 33
+  const now = new Date();:
+    labels:
+    - source: new Date()
+      style: primary
+      start: 12
+      end: 22
+  const now = new Date;:
+    labels:
+    - source: new Date
+      style: primary
+      start: 12
+      end: 20
+  const roll = crypto.randomInt(10);:
+    labels:
+    - source: crypto.randomInt(10)
+      style: primary
+      start: 13
+      end: 33
+  const salt = Math.random();:
+    labels:
+    - source: Math.random()
+      style: primary
+      start: 13
+      end: 26
+  const salt = crypto.randomBytes(8);:
+    labels:
+    - source: crypto.randomBytes(8)
+      style: primary
+      start: 13
+      end: 34
+  const started = performance.now();:
+    labels:
+    - source: performance.now()
+      style: primary
+      start: 16
+      end: 33
+  const started = process.hrtime.bigint();:
+    labels:
+    - source: process.hrtime.bigint()
+      style: primary
+      start: 16
+      end: 39

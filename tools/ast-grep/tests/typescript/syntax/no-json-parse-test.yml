@@ -1,0 +1,19 @@
+id: no-json-parse
+valid:
+    # The decode through the JSON schema
+    - 'const row = yield* Schema.decodeUnknown(Schema.parseJson(Row))(text);'
+    # The encode to text keeps the value typed
+    - 'const text = JSON.stringify(row);'
+    # Member named like parse on another object
+    - 'const row = Duration.parse(text);'
+    # The parse name as a value, no call
+    - 'const parse = JSON.parse;'
+invalid:
+    # The instance, the parse over text
+    - 'const row = JSON.parse(text);'
+    # The parse with a reviver
+    - 'const row = JSON.parse(text, reviver);'
+    # The parse through globalThis
+    - 'const row = globalThis.JSON.parse(text);'
+    # The parse as an argument
+    - 'use(JSON.parse(text));'

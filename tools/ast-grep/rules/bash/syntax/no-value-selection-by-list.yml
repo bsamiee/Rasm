@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-value-selection-by-list
+language: bash
+severity: error
+utils:
+    # A command or an assignment, the two arms bind one name, and a redirect on an operand wraps its whole list
+    named-operand:
+        any:
+            - kind: command
+              has: {field: name, pattern: $NAME}
+            - kind: variable_assignment
+              has: {field: name, pattern: $NAME}
+    # The operand a list ends with
+    last-operand:
+        nthChild: {position: 1, reverse: true}
+        matches: named-operand
+    # The && list, bare or under the redirect of its last operand, which the grammar binds to the list
+    and-list:
+        any:
+            - kind: list
+              all:
+                  - has: {regex: '^&&$'}
+                  - has: {matches: last-operand}
+            - kind: redirected_statement
+              has: {field: body, matches: and-list}
+rule:
+    kind: list
+    all:
+        - has: {regex: '^\|\|$'}
+        - has: {matches: and-list}
+        - has: {matches: last-operand}
+constraints:
+    NAME: {not: {regex: '^(exit|return|break|continue)$'}} # A leaving command never fails, the list selects a status and no value
+message: '`&&` and `||` select between two `$NAME` operands, and a failing first `$NAME` runs the second'
+note: 'Select the value, not the command: a parameter expansion `${<name>:-<default>}`, or `if` and `case` around the two operands'

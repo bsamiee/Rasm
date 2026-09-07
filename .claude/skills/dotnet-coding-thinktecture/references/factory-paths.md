@@ -9,7 +9,7 @@ Each integration point filters the type's factories by its flag and the value ty
 | [INDEX] | [INTEGRATION]                | [CONDITION]                                                      | [FALLBACK]                          |
 | :-----: | :--------------------------- | :--------------------------------------------------------------- | :---------------------------------- |
 |  [01]   | System.Text.Json             | `SystemTextJson` flag, `T` no ref struct or `ReadOnlySpan<char>` | Key member                          |
-|  [02]   | Newtonsoft.Json, MessagePack | The matching flag, `T` no ref struct                             | Key member                          |
+|  [02]   | Newtonsoft.Json, MessagePack | Matching flag, `T` no ref struct                                 | Key member                          |
 |  [03]   | Entity Framework Core        | `UseWithEntityFramework = true`, `T` no `ReadOnlySpan<char>`     | Key member                          |
 |  [04]   | Model binding                | `UseForModelBinding = true`, `T` no `ReadOnlySpan<char>`         | Key member                          |
 |  [05]   | Serilog destructuring        | None                                                             | Key member, union value, or nothing |

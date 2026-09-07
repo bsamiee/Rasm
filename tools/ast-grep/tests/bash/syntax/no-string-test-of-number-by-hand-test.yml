@@ -1,0 +1,37 @@
+id: no-string-test-of-number-by-hand
+valid:
+    # The corrected form, an arithmetic command per comparison joined by the list operator
+    - ((h == 1)) && [[ -n $x ]]
+    # The corrected negation
+    - ((h != 1))
+    # One comparison as the whole test, no-string-test-of-number owns the form
+    - '[[ $h == 1 ]]'
+    # Two joined tests with no number
+    - '[[ -n $a && -n $b ]]'
+    # Two joined string comparisons
+    - '[[ $a == b && $c == d ]]'
+    # A negated string comparison, no number
+    - '[[ ! $a == $b ]]'
+    # A negative number as the whole test, no-string-test-of-number owns the form
+    - '[[ -1 -eq $x ]]'
+    # Two tests joined by a list operator, each its own test
+    - '[[ $h == 1 ]] && [[ -n $x ]]'
+invalid:
+    # A parenthesized comparison beside a join
+    - '[[ -n $x && ( $h -eq 1 ) ]]'
+    # A parenthesized comparison under !
+    - '[[ ! ( $h -eq 1 ) ]]'
+    # Three joined tests
+    - '[[ $h -eq 1 && $j -eq 2 || -z $x ]]'
+    # The single-bracket form negated
+    - '[ ! "$h" -eq 1 ]'
+    # Two number comparisons joined by &&
+    - '[[ $h -eq 1 && $j -eq 2 ]]'
+    # A number comparison joined to a unary test by ||
+    - '[[ $h == 1 || -n $x ]]'
+    # The number comparison on the right of the join
+    - '[[ -n $x && $h -eq 1 ]]'
+    # A negated comparison
+    - '[[ ! $h -eq 1 ]]'
+    # The single-bracket form joined by -a
+    - '[ "$h" -eq 1 -a "$j" -eq 2 ]'

@@ -21,6 +21,16 @@ valid:
     - 'const listed = Option.match(found, { onNone: () => [fallback], onSome: (item) => [item] });'
     # Nullish default spread, both sides hold a value
     - 'const options = { ...(override ?? {}) };'
+    # Disjunction spread with a value on both sides, a choice
+    - 'const options = { ...(override || defaults) };'
+    # Conjunction with a value fallback, the false side chooses another value
+    - 'const plugins = [...((production && plugins) || fallback)];'
+    # Ternary with a value in both arms
+    - 'const plugins = [...(production ? plugins : fallback)];'
+    # Ternary with an undefined arm outside a spread, a nullable value
+    - 'const options = hidden ? undefined : { label };'
+    # Conjunction outside a spread, a guard the reader holds as a value
+    - 'const held = production && plugins;'
     # Dispatch over many arms through the pipe function, the same three steps as the method chain
     - |
       const readings = pipe(
@@ -48,6 +58,8 @@ valid:
       );
     # Two-step chain with an empty lifted arm beside an arm that runs an operation, a dispatch
     - 'const rows = Match.value(kind).pipe(Match.when("a", () => Effect.succeed([])), Match.orElse(() => append(rows)));'
+    # Array match with an element in both arms
+    - 'const listed = Array.match(rows, { onEmpty: () => [fallback], onNonEmpty: (rows) => rows });'
 invalid:
     # Empty arm spread into an object
     - 'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };'
@@ -97,3 +109,33 @@ invalid:
     - 'const options = { ...(adopt && { import: id }) };'
     # Conjunction spread into an array
     - 'const plugins = [...(production && plugins)];'
+    # Conjunction with the empty array as the fallback of a disjunction
+    - 'const lines = [...((count > limit && [line]) || [])];'
+    # Conjunction with the empty object as the fallback, the parentheses around the conjunction kept
+    - 'const options = { ...((adopt && { import: id }) || {}) };'
+    # Conjunction of two conditions before the element
+    - 'const lines = [...((entry && line.length >= width && [line]) || [])];'
+    # Ternary with an empty array arm under a spread
+    - 'const plugins = [...(production ? [react()] : [])];'
+    # Ternary with an empty object arm as a property value
+    - 'const options = { extensions: extensions !== undefined ? { extensions } : {} };'
+    # Ternary with an undefined arm under an object spread, undefined spreads nothing
+    - 'const options = { ...(hidden ? undefined : { label }) };'
+    # Ternary with a null arm first under an object spread
+    - 'const options = { ...(hidden ? null : { label }) };'
+    # Conjunction with the empty object as a nullish fallback, the object spread reads false as nothing
+    - 'const options = { ...((adopt && { import: id }) ?? {}) };'
+    # Ternary with an undefined alternative under an object spread
+    - 'const options = { ...(shown ? { label } : undefined) };'
+    # Ternary with a null alternative under an object spread
+    - 'const options = { ...(shown ? { label } : null) };'
+    # Ternary with the empty arm first, returned
+    - 'const names = (label) => (hidden ? [] : [label]);'
+    # Identity arm beside the empty array, Option.getOrElse reads the fallback
+    - 'const rows = Option.match(found, { onNone: () => [], onSome: (rows) => rows });'
+    # STM.if with an empty object lifted through STM.succeed
+    - 'const targets = STM.if(managed, { onTrue: () => STM.succeed({}), onFalse: () => STM.succeed({ stage }) });'
+    # Array matched into an empty object on the empty case, the rows lift under Array.isNonEmptyArray
+    - 'const options = Array.match(rows, { onEmpty: () => ({}), onNonEmpty: (rows) => ({ rows }) });'
+    # Array matched at its right end into an empty arm
+    - 'const last = Array.matchRight(rows, { onEmpty: () => [], onNonEmpty: (init, last) => [last] });'

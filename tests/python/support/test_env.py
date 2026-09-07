@@ -23,28 +23,27 @@ if TYPE_CHECKING:
 
 def _assert_filesystem_operations(fs: AbstractFileSystem, root: str) -> None:
     """Assert shared write, read, metadata, copy, move, find, and remove behavior."""
-    fs.makedirs(f"{root}nest/deep", exist_ok=True)
-    fs.pipe_file(f"{root}nest/deep/blob.bin", b"content")
-    assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content", "write/cat round-trip returned the wrong content"
-    assert (fs.exists(f"{root}nest/deep/blob.bin"), fs.isdir(f"{root}nest/deep")) == (True, True), "exists/isdir disagree with the write"
-    assert fs.info(f"{root}nest/deep/blob.bin")["size"] == len(b"content"), "info reported the wrong content size"
-    fs.copy(f"{root}nest/deep/blob.bin", f"{root}nest/copy.bin")
-    assert (fs.cat_file(f"{root}nest/copy.bin"), fs.exists(f"{root}nest/deep/blob.bin")) == (b"content", True), "copy moved instead of duplicating"
-    fs.mv(f"{root}nest/copy.bin", f"{root}nest/moved.bin")
-    assert (fs.exists(f"{root}nest/moved.bin"), fs.exists(f"{root}nest/copy.bin")) == (True, False), "mv left the source behind"
-    assert sorted(fs.find(f"{root}nest")) == [f"{root}nest/deep/blob.bin", f"{root}nest/moved.bin"], (
-        f"find returned unexpected paths: {fs.find(f'{root}nest')!r}"
-    )
-    fs.rm(f"{root}nest", recursive=True)
-    assert not fs.exists(f"{root}nest/deep/blob.bin"), "recursive rm left content behind"
+    nest, deep, blob, copy, moved = f"{root}nest", f"{root}nest/deep", f"{root}nest/deep/blob.bin", f"{root}nest/copy.bin", f"{root}nest/moved.bin"
+    fs.makedirs(deep, exist_ok=True)
+    fs.pipe_file(blob, b"content")
+    assert fs.cat_file(blob) == b"content", "write/cat round-trip returned the wrong content"
+    assert (fs.exists(blob), fs.isdir(deep)) == (True, True), "exists/isdir disagree with the write"
+    assert fs.info(blob)["size"] == len(b"content"), "info reported the wrong content size"
+    fs.copy(blob, copy)
+    assert (fs.cat_file(copy), fs.exists(blob)) == (b"content", True), "copy removed the source"
+    fs.mv(copy, moved)
+    assert (fs.exists(moved), fs.exists(copy)) == (True, False), "mv left the source behind"
+    assert sorted(fs.find(nest)) == [blob, moved], f"find returned unexpected paths: {fs.find(nest)!r}"
+    fs.rm(nest, recursive=True)
+    assert not fs.exists(blob), "recursive rm left content behind"
 
 
 # --- [DISPATCH] -------------------------------------------------------------------------
 
 
-def test_provision_supports_every_environment_specification(socket_enabled: None) -> None:
+@pytest.mark.usefixtures("socket_enabled")
+def test_provision_supports_every_environment_specification() -> None:
     """Every environment specification provides a URL, client factory, and idempotent teardown."""
-    _ = socket_enabled
     specs: tuple[EnvironmentSpec, ...] = (SshHost(), RemoteFS(), ObjectStore())
     for spec in specs:
         provisioned = provision(spec)
@@ -173,50 +172,53 @@ def test_remote_fs_supports_common_operations_without_presigning() -> None:
 # --- [OBJECT_STORE] ---------------------------------------------------------------------
 
 
-def test_object_store_supports_common_filesystem_operations(socket_enabled: None) -> None:
+@pytest.mark.usefixtures("socket_enabled")
+def test_object_store_supports_common_filesystem_operations() -> None:
     """The S3 resource supports the same filesystem operations as the memory implementation."""
-    _ = socket_enabled
-    provisioned = provision(ObjectStore())
+    store = ObjectStore()
+    provisioned = provision(store)
     try:
-        _assert_filesystem_operations(provisioned.client_factory(), "test-support-bucket/")
+        _assert_filesystem_operations(provisioned.client_factory(), f"{store.bucket}/")
     finally:
         provisioned.teardown()
 
 
-def test_object_store_teardown_resets_process_global_state(socket_enabled: None) -> None:
+@pytest.mark.usefixtures("socket_enabled")
+def test_object_store_teardown_resets_process_global_state() -> None:
     """Moto state is process-global, teardown removes objects before the next provision."""
-    _ = socket_enabled
-    first = provision(ObjectStore())
-    first.client_factory().pipe_file("test-support-bucket/residue.bin", b"stale")
+    store = ObjectStore()
+    residue = f"{store.bucket}/residue.bin"
+    first = provision(store)
+    first.client_factory().pipe_file(residue, b"stale")
     first.teardown()
-    second = provision(ObjectStore())
+    second = provision(store)
     try:
-        assert not second.client_factory().exists("test-support-bucket/residue.bin"), "teardown did not remove the prior provision's object"
+        assert not second.client_factory().exists(residue), "teardown did not remove the prior provision's object"
     finally:
         second.teardown()
 
 
-def test_object_store_round_trips_presigns_and_isolates_endpoints(socket_enabled: None) -> None:
+@pytest.mark.usefixtures("socket_enabled")
+def test_object_store_round_trips_presigns_and_isolates_endpoints() -> None:
     """Endpoints stay disjoint, put/cat/info round-trips with an e-tag, presigned GET serves the exact content over HTTP."""
-    _ = socket_enabled
-    first, second = provision(ObjectStore()), provision(ObjectStore(bucket="peer-bucket"))
+    store, peer_store = ObjectStore(), ObjectStore(bucket="peer-bucket")
+    blob, peer_blob = f"{store.bucket}/nest/blob.bin", f"{peer_store.bucket}/nest/blob.bin"
+    first, second = provision(store), provision(peer_store)
     try:
         assert first.url != second.url, "moto endpoints collided"
         fs = first.client_factory()
-        fs.pipe_file("test-support-bucket/nest/blob.bin", b"alpha")
-        assert fs.cat_file("test-support-bucket/nest/blob.bin") == b"alpha", "put/cat round-trip returned the wrong content"
-        info = fs.info("test-support-bucket/nest/blob.bin")
+        fs.pipe_file(blob, b"alpha")
+        assert fs.cat_file(blob) == b"alpha", "put/cat round-trip returned the wrong content"
+        info = fs.info(blob)
         assert info["size"] == len(b"alpha"), "info reported the wrong content size"
         assert info.get("ETag"), "object metadata did not include an e-tag"
-        signed = fs.url("test-support-bucket/nest/blob.bin", expires=60)
+        signed = fs.url(blob, expires=60)
         assert signed.startswith(first.url), f"presigned URL escaped the provisioned endpoint: {signed!r}"
-        fetched = httpx.get(signed, timeout=5.0)
+        fetched = httpx.get(signed)
         assert (fetched.status_code, fetched.content) == (200, b"alpha"), "presigned GET did not serve the object"
         peer = second.client_factory()
-        peer.pipe_file("peer-bucket/nest/blob.bin", b"beta")
-        assert (fs.cat_file("test-support-bucket/nest/blob.bin"), peer.cat_file("peer-bucket/nest/blob.bin")) == (b"alpha", b"beta"), (
-            "object-store endpoints did not remain isolated"
-        )
+        peer.pipe_file(peer_blob, b"beta")
+        assert (fs.cat_file(blob), peer.cat_file(peer_blob)) == (b"alpha", b"beta"), "object-store endpoints did not remain isolated"
     finally:
         first.teardown()
         first.teardown()

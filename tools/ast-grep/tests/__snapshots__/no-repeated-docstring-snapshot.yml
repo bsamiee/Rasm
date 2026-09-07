@@ -1,0 +1,670 @@
+id: no-repeated-docstring
+snapshots:
+  ? |
+    @cache
+    def load(path):
+        """Read the file."""
+
+
+    def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: primary
+      start: 50
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 70
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 70
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 70
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 27
+      end: 47
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 27
+      end: 47
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 27
+      end: 47
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 7
+      end: 47
+    - source: |-
+        @cache
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 47
+  ? |
+    @overload
+    def load(path: str) -> str:
+        """Read the file."""
+
+
+    @overload
+    def load(path: int) -> int:
+        """Read the file."""
+  : labels:
+    - source: |-
+        def load(path: int) -> int:
+            """Read the file."""
+      style: primary
+      start: 75
+      end: 127
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 107
+      end: 127
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 107
+      end: 127
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 107
+      end: 127
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 42
+      end: 62
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 42
+      end: 62
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 42
+      end: 62
+    - source: |-
+        def load(path: str) -> str:
+            """Read the file."""
+      style: secondary
+      start: 10
+      end: 62
+    - source: |-
+        @overload
+        def load(path: str) -> str:
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 62
+    - source: |-
+        @overload
+        def load(path: str) -> str:
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 62
+  ? |
+    class Reader:
+        def load(self, path):
+            """Read the file."""
+
+        def read(self, path):
+            """Read the file."""
+  : labels:
+    - source: |-
+        def read(self, path):
+                """Read the file."""
+      style: primary
+      start: 74
+      end: 124
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 104
+      end: 124
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 104
+      end: 124
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 104
+      end: 124
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 48
+      end: 68
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 48
+      end: 68
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 48
+      end: 68
+    - source: |-
+        def load(self, path):
+                """Read the file."""
+      style: secondary
+      start: 18
+      end: 68
+  ? |
+    class Sync:
+        def bind(self, record):
+            """Build the recording runner the spy installs on the target."""
+            return record
+
+
+    class Async:
+        def bind(self, record):
+            """Build the recording runner the spy installs on the target."""
+            return record
+  : labels:
+    - source: |-
+        def bind(self, record):
+                """Build the recording runner the spy installs on the target."""
+                return record
+      style: primary
+      start: 154
+      end: 272
+    - source: '"""Build the recording runner the spy installs on the target."""'
+      style: secondary
+      start: 186
+      end: 250
+    - source: '"""Build the recording runner the spy installs on the target."""'
+      style: secondary
+      start: 186
+      end: 250
+    - source: '"""Build the recording runner the spy installs on the target."""'
+      style: secondary
+      start: 186
+      end: 250
+    - source: '"""Build the recording runner the spy installs on the target."""'
+      style: secondary
+      start: 48
+      end: 112
+    - source: '"""Build the recording runner the spy installs on the target."""'
+      style: secondary
+      start: 48
+      end: 112
+    - source: '"""Build the recording runner the spy installs on the target."""'
+      style: secondary
+      start: 48
+      end: 112
+    - source: |-
+        def bind(self, record):
+                """Build the recording runner the spy installs on the target."""
+                return record
+      style: secondary
+      start: 16
+      end: 134
+    - source: |-
+        class Sync:
+            def bind(self, record):
+                """Build the recording runner the spy installs on the target."""
+                return record
+      style: secondary
+      start: 0
+      end: 134
+    - source: |-
+        class Sync:
+            def bind(self, record):
+                """Build the recording runner the spy installs on the target."""
+                return record
+      style: secondary
+      start: 0
+      end: 134
+  ? |
+    class Sync:
+        def bind(self, record):
+            """Build the recording runner."""
+
+
+    class Plain:
+        pass
+
+
+    class Async:
+        def bind(self, record):
+            """Build the recording runner."""
+  : labels:
+    - source: |-
+        def bind(self, record):
+                """Build the recording runner."""
+      style: primary
+      start: 125
+      end: 190
+    - source: '"""Build the recording runner."""'
+      style: secondary
+      start: 157
+      end: 190
+    - source: '"""Build the recording runner."""'
+      style: secondary
+      start: 157
+      end: 190
+    - source: '"""Build the recording runner."""'
+      style: secondary
+      start: 157
+      end: 190
+    - source: '"""Build the recording runner."""'
+      style: secondary
+      start: 48
+      end: 81
+    - source: '"""Build the recording runner."""'
+      style: secondary
+      start: 48
+      end: 81
+    - source: '"""Build the recording runner."""'
+      style: secondary
+      start: 48
+      end: 81
+    - source: |-
+        def bind(self, record):
+                """Build the recording runner."""
+      style: secondary
+      start: 16
+      end: 81
+    - source: |-
+        class Sync:
+            def bind(self, record):
+                """Build the recording runner."""
+      style: secondary
+      start: 0
+      end: 81
+    - source: |-
+        class Sync:
+            def bind(self, record):
+                """Build the recording runner."""
+      style: secondary
+      start: 0
+      end: 81
+  ? |
+    def load(path):
+        """Read the file."""
+
+
+    @cache
+    def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: primary
+      start: 50
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 70
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 70
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 70
+      end: 90
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    def load(path):
+        """Read the file."""
+
+
+    LIMIT = 3
+
+
+    def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: primary
+      start: 55
+      end: 95
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 75
+      end: 95
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 75
+      end: 95
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 75
+      end: 95
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    def load(path):
+        """Read the file."""
+
+
+    async def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        async def read(path):
+            """Read the file."""
+      style: primary
+      start: 43
+      end: 89
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 69
+      end: 89
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 69
+      end: 89
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 69
+      end: 89
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    def load(path):
+        """Read the file."""
+
+
+    def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: primary
+      start: 43
+      end: 83
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 63
+      end: 83
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 63
+      end: 83
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 63
+      end: 83
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    def load(path):
+        """Read the file."""
+
+
+    def read(path):
+        # The same text
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            # The same text
+            """Read the file."""
+      style: primary
+      start: 43
+      end: 103
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 83
+      end: 103
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 83
+      end: 103
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 83
+      end: 103
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    def load(path):
+        """Read the file."""
+
+
+    run = lambda: load(1)
+
+
+    def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: primary
+      start: 67
+      end: 107
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 87
+      end: 107
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 87
+      end: 107
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 87
+      end: 107
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def load(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    def outer(path):
+        def load():
+            """Read the file."""
+
+
+    def read(path):
+        """Read the file."""
+  : labels:
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: primary
+      start: 64
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 84
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 84
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 84
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 41
+      end: 61
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 41
+      end: 61
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 41
+      end: 61
+    - source: |-
+        def load():
+                """Read the file."""
+      style: secondary
+      start: 21
+      end: 61
+    - source: |-
+        def outer(path):
+            def load():
+                """Read the file."""
+      style: secondary
+      start: 0
+      end: 61
+  ? |
+    def read(path):
+        """Read the file."""
+
+
+    def outer(path):
+        def load():
+            """Read the file."""
+  : labels:
+    - source: |-
+        def load():
+                """Read the file."""
+      style: primary
+      start: 64
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 84
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 84
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 84
+      end: 104
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: '"""Read the file."""'
+      style: secondary
+      start: 20
+      end: 40
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40
+    - source: |-
+        def read(path):
+            """Read the file."""
+      style: secondary
+      start: 0
+      end: 40

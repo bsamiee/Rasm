@@ -1,0 +1,41 @@
+id: conditional-statement-to-if
+valid:
+    # The if statement the rewrite writes
+    - |
+      if memory.exists(scoped):
+          memory.rm(scoped, recursive=True)
+    # Second arm with an effect, the shape of conditional-statement-to-if-else
+    - |
+      start(item) if ready else queue(item)
+    # Multi-line statement in parentheses, its arm keeps a column the template cannot lower
+    - |
+      (
+          pytest.fail("regression", pytrace=False)
+          if regressions
+          else None
+      )
+    # Conditional bound to a name
+    - |
+      value = load(path) if path else None
+invalid:
+    # The instance, an effect under a condition with a None arm
+    - |
+      memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+    # Parentheses on one line, the join drops them
+    - |
+      (record(item) if ready else None)
+    # Statement inside a def, the body indents under the if
+    - |
+      def teardown():
+          memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+    # Effect that is itself a conditional in parentheses, the inner one is the next pass
+    - |
+      (record(item) if ready else None) if armed else None
+    # Awaited effect
+    - |
+      async def run():
+          await record(item) if ready else None
+    # Statement inside an if body
+    - |
+      if armed:
+          record(item) if ready else None

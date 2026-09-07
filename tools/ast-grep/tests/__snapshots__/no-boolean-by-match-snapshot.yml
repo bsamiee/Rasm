@@ -1,0 +1,716 @@
+id: no-boolean-by-match
+snapshots:
+  'const decoded = Either.match(result, { onLeft: () => false, onRight: () => true });':
+    fixed: const decoded = Either.isRight(result);
+    labels:
+    - source: 'Either.match(result, { onLeft: () => false, onRight: () => true })'
+      style: primary
+      start: 16
+      end: 82
+    - source: 'true'
+      style: secondary
+      start: 75
+      end: 79
+    - source: () => true
+      style: secondary
+      start: 69
+      end: 79
+    - source: 'onRight: () => true'
+      style: secondary
+      start: 60
+      end: 79
+    - source: 'false'
+      style: secondary
+      start: 53
+      end: 58
+    - source: () => false
+      style: secondary
+      start: 47
+      end: 58
+    - source: 'onLeft: () => false'
+      style: secondary
+      start: 39
+      end: 58
+    - source: '{ onLeft: () => false, onRight: () => true }'
+      style: secondary
+      start: 37
+      end: 81
+    - source: '{ onLeft: () => false, onRight: () => true }'
+      style: secondary
+      start: 37
+      end: 81
+    - source: Either
+      style: secondary
+      start: 16
+      end: 22
+    - source: match
+      style: secondary
+      start: 23
+      end: 28
+    - source: Either.match
+      style: secondary
+      start: 16
+      end: 28
+  'const failed = Exit.match(exit, { onFailure: () => true, onSuccess: () => false });':
+    fixed: const failed = Exit.isFailure(exit);
+    labels:
+    - source: 'Exit.match(exit, { onFailure: () => true, onSuccess: () => false })'
+      style: primary
+      start: 15
+      end: 82
+    - source: 'true'
+      style: secondary
+      start: 51
+      end: 55
+    - source: () => true
+      style: secondary
+      start: 45
+      end: 55
+    - source: 'onFailure: () => true'
+      style: secondary
+      start: 34
+      end: 55
+    - source: 'false'
+      style: secondary
+      start: 74
+      end: 79
+    - source: () => false
+      style: secondary
+      start: 68
+      end: 79
+    - source: 'onSuccess: () => false'
+      style: secondary
+      start: 57
+      end: 79
+    - source: '{ onFailure: () => true, onSuccess: () => false }'
+      style: secondary
+      start: 32
+      end: 81
+    - source: '{ onFailure: () => true, onSuccess: () => false }'
+      style: secondary
+      start: 32
+      end: 81
+    - source: Exit
+      style: secondary
+      start: 15
+      end: 19
+    - source: match
+      style: secondary
+      start: 20
+      end: 25
+    - source: Exit.match
+      style: secondary
+      start: 15
+      end: 25
+  'const held = Boolean.match(flag, { onTrue: () => true, onFalse: () => false });':
+    fixed: const held = flag;
+    labels:
+    - source: 'Boolean.match(flag, { onTrue: () => true, onFalse: () => false })'
+      style: primary
+      start: 13
+      end: 78
+    - source: 'true'
+      style: secondary
+      start: 49
+      end: 53
+    - source: () => true
+      style: secondary
+      start: 43
+      end: 53
+    - source: 'onTrue: () => true'
+      style: secondary
+      start: 35
+      end: 53
+    - source: 'false'
+      style: secondary
+      start: 70
+      end: 75
+    - source: () => false
+      style: secondary
+      start: 64
+      end: 75
+    - source: 'onFalse: () => false'
+      style: secondary
+      start: 55
+      end: 75
+    - source: '{ onTrue: () => true, onFalse: () => false }'
+      style: secondary
+      start: 33
+      end: 77
+    - source: '{ onTrue: () => true, onFalse: () => false }'
+      style: secondary
+      start: 33
+      end: 77
+    - source: Boolean
+      style: secondary
+      start: 13
+      end: 20
+    - source: match
+      style: secondary
+      start: 21
+      end: 26
+    - source: Boolean.match
+      style: secondary
+      start: 13
+      end: 26
+  'const held = Option.match(found, { onNone: () => false, onSome: () => true });':
+    fixed: const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onNone: () => false, onSome: () => true })'
+      style: primary
+      start: 13
+      end: 77
+    - source: 'true'
+      style: secondary
+      start: 70
+      end: 74
+    - source: () => true
+      style: secondary
+      start: 64
+      end: 74
+    - source: 'onSome: () => true'
+      style: secondary
+      start: 56
+      end: 74
+    - source: 'false'
+      style: secondary
+      start: 49
+      end: 54
+    - source: () => false
+      style: secondary
+      start: 43
+      end: 54
+    - source: 'onNone: () => false'
+      style: secondary
+      start: 35
+      end: 54
+    - source: '{ onNone: () => false, onSome: () => true }'
+      style: secondary
+      start: 33
+      end: 76
+    - source: '{ onNone: () => false, onSome: () => true }'
+      style: secondary
+      start: 33
+      end: 76
+    - source: Option
+      style: secondary
+      start: 13
+      end: 19
+    - source: match
+      style: secondary
+      start: 20
+      end: 25
+    - source: Option.match
+      style: secondary
+      start: 13
+      end: 25
+  'const held = Option.match(found, { onNone: () => { return false; }, onSome: () => { return true; } });':
+    fixed: const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onNone: () => { return false; }, onSome: () => { return true; } })'
+      style: primary
+      start: 13
+      end: 101
+    - source: 'true'
+      style: secondary
+      start: 91
+      end: 95
+    - source: return true;
+      style: secondary
+      start: 84
+      end: 96
+    - source: '{ return true; }'
+      style: secondary
+      start: 82
+      end: 98
+    - source: () => { return true; }
+      style: secondary
+      start: 76
+      end: 98
+    - source: 'onSome: () => { return true; }'
+      style: secondary
+      start: 68
+      end: 98
+    - source: 'false'
+      style: secondary
+      start: 58
+      end: 63
+    - source: return false;
+      style: secondary
+      start: 51
+      end: 64
+    - source: '{ return false; }'
+      style: secondary
+      start: 49
+      end: 66
+    - source: () => { return false; }
+      style: secondary
+      start: 43
+      end: 66
+    - source: 'onNone: () => { return false; }'
+      style: secondary
+      start: 35
+      end: 66
+    - source: '{ onNone: () => { return false; }, onSome: () => { return true; } }'
+      style: secondary
+      start: 33
+      end: 100
+    - source: '{ onNone: () => { return false; }, onSome: () => { return true; } }'
+      style: secondary
+      start: 33
+      end: 100
+    - source: Option
+      style: secondary
+      start: 13
+      end: 19
+    - source: match
+      style: secondary
+      start: 20
+      end: 25
+    - source: Option.match
+      style: secondary
+      start: 13
+      end: 25
+  'const held = Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue });':
+    fixed: const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue })'
+      style: primary
+      start: 13
+      end: 93
+    - source: Function.constTrue
+      style: secondary
+      start: 72
+      end: 90
+    - source: 'onSome: Function.constTrue'
+      style: secondary
+      start: 64
+      end: 90
+    - source: Function.constFalse
+      style: secondary
+      start: 43
+      end: 62
+    - source: 'onNone: Function.constFalse'
+      style: secondary
+      start: 35
+      end: 62
+    - source: '{ onNone: Function.constFalse, onSome: Function.constTrue }'
+      style: secondary
+      start: 33
+      end: 92
+    - source: '{ onNone: Function.constFalse, onSome: Function.constTrue }'
+      style: secondary
+      start: 33
+      end: 92
+    - source: Option
+      style: secondary
+      start: 13
+      end: 19
+    - source: match
+      style: secondary
+      start: 20
+      end: 25
+    - source: Option.match
+      style: secondary
+      start: 13
+      end: 25
+  'const held = Option.match(found, { onNone: constFalse, onSome: constTrue });':
+    fixed: const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onNone: constFalse, onSome: constTrue })'
+      style: primary
+      start: 13
+      end: 75
+    - source: constTrue
+      style: secondary
+      start: 63
+      end: 72
+    - source: 'onSome: constTrue'
+      style: secondary
+      start: 55
+      end: 72
+    - source: constFalse
+      style: secondary
+      start: 43
+      end: 53
+    - source: 'onNone: constFalse'
+      style: secondary
+      start: 35
+      end: 53
+    - source: '{ onNone: constFalse, onSome: constTrue }'
+      style: secondary
+      start: 33
+      end: 74
+    - source: '{ onNone: constFalse, onSome: constTrue }'
+      style: secondary
+      start: 33
+      end: 74
+    - source: Option
+      style: secondary
+      start: 13
+      end: 19
+    - source: match
+      style: secondary
+      start: 20
+      end: 25
+    - source: Option.match
+      style: secondary
+      start: 13
+      end: 25
+  'const held = Option.match({ onNone: () => false, onSome: () => true })(found);':
+    fixed: const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match({ onNone: () => false, onSome: () => true })'
+      style: primary
+      start: 13
+      end: 70
+    - source: 'true'
+      style: secondary
+      start: 63
+      end: 67
+    - source: () => true
+      style: secondary
+      start: 57
+      end: 67
+    - source: 'onSome: () => true'
+      style: secondary
+      start: 49
+      end: 67
+    - source: 'false'
+      style: secondary
+      start: 42
+      end: 47
+    - source: () => false
+      style: secondary
+      start: 36
+      end: 47
+    - source: 'onNone: () => false'
+      style: secondary
+      start: 28
+      end: 47
+    - source: '{ onNone: () => false, onSome: () => true }'
+      style: secondary
+      start: 26
+      end: 69
+    - source: '{ onNone: () => false, onSome: () => true }'
+      style: secondary
+      start: 26
+      end: 69
+    - source: Option
+      style: secondary
+      start: 13
+      end: 19
+    - source: match
+      style: secondary
+      start: 20
+      end: 25
+    - source: Option.match
+      style: secondary
+      start: 13
+      end: 25
+  'const held = found.pipe(Option.match({ onNone: () => false, onSome: () => true }));':
+    fixed: const held = found.pipe(Option.isSome);
+    labels:
+    - source: 'Option.match({ onNone: () => false, onSome: () => true })'
+      style: primary
+      start: 24
+      end: 81
+    - source: 'true'
+      style: secondary
+      start: 74
+      end: 78
+    - source: () => true
+      style: secondary
+      start: 68
+      end: 78
+    - source: 'onSome: () => true'
+      style: secondary
+      start: 60
+      end: 78
+    - source: 'false'
+      style: secondary
+      start: 53
+      end: 58
+    - source: () => false
+      style: secondary
+      start: 47
+      end: 58
+    - source: 'onNone: () => false'
+      style: secondary
+      start: 39
+      end: 58
+    - source: '{ onNone: () => false, onSome: () => true }'
+      style: secondary
+      start: 37
+      end: 80
+    - source: '{ onNone: () => false, onSome: () => true }'
+      style: secondary
+      start: 37
+      end: 80
+    - source: Option
+      style: secondary
+      start: 24
+      end: 30
+    - source: match
+      style: secondary
+      start: 31
+      end: 36
+    - source: Option.match
+      style: secondary
+      start: 24
+      end: 36
+  'const missing = Option.match(found, { onNone: () => true, onSome: (_) => false });':
+    fixed: const missing = Option.isNone(found);
+    labels:
+    - source: 'Option.match(found, { onNone: () => true, onSome: (_) => false })'
+      style: primary
+      start: 16
+      end: 81
+    - source: 'true'
+      style: secondary
+      start: 52
+      end: 56
+    - source: () => true
+      style: secondary
+      start: 46
+      end: 56
+    - source: 'onNone: () => true'
+      style: secondary
+      start: 38
+      end: 56
+    - source: 'false'
+      style: secondary
+      start: 73
+      end: 78
+    - source: (_) => false
+      style: secondary
+      start: 66
+      end: 78
+    - source: 'onSome: (_) => false'
+      style: secondary
+      start: 58
+      end: 78
+    - source: '{ onNone: () => true, onSome: (_) => false }'
+      style: secondary
+      start: 36
+      end: 80
+    - source: '{ onNone: () => true, onSome: (_) => false }'
+      style: secondary
+      start: 36
+      end: 80
+    - source: Option
+      style: secondary
+      start: 16
+      end: 22
+    - source: match
+      style: secondary
+      start: 23
+      end: 28
+    - source: Option.match
+      style: secondary
+      start: 16
+      end: 28
+  'const passed = Effect.match(work, { onFailure: () => false, onSuccess: () => true });':
+    fixed: const passed = Effect.isSuccess(work);
+    labels:
+    - source: 'Effect.match(work, { onFailure: () => false, onSuccess: () => true })'
+      style: primary
+      start: 15
+      end: 84
+    - source: 'true'
+      style: secondary
+      start: 77
+      end: 81
+    - source: () => true
+      style: secondary
+      start: 71
+      end: 81
+    - source: 'onSuccess: () => true'
+      style: secondary
+      start: 60
+      end: 81
+    - source: 'false'
+      style: secondary
+      start: 53
+      end: 58
+    - source: () => false
+      style: secondary
+      start: 47
+      end: 58
+    - source: 'onFailure: () => false'
+      style: secondary
+      start: 36
+      end: 58
+    - source: '{ onFailure: () => false, onSuccess: () => true }'
+      style: secondary
+      start: 34
+      end: 83
+    - source: '{ onFailure: () => false, onSuccess: () => true }'
+      style: secondary
+      start: 34
+      end: 83
+    - source: Effect
+      style: secondary
+      start: 15
+      end: 21
+    - source: match
+      style: secondary
+      start: 22
+      end: 27
+    - source: Effect.match
+      style: secondary
+      start: 15
+      end: 27
+  'const passed = Effect.matchCause(work, { onFailure: () => false, onSuccess: () => true });':
+    fixed: const passed = Effect.isSuccess(work);
+    labels:
+    - source: 'Effect.matchCause(work, { onFailure: () => false, onSuccess: () => true })'
+      style: primary
+      start: 15
+      end: 89
+    - source: 'true'
+      style: secondary
+      start: 82
+      end: 86
+    - source: () => true
+      style: secondary
+      start: 76
+      end: 86
+    - source: 'onSuccess: () => true'
+      style: secondary
+      start: 65
+      end: 86
+    - source: 'false'
+      style: secondary
+      start: 58
+      end: 63
+    - source: () => false
+      style: secondary
+      start: 52
+      end: 63
+    - source: 'onFailure: () => false'
+      style: secondary
+      start: 41
+      end: 63
+    - source: '{ onFailure: () => false, onSuccess: () => true }'
+      style: secondary
+      start: 39
+      end: 88
+    - source: '{ onFailure: () => false, onSuccess: () => true }'
+      style: secondary
+      start: 39
+      end: 88
+    - source: Effect
+      style: secondary
+      start: 15
+      end: 21
+    - source: matchCause
+      style: secondary
+      start: 22
+      end: 32
+    - source: Effect.matchCause
+      style: secondary
+      start: 15
+      end: 32
+  'const quiet = Boolean.match(flag, { onFalse: () => true, onTrue: () => false });':
+    fixed: const quiet = !flag;
+    labels:
+    - source: 'Boolean.match(flag, { onFalse: () => true, onTrue: () => false })'
+      style: primary
+      start: 14
+      end: 79
+    - source: 'true'
+      style: secondary
+      start: 51
+      end: 55
+    - source: () => true
+      style: secondary
+      start: 45
+      end: 55
+    - source: 'onFalse: () => true'
+      style: secondary
+      start: 36
+      end: 55
+    - source: 'false'
+      style: secondary
+      start: 71
+      end: 76
+    - source: () => false
+      style: secondary
+      start: 65
+      end: 76
+    - source: 'onTrue: () => false'
+      style: secondary
+      start: 57
+      end: 76
+    - source: '{ onFalse: () => true, onTrue: () => false }'
+      style: secondary
+      start: 34
+      end: 78
+    - source: '{ onFalse: () => true, onTrue: () => false }'
+      style: secondary
+      start: 34
+      end: 78
+    - source: Boolean
+      style: secondary
+      start: 14
+      end: 21
+    - source: match
+      style: secondary
+      start: 22
+      end: 27
+    - source: Boolean.match
+      style: secondary
+      start: 14
+      end: 27
+  'const small = Boolean.match(size > limit, { onTrue: () => false, onFalse: () => true });':
+    fixed: const small = !(size > limit);
+    labels:
+    - source: 'Boolean.match(size > limit, { onTrue: () => false, onFalse: () => true })'
+      style: primary
+      start: 14
+      end: 87
+    - source: 'true'
+      style: secondary
+      start: 80
+      end: 84
+    - source: () => true
+      style: secondary
+      start: 74
+      end: 84
+    - source: 'onFalse: () => true'
+      style: secondary
+      start: 65
+      end: 84
+    - source: 'false'
+      style: secondary
+      start: 58
+      end: 63
+    - source: () => false
+      style: secondary
+      start: 52
+      end: 63
+    - source: 'onTrue: () => false'
+      style: secondary
+      start: 44
+      end: 63
+    - source: '{ onTrue: () => false, onFalse: () => true }'
+      style: secondary
+      start: 42
+      end: 86
+    - source: '{ onTrue: () => false, onFalse: () => true }'
+      style: secondary
+      start: 42
+      end: 86
+    - source: Boolean
+      style: secondary
+      start: 14
+      end: 21
+    - source: match
+      style: secondary
+      start: 22
+      end: 27
+    - source: Boolean.match
+      style: secondary
+      start: 14
+      end: 27

@@ -127,29 +127,6 @@
         },
         {
             "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
-            "plugins": [
-                "./tools/biome/no-suffix-variant.grit",
-                "./tools/biome/no-await-in-domain.grit",
-                "./tools/biome/no-barrel-reexport.grit",
-                "./tools/biome/no-catchall-discard.grit",
-                "./tools/biome/no-domain-throw.grit",
-                "./tools/biome/no-fetch-in-domain.grit",
-                "./tools/biome/no-mutable-accumulation.grit",
-                "./tools/biome/no-nullable-return.grit",
-                "./tools/biome/no-process-env-in-domain.grit",
-                "./tools/biome/no-rename-wrapper.grit",
-                "./tools/biome/no-run-in-domain.grit",
-                "./tools/biome/no-standalone-brand.grit",
-                "./tools/biome/no-stdlib-in-domain.grit",
-                "./tools/biome/no-promise-chain.grit",
-                "./tools/biome/no-single-yield-gen.grit",
-                "./tools/biome/no-double-assertion.grit",
-                "./tools/biome/no-unknown-exception.grit",
-                "./tools/biome/no-string-error.grit",
-                "./tools/biome/no-flatmap-succeed.grit",
-                "./tools/biome/no-json-parse.grit",
-                "./tools/biome/no-unknown-error-channel.grit"
-            ],
             "linter": {
                 "rules": {
                     "style": {
@@ -167,6 +144,20 @@
                 "rules": {
                     "style": {
                         "noDefaultExport": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": [".claude/plugins/**"],
+            "linter": {
+                "domains": {
+                    "qwik": "none"
+                },
+                "rules": {
+                    "correctness": {
+                        "noUndeclaredDependencies": "off",
+                        "noUnresolvedImports": "off"
                     }
                 }
             }

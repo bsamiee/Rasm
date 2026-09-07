@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Engine call that answers a Promise, read by a condition slot without await
+id: claude-code-engine-condition
+language: tsx
+utils:
+    # Engine members that answer without a Promise, a condition over them reads the value
+    synchronous-member:
+        kind: member_expression
+        regex: '^\$\.(ui\.(notice|invalidate|log|toast|status)|clock\.(now|after|every))$'
+rule:
+    kind: call_expression
+    matches: {claude-code-engine-call: {noun: {pattern: $_}}}
+    all:
+        - not: {has: {field: function, matches: synchronous-member}}
+        # Each slot holds the call as its direct child, an awaited call sits under an await_expression and stays out
+        - any:
+              # The grammar wraps a statement condition in parentheses, the call sits directly under them
+              - inside:
+                    kind: parenthesized_expression
+                    inside: {field: condition, any: [{kind: if_statement}, {kind: while_statement}, {kind: do_statement}]}
+              # For conditions sit directly under the statement
+              - inside: {kind: for_statement, field: condition}
+              - inside: {kind: ternary_expression, field: condition}
+              - inside: {kind: unary_expression, field: argument, has: {field: operator, regex: '^!$'}}
+              - inside: {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}}
+              # Nullable check over the Promise, defined on every call, the type checker accepts the comparison
+              - inside: {kind: binary_expression, field: left, matches: syntax-nullable-check}
+              # Boolean over the call reads its truthiness, the one coercion the type checker accepts over a Promise
+              - inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^Boolean$'}}}

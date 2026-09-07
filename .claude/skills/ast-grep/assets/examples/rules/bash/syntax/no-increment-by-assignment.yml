@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-increment-by-assignment
+language: bash
+severity: error
+utils:
+    # The counter inside the arithmetic, bare, $name, or ${name}
+    counter-name:
+        any:
+            - kind: variable_name
+              pattern: $V
+            - kind: simple_expansion
+              has: {kind: variable_name, pattern: $V}
+            - kind: expansion
+              has: {kind: variable_name, pattern: $V}
+              not: {has: {nthChild: 2}}
+    # The name plus a number literal in either order, because a difference or a variable addend can reach zero, and an
+    # arithmetic command at zero fails under errexit
+    counter-sum:
+        kind: binary_expression
+        any:
+            - all:
+                  - has: {field: left, matches: counter-name}
+                  - has: {field: operator, regex: '^\+$'}
+                  - has: {field: right, kind: number, pattern: $N}
+            - all:
+                  - has: {field: left, kind: number, pattern: $N}
+                  - has: {field: operator, regex: '^\+$'}
+                  - has: {field: right, matches: counter-name}
+rule:
+    any:
+        # The assignment form, name=$((name + n))
+        - kind: variable_assignment
+          all:
+              - has: {field: name, kind: variable_name, pattern: $V}
+              - has: {field: value, kind: arithmetic_expansion, has: {matches: counter-sum}}
+        # The arithmetic command form, ((name = name + n)), and the let form is shellcheck SC2219's
+        - kind: compound_statement
+          has:
+              kind: binary_expression
+              all:
+                  - has: {field: left, kind: variable_name, pattern: $V}
+                  - has: {field: operator, regex: '^=$'}
+                  - has: {field: right, matches: counter-sum}
+fix: (($V += $N))
+message: '`$V` is rebuilt from its own value plus `$N`'
+note: Use the compound assignment operator inside an arithmetic command, `((<name> += <n>))`

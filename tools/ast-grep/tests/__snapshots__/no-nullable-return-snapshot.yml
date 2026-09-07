@@ -1,0 +1,526 @@
+id: no-nullable-return
+snapshots:
+  'await $.store.set(key, { owner: getOrElse((): string | null => rows.map((row) => { return null; }))(repo) });':
+    labels:
+    - source: return null;
+      style: primary
+      start: 83
+      end: 95
+    - source: 'null'
+      style: secondary
+      start: 90
+      end: 94
+  'await $.store.set(key, { owner: map((): string | null => null)(repo) });':
+    labels:
+    - source: '(): string | null => null'
+      style: primary
+      start: 36
+      end: 61
+    - source: 'null'
+      style: secondary
+      start: 57
+      end: 61
+  'class Table { find(key: string): Row | null { return null; } }':
+    labels:
+    - source: return null;
+      style: primary
+      start: 46
+      end: 58
+    - source: 'null'
+      style: secondary
+      start: 53
+      end: 57
+  'const cases = { some: (value) => value, none: () => null };':
+    labels:
+    - source: () => null
+      style: primary
+      start: 46
+      end: 56
+    - source: 'null'
+      style: secondary
+      start: 52
+      end: 56
+  'const found = (): Maybe<void> => { return undefined; };':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 35
+      end: 52
+    - source: ': Maybe<void>'
+      style: secondary
+      start: 16
+      end: 29
+    - source: '(): Maybe<void> => { return undefined; }'
+      style: secondary
+      start: 14
+      end: 54
+    - source: undefined
+      style: secondary
+      start: 42
+      end: 51
+  'const found = (): Row | null => null;':
+    labels:
+    - source: '(): Row | null => null'
+      style: primary
+      start: 14
+      end: 36
+    - source: 'null'
+      style: secondary
+      start: 32
+      end: 36
+  'const found = (): unknown => { return undefined; };':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 31
+      end: 48
+    - source: ': unknown'
+      style: secondary
+      start: 16
+      end: 25
+    - source: '(): unknown => { return undefined; }'
+      style: secondary
+      start: 14
+      end: 50
+    - source: undefined
+      style: secondary
+      start: 38
+      end: 47
+  const found = (key) => { return null; };:
+    labels:
+    - source: return null;
+      style: primary
+      start: 25
+      end: 37
+    - source: 'null'
+      style: secondary
+      start: 32
+      end: 36
+  'const found = (key: string): Row | null => missing ? null : table[key];':
+    labels:
+    - source: '(key: string): Row | null => missing ? null : table[key]'
+      style: primary
+      start: 14
+      end: 70
+    - source: 'null'
+      style: secondary
+      start: 53
+      end: 57
+    - source: 'missing ? null : table[key]'
+      style: secondary
+      start: 43
+      end: 70
+  'const found = (key: string): Row | null => table[key] || null;':
+    labels:
+    - source: '(key: string): Row | null => table[key] || null'
+      style: primary
+      start: 14
+      end: 61
+    - source: '||'
+      style: secondary
+      start: 54
+      end: 56
+    - source: 'null'
+      style: secondary
+      start: 57
+      end: 61
+    - source: table[key] || null
+      style: secondary
+      start: 43
+      end: 61
+  'const found = (key: string): Row | null => { if (missing(key)) { return null; } return table[key]; };':
+    labels:
+    - source: return null;
+      style: primary
+      start: 65
+      end: 77
+    - source: 'null'
+      style: secondary
+      start: 72
+      end: 76
+  'const found = (key: string): Row | null => { return (null); };':
+    labels:
+    - source: return (null);
+      style: primary
+      start: 45
+      end: 59
+    - source: 'null'
+      style: secondary
+      start: 53
+      end: 57
+    - source: (null)
+      style: secondary
+      start: 52
+      end: 58
+  'const found = (key: string): Row | null => { return null; };':
+    labels:
+    - source: return null;
+      style: primary
+      start: 45
+      end: 57
+    - source: 'null'
+      style: secondary
+      start: 52
+      end: 56
+  'const found = (key: string): Row | null => { return present ? (table[key] ?? null) : table[key]; };':
+    labels:
+    - source: 'return present ? (table[key] ?? null) : table[key];'
+      style: primary
+      start: 45
+      end: 96
+    - source: ??
+      style: secondary
+      start: 74
+      end: 76
+    - source: 'null'
+      style: secondary
+      start: 77
+      end: 81
+    - source: table[key] ?? null
+      style: secondary
+      start: 63
+      end: 81
+    - source: (table[key] ?? null)
+      style: secondary
+      start: 62
+      end: 82
+    - source: 'present ? (table[key] ?? null) : table[key]'
+      style: secondary
+      start: 52
+      end: 95
+  'const found = (key: string): Row | null => { return present ? table[key] : null; };':
+    labels:
+    - source: 'return present ? table[key] : null;'
+      style: primary
+      start: 45
+      end: 80
+    - source: 'null'
+      style: secondary
+      start: 75
+      end: 79
+    - source: 'present ? table[key] : null'
+      style: secondary
+      start: 52
+      end: 79
+  'const found = (key: string): Row | null => { return table[key] ?? null; };':
+    labels:
+    - source: return table[key] ?? null;
+      style: primary
+      start: 45
+      end: 71
+    - source: ??
+      style: secondary
+      start: 63
+      end: 65
+    - source: 'null'
+      style: secondary
+      start: 66
+      end: 70
+    - source: table[key] ?? null
+      style: secondary
+      start: 52
+      end: 70
+  'const found = (key: string): Row | undefined => present ? table[key] : undefined;':
+    labels:
+    - source: '(key: string): Row | undefined => present ? table[key] : undefined'
+      style: primary
+      start: 14
+      end: 80
+    - source: undefined
+      style: secondary
+      start: 71
+      end: 80
+    - source: 'present ? table[key] : undefined'
+      style: secondary
+      start: 48
+      end: 80
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+  'const found = (key: string): Row | undefined => undefined;':
+    labels:
+    - source: '(key: string): Row | undefined => undefined'
+      style: primary
+      start: 14
+      end: 57
+    - source: undefined
+      style: secondary
+      start: 48
+      end: 57
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+  'const found = (key: string): Row | undefined => void 0;':
+    labels:
+    - source: '(key: string): Row | undefined => void 0'
+      style: primary
+      start: 14
+      end: 54
+    - source: void
+      style: secondary
+      start: 48
+      end: 52
+    - source: '0'
+      style: secondary
+      start: 53
+      end: 54
+    - source: void 0
+      style: secondary
+      start: 48
+      end: 54
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+  'const found = (key: string): Row | undefined => { return (undefined); };':
+    labels:
+    - source: return (undefined);
+      style: primary
+      start: 50
+      end: 69
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: '(key: string): Row | undefined => { return (undefined); }'
+      style: secondary
+      start: 14
+      end: 71
+    - source: undefined
+      style: secondary
+      start: 58
+      end: 67
+    - source: (undefined)
+      style: secondary
+      start: 57
+      end: 68
+  'const found = (key: string): Row | undefined => { return missing && void 0; };':
+    labels:
+    - source: return missing && void 0;
+      style: primary
+      start: 50
+      end: 75
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: '(key: string): Row | undefined => { return missing && void 0; }'
+      style: secondary
+      start: 14
+      end: 77
+    - source: '&&'
+      style: secondary
+      start: 65
+      end: 67
+    - source: void
+      style: secondary
+      start: 68
+      end: 72
+    - source: '0'
+      style: secondary
+      start: 73
+      end: 74
+    - source: void 0
+      style: secondary
+      start: 68
+      end: 74
+    - source: missing && void 0
+      style: secondary
+      start: 57
+      end: 74
+  'const found = (key: string): Row | undefined => { return missing ? undefined : table[key]; };':
+    labels:
+    - source: 'return missing ? undefined : table[key];'
+      style: primary
+      start: 50
+      end: 90
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: '(key: string): Row | undefined => { return missing ? undefined : table[key]; }'
+      style: secondary
+      start: 14
+      end: 92
+    - source: undefined
+      style: secondary
+      start: 67
+      end: 76
+    - source: 'missing ? undefined : table[key]'
+      style: secondary
+      start: 57
+      end: 89
+  'const found = (key: string): Row | undefined => { return table[key] ?? undefined; };':
+    labels:
+    - source: return table[key] ?? undefined;
+      style: primary
+      start: 50
+      end: 81
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: '(key: string): Row | undefined => { return table[key] ?? undefined; }'
+      style: secondary
+      start: 14
+      end: 83
+    - source: ??
+      style: secondary
+      start: 68
+      end: 70
+    - source: undefined
+      style: secondary
+      start: 71
+      end: 80
+    - source: table[key] ?? undefined
+      style: secondary
+      start: 57
+      end: 80
+  'const found = (key: string): Row | undefined => { return undefined; };':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 50
+      end: 67
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: '(key: string): Row | undefined => { return undefined; }'
+      style: secondary
+      start: 14
+      end: 69
+    - source: undefined
+      style: secondary
+      start: 57
+      end: 66
+  'const found = (key: string): Row | undefined => { return void 0; };':
+    labels:
+    - source: return void 0;
+      style: primary
+      start: 50
+      end: 64
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: '(key: string): Row | undefined => { return void 0; }'
+      style: secondary
+      start: 14
+      end: 66
+    - source: void
+      style: secondary
+      start: 57
+      end: 61
+    - source: '0'
+      style: secondary
+      start: 62
+      end: 63
+    - source: void 0
+      style: secondary
+      start: 57
+      end: 63
+  'const found = async (): Promise<unknown> => { return undefined; };':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 46
+      end: 63
+    - source: ': Promise<unknown>'
+      style: secondary
+      start: 22
+      end: 40
+    - source: 'async (): Promise<unknown> => { return undefined; }'
+      style: secondary
+      start: 14
+      end: 65
+    - source: undefined
+      style: secondary
+      start: 53
+      end: 62
+  'const found = async (key: string): Promise<Row | undefined> => { return undefined; };':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 65
+      end: 82
+    - source: ': Promise<Row | undefined>'
+      style: secondary
+      start: 33
+      end: 59
+    - source: 'async (key: string): Promise<Row | undefined> => { return undefined; }'
+      style: secondary
+      start: 14
+      end: 84
+    - source: undefined
+      style: secondary
+      start: 72
+      end: 81
+  'const owner = getOrElse((): string | null => null)(repo);':
+    labels:
+    - source: '(): string | null => null'
+      style: primary
+      start: 24
+      end: 49
+    - source: 'null'
+      style: secondary
+      start: 45
+      end: 49
+  'function found(key: string): Row | null { return null; }':
+    labels:
+    - source: return null;
+      style: primary
+      start: 42
+      end: 54
+    - source: 'null'
+      style: secondary
+      start: 49
+      end: 53
+  'function found(key: string): Row | undefined { return undefined; }':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 47
+      end: 64
+    - source: ': Row | undefined'
+      style: secondary
+      start: 27
+      end: 44
+    - source: 'function found(key: string): Row | undefined { return undefined; }'
+      style: secondary
+      start: 0
+      end: 66
+    - source: undefined
+      style: secondary
+      start: 54
+      end: 63
+  'function* found(): Generator<Row, Row | undefined> { return undefined; }':
+    labels:
+    - source: return undefined;
+      style: primary
+      start: 53
+      end: 70
+    - source: ': Generator<Row, Row | undefined>'
+      style: secondary
+      start: 17
+      end: 50
+    - source: 'function* found(): Generator<Row, Row | undefined> { return undefined; }'
+      style: secondary
+      start: 0
+      end: 72
+    - source: undefined
+      style: secondary
+      start: 60
+      end: 69
+  'use({ owner: getOrElse((): string | null => null)(repo) });':
+    labels:
+    - source: '(): string | null => null'
+      style: primary
+      start: 23
+      end: 48
+    - source: 'null'
+      style: secondary
+      start: 44
+      end: 48

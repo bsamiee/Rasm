@@ -21,7 +21,6 @@ if TYPE_CHECKING:
 type CallRecord = tuple[str, tuple[object, ...], dict[str, object]]
 type _Recorder = Callable[[tuple[object, ...], dict[str, object]], None]
 type _CallLog = Callable[[str, tuple[object, ...], dict[str, object]], None]
-type Variant = bytes | object
 
 
 class _AsyncServer(Protocol):
@@ -43,10 +42,7 @@ class Sync[R](msgspec.Struct, frozen=True, gc=False):
 
     value: R
 
-    def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
-        """Build the recording runner ``CallSpy.install`` sets on the target."""
-        _ = log
-
+    def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
         def run_sync(*args: object, **kwargs: object) -> R:
             record(args, kwargs)
             return self.value
@@ -59,10 +55,7 @@ class Async[R](msgspec.Struct, frozen=True, gc=False):
 
     value: R
 
-    def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
-        """Build the recording runner ``CallSpy.install`` sets on the target."""
-        _ = log
-
+    def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
         async def run_async(*args: object, **kwargs: object) -> R:  # ruff:ignore[unused-async]
             record(args, kwargs)
             return self.value
@@ -75,10 +68,7 @@ class Batch[R](msgspec.Struct, frozen=True, gc=False):
 
     values: tuple[R, ...]
 
-    def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
-        """Build the recording runner ``CallSpy.install`` sets on the target."""
-        _ = log
-
+    def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
         def run_batch(items: object, **kwargs: object) -> tuple[R, ...]:
             record((items,), kwargs)
             return self.values
@@ -93,8 +83,6 @@ class Factory[R](msgspec.Struct, frozen=True, gc=False):
     inner_label: str = "<factory>.run"
 
     def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
-        """Build the recording runner ``CallSpy.install`` sets on the target."""
-
         def run_factory(*bind_args: object, **bind_kwargs: object) -> Callable[..., R]:
             record(bind_args, bind_kwargs)
 
@@ -107,6 +95,7 @@ class Factory[R](msgspec.Struct, frozen=True, gc=False):
         return run_factory
 
 
+# Each behavior's bind builds the recording runner CallSpy.install sets on the target
 type StubBehavior[R] = Sync[R] | Async[R] | Batch[R] | Factory[R]
 
 
@@ -174,7 +163,7 @@ class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
 
     directory: Path
     names: "Mapping[V, str]"
-    contents: "Mapping[V, Variant]"
+    contents: "Mapping[V, object]"
     encode: Callable[[object], bytes] = msgspec.json.encode
     absent: frozenset[V] = frozenset()
 
@@ -229,7 +218,6 @@ __all__ = [
     "CallRecord",
     "StubBehavior",
     "Sync",
-    "Variant",
     "VariantWriter",
     "autojump_backend",
     "loopback_server",

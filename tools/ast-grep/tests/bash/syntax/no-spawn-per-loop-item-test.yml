@@ -1,0 +1,94 @@
+id: no-spawn-per-loop-item
+valid:
+    # The corrected form, one invocation over the set
+    - ast-grep scan "${files[@]}"
+    # The corrected form through xargs
+    - printf '%s\0' "${files[@]}" | xargs -0 shellcheck
+    # A per-item destination
+    - for d in "${dirs[@]}"; do cp -R "$src/$d" "$root/$d"; done
+    # A per-item destination as a bare expansion
+    - for d in "${dirs[@]}"; do mv "$src/$d" $dest; done
+    # A per-item destination as a braced expansion
+    - for d in "${dirs[@]}"; do ln -s "$src/$d" ${dest}; done
+    # A per-item destination as a string holding a braced expansion
+    - for d in "${dirs[@]}"; do cp -R "$src/$d" "${dest%/}"; done
+    # A per-item program
+    - for m in "${mutations[@]}"; do yq "$m" rule.yml > out.yml; done
+    # A per-item option value before the last operand
+    - for f in "${files[@]}"; do jq -r --arg k "$f" '.[$k]' data.json; done
+    # A builtin per item
+    - for name in a b; do printf '%s\n' "$name"; done
+    # A function per item
+    - while IFS= read -r line; do finding "$line"; done < <(cmd)
+    # A subcommand the tool runs once per operand
+    - for f in a b; do git status "$f"; done
+    # The tool at the loop's level, no loop around it
+    - |
+      f() { rm -f "$1"; }
+    # nx run-many over the projects
+    - for t in build test; do pnpm exec nx run-many -t "$t"; done
+    # A file written by redirect earlier in the body, the command reads it per item
+    - for f in a b; do printf '%s' "$text" >"$f"; ast-grep test "$f"; done
+    # The same write, the command under its own redirect inside a list
+    - for f in a b; do printf '%s' "$text" >"$f"; rc=0; ast-grep test "$f" >/dev/null 2>&1 || rc=$?; done
+    # A per-item destination joined from an expansion and text
+    - for f in "${files[@]}"; do cp "$f" "$dest"/sub; done
+    # A per-item destination joined from a bare expansion and text
+    - for f in "${files[@]}"; do cp "$f" $dest/sub; done
+    # A per-item output file
+    - for f in a b; do yq '.x' "$f" > "$f.json"; done
+    # A per-item output file under a directory
+    - for f in a b; do jq -r '.a' "$f" >"out/$f"; done
+invalid:
+    # A fixed output file, one call writes it
+    - for f in a b; do yq '.x' "$f" > all.json; done
+    # A per-item standard error file, the output stays one stream
+    - for f in a b; do shellcheck "$f" 2>"$f.err"; done
+    # An until loop
+    - until [[ -f done ]]; do rm -f "$next"; done
+    # The command under a branch inside the body
+    - for f in a b; do if [[ -f $f ]]; then rm "$f"; fi; done
+    # A write after the command
+    - for f in a b; do ast-grep test "$f"; printf '%s' "$text" >"$f"; done
+    # A read from the file before the command is no write
+    - for f in a b; do read -r first <"$f"; rm -f "$f"; done
+    # rmdir per item
+    - for d in "${dirs[@]}"; do rmdir "$root/$d"; done
+    # chown per item
+    - for f in "${files[@]}"; do chown "$user" "$f"; done
+    # The command under a redirect of standard error
+    - for f in "${files[@]}"; do shellcheck "$f" 2>/dev/null; done
+    # dotnet test per project
+    - for p in "${projects[@]}"; do dotnet test "$p"; done
+    # ruff per file
+    - for f in "${files[@]}"; do uv run ruff check "$f"; done
+    # actionlint per workflow
+    - for w in "${workflows[@]}"; do actionlint "$w"; done
+    # The instance, a scan per case inside a counted loop
+    - for ((i = 1; i <= n; i++)); do mapfile -t lines < <(ast-grep scan "$file"); done
+    # rm per item
+    - for f in "${files[@]}"; do rm -f "$f"; done
+    # shellcheck per item
+    - for f in "${files[@]}"; do shellcheck "$f"; done
+    # yq over one file per item, the program fixed
+    - for f in a b; do yq '.x' "$f"; done
+    # A while loop over lines
+    - while IFS= read -r f; do cat "$f"; done < list
+    # mkdir per item
+    - for d in "${dirs[@]}"; do mkdir -p "${d%/*}"; done
+    # git add per item
+    - for p in "${paths[@]}"; do git add "$p"; done
+    # dotnet build per project
+    - for p in "${projects[@]}"; do dotnet build "$p"; done
+    # pnpm exec nx run per project
+    - for p in "${projects[@]}"; do pnpm exec nx run "$p:build"; done
+    # ln with a fixed destination directory
+    - for f in a b; do ln -s "$f" out; done
+    # cp with a literal destination directory
+    - for f in "${files[@]}"; do cp "$f" archive/; done
+    # chmod per item
+    - for f in "${files[@]}"; do chmod +x "$f"; done
+    # touch per item in an until loop
+    - until [[ -f done ]]; do touch "$next"; done
+    # jq over one file per item, the program fixed
+    - for f in "${files[@]}"; do jq -r '.a' "$f"; done

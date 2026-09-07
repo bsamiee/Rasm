@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-traceback-print
+language: python
+severity: error
+rule:
+    matches: {python-module-member: {module: {regex: '^traceback$'}, name: {regex: '^print_(exc|exception|stack|last|tb)$', pattern: $NAME}}}
+message: '`traceback.$NAME` writes the traceback to stderr, outside the structured pipeline'
+note: Log the exception through `structlog.get_logger(__name__).exception(<event>)` inside the handler

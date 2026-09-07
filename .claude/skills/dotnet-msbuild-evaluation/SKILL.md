@@ -125,7 +125,7 @@ Properties hold one string each, the last assignment in evaluation order wins, a
 | :-----: | :----------------------------------------------------- | :---------------------------------------------------------------------- |
 |  [01]   | `[MSBuild]::NormalizeDirectory(parts...)`              | Full path with the OS separator and a trailing slash, `''` fails        |
 |  [02]   | `[MSBuild]::NormalizePath(parts...)`                   | Full path with the OS separator, no trailing slash added                |
-|  [03]   | `[MSBuild]::EnsureTrailingSlash(path)`                 | The value with a trailing slash, `''` stays empty                       |
+|  [03]   | `[MSBuild]::EnsureTrailingSlash(path)`                 | Value with a trailing slash, `''` stays empty                           |
 |  [04]   | `[MSBuild]::MakeRelative(base, path)`                  | `path` relative to the absolute directory `base`                        |
 |  [05]   | `[MSBuild]::ValueOrDefault(value, default)`            | `value` unless empty, then `default`                                    |
 |  [06]   | `[MSBuild]::GetDirectoryNameOfFileAbove(dir, file)`    | Nearest directory at or above `dir` holding `file`, else empty          |
@@ -188,7 +188,7 @@ Item functions and transforms return a new list and are legal wherever `@()` is:
 |  [02]   | `@(Item->'%(Filename)', ', ')`                       | Transform joined with a separator                           |
 |  [03]   | `@(Item->WithMetadataValue('Kind', 'generated'))`    | Items with that metadata value, case-insensitive            |
 |  [04]   | `@(Item->AnyHaveMetadataValue('Kind', 'generated'))` | `true` or `false`, usable alone as a condition              |
-|  [05]   | `@(Item->Metadata('Kind'))`                          | The metadata values, source metadata kept                   |
+|  [05]   | `@(Item->Metadata('Kind'))`                          | Metadata values, source metadata kept                       |
 |  [06]   | `@(Item->Distinct())`, `->Count()`, `->Reverse()`    | Identities without duplicates, the count, the reversed list |
 |  [07]   | `@(Item->ClearMetadata())`                           | Identities with every metadata value removed                |
 |  [08]   | `@(Item->HasMetadata('Kind'))`, `->Exists()`         | Items with that metadata name, items present on disk        |
@@ -215,7 +215,7 @@ Each declaration has one owning file, chosen by what it must read and who must o
 |  [10]   | Package versions, `PackageVersion`, `GlobalPackageReference`                                         | `Directory.Packages.props`       |
 |  [11]   | Analyzer severity, `build_check.*` severity and options                                              | `.editorconfig`                  |
 |  [12]   | Machine-local overrides                                                                              | `$(MSBuildProjectFullPath).user` |
-|  [13]   | Properties and targets a package gives its consumers                                                 | The package `build/` files       |
+|  [13]   | Properties and targets a package gives its consumers                                                 | Package `build/` files           |
 
 - `ArtifactsProjectName` in a project file renames `bin` and `publish` only while `obj` keeps the project name
 - Use `dotnet-msbuild-packaging` for the artifacts layout, the package files, and solution files
@@ -237,13 +237,13 @@ Each symptom has one cause and one fix:
 
 | [INDEX] | [PROBLEM]                                | [CAUSE]                                        | [FIX]                                 |
 | :-----: | :--------------------------------------- | :--------------------------------------------- | :------------------------------------ |
-|  [01]   | `Directory.Build.props` is not imported  | The case differs on a case-sensitive volume    | Match the case exactly                |
-|  [02]   | `Directory.Build.props` value is ignored | The project body or the SDK reassigns it later | Set it in `Directory.Build.targets`   |
+|  [01]   | `Directory.Build.props` is not imported  | Case differs on a case-sensitive volume        | Match the case exactly                |
+|  [02]   | `Directory.Build.props` value is ignored | Project body or the SDK reassigns it later     | Set it in `Directory.Build.targets`   |
 |  [03]   | `TargetFramework` condition never holds  | The `PropertyGroup` sits in a `.props` file    | Move it to `.targets` or the project  |
 |  [04]   | `-p:` value is not normalized            | Project XML cannot reassign a global property  | Derive a private property             |
-|  [05]   | `Update` changes no metadata             | The item does not exist yet at that point      | Move the `Update` after the `Include` |
+|  [05]   | `Update` changes no metadata             | Item does not exist yet at that point          | Move the `Update` after the `Include` |
 |  [06]   | Property holds `@(...)` text             | Properties never read items                    | Read the list in a target             |
-|  [07]   | `-getProperty` fails with `MSB1063`      | The argument is a solution                     | Point the query at one project file   |
+|  [07]   | `-getProperty` fails with `MSB1063`      | Argument is a solution                         | Point the query at one project file   |
 
 - `dotnet msbuild <project> -p:TargetFramework=net10.0 -getProperty:Name` evaluates one inner build of a multi-targeting project
 - Use `dotnet-msbuild-diagnostics` for the switches and `binlog` MCP queries that prove an evaluation

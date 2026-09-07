@@ -8,7 +8,13 @@ rule:
     any: # The value in either arm, the lift evaluates it ahead of the condition and the error stays in its thunk
         - pattern: '$_ ? Effect.succeed($V) : Effect.fail($_)'
         - pattern: '$_ ? Effect.fail($_) : Effect.succeed($V)'
-    not: {matches: syntax-narrowed-branch}
+    not:
+        any:
+            - matches: syntax-narrowed-branch
+            # Await or yield in the condition or in the failing arm has no place in the synchronous thunks the lift takes
+            - has: {field: condition, matches: syntax-suspension}
+            - has: {field: consequence, matches: syntax-suspension}
+            - has: {field: alternative, matches: syntax-suspension}
 constraints:
     V: {matches: effect-liftable-value}
 rewriters:

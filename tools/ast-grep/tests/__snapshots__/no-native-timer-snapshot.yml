@@ -1,0 +1,112 @@
+id: no-native-timer
+snapshots:
+  await scheduler.wait(1000);:
+    labels:
+    - source: scheduler.wait(1000)
+      style: primary
+      start: 6
+      end: 26
+    - source: scheduler.wait
+      style: secondary
+      start: 6
+      end: 20
+  await scheduler.yield();:
+    labels:
+    - source: scheduler.yield()
+      style: primary
+      start: 6
+      end: 23
+    - source: scheduler.yield
+      style: secondary
+      start: 6
+      end: 21
+  clearImmediate(handle);:
+    labels:
+    - source: clearImmediate(handle)
+      style: primary
+      start: 0
+      end: 22
+    - source: clearImmediate
+      style: secondary
+      start: 0
+      end: 14
+  clearInterval(handle);:
+    labels:
+    - source: clearInterval(handle)
+      style: primary
+      start: 0
+      end: 21
+    - source: clearInterval
+      style: secondary
+      start: 0
+      end: 13
+  clearTimeout(handle);:
+    labels:
+    - source: clearTimeout(handle)
+      style: primary
+      start: 0
+      end: 20
+    - source: clearTimeout
+      style: secondary
+      start: 0
+      end: 12
+  const handle = globalThis.setTimeout(tick, 1000);:
+    labels:
+    - source: globalThis.setTimeout(tick, 1000)
+      style: primary
+      start: 15
+      end: 48
+    - source: globalThis.setTimeout
+      style: secondary
+      start: 15
+      end: 36
+  const handle = setImmediate(tick);:
+    labels:
+    - source: setImmediate(tick)
+      style: primary
+      start: 15
+      end: 33
+    - source: setImmediate
+      style: secondary
+      start: 15
+      end: 27
+  const handle = setInterval(tick, 1000);:
+    labels:
+    - source: setInterval(tick, 1000)
+      style: primary
+      start: 15
+      end: 38
+    - source: setInterval
+      style: secondary
+      start: 15
+      end: 26
+  const handle = setTimeout(tick, 1000);:
+    labels:
+    - source: setTimeout(tick, 1000)
+      style: primary
+      start: 15
+      end: 37
+    - source: setTimeout
+      style: secondary
+      start: 15
+      end: 25
+  const signal = AbortSignal.timeout(1000);:
+    labels:
+    - source: AbortSignal.timeout(1000)
+      style: primary
+      start: 15
+      end: 40
+    - source: AbortSignal.timeout
+      style: secondary
+      start: 15
+      end: 34
+  queueMicrotask(tick);:
+    labels:
+    - source: queueMicrotask(tick)
+      style: primary
+      start: 0
+      end: 20
+    - source: queueMicrotask
+      style: secondary
+      start: 0
+      end: 14

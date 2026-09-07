@@ -1,0 +1,40 @@
+id: no-pydantic-validator
+valid:
+    # The corrected form, the field validator
+    - |
+      from pydantic import BaseModel, field_validator
+
+      class Settings(BaseModel):
+          port: int
+
+          @field_validator("port")
+          @classmethod
+          def positive(cls, value: int) -> int:
+              return value
+    # The model validator
+    - |
+      from pydantic import model_validator
+    # Attribute named like the decorator on another object
+    - |
+      check = schema.validator("port")
+invalid:
+    # The instance, the decorator imported from pydantic
+    - |
+      from pydantic import validator
+    # The root validator imported from pydantic
+    - |
+      from pydantic import root_validator
+    # The attribute read as spelled
+    - |
+      import pydantic
+
+      @pydantic.validator("port")
+      def positive(cls, value):
+          return value
+    # The attribute read through the alias the import binds
+    - |
+      import pydantic as pd
+
+      @pd.root_validator
+      def whole(cls, values):
+          return values

@@ -1,0 +1,42 @@
+id: no-json-parse
+snapshots:
+  const row = JSON.parse(text);:
+    labels:
+    - source: JSON.parse(text)
+      style: primary
+      start: 12
+      end: 28
+    - source: JSON.parse
+      style: secondary
+      start: 12
+      end: 22
+  const row = JSON.parse(text, reviver);:
+    labels:
+    - source: JSON.parse(text, reviver)
+      style: primary
+      start: 12
+      end: 37
+    - source: JSON.parse
+      style: secondary
+      start: 12
+      end: 22
+  const row = globalThis.JSON.parse(text);:
+    labels:
+    - source: globalThis.JSON.parse(text)
+      style: primary
+      start: 12
+      end: 39
+    - source: globalThis.JSON.parse
+      style: secondary
+      start: 12
+      end: 33
+  use(JSON.parse(text));:
+    labels:
+    - source: JSON.parse(text)
+      style: primary
+      start: 4
+      end: 20
+    - source: JSON.parse
+      style: secondary
+      start: 4
+      end: 14

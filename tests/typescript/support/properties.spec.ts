@@ -159,7 +159,7 @@ describe('order property', () => {
 });
 
 describe('inverse property', () => {
-    Property.register(it, { to: (value: number) => String(value), from: Number }, [
+    Property.register(it, { to: String, from: Number }, [
         Property.inverse({
             arb: _INTS,
             equals: _equal,
@@ -215,14 +215,14 @@ describe('monotone property', () => {
 });
 
 describe('totality property', () => {
-    Property.register(it, (input: number) => Effect.succeed(input), [
+    Property.register(it, Effect.succeed, [
         Property.total({
             arb: _INTS,
             counterexample: {
                 label: 'partial decoder',
                 implementation: (input: number) =>
-                    Effect.filterOrFail(
-                        Effect.succeed(input),
+                    Effect.liftPredicate(
+                        input,
                         (value) => value >= 0,
                         () => 'rejected' as const,
                     ),

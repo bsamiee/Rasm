@@ -51,7 +51,6 @@ const _SSR = {
     external: ['react', 'react-dom', 'react/jsx-runtime', 'react/compiler-runtime'],
     noExternal: ['@effect/platform', '@effect/platform-browser', '@effect/experimental'],
 };
-const _IGNORED = ['node_modules', '.git', 'dist', 'build', 'out', '.nx', '.vite', '.cache', '.artifacts', '.history', '__pycache__', '.venv', 'venv'];
 const _SVGR = { exportType: 'default', memo: true, ref: true, svgo: true, titleProp: true, typescript: true } as const;
 const _TREESHAKE = { moduleSideEffects: 'no-external', propertyReadSideEffects: false, unknownGlobalSideEffects: false } as const;
 const _VISUALIZER = {
@@ -243,7 +242,12 @@ const _appServer = (config: AppConfig): Pick<UserConfig, 'preview' | 'server' | 
         port: config.port,
         warmup: { clientFiles: Array.fromIterable(config.warmup) },
         watch: {
-            ignored: [...Array.map(_IGNORED, (directory) => `**/${directory}/**`), '**/*.pyc', '**/*.log', '**/.DS_Store'],
+            ignored: [
+                '**/{node_modules,.git,dist,build,out,.nx,.vite,.cache,.artifacts,.history,__pycache__,.venv,venv}/**',
+                '**/*.pyc',
+                '**/*.log',
+                '**/.DS_Store',
+            ],
             ignoreInitial: true,
         },
     },

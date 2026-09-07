@@ -1,0 +1,810 @@
+id: no-default-behind-nullable-parameter
+snapshots:
+  ? |
+    LIMIT = 3
+
+    @cache
+    def run(count: int | None = None) -> int:
+        return count if count is not None else LIMIT
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 26
+      end: 50
+    - source: count
+      style: secondary
+      start: 26
+      end: 31
+    - source: None
+      style: secondary
+      start: 46
+      end: 50
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 71
+      end: 108
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 71
+      end: 108
+    - source: |-
+        def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 18
+      end: 108
+  ? |
+    LIMIT = 3
+
+    async def run(count: int | None = None) -> int:
+        return count if count is not None else LIMIT
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 25
+      end: 49
+    - source: count
+      style: secondary
+      start: 25
+      end: 30
+    - source: None
+      style: secondary
+      start: 45
+      end: 49
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 70
+      end: 107
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 70
+      end: 107
+    - source: |-
+        async def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 11
+      end: 107
+  ? |
+    LIMIT = 3
+
+    class Reader:
+        def run(self, count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 43
+      end: 67
+    - source: count
+      style: secondary
+      start: 43
+      end: 48
+    - source: None
+      style: secondary
+      start: 63
+      end: 67
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 92
+      end: 129
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 92
+      end: 129
+    - source: |-
+        def run(self, count: int | None = None) -> int:
+                return count if count is not None else LIMIT
+      style: secondary
+      start: 29
+      end: 129
+  ? |
+    LIMIT = 3
+
+    def run(count: int | None = None) -> int:
+        if count is None:
+            count = LIMIT
+        return count
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 19
+      end: 43
+    - source: count
+      style: secondary
+      start: 19
+      end: 24
+    - source: None
+      style: secondary
+      start: 39
+      end: 43
+    - source: count is None
+      style: secondary
+      start: 60
+      end: 73
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: |-
+        if count is None:
+                count = LIMIT
+      style: secondary
+      start: 57
+      end: 96
+    - source: |-
+        if count is None:
+                count = LIMIT
+      style: secondary
+      start: 57
+      end: 96
+    - source: |-
+        def run(count: int | None = None) -> int:
+            if count is None:
+                count = LIMIT
+            return count
+      style: secondary
+      start: 11
+      end: 113
+  ? |
+    LIMIT = 3
+
+    def run(count: int | None = None) -> int:
+        return count if count is not None else LIMIT
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 19
+      end: 43
+    - source: count
+      style: secondary
+      start: 19
+      end: 24
+    - source: None
+      style: secondary
+      start: 39
+      end: 43
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 64
+      end: 101
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 64
+      end: 101
+    - source: |-
+        def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 11
+      end: 101
+  ? |
+    LIMIT: int = 3
+
+    def run(count: int | None = None) -> int:
+        return count if count is not None else LIMIT
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 24
+      end: 48
+    - source: count
+      style: secondary
+      start: 24
+      end: 29
+    - source: None
+      style: secondary
+      start: 44
+      end: 48
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 69
+      end: 106
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 69
+      end: 106
+    - source: |-
+        def run(count: int | None = None) -> int:
+            return count if count is not None else LIMIT
+      style: secondary
+      start: 16
+      end: 106
+  ? |
+    class Reader:
+        pass
+
+    def run(make: Callable[[], Reader] | None = None) -> Reader:
+        return (make if make is not None else Reader)()
+  : labels:
+    - source: 'make: Callable[[], Reader] | None = None'
+      style: primary
+      start: 32
+      end: 72
+    - source: make
+      style: secondary
+      start: 32
+      end: 36
+    - source: None
+      style: secondary
+      start: 68
+      end: 72
+    - source: make if make is not None else Reader
+      style: secondary
+      start: 97
+      end: 133
+    - source: make if make is not None else Reader
+      style: secondary
+      start: 97
+      end: 133
+    - source: |-
+        def run(make: Callable[[], Reader] | None = None) -> Reader:
+            return (make if make is not None else Reader)()
+      style: secondary
+      start: 24
+      end: 136
+  ? |
+    def fallback() -> int:
+        return 3
+
+    def run(make: Callable[[], int] | None = None) -> int:
+        return (make if make is not None else fallback)()
+  : labels:
+    - source: 'make: Callable[[], int] | None = None'
+      style: primary
+      start: 45
+      end: 82
+    - source: make
+      style: secondary
+      start: 45
+      end: 49
+    - source: None
+      style: secondary
+      start: 78
+      end: 82
+    - source: make if make is not None else fallback
+      style: secondary
+      start: 104
+      end: 142
+    - source: make if make is not None else fallback
+      style: secondary
+      start: 104
+      end: 142
+    - source: |-
+        def run(make: Callable[[], int] | None = None) -> int:
+            return (make if make is not None else fallback)()
+      style: secondary
+      start: 37
+      end: 145
+  ? |
+    def run(count: int | None = None) -> int:
+        return count if count is not None else -1
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 8
+      end: 32
+    - source: count
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 28
+      end: 32
+    - source: count if count is not None else -1
+      style: secondary
+      start: 53
+      end: 87
+    - source: count if count is not None else -1
+      style: secondary
+      start: 53
+      end: 87
+    - source: |-
+        def run(count: int | None = None) -> int:
+            return count if count is not None else -1
+      style: secondary
+      start: 0
+      end: 87
+  ? |
+    def run(count: int | None = None) -> int:
+        return count or 3
+  : labels:
+    - source: 'count: int | None = None'
+      style: primary
+      start: 8
+      end: 32
+    - source: count
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 28
+      end: 32
+    - source: count or 3
+      style: secondary
+      start: 53
+      end: 63
+    - source: count or 3
+      style: secondary
+      start: 53
+      end: 63
+    - source: |-
+        def run(count: int | None = None) -> int:
+            return count or 3
+      style: secondary
+      start: 0
+      end: 63
+  ? |
+    def run(count=None):
+        return count or 3
+  : labels:
+    - source: count=None
+      style: primary
+      start: 8
+      end: 18
+    - source: count
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 14
+      end: 18
+    - source: count or 3
+      style: secondary
+      start: 32
+      end: 42
+    - source: count or 3
+      style: secondary
+      start: 32
+      end: 42
+    - source: |-
+        def run(count=None):
+            return count or 3
+      style: secondary
+      start: 0
+      end: 42
+  ? |
+    def run(items: tuple[str, ...] | None = None) -> tuple[str, ...]:
+        return items if items is not None else ()
+  : labels:
+    - source: 'items: tuple[str, ...] | None = None'
+      style: primary
+      start: 8
+      end: 44
+    - source: items
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 40
+      end: 44
+    - source: items if items is not None else ()
+      style: secondary
+      start: 77
+      end: 111
+    - source: items if items is not None else ()
+      style: secondary
+      start: 77
+      end: 111
+    - source: |-
+        def run(items: tuple[str, ...] | None = None) -> tuple[str, ...]:
+            return items if items is not None else ()
+      style: secondary
+      start: 0
+      end: 111
+  ? |
+    def run(profile: str | None = None) -> str:
+        return profile if profile is not None else "stateful"
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 8
+      end: 34
+    - source: profile
+      style: secondary
+      start: 8
+      end: 15
+    - source: None
+      style: secondary
+      start: 30
+      end: 34
+    - source: profile if profile is not None else "stateful"
+      style: secondary
+      start: 55
+      end: 101
+    - source: profile if profile is not None else "stateful"
+      style: secondary
+      start: 55
+      end: 101
+    - source: |-
+        def run(profile: str | None = None) -> str:
+            return profile if profile is not None else "stateful"
+      style: secondary
+      start: 0
+      end: 101
+  ? |
+    def run(ratio: float | None = None) -> float:
+        return ratio if ratio is not None else -0.5
+  : labels:
+    - source: 'ratio: float | None = None'
+      style: primary
+      start: 8
+      end: 34
+    - source: ratio
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 30
+      end: 34
+    - source: ratio if ratio is not None else -0.5
+      style: secondary
+      start: 57
+      end: 93
+    - source: ratio if ratio is not None else -0.5
+      style: secondary
+      start: 57
+      end: 93
+    - source: |-
+        def run(ratio: float | None = None) -> float:
+            return ratio if ratio is not None else -0.5
+      style: secondary
+      start: 0
+      end: 93
+  ? |
+    def run(ratio: float | None = None) -> float:
+        return ratio if ratio is not None else 0.5
+  : labels:
+    - source: 'ratio: float | None = None'
+      style: primary
+      start: 8
+      end: 34
+    - source: ratio
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 30
+      end: 34
+    - source: ratio if ratio is not None else 0.5
+      style: secondary
+      start: 57
+      end: 92
+    - source: ratio if ratio is not None else 0.5
+      style: secondary
+      start: 57
+      end: 92
+    - source: |-
+        def run(ratio: float | None = None) -> float:
+            return ratio if ratio is not None else 0.5
+      style: secondary
+      start: 0
+      end: 92
+  ? |
+    def run(strict: bool | None = None) -> bool:
+        return strict if strict is not None else False
+  : labels:
+    - source: 'strict: bool | None = None'
+      style: primary
+      start: 8
+      end: 34
+    - source: strict
+      style: secondary
+      start: 8
+      end: 14
+    - source: None
+      style: secondary
+      start: 30
+      end: 34
+    - source: strict if strict is not None else False
+      style: secondary
+      start: 56
+      end: 95
+    - source: strict if strict is not None else False
+      style: secondary
+      start: 56
+      end: 95
+    - source: |-
+        def run(strict: bool | None = None) -> bool:
+            return strict if strict is not None else False
+      style: secondary
+      start: 0
+      end: 95
+  ? |
+    def run(strict: bool | None = None) -> bool:
+        return strict if strict is not None else True
+  : labels:
+    - source: 'strict: bool | None = None'
+      style: primary
+      start: 8
+      end: 34
+    - source: strict
+      style: secondary
+      start: 8
+      end: 14
+    - source: None
+      style: secondary
+      start: 30
+      end: 34
+    - source: strict if strict is not None else True
+      style: secondary
+      start: 56
+      end: 94
+    - source: strict if strict is not None else True
+      style: secondary
+      start: 56
+      end: 94
+    - source: |-
+        def run(strict: bool | None = None) -> bool:
+            return strict if strict is not None else True
+      style: secondary
+      start: 0
+      end: 94
+  ? |
+    from runtime import PROFILE_STATEFUL
+
+    def run(machine, *, profile: str | None = None) -> None:
+        if machine:
+            resolved = profile if profile is not None else PROFILE_STATEFUL
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 58
+      end: 84
+    - source: profile
+      style: secondary
+      start: 58
+      end: 65
+    - source: None
+      style: secondary
+      start: 80
+      end: 84
+    - source: profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 130
+      end: 182
+    - source: profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 130
+      end: 182
+    - source: |-
+        def run(machine, *, profile: str | None = None) -> None:
+            if machine:
+                resolved = profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 38
+      end: 182
+  ? |
+    from runtime import PROFILE_STATEFUL
+
+    def run(machine, *, profile: str | None = None) -> None:
+        resolved = PROFILE_STATEFUL if profile is None else profile
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 58
+      end: 84
+    - source: profile
+      style: secondary
+      start: 58
+      end: 65
+    - source: None
+      style: secondary
+      start: 80
+      end: 84
+    - source: PROFILE_STATEFUL if profile is None else profile
+      style: secondary
+      start: 110
+      end: 158
+    - source: PROFILE_STATEFUL if profile is None else profile
+      style: secondary
+      start: 110
+      end: 158
+    - source: |-
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = PROFILE_STATEFUL if profile is None else profile
+      style: secondary
+      start: 38
+      end: 158
+  ? |
+    from runtime import PROFILE_STATEFUL
+
+    def run(machine, *, profile: str | None = None) -> None:
+        resolved = profile if profile is not None else PROFILE_STATEFUL
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 58
+      end: 84
+    - source: profile
+      style: secondary
+      start: 58
+      end: 65
+    - source: None
+      style: secondary
+      start: 80
+      end: 84
+    - source: profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 110
+      end: 162
+    - source: profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 110
+      end: 162
+    - source: |-
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 38
+      end: 162
+  ? |
+    from runtime import PROFILE_STATEFUL
+
+    def run(machine, *, profile: str | None = None) -> None:
+        resolved = profile or PROFILE_STATEFUL
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 58
+      end: 84
+    - source: profile
+      style: secondary
+      start: 58
+      end: 65
+    - source: None
+      style: secondary
+      start: 80
+      end: 84
+    - source: profile or PROFILE_STATEFUL
+      style: secondary
+      start: 110
+      end: 137
+    - source: profile or PROFILE_STATEFUL
+      style: secondary
+      start: 110
+      end: 137
+    - source: |-
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = profile or PROFILE_STATEFUL
+      style: secondary
+      start: 38
+      end: 137
+  ? |
+    from runtime import PROFILE_STATEFUL as PROFILE
+
+    def run(profile: str | None = None) -> str:
+        return profile if profile is not None else PROFILE
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 57
+      end: 83
+    - source: profile
+      style: secondary
+      start: 57
+      end: 64
+    - source: None
+      style: secondary
+      start: 79
+      end: 83
+    - source: profile if profile is not None else PROFILE
+      style: secondary
+      start: 104
+      end: 147
+    - source: profile if profile is not None else PROFILE
+      style: secondary
+      start: 104
+      end: 147
+    - source: |-
+        def run(profile: str | None = None) -> str:
+            return profile if profile is not None else PROFILE
+      style: secondary
+      start: 49
+      end: 147
+  ? |
+    import operator
+
+    def check(left, right, equal: Equality | None = None) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: Equality | None = None'
+      style: primary
+      start: 40
+      end: 69
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: None
+      style: secondary
+      start: 65
+      end: 69
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 92
+      end: 135
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 92
+      end: 135
+    - source: |-
+        def check(left, right, equal: Equality | None = None) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 149
+  ? |
+    import operator
+
+    def check(left, right, equal: _Equality[T]) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: _Equality[T]'
+      style: primary
+      start: 40
+      end: 59
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 82
+      end: 125
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 82
+      end: 125
+    - source: |-
+        def check(left, right, equal: _Equality[T]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 139
+  ? |
+    import settings
+
+    def run(profile: str | None = None) -> str:
+        return profile if profile is not None else settings.defaults.profile
+  : labels:
+    - source: 'profile: str | None = None'
+      style: primary
+      start: 25
+      end: 51
+    - source: profile
+      style: secondary
+      start: 25
+      end: 32
+    - source: None
+      style: secondary
+      start: 47
+      end: 51
+    - source: profile if profile is not None else settings.defaults.profile
+      style: secondary
+      start: 72
+      end: 133
+    - source: profile if profile is not None else settings.defaults.profile
+      style: secondary
+      start: 72
+      end: 133
+    - source: |-
+        def run(profile: str | None = None) -> str:
+            return profile if profile is not None else settings.defaults.profile
+      style: secondary
+      start: 17
+      end: 133

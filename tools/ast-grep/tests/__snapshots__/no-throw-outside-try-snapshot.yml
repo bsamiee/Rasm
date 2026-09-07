@@ -1,0 +1,38 @@
+id: no-throw-outside-try
+snapshots:
+  const built = Effect.sync(() => { throw new Error("empty"); });:
+    labels:
+    - source: throw new Error("empty");
+      style: primary
+      start: 34
+      end: 59
+  'const check = (raw: string): string => { if (raw === "") { throw new Error("empty"); } return raw; };':
+    labels:
+    - source: throw new Error("empty");
+      style: primary
+      start: 59
+      end: 84
+  'const check = (raw: string): string => { throw new LoadError({ cause: raw }); };':
+    labels:
+    - source: 'throw new LoadError({ cause: raw });'
+      style: primary
+      start: 41
+      end: 77
+  const loaded = Effect.gen(function* () { throw new Error("empty"); });:
+    labels:
+    - source: throw new Error("empty");
+      style: primary
+      start: 41
+      end: 66
+  const mapped = Effect.map(work, (item) => { throw new Error("odd"); });:
+    labels:
+    - source: throw new Error("odd");
+      style: primary
+      start: 44
+      end: 67
+  'const parse = (raw: string): unknown => { try { return JSON.parse(raw); } catch (cause) { throw new ParseError({ cause }); } };':
+    labels:
+    - source: throw new ParseError({ cause });
+      style: primary
+      start: 90
+      end: 122

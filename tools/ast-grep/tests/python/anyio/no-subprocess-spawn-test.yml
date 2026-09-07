@@ -1,0 +1,69 @@
+id: no-subprocess-spawn
+valid:
+    # The corrected form, the awaited process
+    - |
+      import anyio
+
+      async def build(args):
+          return await anyio.run_process(args, check=False)
+    # The corrected form for a running process, opened under the scope
+    - |
+      import anyio
+
+      async def attach(argv):
+          async with await anyio.open_process(argv) as process:
+              await process.wait()
+    # Constant of the module, an argument the anyio process functions take
+    - |
+      import subprocess
+
+      pipe = subprocess.PIPE
+    # Attribute named like the member on another object
+    - |
+      done = runner.run(args)
+    # Member named like a spawner on another module
+    - |
+      from platform import system
+    # Exec member of os, it replaces the process and spawns none
+    - |
+      import os
+
+      os.execvp(args[0], args)
+invalid:
+    # The instance, run imported from the module
+    - |
+      from subprocess import run
+    # Popen imported from the module
+    - |
+      from subprocess import Popen
+    # The member imported under an alias
+    - |
+      from subprocess import check_output as capture
+    # The attribute read as spelled
+    - |
+      import subprocess
+
+      subprocess.call(args)
+    # The class read as spelled
+    - |
+      import subprocess
+
+      handle = subprocess.Popen(args)
+    # The attribute read through the alias the import binds
+    - |
+      import subprocess as sp
+
+      sp.check_call(args)
+    # The shell call of os read as spelled
+    - |
+      import os
+
+      os.system("make")
+    # The spawn family member imported from os
+    - |
+      from os import spawnvp
+    # The pipe of os read through the alias the import binds
+    - |
+      import os as system
+
+      handle = system.popen("make")

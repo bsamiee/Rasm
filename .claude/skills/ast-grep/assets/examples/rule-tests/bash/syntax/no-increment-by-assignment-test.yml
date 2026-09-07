@@ -1,0 +1,37 @@
+id: no-increment-by-assignment
+valid:
+    # The corrected form
+    - ((i += 1))
+    # Another name on the right
+    - x=$((y + 1))
+    # A difference can reach zero, and an arithmetic command at zero fails under errexit
+    - k=$((k - 1))
+    # Another name assigned inside the arithmetic command
+    - ((p = q + 1))
+    # let is shellcheck SC2219's
+    - let n=n+1
+    # A product
+    - x=$((x * 2))
+    # A comparison inside the arithmetic command
+    - ((m == m + 2)) && x=1
+    # The number first with a difference
+    - j=$((1 - j))
+    # A variable addend can sum to zero, and an arithmetic command at zero fails under errexit
+    - total=$((total + n))
+    # An expansion with an operator is no bare name
+    - i=$((${i:-0} + 1))
+invalid:
+    # The counter read as $name
+    - i=$(($i + 1))
+    # The counter read as ${name}
+    - i=$((${i} + 1))
+    # The arithmetic command form with the number first
+    - ((m = 2 + m))
+    # The instance
+    - i=$((i + 1))
+    # The number first
+    - j=$((1 + j))
+    # No spaces
+    - i=$((i+1))
+    # The arithmetic command form
+    - ((m = m + 2))

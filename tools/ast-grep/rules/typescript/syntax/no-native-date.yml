@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-native-date
+language: tsx
+severity: error
+ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, the DateTime module has no place there
+rule:
+    any:
+        # Date built from an input, the constructor without an argument is the ambient clock read of no-ambient-read
+        - kind: new_expression
+          all:
+              - has: {field: constructor, regex: '^(globalThis\.)?Date$'}
+              - has: {field: arguments, has: {pattern: $_}}
+        # The parsing and the UTC statics, Date.now is the ambient clock read
+        - kind: call_expression
+          has: {field: function, regex: '^(globalThis\.)?Date\.(parse|UTC)$'}
+message: The time value is built through the native Date
+note: >-
+    Build the value through the DateTime module, `DateTime.unsafeMake(input)` or `DateTime.make(input)`,
+    and compute with `DateTime.add` and `DateTime.toEpochMillis`

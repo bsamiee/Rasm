@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Two-arm branch over a carrier, Effect.if or a match with an onX pair, Layer.match and Fiber.match take arms no rule reads
+# Two-arm branch over a carrier, Effect.if or a match with an onX pair, cause spellings included, Layer.match and Fiber.match take other arms
 id: effect-two-arm-branch
 language: tsx
 rule:
@@ -8,7 +8,9 @@ rule:
         field: function
         kind: member_expression
         any:
-            - pattern: Effect.if
+            - regex: '^(Effect|STM)\.if$'
+            # Array.match and its ends split the empty case from the non-empty one, Chunk and List export no match
+            - regex: '^Array\.(match|matchLeft|matchRight)$'
             - all:
                   - has: {field: object, regex: '^(Boolean|Option|Either|Exit|Effect|Micro|STM)$'}
-                  - has: {field: property, regex: '^(match|matchEffect|matchSTM)$'}
+                  - has: {field: property, regex: '^(match|matchEffect|matchSTM|matchCause|matchCauseEffect)$'}

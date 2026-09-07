@@ -1,0 +1,6955 @@
+id: no-result-match-for-map
+snapshots:
+  ? |
+    async def owner(path, cwd):
+        match await run(["otool", "-L", str(path)], cwd, capture=True):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+  : fixed: |
+      async def owner(path, cwd):
+          return (await run(["otool", "-L", str(path)], cwd, capture=True)).map(lambda text: [line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+    labels:
+    - source: |-
+        match await run(["otool", "-L", str(path)], cwd, capture=True):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: primary
+      start: 32
+      end: 299
+    - source: |-
+        async def owner(path, cwd):
+            match await run(["otool", "-L", str(path)], cwd, capture=True):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 0
+      end: 299
+    - source: error=failure
+      style: secondary
+      start: 129
+      end: 142
+    - source: error=failure
+      style: secondary
+      start: 129
+      end: 142
+    - source: Result
+      style: secondary
+      start: 109
+      end: 115
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 109
+      end: 143
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 109
+      end: 143
+    - source: Error
+      style: secondary
+      start: 164
+      end: 169
+    - source: failure
+      style: secondary
+      start: 170
+      end: 177
+    - source: failure
+      style: secondary
+      start: 170
+      end: 177
+    - source: Error(failure)
+      style: secondary
+      start: 164
+      end: 178
+    - source: return Error(failure)
+      style: secondary
+      start: 157
+      end: 178
+    - source: return Error(failure)
+      style: secondary
+      start: 157
+      end: 178
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 104
+      end: 178
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 95
+      end: 299
+    - source: await run(["otool", "-L", str(path)], cwd, capture=True)
+      style: secondary
+      start: 38
+      end: 94
+    - source: await run(["otool", "-L", str(path)], cwd, capture=True)
+      style: secondary
+      start: 38
+      end: 94
+    - source: text
+      style: secondary
+      start: 202
+      end: 206
+    - source: ok=text
+      style: secondary
+      start: 199
+      end: 206
+    - source: ok=text
+      style: secondary
+      start: 199
+      end: 206
+    - source: Result
+      style: secondary
+      start: 192
+      end: 198
+    - source: Result(ok=text)
+      style: secondary
+      start: 192
+      end: 207
+    - source: Result(ok=text)
+      style: secondary
+      start: 192
+      end: 207
+    - source: Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 228
+      end: 299
+    - source: return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 221
+      end: 299
+    - source: return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 221
+      end: 299
+    - source: |-
+        case Result(ok=text):
+                    return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 187
+      end: 299
+    - source: |-
+        case Result(ok=text):
+                    return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+      style: secondary
+      start: 187
+      end: 299
+  ? |
+    async def owner(path, cwd):
+        names = await run(["otool", "-L", str(path)], cwd, capture=True)
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text.splitlines())
+  : fixed: |
+      async def owner(path, cwd):
+          names = await run(["otool", "-L", str(path)], cwd, capture=True)
+          return names.map(lambda text: text.splitlines())
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.splitlines())
+      style: primary
+      start: 101
+      end: 267
+    - source: |-
+        async def owner(path, cwd):
+            names = await run(["otool", "-L", str(path)], cwd, capture=True)
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.splitlines())
+      style: secondary
+      start: 0
+      end: 267
+    - source: error=failure
+      style: secondary
+      start: 147
+      end: 160
+    - source: error=failure
+      style: secondary
+      start: 147
+      end: 160
+    - source: Result
+      style: secondary
+      start: 127
+      end: 133
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 127
+      end: 161
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 127
+      end: 161
+    - source: Error
+      style: secondary
+      start: 182
+      end: 187
+    - source: failure
+      style: secondary
+      start: 188
+      end: 195
+    - source: failure
+      style: secondary
+      start: 188
+      end: 195
+    - source: Error(failure)
+      style: secondary
+      start: 182
+      end: 196
+    - source: return Error(failure)
+      style: secondary
+      start: 175
+      end: 196
+    - source: return Error(failure)
+      style: secondary
+      start: 175
+      end: 196
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 122
+      end: 196
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.splitlines())
+      style: secondary
+      start: 113
+      end: 267
+    - source: names
+      style: secondary
+      start: 107
+      end: 112
+    - source: names
+      style: secondary
+      start: 107
+      end: 112
+    - source: text
+      style: secondary
+      start: 220
+      end: 224
+    - source: ok=text
+      style: secondary
+      start: 217
+      end: 224
+    - source: ok=text
+      style: secondary
+      start: 217
+      end: 224
+    - source: Result
+      style: secondary
+      start: 210
+      end: 216
+    - source: Result(ok=text)
+      style: secondary
+      start: 210
+      end: 225
+    - source: Result(ok=text)
+      style: secondary
+      start: 210
+      end: 225
+    - source: Ok(text.splitlines())
+      style: secondary
+      start: 246
+      end: 267
+    - source: return Ok(text.splitlines())
+      style: secondary
+      start: 239
+      end: 267
+    - source: return Ok(text.splitlines())
+      style: secondary
+      start: 239
+      end: 267
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text.splitlines())
+      style: secondary
+      start: 205
+      end: 267
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text.splitlines())
+      style: secondary
+      start: 205
+      end: 267
+  ? |
+    async def owner(path, cwd, parse):
+        match await run(["otool", "-L", str(path)], cwd, capture=True):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      async def owner(path, cwd, parse):
+          return (await run(["otool", "-L", str(path)], cwd, capture=True)).map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match await run(["otool", "-L", str(path)], cwd, capture=True):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 39
+      end: 232
+    - source: |-
+        async def owner(path, cwd, parse):
+            match await run(["otool", "-L", str(path)], cwd, capture=True):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 259
+    - source: error=failure
+      style: secondary
+      start: 136
+      end: 149
+    - source: error=failure
+      style: secondary
+      start: 136
+      end: 149
+    - source: Result
+      style: secondary
+      start: 116
+      end: 122
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 116
+      end: 150
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 116
+      end: 150
+    - source: Error
+      style: secondary
+      start: 171
+      end: 176
+    - source: failure
+      style: secondary
+      start: 177
+      end: 184
+    - source: failure
+      style: secondary
+      start: 177
+      end: 184
+    - source: Error(failure)
+      style: secondary
+      start: 171
+      end: 185
+    - source: return Error(failure)
+      style: secondary
+      start: 164
+      end: 185
+    - source: return Error(failure)
+      style: secondary
+      start: 164
+      end: 185
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 111
+      end: 185
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 102
+      end: 232
+    - source: await run(["otool", "-L", str(path)], cwd, capture=True)
+      style: secondary
+      start: 45
+      end: 101
+    - source: await run(["otool", "-L", str(path)], cwd, capture=True)
+      style: secondary
+      start: 45
+      end: 101
+    - source: text
+      style: secondary
+      start: 209
+      end: 213
+    - source: ok=text
+      style: secondary
+      start: 206
+      end: 213
+    - source: ok=text
+      style: secondary
+      start: 206
+      end: 213
+    - source: Result
+      style: secondary
+      start: 199
+      end: 205
+    - source: Result(ok=text)
+      style: secondary
+      start: 199
+      end: 214
+    - source: Result(ok=text)
+      style: secondary
+      start: 199
+      end: 214
+    - source: pass
+      style: secondary
+      start: 228
+      end: 232
+    - source: pass
+      style: secondary
+      start: 228
+      end: 232
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 194
+      end: 232
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 194
+      end: 232
+    - source: Ok(parse(text))
+      style: secondary
+      start: 244
+      end: 259
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 237
+      end: 259
+  ? |
+    async def owner(path, cwd, parse):
+        names = await run(["otool", "-L", str(path)], cwd, capture=True)
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      async def owner(path, cwd, parse):
+          names = await run(["otool", "-L", str(path)], cwd, capture=True)
+          return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 108
+      end: 250
+    - source: |-
+        async def owner(path, cwd, parse):
+            names = await run(["otool", "-L", str(path)], cwd, capture=True)
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 277
+    - source: error=failure
+      style: secondary
+      start: 154
+      end: 167
+    - source: error=failure
+      style: secondary
+      start: 154
+      end: 167
+    - source: Result
+      style: secondary
+      start: 134
+      end: 140
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 134
+      end: 168
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 134
+      end: 168
+    - source: Error
+      style: secondary
+      start: 189
+      end: 194
+    - source: failure
+      style: secondary
+      start: 195
+      end: 202
+    - source: failure
+      style: secondary
+      start: 195
+      end: 202
+    - source: Error(failure)
+      style: secondary
+      start: 189
+      end: 203
+    - source: return Error(failure)
+      style: secondary
+      start: 182
+      end: 203
+    - source: return Error(failure)
+      style: secondary
+      start: 182
+      end: 203
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 129
+      end: 203
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 120
+      end: 250
+    - source: names
+      style: secondary
+      start: 114
+      end: 119
+    - source: names
+      style: secondary
+      start: 114
+      end: 119
+    - source: text
+      style: secondary
+      start: 227
+      end: 231
+    - source: ok=text
+      style: secondary
+      start: 224
+      end: 231
+    - source: ok=text
+      style: secondary
+      start: 224
+      end: 231
+    - source: Result
+      style: secondary
+      start: 217
+      end: 223
+    - source: Result(ok=text)
+      style: secondary
+      start: 217
+      end: 232
+    - source: Result(ok=text)
+      style: secondary
+      start: 217
+      end: 232
+    - source: pass
+      style: secondary
+      start: 246
+      end: 250
+    - source: pass
+      style: secondary
+      start: 246
+      end: 250
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 212
+      end: 250
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 212
+      end: 250
+    - source: Ok(parse(text))
+      style: secondary
+      start: 262
+      end: 277
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 255
+      end: 277
+  ? |
+    async def owner(space, tool):
+        env = {**space.environment, "PKG_CONFIG": str(tool)}
+        match await run(["pkgconf"], space.root):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result():
+                pass
+        return Ok(env)
+  : fixed: |
+      async def owner(space, tool):
+          env = {**space.environment, "PKG_CONFIG": str(tool)}
+          return (await run(["pkgconf"], space.root)).map(lambda _: env)
+          return Ok(env)
+    labels:
+    - source: |-
+        match await run(["pkgconf"], space.root):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    pass
+      style: primary
+      start: 91
+      end: 255
+    - source: |-
+        async def owner(space, tool):
+            env = {**space.environment, "PKG_CONFIG": str(tool)}
+            match await run(["pkgconf"], space.root):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    pass
+            return Ok(env)
+      style: secondary
+      start: 0
+      end: 274
+    - source: error=failure
+      style: secondary
+      start: 166
+      end: 179
+    - source: error=failure
+      style: secondary
+      start: 166
+      end: 179
+    - source: Result
+      style: secondary
+      start: 146
+      end: 152
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 146
+      end: 180
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 146
+      end: 180
+    - source: Error
+      style: secondary
+      start: 201
+      end: 206
+    - source: failure
+      style: secondary
+      start: 207
+      end: 214
+    - source: failure
+      style: secondary
+      start: 207
+      end: 214
+    - source: Error(failure)
+      style: secondary
+      start: 201
+      end: 215
+    - source: return Error(failure)
+      style: secondary
+      start: 194
+      end: 215
+    - source: return Error(failure)
+      style: secondary
+      start: 194
+      end: 215
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 141
+      end: 215
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    pass
+      style: secondary
+      start: 132
+      end: 255
+    - source: await run(["pkgconf"], space.root)
+      style: secondary
+      start: 97
+      end: 131
+    - source: await run(["pkgconf"], space.root)
+      style: secondary
+      start: 97
+      end: 131
+    - source: Result
+      style: secondary
+      start: 229
+      end: 235
+    - source: Result()
+      style: secondary
+      start: 229
+      end: 237
+    - source: Result()
+      style: secondary
+      start: 229
+      end: 237
+    - source: pass
+      style: secondary
+      start: 251
+      end: 255
+    - source: pass
+      style: secondary
+      start: 251
+      end: 255
+    - source: |-
+        case Result():
+                    pass
+      style: secondary
+      start: 224
+      end: 255
+    - source: |-
+        case Result():
+                    pass
+      style: secondary
+      start: 224
+      end: 255
+    - source: Ok(env)
+      style: secondary
+      start: 267
+      end: 274
+    - source: return Ok(env)
+      style: secondary
+      start: 260
+      end: 274
+  ? |
+    async def owner(space, tool):
+        env = {**space.environment, "PKG_CONFIG": str(tool)}
+        match await run(["pkgconf"], space.root):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result():
+                return Ok(env)
+  : fixed: |
+      async def owner(space, tool):
+          env = {**space.environment, "PKG_CONFIG": str(tool)}
+          return (await run(["pkgconf"], space.root)).map(lambda _: env)
+    labels:
+    - source: |-
+        match await run(["pkgconf"], space.root):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    return Ok(env)
+      style: primary
+      start: 91
+      end: 265
+    - source: |-
+        async def owner(space, tool):
+            env = {**space.environment, "PKG_CONFIG": str(tool)}
+            match await run(["pkgconf"], space.root):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    return Ok(env)
+      style: secondary
+      start: 0
+      end: 265
+    - source: error=failure
+      style: secondary
+      start: 166
+      end: 179
+    - source: error=failure
+      style: secondary
+      start: 166
+      end: 179
+    - source: Result
+      style: secondary
+      start: 146
+      end: 152
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 146
+      end: 180
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 146
+      end: 180
+    - source: Error
+      style: secondary
+      start: 201
+      end: 206
+    - source: failure
+      style: secondary
+      start: 207
+      end: 214
+    - source: failure
+      style: secondary
+      start: 207
+      end: 214
+    - source: Error(failure)
+      style: secondary
+      start: 201
+      end: 215
+    - source: return Error(failure)
+      style: secondary
+      start: 194
+      end: 215
+    - source: return Error(failure)
+      style: secondary
+      start: 194
+      end: 215
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 141
+      end: 215
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    return Ok(env)
+      style: secondary
+      start: 132
+      end: 265
+    - source: await run(["pkgconf"], space.root)
+      style: secondary
+      start: 97
+      end: 131
+    - source: await run(["pkgconf"], space.root)
+      style: secondary
+      start: 97
+      end: 131
+    - source: Result
+      style: secondary
+      start: 229
+      end: 235
+    - source: Result()
+      style: secondary
+      start: 229
+      end: 237
+    - source: Result()
+      style: secondary
+      start: 229
+      end: 237
+    - source: Ok(env)
+      style: secondary
+      start: 258
+      end: 265
+    - source: return Ok(env)
+      style: secondary
+      start: 251
+      end: 265
+    - source: return Ok(env)
+      style: secondary
+      start: 251
+      end: 265
+    - source: |-
+        case Result():
+                    return Ok(env)
+      style: secondary
+      start: 224
+      end: 265
+    - source: |-
+        case Result():
+                    return Ok(env)
+      style: secondary
+      start: 224
+      end: 265
+  ? |
+    async def owner(space, tool, install):
+        if not tool.exists():
+            overlay = space.cache / "overlay"
+            match await run([*install, "--no-print-usage"], space.root):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result():
+                    pass
+        return Ok({**space.environment, "PKG_CONFIG": str(tool)})
+  : fixed: |
+      async def owner(space, tool, install):
+          if not tool.exists():
+              overlay = space.cache / "overlay"
+              return (await run([*install, "--no-print-usage"], space.root)).map(lambda _: {**space.environment, "PKG_CONFIG": str(tool)})
+          return Ok({**space.environment, "PKG_CONFIG": str(tool)})
+    labels:
+    - source: |-
+        match await run([*install, "--no-print-usage"], space.root):
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result():
+                        pass
+      style: primary
+      start: 115
+      end: 314
+    - source: |-
+        async def owner(space, tool, install):
+            if not tool.exists():
+                overlay = space.cache / "overlay"
+                match await run([*install, "--no-print-usage"], space.root):
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result():
+                        pass
+            return Ok({**space.environment, "PKG_CONFIG": str(tool)})
+      style: secondary
+      start: 0
+      end: 376
+    - source: error=failure
+      style: secondary
+      start: 213
+      end: 226
+    - source: error=failure
+      style: secondary
+      start: 213
+      end: 226
+    - source: Result
+      style: secondary
+      start: 193
+      end: 199
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 193
+      end: 227
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 193
+      end: 227
+    - source: Error
+      style: secondary
+      start: 252
+      end: 257
+    - source: failure
+      style: secondary
+      start: 258
+      end: 265
+    - source: failure
+      style: secondary
+      start: 258
+      end: 265
+    - source: Error(failure)
+      style: secondary
+      start: 252
+      end: 266
+    - source: return Error(failure)
+      style: secondary
+      start: 245
+      end: 266
+    - source: return Error(failure)
+      style: secondary
+      start: 245
+      end: 266
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 188
+      end: 266
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result():
+                        pass
+      style: secondary
+      start: 175
+      end: 314
+    - source: await run([*install, "--no-print-usage"], space.root)
+      style: secondary
+      start: 121
+      end: 174
+    - source: await run([*install, "--no-print-usage"], space.root)
+      style: secondary
+      start: 121
+      end: 174
+    - source: Result
+      style: secondary
+      start: 284
+      end: 290
+    - source: Result()
+      style: secondary
+      start: 284
+      end: 292
+    - source: Result()
+      style: secondary
+      start: 284
+      end: 292
+    - source: pass
+      style: secondary
+      start: 310
+      end: 314
+    - source: pass
+      style: secondary
+      start: 310
+      end: 314
+    - source: |-
+        case Result():
+                        pass
+      style: secondary
+      start: 279
+      end: 314
+    - source: |-
+        case Result():
+                        pass
+      style: secondary
+      start: 279
+      end: 314
+    - source: 'Ok({**space.environment, "PKG_CONFIG": str(tool)})'
+      style: secondary
+      start: 326
+      end: 376
+    - source: 'return Ok({**space.environment, "PKG_CONFIG": str(tool)})'
+      style: secondary
+      start: 319
+      end: 376
+    - source: |-
+        if not tool.exists():
+                overlay = space.cache / "overlay"
+                match await run([*install, "--no-print-usage"], space.root):
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result():
+                        pass
+      style: secondary
+      start: 43
+      end: 314
+    - source: |-
+        overlay = space.cache / "overlay"
+                match await run([*install, "--no-print-usage"], space.root):
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result():
+                        pass
+      style: secondary
+      start: 73
+      end: 314
+  ? |
+    def owner(left, right):
+        match (left or right):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      def owner(left, right):
+          return (left or right).map(lambda text: text)
+    labels:
+    - source: |-
+        match (left or right):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: primary
+      start: 28
+      end: 191
+    - source: |-
+        def owner(left, right):
+            match (left or right):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 0
+      end: 191
+    - source: error=failure
+      style: secondary
+      start: 84
+      end: 97
+    - source: error=failure
+      style: secondary
+      start: 84
+      end: 97
+    - source: Result
+      style: secondary
+      start: 64
+      end: 70
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 64
+      end: 98
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 64
+      end: 98
+    - source: Error
+      style: secondary
+      start: 119
+      end: 124
+    - source: failure
+      style: secondary
+      start: 125
+      end: 132
+    - source: failure
+      style: secondary
+      start: 125
+      end: 132
+    - source: Error(failure)
+      style: secondary
+      start: 119
+      end: 133
+    - source: return Error(failure)
+      style: secondary
+      start: 112
+      end: 133
+    - source: return Error(failure)
+      style: secondary
+      start: 112
+      end: 133
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 59
+      end: 133
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 50
+      end: 191
+    - source: (left or right)
+      style: secondary
+      start: 34
+      end: 49
+    - source: (left or right)
+      style: secondary
+      start: 34
+      end: 49
+    - source: text
+      style: secondary
+      start: 157
+      end: 161
+    - source: ok=text
+      style: secondary
+      start: 154
+      end: 161
+    - source: ok=text
+      style: secondary
+      start: 154
+      end: 161
+    - source: Result
+      style: secondary
+      start: 147
+      end: 153
+    - source: Result(ok=text)
+      style: secondary
+      start: 147
+      end: 162
+    - source: Result(ok=text)
+      style: secondary
+      start: 147
+      end: 162
+    - source: Ok(text)
+      style: secondary
+      start: 183
+      end: 191
+    - source: return Ok(text)
+      style: secondary
+      start: 176
+      end: 191
+    - source: return Ok(text)
+      style: secondary
+      start: 176
+      end: 191
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 142
+      end: 191
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 142
+      end: 191
+  ? |
+    def owner(left, right):
+        match left or right:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      def owner(left, right):
+          return (left or right).map(lambda text: text)
+    labels:
+    - source: |-
+        match left or right:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: primary
+      start: 28
+      end: 189
+    - source: |-
+        def owner(left, right):
+            match left or right:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 0
+      end: 189
+    - source: error=failure
+      style: secondary
+      start: 82
+      end: 95
+    - source: error=failure
+      style: secondary
+      start: 82
+      end: 95
+    - source: Result
+      style: secondary
+      start: 62
+      end: 68
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 62
+      end: 96
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 62
+      end: 96
+    - source: Error
+      style: secondary
+      start: 117
+      end: 122
+    - source: failure
+      style: secondary
+      start: 123
+      end: 130
+    - source: failure
+      style: secondary
+      start: 123
+      end: 130
+    - source: Error(failure)
+      style: secondary
+      start: 117
+      end: 131
+    - source: return Error(failure)
+      style: secondary
+      start: 110
+      end: 131
+    - source: return Error(failure)
+      style: secondary
+      start: 110
+      end: 131
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 57
+      end: 131
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 48
+      end: 189
+    - source: left or right
+      style: secondary
+      start: 34
+      end: 47
+    - source: left or right
+      style: secondary
+      start: 34
+      end: 47
+    - source: text
+      style: secondary
+      start: 155
+      end: 159
+    - source: ok=text
+      style: secondary
+      start: 152
+      end: 159
+    - source: ok=text
+      style: secondary
+      start: 152
+      end: 159
+    - source: Result
+      style: secondary
+      start: 145
+      end: 151
+    - source: Result(ok=text)
+      style: secondary
+      start: 145
+      end: 160
+    - source: Result(ok=text)
+      style: secondary
+      start: 145
+      end: 160
+    - source: Ok(text)
+      style: secondary
+      start: 181
+      end: 189
+    - source: return Ok(text)
+      style: secondary
+      start: 174
+      end: 189
+    - source: return Ok(text)
+      style: secondary
+      start: 174
+      end: 189
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 140
+      end: 189
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 140
+      end: 189
+  ? |
+    def owner(left, right):
+        match left.map2(
+            right, lambda repo, ref: (repo, ref)
+        ):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=pair):
+                return Ok(f"{pair[0]}@{pair[1]}")
+  : fixed: |
+      def owner(left, right):
+          return left.map2(
+              right, lambda repo, ref: (repo, ref)
+          ).map(lambda pair: f"{pair[0]}@{pair[1]}")
+    labels:
+    - source: |-
+        match left.map2(
+                right, lambda repo, ref: (repo, ref)
+            ):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=pair):
+                    return Ok(f"{pair[0]}@{pair[1]}")
+      style: primary
+      start: 28
+      end: 255
+    - source: |-
+        def owner(left, right):
+            match left.map2(
+                right, lambda repo, ref: (repo, ref)
+            ):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=pair):
+                    return Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 0
+      end: 255
+    - source: error=failure
+      style: secondary
+      start: 130
+      end: 143
+    - source: error=failure
+      style: secondary
+      start: 130
+      end: 143
+    - source: Result
+      style: secondary
+      start: 110
+      end: 116
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 110
+      end: 144
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 110
+      end: 144
+    - source: Error
+      style: secondary
+      start: 165
+      end: 170
+    - source: failure
+      style: secondary
+      start: 171
+      end: 178
+    - source: failure
+      style: secondary
+      start: 171
+      end: 178
+    - source: Error(failure)
+      style: secondary
+      start: 165
+      end: 179
+    - source: return Error(failure)
+      style: secondary
+      start: 158
+      end: 179
+    - source: return Error(failure)
+      style: secondary
+      start: 158
+      end: 179
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 105
+      end: 179
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=pair):
+                    return Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 96
+      end: 255
+    - source: |-
+        left.map2(
+                right, lambda repo, ref: (repo, ref)
+            )
+      style: secondary
+      start: 34
+      end: 95
+    - source: |-
+        left.map2(
+                right, lambda repo, ref: (repo, ref)
+            )
+      style: secondary
+      start: 34
+      end: 95
+    - source: pair
+      style: secondary
+      start: 203
+      end: 207
+    - source: ok=pair
+      style: secondary
+      start: 200
+      end: 207
+    - source: ok=pair
+      style: secondary
+      start: 200
+      end: 207
+    - source: Result
+      style: secondary
+      start: 193
+      end: 199
+    - source: Result(ok=pair)
+      style: secondary
+      start: 193
+      end: 208
+    - source: Result(ok=pair)
+      style: secondary
+      start: 193
+      end: 208
+    - source: Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 229
+      end: 255
+    - source: return Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 222
+      end: 255
+    - source: return Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 222
+      end: 255
+    - source: |-
+        case Result(ok=pair):
+                    return Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 188
+      end: 255
+    - source: |-
+        case Result(ok=pair):
+                    return Ok(f"{pair[0]}@{pair[1]}")
+      style: secondary
+      start: 188
+      end: 255
+  ? |
+    def owner(left, right, parse):
+        match (left or right):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(left, right, parse):
+          return (left or right).map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match (left or right):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 35
+      end: 187
+    - source: |-
+        def owner(left, right, parse):
+            match (left or right):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 214
+    - source: error=failure
+      style: secondary
+      start: 91
+      end: 104
+    - source: error=failure
+      style: secondary
+      start: 91
+      end: 104
+    - source: Result
+      style: secondary
+      start: 71
+      end: 77
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 71
+      end: 105
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 71
+      end: 105
+    - source: Error
+      style: secondary
+      start: 126
+      end: 131
+    - source: failure
+      style: secondary
+      start: 132
+      end: 139
+    - source: failure
+      style: secondary
+      start: 132
+      end: 139
+    - source: Error(failure)
+      style: secondary
+      start: 126
+      end: 140
+    - source: return Error(failure)
+      style: secondary
+      start: 119
+      end: 140
+    - source: return Error(failure)
+      style: secondary
+      start: 119
+      end: 140
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 66
+      end: 140
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 57
+      end: 187
+    - source: (left or right)
+      style: secondary
+      start: 41
+      end: 56
+    - source: (left or right)
+      style: secondary
+      start: 41
+      end: 56
+    - source: text
+      style: secondary
+      start: 164
+      end: 168
+    - source: ok=text
+      style: secondary
+      start: 161
+      end: 168
+    - source: ok=text
+      style: secondary
+      start: 161
+      end: 168
+    - source: Result
+      style: secondary
+      start: 154
+      end: 160
+    - source: Result(ok=text)
+      style: secondary
+      start: 154
+      end: 169
+    - source: Result(ok=text)
+      style: secondary
+      start: 154
+      end: 169
+    - source: pass
+      style: secondary
+      start: 183
+      end: 187
+    - source: pass
+      style: secondary
+      start: 183
+      end: 187
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 149
+      end: 187
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 149
+      end: 187
+    - source: Ok(parse(text))
+      style: secondary
+      start: 199
+      end: 214
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 192
+      end: 214
+  ? |
+    def owner(left, right, parse):
+        match left or right:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(left, right, parse):
+          return (left or right).map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match left or right:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 35
+      end: 185
+    - source: |-
+        def owner(left, right, parse):
+            match left or right:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 212
+    - source: error=failure
+      style: secondary
+      start: 89
+      end: 102
+    - source: error=failure
+      style: secondary
+      start: 89
+      end: 102
+    - source: Result
+      style: secondary
+      start: 69
+      end: 75
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 69
+      end: 103
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 69
+      end: 103
+    - source: Error
+      style: secondary
+      start: 124
+      end: 129
+    - source: failure
+      style: secondary
+      start: 130
+      end: 137
+    - source: failure
+      style: secondary
+      start: 130
+      end: 137
+    - source: Error(failure)
+      style: secondary
+      start: 124
+      end: 138
+    - source: return Error(failure)
+      style: secondary
+      start: 117
+      end: 138
+    - source: return Error(failure)
+      style: secondary
+      start: 117
+      end: 138
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 64
+      end: 138
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 55
+      end: 185
+    - source: left or right
+      style: secondary
+      start: 41
+      end: 54
+    - source: left or right
+      style: secondary
+      start: 41
+      end: 54
+    - source: text
+      style: secondary
+      start: 162
+      end: 166
+    - source: ok=text
+      style: secondary
+      start: 159
+      end: 166
+    - source: ok=text
+      style: secondary
+      start: 159
+      end: 166
+    - source: Result
+      style: secondary
+      start: 152
+      end: 158
+    - source: Result(ok=text)
+      style: secondary
+      start: 152
+      end: 167
+    - source: Result(ok=text)
+      style: secondary
+      start: 152
+      end: 167
+    - source: pass
+      style: secondary
+      start: 181
+      end: 185
+    - source: pass
+      style: secondary
+      start: 181
+      end: 185
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 147
+      end: 185
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 147
+      end: 185
+    - source: Ok(parse(text))
+      style: secondary
+      start: 197
+      end: 212
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 190
+      end: 212
+  ? |
+    def owner(left, right, parse):
+        match left.map2(
+            right, lambda repo, ref: (repo, ref)
+        ):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=pair):
+                pass
+        return Ok(parse(pair))
+  : fixed: |
+      def owner(left, right, parse):
+          return left.map2(
+              right, lambda repo, ref: (repo, ref)
+          ).map(lambda pair: parse(pair))
+          return Ok(parse(pair))
+    labels:
+    - source: |-
+        match left.map2(
+                right, lambda repo, ref: (repo, ref)
+            ):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=pair):
+                    pass
+      style: primary
+      start: 35
+      end: 233
+    - source: |-
+        def owner(left, right, parse):
+            match left.map2(
+                right, lambda repo, ref: (repo, ref)
+            ):
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=pair):
+                    pass
+            return Ok(parse(pair))
+      style: secondary
+      start: 0
+      end: 260
+    - source: error=failure
+      style: secondary
+      start: 137
+      end: 150
+    - source: error=failure
+      style: secondary
+      start: 137
+      end: 150
+    - source: Result
+      style: secondary
+      start: 117
+      end: 123
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 117
+      end: 151
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 117
+      end: 151
+    - source: Error
+      style: secondary
+      start: 172
+      end: 177
+    - source: failure
+      style: secondary
+      start: 178
+      end: 185
+    - source: failure
+      style: secondary
+      start: 178
+      end: 185
+    - source: Error(failure)
+      style: secondary
+      start: 172
+      end: 186
+    - source: return Error(failure)
+      style: secondary
+      start: 165
+      end: 186
+    - source: return Error(failure)
+      style: secondary
+      start: 165
+      end: 186
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 112
+      end: 186
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=pair):
+                    pass
+      style: secondary
+      start: 103
+      end: 233
+    - source: |-
+        left.map2(
+                right, lambda repo, ref: (repo, ref)
+            )
+      style: secondary
+      start: 41
+      end: 102
+    - source: |-
+        left.map2(
+                right, lambda repo, ref: (repo, ref)
+            )
+      style: secondary
+      start: 41
+      end: 102
+    - source: pair
+      style: secondary
+      start: 210
+      end: 214
+    - source: ok=pair
+      style: secondary
+      start: 207
+      end: 214
+    - source: ok=pair
+      style: secondary
+      start: 207
+      end: 214
+    - source: Result
+      style: secondary
+      start: 200
+      end: 206
+    - source: Result(ok=pair)
+      style: secondary
+      start: 200
+      end: 215
+    - source: Result(ok=pair)
+      style: secondary
+      start: 200
+      end: 215
+    - source: pass
+      style: secondary
+      start: 229
+      end: 233
+    - source: pass
+      style: secondary
+      start: 229
+      end: 233
+    - source: |-
+        case Result(ok=pair):
+                    pass
+      style: secondary
+      start: 195
+      end: 233
+    - source: |-
+        case Result(ok=pair):
+                    pass
+      style: secondary
+      start: 195
+      end: 233
+    - source: Ok(parse(pair))
+      style: secondary
+      start: 245
+      end: 260
+    - source: return Ok(parse(pair))
+      style: secondary
+      start: 238
+      end: 260
+  ? |
+    def owner(names):
+        def inner(value):
+            match value:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.strip())
+        return names.bind(inner)
+  : fixed: |
+      def owner(names):
+          def inner(value):
+              return value.map(lambda text: text.strip())
+          return names.bind(inner)
+    labels:
+    - source: |-
+        match value:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text.strip())
+      style: primary
+      start: 48
+      end: 225
+    - source: |-
+        def inner(value):
+                match value:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text.strip())
+      style: secondary
+      start: 22
+      end: 225
+    - source: error=failure
+      style: secondary
+      start: 98
+      end: 111
+    - source: error=failure
+      style: secondary
+      start: 98
+      end: 111
+    - source: Result
+      style: secondary
+      start: 78
+      end: 84
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 78
+      end: 112
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 78
+      end: 112
+    - source: Error
+      style: secondary
+      start: 137
+      end: 142
+    - source: failure
+      style: secondary
+      start: 143
+      end: 150
+    - source: failure
+      style: secondary
+      start: 143
+      end: 150
+    - source: Error(failure)
+      style: secondary
+      start: 137
+      end: 151
+    - source: return Error(failure)
+      style: secondary
+      start: 130
+      end: 151
+    - source: return Error(failure)
+      style: secondary
+      start: 130
+      end: 151
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 73
+      end: 151
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text.strip())
+      style: secondary
+      start: 60
+      end: 225
+    - source: value
+      style: secondary
+      start: 54
+      end: 59
+    - source: value
+      style: secondary
+      start: 54
+      end: 59
+    - source: text
+      style: secondary
+      start: 179
+      end: 183
+    - source: ok=text
+      style: secondary
+      start: 176
+      end: 183
+    - source: ok=text
+      style: secondary
+      start: 176
+      end: 183
+    - source: Result
+      style: secondary
+      start: 169
+      end: 175
+    - source: Result(ok=text)
+      style: secondary
+      start: 169
+      end: 184
+    - source: Result(ok=text)
+      style: secondary
+      start: 169
+      end: 184
+    - source: Ok(text.strip())
+      style: secondary
+      start: 209
+      end: 225
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 202
+      end: 225
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 202
+      end: 225
+    - source: |-
+        case Result(ok=text):
+                        return Ok(text.strip())
+      style: secondary
+      start: 164
+      end: 225
+    - source: |-
+        case Result(ok=text):
+                        return Ok(text.strip())
+      style: secondary
+      start: 164
+      end: 225
+  ? |
+    def owner(names):
+        match names.strip():
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      def owner(names):
+          return names.strip().map(lambda text: text)
+    labels:
+    - source: |-
+        match names.strip():
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: primary
+      start: 22
+      end: 183
+    - source: |-
+        def owner(names):
+            match names.strip():
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 0
+      end: 183
+    - source: error=failure
+      style: secondary
+      start: 76
+      end: 89
+    - source: error=failure
+      style: secondary
+      start: 76
+      end: 89
+    - source: Result
+      style: secondary
+      start: 56
+      end: 62
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 56
+      end: 90
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 56
+      end: 90
+    - source: Error
+      style: secondary
+      start: 111
+      end: 116
+    - source: failure
+      style: secondary
+      start: 117
+      end: 124
+    - source: failure
+      style: secondary
+      start: 117
+      end: 124
+    - source: Error(failure)
+      style: secondary
+      start: 111
+      end: 125
+    - source: return Error(failure)
+      style: secondary
+      start: 104
+      end: 125
+    - source: return Error(failure)
+      style: secondary
+      start: 104
+      end: 125
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 51
+      end: 125
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 42
+      end: 183
+    - source: names.strip()
+      style: secondary
+      start: 28
+      end: 41
+    - source: names.strip()
+      style: secondary
+      start: 28
+      end: 41
+    - source: text
+      style: secondary
+      start: 149
+      end: 153
+    - source: ok=text
+      style: secondary
+      start: 146
+      end: 153
+    - source: ok=text
+      style: secondary
+      start: 146
+      end: 153
+    - source: Result
+      style: secondary
+      start: 139
+      end: 145
+    - source: Result(ok=text)
+      style: secondary
+      start: 139
+      end: 154
+    - source: Result(ok=text)
+      style: secondary
+      start: 139
+      end: 154
+    - source: Ok(text)
+      style: secondary
+      start: 175
+      end: 183
+    - source: return Ok(text)
+      style: secondary
+      start: 168
+      end: 183
+    - source: return Ok(text)
+      style: secondary
+      start: 168
+      end: 183
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 134
+      end: 183
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 134
+      end: 183
+  ? |
+    def owner(names):
+        match names:
+            case Result(error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: |-
+        match names:
+                case Result(error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.strip())
+      style: primary
+      start: 22
+      end: 170
+    - source: |-
+        def owner(names):
+            match names:
+                case Result(error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 0
+      end: 170
+    - source: error=failure
+      style: secondary
+      start: 55
+      end: 68
+    - source: error=failure
+      style: secondary
+      start: 55
+      end: 68
+    - source: Result
+      style: secondary
+      start: 48
+      end: 54
+    - source: Result(error=failure)
+      style: secondary
+      start: 48
+      end: 69
+    - source: Result(error=failure)
+      style: secondary
+      start: 48
+      end: 69
+    - source: Error
+      style: secondary
+      start: 90
+      end: 95
+    - source: failure
+      style: secondary
+      start: 96
+      end: 103
+    - source: failure
+      style: secondary
+      start: 96
+      end: 103
+    - source: Error(failure)
+      style: secondary
+      start: 90
+      end: 104
+    - source: return Error(failure)
+      style: secondary
+      start: 83
+      end: 104
+    - source: return Error(failure)
+      style: secondary
+      start: 83
+      end: 104
+    - source: |-
+        case Result(error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 43
+      end: 104
+    - source: |2-
+
+                case Result(error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 34
+      end: 170
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 128
+      end: 132
+    - source: ok=text
+      style: secondary
+      start: 125
+      end: 132
+    - source: ok=text
+      style: secondary
+      start: 125
+      end: 132
+    - source: Result
+      style: secondary
+      start: 118
+      end: 124
+    - source: Result(ok=text)
+      style: secondary
+      start: 118
+      end: 133
+    - source: Result(ok=text)
+      style: secondary
+      start: 118
+      end: 133
+    - source: Ok(text.strip())
+      style: secondary
+      start: 154
+      end: 170
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 147
+      end: 170
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 147
+      end: 170
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 113
+      end: 170
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 113
+      end: 170
+  ? |
+    def owner(names):
+        match names:
+            case Result(error=failure, tag="error"):
+                return Result.Error(failure)
+            case Result(ok=text):
+                return Result.Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: |-
+        match names:
+                case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+                case Result(ok=text):
+                    return Result.Ok(text.strip())
+      style: primary
+      start: 22
+      end: 197
+    - source: |-
+        def owner(names):
+            match names:
+                case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+                case Result(ok=text):
+                    return Result.Ok(text.strip())
+      style: secondary
+      start: 0
+      end: 197
+    - source: error=failure
+      style: secondary
+      start: 55
+      end: 68
+    - source: error=failure
+      style: secondary
+      start: 55
+      end: 68
+    - source: Result
+      style: secondary
+      start: 48
+      end: 54
+    - source: Result(error=failure, tag="error")
+      style: secondary
+      start: 48
+      end: 82
+    - source: Result(error=failure, tag="error")
+      style: secondary
+      start: 48
+      end: 82
+    - source: Result.Error
+      style: secondary
+      start: 103
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Result.Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Result.Error(failure)
+      style: secondary
+      start: 96
+      end: 124
+    - source: return Result.Error(failure)
+      style: secondary
+      start: 96
+      end: 124
+    - source: |-
+        case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+      style: secondary
+      start: 43
+      end: 124
+    - source: |2-
+
+                case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+                case Result(ok=text):
+                    return Result.Ok(text.strip())
+      style: secondary
+      start: 34
+      end: 197
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 148
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: Result
+      style: secondary
+      start: 138
+      end: 144
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: Result.Ok(text.strip())
+      style: secondary
+      start: 174
+      end: 197
+    - source: return Result.Ok(text.strip())
+      style: secondary
+      start: 167
+      end: 197
+    - source: return Result.Ok(text.strip())
+      style: secondary
+      start: 167
+      end: 197
+    - source: |-
+        case Result(ok=text):
+                    return Result.Ok(text.strip())
+      style: secondary
+      start: 133
+      end: 197
+    - source: |-
+        case Result(ok=text):
+                    return Result.Ok(text.strip())
+      style: secondary
+      start: 133
+      end: 197
+  ? |
+    def owner(names):
+        match names:
+            case Result(ok=text):
+                return Ok(text.strip())
+            case Result(tag="error", error=failure):
+                return Error(failure)
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: |-
+        match names:
+                case Result(ok=text):
+                    return Ok(text.strip())
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: primary
+      start: 22
+      end: 183
+    - source: |-
+        def owner(names):
+            match names:
+                case Result(ok=text):
+                    return Ok(text.strip())
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 0
+      end: 183
+    - source: error=failure
+      style: secondary
+      start: 134
+      end: 147
+    - source: error=failure
+      style: secondary
+      start: 134
+      end: 147
+    - source: Result
+      style: secondary
+      start: 114
+      end: 120
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 114
+      end: 148
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 114
+      end: 148
+    - source: Error
+      style: secondary
+      start: 169
+      end: 174
+    - source: failure
+      style: secondary
+      start: 175
+      end: 182
+    - source: failure
+      style: secondary
+      start: 175
+      end: 182
+    - source: Error(failure)
+      style: secondary
+      start: 169
+      end: 183
+    - source: return Error(failure)
+      style: secondary
+      start: 162
+      end: 183
+    - source: return Error(failure)
+      style: secondary
+      start: 162
+      end: 183
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 109
+      end: 183
+    - source: |2-
+
+                case Result(ok=text):
+                    return Ok(text.strip())
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 34
+      end: 183
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 58
+      end: 62
+    - source: ok=text
+      style: secondary
+      start: 55
+      end: 62
+    - source: ok=text
+      style: secondary
+      start: 55
+      end: 62
+    - source: Result
+      style: secondary
+      start: 48
+      end: 54
+    - source: Result(ok=text)
+      style: secondary
+      start: 48
+      end: 63
+    - source: Result(ok=text)
+      style: secondary
+      start: 48
+      end: 63
+    - source: Ok(text.strip())
+      style: secondary
+      start: 84
+      end: 100
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 77
+      end: 100
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 77
+      end: 100
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 43
+      end: 100
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 43
+      end: 100
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(stripped := text.strip())
+  : fixed: |
+      def owner(names):
+          return names.bind(lambda text: Ok(stripped := text.strip()))
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(stripped := text.strip())
+      style: primary
+      start: 22
+      end: 195
+    - source: |-
+        def owner(names):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(stripped := text.strip())
+      style: secondary
+      start: 0
+      end: 195
+    - source: error=failure
+      style: secondary
+      start: 68
+      end: 81
+    - source: error=failure
+      style: secondary
+      start: 68
+      end: 81
+    - source: Result
+      style: secondary
+      start: 48
+      end: 54
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 82
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 82
+    - source: Error
+      style: secondary
+      start: 103
+      end: 108
+    - source: failure
+      style: secondary
+      start: 109
+      end: 116
+    - source: failure
+      style: secondary
+      start: 109
+      end: 116
+    - source: Error(failure)
+      style: secondary
+      start: 103
+      end: 117
+    - source: return Error(failure)
+      style: secondary
+      start: 96
+      end: 117
+    - source: return Error(failure)
+      style: secondary
+      start: 96
+      end: 117
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 43
+      end: 117
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(stripped := text.strip())
+      style: secondary
+      start: 34
+      end: 195
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 141
+      end: 145
+    - source: ok=text
+      style: secondary
+      start: 138
+      end: 145
+    - source: ok=text
+      style: secondary
+      start: 138
+      end: 145
+    - source: Result
+      style: secondary
+      start: 131
+      end: 137
+    - source: Result(ok=text)
+      style: secondary
+      start: 131
+      end: 146
+    - source: Result(ok=text)
+      style: secondary
+      start: 131
+      end: 146
+    - source: Ok(stripped := text.strip())
+      style: secondary
+      start: 167
+      end: 195
+    - source: return Ok(stripped := text.strip())
+      style: secondary
+      start: 160
+      end: 195
+    - source: return Ok(stripped := text.strip())
+      style: secondary
+      start: 160
+      end: 195
+    - source: |-
+        case Result(ok=text):
+                    return Ok(stripped := text.strip())
+      style: secondary
+      start: 126
+      end: 195
+    - source: |-
+        case Result(ok=text):
+                    return Ok(stripped := text.strip())
+      style: secondary
+      start: 126
+      end: 195
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+        # Every arm returns
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text)
+          # Every arm returns
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: primary
+      start: 22
+      end: 175
+    - source: |-
+        def owner(names):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+            # Every arm returns
+      style: secondary
+      start: 0
+      end: 199
+    - source: error=failure
+      style: secondary
+      start: 68
+      end: 81
+    - source: error=failure
+      style: secondary
+      start: 68
+      end: 81
+    - source: Result
+      style: secondary
+      start: 48
+      end: 54
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 82
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 82
+    - source: Error
+      style: secondary
+      start: 103
+      end: 108
+    - source: failure
+      style: secondary
+      start: 109
+      end: 116
+    - source: failure
+      style: secondary
+      start: 109
+      end: 116
+    - source: Error(failure)
+      style: secondary
+      start: 103
+      end: 117
+    - source: return Error(failure)
+      style: secondary
+      start: 96
+      end: 117
+    - source: return Error(failure)
+      style: secondary
+      start: 96
+      end: 117
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 43
+      end: 117
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 34
+      end: 175
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 141
+      end: 145
+    - source: ok=text
+      style: secondary
+      start: 138
+      end: 145
+    - source: ok=text
+      style: secondary
+      start: 138
+      end: 145
+    - source: Result
+      style: secondary
+      start: 131
+      end: 137
+    - source: Result(ok=text)
+      style: secondary
+      start: 131
+      end: 146
+    - source: Result(ok=text)
+      style: secondary
+      start: 131
+      end: 146
+    - source: Ok(text)
+      style: secondary
+      start: 167
+      end: 175
+    - source: return Ok(text)
+      style: secondary
+      start: 160
+      end: 175
+    - source: return Ok(text)
+      style: secondary
+      start: 160
+      end: 175
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 126
+      end: 175
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 126
+      end: 175
+  ? |
+    def owner(names):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(tag="ok", ok=text):
+                return Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok", ok=text):
+                    return Ok(text.strip())
+      style: primary
+      start: 22
+      end: 193
+    - source: |-
+        def owner(names):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok", ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 0
+      end: 193
+    - source: error=failure
+      style: secondary
+      start: 68
+      end: 81
+    - source: error=failure
+      style: secondary
+      start: 68
+      end: 81
+    - source: Result
+      style: secondary
+      start: 48
+      end: 54
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 82
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 82
+    - source: Error
+      style: secondary
+      start: 103
+      end: 108
+    - source: failure
+      style: secondary
+      start: 109
+      end: 116
+    - source: failure
+      style: secondary
+      start: 109
+      end: 116
+    - source: Error(failure)
+      style: secondary
+      start: 103
+      end: 117
+    - source: return Error(failure)
+      style: secondary
+      start: 96
+      end: 117
+    - source: return Error(failure)
+      style: secondary
+      start: 96
+      end: 117
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 43
+      end: 117
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok", ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 34
+      end: 193
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 151
+      end: 155
+    - source: ok=text
+      style: secondary
+      start: 148
+      end: 155
+    - source: ok=text
+      style: secondary
+      start: 148
+      end: 155
+    - source: Result
+      style: secondary
+      start: 131
+      end: 137
+    - source: Result(tag="ok", ok=text)
+      style: secondary
+      start: 131
+      end: 156
+    - source: Result(tag="ok", ok=text)
+      style: secondary
+      start: 131
+      end: 156
+    - source: Ok(text.strip())
+      style: secondary
+      start: 177
+      end: 193
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 170
+      end: 193
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 170
+      end: 193
+    - source: |-
+        case Result(tag="ok", ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 126
+      end: 193
+    - source: |-
+        case Result(tag="ok", ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 126
+      end: 193
+  ? |
+    def owner(names):
+        match names:
+            case result.Result(tag="error", error=failure):
+                return Error(failure)
+            case result.Result(ok=text):
+                return Ok(text.strip())
+  : fixed: |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    labels:
+    - source: |-
+        match names:
+                case result.Result(tag="error", error=failure):
+                    return Error(failure)
+                case result.Result(ok=text):
+                    return Ok(text.strip())
+      style: primary
+      start: 22
+      end: 197
+    - source: |-
+        def owner(names):
+            match names:
+                case result.Result(tag="error", error=failure):
+                    return Error(failure)
+                case result.Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 0
+      end: 197
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: result.Result
+      style: secondary
+      start: 48
+      end: 61
+    - source: result.Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 89
+    - source: result.Result(tag="error", error=failure)
+      style: secondary
+      start: 48
+      end: 89
+    - source: Error
+      style: secondary
+      start: 110
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Error(failure)
+      style: secondary
+      start: 110
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: |-
+        case result.Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 43
+      end: 124
+    - source: |2-
+
+                case result.Result(tag="error", error=failure):
+                    return Error(failure)
+                case result.Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 34
+      end: 197
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: names
+      style: secondary
+      start: 28
+      end: 33
+    - source: text
+      style: secondary
+      start: 155
+      end: 159
+    - source: ok=text
+      style: secondary
+      start: 152
+      end: 159
+    - source: ok=text
+      style: secondary
+      start: 152
+      end: 159
+    - source: result.Result
+      style: secondary
+      start: 138
+      end: 151
+    - source: result.Result(ok=text)
+      style: secondary
+      start: 138
+      end: 160
+    - source: result.Result(ok=text)
+      style: secondary
+      start: 138
+      end: 160
+    - source: Ok(text.strip())
+      style: secondary
+      start: 181
+      end: 197
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 174
+      end: 197
+    - source: return Ok(text.strip())
+      style: secondary
+      start: 174
+      end: 197
+    - source: |-
+        case result.Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 133
+      end: 197
+    - source: |-
+        case result.Result(ok=text):
+                    return Ok(text.strip())
+      style: secondary
+      start: 133
+      end: 197
+  ? |
+    def owner(names, env):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=_):
+                pass
+        return Ok(env)
+  : fixed: |
+      def owner(names, env):
+          return names.map(lambda _: env)
+          return Ok(env)
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=_):
+                    pass
+      style: primary
+      start: 27
+      end: 166
+    - source: |-
+        def owner(names, env):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=_):
+                    pass
+            return Ok(env)
+      style: secondary
+      start: 0
+      end: 185
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: Result
+      style: secondary
+      start: 53
+      end: 59
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Error
+      style: secondary
+      start: 108
+      end: 113
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: Error(failure)
+      style: secondary
+      start: 108
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 48
+      end: 122
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=_):
+                    pass
+      style: secondary
+      start: 39
+      end: 166
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: ok=_
+      style: secondary
+      start: 143
+      end: 147
+    - source: ok=_
+      style: secondary
+      start: 143
+      end: 147
+    - source: Result
+      style: secondary
+      start: 136
+      end: 142
+    - source: Result(ok=_)
+      style: secondary
+      start: 136
+      end: 148
+    - source: Result(ok=_)
+      style: secondary
+      start: 136
+      end: 148
+    - source: pass
+      style: secondary
+      start: 162
+      end: 166
+    - source: pass
+      style: secondary
+      start: 162
+      end: 166
+    - source: |-
+        case Result(ok=_):
+                    pass
+      style: secondary
+      start: 131
+      end: 166
+    - source: |-
+        case Result(ok=_):
+                    pass
+      style: secondary
+      start: 131
+      end: 166
+    - source: Ok(env)
+      style: secondary
+      start: 178
+      end: 185
+    - source: return Ok(env)
+      style: secondary
+      start: 171
+      end: 185
+  ? |
+    def owner(names, env):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=_):
+                return Ok(env)
+  : fixed: |
+      def owner(names, env):
+          return names.map(lambda _: env)
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=_):
+                    return Ok(env)
+      style: primary
+      start: 27
+      end: 176
+    - source: |-
+        def owner(names, env):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=_):
+                    return Ok(env)
+      style: secondary
+      start: 0
+      end: 176
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: Result
+      style: secondary
+      start: 53
+      end: 59
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Error
+      style: secondary
+      start: 108
+      end: 113
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: Error(failure)
+      style: secondary
+      start: 108
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 48
+      end: 122
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=_):
+                    return Ok(env)
+      style: secondary
+      start: 39
+      end: 176
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: ok=_
+      style: secondary
+      start: 143
+      end: 147
+    - source: ok=_
+      style: secondary
+      start: 143
+      end: 147
+    - source: Result
+      style: secondary
+      start: 136
+      end: 142
+    - source: Result(ok=_)
+      style: secondary
+      start: 136
+      end: 148
+    - source: Result(ok=_)
+      style: secondary
+      start: 136
+      end: 148
+    - source: Ok(env)
+      style: secondary
+      start: 169
+      end: 176
+    - source: return Ok(env)
+      style: secondary
+      start: 162
+      end: 176
+    - source: return Ok(env)
+      style: secondary
+      start: 162
+      end: 176
+    - source: |-
+        case Result(ok=_):
+                    return Ok(env)
+      style: secondary
+      start: 131
+      end: 176
+    - source: |-
+        case Result(ok=_):
+                    return Ok(env)
+      style: secondary
+      start: 131
+      end: 176
+  ? |
+    def owner(names, env):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(tag="ok"):
+                pass
+        return Ok(env)
+  : fixed: |
+      def owner(names, env):
+          return names.map(lambda _: env)
+          return Ok(env)
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok"):
+                    pass
+      style: primary
+      start: 27
+      end: 170
+    - source: |-
+        def owner(names, env):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok"):
+                    pass
+            return Ok(env)
+      style: secondary
+      start: 0
+      end: 189
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: Result
+      style: secondary
+      start: 53
+      end: 59
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Error
+      style: secondary
+      start: 108
+      end: 113
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: Error(failure)
+      style: secondary
+      start: 108
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 48
+      end: 122
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok"):
+                    pass
+      style: secondary
+      start: 39
+      end: 170
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: Result
+      style: secondary
+      start: 136
+      end: 142
+    - source: Result(tag="ok")
+      style: secondary
+      start: 136
+      end: 152
+    - source: Result(tag="ok")
+      style: secondary
+      start: 136
+      end: 152
+    - source: pass
+      style: secondary
+      start: 166
+      end: 170
+    - source: pass
+      style: secondary
+      start: 166
+      end: 170
+    - source: |-
+        case Result(tag="ok"):
+                    pass
+      style: secondary
+      start: 131
+      end: 170
+    - source: |-
+        case Result(tag="ok"):
+                    pass
+      style: secondary
+      start: 131
+      end: 170
+    - source: Ok(env)
+      style: secondary
+      start: 182
+      end: 189
+    - source: return Ok(env)
+      style: secondary
+      start: 175
+      end: 189
+  ? |
+    def owner(names, env):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(tag="ok"):
+                return Ok(env)
+  : fixed: |
+      def owner(names, env):
+          return names.map(lambda _: env)
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok"):
+                    return Ok(env)
+      style: primary
+      start: 27
+      end: 180
+    - source: |-
+        def owner(names, env):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok"):
+                    return Ok(env)
+      style: secondary
+      start: 0
+      end: 180
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: error=failure
+      style: secondary
+      start: 73
+      end: 86
+    - source: Result
+      style: secondary
+      start: 53
+      end: 59
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 53
+      end: 87
+    - source: Error
+      style: secondary
+      start: 108
+      end: 113
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: failure
+      style: secondary
+      start: 114
+      end: 121
+    - source: Error(failure)
+      style: secondary
+      start: 108
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: return Error(failure)
+      style: secondary
+      start: 101
+      end: 122
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 48
+      end: 122
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok"):
+                    return Ok(env)
+      style: secondary
+      start: 39
+      end: 180
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: names
+      style: secondary
+      start: 33
+      end: 38
+    - source: Result
+      style: secondary
+      start: 136
+      end: 142
+    - source: Result(tag="ok")
+      style: secondary
+      start: 136
+      end: 152
+    - source: Result(tag="ok")
+      style: secondary
+      start: 136
+      end: 152
+    - source: Ok(env)
+      style: secondary
+      start: 173
+      end: 180
+    - source: return Ok(env)
+      style: secondary
+      start: 166
+      end: 180
+    - source: return Ok(env)
+      style: secondary
+      start: 166
+      end: 180
+    - source: |-
+        case Result(tag="ok"):
+                    return Ok(env)
+      style: secondary
+      start: 131
+      end: 180
+    - source: |-
+        case Result(tag="ok"):
+                    return Ok(env)
+      style: secondary
+      start: 131
+      end: 180
+  ? |
+    def owner(names, flag):
+        if flag:
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+        return Ok("")
+  : fixed: |
+      def owner(names, flag):
+          if flag:
+              return names.map(lambda text: text)
+          return Ok("")
+    labels:
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text)
+      style: primary
+      start: 45
+      end: 214
+    - source: |-
+        def owner(names, flag):
+            if flag:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text)
+            return Ok("")
+      style: secondary
+      start: 0
+      end: 232
+    - source: error=failure
+      style: secondary
+      start: 95
+      end: 108
+    - source: error=failure
+      style: secondary
+      start: 95
+      end: 108
+    - source: Result
+      style: secondary
+      start: 75
+      end: 81
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 75
+      end: 109
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 75
+      end: 109
+    - source: Error
+      style: secondary
+      start: 134
+      end: 139
+    - source: failure
+      style: secondary
+      start: 140
+      end: 147
+    - source: failure
+      style: secondary
+      start: 140
+      end: 147
+    - source: Error(failure)
+      style: secondary
+      start: 134
+      end: 148
+    - source: return Error(failure)
+      style: secondary
+      start: 127
+      end: 148
+    - source: return Error(failure)
+      style: secondary
+      start: 127
+      end: 148
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 70
+      end: 148
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text)
+      style: secondary
+      start: 57
+      end: 214
+    - source: names
+      style: secondary
+      start: 51
+      end: 56
+    - source: names
+      style: secondary
+      start: 51
+      end: 56
+    - source: text
+      style: secondary
+      start: 176
+      end: 180
+    - source: ok=text
+      style: secondary
+      start: 173
+      end: 180
+    - source: ok=text
+      style: secondary
+      start: 173
+      end: 180
+    - source: Result
+      style: secondary
+      start: 166
+      end: 172
+    - source: Result(ok=text)
+      style: secondary
+      start: 166
+      end: 181
+    - source: Result(ok=text)
+      style: secondary
+      start: 166
+      end: 181
+    - source: Ok(text)
+      style: secondary
+      start: 206
+      end: 214
+    - source: return Ok(text)
+      style: secondary
+      start: 199
+      end: 214
+    - source: return Ok(text)
+      style: secondary
+      start: 199
+      end: 214
+    - source: |-
+        case Result(ok=text):
+                        return Ok(text)
+      style: secondary
+      start: 161
+      end: 214
+    - source: |-
+        case Result(ok=text):
+                        return Ok(text)
+      style: secondary
+      start: 161
+      end: 214
+  ? |
+    def owner(names, flag, lock):
+        if flag:
+            with lock:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        return Ok(text)
+        return Ok("")
+  : fixed: |
+      def owner(names, flag, lock):
+          if flag:
+              with lock:
+                  return names.map(lambda text: text)
+          return Ok("")
+    labels:
+    - source: |-
+        match names:
+                        case Result(tag="error", error=failure):
+                            return Error(failure)
+                        case Result(ok=text):
+                            return Ok(text)
+      style: primary
+      start: 74
+      end: 259
+    - source: |-
+        def owner(names, flag, lock):
+            if flag:
+                with lock:
+                    match names:
+                        case Result(tag="error", error=failure):
+                            return Error(failure)
+                        case Result(ok=text):
+                            return Ok(text)
+            return Ok("")
+      style: secondary
+      start: 0
+      end: 277
+    - source: error=failure
+      style: secondary
+      start: 128
+      end: 141
+    - source: error=failure
+      style: secondary
+      start: 128
+      end: 141
+    - source: Result
+      style: secondary
+      start: 108
+      end: 114
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 108
+      end: 142
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 108
+      end: 142
+    - source: Error
+      style: secondary
+      start: 171
+      end: 176
+    - source: failure
+      style: secondary
+      start: 177
+      end: 184
+    - source: failure
+      style: secondary
+      start: 177
+      end: 184
+    - source: Error(failure)
+      style: secondary
+      start: 171
+      end: 185
+    - source: return Error(failure)
+      style: secondary
+      start: 164
+      end: 185
+    - source: return Error(failure)
+      style: secondary
+      start: 164
+      end: 185
+    - source: |-
+        case Result(tag="error", error=failure):
+                            return Error(failure)
+      style: secondary
+      start: 103
+      end: 185
+    - source: |2-
+
+                        case Result(tag="error", error=failure):
+                            return Error(failure)
+                        case Result(ok=text):
+                            return Ok(text)
+      style: secondary
+      start: 86
+      end: 259
+    - source: names
+      style: secondary
+      start: 80
+      end: 85
+    - source: names
+      style: secondary
+      start: 80
+      end: 85
+    - source: text
+      style: secondary
+      start: 217
+      end: 221
+    - source: ok=text
+      style: secondary
+      start: 214
+      end: 221
+    - source: ok=text
+      style: secondary
+      start: 214
+      end: 221
+    - source: Result
+      style: secondary
+      start: 207
+      end: 213
+    - source: Result(ok=text)
+      style: secondary
+      start: 207
+      end: 222
+    - source: Result(ok=text)
+      style: secondary
+      start: 207
+      end: 222
+    - source: Ok(text)
+      style: secondary
+      start: 251
+      end: 259
+    - source: return Ok(text)
+      style: secondary
+      start: 244
+      end: 259
+    - source: return Ok(text)
+      style: secondary
+      start: 244
+      end: 259
+    - source: |-
+        case Result(ok=text):
+                            return Ok(text)
+      style: secondary
+      start: 202
+      end: 259
+    - source: |-
+        case Result(ok=text):
+                            return Ok(text)
+      style: secondary
+      start: 202
+      end: 259
+  ? |
+    def owner(names, parse):
+        match names.strip():
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.strip().map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names.strip():
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 179
+    - source: |-
+        def owner(names, parse):
+            match names.strip():
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 206
+    - source: error=failure
+      style: secondary
+      start: 83
+      end: 96
+    - source: error=failure
+      style: secondary
+      start: 83
+      end: 96
+    - source: Result
+      style: secondary
+      start: 63
+      end: 69
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 63
+      end: 97
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 63
+      end: 97
+    - source: Error
+      style: secondary
+      start: 118
+      end: 123
+    - source: failure
+      style: secondary
+      start: 124
+      end: 131
+    - source: failure
+      style: secondary
+      start: 124
+      end: 131
+    - source: Error(failure)
+      style: secondary
+      start: 118
+      end: 132
+    - source: return Error(failure)
+      style: secondary
+      start: 111
+      end: 132
+    - source: return Error(failure)
+      style: secondary
+      start: 111
+      end: 132
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 58
+      end: 132
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 49
+      end: 179
+    - source: names.strip()
+      style: secondary
+      start: 35
+      end: 48
+    - source: names.strip()
+      style: secondary
+      start: 35
+      end: 48
+    - source: text
+      style: secondary
+      start: 156
+      end: 160
+    - source: ok=text
+      style: secondary
+      start: 153
+      end: 160
+    - source: ok=text
+      style: secondary
+      start: 153
+      end: 160
+    - source: Result
+      style: secondary
+      start: 146
+      end: 152
+    - source: Result(ok=text)
+      style: secondary
+      start: 146
+      end: 161
+    - source: Result(ok=text)
+      style: secondary
+      start: 146
+      end: 161
+    - source: pass
+      style: secondary
+      start: 175
+      end: 179
+    - source: pass
+      style: secondary
+      start: 175
+      end: 179
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 141
+      end: 179
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 141
+      end: 179
+    - source: Ok(parse(text))
+      style: secondary
+      start: 191
+      end: 206
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 184
+      end: 206
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 158
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 185
+    - source: error=failure
+      style: secondary
+      start: 62
+      end: 75
+    - source: error=failure
+      style: secondary
+      start: 62
+      end: 75
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(error=failure)
+      style: secondary
+      start: 55
+      end: 76
+    - source: Result(error=failure)
+      style: secondary
+      start: 55
+      end: 76
+    - source: Error
+      style: secondary
+      start: 97
+      end: 102
+    - source: failure
+      style: secondary
+      start: 103
+      end: 110
+    - source: failure
+      style: secondary
+      start: 103
+      end: 110
+    - source: Error(failure)
+      style: secondary
+      start: 97
+      end: 111
+    - source: return Error(failure)
+      style: secondary
+      start: 90
+      end: 111
+    - source: return Error(failure)
+      style: secondary
+      start: 90
+      end: 111
+    - source: |-
+        case Result(error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 111
+    - source: |2-
+
+                case Result(error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 41
+      end: 158
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 135
+      end: 139
+    - source: ok=text
+      style: secondary
+      start: 132
+      end: 139
+    - source: ok=text
+      style: secondary
+      start: 132
+      end: 139
+    - source: Result
+      style: secondary
+      start: 125
+      end: 131
+    - source: Result(ok=text)
+      style: secondary
+      start: 125
+      end: 140
+    - source: Result(ok=text)
+      style: secondary
+      start: 125
+      end: 140
+    - source: pass
+      style: secondary
+      start: 154
+      end: 158
+    - source: pass
+      style: secondary
+      start: 154
+      end: 158
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 120
+      end: 158
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 120
+      end: 158
+    - source: Ok(parse(text))
+      style: secondary
+      start: 170
+      end: 185
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 163
+      end: 185
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(error=failure, tag="error"):
+                return Result.Error(failure)
+            case Result(ok=text):
+                pass
+        return Result.Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.map(lambda text: parse(text))
+          return Result.Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 178
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+                case Result(ok=text):
+                    pass
+            return Result.Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 212
+    - source: error=failure
+      style: secondary
+      start: 62
+      end: 75
+    - source: error=failure
+      style: secondary
+      start: 62
+      end: 75
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(error=failure, tag="error")
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result(error=failure, tag="error")
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result.Error
+      style: secondary
+      start: 110
+      end: 122
+    - source: failure
+      style: secondary
+      start: 123
+      end: 130
+    - source: failure
+      style: secondary
+      start: 123
+      end: 130
+    - source: Result.Error(failure)
+      style: secondary
+      start: 110
+      end: 131
+    - source: return Result.Error(failure)
+      style: secondary
+      start: 103
+      end: 131
+    - source: return Result.Error(failure)
+      style: secondary
+      start: 103
+      end: 131
+    - source: |-
+        case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+      style: secondary
+      start: 50
+      end: 131
+    - source: |2-
+
+                case Result(error=failure, tag="error"):
+                    return Result.Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 41
+      end: 178
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 155
+      end: 159
+    - source: ok=text
+      style: secondary
+      start: 152
+      end: 159
+    - source: ok=text
+      style: secondary
+      start: 152
+      end: 159
+    - source: Result
+      style: secondary
+      start: 145
+      end: 151
+    - source: Result(ok=text)
+      style: secondary
+      start: 145
+      end: 160
+    - source: Result(ok=text)
+      style: secondary
+      start: 145
+      end: 160
+    - source: pass
+      style: secondary
+      start: 174
+      end: 178
+    - source: pass
+      style: secondary
+      start: 174
+      end: 178
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 140
+      end: 178
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 140
+      end: 178
+    - source: Result.Ok(parse(text))
+      style: secondary
+      start: 190
+      end: 212
+    - source: return Result.Ok(parse(text))
+      style: secondary
+      start: 183
+      end: 212
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(ok=text):
+                pass
+            case Result(tag="error", error=failure):
+                return Error(failure)
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(ok=text):
+                    pass
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: primary
+      start: 29
+      end: 171
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(ok=text):
+                    pass
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 198
+    - source: error=failure
+      style: secondary
+      start: 122
+      end: 135
+    - source: error=failure
+      style: secondary
+      start: 122
+      end: 135
+    - source: Result
+      style: secondary
+      start: 102
+      end: 108
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 102
+      end: 136
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 102
+      end: 136
+    - source: Error
+      style: secondary
+      start: 157
+      end: 162
+    - source: failure
+      style: secondary
+      start: 163
+      end: 170
+    - source: failure
+      style: secondary
+      start: 163
+      end: 170
+    - source: Error(failure)
+      style: secondary
+      start: 157
+      end: 171
+    - source: return Error(failure)
+      style: secondary
+      start: 150
+      end: 171
+    - source: return Error(failure)
+      style: secondary
+      start: 150
+      end: 171
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 97
+      end: 171
+    - source: |2-
+
+                case Result(ok=text):
+                    pass
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 41
+      end: 171
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 65
+      end: 69
+    - source: ok=text
+      style: secondary
+      start: 62
+      end: 69
+    - source: ok=text
+      style: secondary
+      start: 62
+      end: 69
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(ok=text)
+      style: secondary
+      start: 55
+      end: 70
+    - source: Result(ok=text)
+      style: secondary
+      start: 55
+      end: 70
+    - source: pass
+      style: secondary
+      start: 84
+      end: 88
+    - source: pass
+      style: secondary
+      start: 84
+      end: 88
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 50
+      end: 88
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 50
+      end: 88
+    - source: Ok(parse(text))
+      style: secondary
+      start: 183
+      end: 198
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 176
+      end: 198
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                ...
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    ...
+      style: primary
+      start: 29
+      end: 170
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    ...
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 197
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Error
+      style: secondary
+      start: 110
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Error(failure)
+      style: secondary
+      start: 110
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 124
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    ...
+      style: secondary
+      start: 41
+      end: 170
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 148
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: Result
+      style: secondary
+      start: 138
+      end: 144
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: '...'
+      style: secondary
+      start: 167
+      end: 170
+    - source: '...'
+      style: secondary
+      start: 167
+      end: 170
+    - source: '...'
+      style: secondary
+      start: 167
+      end: 170
+    - source: |-
+        case Result(ok=text):
+                    ...
+      style: secondary
+      start: 133
+      end: 170
+    - source: |-
+        case Result(ok=text):
+                    ...
+      style: secondary
+      start: 133
+      end: 170
+    - source: Ok(parse(text))
+      style: secondary
+      start: 182
+      end: 197
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 175
+      end: 197
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parsed := parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.bind(lambda text: Ok(parsed := parse(text)))
+          return Ok(parsed := parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 171
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parsed := parse(text))
+      style: secondary
+      start: 0
+      end: 208
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Error
+      style: secondary
+      start: 110
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Error(failure)
+      style: secondary
+      start: 110
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 124
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 41
+      end: 171
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 148
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: Result
+      style: secondary
+      start: 138
+      end: 144
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: pass
+      style: secondary
+      start: 167
+      end: 171
+    - source: pass
+      style: secondary
+      start: 167
+      end: 171
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 133
+      end: 171
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 133
+      end: 171
+    - source: Ok(parsed := parse(text))
+      style: secondary
+      start: 183
+      end: 208
+    - source: return Ok(parsed := parse(text))
+      style: secondary
+      start: 176
+      end: 208
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return parse(text)
+  : fixed: |
+      def owner(names, parse):
+          return names.bind(lambda text: parse(text))
+          return parse(text)
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 171
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return parse(text)
+      style: secondary
+      start: 0
+      end: 194
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Error
+      style: secondary
+      start: 110
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Error(failure)
+      style: secondary
+      start: 110
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 124
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 41
+      end: 171
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 148
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: Result
+      style: secondary
+      start: 138
+      end: 144
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: pass
+      style: secondary
+      start: 167
+      end: 171
+    - source: pass
+      style: secondary
+      start: 167
+      end: 171
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 133
+      end: 171
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 133
+      end: 171
+    - source: parse(text)
+      style: secondary
+      start: 183
+      end: 194
+    - source: return parse(text)
+      style: secondary
+      start: 176
+      end: 194
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return parse(text)
+  : fixed: |
+      def owner(names, parse):
+          return names.bind(lambda text: parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return parse(text)
+      style: primary
+      start: 29
+      end: 185
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return parse(text)
+      style: secondary
+      start: 0
+      end: 185
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Error
+      style: secondary
+      start: 110
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Error(failure)
+      style: secondary
+      start: 110
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 124
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return parse(text)
+      style: secondary
+      start: 41
+      end: 185
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 148
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: ok=text
+      style: secondary
+      start: 145
+      end: 152
+    - source: Result
+      style: secondary
+      start: 138
+      end: 144
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: Result(ok=text)
+      style: secondary
+      start: 138
+      end: 153
+    - source: parse(text)
+      style: secondary
+      start: 174
+      end: 185
+    - source: return parse(text)
+      style: secondary
+      start: 167
+      end: 185
+    - source: return parse(text)
+      style: secondary
+      start: 167
+      end: 185
+    - source: |-
+        case Result(ok=text):
+                    return parse(text)
+      style: secondary
+      start: 133
+      end: 185
+    - source: |-
+        case Result(ok=text):
+                    return parse(text)
+      style: secondary
+      start: 133
+      end: 185
+  ? |
+    def owner(names, parse):
+        match names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(tag="ok", ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok", ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 181
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok", ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 208
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: error=failure
+      style: secondary
+      start: 75
+      end: 88
+    - source: Result
+      style: secondary
+      start: 55
+      end: 61
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 89
+    - source: Error
+      style: secondary
+      start: 110
+      end: 115
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: failure
+      style: secondary
+      start: 116
+      end: 123
+    - source: Error(failure)
+      style: secondary
+      start: 110
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: return Error(failure)
+      style: secondary
+      start: 103
+      end: 124
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 124
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(tag="ok", ok=text):
+                    pass
+      style: secondary
+      start: 41
+      end: 181
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 158
+      end: 162
+    - source: ok=text
+      style: secondary
+      start: 155
+      end: 162
+    - source: ok=text
+      style: secondary
+      start: 155
+      end: 162
+    - source: Result
+      style: secondary
+      start: 138
+      end: 144
+    - source: Result(tag="ok", ok=text)
+      style: secondary
+      start: 138
+      end: 163
+    - source: Result(tag="ok", ok=text)
+      style: secondary
+      start: 138
+      end: 163
+    - source: pass
+      style: secondary
+      start: 177
+      end: 181
+    - source: pass
+      style: secondary
+      start: 177
+      end: 181
+    - source: |-
+        case Result(tag="ok", ok=text):
+                    pass
+      style: secondary
+      start: 133
+      end: 181
+    - source: |-
+        case Result(tag="ok", ok=text):
+                    pass
+      style: secondary
+      start: 133
+      end: 181
+    - source: Ok(parse(text))
+      style: secondary
+      start: 193
+      end: 208
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 186
+      end: 208
+  ? |
+    def owner(names, parse):
+        match names:
+            case result.Result(tag="error", error=failure):
+                return Error(failure)
+            case result.Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse):
+          return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                case result.Result(tag="error", error=failure):
+                    return Error(failure)
+                case result.Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 185
+    - source: |-
+        def owner(names, parse):
+            match names:
+                case result.Result(tag="error", error=failure):
+                    return Error(failure)
+                case result.Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 212
+    - source: error=failure
+      style: secondary
+      start: 82
+      end: 95
+    - source: error=failure
+      style: secondary
+      start: 82
+      end: 95
+    - source: result.Result
+      style: secondary
+      start: 55
+      end: 68
+    - source: result.Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 96
+    - source: result.Result(tag="error", error=failure)
+      style: secondary
+      start: 55
+      end: 96
+    - source: Error
+      style: secondary
+      start: 117
+      end: 122
+    - source: failure
+      style: secondary
+      start: 123
+      end: 130
+    - source: failure
+      style: secondary
+      start: 123
+      end: 130
+    - source: Error(failure)
+      style: secondary
+      start: 117
+      end: 131
+    - source: return Error(failure)
+      style: secondary
+      start: 110
+      end: 131
+    - source: return Error(failure)
+      style: secondary
+      start: 110
+      end: 131
+    - source: |-
+        case result.Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 50
+      end: 131
+    - source: |2-
+
+                case result.Result(tag="error", error=failure):
+                    return Error(failure)
+                case result.Result(ok=text):
+                    pass
+      style: secondary
+      start: 41
+      end: 185
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: names
+      style: secondary
+      start: 35
+      end: 40
+    - source: text
+      style: secondary
+      start: 162
+      end: 166
+    - source: ok=text
+      style: secondary
+      start: 159
+      end: 166
+    - source: ok=text
+      style: secondary
+      start: 159
+      end: 166
+    - source: result.Result
+      style: secondary
+      start: 145
+      end: 158
+    - source: result.Result(ok=text)
+      style: secondary
+      start: 145
+      end: 167
+    - source: result.Result(ok=text)
+      style: secondary
+      start: 145
+      end: 167
+    - source: pass
+      style: secondary
+      start: 181
+      end: 185
+    - source: pass
+      style: secondary
+      start: 181
+      end: 185
+    - source: |-
+        case result.Result(ok=text):
+                    pass
+      style: secondary
+      start: 140
+      end: 185
+    - source: |-
+        case result.Result(ok=text):
+                    pass
+      style: secondary
+      start: 140
+      end: 185
+    - source: Ok(parse(text))
+      style: secondary
+      start: 197
+      end: 212
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 190
+      end: 212
+  ? |
+    def owner(names, parse, flag):
+        if flag:
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            # The ok path continues after the if
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse, flag):
+          if flag:
+              return names.map(lambda text: parse(text))
+              # The ok path continues after the if
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: primary
+      start: 52
+      end: 210
+    - source: |-
+        def owner(names, parse, flag):
+            if flag:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+                # The ok path continues after the if
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 282
+    - source: error=failure
+      style: secondary
+      start: 102
+      end: 115
+    - source: error=failure
+      style: secondary
+      start: 102
+      end: 115
+    - source: Result
+      style: secondary
+      start: 82
+      end: 88
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 82
+      end: 116
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 82
+      end: 116
+    - source: Error
+      style: secondary
+      start: 141
+      end: 146
+    - source: failure
+      style: secondary
+      start: 147
+      end: 154
+    - source: failure
+      style: secondary
+      start: 147
+      end: 154
+    - source: Error(failure)
+      style: secondary
+      start: 141
+      end: 155
+    - source: return Error(failure)
+      style: secondary
+      start: 134
+      end: 155
+    - source: return Error(failure)
+      style: secondary
+      start: 134
+      end: 155
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 77
+      end: 155
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 64
+      end: 210
+    - source: names
+      style: secondary
+      start: 58
+      end: 63
+    - source: names
+      style: secondary
+      start: 58
+      end: 63
+    - source: text
+      style: secondary
+      start: 183
+      end: 187
+    - source: ok=text
+      style: secondary
+      start: 180
+      end: 187
+    - source: ok=text
+      style: secondary
+      start: 180
+      end: 187
+    - source: Result
+      style: secondary
+      start: 173
+      end: 179
+    - source: Result(ok=text)
+      style: secondary
+      start: 173
+      end: 188
+    - source: Result(ok=text)
+      style: secondary
+      start: 173
+      end: 188
+    - source: pass
+      style: secondary
+      start: 206
+      end: 210
+    - source: pass
+      style: secondary
+      start: 206
+      end: 210
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 168
+      end: 210
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 168
+      end: 210
+    - source: Ok(parse(text))
+      style: secondary
+      start: 267
+      end: 282
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 260
+      end: 282
+    - source: |-
+        if flag:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+                # The ok path continues after the if
+      style: secondary
+      start: 35
+      end: 255
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+                # The ok path continues after the if
+      style: secondary
+      start: 52
+      end: 255
+  ? |
+    def owner(names, parse, flag, log):
+        if flag:
+            log(names)
+        else:
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse, flag, log):
+          if flag:
+              log(names)
+          else:
+              return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: primary
+      start: 86
+      end: 244
+    - source: |-
+        def owner(names, parse, flag, log):
+            if flag:
+                log(names)
+            else:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 271
+    - source: error=failure
+      style: secondary
+      start: 136
+      end: 149
+    - source: error=failure
+      style: secondary
+      start: 136
+      end: 149
+    - source: Result
+      style: secondary
+      start: 116
+      end: 122
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 116
+      end: 150
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 116
+      end: 150
+    - source: Error
+      style: secondary
+      start: 175
+      end: 180
+    - source: failure
+      style: secondary
+      start: 181
+      end: 188
+    - source: failure
+      style: secondary
+      start: 181
+      end: 188
+    - source: Error(failure)
+      style: secondary
+      start: 175
+      end: 189
+    - source: return Error(failure)
+      style: secondary
+      start: 168
+      end: 189
+    - source: return Error(failure)
+      style: secondary
+      start: 168
+      end: 189
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 111
+      end: 189
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 98
+      end: 244
+    - source: names
+      style: secondary
+      start: 92
+      end: 97
+    - source: names
+      style: secondary
+      start: 92
+      end: 97
+    - source: text
+      style: secondary
+      start: 217
+      end: 221
+    - source: ok=text
+      style: secondary
+      start: 214
+      end: 221
+    - source: ok=text
+      style: secondary
+      start: 214
+      end: 221
+    - source: Result
+      style: secondary
+      start: 207
+      end: 213
+    - source: Result(ok=text)
+      style: secondary
+      start: 207
+      end: 222
+    - source: Result(ok=text)
+      style: secondary
+      start: 207
+      end: 222
+    - source: pass
+      style: secondary
+      start: 240
+      end: 244
+    - source: pass
+      style: secondary
+      start: 240
+      end: 244
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 202
+      end: 244
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 202
+      end: 244
+    - source: Ok(parse(text))
+      style: secondary
+      start: 256
+      end: 271
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 249
+      end: 271
+    - source: |-
+        if flag:
+                log(names)
+            else:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 40
+      end: 244
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 86
+      end: 244
+  ? |
+    def owner(names, parse, flag, other, log):
+        if flag:
+            log(names)
+        elif other:
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse, flag, other, log):
+          if flag:
+              log(names)
+          elif other:
+              return names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: primary
+      start: 99
+      end: 257
+    - source: |-
+        def owner(names, parse, flag, other, log):
+            if flag:
+                log(names)
+            elif other:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 284
+    - source: error=failure
+      style: secondary
+      start: 149
+      end: 162
+    - source: error=failure
+      style: secondary
+      start: 149
+      end: 162
+    - source: Result
+      style: secondary
+      start: 129
+      end: 135
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 129
+      end: 163
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 129
+      end: 163
+    - source: Error
+      style: secondary
+      start: 188
+      end: 193
+    - source: failure
+      style: secondary
+      start: 194
+      end: 201
+    - source: failure
+      style: secondary
+      start: 194
+      end: 201
+    - source: Error(failure)
+      style: secondary
+      start: 188
+      end: 202
+    - source: return Error(failure)
+      style: secondary
+      start: 181
+      end: 202
+    - source: return Error(failure)
+      style: secondary
+      start: 181
+      end: 202
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 124
+      end: 202
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 111
+      end: 257
+    - source: names
+      style: secondary
+      start: 105
+      end: 110
+    - source: names
+      style: secondary
+      start: 105
+      end: 110
+    - source: text
+      style: secondary
+      start: 230
+      end: 234
+    - source: ok=text
+      style: secondary
+      start: 227
+      end: 234
+    - source: ok=text
+      style: secondary
+      start: 227
+      end: 234
+    - source: Result
+      style: secondary
+      start: 220
+      end: 226
+    - source: Result(ok=text)
+      style: secondary
+      start: 220
+      end: 235
+    - source: Result(ok=text)
+      style: secondary
+      start: 220
+      end: 235
+    - source: pass
+      style: secondary
+      start: 253
+      end: 257
+    - source: pass
+      style: secondary
+      start: 253
+      end: 257
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 215
+      end: 257
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 215
+      end: 257
+    - source: Ok(parse(text))
+      style: secondary
+      start: 269
+      end: 284
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 262
+      end: 284
+    - source: |-
+        if flag:
+                log(names)
+            elif other:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 47
+      end: 257
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 99
+      end: 257
+  ? |
+    def owner(names, parse, lock):
+        with lock:
+            match names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+  : fixed: |
+      def owner(names, parse, lock):
+          with lock:
+              return names.map(lambda text: parse(text))
+              return Ok(parse(text))
+    labels:
+    - source: |-
+        match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: primary
+      start: 54
+      end: 212
+    - source: |-
+        def owner(names, parse, lock):
+            with lock:
+                match names:
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+                return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 243
+    - source: error=failure
+      style: secondary
+      start: 104
+      end: 117
+    - source: error=failure
+      style: secondary
+      start: 104
+      end: 117
+    - source: Result
+      style: secondary
+      start: 84
+      end: 90
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 84
+      end: 118
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 84
+      end: 118
+    - source: Error
+      style: secondary
+      start: 143
+      end: 148
+    - source: failure
+      style: secondary
+      start: 149
+      end: 156
+    - source: failure
+      style: secondary
+      start: 149
+      end: 156
+    - source: Error(failure)
+      style: secondary
+      start: 143
+      end: 157
+    - source: return Error(failure)
+      style: secondary
+      start: 136
+      end: 157
+    - source: return Error(failure)
+      style: secondary
+      start: 136
+      end: 157
+    - source: |-
+        case Result(tag="error", error=failure):
+                        return Error(failure)
+      style: secondary
+      start: 79
+      end: 157
+    - source: |2-
+
+                    case Result(tag="error", error=failure):
+                        return Error(failure)
+                    case Result(ok=text):
+                        pass
+      style: secondary
+      start: 66
+      end: 212
+    - source: names
+      style: secondary
+      start: 60
+      end: 65
+    - source: names
+      style: secondary
+      start: 60
+      end: 65
+    - source: text
+      style: secondary
+      start: 185
+      end: 189
+    - source: ok=text
+      style: secondary
+      start: 182
+      end: 189
+    - source: ok=text
+      style: secondary
+      start: 182
+      end: 189
+    - source: Result
+      style: secondary
+      start: 175
+      end: 181
+    - source: Result(ok=text)
+      style: secondary
+      start: 175
+      end: 190
+    - source: Result(ok=text)
+      style: secondary
+      start: 175
+      end: 190
+    - source: pass
+      style: secondary
+      start: 208
+      end: 212
+    - source: pass
+      style: secondary
+      start: 208
+      end: 212
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 170
+      end: 212
+    - source: |-
+        case Result(ok=text):
+                        pass
+      style: secondary
+      start: 170
+      end: 212
+    - source: Ok(parse(text))
+      style: secondary
+      start: 228
+      end: 243
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 221
+      end: 243
+  ? |
+    def owner(results, library):
+        match results[library]:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      def owner(results, library):
+          return results[library].map(lambda text: text)
+    labels:
+    - source: |-
+        match results[library]:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: primary
+      start: 33
+      end: 197
+    - source: |-
+        def owner(results, library):
+            match results[library]:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 0
+      end: 197
+    - source: error=failure
+      style: secondary
+      start: 90
+      end: 103
+    - source: error=failure
+      style: secondary
+      start: 90
+      end: 103
+    - source: Result
+      style: secondary
+      start: 70
+      end: 76
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 70
+      end: 104
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 70
+      end: 104
+    - source: Error
+      style: secondary
+      start: 125
+      end: 130
+    - source: failure
+      style: secondary
+      start: 131
+      end: 138
+    - source: failure
+      style: secondary
+      start: 131
+      end: 138
+    - source: Error(failure)
+      style: secondary
+      start: 125
+      end: 139
+    - source: return Error(failure)
+      style: secondary
+      start: 118
+      end: 139
+    - source: return Error(failure)
+      style: secondary
+      start: 118
+      end: 139
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 65
+      end: 139
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 56
+      end: 197
+    - source: results[library]
+      style: secondary
+      start: 39
+      end: 55
+    - source: results[library]
+      style: secondary
+      start: 39
+      end: 55
+    - source: text
+      style: secondary
+      start: 163
+      end: 167
+    - source: ok=text
+      style: secondary
+      start: 160
+      end: 167
+    - source: ok=text
+      style: secondary
+      start: 160
+      end: 167
+    - source: Result
+      style: secondary
+      start: 153
+      end: 159
+    - source: Result(ok=text)
+      style: secondary
+      start: 153
+      end: 168
+    - source: Result(ok=text)
+      style: secondary
+      start: 153
+      end: 168
+    - source: Ok(text)
+      style: secondary
+      start: 189
+      end: 197
+    - source: return Ok(text)
+      style: secondary
+      start: 182
+      end: 197
+    - source: return Ok(text)
+      style: secondary
+      start: 182
+      end: 197
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 148
+      end: 197
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 148
+      end: 197
+  ? |
+    def owner(results, library, parse):
+        match results[library]:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(results, library, parse):
+          return results[library].map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match results[library]:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 40
+      end: 193
+    - source: |-
+        def owner(results, library, parse):
+            match results[library]:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 220
+    - source: error=failure
+      style: secondary
+      start: 97
+      end: 110
+    - source: error=failure
+      style: secondary
+      start: 97
+      end: 110
+    - source: Result
+      style: secondary
+      start: 77
+      end: 83
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 77
+      end: 111
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 77
+      end: 111
+    - source: Error
+      style: secondary
+      start: 132
+      end: 137
+    - source: failure
+      style: secondary
+      start: 138
+      end: 145
+    - source: failure
+      style: secondary
+      start: 138
+      end: 145
+    - source: Error(failure)
+      style: secondary
+      start: 132
+      end: 146
+    - source: return Error(failure)
+      style: secondary
+      start: 125
+      end: 146
+    - source: return Error(failure)
+      style: secondary
+      start: 125
+      end: 146
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 72
+      end: 146
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 63
+      end: 193
+    - source: results[library]
+      style: secondary
+      start: 46
+      end: 62
+    - source: results[library]
+      style: secondary
+      start: 46
+      end: 62
+    - source: text
+      style: secondary
+      start: 170
+      end: 174
+    - source: ok=text
+      style: secondary
+      start: 167
+      end: 174
+    - source: ok=text
+      style: secondary
+      start: 167
+      end: 174
+    - source: Result
+      style: secondary
+      start: 160
+      end: 166
+    - source: Result(ok=text)
+      style: secondary
+      start: 160
+      end: 175
+    - source: Result(ok=text)
+      style: secondary
+      start: 160
+      end: 175
+    - source: pass
+      style: secondary
+      start: 189
+      end: 193
+    - source: pass
+      style: secondary
+      start: 189
+      end: 193
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 155
+      end: 193
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 155
+      end: 193
+    - source: Ok(parse(text))
+      style: secondary
+      start: 205
+      end: 220
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 198
+      end: 220
+  ? |
+    def owner(space):
+        match space.names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      def owner(space):
+          return space.names.map(lambda text: text)
+    labels:
+    - source: |-
+        match space.names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: primary
+      start: 22
+      end: 181
+    - source: |-
+        def owner(space):
+            match space.names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 0
+      end: 181
+    - source: error=failure
+      style: secondary
+      start: 74
+      end: 87
+    - source: error=failure
+      style: secondary
+      start: 74
+      end: 87
+    - source: Result
+      style: secondary
+      start: 54
+      end: 60
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 54
+      end: 88
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 54
+      end: 88
+    - source: Error
+      style: secondary
+      start: 109
+      end: 114
+    - source: failure
+      style: secondary
+      start: 115
+      end: 122
+    - source: failure
+      style: secondary
+      start: 115
+      end: 122
+    - source: Error(failure)
+      style: secondary
+      start: 109
+      end: 123
+    - source: return Error(failure)
+      style: secondary
+      start: 102
+      end: 123
+    - source: return Error(failure)
+      style: secondary
+      start: 102
+      end: 123
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 49
+      end: 123
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 40
+      end: 181
+    - source: space.names
+      style: secondary
+      start: 28
+      end: 39
+    - source: space.names
+      style: secondary
+      start: 28
+      end: 39
+    - source: text
+      style: secondary
+      start: 147
+      end: 151
+    - source: ok=text
+      style: secondary
+      start: 144
+      end: 151
+    - source: ok=text
+      style: secondary
+      start: 144
+      end: 151
+    - source: Result
+      style: secondary
+      start: 137
+      end: 143
+    - source: Result(ok=text)
+      style: secondary
+      start: 137
+      end: 152
+    - source: Result(ok=text)
+      style: secondary
+      start: 137
+      end: 152
+    - source: Ok(text)
+      style: secondary
+      start: 173
+      end: 181
+    - source: return Ok(text)
+      style: secondary
+      start: 166
+      end: 181
+    - source: return Ok(text)
+      style: secondary
+      start: 166
+      end: 181
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 132
+      end: 181
+    - source: |-
+        case Result(ok=text):
+                    return Ok(text)
+      style: secondary
+      start: 132
+      end: 181
+  ? |
+    def owner(space, parse):
+        match space.names:
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                pass
+        return Ok(parse(text))
+  : fixed: |
+      def owner(space, parse):
+          return space.names.map(lambda text: parse(text))
+          return Ok(parse(text))
+    labels:
+    - source: |-
+        match space.names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: primary
+      start: 29
+      end: 177
+    - source: |-
+        def owner(space, parse):
+            match space.names:
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+            return Ok(parse(text))
+      style: secondary
+      start: 0
+      end: 204
+    - source: error=failure
+      style: secondary
+      start: 81
+      end: 94
+    - source: error=failure
+      style: secondary
+      start: 81
+      end: 94
+    - source: Result
+      style: secondary
+      start: 61
+      end: 67
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 61
+      end: 95
+    - source: Result(tag="error", error=failure)
+      style: secondary
+      start: 61
+      end: 95
+    - source: Error
+      style: secondary
+      start: 116
+      end: 121
+    - source: failure
+      style: secondary
+      start: 122
+      end: 129
+    - source: failure
+      style: secondary
+      start: 122
+      end: 129
+    - source: Error(failure)
+      style: secondary
+      start: 116
+      end: 130
+    - source: return Error(failure)
+      style: secondary
+      start: 109
+      end: 130
+    - source: return Error(failure)
+      style: secondary
+      start: 109
+      end: 130
+    - source: |-
+        case Result(tag="error", error=failure):
+                    return Error(failure)
+      style: secondary
+      start: 56
+      end: 130
+    - source: |2-
+
+                case Result(tag="error", error=failure):
+                    return Error(failure)
+                case Result(ok=text):
+                    pass
+      style: secondary
+      start: 47
+      end: 177
+    - source: space.names
+      style: secondary
+      start: 35
+      end: 46
+    - source: space.names
+      style: secondary
+      start: 35
+      end: 46
+    - source: text
+      style: secondary
+      start: 154
+      end: 158
+    - source: ok=text
+      style: secondary
+      start: 151
+      end: 158
+    - source: ok=text
+      style: secondary
+      start: 151
+      end: 158
+    - source: Result
+      style: secondary
+      start: 144
+      end: 150
+    - source: Result(ok=text)
+      style: secondary
+      start: 144
+      end: 159
+    - source: Result(ok=text)
+      style: secondary
+      start: 144
+      end: 159
+    - source: pass
+      style: secondary
+      start: 173
+      end: 177
+    - source: pass
+      style: secondary
+      start: 173
+      end: 177
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 139
+      end: 177
+    - source: |-
+        case Result(ok=text):
+                    pass
+      style: secondary
+      start: 139
+      end: 177
+    - source: Ok(parse(text))
+      style: secondary
+      start: 189
+      end: 204
+    - source: return Ok(parse(text))
+      style: secondary
+      start: 182
+      end: 204

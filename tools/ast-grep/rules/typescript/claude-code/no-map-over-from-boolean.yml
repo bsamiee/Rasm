@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-map-over-from-boolean
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+rule:
+    pattern: map($THUNK)(fromBoolean($C))
+    has:
+        field: function
+        has:
+            field: arguments
+            has:
+                kind: arrow_function
+                pattern: $THUNK
+                all:
+                    - not: {has: {field: parameters, has: {pattern: $_}}}
+                    # The return type names the type, or the body carries it, the body of liftPredicate maps a parameter and needs no exemption
+                    - any:
+                          - has: {field: return_type, kind: type_annotation}
+                          - has: {field: body, matches: syntax-typed-value}
+                    # A double cast leaves the value as unknown, no-double-assertion reports it
+                    - not: {has: {field: body, kind: as_expression, has: {kind: as_expression}}}
+rewriters:
+    # The thunk's return type names the type, whatever the body
+    - id: typed-thunk
+      rule: {pattern: '(): $T => $V'}
+      fix: liftPredicate<$T>(() => $C)($V)
+    - id: string-thunk
+      rule: {pattern: '() => $V', has: {field: body, any: [{kind: string}, {kind: template_string}]}}
+      fix: liftPredicate<string>(() => $C)($V)
+    - id: number-thunk
+      rule: {pattern: '() => $V', has: {field: body, any: [{kind: number}, {kind: unary_expression, has: {field: argument, kind: number}}]}}
+      fix: liftPredicate<number>(() => $C)($V)
+    - id: cast-thunk
+      rule: {pattern: '() => $V as $T'}
+      fix: liftPredicate<$T>(() => $C)($V)
+transform:
+    LIFT: rewrite($THUNK, rewriters=[typed-thunk, string-thunk, number-thunk, cast-thunk])
+fix: $LIFT
+message: The constant is mapped over the boolean Option, and `liftPredicate` lifts it under the condition in one step
+note: Lift the value under the condition, `liftPredicate<T>(() => condition)(value)`, the nullary predicate leaves `T` to the site

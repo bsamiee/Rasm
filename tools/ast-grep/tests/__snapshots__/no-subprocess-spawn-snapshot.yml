@@ -1,0 +1,75 @@
+id: no-subprocess-spawn
+snapshots:
+  ? |
+    from os import spawnvp
+  : labels:
+    - source: spawnvp
+      style: primary
+      start: 15
+      end: 22
+  ? |
+    from subprocess import Popen
+  : labels:
+    - source: Popen
+      style: primary
+      start: 23
+      end: 28
+  ? |
+    from subprocess import check_output as capture
+  : labels:
+    - source: check_output
+      style: primary
+      start: 23
+      end: 35
+  ? |
+    from subprocess import run
+  : labels:
+    - source: run
+      style: primary
+      start: 23
+      end: 26
+  ? |
+    import os
+
+    os.system("make")
+  : labels:
+    - source: os.system
+      style: primary
+      start: 11
+      end: 20
+  ? |
+    import os as system
+
+    handle = system.popen("make")
+  : labels:
+    - source: system.popen
+      style: primary
+      start: 30
+      end: 42
+  ? |
+    import subprocess
+
+    handle = subprocess.Popen(args)
+  : labels:
+    - source: subprocess.Popen
+      style: primary
+      start: 28
+      end: 44
+  ? |
+    import subprocess
+
+    subprocess.call(args)
+  : labels:
+    - source: subprocess.call
+      style: primary
+      start: 19
+      end: 34
+  ? |
+    import subprocess as sp
+
+    sp.check_call(args)
+  : labels:
+    - source: sp.check_call
+      style: primary
+      start: 25
+      end: 38

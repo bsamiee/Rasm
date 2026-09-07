@@ -6,7 +6,7 @@ valid:
     - "const configuration = typeof options === 'string' ? { seed: options } : (options ?? {});"
     # Object arm in the alternative
     - "const configuration = typeof options === 'string' ? options : { seed: options };"
-    # An Option arm belongs to the Option lift
+    # Option arms belong to the Option lift
     - "const hits = typeof hit === 'string' ? Option.some(hit) : hit;"
     # Empty array arm is presence
     - "const hits = typeof hit === 'string' ? hit : [];"

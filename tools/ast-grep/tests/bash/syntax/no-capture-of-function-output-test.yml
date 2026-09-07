@@ -1,0 +1,169 @@
+id: no-capture-of-function-output
+valid:
+    # The corrected form, a nameref parameter
+    - |
+      hits_of() {
+          local -n out=$1
+          out[$2]=1
+      }
+      hits_of base_hits "$root"
+    # A function printing for the terminal, called plainly
+    - |
+      usage() {
+          printf 'usage: run <ext>\n'
+      }
+      usage
+    # A function at the end of a pipeline writes to the caller's output
+    - |
+      report() {
+          printf '%s\n' "$1"
+      }
+      cmd | report
+    # A function that prints nothing, captured
+    - |
+      count() {
+          local -n out=$1
+          out=3
+      }
+      x=$(count total)
+    # A body running commands with no printing builtin
+    - |
+      make_dir() {
+          mkdir -p "$1"
+      }
+      x=$(make_dir "$root")
+    # A body assigning through printf -v, nothing printed
+    - |
+      name_of() {
+          printf -v "$1" '%s' "$2"
+      }
+      x=$(name_of out "$root")
+    # A body printing to standard error, the caller reads nothing
+    - |
+      warn() {
+          printf '%s\n' "$1" >&2
+      }
+      x=$(warn "$root")
+    # A body printing into a file
+    - |
+      save() {
+          printf '%s\n' "$1" >"$out"
+      }
+      x=$(save "$root")
+    # The writing process substitution feeds the function, its output goes to the caller's output
+    - |
+      sink() {
+          printf '%s\n' "$1"
+      }
+      cmd > >(sink a)
+    # A body printing into a pipeline that ends in a file
+    - |
+      save() {
+          printf '%s\n' "$1" | sort >"$out"
+      }
+      x=$(save a)
+    # A body appending to a file
+    - |
+      log() {
+          printf '%s\n' "$1" >>"$log"
+      }
+      x=$(log a)
+    # A function with the name as a prefix, captured
+    - |
+      hits_of() {
+          printf '%s\n' "$id"
+      }
+      hits_of_all() {
+          :
+      }
+      x=$(hits_of_all)
+invalid:
+    # A body printing to standard error, then to standard output
+    - |
+      hits_of() {
+          printf '%s\n' "$id" >&2
+          echo "$id"
+      }
+      x=$(hits_of)
+    # A body printing into a pipeline that ends on standard output
+    - |
+      hits_of() {
+          printf '%s\n' "$id" | sort
+      }
+      x=$(hits_of)
+    # The printing builtin under a branch, read by mapfile
+    - |
+      hits_of() {
+          if ((n)); then echo "$id"; fi
+      }
+      mapfile -t out < <(hits_of)
+    # The call under its own redirect as an earlier pipeline stage
+    - |
+      hits_of() {
+          printf '%s\n' "$id"
+      }
+      hits_of "$root" 2>/dev/null | jq .
+    # Output read through the backquote form
+    - |
+      hits_of() {
+          printf '%s\n' "$id"
+      }
+      out=`hits_of "$root"`
+    # The -v word after the format is text, the field pin reads the first argument alone
+    - |
+      hits_of() {
+          printf '%s %s\n' "$id" -v
+      }
+      out=$(hits_of "$root")
+    # The body printing under a redirect of standard error alone
+    - |
+      hits_of() {
+          printf '%s\n' "$id" 2>/dev/null
+      }
+      out=$(hits_of "$root")
+    # The printing builtin nested in a loop of the body
+    - |
+      each() {
+          for item in "$@"; do
+              printf '%s\n' "$item"
+          done
+      }
+      x=$(each a b)
+    # The call nested in a pipeline inside the process substitution
+    - |
+      hits_of() {
+          printf '%s\n' "$id"
+      }
+      while read -r l; do :; done < <(other | hits_of)
+    # The function defined inside a block and read outside it
+    - |
+      if [[ -f $s ]]; then
+          hits_of() {
+              printf '%s\n' "$id"
+          }
+      fi
+      x=$(hits_of)
+    # The instance, output read through a command substitution
+    - |
+      hits_of() {
+          printf '%s\t%s\n' "$id" "$h"
+      }
+      out=$(hits_of "$root")
+    # Output read through a process substitution
+    - |
+      hits_of() {
+          echo "$id"
+      }
+      while read -r l; do :; done < <(hits_of "$root")
+    # Output read by the next command of a pipeline
+    - |
+      hits_of() {
+          printf '%s\n' "$id"
+      }
+      hits_of "$root" | jq .
+    # Output captured through a pipeline inside a command substitution
+    - |
+      hits_of() {
+          printf '%s\n' "$id"
+      }
+      x=$(other | hits_of)

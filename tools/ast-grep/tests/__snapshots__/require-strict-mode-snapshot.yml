@@ -1,0 +1,138 @@
+id: require-strict-mode
+snapshots:
+  ? |
+    #!/usr/bin/env bash
+    if true; then set -euo pipefail; fi
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        if true; then set -euo pipefail; fi
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 76
+  ? |
+    #!/usr/bin/env bash
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 40
+  ? |
+    #!/usr/bin/env bash
+    run() {
+      set -euo pipefail
+      printf '%s\n' hello
+    }
+    run
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        run() {
+          set -euo pipefail
+          printf '%s\n' hello
+        }
+        run
+      style: primary
+      start: 0
+      end: 76
+  ? |
+    #!/usr/bin/env bash
+    set -e
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -e
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 47
+  ? |
+    #!/usr/bin/env bash
+    set -eo pipefail
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -eo pipefail
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 57
+  ? |
+    #!/usr/bin/env bash
+    set -eu
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -eu
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 48
+  ? |
+    #!/usr/bin/env bash
+    set -euo pipefail
+    run() { set +u; printf '%s\n' "$1"; }
+    run
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -euo pipefail
+        run() { set +u; printf '%s\n' "$1"; }
+        run
+      style: primary
+      start: 0
+      end: 80
+    - source: set +u
+      style: secondary
+      start: 46
+      end: 52
+  ? |
+    #!/usr/bin/env bash
+    set -euxo pipefail
+    set +e
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -euxo pipefail
+        set +e
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 66
+    - source: set +e
+      style: secondary
+      start: 39
+      end: 45
+  ? |
+    #!/usr/bin/env bash
+    set -uo pipefail
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        set -uo pipefail
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 57
+  ? |
+    #!/usr/bin/env bash
+    true && set -euo pipefail
+    printf '%s\n' hello
+  : labels:
+    - source: |
+        #!/usr/bin/env bash
+        true && set -euo pipefail
+        printf '%s\n' hello
+      style: primary
+      start: 0
+      end: 66

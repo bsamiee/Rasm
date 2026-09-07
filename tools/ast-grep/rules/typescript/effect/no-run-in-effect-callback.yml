@@ -28,8 +28,8 @@ utils:
             - {kind: call_expression, has: {field: function, matches: effect-module-call}}
             - matches: runtime-run
 rule:
-    matches: runtime-run
     all:
+        - matches: runtime-run
         - inside: {stopBy: end, matches: effect-owner}
         # Call outside the package between the run and the combinator owns the callback, the run there is the boundary
         - not:

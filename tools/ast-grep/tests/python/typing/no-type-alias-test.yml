@@ -1,0 +1,28 @@
+id: no-type-alias
+valid:
+    # The corrected form, the type statement
+    - |
+      type Schema = Mapping[str, object]
+    # The runtime alias type of typing
+    - |
+      from typing import TypeAliasType
+    # Attribute named like the member on another object
+    - |
+      kind = node.TypeAlias
+invalid:
+    # The instance, the annotation imported from typing
+    - |
+      from typing import TypeAlias
+    # The annotation imported from typing_extensions
+    - |
+      from typing_extensions import TypeAlias
+    # The attribute read as spelled
+    - |
+      import typing
+
+      Schema: typing.TypeAlias = dict[str, object]
+    # The attribute read through the alias the import binds
+    - |
+      import typing as t
+
+      Schema: t.TypeAlias = dict[str, object]

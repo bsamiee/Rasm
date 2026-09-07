@@ -1,0 +1,47 @@
+id: no-typing-union
+valid:
+    # The corrected form, the union with None
+    - |
+      def read(path: Path | None = None) -> str:
+          return ""
+    # The corrected form of a union, the operator between the members
+    - |
+      def read(path: Path | str) -> str:
+          return ""
+    # The option type of expression
+    - |
+      from expression import Option
+    # Another member of typing
+    - |
+      from typing import Protocol
+    # Attribute named like the member on another object
+    - |
+      field = schema.Optional
+invalid:
+    # The instance, the member imported from typing
+    - |
+      from typing import Optional
+    # The member imported from typing_extensions
+    - |
+      from typing_extensions import Optional
+    # The attribute read as spelled
+    - |
+      import typing
+
+      def read(path: typing.Optional[Path] = None) -> str:
+          return ""
+    # The attribute read through the alias the import binds
+    - |
+      import typing as t
+
+      def read(path: t.Optional[Path] = None) -> str:
+          return ""
+    # The union imported from typing
+    - |
+      from typing import Union
+    # The union read as spelled
+    - |
+      import typing
+
+      def read(path: typing.Union[Path, str]) -> str:
+          return ""

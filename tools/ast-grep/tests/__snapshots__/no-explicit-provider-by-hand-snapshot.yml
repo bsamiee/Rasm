@@ -1,5 +1,15 @@
 id: no-explicit-provider-by-hand
 snapshots:
+  const configured = configure(new aws.Provider("x", { region }));:
+    labels:
+    - source: new aws.Provider("x", { region })
+      style: primary
+      start: 29
+      end: 62
+    - source: aws.Provider
+      style: secondary
+      start: 33
+      end: 45
   const doppler = new DopplerProvider("doppler", { dopplerToken });:
     labels:
     - source: new DopplerProvider("doppler", { dopplerToken })
@@ -20,6 +30,34 @@ snapshots:
       style: secondary
       start: 15
       end: 30
+  const gh = new pulumi.github.Provider("github", { owner, token });:
+    labels:
+    - source: new pulumi.github.Provider("github", { owner, token })
+      style: primary
+      start: 11
+      end: 65
+    - source: pulumi.github.Provider
+      style: secondary
+      start: 15
+      end: 37
+  ? |
+    const project = new Project(
+        name,
+        // Arguments from the manifest
+        args,
+        { provider },
+    );
+  : labels:
+    - source: |-
+        (
+            name,
+            // Arguments from the manifest
+            args,
+            { provider },
+        )
+      style: primary
+      start: 27
+      end: 103
   ? |
     const project = new Project(
         name,
@@ -52,6 +90,18 @@ snapshots:
       style: primary
       start: 27
       end: 110
+  ? |
+    const repository = Repository.get(name, id, state, {
+        provider: gh, // Organization token
+    });
+  : labels:
+    - source: |-
+        (name, id, state, {
+            provider: gh, // Organization token
+        })
+      style: primary
+      start: 33
+      end: 95
   ? |
     const repository = getRepository({ fullName }, {
         provider: gh, // Organization token

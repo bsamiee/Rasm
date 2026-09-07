@@ -1,0 +1,45 @@
+id: no-logging-call
+snapshots:
+  ? |
+    from logging import getLogger
+  : labels:
+    - source: getLogger
+      style: primary
+      start: 20
+      end: 29
+  ? |
+    import logging
+
+    log = logging.getLogger(__name__)
+  : labels:
+    - source: logging.getLogger
+      style: primary
+      start: 22
+      end: 39
+  ? |
+    import logging
+
+    logging.basicConfig(level=logging.INFO)
+  : labels:
+    - source: logging.basicConfig
+      style: primary
+      start: 16
+      end: 35
+  ? |
+    import logging
+
+    logging.info("staged")
+  : labels:
+    - source: logging.info
+      style: primary
+      start: 16
+      end: 28
+  ? |
+    import logging as lg
+
+    lg.exception("failed")
+  : labels:
+    - source: lg.exception
+      style: primary
+      start: 22
+      end: 34

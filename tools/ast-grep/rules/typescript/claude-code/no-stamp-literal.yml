@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stamp-literal
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+ignores: ['**/*.spec.ts'] # The store spec writes the row as raw data to prove its decoder
+rule:
+    kind: object
+    pattern: $ROW
+    all:
+        # The key as a name or a quoted string, the quoted spelling of the same row
+        - has: {any: [{kind: shorthand_property_identifier, regex: '^session$'}, {kind: pair, has: {field: key, regex: "^['\"]?session['\"]?$"}}]}
+        - has: {any: [{kind: shorthand_property_identifier, regex: '^at$'}, {kind: pair, has: {field: key, regex: "^['\"]?at['\"]?$"}}]}
+        # A third member makes another row, Notice and Finding hold session beside other fields
+        - not: {has: {nthChild: 3}}
+        # The definition of stamp in host/store.ts is the one literal
+        - not: {inside: {stopBy: end, any: [{kind: variable_declarator}, {kind: function_declaration}], has: {field: name, regex: '^stamp$'}}}
+        # Decoder shape passed to struct, its values are refinements and the object names no row
+        - not: {inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, regex: '^struct$'}}}}
+rewriters:
+    # Each member as its value, the pair's value or the shorthand's name, one rewrite per member reads it in either order
+    - id: session-value
+      rule: {kind: pair, all: [{has: {field: key, regex: "^['\"]?session['\"]?$"}}, {has: {field: value, pattern: $V}}]}
+      fix: $V
+    - id: session-name
+      rule: {kind: shorthand_property_identifier, regex: '^session$'}
+      fix: session
+    - id: at-value
+      rule: {kind: pair, all: [{has: {field: key, regex: "^['\"]?at['\"]?$"}}, {has: {field: value, pattern: $V}}]}
+      fix: $V
+    - id: at-name
+      rule: {kind: shorthand_property_identifier, regex: '^at$'}
+      fix: at
+transform:
+    SESSION: rewrite($ROW, rewriters=[session-value, session-name], joinBy='')
+    AT: rewrite($ROW, rewriters=[at-value, at-name], joinBy='')
+fix: stamp($SESSION, $AT)
+message: The stamp row is spelled as a literal, and `stamp` in host/store.ts is its one owner
+note: Build the row through `stamp(session, $.clock.now())` from host/store.ts

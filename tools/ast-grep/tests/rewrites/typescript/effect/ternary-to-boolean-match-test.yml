@@ -26,9 +26,9 @@ valid:
     - "const size = typeof hit === 'string' && size > limit ? hit.length : 0;"
     # Defined check as one operand of a conjunction, the arm reads the operand it narrows
     - 'const rows = list !== undefined && size > limit ? [...list] : fallback;'
-    # An Option arm belongs to the Option lift
+    # Option arms belong to the Option lift
     - 'const code = value % 2 === 0 ? Option.some(value) : label;'
-    # An Option arm in the alternative
+    # Option arm in the alternative
     - 'const code = value % 2 === 0 ? label : Option.none();'
     # Empty arm is presence, the spread lifts
     - "const named = language === 'python' ? { name } : {};"
@@ -40,6 +40,8 @@ valid:
     - "const report = size > limit ? await load() : 'small';"
     # Await inside the arm
     - "const report = size > limit ? render(await load()) : 'small';"
+    # Yield as the arm
+    - "const report = size > limit ? yield* load : 'small';"
     # Yield inside the arm
     - "const report = size > limit ? render(yield* load) : 'small';"
 invalid:
@@ -65,3 +67,7 @@ invalid:
     - 'const load = size > limit ? async () => await fetch(root) : none;'
     # Await inside a nested function expression
     - 'const load = size > limit ? async function () { return await fetch(root); } : none;'
+    # Yield inside a generator function arm, the generator holds it
+    - 'const load = size > limit ? Effect.gen(function* () { return yield* fetch(root); }) : none;'
+    # Await inside an async method of an object arm, the method holds it
+    - 'const load = size > limit ? make({ async run() { return await fetch(root); } }) : none;'

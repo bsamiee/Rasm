@@ -3,27 +3,31 @@ id: no-lifted-condition
 language: tsx
 severity: error
 utils:
-    # Predicate that returns its argument, identity typed as Predicate<A> compiles for a boolean A alone, the lifted value is the condition
+    # Predicate that returns its argument or its negation, identity typed as Predicate<A> compiles for a boolean A alone,
+    # the lifted value is the condition
     identity-predicate:
         any:
             - pattern: identity
             - pattern: Function.identity
+            - pattern: Boolean.not
             - kind: arrow_function
               all:
                   - has: {field: parameters, has: {kind: required_parameter, has: {kind: identifier, pattern: $HELD}}}
                   - has: {field: body, kind: identifier, pattern: $HELD}
+            - kind: arrow_function
+              all:
+                  - has: {field: parameters, has: {kind: required_parameter, has: {kind: identifier, pattern: $HELD}}}
+                  - has:
+                        field: body
+                        kind: unary_expression
+                        all: [{has: {field: operator, regex: '^!$'}}, {has: {field: argument, kind: identifier, pattern: $HELD}}]
 rule:
     kind: call_expression
     all:
         # The lifts of one value under a predicate, the element filters (Array.filter, Effect.filter) hold no guarded value
         - has:
               field: function
-              any:
-                  - pattern: Option.liftPredicate
-                  - pattern: Option.filter
-                  - pattern: Either.liftPredicate
-                  - pattern: Effect.liftPredicate
-                  - pattern: Array.liftPredicate
+              regex: '^(Option\.liftPredicate|Option\.filter|Either\.liftPredicate|Effect\.liftPredicate|Array\.liftPredicate)$'
         - has: {field: arguments, has: {matches: identity-predicate}}
 message: The lifted value is the condition itself, and the value the condition guards sits elsewhere
 note: >-

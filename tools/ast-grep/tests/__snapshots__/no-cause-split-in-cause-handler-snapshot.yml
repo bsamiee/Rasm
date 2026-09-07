@@ -60,6 +60,13 @@ snapshots:
       style: primary
       start: 64
       end: 70
+  ? 'const folded = Channel.foldCauseChannel(channel, { onFailure: (cause) => Channel.fail(Cause.failures(cause)), onSuccess: Channel.succeed });'
+  : labels:
+    - source: failures
+      message: The reader that splits the Cause
+      style: primary
+      start: 92
+      end: 100
   const folded = Effect.catchAllCause(program, (cause) => Effect.fail(Cause.reduce(cause, empty, merge)));:
     labels:
     - source: reduce
@@ -205,6 +212,13 @@ snapshots:
       style: primary
       start: 91
       end: 104
+  ? 'const read = Channel.readWithCause({ onInput: emit, onFailure: (cause) => Channel.failCause(Cause.stripFailures(cause)), onDone: end });'
+  : labels:
+    - source: stripFailures
+      message: The reader that splits the Cause
+      style: primary
+      start: 98
+      end: 111
   ? |
     const recovered = program.pipe(
       Effect.catchAllCause((cause) =>

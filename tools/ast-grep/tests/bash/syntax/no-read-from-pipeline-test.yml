@@ -1,0 +1,70 @@
+id: no-read-from-pipeline
+valid:
+    # The corrected form, the producer under process substitution
+    - while IFS= read -r line; do count=1; done < <(ls)
+    # The corrected read
+    - read -r line < <(cmd)
+    # The corrected mapfile
+    - mapfile -t lines < <(cmd)
+    # Inside a command substitution, no assignment escapes the substitution's own subshell
+    - y=$(ls | while read -r l; do printf '%s' "$l"; done)
+    # lastpipe runs the loop in the current shell
+    - |
+      shopt -s lastpipe
+      ls | while read -r line; do count=1; done
+    # lastpipe set at the top, the loop inside a function
+    - |
+      shopt -s lastpipe
+      f() { ls | while read -r line; do count=1; done; }
+    # lastpipe set inside the function, the option is process-wide
+    - |
+      f() { shopt -s lastpipe; ls | while read -r line; do count=1; done; }
+    # The producer read through a here string
+    - while IFS= read -r line; do count=1; done <<<"$out"
+    # A pipeline of commands with no loop stage
+    - ls | sort | head -n 1
+    # A loop with a pipeline in its body
+    - while read -r line; do printf '%s\n' "$line" | sort; done
+    # A pipeline under a list inside a command substitution, the substitution is an ancestor past the parent
+    - y=$(cd "$d" && ls | while read -r l; do printf '%s' "$l"; done)
+    # A group as the stage, its own body reads what it assigns
+    - cmd | { read -r a; read -r b; printf '%s\n' "$a$b"; }
+    # Inside a process substitution as its only statement
+    - diff <(ls | while read -r l; do printf '%s\n' "$l"; done) list
+invalid:
+    # A statement after the loop inside the substitution reads what the stage lost
+    - y=$(ls | while read -r l; do n=$l; done; printf '%s' "$n")
+    # The loop nested in a list inside a group, the group precedes the reading statement
+    - y=$({ cd "$d" && ls | while read -r l; do n=$l; done; }; printf '%s' "$n")
+    # lastpipe turned off
+    - |
+      shopt -u lastpipe
+      ls | while read -r line; do count=1; done
+    # The producer under its own redirect
+    - cmd 2>&1 | while read -r line; do count=1; done
+    # The pipeline as an if condition
+    - if cmd | read -r first; then printf '%s\n' "$first"; fi
+    # The instance
+    - ls | while read -r line; do count=1; done
+    # A producer of two stages
+    - a x | b y | while IFS= read -r line; do count=1; done
+    # The loop redirected after done
+    - ls | while read -r line; do count=1; done 2>/dev/null
+    # A consumer after the loop
+    - ls | while read -r line; do printf '%s\n' "$line"; done | sort
+    # Standard error merged into the pipe
+    - ls |& while read -r line; do count=1; done
+    # An until loop as the stage
+    - ls | until read -r line; do count=1; done
+    # The loop reading in its body
+    - ls | while true; do read -r line || break; count=1; done
+    # A read as the stage
+    - cmd | read -r line
+    # A read with an assignment prefix
+    - cmd | IFS= read -r line
+    # A mapfile as the stage
+    - cmd | mapfile -t lines
+    # A readarray as the stage
+    - cmd | readarray -t lines
+    # A producer holding the word read
+    - cmd | grep read | while read -r line; do count=1; done

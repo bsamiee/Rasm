@@ -33,75 +33,75 @@ The tools read compiled symbols. Use `dotnet-msbuild-evaluation` for a property,
 
 ## [02]-[TOOL_INDEX]
 
-| [INDEX] | [TOOL]                       | [USE_WHEN]                                                                                  |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | `find_implementations`       | "What implements this interface?" / "What extends this class?"                              |
-|  [02]   | `find_callers`               | "Who calls this method?" / "What depends on this?"                                          |
-|  [03]   | `find_event_subscribers`     | "Who subscribes to this event?"                                                             |
-|  [04]   | `find_references`            | "Where is this symbol used?" / "Show all references" / "Who writes to it?" (`kinds` filter) |
-|  [05]   | `find_tests_for_symbol`      | "What tests cover this method?" / "Which tests will break if I change X?"                   |
-|  [06]   | `get_test_summary`           | "What does this test suite cover?"                                                          |
-|  [07]   | `find_uncovered_symbols`     | "What needs tests?" / "Where is our testing debt?"                                          |
-|  [08]   | `generate_test_skeleton`     | "Generate a test stub for this method" / "Bootstrap tests for this class"                   |
-|  [09]   | `go_to_definition`           | "Where is this defined?" / "Jump to source"                                                 |
-|  [10]   | `search_symbols`             | "Find types or methods matching this name"                                                  |
-|  [11]   | `get_type_hierarchy`         | "What is the inheritance chain?"                                                            |
-|  [12]   | `get_symbol_context`         | "Give me everything about this type"                                                        |
-|  [13]   | `get_public_api_surface`     | "What is the public API of this library?"                                                   |
-|  [14]   | `find_breaking_changes`      | "Will this break consumers?"                                                                |
-|  [15]   | `get_di_registrations`       | "Where is this registered?" / "What is the DI lifetime?"                                    |
-|  [16]   | `get_project_dependencies`   | "What does this project reference?"                                                         |
-|  [17]   | `get_nuget_dependencies`     | "What packages does this project use?" / "What is the assembly name?"                       |
-|  [18]   | `find_reflection_usage`      | "Is this used dynamically?"                                                                 |
-|  [19]   | `find_attribute_usages`      | "Find all [Authorize] controllers" / "What carries this attribute?"                         |
-|  [20]   | `find_obsolete_usage`        | "What deprecations do we still use?" / "What calls [Obsolete] members?"                     |
-|  [21]   | `get_diagnostics`            | "Are there compiler errors?" / "Show warnings" / "Will this build?"                         |
-|  [22]   | `get_code_fixes`             | "How do I fix this warning?"                                                                |
-|  [23]   | `trust_solution`             | "Authorize analyzers for this solution"                                                     |
-|  [24]   | `list_trusted_paths`         | "Is this solution trusted?"                                                                 |
-|  [25]   | `revoke_trust`               | "Withdraw analyzer trust for this path"                                                     |
-|  [26]   | `get_code_actions`           | "What refactorings are available here?"                                                     |
-|  [27]   | `apply_code_action`          | "Apply this refactoring" / "Extract method"                                                 |
-|  [28]   | `rename_symbol`              | "Rename this symbol everywhere" / "Change this name across the solution"                    |
-|  [29]   | `change_signature`           | "Add, remove, or reorder a parameter and fix all the callers"                               |
-|  [30]   | `resolve_stack_trace`        | "Where did this exception come from?" / "Resolve this stack trace"                          |
-|  [31]   | `find_unused_symbols`        | "Is there dead code?"                                                                       |
-|  [32]   | `get_complexity_metrics`     | "Which methods are too complex?" / "What do I refactor first?" (`metric: "cognitive"`)      |
-|  [33]   | `find_naming_violations`     | "Check naming conventions"                                                                  |
-|  [34]   | `find_async_violations`      | "Are there async bugs?" / "Find sync-over-async"                                            |
-|  [35]   | `find_disposable_misuse`     | "Are there resource leaks?" / "Find missing `using`"                                        |
-|  [36]   | `get_exception_flow`         | "What can escape this method?" / "Where does this exception get caught?"                    |
-|  [37]   | `find_throw_sites`           | "Where is this exception type thrown?"                                                      |
-|  [38]   | `find_catch_blocks`          | "Who catches this?" / "What is swallowing exceptions?"                                      |
-|  [39]   | `find_large_classes`         | "Find classes that need splitting"                                                          |
-|  [40]   | `find_god_objects`           | "Which classes are doing too much?"                                                         |
-|  [41]   | `find_circular_dependencies` | "Are there circular dependencies?"                                                          |
-|  [42]   | `check_architecture`         | "Is anything violating our layering?" / "Does Domain reference Infrastructure?"             |
-|  [43]   | `get_project_health`         | "How is this project doing?" / "Top hotspots across all dimensions"                         |
-|  [44]   | `get_source_generators`      | "What source generators are active?"                                                        |
-|  [45]   | `get_generated_code`         | "Show generated code"                                                                       |
-|  [46]   | `inspect_external_assembly`  | "What does this NuGet package expose?" / "Show me the API of X assembly"                    |
-|  [47]   | `peek_il`                    | "Show IL for this method" / "What does this external method do at bytecode level?"          |
-|  [48]   | `list_solutions`             | "What solutions are loaded?"                                                                |
-|  [49]   | `load_solution`              | "Load this .sln or .slnx at run time"                                                       |
-|  [50]   | `unload_solution`            | "Free memory for this solution"                                                             |
-|  [51]   | `set_active_solution`        | "Switch to project B"                                                                       |
-|  [52]   | `rebuild_solution`           | "Reload the solution" / "Diagnostics are stale"                                             |
-|  [53]   | `start_background_task`      | "Run a long rebuild without blocking"                                                       |
-|  [54]   | `get_task_status`            | "Check on a queued background task"                                                         |
-|  [55]   | `list_running_tasks`         | "Which background tasks are running?"                                                       |
-|  [56]   | `analyze_data_flow`          | "Which variables are read or written here?"                                                 |
-|  [57]   | `analyze_control_flow`       | "Is this code reachable?"                                                                   |
-|  [58]   | `analyze_change_impact`      | "What breaks if I change this?"                                                             |
-|  [59]   | `get_type_overview`          | "Give me everything about this type in one call"                                            |
-|  [60]   | `analyze_method`             | "Show signature, callers, and outgoing calls"                                               |
-|  [61]   | `get_method_source`          | "Show me this method's body" / "Give me the source of these members"                        |
-|  [62]   | `get_overloads`              | "What overloads does this method have?"                                                     |
-|  [63]   | `get_extension_methods`      | "What can I call on this type?" / "Is there an extension for X?"                            |
-|  [64]   | `get_instantiation_options`  | "How do I construct this?" / "Why can I not `new` this up?"                                 |
-|  [65]   | `get_operators`              | "What operators does this type define?"                                                     |
-|  [66]   | `get_call_graph`             | "Transitive callers or callees, depth-bounded"                                              |
-|  [67]   | `get_file_overview`          | "What types are in this file?"                                                              |
+| [INDEX] | [TOOL]                       | [USE_WHEN]                                                                                            |
+| :-----: | :--------------------------- | :---------------------------------------------------------------------------------------------------- |
+|  [01]   | `find_implementations`       | "What implements this interface?" / "What extends this class?"                                        |
+|  [02]   | `find_callers`               | "Who calls this method?" / "What depends on this?"                                                    |
+|  [03]   | `find_event_subscribers`     | "Who subscribes to this event?"                                                                       |
+|  [04]   | `find_references`            | "Where is this symbol used?" / "Show all references" / "Who writes to it?" (`kinds` filter)           |
+|  [05]   | `find_tests_for_symbol`      | "What tests cover this method?" / "Which tests will break if I change X?"                             |
+|  [06]   | `get_test_summary`           | "What does this test suite cover?"                                                                    |
+|  [07]   | `find_uncovered_symbols`     | "What needs tests?" / "Where is our testing debt?"                                                    |
+|  [08]   | `generate_test_skeleton`     | "Generate a test stub for this method" / "Bootstrap tests for this class"                             |
+|  [09]   | `go_to_definition`           | "Where is this defined?" / "Jump to source"                                                           |
+|  [10]   | `search_symbols`             | "Find types or methods matching this name"                                                            |
+|  [11]   | `get_type_hierarchy`         | "What is the inheritance chain?"                                                                      |
+|  [12]   | `get_symbol_context`         | "Give me everything about this type"                                                                  |
+|  [13]   | `get_public_api_surface`     | "What is the public API of this library?"                                                             |
+|  [14]   | `find_breaking_changes`      | "Will this break consumers?"                                                                          |
+|  [15]   | `get_di_registrations`       | "Where is this registered?" / "What is the DI lifetime?"                                              |
+|  [16]   | `get_project_dependencies`   | "What does this project reference?"                                                                   |
+|  [17]   | `get_nuget_dependencies`     | "What packages does this project use?" / "What is the assembly name?"                                 |
+|  [18]   | `find_reflection_usage`      | "Is this used dynamically?"                                                                           |
+|  [19]   | `find_attribute_usages`      | "Find all [Authorize] controllers" / "What carries this attribute?"                                   |
+|  [20]   | `find_obsolete_usage`        | "What deprecations do we still use?" / "What calls [Obsolete] members?"                               |
+|  [21]   | `get_diagnostics`            | "Are there compiler errors?" / "Show warnings" / "Will this build?"                                   |
+|  [22]   | `get_code_fixes`             | "How do I fix this warning?"                                                                          |
+|  [23]   | `trust_solution`             | "Authorize analyzers for another solution", the plugin denies it on `Workspace.slnx`, session-trusted |
+|  [24]   | `list_trusted_paths`         | "Is this solution trusted?"                                                                           |
+|  [25]   | `revoke_trust`               | "Withdraw analyzer trust for this path"                                                               |
+|  [26]   | `get_code_actions`           | "What refactorings are available here?"                                                               |
+|  [27]   | `apply_code_action`          | "Apply this refactoring" / "Extract method"                                                           |
+|  [28]   | `rename_symbol`              | "Rename this symbol everywhere" / "Change this name across the solution"                              |
+|  [29]   | `change_signature`           | "Add, remove, or reorder a parameter and fix all the callers"                                         |
+|  [30]   | `resolve_stack_trace`        | "Where did this exception come from?" / "Resolve this stack trace"                                    |
+|  [31]   | `find_unused_symbols`        | "Is there dead code?"                                                                                 |
+|  [32]   | `get_complexity_metrics`     | "Which methods are too complex?" / "What do I refactor first?" (`metric: "cognitive"`)                |
+|  [33]   | `find_naming_violations`     | "Check naming conventions"                                                                            |
+|  [34]   | `find_async_violations`      | "Are there async bugs?" / "Find sync-over-async"                                                      |
+|  [35]   | `find_disposable_misuse`     | "Are there resource leaks?" / "Find missing `using`"                                                  |
+|  [36]   | `get_exception_flow`         | "What can escape this method?" / "Where does this exception get caught?"                              |
+|  [37]   | `find_throw_sites`           | "Where is this exception type thrown?"                                                                |
+|  [38]   | `find_catch_blocks`          | "Who catches this?" / "What is swallowing exceptions?"                                                |
+|  [39]   | `find_large_classes`         | "Find classes that need splitting"                                                                    |
+|  [40]   | `find_god_objects`           | "Which classes are doing too much?"                                                                   |
+|  [41]   | `find_circular_dependencies` | "Are there circular dependencies?"                                                                    |
+|  [42]   | `check_architecture`         | "Is anything violating our layering?" / "Does Domain reference Infrastructure?"                       |
+|  [43]   | `get_project_health`         | "How is this project doing?" / "Top hotspots across all dimensions"                                   |
+|  [44]   | `get_source_generators`      | "What source generators are active?"                                                                  |
+|  [45]   | `get_generated_code`         | "Show generated code"                                                                                 |
+|  [46]   | `inspect_external_assembly`  | "What does this NuGet package expose?" / "Show me the API of X assembly"                              |
+|  [47]   | `peek_il`                    | "Show IL for this method" / "What does this external method do at bytecode level?"                    |
+|  [48]   | `list_solutions`             | "What solutions are loaded?"                                                                          |
+|  [49]   | `load_solution`              | "Load this .sln or .slnx at run time"                                                                 |
+|  [50]   | `unload_solution`            | "Free memory for this solution"                                                                       |
+|  [51]   | `set_active_solution`        | "Switch to project B"                                                                                 |
+|  [52]   | `rebuild_solution`           | "Reload the solution" / "Diagnostics are stale"                                                       |
+|  [53]   | `start_background_task`      | "Run a long rebuild without blocking"                                                                 |
+|  [54]   | `get_task_status`            | "Check on a queued background task"                                                                   |
+|  [55]   | `list_running_tasks`         | "Which background tasks are running?"                                                                 |
+|  [56]   | `analyze_data_flow`          | "Which variables are read or written here?"                                                           |
+|  [57]   | `analyze_control_flow`       | "Is this code reachable?"                                                                             |
+|  [58]   | `analyze_change_impact`      | "What breaks if I change this?"                                                                       |
+|  [59]   | `get_type_overview`          | "Give me everything about this type in one call"                                                      |
+|  [60]   | `analyze_method`             | "Show signature, callers, and outgoing calls"                                                         |
+|  [61]   | `get_method_source`          | "Show me this method's body" / "Give me the source of these members"                                  |
+|  [62]   | `get_overloads`              | "What overloads does this method have?"                                                               |
+|  [63]   | `get_extension_methods`      | "What can I call on this type?" / "Is there an extension for X?"                                      |
+|  [64]   | `get_instantiation_options`  | "How do I construct this?" / "Why can I not `new` this up?"                                           |
+|  [65]   | `get_operators`              | "What operators does this type define?"                                                               |
+|  [66]   | `get_call_graph`             | "Transitive callers or callees, depth-bounded"                                                        |
+|  [67]   | `get_file_overview`          | "What types are in this file?"                                                                        |
 
 ## [03]-[TOOL_REFERENCE]
 
@@ -177,6 +177,10 @@ Code generation runs through `apply_code_action`. Call `get_code_actions` to rea
 `get_diagnostics` defaults to `includeAnalyzers=false` and returns compiler diagnostics only. The workspace sets `AnalysisLevel` to `latest-all`, enforces code style in the build, and treats warnings as errors. The default call reproduces almost nothing of what fails a build here. Pass `includeAnalyzers=true` when the answer must match the build, and before calling `get_code_fixes` for an analyzer diagnostic.
 
 The server trusts every solution named on its command line for that session. The workspace starts the server with its solution, and `includeAnalyzers=true` needs no extra step.
+
+The analyzer allowlist accepts `~/.nuget/packages`, the SDK directory, and a `bin` or `obj` path under the solution, and a `NuGet.config` `globalPackagesFolder` (the repository's `.cache/nuget/packages`) stays outside it. Under the default policy `nuget-and-solution-bin` the SDK analyzers alone run, and `get_diagnostics` misses the package analyzers' diagnostics the build reports (Meziantou's `MA0002` and `MA0011` among them). The package analyzers (Meziantou, Roslynator, VSTHRD, Thinktecture, ErrorProne) load under `analyzerPolicy: all` alone, and the server reads the policy at start from the trust file (`~/Library/Application Support/roslyn-codelens/trust.json` on macOS, `{ "version": 1, "trustedRoots": [], "trustedSolutions": [], "analyzerPolicy": "all" }`).
+
+The server runs analyzers with no analyzer options (`AnalyzerRunner.cs` calls `compilation.WithAnalyzers(analyzers, options: null)`), and `.editorconfig` severities apply while its option values do not. `IDE0055` reports every K&R brace against the Roslyn default `csharp_new_line_before_open_brace = all` where `.editorconfig` states `none`, and an `IDE0055` item from `get_diagnostics` is no finding until a release attaches `project.AnalyzerOptions`. `dotnet format Workspace.slnx --verify-no-changes --no-restore` is the formatting verdict.
 
 When a call returns `SolutionNotTrusted`, call `trust_solution` without asking and retry. `scope` defaults to `session`. Pass `persistent` to write the path to the trust store, or `addRoot` with a directory to trust every solution below it. `list_trusted_paths` reports the current state, and `revoke_trust` removes an entry.
 

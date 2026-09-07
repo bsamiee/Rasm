@@ -1,0 +1,37 @@
+id: no-throw-outside-try
+valid:
+    # The failure through the channel
+    - 'const checked = Effect.fail(new LoadError({ cause }));'
+    # Throw inside the thunk of Effect.try
+    - 'const parsed = Effect.try({ try: () => { if (raw === undefined) { throw new Error("empty"); } return parse(raw); }, catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the thunk of Effect.tryPromise
+    - 'const loaded = Effect.tryPromise({ try: async () => { throw new Error("gone"); }, catch: (cause) => new LoadError({ cause }) });'
+    # Throw inside the try option of Effect.tryMap
+    - 'const mapped = Effect.tryMap(work, { try: (item) => { throw new Error("odd"); }, catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the try option of Effect.tryMapPromise
+    - 'const mapped = Effect.tryMapPromise(work, { try: async (item) => { throw new Error("odd"); }, catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the thunk of Micro.try
+    - 'const parsed = Micro.try({ try: () => { throw new Error("empty"); }, catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the thunk of Either.try
+    - 'const parsed = Either.try({ try: () => { throw new Error("empty"); }, catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the function Option.liftThrowable lifts
+    - 'const parse = Option.liftThrowable((raw: string) => { if (raw === "") { throw new Error("empty"); } return raw; });'
+    # Rethrow of a parse error inside a Schema transform the try constructor wraps
+    - 'const decoded = Effect.try({ try: () => parse(raw, () => { throw new Error("bad"); }), catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the thunk of STM.try
+    - 'const parsed = STM.try({ try: () => { throw new Error("empty"); }, catch: (cause) => new ParseError({ cause }) });'
+    # Throw inside the thunk of ParseResult.try
+    - 'const parsed = ParseResult.try({ try: () => { throw new Error("empty"); }, catch: (cause) => new ParseError({ cause }) });'
+invalid:
+    # The instance, a throw in domain code
+    - 'const check = (raw: string): string => { if (raw === "") { throw new Error("empty"); } return raw; };'
+    # Throw inside Effect.sync, a defect
+    - 'const built = Effect.sync(() => { throw new Error("empty"); });'
+    # Throw inside a generator body
+    - 'const loaded = Effect.gen(function* () { throw new Error("empty"); });'
+    # Throw inside a catch clause
+    - 'const parse = (raw: string): unknown => { try { return JSON.parse(raw); } catch (cause) { throw new ParseError({ cause }); } };'
+    # Throw of a tagged error, the channel still bypassed
+    - 'const check = (raw: string): string => { throw new LoadError({ cause: raw }); };'
+    # Throw inside a callback of a combinator outside the try constructors
+    - 'const mapped = Effect.map(work, (item) => { throw new Error("odd"); });'

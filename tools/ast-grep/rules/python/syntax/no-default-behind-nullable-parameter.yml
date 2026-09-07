@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-default-behind-nullable-parameter
+language: python
+severity: error
+rule:
+    any: # The parameter accepts None with a None default or through its annotation alone, the body's resolution proves it either way
+        - kind: typed_default_parameter
+          all:
+              - has: {field: name, pattern: $P}
+              - has: {field: value, kind: none}
+        - kind: typed_parameter
+          has: {kind: identifier, pattern: $P} # The name is the first child and carries no field
+        - kind: default_parameter # Untyped parameter with a None default
+          all:
+              - has: {field: name, pattern: $P}
+              - has: {field: value, kind: none}
+    inside:
+        kind: function_definition
+        stopBy: {matches: python-function-boundary} # The def that declares the parameter
+        has:
+            field: body
+            has:
+                stopBy: {matches: python-function-boundary} # Nested defs and lambdas own their own names
+                any: # The body resolves the parameter to a default, each spelling of the same resolution
+                    - pattern: $P if $P is not None else $D
+                    - pattern: $D if $P is None else $P
+                    - pattern: $P or $D
+                    # The statement form, the None branch assigns the default alone and no else branch computes from the value
+                    - kind: if_statement
+                      all:
+                          - has: {field: condition, pattern: $P is None}
+                          - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
+                          - not: {has: {field: alternative, kind: else_clause}}
+constraints:
+    D: {matches: python-signature-default} # Default the signature can state, a literal or a module-level name
+message: Parameter `$P` accepts None and the body resolves None to `$D`
+note: 'State the default in the signature, `<parameter>: <type> = <default>`, and drop the None arm'

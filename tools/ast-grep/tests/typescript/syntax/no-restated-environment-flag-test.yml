@@ -1,0 +1,57 @@
+id: no-restated-environment-flag
+valid:
+    # The command without the flag, the environment sets DOTNET_NOLOGO
+    - 'const pack = { command: `dotnet pack ${root} --configuration Release --output ${source}` };'
+    # Flag the environment leaves to the command
+    - "const build = 'dotnet build Workspace.slnx --no-restore';"
+    # The flag word in prose, no tool word before it
+    - "const advice = 'run with --nologo';"
+    # The flag under a tool the environment sets nothing for
+    - "const argv = ['nx', 'run', '--nologo'];"
+    # dotnet subcommand with another flag
+    - "const run = 'dotnet run --no-build';"
+    # The uv command without the interpreter or the cache flag
+    - 'const stage = `uv run --only-group eng python -m eng.scripts.stage ${library}`;'
+    # uv flag outside the family
+    - "const sync = 'uv sync --frozen';"
+    # The python command without the cache prefix option
+    - "const check = 'python -m eng.scripts.check';"
+    # The argument array without the flag
+    - "const argv = ['dotnet', 'build', root];"
+    # The cache flag under a tool the environment sets nothing for
+    - "const argv = ['pip', 'install', '--cache-dir', dir];"
+    # The -X option under a tool outside python
+    - "const argv = ['pytest', '-X', 'pycache_prefix=.cache'];"
+invalid:
+    # The instance, the nologo flag in the pack command template
+    - 'const pack = { command: `dotnet pack ${root} --configuration Release --output ${source} --nologo` };'
+    # The single-dash spelling in a plain string
+    - "const build = 'dotnet build Workspace.slnx -nologo';"
+    # The hyphenated spelling
+    - 'const test = `dotnet test --no-logo ${root}`;'
+    # The slash spelling of msbuild
+    - "const build = 'dotnet msbuild /nologo';"
+    # The camel case spelling, the switch is case-insensitive
+    - "const restore = 'dotnet restore -noLogo';"
+    # The flag as an element of the argument array
+    - "const argv = ['dotnet', 'build', root, '--nologo'];"
+    # The uv cache directory flag, UV_CACHE_DIR
+    - 'const run = `uv run --cache-dir ${dir} pytest`;'
+    # The uv interpreter flag, UV_PYTHON
+    - "const run = 'uv run --python 3.15 pytest';"
+    # The short interpreter flag
+    - "const run = 'uv run -p 3.15 pytest';"
+    # The python cache prefix option, PYTHONPYCACHEPREFIX
+    - "const check = 'python -X pycache_prefix=.cache -m eng';"
+    # The uv flag as an element of the argument array
+    - "const argv = ['uv', 'run', '--cache-dir', dir];"
+    # The python option as elements of the argument array
+    - "const argv = ['python', '-X', 'pycache_prefix=.cache'];"
+    # The python option in a template
+    - 'const check = `python -X pycache_prefix=${cache} -m eng`;'
+    # The tool word after a runner prefix in the argument array
+    - "const argv = ['mise', 'exec', '--', 'dotnet', 'build', '--nologo'];"
+    # The uv interpreter flag with its value after an equals sign in the argument array
+    - "const argv = ['uv', 'run', '--python=3.15', 'pytest'];"
+    # The uv cache flag with a template value after an equals sign in the argument array
+    - 'const argv = [''uv'', ''run'', `--cache-dir=${dir}`, ''pytest''];'

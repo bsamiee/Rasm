@@ -1,0 +1,930 @@
+id: no-relifted-option
+snapshots:
+  'const batch = held.match<Option<Batch>>({ some: (row) => some(decode(row)), none: () => none<Batch>() });':
+    labels:
+    - source: 'some: (row) => some(decode(row))'
+      style: primary
+      start: 42
+      end: 74
+    - source: some
+      style: secondary
+      start: 42
+      end: 46
+    - source: match
+      style: secondary
+      start: 19
+      end: 24
+    - source: held.match
+      style: secondary
+      start: 14
+      end: 24
+    - source: 'held.match<Option<Batch>>({ some: (row) => some(decode(row)), none: () => none<Batch>() })'
+      style: secondary
+      start: 14
+      end: 104
+    - source: '({ some: (row) => some(decode(row)), none: () => none<Batch>() })'
+      style: secondary
+      start: 39
+      end: 104
+    - source: '{ some: (row) => some(decode(row)), none: () => none<Batch>() }'
+      style: secondary
+      start: 40
+      end: 103
+    - source: match
+      style: secondary
+      start: 19
+      end: 24
+    - source: held.match
+      style: secondary
+      start: 14
+      end: 24
+    - source: 'held.match<Option<Batch>>({ some: (row) => some(decode(row)), none: () => none<Batch>() })'
+      style: secondary
+      start: 14
+      end: 104
+    - source: '({ some: (row) => some(decode(row)), none: () => none<Batch>() })'
+      style: secondary
+      start: 39
+      end: 104
+    - source: none
+      style: secondary
+      start: 76
+      end: 80
+    - source: () => none<Batch>()
+      style: secondary
+      start: 82
+      end: 101
+    - source: 'none: () => none<Batch>()'
+      style: secondary
+      start: 76
+      end: 101
+    - source: '{ some: (row) => some(decode(row)), none: () => none<Batch>() }'
+      style: secondary
+      start: 40
+      end: 103
+  'const directory = chosen.match<string>({ some: (directory: string) => directory, none: () => derived });':
+    labels:
+    - source: 'some: (directory: string) => directory'
+      style: primary
+      start: 41
+      end: 79
+    - source: some
+      style: secondary
+      start: 41
+      end: 45
+    - source: match
+      style: secondary
+      start: 25
+      end: 30
+    - source: chosen.match
+      style: secondary
+      start: 18
+      end: 30
+    - source: 'chosen.match<string>({ some: (directory: string) => directory, none: () => derived })'
+      style: secondary
+      start: 18
+      end: 103
+    - source: '({ some: (directory: string) => directory, none: () => derived })'
+      style: secondary
+      start: 38
+      end: 103
+    - source: '{ some: (directory: string) => directory, none: () => derived }'
+      style: secondary
+      start: 39
+      end: 102
+    - source: '(directory: string) => directory'
+      style: secondary
+      start: 47
+      end: 79
+  'const field = isString(fields[name]).match<string>({ some: (value) => value, none: () => '''' });':
+    labels:
+    - source: 'some: (value) => value'
+      style: primary
+      start: 53
+      end: 75
+    - source: some
+      style: secondary
+      start: 53
+      end: 57
+    - source: match
+      style: secondary
+      start: 37
+      end: 42
+    - source: isString(fields[name]).match
+      style: secondary
+      start: 14
+      end: 42
+    - source: 'isString(fields[name]).match<string>({ some: (value) => value, none: () => '''' })'
+      style: secondary
+      start: 14
+      end: 94
+    - source: '({ some: (value) => value, none: () => '''' })'
+      style: secondary
+      start: 50
+      end: 94
+    - source: '{ some: (value) => value, none: () => '''' }'
+      style: secondary
+      start: 51
+      end: 93
+    - source: (value) => value
+      style: secondary
+      start: 59
+      end: 75
+  'const keyed = decoded.match<readonly Keyed[]>({ some: (row) => [{ key, row }], none: () => [] });':
+    labels:
+    - source: 'some: (row) => [{ key, row }]'
+      style: primary
+      start: 48
+      end: 77
+    - source: some
+      style: secondary
+      start: 48
+      end: 52
+    - source: match
+      style: secondary
+      start: 22
+      end: 27
+    - source: decoded.match
+      style: secondary
+      start: 14
+      end: 27
+    - source: 'decoded.match<readonly Keyed[]>({ some: (row) => [{ key, row }], none: () => [] })'
+      style: secondary
+      start: 14
+      end: 96
+    - source: '({ some: (row) => [{ key, row }], none: () => [] })'
+      style: secondary
+      start: 45
+      end: 96
+    - source: '{ some: (row) => [{ key, row }], none: () => [] }'
+      style: secondary
+      start: 46
+      end: 95
+    - source: '{ key, row }'
+      style: secondary
+      start: 64
+      end: 76
+    - source: '[{ key, row }]'
+      style: secondary
+      start: 63
+      end: 77
+    - source: (row) => [{ key, row }]
+      style: secondary
+      start: 54
+      end: 77
+    - source: match
+      style: secondary
+      start: 22
+      end: 27
+    - source: decoded.match
+      style: secondary
+      start: 14
+      end: 27
+    - source: 'decoded.match<readonly Keyed[]>({ some: (row) => [{ key, row }], none: () => [] })'
+      style: secondary
+      start: 14
+      end: 96
+    - source: '({ some: (row) => [{ key, row }], none: () => [] })'
+      style: secondary
+      start: 45
+      end: 96
+    - source: none
+      style: secondary
+      start: 79
+      end: 83
+    - source: () => []
+      style: secondary
+      start: 85
+      end: 93
+    - source: 'none: () => []'
+      style: secondary
+      start: 79
+      end: 93
+    - source: '{ some: (row) => [{ key, row }], none: () => [] }'
+      style: secondary
+      start: 46
+      end: 95
+  'const lines = fromNullable(hit.row.context).match<readonly string[]>({ some: (line) => [line(hit.leaf)], none: () => [] });':
+    labels:
+    - source: 'some: (line) => [line(hit.leaf)]'
+      style: primary
+      start: 71
+      end: 103
+    - source: some
+      style: secondary
+      start: 71
+      end: 75
+    - source: match
+      style: secondary
+      start: 44
+      end: 49
+    - source: fromNullable(hit.row.context).match
+      style: secondary
+      start: 14
+      end: 49
+    - source: 'fromNullable(hit.row.context).match<readonly string[]>({ some: (line) => [line(hit.leaf)], none: () => [] })'
+      style: secondary
+      start: 14
+      end: 122
+    - source: '({ some: (line) => [line(hit.leaf)], none: () => [] })'
+      style: secondary
+      start: 68
+      end: 122
+    - source: '{ some: (line) => [line(hit.leaf)], none: () => [] }'
+      style: secondary
+      start: 69
+      end: 121
+    - source: line(hit.leaf)
+      style: secondary
+      start: 88
+      end: 102
+    - source: '[line(hit.leaf)]'
+      style: secondary
+      start: 87
+      end: 103
+    - source: (line) => [line(hit.leaf)]
+      style: secondary
+      start: 77
+      end: 103
+    - source: match
+      style: secondary
+      start: 44
+      end: 49
+    - source: fromNullable(hit.row.context).match
+      style: secondary
+      start: 14
+      end: 49
+    - source: 'fromNullable(hit.row.context).match<readonly string[]>({ some: (line) => [line(hit.leaf)], none: () => [] })'
+      style: secondary
+      start: 14
+      end: 122
+    - source: '({ some: (line) => [line(hit.leaf)], none: () => [] })'
+      style: secondary
+      start: 68
+      end: 122
+    - source: none
+      style: secondary
+      start: 105
+      end: 109
+    - source: () => []
+      style: secondary
+      start: 111
+      end: 119
+    - source: 'none: () => []'
+      style: secondary
+      start: 105
+      end: 119
+    - source: '{ some: (line) => [line(hit.leaf)], none: () => [] }'
+      style: secondary
+      start: 69
+      end: 121
+  ? |
+    const map = (f) => {
+        const inner = (option) => option.match({ some: (value) => some(f(value)), none });
+        return inner;
+    };
+  : labels:
+    - source: 'some: (value) => some(f(value))'
+      style: primary
+      start: 66
+      end: 97
+    - source: some
+      style: secondary
+      start: 66
+      end: 70
+    - source: match
+      style: secondary
+      start: 58
+      end: 63
+    - source: option.match
+      style: secondary
+      start: 51
+      end: 63
+    - source: 'option.match({ some: (value) => some(f(value)), none })'
+      style: secondary
+      start: 51
+      end: 106
+    - source: '({ some: (value) => some(f(value)), none })'
+      style: secondary
+      start: 63
+      end: 106
+    - source: '{ some: (value) => some(f(value)), none }'
+      style: secondary
+      start: 64
+      end: 105
+    - source: match
+      style: secondary
+      start: 58
+      end: 63
+    - source: option.match
+      style: secondary
+      start: 51
+      end: 63
+    - source: 'option.match({ some: (value) => some(f(value)), none })'
+      style: secondary
+      start: 51
+      end: 106
+    - source: '({ some: (value) => some(f(value)), none })'
+      style: secondary
+      start: 63
+      end: 106
+    - source: none
+      style: secondary
+      start: 99
+      end: 103
+    - source: '{ some: (value) => some(f(value)), none }'
+      style: secondary
+      start: 64
+      end: 105
+  ? 'const matches = words.flatMap((word) => found(word).match<readonly Match[]>({ some: (match: Match) => [match], none: () => [] }));'
+  : labels:
+    - source: 'some: (match: Match) => [match]'
+      style: primary
+      start: 78
+      end: 109
+    - source: some
+      style: secondary
+      start: 78
+      end: 82
+    - source: match
+      style: secondary
+      start: 52
+      end: 57
+    - source: found(word).match
+      style: secondary
+      start: 40
+      end: 57
+    - source: 'found(word).match<readonly Match[]>({ some: (match: Match) => [match], none: () => [] })'
+      style: secondary
+      start: 40
+      end: 128
+    - source: '({ some: (match: Match) => [match], none: () => [] })'
+      style: secondary
+      start: 75
+      end: 128
+    - source: '{ some: (match: Match) => [match], none: () => [] }'
+      style: secondary
+      start: 76
+      end: 127
+    - source: match
+      style: secondary
+      start: 103
+      end: 108
+    - source: '[match]'
+      style: secondary
+      start: 102
+      end: 109
+    - source: '(match: Match) => [match]'
+      style: secondary
+      start: 84
+      end: 109
+    - source: match
+      style: secondary
+      start: 52
+      end: 57
+    - source: found(word).match
+      style: secondary
+      start: 40
+      end: 57
+    - source: 'found(word).match<readonly Match[]>({ some: (match: Match) => [match], none: () => [] })'
+      style: secondary
+      start: 40
+      end: 128
+    - source: '({ some: (match: Match) => [match], none: () => [] })'
+      style: secondary
+      start: 75
+      end: 128
+    - source: none
+      style: secondary
+      start: 111
+      end: 115
+    - source: () => []
+      style: secondary
+      start: 117
+      end: 125
+    - source: 'none: () => []'
+      style: secondary
+      start: 111
+      end: 125
+    - source: '{ some: (match: Match) => [match], none: () => [] }'
+      style: secondary
+      start: 76
+      end: 127
+  ? 'const once = serverRow(tool).match<Option<Once>>({ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() });'
+  : labels:
+    - source: 'some: (row) => some({ key: row.skill, line: row.line })'
+      style: primary
+      start: 51
+      end: 106
+    - source: some
+      style: secondary
+      start: 51
+      end: 55
+    - source: match
+      style: secondary
+      start: 29
+      end: 34
+    - source: serverRow(tool).match
+      style: secondary
+      start: 13
+      end: 34
+    - source: 'serverRow(tool).match<Option<Once>>({ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() })'
+      style: secondary
+      start: 13
+      end: 129
+    - source: '({ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() })'
+      style: secondary
+      start: 48
+      end: 129
+    - source: '{ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() }'
+      style: secondary
+      start: 49
+      end: 128
+    - source: match
+      style: secondary
+      start: 29
+      end: 34
+    - source: serverRow(tool).match
+      style: secondary
+      start: 13
+      end: 34
+    - source: 'serverRow(tool).match<Option<Once>>({ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() })'
+      style: secondary
+      start: 13
+      end: 129
+    - source: '({ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() })'
+      style: secondary
+      start: 48
+      end: 129
+    - source: none
+      style: secondary
+      start: 108
+      end: 112
+    - source: () => none()
+      style: secondary
+      start: 114
+      end: 126
+    - source: 'none: () => none()'
+      style: secondary
+      start: 108
+      end: 126
+    - source: '{ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() }'
+      style: secondary
+      start: 49
+      end: 128
+  'const operand = fromBoolean(hit >= 0).match<Option<Word>>({ some: () => find(argv), none: () => none() });':
+    labels:
+    - source: 'some: () => find(argv)'
+      style: primary
+      start: 60
+      end: 82
+    - source: some
+      style: secondary
+      start: 60
+      end: 64
+    - source: match
+      style: secondary
+      start: 38
+      end: 43
+    - source: fromBoolean(hit >= 0).match
+      style: secondary
+      start: 16
+      end: 43
+    - source: 'fromBoolean(hit >= 0).match<Option<Word>>({ some: () => find(argv), none: () => none() })'
+      style: secondary
+      start: 16
+      end: 105
+    - source: '({ some: () => find(argv), none: () => none() })'
+      style: secondary
+      start: 57
+      end: 105
+    - source: '{ some: () => find(argv), none: () => none() }'
+      style: secondary
+      start: 58
+      end: 104
+    - source: match
+      style: secondary
+      start: 38
+      end: 43
+    - source: fromBoolean(hit >= 0).match
+      style: secondary
+      start: 16
+      end: 43
+    - source: 'fromBoolean(hit >= 0).match<Option<Word>>({ some: () => find(argv), none: () => none() })'
+      style: secondary
+      start: 16
+      end: 105
+    - source: '({ some: () => find(argv), none: () => none() })'
+      style: secondary
+      start: 57
+      end: 105
+    - source: none
+      style: secondary
+      start: 84
+      end: 88
+    - source: () => none()
+      style: secondary
+      start: 90
+      end: 102
+    - source: 'none: () => none()'
+      style: secondary
+      start: 84
+      end: 102
+    - source: '{ some: () => find(argv), none: () => none() }'
+      style: secondary
+      start: 58
+      end: 104
+  ? 'const row = fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: () => none() });'
+  : labels:
+    - source: 'some: (name) => fromNullable(TOOLS[name])'
+      style: primary
+      start: 68
+      end: 109
+    - source: some
+      style: secondary
+      start: 68
+      end: 72
+    - source: match
+      style: secondary
+      start: 43
+      end: 48
+    - source: fromPredicate(isToolKey)(tool).match
+      style: secondary
+      start: 12
+      end: 48
+    - source: 'fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: () => none() })'
+      style: secondary
+      start: 12
+      end: 132
+    - source: '({ some: (name) => fromNullable(TOOLS[name]), none: () => none() })'
+      style: secondary
+      start: 65
+      end: 132
+    - source: '{ some: (name) => fromNullable(TOOLS[name]), none: () => none() }'
+      style: secondary
+      start: 66
+      end: 131
+    - source: match
+      style: secondary
+      start: 43
+      end: 48
+    - source: fromPredicate(isToolKey)(tool).match
+      style: secondary
+      start: 12
+      end: 48
+    - source: 'fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: () => none() })'
+      style: secondary
+      start: 12
+      end: 132
+    - source: '({ some: (name) => fromNullable(TOOLS[name]), none: () => none() })'
+      style: secondary
+      start: 65
+      end: 132
+    - source: none
+      style: secondary
+      start: 111
+      end: 115
+    - source: () => none()
+      style: secondary
+      start: 117
+      end: 129
+    - source: 'none: () => none()'
+      style: secondary
+      start: 111
+      end: 129
+    - source: '{ some: (name) => fromNullable(TOOLS[name]), none: () => none() }'
+      style: secondary
+      start: 66
+      end: 131
+  'const row = fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: none });':
+    labels:
+    - source: 'some: (name) => fromNullable(TOOLS[name])'
+      style: primary
+      start: 68
+      end: 109
+    - source: some
+      style: secondary
+      start: 68
+      end: 72
+    - source: match
+      style: secondary
+      start: 43
+      end: 48
+    - source: fromPredicate(isToolKey)(tool).match
+      style: secondary
+      start: 12
+      end: 48
+    - source: 'fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: none })'
+      style: secondary
+      start: 12
+      end: 124
+    - source: '({ some: (name) => fromNullable(TOOLS[name]), none: none })'
+      style: secondary
+      start: 65
+      end: 124
+    - source: '{ some: (name) => fromNullable(TOOLS[name]), none: none }'
+      style: secondary
+      start: 66
+      end: 123
+    - source: match
+      style: secondary
+      start: 43
+      end: 48
+    - source: fromPredicate(isToolKey)(tool).match
+      style: secondary
+      start: 12
+      end: 48
+    - source: 'fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: none })'
+      style: secondary
+      start: 12
+      end: 124
+    - source: '({ some: (name) => fromNullable(TOOLS[name]), none: none })'
+      style: secondary
+      start: 65
+      end: 124
+    - source: none
+      style: secondary
+      start: 111
+      end: 115
+    - source: none
+      style: secondary
+      start: 117
+      end: 121
+    - source: 'none: none'
+      style: secondary
+      start: 111
+      end: 121
+    - source: '{ some: (name) => fromNullable(TOOLS[name]), none: none }'
+      style: secondary
+      start: 66
+      end: 123
+  'const row = server(tool).match({ some: (name) => fromNullable(SERVERS[name]), none: () => none() });':
+    labels:
+    - source: 'some: (name) => fromNullable(SERVERS[name])'
+      style: primary
+      start: 33
+      end: 76
+    - source: some
+      style: secondary
+      start: 33
+      end: 37
+    - source: match
+      style: secondary
+      start: 25
+      end: 30
+    - source: server(tool).match
+      style: secondary
+      start: 12
+      end: 30
+    - source: 'server(tool).match({ some: (name) => fromNullable(SERVERS[name]), none: () => none() })'
+      style: secondary
+      start: 12
+      end: 99
+    - source: '({ some: (name) => fromNullable(SERVERS[name]), none: () => none() })'
+      style: secondary
+      start: 30
+      end: 99
+    - source: '{ some: (name) => fromNullable(SERVERS[name]), none: () => none() }'
+      style: secondary
+      start: 31
+      end: 98
+    - source: match
+      style: secondary
+      start: 25
+      end: 30
+    - source: server(tool).match
+      style: secondary
+      start: 12
+      end: 30
+    - source: 'server(tool).match({ some: (name) => fromNullable(SERVERS[name]), none: () => none() })'
+      style: secondary
+      start: 12
+      end: 99
+    - source: '({ some: (name) => fromNullable(SERVERS[name]), none: () => none() })'
+      style: secondary
+      start: 30
+      end: 99
+    - source: none
+      style: secondary
+      start: 78
+      end: 82
+    - source: () => none()
+      style: secondary
+      start: 84
+      end: 96
+    - source: 'none: () => none()'
+      style: secondary
+      start: 78
+      end: 96
+    - source: '{ some: (name) => fromNullable(SERVERS[name]), none: () => none() }'
+      style: secondary
+      start: 31
+      end: 98
+  ? 'const rows = values.flatMap((value) => decodeFinding(value).match<readonly Finding[]>({ some: (row) => [row], none: () => [] }));'
+  : labels:
+    - source: 'some: (row) => [row]'
+      style: primary
+      start: 88
+      end: 108
+    - source: some
+      style: secondary
+      start: 88
+      end: 92
+    - source: match
+      style: secondary
+      start: 60
+      end: 65
+    - source: decodeFinding(value).match
+      style: secondary
+      start: 39
+      end: 65
+    - source: 'decodeFinding(value).match<readonly Finding[]>({ some: (row) => [row], none: () => [] })'
+      style: secondary
+      start: 39
+      end: 127
+    - source: '({ some: (row) => [row], none: () => [] })'
+      style: secondary
+      start: 85
+      end: 127
+    - source: '{ some: (row) => [row], none: () => [] }'
+      style: secondary
+      start: 86
+      end: 126
+    - source: row
+      style: secondary
+      start: 104
+      end: 107
+    - source: '[row]'
+      style: secondary
+      start: 103
+      end: 108
+    - source: (row) => [row]
+      style: secondary
+      start: 94
+      end: 108
+    - source: match
+      style: secondary
+      start: 60
+      end: 65
+    - source: decodeFinding(value).match
+      style: secondary
+      start: 39
+      end: 65
+    - source: 'decodeFinding(value).match<readonly Finding[]>({ some: (row) => [row], none: () => [] })'
+      style: secondary
+      start: 39
+      end: 127
+    - source: '({ some: (row) => [row], none: () => [] })'
+      style: secondary
+      start: 85
+      end: 127
+    - source: none
+      style: secondary
+      start: 110
+      end: 114
+    - source: () => []
+      style: secondary
+      start: 116
+      end: 124
+    - source: 'none: () => []'
+      style: secondary
+      start: 110
+      end: 124
+    - source: '{ some: (row) => [row], none: () => [] }'
+      style: secondary
+      start: 86
+      end: 126
+  ? 'const substitution = fromPredicate(isString)(pair.from).match<Option<Substitution>>({ some: (from) => some({ pattern: pair.to, value: from }), none });'
+  : labels:
+    - source: 'some: (from) => some({ pattern: pair.to, value: from })'
+      style: primary
+      start: 86
+      end: 141
+    - source: some
+      style: secondary
+      start: 86
+      end: 90
+    - source: match
+      style: secondary
+      start: 56
+      end: 61
+    - source: fromPredicate(isString)(pair.from).match
+      style: secondary
+      start: 21
+      end: 61
+    - source: 'fromPredicate(isString)(pair.from).match<Option<Substitution>>({ some: (from) => some({ pattern: pair.to, value: from }), none })'
+      style: secondary
+      start: 21
+      end: 150
+    - source: '({ some: (from) => some({ pattern: pair.to, value: from }), none })'
+      style: secondary
+      start: 83
+      end: 150
+    - source: '{ some: (from) => some({ pattern: pair.to, value: from }), none }'
+      style: secondary
+      start: 84
+      end: 149
+    - source: match
+      style: secondary
+      start: 56
+      end: 61
+    - source: fromPredicate(isString)(pair.from).match
+      style: secondary
+      start: 21
+      end: 61
+    - source: 'fromPredicate(isString)(pair.from).match<Option<Substitution>>({ some: (from) => some({ pattern: pair.to, value: from }), none })'
+      style: secondary
+      start: 21
+      end: 150
+    - source: '({ some: (from) => some({ pattern: pair.to, value: from }), none })'
+      style: secondary
+      start: 83
+      end: 150
+    - source: none
+      style: secondary
+      start: 143
+      end: 147
+    - source: '{ some: (from) => some({ pattern: pair.to, value: from }), none }'
+      style: secondary
+      start: 84
+      end: 149
+  ? |
+    const toArray = (option) => {
+        function inner(held) {
+            return held.match({ some: (value) => [value], none: () => [] });
+        }
+        return inner(option);
+    };
+  : labels:
+    - source: 'some: (value) => [value]'
+      style: primary
+      start: 85
+      end: 109
+    - source: some
+      style: secondary
+      start: 85
+      end: 89
+    - source: match
+      style: secondary
+      start: 77
+      end: 82
+    - source: held.match
+      style: secondary
+      start: 72
+      end: 82
+    - source: 'held.match({ some: (value) => [value], none: () => [] })'
+      style: secondary
+      start: 72
+      end: 128
+    - source: '({ some: (value) => [value], none: () => [] })'
+      style: secondary
+      start: 82
+      end: 128
+    - source: '{ some: (value) => [value], none: () => [] }'
+      style: secondary
+      start: 83
+      end: 127
+    - source: value
+      style: secondary
+      start: 103
+      end: 108
+    - source: '[value]'
+      style: secondary
+      start: 102
+      end: 109
+    - source: (value) => [value]
+      style: secondary
+      start: 91
+      end: 109
+    - source: match
+      style: secondary
+      start: 77
+      end: 82
+    - source: held.match
+      style: secondary
+      start: 72
+      end: 82
+    - source: 'held.match({ some: (value) => [value], none: () => [] })'
+      style: secondary
+      start: 72
+      end: 128
+    - source: '({ some: (value) => [value], none: () => [] })'
+      style: secondary
+      start: 82
+      end: 128
+    - source: none
+      style: secondary
+      start: 111
+      end: 115
+    - source: () => []
+      style: secondary
+      start: 117
+      end: 125
+    - source: 'none: () => []'
+      style: secondary
+      start: 111
+      end: 125
+    - source: '{ some: (value) => [value], none: () => [] }'
+      style: secondary
+      start: 83
+      end: 127

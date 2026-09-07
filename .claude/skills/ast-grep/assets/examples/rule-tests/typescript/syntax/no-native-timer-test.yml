@@ -1,0 +1,29 @@
+id: no-native-timer
+valid:
+    # The sleep
+    - "const waited = Effect.sleep('1 second');"
+    # The repeat on a schedule
+    - "const polled = Effect.repeat(poll, Schedule.spaced('1 second'));"
+    # The yield
+    - 'const yielded = Effect.yieldNow();'
+    # Member named like the timer on another object
+    - 'const handle = scheduler.setTimeout(tick, 1000);'
+    # The timer name as a value, no call
+    - 'const schedule = setTimeout;'
+invalid:
+    # The instance, a timeout
+    - 'const handle = setTimeout(tick, 1000);'
+    # Interval
+    - 'const handle = setInterval(tick, 1000);'
+    # Immediate
+    - 'const handle = setImmediate(tick);'
+    # Microtask
+    - 'queueMicrotask(tick);'
+    # Cleared timeout
+    - 'clearTimeout(handle);'
+    # Cleared interval
+    - 'clearInterval(handle);'
+    # Cleared immediate
+    - 'clearImmediate(handle);'
+    # Timeout through globalThis
+    - 'const handle = globalThis.setTimeout(tick, 1000);'

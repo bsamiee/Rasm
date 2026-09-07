@@ -44,9 +44,9 @@ async def test_async_stub_is_awaitable_and_records(monkeypatch: pytest.MonkeyPat
 async def test_autojump_backend_collapses_virtual_time() -> None:
     """Hour-long virtual sleeps and a deadline finish within 5 wall-clock seconds under the autojumping clock."""
     start = time.perf_counter()
-    await anyio.sleep(3600)
+    await anyio.sleep(3600)  # ast-grep-ignore: no-fixed-sleep, the virtual clock the sleep advances is the subject
     with anyio.move_on_after(300) as scope:
-        await anyio.sleep(600)
+        await anyio.sleep(600)  # ast-grep-ignore: no-fixed-sleep, the virtual deadline the sleep crosses is the subject
     assert scope.cancelled_caught, "the virtual deadline never fired"
     assert time.perf_counter() - start < 5.0, "virtual-time advancement exceeded the wall-time limit"
 
@@ -94,11 +94,12 @@ def test_variant_writer_writes_raw_encodes_objects_and_skips_absent(tmp_path: Pa
 def test_ndjson_decoder_decodes_every_row_and_checks_the_exact_count() -> None:
     """Multiline decoders preserve row order, check the count, and reject ``one()`` for many rows."""
     stream: NdjsonOracle[dict[str, int]] = NdjsonOracle(msgspec.json.Decoder(dict[str, int]), expect_lines=2)
-    assert stream.rows(b'{"a":1}\n{"a":2}\n') == ({"a": 1}, {"a": 2})
+    rows = b'{"a":1}\n{"a":2}\n'
+    assert stream.rows(rows) == ({"a": 1}, {"a": 2})
     with pytest.raises(AssertionError, match="expected exactly 2"):
         stream.rows(b'{"a":1}\n')
     with pytest.raises(AssertionError, match="single-write"):
-        stream.one(b'{"a":1}\n{"a":2}\n')
+        stream.one(rows)
 
 
 def test_ndjson_one_write_contract_fails_on_double_write(capsys: pytest.CaptureFixture[str]) -> None:

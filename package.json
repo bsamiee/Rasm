@@ -132,6 +132,7 @@
         "@perspective-dev/viewer": "catalog:",
         "@perspective-dev/viewer-charts": "catalog:",
         "@perspective-dev/viewer-datagrid": "catalog:",
+        "@playwright/mcp": "catalog:",
         "@pulumi/aws": "catalog:",
         "@pulumi/awsx": "catalog:",
         "@pulumi/cloudflare": "catalog:",
@@ -210,6 +211,7 @@
         "elkjs": "catalog:",
         "fast-xml-parser": "catalog:",
         "hash-wasm": "catalog:",
+        "hostinger-api-mcp": "catalog:",
         "hucre": "catalog:",
         "idb-keyval": "catalog:",
         "isomorphic-dompurify": "catalog:",
@@ -323,7 +325,8 @@
                 "executor": "nx:run-commands",
                 "cache": true,
                 "dependsOn": [
-                    "grammar"
+                    "grammar",
+                    "rules"
                 ],
                 "options": {
                     "commands": [
@@ -333,11 +336,15 @@
                             "forwardAllArgs": false
                         },
                         {
+                            "command": "git ls-files -z -- '*.sh' | xargs -0 shellcheck",
+                            "forwardAllArgs": false
+                        },
+                        {
                             "command": "ast-grep test --include-off",
                             "forwardAllArgs": false
                         },
                         {
-                            "command": "ast-grep scan *.ts *.props *.targets *.slnx NuGet.config infra tools",
+                            "command": "ast-grep scan --no-ignore hidden *.ts *.props *.targets *.slnx NuGet.config nx.json package.json .claude/settings.json .claude/skills/ast-grep/scripts .github infra tools",
                             "forwardAllArgs": false
                         }
                     ],
@@ -349,17 +356,27 @@
                     "{workspaceRoot}/.github/**/*",
                     "{workspaceRoot}/.vscode/**/*",
                     "{workspaceRoot}/infra/**/*",
-                    "{workspaceRoot}/tools/**/*"
+                    "{workspaceRoot}/tools/**/*",
+                    "{workspaceRoot}/.claude/settings.json",
+                    "{workspaceRoot}/.claude/skills/ast-grep/scripts/**/*"
                 ]
             },
             "format": {
-                "command": "biome format --write *.json *.ts .mcp.json .vscode infra tools",
+                "executor": "nx:run-commands",
                 "cache": true,
+                "options": {
+                    "commands": [
+                        "biome format --write *.json *.ts .mcp.json .vscode infra tools",
+                        "git ls-files -z -- '*.sh' | xargs -0 shfmt -w"
+                    ],
+                    "parallel": false
+                },
                 "inputs": [
                     "{workspaceRoot}/*",
                     "{workspaceRoot}/.vscode/**/*",
                     "{workspaceRoot}/infra/**/*",
-                    "{workspaceRoot}/tools/**/*"
+                    "{workspaceRoot}/tools/**/*",
+                    "{workspaceRoot}/.claude/skills/ast-grep/scripts/**/*"
                 ]
             },
             "rewrite": {
@@ -426,6 +443,94 @@
                 "command": "act push --container-daemon-socket unix:///var/run/docker.sock -P ubuntu-24.04=ghcr.io/catthehacker/ubuntu:full-24.04 -P ubuntu-24.04-arm=ghcr.io/catthehacker/ubuntu:full-24.04 --action-cache-path .cache/act/actions --cache-server-path .cache/act/cache --artifact-server-path .cache/act/artifacts",
                 "cache": false,
                 "parallelism": false
+            },
+            "harness": {
+                "command": "uv run --only-group eng python -m eng.scripts.harness",
+                "cache": false,
+                "parallelism": false,
+                "dependsOn": [
+                    {
+                        "projects": [
+                            "function-hooks"
+                        ],
+                        "target": "lint"
+                    },
+                    {
+                        "projects": [
+                            "function-hooks"
+                        ],
+                        "target": "format"
+                    },
+                    {
+                        "projects": [
+                            "function-hooks"
+                        ],
+                        "target": "test"
+                    }
+                ]
+            },
+            "rules": {
+                "executor": "nx:run-commands",
+                "cache": true,
+                "dependsOn": [
+                    "grammar"
+                ],
+                "inputs": [
+                    "{workspaceRoot}/tools/ast-grep/**/*",
+                    "{workspaceRoot}/sgconfig.yml",
+                    "{workspaceRoot}/.claude/skills/ast-grep/scripts/rule-checks.sh",
+                    "{workspaceRoot}/.claude/plugins/**/*",
+                    "{workspaceRoot}/.cache/ast-grep/xml.so",
+                    {
+                        "runtime": "ast-grep --version"
+                    },
+                    {
+                        "runtime": "yq --version"
+                    },
+                    {
+                        "runtime": "jq --version"
+                    }
+                ],
+                "options": {
+                    "commands": [
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate py",
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate sh",
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml",
+                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"
+                    ],
+                    "parallel": true
+                },
+                "configurations": {
+                    "ts": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate ts"
+                        ]
+                    },
+                    "py": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate py"
+                        ]
+                    },
+                    "sh": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate sh"
+                        ]
+                    },
+                    "yml": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml"
+                        ]
+                    },
+                    "csproj": {
+                        "commands": [
+                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"
+                        ]
+                    }
+                },
+                "metadata": {
+                    "description": "Mutation gate over every rule family, or one by extension: tests, pairing, width, arms, parse"
+                }
             }
         }
     }

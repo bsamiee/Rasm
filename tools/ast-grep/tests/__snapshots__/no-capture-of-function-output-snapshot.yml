@@ -1,0 +1,700 @@
+id: no-capture-of-function-output
+snapshots:
+  ? |
+    each() {
+        for item in "$@"; do
+            printf '%s\n' "$item"
+        done
+    }
+    x=$(each a b)
+  : labels:
+    - source: |-
+        each() {
+            for item in "$@"; do
+                printf '%s\n' "$item"
+            done
+        }
+      style: primary
+      start: 0
+      end: 74
+    - source: each
+      style: secondary
+      start: 0
+      end: 4
+    - source: printf
+      style: secondary
+      start: 42
+      end: 48
+    - source: printf '%s\n' "$item"
+      style: secondary
+      start: 42
+      end: 63
+    - source: printf '%s\n' "$item"
+      style: secondary
+      start: 42
+      end: 63
+    - source: each
+      style: secondary
+      start: 79
+      end: 83
+    - source: each
+      style: secondary
+      start: 79
+      end: 83
+    - source: each a b
+      style: secondary
+      start: 79
+      end: 87
+    - source: $(each a b)
+      style: secondary
+      start: 77
+      end: 88
+    - source: $(each a b)
+      style: secondary
+      start: 77
+      end: 88
+  ? |
+    hits_of() {
+        echo "$id"
+    }
+    while read -r l; do :; done < <(hits_of "$root")
+  : labels:
+    - source: |-
+        hits_of() {
+            echo "$id"
+        }
+      style: primary
+      start: 0
+      end: 28
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: echo
+      style: secondary
+      start: 16
+      end: 20
+    - source: echo "$id"
+      style: secondary
+      start: 16
+      end: 26
+    - source: echo "$id"
+      style: secondary
+      start: 16
+      end: 26
+    - source: hits_of
+      style: secondary
+      start: 61
+      end: 68
+    - source: hits_of
+      style: secondary
+      start: 61
+      end: 68
+    - source: hits_of "$root"
+      style: secondary
+      start: 61
+      end: 76
+    - source: <(hits_of "$root")
+      style: secondary
+      start: 59
+      end: 77
+    - source: <(hits_of "$root")
+      style: secondary
+      start: 59
+      end: 77
+  ? |
+    hits_of() {
+        if ((n)); then echo "$id"; fi
+    }
+    mapfile -t out < <(hits_of)
+  : labels:
+    - source: |-
+        hits_of() {
+            if ((n)); then echo "$id"; fi
+        }
+      style: primary
+      start: 0
+      end: 47
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: echo
+      style: secondary
+      start: 31
+      end: 35
+    - source: echo "$id"
+      style: secondary
+      start: 31
+      end: 41
+    - source: echo "$id"
+      style: secondary
+      start: 31
+      end: 41
+    - source: hits_of
+      style: secondary
+      start: 67
+      end: 74
+    - source: hits_of
+      style: secondary
+      start: 67
+      end: 74
+    - source: hits_of
+      style: secondary
+      start: 67
+      end: 74
+    - source: <(hits_of)
+      style: secondary
+      start: 65
+      end: 75
+    - source: <(hits_of)
+      style: secondary
+      start: 65
+      end: 75
+  ? |
+    hits_of() {
+        printf '%s %s\n' "$id" -v
+    }
+    out=$(hits_of "$root")
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s %s\n' "$id" -v
+        }
+      style: primary
+      start: 0
+      end: 43
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s %s\n' "$id" -v
+      style: secondary
+      start: 16
+      end: 41
+    - source: printf '%s %s\n' "$id" -v
+      style: secondary
+      start: 16
+      end: 41
+    - source: hits_of
+      style: secondary
+      start: 50
+      end: 57
+    - source: hits_of
+      style: secondary
+      start: 50
+      end: 57
+    - source: hits_of "$root"
+      style: secondary
+      start: 50
+      end: 65
+    - source: $(hits_of "$root")
+      style: secondary
+      start: 48
+      end: 66
+    - source: $(hits_of "$root")
+      style: secondary
+      start: 48
+      end: 66
+  ? |
+    hits_of() {
+        printf '%s\n' "$id"
+    }
+    hits_of "$root" 2>/dev/null | jq .
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id"
+        }
+      style: primary
+      start: 0
+      end: 37
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 38
+      end: 45
+    - source: hits_of
+      style: secondary
+      start: 38
+      end: 45
+    - source: hits_of "$root"
+      style: secondary
+      start: 38
+      end: 53
+    - source: hits_of "$root" 2>/dev/null
+      style: secondary
+      start: 38
+      end: 65
+    - source: hits_of "$root" 2>/dev/null | jq .
+      style: secondary
+      start: 38
+      end: 72
+    - source: hits_of "$root" 2>/dev/null | jq .
+      style: secondary
+      start: 38
+      end: 72
+  ? |
+    hits_of() {
+        printf '%s\n' "$id"
+    }
+    hits_of "$root" | jq .
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id"
+        }
+      style: primary
+      start: 0
+      end: 37
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 38
+      end: 45
+    - source: hits_of
+      style: secondary
+      start: 38
+      end: 45
+    - source: hits_of "$root"
+      style: secondary
+      start: 38
+      end: 53
+    - source: hits_of "$root" | jq .
+      style: secondary
+      start: 38
+      end: 60
+    - source: hits_of "$root" | jq .
+      style: secondary
+      start: 38
+      end: 60
+  ? |
+    hits_of() {
+        printf '%s\n' "$id"
+    }
+    out=`hits_of "$root"`
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id"
+        }
+      style: primary
+      start: 0
+      end: 37
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 43
+      end: 50
+    - source: hits_of
+      style: secondary
+      start: 43
+      end: 50
+    - source: hits_of "$root"
+      style: secondary
+      start: 43
+      end: 58
+    - source: '`hits_of "$root"`'
+      style: secondary
+      start: 42
+      end: 59
+    - source: '`hits_of "$root"`'
+      style: secondary
+      start: 42
+      end: 59
+  ? |
+    hits_of() {
+        printf '%s\n' "$id"
+    }
+    while read -r l; do :; done < <(other | hits_of)
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id"
+        }
+      style: primary
+      start: 0
+      end: 37
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 78
+      end: 85
+    - source: hits_of
+      style: secondary
+      start: 78
+      end: 85
+    - source: hits_of
+      style: secondary
+      start: 78
+      end: 85
+    - source: <(other | hits_of)
+      style: secondary
+      start: 68
+      end: 86
+    - source: <(other | hits_of)
+      style: secondary
+      start: 68
+      end: 86
+  ? |
+    hits_of() {
+        printf '%s\n' "$id"
+    }
+    x=$(other | hits_of)
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id"
+        }
+      style: primary
+      start: 0
+      end: 37
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 50
+      end: 57
+    - source: hits_of
+      style: secondary
+      start: 50
+      end: 57
+    - source: hits_of
+      style: secondary
+      start: 50
+      end: 57
+    - source: $(other | hits_of)
+      style: secondary
+      start: 40
+      end: 58
+    - source: $(other | hits_of)
+      style: secondary
+      start: 40
+      end: 58
+  ? |
+    hits_of() {
+        printf '%s\n' "$id" 2>/dev/null
+    }
+    out=$(hits_of "$root")
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id" 2>/dev/null
+        }
+      style: primary
+      start: 0
+      end: 49
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 56
+      end: 63
+    - source: hits_of
+      style: secondary
+      start: 56
+      end: 63
+    - source: hits_of "$root"
+      style: secondary
+      start: 56
+      end: 71
+    - source: $(hits_of "$root")
+      style: secondary
+      start: 54
+      end: 72
+    - source: $(hits_of "$root")
+      style: secondary
+      start: 54
+      end: 72
+  ? |
+    hits_of() {
+        printf '%s\n' "$id" >&2
+        echo "$id"
+    }
+    x=$(hits_of)
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id" >&2
+            echo "$id"
+        }
+      style: primary
+      start: 0
+      end: 56
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: echo
+      style: secondary
+      start: 44
+      end: 48
+    - source: echo "$id"
+      style: secondary
+      start: 44
+      end: 54
+    - source: echo "$id"
+      style: secondary
+      start: 44
+      end: 54
+    - source: hits_of
+      style: secondary
+      start: 61
+      end: 68
+    - source: hits_of
+      style: secondary
+      start: 61
+      end: 68
+    - source: hits_of
+      style: secondary
+      start: 61
+      end: 68
+    - source: $(hits_of)
+      style: secondary
+      start: 59
+      end: 69
+    - source: $(hits_of)
+      style: secondary
+      start: 59
+      end: 69
+  ? |
+    hits_of() {
+        printf '%s\n' "$id" | sort
+    }
+    x=$(hits_of)
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\n' "$id" | sort
+        }
+      style: primary
+      start: 0
+      end: 44
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 16
+      end: 35
+    - source: hits_of
+      style: secondary
+      start: 49
+      end: 56
+    - source: hits_of
+      style: secondary
+      start: 49
+      end: 56
+    - source: hits_of
+      style: secondary
+      start: 49
+      end: 56
+    - source: $(hits_of)
+      style: secondary
+      start: 47
+      end: 57
+    - source: $(hits_of)
+      style: secondary
+      start: 47
+      end: 57
+  ? |
+    hits_of() {
+        printf '%s\t%s\n' "$id" "$h"
+    }
+    out=$(hits_of "$root")
+  : labels:
+    - source: |-
+        hits_of() {
+            printf '%s\t%s\n' "$id" "$h"
+        }
+      style: primary
+      start: 0
+      end: 46
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: printf
+      style: secondary
+      start: 16
+      end: 22
+    - source: printf '%s\t%s\n' "$id" "$h"
+      style: secondary
+      start: 16
+      end: 44
+    - source: printf '%s\t%s\n' "$id" "$h"
+      style: secondary
+      start: 16
+      end: 44
+    - source: hits_of
+      style: secondary
+      start: 53
+      end: 60
+    - source: hits_of
+      style: secondary
+      start: 53
+      end: 60
+    - source: hits_of "$root"
+      style: secondary
+      start: 53
+      end: 68
+    - source: $(hits_of "$root")
+      style: secondary
+      start: 51
+      end: 69
+    - source: $(hits_of "$root")
+      style: secondary
+      start: 51
+      end: 69
+  ? |
+    if [[ -f $s ]]; then
+        hits_of() {
+            printf '%s\n' "$id"
+        }
+    fi
+    x=$(hits_of)
+  : labels:
+    - source: |-
+        hits_of() {
+                printf '%s\n' "$id"
+            }
+      style: primary
+      start: 25
+      end: 70
+    - source: hits_of
+      style: secondary
+      start: 25
+      end: 32
+    - source: printf
+      style: secondary
+      start: 45
+      end: 51
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 45
+      end: 64
+    - source: printf '%s\n' "$id"
+      style: secondary
+      start: 45
+      end: 64
+    - source: hits_of
+      style: secondary
+      start: 78
+      end: 85
+    - source: hits_of
+      style: secondary
+      start: 78
+      end: 85
+    - source: hits_of
+      style: secondary
+      start: 78
+      end: 85
+    - source: $(hits_of)
+      style: secondary
+      start: 76
+      end: 86
+    - source: $(hits_of)
+      style: secondary
+      start: 76
+      end: 86

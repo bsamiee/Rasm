@@ -1,0 +1,36 @@
+id: no-abc
+snapshots:
+  ? |
+    from abc import ABC
+  : labels:
+    - source: ABC
+      style: primary
+      start: 16
+      end: 19
+  ? |
+    from abc import abstractmethod
+  : labels:
+    - source: abstractmethod
+      style: primary
+      start: 16
+      end: 30
+  ? |
+    import abc
+
+    class Reader(metaclass=abc.ABCMeta):
+        pass
+  : labels:
+    - source: abc.ABCMeta
+      style: primary
+      start: 35
+      end: 46
+  ? |
+    import abc as bases
+
+    class Reader(bases.ABC):
+        pass
+  : labels:
+    - source: bases.ABC
+      style: primary
+      start: 34
+      end: 43

@@ -1,0 +1,689 @@
+id: no-process-per-item
+snapshots:
+  ? |
+    async def attach(built):
+        for path in built:
+            async with await anyio.open_process(["otool", "-L", str(path)]) as process:
+                await process.wait()
+  : labels:
+    - source: anyio.open_process(["otool", "-L", str(path)])
+      style: primary
+      start: 73
+      end: 119
+    - source: open_process
+      style: secondary
+      start: 79
+      end: 91
+    - source: anyio.open_process
+      style: secondary
+      start: 73
+      end: 91
+    - source: path
+      style: secondary
+      start: 33
+      end: 37
+    - source: |-
+        for path in built:
+                async with await anyio.open_process(["otool", "-L", str(path)]) as process:
+                    await process.wait()
+      style: secondary
+      start: 29
+      end: 164
+    - source: path
+      style: secondary
+      start: 112
+      end: 116
+    - source: str(path)
+      style: secondary
+      start: 108
+      end: 117
+    - source: '["otool", "-L", str(path)]'
+      style: secondary
+      start: 92
+      end: 118
+    - source: '["otool", "-L", str(path)]'
+      style: secondary
+      start: 92
+      end: 118
+  ? |
+    async def names(built):
+        for path in built:
+            await anyio.run_process(("otool", "-L", str(path)))
+  : labels:
+    - source: anyio.run_process(("otool", "-L", str(path)))
+      style: primary
+      start: 61
+      end: 106
+    - source: run_process
+      style: secondary
+      start: 67
+      end: 78
+    - source: anyio.run_process
+      style: secondary
+      start: 61
+      end: 78
+    - source: path
+      style: secondary
+      start: 32
+      end: 36
+    - source: |-
+        for path in built:
+                await anyio.run_process(("otool", "-L", str(path)))
+      style: secondary
+      start: 28
+      end: 106
+    - source: path
+      style: secondary
+      start: 99
+      end: 103
+    - source: str(path)
+      style: secondary
+      start: 95
+      end: 104
+    - source: ("otool", "-L", str(path))
+      style: secondary
+      start: 79
+      end: 105
+    - source: ("otool", "-L", str(path))
+      style: secondary
+      start: 79
+      end: 105
+  ? |
+    async def names(built, cwd):
+        return [await run(["otool", "-L", str(p)], cwd) for i, p in enumerate(built)]
+  : labels:
+    - source: run(["otool", "-L", str(p)], cwd)
+      style: primary
+      start: 47
+      end: 80
+    - source: run
+      style: secondary
+      start: 47
+      end: 50
+    - source: p
+      style: secondary
+      start: 88
+      end: 89
+    - source: i, p
+      style: secondary
+      start: 85
+      end: 89
+    - source: for i, p in enumerate(built)
+      style: secondary
+      start: 81
+      end: 109
+    - source: '[await run(["otool", "-L", str(p)], cwd) for i, p in enumerate(built)]'
+      style: secondary
+      start: 40
+      end: 110
+    - source: p
+      style: secondary
+      start: 71
+      end: 72
+    - source: str(p)
+      style: secondary
+      start: 67
+      end: 73
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+  ? |
+    async def names(built, cwd):
+        return [await run(["otool", "-L", str(p)], cwd) for p in built]
+  : labels:
+    - source: run(["otool", "-L", str(p)], cwd)
+      style: primary
+      start: 47
+      end: 80
+    - source: run
+      style: secondary
+      start: 47
+      end: 50
+    - source: p
+      style: secondary
+      start: 85
+      end: 86
+    - source: for p in built
+      style: secondary
+      start: 81
+      end: 95
+    - source: '[await run(["otool", "-L", str(p)], cwd) for p in built]'
+      style: secondary
+      start: 40
+      end: 96
+    - source: p
+      style: secondary
+      start: 71
+      end: 72
+    - source: str(p)
+      style: secondary
+      start: 67
+      end: 73
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+  ? |
+    async def names(built, cwd):
+        return {await run(["otool", "-L", str(p)], cwd) for p in built}
+  : labels:
+    - source: run(["otool", "-L", str(p)], cwd)
+      style: primary
+      start: 47
+      end: 80
+    - source: run
+      style: secondary
+      start: 47
+      end: 50
+    - source: p
+      style: secondary
+      start: 85
+      end: 86
+    - source: for p in built
+      style: secondary
+      start: 81
+      end: 95
+    - source: '{await run(["otool", "-L", str(p)], cwd) for p in built}'
+      style: secondary
+      start: 40
+      end: 96
+    - source: p
+      style: secondary
+      start: 71
+      end: 72
+    - source: str(p)
+      style: secondary
+      start: 67
+      end: 73
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+  ? |
+    async def names(pairs, cwd):
+        return [await run(["otool", "-L", str(p)], cwd) for i, (n, p) in enumerate(pairs.items())]
+  : labels:
+    - source: run(["otool", "-L", str(p)], cwd)
+      style: primary
+      start: 47
+      end: 80
+    - source: run
+      style: secondary
+      start: 47
+      end: 50
+    - source: p
+      style: secondary
+      start: 92
+      end: 93
+    - source: i, (n, p)
+      style: secondary
+      start: 85
+      end: 94
+    - source: for i, (n, p) in enumerate(pairs.items())
+      style: secondary
+      start: 81
+      end: 122
+    - source: '[await run(["otool", "-L", str(p)], cwd) for i, (n, p) in enumerate(pairs.items())]'
+      style: secondary
+      start: 40
+      end: 123
+    - source: p
+      style: secondary
+      start: 71
+      end: 72
+    - source: str(p)
+      style: secondary
+      start: 67
+      end: 73
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+    - source: '["otool", "-L", str(p)]'
+      style: secondary
+      start: 51
+      end: 74
+  ? |
+    async def relink(linked, cwd):
+        for path, names in linked.items():
+            await run_each([["install_name_tool", "-id", f"@loader_path/{path.name}", str(path)], ["codesign", "--force", "--sign", "-", str(path)]], cwd)
+  : labels:
+    - source: run_each([["install_name_tool", "-id", f"@loader_path/{path.name}", str(path)], ["codesign", "--force", "--sign", "-", str(path)]], cwd)
+      style: primary
+      start: 84
+      end: 220
+    - source: run_each
+      style: secondary
+      start: 84
+      end: 92
+    - source: path
+      style: secondary
+      start: 39
+      end: 43
+    - source: path, names
+      style: secondary
+      start: 39
+      end: 50
+    - source: |-
+        for path, names in linked.items():
+                await run_each([["install_name_tool", "-id", f"@loader_path/{path.name}", str(path)], ["codesign", "--force", "--sign", "-", str(path)]], cwd)
+      style: secondary
+      start: 35
+      end: 220
+    - source: path
+      style: secondary
+      start: 207
+      end: 211
+    - source: str(path)
+      style: secondary
+      start: 203
+      end: 212
+    - source: '["codesign", "--force", "--sign", "-", str(path)]'
+      style: secondary
+      start: 164
+      end: 213
+    - source: '[["install_name_tool", "-id", f"@loader_path/{path.name}", str(path)], ["codesign", "--force", "--sign", "-", str(path)]]'
+      style: secondary
+      start: 93
+      end: 214
+    - source: '[["install_name_tool", "-id", f"@loader_path/{path.name}", str(path)], ["codesign", "--force", "--sign", "-", str(path)]]'
+      style: secondary
+      start: 93
+      end: 214
+  ? |
+    async def sign(built):
+        await gather(*(run_process(["codesign", p]) for p in built))
+  : labels:
+    - source: run_process(["codesign", p])
+      style: primary
+      start: 42
+      end: 70
+    - source: run_process
+      style: secondary
+      start: 42
+      end: 53
+    - source: p
+      style: secondary
+      start: 75
+      end: 76
+    - source: for p in built
+      style: secondary
+      start: 71
+      end: 85
+    - source: (run_process(["codesign", p]) for p in built)
+      style: secondary
+      start: 41
+      end: 86
+    - source: p
+      style: secondary
+      start: 67
+      end: 68
+    - source: '["codesign", p]'
+      style: secondary
+      start: 54
+      end: 69
+    - source: '["codesign", p]'
+      style: secondary
+      start: 54
+      end: 69
+  ? |
+    async def sign(built, cwd):
+        async for path in built:
+            await run(["codesign", str(path)], cwd)
+  : labels:
+    - source: run(["codesign", str(path)], cwd)
+      style: primary
+      start: 71
+      end: 104
+    - source: run
+      style: secondary
+      start: 71
+      end: 74
+    - source: path
+      style: secondary
+      start: 42
+      end: 46
+    - source: |-
+        async for path in built:
+                await run(["codesign", str(path)], cwd)
+      style: secondary
+      start: 32
+      end: 104
+    - source: path
+      style: secondary
+      start: 92
+      end: 96
+    - source: str(path)
+      style: secondary
+      start: 88
+      end: 97
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 75
+      end: 98
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 75
+      end: 98
+  ? |
+    async def sign(built, cwd):
+        for index, path in enumerate(built):
+            await run(["codesign", "--force", "--sign", "-", str(path)], cwd)
+  : labels:
+    - source: run(["codesign", "--force", "--sign", "-", str(path)], cwd)
+      style: primary
+      start: 83
+      end: 142
+    - source: run
+      style: secondary
+      start: 83
+      end: 86
+    - source: path
+      style: secondary
+      start: 43
+      end: 47
+    - source: index, path
+      style: secondary
+      start: 36
+      end: 47
+    - source: |-
+        for index, path in enumerate(built):
+                await run(["codesign", "--force", "--sign", "-", str(path)], cwd)
+      style: secondary
+      start: 32
+      end: 142
+    - source: path
+      style: secondary
+      start: 130
+      end: 134
+    - source: str(path)
+      style: secondary
+      start: 126
+      end: 135
+    - source: '["codesign", "--force", "--sign", "-", str(path)]'
+      style: secondary
+      start: 87
+      end: 136
+    - source: '["codesign", "--force", "--sign", "-", str(path)]'
+      style: secondary
+      start: 87
+      end: 136
+  ? |
+    async def sign(built, cwd):
+        for path in built:
+            await run(["codesign", "--force", "--sign", "-", str(path)], cwd)
+  : labels:
+    - source: run(["codesign", "--force", "--sign", "-", str(path)], cwd)
+      style: primary
+      start: 65
+      end: 124
+    - source: run
+      style: secondary
+      start: 65
+      end: 68
+    - source: path
+      style: secondary
+      start: 36
+      end: 40
+    - source: |-
+        for path in built:
+                await run(["codesign", "--force", "--sign", "-", str(path)], cwd)
+      style: secondary
+      start: 32
+      end: 124
+    - source: path
+      style: secondary
+      start: 112
+      end: 116
+    - source: str(path)
+      style: secondary
+      start: 108
+      end: 117
+    - source: '["codesign", "--force", "--sign", "-", str(path)]'
+      style: secondary
+      start: 69
+      end: 118
+    - source: '["codesign", "--force", "--sign", "-", str(path)]'
+      style: secondary
+      start: 69
+      end: 118
+  ? |
+    async def sign(linked, cwd):
+        for (path, names) in linked.items():
+            await run(["codesign", str(path)], cwd)
+  : labels:
+    - source: run(["codesign", str(path)], cwd)
+      style: primary
+      start: 84
+      end: 117
+    - source: run
+      style: secondary
+      start: 84
+      end: 87
+    - source: path
+      style: secondary
+      start: 38
+      end: 42
+    - source: (path, names)
+      style: secondary
+      start: 37
+      end: 50
+    - source: |-
+        for (path, names) in linked.items():
+                await run(["codesign", str(path)], cwd)
+      style: secondary
+      start: 33
+      end: 117
+    - source: path
+      style: secondary
+      start: 105
+      end: 109
+    - source: str(path)
+      style: secondary
+      start: 101
+      end: 110
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 88
+      end: 111
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 88
+      end: 111
+  ? |
+    async def sign(pairs, cwd):
+        for index, (name, path) in enumerate(pairs.items()):
+            await run(["codesign", str(path)], cwd)
+  : labels:
+    - source: run(["codesign", str(path)], cwd)
+      style: primary
+      start: 99
+      end: 132
+    - source: run
+      style: secondary
+      start: 99
+      end: 102
+    - source: path
+      style: secondary
+      start: 50
+      end: 54
+    - source: index, (name, path)
+      style: secondary
+      start: 36
+      end: 55
+    - source: |-
+        for index, (name, path) in enumerate(pairs.items()):
+                await run(["codesign", str(path)], cwd)
+      style: secondary
+      start: 32
+      end: 132
+    - source: path
+      style: secondary
+      start: 120
+      end: 124
+    - source: str(path)
+      style: secondary
+      start: 116
+      end: 125
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 103
+      end: 126
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 103
+      end: 126
+  ? |
+    def sign(built):
+        list(map(lambda i, p: run_process(["codesign", p]), range(3), built))
+  : labels:
+    - source: run_process(["codesign", p])
+      style: primary
+      start: 43
+      end: 71
+    - source: run_process
+      style: secondary
+      start: 43
+      end: 54
+    - source: map
+      style: secondary
+      start: 26
+      end: 29
+    - source: 'map(lambda i, p: run_process(["codesign", p]), range(3), built)'
+      style: secondary
+      start: 26
+      end: 89
+    - source: '(lambda i, p: run_process(["codesign", p]), range(3), built)'
+      style: secondary
+      start: 29
+      end: 89
+    - source: p
+      style: secondary
+      start: 40
+      end: 41
+    - source: p
+      style: secondary
+      start: 40
+      end: 41
+    - source: 'lambda i, p: run_process(["codesign", p])'
+      style: secondary
+      start: 30
+      end: 71
+    - source: p
+      style: secondary
+      start: 68
+      end: 69
+    - source: '["codesign", p]'
+      style: secondary
+      start: 55
+      end: 70
+    - source: '["codesign", p]'
+      style: secondary
+      start: 55
+      end: 70
+  ? |
+    def sign(built):
+        list(map(lambda p: run_process(["codesign", p]), built))
+  : labels:
+    - source: run_process(["codesign", p])
+      style: primary
+      start: 40
+      end: 68
+    - source: run_process
+      style: secondary
+      start: 40
+      end: 51
+    - source: map
+      style: secondary
+      start: 26
+      end: 29
+    - source: 'map(lambda p: run_process(["codesign", p]), built)'
+      style: secondary
+      start: 26
+      end: 76
+    - source: '(lambda p: run_process(["codesign", p]), built)'
+      style: secondary
+      start: 29
+      end: 76
+    - source: p
+      style: secondary
+      start: 37
+      end: 38
+    - source: p
+      style: secondary
+      start: 37
+      end: 38
+    - source: 'lambda p: run_process(["codesign", p])'
+      style: secondary
+      start: 30
+      end: 68
+    - source: p
+      style: secondary
+      start: 65
+      end: 66
+    - source: '["codesign", p]'
+      style: secondary
+      start: 52
+      end: 67
+    - source: '["codesign", p]'
+      style: secondary
+      start: 52
+      end: 67
+  ? |
+    import subprocess
+
+    def sign(built):
+        for path in built:
+            subprocess.run(["codesign", str(path)], check=True)
+  : labels:
+    - source: subprocess.run(["codesign", str(path)], check=True)
+      style: primary
+      start: 67
+      end: 118
+    - source: run
+      style: secondary
+      start: 78
+      end: 81
+    - source: subprocess.run
+      style: secondary
+      start: 67
+      end: 81
+    - source: path
+      style: secondary
+      start: 44
+      end: 48
+    - source: |-
+        for path in built:
+                subprocess.run(["codesign", str(path)], check=True)
+      style: secondary
+      start: 40
+      end: 118
+    - source: path
+      style: secondary
+      start: 99
+      end: 103
+    - source: str(path)
+      style: secondary
+      start: 95
+      end: 104
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 82
+      end: 105
+    - source: '["codesign", str(path)]'
+      style: secondary
+      start: 82
+      end: 105

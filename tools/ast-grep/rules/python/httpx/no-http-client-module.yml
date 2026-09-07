@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-http-client-module
+language: python
+severity: error
+rule:
+    pattern: $USE
+    any:
+        - matches: {python-module-use: {module: {regex: '^(http\.client|urllib\.request|urllib3|requests)(\.[\w.]+)?$'}}}
+        # The submodule imported from its package, `from http import client`, the dotted_name pins the from-import arm
+        - kind: dotted_name
+          matches: {python-module-member: {module: {regex: '^http$'}, name: {regex: '^client$'}}}
+        - kind: dotted_name
+          matches: {python-module-member: {module: {regex: '^urllib$'}, name: {regex: '^request$'}}}
+message: '`$USE` is an HTTP client outside the httpx transport, without its timeout and retry policy'
+note: Send requests through `httpx.Client` or `httpx.AsyncClient` behind a typed adapter

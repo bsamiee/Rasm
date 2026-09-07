@@ -15,3 +15,18 @@ customLanguages:
         libraryPath: .cache/ast-grep/xml.so # Written by the root grammar target, every ast-grep run aborts until it exists
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
         expandoChar: _ # XML names reject $, and _ is the one name character a metavariable in tag and attribute position parses as
+languageInjections: # The bash rules read every shell string a host file holds, scan -U writes one injected region per pass
+    - hostLanguage: yaml # Workflow and composite action run steps
+      rule:
+          kind: block_mapping_pair
+          all:
+              - has: {field: key, regex: '^run$'}
+              - has: {field: value, pattern: $CONTENT} # A block scalar keeps its | indicator, the parser reads past it
+      injected: bash
+    - hostLanguage: json # Hook commands in .claude/settings.json and the command strings of nx.json and package.json targets
+      rule:
+          kind: pair
+          all:
+              - has: {field: key, regex: '^"command"$'}
+              - has: {field: value, kind: string, has: {kind: string_content, pattern: $CONTENT}} # The content alone, the quotes stay JSON
+      injected: bash

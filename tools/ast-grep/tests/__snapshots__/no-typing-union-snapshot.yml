@@ -1,0 +1,53 @@
+id: no-typing-union
+snapshots:
+  ? |
+    from typing import Optional
+  : labels:
+    - source: Optional
+      style: primary
+      start: 19
+      end: 27
+  ? |
+    from typing import Union
+  : labels:
+    - source: Union
+      style: primary
+      start: 19
+      end: 24
+  ? |
+    from typing_extensions import Optional
+  : labels:
+    - source: Optional
+      style: primary
+      start: 30
+      end: 38
+  ? |
+    import typing
+
+    def read(path: typing.Optional[Path] = None) -> str:
+        return ""
+  : labels:
+    - source: typing.Optional
+      style: primary
+      start: 30
+      end: 45
+  ? |
+    import typing
+
+    def read(path: typing.Union[Path, str]) -> str:
+        return ""
+  : labels:
+    - source: typing.Union
+      style: primary
+      start: 30
+      end: 42
+  ? |
+    import typing as t
+
+    def read(path: t.Optional[Path] = None) -> str:
+        return ""
+  : labels:
+    - source: t.Optional
+      style: primary
+      start: 35
+      end: 45

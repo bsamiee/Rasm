@@ -1,0 +1,34 @@
+id: no-cast
+snapshots:
+  ? |
+    from typing import cast
+  : labels:
+    - source: cast
+      style: primary
+      start: 19
+      end: 23
+  ? |
+    from typing_extensions import cast
+  : labels:
+    - source: cast
+      style: primary
+      start: 30
+      end: 34
+  ? |
+    import typing
+
+    value = typing.cast(int, raw)
+  : labels:
+    - source: typing.cast
+      style: primary
+      start: 23
+      end: 34
+  ? |
+    import typing as t
+
+    value = t.cast("int", raw)
+  : labels:
+    - source: t.cast
+      style: primary
+      start: 28
+      end: 34

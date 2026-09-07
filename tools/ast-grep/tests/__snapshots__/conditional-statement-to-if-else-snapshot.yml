@@ -1,0 +1,66 @@
+id: conditional-statement-to-if-else
+snapshots:
+  ? |
+    (start(item) if ready else queue(item))
+  : fixed: |
+      if ready:
+          start(item)
+      else:
+          queue(item)
+    labels:
+    - source: (start(item) if ready else queue(item))
+      style: primary
+      start: 0
+      end: 39
+  ? |
+    async def run():
+        await start(item) if ready else await queue(item)
+  : fixed: |
+      async def run():
+          if ready:
+              await start(item)
+          else:
+              await queue(item)
+    labels:
+    - source: await start(item) if ready else await queue(item)
+      style: primary
+      start: 21
+      end: 70
+  ? |
+    def dispatch(item, ready):
+        start(item) if ready else queue(item)
+  : fixed: |
+      def dispatch(item, ready):
+          if ready:
+              start(item)
+          else:
+              queue(item)
+    labels:
+    - source: start(item) if ready else queue(item)
+      style: primary
+      start: 31
+      end: 68
+  ? |
+    start(item) if ready else queue(item)
+  : fixed: |
+      if ready:
+          start(item)
+      else:
+          queue(item)
+    labels:
+    - source: start(item) if ready else queue(item)
+      style: primary
+      start: 0
+      end: 37
+  ? |
+    start(item) if ready else queue(item) if waiting else None
+  : fixed: |
+      if ready:
+          start(item)
+      else:
+          queue(item) if waiting else None
+    labels:
+    - source: start(item) if ready else queue(item) if waiting else None
+      style: primary
+      start: 0
+      end: 58

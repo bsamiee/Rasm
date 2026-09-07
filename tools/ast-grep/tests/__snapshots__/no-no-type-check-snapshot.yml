@@ -1,0 +1,38 @@
+id: no-no-type-check
+snapshots:
+  ? |
+    from typing import no_type_check
+  : labels:
+    - source: no_type_check
+      style: primary
+      start: 19
+      end: 32
+  ? |
+    from typing_extensions import no_type_check
+  : labels:
+    - source: no_type_check
+      style: primary
+      start: 30
+      end: 43
+  ? |
+    import typing
+
+    @typing.no_type_check
+    def load(raw):
+        return raw
+  : labels:
+    - source: typing.no_type_check
+      style: primary
+      start: 16
+      end: 36
+  ? |
+    import typing as t
+
+    @t.no_type_check
+    def load(raw):
+        return raw
+  : labels:
+    - source: t.no_type_check
+      style: primary
+      start: 21
+      end: 36

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Member of a module, the name a from-import binds or the attribute read off the module or its alias
+id: python-module-member # Global util ids share one namespace across languages, the language prefix keeps it apart from the TypeScript utils
+language: python
+arguments: [module, name] # Called as matches: {python-module-member: {module: <rule>, name: <rule>}}, each argument a rule
+utils:
+    alias-import: # Import of the module under an alias, the alias binds first from the attribute's object and the import proves it
+        kind: aliased_import
+        inside: {kind: import_statement}
+        all:
+            - has: {field: name, kind: dotted_name, matches: module}
+            - has: {field: alias, kind: identifier, pattern: $ALIAS}
+rule:
+    any:
+        - kind: dotted_name # The from-import naming the member, plain or under an alias, a field relation reads the first name alone
+          matches: name
+          any:
+              # The plain name follows the module name past the import keyword and the commas, the module name follows no name
+              - inside: {kind: import_from_statement, has: {field: module_name, matches: module}}
+                follows: {kind: dotted_name, stopBy: end}
+              - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, has: {field: module_name, matches: module}}}
+        - kind: attribute # The attribute read, its object the module as spelled or the alias its import binds
+          all:
+              - has: {field: attribute, kind: identifier, matches: name}
+              - has:
+                    field: object
+                    any:
+                        - matches: module
+                        - kind: identifier
+                          pattern: $ALIAS
+                          inside: {kind: module, stopBy: end, has: {stopBy: end, matches: alias-import}}

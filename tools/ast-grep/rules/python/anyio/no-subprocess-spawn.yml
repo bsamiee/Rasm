@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-subprocess-spawn
+language: python
+severity: error
+rule:
+    pattern: $USE
+    any:
+        # The spawning members of subprocess, a constant (PIPE, DEVNULL) is an argument anyio's own process functions take
+        - matches:
+              python-module-member:
+                  module: {regex: '^subprocess$'}
+                  name: {regex: '^(Popen|run|call|check_call|check_output|getoutput|getstatusoutput)$'}
+        # The spawning members of os, a shell, a pipe, or a spawn family call, an exec replaces the process and stays
+        - matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^(system|popen|spawn[lv]p?e?|posix_spawnp?)$'}}}
+message: '`$USE` runs a child process outside structured concurrency and blocks the event loop thread'
+note: >-
+    Await `anyio.run_process(<args>)` for a finished process and its output, or open `anyio.open_process(<args>)` under
+    `async with` for a running one, cancellation stops the child and the process closes with the scope

@@ -1,0 +1,137 @@
+id: no-restated-default-argument
+snapshots:
+  ? |
+    def load():
+        from psutil import cpu_percent
+
+        return cpu_percent(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 71
+      end: 84
+  ? |
+    from httpx import AsyncClient
+
+    client = AsyncClient(timeout=5.0)
+  : labels:
+    - source: timeout=5.0
+      style: primary
+      start: 52
+      end: 63
+  ? |
+    from psutil import cpu_percent
+
+    load = cpu_percent(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 51
+      end: 64
+  ? |
+    gzip.open(archive, "rb")
+  : labels:
+    - source: '"rb"'
+      style: primary
+      start: 19
+      end: 23
+  ? |
+    gzip.open(archive, 'rb')
+  : labels:
+    - source: '''rb'''
+      style: primary
+      start: 19
+      end: 23
+  ? |
+    gzip.open(archive, mode="rb")
+  : labels:
+    - source: mode="rb"
+      style: primary
+      start: 19
+      end: 28
+  ? |
+    httpx.AsyncClient(follow_redirects=True, timeout=5.0)
+  : labels:
+    - source: timeout=5.0
+      style: primary
+      start: 41
+      end: 52
+  ? |
+    httpx.Client(verify=True)
+  : labels:
+    - source: verify=True
+      style: primary
+      start: 13
+      end: 24
+  ? |
+    httpx.get(url, follow_redirects=False)
+  : labels:
+    - source: follow_redirects=False
+      style: primary
+      start: 15
+      end: 37
+  ? |
+    httpx.get(url, timeout=5.0)
+  : labels:
+    - source: timeout=5.0
+      style: primary
+      start: 15
+      end: 26
+  ? |
+    httpx.post(url, timeout=5)
+  : labels:
+    - source: timeout=5
+      style: primary
+      start: 16
+      end: 25
+  ? |
+    httpx.stream("GET", url, timeout=5.0)
+  : labels:
+    - source: timeout=5.0
+      style: primary
+      start: 25
+      end: 36
+  ? |
+    load = psutil.Process(pid).cpu_percent(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 39
+      end: 52
+  ? |
+    process.cpu_percent(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 20
+      end: 33
+  ? |
+    psutil.cpu_percent(interval=None)
+  : labels:
+    - source: interval=None
+      style: primary
+      start: 19
+      end: 32
+  ? |
+    try:
+        from httpx import AsyncClient
+    except ImportError:
+        AsyncClient = None
+
+    client = AsyncClient(timeout=5.0)
+  : labels:
+    - source: timeout=5.0
+      style: primary
+      start: 104
+      end: 115
+  ? |
+    with gzip.open(
+        archive,  # the archive
+        "rb",
+    ) as handle:
+        pass
+  : labels:
+    - source: '"rb"'
+      style: primary
+      start: 48
+      end: 52

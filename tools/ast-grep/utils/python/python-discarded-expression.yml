@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Statement with one child that computes a dropped value
+id: python-discarded-expression
+language: python
+arguments: [value]
+rule:
+    kind: expression_statement
+    has:
+        matches: value
+        stopBy: {not: {kind: parenthesized_expression}} # The walk descends through parentheses alone, a call or a name holding the value stops it

@@ -1,0 +1,51 @@
+id: no-array-mutation
+valid:
+    # The next array built as a value
+    - 'const next = [...rows, row];'
+    # The effect Array module appends as a value
+    - 'const next = Array.append(rows, row);'
+    # The copying sort
+    - 'const ordered = rows.toSorted(compare);'
+    # The copying reverse
+    - 'const backwards = rows.toReversed();'
+    # Method outside the mutating set
+    - 'const found = rows.find(isLive);'
+    # Member named like a mutating method read without a call
+    - 'const handler = queue.push;'
+    # Method of the mutating set spelled as a computed member is not a member expression
+    - 'const size = rows["length"];'
+    # Accumulation a callback fills held in a MutableRef
+    - 'MutableRef.update(spans, Array.append(span));'
+    # The effect Array module sorts as a value, the module is a PascalCase object
+    - 'const ordered = Array.sort(rows, Order.number);'
+    # The effect Chunk module reverses as a value
+    - 'const backwards = Chunk.reverse(chunk);'
+invalid:
+    # Sort on an upper snake case constant, an underscore names a value the call writes
+    - 'KIND_NAMES.sort();'
+    # The instance, a push into a class field
+    - 'this.events.push({ name, attributes });'
+    # Push into a local buffer from a callback
+    - 'capturedSpans.push(span);'
+    # Push with a spread
+    - 'out.push(...parts);'
+    # Unshift
+    - 'queue.unshift(job);'
+    # Splice
+    - 'rows.splice(index, 1);'
+    # Pop
+    - 'const last = stack.pop();'
+    # Shift
+    - 'const first = queue.shift();'
+    # Sort in place
+    - 'rows.sort(compare);'
+    # Reverse in place
+    - 'rows.reverse();'
+    # Fill in place
+    - 'slots.fill(0);'
+    # Copy within in place
+    - 'slots.copyWithin(0, 2);'
+    # Push on a member chain
+    - 'state.rows.push(row);'
+    # Push on a call result
+    - 'load().push(row);'

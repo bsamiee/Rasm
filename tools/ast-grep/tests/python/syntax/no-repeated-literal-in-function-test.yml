@@ -1,0 +1,176 @@
+id: no-repeated-literal-in-function
+valid:
+    # The corrected form, the literal bound once and read at each site
+    - |
+      def check(fs, root):
+          blob = f"{root}nest/deep/blob.bin"
+          fs.pipe_file(blob, b"content")
+          assert fs.cat_file(blob) == b"content"
+    # The literal taken as a parameter
+    - |
+      def stage(space, library="sqlitevec"):
+          work = space.artifacts / library
+          return read_manifest(space.manifests / library / "release.json")
+    # Literal under twelve characters with its quotes, a key or a flag
+    - |
+      def size(node):
+          lower = node.get("length")
+          upper = node.get("length")
+    # Literal repeated across two functions
+    - |
+      def first(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+
+
+      def second(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+    # Literal repeated at module level, no function owns the statements
+    - |
+      first = "nest/deep/blob.bin"
+      second = "nest/deep/blob.bin"
+    # Literal repeated in a nested def, the walk stops at the inner boundary
+    - |
+      def outer(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+
+          def inner():
+              fs.pipe_file("nest/deep/blob.bin")
+    # Same literal in two arms of a match, one path runs
+    - |
+      def name(value):
+          match value:
+              case 1:
+                  return "nest/deep/blob.bin"
+              case _:
+                  return "nest/deep/blob.bin"
+    # Same key in two dictionaries, the structure repeats
+    - |
+      def rows():
+          first = {"nest/deep/blob.bin": 1}
+          second = {"nest/deep/blob.bin": 2}
+    # Literal with an escape sequence, the runner compares its content by structure alone
+    - |
+      def check(text):
+          assert "\nstoreDir: .cache\n" in text
+          assert "\ncacheDir: .cache\n" in text
+    # Literal with an escaped brace in an f-string, the runner compares its content by structure alone
+    - |
+      def kinds(cs):
+          first = f"{cs}[] {{p}}"
+          second = f"{cs}[] {{p}}"
+    # Different literals of the same length
+    - |
+      def check(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+          fs.pipe_file("nest/deep/copy.bin")
+    # Literal repeated in two class-level statements, a class body binds no local
+    - |
+      class Reader:
+          first = "nest/deep/blob.bin"
+          second = "nest/deep/blob.bin"
+    # Literal repeated in the class-level statements of a class nested in a def, the walk up stops at the class
+    - |
+      def make():
+          class Reader:
+              first = "nest/deep/blob.bin"
+              second = "nest/deep/blob.bin"
+
+          return Reader
+    # Literal repeated in the decorators of two methods
+    - |
+      class Suite:
+          @mark.usefixtures("socket_enabled")
+          def first(self):
+              return 1
+
+          @mark.usefixtures("socket_enabled")
+          def second(self):
+              return 2
+    # F-strings with different interpolations, the structure differs
+    - |
+      def check(fs, root, other):
+          fs.pipe_file(f"{root}nest/deep/blob.bin")
+          fs.rm(f"{other}nest/deep/blob.bin")
+    # Literal in a decorator and in the body, the decorator sits outside the def
+    - |
+      @mark.usefixtures("nest/deep/blob.bin")
+      def check(fs):
+          fs.rm("nest/deep/blob.bin")
+    # Key of nine characters, eleven with its quotes
+    - |
+      def size(node):
+          lower = node.get("framerate")
+          upper = node.get("framerate")
+invalid:
+    # The instance, an f-string repeated across statements of one function
+    - |
+      def check(fs, root):
+          fs.pipe_file(f"{root}nest/deep/blob.bin", b"content")
+          assert fs.cat_file(f"{root}nest/deep/blob.bin") == b"content"
+    # Plain string
+    - |
+      def stage(space):
+          work = space.artifacts / "sqlitevec-loadable"
+          return read_manifest(space.manifests / "sqlitevec-loadable")
+    # Bytes literal
+    - |
+      def check(fs):
+          fs.pipe_file("blob", b"content-bytes")
+          assert fs.cat_file("blob") == b"content-bytes"
+    # Statement between the occurrences, the walk passes it
+    - |
+      def check(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+          log(fs)
+          fs.rm("nest/deep/blob.bin")
+    # Later occurrence nested in a branch of the body
+    - |
+      def check(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+          if fs:
+              fs.rm("nest/deep/blob.bin")
+    # Earlier occurrence nested in a branch, the later one at the body level
+    - |
+      def check(fs):
+          if fs:
+              fs.pipe_file("nest/deep/blob.bin")
+          fs.rm("nest/deep/blob.bin")
+    # Method body
+    - |
+      class Reader:
+          def check(self, fs):
+              fs.pipe_file("nest/deep/blob.bin")
+              fs.rm("nest/deep/blob.bin")
+    # Later occurrence inside a lambda argument, the lambda sits in the later statement
+    - |
+      def check(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+          run(lambda: fs.rm("nest/deep/blob.bin"))
+    # T-string repeated
+    - |
+      def check(fs, root):
+          fs.pipe_file(t"{root}nest/deep/blob.bin")
+          fs.rm(t"{root}nest/deep/blob.bin")
+    # Async def
+    - |
+      async def check(fs):
+          await fs.pipe_file("nest/deep/blob.bin")
+          await fs.rm("nest/deep/blob.bin")
+    # Comment between the occurrences, the walk passes it
+    - |
+      def check(fs):
+          fs.pipe_file("nest/deep/blob.bin")
+          # The copy
+          fs.rm("nest/deep/blob.bin")
+    # Key of ten characters, twelve with its quotes
+    - |
+      def size(node):
+          lower = node.get("frame_rate")
+          upper = node.get("frame_rate")
+    # Literal in a case pattern and in a later statement of the body
+    - |
+      def name(value):
+          match value:
+              case "nest/deep/blob.bin":
+                  return 1
+          return "nest/deep/blob.bin"

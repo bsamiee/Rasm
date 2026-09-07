@@ -1,0 +1,265 @@
+id: no-invalidate-in-loop
+valid:
+    # Map over a constant list of distinct views, each invalidated once, the one owner of the view set
+    - |
+      on('turn.complete', async ($, e, next) => {
+          const result = await next(e);
+          FINDING_VIEWS.map((view) => $.ui.invalidate(view));
+          return result;
+      });
+    # Another ui call with a literal argument inside a loop, a transcript line per row is no redraw
+    - |
+      for (const row of rows) {
+          $.ui.log('row');
+      }
+    # The redraw requested once after the loop
+    - |
+      for (const row of rows) {
+          draw(row);
+      }
+      $.ui.invalidate('ui.render');
+    # The redraw requested from the event that changed the state, a hook outside the render
+    - |
+      on('tool.call', ($, e, next) => {
+          $.ui.invalidate('ui.render');
+          return next(e);
+      });
+    # The documented countdown, a clock callback requests the redraw
+    - |
+      $.clock.every(1000, () => $.ui.invalidate('ui.render'));
+    # The press closure inside the render hook, the redraw follows the press and not the draw
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          const hide = (): void => {
+              $.ui.invalidate('ui.render');
+          };
+          return next(e);
+      });
+    # Arrow inside the loop, the closure runs later
+    - |
+      for (const row of rows) {
+          const later = () => $.ui.invalidate('ui.render');
+      }
+    # Function expression inside the loop
+    - |
+      for (const row of rows) {
+          const later = function () {
+              $.ui.invalidate('ui.render');
+          };
+      }
+    # Function declaration inside the loop
+    - |
+      for (const row of rows) {
+          function later() {
+              $.ui.invalidate('ui.render');
+          }
+      }
+    # Generator function inside the loop, the closure runs later
+    - |
+      for (const row of rows) {
+          const later = function* () {
+              $.ui.invalidate('ui.render');
+          };
+      }
+    # Generator function declaration inside the loop
+    - |
+      for (const row of rows) {
+          function* later() {
+              $.ui.invalidate('ui.render');
+          }
+      }
+    # Method inside the loop
+    - |
+      for (const row of rows) {
+          const actions = {
+              later() {
+                  $.ui.invalidate('ui.render');
+              },
+          };
+      }
+    # Another ui verb inside a loop
+    - |
+      for (const row of rows) {
+          $.ui.log(row);
+      }
+    # Another noun with a member of the same name inside a loop
+    - |
+      for (const row of rows) {
+          $.store.invalidate(row);
+      }
+    # The redraw inside a hook of another event
+    - |
+      on('prompt.section', ($, e, next) => {
+          $.ui.invalidate('prompt.section');
+          return next(e);
+      });
+    # Callback of a method that runs once, no element loop
+    - |
+      pending.then(() => $.ui.invalidate('ui.render'));
+    # Callback of a method outside the per-element set inside a loop, the closure runs later
+    - |
+      for (const row of rows) {
+          pending.then(() => $.ui.invalidate('ui.render'));
+      }
+    # View named through a template substitution inside a loop, a name and no literal
+    - |
+      for (const view of views) {
+          $.ui.invalidate(`${view}`);
+      }
+    # Closure returned from the per-element callback, the redraw follows a later call
+    - |
+      const laters = rows.map((row) => () => $.ui.invalidate('ui.render'));
+    # Render hook bound to a name, the redraw inside a press closure of it
+    - |
+      const draw = ($, e, next) => {
+          const hide = (): void => {
+              $.ui.invalidate('ui.render');
+          };
+          return next(e);
+      };
+      on('ui.render', draw);
+invalid:
+    # The instance shape, a redraw per element of a for-of loop
+    - |
+      for (const row of rows) {
+          $.ui.invalidate('ui.render');
+      }
+    # While loop
+    - |
+      while (pending()) {
+          $.ui.invalidate('ui.render');
+      }
+    # Do loop
+    - |
+      do {
+          $.ui.invalidate('ui.render');
+      } while (pending());
+    # Counted loop
+    - |
+      for (let i = 0; i < count; i++) {
+          $.ui.invalidate('ui.render');
+      }
+    # Key loop
+    - |
+      for (const key in table) {
+          $.ui.invalidate('ui.render');
+      }
+    # Call nested under a branch inside the loop, no function between
+    - |
+      for (const row of rows) {
+          if (row.changed) {
+              $.ui.invalidate('ui.render');
+          }
+      }
+    # Redraw requested during the draw, the matched render hook
+    - |
+      on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+          $.ui.invalidate('ui.render');
+          return next(e);
+      });
+    # Plain render hook with double quotes
+    - |
+      on("ui.render", ($, e, next) => {
+          $.ui.invalidate("ui.render");
+          return next(e);
+      });
+    # Loop inside a closure of the render hook, the loop arm reports
+    - |
+      on('ui.render', ($, e, next) => {
+          const redraw = () => {
+              for (const row of rows) {
+                  $.ui.invalidate('ui.render');
+              }
+          };
+          return next(e);
+      });
+    # Per-element callback of forEach
+    - |
+      rows.forEach((row) => $.ui.invalidate('ui.render'));
+    # Per-element callback of map as a function expression
+    - |
+      rows.map(function (row) {
+          $.ui.invalidate('ui.render');
+          return row;
+      });
+    # Per-element callback of some, a search method runs the callback per element
+    - |
+      rows.some((row) => {
+          $.ui.invalidate('ui.render');
+          return row.changed;
+      });
+    # Per-element callback of the data-first Array.forEach
+    - |
+      Array.forEach(rows, (row) => $.ui.invalidate('ui.render'));
+    # Comparator of sort, the callback runs per pair
+    - |
+      rows.sort((left, right) => {
+          $.ui.invalidate('ui.render');
+          return 0;
+      });
+    # Comparator of toSorted
+    - |
+      const ordered = rows.toSorted((left, right) => {
+          $.ui.invalidate('ui.render');
+          return 0;
+      });
+    # Redraw named through a template literal without a substitution inside a loop
+    - |
+      for (const row of rows) {
+          $.ui.invalidate(`ui.render`);
+      }
+    # Render hook registered through a parameter typed On
+    - |
+      const arm = (register: On): void => {
+          register('ui.render', ($, e, next) => {
+              $.ui.invalidate('ui.render');
+              return next(e);
+          });
+      };
+    # Per-element callback of reduce, the callback sits before the seed
+    - |
+      rows.reduce((count, row) => {
+          $.ui.invalidate('ui.render');
+          return count + 1;
+      }, 0);
+    # For await loop
+    - |
+      for await (const row of rows) {
+          $.ui.invalidate('ui.render');
+      }
+    # Render hook bound to a name before the registration
+    - |
+      const draw = ($, e, next) => {
+          $.ui.invalidate('ui.render');
+          return next(e);
+      };
+      on('ui.render', draw);
+    # Labeled loop
+    - |
+      rows: for (const row of rows) {
+          $.ui.invalidate('ui.render');
+      }
+    # Mapping callback of Array.from, the callback runs per element
+    - |
+      const drawn = Array.from(rows, (row) => $.ui.invalidate('ui.render'));
+    # Grouping callback of Object.groupBy
+    - |
+      const groups = Object.groupBy(rows, (row) => $.ui.invalidate('ui.render'));
+    # Named callback passed to forEach, the function runs per element
+    - |
+      const redraw = () => $.ui.invalidate('ui.render');
+      rows.forEach(redraw);
+    # Redraw under a switch arm inside the loop
+    - |
+      for (const row of rows) {
+          switch (row.kind) {
+              case 'changed':
+                  $.ui.invalidate('ui.render');
+          }
+      }
+    # Named callback declared as a function and passed to forEach
+    - |
+      function redraw() {
+          $.ui.invalidate('ui.render');
+      }
+      rows.forEach(redraw);

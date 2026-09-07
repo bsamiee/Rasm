@@ -1,0 +1,68 @@
+id: conditional-statement-to-if
+snapshots:
+  ? |
+    (record(item) if ready else None)
+  : fixed: |
+      if ready:
+          record(item)
+    labels:
+    - source: (record(item) if ready else None)
+      style: primary
+      start: 0
+      end: 33
+  ? |
+    (record(item) if ready else None) if armed else None
+  : fixed: |
+      if armed:
+          (record(item) if ready else None)
+    labels:
+    - source: (record(item) if ready else None) if armed else None
+      style: primary
+      start: 0
+      end: 52
+  ? |
+    async def run():
+        await record(item) if ready else None
+  : fixed: |
+      async def run():
+          if ready:
+              await record(item)
+    labels:
+    - source: await record(item) if ready else None
+      style: primary
+      start: 21
+      end: 58
+  ? |
+    def teardown():
+        memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+  : fixed: |
+      def teardown():
+          if memory.exists(scoped):
+              memory.rm(scoped, recursive=True)
+    labels:
+    - source: memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+      style: primary
+      start: 20
+      end: 88
+  ? |
+    if armed:
+        record(item) if ready else None
+  : fixed: |
+      if armed:
+          if ready:
+              record(item)
+    labels:
+    - source: record(item) if ready else None
+      style: primary
+      start: 14
+      end: 45
+  ? |
+    memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+  : fixed: |
+      if memory.exists(scoped):
+          memory.rm(scoped, recursive=True)
+    labels:
+    - source: memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+      style: primary
+      start: 0
+      end: 68

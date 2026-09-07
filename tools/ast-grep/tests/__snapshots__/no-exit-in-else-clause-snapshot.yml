@@ -1,0 +1,212 @@
+id: no-exit-in-else-clause
+snapshots:
+  ? |
+    for f in "${files[@]}"; do
+        if [[ -f $f ]]; then
+            printf '%s\n' "$f"
+        else
+            break
+        fi
+    done
+  : labels:
+    - source: |-
+        if [[ -f $f ]]; then
+                printf '%s\n' "$f"
+            else
+                break
+            fi
+      style: primary
+      start: 31
+      end: 108
+    - source: break
+      style: secondary
+      start: 96
+      end: 101
+    - source: break
+      style: secondary
+      start: 96
+      end: 101
+    - source: |
+        else
+                break
+      style: secondary
+      start: 83
+      end: 102
+  ? |
+    if [ -f "$s" ]; then
+        diff a b
+    else
+        finding "no snapshot: $id"
+        continue
+    fi
+  : labels:
+    - source: |-
+        if [ -f "$s" ]; then
+            diff a b
+        else
+            finding "no snapshot: $id"
+            continue
+        fi
+      style: primary
+      start: 0
+      end: 85
+    - source: continue
+      style: secondary
+      start: 74
+      end: 82
+    - source: continue
+      style: secondary
+      start: 74
+      end: 82
+    - source: |
+        else
+            finding "no snapshot: $id"
+            continue
+      style: secondary
+      start: 34
+      end: 83
+  ? |
+    if [[ -f $s ]]; then
+        exit 2
+        printf '%s\n' late
+    else
+        exit 1
+    fi
+  : labels:
+    - source: |-
+        if [[ -f $s ]]; then
+            exit 2
+            printf '%s\n' late
+        else
+            exit 1
+        fi
+      style: primary
+      start: 0
+      end: 73
+    - source: exit
+      style: secondary
+      start: 64
+      end: 68
+    - source: exit 1
+      style: secondary
+      start: 64
+      end: 70
+    - source: |
+        else
+            exit 1
+      style: secondary
+      start: 55
+      end: 71
+  ? |
+    if [[ -f $s ]]; then
+        printf '%s\n' a
+    else
+        # explain
+        exit 1
+    fi
+  : labels:
+    - source: |-
+        if [[ -f $s ]]; then
+            printf '%s\n' a
+        else
+            # explain
+            exit 1
+        fi
+      style: primary
+      start: 0
+      end: 73
+    - source: exit
+      style: secondary
+      start: 64
+      end: 68
+    - source: exit 1
+      style: secondary
+      start: 64
+      end: 70
+    - source: |
+        else
+            # explain
+            exit 1
+      style: secondary
+      start: 41
+      end: 71
+  ? |
+    if [[ -f $s ]]; then
+        printf '%s\n' a
+    else
+        exit 1
+    fi
+  : labels:
+    - source: |-
+        if [[ -f $s ]]; then
+            printf '%s\n' a
+        else
+            exit 1
+        fi
+      style: primary
+      start: 0
+      end: 59
+    - source: exit
+      style: secondary
+      start: 50
+      end: 54
+    - source: exit 1
+      style: secondary
+      start: 50
+      end: 56
+    - source: |
+        else
+            exit 1
+      style: secondary
+      start: 41
+      end: 57
+  ? |
+    if [[ -f $s ]]; then
+        printf '%s\n' a
+    else
+        return 1
+        # nothing after
+    fi
+  : labels:
+    - source: |-
+        if [[ -f $s ]]; then
+            printf '%s\n' a
+        else
+            return 1
+            # nothing after
+        fi
+      style: primary
+      start: 0
+      end: 81
+    - source: return
+      style: secondary
+      start: 50
+      end: 56
+    - source: return 1
+      style: secondary
+      start: 50
+      end: 58
+    - source: |
+        else
+            return 1
+      style: secondary
+      start: 41
+      end: 59
+  if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi:
+    labels:
+    - source: if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi
+      style: primary
+      start: 0
+      end: 64
+    - source: exit
+      style: secondary
+      start: 54
+      end: 58
+    - source: exit 1
+      style: secondary
+      start: 54
+      end: 60
+    - source: else exit 1;
+      style: secondary
+      start: 49
+      end: 61

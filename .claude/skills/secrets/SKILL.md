@@ -85,6 +85,8 @@ Local storage is `op`: every service, IaC, and MCP token and the SSH key sit in 
 - Config-scoped service token: issued by topology entries, static Developer-plan tokens are revoked and reissued
 - IaC admin token and stack passphrase: brokered by `driver.ts`, an ambient `DOPPLER_TOKEN` or `PULUMI_CONFIG_PASSPHRASE` short-circuits the op read per run
 - MCP token: the launcher prelude resolves the ambient personal CLI token, its grants are the enforcement, `--read-only` filters the toolset to GET endpoints
+- MCP provider keys `GH_PROJECTS_TOKEN`, `EXA_API_KEY`, `CONTEXT7_API_KEY`, and `GREPTILE_API_KEY` sit in `agent-runtime/dev`
+- `.mcp.json` reads them as `${VAR}` headers, so an agent session starts as `doppler run --project agent-runtime --config dev -- claude`
 - Repository `infra/` programs resolve their own passphrase, Doppler token, and GitHub token, the route sits in the program's `README.md`
 
 ## [06]-[RULES]

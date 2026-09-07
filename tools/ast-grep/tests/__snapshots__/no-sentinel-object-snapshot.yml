@@ -1,0 +1,153 @@
+id: no-sentinel-object
+snapshots:
+  ? |
+    _ABSENT = sentinel("_ABSENT")
+  : labels:
+    - source: _ABSENT = sentinel("_ABSENT")
+      style: primary
+      start: 0
+      end: 29
+    - source: _ABSENT
+      style: secondary
+      start: 0
+      end: 7
+    - source: sentinel("_ABSENT")
+      style: secondary
+      start: 10
+      end: 29
+    - source: |
+        _ABSENT = sentinel("_ABSENT")
+      style: secondary
+      start: 0
+      end: 30
+    - source: _ABSENT = sentinel("_ABSENT")
+      style: secondary
+      start: 0
+      end: 29
+  ? |
+    _ABSENT: object = object()
+  : labels:
+    - source: '_ABSENT: object = object()'
+      style: primary
+      start: 0
+      end: 26
+    - source: _ABSENT
+      style: secondary
+      start: 0
+      end: 7
+    - source: object()
+      style: secondary
+      start: 18
+      end: 26
+    - source: |
+        _ABSENT: object = object()
+      style: secondary
+      start: 0
+      end: 27
+    - source: '_ABSENT: object = object()'
+      style: secondary
+      start: 0
+      end: 26
+  ? |
+    _MISSING = object()
+  : labels:
+    - source: _MISSING = object()
+      style: primary
+      start: 0
+      end: 19
+    - source: _MISSING
+      style: secondary
+      start: 0
+      end: 8
+    - source: object()
+      style: secondary
+      start: 11
+      end: 19
+    - source: |
+        _MISSING = object()
+      style: secondary
+      start: 0
+      end: 20
+    - source: _MISSING = object()
+      style: secondary
+      start: 0
+      end: 19
+  ? |
+    class Reader:
+        absent = object()
+  : labels:
+    - source: absent = object()
+      style: primary
+      start: 18
+      end: 35
+    - source: absent
+      style: secondary
+      start: 18
+      end: 24
+    - source: object()
+      style: secondary
+      start: 27
+      end: 35
+    - source: |-
+        class Reader:
+            absent = object()
+      style: secondary
+      start: 0
+      end: 35
+    - source: absent = object()
+      style: secondary
+      start: 18
+      end: 35
+  ? |
+    def make():
+        class Reader:
+            absent = object()
+  : labels:
+    - source: absent = object()
+      style: primary
+      start: 38
+      end: 55
+    - source: absent
+      style: secondary
+      start: 38
+      end: 44
+    - source: object()
+      style: secondary
+      start: 47
+      end: 55
+    - source: |-
+        class Reader:
+                absent = object()
+      style: secondary
+      start: 16
+      end: 55
+    - source: absent = object()
+      style: secondary
+      start: 38
+      end: 55
+  ? |
+    if TYPE_CHECKING:
+        _ABSENT = object()
+  : labels:
+    - source: _ABSENT = object()
+      style: primary
+      start: 22
+      end: 40
+    - source: _ABSENT
+      style: secondary
+      start: 22
+      end: 29
+    - source: object()
+      style: secondary
+      start: 32
+      end: 40
+    - source: |
+        if TYPE_CHECKING:
+            _ABSENT = object()
+      style: secondary
+      start: 0
+      end: 41
+    - source: _ABSENT = object()
+      style: secondary
+      start: 22
+      end: 40

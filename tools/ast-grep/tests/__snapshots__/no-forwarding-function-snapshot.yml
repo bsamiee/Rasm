@@ -1,0 +1,941 @@
+id: no-forwarding-function
+snapshots:
+  ? |
+    async def load(path):
+        return await read(path)
+  : labels:
+    - source: |-
+        async def load(path):
+            return await read(path)
+      style: primary
+      start: 0
+      end: 49
+    - source: |-
+        async def load(path):
+            return await read(path)
+      style: secondary
+      start: 0
+      end: 49
+    - source: return await read(path)
+      style: secondary
+      start: 26
+      end: 49
+    - source: await read(path)
+      style: secondary
+      start: 33
+      end: 49
+    - source: return await read(path)
+      style: secondary
+      start: 26
+      end: 49
+    - source: return await read(path)
+      style: secondary
+      start: 26
+      end: 49
+    - source: path
+      style: secondary
+      start: 15
+      end: 19
+    - source: (path)
+      style: secondary
+      start: 14
+      end: 20
+    - source: |-
+        async def load(path):
+            return await read(path)
+      style: secondary
+      start: 0
+      end: 49
+    - source: return await read(path)
+      style: secondary
+      start: 26
+      end: 49
+    - source: return await read(path)
+      style: secondary
+      start: 26
+      end: 49
+    - source: await read(path)
+      style: secondary
+      start: 33
+      end: 49
+    - source: read(path)
+      style: secondary
+      start: 39
+      end: 49
+    - source: return await read(path)
+      style: secondary
+      start: 26
+      end: 49
+  ? |
+    async def stop():
+        await server.stop()
+  : labels:
+    - source: |-
+        async def stop():
+            await server.stop()
+      style: primary
+      start: 0
+      end: 41
+    - source: |-
+        async def stop():
+            await server.stop()
+      style: secondary
+      start: 0
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: |-
+        async def stop():
+            await server.stop()
+      style: secondary
+      start: 0
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: server.stop()
+      style: secondary
+      start: 28
+      end: 41
+    - source: await server.stop()
+      style: secondary
+      start: 22
+      end: 41
+    - source: server
+      style: secondary
+      start: 28
+      end: 34
+  ? |
+    class Reader:
+        def load(self, path):
+            return read(self, path)
+  : labels:
+    - source: |-
+        def load(self, path):
+                return read(self, path)
+      style: primary
+      start: 18
+      end: 71
+    - source: self
+      style: secondary
+      start: 27
+      end: 31
+    - source: path
+      style: secondary
+      start: 33
+      end: 37
+    - source: (self, path)
+      style: secondary
+      start: 26
+      end: 38
+    - source: |-
+        def load(self, path):
+                return read(self, path)
+      style: secondary
+      start: 18
+      end: 71
+    - source: return read(self, path)
+      style: secondary
+      start: 48
+      end: 71
+    - source: return read(self, path)
+      style: secondary
+      start: 48
+      end: 71
+    - source: read(self, path)
+      style: secondary
+      start: 55
+      end: 71
+    - source: return read(self, path)
+      style: secondary
+      start: 48
+      end: 71
+  ? |
+    def load():
+        return read()
+  : labels:
+    - source: |-
+        def load():
+            return read()
+      style: primary
+      start: 0
+      end: 29
+    - source: |-
+        def load():
+            return read()
+      style: secondary
+      start: 0
+      end: 29
+    - source: return read()
+      style: secondary
+      start: 16
+      end: 29
+    - source: return read()
+      style: secondary
+      start: 16
+      end: 29
+    - source: read()
+      style: secondary
+      start: 23
+      end: 29
+    - source: return read()
+      style: secondary
+      start: 16
+      end: 29
+  ? |
+    def load(*args):
+        return read(*args)
+  : labels:
+    - source: |-
+        def load(*args):
+            return read(*args)
+      style: primary
+      start: 0
+      end: 39
+    - source: args
+      style: secondary
+      start: 10
+      end: 14
+    - source: '*args'
+      style: secondary
+      start: 9
+      end: 14
+    - source: (*args)
+      style: secondary
+      start: 8
+      end: 15
+    - source: |-
+        def load(*args):
+            return read(*args)
+      style: secondary
+      start: 0
+      end: 39
+    - source: return read(*args)
+      style: secondary
+      start: 21
+      end: 39
+    - source: return read(*args)
+      style: secondary
+      start: 21
+      end: 39
+    - source: read(*args)
+      style: secondary
+      start: 28
+      end: 39
+    - source: return read(*args)
+      style: secondary
+      start: 21
+      end: 39
+  ? |
+    def load(*args, **kwargs):
+        return read(*args, **kwargs)
+  : labels:
+    - source: |-
+        def load(*args, **kwargs):
+            return read(*args, **kwargs)
+      style: primary
+      start: 0
+      end: 59
+    - source: args
+      style: secondary
+      start: 10
+      end: 14
+    - source: '*args'
+      style: secondary
+      start: 9
+      end: 14
+    - source: kwargs
+      style: secondary
+      start: 18
+      end: 24
+    - source: '**kwargs'
+      style: secondary
+      start: 16
+      end: 24
+    - source: (*args, **kwargs)
+      style: secondary
+      start: 8
+      end: 25
+    - source: |-
+        def load(*args, **kwargs):
+            return read(*args, **kwargs)
+      style: secondary
+      start: 0
+      end: 59
+    - source: return read(*args, **kwargs)
+      style: secondary
+      start: 31
+      end: 59
+    - source: return read(*args, **kwargs)
+      style: secondary
+      start: 31
+      end: 59
+    - source: read(*args, **kwargs)
+      style: secondary
+      start: 38
+      end: 59
+    - source: return read(*args, **kwargs)
+      style: secondary
+      start: 31
+      end: 59
+  ? |
+    def load(path):
+        """Read the file."""
+        # The one call
+        return read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            """Read the file."""
+            # The one call
+            return read(path)
+      style: primary
+      start: 0
+      end: 81
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            """Read the file."""
+            # The one call
+            return read(path)
+      style: secondary
+      start: 0
+      end: 81
+    - source: |-
+        """Read the file."""
+            # The one call
+            return read(path)
+      style: secondary
+      start: 20
+      end: 81
+    - source: return read(path)
+      style: secondary
+      start: 64
+      end: 81
+    - source: read(path)
+      style: secondary
+      start: 71
+      end: 81
+    - source: |-
+        """Read the file."""
+            # The one call
+            return read(path)
+      style: secondary
+      start: 20
+      end: 81
+  ? |
+    def load(path):
+        """Read the file."""
+        return read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            """Read the file."""
+            return read(path)
+      style: primary
+      start: 0
+      end: 62
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            """Read the file."""
+            return read(path)
+      style: secondary
+      start: 0
+      end: 62
+    - source: |-
+        """Read the file."""
+            return read(path)
+      style: secondary
+      start: 20
+      end: 62
+    - source: return read(path)
+      style: secondary
+      start: 45
+      end: 62
+    - source: read(path)
+      style: secondary
+      start: 52
+      end: 62
+    - source: |-
+        """Read the file."""
+            return read(path)
+      style: secondary
+      start: 20
+      end: 62
+  ? |
+    def load(path):
+        read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            read(path)
+      style: primary
+      start: 0
+      end: 30
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            read(path)
+      style: secondary
+      start: 0
+      end: 30
+    - source: read(path)
+      style: secondary
+      start: 20
+      end: 30
+    - source: read(path)
+      style: secondary
+      start: 20
+      end: 30
+    - source: read(path)
+      style: secondary
+      start: 20
+      end: 30
+    - source: read(path)
+      style: secondary
+      start: 20
+      end: 30
+  ? |
+    def load(path):
+        return module.read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            return module.read(path)
+      style: primary
+      start: 0
+      end: 44
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            return module.read(path)
+      style: secondary
+      start: 0
+      end: 44
+    - source: return module.read(path)
+      style: secondary
+      start: 20
+      end: 44
+    - source: return module.read(path)
+      style: secondary
+      start: 20
+      end: 44
+    - source: module.read(path)
+      style: secondary
+      start: 27
+      end: 44
+    - source: return module.read(path)
+      style: secondary
+      start: 20
+      end: 44
+    - source: module
+      style: secondary
+      start: 27
+      end: 33
+  ? |
+    def load(path):
+        return package.module.read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            return package.module.read(path)
+      style: primary
+      start: 0
+      end: 52
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            return package.module.read(path)
+      style: secondary
+      start: 0
+      end: 52
+    - source: return package.module.read(path)
+      style: secondary
+      start: 20
+      end: 52
+    - source: return package.module.read(path)
+      style: secondary
+      start: 20
+      end: 52
+    - source: package.module.read(path)
+      style: secondary
+      start: 27
+      end: 52
+    - source: return package.module.read(path)
+      style: secondary
+      start: 20
+      end: 52
+    - source: package
+      style: secondary
+      start: 27
+      end: 34
+    - source: package.module
+      style: secondary
+      start: 27
+      end: 41
+  ? |
+    def load(path):
+        return read(path)
+  : labels:
+    - source: |-
+        def load(path):
+            return read(path)
+      style: primary
+      start: 0
+      end: 37
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            return read(path)
+      style: secondary
+      start: 0
+      end: 37
+    - source: return read(path)
+      style: secondary
+      start: 20
+      end: 37
+    - source: return read(path)
+      style: secondary
+      start: 20
+      end: 37
+    - source: read(path)
+      style: secondary
+      start: 27
+      end: 37
+    - source: return read(path)
+      style: secondary
+      start: 20
+      end: 37
+  ? |
+    def load(path):
+        return read(path)  # The one call
+  : labels:
+    - source: |-
+        def load(path):
+            return read(path)  # The one call
+      style: primary
+      start: 0
+      end: 53
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: (path)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def load(path):
+            return read(path)  # The one call
+      style: secondary
+      start: 0
+      end: 53
+    - source: 'return read(path)  # The one call'
+      style: secondary
+      start: 20
+      end: 53
+    - source: return read(path)
+      style: secondary
+      start: 20
+      end: 37
+    - source: read(path)
+      style: secondary
+      start: 27
+      end: 37
+    - source: 'return read(path)  # The one call'
+      style: secondary
+      start: 20
+      end: 53
+  ? |
+    def load(path: Path) -> str:
+        return read(path)
+  : labels:
+    - source: |-
+        def load(path: Path) -> str:
+            return read(path)
+      style: primary
+      start: 0
+      end: 50
+    - source: path
+      style: secondary
+      start: 9
+      end: 13
+    - source: 'path: Path'
+      style: secondary
+      start: 9
+      end: 19
+    - source: '(path: Path)'
+      style: secondary
+      start: 8
+      end: 20
+    - source: |-
+        def load(path: Path) -> str:
+            return read(path)
+      style: secondary
+      start: 0
+      end: 50
+    - source: return read(path)
+      style: secondary
+      start: 33
+      end: 50
+    - source: return read(path)
+      style: secondary
+      start: 33
+      end: 50
+    - source: read(path)
+      style: secondary
+      start: 40
+      end: 50
+    - source: return read(path)
+      style: secondary
+      start: 33
+      end: 50
+  ? |
+    def outer():
+        def load(path):
+            return read(path)
+
+        return load
+  : labels:
+    - source: |-
+        def load(path):
+                return read(path)
+      style: primary
+      start: 17
+      end: 58
+    - source: path
+      style: secondary
+      start: 26
+      end: 30
+    - source: (path)
+      style: secondary
+      start: 25
+      end: 31
+    - source: |-
+        def load(path):
+                return read(path)
+      style: secondary
+      start: 17
+      end: 58
+    - source: return read(path)
+      style: secondary
+      start: 41
+      end: 58
+    - source: return read(path)
+      style: secondary
+      start: 41
+      end: 58
+    - source: read(path)
+      style: secondary
+      start: 48
+      end: 58
+    - source: return read(path)
+      style: secondary
+      start: 41
+      end: 58
+  ? |
+    def pair(a, b):
+        return combine(a, b)
+  : labels:
+    - source: |-
+        def pair(a, b):
+            return combine(a, b)
+      style: primary
+      start: 0
+      end: 40
+    - source: a
+      style: secondary
+      start: 9
+      end: 10
+    - source: b
+      style: secondary
+      start: 12
+      end: 13
+    - source: (a, b)
+      style: secondary
+      start: 8
+      end: 14
+    - source: |-
+        def pair(a, b):
+            return combine(a, b)
+      style: secondary
+      start: 0
+      end: 40
+    - source: return combine(a, b)
+      style: secondary
+      start: 20
+      end: 40
+    - source: return combine(a, b)
+      style: secondary
+      start: 20
+      end: 40
+    - source: combine(a, b)
+      style: secondary
+      start: 27
+      end: 40
+    - source: return combine(a, b)
+      style: secondary
+      start: 20
+      end: 40
+  ? |
+    def pair(a: int, b: int) -> int:
+        return combine(a, b)
+  : labels:
+    - source: |-
+        def pair(a: int, b: int) -> int:
+            return combine(a, b)
+      style: primary
+      start: 0
+      end: 57
+    - source: a
+      style: secondary
+      start: 9
+      end: 10
+    - source: 'a: int'
+      style: secondary
+      start: 9
+      end: 15
+    - source: b
+      style: secondary
+      start: 17
+      end: 18
+    - source: 'b: int'
+      style: secondary
+      start: 17
+      end: 23
+    - source: '(a: int, b: int)'
+      style: secondary
+      start: 8
+      end: 24
+    - source: |-
+        def pair(a: int, b: int) -> int:
+            return combine(a, b)
+      style: secondary
+      start: 0
+      end: 57
+    - source: return combine(a, b)
+      style: secondary
+      start: 37
+      end: 57
+    - source: return combine(a, b)
+      style: secondary
+      start: 37
+      end: 57
+    - source: combine(a, b)
+      style: secondary
+      start: 44
+      end: 57
+    - source: return combine(a, b)
+      style: secondary
+      start: 37
+      end: 57
+  ? |
+    def stop():
+        server.stop()
+  : labels:
+    - source: |-
+        def stop():
+            server.stop()
+      style: primary
+      start: 0
+      end: 29
+    - source: |-
+        def stop():
+            server.stop()
+      style: secondary
+      start: 0
+      end: 29
+    - source: server.stop()
+      style: secondary
+      start: 16
+      end: 29
+    - source: server.stop()
+      style: secondary
+      start: 16
+      end: 29
+    - source: server.stop()
+      style: secondary
+      start: 16
+      end: 29
+    - source: server.stop()
+      style: secondary
+      start: 16
+      end: 29
+    - source: server
+      style: secondary
+      start: 16
+      end: 22
+  ? |
+    def triple(a, b, c):
+        return combine(a, b, c)
+  : labels:
+    - source: |-
+        def triple(a, b, c):
+            return combine(a, b, c)
+      style: primary
+      start: 0
+      end: 48
+    - source: a
+      style: secondary
+      start: 11
+      end: 12
+    - source: b
+      style: secondary
+      start: 14
+      end: 15
+    - source: c
+      style: secondary
+      start: 17
+      end: 18
+    - source: (a, b, c)
+      style: secondary
+      start: 10
+      end: 19
+    - source: |-
+        def triple(a, b, c):
+            return combine(a, b, c)
+      style: secondary
+      start: 0
+      end: 48
+    - source: return combine(a, b, c)
+      style: secondary
+      start: 25
+      end: 48
+    - source: return combine(a, b, c)
+      style: secondary
+      start: 25
+      end: 48
+    - source: combine(a, b, c)
+      style: secondary
+      start: 32
+      end: 48
+    - source: return combine(a, b, c)
+      style: secondary
+      start: 25
+      end: 48
+  ? |
+    def triple(a: int, b: int, c: int) -> int:
+        return combine(a, b, c)
+  : labels:
+    - source: |-
+        def triple(a: int, b: int, c: int) -> int:
+            return combine(a, b, c)
+      style: primary
+      start: 0
+      end: 70
+    - source: a
+      style: secondary
+      start: 11
+      end: 12
+    - source: 'a: int'
+      style: secondary
+      start: 11
+      end: 17
+    - source: b
+      style: secondary
+      start: 19
+      end: 20
+    - source: 'b: int'
+      style: secondary
+      start: 19
+      end: 25
+    - source: c
+      style: secondary
+      start: 27
+      end: 28
+    - source: 'c: int'
+      style: secondary
+      start: 27
+      end: 33
+    - source: '(a: int, b: int, c: int)'
+      style: secondary
+      start: 10
+      end: 34
+    - source: |-
+        def triple(a: int, b: int, c: int) -> int:
+            return combine(a, b, c)
+      style: secondary
+      start: 0
+      end: 70
+    - source: return combine(a, b, c)
+      style: secondary
+      start: 47
+      end: 70
+    - source: return combine(a, b, c)
+      style: secondary
+      start: 47
+      end: 70
+    - source: combine(a, b, c)
+      style: secondary
+      start: 54
+      end: 70
+    - source: return combine(a, b, c)
+      style: secondary
+      start: 47
+      end: 70

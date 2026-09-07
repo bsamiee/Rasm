@@ -11,6 +11,6 @@ invalid:
     # The instance the rule was derived from, the snapshot records the first match's labels and fix alone
     - |
       <violating snippet>
-    # Sibling per any: branch, carrier, container, and spelling, ast-grep test -U writes the snapshots
+    # Sibling per any: branch, carrier, container, and spelling, ast-grep test -U --filter '^<id>$' writes the snapshots
     - |
       <sibling snippet>

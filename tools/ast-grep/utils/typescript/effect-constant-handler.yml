@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Recovery handler that reads no error and answers the constant the answer slot names, as an expression body or a block with the one return
+id: effect-constant-handler
+language: tsx
+arguments: [answer]
+rule:
+    any: [{kind: arrow_function}, {kind: function_expression}]
+    all:
+        # A parameter under an underscore name is declared and never read, Biome reports an unused name without the underscore
+        - not: {has: {field: parameters, has: {pattern: $_, not: {kind: required_parameter, has: {field: pattern, regex: '^_'}}}}}
+        - not: {has: {field: parameter, kind: identifier, not: {regex: '^_'}}}
+        - has:
+              field: body
+              any:
+                  - matches: answer
+                  - kind: statement_block
+                    has: {kind: return_statement, has: {matches: answer}}
+                    not: {has: {nthChild: 2}}

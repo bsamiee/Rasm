@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-warnings-module
+language: python
+severity: error
+rule:
+    pattern: $USE
+    any:
+        # Every use of the module, the emitters, the filters, the context manager, and the deprecation decorator
+        - matches: {python-module-use: {module: {regex: '^warnings$'}}}
+        # The deprecation decorator under its backport module
+        - matches: {python-module-member: {module: {regex: '^typing_extensions$'}, name: {regex: '^deprecated$'}}}
+message: '`$USE` names the warnings module or its deprecation decorator'
+note: Return the reason as a value, or replace the API in the commit that changes it, pytest reports every warning as an error

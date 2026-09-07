@@ -1,0 +1,63 @@
+id: no-never-arm
+valid:
+    # The correction, absurd as the arm
+    - |
+      const reason = decision.match<string>({ deny: absurd, answer: absurd, rewrite: (input) => input.prompt });
+    # The definition of absurd in composition/decision.ts
+    - |
+      const absurd = (value: never): never => value;
+    # An arm over another parameter type
+    - |
+      const reason = decision.match<string>({ deny: (reason: string): string => reason, rewrite: () => '' });
+    # A never parameter outside a case record
+    - |
+      run((value: never): never => value);
+    # An arm without a parameter
+    - |
+      const text = option.match<string>({ some: (value) => value, none: (): never => absurd(none) });
+    # Class method over never, no case record
+    - |
+      class Arms { deny(value: never): never { return value; } }
+    # Arm over an array of never
+    - |
+      const reason = decision.match<string>({ deny: (values: never[]): string => '', rewrite: (input) => input.prompt });
+    # Arrow over never as a call argument inside a pair value, no arm
+    - |
+      const reason = decision.match<string>({ deny: wrap((value: never): never => value), rewrite: (input) => input.prompt });
+    # Type literal member typed never, no function
+    - |
+      type Arms = { deny: never };
+invalid:
+    # The instance, the identity over never as the deny arm
+    - |
+      const reason = decision.match<string>({ deny: (value: never): never => value, rewrite: (input) => input.prompt });
+    # Function expression arm
+    - |
+      const reason = decision.match<string>({ deny: function (value: never): never { return value; }, rewrite: (input) => input.prompt });
+    # Method arm
+    - |
+      const reason = decision.match<string>({ deny(value: never): never { return value; }, rewrite: (input) => input.prompt });
+    # Arm that throws over never
+    - |
+      const reason = decision.match<string>({ answer: (_result: never): never => { throw new Error('unreachable'); }, rewrite: (input) => input.prompt });
+    # Arm that answers a value over never
+    - |
+      const done = decision.match<Promise<void>>({ deny: (_reason: never): Promise<void> => Promise.resolve(), rewrite: () => next(e) });
+    # Arm with an underscore parameter over never
+    - |
+      const reason = decision.match<string>({ deny: (_: never): never => absurd(_), rewrite: (input) => input.prompt });
+    # Async method arm over never
+    - |
+      const done = decision.match<Promise<void>>({ async deny(_reason: never): Promise<void> { return; }, rewrite: () => next(e) });
+    # Case record bound to a name before the match
+    - |
+      const arms = { deny: (value: never): never => value, rewrite: (input) => input.prompt };
+    # Optional parameter typed never
+    - |
+      const reason = decision.match<string>({ deny: (value?: never): never => value, rewrite: (input) => input.prompt });
+    # Generator method arm over never
+    - |
+      const reason = decision.match<string>({ *deny(value: never) { yield value; }, rewrite: (input) => input.prompt });
+    # Async arrow arm over never
+    - |
+      const done = decision.match<Promise<void>>({ deny: async (_reason: never): Promise<void> => {}, rewrite: () => next(e) });

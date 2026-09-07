@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-fixed-sleep
+language: python
+severity: error
+utils:
+    # Literal or module-level name as the delay, the wait no condition drives
+    fixed-delay:
+        matches: python-signature-default
+        # Zero yields to the scheduler, the checkpoint anyio.lowlevel documents, and stands for no wait
+        not: {any: [{kind: integer, regex: '^0+$'}, {kind: float, regex: '^0*\.0*$'}]}
+    # Argument list with a fixed delay in the first positional or the delay keyword, the result of asyncio.sleep is no delay
+    fixed-delay-arguments:
+        kind: argument_list
+        has:
+            any:
+                - nthChild: 1
+                  matches: fixed-delay
+                - kind: keyword_argument
+                  all:
+                      - has: {field: name, regex: '^delay$'}
+                      - has: {field: value, matches: fixed-delay}
+rule:
+    pattern: $USE
+    any:
+        # Every use of time.sleep, the wait that blocks the thread whatever its argument
+        - matches: {python-module-member: {module: {regex: '^time$'}, name: {regex: '^sleep$'}}}
+        # The awaited sleep of anyio or asyncio over a fixed delay, spelled through the module or the imported name
+        - kind: call
+          all:
+              - has:
+                    field: function
+                    any:
+                        - matches: {python-module-member: {module: {regex: '^(anyio|asyncio)$'}, name: {regex: '^sleep$'}}}
+                        - matches: {python-imported-name: {module: {regex: '^(anyio|asyncio)$'}, name: {regex: '^sleep$'}}}
+              - has: {field: arguments, matches: fixed-delay-arguments}
+message: '`$USE` waits a fixed time in place of the condition it stands for'
+note: >-
+    Wait on the condition, `await event.wait()`, `await process.wait()`, the blocking option of the tool, or a status read,
+    and a delay a value computes takes `await anyio.sleep(<delay>)`

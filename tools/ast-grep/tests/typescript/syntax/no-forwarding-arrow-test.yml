@@ -1,0 +1,139 @@
+id: no-forwarding-arrow
+valid:
+    # The callee passed itself
+    - 'const rows = Effect.forEach(lines, decode);'
+    # Type predicate names the narrowing
+    - 'const items = Array.filter(values, (value): value is Item => isItem(value));'
+    # Assertion annotation names the narrowing
+    - 'const check = (value): asserts value is Item => assertItem(value);'
+    # Async arrow wraps the result in a promise
+    - 'const load = async (path) => read(path);'
+    # Parameters reordered
+    - 'const swap = (a, b) => pair(b, a);'
+    # Parameter dropped
+    - 'const first = (a, b) => keep(a);'
+    # Parameter repeated
+    - 'const twice = (a) => pair(a, a);'
+    # Second parameter dropped for the first repeated
+    - 'const doubled = (a, b) => pair(a, a);'
+    # Third parameter dropped for the second repeated
+    - 'const tripled = (a, b, c) => combine(a, b, b);'
+    # Third parameter dropped from a two-argument call
+    - 'const pair = (a, b, c) => keep(a, b);'
+    # Fourth parameter dropped from a three-argument call
+    - 'const triple = (a, b, c, d) => keep(a, b, c);'
+    # Extra argument
+    - 'const bounded = (a) => clamp(a, 1);'
+    # Spread argument
+    - 'const spread = (a) => join(...a);'
+    # Call on this
+    - 'const bound = (a) => this.handle(a);'
+    # Call object evaluates at each call
+    - 'const built = (a) => make().handle(a);'
+    # Constructor call
+    - 'const item = (a) => new Item(a);'
+    # Block with a statement before the return
+    - 'const logged = (a) => { log(a); return handle(a); };'
+    # Four parameters
+    - 'const four = (a, b, c, d) => combine(a, b, c, d);'
+    # Thunk supplying an argument
+    - 'const applied = () => load(x);'
+    # Parameter dropped from a call with no argument
+    - 'const dropped = (a) => load();'
+    # Bare parameter dropped from a call with no argument
+    - 'const bareDropped = a => load();'
+    # Constructor call in a thunk
+    - 'const made = () => new Map();'
+    # Method on a value binding in a thunk
+    - 'const later = () => crypto.randomUUID();'
+    # Promise static, this is the constructor and the unbound call throws
+    - 'const settled = () => Promise.resolve();'
+    # Promise static forwarding one parameter
+    - 'const lifted = (value) => Promise.resolve(value);'
+    # Typed array static, this is the constructor and the unbound call throws
+    - 'const bytes = (values) => Uint8Array.from(values);'
+    # Typed array static in a thunk
+    - 'const empty = () => Float64Array.of();'
+    # Explicit type argument instantiates the callee
+    - 'const typed = (a) => decode<Item>(a);'
+    # Default value
+    - 'const defaulted = (a = 1) => handle(a);'
+    # Rest parameter
+    - 'const rest = (...a) => handle(a);'
+    # Destructured parameter
+    - 'const destructured = ({ a }) => handle(a);'
+    # Optional parameter
+    - 'const optional = (a?) => handle(a);'
+    # Nested call transforms the argument
+    - 'const nested = (a) => outer(inner(a));'
+    # Member read transforms the argument
+    - 'const read = (a) => handle(a.id);'
+    # Computed callee
+    - 'const computed = (a) => table[key](a);'
+    # Curried callee applied twice
+    - 'const curried = (a) => make(a)(b);'
+    # Return under a guard beside a second return
+    - 'const guarded = (a) => { if (a) { return handle(a); } return other(a); };'
+    # Method on a value binding, the callee passed itself loses its this
+    - 'const found = (prefix) => name.startsWith(prefix);'
+    # Method chain rooted at a value binding
+    - 'const known = (a) => config.rules.has(a);'
+    # Method chain rooted at the plugin engine, the loader refuses $ as a value and reads it at a call site alone
+    - 'const exists = (path) => $.fs.exists(path);'
+    # Method on an upper snake case constant, an underscore names a value and the array method binds this at the call
+    - 'const known = (name) => KIND_NAMES.includes(name);'
+    # Optional call, the callee passed itself is undefined where the call is skipped
+    - 'const optional = (a) => handle?.(a);'
+    # Default value on the second parameter
+    - 'const second = (a, b = 1) => pair(a, b);'
+    # Function expression, biome useArrowFunction rewrites it to the arrow first
+    - 'const expression = function (a) { return handle(a); };'
+    # Function declaration, its hoisting keeps the declaration form
+    - 'function declared(a) { return handle(a); }'
+    # Parameter applied to itself, the callee is a value bound at the call
+    - 'const self = (a) => a(a);'
+    # Bare parameter applied to itself, the name sits in the parameter field
+    - 'const bareSelf = a => a(a);'
+invalid:
+    # The instance, a name forwarded to a module-private function
+    - 'const rows = Effect.forEach(lines, (line) => _decodeResult(line));'
+    # Typed parameter forwarded to a global
+    - 'const text = (value: number) => String(value);'
+    # Member callee on a namespace
+    - 'const lifted = (input: number) => Effect.succeed(input);'
+    # Member callee on a global object
+    - 'const lines = Array.map(history, (row) => JSON.stringify(row));'
+    # Namespace path of two members
+    - 'const made = (row) => Schema.Struct.make(row);'
+    # Two parameters forwarded in order
+    - 'const two = (a, b) => pair(a, b);'
+    # Three parameters forwarded in order
+    - 'const three = (a, b, c) => combine(a, b, c);'
+    # Block body with the one return
+    - 'const block = (a) => { return handle(a); };'
+    # Block body forwarding two parameters
+    - 'const blockTwo = (a, b) => { return pair(a, b); };'
+    # Block body forwarding three parameters
+    - 'const blockThree = (a, b, c) => { return combine(a, b, c); };'
+    # One parameter without parentheses
+    - 'const bare = a => handle(a);'
+    # Return annotation the callee already types
+    - 'const annotated = (a): Item => handle(a);'
+    # Type parameter the generic callee already declares
+    - 'const generic = <T>(a: T) => handle(a);'
+    # Namespace path of three members
+    - 'const deep = (row) => Schema.Struct.Field.make(row);'
+    # Array static, the unbound call builds an Array
+    - 'const listed = (values) => Array.from(values);'
+    # Static on a class named like a typed array with another suffix, the refusal reads the exact names
+    - 'const rows = (values) => ArrayView.from(values);'
+    # Case record value forwarding to a local constructor
+    - 'const cases = { some: (reason) => deny(reason) };'
+    # Thunk forwarding to a call with no argument
+    - 'const thunk = () => load();'
+    # Case record arm forwarding to the none constructor
+    - 'const absent = { none: () => none() };'
+    # Block thunk with the one return
+    - 'const blockThunk = () => { return load(); };'
+    # Namespace callee in a thunk
+    - 'const empty = () => Option.none();'

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-context-on-rewrite
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+utils:
+    # The copy of the second parameter with a changed field passed to the chain, inline or through a local the hook declares
+    rewrite-call:
+        kind: call_expression
+        all:
+            - has: {field: function, pattern: $NEXT}
+            - has:
+                  field: arguments
+                  has:
+                      any:
+                          - matches: {claude-code-event-copy: {event: {pattern: $E}}}
+                          - kind: identifier
+                            pattern: $COPY
+                            inside:
+                                stopBy: end
+                                kind: statement_block
+                                has:
+                                    stopBy: end
+                                    kind: variable_declarator
+                                    all:
+                                        - has: {field: name, pattern: $COPY}
+                                        - has: {field: value, matches: {claude-code-event-copy: {event: {pattern: $E}}}}
+    # Any naming of context, the pair key, the member read, the shorthand, or the string key
+    context-name:
+        any:
+            - {kind: property_identifier, regex: '^context$'}
+            - {kind: shorthand_property_identifier, regex: '^context$'}
+            - {kind: string, regex: '^[''"]context[''"]$'}
+rule:
+    matches: {claude-code-hook: {event: {regex: '^[''"]tool\.call[''"]$'}}}
+    all:
+        - has: {field: parameters, has: {nthChild: 2, has: {pattern: $E}}}
+        - has: {field: parameters, has: {nthChild: 3, has: {pattern: $NEXT}}}
+        - has: {stopBy: end, matches: rewrite-call}
+        # Restore rewrites add no context by design and pass because the adapter around them names result.context
+        - not: {has: {stopBy: end, matches: context-name}}
+message: The tool.call hook passes a changed copy of `$E` to `$NEXT` and names no `context`, the model never learns of the rewrite
+note: 'Append a context line to the result, `{ ...result, context: [...(result.context ?? []), "Ran pnpm in place of npm"] }`'

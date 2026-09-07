@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-process-per-item
+language: python
+severity: error
+utils:
+    # Name the enclosing loop, the comprehension clause, or the lambda a map applies binds, any name of a pattern list or tuple
+    loop-item:
+        kind: identifier
+        pattern: $ITEM
+        any:
+            - inside:
+                  kind: for_statement
+                  stopBy: end
+                  has: {field: left, any: [{kind: identifier, pattern: $ITEM}, {has: {kind: identifier, pattern: $ITEM, stopBy: end}}]}
+            - inside:
+                  any: [{kind: list_comprehension}, {kind: set_comprehension}, {kind: generator_expression}]
+                  stopBy: end
+                  has:
+                      kind: for_in_clause
+                      has: {field: left, any: [{kind: identifier, pattern: $ITEM}, {has: {kind: identifier, pattern: $ITEM, stopBy: end}}]}
+            - inside:
+                  kind: lambda
+                  stopBy: end
+                  has: {field: parameters, has: {kind: identifier, pattern: $ITEM}}
+                  inside: {kind: argument_list, inside: {kind: call, has: {field: function, kind: identifier, regex: '^map$'}}}
+    # Element that is the item or holds it, a str() call, or an f-string, the item read from the element and proven by its binding
+    holds-item:
+        any:
+            - matches: loop-item
+            - has: {matches: loop-item, stopBy: end}
+    # Argv list or tuple with the item in its last element and in no other, the operand a batch form takes many of
+    per-item-argv:
+        any: [{kind: list}, {kind: tuple}]
+        all:
+            - has: {matches: holds-item}
+            - not: {has: {not: {nthChild: {position: 1, reverse: true}}, matches: holds-item}}
+    # Process call of the scripts, of anyio, and of subprocess over the per-item argv, or run_each over a list holding one
+    process-call:
+        kind: call
+        any:
+            - all:
+                  - has:
+                        field: function
+                        any:
+                            - {kind: identifier, regex: '^(run|run_process|open_process)$'}
+                            - {kind: attribute, has: {field: attribute, regex: '^(run|run_process|open_process)$'}}
+                  - has: {field: arguments, has: {matches: per-item-argv}}
+            - all:
+                  - has: {field: function, kind: identifier, regex: '^run_each$'}
+                  - has: {field: arguments, has: {kind: list, has: {matches: per-item-argv}}}
+rule:
+    pattern: $USE
+    matches: process-call
+message: '`$USE` runs one process per `$ITEM` where one run over the set serves'
+note: >-
+    Pass the set to one call, `[<tool>, <flags>, *map(str, <items>)]`, or the batch form of the tool, and a tool that takes
+    one operand keeps the loop under a suppression naming it

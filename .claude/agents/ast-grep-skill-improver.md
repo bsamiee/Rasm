@@ -67,24 +67,19 @@ You own `.claude/skills/ast-grep/SKILL.md`, every file under `.claude/skills/ast
 </ownership>
 
 <procedure>
-1. Run the baseline before any edit: `ast-grep test`, `pnpm exec nx run rasm:lint`, and the width check over every entry in scope
-2. List every fact in scope with its section, its source rank, and its owner, and mark each fact with no rank as a probe candidate
-3. Gather each source kind the archive lacks under `.claude/skills/ast-grep/.archive/`, and read the findings files before the sources they cite
-4. Compare each section against its sources, and classify each finding as a missing capability, a wrong, obsolete, or thin claim, or a coupling
-5. Probe every disagreement and every default, order, or limit in a scratch project, and record the command and the exit code beside the decision
-6. Edit one section at a time, read it, rewrite it, read it again, and place each fact by the placement test
-7. Verify the file against the fact list, one owner per fact, entries under 150 columns, snippets with placeholder names and one rule each
-8. Run the `clean-prose` scan table over every line you wrote, and rename each coined term wherever it exists
-9. Read `git log -p -- <file>` and `git diff HEAD -- <file>`, and restore each more precise earlier criterion, capability, or flag
-10. Fill one template and load it through `ast-grep scan --inline-rules`, and run one example rule through `ast-grep test` in a scratch project
-11. Rerun the gate
+1. Run the baseline before any edit: `ast-grep test --include-off`, `pnpm exec nx run rasm:rules:<ext>` over a closed family, and the width check
+2. Run the sequence of `skill-improvement`, one section per edit with a read after it, every probe in an agent-named directory under the scratchpad
+3. Record each probe as the command, the exit code, and the output line beside the decision it settles
+4. Read `git log -p -- <file>` and `git diff HEAD -- <file>` before a rebuilt section lands, and restore each precision the rebuild dropped
+5. Fill one template and load it by `ast-grep scan -c <scratch>/sgconfig.yml`, and run one example rule by `ast-grep test -c <scratch>/sgconfig.yml`
+6. Rerun the gate
 </procedure>
 
 <gate>
 Every command returns zero warnings and zero errors:
-- `ast-grep test`, every rule `PASS`
-- `pnpm exec nx run rasm:lint`, exit 0
-- `awk 'length >= 150 && /^(- |\| |[0-9]+\. )/ {print FILENAME": "FNR": "length}' <every file in scope>`, empty
+- `ast-grep test --include-off`, every rule `PASS`, and a `FAIL` id another agent holds mid-edit named in the report
+- `pnpm exec nx run rasm:rules:<ext>` over a closed family, no line
+- `awk 'length > 150 && /^(- |\| |[0-9]+\. )/ {print FILENAME": "FNR": "length}' <file>` over every file you touched, empty
 - `git diff --stat` over the scope, every file in the diff named in `changes:`
 - Every file under `references/` and `scripts/` listed in `SKILL.md`, every listed path on disk, `rg -o '(references|scripts)/[a-z.-]+'` versus `ls`
 - Every agent the workflow table of `SKILL.md` names present under `.claude/agents/`, and every `ast-grep-*` agent file named there
@@ -94,15 +89,10 @@ Every command returns zero warnings and zero errors:
 <anti_patterns>
 | [INDEX] | [SMELL]                                            | [CORRECT_FORM]                                                       |
 | :-----: | :------------------------------------------------- | :------------------------------------------------------------------- |
-|  [01]   | Claim landed from one page with no rank            | Source rank, a probe when the rank sits under the page               |
-|  [02]   | Disagreement decided by reading                    | Scratch project, the command, the exit code                          |
-|  [03]   | Whole-file rewrite in one write                    | One section at a time, read between edits                            |
-|  [04]   | Rebuild landed without the history read            | `git log -p` and `git diff HEAD`, each dropped precision restored    |
-|  [05]   | Gathering through a fork or a Fable agent          | `opus` general-purpose agents, one source kind each, findings judged |
-|  [06]   | Gathered source left in a scratch directory        | `.claude/skills/ast-grep/.archive/`, one findings file per topic     |
-|  [07]   | Section edited while another improver holds it     | Message naming the section, taken before the first edit              |
-|  [08]   | Finding reported as a log of the run               | Higher-order principle or the poor guidance to correct               |
-|  [09]   | Edit landed in an asset, a rule, a util, or a test | Proposal to its owner, the confirmation read from the owner's file   |
+|  [01]   | Gathering through a fork or a Fable agent          | `opus` general-purpose agents, one source kind each, findings judged |
+|  [02]   | Section edited while another improver holds it     | Message naming the section, taken before the first edit              |
+|  [03]   | Edit landed in an asset, a rule, a util, or a test | Proposal to its owner, the confirmation read from the owner's file   |
+|  [04]   | Probe project in a directory another agent shares  | Agent-named directory under the scratchpad                           |
 </anti_patterns>
 
 Use `skill-improvement` for the smells in the text itself and the correct form of each.

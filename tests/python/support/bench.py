@@ -5,7 +5,6 @@
 from collections.abc import Callable
 from functools import reduce
 import gc
-import inspect
 from math import ceil, inf, log
 from operator import itemgetter
 import os
@@ -18,16 +17,12 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
-    from pathlib import Path
 
     from pytest_benchmark.fixture import BenchmarkFixture
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _CALIBRATION_FLOOR_NS = 100_000
-_ITERATIONS_CAP = 10_000
-_POTTS_BETA = 4.0
-_REGRESSION_TOLERANCE = 0.70
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -98,14 +93,14 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
     arguments = case.workload(size)
     benchmark.group = case.label
 
-    process.cpu_percent(interval=None)
+    process.cpu_percent()
     rss_before = process.memory_info().rss
 
     calibration_start = time.perf_counter_ns()
     case.subject(arguments)
     calibration_ns = time.perf_counter_ns() - calibration_start
     iterations = (
-        min(_ITERATIONS_CAP, max(1, ceil(_CALIBRATION_FLOOR_NS / max(calibration_ns, 1))))
+        min(10_000, max(1, ceil(_CALIBRATION_FLOOR_NS / max(calibration_ns, 1))))
         if (case.iterations == 1 and not case.fresh_per_round and calibration_ns < _CALIBRATION_FLOOR_NS)
         else case.iterations
     )
@@ -137,7 +132,7 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
     benchmark.extra_info.update(
         rss_delta_bytes=process.memory_info().rss - rss_before,
         rss_after_bytes=process.memory_info().rss,
-        cpu_percent_delta=process.cpu_percent(interval=None),
+        cpu_percent_delta=process.cpu_percent(),
         budget_ms=case.budget_ms,
         observed_ms=observed_ms,
         rel_iqr=relative_iqr,
@@ -156,25 +151,13 @@ def run_benchmark(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -
     return result
 
 
-def register_benchmarks(cases: Sequence[BenchmarkCase]) -> Callable[..., None]:
-    """Return a parametrized benchmark function assigned to the caller module."""
-    caller_module: str = inspect.stack()[1].frame.f_globals["__name__"]
-
-    @benchmark_parameters(cases)
-    def benchmark_case(benchmark: BenchmarkFixture, case: BenchmarkCase, size: int) -> None:
-        run_benchmark(benchmark, case, size)
-
-    benchmark_case.__module__ = caller_module
-    return benchmark_case
-
-
 # --- [REGRESSION_DETECTION] -------------------------------------------------------------
 
 
 def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
     """Partition an oldest-first median series into segments with the greedy Potts/BIC step criterion."""
     n = len(series)
-    penalty = _POTTS_BETA * log(max(n, 2))
+    penalty = 4.0 * log(max(n, 2))  # Potts step penalty with beta 4.0
 
     def _sse(seg: tuple[float, ...]) -> float:
         mu = sum(seg) / len(seg)
@@ -182,26 +165,26 @@ def _potts_segments(series: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
 
     def _gain(seg: tuple[float, ...], i: int) -> float:
         full, split = _sse(seg), _sse(seg[:i]) + _sse(seg[i:])
-        return len(seg) * log(full / split) if (full > 0.0 and split > 0.0) else (inf if full > 0.0 else 0.0)
+        match full > 0.0, split > 0.0:
+            case True, True:
+                return len(seg) * log(full / split)
+            case True, False:
+                return inf
+            case _:
+                return 0.0
 
     def _split(seg: tuple[float, ...]) -> tuple[tuple[float, ...], ...]:
         candidates = [(_gain(seg, i), i) for i in range(1, len(seg))]
         best = max(candidates, default=(0.0, 0), key=itemgetter(0))
         return (*_split(seg[: best[1]]), *_split(seg[best[1] :])) if (len(seg) >= 2 and best[0] > penalty) else (seg,)
 
-    return _split(series) if n >= 2 else ((series,) if n else ())
-
-
-def _storage_root(config: pytest.Config) -> Path:
-    """Resolve the autosaved-benchmark root from the live ``--benchmark-storage`` option against ``config.rootpath``."""
-    raw = str(config.getoption("benchmark_storage"))
-    path = raw.removeprefix("file://")
-    return config.rootpath / path
+    return _split(series) if series else ()
 
 
 def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) -> dict[tuple[str, str, int], tuple[float, ...]]:
     """Map ``(file, label, size)`` to its oldest-first median series from stored runs and the current report."""
-    storage_root = _storage_root(config)
+    # The autosaved benchmark root is the live --benchmark-storage option resolved against config.rootpath
+    storage_root = config.rootpath / str(config.getoption("benchmark_storage")).removeprefix("file://")
     prior_docs = (msgspec.json.decode(path.read_bytes(), type=_StoredDoc) for path in sorted(storage_root.glob("*/*.json")))
     current_doc = msgspec.convert(output_json, type=_StoredDoc, strict=False)
     ordered_entries = [entry for doc in (*prior_docs, current_doc) for entry in doc.benchmarks]
@@ -217,9 +200,8 @@ def _series_from_storage(config: pytest.Config, output_json: dict[str, object]) 
     return reduce(_accumulate, ordered_entries, {})
 
 
-def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, output_json: dict[str, object]) -> None:
+def pytest_benchmark_update_json(config: pytest.Config, output_json: dict[str, object]) -> None:
     """Fail the session when a stored median series shows a sustained final-segment regression."""
-    _ = benchmarks
     series_by_key = _series_from_storage(config, output_json)
 
     def _regression(segments: tuple[tuple[float, ...], ...]) -> float:
@@ -230,18 +212,13 @@ def pytest_benchmark_update_json(config: pytest.Config, benchmarks: object, outp
     regressions = [
         (key, ratio)
         for key, series in series_by_key.items()
-        if len(segments := _potts_segments(series)) >= 2 and (ratio := _regression(segments)) > _REGRESSION_TOLERANCE
+        if len(segments := _potts_segments(series)) >= 2 and (ratio := _regression(segments)) > 0.70  # The tolerance of the last segment's rise
     ]
-    (
-        pytest.fail(
-            "sustained benchmark regression: " + "; ".join(f"{file}::{label}-{size}: +{ratio:.1%}" for (file, label, size), ratio in regressions),
-            pytrace=False,
-        )
-        if regressions
-        else None
-    )
+    if regressions:
+        detail = "; ".join(f"{file}::{label}-{size}: +{ratio:.1%}" for (file, label, size), ratio in regressions)
+        pytest.fail(f"sustained benchmark regression: {detail}", pytrace=False)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["BenchmarkCase", "benchmark_parameters", "run_benchmark", "register_benchmarks", "pytest_benchmark_update_json"]
+__all__ = ["BenchmarkCase", "benchmark_parameters", "run_benchmark", "pytest_benchmark_update_json"]

@@ -1,0 +1,51 @@
+id: no-parenthesized-except-tuple
+valid:
+    # The corrected form, the types without parentheses
+    - |
+      try:
+          load(path)
+      except OSError, msgspec.DecodeError:
+          return Error(failure)
+    # The as clause keeps the parentheses
+    - |
+      try:
+          load(path)
+      except (OSError, msgspec.DecodeError) as error:
+          return Error(str(error))
+    # One-element tuple, ruff redundant-tuple-in-exception-handler reports it
+    - |
+      try:
+          load(path)
+      except (OSError,):
+          return Error(failure)
+    # Wrapped tuples keep their parentheses
+    - |
+      try:
+          load(path)
+      except (
+          OSError,
+          msgspec.DecodeError,
+      ):
+          return Error(failure)
+    # Tuple outside an except clause
+    - |
+      errors = (OSError, ValueError)
+invalid:
+    # The instance, two types in parentheses
+    - |
+      try:
+          load(path)
+      except (OSError, msgspec.DecodeError):
+          return Error(failure)
+    # Three types
+    - |
+      try:
+          load(path)
+      except (OSError, tarfile.TarError, zipfile.BadZipFile):
+          return Error(failure)
+    # The exception group clause
+    - |
+      try:
+          load(path)
+      except* (OSError, ValueError):
+          return Error(failure)

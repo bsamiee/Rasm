@@ -1,0 +1,94 @@
+id: no-parameter-discard
+valid:
+    # The corrected form, the parameter named with a leading underscore
+    - |
+      def bind(self, record, _log):
+          return record
+    # Discard of a local, the name is no parameter
+    - |
+      def bind(self, record):
+          log = record
+          _ = log
+    # Discard of a call, the value is consumed
+    - |
+      def bind(self, record):
+          _ = record()
+    # Discard of an attribute read
+    - |
+      def bind(self, record):
+          _ = record.name
+    # Discard inside a nested def of a name the outer def declares, the walk stops at the inner boundary
+    - |
+      def bind(self, record, log):
+          def run():
+              _ = log
+          return log
+    # Assignment to a named target
+    - |
+      def bind(self, record, log):
+          kept = log
+    # Discard at module level, no def declares the name
+    - |
+      _ = log
+    # Deletion of two names, a local among them
+    - |
+      def bind(record, log):
+          kept = record
+          del kept, log
+    # Discard in a class body
+    - |
+      class Reader:
+          _ = log
+invalid:
+    # The instance, a typed parameter discarded in a method
+    - |
+      def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
+          """Build the recording runner."""
+          _ = log
+    # Untyped parameter
+    - |
+      def bind(record, log):
+          _ = log
+    # Default parameter
+    - |
+      def bind(record, log=None):
+          _ = log
+    # Typed default parameter
+    - |
+      def bind(record, log: Log | None = None):
+          _ = log
+    # Splat parameter
+    - |
+      def bind(record, *log):
+          _ = log
+    # Dictionary splat parameter
+    - |
+      def bind(record, **log):
+          _ = log
+    # Discard nested in a branch of the body
+    - |
+      def bind(record, log):
+          if record:
+              _ = log
+    # Nested def discarding its own parameter
+    - |
+      def outer(log):
+          def inner(log):
+              _ = log
+    # Self discarded
+    - |
+      class Reader:
+          def load(self):
+              _ = self
+    # Keyword-only parameter
+    - |
+      def bind(record, *, log):
+          _ = log
+    # Async def
+    - |
+      async def bind(record, log):
+          _ = log
+    # Parameter deleted, the del spelling of the discard
+    - |
+      def bind(record, log):
+          del log

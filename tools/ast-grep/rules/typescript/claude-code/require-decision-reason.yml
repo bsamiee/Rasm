@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-decision-reason
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+utils:
+    # Reason no person reads, a blank or non-text literal, a forwarded identifier or member holds the row's literal and passes
+    unreadable-reason:
+        any:
+            - {kind: string, not: {has: {kind: string_fragment, regex: '\S'}}}
+            - {kind: template_string, not: {has: {kind: string_fragment, regex: '\S'}}}
+            # The first child past the blank fragments is a substitution
+            - kind: template_string
+              has:
+                  kind: template_substitution
+                  nthChild: {position: 1, ofRule: {any: [{kind: template_substitution}, {kind: string_fragment, regex: '\S'}]}}
+            - kind: undefined
+            - kind: 'null'
+            - kind: number
+            # Unary expression, a signed number, void, a negation, or a type name, none is text a person reads
+            - kind: unary_expression
+            - kind: 'true'
+            - kind: 'false'
+            - kind: object
+            - kind: array
+rule:
+    any:
+        - kind: pair
+          all:
+              - has: {field: key, regex: "^['\"]?(deny|drop)['\"]?$"}
+              - has: {field: value, pattern: $REASON, matches: unreadable-reason}
+        # First argument of the deny or drop constructor, the site that produces the reason
+        - kind: call_expression
+          all:
+              - has: {field: function, kind: identifier, regex: '^(deny|drop)$'}
+              - has: {field: arguments, has: {nthChild: 1, pattern: $REASON, matches: unreadable-reason}}
+message: "The decision reason `$REASON` is empty or not text, and `{ deny: '' }` was fail-open on 2.1.260"
+note: Write the reason as a string literal or a template opening with literal text that names the correct command, a forwarded identifier passes
+labels:
+    REASON: {style: primary, message: The reason value}

@@ -1,0 +1,28 @@
+id: no-socket-module
+snapshots:
+  ? |
+    from socket import create_connection
+  : labels:
+    - source: create_connection
+      style: primary
+      start: 19
+      end: 36
+  ? |
+    import socket
+
+    async def serve(sock: socket.socket) -> None:
+        await run_server(sock)
+  : labels:
+    - source: socket.socket
+      style: primary
+      start: 37
+      end: 50
+  ? |
+    import socket as sk
+
+    listener = sk.create_server(("127.0.0.1", 0))
+  : labels:
+    - source: sk.create_server
+      style: primary
+      start: 32
+      end: 48

@@ -1,0 +1,844 @@
+# Every case is a function, the match sits under a function body
+id: no-result-match-for-map
+valid:
+    # The corrected map form
+    - |
+      def owner(names):
+          return names.map(lambda text: text.strip())
+    # Bind by statement, the ok arm passes and the remaining statements read the value
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          lines = text.splitlines()
+          return Ok(lines)
+    # Ok arm with a statement before the return
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  stripped = text.strip()
+                  return Ok(stripped)
+    # Error arm returning the bound name through another callee
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Failed(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Error arm mapping the error to another variant
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(Unsupported(failure))
+              case Result(ok=text):
+                  return Ok(text)
+    # Error arm returning a name the pattern did not bind
+    - |
+      def owner(names, other):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(other)
+              case Result(ok=text):
+                  return Ok(text)
+    # Error arm returning a member of the bound name
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure.inner)
+              case Result(ok=text):
+                  return Ok(text)
+    # Error arm with a statement before the return
+    - |
+      def owner(names, log):
+          match names:
+              case Result(tag="error", error=failure):
+                  log(failure)
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Error pattern with a keyword beside the tag and the error
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure, ok=_):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Guard on the error arm
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure) if failure.fatal:
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Guard on the ok arm
+    - |
+      def owner(names, rid):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=manifest) if rid in manifest.runtimes:
+                  return Ok(manifest.runtimes[rid])
+    # Third arm
+    - |
+      def owner(names, rid):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=manifest) if rid not in manifest.runtimes:
+                  return Ok(Unsupported(rid))
+              case Result(ok=manifest):
+                  return Ok(manifest.runtimes[rid])
+    # Ok arm return holding an await, a lambda has no await
+    - |
+      async def owner(names, fetch):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(await fetch(text))
+    # Ok value destructured as a tuple
+    - |
+      def owner(pair):
+          match pair:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=(repo, ref)):
+                  return Ok(f"{repo}@{ref}")
+    # Ok value compared with a dotted constant
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=Mode.Fast):
+                  return Ok(True)
+    # Ok pattern with a keyword beside the tag and the ok
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text, error=_):
+                  return Ok(text)
+    # Match followed by a statement
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+          return Ok("")
+    # Class other than Result
+    - |
+      def owner(names):
+          match names:
+              case Outcome(tag="error", error=failure):
+                  return Error(failure)
+              case Outcome(ok=text):
+                  return Ok(text)
+    # Comment inside the ok arm, the fix keeps no comment
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  # The strip drops the trailing newline
+                  return Ok(text.strip())
+    # Comment between the arms, the fix keeps no comment
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              # The ok arm strips the text
+              case Result(ok=text):
+                  return Ok(text.strip())
+    # Ok value compared with None
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=None):
+                  return Ok("")
+    # Ok value narrowed through a class pattern
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=str(text)):
+                  return Ok(text.strip())
+    # The corrected map form over a local
+    - |
+      async def owner(path, cwd, parse):
+          names = await run(["otool", "-L", str(path)], cwd, capture=True)
+          return names.map(lambda text: parse(text))
+    # Bind by statement with two remaining statements
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          lines = text.splitlines()
+          return Ok(parse(lines))
+    # Remaining statement that is no return
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          if text:
+              return Ok(parse(text))
+          return Error(Empty())
+    # Pass arm with a statement before the pass
+    - |
+      def owner(names, parse, log):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  log(text)
+                  pass
+          return Ok(parse(text))
+    # Error arm returning the bound name through another callee
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Failed(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Remaining return holding an await, a lambda has no await
+    - |
+      async def owner(names, fetch):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(await fetch(text))
+    # Comment between the match and the return
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          # The parse reads the whole text
+          return Ok(parse(text))
+    # Third arm
+    - |
+      def owner(names, parse, rid):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=manifest) if rid not in manifest.runtimes:
+                  return Ok(Unsupported(rid))
+              case Result(ok=manifest):
+                  pass
+          return Ok(parse(manifest))
+    # Guard on the ok arm
+    - |
+      def owner(names, parse, flag):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text) if flag:
+                  pass
+          return Ok(parse(text))
+    # Guard on the error arm
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure) if failure.fatal:
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Error arm mapping the error to another variant
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(Unsupported(failure))
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Error arm returning a name the pattern did not bind
+    - |
+      def owner(names, parse, other):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(other)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Error arm with a statement before the return
+    - |
+      def owner(names, parse, log):
+          match names:
+              case Result(tag="error", error=failure):
+                  log(failure)
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Error pattern with a keyword beside the tag and the error
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure, ok=_):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Ok value destructured as a tuple
+    - |
+      def owner(pair, parse):
+          match pair:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=(repo, ref)):
+                  pass
+          return Ok(parse(repo, ref))
+    # Ok value compared with a dotted constant
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=Mode.Fast):
+                  pass
+          return Ok(parse())
+    # Ok pattern with a keyword beside the tag and the ok
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text, error=_):
+                  pass
+          return Ok(parse(text))
+    # Class other than Result
+    - |
+      def owner(names, parse):
+          match names:
+              case Outcome(tag="error", error=failure):
+                  return Error(failure)
+              case Outcome(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Comment inside the pass arm, the fix keeps no comment
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  # The value reads after the match
+                  pass
+          return Ok(parse(text))
+    # Match as the last statement of an if block, a statement that is no return after the if
+    - |
+      def owner(names, parse, flag, log):
+          if flag:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+          log(text)
+          return Ok(parse(text))
+    # Match before the last statement of an if block, the return after the if
+    - |
+      def owner(names, parse, flag, log):
+          if flag:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+              log(text)
+          return Ok(parse(text))
+    # Match as the last statement of a loop body, the ok path continues with the next iteration
+    - |
+      def owner(names, parse):
+          for name in names:
+              match name:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+          return Ok(parse(text))
+    # Match as the last statement of a with block, the return runs after the context closes
+    - |
+      def owner(names, parse, lock):
+          with lock:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+          return Ok(parse(text))
+    # Match as the last statement of the else clause of a loop
+    - |
+      def owner(names, parse, log):
+          for name in names:
+              log(name)
+          else:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+          return Ok(parse(text))
+    # Ok arm assigning an ellipsis
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  text = ...
+          return Ok(parse(text))
+invalid:
+    # The instance, an awaited subject
+    - |
+      async def owner(path, cwd):
+          match await run(["otool", "-L", str(path)], cwd, capture=True):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+    # Arms in the other order
+    - |
+      def owner(names):
+          match names:
+              case Result(ok=text):
+                  return Ok(text.strip())
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+    # Ok arm spelled with the tag
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(tag="ok", ok=text):
+                  return Ok(text.strip())
+    # Ok pattern with no capture, the lambda parameter is `_`
+    - |
+      async def owner(space, tool):
+          env = {**space.environment, "PKG_CONFIG": str(tool)}
+          match await run(["pkgconf"], space.root):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result():
+                  return Ok(env)
+    # Ok pattern with the wildcard
+    - |
+      def owner(names, env):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=_):
+                  return Ok(env)
+    # Ok pattern spelled with the tag alone
+    - |
+      def owner(names, env):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(tag="ok"):
+                  return Ok(env)
+    # Subject bound to a local on the line before
+    - |
+      async def owner(path, cwd):
+          names = await run(["otool", "-L", str(path)], cwd, capture=True)
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text.splitlines())
+    # Static method spellings with the error keywords in the other order
+    - |
+      def owner(names):
+          match names:
+              case Result(error=failure, tag="error"):
+                  return Result.Error(failure)
+              case Result(ok=text):
+                  return Result.Ok(text.strip())
+    # Error pattern without the tag
+    - |
+      def owner(names):
+          match names:
+              case Result(error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text.strip())
+    # Bind form, the ok arm returns a Result
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return parse(text)
+    # Call subject, the member access follows the call
+    - |
+      def owner(names):
+          match names.strip():
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Operator subject, the member access takes parentheses
+    - |
+      def owner(left, right):
+          match left or right:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Member subject
+    - |
+      def owner(space):
+          match space.names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Index subject
+    - |
+      def owner(results, library):
+          match results[library]:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Parenthesized subject
+    - |
+      def owner(left, right):
+          match (left or right):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    # Comment after the match, the match stays the last statement
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+          # Every arm returns
+    # Match as the last statement of an if block, both arms return for the function
+    - |
+      def owner(names, flag):
+          if flag:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      return Ok(text)
+          return Ok("")
+    # Match under a with block under an if block
+    - |
+      def owner(names, flag, lock):
+          if flag:
+              with lock:
+                  match names:
+                      case Result(tag="error", error=failure):
+                          return Error(failure)
+                      case Result(ok=text):
+                          return Ok(text)
+          return Ok("")
+    # Subject calling map2 with the mapper lambda across lines
+    - |
+      def owner(left, right):
+          match left.map2(
+              right, lambda repo, ref: (repo, ref)
+          ):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=pair):
+                  return Ok(f"{pair[0]}@{pair[1]}")
+    # Ok arm return binding a name with a walrus, a lambda body holds no walrus and the bind form keeps the Ok call
+    - |
+      def owner(names):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(stripped := text.strip())
+    # Class pattern spelled through the module
+    - |
+      def owner(names):
+          match names:
+              case result.Result(tag="error", error=failure):
+                  return Error(failure)
+              case result.Result(ok=text):
+                  return Ok(text.strip())
+    # Match as the last statement of a nested function, the return returns for the nested function
+    - |
+      def owner(names):
+          def inner(value):
+              match value:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      return Ok(text.strip())
+          return names.bind(inner)
+
+    # The shape, an awaited subject and the one return after the pass arm
+    - |
+      async def owner(path, cwd, parse):
+          match await run(["otool", "-L", str(path)], cwd, capture=True):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Ok pattern with no capture, the return reads no value
+    - |
+      async def owner(space, tool):
+          env = {**space.environment, "PKG_CONFIG": str(tool)}
+          match await run(["pkgconf"], space.root):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result():
+                  pass
+          return Ok(env)
+    # Arms in the other order
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(ok=text):
+                  pass
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+          return Ok(parse(text))
+    # Ok arm spelled with the tag
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(tag="ok", ok=text):
+                  pass
+          return Ok(parse(text))
+    # Ok pattern with the wildcard
+    - |
+      def owner(names, env):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=_):
+                  pass
+          return Ok(env)
+    # Bind form, the return is a Result
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return parse(text)
+    # Static method spellings with the error keywords in the other order
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(error=failure, tag="error"):
+                  return Result.Error(failure)
+              case Result(ok=text):
+                  pass
+          return Result.Ok(parse(text))
+    # Error pattern without the tag
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Subject bound to a local on the line before
+    - |
+      async def owner(path, cwd, parse):
+          names = await run(["otool", "-L", str(path)], cwd, capture=True)
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Call subject, the member access follows the call
+    - |
+      def owner(names, parse):
+          match names.strip():
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Operator subject, the member access takes parentheses
+    - |
+      def owner(left, right, parse):
+          match left or right:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Member subject
+    - |
+      def owner(space, parse):
+          match space.names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Index subject
+    - |
+      def owner(results, library, parse):
+          match results[library]:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Parenthesized subject
+    - |
+      def owner(left, right, parse):
+          match (left or right):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Match as the last statement of an if block, the ok path falls through to the return after the if
+    - |
+      async def owner(space, tool, install):
+          if not tool.exists():
+              overlay = space.cache / "overlay"
+              match await run([*install, "--no-print-usage"], space.root):
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result():
+                      pass
+          return Ok({**space.environment, "PKG_CONFIG": str(tool)})
+    # Match as the last statement of an elif block
+    - |
+      def owner(names, parse, flag, other, log):
+          if flag:
+              log(names)
+          elif other:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+          return Ok(parse(text))
+    # Match as the last statement of the else block of an if
+    - |
+      def owner(names, parse, flag, log):
+          if flag:
+              log(names)
+          else:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+          return Ok(parse(text))
+    # Match under a with block, the return beside it
+    - |
+      def owner(names, parse, lock):
+          with lock:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+              return Ok(parse(text))
+    # Ok arm holding an ellipsis
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  ...
+          return Ok(parse(text))
+    # Ok pattern spelled with the tag alone
+    - |
+      def owner(names, env):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(tag="ok"):
+                  pass
+          return Ok(env)
+    # Subject calling map2 with the mapper lambda across lines
+    - |
+      def owner(left, right, parse):
+          match left.map2(
+              right, lambda repo, ref: (repo, ref)
+          ):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=pair):
+                  pass
+          return Ok(parse(pair))
+    # Return binding a name with a walrus, a lambda body holds no walrus and the bind form keeps the Ok call
+    - |
+      def owner(names, parse):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  pass
+          return Ok(parsed := parse(text))
+    # Class pattern spelled through the module
+    - |
+      def owner(names, parse):
+          match names:
+              case result.Result(tag="error", error=failure):
+                  return Error(failure)
+              case result.Result(ok=text):
+                  pass
+          return Ok(parse(text))
+    # Comment after the match inside the if block, the match stays the last statement of the block
+    - |
+      def owner(names, parse, flag):
+          if flag:
+              match names:
+                  case Result(tag="error", error=failure):
+                      return Error(failure)
+                  case Result(ok=text):
+                      pass
+              # The ok path continues after the if
+          return Ok(parse(text))

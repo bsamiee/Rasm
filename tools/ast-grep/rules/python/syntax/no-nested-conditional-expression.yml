@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-nested-conditional-expression
+language: python
+severity: error
+rule:
+    kind: conditional_expression
+    all:
+        # Arm or condition that is itself a conditional, through parentheses
+        - has: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}
+        # The outermost conditional of a chain reports once, a once-reporting arm the width check proves by one hit per case
+        - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}}
+message: Conditional expression holds a conditional expression, the reader resolves a chain of arms
+note: Dispatch through `match <subject>:` with one `case` per arm, or bind the inner value to a name

@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unknown-error-channel
+language: tsx
+severity: error
+rule:
+    kind: generic_type
+    all:
+        # The carriers with the error channel as the second type argument, qualified by their module or bare, Exit stays out because
+        # Tracer.Span.end receives Exit<unknown, unknown> by contract, Channel and Sink hold their error past the second argument
+        - has:
+              field: name
+              pattern: $CARRIER
+              regex: "^((Effect\\.)?Effect|(Micro\\.)?Micro|(Stream\\.)?Stream|(STM\\.)?STM|(Layer\\.)?Layer|(Either\\.)?Either|\
+                  (Fiber\\.)?(Fiber|RuntimeFiber)|(Deferred\\.)?Deferred|(Take\\.)?Take|(Pool\\.)?Pool|(Resource\\.)?Resource|\
+                  (Request\\.)?Request|(Mailbox\\.)?(Mailbox|ReadonlyMailbox)|(ManagedRuntime\\.)?ManagedRuntime)$"
+        - has: {field: type_arguments, has: {nthChild: 2, kind: predefined_type, regex: '^unknown$'}}
+message: '`$CARRIER` is typed with `unknown` in its error channel and hides every failure variant'
+note: Name the tagged errors the value can fail with, `Effect.Effect<Config, LoadError | ParseError>`, and map an unknown cause to one at the boundary

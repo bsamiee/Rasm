@@ -776,6 +776,72 @@ snapshots:
       style: secondary
       start: 73
       end: 104
+  const rest = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (...w) => w))));:
+    labels:
+    - source: (...w) => w
+      style: primary
+      start: 90
+      end: 101
+    - source: (z, (...w) => w)
+      style: secondary
+      start: 86
+      end: 102
+    - source: '...w'
+      style: secondary
+      start: 91
+      end: 95
+    - source: '...w'
+      style: secondary
+      start: 91
+      end: 95
+    - source: (y, (z) => Effect.map(z, (...w) => w))
+      style: secondary
+      start: 65
+      end: 103
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: z
+      style: secondary
+      start: 70
+      end: 71
+    - source: (x, (y) => Option.map(y, (z) => Effect.map(z, (...w) => w)))
+      style: secondary
+      start: 44
+      end: 104
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: y
+      style: secondary
+      start: 49
+      end: 50
+    - source: (xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (...w) => w))))
+      style: secondary
+      start: 23
+      end: 105
+    - source: x
+      style: secondary
+      start: 29
+      end: 30
+    - source: x
+      style: secondary
+      start: 29
+      end: 30
+    - source: (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, (...w) => w)))
+      style: secondary
+      start: 28
+      end: 104
+    - source: (y) => Option.map(y, (z) => Effect.map(z, (...w) => w))
+      style: secondary
+      start: 48
+      end: 103
+    - source: (z) => Effect.map(z, (...w) => w)
+      style: secondary
+      start: 69
+      end: 102
   const wrapped = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.map(z, ((w) => w)))));:
     labels:
     - source: (w) => w

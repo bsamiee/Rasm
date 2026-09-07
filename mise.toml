@@ -17,6 +17,7 @@ DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"                   # No pyproject.toml table sets it
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data" # nx.json has cacheDirectory alone
+UV_CACHE_DIR = "{{config_root}}/.cache/uv"                               # The shell profile exports a home path over pyproject cache-dir
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
@@ -28,8 +29,11 @@ uv = "latest"
 git-lfs = "latest"
 act = "latest"
 actionlint = "latest"
+shellcheck = "latest"
+shfmt = "latest"
 doppler = "latest"
 pulumi = "latest"
 ast-grep = "latest"
 tree-sitter = "latest"
 buf = "latest"
+"pipx:ast-grep/ast-grep-mcp" = "latest" # Git source with no release, latest resolves the default-branch head to a commit

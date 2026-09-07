@@ -1,0 +1,66 @@
+id: boolean-statement-to-if
+snapshots:
+  ? |
+    (ready and start(item))
+  : fixed: |
+      if ready:
+          start(item)
+    labels:
+    - source: (ready and start(item))
+      style: primary
+      start: 0
+      end: 23
+  ? |
+    async def run():
+        ready or await start(item)
+  : fixed: |
+      async def run():
+          if not ready:
+              await start(item)
+    labels:
+    - source: ready or await start(item)
+      style: primary
+      start: 21
+      end: 47
+  ? |
+    def dispatch(item, ready):
+        ready and start(item)
+  : fixed: |
+      def dispatch(item, ready):
+          if ready:
+              start(item)
+    labels:
+    - source: ready and start(item)
+      style: primary
+      start: 31
+      end: 52
+  ? |
+    filesystem.exists(bucket) or filesystem.call_s3("create_bucket", Bucket=bucket)
+  : fixed: |
+      if not filesystem.exists(bucket):
+          filesystem.call_s3("create_bucket", Bucket=bucket)
+    labels:
+    - source: filesystem.exists(bucket) or filesystem.call_s3("create_bucket", Bucket=bucket)
+      style: primary
+      start: 0
+      end: 79
+  ? |
+    ready and armed or start(item)
+  : fixed: |
+      if not (ready and armed):
+          start(item)
+    labels:
+    - source: ready and armed or start(item)
+      style: primary
+      start: 0
+      end: 30
+  ? |
+    ready and start(item)
+  : fixed: |
+      if ready:
+          start(item)
+    labels:
+    - source: ready and start(item)
+      style: primary
+      start: 0
+      end: 21

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-catch-on-try
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    all:
+        # The overloads that take a bare thunk, Micro.try, Micro.tryPromise, and ParseResult.try take the options object alone
+        - has: {field: function, pattern: $TRY, regex: '^Effect\.(try|tryPromise)$|^(Either|STM)\.try$'}
+        # The thunk written in place, a name passed instead can hold the options object and the shape cannot tell
+        - has: {field: arguments, has: {any: [{kind: arrow_function}, {kind: function_expression}]}}
+message: '`$TRY` runs without a catch mapping and fails with `UnknownException`'
+note: >-
+    Pass the options object, `Effect.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) })`,
+    and map the cause to a tagged error consumers match

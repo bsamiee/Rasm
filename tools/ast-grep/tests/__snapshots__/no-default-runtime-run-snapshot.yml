@@ -1,0 +1,56 @@
+id: no-default-runtime-run
+snapshots:
+  'Effect.runCallback(work, { onExit: report });':
+    labels:
+    - source: 'Effect.runCallback(work, { onExit: report })'
+      style: primary
+      start: 0
+      end: 44
+  const exit = Effect.runPromiseExit(work);:
+    labels:
+    - source: Effect.runPromiseExit(work)
+      style: primary
+      start: 13
+      end: 40
+  const exit = Effect.runSyncExit(work);:
+    labels:
+    - source: Effect.runSyncExit(work)
+      style: primary
+      start: 13
+      end: 37
+  const fiber = Effect.runFork(work);:
+    labels:
+    - source: Effect.runFork(work)
+      style: primary
+      start: 14
+      end: 34
+  'const load = (path: string): Config => Effect.runSync(decode(path));':
+    labels:
+    - source: Effect.runSync(decode(path))
+      style: primary
+      start: 39
+      end: 67
+  const value = Effect.runPromise(work);:
+    labels:
+    - source: Effect.runPromise(work)
+      style: primary
+      start: 14
+      end: 37
+  const value = Effect.runSync(work);:
+    labels:
+    - source: Effect.runSync(work)
+      style: primary
+      start: 14
+      end: 34
+  const value = Micro.runPromise(work);:
+    labels:
+    - source: Micro.runPromise(work)
+      style: primary
+      start: 14
+      end: 36
+  const value = Micro.runSync(work);:
+    labels:
+    - source: Micro.runSync(work)
+      style: primary
+      start: 14
+      end: 33

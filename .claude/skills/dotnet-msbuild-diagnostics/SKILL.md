@@ -135,7 +135,7 @@ Run the tools in order: `binlog_overview`, then `binlog_diagnose` on a failed bu
 |  [04]   | `$project Item`               | Every project with the text in its name               |
 |  [05]   | `under($project Item) CS1234` | Nodes under that project that contain the text        |
 |  [06]   | `$task $time`                 | Tasks with timing, slowest first                      |
-|  [07]   | `"exact phrase"`              | The literal text, including the messages MSBuild logs |
+|  [07]   | `"exact phrase"`              | Literal text, including the messages MSBuild logs     |
 |  [08]   | `name=value`                  | Field match, for example a property assignment        |
 
 ### [02.2]-[LARGE_LOGS]
@@ -158,10 +158,10 @@ Start at `binlog_diagnose`, then route the error class by the table and fix the 
 |  [04]   | `MSB4019` import not found              | `binlog_imports`                             | `dotnet-msbuild-evaluation`, import path      |
 |  [05]   | `MSB4057` target does not exist         | `binlog_project_targets` on that project     | `dotnet-msbuild-execution`, target name       |
 |  [06]   | `MSB4092` or `MSB4113` condition        | `binlog_errors`, the file and line           | `dotnet-msbuild-evaluation`, condition form   |
-|  [07]   | `MSB4252` under `-isolate`              | The error names both global-property sets    | Declare the edge or remove the extra property |
+|  [07]   | `MSB4252` under `-isolate`              | Error message, both global-property sets     | Declare the edge or remove the extra property |
 |  [08]   | `MSB3026` copy retry or a file lock     | `binlog_double_writes`, shared output paths  | `dotnet-msbuild-antipatterns` for the fix     |
 |  [09]   | `NU1*` restore                          | `binlog_nuget`, then `binlog_assets`         | `dotnet-msbuild-packaging`, version graph     |
-|  [10]   | `NETSDK1004` assets file missing        | The command line                             | Remove `--no-restore` or restore first        |
+|  [10]   | `NETSDK1004` assets file missing        | Command line                                 | Remove `--no-restore` or restore first        |
 |  [11]   | `NETSDK1005` no target for framework    | `binlog_evaluations`, then global properties | `dotnet-msbuild-antipatterns`, build graph    |
 |  [12]   | Other `NETSDK*`                         | `binlog_explain_property`, named property    | `dotnet-msbuild-evaluation`, the assignment   |
 |  [13]   | `MSB3277` assembly version conflict     | `binlog_assembly_conflicts`                  | `binlog_assets` with `package`, both chains   |
@@ -171,7 +171,7 @@ Start at `binlog_diagnose`, then route the error class by the table and fix the 
 |  [17]   | One target never ran, build succeeded   | `binlog_search` for the `BeforeTargets` text | Fix the target name                           |
 |  [18]   | Failed status with no error record      | `binlog_overview` failing project            | `binlog_project_targets`, the failed target   |
 |  [19]   | Native asset missing at run time        | `binlog_assets` with `package`               | `binlog_items` on `NativeCopyLocalItems`      |
-|  [20]   | The build is slow                       | `binlog_expensive_projects`                  | `references/execution-performance.md`         |
+|  [20]   | Slow build                              | `binlog_expensive_projects`                  | `references/execution-performance.md`         |
 |  [21]   | One analyzer dominates the build        | `binlog_analyzer_summary`                    | Capture with `-p:ReportAnalyzer=true` first   |
 
 - `MSB3073` says only `exited with code 1`, and the line that explains it is a plain message under the task that no error list contains unless the tool printed it in canonical `error:` form
@@ -248,8 +248,8 @@ MSBuild creates one project instance per project path and global-property set. T
 |  [03]   | `RuntimeIdentifier`                    | Conditional   | Appended while `AppendRuntimeIdentifierToOutputPath` is `true`           |
 |  [04]   | `Platform`                             | Conditional   | Non-default platforms add a segment, never under the artifacts layout    |
 |  [05]   | `SolutionFileName`, `SolutionPath`     | No            | Different values mark one project built from two solutions               |
-|  [06]   | `CurrentSolutionConfigurationContents` | No            | The project entries of the solution, the entry count tells two apart     |
-|  [07]   | `MSBuildIsRestoring`                   | No            | The restore pass, expected and discarded                                 |
+|  [06]   | `CurrentSolutionConfigurationContents` | No            | Project entries of the solution, the entry count tells two apart         |
+|  [07]   | `MSBuildIsRestoring`                   | No            | Restore pass, expected and discarded                                     |
 |  [08]   | `BuildProjectReferences`               | No            | Reference queries where only `Get*` targets ran, or `--no-dependencies`  |
 |  [09]   | `_IsPublishing`                        | No            | Set by `dotnet publish`, an `<MSBuild>` call that passes it builds twice |
 |  [10]   | `PublishReadyToRun`                    | No            | Publish setting that adds an instance without a path change              |

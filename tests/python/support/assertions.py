@@ -39,8 +39,7 @@ if TYPE_CHECKING:
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type _Equality[T] = Callable[[T, T], bool] | None
-type _Comparison[T] = Callable[[T, T], int] | None
+type _Equality[T] = Callable[[T, T], bool]
 
 
 class _Comparable(Protocol):
@@ -101,7 +100,7 @@ class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
 
 def _assert_equal[T](left: T, right: T, equal: _Equality[T]) -> None:
     """Assert structural or custom equality and report both values."""
-    assert (equal if equal is not None else operator.eq)(left, right), f"property failed: {left!r} != {right!r}"
+    assert equal(left, right), f"property failed: {left!r} != {right!r}"
 
 
 # --- [TOLERANCE_ORACLES] ----------------------------------------------------------------
@@ -190,72 +189,71 @@ def assert_close(actual: object, expected: object, *, rel_tol: float = 1e-9, abs
 # --- [ALGEBRAIC_PROPERTIES] -------------------------------------------------------------
 
 
-def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Equality[T] = None) -> None:
+def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(x, back(forward(x)))`` for encode/decode identity."""
     _assert_equal(x, back(forward(x)), eq)
 
 
-def identity[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
+def identity[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(x, f(x))`` for a fixed point under ``f``."""
     _assert_equal(x, f(x), eq)
 
 
-def idempotent[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
+def idempotent[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(f(x), f(f(x)))`` for idempotence."""
     _assert_equal(f(x), f(f(x)), eq)
 
 
-def involution[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
+def involution[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(x, f(f(x)))`` for self-inverse functions."""
     _assert_equal(x, f(f(x)), eq)
 
 
-def inverse[T](x: T, f: Callable[[T], T], g: Callable[[T], T], *, eq: _Equality[T] = None) -> None:
+def inverse[T](x: T, f: Callable[[T], T], g: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(x, g(f(x)))`` for left-inverse pairs."""
     _assert_equal(x, g(f(x)), eq)
 
 
-def commutative[T](a: T, b: T, op: Callable[[T, T], T], *, eq: _Equality[T] = None) -> None:
+def commutative[T](a: T, b: T, op: Callable[[T, T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(op(a, b), op(b, a))``."""
     _assert_equal(op(a, b), op(b, a), eq)
 
 
-def associative[T](a: T, b: T, c: T, op: Callable[[T, T], T], *, eq: _Equality[T] = None) -> None:
+def associative[T](a: T, b: T, c: T, op: Callable[[T, T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(op(op(a, b), c), op(a, op(b, c)))``."""
     _assert_equal(op(op(a, b), c), op(a, op(b, c)), eq)
 
 
-def distributive[T](a: T, b: T, c: T, mul: Callable[[T, T], T], add: Callable[[T, T], T], *, eq: _Equality[T] = None) -> None:
+def distributive[T](a: T, b: T, c: T, mul: Callable[[T, T], T], add: Callable[[T, T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(mul(a, add(b, c)), add(mul(a, b), mul(a, c)))``."""
     _assert_equal(mul(a, add(b, c)), add(mul(a, b), mul(a, c)), eq)
 
 
-def absorbing[T](x: T, op: Callable[[T, T], T], zero: T, *, eq: _Equality[T] = None) -> None:
+def absorbing[T](x: T, op: Callable[[T, T], T], zero: T, *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(op(x, zero), zero)`` and ``eq(op(zero, x), zero)``."""
     _assert_equal(op(x, zero), zero, eq)
     _assert_equal(op(zero, x), zero, eq)
 
 
-def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Equality[T] = None) -> None:
+def identity_element[T](x: T, op: Callable[[T, T], T], unit: T, *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(op(unit, x), x)`` and ``eq(op(x, unit), x)``."""
     _assert_equal(op(unit, x), x, eq)
     _assert_equal(op(x, unit), x, eq)
 
 
-def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K], *, compare: _Comparison[K] = None) -> None:
-    """Assert ``compare(projection(lo), projection(hi)) <= 0``, ``compare`` defaults to the built-in ordering."""
+def monotone[T, K: _Comparable](lo: T, hi: T, projection: Callable[[T], K]) -> None:
+    """Assert ``projection(lo)`` does not exceed ``projection(hi)`` under the key's ordering."""
     p_lo = projection(lo)
     p_hi = projection(hi)
-    result = compare(p_lo, p_hi) if compare is not None else (0 if p_lo == p_hi else (-1 if p_lo < p_hi else 1))
-    assert result <= 0, f"monotone violated: projection({lo!r})={p_lo!r} > projection({hi!r})={p_hi!r}"
+    assert not p_hi < p_lo, f"monotone violated: projection({lo!r})={p_lo!r} > projection({hi!r})={p_hi!r}"
 
 
-def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *, eq: _Equality[R] = None) -> None:
+def permutation_invariant[T, R](original: T, shuffled: T, f: Callable[[T], R], *, eq: _Equality[R] = operator.eq) -> None:
     """Assert ``eq(f(original), f(shuffled))`` for caller-drawn permutations."""
     _assert_equal(f(original), f(shuffled), eq)
 
 
-def differential[T, R](value: T, implementation: Callable[[T], R], reference: Callable[[T], R], *, eq: _Equality[R] = None) -> None:
+def differential[T, R](value: T, implementation: Callable[[T], R], reference: Callable[[T], R], *, eq: _Equality[R] = operator.eq) -> None:
     """Compare an implementation with an independent reference over an input."""
     _assert_equal(implementation(value), reference(value), eq)
 
@@ -335,6 +333,7 @@ def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[
 
 _DEFAULT_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
 MSGPACK_ENCODER: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="deterministic")
+_STATEFUL_SETTINGS = hyp_settings.get_profile(PROFILE_STATEFUL)
 
 
 def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = None) -> T:
@@ -420,17 +419,16 @@ def assert_none(opt: Option[object]) -> None:
             raise AssertionError(f"unexpected Option variant: {opt!r}")
 
 
-def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder | None = None) -> T:
+def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder = _DEFAULT_ENCODER) -> T:
     """Assert encode then decode equality and re-encode byte identity, the re-encode step catches non-deterministic codecs that structural equality misses.
 
     Returns:
         The decoded value, JSON by default or MessagePack with that encoder.
     """
-    enc = encoder if encoder is not None else _DEFAULT_ENCODER
-    raw = enc.encode(value)
-    decoded: T = msgspec.msgpack.decode(raw, type=typ) if isinstance(enc, msgspec.msgpack.Encoder) else msgspec.json.decode(raw, type=typ)
+    raw = encoder.encode(value)
+    decoded: T = msgspec.msgpack.decode(raw, type=typ) if isinstance(encoder, msgspec.msgpack.Encoder) else msgspec.json.decode(raw, type=typ)
     assert decoded == value, f"decode mismatch for {typ.__name__}: {decoded!r} != {value!r}"
-    reencoded = enc.encode(decoded)
+    reencoded = encoder.encode(decoded)
     assert reencoded == raw, f"re-encode not byte-identical for {typ.__name__}: {reencoded!r} != {raw!r}"
     return decoded
 
@@ -438,12 +436,9 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
 # --- [STATEFUL_TESTING] -----------------------------------------------------------------
 
 
-def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, profile: str | None = None, settings: hyp_settings | None = None) -> None:
-    """Run a Hypothesis state machine with explicit settings or a named profile."""
-    resolved = profile if profile is not None else PROFILE_STATEFUL
-    run_state_machine_as_test(  # type: ignore[no-untyped-call]
-        machine_cls, settings=settings if settings is not None else hyp_settings.get_profile(resolved)
-    )
+def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, settings: hyp_settings = _STATEFUL_SETTINGS) -> None:
+    """Run a Hypothesis state machine under explicit settings, the stateful profile by default."""
+    run_state_machine_as_test(machine_cls, settings=settings)  # type: ignore[no-untyped-call]
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

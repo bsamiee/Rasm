@@ -1,5 +1,20 @@
 id: ternary-to-boolean-match
 snapshots:
+  'const load = size > limit ? Effect.gen(function* () { return yield* fetch(root); }) : none;':
+    fixed: 'const load = Boolean.match(size > limit, { onFalse: () => none, onTrue: () => Effect.gen(function* () { return yield* fetch(root); }) });'
+    labels:
+    - source: 'size > limit ? Effect.gen(function* () { return yield* fetch(root); }) : none'
+      style: primary
+      start: 13
+      end: 90
+    - source: '>'
+      style: secondary
+      start: 18
+      end: 19
+    - source: size > limit
+      style: secondary
+      start: 13
+      end: 25
   'const load = size > limit ? async () => await fetch(root) : none;':
     fixed: 'const load = Boolean.match(size > limit, { onFalse: () => none, onTrue: () => async () => await fetch(root) });'
     labels:
@@ -22,6 +37,21 @@ snapshots:
       style: primary
       start: 13
       end: 82
+    - source: '>'
+      style: secondary
+      start: 18
+      end: 19
+    - source: size > limit
+      style: secondary
+      start: 13
+      end: 25
+  'const load = size > limit ? make({ async run() { return await fetch(root); } }) : none;':
+    fixed: 'const load = Boolean.match(size > limit, { onFalse: () => none, onTrue: () => make({ async run() { return await fetch(root); } }) });'
+    labels:
+    - source: 'size > limit ? make({ async run() { return await fetch(root); } }) : none'
+      style: primary
+      start: 13
+      end: 86
     - source: '>'
       style: secondary
       start: 18

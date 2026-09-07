@@ -2,8 +2,8 @@
 # Lint rule under ruleDirs, one rule per file with the id as the file stem, every field the scan reads
 id: <rule-id> # Imperative grammar, no-<construct> or require-<shape>, unique across the tree, the file stem when omitted
 language: <language>
-severity: error # Omitted is hint, off skips the scan and the tests, and error alone makes the scan exit 1
-files: ['<scope-glob>'] # Relative to sgconfig.yml without a ./ prefix, a glob with no directory takes an implied **/ prefix
+severity: error # Omitted is hint, off loads under a severity flag (--error=<id>) and test --include-off alone, and error alone makes the scan exit 1
+files: ['<scope-glob>'] # Relative to sgconfig.yml without ./, wildcards take an implied **/ prefix, a plain name matches beside sgconfig.yml alone
 ignores: ['<boundary-glob>'] # Tested before files and the one exclusion channel, a !-negated glob inside files matches nothing
 utils:
     <util-id>: # The shape every sibling shares, referenced through matches, a global util of the same id is shadowed
@@ -23,7 +23,7 @@ rewriters:
       rule: {pattern: $ITEM, kind: <kind>}
       fix: <per-item template referencing $ITEM>
 transform:
-    <NEW>: <op>($VAR, <key>=<value>) # replace, substring, convert, or rewrite, a call with no key keeps the comma, substring($VAR,)
+    <NEW>: <op>($VAR, <key>=<value>) # replace, substring, convert, or rewrite, a regex holding a comma takes the object form {<op>: {source, ...}}
 fix: <template referencing $VAR and $NEW> # String, {template, expandStart, expandEnd, title}, or a list of them, -U takes the first
 message: <one line naming the violation, captures and transform variables interpolate>
 note: <the correction as the shape to produce, no capture interpolates>

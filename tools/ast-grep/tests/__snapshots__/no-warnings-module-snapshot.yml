@@ -1,0 +1,69 @@
+id: no-warnings-module
+snapshots:
+  ? |
+    from typing_extensions import deprecated
+  : labels:
+    - source: deprecated
+      style: primary
+      start: 30
+      end: 40
+  ? |
+    from warnings import catch_warnings
+  : labels:
+    - source: warnings
+      style: primary
+      start: 5
+      end: 13
+  ? |
+    from warnings import deprecated
+  : labels:
+    - source: warnings
+      style: primary
+      start: 5
+      end: 13
+  ? |
+    from warnings import warn
+  : labels:
+    - source: warnings
+      style: primary
+      start: 5
+      end: 13
+  ? |
+    import typing_extensions as te
+
+    @te.deprecated("use stage")
+    def old_stage(library: str) -> None:
+        return None
+  : labels:
+    - source: te.deprecated
+      style: primary
+      start: 33
+      end: 46
+  ? |
+    import warnings
+  : labels:
+    - source: warnings
+      style: primary
+      start: 7
+      end: 15
+  ? |
+    import warnings as w
+  : labels:
+    - source: warnings
+      style: primary
+      start: 7
+      end: 15
+  ? |
+    warnings.filterwarnings("ignore", category=DeprecationWarning)
+  : labels:
+    - source: warnings.filterwarnings
+      style: primary
+      start: 0
+      end: 23
+  ? |
+    warnings.warn("stage is replaced", DeprecationWarning, stacklevel=2)
+  : labels:
+    - source: warnings.warn
+      style: primary
+      start: 0
+      end: 13

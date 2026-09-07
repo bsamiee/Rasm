@@ -1,0 +1,109 @@
+id: discarded-parameter-to-underscore-parameter
+valid:
+    # The corrected form, the parameter named with a leading underscore
+    - |
+      def bind(self, record, _log):
+          return record
+    # Discard of a local, the name is no parameter
+    - |
+      def bind(self, record):
+          log = record
+          _ = log
+    # Discard of a call, the value is consumed
+    - |
+      def bind(self, record):
+          _ = record()
+    # Parameter read after the discard, the rename breaks the read
+    - |
+      def bind(self, record, log):
+          _ = log
+          return log
+    # Body of the discard alone, the rewrite leaves an empty body
+    - |
+      def bind(record, log: Log | None = None):
+          _ = log
+    # Trailing comment on the discard alone, a comment is no statement
+    - |
+      def bind(record, log):
+          _ = log  # Unused by design
+    # Discard nested in a branch, the drop empties the branch
+    - |
+      def bind(record, log):
+          if record:
+              _ = log
+          return record
+    # Nested def with a parameter of the same name, the read guard keeps the outer name
+    - |
+      def bind(record, log):
+          _ = log
+
+          def inner(log):
+              return log
+
+          return inner
+    # Deletion of two names, a local among them, the list sits under an expression_list
+    - |
+      def bind(record, log):
+          kept = record
+          del kept, log
+          return record
+invalid:
+    # The instance, a typed parameter discarded in a method with a docstring
+    - |
+      def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
+          """Build the recording runner."""
+          _ = log
+
+          def run_sync(*args: object, **kwargs: object) -> R:
+              record(args, kwargs)
+              return self.value
+
+          return run_sync
+    # Untyped parameter, the annotation of another parameter names the same identifier and keeps it
+    - |
+      def bind(record: log, log):
+          _ = log
+          return record
+    # Typed default parameter with the discard under a docstring
+    - |
+      def bind(record, log: Log | None = None):
+          """Doc."""
+          _ = log
+    # Discard twice, both statements leave
+    - |
+      def bind(self, record, log):
+          _ = log
+          _ = log
+          return record
+    # Nested def, the body keeps its indentation
+    - |
+      class Sync:
+          def bind(self, record, log):
+              _ = log
+              return record
+    # Splat parameter renamed under its star
+    - |
+      def bind(record, *log):
+          _ = log
+          return record
+    # Two parameters discarded, the first leaves and the second is the next pass
+    - |
+      def bind(record, log):
+          _ = record
+          _ = log
+          return 1
+    # Keyword-only parameter
+    - |
+      def bind(record, *, log):
+          _ = log
+          return record
+    # Async def
+    - |
+      async def bind(record, log):
+          _ = log
+          return record
+    # Parameter deleted, the del statement leaves
+    - |
+      def bind(record, log):
+          del log
+          return record

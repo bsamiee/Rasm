@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-over-lifted-value
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    pattern: $CALL
+    # The value lifted into the carrier and filtered by the carrier's guard, data-first, through the pipe method, or through the pipe function
+    any:
+        - pattern: Effect.filterOrFail(Effect.succeed($_), $_, $_)
+        # Trailing $$$ after the comma needs the comma, the one-step pipe takes its own pattern
+        - pattern: Effect.succeed($_).pipe(Effect.filterOrFail($_, $_))
+        - pattern: Effect.succeed($_).pipe(Effect.filterOrFail($_, $_), $$$)
+        - pattern: pipe(Effect.succeed($_), Effect.filterOrFail($_, $_))
+        - pattern: pipe(Effect.succeed($_), Effect.filterOrFail($_, $_), $$$)
+        - pattern: Either.filterOrLeft(Either.right($_), $_, $_)
+        - pattern: Either.right($_).pipe(Either.filterOrLeft($_, $_))
+        - pattern: Either.right($_).pipe(Either.filterOrLeft($_, $_), $$$)
+        - pattern: pipe(Either.right($_), Either.filterOrLeft($_, $_))
+        - pattern: pipe(Either.right($_), Either.filterOrLeft($_, $_), $$$)
+        - pattern: Option.filter(Option.some($_), $_)
+        - pattern: Option.some($_).pipe(Option.filter($_))
+        - pattern: Option.some($_).pipe(Option.filter($_), $$$)
+        - pattern: pipe(Option.some($_), Option.filter($_))
+        - pattern: pipe(Option.some($_), Option.filter($_), $$$)
+rewriters:
+    # One-step pipes rewrite to the lift alone, the arity-pinned pattern precedes the one with the rest of the steps
+    - id: effect
+      rule: {pattern: 'Effect.filterOrFail(Effect.succeed($V), $P, $E)'}
+      fix: Effect.liftPredicate($V, $P, $E)
+    - id: effect-pipe
+      rule: {any: [{pattern: 'Effect.succeed($V).pipe(Effect.filterOrFail($P, $E))'}, {pattern: 'pipe(Effect.succeed($V), Effect.filterOrFail($P, $E))'}]}
+      fix: Effect.liftPredicate($V, $P, $E)
+    - id: effect-steps
+      rule: {any: [{pattern: 'Effect.succeed($V).pipe(Effect.filterOrFail($P, $E), $$$REST)'}, {pattern: 'pipe(Effect.succeed($V), Effect.filterOrFail($P, $E), $$$REST)'}]}
+      fix: Effect.liftPredicate($V, $P, $E).pipe($$$REST)
+    - id: either
+      rule: {pattern: 'Either.filterOrLeft(Either.right($V), $P, $E)'}
+      fix: Either.liftPredicate($V, $P, $E)
+    - id: either-pipe
+      rule: {any: [{pattern: 'Either.right($V).pipe(Either.filterOrLeft($P, $E))'}, {pattern: 'pipe(Either.right($V), Either.filterOrLeft($P, $E))'}]}
+      fix: Either.liftPredicate($V, $P, $E)
+    - id: either-steps
+      rule: {any: [{pattern: 'Either.right($V).pipe(Either.filterOrLeft($P, $E), $$$REST)'}, {pattern: 'pipe(Either.right($V), Either.filterOrLeft($P, $E), $$$REST)'}]}
+      fix: Either.liftPredicate($V, $P, $E).pipe($$$REST)
+    - id: option
+      rule: {pattern: 'Option.filter(Option.some($V), $P)'}
+      fix: Option.liftPredicate($V, $P)
+    - id: option-pipe
+      rule: {any: [{pattern: Option.some($V).pipe(Option.filter($P))}, {pattern: 'pipe(Option.some($V), Option.filter($P))'}]}
+      fix: Option.liftPredicate($V, $P)
+    - id: option-steps
+      rule: {any: [{pattern: 'Option.some($V).pipe(Option.filter($P), $$$REST)'}, {pattern: 'pipe(Option.some($V), Option.filter($P), $$$REST)'}]}
+      fix: Option.liftPredicate($V, $P).pipe($$$REST)
+transform:
+    LIFT: rewrite($CALL, rewriters=[effect, effect-pipe, effect-steps, either, either-pipe, either-steps, option, option-pipe, option-steps])
+fix: $LIFT
+message: The value is lifted into the carrier and filtered back out, and the carrier lifts a value under a predicate in one call
+note: >-
+    Lift the value under its predicate, `Effect.liftPredicate(value, predicate, () => error)`, `Either.liftPredicate(value, predicate, () => left)`,
+    `Option.liftPredicate(value, predicate)`

@@ -8,3 +8,5 @@ rule:
         - {kind: member_expression}
         - {kind: call_expression}
         - {kind: parenthesized_expression}
+        - {kind: subscript_expression}
+        - {kind: non_null_expression}

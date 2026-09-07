@@ -1,0 +1,36 @@
+id: no-socket-module
+valid:
+    # The corrected form, the anyio stream under a deadline
+    - |
+      import anyio
+
+      async def ping(host):
+          with anyio.fail_after(5):
+              async with await anyio.connect_tcp(host, 80) as stream:
+                  await stream.send(b"ping")
+    # Socket pair, a loopback the test owns
+    - |
+      import socket
+
+      server_sock, client_sock = socket.socketpair()
+    # Constant of the module
+    - |
+      from socket import AF_INET
+    # Attribute named like the member on another object
+    - |
+      conn = transport.socket()
+invalid:
+    # The instance, the type read as spelled in an annotation
+    - |
+      import socket
+
+      async def serve(sock: socket.socket) -> None:
+          await run_server(sock)
+    # The constructor imported from the module
+    - |
+      from socket import create_connection
+    # The attribute read through the alias the import binds
+    - |
+      import socket as sk
+
+      listener = sk.create_server(("127.0.0.1", 0))

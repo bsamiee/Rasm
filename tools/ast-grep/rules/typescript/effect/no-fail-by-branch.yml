@@ -3,15 +3,30 @@ id: no-fail-by-branch
 language: tsx
 severity: error
 utils:
-    # Constructors of the failed carrier, Exit.fail and Either.left build a value the match returns and no effect the match runs
+    # Failed or dead carrier constructors, the Sync thunk is the orFailWith or orDieWith thunk, Exit.fail and Either.left build values and run nothing
     fail-constructor:
-        any: [{pattern: Effect.fail}, {pattern: Effect.failCause}, {pattern: Micro.fail}, {pattern: Micro.failCause}, {pattern: STM.fail}]
+        kind: member_expression
+        regex: "^(Effect\\.(fail|failSync|failCause|failCauseSync|die|dieSync|dieMessage)|Micro\\.(fail|failSync|failCause|failCauseSync|die)|\
+            STM\\.(fail|failSync|die|dieSync|dieMessage))$"
     pass-constructor:
-        any: [{pattern: Effect.succeed}, {pattern: Micro.succeed}, {pattern: STM.succeed}]
-    # Arm as an arrow with an expression body calling the constructor, or the constructor passed point-free, a block body stays out
+        kind: member_expression
+        regex: '^(Effect|Micro|STM)\.succeed$'
+    fail-call:
+        kind: call_expression
+        has: {field: function, matches: fail-constructor}
+    pass-value:
+        any:
+            - {kind: call_expression, has: {field: function, matches: pass-constructor}}
+            - {kind: member_expression, regex: '^(Effect|Micro|STM)\.void$'}
+    # Arm as an arrow with the constructor call as its expression body or its one returned value, or the constructor passed point-free
     fail-arm:
         any:
-            - {kind: arrow_function, has: {field: body, kind: call_expression, has: {field: function, matches: fail-constructor}}}
+            - kind: arrow_function
+              has:
+                  field: body
+                  any:
+                      - matches: fail-call
+                      - {kind: statement_block, has: {kind: return_statement, has: {matches: fail-call}}, not: {has: {nthChild: 2}}}
             - matches: fail-constructor
     pass-arm:
         any:
@@ -19,12 +34,11 @@ utils:
               has:
                   field: body
                   any:
-                      - {kind: call_expression, has: {field: function, matches: pass-constructor}}
-                      - pattern: Effect.void
-                      - pattern: Micro.void
-                      - pattern: STM.void
+                      - matches: pass-value
+                      - {kind: statement_block, has: {kind: return_statement, has: {matches: pass-value}}, not: {has: {nthChild: 2}}}
             - matches: pass-constructor
 rule:
+    kind: call_expression
     any:
         - matches: effect-two-arm-branch
           has:
@@ -43,5 +57,5 @@ rule:
                   - has: {kind: call_expression, has: {field: arguments, has: {matches: pass-arm}}}
 message: The branch fails in one arm and passes the value through in the other
 note: >-
-    Guard a boolean with `Effect.filterOrFail(effect, predicate, () => error)`, a local enters as `Effect.succeed(value)`,
-    and `Effect.mapError` renames the failure of an Option, Either, or Exit
+    Guard a boolean with `Effect.filterOrFail(effect, predicate, () => error)` or `Effect.filterOrDie(effect, predicate, () => defect)`,
+    a local with `Effect.liftPredicate(value, predicate, () => error)`, and `Effect.mapError` renames the failure of an Option, Either, or Exit

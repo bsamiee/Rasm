@@ -6,6 +6,8 @@ utils:
     # One-element arm the lift writes, the checked operand, an element built without it, or a liftable value under a plain condition
     presence-branch:
         kind: ternary_expression
+        # Await or yield in the condition has no place in the synchronous thunk the lift takes
+        not: {has: {field: condition, matches: syntax-suspension}}
         any:
             - pattern: '$X === undefined ? [] : [$X]'
             - pattern: '$X !== undefined ? [$X] : []'

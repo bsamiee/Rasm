@@ -1,0 +1,158 @@
+id: require-walrus-in-condition
+valid:
+    # The corrected form, the name bound and tested in one expression
+    - |
+      if found := load(path):
+          use(found)
+    # Name read after the branch, the walrus keeps it bound
+    - |
+      if found := load(path):
+          use(found)
+      return found
+    # Walrus in parentheses under a negation
+    - |
+      if not (found := load(path)):
+          return
+    # Another name tested
+    - |
+      found = load(path)
+      if other:
+          use(found)
+    # Annotated assignment, the annotation states a type
+    - |
+      found: Item | None = load(path)
+      if found:
+          use(found)
+    # Chained assignment binds a second name
+    - |
+      found = other = load(path)
+      if found:
+          use(found)
+    # Tuple target
+    - |
+      found, rest = load(path)
+      if found:
+          use(found)
+    # Statement between the assignment and the if
+    - |
+      found = load(path)
+      log(path)
+      if found:
+          use(found)
+    # While loop, the walrus re-evaluates the value per iteration
+    - |
+      found = load(path)
+      while found:
+          found = advance(found)
+    # Name as the second operand of a comparison
+    - |
+      found = load(path)
+      if limit < found:
+          use(found)
+    # Name as an operand of a boolean operator
+    - |
+      found = load(path)
+      if found and ready:
+          use(found)
+    # Value spanning lines
+    - |
+      found = load(
+          path,
+      )
+      if found:
+          use(found)
+    # Augmented assignment
+    - |
+      count += 1
+      if count:
+          use(count)
+    # Trailing comment on the assignment, the comment is the sibling before the if
+    - |
+      found = load(path)  # The read
+      if found:
+          use(found)
+    # Attribute of the name tested
+    - |
+      found = load(path)
+      if found.ok:
+          use(found)
+    # Tuple value, a walrus binds the first element alone
+    - |
+      found = a, b
+      if found:
+          use(found)
+    # Yield value, a walrus holds no yield
+    - |
+      def run():
+          found = yield
+          if found:
+              use(found)
+invalid:
+    # The instance, the name as the whole condition
+    - |
+      found = load(path)
+      if found:
+          use(found)
+    # Negated name
+    - |
+      found = load(path)
+      if not found:
+          return
+    # Name compared with None
+    - |
+      found = load(path)
+      if found is not None:
+          use(found)
+    # Name compared with a value
+    - |
+      count = len(items)
+      if count > 3:
+          use(count)
+    # Value awaited
+    - |
+      found = await load(path)
+      if found:
+          use(found)
+    # Nested if testing the same name keeps its text, the outer reports once
+    - |
+      found = load(path)
+      if found:
+          if found:
+              use(found)
+    # Assignment and if inside a def
+    - |
+      def run(path):
+          found = load(path)
+          if found:
+              use(found)
+          return found
+    # Name as the first operand of in
+    - |
+      found = load(path)
+      if found in items:
+          use(found)
+    # If with an elif and an else, the branches keep their text
+    - |
+      found = load(path)
+      if found:
+          use(found)
+      elif other:
+          skip()
+      else:
+          stop()
+    # Conditional value
+    - |
+      found = a if flag else b
+      if found:
+          use(found)
+    # Starred list value
+    - |
+      found = [*items]
+      if found:
+          use(found)
+    # Assignment and if in a class body
+    - |
+      class Reader:
+          found = load(path)
+          if found:
+              use(found)

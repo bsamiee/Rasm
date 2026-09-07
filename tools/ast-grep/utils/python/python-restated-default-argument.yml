@@ -1,0 +1,90 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Argument that restates the documented default of its callee, one arm per callee and value the installed source states
+id: python-restated-default-argument
+language: python
+utils:
+    # Request functions and clients of httpx, the members timeout=5.0 as DEFAULT_TIMEOUT_CONFIG in httpx/_config.py reaches
+    httpx-member:
+        regex: '^(get|post|put|patch|delete|head|options|request|stream|Client|AsyncClient)$'
+    # Argument list of a call on an httpx member, read through the module attribute or the name a from-import of httpx binds
+    httpx-call:
+        kind: argument_list
+        inside:
+            kind: call
+            has:
+                field: function
+                any:
+                    - kind: attribute
+                      all:
+                          - has: {field: object, kind: identifier, regex: '^httpx$'}
+                          - has: {field: attribute, matches: httpx-member}
+                    - kind: identifier
+                      pattern: $BOUND
+                      matches: httpx-member
+                      inside:
+                          kind: module
+                          stopBy: end
+                          has:
+                              stopBy: end
+                              kind: import_from_statement
+                              all: [{has: {field: module_name, regex: '^httpx$'}}, {has: {kind: dotted_name, pattern: $BOUND}}]
+    # Argument list of gzip.open, "rb" is its mode default
+    gzip-open:
+        kind: argument_list
+        inside: {kind: call, has: {field: function, kind: attribute, regex: '^gzip\.open$'}}
+    # The psutil member interval=None is the default of, in psutil/__init__.py
+    cpu-percent-member:
+        regex: '^cpu_percent$'
+    # Argument list of cpu_percent on the psutil module, a Process of any spelling, or the from-imported name
+    cpu-percent:
+        kind: argument_list
+        inside:
+            kind: call
+            has:
+                field: function
+                any:
+                    - kind: attribute
+                      has: {field: attribute, matches: cpu-percent-member}
+                    - kind: identifier
+                      pattern: $BOUND
+                      matches: cpu-percent-member
+                      inside:
+                          kind: module
+                          stopBy: end
+                          has:
+                              stopBy: end
+                              kind: import_from_statement
+                              all: [{has: {field: module_name, regex: '^psutil$'}}, {has: {kind: dotted_name, pattern: $BOUND}}]
+rule:
+    any:
+        - kind: keyword_argument
+          all:
+              - has: {field: name, regex: '^timeout$'}
+              - has: {field: value, any: [{kind: float, regex: '^5\.0*$'}, {kind: integer, regex: '^5$'}]}
+              - inside: {matches: httpx-call}
+        # follow_redirects=False and verify=True, the defaults every request function and client of httpx/_api.py declares
+        - kind: keyword_argument
+          all:
+              - has: {field: name, regex: '^follow_redirects$'}
+              - has: {field: value, kind: 'false'}
+              - inside: {matches: httpx-call}
+        - kind: keyword_argument
+          all:
+              - has: {field: name, regex: '^verify$'}
+              - has: {field: value, kind: 'true'}
+              - inside: {matches: httpx-call}
+        # The mode as the second positional argument, a comment sibling not counted, or as the keyword
+        - kind: string
+          regex: '^("rb"|''rb'')$'
+          nthChild: {position: 2, ofRule: {not: {kind: comment}}}
+          inside: {matches: gzip-open}
+        - kind: keyword_argument
+          all:
+              - has: {field: name, regex: '^mode$'}
+              - has: {field: value, kind: string, regex: '^("rb"|''rb'')$'}
+              - inside: {matches: gzip-open}
+        - kind: keyword_argument
+          all:
+              - has: {field: name, regex: '^interval$'}
+              - has: {field: value, kind: none}
+              - inside: {matches: cpu-percent}

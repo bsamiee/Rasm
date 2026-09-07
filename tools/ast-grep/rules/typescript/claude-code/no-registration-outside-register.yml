@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-registration-outside-register
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+utils:
+    # Registration without a matcher, the two-argument form, a matched registration holds three arguments and loads beside a plain one
+    plain-registration:
+        kind: expression_statement
+        has:
+            matches: claude-code-registration
+            # The event binds as the earliest named child of the argument list
+            has: {field: arguments, all: [{has: {pattern: $EV}}, {has: {nthChild: 2}}, {not: {has: {nthChild: 3}}}]}
+rule:
+    any:
+        # Registration at dispatch time, on(...) called inside a hook at any depth
+        - matches: claude-code-registration
+          inside: {stopBy: end, matches: {claude-code-hook: {event: {pattern: $_}}}}
+        # Second plain registration on one event in one block, the loader refuses the module, reported at the later statement
+        - matches: plain-registration
+          follows: {stopBy: end, matches: plain-registration}
+message: The registration runs outside `register` or repeats a plain hook on one event, and the loader refuses the module
+note: Register each event once in `register` through `on('<event>', hook)`, and give a second hook on the same event a matcher

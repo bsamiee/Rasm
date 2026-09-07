@@ -1,0 +1,606 @@
+id: no-literal-failure
+snapshots:
+  const cause = Cause.fail("gone");:
+    labels:
+    - source: Cause.fail("gone")
+      style: primary
+      start: 14
+      end: 32
+    - source: Cause.fail
+      style: secondary
+      start: 14
+      end: 24
+    - source: '"gone"'
+      style: secondary
+      start: 25
+      end: 31
+    - source: ("gone")
+      style: secondary
+      start: 24
+      end: 32
+  const checked = Channel.fail("gone");:
+    labels:
+    - source: Channel.fail("gone")
+      style: primary
+      start: 16
+      end: 36
+    - source: Channel.fail
+      style: secondary
+      start: 16
+      end: 28
+    - source: '"gone"'
+      style: secondary
+      start: 29
+      end: 35
+    - source: ("gone")
+      style: secondary
+      start: 28
+      end: 36
+  const checked = Effect.fail("gone" as const);:
+    labels:
+    - source: Effect.fail("gone" as const)
+      style: primary
+      start: 16
+      end: 44
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: '"gone"'
+      style: secondary
+      start: 28
+      end: 34
+    - source: '"gone" as const'
+      style: secondary
+      start: 28
+      end: 43
+    - source: ("gone" as const)
+      style: secondary
+      start: 27
+      end: 44
+  const checked = Effect.fail("gone");:
+    labels:
+    - source: Effect.fail("gone")
+      style: primary
+      start: 16
+      end: 35
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: '"gone"'
+      style: secondary
+      start: 28
+      end: 34
+    - source: ("gone")
+      style: secondary
+      start: 27
+      end: 35
+  const checked = Effect.fail(404);:
+    labels:
+    - source: Effect.fail(404)
+      style: primary
+      start: 16
+      end: 32
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: '404'
+      style: secondary
+      start: 28
+      end: 31
+    - source: (404)
+      style: secondary
+      start: 27
+      end: 32
+  const checked = Effect.fail(`${path} is gone`);:
+    labels:
+    - source: Effect.fail(`${path} is gone`)
+      style: primary
+      start: 16
+      end: 46
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: '`${path} is gone`'
+      style: secondary
+      start: 28
+      end: 45
+    - source: (`${path} is gone`)
+      style: secondary
+      start: 27
+      end: 46
+  const checked = Effect.fail(false);:
+    labels:
+    - source: Effect.fail(false)
+      style: primary
+      start: 16
+      end: 34
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: 'false'
+      style: secondary
+      start: 28
+      end: 33
+    - source: (false)
+      style: secondary
+      start: 27
+      end: 34
+  const checked = Effect.fail(new Error("gone"));:
+    labels:
+    - source: Effect.fail(new Error("gone"))
+      style: primary
+      start: 16
+      end: 46
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: Error
+      style: secondary
+      start: 32
+      end: 37
+    - source: new Error("gone")
+      style: secondary
+      start: 28
+      end: 45
+    - source: (new Error("gone"))
+      style: secondary
+      start: 27
+      end: 46
+  const checked = Effect.fail(new TypeError("gone"));:
+    labels:
+    - source: Effect.fail(new TypeError("gone"))
+      style: primary
+      start: 16
+      end: 50
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: TypeError
+      style: secondary
+      start: 32
+      end: 41
+    - source: new TypeError("gone")
+      style: secondary
+      start: 28
+      end: 49
+    - source: (new TypeError("gone"))
+      style: secondary
+      start: 27
+      end: 50
+  const checked = Effect.fail(undefined);:
+    labels:
+    - source: Effect.fail(undefined)
+      style: primary
+      start: 16
+      end: 38
+    - source: Effect.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: undefined
+      style: secondary
+      start: 28
+      end: 37
+    - source: (undefined)
+      style: secondary
+      start: 27
+      end: 38
+  const checked = Effect.failSync(() => "gone");:
+    labels:
+    - source: Effect.failSync(() => "gone")
+      style: primary
+      start: 16
+      end: 45
+    - source: Effect.failSync
+      style: secondary
+      start: 16
+      end: 31
+    - source: '"gone"'
+      style: secondary
+      start: 38
+      end: 44
+    - source: () => "gone"
+      style: secondary
+      start: 32
+      end: 44
+    - source: (() => "gone")
+      style: secondary
+      start: 31
+      end: 45
+  const checked = Effect.failSync(() => new Error("gone"));:
+    labels:
+    - source: Effect.failSync(() => new Error("gone"))
+      style: primary
+      start: 16
+      end: 56
+    - source: Effect.failSync
+      style: secondary
+      start: 16
+      end: 31
+    - source: Error
+      style: secondary
+      start: 42
+      end: 47
+    - source: new Error("gone")
+      style: secondary
+      start: 38
+      end: 55
+    - source: () => new Error("gone")
+      style: secondary
+      start: 32
+      end: 55
+    - source: (() => new Error("gone"))
+      style: secondary
+      start: 31
+      end: 56
+  'const checked = Effect.mapError(work, (error) => `load failed: ${error.message}`);':
+    labels:
+    - source: 'Effect.mapError(work, (error) => `load failed: ${error.message}`)'
+      style: primary
+      start: 16
+      end: 81
+    - source: Effect.mapError
+      style: secondary
+      start: 16
+      end: 31
+    - source: '`load failed: ${error.message}`'
+      style: secondary
+      start: 49
+      end: 80
+    - source: '(error) => `load failed: ${error.message}`'
+      style: secondary
+      start: 38
+      end: 80
+    - source: '(error) => `load failed: ${error.message}`'
+      style: secondary
+      start: 38
+      end: 80
+  const checked = Effect.orElseFail(work, () => "gone");:
+    labels:
+    - source: Effect.orElseFail(work, () => "gone")
+      style: primary
+      start: 16
+      end: 53
+    - source: Effect.orElseFail
+      style: secondary
+      start: 16
+      end: 33
+    - source: '"gone"'
+      style: secondary
+      start: 46
+      end: 52
+    - source: () => "gone"
+      style: secondary
+      start: 40
+      end: 52
+    - source: () => "gone"
+      style: secondary
+      start: 40
+      end: 52
+  const checked = Either.fromOption(found, () => "gone");:
+    labels:
+    - source: Either.fromOption(found, () => "gone")
+      style: primary
+      start: 16
+      end: 54
+    - source: Either.fromOption
+      style: secondary
+      start: 16
+      end: 33
+    - source: '"gone"'
+      style: secondary
+      start: 47
+      end: 53
+    - source: () => "gone"
+      style: secondary
+      start: 41
+      end: 53
+    - source: () => "gone"
+      style: secondary
+      start: 41
+      end: 53
+  const checked = Either.left("gone");:
+    labels:
+    - source: Either.left("gone")
+      style: primary
+      start: 16
+      end: 35
+    - source: Either.left
+      style: secondary
+      start: 16
+      end: 27
+    - source: '"gone"'
+      style: secondary
+      start: 28
+      end: 34
+    - source: ("gone")
+      style: secondary
+      start: 27
+      end: 35
+  const checked = Either.mapLeft(decoded, () => "gone");:
+    labels:
+    - source: Either.mapLeft(decoded, () => "gone")
+      style: primary
+      start: 16
+      end: 53
+    - source: Either.mapLeft
+      style: secondary
+      start: 16
+      end: 30
+    - source: '"gone"'
+      style: secondary
+      start: 46
+      end: 52
+    - source: () => "gone"
+      style: secondary
+      start: 40
+      end: 52
+    - source: () => "gone"
+      style: secondary
+      start: 40
+      end: 52
+  const checked = Exit.fail("gone");:
+    labels:
+    - source: Exit.fail("gone")
+      style: primary
+      start: 16
+      end: 33
+    - source: Exit.fail
+      style: secondary
+      start: 16
+      end: 25
+    - source: '"gone"'
+      style: secondary
+      start: 26
+      end: 32
+    - source: ("gone")
+      style: secondary
+      start: 25
+      end: 33
+  const checked = Layer.fail("gone");:
+    labels:
+    - source: Layer.fail("gone")
+      style: primary
+      start: 16
+      end: 34
+    - source: Layer.fail
+      style: secondary
+      start: 16
+      end: 26
+    - source: '"gone"'
+      style: secondary
+      start: 27
+      end: 33
+    - source: ("gone")
+      style: secondary
+      start: 26
+      end: 34
+  const checked = Micro.fail("gone");:
+    labels:
+    - source: Micro.fail("gone")
+      style: primary
+      start: 16
+      end: 34
+    - source: Micro.fail
+      style: secondary
+      start: 16
+      end: 26
+    - source: '"gone"'
+      style: secondary
+      start: 27
+      end: 33
+    - source: ("gone")
+      style: secondary
+      start: 26
+      end: 34
+  const checked = STM.fail("gone");:
+    labels:
+    - source: STM.fail("gone")
+      style: primary
+      start: 16
+      end: 32
+    - source: STM.fail
+      style: secondary
+      start: 16
+      end: 24
+    - source: '"gone"'
+      style: secondary
+      start: 25
+      end: 31
+    - source: ("gone")
+      style: secondary
+      start: 24
+      end: 32
+  const checked = STM.orElseFail(transaction, () => new Error("gone"));:
+    labels:
+    - source: STM.orElseFail(transaction, () => new Error("gone"))
+      style: primary
+      start: 16
+      end: 68
+    - source: STM.orElseFail
+      style: secondary
+      start: 16
+      end: 30
+    - source: Error
+      style: secondary
+      start: 54
+      end: 59
+    - source: new Error("gone")
+      style: secondary
+      start: 50
+      end: 67
+    - source: () => new Error("gone")
+      style: secondary
+      start: 44
+      end: 67
+    - source: () => new Error("gone")
+      style: secondary
+      start: 44
+      end: 67
+  const checked = Sink.fail("gone");:
+    labels:
+    - source: Sink.fail("gone")
+      style: primary
+      start: 16
+      end: 33
+    - source: Sink.fail
+      style: secondary
+      start: 16
+      end: 25
+    - source: '"gone"'
+      style: secondary
+      start: 26
+      end: 32
+    - source: ("gone")
+      style: secondary
+      start: 25
+      end: 33
+  const checked = Stream.fail("gone");:
+    labels:
+    - source: Stream.fail("gone")
+      style: primary
+      start: 16
+      end: 35
+    - source: Stream.fail
+      style: secondary
+      start: 16
+      end: 27
+    - source: '"gone"'
+      style: secondary
+      start: 28
+      end: 34
+    - source: ("gone")
+      style: secondary
+      start: 27
+      end: 35
+  const checked = Stream.mapError(stream, function () { return "gone"; });:
+    labels:
+    - source: Stream.mapError(stream, function () { return "gone"; })
+      style: primary
+      start: 16
+      end: 71
+    - source: Stream.mapError
+      style: secondary
+      start: 16
+      end: 31
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
+    - source: return "gone";
+      style: secondary
+      start: 54
+      end: 68
+    - source: '{ return "gone"; }'
+      style: secondary
+      start: 52
+      end: 70
+    - source: function () { return "gone"; }
+      style: secondary
+      start: 40
+      end: 70
+    - source: function () { return "gone"; }
+      style: secondary
+      start: 40
+      end: 70
+  const checked = work.pipe(Effect.orElseFail(() => "gone"));:
+    labels:
+    - source: Effect.orElseFail(() => "gone")
+      style: primary
+      start: 26
+      end: 57
+    - source: Effect.orElseFail
+      style: secondary
+      start: 26
+      end: 43
+    - source: '"gone"'
+      style: secondary
+      start: 50
+      end: 56
+    - source: () => "gone"
+      style: secondary
+      start: 44
+      end: 56
+    - source: () => "gone"
+      style: secondary
+      start: 44
+      end: 56
+  const done = Deferred.fail(deferred, "gone");:
+    labels:
+    - source: Deferred.fail(deferred, "gone")
+      style: primary
+      start: 13
+      end: 44
+    - source: Deferred.fail
+      style: secondary
+      start: 13
+      end: 26
+    - source: '"gone"'
+      style: secondary
+      start: 37
+      end: 43
+    - source: (deferred, "gone")
+      style: secondary
+      start: 26
+      end: 44
+  const done = Request.fail(request, 404);:
+    labels:
+    - source: Request.fail(request, 404)
+      style: primary
+      start: 13
+      end: 39
+    - source: Request.fail
+      style: secondary
+      start: 13
+      end: 25
+    - source: '404'
+      style: secondary
+      start: 35
+      end: 38
+    - source: (request, 404)
+      style: secondary
+      start: 25
+      end: 39
+  const fiber = Fiber.fail("gone");:
+    labels:
+    - source: Fiber.fail("gone")
+      style: primary
+      start: 14
+      end: 32
+    - source: Fiber.fail
+      style: secondary
+      start: 14
+      end: 24
+    - source: '"gone"'
+      style: secondary
+      start: 25
+      end: 31
+    - source: ("gone")
+      style: secondary
+      start: 24
+      end: 32
+  const take = Take.fail("gone");:
+    labels:
+    - source: Take.fail("gone")
+      style: primary
+      start: 13
+      end: 30
+    - source: Take.fail
+      style: secondary
+      start: 13
+      end: 22
+    - source: '"gone"'
+      style: secondary
+      start: 23
+      end: 29
+    - source: ("gone")
+      style: secondary
+      start: 22
+      end: 30

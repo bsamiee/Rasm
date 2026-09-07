@@ -20,6 +20,49 @@ snapshots:
       start: 20
       end: 28
   ? |
+    Effect.liftPredicate(hidden, (held) => !held, () => error)
+  : labels:
+    - source: Effect.liftPredicate(hidden, (held) => !held, () => error)
+      style: primary
+      start: 0
+      end: 58
+    - source: Effect.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: held
+      style: secondary
+      start: 30
+      end: 34
+    - source: held
+      style: secondary
+      start: 30
+      end: 34
+    - source: held
+      style: secondary
+      start: 30
+      end: 34
+    - source: '!'
+      style: secondary
+      start: 39
+      end: 40
+    - source: held
+      style: secondary
+      start: 40
+      end: 44
+    - source: '!held'
+      style: secondary
+      start: 39
+      end: 44
+    - source: (held) => !held
+      style: secondary
+      start: 29
+      end: 44
+    - source: (held) => !held
+      style: secondary
+      start: 29
+      end: 44
+  ? |
     Effect.liftPredicate(production, identity, () => error)
   : labels:
     - source: Effect.liftPredicate(production, identity, () => error)
@@ -111,6 +154,68 @@ snapshots:
       style: secondary
       start: 35
       end: 52
+  ? |
+    Option.liftPredicate(hidden, (held) => !held)
+  : labels:
+    - source: Option.liftPredicate(hidden, (held) => !held)
+      style: primary
+      start: 0
+      end: 45
+    - source: Option.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: held
+      style: secondary
+      start: 30
+      end: 34
+    - source: held
+      style: secondary
+      start: 30
+      end: 34
+    - source: held
+      style: secondary
+      start: 30
+      end: 34
+    - source: '!'
+      style: secondary
+      start: 39
+      end: 40
+    - source: held
+      style: secondary
+      start: 40
+      end: 44
+    - source: '!held'
+      style: secondary
+      start: 39
+      end: 44
+    - source: (held) => !held
+      style: secondary
+      start: 29
+      end: 44
+    - source: (held) => !held
+      style: secondary
+      start: 29
+      end: 44
+  ? |
+    Option.liftPredicate(hidden, Boolean.not)
+  : labels:
+    - source: Option.liftPredicate(hidden, Boolean.not)
+      style: primary
+      start: 0
+      end: 41
+    - source: Option.liftPredicate
+      style: secondary
+      start: 0
+      end: 20
+    - source: Boolean.not
+      style: secondary
+      start: 29
+      end: 40
+    - source: Boolean.not
+      style: secondary
+      start: 29
+      end: 40
   ? |
     Option.liftPredicate(production, identity)
   : labels:

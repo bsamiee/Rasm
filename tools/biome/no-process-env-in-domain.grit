@@ -1,5 +1,0 @@
-language js(typescript, jsx)
-
-`process.env` as $hit where {
-    register_diagnostic(span=$hit, message="process.env read in library code, declare Config.string or Config.redacted at the owner and let the composition root ConfigProvider read the environment", severity="error")
-}

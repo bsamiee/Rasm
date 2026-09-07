@@ -1,0 +1,44 @@
+id: no-sleep-outside-polling-loop
+valid:
+    # The until loop over the state
+    - until curl -sf "$url"; do sleep 2; done
+    # The while loop over the negated state
+    - while ! [[ -f "$flag" ]]; do sleep 1; done
+    # The bounded for loop that breaks on the state
+    - for ((i = 0; i < 30; i++)); do curl -sf "$url" && break; sleep 1; done
+    # The bounded loop that exits on the state
+    - for ((i = 0; i < 30; i++)); do [[ -f "$flag" ]] && exit 0; sleep 1; done
+    # The sleep under a branch inside the polling loop
+    - until curl -sf "$url"; do if [[ -t 1 ]]; then sleep 1; fi; done
+    # The tool's blocking option
+    - gh run watch "$id"
+    # Waiting on the job
+    - wait "$pid"
+    # The word as an argument of another command
+    - printf '%s\n' sleep
+    # The negated command as the condition
+    - while ! cmd; do sleep 1; done
+    # An unconditional loop that breaks on the state
+    - while :; do cmd && break; sleep 1; done
+invalid:
+    # An unconditional loop with no break
+    - while true; do sleep 60; done
+    # The colon condition
+    - while :; do cmd; sleep 5; done
+    # A counted loop with no break
+    - for ((i = 0; i < 3; i++)); do sleep 1; done
+    # The instance
+    - sleep 5
+    # Before the command that reads the state
+    - sleep 75 && curl -sf "$url"
+    # Inside a function body
+    - |
+      f() { sleep 3; }
+    # Inside a loop with no condition on the state
+    - for f in a b; do sleep 5; done
+    # Inside a subshell list
+    - (sleep 1; cmd)
+    # Inside a command substitution
+    - x=$(sleep 1; cmd)
+    # Fractional seconds
+    - sleep 0.5

@@ -1,13 +1,19 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# List searched for a key through includes or either Array.contains overload, the list slot holds an effect-key-list call at the caller
+# List searched for a key through includes or either overload of Array.contains or Iterable.contains, the list slot holds the key list
 id: effect-key-search
 language: tsx
 arguments: [list, key]
 utils:
-    # Data-last Array.contains(key) applied through the pipe method or the pipe function, one step alone keeps the list as the searched value
+    # Data-last contains(key) applied through the pipe method or the pipe function, one step alone keeps the list as the searched value
     contains-step:
-        pattern: Array.contains($_)
-        has: {field: arguments, has: {matches: key}}
+        kind: call_expression
+        all:
+            - has: {field: function, matches: contains-callee}
+            - has: {field: arguments, has: {matches: key}}
+    # Array.contains and Iterable.contains share the dual signature, Array.containsWith reads an equivalence Record.has has no slot for
+    contains-callee:
+        kind: member_expression
+        regex: '^(Array|Iterable)\.contains$'
 rule:
     kind: call_expression
     any:
@@ -15,9 +21,10 @@ rule:
           all:
               - has: {field: function, has: {field: object, matches: list}}
               - has: {field: arguments, has: {matches: key}}
-        # Data-first overload, the key list precedes the key and the arity-pinned pattern leaves no third argument
-        - pattern: Array.contains($_, $_)
-          has: {field: arguments, all: [{has: {nthChild: 1, matches: list}}, {has: {nthChild: 2, matches: key}}]}
+        # Data-first overload, the key list precedes the key
+        - all:
+              - has: {field: function, matches: contains-callee}
+              - has: {field: arguments, all: [{has: {nthChild: 1, matches: list}}, {has: {nthChild: 2, matches: key}}]}
         - pattern: $_.pipe($_)
           all:
               - has: {field: function, has: {field: object, matches: list}}

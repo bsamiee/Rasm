@@ -1,0 +1,64 @@
+id: comprehension-statement-to-for
+valid:
+    # The for statement the rewrite writes
+    - |
+      for module in modules.values():
+          record(module)
+    # Dictionary comprehension, the body builds pairs
+    - |
+      {name: record(module) for name, module in modules.items()}
+    # Two for clauses
+    - |
+      [record(module) for group in groups for module in group]
+    # Wrapped comprehension, its body keeps a column the template cannot lower
+    - |
+      [
+          record(module)
+          for module in modules.values()
+      ]
+    # Comprehension bound to a name
+    - |
+      names = [record(module) for module in modules.values()]
+    # Async comprehension, the templates spell a plain for
+    - |
+      async def run():
+          [await record(module) async for module in modules()]
+    # Two if clauses
+    - |
+      [record(module) for module in modules if module if module.ready]
+invalid:
+    # The instance, a list comprehension run for its effect
+    - |
+      [record(module) for module in modules.values()]
+    # Set comprehension
+    - |
+      {record(module) for module in modules.values()}
+    # Generator expression
+    - |
+      (record(module) for module in modules.values())
+    # Filtered list comprehension, the filter becomes the if in the loop
+    - |
+      [record(module) for module in modules.values() if module]
+    # Filtered set comprehension
+    - |
+      {record(module) for module in modules.values() if module}
+    # Filtered generator expression
+    - |
+      (record(module) for module in modules.values() if module)
+    # Statement inside a def, the body indents under the for
+    - |
+      def purge():
+          [sys.modules.pop(name, None) for name in names]
+    # Tuple target
+    - |
+      [record(name, module) for name, module in modules.items()]
+    # Nested comprehension, the inner one is the next pass
+    - |
+      [[record(item) for item in group] for group in groups]
+    # Conditional expression as the body, the if-else rewrite is the next pass
+    - |
+      [start(item) if item.ready else queue(item) for item in items]
+    # Statement inside an if body
+    - |
+      if ready:
+          [record(module) for module in modules.values()]

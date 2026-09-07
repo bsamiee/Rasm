@@ -1,0 +1,33 @@
+{
+    "name": "function-hooks",
+    "description": "Function hooks for the Rasm workspace that refuse and rewrite tool calls from policy tables, redact secrets, and add skill routing context, with a finding classifier, an editor dispatch, and spoken summaries under their options",
+    "author": {
+        "name": "Bardia Samiee"
+    },
+    "userConfig": {
+        "packageManager": {
+            "type": "string",
+            "title": "Package manager",
+            "description": "Replaces npm in Bash calls with this command",
+            "default": "pnpm"
+        },
+        "speak": {
+            "type": "boolean",
+            "title": "Speak turn summaries",
+            "description": "Speaks a one-sentence summary of each answer through the system voice",
+            "default": false
+        },
+        "classify": {
+            "type": "boolean",
+            "title": "Classify findings",
+            "description": "Classifies each answer at turn.complete and writes one findings/<id> row per weakness",
+            "default": false
+        },
+        "dispatch": {
+            "type": "boolean",
+            "title": "Dispatch the editor",
+            "description": "Serves the close tool and runs the timer that spawns the editor agent over open findings",
+            "default": false
+        }
+    }
+}

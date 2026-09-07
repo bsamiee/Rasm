@@ -1,0 +1,113 @@
+id: no-engine-as-value
+valid:
+    # The engine call at its call site, $ as the innermost object of the callee
+    - |
+      on('tool.call', async ($, e, next) => {
+          const saved = await $.store.get('secrets');
+          return next(e);
+      });
+    # Hook parameter declaration, the one binding of $ the loader writes
+    - |
+      on('session.start', ($, e, next) => next(e));
+    # Engine call nested in the arguments of another engine call, each $ at its own call site
+    - |
+      $.store.set('started', $.clock.now());
+    # The property reads the interface declares under plugin
+    - |
+      $.ui.log($.plugin.name);
+    - |
+      const root = $.plugin.root;
+    # Awaited engine call
+    - |
+      const kind = await $.model.classify(text, labels);
+    # Engine call inside a closure, a lexical call site loads
+    - |
+      const hide = (): void => $.ui.invalidate('ui.render');
+    # Engine call with a chained promise, the call site stays the callee
+    - |
+      $.audio.speak(line).catch((): undefined => undefined);
+    # Dollar sign in a string and in a template substitution, no identifier
+    - |
+      const text = `$ ${cost}`;
+    # Property read chained into a member call, the plugin read stays a read
+    - |
+      const upper = $.plugin.name.toUpperCase();
+    # Awaited engine call chained with a then
+    - |
+      const kind = await $.store.get(key).then(decode);
+    # Plugin read inside a template substitution
+    - |
+      const line = `${$.plugin.root}/hooks`;
+    # Engine call as a constructor argument
+    - |
+      const seen = new Set($.store.keys());
+    # Optional call on the engine interface, the callee keeps the dotted spelling
+    - |
+      const saved = await $.store?.get(key);
+invalid:
+    # $ bound to a name
+    - |
+      const api = $;
+    # $ passed as an argument
+    - |
+      f($);
+    # $ spread
+    - |
+      const copy = { ...$ };
+    # $ returned
+    - |
+      const engine = () => $;
+    # $ in an array
+    - |
+      const list = [$];
+    # $ in a logical expression
+    - |
+      const held = $ && ready;
+    # $ under a nullish coalescing operator
+    - |
+      const engine = $ ?? fallback;
+    # Noun read without a verb
+    - |
+      const store = $.store;
+    # Verb read without a call, the bound method escapes
+    - |
+      const read = $.store.get;
+    # $ destructured
+    - |
+      const { store } = $;
+    # Computed member leaves the dotted spelling the loader reads
+    - |
+      const saved = $['store'].get(key);
+    # Bound method, the callee is bind and the verb is its object
+    - |
+      const exists = $.fs.exists.bind(engine);
+    # $ as a callback argument
+    - |
+      items.forEach($.ui.log);
+    # $ as a shorthand property, the object holds the engine as a value
+    - |
+      run({ $, e });
+    # The plugin noun read without its property
+    - |
+      const plugin = $.plugin;
+    # The plugin noun passed as an argument
+    - |
+      run($.plugin);
+    # Verb read under typeof
+    - |
+      const kind = typeof $.store.get;
+    # $ in a template substitution
+    - |
+      const text = `${$}`;
+    # $ as a ternary branch
+    - |
+      const engine = ready ? $ : fallback;
+    # Computed verb leaves the dotted spelling
+    - |
+      const saved = $['store']['get'](key);
+    # Noun read under a computed verb
+    - |
+      const saved = $.store['get'](key);
+    # $ exported by name
+    - |
+      export { $ };

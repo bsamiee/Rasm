@@ -1,0 +1,47 @@
+id: no-filter-over-lifted-value
+valid:
+    # The lift
+    - "const checked = Effect.liftPredicate(report, (held) => held.verdict !== 'regression', () => error);"
+    # Filter over an effect that runs an operation
+    - "const checked = Effect.filterOrFail(load(name), (held) => held.verdict !== 'regression', () => error);"
+    # Filter over an option built from a nullable
+    - 'const named = Option.filter(Option.fromNullable(name), String.isNonEmpty);'
+    # Defect guard over a lifted value, no lift takes a defect
+    - "const checked = Effect.filterOrDie(Effect.succeed(report), (held) => held.ok, () => new Error('rejected'));"
+    # Micro guard over a lifted value, the Micro module exports no lift
+    - 'const checked = Micro.filterOrFail(Micro.succeed(report), (held) => held.ok, () => error);'
+    # Map step before the guard, the guard reads the mapped value
+    - 'const checked = Effect.succeed(report).pipe(Effect.map(summarize), Effect.filterOrFail((held) => held.ok, () => error));'
+    # Lifted value guarded through filterOrElse, the fallback is an effect and no lift holds it
+    - 'const checked = Effect.filterOrElse(Effect.succeed(report), (held) => held.ok, () => load(name));'
+invalid:
+    # The instance, a local lifted into an effect and guarded
+    - "const checked = Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error);"
+    # Guard as the one pipe step
+    - 'const checked = Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error));'
+    # Guard as the first step of the pipe function
+    - 'const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error));'
+    # Guard followed by more steps, the lift keeps the rest of the pipe
+    - 'const checked = Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize));'
+    # Guard followed by more steps through the pipe function
+    - 'const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize));'
+    # Either sibling
+    - 'const checked = Either.filterOrLeft(Either.right(report), (held) => held.ok, () => left);'
+    # Either sibling through the pipe method
+    - 'const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left));'
+    # Either sibling through the pipe method with a later step
+    - 'const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));'
+    # Either sibling through the pipe function
+    - 'const checked = pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left));'
+    # Either sibling through the pipe function with a later step
+    - 'const checked = pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));'
+    # Option sibling
+    - 'const named = Option.filter(Option.some(name), String.isNonEmpty);'
+    # Option sibling through the pipe method
+    - 'const named = Option.some(name).pipe(Option.filter(String.isNonEmpty));'
+    # Option sibling through the pipe method with a later step
+    - 'const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim));'
+    # Option sibling through the pipe function
+    - 'const named = pipe(Option.some(name), Option.filter(String.isNonEmpty));'
+    # Option sibling through the pipe function with a later step
+    - 'const named = pipe(Option.some(name), Option.filter(String.isNonEmpty), Option.map(String.trim));'

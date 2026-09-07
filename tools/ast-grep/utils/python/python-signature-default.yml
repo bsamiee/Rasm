@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Value a signature can state as a default, a literal or a name bound at module level, a call or a local is computed where it is read
+id: python-signature-default
+language: python
+utils:
+    # Module-level binding of the value's root name, an assignment, an import, a def, or a class
+    module-binding:
+        any:
+            - kind: expression_statement
+              has: {kind: assignment, has: {field: left, kind: identifier, pattern: $ROOT}}
+            - kind: import_statement
+              has: {kind: identifier, pattern: $ROOT, stopBy: end}
+            - kind: import_from_statement
+              has: {kind: identifier, pattern: $ROOT, stopBy: end}
+            - kind: function_definition
+              has: {field: name, pattern: $ROOT}
+            - kind: class_definition
+              has: {field: name, pattern: $ROOT}
+rule:
+    any:
+        - kind: string
+        - kind: integer
+        - kind: float
+        - kind: 'true'
+        - kind: 'false'
+        - kind: unary_operator # Signed number
+          has: {any: [{kind: integer}, {kind: float}]}
+        - kind: tuple # The empty tuple, an immutable value
+          not: {has: {pattern: $_}}
+        - kind: identifier
+          pattern: $ROOT
+          inside: {kind: module, stopBy: end, has: {matches: module-binding}}
+        - kind: attribute
+          all: # The leftmost name of the chain binds before the module search re-matches it, unordered keys run the search first
+              - has: {field: object, stopBy: end, kind: identifier, pattern: $ROOT}
+              - inside: {kind: module, stopBy: end, has: {matches: module-binding}}

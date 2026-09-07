@@ -9,7 +9,7 @@ utils:
             - {kind: parenthesized_expression}
             - {kind: binary_expression, has: {field: operator, regex: '^(&&|\|\|)$'}}
             - {kind: unary_expression}
-    # Leaf the type checker narrows an operand by: truthiness, typeof, instanceof, a nullable comparison, in, a guard call
+    # Leaf that narrows an operand for the type checker, truthiness, typeof, instanceof, a nullable comparison, in, or a guard call
     narrowing-check:
         any:
             - {kind: identifier, pattern: $X}

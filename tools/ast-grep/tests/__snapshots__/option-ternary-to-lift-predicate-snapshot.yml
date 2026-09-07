@@ -7,6 +7,13 @@ snapshots:
       style: primary
       start: 13
       end: 83
+  'const code = rows.some(async (row) => await row) ? Option.some(a) : Option.none();':
+    fixed: const code = Option.liftPredicate(a, () => rows.some(async (row) => await row));
+    labels:
+    - source: 'rows.some(async (row) => await row) ? Option.some(a) : Option.none()'
+      style: primary
+      start: 13
+      end: 81
   'const code = value % 2 === 0 ? Option.none() : Option.some(value);':
     fixed: const code = Option.liftPredicate(value, () => !(value % 2 === 0));
     labels:
@@ -56,6 +63,20 @@ snapshots:
       style: primary
       start: 13
       end: 77
+  'const name = flags[0] ? Option.none() : Option.some(label);':
+    fixed: const name = Option.liftPredicate(label, () => !flags[0]);
+    labels:
+    - source: 'flags[0] ? Option.none() : Option.some(label)'
+      style: primary
+      start: 13
+      end: 58
+  'const name = held! ? Option.none() : Option.some(label);':
+    fixed: const name = Option.liftPredicate(label, () => !held!);
+    labels:
+    - source: 'held! ? Option.none() : Option.some(label)'
+      style: primary
+      start: 13
+      end: 55
   'const name = render(label) ? Option.none() : Option.some(label);':
     fixed: const name = Option.liftPredicate(label, () => !render(label));
     labels:

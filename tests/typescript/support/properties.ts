@@ -116,14 +116,11 @@ class PropertyError extends Data.Error<{
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _succeeds = <A, E, R>(work: Effect.Effect<A, E, R>): Effect.Effect<boolean, never, R> =>
-    Effect.match(work, { onFailure: () => false, onSuccess: () => true });
-
 const Property: Property = {
-    // A predicate that fails on the counterexample rejects it, and one that holds on it is the defect the property must expose
+    // Predicates that fail on the counterexample reject it, and predicates that hold on it are the defect the property must expose
     verifyCounterexample: (definition) =>
         definition.predicate(definition.counterexample.implementation, definition.counterexample.args).pipe(
-            Effect.catchAllCause(() => Effect.succeed(false)),
+            Effect.orElseSucceed(() => false),
             Effect.filterOrFail(
                 (holds) => !holds,
                 () => new PropertyError({ reason: 'counterexample', property: definition.name, detail: definition.counterexample.label }),
@@ -240,7 +237,7 @@ const Property: Property = {
         Property.define({
             name: options.name ?? 'operation is total',
             arbitraries: { input: options.arb },
-            predicate: (subject, { input }) => _succeeds(subject(input)),
+            predicate: (subject, { input }) => Effect.isSuccess(subject(input)),
             counterexample: options.counterexample,
         }),
     roundtrip: (options) => {
@@ -256,20 +253,36 @@ const Property: Property = {
             counterexample: options.counterexample,
         });
     },
-    machine: (options) =>
-        Property.define({
-            name: options.name ?? 'system conforms to its model',
+    machine: (options) => {
+        const name = options.name ?? 'system conforms to its model';
+        return Property.define({
+            name,
             arbitraries: { run: FastCheck.commands([...options.commands]) },
-            predicate: (setup, { run }) => _succeeds(Effect.try(() => FastCheck.modelRun(setup, run))),
+            predicate: (setup, { run }) =>
+                Effect.isSuccess(
+                    Effect.try({
+                        try: () => FastCheck.modelRun(setup, run),
+                        catch: (cause) => new PropertyError({ reason: 'violation', property: name, detail: Inspectable.toStringUnknown(cause) }),
+                    }),
+                ),
             counterexample: options.counterexample,
-        }),
-    machineAsync: (options) =>
-        Property.define({
-            name: options.name ?? 'asynchronous system conforms to its model',
+        });
+    },
+    machineAsync: (options) => {
+        const name = options.name ?? 'asynchronous system conforms to its model';
+        return Property.define({
+            name,
             arbitraries: { run: FastCheck.commands([...options.commands]) },
-            predicate: (setup, { run }) => _succeeds(Effect.tryPromise(() => FastCheck.asyncModelRun(setup, run))),
+            predicate: (setup, { run }) =>
+                Effect.isSuccess(
+                    Effect.tryPromise({
+                        try: () => FastCheck.asyncModelRun(setup, run),
+                        catch: (cause) => new PropertyError({ reason: 'violation', property: name, detail: Inspectable.toStringUnknown(cause) }),
+                    }),
+                ),
             counterexample: options.counterexample,
-        }),
+        });
+    },
     interleave: (options) =>
         Property.define({
             name: options.name ?? 'holds under every interleaving',

@@ -301,11 +301,10 @@ eng = [
     "anyio",
     "cyclopts",
     "expression",
-    "httpx<1",                                            # HTTP client for typed adapters, the 1.0 dev builds drop TransportError and py.typed
+    "httpx<1",                                            # HTTP client for typed adapters, the 1.0 dev builds drop py.typed
     "msgspec",
     "pydantic",
     "pydantic-settings",
-    "stamina",
     "structlog",
 ]
 dev = [
@@ -460,18 +459,11 @@ ignore = [
     # --- [FORMATTER]
     "missing-trailing-comma",                     # ruff format sets trailing commas
     "single-line-implicit-string-concatenation",  # ruff format joins implicit string concatenation
-    # --- [MATCH_DISPATCH]
-    "unnecessary-assign",                         # Named intermediates keep flow pipelines readable
-    "superfluous-else-return",                    # Explicit match statements keep exhaustive cases visible
-    "superfluous-else-raise",                     # Explicit error cases keep Result handling visible
-    "if-else-block-instead-of-if-exp",            # Match statements dispatch, ternaries stay out
-    "if-with-same-arms",                          # Use match/case for explicit dispatch
     # --- [DENSITY]
     "too-many-return-statements",                 # Exhaustive matches over closed tagged unions return from each case
     "too-many-branches",                          # Exhaustive dispatch needs one branch per case
     "too-many-locals",                            # Dispatch functions hold many local values
     "too-many-statements",                        # Exhaustive dispatch exceeds the statement limit
-    "too-many-boolean-expressions",               # Dispatch predicates exceed the generic expression limit
     # --- [ERROR_RAISING]
     "raw-string-in-exception",                    # Exception constructors receive literal messages directly
     "f-string-in-exception",                      # Exception constructors receive formatted context directly
@@ -498,18 +490,6 @@ ignore = [
 
 [tool.ruff.lint.per-file-ignores]
 "__init__.py" = ["unused-import"]
-"**/.claude/**" = [
-    "banned-api",
-    "boolean-type-hint-positional-argument",
-    "complex-structure",
-    "hardcoded-password-string",
-    "literal-membership",
-    "os-getcwd",
-    "shebang-not-executable",
-    "start-process-with-partial-path",
-    "subprocess-without-shell-equals-true",
-    "suspicious-subprocess-import",
-]
 "tests/**" = [
     "assert",
     "pytest-composite-assertion",
@@ -542,7 +522,6 @@ extend-immutable-calls = [
     "pydantic.ConfigDict",
     "pydantic.Field",
     "pydantic.PrivateAttr",
-    "stamina.retry",
 ]
 
 [tool.ruff.lint.flake8-builtins]
@@ -594,77 +573,7 @@ require-lazy = [ # Modules loaded through lazy-import proxies, TID254 rejects th
     "xarray",
 ]
 
-[tool.ruff.lint.flake8-tidy-imports.banned-api]
-"concurrent.futures.ProcessPoolExecutor".msg = "Use anyio.to_process.run_sync(), structured concurrency with cancellation"
-"concurrent.futures.ThreadPoolExecutor".msg = "Use anyio.to_thread.run_sync() with CapacityLimiter, structured concurrency"
-"abc.ABC".msg = "Use typing.Protocol, structural subtyping"
-"abc.abstractmethod".msg = "Use typing.Protocol, structural subtyping replaces nominal"
-"asyncio".msg = "Use anyio, it has equivalents for run, sleep, gather, Lock, Event, Semaphore, and Queue"
-"collections.namedtuple".msg = "Use pydantic BaseModel(frozen=True) or msgspec.Struct(frozen=True), namedtuple lacks runtime validation"
-"contextlib.suppress".msg = "Use Result values or a marked boundary adapter, suppress hides fallibility"
-"http.client".msg = "Use httpx behind a validated adapter, direct stdlib HTTP bypasses timeout, retry, and observability policy"
-"json.dump".msg = "Use Path.write_bytes(msgspec.json.encode(obj)), C-accelerated, struct-aware serialization"
-"json.dumps".msg = "Use msgspec.json.encode(), C-accelerated with gc=False struct support"
-"json.JSONDecoder".msg = "Use msgspec.json.Decoder(type=T), schema-validated, zero-copy deserialization"
-"json.JSONEncoder".msg = "Use msgspec.json.Encoder(enc_hook=fn), custom serialization through a hook"
-"json.load".msg = "Use msgspec.json.decode(Path.read_bytes(), type=T), schema-validated, zero-copy"
-"json.loads".msg = "Use msgspec.json.decode(buf, type=T), schema-validated, zero-copy deserialization"
-"logging.basicConfig".msg = "Use structlog with OpenTelemetry, which configures the logging pipeline"
-"logging.critical".msg = "Use structlog.get_logger().critical(), stdlib root logger bypasses structured pipeline"
-"logging.debug".msg = "Use structlog.get_logger().debug(), stdlib root logger bypasses structured pipeline"
-"logging.error".msg = "Use structlog.get_logger().error(), stdlib root logger bypasses structured pipeline"
-"logging.exception".msg = "Use structlog.get_logger().exception(), stdlib root logger bypasses structured pipeline"
-"logging.getLogger".msg = "Use structlog.get_logger(), stdlib logging bypasses structured pipeline"
-"logging.info".msg = "Use structlog.get_logger().info(), stdlib root logger bypasses structured pipeline"
-"logging.warning".msg = "Use structlog.get_logger().warning(), stdlib root logger bypasses structured pipeline"
-"os.environ".msg = "Use pydantic-settings BaseSettings, validated typed configuration"
-"os.getenv".msg = "Use pydantic-settings BaseSettings, validated typed configuration at startup"
-"pydantic.validator".msg = "Use @field_validator or @model_validator, pydantic.validator is the deprecated 1.x API"
-"requests".msg = "Use httpx behind a typed adapter, the approved transport API"
-"returns".msg = "Use expression.Result / expression.Option, the approved Result library"
-"returns.maybe".msg = "Use expression.Result / expression.Option, the approved Result library"
-"returns.result".msg = "Use expression.Result / expression.Option, the approved Result library"
-"socket.create_connection".msg = "Use anyio networking or httpx adapters with explicit deadlines, direct sockets bypass boundary policy"
-"socket.create_server".msg = "Use anyio networking with explicit lifecycle ownership, direct sockets bypass boundary policy"
-"socket.socket".msg = "Use anyio networking or a marked boundary adapter, raw sockets bypass deadline and observability policy"
-"subprocess.call".msg = "Use anyio.run_process(), async, cancellation-aware, structured concurrency"
-"subprocess.check_call".msg = "Use anyio.run_process(), async, cancellation-aware, structured concurrency"
-"subprocess.check_output".msg = "Use anyio.run_process(), async, cancellation-aware, structured concurrency"
-"subprocess.Popen".msg = "Use anyio.open_process(), async process handle with structured teardown"
-"subprocess.run".msg = "Use anyio.run_process(), async, cancellation-aware, structured concurrency"
-"time.sleep".msg = "Use anyio.sleep(), time.sleep blocks the event loop thread"
-"traceback.print_exc".msg = "Use structlog.get_logger().exception(), traceback.print_exc leaks to stderr"
-"typing.Any".msg = "Use precise type parameters or object at validated boundaries, Any requires explicit boundary justification"
-"typing.ParamSpec".msg = "Use PEP 695 decorator parameters (**P)"
-"typing.TypeAlias".msg = "Use PEP 695 type aliases (`type Name = ...`)"
-"typing.TypeGuard".msg = "Use TypeIs, it narrows both branches"
-"typing.TypeVar".msg = "Use PEP 695 type parameters"
-"typing.TypeVarTuple".msg = "Use PEP 695 variadic type parameters"
-"typing.cast".msg = "Use TypeGuard/TypeIs, validated adapters, or pattern narrowing, cast erases checker evidence"
-"typing.NamedTuple".msg = "Use pydantic BaseModel(frozen=True) or msgspec.Struct(frozen=True), NamedTuple lacks runtime validation"
-"typing.no_type_check".msg = "Use a typed boundary adapter or refine the signature, static type checking is mandatory"
-"typing.Optional".msg = "Use Result or Option for fallibility and T | None for non-fallible absence"
-"typing_extensions.Any".msg = "Use precise type parameters or object at validated boundaries, Any requires explicit boundary justification"
-"typing_extensions.cast".msg = "Use TypeGuard/TypeIs, validated adapters, or pattern narrowing, cast erases checker evidence"
-"typing_extensions.deprecated".msg = "Refactor the API, the workspace has no deprecation markers"
-"typing_extensions.Optional".msg = "Use Result or Option for fallibility and T | None for non-fallible absence"
-"typing_extensions.ParamSpec".msg = "Use PEP 695 decorator parameters (**P)"
-"typing_extensions.TypeAlias".msg = "Use PEP 695 type aliases (`type Name = ...`)"
-"typing_extensions.TypeGuard".msg = "Use TypeIs, it narrows both branches"
-"typing_extensions.TypeVar".msg = "Use PEP 695 type parameters"
-"typing_extensions.TypeVarTuple".msg = "Use PEP 695 variadic type parameters"
-"urllib.request".msg = "Use httpx behind a typed adapter, direct urllib imports bypass transport policy"
-"urllib3".msg = "Use httpx behind a typed adapter, urllib3 stays a transitive dependency"
-"warnings.catch_warnings".msg = "Refactor the path, the workspace has no deprecation or workaround warnings"
-"warnings.deprecated".msg = "Refactor the API, the workspace has no deprecation markers"
-"warnings.filterwarnings".msg = "Remove the deprecated path, warnings stay unfiltered"
-"warnings.simplefilter".msg = "Remove the deprecated path, warnings stay unfiltered"
-"warnings.warn".msg = "Refactor the path, the workspace has no deprecation or workaround warnings"
-"warnings.warn_explicit".msg = "Refactor the path, the workspace has no deprecation or workaround warnings"
-
 [tool.ruff.lint.flake8-type-checking]
-strict = true
-exempt-modules = ["typing", "typing_extensions"]
 runtime-evaluated-base-classes = ["msgspec.Struct", "pydantic.BaseModel", "pydantic.RootModel", "pydantic_settings.BaseSettings"]
 runtime-evaluated-decorators = [
     "beartype.beartype",
@@ -707,7 +616,7 @@ ignore-one-line-docstrings = true  # Private helpers keep one-line docstrings wi
 allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__"]
 allow-magic-value-types = ["str", "bytes", "int"]
 max-args = 8
-max-nested-blocks = 4
+max-nested-blocks = 3
 max-public-methods = 10
 
 # --- [TY] -------------------------------------------------------------------------------

@@ -1,0 +1,459 @@
+id: require-walrus-in-condition
+snapshots:
+  ? |
+    class Reader:
+        found = load(path)
+        if found:
+            use(found)
+  : fixed: |
+      class Reader:
+          found = load(path)
+          if found := load(path):
+              use(found)
+    labels:
+    - source: |-
+        if found:
+                use(found)
+      style: primary
+      start: 41
+      end: 69
+    - source: found
+      style: secondary
+      start: 18
+      end: 23
+    - source: load(path)
+      style: secondary
+      start: 26
+      end: 36
+    - source: found = load(path)
+      style: secondary
+      start: 18
+      end: 36
+    - source: found = load(path)
+      style: secondary
+      start: 18
+      end: 36
+    - source: found
+      style: secondary
+      start: 44
+      end: 49
+  ? |
+    count = len(items)
+    if count > 3:
+        use(count)
+  : fixed: |
+      count = len(items)
+      if (count := len(items)) > 3:
+          use(count)
+    labels:
+    - source: |-
+        if count > 3:
+            use(count)
+      style: primary
+      start: 19
+      end: 47
+    - source: count
+      style: secondary
+      start: 0
+      end: 5
+    - source: len(items)
+      style: secondary
+      start: 8
+      end: 18
+    - source: count = len(items)
+      style: secondary
+      start: 0
+      end: 18
+    - source: count = len(items)
+      style: secondary
+      start: 0
+      end: 18
+    - source: count
+      style: secondary
+      start: 22
+      end: 27
+    - source: count > 3
+      style: secondary
+      start: 22
+      end: 31
+  ? |
+    def run(path):
+        found = load(path)
+        if found:
+            use(found)
+        return found
+  : fixed: |
+      def run(path):
+          found = load(path)
+          if found := load(path):
+              use(found)
+          return found
+    labels:
+    - source: |-
+        if found:
+                use(found)
+      style: primary
+      start: 42
+      end: 70
+    - source: found
+      style: secondary
+      start: 19
+      end: 24
+    - source: load(path)
+      style: secondary
+      start: 27
+      end: 37
+    - source: found = load(path)
+      style: secondary
+      start: 19
+      end: 37
+    - source: found = load(path)
+      style: secondary
+      start: 19
+      end: 37
+    - source: found
+      style: secondary
+      start: 45
+      end: 50
+  ? |
+    found = [*items]
+    if found:
+        use(found)
+  : fixed: |
+      found = [*items]
+      if found := [*items]:
+          use(found)
+    labels:
+    - source: |-
+        if found:
+            use(found)
+      style: primary
+      start: 17
+      end: 41
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: '[*items]'
+      style: secondary
+      start: 8
+      end: 16
+    - source: found = [*items]
+      style: secondary
+      start: 0
+      end: 16
+    - source: found = [*items]
+      style: secondary
+      start: 0
+      end: 16
+    - source: found
+      style: secondary
+      start: 20
+      end: 25
+  ? |
+    found = a if flag else b
+    if found:
+        use(found)
+  : fixed: |
+      found = a if flag else b
+      if found := a if flag else b:
+          use(found)
+    labels:
+    - source: |-
+        if found:
+            use(found)
+      style: primary
+      start: 25
+      end: 49
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: a if flag else b
+      style: secondary
+      start: 8
+      end: 24
+    - source: found = a if flag else b
+      style: secondary
+      start: 0
+      end: 24
+    - source: found = a if flag else b
+      style: secondary
+      start: 0
+      end: 24
+    - source: found
+      style: secondary
+      start: 28
+      end: 33
+  ? |
+    found = await load(path)
+    if found:
+        use(found)
+  : fixed: |
+      found = await load(path)
+      if found := await load(path):
+          use(found)
+    labels:
+    - source: |-
+        if found:
+            use(found)
+      style: primary
+      start: 25
+      end: 49
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: await load(path)
+      style: secondary
+      start: 8
+      end: 24
+    - source: found = await load(path)
+      style: secondary
+      start: 0
+      end: 24
+    - source: found = await load(path)
+      style: secondary
+      start: 0
+      end: 24
+    - source: found
+      style: secondary
+      start: 28
+      end: 33
+  ? |
+    found = load(path)
+    if found in items:
+        use(found)
+  : fixed: |
+      found = load(path)
+      if (found := load(path)) in items:
+          use(found)
+    labels:
+    - source: |-
+        if found in items:
+            use(found)
+      style: primary
+      start: 19
+      end: 52
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: load(path)
+      style: secondary
+      start: 8
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found
+      style: secondary
+      start: 22
+      end: 27
+    - source: found in items
+      style: secondary
+      start: 22
+      end: 36
+  ? |
+    found = load(path)
+    if found is not None:
+        use(found)
+  : fixed: |
+      found = load(path)
+      if (found := load(path)) is not None:
+          use(found)
+    labels:
+    - source: |-
+        if found is not None:
+            use(found)
+      style: primary
+      start: 19
+      end: 55
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: load(path)
+      style: secondary
+      start: 8
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found
+      style: secondary
+      start: 22
+      end: 27
+    - source: found is not None
+      style: secondary
+      start: 22
+      end: 39
+  ? |
+    found = load(path)
+    if found:
+        if found:
+            use(found)
+  : fixed: |
+      found = load(path)
+      if found := load(path):
+          if found:
+              use(found)
+    labels:
+    - source: |-
+        if found:
+            if found:
+                use(found)
+      style: primary
+      start: 19
+      end: 61
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: load(path)
+      style: secondary
+      start: 8
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found
+      style: secondary
+      start: 22
+      end: 27
+  ? |
+    found = load(path)
+    if found:
+        use(found)
+  : fixed: |
+      found = load(path)
+      if found := load(path):
+          use(found)
+    labels:
+    - source: |-
+        if found:
+            use(found)
+      style: primary
+      start: 19
+      end: 43
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: load(path)
+      style: secondary
+      start: 8
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found
+      style: secondary
+      start: 22
+      end: 27
+  ? |
+    found = load(path)
+    if found:
+        use(found)
+    elif other:
+        skip()
+    else:
+        stop()
+  : fixed: |
+      found = load(path)
+      if found := load(path):
+          use(found)
+      elif other:
+          skip()
+      else:
+          stop()
+    labels:
+    - source: |-
+        if found:
+            use(found)
+        elif other:
+            skip()
+        else:
+            stop()
+      style: primary
+      start: 19
+      end: 83
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: load(path)
+      style: secondary
+      start: 8
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found
+      style: secondary
+      start: 22
+      end: 27
+  ? |
+    found = load(path)
+    if not found:
+        return
+  : fixed: |
+      found = load(path)
+      if not (found := load(path)):
+          return
+    labels:
+    - source: |-
+        if not found:
+            return
+      style: primary
+      start: 19
+      end: 43
+    - source: found
+      style: secondary
+      start: 0
+      end: 5
+    - source: load(path)
+      style: secondary
+      start: 8
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found = load(path)
+      style: secondary
+      start: 0
+      end: 18
+    - source: found
+      style: secondary
+      start: 26
+      end: 31
+    - source: not found
+      style: secondary
+      start: 22
+      end: 31

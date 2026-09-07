@@ -1,0 +1,58 @@
+id: no-http-client-module
+snapshots:
+  ? |
+    connection = http.client.HTTPSConnection(host)
+  : labels:
+    - source: http.client.HTTPSConnection
+      style: primary
+      start: 13
+      end: 40
+  ? |
+    from http import client
+  : labels:
+    - source: client
+      style: primary
+      start: 17
+      end: 23
+  ? |
+    from urllib import request
+  : labels:
+    - source: request
+      style: primary
+      start: 19
+      end: 26
+  ? |
+    from urllib.request import urlopen
+  : labels:
+    - source: urllib.request
+      style: primary
+      start: 5
+      end: 19
+  ? |
+    import http.client
+  : labels:
+    - source: http.client
+      style: primary
+      start: 7
+      end: 18
+  ? |
+    import requests
+  : labels:
+    - source: requests
+      style: primary
+      start: 7
+      end: 15
+  ? |
+    import urllib3 as u3
+  : labels:
+    - source: urllib3
+      style: primary
+      start: 7
+      end: 14
+  ? |
+    response = requests.get(url)
+  : labels:
+    - source: requests.get
+      style: primary
+      start: 11
+      end: 23

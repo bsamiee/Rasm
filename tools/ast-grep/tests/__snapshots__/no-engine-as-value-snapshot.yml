@@ -1,0 +1,156 @@
+id: no-engine-as-value
+snapshots:
+  ? |
+    const api = $;
+  : labels:
+    - source: $
+      style: primary
+      start: 12
+      end: 13
+  ? |
+    const copy = { ...$ };
+  : labels:
+    - source: $
+      style: primary
+      start: 18
+      end: 19
+  ? |
+    const engine = $ ?? fallback;
+  : labels:
+    - source: $
+      style: primary
+      start: 15
+      end: 16
+  ? |
+    const engine = () => $;
+  : labels:
+    - source: $
+      style: primary
+      start: 21
+      end: 22
+  ? |
+    const engine = ready ? $ : fallback;
+  : labels:
+    - source: $
+      style: primary
+      start: 23
+      end: 24
+  ? |
+    const exists = $.fs.exists.bind(engine);
+  : labels:
+    - source: $
+      style: primary
+      start: 15
+      end: 16
+  ? |
+    const held = $ && ready;
+  : labels:
+    - source: $
+      style: primary
+      start: 13
+      end: 14
+  ? |
+    const kind = typeof $.store.get;
+  : labels:
+    - source: $
+      style: primary
+      start: 20
+      end: 21
+  ? |
+    const list = [$];
+  : labels:
+    - source: $
+      style: primary
+      start: 14
+      end: 15
+  ? |
+    const plugin = $.plugin;
+  : labels:
+    - source: $
+      style: primary
+      start: 15
+      end: 16
+  ? |
+    const read = $.store.get;
+  : labels:
+    - source: $
+      style: primary
+      start: 13
+      end: 14
+  ? |
+    const saved = $.store['get'](key);
+  : labels:
+    - source: $
+      style: primary
+      start: 14
+      end: 15
+  ? |
+    const saved = $['store'].get(key);
+  : labels:
+    - source: $
+      style: primary
+      start: 14
+      end: 15
+  ? |
+    const saved = $['store']['get'](key);
+  : labels:
+    - source: $
+      style: primary
+      start: 14
+      end: 15
+  ? |
+    const store = $.store;
+  : labels:
+    - source: $
+      style: primary
+      start: 14
+      end: 15
+  ? |
+    const text = `${$}`;
+  : labels:
+    - source: $
+      style: primary
+      start: 16
+      end: 17
+  ? |
+    const { store } = $;
+  : labels:
+    - source: $
+      style: primary
+      start: 18
+      end: 19
+  ? |
+    export { $ };
+  : labels:
+    - source: $
+      style: primary
+      start: 9
+      end: 10
+  ? |
+    f($);
+  : labels:
+    - source: $
+      style: primary
+      start: 2
+      end: 3
+  ? |
+    items.forEach($.ui.log);
+  : labels:
+    - source: $
+      style: primary
+      start: 14
+      end: 15
+  ? |
+    run($.plugin);
+  : labels:
+    - source: $
+      style: primary
+      start: 4
+      end: 5
+  ? |
+    run({ $, e });
+  : labels:
+    - source: $
+      style: primary
+      start: 6
+      end: 7

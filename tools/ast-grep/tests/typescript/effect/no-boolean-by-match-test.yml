@@ -1,0 +1,55 @@
+id: no-boolean-by-match
+valid:
+    # The predicate
+    - 'const held = Option.isSome(found);'
+    # One literal arm beside a value arm, a fold
+    - 'const same = Effect.match(work, { onFailure: () => false, onSuccess: (back) => equivalence(value, back) });'
+    # Both arms true, a constant
+    - 'const held = Option.match(found, { onNone: () => true, onSome: () => true });'
+    # Boolean arms as values, no literal
+    - 'const held = Option.match(found, { onNone: () => missing, onSome: () => present });'
+    # Number arms
+    - 'const count = Boolean.match(flag, { onTrue: () => 1, onFalse: () => 0 });'
+    # Micro match, the Micro module exports no success predicate
+    - 'const passed = Micro.match(work, { onFailure: () => false, onSuccess: () => true });'
+    # Match on a module outside the carrier set
+    - 'const leaf = Item.match(item, { onLeaf: () => true, onNode: () => false });'
+    # Match on a module outside the carrier set with three arms
+    - 'const ended = Take.match(take, { onEnd: () => true, onFailure: () => false, onSuccess: () => false });'
+    # Method other than match on the carrier
+    - 'const held = Option.map(found, { onNone: () => false, onSome: () => true });'
+    # Block false arm with a statement before the return
+    - 'const held = Option.match(found, { onNone: () => { log(); return false; }, onSome: () => true });'
+    # Data-last boolean match, the identity step of a pipe
+    - 'const held = flag.pipe(Boolean.match({ onTrue: () => true, onFalse: () => false }));'
+    # Block arm with a statement before the return
+    - 'const held = Option.match(found, { onNone: () => false, onSome: () => { log(); return true; } });'
+invalid:
+    # The instance, an Effect matched into its success
+    - 'const passed = Effect.match(work, { onFailure: () => false, onSuccess: () => true });'
+    # Effect matched into its success through the cause spelling
+    - 'const passed = Effect.matchCause(work, { onFailure: () => false, onSuccess: () => true });'
+    # Option matched into its presence
+    - 'const held = Option.match(found, { onNone: () => false, onSome: () => true });'
+    # Option matched into its absence, the parameter ignored
+    - 'const missing = Option.match(found, { onNone: () => true, onSome: (_) => false });'
+    # Either matched into its right
+    - 'const decoded = Either.match(result, { onLeft: () => false, onRight: () => true });'
+    # Exit matched into its failure
+    - 'const failed = Exit.match(exit, { onFailure: () => true, onSuccess: () => false });'
+    # Data-last match as a pipe step
+    - 'const held = found.pipe(Option.match({ onNone: () => false, onSome: () => true }));'
+    # Data-last match applied to the carrier directly
+    - 'const held = Option.match({ onNone: () => false, onSome: () => true })(found);'
+    # Function constants passed point-free
+    - 'const held = Option.match(found, { onNone: constFalse, onSome: constTrue });'
+    # Qualified Function constants
+    - 'const held = Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue });'
+    # Block arms with the one return
+    - 'const held = Option.match(found, { onNone: () => { return false; }, onSome: () => { return true; } });'
+    # Boolean matched to itself
+    - 'const held = Boolean.match(flag, { onTrue: () => true, onFalse: () => false });'
+    # Boolean matched to its negation, a name negates without parentheses
+    - 'const quiet = Boolean.match(flag, { onFalse: () => true, onTrue: () => false });'
+    # Boolean matched to its negation, a comparison negates in parentheses
+    - 'const small = Boolean.match(size > limit, { onTrue: () => false, onFalse: () => true });'

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ambient-read
+language: tsx
+severity: error
+ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, the Clock and Random services have no place there
+rule:
+    matches: syntax-ambient-read
+    pattern: $READ
+message: '`$READ` reads the clock or the random source of the host as an ambient value'
+note: Read the value through the service the context supplies, `Clock.currentTimeMillis`, `DateTime.now`, `Random.next`, or `Random.nextUUID`

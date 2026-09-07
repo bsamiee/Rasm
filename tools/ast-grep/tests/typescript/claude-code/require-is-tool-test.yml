@@ -1,0 +1,69 @@
+id: require-is-tool
+valid:
+    # The correction
+    - |
+      const _isBash = isTool('Bash');
+    # The definition of isTool in policies/tools.ts compares against its parameter
+    - |
+      const isTool = <T extends ToolName>(tool: T): ((e: ToolCallInput) => e is Named<T>) => (e: ToolCallInput): e is Named<T> => e.tool === tool;
+    # A union refinement, two tools in one predicate
+    - |
+      const _isWritten = (e: ToolCallInput): e is Written => e.tool === 'Edit' || e.tool === 'Write';
+    # A boolean over a row type, no refinement
+    - |
+      const row = TOOLS.find((row) => row.tool === 'WebFetch');
+    # A refinement on another field
+    - |
+      const _isAnswer = (e: TurnCompleteInput): e is Answered => e.reason === 'answer';
+    # A negated test
+    - |
+      const _isOther = (e: ToolCallInput): e is Other => e.tool !== 'Bash';
+    # Block body with a second statement, no one-return refinement
+    - |
+      const _isBash = (e: ToolCallInput): e is Bash => { log(e); return e.tool === 'Bash'; };
+    # Index spelling of another field
+    - |
+      const _isOther = (e: ToolCallInput): e is Other => e['kind'] === 'Bash';
+    # Another field of the tool.call event compared against a string
+    - |
+      const _isOther = (e: ToolCallInput): e is Other => e.kind === 'Bash';
+    # Refinement over a table row type, isTool narrows the event alone
+    - |
+      const _isBashRow = (row: ToolRow): row is BashRow => row.tool === 'Bash';
+    # Refinement over the intersection type, the parameter type is no plain ToolCallInput
+    - |
+      const _isBashRun = (e: ToolCallInput & Run): e is BashRun => e.tool === 'Bash';
+    # Refinement returning the test inside parentheses beside a second condition
+    - |
+      const _hasCommand = (e: ToolCallInput): e is Commanded => (e.tool === 'Bash' || e.tool === 'Monitor') && typeof e.command === 'string';
+invalid:
+    # The instance, the refinement by hand
+    - |
+      const _isBash = (e: ToolCallInput): e is Bash => e.tool === 'Bash';
+    # Double-quoted tool name
+    - |
+      const _isEdit = (e: ToolCallInput): e is Edit => e.tool === "Edit";
+    # Inline under when
+    - |
+      const rule = when((e: ToolCallInput): e is Edit => e.tool === 'Edit', editRule);
+    # Another parameter name
+    - |
+      const _isWrite = (input: ToolCallInput): input is Written => input.tool === 'Write';
+    # Function expression with the test as its one return
+    - |
+      const _isBash = function (e: ToolCallInput): e is Bash { return e.tool === 'Bash'; };
+    # Arrow with a block body holding the one return
+    - |
+      const _isEdit = (e: ToolCallInput): e is Edit => { return e.tool === 'Edit'; };
+    # Index spelling of the tool field, useLiteralKeys is off
+    - |
+      const _isWrite = (e: ToolCallInput): e is Written => e['tool'] === 'Write';
+    # Refinement returned from a closure
+    - |
+      const _isBash = (): ((e: ToolCallInput) => e is Bash) => (e: ToolCallInput): e is Bash => e.tool === 'Bash';
+    # Refinement passed inline as the some arm of a match
+    - |
+      const held = fromNullable(input).match({ some: (e: ToolCallInput): e is Bash => e.tool === 'Bash', none: () => false });
+    # Refinement with the test inside parentheses
+    - |
+      const _isBash = (e: ToolCallInput): e is Bash => (e.tool === 'Bash');

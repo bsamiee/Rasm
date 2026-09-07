@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+# Copy of an event with a changed field, the event's spread beside a pair, a shorthand, or another spread, or Object.assign over the event and a patch
+id: claude-code-event-copy
+language: tsx
+arguments: [event]
+utils:
+    changed-field:
+        any: [{kind: pair}, {kind: shorthand_property_identifier}, {kind: spread_element, not: {has: {matches: event}}}]
+rule:
+    any:
+        - kind: object
+          all:
+              - has: {kind: spread_element, has: {matches: event}}
+              - has: {matches: changed-field}
+        # Object.assign over an empty target, the event, and the patch, by position
+        - kind: call_expression
+          all:
+              - has: {field: function, regex: '^Object\.assign$'}
+              - has:
+                    field: arguments
+                    all:
+                        - has: {nthChild: 1, kind: object, not: {has: {nthChild: 1}}}
+                        - has: {nthChild: 2, matches: event}
+                        - has: {nthChild: 3, kind: object, has: {matches: changed-field}}

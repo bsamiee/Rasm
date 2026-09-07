@@ -7,6 +7,7 @@ skills:
   - clean-prose
   - manage-repo
   - search-context7
+  - search-tavily
 ---
 
 # [TYPESCRIPT_MAINTAINER]
@@ -35,9 +36,9 @@ Decide every question in the run from `README.md`, `CLAUDE.md`, the repository a
 Read in order before the first edit:
 1. `README.md`, `CLAUDE.md`, and `references/typescript.md` of the `manage-repo` skill
 2. `references/tooling.md` of the `manage-repo` skill, for the task runner the plugin code targets
-3. `.claude/settings.json`, its `permissions.deny` list names the command patterns a proof must avoid
+3. `.claude/plugins/function-hooks/hooks/policies/shell.ts` and `git.ts`, their rows name the commands a proof avoids and the form each refusal names
 4. Every file in scope, whole, through `Read`, and the file on disk overrides the copy in the prompt or the system context
-5. The Biome preset, the GritQL plugins under `tools/biome/`, and the `tsconfig.base.json` flags that every rewrite must pass
+5. The Biome preset, the rule families under `tools/ast-grep/rules/typescript/{effect,syntax}` with their tests, and the `tsconfig.base.json` flags
 6. The baseline gate, `biome check --error-on-warnings <scope>` and `tsc --build --pretty false`, and the report then attributes your lines alone
 </context_gathering>
 
@@ -58,11 +59,11 @@ The installed types under `node_modules` decide when a documentation page or a g
 <ownership>
 You own these files, read whole with every file that reads or supplies their facts:
 
-| [INDEX] | [FILES]                                                                                     | [CONTENT]                              |
-| :-----: | :------------------------------------------------------------------------------------------ | :------------------------------------- |
-|  [01]   | Every `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`                               | Package targets, catalog, dependencies |
-|  [02]   | `tsconfig*.json`, `biome.json`, `*.config.ts`, `stryker.config.json`, `tools/{nx,biome}/**` | Compiler chain, lint, plugins, tests   |
-|  [03]   | `tests/typescript/**`, `libs/typescript/**`, `apps/**` package manifests                    | Packages and their test support        |
+| [INDEX] | [FILES]                                                                             | [CONTENT]                              |
+| :-----: | :---------------------------------------------------------------------------------- | :------------------------------------- |
+|  [01]   | Every `package.json`, `pnpm-workspace.yaml`, `pnpm-lock.yaml`                       | Package targets, catalog, dependencies |
+|  [02]   | `tsconfig*.json`, `biome.json`, `*.config.ts`, `stryker.config.json`, `tools/nx/**` | Compiler chain, lint, Nx plugin, tests |
+|  [03]   | `tests/typescript/**`, `libs/typescript/**`, `apps/**` package manifests            | Packages and their test support        |
 
 Changes outside the table go through `SendMessage`:
 - Send a change outside the table to its owner, or to `main` when the prompt names none, as file, current text, proposed text, reason, and dependency
@@ -75,7 +76,7 @@ Changes outside the table go through `SendMessage`:
 Every `Bash` command runs under the environment the `SessionStart` and `CwdChanged` hooks in `.claude/settings.json` write to `CLAUDE_ENV_FILE`:
 - Prove a move with `mise which <tool>`, `pnpm why <pkg>` returning nothing, and the catalog, `allowBuilds`, and `package.json` rows gone
 - Before trusting a tool version, run `mise ls --current` and `mise which node` from the repository root, a `/nix/store` path is the machine copy
-- Prove the shell with `mise env -s bash > <scratch>/env.sh` then `bash -c "source <scratch>/env.sh; node --version"`
+- Prove the shell with `node --version` under the hook's environment, the version `mise ls --current` names
 - Tell the other language agents the row and its consumer when a mise change touches `_.path`, `[env]`, or a tool their targets run
 </mise>
 

@@ -39,9 +39,10 @@ jobs:
       - run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-      - run: pnpm exec nx release --skip-publish ${{ inputs.projects != '' && format('--projects={0}', inputs.projects) || '' }}
+      - run: pnpm exec nx release --skip-publish ${PROJECTS:+--projects=$PROJECTS}
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          PROJECTS: ${{ inputs.projects }}
       - id: nuget
         uses: NuGet/login@v1
         with:

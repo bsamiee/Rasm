@@ -1,0 +1,51 @@
+id: no-json-module
+snapshots:
+  ? |
+    data = json.loads(raw)
+  : labels:
+    - source: json.loads
+      style: primary
+      start: 7
+      end: 17
+  ? |
+    from json import loads
+  : labels:
+    - source: json
+      style: primary
+      start: 5
+      end: 9
+  ? |
+    from json.decoder import JSONDecodeError
+  : labels:
+    - source: json.decoder
+      style: primary
+      start: 5
+      end: 17
+  ? |
+    import json
+  : labels:
+    - source: json
+      style: primary
+      start: 7
+      end: 11
+  ? |
+    import json as j
+  : labels:
+    - source: json
+      style: primary
+      start: 7
+      end: 11
+  ? |
+    import os, json
+  : labels:
+    - source: json
+      style: primary
+      start: 11
+      end: 15
+  ? |
+    raise json.decoder.JSONDecodeError(message, raw, 0)
+  : labels:
+    - source: json.decoder.JSONDecodeError
+      style: primary
+      start: 6
+      end: 34

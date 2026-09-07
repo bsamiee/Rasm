@@ -12,10 +12,6 @@ snapshots:
       style: primary
       start: 131
       end: 168
-    - source: Effect.promise(() => Runtime.runPromise(fiberRuntime)(job))
-      style: secondary
-      start: 110
-      end: 169
     - source: runPromise
       style: secondary
       start: 139
@@ -28,16 +24,16 @@ snapshots:
       style: secondary
       start: 131
       end: 163
+    - source: Effect.promise(() => Runtime.runPromise(fiberRuntime)(job))
+      style: secondary
+      start: 110
+      end: 169
   const built = Effect.sync(() => Effect.runSync(build));:
     labels:
     - source: Effect.runSync(build)
       style: primary
       start: 32
       end: 53
-    - source: Effect.sync(() => Effect.runSync(build))
-      style: secondary
-      start: 14
-      end: 54
     - source: runSync
       style: secondary
       start: 39
@@ -46,16 +42,16 @@ snapshots:
       style: secondary
       start: 32
       end: 46
+    - source: Effect.sync(() => Effect.runSync(build))
+      style: secondary
+      start: 14
+      end: 54
   const bumped = Ref.update(counter, (count) => Effect.runSync(next(count)));:
     labels:
     - source: Effect.runSync(next(count))
       style: primary
       start: 46
       end: 73
-    - source: Ref.update(counter, (count) => Effect.runSync(next(count)))
-      style: secondary
-      start: 15
-      end: 74
     - source: runSync
       style: secondary
       start: 53
@@ -64,16 +60,16 @@ snapshots:
       style: secondary
       start: 46
       end: 60
+    - source: Ref.update(counter, (count) => Effect.runSync(next(count)))
+      style: secondary
+      start: 15
+      end: 74
   const decoded = Effect.runSync(Effect.map(load(), (config) => Effect.runSync(decode(config))));:
     labels:
     - source: Effect.runSync(decode(config))
       style: primary
       start: 62
       end: 92
-    - source: Effect.map(load(), (config) => Effect.runSync(decode(config)))
-      style: secondary
-      start: 31
-      end: 93
     - source: runSync
       style: secondary
       start: 69
@@ -82,16 +78,16 @@ snapshots:
       style: secondary
       start: 62
       end: 76
+    - source: Effect.map(load(), (config) => Effect.runSync(decode(config)))
+      style: secondary
+      start: 31
+      end: 93
   const decoded = Micro.map(load, (config) => Micro.runSync(decode(config)));:
     labels:
     - source: Micro.runSync(decode(config))
       style: primary
       start: 44
       end: 73
-    - source: Micro.map(load, (config) => Micro.runSync(decode(config)))
-      style: secondary
-      start: 16
-      end: 74
     - source: runSync
       style: secondary
       start: 50
@@ -100,16 +96,16 @@ snapshots:
       style: secondary
       start: 44
       end: 57
+    - source: Micro.map(load, (config) => Micro.runSync(decode(config)))
+      style: secondary
+      start: 16
+      end: 74
   const job = Effect.promise(() => Runtime.runPromise(fiberRuntime)(job));:
     labels:
     - source: Runtime.runPromise(fiberRuntime)(job)
       style: primary
       start: 33
       end: 70
-    - source: Effect.promise(() => Runtime.runPromise(fiberRuntime)(job))
-      style: secondary
-      start: 12
-      end: 71
     - source: runPromise
       style: secondary
       start: 41
@@ -122,16 +118,16 @@ snapshots:
       style: secondary
       start: 33
       end: 65
+    - source: Effect.promise(() => Runtime.runPromise(fiberRuntime)(job))
+      style: secondary
+      start: 12
+      end: 71
   const live = Layer.sync(Service, () => Effect.runSync(build));:
     labels:
     - source: Effect.runSync(build)
       style: primary
       start: 39
       end: 60
-    - source: Layer.sync(Service, () => Effect.runSync(build))
-      style: secondary
-      start: 13
-      end: 61
     - source: runSync
       style: secondary
       start: 46
@@ -140,20 +136,16 @@ snapshots:
       style: secondary
       start: 39
       end: 53
+    - source: Layer.sync(Service, () => Effect.runSync(build))
+      style: secondary
+      start: 13
+      end: 61
   const load = Effect.fn("load")(function* (name) { return Effect.runSync(read(name)); });:
     labels:
     - source: Effect.runSync(read(name))
       style: primary
       start: 57
       end: 83
-    - source: Effect.fn("load")
-      style: secondary
-      start: 13
-      end: 30
-    - source: Effect.fn("load")(function* (name) { return Effect.runSync(read(name)); })
-      style: secondary
-      start: 13
-      end: 87
     - source: runSync
       style: secondary
       start: 64
@@ -162,16 +154,20 @@ snapshots:
       style: secondary
       start: 57
       end: 71
+    - source: Effect.fn("load")
+      style: secondary
+      start: 13
+      end: 30
+    - source: Effect.fn("load")(function* (name) { return Effect.runSync(read(name)); })
+      style: secondary
+      start: 13
+      end: 87
   const mapped = Channel.mapOut(channel, (out) => Effect.runSync(transform(out)));:
     labels:
     - source: Effect.runSync(transform(out))
       style: primary
       start: 48
       end: 78
-    - source: Channel.mapOut(channel, (out) => Effect.runSync(transform(out)))
-      style: secondary
-      start: 15
-      end: 79
     - source: runSync
       style: secondary
       start: 55
@@ -180,16 +176,16 @@ snapshots:
       style: secondary
       start: 48
       end: 62
+    - source: Channel.mapOut(channel, (out) => Effect.runSync(transform(out)))
+      style: secondary
+      start: 15
+      end: 79
   const rows = Array.map(files, (file) => runtime.runSync(read(file)));:
     labels:
     - source: runtime.runSync(read(file))
       style: primary
       start: 40
       end: 67
-    - source: Array.map(files, (file) => runtime.runSync(read(file)))
-      style: secondary
-      start: 13
-      end: 68
     - source: runSync
       style: secondary
       start: 48
@@ -198,16 +194,16 @@ snapshots:
       style: secondary
       start: 40
       end: 55
+    - source: Array.map(files, (file) => runtime.runSync(read(file)))
+      style: secondary
+      start: 13
+      end: 68
   const summed = Sink.map(sink, (total) => Effect.runSync(report(total)));:
     labels:
     - source: Effect.runSync(report(total))
       style: primary
       start: 41
       end: 70
-    - source: Sink.map(sink, (total) => Effect.runSync(report(total)))
-      style: secondary
-      start: 15
-      end: 71
     - source: runSync
       style: secondary
       start: 48
@@ -216,16 +212,16 @@ snapshots:
       style: secondary
       start: 41
       end: 55
+    - source: Sink.map(sink, (total) => Effect.runSync(report(total)))
+      style: secondary
+      start: 15
+      end: 71
   const value = Effect.runSync(Effect.succeed(Effect.runSync(inner)));:
     labels:
     - source: Effect.runSync(inner)
       style: primary
       start: 44
       end: 65
-    - source: Effect.succeed(Effect.runSync(inner))
-      style: secondary
-      start: 29
-      end: 66
     - source: runSync
       style: secondary
       start: 51
@@ -234,12 +230,24 @@ snapshots:
       style: secondary
       start: 44
       end: 58
+    - source: Effect.succeed(Effect.runSync(inner))
+      style: secondary
+      start: 29
+      end: 66
   'runtime.runCallback(program, { onExit: (exit) => runtime.runSync(report(exit)) });':
     labels:
     - source: runtime.runSync(report(exit))
       style: primary
       start: 49
       end: 78
+    - source: runSync
+      style: secondary
+      start: 57
+      end: 64
+    - source: runtime.runSync
+      style: secondary
+      start: 49
+      end: 64
     - source: runCallback
       style: secondary
       start: 8
@@ -252,11 +260,3 @@ snapshots:
       style: secondary
       start: 0
       end: 81
-    - source: runSync
-      style: secondary
-      start: 57
-      end: 64
-    - source: runtime.runSync
-      style: secondary
-      start: 49
-      end: 64

@@ -4,7 +4,7 @@ Single-targeting `Microsoft.NET.Sdk` projects under .NET SDK 10 import the liste
 
 ## [01]-[CHAIN]
 
-| [INDEX] | [FILE]                                       | [ASSIGNS OR IMPORTS]                                                                      |
+| [INDEX] | [FILE]                                       | [ASSIGNS_OR_IMPORTS]                                                                      |
 | :-----: | :------------------------------------------- | :---------------------------------------------------------------------------------------- |
 |  [01]   | `Sdk/Sdk.props`                              | `UsingMicrosoftNETSdk`, imports `Microsoft.Common.props`                                  |
 |  [02]   | `Current/Microsoft.Common.props`             | `ImportDirectoryBuildProps`, `DirectoryBuildPropsPath` from `GetDirectoryNameOfFileAbove` |
@@ -19,7 +19,7 @@ Single-targeting `Microsoft.NET.Sdk` projects under .NET SDK 10 import the liste
 |  [11]   | `Microsoft.NET.Sdk.DefaultItems.props`       | The `Compile`, `EmbeddedResource`, and `None` globs                                       |
 |  [12]   | `Microsoft.NETCoreSdk.BundledVersions.props` | `NETCoreSdkVersion`, `BundledNETCoreAppPackageVersion`                                    |
 |  [13]   | `Microsoft.NET.Sdk.CSharp.props`             | `DefineConstants`, the implicit `Using` items                                             |
-|  [14]   | The project body                             | `TargetFramework`, `Nullable`, `ImplicitUsings`, references                               |
+|  [14]   | Project body                                 | `TargetFramework`, `Nullable`, `ImplicitUsings`, references                               |
 |  [15]   | `Sdk/Sdk.targets`                            | Imports `$(BeforeMicrosoftNETSdkTargets)`                                                 |
 |  [16]   | `Microsoft.NET.Sdk.BeforeCommon.targets`     | `TargetFrameworkIdentifier`, `TargetFrameworkVersion`                                     |
 |  [17]   | `Microsoft.NET.DefaultOutputPaths.targets`   | `BaseOutputPath`, `OutputPath`, `IntermediateOutputPath`, `DefaultItemExcludes`           |
@@ -35,13 +35,13 @@ Single-targeting `Microsoft.NET.Sdk` projects under .NET SDK 10 import the liste
 
 ## [02]-[VISIBILITY]
 
-| [INDEX] | [PROPERTY]                                      | [ASSIGNED IN]                                | [READABLE FROM]                       |
+| [INDEX] | [PROPERTY]                                      | [ASSIGNED_IN]                                | [READABLE_FROM]                       |
 | :-----: | :---------------------------------------------- | :------------------------------------------- | :------------------------------------ |
 |  [01]   | `MSBuildProjectName`, `MSBuildProjectDirectory` | Reserved                                     | Every file                            |
 |  [02]   | `BaseIntermediateOutputPath`, `ArtifactsPath`   | `Directory.Build.props` or the SDK default   | Later files                           |
-|  [03]   | `Configuration`, `Platform`, `OutputType`       | `Microsoft.NET.Sdk.props`                    | The project body and every `.targets` |
-|  [04]   | `NETCoreSdkVersion`                             | `Microsoft.NETCoreSdk.BundledVersions.props` | The project body and every `.targets` |
-|  [05]   | `TargetFramework`                               | The project body                             | `Directory.Build.targets`, every item |
+|  [03]   | `Configuration`, `Platform`, `OutputType`       | `Microsoft.NET.Sdk.props`                    | Project body and every `.targets`     |
+|  [04]   | `NETCoreSdkVersion`                             | `Microsoft.NETCoreSdk.BundledVersions.props` | Project body and every `.targets`     |
+|  [05]   | `TargetFramework`                               | Project body                                 | `Directory.Build.targets`, every item |
 |  [06]   | `TargetFrameworkIdentifier`, `OutputPath`       | `Sdk.targets` imports                        | `Directory.Build.targets`             |
 |  [07]   | `TargetPath`, `TargetFrameworkMoniker`          | `Microsoft.Common.CurrentVersion.targets`    | `Directory.Build.targets`             |
 |  [08]   | `IsPackable`, `EnableDefaultItems`              | `Microsoft.NET.Sdk.targets` imports          | Targets, or the project value         |

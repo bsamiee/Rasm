@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-text-tool-after-jq
+language: bash
+severity: error
+utils:
+    # An earlier stage that is or holds jq or yq, a redirect on a middle stage wraps the pipeline before it in a redirected_statement
+    query-stage:
+        any:
+            - kind: command
+              has: {field: name, regex: '^(jq|yq)$'}
+            - kind: redirected_statement
+              has: {field: body, matches: query-stage}
+            - kind: pipeline
+              has: {matches: query-stage}
+    text-tool:
+        kind: command
+        has: {field: name, regex: '^(sort|uniq|wc|head|tail|tac|rev|tr|grep|egrep|fgrep|rg|cut|paste|nl|sed|awk)$'}
+    # An earlier stage that is or holds a text tool after a query stage, the one the rule reports
+    reported-stage:
+        any:
+            - matches: text-tool
+              follows: {stopBy: end, matches: query-stage}
+            - kind: redirected_statement
+              has: {field: body, matches: reported-stage}
+            - kind: pipeline
+              has: {matches: reported-stage}
+rule:
+    matches: text-tool
+    pattern: $STAGE
+    inside: {kind: pipeline}
+    follows: {stopBy: end, matches: query-stage}
+    not: {follows: {stopBy: end, matches: reported-stage}} # The first text tool after the query stage is reported once
+message: '`$STAGE` reads as text the values jq already holds'
+note: 'Write the operation in the jq program, `unique`, `length`, `first`, `.[:<n>]`, `.[-<n>:]`, `reverse`, `ascii_downcase`, `select(test("<re>"))`, `split`, `join`, `to_entries`, `sort_by`'

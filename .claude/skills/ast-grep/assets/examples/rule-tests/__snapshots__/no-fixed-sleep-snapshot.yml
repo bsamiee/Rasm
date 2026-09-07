@@ -1,0 +1,176 @@
+id: no-fixed-sleep
+snapshots:
+  from time import perf_counter, sleep as pause:
+    labels:
+    - source: sleep
+      style: primary
+      start: 31
+      end: 36
+  from time import sleep:
+    labels:
+    - source: sleep
+      style: primary
+      start: 17
+      end: 22
+  ? |
+    import anyio
+
+    _SETTLE = 100
+
+    async def wait():
+        await anyio.sleep(_SETTLE)
+  : labels:
+    - source: anyio.sleep(_SETTLE)
+      style: primary
+      start: 57
+      end: 77
+    - source: anyio.sleep
+      style: secondary
+      start: 57
+      end: 68
+    - source: _SETTLE
+      style: secondary
+      start: 14
+      end: 21
+    - source: _SETTLE = 100
+      style: secondary
+      start: 14
+      end: 27
+    - source: _SETTLE = 100
+      style: secondary
+      start: 14
+      end: 27
+    - source: |
+        import anyio
+
+        _SETTLE = 100
+
+        async def wait():
+            await anyio.sleep(_SETTLE)
+      style: secondary
+      start: 0
+      end: 78
+    - source: _SETTLE
+      style: secondary
+      start: 69
+      end: 76
+    - source: (_SETTLE)
+      style: secondary
+      start: 68
+      end: 77
+  ? |
+    import anyio
+
+    async def wait():
+        await anyio.sleep(100)
+  : labels:
+    - source: anyio.sleep(100)
+      style: primary
+      start: 42
+      end: 58
+    - source: anyio.sleep
+      style: secondary
+      start: 42
+      end: 53
+    - source: '100'
+      style: secondary
+      start: 54
+      end: 57
+    - source: (100)
+      style: secondary
+      start: 53
+      end: 58
+  ? |
+    import anyio as a
+
+    async def wait():
+        await a.sleep(1)
+  : labels:
+    - source: a.sleep(1)
+      style: primary
+      start: 47
+      end: 57
+    - source: a.sleep
+      style: secondary
+      start: 47
+      end: 54
+    - source: '1'
+      style: secondary
+      start: 55
+      end: 56
+    - source: (1)
+      style: secondary
+      start: 54
+      end: 57
+  ? |
+    import asyncio
+
+    async def wait():
+        await asyncio.sleep(1, "done")
+  : labels:
+    - source: asyncio.sleep(1, "done")
+      style: primary
+      start: 44
+      end: 68
+    - source: asyncio.sleep
+      style: secondary
+      start: 44
+      end: 57
+    - source: '1'
+      style: secondary
+      start: 58
+      end: 59
+    - source: (1, "done")
+      style: secondary
+      start: 57
+      end: 68
+  ? |
+    import asyncio
+
+    async def wait():
+        await asyncio.sleep(2.5)
+  : labels:
+    - source: asyncio.sleep(2.5)
+      style: primary
+      start: 44
+      end: 62
+    - source: asyncio.sleep
+      style: secondary
+      start: 44
+      end: 57
+    - source: '2.5'
+      style: secondary
+      start: 58
+      end: 61
+    - source: (2.5)
+      style: secondary
+      start: 57
+      end: 62
+  ? |
+    import time
+
+    def wait(delay):
+        time.sleep(delay)
+  : labels:
+    - source: time.sleep
+      style: primary
+      start: 34
+      end: 44
+  ? |
+    import time
+
+    time.sleep(1)
+  : labels:
+    - source: time.sleep
+      style: primary
+      start: 13
+      end: 23
+  ? |
+    import time as t
+
+    t.sleep(1)
+  : labels:
+    - source: t.sleep
+      style: primary
+      start: 18
+      end: 25

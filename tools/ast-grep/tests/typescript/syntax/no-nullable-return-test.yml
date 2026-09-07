@@ -1,0 +1,115 @@
+id: no-nullable-return
+valid:
+    # The Option
+    - 'const head = (rows: readonly Row[]): Option.Option<Row> => Array.head(rows);'
+    # The Option built from a nullable at the boundary
+    - 'const found = (key: string): Option.Option<Row> => Option.fromNullable(table[key]);'
+    # Return with no value in a void function
+    - 'const stop = (): void => { return; };'
+    # Undefined returned under a void annotation, a return of nothing
+    - 'const stop = (): void => { return undefined; };'
+    # Undefined returned under an undefined annotation
+    - 'const stop = (): undefined => { return undefined; };'
+    # Undefined returned under a Promise of void
+    - 'const stop = async (): Promise<void> => { return undefined; };'
+    # Undefined returned under a Promise of undefined
+    - 'const stop = async (): Promise<undefined> => { return undefined; };'
+    # Undefined returned under no annotation, Biome noUselessUndefined reports it
+    - 'const stop = () => { return undefined; };'
+    # Undefined as the body of an unannotated arrow, the site types it
+    - 'const cases = { some: (value) => value, none: () => undefined };'
+    # Undefined as the body of an arrow annotated void
+    - 'const stop = (): void => undefined;'
+    # Undefined as the body of an arrow annotated undefined
+    - 'const stop = (): undefined => undefined;'
+    # Undefined returned from a callback nested in an annotated function, the callback is the nearest boundary
+    - 'const names = (rows: readonly Row[]): string[] => rows.map((row) => { return undefined; });'
+    # Null as an argument, no return
+    - 'const held = (): void => { use(null); };'
+    # Null compared in the return, a boolean
+    - 'const missing = (value: unknown): boolean => { return value === null; };'
+    # Undefined compared in the return under a value annotation, a boolean
+    - 'const missing = (value: unknown): boolean => { return value === undefined; };'
+    # The void operator over zero under a void annotation, a return of nothing
+    - 'const stop = (): void => void 0;'
+    # The void operator over a call, a discarded value and no return of nothing
+    - 'const stop = (): Row | undefined => void load();'
+    # Signed number under a union annotation, a unary operator over a number that is a value
+    - 'const step = (): number | undefined => -1;'
+    # Null as an argument of the returned call, the call answers the value
+    - 'const found = (key: string): Row | null => { return decode(null); };'
+    # Null as the left operand, the right operand answers
+    - 'const found = (key: string): Row | null => { return null ?? table[key]; };'
+    # Undefined as the fallback under no annotation
+    - 'const found = (key: string) => { return table[key] ?? undefined; };'
+    # Null the store row holds for absence, the thunk passed to getOrElse inside the store write
+    - 'await $.store.set(key, { memoryDir: getOrElse((): string | null => null)(memoryDir) });'
+    # Block-bodied thunk at the store boundary, the walk from the return stops at the thunk
+    - 'await $.store.set(key, { memoryDir: getOrElse((): string | null => { return null; })(memoryDir) });'
+    # Store boundary thunk at a deeper argument position
+    - 'await $.store.set(key, { rows: [{ owner: getOrElse((): string | null => null)(owner) }] });'
+invalid:
+    # Thunk passed to getOrElse outside a store write
+    - 'const owner = getOrElse((): string | null => null)(repo);'
+    # Thunk passed to map inside the store write, no getOrElse
+    - 'await $.store.set(key, { owner: map((): string | null => null)(repo) });'
+    # Thunk passed to getOrElse inside the arguments of another call
+    - 'use({ owner: getOrElse((): string | null => null)(repo) });'
+    # Null returned from a callback nested inside the store boundary thunk, the callback is its own function
+    - 'await $.store.set(key, { owner: getOrElse((): string | null => rows.map((row) => { return null; }))(repo) });'
+    # Null as the fallback of a nullish coalescing
+    - 'const found = (key: string): Row | null => { return table[key] ?? null; };'
+    # Null as the fallback of a logical or
+    - 'const found = (key: string): Row | null => table[key] || null;'
+    # Null as a ternary arm
+    - 'const found = (key: string): Row | null => { return present ? table[key] : null; };'
+    # Null as the first ternary arm of an arrow body
+    - 'const found = (key: string): Row | null => missing ? null : table[key];'
+    # Null in parentheses
+    - 'const found = (key: string): Row | null => { return (null); };'
+    # Null in the nested arm of a ternary
+    - 'const found = (key: string): Row | null => { return present ? (table[key] ?? null) : table[key]; };'
+    # Undefined as the fallback under a union annotation
+    - 'const found = (key: string): Row | undefined => { return table[key] ?? undefined; };'
+    # Undefined as a ternary arm of an arrow body annotated with a union
+    - 'const found = (key: string): Row | undefined => present ? table[key] : undefined;'
+    # The void operator as the right operand of a logical and under a union annotation
+    - 'const found = (key: string): Row | undefined => { return missing && void 0; };'
+    # Undefined in parentheses under a union annotation
+    - 'const found = (key: string): Row | undefined => { return (undefined); };'
+    # Undefined as the first ternary arm under a union annotation
+    - 'const found = (key: string): Row | undefined => { return missing ? undefined : table[key]; };'
+    # The instance, null returned from a function
+    - 'const found = (key: string): Row | null => { return null; };'
+    # Null returned under no annotation
+    - 'const found = (key) => { return null; };'
+    # Null as an arrow body
+    - 'const found = (): Row | null => null;'
+    # Null as the body of an unannotated arrow, null spells absence alone
+    - 'const cases = { some: (value) => value, none: () => null };'
+    # Null returned from a function declaration
+    - 'function found(key: string): Row | null { return null; }'
+    # Null returned from a method
+    - 'class Table { find(key: string): Row | null { return null; } }'
+    # Undefined returned under a union annotation
+    - 'const found = (key: string): Row | undefined => { return undefined; };'
+    # Undefined as the body of an arrow annotated with a union
+    - 'const found = (key: string): Row | undefined => undefined;'
+    # Undefined returned from a function declaration annotated with a union
+    - 'function found(key: string): Row | undefined { return undefined; }'
+    # Undefined returned under a Promise of a union
+    - 'const found = async (key: string): Promise<Row | undefined> => { return undefined; };'
+    # Undefined returned from a generator annotated with a value type
+    - 'function* found(): Generator<Row, Row | undefined> { return undefined; }'
+    # Null returned under a guard inside an annotated function
+    - 'const found = (key: string): Row | null => { if (missing(key)) { return null; } return table[key]; };'
+    # Undefined returned under the unknown annotation, a value type every value fits
+    - 'const found = (): unknown => { return undefined; };'
+    # Undefined returned under a Promise of unknown
+    - 'const found = async (): Promise<unknown> => { return undefined; };'
+    # Undefined returned under a generic other than Promise over void, the alias admits undefined as a value
+    - 'const found = (): Maybe<void> => { return undefined; };'
+    # The void operator over zero returned under a union annotation, the second spelling of undefined
+    - 'const found = (key: string): Row | undefined => { return void 0; };'
+    # The void operator as the body of an arrow annotated with a union
+    - 'const found = (key: string): Row | undefined => void 0;'

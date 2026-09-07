@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-cd-subshell
+language: bash
+severity: error
+utils:
+    # The first command of the subshell, reached through nested lists and a trailing redirect that binds to the whole list
+    leading-cd:
+        any:
+            - kind: command
+              has: {field: name, regex: '^cd$'}
+            - kind: list
+              has: {nthChild: 1, matches: leading-cd}
+            - kind: redirected_statement
+              has: {field: body, matches: leading-cd}
+rule:
+    any: [{kind: subshell}, {kind: command_substitution}, {kind: process_substitution}] # Each forks, and a cd inside reaches nothing after it
+    pattern: $SUB
+    has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: leading-cd} # A comment before the cd is no statement
+message: '`$SUB` forks a subshell to run commands in another directory'
+note: 'Pass the directory to the tool, `git -C <dir>`, `tar -C <dir>`, `make -C <dir>`, `ast-grep -c <dir>/sgconfig.yml`, `--cwd <dir>`, `realpath <dir>` for `$(cd <dir> && pwd)`, or `pushd <dir> >/dev/null` and `popd` around several commands'

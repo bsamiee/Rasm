@@ -35,6 +35,7 @@ from eng.scripts.provision import (
     Failure,
     FileMissing,
     http_client,
+    message,
     native_build_tools,
     PinMismatch,
     pinned_tree,
@@ -46,7 +47,6 @@ from eng.scripts.provision import (
     run_each,
     SourceManifest,
     system,
-    ToolSet,
     unpack,
     Workspace,
     workspace,
@@ -73,8 +73,6 @@ class Unsupported(msgspec.Struct, frozen=True, gc=False):
 
 
 type Outcome = Staged | Unsupported
-type _Stage = Callable[[Workspace, ToolSet, httpx.AsyncClient, Rid], Awaitable[Result[Outcome, Failure]]]
-type _Managed = Callable[[Workspace, ToolSet, str, list[str]], Awaitable[Result[Path, Failure]]]
 
 
 class _Port(msgspec.Struct, frozen=True, gc=False):
@@ -85,7 +83,7 @@ class _Port(msgspec.Struct, frozen=True, gc=False):
     closure: bool = False
     canonical: bool = False
     overlay: Callable[[Path, Path], Result[list[str], PinMismatch]] | None = None
-    managed: _Managed | None = None
+    managed: Callable[[str, Workspace, Path, str, list[str]], Awaitable[Result[Path, Failure]]] | None = None
 
 
 class _Target(msgspec.Struct, frozen=True, gc=False):
@@ -125,15 +123,16 @@ def _vcpkg_args(manifest_root: Path, install_root: Path, triplet: str, *extra: s
     return ["--triplet", triplet, "--x-manifest-root", str(manifest_root), "--x-install-root", str(install_root), *extra, "--no-print-usage"]
 
 
-def _pinned_version(space: Workspace, tools: ToolSet, library: str) -> Result[str, PinMismatch]:
+def _pinned_version(space: Workspace, vcpkg: Path, library: str) -> Result[str, PinMismatch]:
     """Return the manifest version-string after checking the port at the baseline declares the same version."""
-    match read_manifest(space.manifests / library / "vcpkg.json", PortManifest):
+    manifest_name = "vcpkg.json"
+    match read_manifest(space.manifests / library / manifest_name, PortManifest):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=manifest):
             pass
     dependency = manifest.dependencies[0]
-    port = tools.vcpkg.parent / "ports" / (dependency if isinstance(dependency, str) else dependency.name) / "vcpkg.json"
+    port = vcpkg.parent / "ports" / (dependency if isinstance(dependency, str) else dependency.name) / manifest_name
     fields = msgspec.json.decode(port.read_bytes(), type=dict[str, object])
     match [value for field in _PORT_VERSION_FIELDS if isinstance(value := fields.get(field), str)]:
         case [version, *_] if version == manifest.version:
@@ -144,9 +143,9 @@ def _pinned_version(space: Workspace, tools: ToolSet, library: str) -> Result[st
             return Error(PinMismatch(f"Port manifest {port}", "declares no version field"))
 
 
-async def _vcpkg_install(tools: ToolSet, space: Workspace, work: Path, target: _Target, args: list[str]) -> Result[list[Path], Failure]:
+async def _vcpkg_install(vcpkg: Path, space: Workspace, work: Path, target: _Target, args: list[str]) -> Result[list[Path], Failure]:
     """Run vcpkg install and return the built real library files for a target, symlinks excluded."""
-    match await run([str(tools.vcpkg), "install", *args], space.root, tools.env):
+    match await run([str(vcpkg), "install", *args], space.root):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result():
@@ -173,13 +172,16 @@ def _canonical(port: _Port, target: _Target, name: str) -> str:
     return target.file_name if port.canonical and name.removeprefix("lib").startswith(port.stem) else name
 
 
-async def _install_names(path: Path, cwd: Path) -> Result[list[str], Failure]:
-    """Return the install name recorded in a dylib followed by the install names of its dependencies."""
-    match await run(["otool", "-L", str(path)], cwd, capture=True):
-        case Result(tag="error", error=failure):
-            return Error(failure)
-        case Result(ok=text):
-            return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
+async def _install_names(paths: list[Path], cwd: Path) -> Result[dict[Path, list[str]], Failure]:
+    """Return per dylib the install name it records followed by the install names of its dependencies, one otool run over the set."""
+    names = await run(["otool", "-L", *map(str, paths)], cwd, capture=True)
+    sections = names.map(lambda text: re.split(r"^(\S.*):\n", text, flags=re.MULTILINE)[1:])  # A header per file, its dependency lines after it
+    return sections.map(
+        lambda parts: {
+            Path(header): [line.split()[0] for line in body.splitlines() if line.strip()]
+            for header, body in zip(parts[::2], parts[1::2], strict=True)
+        }
+    )
 
 
 async def _stage_closure(built: list[Path], work: Path, rid: Rid, cwd: Path, rename: Callable[[str], str]) -> Result[Path, Failure]:
@@ -187,27 +189,30 @@ async def _stage_closure(built: list[Path], work: Path, rid: Rid, cwd: Path, ren
     destination = _stage_dir(work, rid)
     shutil.rmtree(destination, ignore_errors=True)
     destination.mkdir(parents=True)
+    match await _install_names(built, cwd) if system(rid) == "osx" else Ok({path: [path.name] for path in built}):
+        case Result(tag="error", error=failure):
+            return Error(failure)
+        case Result(ok=recorded):
+            pass
     linked: dict[Path, list[str]] = {}
-    for path in built:
-        match await _install_names(path, cwd) if system(rid) == "osx" else Ok([path.name]):
-            case Result(tag="error", error=failure):
-                return Error(failure)
-            case Result(ok=names):
-                copied = Path(shutil.copy(path, destination / rename(Path(names[0]).name)))
-                await anyio.Path(copied).chmod(0o755)
-                linked[copied] = names
+    for path, names in recorded.items():
+        copied = Path(shutil.copy(path, destination / rename(Path(names[0]).name)))
+        await anyio.Path(copied).chmod(0o755)
+        linked[copied] = names
     if system(rid) != "osx":
         return Ok(destination)
     staged = {path.name for path in linked}
-    for path, names in linked.items():
-        changes = [argument for name in names if Path(name).name in staged for argument in ("-change", name, f"@loader_path/{Path(name).name}")]
-        relink = [["install_name_tool", "-id", f"@loader_path/{path.name}", *changes, str(path)], ["codesign", "--force", "--sign", "-", str(path)]]
-        match await run_each(relink, cwd):
-            case Result(tag="error", error=failure):
-                return Error(failure)
-            case Result():
-                pass
-    return Ok(destination)
+    relink = [  # The -change arguments differ per library, one install_name_tool run per file and one codesign run over the set
+        [
+            "install_name_tool",
+            "-id",
+            f"@loader_path/{path.name}",
+            *(a for n in names if Path(n).name in staged for a in ("-change", n, f"@loader_path/{Path(n).name}")),
+            str(path),
+        ]
+        for path, names in linked.items()
+    ]
+    return (await run_each([*relink, ["codesign", "--force", "--sign", "-", *map(str, linked)]], cwd)).map(lambda _: destination)
 
 
 # --- [PORTS] ----------------------------------------------------------------------------
@@ -229,11 +234,11 @@ def _managed_dir(space: Workspace, library: str) -> Path:
     return managed
 
 
-async def _source_root(space: Workspace, tools: ToolSet, library: str, archive: str, member: str, download_args: list[str]) -> Result[Path, Failure]:
+async def _source_root(space: Workspace, vcpkg: Path, library: str, archive: str, member: str, download_args: list[str]) -> Result[Path, Failure]:
     """Unpack the members matching the pattern from the source archive the port pins and return the source root."""
     path = space.downloads / archive
     if not path.exists():  # Binary-cache hits build nothing and download no source
-        match await run([str(tools.vcpkg), "install", "--only-downloads", *download_args], space.root, tools.env):
+        match await run([str(vcpkg), "install", "--only-downloads", *download_args], space.root):
             case Result(tag="error", error=failure):
                 return Error(failure)
             case Result():
@@ -243,29 +248,29 @@ async def _source_root(space: Workspace, tools: ToolSet, library: str, archive: 
     return unpack(path, "tar", source, member).map(lambda _: next(source.iterdir()))
 
 
-async def _z3_managed(space: Workspace, tools: ToolSet, version: str, download_args: list[str]) -> Result[Path, Failure]:
+async def _z3_managed(library: str, space: Workspace, vcpkg: Path, version: str, download_args: list[str]) -> Result[Path, Failure]:
     """Stage the z3 binding sources and generate Native.cs and Enumerations.cs beside them."""
-    portfile = (tools.vcpkg.parent / "ports" / "z3" / "portfile.cmake").read_text()
-    match _search(r"REPO\s+(\S+)", portfile, "Portfile of z3").map2(
-        _search(r"REF\s+(\S+)", portfile, "Portfile of z3"), lambda repo, ref: (repo, ref)
+    portfile = (vcpkg.parent / "ports" / library / "portfile.cmake").read_text()
+    match _search(r"REPO\s+(\S+)", portfile, f"Portfile of {library}").map2(
+        _search(r"REF\s+(\S+)", portfile, f"Portfile of {library}"), lambda repo, ref: (repo, ref)
     ):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=(repo, ref)):
             pass
     archive = f"{repo.replace('/', '-')}-{ref.replace('${VERSION}', version)}.tar.gz"
-    match await _source_root(space, tools, "z3", archive, r"/(scripts|src/api)/|^[^/]+/CMakeLists\.txt$", download_args):
+    match await _source_root(space, vcpkg, library, archive, r"/(scripts|src/api)/|^[^/]+/CMakeLists\.txt$", download_args):
         case Result(tag="error", error=source_error):
             return Error(source_error)
         case Result(ok=root):
             pass
-    match _search(r"set\(Z3_API_HEADER_FILES_TO_SCAN\s+([^)]+)\)", (root / "CMakeLists.txt").read_text(), "CMakeLists.txt of z3"):
+    match _search(r"set\(Z3_API_HEADER_FILES_TO_SCAN\s+([^)]+)\)", (root / "CMakeLists.txt").read_text(), f"CMakeLists.txt of {library}"):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=names):
             pass
     headers = [str(root / "src" / "api" / name) for name in names.split()]
-    managed = _managed_dir(space, "z3")
+    managed = _managed_dir(space, library)
     for path in sorted((root / "src" / "api" / "dotnet").glob("*.cs")):
         _ = shutil.copy(path, managed)
     scripts = [
@@ -275,12 +280,12 @@ async def _z3_managed(space: Workspace, tools: ToolSet, version: str, download_a
     return (await run_each(scripts, space.root)).map(lambda _: managed)
 
 
-async def _gmsh_managed(space: Workspace, tools: ToolSet, version: str, download_args: list[str]) -> Result[Path, Failure]:
-    match await _source_root(space, tools, "gmsh", f"gmsh-{version}-source.tgz", r"^[^/]+/(api/|CMakeLists\.txt$)", download_args):
+async def _gmsh_managed(library: str, space: Workspace, vcpkg: Path, version: str, download_args: list[str]) -> Result[Path, Failure]:
+    match await _source_root(space, vcpkg, library, f"{library}-{version}-source.tgz", r"^[^/]+/(api/|CMakeLists\.txt$)", download_args):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=root):
-            managed = _managed_dir(space, "gmsh")
+            managed = _managed_dir(space, library)
             return generate(root / "api", managed, version).map(lambda _: managed)
 
 
@@ -300,24 +305,24 @@ def _gmsh_overlay(vcpkg: Path, work: Path) -> Result[list[str], PinMismatch]:
             return Ok(["--overlay-ports", str(root)])
 
 
-async def _stage_port(library: str, port: _Port, space: Workspace, tools: ToolSet, _client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
+async def _stage_port(port: _Port, library: str, space: Workspace, vcpkg: Path, _client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
     """Build the manifest with vcpkg, generate binding sources when the port declares them, and stage the library files."""
     work = space.artifacts / library
     target = _target(rid, port)
-    overlay = port.overlay(tools.vcpkg, work) if port.overlay is not None else Ok([])
-    match _pinned_version(space, tools, library).map2(overlay, lambda version, extra: (version, extra)):
+    overlay = port.overlay(vcpkg, work) if port.overlay is not None else Ok([])
+    match _pinned_version(space, vcpkg, library).map2(overlay, lambda version, extra: (version, extra)):
         case Result(tag="error", error=version_error):
             return Error(version_error)
         case Result(ok=(version, extra)):
             pass
-    match await _vcpkg_install(tools, space, work, target, _vcpkg_args(space.manifests / library, work / "installed", target.triplet, *extra)):
+    match await _vcpkg_install(vcpkg, space, work, target, _vcpkg_args(space.manifests / library, work / "installed", target.triplet, *extra)):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=built):
             pass
     # An installed port downloads nothing again, the source download runs against its own empty install root
     download_args = _vcpkg_args(space.manifests / library, work / "sources" / "installed", target.triplet, *extra)
-    match await port.managed(space, tools, version, download_args) if port.managed is not None else Ok(work):
+    match await port.managed(library, space, vcpkg, version, download_args) if port.managed is not None else Ok(work):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result():
@@ -330,9 +335,9 @@ async def _stage_port(library: str, port: _Port, space: Workspace, tools: ToolSe
 # --- [RELEASES] -------------------------------------------------------------------------
 
 
-async def _emgucv_build(space: Workspace, tools: ToolSet, src: Path, build: Build, rid: Rid) -> Result[Path, Failure]:
+async def _emgucv_build(space: Workspace, vcpkg: Path, src: Path, build: Build, rid: Rid) -> Result[Path, Failure]:
     """Run the manifest's CMake steps for the rid in order and return the built library."""
-    match await run([str(tools.vcpkg), "fetch", "cmake"], space.root, capture=True):
+    match await run([str(vcpkg), "fetch", "cmake"], space.root, capture=True):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=text):
@@ -354,85 +359,85 @@ async def _emgucv_build(space: Workspace, tools: ToolSet, src: Path, build: Buil
     return Ok(src / build.library)
 
 
-async def _stage_emgucv(space: Workspace, tools: ToolSet, _client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
+async def _stage_emgucv(library: str, space: Workspace, vcpkg: Path, _client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
     """Reuse or build the commit-keyed Emgu CV library and stage it for the rid."""
-    match read_manifest(space.manifests / "emgucv" / "source.json", SourceManifest):
+    match read_manifest(space.manifests / library / "source.json", SourceManifest):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=manifest) if rid not in manifest.runtimes:
-            return Ok(Unsupported("emgucv", rid))
+            return Ok(Unsupported(library, rid))
         case Result(ok=manifest):
             build = manifest.runtimes[rid]
     file_name = Path(build.library).name
-    artifact = space.cache / "emgucv" / "artifacts" / manifest.commit / rid / file_name
+    artifact = space.cache / library / "artifacts" / manifest.commit / rid / file_name
     if not artifact.is_file():
-        src = space.cache / "emgucv" / "src"
+        src = space.cache / library / "src"
         match await checkout(src, manifest.url, manifest.commit, manifest.submodules):
             case Result(tag="error", error=checkout_error):
                 return Error(checkout_error)
             case Result():
                 pass
-        match await _emgucv_build(space, tools, src, build, rid):
+        match await _emgucv_build(space, vcpkg, src, build, rid):
             case Result(tag="error", error=build_error):
                 return Error(build_error)
-            case Result(ok=library):
+            case Result(ok=built):
                 artifact.parent.mkdir(parents=True, exist_ok=True)
                 _ = shutil.move(
-                    shutil.copy(library, artifact.with_name(f"{artifact.name}.partial")), artifact
+                    shutil.copy(built, artifact.with_name(f"{artifact.name}.partial")), artifact
                 )  # The cached path never holds a partial copy
-    return Ok(Staged("emgucv", rid, _stage_library(artifact, space.artifacts / "emgucv", rid, file_name)))
+    return Ok(Staged(library, rid, _stage_library(artifact, space.artifacts / library, rid, file_name)))
 
 
-async def _stage_duckdb_extensions(space: Workspace, _tools: ToolSet, client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
+async def _stage_duckdb_extensions(library: str, space: Workspace, _vcpkg: Path, client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
     """Decompress the pinned DuckDB extension archives into the extension directory layout under contentFiles."""
-    match read_manifest(space.manifests / "duckdbextensions" / "extensions.json", ExtensionManifest):
+    match read_manifest(space.manifests / library / "extensions.json", ExtensionManifest):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=manifest) if rid not in manifest.platforms:
-            return Ok(Unsupported("duckdbextensions", rid))
+            return Ok(Unsupported(library, rid))
         case Result(ok=manifest):
             pass
-    match await extension_archives(space, client, "duckdbextensions", manifest, rid):
+    match await extension_archives(space, client, library, manifest, rid):
         case Result(tag="error", error=fetch_error):
             return Error(fetch_error)
         case Result(ok=archives):
             pass
-    stage = space.artifacts / "duckdbextensions" / "stage"
+    stage = space.artifacts / library / "stage"
     destination = stage / "contentFiles" / "duckdb_extensions" / f"v{manifest.version}" / manifest.platforms[rid]
     shutil.rmtree(stage, ignore_errors=True)
     destination.mkdir(parents=True)
     for archive in archives:
-        with gzip.open(archive, "rb") as compressed, (destination / archive.name.removesuffix(".gz")).open("wb") as extension:
+        with gzip.open(archive) as compressed, (destination / archive.name.removesuffix(".gz")).open("wb") as extension:
             shutil.copyfileobj(compressed, extension)
-    return Ok(Staged("duckdbextensions", rid, destination))
+    return Ok(Staged(library, rid, destination))
 
 
-async def _stage_sqlite_vec(space: Workspace, _tools: ToolSet, client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
-    match read_manifest(space.manifests / "sqlitevec" / "release.json", ReleaseManifest):
+async def _stage_sqlite_vec(library: str, space: Workspace, _vcpkg: Path, client: httpx.AsyncClient, rid: Rid) -> Result[Outcome, Failure]:
+    match read_manifest(space.manifests / library / "release.json", ReleaseManifest):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=manifest) if rid not in manifest.runtimes:
-            return Ok(Unsupported("sqlitevec", rid))
+            return Ok(Unsupported(library, rid))
         case Result(ok=manifest):
             pass
-    work = space.artifacts / "sqlitevec"
+    work = space.artifacts / library
     shutil.rmtree(work / "stage", ignore_errors=True)
-    loadable = await pinned_tree(space, client, "sqlitevec", manifest, manifest.runtimes[rid], rid)
-    return loadable.map(lambda path: Staged("sqlitevec", rid, _stage_library(path, work, rid, path.name)))
+    loadable = await pinned_tree(space, client, library, manifest, manifest.runtimes[rid], rid)
+    return loadable.map(lambda path: Staged(library, rid, _stage_library(path, work, rid, path.name)))
 
 
 # --- [CLI] ------------------------------------------------------------------------------
 
-_LIBRARIES: dict[Library, _Stage] = {
-    "blosc2": partial(_stage_port, "blosc2", _Port("blosc2", windows_stem="libblosc2", closure=True, canonical=True)),
+_LIBRARIES: frozendict[Library, Callable[[str, Workspace, Path, httpx.AsyncClient, Rid], Awaitable[Result[Outcome, Failure]]]] = frozendict({
+    "blosc2": partial(_stage_port, _Port("blosc2", windows_stem="libblosc2", closure=True, canonical=True)),
     "duckdbextensions": _stage_duckdb_extensions,
     "emgucv": _stage_emgucv,
-    "ffmpeg": partial(_stage_port, "ffmpeg", _Port("ffmpeg", closure=True)),
-    "gmsh": partial(_stage_port, "gmsh", _Port("gmsh", overlay=_gmsh_overlay, managed=_gmsh_managed)),
-    "lcms2": partial(_stage_port, "lcms2", _Port("lcms2")),
+    "ffmpeg": partial(_stage_port, _Port("ffmpeg", closure=True)),
+    "gmsh": partial(_stage_port, _Port("gmsh", overlay=_gmsh_overlay, managed=_gmsh_managed)),
+    "lcms2": partial(_stage_port, _Port("lcms2")),
     "sqlitevec": _stage_sqlite_vec,
-    "z3": partial(_stage_port, "z3", _Port("z3", windows_stem="libz3", managed=_z3_managed)),
-}
+    "z3": partial(_stage_port, _Port("z3", windows_stem="libz3", managed=_z3_managed)),
+})
 
 
 async def _stage(libraries: list[Library], rid: Rid | None, start: Path, host_system: str, host_machine: str) -> Result[list[Outcome], Failure]:
@@ -444,11 +449,11 @@ async def _stage(libraries: list[Library], rid: Rid | None, start: Path, host_sy
     match await native_build_tools(space):
         case Result(tag="error", error=failure):
             return Error(failure)
-        case Result(ok=tools):
+        case Result(ok=vcpkg):
             outcomes: list[Outcome] = []
     async with http_client() as client:
         for library in libraries:
-            match await _LIBRARIES[library](space, tools, client, rid or space.host):
+            match await _LIBRARIES[library](library, space, vcpkg, client, rid or space.host):
                 case Result(tag="error", error=failure):
                     return Error(failure)
                 case Result(ok=outcome):
@@ -465,7 +470,7 @@ def _report(outcomes: list[Outcome]) -> None:
                 _log.info("unsupported", library=library, rid=rid, detail="the manifest pins no asset or build for the rid, nothing staged")
 
 
-_app.result_action = (exit_code(_report), "sys_exit")
+_app.result_action = (exit_code(_report, message), "sys_exit")
 
 
 @_app.default

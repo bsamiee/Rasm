@@ -6,8 +6,11 @@ Tool-general configuration is the environment every process reads, the toolchain
 
 `mise.toml` `[env]` holds the process settings no manifest field can hold, and each process takes them through one path:
 - Targets and scripts take the values from the shell hook or the shims, CI steps from the setup action, and the agent shell from the settings hooks
-- `.claude/settings.json` runs `mise env -s bash > "$CLAUDE_ENV_FILE"` under `SessionStart` and `CwdChanged`, the preamble of every `Bash` command
-- Processes started outside `Bash` (the editor, the MCP servers, the hooks, a daemon from another shell) hold no `[env]` value and no PATH addition
+- `.claude/settings.json` registers the environment hook under `SessionStart` and `CwdChanged`, its output the preamble of every `Bash` command
+- `.claude/settings.json` `env` sets `SHELL` to `bash`, so the `Bash` tool spawns bash 5.3 from PATH in place of the login zsh
+- The plugin's child processes take the values from the session row's `env`
+- Both channels run `mise` from the PATH `claude` was launched with
+- Processes outside `Bash`, the plugin, and `mise exec` (the editor, the `dotnet dnx` servers) hold no `[env]` value or PATH addition
 - `doppler run --project <project> --config <config> -- <command>` injects the config into the process without a shell on every operating system
 - Run `mise env` after a `mise.toml` change, and read each changed value in its output
 - The mise dotnet plugin exports `DOTNET_ROOT`, and a machine profile export turns the install into a link an SDK bump breaks
@@ -27,6 +30,8 @@ The `[env]` table holds `_.path = "./node_modules/.bin"`, the .NET no-logo and t
 - `python.uv_venv_auto = "source"` puts `.venv/bin` on PATH after `node_modules/.bin`, and the `uv.lock` copies of the checkers resolve by name
 - `dotnet:` rows under `[tools]` add a PATH entry alone, and a NuGet tool package runs through `dotnet dnx <tool>` on the command
 - `[tools]` rows name each binary by its registry short name, and a package with an importer or a config reader stays in its package manager
+- `claude` is the native install from the Claude Code installer, self-updating, the one binary the `harness` target and the agent sessions run
+- `claude` is no `[tools]` row: the docs list no mise route, and `claude update` recreates the native launcher beside any other copy
 
 ## [03]-[TASK_RUNNER]
 
@@ -54,8 +59,8 @@ The `[env]` table holds `_.path = "./node_modules/.bin"`, the .NET no-logo and t
 ```
 
 - The local plugin emits empty `lint`, `format`, `typecheck`, and `check` targets the defaults fill, and `nx-release-publish` for a tagged library
-- Exclude the root project (`!<root>`) from a filtered entry when the root target lists `commands`, because a default `command` replaces the list
-- `"..."` in a filtered entry's `inputs` spreads the inputs the plugin inferred
+- When the root target lists `commands`, exclude the root project (`!<root>`) from the filtered entry, because a default `command` replaces the list
+- `"..."` in a filtered entry's `inputs`, or in a manifest's `nx.targets.<target>.inputs`, spreads the inputs the plugin inferred
 - `sharedGlobals` names `nx.json`, `mise.toml`, `tools/nx/*.ts`, `sgconfig.yml`, `tools/ast-grep/**/*`, and the `ast-grep --version` runtime input
 - Every project reaches `sharedGlobals` through the `default` named input, and an edit to a shared file marks every project affected
 - Extra arguments forward to the command, `nx run Native.Item:stage --rid linux-x64` reaches the script as `--rid=linux-x64`
@@ -113,10 +118,12 @@ Root targets exist when the root manifest `nx` field declares them, one per oper
 |  [11]   | `mutation`  | Mutation script                                                                                                | `false` |
 |  [12]   | `upgrade`   | `uv lock --upgrade`, `pnpm update --latest --recursive`, and dotnet-outdated under `dotnet dnx`                | `false` |
 |  [13]   | `workflow`  | `act push` over the Linux jobs                                                                                 | `false` |
+|  [14]   | `harness`   | Harness script, `.claude/types` regenerated, the plugin proven by its load line, its cached copy reinstalled   | `false` |
 
 - `upgrade` moves every language's dependency set to its newest release, prereleases included, and every command writes a shared file
 - `upgrade` runs `dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore <solution>` for the .NET set
-- `up`, `refresh`, `upgrade`, and `workflow` set `parallelism: false`, each writes a shared file or shares one daemon
+- `up`, `refresh`, `upgrade`, `workflow`, and `harness` set `parallelism: false`, each writes a shared file or shares one daemon
+- `harness` depends on the `function-hooks` `lint`, `format`, and `test` targets in the object form, then `tsc -p` and `claude plugin validate`
 - `restore` inputs are the solution, the project and directory files, `NuGet.config`, and `global.json`, and its outputs the `obj/` restore files
 
 ## [05]-[RELEASE]
@@ -134,12 +141,18 @@ The `release` field versions each project independently from its `<projectName>@
 ## [06]-[HARNESS]
 
 The agent harness, the editor, and git read their own root configuration files, each keyed by language, file type, or event:
-- `.claude/settings.json` registers the environment hook under `SessionStart` and `CwdChanged` and a git guard under `PreToolUse`
-- Its `permissions.deny` list blocks `mise x`, `mise exec`, and every dry-run flag, and a proof runs the target itself under the hook's environment
+- `.claude/settings.json` enables `function-hooks@rasm` in `enabledPlugins`
+- `extraKnownMarketplaces.rasm` names the marketplace at `./.claude/plugins`, and a clone gets every plugin from that entry
+- Proofs run the target itself under the hook's environment
 - `claudeMdExcludes` keeps the `CLAUDE.md` files under caches, `node_modules`, and build outputs out of the context
 - `.vscode/settings.json` keys the formatter by language id, points the Biome server at the workspace copy per platform, and reads the `.venv` copies
 - `files.associations` maps `SKILL.md` and the agent files back to markdown, and `files.exclude` hides every cache, output, and dependency directory
-- `.mcp.json` starts each MCP server through `dotnet dnx`, outside the hook's environment
+- `.mcp.json` holds every server but the Yak router and the `computer-use` connector, `dotnet dnx` for .NET and `type: http` for remote
+- `~/.claude.json` enables `computer-use` per project under `enabledMcpServers`, which the harness script reads
+- `${VAR}` headers on the servers that take a token expand from the environment of the `claude` launch
+- `doppler run --project agent-runtime --config dev -- claude` supplies every token header
+- `mise exec` puts `_.path` first on the child's PATH, the npm servers run from `node_modules/.bin` and ast-grep from its `pipx:` row
+- The ast-grep entry sets `AST_GREP_CONFIG` to `${CLAUDE_PROJECT_DIR:-.}/sgconfig.yml`, and the plugin's `mise x` row binds Bash commands alone
 - `.gitattributes` normalizes text to LF and stores binary design assets as Git LFS pointers by extension
 
 ## [07]-[ANTI_PATTERNS]
@@ -153,3 +166,4 @@ The agent harness, the editor, and git read their own root configuration files, 
 |  [05]   | `[env]` rows for a directory one script or program computes  | Script or program derives it beside its other paths          |
 |  [06]   | Binary-only npm packages in the catalog and `allowBuilds`    | `[tools]` rows at `latest`                                   |
 |  [07]   | Script file for a hook the documentation states as a command | The command itself in `.claude/settings.json`                |
+|  [08]   | Settings deny glob for a phrase                              | Parsed-command row in the plugin's Bash table                |

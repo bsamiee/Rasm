@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: syntax-import-from # Parameterized global util, a utilDirs file alone declares arguments and two rules call it
+language: typescript
+arguments: [source, clause] # Each argument is a rule the caller passes, and the captures it binds export to that caller
+rule:
+    kind: import_statement # The kind guard keeps pruning, matches: <argument> alone infers no kind
+    all:
+        - has: # The module path without its quotes, the source rule reads the fragment text alone
+              field: source
+              has: {kind: string_fragment, matches: source}
+        - has: # The named, default, or namespace clause, the clause rule reads the child of the import clause
+              kind: import_clause
+              has: {matches: clause}

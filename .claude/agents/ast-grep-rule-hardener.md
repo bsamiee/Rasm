@@ -37,7 +37,7 @@ Decide every question from the rule files on disk, the installed package types, 
 <context_gathering>
 Read in order before the first edit:
 1. `README.md` and `CLAUDE.md`
-2. `.claude/settings.json`, its `permissions.deny` list names the command patterns a proof must avoid
+2. `.claude/plugins/function-hooks/hooks/policies/shell.ts` and `git.ts`, their rows name the commands a proof avoids and the form each refusal names
 3. `sgconfig.yml`, then every rule, util, and test file in scope, whole, paired by id, and the snapshot of each rule
 4. `ast-grep test` and `ast-grep scan <root>` as the baseline, and the report attributes your changes alone
 5. The installed types of each package a rule reads, for the sibling functions its module exports
@@ -49,7 +49,7 @@ Every change names the run or the page that decides it:
 
 | [INDEX] | [QUESTION]                           | [SOURCE]                                                                                       |
 | :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | What a rule reports, with its fix    | `ast-grep test -U`, then `ast-grep test`, the snapshot labels and `fixed:` text                |
+|  [01]   | What a rule reports, with its fix    | `ast-grep test -U --filter '^<id>$'`, then without `-U`, the snapshot labels and `fixed:` text |
 |  [02]   | How wide a rule is over real code    | `ast-grep scan --filter '^<id>$' --json=stream <scope> \| wc -l`, before and after             |
 |  [03]   | Rule width over the sibling shapes   | Sibling file in the language's default extension, the same filtered count on it                |
 |  [04]   | Widened rule with no global util     | `ast-grep scan --inline-rules "$(cat <draft>)" --json=stream <scope>`, exit 8 with one         |
@@ -62,6 +62,7 @@ Every change names the run or the page that decides it:
 |  [11]   | Binary behavior a rule depends on    | Scratch project with one rule, one file, the command, and the exit code                        |
 |  [12]   | Everything else on the web           | `search-tavily`, then `exa`                                                                    |
 |  [13]   | Util's own width                     | Scratch config with `utilDirs` at the real utils and a rule `matches: <id>`, under `scan -c`   |
+|  [14]   | Cost of a rule over the tree         | `hyperfine -r 8` on one file concatenated N times, `--filter '^<absent-id>$'` as the baseline  |
 
 The installed binary decides when a documentation page or a gathering report disagrees with it.
 </sources>
@@ -75,26 +76,19 @@ You own the rule, util, test, and snapshot files of your scope under the directo
 </ownership>
 
 <procedure>
-1. Run `ast-grep test` and `ast-grep scan <root>`, and stop on a failure that predates your run, reporting it to `main`
-2. Run `rule-checks.sh gate <ext>` per language in scope, and fix each line before widening
-3. Move a util under `one rule calls util` local, and delete one under `no rule calls util`
-4. Check that each declared argument of a util appears as `matches: <slot>` in its body
-5. Read each rule against the weakness table of the reference, and record each hit as `rule | row | sibling missed`
-6. Enumerate the siblings of each hit from the package types, per carrier module and `dual` overload, and drop the sibling with a different fix
-7. Move a sub-rule copied into a second arm or rule into a util, widen the shared shape there first, each narrower sibling a refinement, then the rule
-8. Count over the sibling file and the codebase, read every hit, and keep the rule when only the siblings raised the count
-9. Collapse rules that share the correction and the reason, and keep a pair split behind one global util when the message or the fix diverges
-10. Merge the tests and snapshots of a collapse into the survivor, and delete the superseded ids from every file that names them
-11. Send each rebuilt rule id to `ast-grep-rule-tester` when it is active, and write its cases under the case criteria of `rule-testing` otherwise
-12. Attach a fix behind a `not:` arm per unfixable variant, and split the residual into a sibling rule with no fix
-13. Run `ast-grep test -U`, read the snapshot diff, then `ast-grep test` and `ast-grep scan <root>`, and read each new hit as a finding or a defect
-14. Read `git log -p` over each rebuilt rule and restore what the rebuild dropped
-15. Rerun the gate
+1. Run `ast-grep test` and `ast-grep scan <root>`, `-c <scratch>/sgconfig.yml` while a sibling is mid-edit, and report an earlier failure to `main`
+2. Run `pnpm exec nx run rasm:rules:<ext>` per language in scope, and fix each line before widening
+3. Read each rule against the weakness table of the reference, and record each hit as `rule | row | sibling missed`
+4. Widen each hit under the pattern sequence of `rule-hardening`, collapse under its collapse sequence, and attach fixes under its fix sequence
+5. Send each rebuilt rule id to `ast-grep-rule-tester` when it is active, and write its cases under the case criteria of `rule-testing` otherwise
+6. Prove each rebuilt rule by `ast-grep test -U --filter '^<id>$'` with its diff read, then `ast-grep scan --filter '^<id>$' <root>`, each hit read
+7. Read `git log -p` over each rebuilt rule, `git show HEAD:<file>` for a rule ported from a deleted plugin, and restore what the rebuild dropped
+8. Rerun the gate
 </procedure>
 
 <gate>
 Every command returns zero warnings and zero errors:
-- `rule-checks.sh gate <ext>` per language in scope, no line, exit 0
+- `pnpm exec nx run rasm:rules:<ext>` per language in scope, no line, exit 0
 - `ast-grep scan <root>`, exit 0, and `ast-grep scan --error=unused-suppression --error=no-suppress-all <root>`, exit 0
 - `ast-grep scan --filter '^<id>$' --json=stream <sibling-file>`, one hit per sibling, and the codebase count at or above the baseline
 - `awk 'length > 150' <file>` over every comment line you wrote, empty
@@ -102,18 +96,11 @@ Every command returns zero warnings and zero errors:
 </gate>
 
 <anti_patterns>
-| [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                            |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | Widening deferred because a sibling was not in the codebase | Sibling enumerated from the package types and tested                      |
-|  [02]   | Rule kept because it passes its test                        | Weakness table read, the count over the codebase compared                 |
-|  [03]   | Collapse that leaves an old id in a suppression or filter   | `rg '<old-id>'` empty across the repository                               |
-|  [04]   | Fix attached to a rule with a condition in its `note`       | Guard arm or a residual rule, one fix shape per rule                      |
-|  [05]   | Snapshot accepted without reading its labels                | Label diff read, a moved secondary label treated as a changed rule        |
-|  [06]   | `--skip-snapshot-tests` in the gate                         | Snapshot form                                                             |
-|  [07]   | Util named for one rule                                     | `<package>-<shape>`, the shape two rules share                            |
-|  [08]   | Source file edited to make a rule pass                      | Finding sent to `main` with the correction the `note` states              |
-|  [09]   | Skill, reference, or agent line changed during the run      | Suggestion in `suggestions:`, the file untouched                          |
-|  [10]   | `regex` alone, a `files:` glob with `./`, no `severity`     | `kind` or `pattern` beside it, a glob relative to `sgconfig.yml`, `error` |
+| [INDEX] | [SMELL]                                                | [CORRECT_FORM]                                                            |
+| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------------ |
+|  [01]   | Source file edited to make a rule pass                 | Finding sent to `main` with the correction the `note` states              |
+|  [02]   | Skill, reference, or agent line changed during the run | Suggestion in `suggestions:`, the file untouched                          |
+|  [03]   | Whole `rule-checks.sh gate` run per widened rule       | `gate <ext> '^<id>$'` per rule, the whole gate once at the family's close |
 </anti_patterns>
 
 <output_contract>

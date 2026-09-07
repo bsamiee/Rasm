@@ -38,6 +38,10 @@ valid:
       });
     # Provider constructed by hand, the shape no-explicit-provider-by-hand reports
     - 'const gh = new github.Provider("github", { owner, token });'
+    # Provider key in the arguments of a namespaced invoke, the first argument
+    - 'const repository = github.getRepository({ provider: "x", fullName });'
+    # Static get with the provider key in the state
+    - 'const repository = Repository.get(name, id, { provider: "x" }, { protect: true });'
 invalid:
     # The instance, a provider handed through the resource options beside object arguments
     - 'const project = new Project(name, { name, description }, { provider: doppler });'
@@ -88,3 +92,17 @@ invalid:
           args,
           { protect: true, provider: doppler },
       );
+    # Quoted provider key in the options
+    - 'const project = new Project(name, args, { "provider": doppler });'
+    # Provider option beside a method in the options
+    - 'const project = new Project(name, args, { provider: doppler, transform() { return undefined; } });'
+    # Provider option in the options of a two-level namespaced invoke
+    - 'const ami = aws.ec2.getAmi({ mostRecent: true }, { provider: usEast });'
+    # Provider option beside a computed key
+    - 'const project = new Project(name, args, { [key]: value, provider: doppler });'
+    # Provider option in a multi-line options object with a kept option
+    - |
+      const project = new Project(name, args, {
+          protect: true,
+          provider: doppler,
+      });

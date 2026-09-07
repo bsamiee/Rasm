@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-catch-around-next
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+utils:
+    # Call of the chain, the hook's third parameter under any name
+    next-call:
+        kind: call_expression
+        has: {field: function, pattern: $NEXT}
+    # Promise chain rooted at the chain call, then and finally calls between the chain and its catch
+    next-chain:
+        any:
+            - matches: next-call
+            - kind: call_expression
+              has: {field: function, kind: member_expression, has: {field: object, matches: next-chain}}
+            # Combinator over a list holding the chain, all and race reject with the chain
+            - kind: call_expression
+              all:
+                  - has: {field: function, regex: '^Promise\.(all|race)$'}
+                  - has: {field: arguments, has: {kind: array, has: {matches: next-chain}}}
+    # Combinator that settles every rejection of its list, as a record or a swallowed error
+    settling-combinator:
+        kind: call_expression
+        has: {field: function, regex: '^Promise\.(allSettled|any)$'}
+    # Handler shapes with no capture, a try with a catch clause, a catch or then method call, or a settling combinator
+    handler:
+        any:
+            - kind: try_statement
+              has: {field: handler, kind: catch_clause}
+            - kind: call_expression
+              has: {field: function, kind: member_expression, has: {field: property, regex: '^(catch|then)$'}}
+            - matches: settling-combinator
+    # Function between the handler and the hook whose parameters rebind the chain's name
+    rebinding-function:
+        matches: syntax-function-boundary
+        all:
+            # The bare parameter of an arrow, or a parameter list holding the name direct or inside a destructuring pattern
+            - any:
+                  - has: {field: parameter, kind: identifier, pattern: $NEXT}
+                  - has: {field: parameters, has: {has: {field: pattern, stopBy: end, kind: identifier, pattern: $NEXT}}}
+            - not: {matches: {claude-code-hook: {event: {pattern: $_}}}}
+rule:
+    all:
+        - matches: handler
+        # The hook binds $NEXT first, the chain parameter under any name
+        - inside:
+              stopBy: end
+              matches: {claude-code-hook: {event: {pattern: $_}}}
+              has: {field: parameters, has: {nthChild: 3, has: {pattern: $NEXT}}}
+        - any:
+              # Try holding the chain call in its own body, next calls inside a nested function settle that function's chain
+              - kind: try_statement
+                has: {field: body, has: {stopBy: {matches: syntax-function-boundary}, matches: next-call}}
+              # The chain call with a catch method on its promise
+              - kind: call_expression
+                has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: object, matches: next-chain}
+                        - has: {field: property, regex: '^catch$'}
+              # The two-argument then on the chain's promise, its second argument is the rejection handler, the pattern pins the arity
+              - kind: call_expression
+                all:
+                    - pattern: $_.then($_, $_)
+                    - has: {field: function, kind: member_expression, has: {field: object, matches: next-chain}}
+                    # undefined in the rejection slot passes the failure through
+                    - has: {field: arguments, has: {nthChild: 2, not: {kind: undefined}}}
+              # Settling combinator over a list holding the chain
+              - matches: settling-combinator
+                has: {field: arguments, has: {kind: array, has: {matches: next-chain}}}
+        # A nested function binding its own parameter under the chain's name settles that parameter's call
+        - not: {inside: {stopBy: end, matches: rebinding-function}}
+message: The catch around `$NEXT` hides the chain's deny or abort, and a hook that throws is skipped while the chain continues
+note: Return `next(e)` without a catch, and put a catch around the one call that can fail beside the chain

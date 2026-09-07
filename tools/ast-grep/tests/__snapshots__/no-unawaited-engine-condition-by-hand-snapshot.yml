@@ -1,0 +1,101 @@
+id: no-unawaited-engine-condition-by-hand
+snapshots:
+  ? |
+    const guards = {
+        run($, e, next) {
+            return next($.fs.exists(path) ? e : e);
+        },
+    };
+  : labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 59
+      end: 76
+  const held = ($) => $.fs.exists(path) && ready;:
+    labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 20
+      end: 37
+  const missing = !$.fs.exists(path);:
+    labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 17
+      end: 34
+  const missing = ($) => $.store.get(key) === undefined;:
+    labels:
+    - source: $.store.get(key)
+      style: primary
+      start: 23
+      end: 39
+  ? |
+    function guard($, e, next) {
+        for (; $.fs.exists(path); ) {
+            break;
+        }
+        return next(e);
+    }
+  : labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 40
+      end: 57
+  ? |
+    function guard($, e, next) {
+        while ($.fs.exists(path)) {
+            break;
+        }
+        return next(e);
+    }
+  : labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 40
+      end: 57
+  'on(''tool.call'', ($, e, next) => next($.ui.ask(question) ? e : e));':
+    labels:
+    - source: $.ui.ask(question)
+      style: primary
+      start: 37
+      end: 55
+  'on(''tool.call'', ($, e, next) => next(Boolean($.fs.exists(path)) ? e : e));':
+    labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 45
+      end: 62
+  ? |
+    on('tool.call', ($, e, next) => {
+        do {
+            break;
+        } while ($.fs.exists(path));
+        return next(e);
+    });
+  : labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 71
+      end: 88
+  ? |
+    on('tool.call', ($, e, next) => {
+        if ($.fs.exists(path)) {
+            return next(e);
+        }
+        return next(e);
+    });
+  : labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 42
+      end: 59
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const check = () => ($.fs.exists(path) ? e : e);
+        return next(check());
+    });
+  : labels:
+    - source: $.fs.exists(path)
+      style: primary
+      start: 65
+      end: 82

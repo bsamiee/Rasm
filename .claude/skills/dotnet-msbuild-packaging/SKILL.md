@@ -86,7 +86,7 @@ Transitive pinning is right when a lower transitive version is a defect `Directo
 
 | [INDEX] | [METADATA]             | [EFFECT]                                                                                 |
 | :-----: | :--------------------- | :--------------------------------------------------------------------------------------- |
-|  [01]   | `VersionOverride`      | The project restores another version, the `PackageVersion` item serves every other one   |
+|  [01]   | `VersionOverride`      | Project restores another version, the `PackageVersion` item serves every other one       |
 |  [02]   | `PrivateAssets`        | Assets consumed here and withheld from consumers, default `contentfiles;analyzers;build` |
 |  [03]   | `IncludeAssets`        | Assets the project consumes, default `all`                                               |
 |  [04]   | `ExcludeAssets`        | Assets the project skips, default `none`                                                 |
@@ -118,7 +118,7 @@ Transitive pinning is right when a lower transitive version is a defect `Directo
 | [INDEX] | [COMMAND]                                                     | [EFFECT]                                                              |
 | :-----: | :------------------------------------------------------------ | :-------------------------------------------------------------------- |
 |  [01]   | `dotnet package add <id> --project <csproj>`                  | Adds the reference, under CPM the version goes to `PackageVersion`    |
-|  [02]   | `dotnet package add <id>@<version> --project <csproj>`        | The same with a pinned version, `--prerelease` accepts a prerelease   |
+|  [02]   | `dotnet package add <id>@<version> --project <csproj>`        | Same with a pinned version, `--prerelease` accepts a prerelease       |
 |  [03]   | `dotnet package list --project <csproj> --include-transitive` | Requested and resolved versions, `--outdated` compares with the feeds |
 |  [04]   | `dotnet package remove <id> --project <csproj>`               | Removes the reference, the `PackageVersion` item stays                |
 |  [05]   | `dotnet package search <term> --source <path or url>`         | Feed search, a folder source takes an absolute path only              |
@@ -341,7 +341,7 @@ Packaging smells and the form that replaces each:
 | [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                            |
 | :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------------ |
 |  [01]   | `Reference` with a `HintPath` into `~/.nuget`               | `PackageReference` with `GeneratePathProperty` when a path is needed      |
-|  [02]   | `PackageVersion` with `1.*`                                 | The exact version, `dotnet package update` moves it                       |
+|  [02]   | `PackageVersion` with `1.*`                                 | Exact version, `dotnet package update` moves it                           |
 |  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update`  |
 |  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                            |
 |  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings              |
@@ -350,4 +350,4 @@ Packaging smells and the form that replaces each:
 |  [08]   | Packed `build/` props setting a property unconditionally    | `Condition="'$(Name)' == ''"`, the consumer keeps its own value           |
 |  [09]   | Native libraries under `contentFiles`                       | `runtimes/<rid>/native/`, the only layout with RID selection              |
 |  [10]   | `PackageReference` to a framework-provided package          | Removed, the framework supplies the package                               |
-|  [11]   | `SuppressDependenciesWhenPacking` with a `lib/<tfm>/` entry | The dependency group stays                                                |
+|  [11]   | `SuppressDependenciesWhenPacking` with a `lib/<tfm>/` entry | Dependency group stays                                                    |

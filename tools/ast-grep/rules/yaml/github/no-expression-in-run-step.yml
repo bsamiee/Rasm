@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/yaml_rule.json
+id: no-expression-in-run-step
+language: yaml
+severity: error
+files: ['.github/**'] # Workflow and composite action steps, .github is hidden and the scan needs --no-ignore hidden
+rule:
+    any: [{kind: block_mapping_pair}, {kind: flow_pair}] # The step as a block mapping or a flow mapping
+    all:
+        - has: {field: key, regex: '^["'']?run["'']?$'} # The key bare or quoted
+        - not: {inside: {stopBy: end, kind: block_mapping_pair, has: {field: key, regex: '^with$'}}} # An action input named run is an argument
+        - has: # The step's shell text, every scalar style, a mapping under run is the defaults shell entry
+              field: value
+              regex: '\$\{\{' # The expression delimiter, GitHub substitutes the value into the script before the shell parses it
+              any:
+                  - kind: flow_node
+                  - {kind: block_node, has: {kind: block_scalar}}
+message: Run step holds a `${{ }}` expression, the value is substituted into the shell text before the shell parses it
+# Security hardening for GitHub Actions, "Use an intermediate environment variable": the value of the expression is stored in
+# memory and used as a variable, and doesn't interact with the script generation process
+note: 'Move the expression to the step''s env map, `env: {NAME: ${{ <context> }}}`, and read `"$NAME"` in the run text'

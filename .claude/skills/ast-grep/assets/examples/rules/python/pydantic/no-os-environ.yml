@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-os-environ
+language: python
+severity: error
+rule: # Calls utils/python/python-module-member.yml, the name slot binds $NAME at the call site and the message reads it
+    matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^(environ|environb|getenv|getenvb)$', pattern: $NAME}}}
+message: '`os.$NAME` reads the process environment as untyped text'
+note: Declare the variables on `class Settings(BaseSettings)` with typed fields and read `Settings()` once at startup

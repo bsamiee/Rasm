@@ -145,16 +145,16 @@ The build and review sequences of the 4 skills exposed patterns that every later
 |   [01]  | Members guessed that the package lacks             | Every snippet compiles against the package before the report     |
 |   [02]  | Placeholders that collide with library names       | Placeholders are checked against the packages' public names      |
 |   [03]  | Facts dropped while a section was trimmed          | Research is commented out per fact, the review restores losses   |
-|   [04]  | A shortened sentence with an inverted condition    | Shortening keeps every condition, or the sentence stays long     |
-|   [05]  | A skill section that summarizes a reference        | A section defers with one line                                   |
+|   [04]  | Shortened sentence with an inverted condition      | Shortening keeps every condition, or the sentence stays long     |
+|   [05]  | Skill section that summarizes a reference          | Sections defer with one line                                     |
 |   [06]  | Nested HTML comments in research                   | One marker per region, inner markers fold into a note            |
-|   [07]  | An official package skill stating a wrong behavior | Official skills are coverage checks, every claim is verified     |
-|   [08]  | A commit during an agent's run                     | Commits happen only between agents                               |
-|   [09]  | A member restated in another owner's skill         | Each member has one owning skill, checked before it enters       |
-|   [10]  | Research examples that violate the standard        | An example is corrected to the standard as it enters             |
-|   [11]  | A reference intro repeating the sibling pointer    | Pointers sit in the skill intro only                             |
-|   [12]  | A skill naming a package the manifest lacks        | Every named package is in the manifest, or its absence is stated |
-|   [13]  | A catalog restating skill facts with extra detail  | A catalog holds members and signatures, facts live in the skill  |
+|   [07]  | Official package skill stating a wrong behavior    | Official skills are coverage checks, every claim is verified     |
+|   [08]  | Commit during an agent's run                       | Commits happen only between agents                               |
+|   [09]  | Member restated in another owner's skill           | Each member has one owning skill, checked before it enters       |
+|   [10]  | Research examples that violate the standard        | Examples are corrected to the standard as they enter             |
+|   [11]  | Reference intro repeating the sibling pointer      | Pointers sit in the skill intro only                             |
+|   [12]  | Skill naming a package the manifest lacks          | Every named package is in the manifest, or its absence is stated |
+|   [13]  | Catalog restating skill facts with extra detail    | Catalogs hold members and signatures, facts belong to the skill  |
 |   [14]  | Diagram arrows `-->` inside a research marker      | Diagrams inside markers use `->` for every arrow                 |
 
 | [INDEX] | [SKILL]      | [ITEM]                                                        | [ACTION]                                                 |

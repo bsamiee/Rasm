@@ -1,0 +1,278 @@
+id: no-map-over-from-boolean
+snapshots:
+  'const due = getOrElse(() => '''')(map(() => `, due: ${due.join('' '')}`)(fromBoolean(due.length > 0)));':
+    fixed: 'const due = getOrElse(() => '''')(liftPredicate<string>(() => due.length > 0)(`, due: ${due.join('' '')}`));'
+    labels:
+    - source: 'map(() => `, due: ${due.join('' '')}`)(fromBoolean(due.length > 0))'
+      style: primary
+      start: 32
+      end: 97
+    - source: '`, due: ${due.join('' '')}`'
+      style: secondary
+      start: 42
+      end: 67
+    - source: '() => `, due: ${due.join('' '')}`'
+      style: secondary
+      start: 36
+      end: 67
+    - source: '() => `, due: ${due.join('' '')}`'
+      style: secondary
+      start: 36
+      end: 67
+    - source: '() => `, due: ${due.join('' '')}`'
+      style: secondary
+      start: 36
+      end: 67
+  const limit = toArray(map(() => 1)(fromBoolean(strict)));:
+    fixed: const limit = toArray(liftPredicate<number>(() => strict)(1));
+    labels:
+    - source: map(() => 1)(fromBoolean(strict))
+      style: primary
+      start: 22
+      end: 55
+    - source: '1'
+      style: secondary
+      start: 32
+      end: 33
+    - source: () => 1
+      style: secondary
+      start: 26
+      end: 33
+    - source: () => 1
+      style: secondary
+      start: 26
+      end: 33
+    - source: () => 1
+      style: secondary
+      start: 26
+      end: 33
+  const limit = toArray(map(() => 1e3)(fromBoolean(strict)));:
+    fixed: const limit = toArray(liftPredicate<number>(() => strict)(1e3));
+    labels:
+    - source: map(() => 1e3)(fromBoolean(strict))
+      style: primary
+      start: 22
+      end: 57
+    - source: '1e3'
+      style: secondary
+      start: 32
+      end: 35
+    - source: () => 1e3
+      style: secondary
+      start: 26
+      end: 35
+    - source: () => 1e3
+      style: secondary
+      start: 26
+      end: 35
+    - source: () => 1e3
+      style: secondary
+      start: 26
+      end: 35
+  const line = toArray(map(() => `${count} open` as string)(fromBoolean(held)));:
+    fixed: const line = toArray(liftPredicate<string>(() => held)(`${count} open`));
+    labels:
+    - source: map(() => `${count} open` as string)(fromBoolean(held))
+      style: primary
+      start: 21
+      end: 76
+    - source: '`${count} open` as string'
+      style: secondary
+      start: 31
+      end: 56
+    - source: () => `${count} open` as string
+      style: secondary
+      start: 25
+      end: 56
+    - source: () => `${count} open` as string
+      style: secondary
+      start: 25
+      end: 56
+    - source: () => `${count} open` as string
+      style: secondary
+      start: 25
+      end: 56
+  'const line = toArray(map((): Line => ''ready'')(fromBoolean(held)));':
+    fixed: const line = toArray(liftPredicate<Line>(() => held)('ready'));
+    labels:
+    - source: 'map((): Line => ''ready'')(fromBoolean(held))'
+      style: primary
+      start: 21
+      end: 64
+    - source: ': Line'
+      style: secondary
+      start: 27
+      end: 33
+    - source: '(): Line => ''ready'''
+      style: secondary
+      start: 25
+      end: 44
+    - source: '(): Line => ''ready'''
+      style: secondary
+      start: 25
+      end: 44
+    - source: '(): Line => ''ready'''
+      style: secondary
+      start: 25
+      end: 44
+  ? const lines = toArray(map(() => 'Record the dependency in the owning README.md dependency list')(fromBoolean(_count(text, row) > _count(old, row))));
+  : fixed: const lines = toArray(liftPredicate<string>(() => _count(text, row) > _count(old, row))('Record the dependency in the owning README.md dependency list'));
+    labels:
+    - source: map(() => 'Record the dependency in the owning README.md dependency list')(fromBoolean(_count(text, row) > _count(old, row)))
+      style: primary
+      start: 22
+      end: 147
+    - source: '''Record the dependency in the owning README.md dependency list'''
+      style: secondary
+      start: 32
+      end: 95
+    - source: () => 'Record the dependency in the owning README.md dependency list'
+      style: secondary
+      start: 26
+      end: 95
+    - source: () => 'Record the dependency in the owning README.md dependency list'
+      style: secondary
+      start: 26
+      end: 95
+    - source: () => 'Record the dependency in the owning README.md dependency list'
+      style: secondary
+      start: 26
+      end: 95
+  const lines = toArray(map(() => `${openCount} open findings`)(fromBoolean(openCount > 0)));:
+    fixed: const lines = toArray(liftPredicate<string>(() => openCount > 0)(`${openCount} open findings`));
+    labels:
+    - source: map(() => `${openCount} open findings`)(fromBoolean(openCount > 0))
+      style: primary
+      start: 22
+      end: 89
+    - source: '`${openCount} open findings`'
+      style: secondary
+      start: 32
+      end: 60
+    - source: () => `${openCount} open findings`
+      style: secondary
+      start: 26
+      end: 60
+    - source: () => `${openCount} open findings`
+      style: secondary
+      start: 26
+      end: 60
+    - source: () => `${openCount} open findings`
+      style: secondary
+      start: 26
+      end: 60
+  const rest = toArray(map(() => leaf.slice(index) as Leaf)(fromBoolean(guarded.includes(basename(word.text)))));:
+    fixed: const rest = toArray(liftPredicate<Leaf>(() => guarded.includes(basename(word.text)))(leaf.slice(index)));
+    labels:
+    - source: map(() => leaf.slice(index) as Leaf)(fromBoolean(guarded.includes(basename(word.text))))
+      style: primary
+      start: 21
+      end: 109
+    - source: leaf.slice(index) as Leaf
+      style: secondary
+      start: 31
+      end: 56
+    - source: () => leaf.slice(index) as Leaf
+      style: secondary
+      start: 25
+      end: 56
+    - source: () => leaf.slice(index) as Leaf
+      style: secondary
+      start: 25
+      end: 56
+    - source: () => leaf.slice(index) as Leaf
+      style: secondary
+      start: 25
+      end: 56
+  'const rest = toArray(map((): Leaf => leaf.slice(index))(fromBoolean(held)));':
+    fixed: const rest = toArray(liftPredicate<Leaf>(() => held)(leaf.slice(index)));
+    labels:
+    - source: 'map((): Leaf => leaf.slice(index))(fromBoolean(held))'
+      style: primary
+      start: 21
+      end: 74
+    - source: ': Leaf'
+      style: secondary
+      start: 27
+      end: 33
+    - source: '(): Leaf => leaf.slice(index)'
+      style: secondary
+      start: 25
+      end: 54
+    - source: '(): Leaf => leaf.slice(index)'
+      style: secondary
+      start: 25
+      end: 54
+    - source: '(): Leaf => leaf.slice(index)'
+      style: secondary
+      start: 25
+      end: 54
+  const status = map(() => `${openCount} open findings`)(fromBoolean(interactive && (openCount > 0 || due.length > 0)));:
+    fixed: const status = liftPredicate<string>(() => interactive && (openCount > 0 || due.length > 0))(`${openCount} open findings`);
+    labels:
+    - source: map(() => `${openCount} open findings`)(fromBoolean(interactive && (openCount > 0 || due.length > 0)))
+      style: primary
+      start: 15
+      end: 117
+    - source: '`${openCount} open findings`'
+      style: secondary
+      start: 25
+      end: 53
+    - source: () => `${openCount} open findings`
+      style: secondary
+      start: 19
+      end: 53
+    - source: () => `${openCount} open findings`
+      style: secondary
+      start: 19
+      end: 53
+    - source: () => `${openCount} open findings`
+      style: secondary
+      start: 19
+      end: 53
+  const step = toArray(map(() => -1)(fromBoolean(descending)));:
+    fixed: const step = toArray(liftPredicate<number>(() => descending)(-1));
+    labels:
+    - source: map(() => -1)(fromBoolean(descending))
+      style: primary
+      start: 21
+      end: 59
+    - source: '-1'
+      style: secondary
+      start: 31
+      end: 33
+    - source: () => -1
+      style: secondary
+      start: 25
+      end: 33
+    - source: () => -1
+      style: secondary
+      start: 25
+      end: 33
+    - source: () => -1
+      style: secondary
+      start: 25
+      end: 33
+  run(map(() => 'line')(fromBoolean(held)));:
+    fixed: run(liftPredicate<string>(() => held)('line'));
+    labels:
+    - source: map(() => 'line')(fromBoolean(held))
+      style: primary
+      start: 4
+      end: 40
+    - source: '''line'''
+      style: secondary
+      start: 14
+      end: 20
+    - source: () => 'line'
+      style: secondary
+      start: 8
+      end: 20
+    - source: () => 'line'
+      style: secondary
+      start: 8
+      end: 20
+    - source: () => 'line'
+      style: secondary
+      start: 8
+      end: 20

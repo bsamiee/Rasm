@@ -1,0 +1,75 @@
+id: no-dirname-substitution
+valid:
+    # The directory by expansion
+    - |
+      mkdir -p "${target%/*}"
+    # The base name by expansion
+    - |
+      name=${file##*/}
+    # A literal path argument, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname /a/b/c)
+    # A suffix argument, no-dirname-substitution-by-hand
+    - |
+      stem=$(basename "$file" .yml)
+    # An option, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname -- "$file")
+    # A string holding text beside the parameter, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname "$file/x")
+    # Another command in a substitution
+    - |
+      root=$(realpath "$file")
+    # An operator beside the name, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname "${file%/x}")
+    # A whole array, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname "${files[@]}")
+    # No argument, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname)
+    # Two parameters, no-dirname-substitution-by-hand
+    - |
+      root=$(dirname "$f" "$g")
+invalid:
+    # The substitution as a command argument
+    - |
+      cd "$(dirname "$f")" || exit 1
+    # The bare positional parameter
+    - |
+      here=$(dirname $0)
+    # An element indexed by an expansion
+    - |
+      name=$(basename "${paths[$i]}")
+    # The last element
+    - |
+      name=$(basename "${paths[-1]}")
+    # The instance, dirname of a quoted parameter
+    - |
+      mkdir -p "$scratch/$(dirname "$d")"
+    # A bare parameter
+    - |
+      root=$(dirname $file)
+    # basename of a quoted parameter
+    - |
+      name=$(basename "$file")
+    # Backticks
+    - |
+      root=`dirname "$file"`
+    # Positional parameter
+    - |
+      here=$(dirname "$0")
+    # An array element, the script's own path
+    - |
+      here=$(dirname "${BASH_SOURCE[0]}")
+    # The braced parameter
+    - |
+      root=$(dirname "${file}")
+    # The braced parameter bare
+    - |
+      root=$(dirname ${file})
+    # basename of an indexed element
+    - |
+      name=$(basename "${paths[i]}")

@@ -1,0 +1,35 @@
+id: require-catch-on-try
+valid:
+    # The options with a catch mapping
+    - 'const parsed = Effect.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) });'
+    # Promise options with a catch mapping
+    - 'const loaded = Effect.tryPromise({ try: () => load(path), catch: (cause) => new LoadError({ cause }) });'
+    # Either options with a catch mapping
+    - 'const parsed = Either.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) });'
+    # Micro options, the module takes no bare thunk
+    - 'const parsed = Micro.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) });'
+    # Try member on a module outside the set
+    - 'const parsed = Item.try(() => parse(raw));'
+    # Effect member outside the try set with a thunk
+    - 'const parsed = Effect.sync(() => parse(raw));'
+    # Options held in a spread, the object form
+    - 'const parsed = Effect.try({ ...options, catch: (cause) => new ParseError({ cause }) });'
+    # Argument bound to a name, it can hold the options object and the shape cannot tell
+    - 'const parsed = Effect.try(run);'
+    # Argument read off a member
+    - 'const loaded = Effect.tryPromise(client.load);'
+    # ParseResult options, the module takes no bare thunk
+    - 'const parsed = ParseResult.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) });'
+invalid:
+    # The instance, a bare thunk
+    - 'const parsed = Effect.try(() => parse(raw));'
+    # Bare promise thunk
+    - 'const loaded = Effect.tryPromise(() => load(path));'
+    # Either sibling
+    - 'const parsed = Either.try(() => parse(raw));'
+    # Function expression thunk
+    - 'const parsed = Effect.try(function () { return parse(raw); });'
+    # Thunk with a signal parameter
+    - 'const loaded = Effect.tryPromise((signal) => load(path, signal));'
+    # STM sibling
+    - 'const parsed = STM.try(() => parse(raw));'

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: require-strict-mode
+language: bash
+severity: error
+files: ['**/*.sh'] # Injected regions run under the runner's shell, bash -e -o pipefail for a workflow step, and hold no set line
+rule:
+    kind: program # The file is the match, absence rules match on the container
+    any:
+        - not: # Every spelling counts, one set line or three, short flags or long options, and a set inside a function scopes the function
+              all:
+                  - has: {kind: command, regex: '^set\s.*(-[a-zA-Z]*e|-o\s+errexit)'}
+                  - has: {kind: command, regex: '^set\s.*(-[a-zA-Z]*u|-o\s+nounset)'}
+                  - has: {kind: command, regex: '^set\s.*-[a-zA-Z]*o\s+pipefail'}
+        # A later set + turns an option off for the rest of the script, the status read takes the || rc=$? form
+        - has: {stopBy: end, kind: command, regex: '^set\s.*(\+[a-zA-Z]*[eu]|\+o\s+(errexit|nounset|pipefail))'}
+message: Script runs without errexit, nounset, and pipefail at file level
+note: Add `set -euo pipefail` after the shebang, and read a status the script inspects as `rc=0; out=$(<command>) || rc=$?`

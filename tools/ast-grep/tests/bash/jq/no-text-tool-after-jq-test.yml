@@ -1,0 +1,100 @@
+id: no-text-tool-after-jq
+valid:
+    # The operation in the jq program
+    - |
+      jq -c '.[] | unique[]' rules.json
+    # A text tool before jq
+    - |
+      sort ids.txt | jq -R .
+    # A text tool in another pipeline
+    - |
+      jq -r '.id' rules.json
+      sort ids.txt
+    # yq into jq, jq reads JSON values
+    - |
+      yq -o=json -I=0 '.rules' sgconfig.yml | jq -r '.[]'
+    # A text tool over a command's output
+    - |
+      ast-grep scan --json=stream . | wc -l
+    # A redirected stage of another command before the text tool
+    - |
+      cmd 2>/dev/null | sort
+    # A redirected text tool after another command
+    - |
+      cmd | sort 2>/dev/null | head -1
+    # A command runner after jq, one call per value
+    - |
+      jq -r '.[]' rules.json | xargs -n1 handle
+    # A formatter after jq
+    - |
+      jq -r '.[]' f | column -t
+    # A digest after jq
+    - |
+      jq -r '.[]' f | sha256sum
+    # The text tool over the written file, another statement
+    - |
+      jq . f > out; sort out
+invalid:
+    # cut after jq, split
+    - |
+      jq -c . f | cut -d, -f1
+    # awk after yq
+    - |
+      yq '.a' f.yml | awk '{print $1}'
+    # grep as a test, the pipeline inside a list
+    - |
+      jq -r '.[]' f | grep -q x && exit 1
+    # Inside a command substitution
+    - |
+      x=$(jq -r '.n' f | tr -d '\n')
+    # A text tool before jq and one after, the one after is reported
+    - |
+      sort ids.txt | jq -R . | wc -l
+    # The instance, sort -u after jq
+    - |
+      yq -o=json -I=0 "$arms" "$rule" | jq -c "$paths" | sort -u
+    # wc -l after jq
+    - |
+      jq -r '.[]' rules.json | wc -l
+    # head after yq
+    - |
+      yq -r '.ruleDirs[]' sgconfig.yml | head -1
+    # tr after jq
+    - |
+      jq -r '.language' rule.yml | tr '[:upper:]' '[:lower:]'
+    # rg after jq
+    - |
+      jq -r '.[].id' rules.json | rg '^no-'
+    # A redirect on the jq stage
+    - |
+      jq -r '.[].id' rules.json 2>/dev/null | sort
+    # A redirect on the text tool stage, the redirect binds to the pipeline
+    - |
+      jq -r '.[].id' rules.json | sort >ids.txt
+    # A redirected text tool stage in the middle of the pipeline
+    - |
+      jq -r '.[].id' rules.json | sort 2>/dev/null | head -1
+    # A stage between jq and the text tool
+    - |
+      jq -r '.[].id' rules.json | cat | sort
+    # A stage between jq and a redirected text tool
+    - |
+      jq -r '.[].id' rules.json | cat | sort 2>/dev/null | head -1
+    # A redirected stage between jq and the text tool
+    - |
+      jq -r '.[].id' rules.json | cat 2>/dev/null | sort
+    # tac after jq, reverse
+    - |
+      jq -r '.[]' rules.json | tac
+    # paste after jq, join
+    - |
+      jq -r '.[]' rules.json | paste -sd, -
+    # egrep after jq, select with test
+    - |
+      jq -r '.[]' rules.json | egrep '^no-'
+    # nl after jq, to_entries
+    - |
+      jq -r '.[]' rules.json | nl
+    # rev after jq, explode, reverse, and implode
+    - |
+      jq -r '.[]' rules.json | rev

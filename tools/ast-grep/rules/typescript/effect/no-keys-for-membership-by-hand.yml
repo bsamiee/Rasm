@@ -11,13 +11,15 @@ utils:
             - pattern: new Set($LIST)
 rule:
     any:
-        - matches: key-set
-          has: {field: arguments, has: {matches: {effect-key-list: {record: {pattern: $RECORD}}}}}
+        - all:
+              - matches: key-set
+              - has: {field: arguments, has: {matches: {effect-key-list: {record: {pattern: $RECORD}}}}}
         # Object.keys searched in a file without a Record import, the fix of the sibling no-keys-for-membership needs the import
-        - matches: {effect-key-search: {list: {matches: {effect-key-list: {record: {pattern: $RECORD}}}}, key: {pattern: $KEY}}}
-          has: {stopBy: end, pattern: Object.keys($_)}
-          not: {inside: {kind: program, stopBy: end, has: {matches: effect-record-import}}}
-message: The key list of $RECORD answers a membership test through a set or an Object.keys search without the Record import
+        - all:
+              - matches: {effect-key-search: {list: {matches: {effect-key-list: {record: {pattern: $RECORD}}}}, key: {pattern: $KEY}}}
+              - has: {stopBy: end, pattern: Object.keys($_)}
+              - not: {inside: {kind: program, stopBy: end, has: {matches: effect-record-import}}}
+message: The key list of `$RECORD` answers a membership test through a set or an Object.keys search without the Record import
 note: Test the record with `Record.has(record, key)` from the effect package, the key list and the set exist for the membership test alone
 labels:
     RECORD: {style: primary, message: The record with the listed keys}

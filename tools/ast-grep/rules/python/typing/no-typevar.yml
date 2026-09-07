@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-typevar
+language: python
+severity: error
+rule:
+    matches:
+        python-module-member:
+            module: {regex: '^(typing|typing_extensions)$'}
+            name: {regex: '^(TypeVar|ParamSpec|TypeVarTuple)$', pattern: $NAME}
+message: '`$NAME` declares a type parameter outside the signature'
+note: Declare the parameter on the def or class, `def f[T](...)`, `[**P]` for a parameter specification, `[*Ts]` for a variadic

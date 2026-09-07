@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-sleep-outside-polling-loop
+language: bash
+severity: error
+rule:
+    kind: command
+    pattern: $SLEEP
+    all:
+        - has: {field: name, regex: '^sleep$'}
+        # A sleep paces a loop that tests the state, in a while or until condition or in a body that breaks or exits on it
+        - not:
+              inside:
+                  kind: do_group
+                  stopBy: end
+                  any:
+                      - inside: {kind: while_statement, not: {has: {field: condition, regex: '^(true|:)$'}}} # while true tests no state
+                      - has: {stopBy: end, kind: command, has: {field: name, regex: '^(break|return|exit)$'}}
+message: '`$SLEEP` waits a fixed time for a state the code never reads'
+note: Poll the state in a bounded loop, `for ((i = 0; i < <n>; i++)); do <check> && break; sleep 1; done`, or block on the tool, `wait <pid>`

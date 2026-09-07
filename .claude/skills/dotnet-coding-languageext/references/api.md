@@ -238,7 +238,7 @@
 |  [42]   | `Errors.SinkFull`                                 | static   | Back-pressure error, `-2000000015`      |
 |  [43]   | `Errors.EndOfStream`                              | static   | End-of-stream error, `-2000000010`      |
 |  [44]   | `Errors.Bottom`                                   | static   | Bottom-value error                      |
-|  [45]   | `Errors.None`                                     | static   | The empty `ManyErrors` value            |
+|  [45]   | `Errors.None`                                     | static   | Empty `ManyErrors` value                |
 |  [46]   | `Errors.ParseError(string)`                       | static   | Parse failure construction              |
 
 - `Error.New(string, Exception)` requires an argument statically typed as `Exception`, derived or generic exceptions convert implicitly to `Error` and make the two-argument call ambiguous with `Error.New(string, Error)`, widen or cast the argument before the call
@@ -258,7 +258,7 @@
 |  [08]   | `Catch(CatchM<Error, F, A>)`                             | static | Handler value applied to the type          |
 |  [09]   | `CatchIO(Func<Error, K<IO,A>>)`                          | static | Recovery into `IO` under `MonadIO<M>`      |
 |  [10]   | `PartitionFallible(Seq<K<M,A>>)`                         | static | `K<M, (Seq<Error> Fails, Seq<A> Succs)>`   |
-|  [11]   | `PartitionFallible(K<F, K<M,A>>)`                        | static | The same over any `Foldable<F>`            |
+|  [11]   | `PartitionFallible(K<F, K<M,A>>)`                        | static | Same over any `Foldable<F>`                |
 |  [12]   | `Succs(Seq<K<M,A>>)`                                     | static | `K<M, Seq<A>>`, failures dropped           |
 |  [13]   | `Fails(Seq<K<M,A>>)`                                     | static | `K<M, Seq<Error>>`, successes dropped      |
 
@@ -328,7 +328,7 @@
 
 | [INDEX] | [MEMBER]                                                     | [KIND]            | [DESCRIPTION]                             |
 | :-----: | :----------------------------------------------------------- | :---------------- | :---------------------------------------- |
-|  [01]   | `Schedule.Forever` / `Never` / `Once`                        | static            | The degenerate policies                   |
+|  [01]   | `Schedule.Forever` / `Never` / `Once`                        | static            | Degenerate policies                       |
 |  [02]   | `Schedule.spaced(Duration)`                                  | static            | One constant delay, unbounded             |
 |  [03]   | `Schedule.linear(Duration seed, double factor)`              | static            | Arithmetic growth                         |
 |  [04]   | `Schedule.exponential(Duration seed, double factor)`         | static            | Geometric growth, factor defaults `2.0`   |
@@ -349,7 +349,7 @@
 |  [19]   | `Schedule.resetAfter(Duration)`                              | static            | Restart the policy past a cumulative max  |
 |  [20]   | `Schedule.intersperse(Schedule)`                             | static            | Insert a second policy between steps      |
 |  [21]   | `Schedule.Transform(Func<Schedule, Schedule>)`               | static            | Create a transformer from a function      |
-|  [22]   | `Schedule.Identity` / `NoDelayOnFirst` / `RepeatForever`     | static            | The built-in transformers                 |
+|  [22]   | `Schedule.Identity` / `NoDelayOnFirst` / `RepeatForever`     | static            | Built-in transformers                     |
 |  [23]   | `Union(Schedule)` / `operator \|`                            | instance/operator | Min delay, runs while either runs         |
 |  [24]   | `Intersect(Schedule)` / `operator &`                         | instance/operator | Max delay, stops when either stops        |
 |  [25]   | `Combine(Schedule)` / `operator +`                           | instance/operator | Append the second after the first         |
@@ -360,7 +360,7 @@
 |  [30]   | `Prepend(Duration)` / `PrependZero`                          | instance/property | Lead-in step, `PrependZero` a property    |
 |  [31]   | `Bind` / `SelectMany`                                        | instance          | LINQ composition over the delay series    |
 |  [32]   | `Run() -> Iterable<Duration>`                                | instance          | Realize the delay series                  |
-|  [33]   | `ScheduleTransformer.Apply(Schedule)`                        | instance          | The one application member                |
+|  [33]   | `ScheduleTransformer.Apply(Schedule)`                        | instance          | Only application member                   |
 |  [34]   | `operator +(ScheduleTransformer, ScheduleTransformer)`       | operator          | Transformer composition                   |
 
 - `|` and `&` mean different things by operand type and both forms look identical, between two `Schedule` values they are union and intersection, wherever one side is a `ScheduleTransformer` (in either argument order) both operators collapse to `Apply`, `Forever | jitter(0.5)` and `Forever & jitter(0.5)` are the same schedule while `spaced(1s) | spaced(3s)` and `spaced(1s) & spaced(3s)` are not, and transformers never intersect, only a schedule does
@@ -396,13 +396,13 @@
 |  [04]   | `Writer.listen(Writer<W, A>)`                               | static   | Return the accumulated output as a value  |
 |  [05]   | `Writer.listens(Func<W, B>, Writer<W, A>)`                  | static   | Return a projection of the output         |
 |  [06]   | `Writer.censor(Func<W, W>, Writer<W, A>)`                   | static   | Rewrite the output, value untouched       |
-|  [07]   | `Writer.pass(Writer<W, (A, Func<W, W>)>)`                   | static   | The step supplies its own output rewriter |
-|  [08]   | `Writer.Run() -> (A Value, W Output)`                       | instance | The only extraction, total                |
-|  [09]   | `Writer.Listen()` / `Listens(Func<W, B>)` / `Censor`        | instance | The instance forms of rows [04]–[06]      |
+|  [07]   | `Writer.pass(Writer<W, (A, Func<W, W>)>)`                   | static   | Step supplies its own output rewriter     |
+|  [08]   | `Writer.Run() -> (A Value, W Output)`                       | instance | Only extraction, total                    |
+|  [09]   | `Writer.Listen()` / `Listens(Func<W, B>)` / `Censor`        | instance | Instance forms of rows [04]–[06]          |
 |  [10]   | `Writer.Bind` / `SelectMany` / `Map`                        | instance | LINQ composition, outputs `Combine`       |
 |  [11]   | `Writer.Write(A, W)` / `Write((A Value, W Output))`         | instance | Append output to a running computation    |
-|  [12]   | `Tell<W>.ToWriter()` / `ToWriterT<M>()` / `ToWritable<M>()` | instance | The literal converted to each type        |
-|  [13]   | `WriterT<W, M, A>`                                          | record   | The same accumulation over any `Monad<M>` |
+|  [12]   | `Tell<W>.ToWriter()` / `ToWriterT<M>()` / `ToWritable<M>()` | instance | Literal converted to each type            |
+|  [13]   | `WriterT<W, M, A>`                                          | record   | Same accumulation over any `Monad<M>`     |
 
 - `W : Monoid<W>` is the entire contract, each bind `Combine`s both outputs, the accumulator is the monoid and no mutable list is threaded beside the computation, `Seq<A>` output makes the writer an append-only log, and an `Error` output makes it a warning channel that never fails
 - `Writer<W, A>` has no failure branch and accumulates without failing, while `Validation<F, A>` accumulates failures and fails at the fold, and computations that need both stack them as `WriterT<W, Fin, A>` instead of folding the output into the failure channel
@@ -480,10 +480,10 @@
 |  [65]   | `Seq.TakeWhile(Func<A,int,bool>)`                                  | instance | Indexed predicate-bounded run             |
 |  [66]   | `FoldableExtensions.FoldWhileM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | Monadic predicate-bounded fold            |
 |  [67]   | `FoldableExtensions.FoldUntilM(S, Func<S,A,K<M,S>>, Func<A,bool>)` | fold     | Monadic fold to a stop condition          |
-|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | fold     | The argument-flipped module form          |
+|  [68]   | `Prelude.foldWhileM(f, pred, state, ta)`                           | fold     | Argument-flipped module form              |
 |  [69]   | `FoldableExtensions.FoldUntil(S, Func<S,A,S>, Func<(S,A),bool>)`   | fold     | Pure fold to a stop condition             |
-|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | fold     | The right-to-left bounded forms           |
-|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | fold     | The folder itself decides the stop        |
+|  [70]   | `FoldableExtensions.FoldBackWhile` / `FoldBackUntil`               | fold     | Right-to-left bounded forms               |
+|  [71]   | `FoldableExtensions.FoldMaybe(S, Func<S,A,Option<S>>) -> S`        | fold     | Folder itself decides the stop            |
 |  [72]   | `FoldableExtensions.FoldMapWhileT` / `FoldMapUntilT`               | fold     | Bounded monoidal aggregation, nested      |
 |  [73]   | `FoldableExtensions.FoldT` / `FoldWhileT` / `FoldUntilT`           | fold     | One pass over `K<T, K<U, A>>`             |
 
@@ -515,7 +515,7 @@
 | :-----: | :--------------------------------------- | :------- | :------------------------------------ |
 |  [01]   | `Prelude.Atom(A, Func<A,bool>)`          | static   | Validated lock-free reference         |
 |  [02]   | `Atom.Value`                             | property | Current-state snapshot read           |
-|  [03]   | `Atom.ValueIO`                           | property | The same read as an `IO<A>`           |
+|  [03]   | `Atom.ValueIO`                           | property | Same read as an `IO<A>`               |
 |  [04]   | `Atom.Swap(Func<A,A>) -> A`              | instance | CAS update, post-state return         |
 |  [05]   | `Atom.SwapMaybe(Func<A,Option<A>>) -> A` | instance | CAS update, `None` keeps the state    |
 |  [06]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update as an `IO`                 |
@@ -543,7 +543,7 @@
 |  [28]   | `Range.fromMinMax(A, A, A)`              | static   | Generated bounded sequence            |
 |  [29]   | `Prelude.Range(int\|long from, count)`   | static   | `Range<A>` from origin and count      |
 |  [30]   | `Prelude.unit`                           | property | The `Unit` literal                    |
-|  [31]   | `Prelude.identity(A)`                    | static   | The identity function                 |
+|  [31]   | `Prelude.identity(A)`                    | static   | Identity function                     |
 
 - `memoK` caches the construction of a `K<F, A>`, never its execution, memoized `IO` or `Eff` is built once and then runs on every call, a `memoK` effect is not a cached result, caching a result memoizes past the run (`memo` over the executed value), and the `memoK(K<F,A>)` and `memoK(A)` arities are the preloaded forms where the value already exists
 - `memo(IEnumerable<A>)` retains each item as it is first enumerated, a second traversal replays from the cache and an expensive generator runs once, and it is the lazy counterpart to forcing into a `Seq`, forcing pays the whole cost up front
@@ -569,7 +569,7 @@
 |  [15]   | `Find(K)` / `FindOrMaybeAdd(K, Func<Option<V>>)`          | instance | `Option<V>` read, optionally seeding on a miss    |
 |  [16]   | `ToHashMap()` / `ToSeq()` / `AsIterable()`                | instance | Immutable snapshot at the read                    |
 |  [17]   | `Fold(S, Func<S,K,V,S>)` / `Iter(Action<K,V>)`            | fold     | Key-and-value iteration over a snapshot           |
-|  [18]   | `HashMapPatch.From` / `To` / `Changes`                    | property | The two snapshots and the `HashMap<K, Change<V>>` |
+|  [18]   | `HashMapPatch.From` / `To` / `Changes`                    | property | Both snapshots and the `HashMap<K, Change<V>>`    |
 
 - `AtomHashMap<K, V>` is the one type where mutation is in place and the value is shared, `Atom<HashMap<K,V>>` makes every keyed write a whole-map `Swap` returning a new map while `SwapKey` commits one key under the same CAS discipline, and the cost is that a mutation returns `Unit`, nothing about the commit is readable from the return value, read the result through `Change` or a later `Find`
 - `Swap` passes the transition function a `TrackingHashMap<K, V>`, a whole-map update can read the deltas it is producing and decide from them, and the emitted `HashMapPatch.Changes` is built from that log

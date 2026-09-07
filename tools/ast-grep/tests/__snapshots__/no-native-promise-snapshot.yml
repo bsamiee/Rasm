@@ -1,0 +1,122 @@
+id: no-native-promise
+snapshots:
+  const first = Promise.any([first, second]);:
+    labels:
+    - source: Promise.any([first, second])
+      style: primary
+      start: 14
+      end: 42
+    - source: Promise.any
+      style: secondary
+      start: 14
+      end: 25
+  const later = Promise.reject(error);:
+    labels:
+    - source: Promise.reject(error)
+      style: primary
+      start: 14
+      end: 35
+    - source: Promise.reject
+      style: secondary
+      start: 14
+      end: 28
+  const later = Promise.resolve(1);:
+    labels:
+    - source: Promise.resolve(1)
+      style: primary
+      start: 14
+      end: 32
+    - source: Promise.resolve
+      style: secondary
+      start: 14
+      end: 29
+  const later = Promise.try(run);:
+    labels:
+    - source: Promise.try(run)
+      style: primary
+      start: 14
+      end: 30
+    - source: Promise.try
+      style: secondary
+      start: 14
+      end: 25
+  const later = globalThis.Promise.resolve(1);:
+    labels:
+    - source: globalThis.Promise.resolve(1)
+      style: primary
+      start: 14
+      end: 43
+    - source: globalThis.Promise.resolve
+      style: secondary
+      start: 14
+      end: 40
+  const later = new Promise((resolve) => resolve(1));:
+    labels:
+    - source: new Promise((resolve) => resolve(1))
+      style: primary
+      start: 14
+      end: 50
+    - source: Promise
+      style: secondary
+      start: 18
+      end: 25
+  const later = new Promise<number>((resolve) => resolve(1));:
+    labels:
+    - source: new Promise<number>((resolve) => resolve(1))
+      style: primary
+      start: 14
+      end: 58
+    - source: Promise
+      style: secondary
+      start: 18
+      end: 25
+  const later = new globalThis.Promise((resolve) => resolve(1));:
+    labels:
+    - source: new globalThis.Promise((resolve) => resolve(1))
+      style: primary
+      start: 14
+      end: 61
+    - source: globalThis.Promise
+      style: secondary
+      start: 18
+      end: 36
+  const rows = Promise.all([first, second]);:
+    labels:
+    - source: Promise.all([first, second])
+      style: primary
+      start: 13
+      end: 41
+    - source: Promise.all
+      style: secondary
+      start: 13
+      end: 24
+  const settled = Promise.allSettled([first, second]);:
+    labels:
+    - source: Promise.allSettled([first, second])
+      style: primary
+      start: 16
+      end: 51
+    - source: Promise.allSettled
+      style: secondary
+      start: 16
+      end: 34
+  const winner = Promise.race([first, second]);:
+    labels:
+    - source: Promise.race([first, second])
+      style: primary
+      start: 15
+      end: 44
+    - source: Promise.race
+      style: secondary
+      start: 15
+      end: 27
+  const { promise, resolve } = Promise.withResolvers<number>();:
+    labels:
+    - source: Promise.withResolvers<number>()
+      style: primary
+      start: 29
+      end: 60
+    - source: Promise.withResolvers
+      style: secondary
+      start: 29
+      end: 50

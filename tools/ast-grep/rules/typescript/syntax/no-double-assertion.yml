@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-double-assertion
+language: tsx
+severity: error
+utils:
+    # Assertion to a type every value fits, the first step of the double assertion, bare or in parentheses, `as any` is Biome noExplicitAny's
+    wide-assertion:
+        any:
+            # Predefined type sits in the type slot alone, the value slot holds none
+            - kind: as_expression
+              has: {kind: predefined_type, regex: '^(unknown|never|object)$'}
+            # The empty object type, every value but null and undefined fits it
+            - kind: as_expression
+              has: {kind: object_type, not: {has: {pattern: $_}}}
+            - kind: parenthesized_expression
+              has: {matches: wide-assertion}
+rule:
+    kind: as_expression
+    all:
+        - has: {matches: wide-assertion} # An assertion sits in the value slot alone, the type slot holds no expression
+        - has: {nthChild: 2, pattern: $TYPE}
+message: 'The value is asserted through a type every value fits to `$TYPE`, and the compiler proves nothing of its shape'
+note: >-
+    Decode the value at the boundary through a schema or a decoder that proves the shape, `Schema.decodeUnknownSync(schema)(value)`,
+    or build it through the typed constructor
+labels:
+    TYPE: {style: primary, message: The type the assertion claims}

@@ -1,0 +1,592 @@
+id: require-is-tool
+snapshots:
+  ? |
+    const _isBash = (): ((e: ToolCallInput) => e is Bash) => (e: ToolCallInput): e is Bash => e.tool === 'Bash';
+  : fixed: |
+      const _isBash = (): ((e: ToolCallInput) => e is Bash) => isTool('Bash');
+    labels:
+    - source: '(e: ToolCallInput): e is Bash => e.tool === ''Bash'''
+      style: primary
+      start: 57
+      end: 107
+    - source: e
+      style: secondary
+      start: 58
+      end: 59
+    - source: ToolCallInput
+      style: secondary
+      start: 61
+      end: 74
+    - source: ToolCallInput
+      style: secondary
+      start: 61
+      end: 74
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 58
+      end: 74
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 58
+      end: 74
+    - source: ': e is Bash'
+      style: secondary
+      start: 75
+      end: 86
+    - source: ===
+      style: secondary
+      start: 97
+      end: 100
+    - source: e
+      style: secondary
+      start: 90
+      end: 91
+    - source: tool
+      style: secondary
+      start: 92
+      end: 96
+    - source: e.tool
+      style: secondary
+      start: 90
+      end: 96
+    - source: '''Bash'''
+      style: secondary
+      start: 101
+      end: 107
+    - source: e.tool === 'Bash'
+      style: secondary
+      start: 90
+      end: 107
+  ? |
+    const _isBash = (e: ToolCallInput): e is Bash => (e.tool === 'Bash');
+  : fixed: |
+      const _isBash = isTool('Bash');
+    labels:
+    - source: '(e: ToolCallInput): e is Bash => (e.tool === ''Bash'')'
+      style: primary
+      start: 16
+      end: 68
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: ': e is Bash'
+      style: secondary
+      start: 34
+      end: 45
+    - source: ===
+      style: secondary
+      start: 57
+      end: 60
+    - source: e
+      style: secondary
+      start: 50
+      end: 51
+    - source: tool
+      style: secondary
+      start: 52
+      end: 56
+    - source: e.tool
+      style: secondary
+      start: 50
+      end: 56
+    - source: '''Bash'''
+      style: secondary
+      start: 61
+      end: 67
+    - source: e.tool === 'Bash'
+      style: secondary
+      start: 50
+      end: 67
+    - source: (e.tool === 'Bash')
+      style: secondary
+      start: 49
+      end: 68
+  ? |
+    const _isBash = (e: ToolCallInput): e is Bash => e.tool === 'Bash';
+  : fixed: |
+      const _isBash = isTool('Bash');
+    labels:
+    - source: '(e: ToolCallInput): e is Bash => e.tool === ''Bash'''
+      style: primary
+      start: 16
+      end: 66
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: ': e is Bash'
+      style: secondary
+      start: 34
+      end: 45
+    - source: ===
+      style: secondary
+      start: 56
+      end: 59
+    - source: e
+      style: secondary
+      start: 49
+      end: 50
+    - source: tool
+      style: secondary
+      start: 51
+      end: 55
+    - source: e.tool
+      style: secondary
+      start: 49
+      end: 55
+    - source: '''Bash'''
+      style: secondary
+      start: 60
+      end: 66
+    - source: e.tool === 'Bash'
+      style: secondary
+      start: 49
+      end: 66
+  ? |
+    const _isBash = function (e: ToolCallInput): e is Bash { return e.tool === 'Bash'; };
+  : fixed: |
+      const _isBash = isTool('Bash');
+    labels:
+    - source: 'function (e: ToolCallInput): e is Bash { return e.tool === ''Bash''; }'
+      style: primary
+      start: 16
+      end: 84
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: ToolCallInput
+      style: secondary
+      start: 29
+      end: 42
+    - source: ToolCallInput
+      style: secondary
+      start: 29
+      end: 42
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 26
+      end: 42
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 26
+      end: 42
+    - source: ': e is Bash'
+      style: secondary
+      start: 43
+      end: 54
+    - source: ===
+      style: secondary
+      start: 71
+      end: 74
+    - source: e
+      style: secondary
+      start: 64
+      end: 65
+    - source: tool
+      style: secondary
+      start: 66
+      end: 70
+    - source: e.tool
+      style: secondary
+      start: 64
+      end: 70
+    - source: '''Bash'''
+      style: secondary
+      start: 75
+      end: 81
+    - source: e.tool === 'Bash'
+      style: secondary
+      start: 64
+      end: 81
+    - source: return e.tool === 'Bash';
+      style: secondary
+      start: 57
+      end: 82
+    - source: '{ return e.tool === ''Bash''; }'
+      style: secondary
+      start: 55
+      end: 84
+  ? |
+    const _isEdit = (e: ToolCallInput): e is Edit => e.tool === "Edit";
+  : fixed: |
+      const _isEdit = isTool("Edit");
+    labels:
+    - source: '(e: ToolCallInput): e is Edit => e.tool === "Edit"'
+      style: primary
+      start: 16
+      end: 66
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: ': e is Edit'
+      style: secondary
+      start: 34
+      end: 45
+    - source: ===
+      style: secondary
+      start: 56
+      end: 59
+    - source: e
+      style: secondary
+      start: 49
+      end: 50
+    - source: tool
+      style: secondary
+      start: 51
+      end: 55
+    - source: e.tool
+      style: secondary
+      start: 49
+      end: 55
+    - source: '"Edit"'
+      style: secondary
+      start: 60
+      end: 66
+    - source: e.tool === "Edit"
+      style: secondary
+      start: 49
+      end: 66
+  ? |
+    const _isEdit = (e: ToolCallInput): e is Edit => { return e.tool === 'Edit'; };
+  : fixed: |
+      const _isEdit = isTool('Edit');
+    labels:
+    - source: '(e: ToolCallInput): e is Edit => { return e.tool === ''Edit''; }'
+      style: primary
+      start: 16
+      end: 78
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: ToolCallInput
+      style: secondary
+      start: 20
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 17
+      end: 33
+    - source: ': e is Edit'
+      style: secondary
+      start: 34
+      end: 45
+    - source: ===
+      style: secondary
+      start: 65
+      end: 68
+    - source: e
+      style: secondary
+      start: 58
+      end: 59
+    - source: tool
+      style: secondary
+      start: 60
+      end: 64
+    - source: e.tool
+      style: secondary
+      start: 58
+      end: 64
+    - source: '''Edit'''
+      style: secondary
+      start: 69
+      end: 75
+    - source: e.tool === 'Edit'
+      style: secondary
+      start: 58
+      end: 75
+    - source: return e.tool === 'Edit';
+      style: secondary
+      start: 51
+      end: 76
+    - source: '{ return e.tool === ''Edit''; }'
+      style: secondary
+      start: 49
+      end: 78
+  ? |
+    const _isWrite = (e: ToolCallInput): e is Written => e['tool'] === 'Write';
+  : fixed: |
+      const _isWrite = isTool('Write');
+    labels:
+    - source: '(e: ToolCallInput): e is Written => e[''tool''] === ''Write'''
+      style: primary
+      start: 17
+      end: 74
+    - source: e
+      style: secondary
+      start: 18
+      end: 19
+    - source: ToolCallInput
+      style: secondary
+      start: 21
+      end: 34
+    - source: ToolCallInput
+      style: secondary
+      start: 21
+      end: 34
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 18
+      end: 34
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 18
+      end: 34
+    - source: ': e is Written'
+      style: secondary
+      start: 35
+      end: 49
+    - source: ===
+      style: secondary
+      start: 63
+      end: 66
+    - source: e
+      style: secondary
+      start: 53
+      end: 54
+    - source: '''tool'''
+      style: secondary
+      start: 55
+      end: 61
+    - source: e['tool']
+      style: secondary
+      start: 53
+      end: 62
+    - source: '''Write'''
+      style: secondary
+      start: 67
+      end: 74
+    - source: e['tool'] === 'Write'
+      style: secondary
+      start: 53
+      end: 74
+  ? |
+    const _isWrite = (input: ToolCallInput): input is Written => input.tool === 'Write';
+  : fixed: |
+      const _isWrite = isTool('Write');
+    labels:
+    - source: '(input: ToolCallInput): input is Written => input.tool === ''Write'''
+      style: primary
+      start: 17
+      end: 83
+    - source: input
+      style: secondary
+      start: 18
+      end: 23
+    - source: ToolCallInput
+      style: secondary
+      start: 25
+      end: 38
+    - source: ToolCallInput
+      style: secondary
+      start: 25
+      end: 38
+    - source: 'input: ToolCallInput'
+      style: secondary
+      start: 18
+      end: 38
+    - source: 'input: ToolCallInput'
+      style: secondary
+      start: 18
+      end: 38
+    - source: ': input is Written'
+      style: secondary
+      start: 39
+      end: 57
+    - source: ===
+      style: secondary
+      start: 72
+      end: 75
+    - source: input
+      style: secondary
+      start: 61
+      end: 66
+    - source: tool
+      style: secondary
+      start: 67
+      end: 71
+    - source: input.tool
+      style: secondary
+      start: 61
+      end: 71
+    - source: '''Write'''
+      style: secondary
+      start: 76
+      end: 83
+    - source: input.tool === 'Write'
+      style: secondary
+      start: 61
+      end: 83
+  ? |
+    const held = fromNullable(input).match({ some: (e: ToolCallInput): e is Bash => e.tool === 'Bash', none: () => false });
+  : fixed: |
+      const held = fromNullable(input).match({ some: isTool('Bash'), none: () => false });
+    labels:
+    - source: '(e: ToolCallInput): e is Bash => e.tool === ''Bash'''
+      style: primary
+      start: 47
+      end: 97
+    - source: e
+      style: secondary
+      start: 48
+      end: 49
+    - source: ToolCallInput
+      style: secondary
+      start: 51
+      end: 64
+    - source: ToolCallInput
+      style: secondary
+      start: 51
+      end: 64
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 48
+      end: 64
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 48
+      end: 64
+    - source: ': e is Bash'
+      style: secondary
+      start: 65
+      end: 76
+    - source: ===
+      style: secondary
+      start: 87
+      end: 90
+    - source: e
+      style: secondary
+      start: 80
+      end: 81
+    - source: tool
+      style: secondary
+      start: 82
+      end: 86
+    - source: e.tool
+      style: secondary
+      start: 80
+      end: 86
+    - source: '''Bash'''
+      style: secondary
+      start: 91
+      end: 97
+    - source: e.tool === 'Bash'
+      style: secondary
+      start: 80
+      end: 97
+  ? |
+    const rule = when((e: ToolCallInput): e is Edit => e.tool === 'Edit', editRule);
+  : fixed: |
+      const rule = when(isTool('Edit'), editRule);
+    labels:
+    - source: '(e: ToolCallInput): e is Edit => e.tool === ''Edit'''
+      style: primary
+      start: 18
+      end: 68
+    - source: e
+      style: secondary
+      start: 19
+      end: 20
+    - source: ToolCallInput
+      style: secondary
+      start: 22
+      end: 35
+    - source: ToolCallInput
+      style: secondary
+      start: 22
+      end: 35
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 19
+      end: 35
+    - source: 'e: ToolCallInput'
+      style: secondary
+      start: 19
+      end: 35
+    - source: ': e is Edit'
+      style: secondary
+      start: 36
+      end: 47
+    - source: ===
+      style: secondary
+      start: 58
+      end: 61
+    - source: e
+      style: secondary
+      start: 51
+      end: 52
+    - source: tool
+      style: secondary
+      start: 53
+      end: 57
+    - source: e.tool
+      style: secondary
+      start: 51
+      end: 57
+    - source: '''Edit'''
+      style: secondary
+      start: 62
+      end: 68
+    - source: e.tool === 'Edit'
+      style: secondary
+      start: 51
+      end: 68

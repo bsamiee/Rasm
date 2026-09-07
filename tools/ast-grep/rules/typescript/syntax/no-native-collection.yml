@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-native-collection
+language: tsx
+severity: error
+ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, HashMap and HashSet have no place there
+rule:
+    any:
+        - kind: new_expression
+          all:
+              - has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?(Map|Set|WeakMap|WeakSet)$'}
+              # Class implementing a package interface that names the native type holds it, Tracer.Span declares attributes as a ReadonlyMap
+              - not:
+                    inside:
+                        kind: class_body
+                        stopBy: end
+                        inside: {kind: class_declaration, has: {kind: class_heritage, has: {kind: implements_clause}}}
+        # The grouping statics answer a native Map or a plain object
+        - kind: call_expression
+          has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$'}
+message: 'The collection is built through the native `$NAME`, and the effect package owns the immutable and the mutable form'
+note: >-
+    Build the collection through `HashMap.empty()`, `HashMap.fromIterable(entries)`, `HashSet.fromIterable(values)`, `Array.groupBy(rows, key)`,
+    or `MutableHashMap.empty()` and `MutableHashSet.empty()` where one scope owns the writes

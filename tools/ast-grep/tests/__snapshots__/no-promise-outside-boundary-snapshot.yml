@@ -1,0 +1,86 @@
+id: no-promise-outside-boundary
+snapshots:
+  const done = Effect.runPromise(work).then(report);:
+    labels:
+    - source: Effect.runPromise(work).then(report)
+      style: primary
+      start: 13
+      end: 49
+    - source: then
+      style: secondary
+      start: 37
+      end: 41
+    - source: Effect.runPromise(work).then
+      style: secondary
+      start: 13
+      end: 41
+  const drain = async () => { for await (const row of source) { use(row); } };:
+    labels:
+    - source: for await (const row of source) { use(row); }
+      style: primary
+      start: 28
+      end: 73
+    - source: await
+      style: secondary
+      start: 32
+      end: 37
+  const loaded = Effect.sync(async () => await load(path));:
+    labels:
+    - source: await load(path)
+      style: primary
+      start: 39
+      end: 55
+  const loaded = async () => { const raw = await load(path); return decode(raw); };:
+    labels:
+    - source: await load(path)
+      style: primary
+      start: 41
+      end: 57
+  const loaded = load(path).catch(report);:
+    labels:
+    - source: load(path).catch(report)
+      style: primary
+      start: 15
+      end: 39
+    - source: catch
+      style: secondary
+      start: 26
+      end: 31
+    - source: load(path).catch
+      style: secondary
+      start: 15
+      end: 31
+  const loaded = load(path).finally(close);:
+    labels:
+    - source: load(path).finally(close)
+      style: primary
+      start: 15
+      end: 40
+    - source: finally
+      style: secondary
+      start: 26
+      end: 33
+    - source: load(path).finally
+      style: secondary
+      start: 15
+      end: 33
+  const loaded = load(path).then(decode);:
+    labels:
+    - source: load(path).then(decode)
+      style: primary
+      start: 15
+      end: 38
+    - source: then
+      style: secondary
+      start: 26
+      end: 30
+    - source: load(path).then
+      style: secondary
+      start: 15
+      end: 30
+  const rows = Array.map(items, async (item) => await load(item));:
+    labels:
+    - source: await load(item)
+      style: primary
+      start: 46
+      end: 62

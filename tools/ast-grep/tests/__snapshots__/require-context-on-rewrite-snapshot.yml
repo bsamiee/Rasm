@@ -1,0 +1,879 @@
+id: require-context-on-rewrite
+snapshots:
+  ? |
+    const arm = (register: On): void => {
+        register('tool.call', ($, e, next) => next({ ...e, command }));
+    };
+  : labels:
+    - source: ($, e, next) => next({ ...e, command })
+      style: primary
+      start: 64
+      end: 103
+    - source: e
+      style: secondary
+      start: 68
+      end: 69
+    - source: e
+      style: secondary
+      start: 68
+      end: 69
+    - source: e
+      style: secondary
+      start: 68
+      end: 69
+    - source: next
+      style: secondary
+      start: 71
+      end: 75
+    - source: next
+      style: secondary
+      start: 71
+      end: 75
+    - source: next
+      style: secondary
+      start: 71
+      end: 75
+    - source: next
+      style: secondary
+      start: 80
+      end: 84
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 85
+      end: 102
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 85
+      end: 102
+    - source: next({ ...e, command })
+      style: secondary
+      start: 80
+      end: 103
+  ? |
+    const hook = ($, e, next) => next({ ...e, command });
+    on('tool.call', hook);
+  : labels:
+    - source: ($, e, next) => next({ ...e, command })
+      style: primary
+      start: 13
+      end: 52
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: next
+      style: secondary
+      start: 20
+      end: 24
+    - source: next
+      style: secondary
+      start: 20
+      end: 24
+    - source: next
+      style: secondary
+      start: 20
+      end: 24
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 34
+      end: 51
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 34
+      end: 51
+    - source: next({ ...e, command })
+      style: secondary
+      start: 29
+      end: 52
+  ? |
+    const hook = ($, e, next) => next({ ...e, command });
+    on('tool.call', { tool: 'Bash' }, hook);
+  : labels:
+    - source: ($, e, next) => next({ ...e, command })
+      style: primary
+      start: 13
+      end: 52
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: e
+      style: secondary
+      start: 17
+      end: 18
+    - source: next
+      style: secondary
+      start: 20
+      end: 24
+    - source: next
+      style: secondary
+      start: 20
+      end: 24
+    - source: next
+      style: secondary
+      start: 20
+      end: 24
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 34
+      end: 51
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 34
+      end: 51
+    - source: next({ ...e, command })
+      style: secondary
+      start: 29
+      end: 52
+  ? |
+    on("tool.call", ($, e, next) => next({ ...e, command }));
+  : labels:
+    - source: ($, e, next) => next({ ...e, command })
+      style: primary
+      start: 16
+      end: 55
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 37
+      end: 54
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 37
+      end: 54
+    - source: next({ ...e, command })
+      style: secondary
+      start: 32
+      end: 55
+  ? |
+    on('tool.call', ($, e, next) => load(e).then(() => next({ ...e, command })));
+  : labels:
+    - source: ($, e, next) => load(e).then(() => next({ ...e, command }))
+      style: primary
+      start: 16
+      end: 75
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 51
+      end: 55
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 56
+      end: 73
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 56
+      end: 73
+    - source: next({ ...e, command })
+      style: secondary
+      start: 51
+      end: 74
+  ? |
+    on('tool.call', ($, e, next) => next(Object.assign({}, e, { command: 'ls' })));
+  : labels:
+    - source: '($, e, next) => next(Object.assign({}, e, { command: ''ls'' }))'
+      style: primary
+      start: 16
+      end: 77
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: 'Object.assign({}, e, { command: ''ls'' })'
+      style: secondary
+      start: 37
+      end: 76
+    - source: 'Object.assign({}, e, { command: ''ls'' })'
+      style: secondary
+      start: 37
+      end: 76
+    - source: 'next(Object.assign({}, e, { command: ''ls'' }))'
+      style: secondary
+      start: 32
+      end: 77
+  ? |
+    on('tool.call', ($, e, next) => next({ ...e, ...patch }));
+  : labels:
+    - source: ($, e, next) => next({ ...e, ...patch })
+      style: primary
+      start: 16
+      end: 56
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: '{ ...e, ...patch }'
+      style: secondary
+      start: 37
+      end: 55
+    - source: '{ ...e, ...patch }'
+      style: secondary
+      start: 37
+      end: 55
+    - source: next({ ...e, ...patch })
+      style: secondary
+      start: 32
+      end: 56
+  ? |
+    on('tool.call', ($, e, next) => next({ ...e, command }));
+  : labels:
+    - source: ($, e, next) => next({ ...e, command })
+      style: primary
+      start: 16
+      end: 55
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 37
+      end: 54
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 37
+      end: 54
+    - source: next({ ...e, command })
+      style: secondary
+      start: 32
+      end: 55
+  ? |
+    on('tool.call', ($, e, next) => next({ ...e, command: 'ls' }));
+  : labels:
+    - source: '($, e, next) => next({ ...e, command: ''ls'' })'
+      style: primary
+      start: 16
+      end: 61
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: '{ ...e, command: ''ls'' }'
+      style: secondary
+      start: 37
+      end: 60
+    - source: '{ ...e, command: ''ls'' }'
+      style: secondary
+      start: 37
+      end: 60
+    - source: 'next({ ...e, command: ''ls'' })'
+      style: secondary
+      start: 32
+      end: 61
+  ? |
+    on('tool.call', ($, e, next) => next({ ...e, input: { ...e.input, command } }));
+  : labels:
+    - source: '($, e, next) => next({ ...e, input: { ...e.input, command } })'
+      style: primary
+      start: 16
+      end: 78
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: '{ ...e, input: { ...e.input, command } }'
+      style: secondary
+      start: 37
+      end: 77
+    - source: '{ ...e, input: { ...e.input, command } }'
+      style: secondary
+      start: 37
+      end: 77
+    - source: 'next({ ...e, input: { ...e.input, command } })'
+      style: secondary
+      start: 32
+      end: 78
+  ? |
+    on('tool.call', ($, e, next) => {
+        const run = () => next({ ...e, command });
+        return run();
+    });
+  : labels:
+    - source: |-
+        ($, e, next) => {
+            const run = () => next({ ...e, command });
+            return run();
+        }
+      style: primary
+      start: 16
+      end: 100
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: e
+      style: secondary
+      start: 20
+      end: 21
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 23
+      end: 27
+    - source: next
+      style: secondary
+      start: 56
+      end: 60
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 61
+      end: 78
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 61
+      end: 78
+    - source: next({ ...e, command })
+      style: secondary
+      start: 56
+      end: 79
+  ? |
+    on('tool.call', ($, event, chain) => chain({ ...event, command }));
+  : labels:
+    - source: ($, event, chain) => chain({ ...event, command })
+      style: primary
+      start: 16
+      end: 65
+    - source: event
+      style: secondary
+      start: 20
+      end: 25
+    - source: event
+      style: secondary
+      start: 20
+      end: 25
+    - source: event
+      style: secondary
+      start: 20
+      end: 25
+    - source: chain
+      style: secondary
+      start: 27
+      end: 32
+    - source: chain
+      style: secondary
+      start: 27
+      end: 32
+    - source: chain
+      style: secondary
+      start: 27
+      end: 32
+    - source: chain
+      style: secondary
+      start: 37
+      end: 42
+    - source: '{ ...event, command }'
+      style: secondary
+      start: 43
+      end: 64
+    - source: '{ ...event, command }'
+      style: secondary
+      start: 43
+      end: 64
+    - source: chain({ ...event, command })
+      style: secondary
+      start: 37
+      end: 65
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const copy = { ...e, command: restore(e.command) };
+        return next(copy);
+    });
+  : labels:
+    - source: |-
+        async ($, e, next) => {
+            const copy = { ...e, command: restore(e.command) };
+            return next(copy);
+        }
+      style: primary
+      start: 16
+      end: 120
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 107
+      end: 111
+    - source: copy
+      style: secondary
+      start: 50
+      end: 54
+    - source: '{ ...e, command: restore(e.command) }'
+      style: secondary
+      start: 57
+      end: 94
+    - source: 'copy = { ...e, command: restore(e.command) }'
+      style: secondary
+      start: 50
+      end: 94
+    - source: |-
+        {
+            const copy = { ...e, command: restore(e.command) };
+            return next(copy);
+        }
+      style: secondary
+      start: 38
+      end: 120
+    - source: copy
+      style: secondary
+      start: 112
+      end: 116
+    - source: copy
+      style: secondary
+      start: 112
+      end: 116
+    - source: next(copy)
+      style: secondary
+      start: 107
+      end: 117
+  ? |
+    on('tool.call', async ($, e, next) => {
+        const rewritten = command.replace(npmPrefix, `${packageManager} `);
+        return next({ ...e, command: rewritten });
+    });
+  : labels:
+    - source: |-
+        async ($, e, next) => {
+            const rewritten = command.replace(npmPrefix, `${packageManager} `);
+            return next({ ...e, command: rewritten });
+        }
+      style: primary
+      start: 16
+      end: 160
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 123
+      end: 127
+    - source: '{ ...e, command: rewritten }'
+      style: secondary
+      start: 128
+      end: 156
+    - source: '{ ...e, command: rewritten }'
+      style: secondary
+      start: 128
+      end: 156
+    - source: 'next({ ...e, command: rewritten })'
+      style: secondary
+      start: 123
+      end: 157
+  ? |
+    on('tool.call', async ($, e, next) => {
+        if (ready) {
+            const copy = { ...e, command };
+            return next(copy);
+        }
+        return next(e);
+    });
+  : labels:
+    - source: |-
+        async ($, e, next) => {
+            if (ready) {
+                const copy = { ...e, command };
+                return next(copy);
+            }
+            return next(e);
+        }
+      style: primary
+      start: 16
+      end: 151
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: e
+      style: secondary
+      start: 26
+      end: 27
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 29
+      end: 33
+    - source: next
+      style: secondary
+      start: 112
+      end: 116
+    - source: copy
+      style: secondary
+      start: 71
+      end: 75
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 78
+      end: 95
+    - source: copy = { ...e, command }
+      style: secondary
+      start: 71
+      end: 95
+    - source: |-
+        {
+                const copy = { ...e, command };
+                return next(copy);
+            }
+      style: secondary
+      start: 55
+      end: 129
+    - source: copy
+      style: secondary
+      start: 117
+      end: 121
+    - source: copy
+      style: secondary
+      start: 117
+      end: 121
+    - source: next(copy)
+      style: secondary
+      start: 112
+      end: 122
+  ? |
+    on('tool.call', function ($, e, next) { return next({ ...e, command }); });
+  : labels:
+    - source: function ($, e, next) { return next({ ...e, command }); }
+      style: primary
+      start: 16
+      end: 73
+    - source: e
+      style: secondary
+      start: 29
+      end: 30
+    - source: e
+      style: secondary
+      start: 29
+      end: 30
+    - source: e
+      style: secondary
+      start: 29
+      end: 30
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: next
+      style: secondary
+      start: 32
+      end: 36
+    - source: next
+      style: secondary
+      start: 47
+      end: 51
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 52
+      end: 69
+    - source: '{ ...e, command }'
+      style: secondary
+      start: 52
+      end: 69
+    - source: next({ ...e, command })
+      style: secondary
+      start: 47
+      end: 70
+  ? |
+    on('tool.call', { tool: 'Bash' }, ($, e, next) => next({ ...e, command: restore(e.command) }));
+  : labels:
+    - source: '($, e, next) => next({ ...e, command: restore(e.command) })'
+      style: primary
+      start: 34
+      end: 93
+    - source: e
+      style: secondary
+      start: 38
+      end: 39
+    - source: e
+      style: secondary
+      start: 38
+      end: 39
+    - source: e
+      style: secondary
+      start: 38
+      end: 39
+    - source: next
+      style: secondary
+      start: 41
+      end: 45
+    - source: next
+      style: secondary
+      start: 41
+      end: 45
+    - source: next
+      style: secondary
+      start: 41
+      end: 45
+    - source: next
+      style: secondary
+      start: 50
+      end: 54
+    - source: '{ ...e, command: restore(e.command) }'
+      style: secondary
+      start: 55
+      end: 92
+    - source: '{ ...e, command: restore(e.command) }'
+      style: secondary
+      start: 55
+      end: 92
+    - source: 'next({ ...e, command: restore(e.command) })'
+      style: secondary
+      start: 50
+      end: 93

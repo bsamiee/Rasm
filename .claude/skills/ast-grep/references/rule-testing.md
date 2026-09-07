@@ -23,25 +23,26 @@ Rule tests prove what the rule reports and what it keeps out, and their snapshot
 - `crates/cli/src/utils/error_context.rs` in the ast-grep source is the one source of exit codes
 - `Configuration not found! <id>` names a test with no rule, and a test of a `severity: off` rule under a run without `--include-off`
 - `--filter <regex>` selects test ids by Rust regex (`^no-`, `eval`), and `-t` bypasses `testConfigs`
+- `test -c <scratch>/sgconfig.yml -t <dir>` runs scratch cases against the real rules from any directory and touches no committed test
 - `--include-off` runs the rewrite cases, the `severity: off` rules under `rewrites/`, and the lint target passes it
-- `rule-checks.sh test <ext>` and `pairing <ext>` read the whole tree and report a `FAIL` of another language
-- `rule-checks.sh width <ext>`, `arms <ext>`, and `parse <ext>` read the language that owns the extension alone
-- `--snapshot-dir` acts beside `-t` alone, `--interactive` wins over `-U` when both are passed, and `-U` accepts every diff without a prompt
+- `rule-checks.sh pairing` reads the whole tree with no extension, and `gate <ext>` tests the rules of the language that owns the extension alone
+- `rule-checks.sh width <ext>`, `arms <ext>`, and `parse <ext>` read that language alone, and a third argument `'^<id>$'` narrows them to one rule
+- `--snapshot-dir` acts beside `-t` alone, and `-U` accepts every diff without a prompt
 
 Green runs prove the wrong thing in each listed case, and the check beside it closes the gap:
 
 | [INDEX] | [GREEN_CASE]                                                                | [CHECK]                                                    |
 | :-----: | :-------------------------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | Rule with no test document, or a symlinked test without `--follow`          | `rule-checks.sh pairing <ext>`, `--follow` for the symlink |
-|  [02]   | Test with an id that names no rule, `Configuration not found! <id>`, exit 0 | `rule-checks.sh pairing <ext>`                             |
-|  [03]   | Test document with `id` alone, `SKIP`, `-U` writes `snapshots: {}`          | `rule-checks.sh pairing <ext>`                             |
-|  [04]   | Key the runner lacks (`vaild:`, `todoValid:`, `language:`), never run       | `rule-checks.sh pairing <ext>`                             |
+|  [01]   | Rule with no test document, or a symlinked test without `--follow`          | `rule-checks.sh pairing`, `--follow` for the symlink       |
+|  [02]   | Test with an id that names no rule, `Configuration not found! <id>`, exit 0 | `rule-checks.sh pairing`                                   |
+|  [03]   | Test document with `id` alone, `SKIP`, `-U` writes `snapshots: {}`          | `rule-checks.sh pairing`                                   |
+|  [04]   | Key the runner lacks (`vaild:`, `todoValid:`, `language:`), never run       | `rule-checks.sh pairing`                                   |
 |  [05]   | Folded `>` case that swallows the next `- >` markers into one string        | `rule-checks.sh width <ext>`                               |
 |  [06]   | Empty case, or one the grammar rejects (`const = ` is `ERROR`), Validated   | `rule-checks.sh parse <ext>`                               |
 |  [07]   | `ast-grep new test` scaffold, `"valid code"`, Validated                     | Every placeholder case replaced                            |
 |  [08]   | `severity: off` rule, `Configuration not found!`                            | `--include-off` on the run, `Configuration not found` line |
-|  [09]   | `files:`, `ignores:`, or a suppression comment in a case, each ignored      | Scoping and waivers proven by `scan` over a path           |
-|  [10]   | `--skip-snapshot-tests`, or a snapshot never written, a changed fix passes  | `rule-checks.sh pairing <ext>`, then `-U`                  |
+|  [09]   | `files:` or `ignores:` in a case ignored, a suppression comment `Noisy`     | Scoping and waivers proven by `scan` over a path           |
+|  [10]   | `--skip-snapshot-tests`, or a snapshot never written, a changed fix passes  | `rule-checks.sh pairing`, then `-U`                        |
 
 ## [02]-[CASES]
 
@@ -63,10 +64,11 @@ Each case holds one shape under a comment naming it, and the set is the sibling 
 
 - One violation per case: the snapshot records the first match's labels and fix alone (`eval(1); eval(2)` fixes `eval(1)`), the second is invisible
 - The arm test: an arm deleted with no case failing and no count moving leaves or gains its case
-- Use `rule-checks.sh gate <ext>` for the checks a green run skips
-- `unchecked arm` lines stay findings until the script loads the arm's mutant
+- Use `pnpm exec nx run rasm:rules:<ext>` for the checks a green run skips
+- `unchecked arm` lines name a mutant the loader refuses, a local util of one key or a capture bound in one `any:` arm, and the rule shape changes
+- Local utils holding one key are deleted whole by the arm mutation and print `unchecked arm`, the key sits beside a `kind`
 - Arity-pinned patterns bind positions through their captures, `constraints: {<VAR>: {matches: <util>}}` replaces `nthChild` arms
-- Once-reporting arms change the count and not the first match, one hit per `invalid:` case is their proof
+- Once-reporting arms change the count and not the first match, `width <ext>` at one hit per case proves them and closes their `uncovered arm` line
 - Presence guards state the kind or a value util, a `\S` over a quoted attribute value matches the quote and fails no case when blanked
 - Code holding `key: value` goes in a `- |` block scalar, the plain form fails with `invalid type: map, expected a string` and exit 8
 - `|` keeps the trailing newline in the snapshot key and `|-` drops it, a switch between them orphans the entry
@@ -81,10 +83,12 @@ Each case holds one shape under a comment naming it, and the set is the sibling 
 
 The snapshot is the committed record of what the rule reported for each `invalid:` case, keyed by the exact case text, and the run compares it byte for byte:
 
-- `test -U` writes `<testDir>/__snapshots__/<id>-snapshot.yml` with sorted keys, one entry per case: `labels`, and `fixed` when the rule has a fix
+- `test -U --filter '^<id>$'` writes `<testDir>/__snapshots__/<id>-snapshot.yml` with sorted keys, an entry per case holding `labels` and `fixed`
 - The runner reads one snapshot file per id, `snapshotDir` names the directory alone, and a hand-merged or hand-moved snapshot file is never found
 - Default labels are one primary on the match and one secondary per relational clause's node, the record of what each clause bound
+- Labels list every relational match, so a reordered clause changes the snapshot with the match unchanged, and the `-U` diff reads as label order
 - With `labels:` the entry holds the configured captures alone, a changed relational clause then leaves no trace and takes a case of its own
+- Label entries hold the `message` text, and a message edit fails `Wrong` until `-U` rewrites the entry
 - Two `labels:` entries serialize in random order, the run flakes `[Wrong]` exit 4 against one snapshot, and default labels hold their order
 - `fixed` is the case with the first fix template substituted over the match range, it must re-parse
 - `fixed` skips `expandStart` and `expandEnd` (`foo(first, second)` yields `foo(, second)`), `replacementOffsets` alone show the consumed comma
@@ -105,16 +109,16 @@ Assume the rule is wrong, write the case that shows it, and correct the rule whe
 |  [04]   | `constraints` grammar          | Name one character outside it under `valid:`, one inside under `invalid:`                           |
 |  [05]   | `stopBy: end`                  | Shape one node past the owner under `valid:`, the neighbor default two levels down under `invalid:` |
 |  [06]   | Util the rule hides behind     | Each arm of the util as a case, a global util proven through every rule that calls it               |
-|  [07]   | `fix`                          | Variant that breaks the template under `invalid:`, its `fixed` re-parsed with the expression type kept |
+|  [07]   | `fix`                          | Variant that breaks the template under `invalid:`, its `fixed` under the language's fix proof       |
 |  [08]   | Once-reporting arm             | Nested form counted over a file, one hit                                                            |
 |  [09]   | `language` and `files:`        | One known hit counted under `--filter` over a real path                                             |
 |  [10]   | Element or callee name `regex` | The same attributes or arguments under another element or callee under `valid:`                     |
-|  [11]   | Argument rule of a util call   | Node the argument rule refuses under `valid:`, one it admits under `invalid:`, per calling rule      |
-|  [12]   | `nthChild` object form         | Only child under `invalid:`, a sibling before it and one after it under `valid:`, a comment sibling  |
+|  [11]   | Argument rule of a util call   | Node the argument rule refuses under `valid:`, one it admits under `invalid:`, per calling rule     |
+|  [12]   | `nthChild` object form         | Only child under `invalid:`, a sibling before it and one after it under `valid:`, a comment sibling |
 |  [13]   | Closure `stopBy` on `has`      | Inner function holding the shape under `valid:`, the owner's own shape under `invalid:`             |
-|  [14]   | Nested `follows` count         | One sibling short under `valid:`, the counted number under `invalid:`, a skipped kind between them   |
-|  [15]   | `transform` chain              | Capture only the last stage rewrites, its `fixed` read, an input no stage changes under `valid:`     |
-|  [16]   | Partitioning rewriters         | Mixed list under `invalid:` with its `fixed` order read, an item no rewriter matches under `valid:`  |
+|  [14]   | Nested `follows` count         | One sibling short under `valid:`, the counted number under `invalid:`, a skipped kind between them  |
+|  [15]   | `transform` chain              | Capture only the last stage rewrites, its `fixed` read, an input no stage changes under `valid:`    |
+|  [16]   | Partitioning rewriters         | Mixed list under `invalid:` with its `fixed` order read, an item no rewriter matches under `valid:` |
 
 - Cases written before the widening prove it: the sibling fails `Missing`, the widening lands, the case passes, the near miss stays `Validated`
 - `-U` runs after the rule is proven and its diff is read, the snapshot is committed with the rule, and `-U` on a red run proves nothing
@@ -123,6 +127,11 @@ Assume the rule is wrong, write the case that shows it, and correct the rule whe
 - Arms no node shape fails (a `regex` over a type with one member) become the `pattern` that pins them, a spelling found on the way is the case
 - Global util arms are covered once any calling rule's case fails or a count moves, and each caller's test holds a case through the base clause
 - The hit count of an `invalid:` case reads past one as a once-reporting gap and at zero as a `files:` glob the case path misses
+- `rule-checks.sh width <ext> '^<id>$'` runs after every widening, because the admitted sibling changes the hit count of each case that holds it
+- `pnpm exec tsc --strict --noEmit --target es2022 <file>` proves a typed fix over its `fixed:` text, a re-parse passes `reduce(f, undefined)`
+- Python fixes prove over a scratch copy of each `invalid:` case: `scan -U`, `run -k ERROR`, `uv run ruff format --check`, `uv run ruff check`
+- `ruff check` runs `--isolated --select ALL --target-version py315 --preview`, `PLW0108` reports a lambda with a body of one call over its parameter
+- Templates the formatter rewrites (the parentheses around a walrus condition) prove as the applied fix under the formatter's check
 - Whole files are proven by `ast-grep-ignore: <id>` marks under `scan --error=unused-suppression`, exit 0 when each mark was needed
 
 Each arm has the case that made it necessary and an arm without one leaves, the case list is the specification the `message` and `note` restate, and a rule with cases of one shape is a one-shape rule for `rule-hardening`.

@@ -76,7 +76,7 @@ The declaration rules the analyzer enforces:
 |  [02]   | `TryCreate(value, out obj)`          | Returns `false` on rejection, and the 3-parameter overload returns the error            |
 |  [03]   | `Validate(value, provider, out obj)` | Returns the error or `null` and never throws, the complex form has no provider          |
 |  [04]   | Equality, `GetHashCode`, `==`, `!=`  | Run through the configured comparer                                                     |
-|  [05]   | `ToString()`                         | The key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form        |
+|  [05]   | `ToString()`                         | Key's `ToString()`, or `{ Lower = 1.23, Upper = 2.57 }` for the complex form            |
 |  [06]   | `IComparable<T>`, `IFormattable`     | Present when the key is comparable or formattable, simple form only                     |
 |  [07]   | `IParsable<T>`, `ISpanParsable<T>`   | Present when the key is parsable or a `string`, `Parse` throws `FormatException`        |
 |  [08]   | Conversions                          | To the key implicit, from the key explicit through `Create`, unsafe to a value-type key |
@@ -154,7 +154,7 @@ The generator emits one private constructor per base constructor, and its parame
 
 | [INDEX] | [MEMBER]                            | [BEHAVIOR]                                                                                      |
 | :-----: | :---------------------------------- | :---------------------------------------------------------------------------------------------- |
-|  [01]   | `Items`                             | The items in declaration order                                                                  |
+|  [01]   | `Items`                             | Items in declaration order                                                                      |
 |  [02]   | `Get(key)`                          | `null` for a `null` key, `UnknownSmartEnumIdentifierException` for an unknown key               |
 |  [03]   | `TryGet(key, out item)`             | `false` for an unknown key                                                                      |
 |  [04]   | `Validate(key, provider, out item)` | `null` or the error, a `null` key counts as unknown, `[ValidationError<T>]` types the error     |
@@ -162,7 +162,7 @@ The generator emits one private constructor per base constructor, and its parame
 |  [06]   | Equality                            | Identity, `GetHashCode` computed once from the key with the configured comparer                 |
 |  [07]   | `IParsable<T>`, `ISpanParsable<T>`  | Present when the key implements them, which includes `string`, `Parse` throws `FormatException` |
 |  [08]   | `IComparable<T>`, `IFormattable`    | Present for a comparable or formattable key, with the comparison operators                      |
-|  [09]   | `ToString()`, `[TypeConverter]`     | The key's string form, and `ThinktectureTypeConverter<T, TKey, TValidationError>`               |
+|  [09]   | `ToString()`, `[TypeConverter]`     | Key's string form, and `ThinktectureTypeConverter<T, TKey, TValidationError>`                   |
 
 `UnknownSmartEnumIdentifierException` is a `KeyNotFoundException` with the message `There is no item of type 'Kind' with the identifier 'nope'.`, lookups use a `FrozenDictionary`, string keys gain span overloads of `Get`, `TryGet`, `Validate`, `Parse`, and `TryParse`, and `Items`, `Get`, `TryGet`, and `Validate` implement the static abstract members of `ISmartEnum<TKey, T, TValidationError>`, which generic code reaches through the constraint:
 
@@ -189,8 +189,8 @@ Ad hoc unions combine existing types that share no base, regular unions are clas
 | :-----: | :---------- | :------------------------------------------------------ | :----------------------------------------------------------- |
 |  [01]   | Declaration | `partial class`, `partial struct`, `ref partial struct` | `partial class` or `partial record`, generated as `abstract` |
 |  [02]   | Attribute   | `[Union<T1, T2>]` up to 5 types, or `[AdHocUnion]`      | `[Union]` on the base                                        |
-|  [03]   | Cases       | The type arguments                                      | Nested types that derive from the base                       |
-|  [04]   | Generic     | `TypeParamRef1` to `TypeParamRef5` name type parameters | The base can be generic, a case cannot (053)                 |
+|  [03]   | Cases       | Type arguments                                          | Nested types that derive from the base                       |
+|  [04]   | Generic     | `TypeParamRef1` to `TypeParamRef5` name type parameters | Base can be generic, a case cannot (053)                     |
 
 ### [04.1]-[AD_HOC_UNIONS]
 
@@ -341,10 +341,10 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |  [04]   | `[ValueObject<string>]` without comparer attributes                 | Both `[KeyMemberEqualityComparer]` and `[KeyMemberComparer]`     |
 |  [05]   | `TrimOrNullify(maxLength)` as a length rule in a hook               | Reject the over-long input, a cut maps 2 inputs to 1 value       |
 |  [06]   | `HasConversion` with a lambda that calls `Create`                   | `HasThinktectureValueConverter()` or the converter registration  |
-|  [07]   | The host converter factory for a complex value object               | `Json` referenced by the declaring project, or an object factory |
-|  [08]   | Native `switch` with `_ =>` over a smart enum or union              | The generated `Switch` or `Map`                                  |
-|  [09]   | Lambdas without `static` in a `Switch` arm                          | The state overload with a `static` lambda                        |
-|  [10]   | `SwitchPartially` where every case matters                          | The exhaustive `Switch`                                          |
+|  [07]   | Host converter factory for a complex value object                   | `Json` referenced by the declaring project, or an object factory |
+|  [08]   | Native `switch` with `_ =>` over a smart enum or union              | Generated `Switch` or `Map`                                      |
+|  [09]   | Lambdas without `static` in a `Switch` arm                          | State overload with a `static` lambda                            |
+|  [10]   | `SwitchPartially` where every case matters                          | Exhaustive `Switch`                                              |
 |  [11]   | `default(TUnion)` or `new TUnion()` on a struct union               | Member values, or `MapToFirstMember` with a stateless first case |
 |  [12]   | Stateless markers as classes                                        | `readonly record struct`                                         |
 |  [13]   | `string` failure case beside a `string` success value               | One distinct type per case                                       |

@@ -26,6 +26,92 @@ snapshots:
       style: secondary
       start: 60
       end: 98
+  'const last = Array.matchRight(rows, { onEmpty: () => [], onNonEmpty: (init, last) => [last] });':
+    labels:
+    - source: 'Array.matchRight(rows, { onEmpty: () => [], onNonEmpty: (init, last) => [last] })'
+      style: primary
+      start: 13
+      end: 94
+    - source: '[]'
+      style: secondary
+      start: 53
+      end: 55
+    - source: () => []
+      style: secondary
+      start: 47
+      end: 55
+    - source: 'onEmpty: () => []'
+      style: secondary
+      start: 38
+      end: 55
+    - source: '{ onEmpty: () => [], onNonEmpty: (init, last) => [last] }'
+      style: secondary
+      start: 36
+      end: 93
+    - source: '{ onEmpty: () => [], onNonEmpty: (init, last) => [last] }'
+      style: secondary
+      start: 36
+      end: 93
+  const lines = [...((count > limit && [line]) || [])];:
+    labels:
+    - source: '...((count > limit && [line]) || [])'
+      style: primary
+      start: 15
+      end: 51
+    - source: '&&'
+      style: secondary
+      start: 34
+      end: 36
+    - source: count > limit && [line]
+      style: secondary
+      start: 20
+      end: 43
+    - source: (count > limit && [line])
+      style: secondary
+      start: 19
+      end: 44
+    - source: '[]'
+      style: secondary
+      start: 48
+      end: 50
+    - source: (count > limit && [line]) || []
+      style: secondary
+      start: 19
+      end: 50
+    - source: ((count > limit && [line]) || [])
+      style: secondary
+      start: 18
+      end: 51
+  const lines = [...((entry && line.length >= width && [line]) || [])];:
+    labels:
+    - source: '...((entry && line.length >= width && [line]) || [])'
+      style: primary
+      start: 15
+      end: 67
+    - source: '&&'
+      style: secondary
+      start: 50
+      end: 52
+    - source: entry && line.length >= width && [line]
+      style: secondary
+      start: 20
+      end: 59
+    - source: (entry && line.length >= width && [line])
+      style: secondary
+      start: 19
+      end: 60
+    - source: '[]'
+      style: secondary
+      start: 64
+      end: 66
+    - source: (entry && line.length >= width && [line]) || []
+      style: secondary
+      start: 19
+      end: 66
+    - source: ((entry && line.length >= width && [line]) || [])
+      style: secondary
+      start: 18
+      end: 67
   'const listed = Option.match(found, { onNone: () => [], onSome: (item) => [item] });':
     labels:
     - source: 'Option.match(found, { onNone: () => [], onSome: (item) => [item] })'
@@ -82,6 +168,16 @@ snapshots:
       style: secondary
       start: 34
       end: 96
+  'const names = (label) => (hidden ? [] : [label]);':
+    labels:
+    - source: 'hidden ? [] : [label]'
+      style: primary
+      start: 26
+      end: 47
+    - source: '[]'
+      style: secondary
+      start: 35
+      end: 37
   const names = Match.type<Language>().pipe(Match.when("python", () => [name]), Match.orElse(() => []));:
     labels:
     - source: Match.type<Language>().pipe(Match.when("python", () => [name]), Match.orElse(() => []))
@@ -160,6 +256,96 @@ snapshots:
       style: secondary
       start: 18
       end: 102
+  'const options = Array.match(rows, { onEmpty: () => ({}), onNonEmpty: (rows) => ({ rows }) });':
+    labels:
+    - source: 'Array.match(rows, { onEmpty: () => ({}), onNonEmpty: (rows) => ({ rows }) })'
+      style: primary
+      start: 16
+      end: 92
+    - source: '{}'
+      style: secondary
+      start: 52
+      end: 54
+    - source: ({})
+      style: secondary
+      start: 51
+      end: 55
+    - source: () => ({})
+      style: secondary
+      start: 45
+      end: 55
+    - source: 'onEmpty: () => ({})'
+      style: secondary
+      start: 36
+      end: 55
+    - source: '{ onEmpty: () => ({}), onNonEmpty: (rows) => ({ rows }) }'
+      style: secondary
+      start: 34
+      end: 91
+    - source: '{ onEmpty: () => ({}), onNonEmpty: (rows) => ({ rows }) }'
+      style: secondary
+      start: 34
+      end: 91
+  'const options = { ...((adopt && { import: id }) ?? {}) };':
+    labels:
+    - source: '...((adopt && { import: id }) ?? {})'
+      style: primary
+      start: 18
+      end: 54
+    - source: '&&'
+      style: secondary
+      start: 29
+      end: 31
+    - source: 'adopt && { import: id }'
+      style: secondary
+      start: 23
+      end: 46
+    - source: '(adopt && { import: id })'
+      style: secondary
+      start: 22
+      end: 47
+    - source: '{}'
+      style: secondary
+      start: 51
+      end: 53
+    - source: '(adopt && { import: id }) ?? {}'
+      style: secondary
+      start: 22
+      end: 53
+    - source: '((adopt && { import: id }) ?? {})'
+      style: secondary
+      start: 21
+      end: 54
+  'const options = { ...((adopt && { import: id }) || {}) };':
+    labels:
+    - source: '...((adopt && { import: id }) || {})'
+      style: primary
+      start: 18
+      end: 54
+    - source: '&&'
+      style: secondary
+      start: 29
+      end: 31
+    - source: 'adopt && { import: id }'
+      style: secondary
+      start: 23
+      end: 46
+    - source: '(adopt && { import: id })'
+      style: secondary
+      start: 22
+      end: 47
+    - source: '{}'
+      style: secondary
+      start: 51
+      end: 53
+    - source: '(adopt && { import: id }) || {}'
+      style: secondary
+      start: 22
+      end: 53
+    - source: '((adopt && { import: id }) || {})'
+      style: secondary
+      start: 21
+      end: 54
   'const options = { ...(adopt && { import: id }) };':
     labels:
     - source: '...(adopt && { import: id })'
@@ -178,6 +364,94 @@ snapshots:
       style: secondary
       start: 21
       end: 46
+  'const options = { ...(hidden ? null : { label }) };':
+    labels:
+    - source: 'hidden ? null : { label }'
+      style: primary
+      start: 22
+      end: 47
+    - source: '{ ...(hidden ? null : { label }) }'
+      style: secondary
+      start: 16
+      end: 50
+    - source: '...(hidden ? null : { label })'
+      style: secondary
+      start: 18
+      end: 48
+    - source: '(hidden ? null : { label })'
+      style: secondary
+      start: 21
+      end: 48
+    - source: 'null'
+      style: secondary
+      start: 31
+      end: 35
+  'const options = { ...(hidden ? undefined : { label }) };':
+    labels:
+    - source: 'hidden ? undefined : { label }'
+      style: primary
+      start: 22
+      end: 52
+    - source: '{ ...(hidden ? undefined : { label }) }'
+      style: secondary
+      start: 16
+      end: 55
+    - source: '...(hidden ? undefined : { label })'
+      style: secondary
+      start: 18
+      end: 53
+    - source: '(hidden ? undefined : { label })'
+      style: secondary
+      start: 21
+      end: 53
+    - source: undefined
+      style: secondary
+      start: 31
+      end: 40
+  'const options = { ...(shown ? { label } : null) };':
+    labels:
+    - source: 'shown ? { label } : null'
+      style: primary
+      start: 22
+      end: 46
+    - source: '{ ...(shown ? { label } : null) }'
+      style: secondary
+      start: 16
+      end: 49
+    - source: '...(shown ? { label } : null)'
+      style: secondary
+      start: 18
+      end: 47
+    - source: '(shown ? { label } : null)'
+      style: secondary
+      start: 21
+      end: 47
+    - source: 'null'
+      style: secondary
+      start: 42
+      end: 46
+  'const options = { ...(shown ? { label } : undefined) };':
+    labels:
+    - source: 'shown ? { label } : undefined'
+      style: primary
+      start: 22
+      end: 51
+    - source: '{ ...(shown ? { label } : undefined) }'
+      style: secondary
+      start: 16
+      end: 54
+    - source: '...(shown ? { label } : undefined)'
+      style: secondary
+      start: 18
+      end: 52
+    - source: '(shown ? { label } : undefined)'
+      style: secondary
+      start: 21
+      end: 52
+    - source: undefined
+      style: secondary
+      start: 42
+      end: 51
   const options = { ...Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({}))) };:
     labels:
     - source: Match.value(language).pipe(Match.when("python", () => ({ name })), Match.orElse(() => ({})))
@@ -268,6 +542,16 @@ snapshots:
       style: secondary
       start: 25
       end: 114
+  'const options = { extensions: extensions !== undefined ? { extensions } : {} };':
+    labels:
+    - source: 'extensions !== undefined ? { extensions } : {}'
+      style: primary
+      start: 30
+      end: 76
+    - source: '{}'
+      style: secondary
+      start: 74
+      end: 76
   'const parsed = Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] });':
     labels:
     - source: 'Either.match(decoded, { onLeft: () => [], onRight: (row) => [row] })'
@@ -312,6 +596,16 @@ snapshots:
       style: secondary
       start: 20
       end: 43
+  'const plugins = [...(production ? [react()] : [])];':
+    labels:
+    - source: 'production ? [react()] : []'
+      style: primary
+      start: 21
+      end: 48
+    - source: '[]'
+      style: secondary
+      start: 46
+      end: 48
   'const plugins = [...Boolean.match(config.react, { onFalse: () => [], onTrue: reactPlugins })];':
     labels:
     - source: 'Boolean.match(config.react, { onFalse: () => [], onTrue: reactPlugins })'
@@ -538,6 +832,32 @@ snapshots:
       style: secondary
       start: 33
       end: 93
+  'const rows = Option.match(found, { onNone: () => [], onSome: (rows) => rows });':
+    labels:
+    - source: 'Option.match(found, { onNone: () => [], onSome: (rows) => rows })'
+      style: primary
+      start: 13
+      end: 78
+    - source: '[]'
+      style: secondary
+      start: 49
+      end: 51
+    - source: () => []
+      style: secondary
+      start: 43
+      end: 51
+    - source: 'onNone: () => []'
+      style: secondary
+      start: 35
+      end: 51
+    - source: '{ onNone: () => [], onSome: (rows) => rows }'
+      style: secondary
+      start: 33
+      end: 77
+    - source: '{ onNone: () => [], onSome: (rows) => rows }'
+      style: secondary
+      start: 33
+      end: 77
   'const rows = STM.match(transaction, { onFailure: () => [], onSuccess: (row) => [row] });':
     labels:
     - source: 'STM.match(transaction, { onFailure: () => [], onSuccess: (row) => [row] })'
@@ -826,6 +1146,68 @@ snapshots:
       style: secondary
       start: 35
       end: 113
+  'const targets = STM.if(managed, { onTrue: () => STM.succeed({}), onFalse: () => STM.succeed({ stage }) });':
+    labels:
+    - source: 'STM.if(managed, { onTrue: () => STM.succeed({}), onFalse: () => STM.succeed({ stage }) })'
+      style: primary
+      start: 16
+      end: 105
+    - source: STM.succeed
+      style: secondary
+      start: 48
+      end: 59
+    - source: '{}'
+      style: secondary
+      start: 60
+      end: 62
+    - source: '{}'
+      style: secondary
+      start: 60
+      end: 62
+    - source: STM.succeed({})
+      style: secondary
+      start: 48
+      end: 63
+    - source: () => STM.succeed({})
+      style: secondary
+      start: 42
+      end: 63
+    - source: 'onTrue: () => STM.succeed({})'
+      style: secondary
+      start: 34
+      end: 63
+    - source: STM.succeed
+      style: secondary
+      start: 80
+      end: 91
+    - source: '{ stage }'
+      style: secondary
+      start: 92
+      end: 101
+    - source: '{ stage }'
+      style: secondary
+      start: 92
+      end: 101
+    - source: STM.succeed({ stage })
+      style: secondary
+      start: 80
+      end: 102
+    - source: () => STM.succeed({ stage })
+      style: secondary
+      start: 74
+      end: 102
+    - source: 'onFalse: () => STM.succeed({ stage })'
+      style: secondary
+      start: 65
+      end: 102
+    - source: '{ onTrue: () => STM.succeed({}), onFalse: () => STM.succeed({ stage }) }'
+      style: secondary
+      start: 32
+      end: 104
+    - source: '{ onTrue: () => STM.succeed({}), onFalse: () => STM.succeed({ stage }) }'
+      style: secondary
+      start: 32
+      end: 104
   'const targets = { pack, ...Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) }) };':
     labels:
     - source: 'Boolean.match(managed, { onFalse: () => ({ stage }), onTrue: () => ({}) })'

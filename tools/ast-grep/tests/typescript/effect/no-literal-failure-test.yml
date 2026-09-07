@@ -1,0 +1,89 @@
+id: no-literal-failure
+valid:
+    # The tagged error
+    - 'const checked = Effect.fail(new LoadError({ path }));'
+    # Tagged error through a lazy failure
+    - 'const checked = Effect.failSync(() => new LoadError({ path }));'
+    # Error value held in a name
+    - 'const checked = Effect.fail(error);'
+    # Error built by a call
+    - 'const checked = Effect.fail(loadError(path));'
+    # Fail member on a module outside the carrier set
+    - 'const checked = Item.fail("gone");'
+    # Cause built from a tagged error
+    - 'const cause = Cause.fail(new LoadError({ path }));'
+    # Effect member outside the fail set with a literal
+    - 'const held = Effect.succeed("done");'
+    # Object literal with a tag, matched by its tag
+    - 'const checked = Effect.fail({ _tag: "Gone" } as const);'
+    # Predicate thunk on a member outside the failing family
+    - 'const checked = Effect.filterOrFail(work, () => true);'
+    # Mapper answering a tagged error
+    - 'const checked = Effect.mapError(work, (error) => new LoadError({ cause: error }));'
+    # Deferred completed with an error value held in a name
+    - 'const done = Deferred.fail(deferred, error);'
+    # Config.fail takes a message by contract
+    - 'const missing = Config.fail("missing");'
+    # Mapper with a statement before the return
+    - 'const checked = Effect.mapError(work, (error) => { report(); return "gone"; });'
+invalid:
+    # The instance, a string literal failure
+    - 'const checked = Effect.fail("gone");'
+    # Literal under a const cast
+    - 'const checked = Effect.fail("gone" as const);'
+    # Template failure
+    - 'const checked = Effect.fail(`${path} is gone`);'
+    # Number failure
+    - 'const checked = Effect.fail(404);'
+    # Boolean failure
+    - 'const checked = Effect.fail(false);'
+    # Undefined failure
+    - 'const checked = Effect.fail(undefined);'
+    # Untagged Error
+    - 'const checked = Effect.fail(new Error("gone"));'
+    # Untagged TypeError
+    - 'const checked = Effect.fail(new TypeError("gone"));'
+    # Lazy literal failure
+    - 'const checked = Effect.failSync(() => "gone");'
+    # Lazy untagged Error
+    - 'const checked = Effect.failSync(() => new Error("gone"));'
+    # Micro sibling
+    - 'const checked = Micro.fail("gone");'
+    # STM sibling
+    - 'const checked = STM.fail("gone");'
+    # Stream sibling
+    - 'const checked = Stream.fail("gone");'
+    # Layer sibling
+    - 'const checked = Layer.fail("gone");'
+    # Channel sibling
+    - 'const checked = Channel.fail("gone");'
+    # Sink sibling
+    - 'const checked = Sink.fail("gone");'
+    # Exit sibling
+    - 'const checked = Exit.fail("gone");'
+    # Cause sibling
+    - 'const cause = Cause.fail("gone");'
+    # Either left with a literal
+    - 'const checked = Either.left("gone");'
+    # Deferred completed with a literal, the value sits after the deferred
+    - 'const done = Deferred.fail(deferred, "gone");'
+    # Request completed with a number
+    - 'const done = Request.fail(request, 404);'
+    # Fiber sibling
+    - 'const fiber = Fiber.fail("gone");'
+    # Take sibling
+    - 'const take = Take.fail("gone");'
+    # Failure replaced through orElseFail
+    - 'const checked = Effect.orElseFail(work, () => "gone");'
+    # Failure replaced through the data-last orElseFail
+    - 'const checked = work.pipe(Effect.orElseFail(() => "gone"));'
+    # Failure mapped to a template
+    - 'const checked = Effect.mapError(work, (error) => `load failed: ${error.message}`);'
+    # Either left mapped to a literal
+    - 'const checked = Either.mapLeft(decoded, () => "gone");'
+    # Option turned into an Either with a literal left
+    - 'const checked = Either.fromOption(found, () => "gone");'
+    # STM failure replaced with an untagged Error
+    - 'const checked = STM.orElseFail(transaction, () => new Error("gone"));'
+    # Stream failure mapped through a function expression with the one return
+    - 'const checked = Stream.mapError(stream, function () { return "gone"; });'

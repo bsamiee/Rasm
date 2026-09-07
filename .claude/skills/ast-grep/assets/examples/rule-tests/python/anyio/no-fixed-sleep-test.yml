@@ -1,0 +1,117 @@
+id: no-fixed-sleep
+valid:
+    # The corrected form, the condition awaited through the package primitive
+    - |
+      async def wait(process):
+          await process.wait()
+    # Another member of the time module
+    - |
+      import time
+
+      started = time.monotonic()
+    # Attribute named like the member on another object
+    - |
+      import other
+
+      other.sleep(1)
+    # Plain name read, the rule reports the from-import of the member and never the read of the name
+    - |
+      def sleep(seconds):
+          return seconds
+
+      sleep(1)
+    # Alias of another module, the alias import proves nothing for time
+    - |
+      import other as t
+
+      t.sleep(1)
+    # The computed argument, a parameter read where the delay is computed, the near miss of the fixed-delay arm
+    - |
+      import anyio
+
+      async def wait(delay):
+          await anyio.sleep(delay)
+    # The local name, an assignment inside the function binds it and the module root holds none
+    - |
+      import anyio
+
+      async def wait():
+          delay = 2
+          await anyio.sleep(delay)
+    # The sleep(0) exemption, the checkpoint that yields to the scheduler and stands for no wait
+    - |
+      import anyio
+
+      async def wait():
+          await anyio.sleep(0)
+    # The float zero, the checkpoint spelled as a float
+    - |
+      import anyio
+
+      async def wait():
+          await anyio.sleep(0.0)
+    # The literal second argument beside a computed delay, the value asyncio.sleep returns, nthChild pins the first argument
+    - |
+      import asyncio
+
+      async def wait(delay):
+          await asyncio.sleep(delay, 5)
+    # Another member of anyio over a literal
+    - |
+      import anyio
+
+      async def wait():
+          await anyio.sleep_until(5)
+invalid:
+    # The from-import form naming the member
+    - 'from time import sleep'
+    # The from-import form under an alias, second in the name list, a field relation reads the first name field alone
+    - 'from time import perf_counter, sleep as pause'
+    # The attribute form read off the module
+    - |
+      import time
+
+      time.sleep(1)
+    # The alias form, the attribute read through the alias the import binds
+    - |
+      import time as t
+
+      t.sleep(1)
+    # The thread-blocking sleep over a computed argument, blocking whatever the argument
+    - |
+      import time
+
+      def wait(delay):
+          time.sleep(delay)
+    # The literal argument under the awaited sleep
+    - |
+      import anyio
+
+      async def wait():
+          await anyio.sleep(100)
+    # The asyncio spelling over a float literal
+    - |
+      import asyncio
+
+      async def wait():
+          await asyncio.sleep(2.5)
+    # The literal delay beside a result, the second argument of asyncio.sleep exempts nothing
+    - |
+      import asyncio
+
+      async def wait():
+          await asyncio.sleep(1, "done")
+    # The module-level name as the argument, the assignment at the module root binds it
+    - |
+      import anyio
+
+      _SETTLE = 100
+
+      async def wait():
+          await anyio.sleep(_SETTLE)
+    # The alias form of the awaited sleep
+    - |
+      import anyio as a
+
+      async def wait():
+          await a.sleep(1)

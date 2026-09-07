@@ -1,0 +1,114 @@
+id: no-exit-in-else-clause
+valid:
+    # The corrected form, the guard list
+    - |
+      [[ -v count[keys,$id] ]] || {
+          finding "no snapshot: $id"
+          continue
+      }
+    # The then branch leaves too
+    - |
+      if [[ -f $s ]]; then
+          exit 2
+      else
+          exit 1
+      fi
+    # The then branch leaves and the else continues
+    - |
+      if [[ -f $s ]]; then
+          return 1
+      else
+          printf '%s\n' b
+      fi
+    # An elif chain selects among cases
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      elif [[ -d $s ]]; then
+          printf '%s\n' b
+      else
+          exit 1
+      fi
+    # The else clause continues
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          printf '%s\n' b
+      fi
+    # The else clause leaves before its last statement
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          exit 1
+          printf '%s\n' late
+      fi
+    # Both branches leave, statements separated by ;
+    - if [[ -f $s ]]; then exit 2; else exit 1; fi
+    # A comment on the line of the leaving command in the then branch
+    - |
+      if [[ -f $s ]]; then
+          exit 2 # done
+      else
+          exit 1
+      fi
+    # A comment line after the leaving command in the then branch is no statement
+    - |
+      if [[ -f $s ]]; then
+          exit 2
+          # trailing comment
+      else
+          exit 1
+      fi
+invalid:
+    # A comment line before the leaving command in the else clause
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          # explain
+          exit 1
+      fi
+    # The then branch continues after a leaving command, statements separated by ;
+    - if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi
+    # The instance, continue at the end of the else clause
+    - |
+      if [ -f "$s" ]; then
+          diff a b
+      else
+          finding "no snapshot: $id"
+          continue
+      fi
+    # exit alone in the else clause
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          exit 1
+      fi
+    # The then branch leaves before its last statement, so it continues
+    - |
+      if [[ -f $s ]]; then
+          exit 2
+          printf '%s\n' late
+      else
+          exit 1
+      fi
+    # break at the end of the else clause inside a loop
+    - |
+      for f in "${files[@]}"; do
+          if [[ -f $f ]]; then
+              printf '%s\n' "$f"
+          else
+              break
+          fi
+      done
+    # A comment after the leaving command sits outside the else clause
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          return 1
+          # nothing after
+      fi

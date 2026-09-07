@@ -104,12 +104,11 @@ class _VersionedRecord(msgspec.Struct, frozen=True):
     version: int = 0
 
 
-class _SubtestRecorder:
+class _SubtestRecorder(msgspec.Struct):
     """Record subtest labels and assertion failures."""
 
-    def __init__(self) -> None:
-        self.labels: list[str | None] = []
-        self.failures: list[str | None] = []
+    labels: list[str | None] = msgspec.field(default_factory=list)
+    failures: list[str | None] = msgspec.field(default_factory=list)
 
     @contextmanager
     def test(self, msg: str | None = None, **kwargs: object) -> Generator[None]:
@@ -193,24 +192,11 @@ class _Pool(RuleBasedStateMachine):
 # --- [ALGEBRAIC_PROPERTIES] -------------------------------------------------------------
 
 
-def _must_fail(label: str, failing_case: _Thunk) -> None:
-    """Assert the known failing case raises ``AssertionError``.
-
-    Raises:
-        AssertionError: The assertion accepts the failing case.
-    """
-    try:
-        failing_case()
-    except AssertionError:
-        return
-    raise AssertionError(f"{label}: assertion accepted the known failing case")
-
-
 def test_every_algebraic_assertion_accepts_valid_and_rejects_invalid_cases() -> None:
     """Each assertion accepts its valid case and rejects its invalid case."""
     for label, passes, fails in _ASSERTION_CASES:
         passes()
-        _must_fail(label, fails)
+        rejects_counterexample(label, lambda _, fails=fails: fails())
 
 
 def test_rejects_counterexample_requires_property_failure_and_propagates_other_exceptions() -> None:
@@ -271,11 +257,12 @@ def test_matrices_report_independent_subtests_and_stop_without_reporter(subtests
 
 def test_matrix_assertions_require_nonempty_case_sets() -> None:
     """Table-driven assertions reject empty case and relation sets."""
-    with pytest.raises(AssertionError, match="at least one case"):
+    empty = "at least one case"
+    with pytest.raises(AssertionError, match=empty):
         validity_matrix([], valid=lambda n: n > 0)
-    with pytest.raises(AssertionError, match="at least one case"):
+    with pytest.raises(AssertionError, match=empty):
         capability_matrix()
-    with pytest.raises(AssertionError, match="at least one case"):
+    with pytest.raises(AssertionError, match=empty):
         projection_matrix([], project=lambda n: n)
     with pytest.raises(AssertionError, match="at least one relation"):
         assert_metamorphic_relations(1, lambda n: n)
@@ -342,9 +329,10 @@ def test_close_recurses_results_and_blocks_and_reports_the_diverging_case() -> N
 
     with pytest.raises(AssertionError, match=r"\$\.ok\.values\[0\]"):
         assert_close(Ok(_Reading(label="a", values=(0.1,))), Ok(_Reading(label="a", values=(0.9,))))
-    with pytest.raises(AssertionError, match="result tags differ"):
+    tags_differ = "result tags differ"
+    with pytest.raises(AssertionError, match=tags_differ):
         assert_close(Ok(1.0), Error(1.0))
-    with pytest.raises(AssertionError, match="result tags differ"):
+    with pytest.raises(AssertionError, match=tags_differ):
         assert_close(Some(1.0), Nothing)
     with pytest.raises(AssertionError, match=r"\$\[1\]"):
         assert_close(Block.of_seq([1.0, 2.0]), Block.of_seq([1.0, 9.0]))
@@ -354,7 +342,10 @@ def test_close_recurses_results_and_blocks_and_reports_the_diverging_case() -> N
 
 def test_close_comparator_applies_to_algebraic_assertions_and_counterexamples() -> None:
     """The approximate comparator works with algebraic assertions and known counterexamples."""
-    offset = lambda x: x + 1e-12  # ruff:ignore[lambda-assignment]
+
+    def offset(x: float) -> float:
+        return x + 1e-12
+
     with pytest.raises(AssertionError, match="property failed"):
         identity(1.0, offset)
     identity(1.0, offset, eq=close())
@@ -396,9 +387,10 @@ def test_assert_roundtrip_proves_byte_identity_and_fails_on_lossy_decode() -> No
     """Serialized structs round-trip byte-identically, a type-changing decode fails equality."""
     assert assert_roundtrip(_VersionedRecord(key="a", version=2), _VersionedRecord) == _VersionedRecord(key="a", version=2)
     assert assert_roundtrip(_VersionedRecord(key="a", version=2), _VersionedRecord, encoder=MSGPACK_ENCODER) == _VersionedRecord(key="a", version=2)
-    with pytest.raises(AssertionError, match="decode mismatch"):
+    mismatch = "decode mismatch"
+    with pytest.raises(AssertionError, match=mismatch):
         assert_roundtrip((1, 2), list[int])
-    with pytest.raises(AssertionError, match="decode mismatch"):
+    with pytest.raises(AssertionError, match=mismatch):
         assert_roundtrip((1, 2), list[int], encoder=MSGPACK_ENCODER)
 
 

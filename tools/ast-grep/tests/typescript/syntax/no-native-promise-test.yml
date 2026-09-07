@@ -1,0 +1,41 @@
+id: no-native-promise
+valid:
+    # The effects composed
+    - "const rows = Effect.all([first, second], { concurrency: 'unbounded' });"
+    # The race
+    - 'const winner = Effect.race(first, second);'
+    # The callback source
+    - 'const value = Effect.async<number>((resume) => { listen((n) => resume(Effect.succeed(n))); });'
+    # The promise converted once at the boundary
+    - 'const value = Effect.promise(() => load());'
+    # Promise as a type annotation
+    - 'const later: Promise<number> = value;'
+    # Static named like all on another object
+    - 'const rows = Chunk.all(first, second);'
+    # Constructor named like Promise on another path
+    - 'const later = new host.Promise(run);'
+invalid:
+    # The instance, the constructor over an executor
+    - 'const later = new Promise<number>((resolve) => resolve(1));'
+    # The constructor without a type argument
+    - 'const later = new Promise((resolve) => resolve(1));'
+    # The all combinator
+    - 'const rows = Promise.all([first, second]);'
+    # The allSettled combinator
+    - 'const settled = Promise.allSettled([first, second]);'
+    # The any combinator
+    - 'const first = Promise.any([first, second]);'
+    # The race combinator
+    - 'const winner = Promise.race([first, second]);'
+    # The resolved constructor
+    - 'const later = Promise.resolve(1);'
+    # The rejected constructor
+    - 'const later = Promise.reject(error);'
+    # The resolver pair
+    - 'const { promise, resolve } = Promise.withResolvers<number>();'
+    # The try static
+    - 'const later = Promise.try(run);'
+    # The constructor through globalThis
+    - 'const later = new globalThis.Promise((resolve) => resolve(1));'
+    # Static through globalThis
+    - 'const later = globalThis.Promise.resolve(1);'

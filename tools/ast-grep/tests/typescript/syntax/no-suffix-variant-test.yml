@@ -1,0 +1,63 @@
+id: no-suffix-variant
+valid:
+    # One operation over the input shape
+    - 'const read = (input: Row | readonly Row[]): Result => decode(input);'
+    # Suffix word alone as the name
+    - 'const all = rows;'
+    # Lowercase all inside a name
+    - 'const overall = total;'
+    # Callee member of a package, no declaration
+    - 'const recovered = Effect.catchAll(program, handler);'
+    # By without the verb prefix
+    - 'const byId = index(rows);'
+    # Verb without the By clause
+    - 'const findUser = (id: string): Option.Option<User> => Option.fromNullable(users[id]);'
+    # By followed by a lowercase word inside a verb name
+    - 'const readByte = (offset: number): number => bytes[offset];'
+    # Parameter named with the suffix, no declaration
+    - 'const run = (loadAll: () => void): void => loadAll();'
+    # Reader of a field, no sibling operation
+    - 'const _durationText = (row: Row): string => String(row.duration);'
+    # Reader of a field into lines, no sibling operation
+    - 'const _dependencyLines = (row: Row): readonly string[] => row.dependencies.map(String);'
+    # Member read under a variant name, the declaration belongs to its package
+    - 'const handler = api.findAll;'
+    # Member assigned under a name outside the grammar
+    - 'api.byId = index;'
+    # Signature named outside the grammar
+    - 'interface Repo { find(id: string): Row }'
+invalid:
+    # Method signature variant
+    - 'interface Repo { findAll(): readonly Row[] }'
+    # Property signature variant
+    - 'type Api = { loadAll: () => readonly Row[] };'
+    # Abstract method variant
+    - 'abstract class Base { abstract countByKind(kind: string): number; }'
+    # Private method variant
+    - 'class Table { #fetchAll(): readonly Row[] { return rows; } }'
+    # Private field variant
+    - 'class Table { #loadAll = (): readonly Row[] => rows; }'
+    # Member assigned under a variant name
+    - 'api.updateById = update;'
+    # Verb outside the original list over a By clause
+    - 'const removeByName = (name: string): void => remove(name);'
+    # The instance, an All variant beside the singular
+    - 'const readAll = (): readonly Row[] => rows;'
+    # Many variant
+    - 'function loadMany(ids: readonly string[]): readonly Row[] { return rows; }'
+    # ByIds variant
+    - 'const deleteByIds = (ids: readonly string[]): void => remove(ids);'
+    # Verb over a By clause
+    - 'const findByName = (name: string): Option.Option<Row> => Option.fromNullable(index[name]);'
+    # Get verb over a By clause with a noun between
+    - 'const getUserById = (id: string): Option.Option<User> => Option.fromNullable(users[id]);'
+    # Exported variant
+    - 'export const fetchAll = (): Effect.Effect<readonly Row[]> => Effect.succeed(rows);'
+    # Method variant
+    - 'class Table { listByOwner(owner: string): readonly Row[] { return rows; } }'
+    # Object member variant
+    - 'const api = { putByKey: (key: string, row: Row): void => write(key, row) };'
+    # Let binding variant
+    - 'let readAll = load;'
+    # Class field variant
+    - 'class Table { readonly readAll = (): readonly Row[] => rows; }'

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# One double-quoted parameter and nothing beside it, "$name", "${name}", or "${name[index]}", the slot binds the name or the subscript
+id: bash-parameter-string
+language: bash
+arguments: [name]
+rule:
+    kind: string
+    has:
+        any:
+            - kind: simple_expansion
+              has: {kind: variable_name, matches: name}
+            # No operator beside the name and no whole-array subscript, the here string of "${names[@]}" joins the elements by a space
+            - kind: expansion
+              has: {any: [{kind: variable_name}, {kind: subscript, not: {has: {field: index, regex: '^[@*]$'}}}], matches: name}
+              not: {has: {field: operator, pattern: $$_OP}} # The operator is an unnamed node, $$ matches one
+    not: {has: {nthChild: 2}}

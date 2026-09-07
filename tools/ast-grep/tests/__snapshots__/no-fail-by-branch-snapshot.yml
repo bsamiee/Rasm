@@ -1,6 +1,92 @@
 id: no-fail-by-branch
 snapshots:
   ? |
+    Array.match(rows, { onEmpty: () => Effect.fail(new EmptyError({ name })), onNonEmpty: Effect.succeed })
+  : labels:
+    - source: 'Array.match(rows, { onEmpty: () => Effect.fail(new EmptyError({ name })), onNonEmpty: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 103
+    - source: Effect.fail
+      style: secondary
+      start: 35
+      end: 46
+    - source: Effect.fail(new EmptyError({ name }))
+      style: secondary
+      start: 35
+      end: 72
+    - source: () => Effect.fail(new EmptyError({ name }))
+      style: secondary
+      start: 29
+      end: 72
+    - source: 'onEmpty: () => Effect.fail(new EmptyError({ name }))'
+      style: secondary
+      start: 20
+      end: 72
+    - source: Effect.succeed
+      style: secondary
+      start: 86
+      end: 100
+    - source: 'onNonEmpty: Effect.succeed'
+      style: secondary
+      start: 74
+      end: 100
+    - source: '{ onEmpty: () => Effect.fail(new EmptyError({ name })), onNonEmpty: Effect.succeed }'
+      style: secondary
+      start: 18
+      end: 102
+    - source: '{ onEmpty: () => Effect.fail(new EmptyError({ name })), onNonEmpty: Effect.succeed }'
+      style: secondary
+      start: 18
+      end: 102
+  ? |
+    Array.matchLeft(rows, { onEmpty: () => Effect.fail(error), onNonEmpty: (head) => Effect.succeed(head) })
+  : labels:
+    - source: 'Array.matchLeft(rows, { onEmpty: () => Effect.fail(error), onNonEmpty: (head) => Effect.succeed(head) })'
+      style: primary
+      start: 0
+      end: 104
+    - source: Effect.fail
+      style: secondary
+      start: 39
+      end: 50
+    - source: Effect.fail(error)
+      style: secondary
+      start: 39
+      end: 57
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 33
+      end: 57
+    - source: 'onEmpty: () => Effect.fail(error)'
+      style: secondary
+      start: 24
+      end: 57
+    - source: Effect.succeed
+      style: secondary
+      start: 81
+      end: 95
+    - source: Effect.succeed(head)
+      style: secondary
+      start: 81
+      end: 101
+    - source: (head) => Effect.succeed(head)
+      style: secondary
+      start: 71
+      end: 101
+    - source: 'onNonEmpty: (head) => Effect.succeed(head)'
+      style: secondary
+      start: 59
+      end: 101
+    - source: '{ onEmpty: () => Effect.fail(error), onNonEmpty: (head) => Effect.succeed(head) }'
+      style: secondary
+      start: 22
+      end: 103
+    - source: '{ onEmpty: () => Effect.fail(error), onNonEmpty: (head) => Effect.succeed(head) }'
+      style: secondary
+      start: 22
+      end: 103
+  ? |
     Boolean.match(flag, { onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) })
   : labels:
     - source: 'Boolean.match(flag, { onFalse: () => Effect.succeed(value), onTrue: () => Effect.fail(error) })'
@@ -48,6 +134,53 @@ snapshots:
       start: 20
       end: 94
   ? |
+    Boolean.match(flag, { onFalse: () => Micro.succeed(value), onTrue: () => Micro.die(error) })
+  : labels:
+    - source: 'Boolean.match(flag, { onFalse: () => Micro.succeed(value), onTrue: () => Micro.die(error) })'
+      style: primary
+      start: 0
+      end: 92
+    - source: Micro.die
+      style: secondary
+      start: 73
+      end: 82
+    - source: Micro.die(error)
+      style: secondary
+      start: 73
+      end: 89
+    - source: () => Micro.die(error)
+      style: secondary
+      start: 67
+      end: 89
+    - source: 'onTrue: () => Micro.die(error)'
+      style: secondary
+      start: 59
+      end: 89
+    - source: Micro.succeed
+      style: secondary
+      start: 37
+      end: 50
+    - source: Micro.succeed(value)
+      style: secondary
+      start: 37
+      end: 57
+    - source: () => Micro.succeed(value)
+      style: secondary
+      start: 31
+      end: 57
+    - source: 'onFalse: () => Micro.succeed(value)'
+      style: secondary
+      start: 22
+      end: 57
+    - source: '{ onFalse: () => Micro.succeed(value), onTrue: () => Micro.die(error) }'
+      style: secondary
+      start: 20
+      end: 91
+    - source: '{ onFalse: () => Micro.succeed(value), onTrue: () => Micro.die(error) }'
+      style: secondary
+      start: 20
+      end: 91
+  ? |
     Effect.flatMap(work, (holds) => Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.void }))
   : labels:
     - source: 'Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => Effect.void })'
@@ -91,6 +224,194 @@ snapshots:
       start: 49
       end: 113
   ? |
+    Effect.if(holds, { onTrue: () => Effect.die(new Error('counterexample')), onFalse: () => Effect.void })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.die(new Error(''counterexample'')), onFalse: () => Effect.void })'
+      style: primary
+      start: 0
+      end: 103
+    - source: Effect.die
+      style: secondary
+      start: 33
+      end: 43
+    - source: Effect.die(new Error('counterexample'))
+      style: secondary
+      start: 33
+      end: 72
+    - source: () => Effect.die(new Error('counterexample'))
+      style: secondary
+      start: 27
+      end: 72
+    - source: 'onTrue: () => Effect.die(new Error(''counterexample''))'
+      style: secondary
+      start: 19
+      end: 72
+    - source: Effect.void
+      style: secondary
+      start: 89
+      end: 100
+    - source: () => Effect.void
+      style: secondary
+      start: 83
+      end: 100
+    - source: 'onFalse: () => Effect.void'
+      style: secondary
+      start: 74
+      end: 100
+    - source: '{ onTrue: () => Effect.die(new Error(''counterexample'')), onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 102
+    - source: '{ onTrue: () => Effect.die(new Error(''counterexample'')), onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 102
+  ? |
+    Effect.if(holds, { onTrue: () => Effect.dieMessage('counterexample'), onFalse: () => Effect.succeed(value) })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.dieMessage(''counterexample''), onFalse: () => Effect.succeed(value) })'
+      style: primary
+      start: 0
+      end: 109
+    - source: Effect.dieMessage
+      style: secondary
+      start: 33
+      end: 50
+    - source: Effect.dieMessage('counterexample')
+      style: secondary
+      start: 33
+      end: 68
+    - source: () => Effect.dieMessage('counterexample')
+      style: secondary
+      start: 27
+      end: 68
+    - source: 'onTrue: () => Effect.dieMessage(''counterexample'')'
+      style: secondary
+      start: 19
+      end: 68
+    - source: Effect.succeed
+      style: secondary
+      start: 85
+      end: 99
+    - source: Effect.succeed(value)
+      style: secondary
+      start: 85
+      end: 106
+    - source: () => Effect.succeed(value)
+      style: secondary
+      start: 79
+      end: 106
+    - source: 'onFalse: () => Effect.succeed(value)'
+      style: secondary
+      start: 70
+      end: 106
+    - source: '{ onTrue: () => Effect.dieMessage(''counterexample''), onFalse: () => Effect.succeed(value) }'
+      style: secondary
+      start: 17
+      end: 108
+    - source: '{ onTrue: () => Effect.dieMessage(''counterexample''), onFalse: () => Effect.succeed(value) }'
+      style: secondary
+      start: 17
+      end: 108
+  ? |
+    Effect.if(holds, { onTrue: () => Effect.dieSync(() => new Error('x')), onFalse: () => Effect.void })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.dieSync(() => new Error(''x'')), onFalse: () => Effect.void })'
+      style: primary
+      start: 0
+      end: 100
+    - source: Effect.dieSync
+      style: secondary
+      start: 33
+      end: 47
+    - source: Effect.dieSync(() => new Error('x'))
+      style: secondary
+      start: 33
+      end: 69
+    - source: () => Effect.dieSync(() => new Error('x'))
+      style: secondary
+      start: 27
+      end: 69
+    - source: 'onTrue: () => Effect.dieSync(() => new Error(''x''))'
+      style: secondary
+      start: 19
+      end: 69
+    - source: Effect.void
+      style: secondary
+      start: 86
+      end: 97
+    - source: () => Effect.void
+      style: secondary
+      start: 80
+      end: 97
+    - source: 'onFalse: () => Effect.void'
+      style: secondary
+      start: 71
+      end: 97
+    - source: '{ onTrue: () => Effect.dieSync(() => new Error(''x'')), onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 99
+    - source: '{ onTrue: () => Effect.dieSync(() => new Error(''x'')), onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 99
+  ? |
+    Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => { return Effect.succeed(value); } })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.fail(error), onFalse: () => { return Effect.succeed(value); } })'
+      style: primary
+      start: 0
+      end: 104
+    - source: Effect.fail
+      style: secondary
+      start: 33
+      end: 44
+    - source: Effect.fail(error)
+      style: secondary
+      start: 33
+      end: 51
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 27
+      end: 51
+    - source: 'onTrue: () => Effect.fail(error)'
+      style: secondary
+      start: 19
+      end: 51
+    - source: Effect.succeed
+      style: secondary
+      start: 77
+      end: 91
+    - source: Effect.succeed(value)
+      style: secondary
+      start: 77
+      end: 98
+    - source: return Effect.succeed(value);
+      style: secondary
+      start: 70
+      end: 99
+    - source: '{ return Effect.succeed(value); }'
+      style: secondary
+      start: 68
+      end: 101
+    - source: () => { return Effect.succeed(value); }
+      style: secondary
+      start: 62
+      end: 101
+    - source: 'onFalse: () => { return Effect.succeed(value); }'
+      style: secondary
+      start: 53
+      end: 101
+    - source: '{ onTrue: () => Effect.fail(error), onFalse: () => { return Effect.succeed(value); } }'
+      style: secondary
+      start: 17
+      end: 103
+    - source: '{ onTrue: () => Effect.fail(error), onFalse: () => { return Effect.succeed(value); } }'
+      style: secondary
+      start: 17
+      end: 103
+  ? |
     Effect.if(holds, { onTrue: () => Effect.fail(new PolicyError({ reason: 'counterexample' })), onFalse: () => Effect.void })
   : labels:
     - source: 'Effect.if(holds, { onTrue: () => Effect.fail(new PolicyError({ reason: ''counterexample'' })), onFalse: () => Effect.void })'
@@ -133,6 +454,104 @@ snapshots:
       style: secondary
       start: 17
       end: 121
+  ? |
+    Effect.if(holds, { onTrue: () => Effect.succeed(value), onFalse: () => Effect.failSync(() => error) })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => Effect.succeed(value), onFalse: () => Effect.failSync(() => error) })'
+      style: primary
+      start: 0
+      end: 102
+    - source: Effect.failSync
+      style: secondary
+      start: 71
+      end: 86
+    - source: Effect.failSync(() => error)
+      style: secondary
+      start: 71
+      end: 99
+    - source: () => Effect.failSync(() => error)
+      style: secondary
+      start: 65
+      end: 99
+    - source: 'onFalse: () => Effect.failSync(() => error)'
+      style: secondary
+      start: 56
+      end: 99
+    - source: Effect.succeed
+      style: secondary
+      start: 33
+      end: 47
+    - source: Effect.succeed(value)
+      style: secondary
+      start: 33
+      end: 54
+    - source: () => Effect.succeed(value)
+      style: secondary
+      start: 27
+      end: 54
+    - source: 'onTrue: () => Effect.succeed(value)'
+      style: secondary
+      start: 19
+      end: 54
+    - source: '{ onTrue: () => Effect.succeed(value), onFalse: () => Effect.failSync(() => error) }'
+      style: secondary
+      start: 17
+      end: 101
+    - source: '{ onTrue: () => Effect.succeed(value), onFalse: () => Effect.failSync(() => error) }'
+      style: secondary
+      start: 17
+      end: 101
+  ? |
+    Effect.if(holds, { onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void })
+  : labels:
+    - source: 'Effect.if(holds, { onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void })'
+      style: primary
+      start: 0
+      end: 94
+    - source: Effect.fail
+      style: secondary
+      start: 42
+      end: 53
+    - source: Effect.fail(error)
+      style: secondary
+      start: 42
+      end: 60
+    - source: return Effect.fail(error);
+      style: secondary
+      start: 35
+      end: 61
+    - source: '{ return Effect.fail(error); }'
+      style: secondary
+      start: 33
+      end: 63
+    - source: () => { return Effect.fail(error); }
+      style: secondary
+      start: 27
+      end: 63
+    - source: 'onTrue: () => { return Effect.fail(error); }'
+      style: secondary
+      start: 19
+      end: 63
+    - source: Effect.void
+      style: secondary
+      start: 80
+      end: 91
+    - source: () => Effect.void
+      style: secondary
+      start: 74
+      end: 91
+    - source: 'onFalse: () => Effect.void'
+      style: secondary
+      start: 65
+      end: 91
+    - source: '{ onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 93
+    - source: '{ onTrue: () => { return Effect.fail(error); }, onFalse: () => Effect.void }'
+      style: secondary
+      start: 17
+      end: 93
   ? |
     Effect.if(report.verdict === 'regression', { onTrue: () => Effect.fail(error), onFalse: () => Effect.succeed(report) })
   : labels:
@@ -228,6 +647,45 @@ snapshots:
       start: 17
       end: 91
   ? |
+    Effect.matchCause(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })
+  : labels:
+    - source: 'Effect.matchCause(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 91
+    - source: Effect.fail
+      style: secondary
+      start: 43
+      end: 54
+    - source: Effect.fail(error)
+      style: secondary
+      start: 43
+      end: 61
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 37
+      end: 61
+    - source: 'onFailure: () => Effect.fail(error)'
+      style: secondary
+      start: 26
+      end: 61
+    - source: Effect.succeed
+      style: secondary
+      start: 74
+      end: 88
+    - source: 'onSuccess: Effect.succeed'
+      style: secondary
+      start: 63
+      end: 88
+    - source: '{ onFailure: () => Effect.fail(error), onSuccess: Effect.succeed }'
+      style: secondary
+      start: 24
+      end: 90
+    - source: '{ onFailure: () => Effect.fail(error), onSuccess: Effect.succeed }'
+      style: secondary
+      start: 24
+      end: 90
+  ? |
     Effect.matchEffect(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })
   : labels:
     - source: 'Effect.matchEffect(work, { onFailure: () => Effect.fail(error), onSuccess: Effect.succeed })'
@@ -297,6 +755,68 @@ snapshots:
       style: secondary
       start: 22
       end: 70
+  ? |
+    Either.match(decoded, { onLeft: Micro.failSync, onRight: Micro.succeed })
+  : labels:
+    - source: 'Either.match(decoded, { onLeft: Micro.failSync, onRight: Micro.succeed })'
+      style: primary
+      start: 0
+      end: 73
+    - source: Micro.failSync
+      style: secondary
+      start: 32
+      end: 46
+    - source: 'onLeft: Micro.failSync'
+      style: secondary
+      start: 24
+      end: 46
+    - source: Micro.succeed
+      style: secondary
+      start: 57
+      end: 70
+    - source: 'onRight: Micro.succeed'
+      style: secondary
+      start: 48
+      end: 70
+    - source: '{ onLeft: Micro.failSync, onRight: Micro.succeed }'
+      style: secondary
+      start: 22
+      end: 72
+    - source: '{ onLeft: Micro.failSync, onRight: Micro.succeed }'
+      style: secondary
+      start: 22
+      end: 72
+  ? |
+    Either.match(decoded, { onLeft: STM.die, onRight: STM.succeed })
+  : labels:
+    - source: 'Either.match(decoded, { onLeft: STM.die, onRight: STM.succeed })'
+      style: primary
+      start: 0
+      end: 64
+    - source: STM.die
+      style: secondary
+      start: 32
+      end: 39
+    - source: 'onLeft: STM.die'
+      style: secondary
+      start: 24
+      end: 39
+    - source: STM.succeed
+      style: secondary
+      start: 50
+      end: 61
+    - source: 'onRight: STM.succeed'
+      style: secondary
+      start: 41
+      end: 61
+    - source: '{ onLeft: STM.die, onRight: STM.succeed }'
+      style: secondary
+      start: 22
+      end: 63
+    - source: '{ onLeft: STM.die, onRight: STM.succeed }'
+      style: secondary
+      start: 22
+      end: 63
   ? |
     Either.match(decoded, { onLeft: STM.fail, onRight: () => STM.void })
   : labels:
@@ -402,6 +922,37 @@ snapshots:
       style: secondary
       start: 17
       end: 75
+  ? |
+    Exit.matchCauseEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
+  : labels:
+    - source: 'Exit.matchCauseEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })'
+      style: primary
+      start: 0
+      end: 87
+    - source: Effect.failCause
+      style: secondary
+      start: 41
+      end: 57
+    - source: 'onFailure: Effect.failCause'
+      style: secondary
+      start: 30
+      end: 57
+    - source: Effect.succeed
+      style: secondary
+      start: 70
+      end: 84
+    - source: 'onSuccess: Effect.succeed'
+      style: secondary
+      start: 59
+      end: 84
+    - source: '{ onFailure: Effect.failCause, onSuccess: Effect.succeed }'
+      style: secondary
+      start: 28
+      end: 86
+    - source: '{ onFailure: Effect.failCause, onSuccess: Effect.succeed }'
+      style: secondary
+      start: 28
+      end: 86
   ? |
     Exit.matchEffect(exit, { onFailure: Effect.failCause, onSuccess: Effect.succeed })
   : labels:
@@ -652,6 +1203,49 @@ snapshots:
       style: secondary
       start: 20
       end: 86
+  ? |
+    STM.if(holds, { onTrue: () => STM.fail(error), onFalse: () => STM.void })
+  : labels:
+    - source: 'STM.if(holds, { onTrue: () => STM.fail(error), onFalse: () => STM.void })'
+      style: primary
+      start: 0
+      end: 73
+    - source: STM.fail
+      style: secondary
+      start: 30
+      end: 38
+    - source: STM.fail(error)
+      style: secondary
+      start: 30
+      end: 45
+    - source: () => STM.fail(error)
+      style: secondary
+      start: 24
+      end: 45
+    - source: 'onTrue: () => STM.fail(error)'
+      style: secondary
+      start: 16
+      end: 45
+    - source: STM.void
+      style: secondary
+      start: 62
+      end: 70
+    - source: () => STM.void
+      style: secondary
+      start: 56
+      end: 70
+    - source: 'onFalse: () => STM.void'
+      style: secondary
+      start: 47
+      end: 70
+    - source: '{ onTrue: () => STM.fail(error), onFalse: () => STM.void }'
+      style: secondary
+      start: 14
+      end: 72
+    - source: '{ onTrue: () => STM.fail(error), onFalse: () => STM.void }'
+      style: secondary
+      start: 14
+      end: 72
   ? |
     STM.matchSTM(transaction, { onFailure: () => STM.fail(error), onSuccess: (value) => STM.succeed(value) })
   : labels:

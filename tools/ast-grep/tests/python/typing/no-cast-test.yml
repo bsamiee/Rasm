@@ -1,0 +1,31 @@
+id: no-cast
+valid:
+    # The corrected form, a narrowing predicate
+    - |
+      from typing import TypeIs
+
+      def is_schema(value: object) -> TypeIs[Schema]:
+          return isinstance(value, Mapping)
+    # Another member of typing
+    - |
+      from typing import assert_never
+    # Attribute named like the member on another object
+    - |
+      column = table.cast("int")
+invalid:
+    # The instance, the member imported from typing
+    - |
+      from typing import cast
+    # The member imported from typing_extensions
+    - |
+      from typing_extensions import cast
+    # The attribute read as spelled
+    - |
+      import typing
+
+      value = typing.cast(int, raw)
+    # The attribute read through the alias the import binds
+    - |
+      import typing as t
+
+      value = t.cast("int", raw)

@@ -9,16 +9,30 @@ from pathlib import Path
 import sys
 import threading
 
+from pydantic import Field
+from pydantic_settings import BaseSettings, SettingsConfigDict
+
 REPO_ROOT: Path = next(parent for parent in Path(__file__).resolve().parents if (parent / "uv.lock").is_file())
-_DEFAULT_HYPOTHESIS_HOME = REPO_ROOT / ".cache" / "hypothesis"
-_hypothesis_storage_directory = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")  # ruff:ignore[banned-api]
-HYPOTHESIS_HOME = Path(_hypothesis_storage_directory) if _hypothesis_storage_directory else _DEFAULT_HYPOTHESIS_HOME
-os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ruff:ignore[banned-api]
 
-if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
-    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ruff:ignore[banned-api]
 
-from contextlib import contextmanager
+class Settings(BaseSettings):
+    """Environment variables the plugin reads once at startup, before the hypothesis import that reads two of them."""
+
+    model_config = SettingsConfigDict(case_sensitive=True)
+
+    hypothesis_storage_directory: Path = Field(default=REPO_ROOT / ".cache" / "hypothesis", validation_alias="HYPOTHESIS_STORAGE_DIRECTORY")
+    hypothesis_gh_replay: str = Field(default="", validation_alias="HYPOTHESIS_GH_REPLAY")
+    tests_observability: bool = Field(default=False, validation_alias="TESTS_OBSERVABILITY")
+    tests_profile: bool = Field(default=False, validation_alias="TESTS_PROFILE")
+    tests_profile_secs: int = Field(default=60, validation_alias="TESTS_PROFILE_SECS")
+
+
+_settings = Settings()
+HYPOTHESIS_HOME = _settings.hypothesis_storage_directory
+os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ast-grep-ignore: no-os-environ, written before the hypothesis import
+if _settings.tests_observability:
+    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ast-grep-ignore: no-os-environ, written before the hypothesis import
+
 from typing import TYPE_CHECKING
 
 import anyio
@@ -36,11 +50,10 @@ import pytest
 import structlog
 from structlog.testing import capture_logs
 
-lazy from tests.python.support.properties import record_coverage_declarations
+lazy from tests.python.support.properties import PROPERTY_RECORDS, PropertyRecord, record_coverage_declarations
 
 if TYPE_CHECKING:
     from collections.abc import Generator
-    from contextvars import ContextVar
 
     from hypothesis.database import ExampleDatabase
     from structlog.types import EventDict, Processor
@@ -48,7 +61,6 @@ if TYPE_CHECKING:
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-HYPOTHESIS_EXAMPLES = HYPOTHESIS_HOME / "examples"
 _SUPPRESSIONS = (HealthCheck.too_slow, HealthCheck.data_too_large, HealthCheck.filter_too_much)
 
 PROFILE_DEFAULT = "default"
@@ -61,21 +73,11 @@ _log = structlog.get_logger(__name__)
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-@contextmanager
-def isolate[T](var: ContextVar[T], value: T) -> Generator[None]:
-    """Pin a ``ContextVar`` binding for the enclosed block."""
-    token = var.set(value)
-    try:
-        yield
-    finally:
-        var.reset(token)
-
-
-def _run_profiler(artifact_dir: Path, secs: str) -> None:
+def _run_profiler(artifact_dir: Path, secs: int) -> None:
     """Attach the stdlib sampling profiler to the session PID from a child process, off the pytest main thread."""
     artifact_dir.mkdir(parents=True, exist_ok=True)
     artifact = artifact_dir / f"session-{datetime.now(tz=UTC).strftime('%Y%m%dT%H%M%S')}.jsonl"
-    argv = [sys.executable, "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", secs]
+    argv = [sys.executable, "-m", "profiling.sampling", "attach", str(os.getpid()), "--jsonl", "-o", str(artifact), "-d", str(secs)]
 
     async def _attach() -> None:
         async with await anyio.open_process(argv, stdout=None, stderr=None) as proc:
@@ -86,9 +88,8 @@ def _run_profiler(artifact_dir: Path, secs: str) -> None:
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-_local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_EXAMPLES))
-_github_replay = os.environ.get("HYPOTHESIS_GH_REPLAY")  # ruff:ignore[banned-api]
-match _github_replay.split("/", 1) if _github_replay else []:
+_local_db = BackgroundWriteDatabase(DirectoryBasedExampleDatabase(HYPOTHESIS_HOME / "examples"))
+match _settings.hypothesis_gh_replay.split("/", 1):
     case [owner, repo]:
         _EXAMPLE_DB: ExampleDatabase = MultiplexedDatabase(_local_db, ReadOnlyDatabase(GitHubArtifactDatabase(owner, repo)))
     case _:
@@ -116,7 +117,7 @@ hyp_settings.register_profile(
 hyp_settings.register_profile("adversarial", database=_EXAMPLE_DB, deadline=None, max_examples=2000, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile(PROFILE_STATEFUL, database=_EXAMPLE_DB, deadline=None, stateful_step_count=200, suppress_health_check=_SUPPRESSIONS)
 hyp_settings.register_profile("parity", database=None, deadline=None, derandomize=True, suppress_health_check=_SUPPRESSIONS)
-if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
+if _settings.tests_observability:
     _OBSERVATIONS = REPO_ROOT / ".artifacts" / "python" / "hypothesis"
 
     def _write_observation(observation: object, _thread_id: int) -> None:
@@ -131,27 +132,24 @@ if os.environ.get("TESTS_OBSERVABILITY"):  # ruff:ignore[banned-api]
 
 def pytest_configure(config: pytest.Config) -> None:
     """Register the bench module's regression hook when pytest-benchmark is loaded."""
-    (
+    if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and not config.pluginmanager.hasplugin("test-support-bench"):
         config.pluginmanager.register(importlib.import_module("tests.python.support.bench"), "test-support-bench")
-        if hasattr(config.pluginmanager.hook, "pytest_benchmark_update_json") and not config.pluginmanager.hasplugin("test-support-bench")
-        else None
-    )
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
-    """Apply network and property markers and record each module's ``COVERS`` declarations."""
+def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
+    """Apply network and property markers and record the property tests and each module's ``COVERS`` declarations once."""
     network = pytest.mark.network
     property_ = pytest.mark.property
-    modules: dict[int, object] = {}
     for item in items:
         if "socket_enabled" in getattr(item, "fixturenames", ()):
             item.add_marker(network, append=False)
         fn = getattr(item, "function", None)
         if fn is not None and is_hypothesis_test(fn):
             item.add_marker(property_, append=False)
-        module = getattr(item, "module", None)
-        modules.setdefault(id(module), module) if module is not None else None
-    [record_coverage_declarations(module) for module in modules.values()]
+    config.stash[PROPERTY_RECORDS] = (
+        *(record for item in items for mark in item.iter_markers("property") if isinstance(record := mark.kwargs.get("record"), PropertyRecord)),
+        *(record for module in dict.fromkeys(getattr(item, "module", None) for item in items) for record in record_coverage_declarations(module)),
+    )
 
 
 @pytest.fixture(scope="session")
@@ -168,19 +166,11 @@ def _otel_provider() -> InMemorySpanExporter:
     return exporter
 
 
-def pytest_sessionstart(session: pytest.Session) -> None:
+def pytest_sessionstart() -> None:
     """Start the optional out-of-process CPU sampler for the test session PID."""
-    _ = session
-    profile_flag = os.environ.get("TESTS_PROFILE")  # ruff:ignore[banned-api]
-    if not profile_flag:
-        return
-    secs = os.environ.get("TESTS_PROFILE_SECS", "60")  # ruff:ignore[banned-api]
-    artifact_dir = REPO_ROOT / ".artifacts" / "python" / "profile"
-
-    def _spawn() -> None:
-        _run_profiler(artifact_dir, secs)
-
-    threading.Thread(target=_spawn, daemon=True, name="tests-profiler").start()
+    if _settings.tests_profile:
+        artifact_dir = REPO_ROOT / ".artifacts" / "python" / "profile"
+        threading.Thread(target=_run_profiler, args=(artifact_dir, _settings.tests_profile_secs), daemon=True, name="tests-profiler").start()
 
 
 @pytest.fixture
@@ -217,4 +207,4 @@ def log_events(log_processors: tuple[Processor, ...]) -> Generator[list[EventDic
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["REPO_ROOT", "HYPOTHESIS_HOME", "HYPOTHESIS_EXAMPLES", "PROFILE_DEFAULT", "PROFILE_STATEFUL", "isolate"]
+__all__ = ["REPO_ROOT", "HYPOTHESIS_HOME", "PROFILE_DEFAULT", "PROFILE_STATEFUL", "Settings"]

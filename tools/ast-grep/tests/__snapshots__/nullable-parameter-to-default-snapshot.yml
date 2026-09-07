@@ -1,0 +1,542 @@
+id: nullable-parameter-to-default
+snapshots:
+  ? |
+    LIMIT = 3
+
+    class Reader:
+        def run(self, count: int | None = None) -> int:
+            """Count the items."""
+            log(count)
+            return count if count is not None else LIMIT
+  : fixed: |
+      LIMIT = 3
+
+      class Reader:
+          def run(self, count: int = LIMIT) -> int:
+              """Count the items."""
+              log(count)
+              return count
+    labels:
+    - source: |-
+        def run(self, count: int | None = None) -> int:
+                """Count the items."""
+                log(count)
+                return count if count is not None else LIMIT
+      style: primary
+      start: 29
+      end: 179
+    - source: count
+      style: secondary
+      start: 43
+      end: 48
+    - source: None
+      style: secondary
+      start: 63
+      end: 67
+    - source: int
+      style: secondary
+      start: 50
+      end: 53
+    - source: None
+      style: secondary
+      start: 56
+      end: 60
+    - source: int | None
+      style: secondary
+      start: 50
+      end: 60
+    - source: int | None
+      style: secondary
+      start: 50
+      end: 60
+    - source: 'count: int | None = None'
+      style: secondary
+      start: 43
+      end: 67
+    - source: 'count: int | None = None'
+      style: secondary
+      start: 43
+      end: 67
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 142
+      end: 179
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 142
+      end: 179
+  ? |
+    LIMIT = 3
+
+    def run(count: None | int = None) -> int:
+        return count if count is not None else LIMIT
+  : fixed: |
+      LIMIT = 3
+
+      def run(count: int = LIMIT) -> int:
+          return count
+    labels:
+    - source: |-
+        def run(count: None | int = None) -> int:
+            return count if count is not None else LIMIT
+      style: primary
+      start: 11
+      end: 101
+    - source: count
+      style: secondary
+      start: 19
+      end: 24
+    - source: None
+      style: secondary
+      start: 39
+      end: 43
+    - source: None
+      style: secondary
+      start: 26
+      end: 30
+    - source: int
+      style: secondary
+      start: 33
+      end: 36
+    - source: None | int
+      style: secondary
+      start: 26
+      end: 36
+    - source: None | int
+      style: secondary
+      start: 26
+      end: 36
+    - source: 'count: None | int = None'
+      style: secondary
+      start: 19
+      end: 43
+    - source: 'count: None | int = None'
+      style: secondary
+      start: 19
+      end: 43
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 64
+      end: 101
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 64
+      end: 101
+  ? |
+    LIMIT = 3
+
+    def run(count: int | None = None) -> int:
+        first = count if count is not None else LIMIT
+        return first + (count if count is not None else LIMIT)
+  : fixed: |
+      LIMIT = 3
+
+      def run(count: int = LIMIT) -> int:
+          first = count
+          return first + count
+    labels:
+    - source: |-
+        def run(count: int | None = None) -> int:
+            first = count if count is not None else LIMIT
+            return first + (count if count is not None else LIMIT)
+      style: primary
+      start: 11
+      end: 161
+    - source: count
+      style: secondary
+      start: 19
+      end: 24
+    - source: None
+      style: secondary
+      start: 39
+      end: 43
+    - source: int
+      style: secondary
+      start: 26
+      end: 29
+    - source: None
+      style: secondary
+      start: 32
+      end: 36
+    - source: int | None
+      style: secondary
+      start: 26
+      end: 36
+    - source: int | None
+      style: secondary
+      start: 26
+      end: 36
+    - source: 'count: int | None = None'
+      style: secondary
+      start: 19
+      end: 43
+    - source: 'count: int | None = None'
+      style: secondary
+      start: 19
+      end: 43
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 65
+      end: 102
+    - source: count if count is not None else LIMIT
+      style: secondary
+      start: 65
+      end: 102
+  ? |
+    LIMIT = 3
+
+    def run(count: int | None = None) -> int:
+        if count is None:
+            count = LIMIT
+        return count
+  : fixed: |
+      LIMIT = 3
+
+      def run(count: int = LIMIT) -> int:
+          return count
+    labels:
+    - source: |-
+        def run(count: int | None = None) -> int:
+            if count is None:
+                count = LIMIT
+            return count
+      style: primary
+      start: 11
+      end: 113
+    - source: count
+      style: secondary
+      start: 19
+      end: 24
+    - source: None
+      style: secondary
+      start: 39
+      end: 43
+    - source: int
+      style: secondary
+      start: 26
+      end: 29
+    - source: None
+      style: secondary
+      start: 32
+      end: 36
+    - source: int | None
+      style: secondary
+      start: 26
+      end: 36
+    - source: int | None
+      style: secondary
+      start: 26
+      end: 36
+    - source: 'count: int | None = None'
+      style: secondary
+      start: 19
+      end: 43
+    - source: 'count: int | None = None'
+      style: secondary
+      start: 19
+      end: 43
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count is None
+      style: secondary
+      start: 60
+      end: 73
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: count = LIMIT
+      style: secondary
+      start: 83
+      end: 96
+    - source: |-
+        if count is None:
+                count = LIMIT
+      style: secondary
+      start: 57
+      end: 96
+    - source: |-
+        if count is None:
+                count = LIMIT
+      style: secondary
+      start: 57
+      end: 96
+  ? |
+    def run(count=None):
+        return count if count is not None else 3
+  : fixed: |
+      def run(count=3):
+          return count
+    labels:
+    - source: |-
+        def run(count=None):
+            return count if count is not None else 3
+      style: primary
+      start: 0
+      end: 65
+    - source: count
+      style: secondary
+      start: 8
+      end: 13
+    - source: None
+      style: secondary
+      start: 14
+      end: 18
+    - source: count=None
+      style: secondary
+      start: 8
+      end: 18
+    - source: count=None
+      style: secondary
+      start: 8
+      end: 18
+    - source: count if count is not None else 3
+      style: secondary
+      start: 32
+      end: 65
+    - source: count if count is not None else 3
+      style: secondary
+      start: 32
+      end: 65
+  ? |
+    from runtime import PROFILE_STATEFUL
+
+    def run(machine, *, profile: str | None = None) -> None:
+        resolved = PROFILE_STATEFUL if profile is None else profile
+  : fixed: |
+      from runtime import PROFILE_STATEFUL
+
+      def run(machine, *, profile: str = PROFILE_STATEFUL) -> None:
+          resolved = profile
+    labels:
+    - source: |-
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = PROFILE_STATEFUL if profile is None else profile
+      style: primary
+      start: 38
+      end: 158
+    - source: profile
+      style: secondary
+      start: 58
+      end: 65
+    - source: None
+      style: secondary
+      start: 80
+      end: 84
+    - source: str
+      style: secondary
+      start: 67
+      end: 70
+    - source: None
+      style: secondary
+      start: 73
+      end: 77
+    - source: str | None
+      style: secondary
+      start: 67
+      end: 77
+    - source: str | None
+      style: secondary
+      start: 67
+      end: 77
+    - source: 'profile: str | None = None'
+      style: secondary
+      start: 58
+      end: 84
+    - source: 'profile: str | None = None'
+      style: secondary
+      start: 58
+      end: 84
+    - source: PROFILE_STATEFUL if profile is None else profile
+      style: secondary
+      start: 110
+      end: 158
+    - source: PROFILE_STATEFUL if profile is None else profile
+      style: secondary
+      start: 110
+      end: 158
+  ? |
+    from runtime import PROFILE_STATEFUL
+
+    def run(machine, *, profile: str | None = None) -> None:
+        resolved = profile if profile is not None else PROFILE_STATEFUL
+  : fixed: |
+      from runtime import PROFILE_STATEFUL
+
+      def run(machine, *, profile: str = PROFILE_STATEFUL) -> None:
+          resolved = profile
+    labels:
+    - source: |-
+        def run(machine, *, profile: str | None = None) -> None:
+            resolved = profile if profile is not None else PROFILE_STATEFUL
+      style: primary
+      start: 38
+      end: 162
+    - source: profile
+      style: secondary
+      start: 58
+      end: 65
+    - source: None
+      style: secondary
+      start: 80
+      end: 84
+    - source: str
+      style: secondary
+      start: 67
+      end: 70
+    - source: None
+      style: secondary
+      start: 73
+      end: 77
+    - source: str | None
+      style: secondary
+      start: 67
+      end: 77
+    - source: str | None
+      style: secondary
+      start: 67
+      end: 77
+    - source: 'profile: str | None = None'
+      style: secondary
+      start: 58
+      end: 84
+    - source: 'profile: str | None = None'
+      style: secondary
+      start: 58
+      end: 84
+    - source: profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 110
+      end: 162
+    - source: profile if profile is not None else PROFILE_STATEFUL
+      style: secondary
+      start: 110
+      end: 162
+  ? |
+    import operator
+
+    def check(left, right, equal: Equality | None = None) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : fixed: |
+      import operator
+
+      def check(left, right, equal: Equality = operator.eq) -> None:
+          assert equal(left, right)
+    labels:
+    - source: |-
+        def check(left, right, equal: Equality | None = None) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: primary
+      start: 17
+      end: 149
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: None
+      style: secondary
+      start: 65
+      end: 69
+    - source: Equality
+      style: secondary
+      start: 47
+      end: 55
+    - source: None
+      style: secondary
+      start: 58
+      end: 62
+    - source: Equality | None
+      style: secondary
+      start: 47
+      end: 62
+    - source: Equality | None
+      style: secondary
+      start: 47
+      end: 62
+    - source: 'equal: Equality | None = None'
+      style: secondary
+      start: 40
+      end: 69
+    - source: 'equal: Equality | None = None'
+      style: secondary
+      start: 40
+      end: 69
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 92
+      end: 135
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 92
+      end: 135
+  ? |
+    import settings
+
+    def run(profile: str | None = None) -> str:
+        return profile if profile is not None else settings.defaults.profile
+  : fixed: |
+      import settings
+
+      def run(profile: str = settings.defaults.profile) -> str:
+          return profile
+    labels:
+    - source: |-
+        def run(profile: str | None = None) -> str:
+            return profile if profile is not None else settings.defaults.profile
+      style: primary
+      start: 17
+      end: 133
+    - source: profile
+      style: secondary
+      start: 25
+      end: 32
+    - source: None
+      style: secondary
+      start: 47
+      end: 51
+    - source: str
+      style: secondary
+      start: 34
+      end: 37
+    - source: None
+      style: secondary
+      start: 40
+      end: 44
+    - source: str | None
+      style: secondary
+      start: 34
+      end: 44
+    - source: str | None
+      style: secondary
+      start: 34
+      end: 44
+    - source: 'profile: str | None = None'
+      style: secondary
+      start: 25
+      end: 51
+    - source: 'profile: str | None = None'
+      style: secondary
+      start: 25
+      end: 51
+    - source: profile if profile is not None else settings.defaults.profile
+      style: secondary
+      start: 72
+      end: 133
+    - source: profile if profile is not None else settings.defaults.profile
+      style: secondary
+      start: 72
+      end: 133

@@ -1,0 +1,104 @@
+id: chain-to-unpacking
+valid:
+    # The corrected form, the unpacking comprehension
+    - |
+      flat = [*row for row in rows]
+    # The corrected form of listed iterables, the unpacking display
+    - |
+      flat = [*first, *second]
+    # Local function named chain, no import binds it
+    - |
+      def chain(*parts):
+          return parts
+
+      flat = chain(first, second)
+    # Name chain imported from another module
+    - |
+      from links import chain
+
+      flat = chain(*rows)
+    # Call under next, the iterator protocol a list lacks
+    - |
+      from itertools import chain
+
+      first = next(chain(*rows))
+    # Splat beside a listed iterable, neither arm spells it
+    - |
+      from itertools import chain
+
+      flat = chain(first, *rest)
+    # Another member of itertools
+    - |
+      from itertools import starmap
+
+      pairs = starmap(combine, rows)
+    # Another member of itertools read as an attribute
+    - |
+      import itertools
+
+      pairs = itertools.starmap(combine, rows)
+    # Attribute named like the member on another object
+    - |
+      links = graph.chain(*rows)
+invalid:
+    # The instance, the name a from-import binds, splatted
+    - |
+      from itertools import chain
+
+      flat = list(chain(*rows))
+    # Two iterables
+    - |
+      from itertools import chain
+
+      flat = chain(first, second)
+    # The class method spelling
+    - |
+      from itertools import chain
+
+      flat = chain.from_iterable(rows)
+    # The aliased from-import
+    - |
+      from itertools import chain as link
+
+      flat = link(*rows)
+    # The attribute read as spelled
+    - |
+      import itertools
+
+      flat = itertools.chain(*rows)
+    # The class method through the alias the import binds
+    - |
+      import itertools as it
+
+      flat = it.chain.from_iterable(rows)
+    # Three iterables
+    - |
+      from itertools import chain
+
+      flat = chain(first, second, third)
+    # The import inside the def that calls it
+    - |
+      def flatten(rows):
+          from itertools import chain
+
+          return chain(*rows)
+    # The class method under the list constructor
+    - |
+      from itertools import chain
+
+      flat = list(chain.from_iterable(rows))
+    # Listed iterables under the list constructor
+    - |
+      from itertools import chain
+
+      flat = list(chain(first, second))
+    # The name second in a from-import of two names
+    - |
+      from itertools import starmap, chain
+
+      flat = chain(*rows)
+    # The call under another call, sorted reads a list as it reads an iterator
+    - |
+      from itertools import chain
+
+      flat = sorted(chain(*rows))

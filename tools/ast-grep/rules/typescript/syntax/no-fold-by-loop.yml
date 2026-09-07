@@ -1,0 +1,131 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fold-by-loop
+language: tsx
+severity: error
+utils:
+    # Accumulator reassignment as the one step, plain or compound, bound whole for the body rewrite, an await has no place in the synchronous callback
+    fold-step:
+        all:
+            - any:
+                  - kind: assignment_expression
+                    pattern: $STEP
+                    has: {field: left, kind: identifier, pattern: $ACC}
+                  - kind: augmented_assignment_expression
+                    pattern: $STEP
+                    has: {field: left, kind: identifier, pattern: $ACC}
+            - not: {has: {kind: await_expression, stopBy: end}}
+    # Push of one element or one spread into the accumulator as the one step, a map or a flatMap over the items, the write no-array-mutation reports
+    push-step:
+        matches: syntax-mutating-array-call
+        pattern: $STEP
+        all:
+            - has:
+                  field: function
+                  all: [{has: {field: object, kind: identifier, pattern: $ACC}}, {has: {field: property, regex: '^push$'}}]
+            - has: {field: arguments, has: {pattern: $_}, not: {has: {nthChild: 2}}}
+            - not: {has: {kind: await_expression, stopBy: end}}
+    # Empty array literal as the start value, the map or flatMap needs no start value and the annotation names the element type alone
+    empty-start:
+        kind: variable_declarator
+        all:
+            - has: {field: name, pattern: $ACC}
+            - has: {field: value, kind: array, not: {has: {pattern: $_}}}
+rule:
+    kind: for_in_statement
+    all:
+        - has: {field: operator, regex: '^of$'}
+        # Async iterables have no reduce, and a loop variable declared outside the loop keeps its last value after it
+        - not: {has: {regex: '^await$'}}
+        - has: {field: kind, regex: '^(const|let)$'}
+        - has: {field: left, pattern: $ITEM}
+        - has: {field: right, pattern: $ITEMS}
+        - any:
+              # Reassignment step over the let directly before the loop, declared alone with its start value and no annotation the template drops
+              - all:
+                    # The body is the step alone, bare or as the only statement of the block, a second statement keeps the loop
+                    - has:
+                          field: body
+                          any:
+                              - kind: expression_statement
+                                has: {matches: fold-step}
+                              - kind: statement_block
+                                all:
+                                    - has: {kind: expression_statement, has: {matches: fold-step}}
+                                    - not: {has: {nthChild: 2}}
+                    - follows:
+                          kind: lexical_declaration
+                          pattern: $DECL
+                          all:
+                              - has: {field: kind, regex: '^let$'}
+                              - has:
+                                    kind: variable_declarator
+                                    all:
+                                        - has: {field: name, pattern: $ACC}
+                                        # Declarators without an initializer fail the reduce overloads under an undefined start value
+                                        - has: {field: value, pattern: $_}
+                                        - not: {has: {field: type, pattern: $_}}
+                              - not: {has: {kind: variable_declarator, nthChild: 2}}
+              # Push step over the empty array declared directly before the loop, a seeded array keeps its elements ahead of the mapped ones
+              - all:
+                    - has:
+                          field: body
+                          any:
+                              - kind: expression_statement
+                                has: {matches: push-step}
+                              - kind: statement_block
+                                all:
+                                    - has: {kind: expression_statement, has: {matches: push-step}}
+                                    - not: {has: {nthChild: 2}}
+                    - follows:
+                          kind: lexical_declaration
+                          pattern: $DECL
+                          all:
+                              - has: {matches: empty-start}
+                              - not: {has: {kind: variable_declarator, nthChild: 2}}
+        - precedes: {kind: return_statement, has: {kind: identifier, pattern: $ACC}}
+rewriters:
+    # Each rewriter emits the method call over the items, the step's shape selects the method, and a transform reads the rewriter's own captures alone
+    - id: plain
+      rule:
+          kind: assignment_expression
+          pattern: '$_ = $E'
+          # The declaration before the loop, walked from the step through its real ancestors for the start value
+          inside: {kind: for_in_statement, stopBy: end, follows: {kind: lexical_declaration, pattern: $DECL}}
+      transform:
+          START: rewrite($DECL, rewriters=[init-value], joinBy='')
+      fix: 'reduce(($ACC, $ITEM) => ($E), $START)'
+    # Compound step spelled as the operator over the parenthesized operand, the regex strips the = of the augmented operator
+    - id: compound
+      rule:
+          kind: augmented_assignment_expression
+          pattern: $S
+          inside: {kind: for_in_statement, stopBy: end, follows: {kind: lexical_declaration, pattern: $DECL}}
+      transform:
+          B: replace($S, replace='(?s)^(\w+)\s*(\S+?)=\s*(.*)$', by='$1 $2 ($3)')
+          START: rewrite($DECL, rewriters=[init-value], joinBy='')
+      fix: 'reduce(($ACC, $ITEM) => ($B), $START)'
+    - id: init-value
+      rule: {kind: variable_declarator, has: {field: value, pattern: $V}}
+      fix: $V
+    # The spread push precedes the one-element push, a spread element is one named node the plain pattern matches too
+    - id: push-spread
+      rule: {pattern: '$_.push(...$E)'}
+      fix: 'flatMap(($ITEM) => ($E))'
+    - id: push-one
+      rule: {pattern: '$_.push($E)'}
+      fix: 'map(($ITEM) => ($E))'
+transform:
+    CALL: rewrite($STEP, rewriters=[plain, compound, push-spread, push-one])
+# The declaration, the loop, and the return become one return, a const over the fold is shadowed by its own parameter under biome noShadow
+fix:
+    # The parentheses hold an iterated expression or a step the substitution rebinds without them, biome format drops the redundant ones
+    template: 'return ($ITEMS).$CALL;'
+    # The block of one return the fix leaves lifts to the expression body under biome useConsistentArrowReturn --write
+    expandStart: {kind: lexical_declaration}
+    expandEnd: {kind: return_statement}
+message: The loop folds $ITEMS into $ACC through reassignment or a push
+note: >-
+    Fold with `reduce`, `return items.reduce((total, item) => step, init)`, map one element per item with `map` or `flatMap`,
+    and spread a Map or Set into an array first
+labels:
+    ACC: {style: primary, message: The accumulator the loop reassigns}

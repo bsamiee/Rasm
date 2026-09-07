@@ -1,0 +1,13 @@
+{
+    "name": "rasm",
+    "owner": {
+        "name": "Bardia Samiee"
+    },
+    "plugins": [
+        {
+            "name": "function-hooks",
+            "source": "./function-hooks",
+            "description": "Function hooks for the Rasm workspace"
+        }
+    ]
+}

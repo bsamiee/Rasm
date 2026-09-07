@@ -1,0 +1,279 @@
+id: no-expression-in-run-step
+snapshots:
+  ? |
+    steps:
+      - "run": echo ${{ inputs.command }}
+  : labels:
+    - source: '"run": echo ${{ inputs.command }}'
+      style: primary
+      start: 11
+      end: 44
+    - source: '"run"'
+      style: secondary
+      start: 11
+      end: 16
+    - source: echo ${{ inputs.command }}
+      style: secondary
+      start: 18
+      end: 44
+  ? |
+    steps:
+      - name: a
+        run: "echo ${{ inputs.command }}"
+        shell: bash
+  : labels:
+    - source: 'run: "echo ${{ inputs.command }}"'
+      style: primary
+      start: 23
+      end: 56
+    - source: run
+      style: secondary
+      start: 23
+      end: 26
+    - source: '"echo ${{ inputs.command }}"'
+      style: secondary
+      start: 28
+      end: 56
+  ? |
+    steps:
+      - run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"
+  : labels:
+    - source: 'run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"'
+      style: primary
+      start: 11
+      end: 92
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: '"tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"'
+      style: secondary
+      start: 16
+      end: 92
+  ? |
+    steps:
+      - run: ${{ inputs.command }} --version
+  : labels:
+    - source: 'run: ${{ inputs.command }} --version'
+      style: primary
+      start: 11
+      end: 47
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: ${{ inputs.command }} --version
+      style: secondary
+      start: 16
+      end: 47
+  ? |
+    steps:
+      - run: 'echo ${{ steps.cache.outputs.vcpkg-key }}'
+  : labels:
+    - source: 'run: ''echo ${{ steps.cache.outputs.vcpkg-key }}'''
+      style: primary
+      start: 11
+      end: 59
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: '''echo ${{ steps.cache.outputs.vcpkg-key }}'''
+      style: secondary
+      start: 16
+      end: 59
+  ? |
+    steps:
+      - run: >
+          echo
+          ${{ runner.temp }}
+  : labels:
+    - source: |
+        run: >
+              echo
+              ${{ runner.temp }}
+      style: primary
+      start: 11
+      end: 54
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: |
+        >
+              echo
+              ${{ runner.temp }}
+      style: secondary
+      start: 16
+      end: 54
+    - source: |
+        >
+              echo
+              ${{ runner.temp }}
+      style: secondary
+      start: 16
+      end: 54
+  ? |
+    steps:
+      - run: >-
+          echo ${{ inputs.command }}
+  : labels:
+    - source: |
+        run: >-
+              echo ${{ inputs.command }}
+      style: primary
+      start: 11
+      end: 52
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: |
+        >-
+              echo ${{ inputs.command }}
+      style: secondary
+      start: 16
+      end: 52
+    - source: |
+        >-
+              echo ${{ inputs.command }}
+      style: secondary
+      start: 16
+      end: 52
+  ? |
+    steps:
+      - run: pnpm exec nx release --skip-publish ${{ inputs.projects != '' && format('--projects={0}', inputs.projects) || '' }}
+  : labels:
+    - source: 'run: pnpm exec nx release --skip-publish ${{ inputs.projects != '''' && format(''--projects={0}'', inputs.projects) || '''' }}'
+      style: primary
+      start: 11
+      end: 131
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: pnpm exec nx release --skip-publish ${{ inputs.projects != '' && format('--projects={0}', inputs.projects) || '' }}
+      style: secondary
+      start: 16
+      end: 131
+  ? |
+    steps:
+      - run: uv sync --locked ${{ inputs.python }}
+  : labels:
+    - source: 'run: uv sync --locked ${{ inputs.python }}'
+      style: primary
+      start: 11
+      end: 53
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: uv sync --locked ${{ inputs.python }}
+      style: secondary
+      start: 16
+      end: 53
+  ? |
+    steps:
+      - run: |
+          # ${{ github.event.issue.title }}
+          echo start
+  : labels:
+    - source: |
+        run: |
+              # ${{ github.event.issue.title }}
+              echo start
+      style: primary
+      start: 11
+      end: 75
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: |
+        |
+              # ${{ github.event.issue.title }}
+              echo start
+      style: secondary
+      start: 16
+      end: 75
+    - source: |
+        |
+              # ${{ github.event.issue.title }}
+              echo start
+      style: secondary
+      start: 16
+      end: 75
+  ? |
+    steps:
+      - run: |
+          echo start
+          echo ${{ github.event.pull_request.title }}
+  : labels:
+    - source: |
+        run: |
+              echo start
+              echo ${{ github.event.pull_request.title }}
+      style: primary
+      start: 11
+      end: 85
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: |
+        |
+              echo start
+              echo ${{ github.event.pull_request.title }}
+      style: secondary
+      start: 16
+      end: 85
+    - source: |
+        |
+              echo start
+              echo ${{ github.event.pull_request.title }}
+      style: secondary
+      start: 16
+      end: 85
+  ? |
+    steps:
+      - run: |-
+          echo ${{ inputs.command }}
+  : labels:
+    - source: |
+        run: |-
+              echo ${{ inputs.command }}
+      style: primary
+      start: 11
+      end: 52
+    - source: run
+      style: secondary
+      start: 11
+      end: 14
+    - source: |
+        |-
+              echo ${{ inputs.command }}
+      style: secondary
+      start: 16
+      end: 52
+    - source: |
+        |-
+              echo ${{ inputs.command }}
+      style: secondary
+      start: 16
+      end: 52
+  ? |
+    steps:
+      - {run: "echo ${{ inputs.command }}"}
+  : labels:
+    - source: 'run: "echo ${{ inputs.command }}"'
+      style: primary
+      start: 12
+      end: 45
+    - source: run
+      style: secondary
+      start: 12
+      end: 15
+    - source: '"echo ${{ inputs.command }}"'
+      style: secondary
+      start: 17
+      end: 45

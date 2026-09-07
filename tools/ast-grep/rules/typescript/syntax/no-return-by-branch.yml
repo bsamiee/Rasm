@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-return-by-branch
+language: tsx
+severity: error
+rule:
+    kind: if_statement
+    matches: syntax-guard-return
+    # The walk stops at the nearest binding, a helper nested in fromPredicate is its own function
+    not:
+        inside:
+            stopBy: {any: [{kind: variable_declarator}, {kind: function_declaration}]}
+            matches: claude-code-from-predicate-binding
+message: The function returns by a guard and a fall-through return, a two-way branch spelled as statements
+note: >-
+    Dispatch on the value, `Boolean.match`, `Option.match`, `Option.getOrElse`, or `Match.value`, and in the plugin the case record
+    passed to `match`, `fromPredicate` in `option.ts` alone holds the branch

@@ -1,0 +1,1097 @@
+id: no-invalidate-in-loop
+snapshots:
+  ? |
+    Array.forEach(rows, (row) => $.ui.invalidate('ui.render'));
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 29
+      end: 57
+    - source: invalidate
+      style: secondary
+      start: 34
+      end: 44
+    - source: invalidate
+      style: secondary
+      start: 34
+      end: 44
+    - source: '''ui.render'''
+      style: secondary
+      start: 45
+      end: 56
+    - source: '''ui.render'''
+      style: secondary
+      start: 45
+      end: 56
+    - source: forEach
+      style: secondary
+      start: 6
+      end: 13
+    - source: Array.forEach
+      style: secondary
+      start: 0
+      end: 13
+    - source: Array.forEach(rows, (row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 0
+      end: 58
+    - source: (rows, (row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 13
+      end: 58
+    - source: (row) => $.ui.invalidate('ui.render')
+      style: secondary
+      start: 20
+      end: 57
+  ? |
+    const arm = (register: On): void => {
+        register('ui.render', ($, e, next) => {
+            $.ui.invalidate('ui.render');
+            return next(e);
+        });
+    };
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 90
+      end: 118
+    - source: invalidate
+      style: secondary
+      start: 95
+      end: 105
+    - source: invalidate
+      style: secondary
+      start: 95
+      end: 105
+    - source: '''ui.render'''
+      style: secondary
+      start: 106
+      end: 117
+    - source: '''ui.render'''
+      style: secondary
+      start: 106
+      end: 117
+    - source: |-
+        ($, e, next) => {
+                $.ui.invalidate('ui.render');
+                return next(e);
+            }
+      style: secondary
+      start: 64
+      end: 149
+  ? |
+    const draw = ($, e, next) => {
+        $.ui.invalidate('ui.render');
+        return next(e);
+    };
+    on('ui.render', draw);
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 35
+      end: 63
+    - source: invalidate
+      style: secondary
+      start: 40
+      end: 50
+    - source: invalidate
+      style: secondary
+      start: 40
+      end: 50
+    - source: '''ui.render'''
+      style: secondary
+      start: 51
+      end: 62
+    - source: '''ui.render'''
+      style: secondary
+      start: 51
+      end: 62
+    - source: |-
+        ($, e, next) => {
+            $.ui.invalidate('ui.render');
+            return next(e);
+        }
+      style: secondary
+      start: 13
+      end: 86
+  ? |
+    const drawn = Array.from(rows, (row) => $.ui.invalidate('ui.render'));
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 40
+      end: 68
+    - source: invalidate
+      style: secondary
+      start: 45
+      end: 55
+    - source: invalidate
+      style: secondary
+      start: 45
+      end: 55
+    - source: '''ui.render'''
+      style: secondary
+      start: 56
+      end: 67
+    - source: '''ui.render'''
+      style: secondary
+      start: 56
+      end: 67
+    - source: from
+      style: secondary
+      start: 20
+      end: 24
+    - source: Array.from
+      style: secondary
+      start: 14
+      end: 24
+    - source: Array.from(rows, (row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 14
+      end: 69
+    - source: (rows, (row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 24
+      end: 69
+    - source: (row) => $.ui.invalidate('ui.render')
+      style: secondary
+      start: 31
+      end: 68
+  ? |
+    const groups = Object.groupBy(rows, (row) => $.ui.invalidate('ui.render'));
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 45
+      end: 73
+    - source: invalidate
+      style: secondary
+      start: 50
+      end: 60
+    - source: invalidate
+      style: secondary
+      start: 50
+      end: 60
+    - source: '''ui.render'''
+      style: secondary
+      start: 61
+      end: 72
+    - source: '''ui.render'''
+      style: secondary
+      start: 61
+      end: 72
+    - source: groupBy
+      style: secondary
+      start: 22
+      end: 29
+    - source: Object.groupBy
+      style: secondary
+      start: 15
+      end: 29
+    - source: Object.groupBy(rows, (row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 15
+      end: 74
+    - source: (rows, (row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 29
+      end: 74
+    - source: (row) => $.ui.invalidate('ui.render')
+      style: secondary
+      start: 36
+      end: 73
+  ? |
+    const ordered = rows.toSorted((left, right) => {
+        $.ui.invalidate('ui.render');
+        return 0;
+    });
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 53
+      end: 81
+    - source: invalidate
+      style: secondary
+      start: 58
+      end: 68
+    - source: invalidate
+      style: secondary
+      start: 58
+      end: 68
+    - source: '''ui.render'''
+      style: secondary
+      start: 69
+      end: 80
+    - source: '''ui.render'''
+      style: secondary
+      start: 69
+      end: 80
+    - source: toSorted
+      style: secondary
+      start: 21
+      end: 29
+    - source: rows.toSorted
+      style: secondary
+      start: 16
+      end: 29
+    - source: |-
+        rows.toSorted((left, right) => {
+            $.ui.invalidate('ui.render');
+            return 0;
+        })
+      style: secondary
+      start: 16
+      end: 99
+    - source: |-
+        ((left, right) => {
+            $.ui.invalidate('ui.render');
+            return 0;
+        })
+      style: secondary
+      start: 29
+      end: 99
+    - source: |-
+        (left, right) => {
+            $.ui.invalidate('ui.render');
+            return 0;
+        }
+      style: secondary
+      start: 30
+      end: 98
+  ? |
+    const redraw = () => $.ui.invalidate('ui.render');
+    rows.forEach(redraw);
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 21
+      end: 49
+    - source: invalidate
+      style: secondary
+      start: 26
+      end: 36
+    - source: invalidate
+      style: secondary
+      start: 26
+      end: 36
+    - source: '''ui.render'''
+      style: secondary
+      start: 37
+      end: 48
+    - source: '''ui.render'''
+      style: secondary
+      start: 37
+      end: 48
+    - source: redraw
+      style: secondary
+      start: 6
+      end: 12
+    - source: redraw = () => $.ui.invalidate('ui.render')
+      style: secondary
+      start: 6
+      end: 49
+    - source: forEach
+      style: secondary
+      start: 56
+      end: 63
+    - source: rows.forEach
+      style: secondary
+      start: 51
+      end: 63
+    - source: redraw
+      style: secondary
+      start: 64
+      end: 70
+    - source: redraw
+      style: secondary
+      start: 64
+      end: 70
+    - source: rows.forEach(redraw)
+      style: secondary
+      start: 51
+      end: 71
+    - source: |
+        const redraw = () => $.ui.invalidate('ui.render');
+        rows.forEach(redraw);
+      style: secondary
+      start: 0
+      end: 73
+    - source: () => $.ui.invalidate('ui.render')
+      style: secondary
+      start: 15
+      end: 49
+  ? |
+    do {
+        $.ui.invalidate('ui.render');
+    } while (pending());
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 9
+      end: 37
+    - source: invalidate
+      style: secondary
+      start: 14
+      end: 24
+    - source: invalidate
+      style: secondary
+      start: 14
+      end: 24
+    - source: '''ui.render'''
+      style: secondary
+      start: 25
+      end: 36
+    - source: '''ui.render'''
+      style: secondary
+      start: 25
+      end: 36
+    - source: |-
+        do {
+            $.ui.invalidate('ui.render');
+        } while (pending());
+      style: secondary
+      start: 0
+      end: 59
+  ? |
+    for (const key in table) {
+        $.ui.invalidate('ui.render');
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 31
+      end: 59
+    - source: invalidate
+      style: secondary
+      start: 36
+      end: 46
+    - source: invalidate
+      style: secondary
+      start: 36
+      end: 46
+    - source: '''ui.render'''
+      style: secondary
+      start: 47
+      end: 58
+    - source: '''ui.render'''
+      style: secondary
+      start: 47
+      end: 58
+    - source: |-
+        for (const key in table) {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 0
+      end: 62
+  ? |
+    for (const row of rows) {
+        $.ui.invalidate('ui.render');
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 30
+      end: 58
+    - source: invalidate
+      style: secondary
+      start: 35
+      end: 45
+    - source: invalidate
+      style: secondary
+      start: 35
+      end: 45
+    - source: '''ui.render'''
+      style: secondary
+      start: 46
+      end: 57
+    - source: '''ui.render'''
+      style: secondary
+      start: 46
+      end: 57
+    - source: |-
+        for (const row of rows) {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 0
+      end: 61
+  ? |
+    for (const row of rows) {
+        $.ui.invalidate(`ui.render`);
+    }
+  : labels:
+    - source: $.ui.invalidate(`ui.render`)
+      style: primary
+      start: 30
+      end: 58
+    - source: invalidate
+      style: secondary
+      start: 35
+      end: 45
+    - source: invalidate
+      style: secondary
+      start: 35
+      end: 45
+    - source: '`ui.render`'
+      style: secondary
+      start: 46
+      end: 57
+    - source: '`ui.render`'
+      style: secondary
+      start: 46
+      end: 57
+    - source: |-
+        for (const row of rows) {
+            $.ui.invalidate(`ui.render`);
+        }
+      style: secondary
+      start: 0
+      end: 61
+  ? |
+    for (const row of rows) {
+        if (row.changed) {
+            $.ui.invalidate('ui.render');
+        }
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 57
+      end: 85
+    - source: invalidate
+      style: secondary
+      start: 62
+      end: 72
+    - source: invalidate
+      style: secondary
+      start: 62
+      end: 72
+    - source: '''ui.render'''
+      style: secondary
+      start: 73
+      end: 84
+    - source: '''ui.render'''
+      style: secondary
+      start: 73
+      end: 84
+    - source: |-
+        for (const row of rows) {
+            if (row.changed) {
+                $.ui.invalidate('ui.render');
+            }
+        }
+      style: secondary
+      start: 0
+      end: 94
+  ? |
+    for (const row of rows) {
+        switch (row.kind) {
+            case 'changed':
+                $.ui.invalidate('ui.render');
+        }
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 86
+      end: 114
+    - source: invalidate
+      style: secondary
+      start: 91
+      end: 101
+    - source: invalidate
+      style: secondary
+      start: 91
+      end: 101
+    - source: '''ui.render'''
+      style: secondary
+      start: 102
+      end: 113
+    - source: '''ui.render'''
+      style: secondary
+      start: 102
+      end: 113
+    - source: |-
+        for (const row of rows) {
+            switch (row.kind) {
+                case 'changed':
+                    $.ui.invalidate('ui.render');
+            }
+        }
+      style: secondary
+      start: 0
+      end: 123
+  ? |
+    for (let i = 0; i < count; i++) {
+        $.ui.invalidate('ui.render');
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 38
+      end: 66
+    - source: invalidate
+      style: secondary
+      start: 43
+      end: 53
+    - source: invalidate
+      style: secondary
+      start: 43
+      end: 53
+    - source: '''ui.render'''
+      style: secondary
+      start: 54
+      end: 65
+    - source: '''ui.render'''
+      style: secondary
+      start: 54
+      end: 65
+    - source: |-
+        for (let i = 0; i < count; i++) {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 0
+      end: 69
+  ? |
+    for await (const row of rows) {
+        $.ui.invalidate('ui.render');
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 36
+      end: 64
+    - source: invalidate
+      style: secondary
+      start: 41
+      end: 51
+    - source: invalidate
+      style: secondary
+      start: 41
+      end: 51
+    - source: '''ui.render'''
+      style: secondary
+      start: 52
+      end: 63
+    - source: '''ui.render'''
+      style: secondary
+      start: 52
+      end: 63
+    - source: |-
+        for await (const row of rows) {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 0
+      end: 67
+  ? |
+    function redraw() {
+        $.ui.invalidate('ui.render');
+    }
+    rows.forEach(redraw);
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 24
+      end: 52
+    - source: invalidate
+      style: secondary
+      start: 29
+      end: 39
+    - source: invalidate
+      style: secondary
+      start: 29
+      end: 39
+    - source: '''ui.render'''
+      style: secondary
+      start: 40
+      end: 51
+    - source: '''ui.render'''
+      style: secondary
+      start: 40
+      end: 51
+    - source: redraw
+      style: secondary
+      start: 9
+      end: 15
+    - source: forEach
+      style: secondary
+      start: 61
+      end: 68
+    - source: rows.forEach
+      style: secondary
+      start: 56
+      end: 68
+    - source: redraw
+      style: secondary
+      start: 69
+      end: 75
+    - source: redraw
+      style: secondary
+      start: 69
+      end: 75
+    - source: rows.forEach(redraw)
+      style: secondary
+      start: 56
+      end: 76
+    - source: |
+        function redraw() {
+            $.ui.invalidate('ui.render');
+        }
+        rows.forEach(redraw);
+      style: secondary
+      start: 0
+      end: 78
+    - source: |-
+        function redraw() {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 0
+      end: 55
+  ? |
+    on("ui.render", ($, e, next) => {
+        $.ui.invalidate("ui.render");
+        return next(e);
+    });
+  : labels:
+    - source: $.ui.invalidate("ui.render")
+      style: primary
+      start: 38
+      end: 66
+    - source: invalidate
+      style: secondary
+      start: 43
+      end: 53
+    - source: invalidate
+      style: secondary
+      start: 43
+      end: 53
+    - source: '"ui.render"'
+      style: secondary
+      start: 54
+      end: 65
+    - source: '"ui.render"'
+      style: secondary
+      start: 54
+      end: 65
+    - source: |-
+        ($, e, next) => {
+            $.ui.invalidate("ui.render");
+            return next(e);
+        }
+      style: secondary
+      start: 16
+      end: 89
+  ? |
+    on('ui.render', ($, e, next) => {
+        const redraw = () => {
+            for (const row of rows) {
+                $.ui.invalidate('ui.render');
+            }
+        };
+        return next(e);
+    });
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 107
+      end: 135
+    - source: invalidate
+      style: secondary
+      start: 112
+      end: 122
+    - source: invalidate
+      style: secondary
+      start: 112
+      end: 122
+    - source: '''ui.render'''
+      style: secondary
+      start: 123
+      end: 134
+    - source: '''ui.render'''
+      style: secondary
+      start: 123
+      end: 134
+    - source: |-
+        for (const row of rows) {
+                    $.ui.invalidate('ui.render');
+                }
+      style: secondary
+      start: 69
+      end: 146
+  ? |
+    on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
+        $.ui.invalidate('ui.render');
+        return next(e);
+    });
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 74
+      end: 102
+    - source: invalidate
+      style: secondary
+      start: 79
+      end: 89
+    - source: invalidate
+      style: secondary
+      start: 79
+      end: 89
+    - source: '''ui.render'''
+      style: secondary
+      start: 90
+      end: 101
+    - source: '''ui.render'''
+      style: secondary
+      start: 90
+      end: 101
+    - source: |-
+        async ($, e, next) => {
+            $.ui.invalidate('ui.render');
+            return next(e);
+        }
+      style: secondary
+      start: 46
+      end: 125
+  ? |
+    rows.forEach((row) => $.ui.invalidate('ui.render'));
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 22
+      end: 50
+    - source: invalidate
+      style: secondary
+      start: 27
+      end: 37
+    - source: invalidate
+      style: secondary
+      start: 27
+      end: 37
+    - source: '''ui.render'''
+      style: secondary
+      start: 38
+      end: 49
+    - source: '''ui.render'''
+      style: secondary
+      start: 38
+      end: 49
+    - source: forEach
+      style: secondary
+      start: 5
+      end: 12
+    - source: rows.forEach
+      style: secondary
+      start: 0
+      end: 12
+    - source: rows.forEach((row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 0
+      end: 51
+    - source: ((row) => $.ui.invalidate('ui.render'))
+      style: secondary
+      start: 12
+      end: 51
+    - source: (row) => $.ui.invalidate('ui.render')
+      style: secondary
+      start: 13
+      end: 50
+  ? |
+    rows.map(function (row) {
+        $.ui.invalidate('ui.render');
+        return row;
+    });
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 30
+      end: 58
+    - source: invalidate
+      style: secondary
+      start: 35
+      end: 45
+    - source: invalidate
+      style: secondary
+      start: 35
+      end: 45
+    - source: '''ui.render'''
+      style: secondary
+      start: 46
+      end: 57
+    - source: '''ui.render'''
+      style: secondary
+      start: 46
+      end: 57
+    - source: map
+      style: secondary
+      start: 5
+      end: 8
+    - source: rows.map
+      style: secondary
+      start: 0
+      end: 8
+    - source: |-
+        rows.map(function (row) {
+            $.ui.invalidate('ui.render');
+            return row;
+        })
+      style: secondary
+      start: 0
+      end: 78
+    - source: |-
+        (function (row) {
+            $.ui.invalidate('ui.render');
+            return row;
+        })
+      style: secondary
+      start: 8
+      end: 78
+    - source: |-
+        function (row) {
+            $.ui.invalidate('ui.render');
+            return row;
+        }
+      style: secondary
+      start: 9
+      end: 77
+  ? |
+    rows.reduce((count, row) => {
+        $.ui.invalidate('ui.render');
+        return count + 1;
+    }, 0);
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 34
+      end: 62
+    - source: invalidate
+      style: secondary
+      start: 39
+      end: 49
+    - source: invalidate
+      style: secondary
+      start: 39
+      end: 49
+    - source: '''ui.render'''
+      style: secondary
+      start: 50
+      end: 61
+    - source: '''ui.render'''
+      style: secondary
+      start: 50
+      end: 61
+    - source: reduce
+      style: secondary
+      start: 5
+      end: 11
+    - source: rows.reduce
+      style: secondary
+      start: 0
+      end: 11
+    - source: |-
+        rows.reduce((count, row) => {
+            $.ui.invalidate('ui.render');
+            return count + 1;
+        }, 0)
+      style: secondary
+      start: 0
+      end: 91
+    - source: |-
+        ((count, row) => {
+            $.ui.invalidate('ui.render');
+            return count + 1;
+        }, 0)
+      style: secondary
+      start: 11
+      end: 91
+    - source: |-
+        (count, row) => {
+            $.ui.invalidate('ui.render');
+            return count + 1;
+        }
+      style: secondary
+      start: 12
+      end: 87
+  ? |
+    rows.some((row) => {
+        $.ui.invalidate('ui.render');
+        return row.changed;
+    });
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 25
+      end: 53
+    - source: invalidate
+      style: secondary
+      start: 30
+      end: 40
+    - source: invalidate
+      style: secondary
+      start: 30
+      end: 40
+    - source: '''ui.render'''
+      style: secondary
+      start: 41
+      end: 52
+    - source: '''ui.render'''
+      style: secondary
+      start: 41
+      end: 52
+    - source: some
+      style: secondary
+      start: 5
+      end: 9
+    - source: rows.some
+      style: secondary
+      start: 0
+      end: 9
+    - source: |-
+        rows.some((row) => {
+            $.ui.invalidate('ui.render');
+            return row.changed;
+        })
+      style: secondary
+      start: 0
+      end: 81
+    - source: |-
+        ((row) => {
+            $.ui.invalidate('ui.render');
+            return row.changed;
+        })
+      style: secondary
+      start: 9
+      end: 81
+    - source: |-
+        (row) => {
+            $.ui.invalidate('ui.render');
+            return row.changed;
+        }
+      style: secondary
+      start: 10
+      end: 80
+  ? |
+    rows.sort((left, right) => {
+        $.ui.invalidate('ui.render');
+        return 0;
+    });
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 33
+      end: 61
+    - source: invalidate
+      style: secondary
+      start: 38
+      end: 48
+    - source: invalidate
+      style: secondary
+      start: 38
+      end: 48
+    - source: '''ui.render'''
+      style: secondary
+      start: 49
+      end: 60
+    - source: '''ui.render'''
+      style: secondary
+      start: 49
+      end: 60
+    - source: sort
+      style: secondary
+      start: 5
+      end: 9
+    - source: rows.sort
+      style: secondary
+      start: 0
+      end: 9
+    - source: |-
+        rows.sort((left, right) => {
+            $.ui.invalidate('ui.render');
+            return 0;
+        })
+      style: secondary
+      start: 0
+      end: 79
+    - source: |-
+        ((left, right) => {
+            $.ui.invalidate('ui.render');
+            return 0;
+        })
+      style: secondary
+      start: 9
+      end: 79
+    - source: |-
+        (left, right) => {
+            $.ui.invalidate('ui.render');
+            return 0;
+        }
+      style: secondary
+      start: 10
+      end: 78
+  ? |
+    rows: for (const row of rows) {
+        $.ui.invalidate('ui.render');
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 36
+      end: 64
+    - source: invalidate
+      style: secondary
+      start: 41
+      end: 51
+    - source: invalidate
+      style: secondary
+      start: 41
+      end: 51
+    - source: '''ui.render'''
+      style: secondary
+      start: 52
+      end: 63
+    - source: '''ui.render'''
+      style: secondary
+      start: 52
+      end: 63
+    - source: |-
+        for (const row of rows) {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 6
+      end: 67
+  ? |
+    while (pending()) {
+        $.ui.invalidate('ui.render');
+    }
+  : labels:
+    - source: $.ui.invalidate('ui.render')
+      style: primary
+      start: 24
+      end: 52
+    - source: invalidate
+      style: secondary
+      start: 29
+      end: 39
+    - source: invalidate
+      style: secondary
+      start: 29
+      end: 39
+    - source: '''ui.render'''
+      style: secondary
+      start: 40
+      end: 51
+    - source: '''ui.render'''
+      style: secondary
+      start: 40
+      end: 51
+    - source: |-
+        while (pending()) {
+            $.ui.invalidate('ui.render');
+        }
+      style: secondary
+      start: 0
+      end: 55

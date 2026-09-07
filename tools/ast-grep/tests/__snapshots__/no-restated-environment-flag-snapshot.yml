@@ -1,0 +1,174 @@
+id: no-restated-environment-flag
+snapshots:
+  const argv = ['dotnet', 'build', root, '--nologo'];:
+    labels:
+    - source: '''--nologo'''
+      style: primary
+      start: 39
+      end: 49
+    - source: '''dotnet'''
+      style: secondary
+      start: 14
+      end: 22
+    - source: '''--nologo'''
+      style: secondary
+      start: 39
+      end: 49
+    - source: '[''dotnet'', ''build'', root, ''--nologo'']'
+      style: secondary
+      start: 13
+      end: 50
+  const argv = ['mise', 'exec', '--', 'dotnet', 'build', '--nologo'];:
+    labels:
+    - source: '''--nologo'''
+      style: primary
+      start: 55
+      end: 65
+    - source: '''dotnet'''
+      style: secondary
+      start: 36
+      end: 44
+    - source: '''--nologo'''
+      style: secondary
+      start: 55
+      end: 65
+    - source: '[''mise'', ''exec'', ''--'', ''dotnet'', ''build'', ''--nologo'']'
+      style: secondary
+      start: 13
+      end: 66
+  const argv = ['python', '-X', 'pycache_prefix=.cache'];:
+    labels:
+    - source: '''-X'''
+      style: primary
+      start: 24
+      end: 28
+    - source: '''python'''
+      style: secondary
+      start: 14
+      end: 22
+    - source: '''-X'''
+      style: secondary
+      start: 24
+      end: 28
+    - source: '''pycache_prefix=.cache'''
+      style: secondary
+      start: 30
+      end: 53
+    - source: '[''python'', ''-X'', ''pycache_prefix=.cache'']'
+      style: secondary
+      start: 13
+      end: 54
+  const argv = ['uv', 'run', '--cache-dir', dir];:
+    labels:
+    - source: '''--cache-dir'''
+      style: primary
+      start: 27
+      end: 40
+    - source: '''uv'''
+      style: secondary
+      start: 14
+      end: 18
+    - source: '''--cache-dir'''
+      style: secondary
+      start: 27
+      end: 40
+    - source: '[''uv'', ''run'', ''--cache-dir'', dir]'
+      style: secondary
+      start: 13
+      end: 46
+  const argv = ['uv', 'run', '--python=3.15', 'pytest'];:
+    labels:
+    - source: '''--python=3.15'''
+      style: primary
+      start: 27
+      end: 42
+    - source: '''uv'''
+      style: secondary
+      start: 14
+      end: 18
+    - source: '''--python=3.15'''
+      style: secondary
+      start: 27
+      end: 42
+    - source: '[''uv'', ''run'', ''--python=3.15'', ''pytest'']'
+      style: secondary
+      start: 13
+      end: 53
+  const argv = ['uv', 'run', `--cache-dir=${dir}`, 'pytest'];:
+    labels:
+    - source: '`--cache-dir=${dir}`'
+      style: primary
+      start: 27
+      end: 47
+    - source: '''uv'''
+      style: secondary
+      start: 14
+      end: 18
+    - source: '`--cache-dir=${dir}`'
+      style: secondary
+      start: 27
+      end: 47
+    - source: '[''uv'', ''run'', `--cache-dir=${dir}`, ''pytest'']'
+      style: secondary
+      start: 13
+      end: 58
+  const build = 'dotnet build Workspace.slnx -nologo';:
+    labels:
+    - source: '''dotnet build Workspace.slnx -nologo'''
+      style: primary
+      start: 14
+      end: 51
+  const build = 'dotnet msbuild /nologo';:
+    labels:
+    - source: '''dotnet msbuild /nologo'''
+      style: primary
+      start: 14
+      end: 38
+  const check = 'python -X pycache_prefix=.cache -m eng';:
+    labels:
+    - source: '''python -X pycache_prefix=.cache -m eng'''
+      style: primary
+      start: 14
+      end: 54
+  const check = `python -X pycache_prefix=${cache} -m eng`;:
+    labels:
+    - source: '`python -X pycache_prefix=${cache} -m eng`'
+      style: primary
+      start: 14
+      end: 56
+  'const pack = { command: `dotnet pack ${root} --configuration Release --output ${source} --nologo` };':
+    labels:
+    - source: '`dotnet pack ${root} --configuration Release --output ${source} --nologo`'
+      style: primary
+      start: 24
+      end: 97
+  const restore = 'dotnet restore -noLogo';:
+    labels:
+    - source: '''dotnet restore -noLogo'''
+      style: primary
+      start: 16
+      end: 40
+  const run = 'uv run --python 3.15 pytest';:
+    labels:
+    - source: '''uv run --python 3.15 pytest'''
+      style: primary
+      start: 12
+      end: 41
+  const run = 'uv run -p 3.15 pytest';:
+    labels:
+    - source: '''uv run -p 3.15 pytest'''
+      style: primary
+      start: 12
+      end: 35
+  const run = `uv run --cache-dir ${dir} pytest`;:
+    labels:
+    - source: '`uv run --cache-dir ${dir} pytest`'
+      style: primary
+      start: 12
+      end: 46
+  const test = `dotnet test --no-logo ${root}`;:
+    labels:
+    - source: '`dotnet test --no-logo ${root}`'
+      style: primary
+      start: 13
+      end: 44

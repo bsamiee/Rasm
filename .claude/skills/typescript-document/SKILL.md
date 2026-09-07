@@ -29,7 +29,7 @@ Document exported declarations (types, interfaces, enums, functions, constants) 
 |  [05]   | Caller needs copy-paste usage                                 | `@example`                                                     |
 |  [06]   | Inline object type with members that need doc comments        | Named `interface` or `type` with a doc comment per member      |
 
-`tools/biome/no-domain-throw.grit` reports every `throw` in `libs/typescript` outside `Effect.try` and `Effect.tryPromise`, and `no-nullable-return.grit` reports `return null` and `return undefined`. Domain functions fail through `E` and return absence as `Option`, and `@throws` applies to the boundary code that throws.
+`no-throw-outside-try` under `tools/ast-grep/rules/typescript/effect/` reports every `throw` in `libs/typescript` outside `Effect.try` and `Effect.tryPromise`, and `no-nullable-return` under `rules/typescript/syntax/` reports `return null`, a `null` arrow body, and `undefined` returned under a value-type annotation, while an unannotated `return undefined` is Biome's `noUselessUndefined`. Domain functions fail through `E` and return absence as `Option`, and `@throws` applies to the boundary code that throws.
 
 ## [03]-[STYLE]
 

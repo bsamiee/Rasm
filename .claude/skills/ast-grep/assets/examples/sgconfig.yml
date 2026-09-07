@@ -2,6 +2,7 @@
 # The layout ast-grep new project scaffolds, every example rule loads through it and ast-grep test runs from its directory
 ruleDirs:
     - rules
+    - rewrites # severity: off, loaded by --error=<id> on demand and by ast-grep test --include-off
 utilDirs:
     - utils
 testConfigs:

@@ -7,7 +7,6 @@ from datetime import datetime, timedelta, UTC
 import enum
 import fnmatch
 import functools
-import os
 from pathlib import Path
 import sys
 import tomllib
@@ -26,9 +25,10 @@ from tests.python.support.bench import _series_from_storage, pytest_benchmark_up
 from tests.python.support.properties import (
     assert_property_coverage,
     is_automatically_exempt,
+    PACKAGES_UNDER_TEST,
     PackageUnderTest,
+    PROPERTY_RECORDS,
     property_test,
-    PROPERTY_TESTS,
     PropertyRecord,
     record_coverage_declarations,
     register_package_tree,
@@ -84,12 +84,12 @@ def _collect_session_items(pytestconfig: pytest.Config) -> list[pytest.Function]
 # --- [PROPERTY_TEST_COVERAGE] -----------------------------------------------------------
 
 
-def test_property_test_coverage() -> None:
+def test_property_test_coverage(pytestconfig: pytest.Config) -> None:
     """Registered public APIs require a property test or explicit exemption, the check skips partially collected packages."""
-    if not properties_module.PACKAGES_UNDER_TEST:
+    if not (packages := pytestconfig.stash.get(PACKAGES_UNDER_TEST, frozendict())):
         pytest.skip("no package registered for property-test coverage")
-    partial = uncollected_test_modules()
-    assert_property_coverage(only=frozenset(properties_module.PACKAGES_UNDER_TEST) - frozenset(partial))
+    partial = uncollected_test_modules(packages)
+    assert_property_coverage(pytestconfig.stash[PROPERTY_RECORDS], packages, only=frozenset(packages) - frozenset(partial))
     if partial:
         detail = "; ".join(f"{package}: {', '.join(missing)}" for package, missing in sorted(partial.items()))
         pytest.skip(f"property-test coverage incomplete because test modules were not collected ({detail})")
@@ -97,26 +97,19 @@ def test_property_test_coverage() -> None:
 
 def test_property_coverage_is_scoped_by_package(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     """Property tests cover same-named symbols in their own package only."""
-    names = ("propertypkg_alpha", "propertypkg_beta")
-    for name in names:
+    alpha, beta = "propertypkg_alpha", "propertypkg_beta"
+    for name in (alpha, beta):
         pkg = tmp_path / name
         pkg.mkdir()
         (pkg / "__init__.py").write_text('__all__ = ["thing"]\n\n\ndef thing() -> None: ...\n', encoding="utf-8")
+        request.addfinalizer(functools.partial(sys.modules.pop, name, None))
     monkeypatch.syspath_prepend(str(tmp_path))
 
-    def _purge() -> None:
-        [sys.modules.pop(name, None) for name in names]
+    records = (PropertyRecord(subject="thing", property_name="alpha_thing_property", module=__name__, subject_module=alpha),)
+    assert_property_coverage(records, frozendict({alpha: PackageUnderTest()}))
 
-    request.addfinalizer(_purge)
-
-    record = PropertyRecord(subject="thing", property_name="alpha_thing_property", module=__name__, subject_module="propertypkg_alpha")
-    monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [record])
-    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {"propertypkg_alpha": PackageUnderTest()})
-    assert_property_coverage()
-
-    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {"propertypkg_alpha": PackageUnderTest(), "propertypkg_beta": PackageUnderTest()})
-    with pytest.raises(AssertionError, match="propertypkg_beta"):
-        assert_property_coverage()
+    with pytest.raises(AssertionError, match=beta):
+        assert_property_coverage(records, frozendict({alpha: PackageUnderTest(), beta: PackageUnderTest()}))
 
 
 def test_property_coverage_detects_partial_collection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
@@ -124,52 +117,49 @@ def test_property_coverage_detects_partial_collection(tmp_path: Path, monkeypatc
     suite = tmp_path / "suite"
     suite.mkdir()
     (suite / "test_missing.py").write_text("", encoding="utf-8")
-    pkg = tmp_path / "propertypkg_partial"
+    name = "propertypkg_partial"
+    pkg = tmp_path / name
     pkg.mkdir()
     (pkg / "__init__.py").write_text('__all__ = ["thing"]\n\n\ndef thing() -> None: ...\n', encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
-    request.addfinalizer(lambda: sys.modules.pop("propertypkg_partial", None))
+    request.addfinalizer(functools.partial(sys.modules.pop, name, None))
 
-    monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
-    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {"propertypkg_partial": PackageUnderTest(suite=suite)})
-    missing = uncollected_test_modules()["propertypkg_partial"]
+    packages = frozendict({name: PackageUnderTest(suite=suite)})
+    missing = uncollected_test_modules(packages)[name]
     assert missing, "on-disk test module not reported as uncollected"
-    with pytest.raises(pytest.skip.Exception, match="coverage incomplete"):
-        test_property_test_coverage()
 
-    for name in missing:
-        monkeypatch.setitem(sys.modules, name, ModuleType(name))
-    assert "propertypkg_partial" not in uncollected_test_modules(), "coverage remained partial after every test module was imported"
-    with pytest.raises(AssertionError, match="propertypkg_partial"):
-        test_property_test_coverage()
+    for module_name in missing:
+        monkeypatch.setitem(sys.modules, module_name, ModuleType(module_name))
+    assert name not in uncollected_test_modules(packages), "coverage remained partial after every test module was imported"
+    with pytest.raises(AssertionError, match=name):
+        assert_property_coverage((), packages)
 
 
 def test_register_package_tree_registers_only_python_packages(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     """Package discovery registers each directory holding Python modules under an import root and ignores the rest."""
     source = tmp_path / "src"
-    (source / "alpha").mkdir(parents=True)
-    (source / "alpha" / "__init__.py").write_text("", encoding="utf-8")
+    for package in (source / "alpha", source / "nested" / "inner"):
+        package.mkdir(parents=True)
+        (package / "__init__.py").write_text("", encoding="utf-8")
     (source / "planning_only").mkdir()
     (source / "unregistered.py").write_text("", encoding="utf-8")
-    (source / "nested" / "inner").mkdir(parents=True)
-    (source / "nested" / "inner" / "__init__.py").write_text("", encoding="utf-8")
     suites = tmp_path / "suites"
-    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {})
+    stash = pytest.Stash()
     monkeypatch.setattr(properties_module, "_IMPORT_ROOTS", frozenset({source}))
 
-    assert register_package_tree(source, suites) == ("alpha", "nested"), "package registration did not match the source layout"
-    assert properties_module.PACKAGES_UNDER_TEST["alpha"].suite == suites / "alpha", "test-directory derivation failed"
+    assert register_package_tree(stash, source, suites) == ("alpha", "nested"), "package registration did not match the source layout"
+    assert stash[PACKAGES_UNDER_TEST]["alpha"].suite == suites / "alpha", "test-directory derivation failed"
     assert properties_module._importable(REPO_ROOT / "tests" / "python" / "support") == "tests.python.support", (
         "a directory outside an import root must keep its repository-relative dotted path"
     )
-    assert register_package_tree(tmp_path / "absent", suites) == (), "a missing source root must register nothing"
+    assert register_package_tree(stash, tmp_path / "absent", suites) == (), "a missing source root must register nothing"
 
 
-def test_registered_packages_have_test_directories() -> None:
+def test_registered_packages_have_test_directories(pytestconfig: pytest.Config) -> None:
     """Each package registration identifies an existing test directory."""
-    if not properties_module.PACKAGES_UNDER_TEST:
+    if not (packages := pytestconfig.stash.get(PACKAGES_UNDER_TEST, frozendict())):
         pytest.skip("no package registered for property-test coverage")
-    for package, registration in properties_module.PACKAGES_UNDER_TEST.items():
+    for package, registration in packages.items():
         assert registration.suite is not None and registration.suite.is_dir(), (
             f"{package} registered without an existing test directory: {registration.suite!r}"
         )
@@ -190,34 +180,34 @@ def test_test_module_names_match_live_session_imports(pytestconfig: pytest.Confi
 
 def test_undefined_export_fails_coverage_inspection(tmp_path: Path, monkeypatch: pytest.MonkeyPatch, request: pytest.FixtureRequest) -> None:
     """Undefined ``__all__`` entries fail public-API inspection."""
-    pkg = tmp_path / "propertypkg_undefined"
+    name = "propertypkg_undefined"
+    pkg = tmp_path / name
     pkg.mkdir()
     (pkg / "__init__.py").write_text('__all__ = ["missing"]\n', encoding="utf-8")
     monkeypatch.syspath_prepend(str(tmp_path))
-    request.addfinalizer(lambda: sys.modules.pop("propertypkg_undefined", None))
-    monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
-    monkeypatch.setattr(properties_module, "PACKAGES_UNDER_TEST", {"propertypkg_undefined": PackageUnderTest()})
+    request.addfinalizer(functools.partial(sys.modules.pop, name, None))
     with pytest.raises(AssertionError, match="missing"):
-        assert_property_coverage()
+        assert_property_coverage((), frozendict({name: PackageUnderTest()}))
 
 
 # --- [PROPERTY_TEST_SETTINGS] -----------------------------------------------------------
 
 
-def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_property_test_uses_profiles_timeout_and_event_labels() -> None:
     """Property tests use the active or named profile, interpret timeout as seconds, and label generated examples."""
-    monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
     runs: list[int] = []
     pinned_runs: list[int] = []
     tagged: list[int] = []
 
     def _tag(drawn: object) -> str:
-        tagged.append(drawn) if isinstance(drawn, int) else None
+        if isinstance(drawn, int):
+            tagged.append(drawn)
         return f"n={drawn}"
 
-    hyp_settings.register_profile("test-support-local", max_examples=3, deadline=None, database=None, derandomize=True)
+    local = "test-support-local"
+    hyp_settings.register_profile(local, max_examples=3, deadline=None, database=None, derandomize=True)
     prior = hyp_settings.get_current_profile_name()
-    hyp_settings.load_profile("test-support-local")
+    hyp_settings.load_profile(local)
     try:
 
         @property_test(int, property_name="follows-active-profile", events=(_tag,))
@@ -248,7 +238,7 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
     type Pair = tuple[int, int]
     alias_runs: list[tuple[int, int]] = []
 
-    @property_test(Pair, profile="test-support-local", property_name="alias")
+    @property_test(Pair, profile=local, property_name="alias")
     def alias_property(pair: tuple[int, int]) -> None:
         alias_runs.append(pair)
 
@@ -260,13 +250,14 @@ def test_property_test_uses_profiles_timeout_and_event_labels(monkeypatch: pytes
 
 def test_hypothesis_profiles_preserve_required_settings() -> None:
     """Each registered profile retains the settings required by its use case."""
-    profile_names = (PROFILE_DEFAULT, "ci", "stress", "debug", PROFILE_STATEFUL, "parity", "adversarial")
-    profiles = {name: hyp_settings.get_profile(name) for name in profile_names}
+    default, ci, stress, _debug, _stateful, parity, adversarial = map(
+        hyp_settings.get_profile, (PROFILE_DEFAULT, "ci", "stress", "debug", PROFILE_STATEFUL, "parity", "adversarial")
+    )
     capability_matrix(
-        ("parity-byte-stable", lambda: profiles["parity"].derandomize and profiles["parity"].database is None, True),
-        ("stress-hill-climbs", lambda: Phase.target in profiles["stress"].phases, True),
-        ("adversarial-outbudgets-ci", lambda: profiles["adversarial"].max_examples > profiles["ci"].max_examples, True),
-        ("default-replays-examples", lambda: profiles[PROFILE_DEFAULT].database is not None, True),
+        ("parity-byte-stable", lambda: parity.derandomize and parity.database is None, True),
+        ("stress-hill-climbs", lambda: Phase.target in stress.phases, True),
+        ("adversarial-outbudgets-ci", lambda: adversarial.max_examples > ci.max_examples, True),
+        ("default-replays-examples", lambda: default.database is not None, True),
     )
 
 
@@ -303,12 +294,14 @@ class _Plain:
     pass
 
 
-def test_covers_tuple_recorded_at_collection() -> None:
-    """The runtime plugin records the module COVERS declaration during collection."""
-    assert any(
-        record.property_name == "covers" and record.module == __name__ and record.subject == "record_coverage_declarations"
-        for record in PROPERTY_TESTS
-    ), "COVERS declaration was not recorded during collection"
+def test_covers_tuple_recorded_at_collection(pytestconfig: pytest.Config) -> None:
+    """The runtime plugin records the module COVERS declaration once during collection."""
+    covers = [
+        record
+        for record in pytestconfig.stash[PROPERTY_RECORDS]
+        if record.property_name == "covers" and record.module == __name__ and record.subject == "record_coverage_declarations"
+    ]
+    assert len(covers) == 1, f"COVERS declaration recorded {len(covers)} times during collection"
 
 
 @pytest.mark.parametrize(
@@ -332,19 +325,15 @@ def test_automatic_exemption_classifies_public_symbols(subject: object, *, exemp
     assert is_automatically_exempt(subject) is exempt, f"is_automatically_exempt({subject!r}) != {exempt}"
 
 
-def test_record_coverage_declarations_is_idempotent_and_rejects_values(monkeypatch: pytest.MonkeyPatch) -> None:
-    """COVERS consumption is idempotent per module and rejects value-only entries."""
-    monkeypatch.setattr(properties_module, "PROPERTY_TESTS", [])
-    monkeypatch.setattr(properties_module, "_RECORDED", set())
+def test_record_coverage_declarations_returns_records_and_rejects_values() -> None:
+    """COVERS entries become one record each, value-only entries are rejected, and a module without the tuple yields none."""
     module = SimpleNamespace(__name__="covers_module", COVERS=(_FrozenOwner, record_coverage_declarations))
-    record_coverage_declarations(module)
-    record_coverage_declarations(module)
-    assert [(record.subject, record.property_name) for record in properties_module.PROPERTY_TESTS] == [
+    assert [(record.subject, record.property_name) for record in record_coverage_declarations(module)] == [
         ("_FrozenOwner", "covers"),
         ("record_coverage_declarations", "covers"),
     ]
+    assert record_coverage_declarations(SimpleNamespace(__name__="plain_module")) == ()
 
-    monkeypatch.setattr(properties_module, "_RECORDED", set())
     with pytest.raises(TypeError, match="types or callables"):
         record_coverage_declarations(SimpleNamespace(__name__="covers_bad", COVERS=(42,)))
 
@@ -352,11 +341,11 @@ def test_record_coverage_declarations_is_idempotent_and_rejects_values(monkeypat
 # --- [PROPERTY_RECORDS] -----------------------------------------------------------------
 
 
-def test_property_records_have_named_subjects_and_modules() -> None:
+def test_property_records_have_named_subjects_and_modules(pytestconfig: pytest.Config) -> None:
     """Every property record has a subject, property name, and module, subjects cannot be anonymous lambdas."""
-    if not PROPERTY_TESTS:
+    if not (records := pytestconfig.stash[PROPERTY_RECORDS]):
         pytest.skip("no property tests were recorded in this session")
-    for record in PROPERTY_TESTS:
+    for record in records:
         assert record.subject and record.property_name and record.module, f"empty property record field in {record!r}"
         assert "<lambda>" not in record.subject, f"anonymous property-test subject: {record!r}"
 
@@ -393,8 +382,7 @@ def test_property_marker_auto_applied_to_hypothesis_items(pytestconfig: pytest.C
 
 def test_benchmark_regression_hook_is_registered(pytestconfig: pytest.Config) -> None:
     """The benchmark regression hook is live when pytest-benchmark is loaded."""
-    hook = getattr(pytestconfig.pluginmanager.hook, "pytest_benchmark_update_json", None)
-    if hook is None:
+    if (hook := getattr(pytestconfig.pluginmanager.hook, "pytest_benchmark_update_json", None)) is None:
         pytest.skip("pytest-benchmark plugin not loaded, no pytest_benchmark_update_json hookspec")
     impl_names = [impl.plugin_name for impl in hook.get_hookimpls()]
     assert "test-support-bench" in impl_names, f"test-support-bench hook implementation missing, registered implementations: {impl_names}"
@@ -438,25 +426,27 @@ def test_sustained_regression_check_fails_on_step_change_and_accepts_flat_histor
 
     stepped = storage(tmp_path / "stepped", (1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 3.0, 3.0, 3.0))
     with pytest.raises(pytest.fail.Exception, match="sustained benchmark regression"):
-        pytest_benchmark_update_json(stepped, None, msgspec.json.decode(doc(3.0)))
+        pytest_benchmark_update_json(stepped, msgspec.json.decode(doc(3.0)))
 
     flat = storage(tmp_path / "flat", (1.0,) * 9)
-    pytest_benchmark_update_json(flat, None, msgspec.json.decode(doc(1.0)))
+    pytest_benchmark_update_json(flat, msgspec.json.decode(doc(1.0)))
 
 
 # --- [OBSERVABILITY_OUTPUT] -------------------------------------------------------------
 
 
 @pytest.mark.subprocess
-def test_observability_flag_writes_hypothesis_observations_to_artifacts() -> None:
+def test_observability_flag_writes_hypothesis_observations_to_artifacts(monkeypatch: pytest.MonkeyPatch) -> None:
     """``TESTS_OBSERVABILITY`` writes decodable observations, without it the artifact is unchanged."""
     test_node = "tests/python/support/test_strategies.py::test_literal_form_generates_only_declared_values"
     artifact = REPO_ROOT / ".artifacts" / "python" / "hypothesis" / f"{datetime.now(tz=UTC).date().isoformat()}_testcases.jsonl"
 
     def child(*, observed: bool) -> int:
-        base = {name: value for name, value in os.environ.items() if name != "TESTS_OBSERVABILITY"}  # ruff:ignore[banned-api]
-        env = {**base, **({"TESTS_OBSERVABILITY": "1"} if observed else {})}
-        spawn = functools.partial(anyio.run_process, env=env, cwd=str(REPO_ROOT), check=False)
+        flag = "TESTS_OBSERVABILITY"
+        monkeypatch.delenv(flag, raising=False)
+        if observed:
+            monkeypatch.setenv(flag, "1")
+        spawn = functools.partial(anyio.run_process, cwd=str(REPO_ROOT), check=False)
         result = anyio.run(spawn, [sys.executable, "-m", "pytest", test_node, "-q"])
         assert result.returncode == 0, f"observability child failed: {result.stdout!r} {result.stderr!r}"
         return artifact.stat().st_size if artifact.exists() else 0

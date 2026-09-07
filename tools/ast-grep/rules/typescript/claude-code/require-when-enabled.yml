@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-when-enabled
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+rule:
+    kind: call_expression
+    all:
+        - has:
+              field: function
+              kind: member_expression
+              all:
+                  - has:
+                        field: object
+                        kind: call_expression
+                        all:
+                            - has: {field: function, regex: '^fromBoolean$'}
+                            # The flag reads an option, direct, negated, or joined with another condition
+                            - has:
+                                  field: arguments
+                                  has:
+                                      pattern: $FLAG
+                                      any:
+                                          - matches: claude-code-option-member
+                                          - has: {stopBy: end, matches: claude-code-option-member}
+                  - has: {field: property, regex: '^match$'}
+        # A match typed other than void answers a value, and whenEnabled answers none
+        - not: {has: {field: type_arguments, kind: type_arguments, not: {has: {kind: predefined_type, regex: '^void$'}}}}
+        - has:
+              field: arguments
+              has:
+                  kind: object
+                  all:
+                      - has: {kind: pair, all: [{has: {field: key, regex: '^some$'}}, {has: {field: value, pattern: $REGISTER}}]}
+                      # The empty arm, an arrow with or without a return type answering undefined, void 0, a bare return, or nothing
+                      - has:
+                            kind: pair
+                            all:
+                                - has: {field: key, regex: '^none$'}
+                                - has:
+                                      field: value
+                                      kind: arrow_function
+                                      has:
+                                          field: body
+                                          any:
+                                              - kind: undefined
+                                              - pattern: void 0
+                                              - kind: statement_block
+                                                not: {has: {pattern: $_, not: {kind: return_statement, not: {has: {pattern: $_, not: {kind: undefined}}}}}}
+fix: whenEnabled($FLAG, $REGISTER)
+message: The registration under `$FLAG` is gated by a match with an empty none arm, and `whenEnabled` is the gate
+note: Gate the registration through `whenEnabled(options.<option>, () => register(on))` from host/options.ts

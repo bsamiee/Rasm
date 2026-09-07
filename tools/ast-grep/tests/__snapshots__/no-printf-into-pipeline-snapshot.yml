@@ -1,0 +1,189 @@
+id: no-printf-into-pipeline
+snapshots:
+  ? |
+    echo "$out" | jq -r .a
+  : fixed: |
+      jq -r .a <<<"$out"
+    labels:
+    - source: echo "$out" | jq -r .a
+      style: primary
+      start: 0
+      end: 22
+    - source: echo "$out"
+      style: secondary
+      start: 0
+      end: 11
+    - source: jq -r .a
+      style: secondary
+      start: 14
+      end: 22
+  ? |
+    first=$(printf '%s\n' "$out" | head -1)
+  : fixed: |
+      first=$(head -1 <<<"$out")
+    labels:
+    - source: printf '%s\n' "$out" | head -1
+      style: primary
+      start: 8
+      end: 38
+    - source: printf '%s\n' "$out"
+      style: secondary
+      start: 8
+      end: 28
+    - source: head -1
+      style: secondary
+      start: 31
+      end: 38
+  ? |
+    if printf '%s\n' "$x" | rg -q FAIL; then exit 1; fi
+  : fixed: |
+      if rg -q FAIL <<<"$x"; then exit 1; fi
+    labels:
+    - source: printf '%s\n' "$x" | rg -q FAIL
+      style: primary
+      start: 3
+      end: 34
+    - source: printf '%s\n' "$x"
+      style: secondary
+      start: 3
+      end: 21
+    - source: rg -q FAIL
+      style: secondary
+      start: 24
+      end: 34
+  ? |
+    printf "%s\n" "$out" | sort -u
+  : fixed: |
+      sort -u <<<"$out"
+    labels:
+    - source: printf "%s\n" "$out" | sort -u
+      style: primary
+      start: 0
+      end: 30
+    - source: printf "%s\n" "$out"
+      style: secondary
+      start: 0
+      end: 20
+    - source: sort -u
+      style: secondary
+      start: 23
+      end: 30
+  ? |
+    printf '%s\n' "$out" | rg 'Configuration not found|SKIP|FAIL'
+  : fixed: |
+      rg 'Configuration not found|SKIP|FAIL' <<<"$out"
+    labels:
+    - source: printf '%s\n' "$out" | rg 'Configuration not found|SKIP|FAIL'
+      style: primary
+      start: 0
+      end: 61
+    - source: printf '%s\n' "$out"
+      style: secondary
+      start: 0
+      end: 20
+    - source: rg 'Configuration not found|SKIP|FAIL'
+      style: secondary
+      start: 23
+      end: 61
+  ? |
+    printf '%s\n' "$out" | sort >sorted.txt
+  : fixed: |
+      sort <<<"$out" >sorted.txt
+    labels:
+    - source: printf '%s\n' "$out" | sort
+      style: primary
+      start: 0
+      end: 27
+    - source: printf '%s\n' "$out"
+      style: secondary
+      start: 0
+      end: 20
+    - source: sort
+      style: secondary
+      start: 23
+      end: 27
+  ? |
+    printf '%s\n' "$out" | while IFS= read -r line; do finding "$line"; done
+  : fixed: |
+      while IFS= read -r line; do finding "$line"; done <<<"$out"
+    labels:
+    - source: printf '%s\n' "$out" | while IFS= read -r line; do finding "$line"; done
+      style: primary
+      start: 0
+      end: 72
+    - source: printf '%s\n' "$out"
+      style: secondary
+      start: 0
+      end: 20
+    - source: while IFS= read -r line; do finding "$line"; done
+      style: secondary
+      start: 23
+      end: 72
+  ? |
+    printf '%s\n' "$x" |& sort
+  : fixed: |
+      sort <<<"$x"
+    labels:
+    - source: printf '%s\n' "$x" |& sort
+      style: primary
+      start: 0
+      end: 26
+    - source: printf '%s\n' "$x"
+      style: secondary
+      start: 0
+      end: 18
+    - source: sort
+      style: secondary
+      start: 22
+      end: 26
+  ? |
+    printf '%s\n' "${lines[0]}" | rg FAIL
+  : fixed: |
+      rg FAIL <<<"${lines[0]}"
+    labels:
+    - source: printf '%s\n' "${lines[0]}" | rg FAIL
+      style: primary
+      start: 0
+      end: 37
+    - source: printf '%s\n' "${lines[0]}"
+      style: secondary
+      start: 0
+      end: 27
+    - source: rg FAIL
+      style: secondary
+      start: 30
+      end: 37
+  ? |
+    printf '%s\n' "${out}" | rg FAIL
+  : fixed: |
+      rg FAIL <<<"${out}"
+    labels:
+    - source: printf '%s\n' "${out}" | rg FAIL
+      style: primary
+      start: 0
+      end: 32
+    - source: printf '%s\n' "${out}"
+      style: secondary
+      start: 0
+      end: 22
+    - source: rg FAIL
+      style: secondary
+      start: 25
+      end: 32
+  ? |
+    while IFS= read -r line; do finding "$line"; done < <(printf '%s\n' "$out" | rg FAIL)
+  : fixed: |
+      while IFS= read -r line; do finding "$line"; done < <(rg FAIL <<<"$out")
+    labels:
+    - source: printf '%s\n' "$out" | rg FAIL
+      style: primary
+      start: 54
+      end: 84
+    - source: printf '%s\n' "$out"
+      style: secondary
+      start: 54
+      end: 74
+    - source: rg FAIL
+      style: secondary
+      start: 77
+      end: 84

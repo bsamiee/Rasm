@@ -11,7 +11,7 @@ from expression import Result
 import msgspec
 import structlog
 
-from eng.scripts.provision import exit_code, Failure, repository_root, run_each
+from eng.scripts.provision import exit_code, Failure, message, repository_root, run_each
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -37,7 +37,7 @@ class _Merge(msgspec.Struct, frozen=True, gc=False):
 _DOTNET_REPORTS = ".artifacts/dotnet/coverage/*/*.cobertura*.xml"
 _VITEST_BLOBS = ".artifacts/typescript/test-results/.vitest-reports/@rasm"
 _REPORT_GENERATOR = ("dotnet", "dnx", "dotnet-reportgenerator-globaltool", "--yes")
-_LANGUAGES: dict[Language, _Merge] = {
+_LANGUAGES = frozendict({
     "dotnet": _Merge(
         _DOTNET_REPORTS,
         (
@@ -52,7 +52,7 @@ _LANGUAGES: dict[Language, _Merge] = {
     # The reporting commands combine the parallel data files, an explicit combine fails on empty input
     "python": _Merge(".artifacts/python/coverage/data/.coverage*", (("uv", "run", "coverage", "lcov"), ("uv", "run", "coverage", "xml"))),
     "typescript": _Merge(f"{_VITEST_BLOBS}/*.json", (("pnpm", "exec", "vitest", "run", "--merge-reports", _VITEST_BLOBS),)),
-}
+})
 
 _log = structlog.get_logger(__name__)
 _app = cyclopts.App(name="coverage")
@@ -73,7 +73,7 @@ def _report(merged: Merged) -> None:
     _log.info("merged" if merged.files else "no data", language=merged.language, files=merged.files)
 
 
-_app.result_action = (exit_code(_report), "sys_exit")
+_app.result_action = (exit_code(_report, message), "sys_exit")
 
 
 @_app.default

@@ -1,0 +1,133 @@
+id: no-control-flow-expression-statement
+snapshots:
+  ? |
+    (
+        pytest.fail(
+            "sustained regression: " + "; ".join(rows),
+            pytrace=False,
+        )
+        if regressions
+        else None
+    )
+  : labels:
+    - source: |-
+        (
+            pytest.fail(
+                "sustained regression: " + "; ".join(rows),
+                pytrace=False,
+            )
+            if regressions
+            else None
+        )
+      style: primary
+      start: 0
+      end: 134
+  ? |
+    ((record(item) if ready else None))
+  : labels:
+    - source: ((record(item) if ready else None))
+      style: primary
+      start: 0
+      end: 35
+  ? |
+    ([record(module) for module in modules.values()])
+  : labels:
+    - source: ([record(module) for module in modules.values()])
+      style: primary
+      start: 0
+      end: 49
+  ? |
+    (record(module) for module in modules.values())
+  : labels:
+    - source: (record(module) for module in modules.values())
+      style: primary
+      start: 0
+      end: 47
+  ? |
+    [[record(item) for item in group] for group in groups]
+  : labels:
+    - source: '[[record(item) for item in group] for group in groups]'
+      style: primary
+      start: 0
+      end: 54
+  ? |
+    [record(module) for module in modules.values()]
+  : labels:
+    - source: '[record(module) for module in modules.values()]'
+      style: primary
+      start: 0
+      end: 47
+  ? |
+    async def run():
+        [await record(module) async for module in modules()]
+  : labels:
+    - source: '[await record(module) async for module in modules()]'
+      style: primary
+      start: 21
+      end: 73
+  ? |
+    async def run():
+        await load(path) if path else None
+  : labels:
+    - source: await load(path) if path else None
+      style: primary
+      start: 21
+      end: 55
+  ? |
+    class Reader:
+        register(Reader) if ready else None
+  : labels:
+    - source: register(Reader) if ready else None
+      style: primary
+      start: 18
+      end: 53
+  ? |
+    def purge():
+        [sys.modules.pop(name, None) for name in names]
+  : labels:
+    - source: '[sys.modules.pop(name, None) for name in names]'
+      style: primary
+      start: 17
+      end: 64
+  ? |
+    filesystem.exists(bucket) or filesystem.call_s3("create_bucket", Bucket=bucket)
+  : labels:
+    - source: filesystem.exists(bucket) or filesystem.call_s3("create_bucket", Bucket=bucket)
+      style: primary
+      start: 0
+      end: 79
+  ? |
+    memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+  : labels:
+    - source: memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
+      style: primary
+      start: 0
+      end: 68
+  ? |
+    ready and start(item)
+  : labels:
+    - source: ready and start(item)
+      style: primary
+      start: 0
+      end: 21
+  ? |
+    start(item) if ready else queue(item)
+  : labels:
+    - source: start(item) if ready else queue(item)
+      style: primary
+      start: 0
+      end: 37
+  ? |
+    {name: record(module) for name, module in modules.items()}
+  : labels:
+    - source: '{name: record(module) for name, module in modules.items()}'
+      style: primary
+      start: 0
+      end: 58
+  ? |
+    {record(module) for module in modules.values()}
+  : labels:
+    - source: '{record(module) for module in modules.values()}'
+      style: primary
+      start: 0
+      end: 47

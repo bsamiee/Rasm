@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: conditional-statement-to-if
+language: python
+severity: off
+rule:
+    kind: expression_statement
+    pattern: $STMT
+    matches: {python-discarded-expression: {value: {pattern: $EFFECT if $TEST else None}}} # The None arm is no statement
+constraints:
+    STMT: {not: {regex: '\n'}} # Statement on one line, the parenthesized multi-line form re-indents its arm past the if
+rewriters:
+    - id: if-statement # The rewriter's template re-indents its body by the conditional's own column, the statement's column
+      rule: {kind: conditional_expression, pattern: $EFFECT if $TEST else None}
+      fix: |-
+          if $TEST:
+              $EFFECT
+transform:
+    OUT: rewrite($STMT, rewriters=[if-statement], joinBy='') # joinBy drops the parentheses around the expression
+fix: $OUT
+message: Conditional expression as a statement with a None arm drops the value
+note: Write the `if` statement, `if <condition>:` with the effect in its body

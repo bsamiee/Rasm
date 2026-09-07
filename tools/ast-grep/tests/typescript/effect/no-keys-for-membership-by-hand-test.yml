@@ -61,6 +61,8 @@ invalid:
     - |
       import { Option } from "effect";
       const known = Object.keys(packaging).includes(target);
+    # The Object spelling in the Iterable data-first search without the import
+    - 'const known = Iterable.contains(Object.keys(packaging), target);'
     # The Object spelling in the data-first search without the import
     - 'const known = Array.contains(Object.keys(packaging), target);'
     # The Object spelling under an import that binds Record to another name

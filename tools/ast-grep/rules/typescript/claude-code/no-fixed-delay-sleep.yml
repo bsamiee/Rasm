@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fixed-delay-sleep
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+utils:
+    # Comment naming the source line that states the delay, <file>.<ext>:<line>
+    source-comment:
+        kind: comment
+        regex: '[A-Za-z0-9_.-]+\.[A-Za-z]+:\d+'
+    # Number literal, signed, plain, in parentheses, or combined by an operator
+    number-literal:
+        any:
+            - kind: number
+            - kind: unary_expression
+              has: {field: argument, kind: number}
+            - kind: parenthesized_expression
+              has: {matches: number-literal}
+            - kind: binary_expression
+              all: [{has: {field: left, matches: number-literal}}, {has: {field: right, matches: number-literal}}]
+    # Name declared as a number literal with no run of comments above it holding the source line, a parameter or a computed wait stays out
+    unsourced-constant:
+        kind: identifier
+        pattern: $MS
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                stopBy: end
+                kind: lexical_declaration
+                all:
+                    - has:
+                          kind: variable_declarator
+                          all:
+                              - has: {field: name, pattern: $MS}
+                              - has: {field: value, matches: number-literal}
+                    # The comment sits before the declaration or before the export statement holding it
+                    - not:
+                          any:
+                              - follows: {stopBy: {not: {kind: comment}}, matches: source-comment}
+                              - inside: {kind: export_statement, follows: {stopBy: {not: {kind: comment}}, matches: source-comment}}
+    # Init naming the abort signal, a pair, a shorthand, or a spread that can carry it
+    signal-init:
+        kind: object
+        has:
+            any:
+                - {kind: pair, has: {field: key, regex: "^['\"]?signal['\"]?$"}}
+                - {kind: shorthand_property_identifier, regex: '^signal$'}
+                - {kind: spread_element}
+rule:
+    kind: call_expression
+    all:
+        - matches: {claude-code-engine-call: {noun: {regex: '^clock$'}}}
+        - has: {field: function, has: {field: property, regex: '^sleep$'}}
+        - any:
+              # Literal duration, the number states no source, the signature fixes the duration and the init to their positions
+              - has: {field: arguments, has: {pattern: $MS, matches: number-literal}}
+              # Constant with no source comment above its declaration
+              - has: {field: arguments, has: {matches: unsourced-constant}}
+              # No abort signal, the sleep outlives the call it waits for, an init built elsewhere can carry it
+              - all:
+                    - has: {field: arguments, has: {pattern: $MS}}
+                    - not: {has: {field: arguments, has: {nthChild: 2, any: [{matches: signal-init}, {not: {kind: object}}]}}}
+message: The sleep waits a fixed delay `$MS` where a condition, an abort signal, a blocking option, or a status read serves
+note: >-
+    Wait on the condition, the abort signal, the blocking option, or the status read, and a delay a source states keeps
+    its named constant under a comment naming the source line and passes `{ signal }`

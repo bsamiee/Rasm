@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-context-on-policy-rewrite
+language: tsx
+severity: error
+files: ['**/.claude/plugins/**']
+utils:
+    # The changed copy inline, or through a local the enclosing block declares
+    copy-argument:
+        any:
+            - matches: {claude-code-event-copy: {event: {pattern: $E}}}
+            - kind: identifier
+              pattern: $COPY
+              inside:
+                  stopBy: end
+                  kind: statement_block
+                  has:
+                      stopBy: end
+                      kind: variable_declarator
+                      all:
+                          - has: {field: name, pattern: $COPY}
+                          - has: {field: value, matches: {claude-code-event-copy: {event: {pattern: $E}}}}
+rule:
+    pattern: rewrite($COPY, [])
+    # Restoration puts the secret values the model wrote back before the guard reads the command, the one silent rewrite
+    not: {inside: {stopBy: end, any: [{kind: variable_declarator}, {kind: function_declaration}], has: {field: name, regex: '^restore$'}}}
+constraints:
+    COPY: {matches: copy-argument}
+message: The rewrite of the changed copy `$COPY` carries no context line, the model reads the command it wrote and never learns of the change
+note: 'Name what changed in the context, `rewrite({ ...e, command }, ["Ran pnpm in place of npm"])`, restoration alone rewrites silently'

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: comprehension-statement-to-for
+language: python
+severity: off
+rule:
+    kind: expression_statement
+    pattern: $STMT
+    matches:
+        python-discarded-expression:
+            value: # One for clause with or without a filter, over a list, a set, or a generator, a dictionary comprehension builds pairs
+                all:
+                    - any:
+                          - pattern: '[$BODY for $TARGET in $ITEMS]'
+                          - pattern: '{$BODY for $TARGET in $ITEMS}'
+                          - pattern: ($BODY for $TARGET in $ITEMS)
+                          - pattern: '[$BODY for $TARGET in $ITEMS if $TEST]'
+                          - pattern: '{$BODY for $TARGET in $ITEMS if $TEST}'
+                          - pattern: ($BODY for $TARGET in $ITEMS if $TEST)
+                    - not: {has: {kind: for_in_clause, has: {regex: '^async$'}}} # The templates spell a plain for, an async for keeps its clause
+constraints:
+    STMT: {not: {regex: '\n'}} # Statement on one line, a wrapped comprehension re-indents its body past the for
+rewriters:
+    - id: filtered-for # The filter becomes the if inside the loop, tried first because the plain patterns hold no if clause
+      rule:
+          any:
+              - pattern: '[$BODY for $TARGET in $ITEMS if $TEST]'
+              - pattern: '{$BODY for $TARGET in $ITEMS if $TEST}'
+              - pattern: ($BODY for $TARGET in $ITEMS if $TEST)
+      fix: |-
+          for $TARGET in $ITEMS:
+              if $TEST:
+                  $BODY
+    - id: plain-for
+      rule:
+          any:
+              - pattern: '[$BODY for $TARGET in $ITEMS]'
+              - pattern: '{$BODY for $TARGET in $ITEMS}'
+              - pattern: ($BODY for $TARGET in $ITEMS)
+      fix: |-
+          for $TARGET in $ITEMS:
+              $BODY
+transform:
+    OUT: rewrite($STMT, rewriters=[filtered-for, plain-for], joinBy='')
+fix: $OUT
+message: Comprehension as a statement builds a collection and drops it
+note: Write the `for` statement with the effect in its body

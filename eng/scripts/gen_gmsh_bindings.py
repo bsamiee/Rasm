@@ -7,6 +7,7 @@ Running it with those factories tagged captures the whole definition, each funct
 # --- [IMPORTS] --------------------------------------------------------------------------
 
 from collections.abc import Iterable
+from html import escape
 import importlib.util
 from itertools import starmap
 from pathlib import Path
@@ -76,13 +77,13 @@ _FACTORIES = (
 _WRITERS = ("write_cpp", "write_c", "write_python", "write_julia", "write_fortran", "write_texi")
 _CSHARP_KEYWORDS = frozenset({"base", "checked", "default", "event", "fixed", "object", "operator", "out", "params", "ref", "string", "value"})
 # GenApi element suffix to the C# element type and the GmshMarshal helper suffix, the scalars also form the return and out kinds
-_SCALARS = {"int": "int", "size": "long", "double": "double"}
-_ELEMENTS = {
+_SCALARS = frozendict({"int": "int", "size": "long", "double": "double"})
+_ELEMENTS = frozendict({
     **{element: (cs, cs.capitalize() + "s") for element, cs in _SCALARS.items()},
     "string": ("string", "Strings"),
     "pair": ("(int, int)", "Pairs"),
-}
-_RETURNS = {f"o{element}": cs for element, cs in _SCALARS.items()}
+})
+_RETURNS = frozendict({f"o{element}": cs for element, cs in _SCALARS.items()})
 
 
 def _vector_kinds() -> dict[str, _Kind]:
@@ -110,7 +111,7 @@ def _vector_kinds() -> dict[str, _Kind]:
     return kinds
 
 
-_KINDS: dict[str, _Kind] = {
+_KINDS = frozendict({
     "ibool": _Kind("int {p}", "bool {p}", "{p} ? 1 : 0", default="bool"),
     "iint": _Kind("int {p}", "int {p}", default="int"),
     "isize": _Kind("long {p}", "long {p}", default="int"),
@@ -140,7 +141,7 @@ _KINDS: dict[str, _Kind] = {
     "ostring": _Kind("out IntPtr {p}", "out string {p}", "out IntPtr {n}_", post="{p} = GmshMarshal.OutString({n}_);", out=True),
     **{f"o{element}": _Kind(f"out {cs} {{p}}", f"out {cs} {{p}}", "out {p}", out=True) for element, cs in _SCALARS.items()},
     **_vector_kinds(),
-}
+})
 
 # --- [DEFINITION] -----------------------------------------------------------------------
 
@@ -203,10 +204,6 @@ def _escape(name: str) -> str:
     return f"@{name}" if name in _CSHARP_KEYWORDS else name
 
 
-def _xml(doc: str) -> str:
-    return doc.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-
-
 def _default(arg: _Arg) -> str | None:
     """Translate the default value of an argument into C#, absent when the kind or the value has no translation."""
     match _KINDS[arg.kind].default, arg.value:
@@ -234,8 +231,7 @@ def _defaults(fn: _Fn) -> dict[str, str]:
     """Return the trailing run of arguments with a translatable default, C# accepts optional parameters at the end alone."""
     assigned: dict[str, str] = {}
     for arg in reversed(fn.args):
-        value = None if _KINDS[arg.kind].out else _default(arg)
-        if value is None:
+        if (value := None if _KINDS[arg.kind].out else _default(arg)) is None:
             break
         assigned[arg.name] = value
     return assigned
@@ -248,7 +244,7 @@ def _extern(fn: _Fn, cname: str) -> list[str]:
     return [f'        [DllImport(Library, EntryPoint = "{cname}")]', f"        public static extern {ret} {cname}({signature});", ""]
 
 
-def _wrapper(fn: _Fn, cname: str, indent: str) -> list[str]:
+def _wrapper(fn: _Fn, cname: str, margin: str) -> list[str]:
     ret = _RETURNS[fn.rtype] if fn.rtype else "void"
     defaults = _defaults(fn)
     kinds = [(_KINDS[arg.kind], {"p": _escape(arg.name), "n": arg.name}) for arg in fn.args]
@@ -266,33 +262,37 @@ def _wrapper(fn: _Fn, cname: str, indent: str) -> list[str]:
         *(["return result_;"] if fn.rtype else []),
     ]
     lines = [
-        f"{indent}/// <summary>{_xml(fn.doc)}</summary>",
-        f"{indent}public static {ret} {_pascal(fn.name)}({', '.join(parameters)})",
-        f"{indent}{{",
+        f"{margin}/// <summary>{escape(fn.doc, quote=False)}</summary>",
+        f"{margin}public static {ret} {_pascal(fn.name)}({', '.join(parameters)})",
+        f"{margin}{{",
     ]
-    return [*lines, *(f"{indent}    {line}" for line in body), f"{indent}}}", ""]
+    return [*lines, *(f"{margin}    {line}" for line in body), f"{margin}}}", ""]
 
 
-def _emit_module(mod: _Mod, cprefix: str, indent: str, *, top: bool, bound: list[tuple[str, _Fn]]) -> Result[list[str], PinMismatch]:
+def _emit_module(mod: _Mod, cprefix: str, margin: str, *, top: bool, bound: list[tuple[str, _Fn]]) -> Result[list[str], PinMismatch]:
     """Emit the class of a module with its wrappers and nested classes, recording every bound C name."""
     prefix = mod.name if top else cprefix + _pascal(mod.name)
     children = {_pascal(sub.name) for sub in mod.subs}
-    lines = [f"{indent}/// <summary>{_xml(mod.doc)}</summary>", f"{indent}public static class {'Gmsh' if top else _pascal(mod.name)}", f"{indent}{{"]
+    lines = [
+        f"{margin}/// <summary>{escape(mod.doc, quote=False)}</summary>",
+        f"{margin}public static class {'Gmsh' if top else _pascal(mod.name)}",
+        f"{margin}{{",
+    ]
     for fn in mod.fns:
         if _pascal(fn.name) in children:
             return Error(PinMismatch("Gmsh api definition", f"names the function {fn.name} after a nested module class in {mod.name}"))
         cname = prefix + _pascal(fn.name)
         bound.append((cname, fn))
-        lines += _wrapper(fn, cname, indent + "    ")
+        lines += _wrapper(fn, cname, margin + "    ")
     for sub in mod.subs:
-        match _emit_module(sub, prefix, indent + "    ", top=False, bound=bound):
+        match _emit_module(sub, prefix, margin + "    ", top=False, bound=bound):
             case Result(tag="error", error=failure):
                 return Error(failure)
             case Result(ok=nested):
                 lines += nested
     if not lines[-1]:
         lines.pop()
-    return Ok([*lines, f"{indent}}}", ""])
+    return Ok([*lines, f"{margin}}}", ""])
 
 
 def _native_file(version: str, externs: list[str]) -> str:
@@ -398,11 +398,12 @@ def _marshal_file(version: str) -> str:
 
 def generate(api_dir: Path, out_dir: Path, version: str) -> Result[int, PinMismatch]:
     """Emit GmshNative.g.cs, Gmsh.g.cs, and GmshMarshal.g.cs into out_dir and return the bound function count."""
+    definition = "Gmsh api definition"
     match _load_definition(api_dir):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result(ok=(root, declared)) if declared != version:
-            return Error(PinMismatch("Gmsh api definition", f"declares version {declared} against the pin {version}"))
+            return Error(PinMismatch(definition, f"declares version {declared} against the pin {version}"))
         case Result(ok=(root, _)):
             pass
     bound: list[tuple[str, _Fn]] = []
@@ -415,7 +416,7 @@ def generate(api_dir: Path, out_dir: Path, version: str) -> Result[int, PinMisma
     exported = set(re.findall(r"^GMSH_API\s+[a-z_]+\s+(gmsh\w+)\(", (api_dir / "gmshc.h").read_text(), re.MULTILINE)) - {"gmshFree", "gmshMalloc"}
     if names != exported:
         missing, extra = ", ".join(sorted(exported - names)), ", ".join(sorted(names - exported))
-        return Error(PinMismatch("Gmsh api definition", f"binds functions differing from the gmshc.h exports, missing {missing}, extra {extra}"))
+        return Error(PinMismatch(definition, f"binds functions differing from the gmshc.h exports, missing {missing}, extra {extra}"))
     out_dir.mkdir(parents=True, exist_ok=True)
     _ = (out_dir / "GmshNative.g.cs").write_text(_native_file(version, [line for cname, fn in bound for line in _extern(fn, cname)]))
     _ = (out_dir / "Gmsh.g.cs").write_text(_api_file(version, body))

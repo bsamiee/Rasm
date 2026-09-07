@@ -1,0 +1,206 @@
+id: no-itertools-chain
+snapshots:
+  ? |
+    def flatten(rows):
+        from itertools import chain
+
+        return chain(*rows)
+  : labels:
+    - source: chain(*rows)
+      style: primary
+      start: 63
+      end: 75
+    - source: itertools
+      style: secondary
+      start: 28
+      end: 37
+    - source: chain
+      style: secondary
+      start: 45
+      end: 50
+    - source: from itertools import chain
+      style: secondary
+      start: 23
+      end: 50
+    - source: |
+        def flatten(rows):
+            from itertools import chain
+
+            return chain(*rows)
+      style: secondary
+      start: 0
+      end: 76
+    - source: chain
+      style: secondary
+      start: 63
+      end: 68
+  ? |
+    from itertools import chain
+
+    flat = chain(first, second)
+  : labels:
+    - source: chain(first, second)
+      style: primary
+      start: 36
+      end: 56
+    - source: itertools
+      style: secondary
+      start: 5
+      end: 14
+    - source: chain
+      style: secondary
+      start: 22
+      end: 27
+    - source: from itertools import chain
+      style: secondary
+      start: 0
+      end: 27
+    - source: |
+        from itertools import chain
+
+        flat = chain(first, second)
+      style: secondary
+      start: 0
+      end: 57
+    - source: chain
+      style: secondary
+      start: 36
+      end: 41
+  ? |
+    from itertools import chain
+
+    flat = chain.from_iterable(rows)
+  : labels:
+    - source: chain.from_iterable(rows)
+      style: primary
+      start: 36
+      end: 61
+    - source: itertools
+      style: secondary
+      start: 5
+      end: 14
+    - source: chain
+      style: secondary
+      start: 22
+      end: 27
+    - source: from itertools import chain
+      style: secondary
+      start: 0
+      end: 27
+    - source: |
+        from itertools import chain
+
+        flat = chain.from_iterable(rows)
+      style: secondary
+      start: 0
+      end: 62
+    - source: chain
+      style: secondary
+      start: 36
+      end: 41
+    - source: chain.from_iterable
+      style: secondary
+      start: 36
+      end: 55
+  ? |
+    from itertools import chain
+
+    flat = list(chain(*rows))
+  : labels:
+    - source: chain(*rows)
+      style: primary
+      start: 41
+      end: 53
+    - source: itertools
+      style: secondary
+      start: 5
+      end: 14
+    - source: chain
+      style: secondary
+      start: 22
+      end: 27
+    - source: from itertools import chain
+      style: secondary
+      start: 0
+      end: 27
+    - source: |
+        from itertools import chain
+
+        flat = list(chain(*rows))
+      style: secondary
+      start: 0
+      end: 55
+    - source: chain
+      style: secondary
+      start: 41
+      end: 46
+  ? |
+    from itertools import chain as link
+
+    flat = link(*rows)
+  : labels:
+    - source: link(*rows)
+      style: primary
+      start: 44
+      end: 55
+    - source: itertools
+      style: secondary
+      start: 5
+      end: 14
+    - source: chain
+      style: secondary
+      start: 22
+      end: 27
+    - source: link
+      style: secondary
+      start: 31
+      end: 35
+    - source: chain as link
+      style: secondary
+      start: 22
+      end: 35
+    - source: from itertools import chain as link
+      style: secondary
+      start: 0
+      end: 35
+    - source: |
+        from itertools import chain as link
+
+        flat = link(*rows)
+      style: secondary
+      start: 0
+      end: 56
+    - source: link
+      style: secondary
+      start: 44
+      end: 48
+  ? |
+    import itertools
+
+    flat = itertools.chain(*rows)
+  : labels:
+    - source: itertools.chain(*rows)
+      style: primary
+      start: 25
+      end: 47
+    - source: itertools.chain
+      style: secondary
+      start: 25
+      end: 40
+  ? |
+    import itertools as it
+
+    flat = it.chain.from_iterable(rows)
+  : labels:
+    - source: it.chain.from_iterable(rows)
+      style: primary
+      start: 31
+      end: 59
+    - source: it.chain
+      style: secondary
+      start: 31
+      end: 39
+    - source: it.chain.from_iterable
+      style: secondary
+      start: 31
+      end: 53

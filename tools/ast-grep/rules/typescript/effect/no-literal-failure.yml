@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-literal-failure
+language: tsx
+severity: error
+# A spec fails with a literal to drive the recovery under test
+ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+utils:
+    # Failure value no tag names, a literal in any spelling, a cast over one, or an untagged Error
+    untagged-error:
+        any:
+            - matches: syntax-literal-value
+            - kind: template_string
+            - kind: as_expression
+              has: {matches: untagged-error}
+            - kind: new_expression
+              has: {field: constructor, regex: '^(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
+    # The lazy spelling, a thunk or a mapper answering the literal as an expression body or a block with the one return
+    untagged-thunk:
+        any: [{kind: arrow_function}, {kind: function_expression}]
+        has:
+            field: body
+            any:
+                - matches: untagged-error
+                  pattern: $ERROR
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: untagged-error, pattern: $ERROR}}
+                  not: {has: {nthChild: 2}}
+rule:
+    kind: call_expression
+    any:
+        # Constructors of the failed case on every carrier, Either.left builds the left value the same way, Deferred and Request complete
+        # a value data-first and the literal sits second, Config.fail takes a message by contract
+        - all:
+              - has:
+                    field: function
+                    pattern: $FAIL
+                    regex: "^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)\\.(fail|failSync)$|\
+                        ^Either\\.left$"
+              - has:
+                    field: arguments
+                    any:
+                        - has: {matches: untagged-error, pattern: $ERROR}
+                        - has: {matches: untagged-thunk}
+        # Members that replace the failure through their one function argument, a thunk on orElseFail and fromOption, a mapper on mapError
+        # and mapLeft
+        - all:
+              - has:
+                    field: function
+                    pattern: $FAIL
+                    regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)\.(orElseFail|mapError)$|^Either\.(mapLeft|fromOption)$'
+              - has: {field: arguments, has: {matches: untagged-thunk}}
+message: '`$FAIL` fails with `$ERROR`, a value no tag names'
+note: >-
+    Fail with a tagged error, `Effect.fail(new LoadError({ path }))` over
+    `class LoadError extends Data.TaggedError("LoadError")<{ path: string }> {}`, and recover it by its tag with `Effect.catchTag`

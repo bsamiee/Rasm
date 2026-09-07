@@ -1,0 +1,93 @@
+id: no-tr-case-conversion-by-hand
+snapshots:
+  ? |
+    first=$(cmd | awk '{print toupper($0)}')
+  : labels:
+    - source: awk '{print toupper($0)}'
+      style: primary
+      start: 14
+      end: 39
+  ? |
+    lang=$(cmd | sed 's/.*/\L&/')
+  : labels:
+    - source: sed 's/.*/\L&/'
+      style: primary
+      start: 13
+      end: 28
+  ? |
+    lang=$(cmd | tr "[:upper:]" "[:lower:]")
+  : labels:
+    - source: tr "[:upper:]" "[:lower:]"
+      style: primary
+      start: 13
+      end: 39
+  ? |
+    lang=$(cmd | tr '[:upper:]' '[:lower:]')
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]'
+      style: primary
+      start: 13
+      end: 39
+  ? |
+    out=$(cmd | tr "[:lower:]" "[:upper:]")
+  : labels:
+    - source: tr "[:lower:]" "[:upper:]"
+      style: primary
+      start: 12
+      end: 38
+  ? |
+    out=$(printf '%s' "$name" | sed 's/ //g' | tr '[:upper:]' '[:lower:]')
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]'
+      style: primary
+      start: 43
+      end: 69
+  ? |
+    out=$(printf '%s' "$name" | tr '[:upper:]' '[:lower:]' | head -1)
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]'
+      style: primary
+      start: 28
+      end: 54
+  ? |
+    out=$(tr '[:upper:]' '[:lower:]' <<<"${lang%x}")
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]' <<<"${lang%x}"
+      style: primary
+      start: 6
+      end: 47
+  ? |
+    out=$(tr '[:upper:]' '[:lower:]' | printf '%s' "$name")
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]'
+      style: primary
+      start: 6
+      end: 32
+  ? |
+    printf '%s\n' "$name" | tr '[:upper:]' '[:lower:]'
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]'
+      style: primary
+      start: 24
+      end: 50
+  ? |
+    tr '[:upper:]' '[:lower:]' <<<"$name"
+  : labels:
+    - source: tr '[:upper:]' '[:lower:]' <<<"$name"
+      style: primary
+      start: 0
+      end: 37
+  ? |
+    tr '[A-Z]' '[a-z]' < names.txt
+  : labels:
+    - source: tr '[A-Z]' '[a-z]'
+      style: primary
+      start: 0
+      end: 18
+  ? |
+    tr a-z A-Z < names.txt
+  : labels:
+    - source: tr a-z A-Z
+      style: primary
+      start: 0
+      end: 10

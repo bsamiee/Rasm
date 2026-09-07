@@ -1,0 +1,386 @@
+id: guard-return-to-ternary
+snapshots:
+  ? const fromPredicate = (refinement) => { const inner = (value) => { if (refinement(value)) { return some(value); } return none(); }; return inner; };
+  : fixed: 'const fromPredicate = (refinement) => { const inner = (value) => { return refinement(value) ? some(value) : none(); return none(); }; return inner; };'
+    labels:
+    - source: if (refinement(value)) { return some(value); }
+      style: primary
+      start: 67
+      end: 113
+    - source: refinement(value)
+      style: secondary
+      start: 71
+      end: 88
+    - source: (refinement(value))
+      style: secondary
+      start: 70
+      end: 89
+    - source: some(value)
+      style: secondary
+      start: 99
+      end: 110
+    - source: return some(value);
+      style: secondary
+      start: 92
+      end: 111
+    - source: '{ return some(value); }'
+      style: secondary
+      start: 90
+      end: 113
+    - source: none()
+      style: secondary
+      start: 121
+      end: 127
+    - source: return none();
+      style: secondary
+      start: 114
+      end: 128
+  ? const fromPredicate = (refinement) => { function inner(value) { if (refinement(value)) { return some(value); } return none(); } return inner; };
+  : fixed: 'const fromPredicate = (refinement) => { function inner(value) { return refinement(value) ? some(value) : none(); return none(); } return inner; };'
+    labels:
+    - source: if (refinement(value)) { return some(value); }
+      style: primary
+      start: 64
+      end: 110
+    - source: refinement(value)
+      style: secondary
+      start: 68
+      end: 85
+    - source: (refinement(value))
+      style: secondary
+      start: 67
+      end: 86
+    - source: some(value)
+      style: secondary
+      start: 96
+      end: 107
+    - source: return some(value);
+      style: secondary
+      start: 89
+      end: 108
+    - source: '{ return some(value); }'
+      style: secondary
+      start: 87
+      end: 110
+    - source: none()
+      style: secondary
+      start: 118
+      end: 124
+    - source: return none();
+      style: secondary
+      start: 111
+      end: 125
+  const parity = (value) => { if (value % 2 === 0) { return 'even'; } return 'odd'; };:
+    fixed: 'const parity = (value) => { return value % 2 === 0 ? ''even'' : ''odd''; return ''odd''; };'
+    labels:
+    - source: if (value % 2 === 0) { return 'even'; }
+      style: primary
+      start: 28
+      end: 67
+    - source: value % 2 === 0
+      style: secondary
+      start: 32
+      end: 47
+    - source: (value % 2 === 0)
+      style: secondary
+      start: 31
+      end: 48
+    - source: '''even'''
+      style: secondary
+      start: 58
+      end: 64
+    - source: return 'even';
+      style: secondary
+      start: 51
+      end: 65
+    - source: '{ return ''even''; }'
+      style: secondary
+      start: 49
+      end: 67
+    - source: '''odd'''
+      style: secondary
+      start: 75
+      end: 80
+    - source: return 'odd';
+      style: secondary
+      start: 68
+      end: 81
+  const pick = (held) => { if (held as boolean) { return 1; } return 2; };:
+    fixed: 'const pick = (held) => { return held as boolean ? 1 : 2; return 2; };'
+    labels:
+    - source: if (held as boolean) { return 1; }
+      style: primary
+      start: 25
+      end: 59
+    - source: held as boolean
+      style: secondary
+      start: 29
+      end: 44
+    - source: (held as boolean)
+      style: secondary
+      start: 28
+      end: 45
+    - source: '1'
+      style: secondary
+      start: 55
+      end: 56
+    - source: return 1;
+      style: secondary
+      start: 48
+      end: 57
+    - source: '{ return 1; }'
+      style: secondary
+      start: 46
+      end: 59
+    - source: '2'
+      style: secondary
+      start: 67
+      end: 68
+    - source: return 2;
+      style: secondary
+      start: 60
+      end: 69
+  const pick = (held) => { if (held) { return (value) => value; } return other; };:
+    fixed: 'const pick = (held) => { return held ? (value) => value : other; return other; };'
+    labels:
+    - source: if (held) { return (value) => value; }
+      style: primary
+      start: 25
+      end: 63
+    - source: held
+      style: secondary
+      start: 29
+      end: 33
+    - source: (held)
+      style: secondary
+      start: 28
+      end: 34
+    - source: (value) => value
+      style: secondary
+      start: 44
+      end: 60
+    - source: return (value) => value;
+      style: secondary
+      start: 37
+      end: 61
+    - source: '{ return (value) => value; }'
+      style: secondary
+      start: 35
+      end: 63
+    - source: other
+      style: secondary
+      start: 71
+      end: 76
+    - source: return other;
+      style: secondary
+      start: 64
+      end: 77
+  const report = async (held) => { if (held) { return await load(); } return none; };:
+    fixed: 'const report = async (held) => { return held ? await load() : none; return none; };'
+    labels:
+    - source: if (held) { return await load(); }
+      style: primary
+      start: 33
+      end: 67
+    - source: held
+      style: secondary
+      start: 37
+      end: 41
+    - source: (held)
+      style: secondary
+      start: 36
+      end: 42
+    - source: await load()
+      style: secondary
+      start: 52
+      end: 64
+    - source: return await load();
+      style: secondary
+      start: 45
+      end: 65
+    - source: '{ return await load(); }'
+      style: secondary
+      start: 43
+      end: 67
+    - source: none
+      style: secondary
+      start: 75
+      end: 79
+    - source: return none;
+      style: secondary
+      start: 68
+      end: 80
+  const target = (app) => { if (app) { return { root, entry }; } return { root }; };:
+    fixed: 'const target = (app) => { return app ? { root, entry } : { root }; return { root }; };'
+    labels:
+    - source: if (app) { return { root, entry }; }
+      style: primary
+      start: 26
+      end: 62
+    - source: app
+      style: secondary
+      start: 30
+      end: 33
+    - source: (app)
+      style: secondary
+      start: 29
+      end: 34
+    - source: '{ root, entry }'
+      style: secondary
+      start: 44
+      end: 59
+    - source: return { root, entry };
+      style: secondary
+      start: 37
+      end: 60
+    - source: '{ return { root, entry }; }'
+      style: secondary
+      start: 35
+      end: 62
+    - source: '{ root }'
+      style: secondary
+      start: 70
+      end: 78
+    - source: return { root };
+      style: secondary
+      start: 63
+      end: 79
+  const verdict = (noisy) => { if (noisy) return 'noisy'; return 'pass'; };:
+    fixed: 'const verdict = (noisy) => { return noisy ? ''noisy'' : ''pass''; return ''pass''; };'
+    labels:
+    - source: if (noisy) return 'noisy';
+      style: primary
+      start: 29
+      end: 55
+    - source: noisy
+      style: secondary
+      start: 33
+      end: 38
+    - source: (noisy)
+      style: secondary
+      start: 32
+      end: 39
+    - source: '''noisy'''
+      style: secondary
+      start: 47
+      end: 54
+    - source: return 'noisy';
+      style: secondary
+      start: 40
+      end: 55
+    - source: '''pass'''
+      style: secondary
+      start: 63
+      end: 69
+    - source: return 'pass';
+      style: secondary
+      start: 56
+      end: 70
+  ? |
+    const verdict = (sustained, noisy) => {
+        if (noisy) {
+            return 'noisy';
+        }
+        return 'pass';
+    };
+  : fixed: |
+      const verdict = (sustained, noisy) => {
+          return noisy ? 'noisy' : 'pass';
+          return 'pass';
+      };
+    labels:
+    - source: |-
+        if (noisy) {
+                return 'noisy';
+            }
+      style: primary
+      start: 44
+      end: 86
+    - source: noisy
+      style: secondary
+      start: 48
+      end: 53
+    - source: (noisy)
+      style: secondary
+      start: 47
+      end: 54
+    - source: '''noisy'''
+      style: secondary
+      start: 72
+      end: 79
+    - source: return 'noisy';
+      style: secondary
+      start: 65
+      end: 80
+    - source: |-
+        {
+                return 'noisy';
+            }
+      style: secondary
+      start: 55
+      end: 86
+    - source: '''pass'''
+      style: secondary
+      start: 98
+      end: 104
+    - source: return 'pass';
+      style: secondary
+      start: 91
+      end: 105
+  ? |
+    const verdict = (sustained, noisy) => {
+        if (sustained) {
+            return 'regression';
+        }
+        if (noisy) {
+            return 'noisy';
+        }
+        return 'pass';
+    };
+  : fixed: |
+      const verdict = (sustained, noisy) => {
+          if (sustained) {
+              return 'regression';
+          }
+          return noisy ? 'noisy' : 'pass';
+          return 'pass';
+      };
+    labels:
+    - source: |-
+        if (noisy) {
+                return 'noisy';
+            }
+      style: primary
+      start: 100
+      end: 142
+    - source: noisy
+      style: secondary
+      start: 104
+      end: 109
+    - source: (noisy)
+      style: secondary
+      start: 103
+      end: 110
+    - source: '''noisy'''
+      style: secondary
+      start: 128
+      end: 135
+    - source: return 'noisy';
+      style: secondary
+      start: 121
+      end: 136
+    - source: |-
+        {
+                return 'noisy';
+            }
+      style: secondary
+      start: 111
+      end: 142
+    - source: '''pass'''
+      style: secondary
+      start: 154
+      end: 160
+    - source: return 'pass';
+      style: secondary
+      start: 147
+      end: 161

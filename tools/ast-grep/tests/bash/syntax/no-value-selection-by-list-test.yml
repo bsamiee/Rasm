@@ -1,0 +1,40 @@
+id: no-value-selection-by-list
+valid:
+    # The corrected form, a parameter expansion selects the value
+    - printf '%s' "${glob:-$2.$ext}"
+    # The second operand leaves instead of selecting
+    - '[[ -n $glob ]] && printf ''%s'' a || exit 1'
+    # Two assignments to different names
+    - test -n "$g" && x=1 || y=2
+    # A command and an assignment
+    - '[[ -n $g ]] && x=1 || printf ''%s'' x'
+    # Two leaving commands select a status, a return never fails
+    - '[[ -f $x ]] && return 0 || return 1'
+    # Two exits select a status
+    - '[[ -f $x ]] && exit 0 || exit 1'
+    # An if statement selects
+    - |
+      if [[ -n $glob ]]; then
+          printf '%s' "${glob//\*/$2}"
+      else
+          printf '%s.%s' "$2" "$ext"
+      fi
+    # Two different commands
+    - '[[ -f $x ]] && make || cargo build'
+    # true as the fallback swallows the status
+    - cmd && printf '%s' a || true
+    # Groups as the operands
+    - '[[ -n $g ]] && { x=1; } || { x=2; }'
+invalid:
+    # The operands under redirects, the grammar binds the first redirect to the && list
+    - '[[ -n $g ]] && printf ''%s'' a >&2 || printf ''%s'' b >&2'
+    # A third operand
+    - '[[ -n $g ]] && x=1 || x=2 || x=3'
+    # Inside a command substitution
+    - 'x=$([[ -n $g ]] && printf ''%s'' a || printf ''%s'' b)'
+    # The instance, two printf commands
+    - '[ -n "$glob" ] && printf ''%s'' "${glob//\*/$2}" || printf ''%s.%s'' "$2" "$ext"'
+    # Two echo commands
+    - '[[ -n $glob ]] && echo a || echo b'
+    # Two assignments to one name
+    - test -n "$g" && x=1 || x=2

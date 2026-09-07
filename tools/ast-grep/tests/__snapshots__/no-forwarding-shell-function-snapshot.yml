@@ -1,0 +1,397 @@
+id: no-forwarding-shell-function
+snapshots:
+  ? |
+    all() { handle "$*"; }
+  : labels:
+    - source: all() { handle "$*"; }
+      style: primary
+      start: 0
+      end: 22
+    - source: all
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle "$*"
+      style: secondary
+      start: 8
+      end: 19
+    - source: '*'
+      style: secondary
+      start: 17
+      end: 18
+    - source: $*
+      style: secondary
+      start: 16
+      end: 18
+    - source: '"$*"'
+      style: secondary
+      start: 15
+      end: 19
+    - source: handle "$*"
+      style: secondary
+      start: 8
+      end: 19
+    - source: '{ handle "$*"; }'
+      style: secondary
+      start: 6
+      end: 22
+  ? |
+    cleanup() { rm -rf "$tmp"; }
+  : labels:
+    - source: cleanup() { rm -rf "$tmp"; }
+      style: primary
+      start: 0
+      end: 28
+    - source: cleanup
+      style: secondary
+      start: 0
+      end: 7
+    - source: rm -rf "$tmp"
+      style: secondary
+      start: 12
+      end: 25
+    - source: rm -rf "$tmp"
+      style: secondary
+      start: 12
+      end: 25
+    - source: '{ rm -rf "$tmp"; }'
+      style: secondary
+      start: 10
+      end: 28
+  ? |
+    function show { handle "$1"; }
+  : labels:
+    - source: function show { handle "$1"; }
+      style: primary
+      start: 0
+      end: 30
+    - source: show
+      style: secondary
+      start: 9
+      end: 13
+    - source: handle "$1"
+      style: secondary
+      start: 16
+      end: 27
+    - source: '1'
+      style: secondary
+      start: 25
+      end: 26
+    - source: $1
+      style: secondary
+      start: 24
+      end: 26
+    - source: '"$1"'
+      style: secondary
+      start: 23
+      end: 27
+    - source: handle "$1"
+      style: secondary
+      start: 16
+      end: 27
+    - source: '{ handle "$1"; }'
+      style: secondary
+      start: 14
+      end: 30
+  ? |
+    last() { handle "$?"; }
+  : labels:
+    - source: last() { handle "$?"; }
+      style: primary
+      start: 0
+      end: 23
+    - source: last
+      style: secondary
+      start: 0
+      end: 4
+    - source: handle "$?"
+      style: secondary
+      start: 9
+      end: 20
+    - source: handle "$?"
+      style: secondary
+      start: 9
+      end: 20
+    - source: '{ handle "$?"; }'
+      style: secondary
+      start: 7
+      end: 23
+  ? |
+    log() { handle "$@"; }
+  : labels:
+    - source: log() { handle "$@"; }
+      style: primary
+      start: 0
+      end: 22
+    - source: log
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle "$@"
+      style: secondary
+      start: 8
+      end: 19
+    - source: '@'
+      style: secondary
+      start: 17
+      end: 18
+    - source: $@
+      style: secondary
+      start: 16
+      end: 18
+    - source: '"$@"'
+      style: secondary
+      start: 15
+      end: 19
+    - source: handle "$@"
+      style: secondary
+      start: 8
+      end: 19
+    - source: '{ handle "$@"; }'
+      style: secondary
+      start: 6
+      end: 22
+  ? |
+    log() { handle "${@}"; }
+  : labels:
+    - source: log() { handle "${@}"; }
+      style: primary
+      start: 0
+      end: 24
+    - source: log
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle "${@}"
+      style: secondary
+      start: 8
+      end: 21
+    - source: '@'
+      style: secondary
+      start: 18
+      end: 19
+    - source: ${@}
+      style: secondary
+      start: 16
+      end: 20
+    - source: '"${@}"'
+      style: secondary
+      start: 15
+      end: 21
+    - source: handle "${@}"
+      style: secondary
+      start: 8
+      end: 21
+    - source: '{ handle "${@}"; }'
+      style: secondary
+      start: 6
+      end: 24
+  ? |
+    log() { handle $@; }
+  : labels:
+    - source: log() { handle $@; }
+      style: primary
+      start: 0
+      end: 20
+    - source: log
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle $@
+      style: secondary
+      start: 8
+      end: 17
+    - source: '@'
+      style: secondary
+      start: 16
+      end: 17
+    - source: $@
+      style: secondary
+      start: 15
+      end: 17
+    - source: handle $@
+      style: secondary
+      start: 8
+      end: 17
+    - source: '{ handle $@; }'
+      style: secondary
+      start: 6
+      end: 20
+  ? |
+    rule_files() { fd -e yml . $rule_dirs; }
+  : labels:
+    - source: rule_files() { fd -e yml . $rule_dirs; }
+      style: primary
+      start: 0
+      end: 40
+    - source: rule_files
+      style: secondary
+      start: 0
+      end: 10
+    - source: fd -e yml . $rule_dirs
+      style: secondary
+      start: 15
+      end: 37
+    - source: fd -e yml . $rule_dirs
+      style: secondary
+      start: 15
+      end: 37
+    - source: '{ fd -e yml . $rule_dirs; }'
+      style: secondary
+      start: 13
+      end: 40
+  ? |
+    show() { handle "$1"; }
+  : labels:
+    - source: show() { handle "$1"; }
+      style: primary
+      start: 0
+      end: 23
+    - source: show
+      style: secondary
+      start: 0
+      end: 4
+    - source: handle "$1"
+      style: secondary
+      start: 9
+      end: 20
+    - source: '1'
+      style: secondary
+      start: 18
+      end: 19
+    - source: $1
+      style: secondary
+      start: 17
+      end: 19
+    - source: '"$1"'
+      style: secondary
+      start: 16
+      end: 20
+    - source: handle "$1"
+      style: secondary
+      start: 9
+      end: 20
+    - source: '{ handle "$1"; }'
+      style: secondary
+      start: 7
+      end: 23
+  ? |
+    show() { handle "${1}"; }
+  : labels:
+    - source: show() { handle "${1}"; }
+      style: primary
+      start: 0
+      end: 25
+    - source: show
+      style: secondary
+      start: 0
+      end: 4
+    - source: handle "${1}"
+      style: secondary
+      start: 9
+      end: 22
+    - source: '1'
+      style: secondary
+      start: 19
+      end: 20
+    - source: ${1}
+      style: secondary
+      start: 17
+      end: 21
+    - source: '"${1}"'
+      style: secondary
+      start: 16
+      end: 22
+    - source: handle "${1}"
+      style: secondary
+      start: 9
+      end: 22
+    - source: '{ handle "${1}"; }'
+      style: secondary
+      start: 7
+      end: 25
+  ? |
+    show() { handle ${1}; }
+  : labels:
+    - source: show() { handle ${1}; }
+      style: primary
+      start: 0
+      end: 23
+    - source: show
+      style: secondary
+      start: 0
+      end: 4
+    - source: handle ${1}
+      style: secondary
+      start: 9
+      end: 20
+    - source: '1'
+      style: secondary
+      start: 18
+      end: 19
+    - source: ${1}
+      style: secondary
+      start: 16
+      end: 20
+    - source: handle ${1}
+      style: secondary
+      start: 9
+      end: 20
+    - source: '{ handle ${1}; }'
+      style: secondary
+      start: 7
+      end: 23
+  ? |
+    stop() {
+        server_stop --now
+    }
+  : labels:
+    - source: |-
+        stop() {
+            server_stop --now
+        }
+      style: primary
+      start: 0
+      end: 32
+    - source: stop
+      style: secondary
+      start: 0
+      end: 4
+    - source: server_stop --now
+      style: secondary
+      start: 13
+      end: 30
+    - source: server_stop --now
+      style: secondary
+      start: 13
+      end: 30
+    - source: |-
+        {
+            server_stop --now
+        }
+      style: secondary
+      start: 7
+      end: 32
+  ? |
+    stop() { server_stop; }
+  : labels:
+    - source: stop() { server_stop; }
+      style: primary
+      start: 0
+      end: 23
+    - source: stop
+      style: secondary
+      start: 0
+      end: 4
+    - source: server_stop
+      style: secondary
+      start: 9
+      end: 20
+    - source: server_stop
+      style: secondary
+      start: 9
+      end: 20
+    - source: '{ server_stop; }'
+      style: secondary
+      start: 7
+      end: 23

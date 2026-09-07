@@ -23,9 +23,9 @@ MSBuild runs each target at most once per project instance, in an order that the
 
 | [INDEX] | [ATTRIBUTE]        | [OWNER]              | [USE_WHEN]                                                                 |
 | :-----: | :----------------- | :------------------- | :------------------------------------------------------------------------- |
-|  [01]   | `DependsOnTargets` | The consuming target | The named target is your own and must finish before the consumer reads it  |
-|  [02]   | `BeforeTargets`    | The inserted target  | The named target is another file's and the inserted one must run before it |
-|  [03]   | `AfterTargets`     | The inserted target  | The named target is another file's and produces what the inserted consumes |
+|  [01]   | `DependsOnTargets` | Consuming target     | Named target is your own and must finish before the consumer reads it      |
+|  [02]   | `BeforeTargets`    | Inserted target      | Named target is another file's and the inserted one must run before it     |
+|  [03]   | `AfterTargets`     | Inserted target      | Named target is another file's and produces what the inserted consumes     |
 
 - Combine them on one target: `DependsOnTargets` for your own chain and one of `BeforeTargets` or `AfterTargets` for the SDK target
 - MSBuild evaluates a target `Condition` when the target is about to run, after every earlier target updated the properties and items it reads
@@ -192,8 +192,8 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 | [INDEX] | [CONTINUEONERROR]  | [EFFECT]                                                            |
 | :-----: | :----------------- | :------------------------------------------------------------------ |
 |  [01]   | `ErrorAndStop`     | Default, the error stops the target and the build, `OnError` runs   |
-|  [02]   | `ErrorAndContinue` | The error is logged, the next task runs, the build fails at the end |
-|  [03]   | `WarnAndContinue`  | The errors become warnings and the next task runs                   |
+|  [02]   | `ErrorAndContinue` | Error is logged, the next task runs, the build fails at the end     |
+|  [03]   | `WarnAndContinue`  | Errors become warnings and the next task runs                       |
 
 - `OnError ExecuteTargets` runs when a task of the target fails with `ErrorAndStop`, and when a target in its `DependsOnTargets` chain fails
 - `OnError` elements come last in the target or the build fails with `MSB4038`, each has its own `Condition`, and they run in order
@@ -270,7 +270,7 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 
 `CopyToOutputDirectory` on a `None`, `Content`, `Compile`, or `EmbeddedResource` item copies it under `$(OutDir)`, and `CopyToPublishDirectory` controls the publish copy with the same values. `Copy` tasks in a custom target do neither.
 
-| [INDEX] | [VALUE]          | [BUILD TARGET]                                     | [BEHAVIOR]                                                     |
+| [INDEX] | [VALUE]          | [BUILD_TARGET]                                     | [BEHAVIOR]                                                     |
 | :-----: | :--------------- | :------------------------------------------------- | :------------------------------------------------------------- |
 |  [01]   | `PreserveNewest` | `_CopyOutOfDateSourceItemsToOutputDirectory`       | Copies when the destination is missing or older                |
 |  [02]   | `IfDifferent`    | `_CopyDifferingSourceItemsToOutputDirectory`       | Copies when size or timestamp differs, restores an edited file |

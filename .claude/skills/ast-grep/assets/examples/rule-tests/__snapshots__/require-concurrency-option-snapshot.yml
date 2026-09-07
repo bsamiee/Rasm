@@ -13,6 +13,12 @@ snapshots:
       style: primary
       start: 30
       end: 95
+  'const loaded = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key));':
+    labels:
+    - source: Effect.forEach(keys, (key) => load(key))
+      style: primary
+      start: 48
+      end: 88
   ? |
     const nested = (keys: ReadonlyArray<string>) =>
         Effect.forEach(keys, (key) => Effect.forEach(key.split(","), load, { concurrency: 4 }));
@@ -27,9 +33,3 @@ snapshots:
       style: primary
       start: 26
       end: 64
-  'const swept = (keys: ReadonlyArray<string>) => Effect.forEach(keys, (key) => load(key));':
-    labels:
-    - source: Effect.forEach(keys, (key) => load(key))
-      style: primary
-      start: 47
-      end: 87

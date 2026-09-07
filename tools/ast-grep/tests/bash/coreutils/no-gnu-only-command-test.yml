@@ -1,0 +1,271 @@
+id: no-gnu-only-command
+valid:
+    # A background job bounded by wait
+    - |
+      sleep 30 & pid=$!
+      wait "$pid"
+    # sed with an attached backup suffix
+    - |
+      sed -i.bak 's/a/b/' file && rm file.bak
+    # sed without in-place editing
+    - |
+      sed 's/a/b/' file > out
+    # date with a format
+    - |
+      date +%Y-%m-%d
+    # stat with the BSD format option
+    - |
+      stat -f %z file
+    # xargs over NUL-separated input
+    - |
+      git ls-files -z -- '*.sh' | xargs -0 shellcheck
+    # grep with extended regex
+    - |
+      grep -E 'a|b' file
+    # find with exec
+    - |
+      find . -name '*.yml' -exec printf '%s\n' {} \;
+    # cp without parents
+    - |
+      cp -R "$src" "$dst"
+    # readlink -f runs on macOS 26
+    - |
+      readlink -f "$path"
+    # The word timeout as an argument
+    - |
+      git config --get http.timeout
+    # sed -i with the BSD empty suffix
+    - |
+      sed -i '' 's/a/b/' file
+    # -i on another command before a pattern
+    - |
+      rg -i 'pattern' file
+    # -d on another command
+    - |
+      mapfile -d '' -t names < <(cmd)
+    # -c on another command
+    - |
+      uniq -c names.txt
+    # -P on another command
+    - |
+      cp -P "$src" "$dst"
+    # A name holding timeout as a prefix
+    - |
+      timeouts --list
+    # sed -r, macOS sed reads it as -E
+    - |
+      sed -r 's/a/b/' file
+    # A long option spelling inside a sed script
+    - |
+      sed -e 's/--x/y/' file
+    # xargs -r runs on macOS
+    - |
+      xargs -r rm < list
+    # mktemp with a long option runs on macOS
+    - |
+      mktemp --tmpdir x.XXXXXX
+    # sort with a long option runs on macOS
+    - |
+      sort --reverse file
+    # ls with a long option runs on macOS
+    - |
+      ls --color=auto
+    # head with a long option runs on macOS
+    - |
+      head --lines=1 file
+    # uname -o runs on macOS
+    - |
+      uname -o
+    # date -I runs on macOS
+    - |
+      date -I
+    # wc -L runs on macOS
+    - |
+      wc -L file
+    # grep -z runs on macOS
+    - |
+      grep -z a file
+    # tail with a negative count, the last lines
+    - |
+      tail -n -1 file
+    # du in human-readable form
+    - |
+      du -sh dir
+    # touch with a timestamp
+    - |
+      touch -t 202001010000 file
+    # A symbolic link without the relative option
+    - |
+      ln -s src dst
+    # The option end alone
+    - |
+      rm -- "$f"
+    # sed -E runs on macOS
+    - |
+      sed -E 's/a/b/' file
+    # The attached suffix before -e
+    - |
+      sed -i.bak -e 's/a/b/' file
+    # date -r inside find -exec runs on macOS
+    - |
+      find . -name '*.yml' -exec date -r {} +%s \;
+    # sort -V runs on macOS
+    - |
+      sort -V file
+    # base64 -d runs on macOS
+    - |
+      base64 -d file
+    # mktemp -d -t runs on macOS
+    - |
+      mktemp -d -t x
+    # du in kilobytes
+    - |
+      du -sk dir
+    # head with a positive count attached
+    - |
+      head -n1 file
+    # cp -a runs on macOS
+    - |
+      cp -a src dst
+invalid:
+    # sed -i with -e as the next word, BSD sed reads -e as the suffix
+    - |
+      sed -i -e 's/a/b/' file
+    # sed -i with -E as the next word
+    - |
+      sed -i -E 's/a/b/' file
+    # sed -i after another option
+    - |
+      sed -n -i 's/a/b/p' file
+    # stat with the printf long option
+    - |
+      stat --printf='%s' file
+    # grep with the long Perl option
+    - |
+      grep --perl-regexp x file
+    # du with a long option after a short one
+    - |
+      du -h --max-depth=1 dir
+    # readlink with both checks in a cluster
+    - |
+      readlink -me file
+    # timeout with a long option
+    - |
+      timeout --signal=KILL 5 cmd
+    # timeout behind an assignment prefix
+    - |
+      VAR=1 timeout 5 cmd
+    # The instance, timeout absent on macOS
+    - |
+      timeout 30 sleep 1
+    # The coreutils install name
+    - |
+      gtimeout 5 echo ok
+    # sed -i with the script as the next word
+    - |
+      sed -i 's/a/b/' file
+    # sed -i with a double-quoted script
+    - |
+      sed -i "s/$a/$b/" file
+    # date with a relative description
+    - |
+      date -d yesterday +%Y-%m-%d
+    # date with the long option
+    - |
+      date --date=yesterday
+    # stat with the GNU format option
+    - |
+      stat -c %s file
+    # xargs with a delimiter
+    - |
+      xargs -d '\n' rm < list
+    # grep with Perl regex
+    - |
+      grep -P '\d+' file
+    # grep with Perl regex in a cluster
+    - |
+      grep -oP '\d+' file
+    # find with printf
+    - |
+      find . -printf '%f\n'
+    # cp with parents
+    - |
+      cp --parents src/a.txt dst
+    # Under a run step
+    - |
+      timeout 300 pnpm exec nx run-many -t stage
+    # nproc absent on macOS
+    - |
+      nproc
+    # tac absent on macOS
+    - |
+      tac names.txt
+    # shuf absent on macOS
+    - |
+      shuf -n 1 names.txt
+    # sed with NUL-separated lines
+    - |
+      sed -z 's/\n/,/g' file
+    # sed -z in a cluster
+    - |
+      sed -nz 's/a/b/p' file
+    # find with a regex type
+    - |
+      find . -regextype posix-extended -regex '.*\.yml'
+    # cp with the destination as a file
+    - |
+      cp -T src dst
+    # mv with the destination as a file
+    - |
+      mv -T src dst
+    # ln with the destination as a file in a cluster
+    - |
+      ln -sT src dst
+    # cp of the newer file alone
+    - |
+      cp -u src dst
+    # ln with a relative link in a cluster
+    - |
+      ln -sr src dst
+    # head with a negative line count
+    - |
+      head -n -1 file
+    # head with a negative byte count
+    - |
+      head -c -3 file
+    # head with the count attached
+    - |
+      head -n-1 file
+    # base64 with the wrap column attached
+    - |
+      base64 -w0 file
+    # base64 with the wrap column as the next word
+    - |
+      base64 -w 0 file
+    # readlink canonicalizing an existing path
+    - |
+      readlink -e file
+    # readlink canonicalizing a missing path
+    - |
+      readlink -m file
+    # du in bytes
+    - |
+      du -b file
+    # touch with a date string
+    - |
+      touch -d 2020-01-01 file
+    # tar with member globs enabled
+    - |
+      tar --wildcards -xf a.tgz '*.yml'
+    # sed with the long in-place option
+    - |
+      sed --in-place=.bak 's/a/b/' file
+    # cat with a long option
+    - |
+      cat --number file
+    # uname with a long option
+    - |
+      uname --all
+    # rm with a long option
+    - |
+      rm --force file

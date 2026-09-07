@@ -26,6 +26,15 @@ utils:
             field: body
             kind: call_expression
             all: [{has: {field: function, matches: lifted}}, {has: {field: arguments, has: {matches: empty-container}}}]
+    # Conjunction under the spread's parentheses, bare or as the left operand of a fallback to the empty container
+    conjunction-spread:
+        any:
+            - {kind: binary_expression, has: {field: operator, regex: '^&&$'}}
+            - {kind: parenthesized_expression, has: {matches: conjunction-spread}}
+            - kind: binary_expression
+              all:
+                  - has: {field: left, matches: conjunction-spread}
+                  - has: {field: right, matches: empty-container}
     lifted-value-arm:
         any:
             - kind: arrow_function
@@ -36,8 +45,9 @@ utils:
             - matches: lifted
 rule:
     any:
-        # One arm of the match is empty, in any position: a spread, an argument, a local, a return
-        - matches: effect-two-arm-branch
+        # One arm of the match is empty, in any position (a spread, an argument, a local, a return)
+        - kind: call_expression
+          matches: effect-two-arm-branch
           has:
               field: arguments
               has:
@@ -49,7 +59,8 @@ rule:
                             - has: {kind: pair, has: {field: value, matches: lifted-empty-arm}}
                             - has: {kind: pair, has: {field: value, matches: lifted-value-arm}}
         # Match.when and Match.orElse hold the arms as arguments, the same pair of shapes as the object form
-        - matches: effect-two-step-match-chain
+        - kind: call_expression
+          matches: effect-two-step-match-chain
           has:
               field: arguments
               any:
@@ -57,12 +68,21 @@ rule:
                   - all:
                         - has: {kind: call_expression, has: {field: arguments, has: {matches: lifted-empty-arm}}}
                         - has: {kind: call_expression, has: {field: arguments, has: {matches: lifted-value-arm}}}
-        # Conjunction spread into a container, the false side spreads as nothing and stands for absence
+        # Conjunction spread into a container, the false side spreads as nothing or as the empty fallback and stands for absence
         - kind: spread_element
-          has:
-              kind: parenthesized_expression
-              has: {kind: binary_expression, has: {field: operator, regex: '^&&$'}}
+          has: {matches: conjunction-spread}
+        # Ternary with an empty arm, the boolean branch spelled as an operator, the rewrites over it hold the lifts
+        - kind: ternary_expression
+          any:
+              - has: {field: consequence, matches: empty-container}
+              - has: {field: alternative, matches: empty-container}
+              # Under an object spread undefined and null spread nothing, the empty object in another spelling
+              - inside: {kind: parenthesized_expression, inside: {kind: spread_element, inside: {kind: object}}}
+                has: {field: alternative, any: [{kind: undefined}, {kind: 'null'}]}
+              - inside: {kind: parenthesized_expression, inside: {kind: spread_element, inside: {kind: object}}}
+                has: {field: consequence, any: [{kind: undefined}, {kind: 'null'}]}
 message: The branch chooses presence, one arm or one side stands for absence
 note: >-
     Lift the present value as an Option (`Option.liftPredicate(value, () => condition)`, `Either.getRight(either)`,
-    `Effect.option(effect)`), spread `Record.getSomes({ key: option })` for a key and `Option.toArray(option)` for elements
+    `Effect.option(effect)`), spread `Record.getSomes({ key: option })` for a key, `Option.toArray(option)` for elements,
+    and `Option.getOrElse(option, () => [])` for an arm that answers the value itself

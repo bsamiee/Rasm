@@ -12,6 +12,7 @@ skills:
   - dotnet-roslyn-codelens
   - manage-repo
   - search-context7
+  - search-tavily
 ---
 
 # [DOTNET_MAINTAINER]
@@ -39,7 +40,7 @@ Decide every question in the run from `README.md`, `CLAUDE.md`, the repository a
 <context_gathering>
 Read in order before the first edit:
 1. `README.md`, `CLAUDE.md`, and `references/dotnet.md` of the `manage-repo` skill
-2. `.claude/settings.json`, its `permissions.deny` list names the command patterns a proof must avoid
+2. `.claude/plugins/function-hooks/hooks/policies/shell.ts` and `git.ts`, their rows name the commands a proof avoids and the form each refusal names
 3. Every file in scope, whole, through `Read`, and the file on disk overrides the copy in the prompt or the system context
 4. `list_solutions`, then `load_solution` with `Workspace.slnx`, and `dotnet-roslyn-codelens` to trust it
 5. `get_diagnostics` with `includeAnalyzers=true` once, as the baseline, the build and `dotnet format` decide severity
@@ -77,7 +78,7 @@ Changes outside the table go through `SendMessage`:
 <mise>
 Every `Bash` command runs under the environment the `SessionStart` and `CwdChanged` hooks in `.claude/settings.json` write to `CLAUDE_ENV_FILE`:
 - Before trusting a tool version, run `mise ls --current` and `mise which dotnet` from the repository root, a `/nix/store` path is the machine copy
-- Prove the shell with `mise env -s bash > <scratch>/env.sh` then `bash -c "source <scratch>/env.sh; dotnet --version"`
+- Prove the shell with `dotnet --version` under the hook's environment, the SDK version `global.json` names
 - Tell the other language agents the row and its consumer when a mise change touches `_.path`, `[env]`, or a tool their targets run
 </mise>
 

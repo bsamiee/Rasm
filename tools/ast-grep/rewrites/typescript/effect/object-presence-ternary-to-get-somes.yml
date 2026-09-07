@@ -19,6 +19,8 @@ utils:
         kind: ternary_expression
         all:
             - has: {field: condition, pattern: $C}
+            # Await or yield in the condition has no place in the synchronous thunk the lift takes
+            - not: {has: {field: condition, matches: syntax-suspension}}
             - any:
                   # The checked operand as a whole row value, Option.fromNullable reads the check, a read inside a larger value keeps the wide type
                   - any: [{pattern: '$X === undefined ? {} : $ROWS'}, {pattern: '$X !== undefined ? $ROWS : {}'}]

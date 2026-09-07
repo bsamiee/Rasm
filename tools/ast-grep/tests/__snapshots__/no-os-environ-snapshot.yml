@@ -1,0 +1,36 @@
+id: no-os-environ
+snapshots:
+  ? |
+    from os import environ
+  : labels:
+    - source: environ
+      style: primary
+      start: 15
+      end: 22
+  ? |
+    import os
+
+    home = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")
+  : labels:
+    - source: os.environ
+      style: primary
+      start: 18
+      end: 28
+  ? |
+    import os
+
+    home = os.getenv("HOME")
+  : labels:
+    - source: os.getenv
+      style: primary
+      start: 18
+      end: 27
+  ? |
+    import os as system
+
+    home = system.environ["HOME"]
+  : labels:
+    - source: system.environ
+      style: primary
+      start: 28
+      end: 42

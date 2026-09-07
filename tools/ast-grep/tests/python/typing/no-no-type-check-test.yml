@@ -1,0 +1,33 @@
+id: no-no-type-check
+valid:
+    # The corrected form, the typed adapter
+    - |
+      def decode(raw: bytes) -> Item:
+          return msgspec.json.decode(raw, type=Item)
+    # The type checking constant of typing
+    - |
+      from typing import TYPE_CHECKING
+    # Attribute named like the member on another object
+    - |
+      skip = policy.no_type_check
+invalid:
+    # The instance, the decorator imported from typing
+    - |
+      from typing import no_type_check
+    # The decorator imported from typing_extensions
+    - |
+      from typing_extensions import no_type_check
+    # The attribute read as spelled
+    - |
+      import typing
+
+      @typing.no_type_check
+      def load(raw):
+          return raw
+    # The attribute read through the alias the import binds
+    - |
+      import typing as t
+
+      @t.no_type_check
+      def load(raw):
+          return raw

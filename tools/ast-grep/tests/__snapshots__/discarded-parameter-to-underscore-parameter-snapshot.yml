@@ -1,0 +1,521 @@
+id: discarded-parameter-to-underscore-parameter
+snapshots:
+  ? |
+    async def bind(record, log):
+        _ = log
+        return record
+  : fixed: |
+      async def bind(record, _log):
+          return record
+    labels:
+    - source: |-
+        async def bind(record, log):
+            _ = log
+            return record
+      style: primary
+      start: 0
+      end: 58
+    - source: log
+      style: secondary
+      start: 37
+      end: 40
+    - source: _ = log
+      style: secondary
+      start: 33
+      end: 40
+    - source: _ = log
+      style: secondary
+      start: 33
+      end: 40
+    - source: _ = log
+      style: secondary
+      start: 33
+      end: 40
+    - source: log
+      style: secondary
+      start: 23
+      end: 26
+    - source: log
+      style: secondary
+      start: 23
+      end: 26
+    - source: return record
+      style: secondary
+      start: 45
+      end: 58
+    - source: |-
+        _ = log
+            return record
+      style: secondary
+      start: 33
+      end: 58
+  ? |
+    class Sync:
+        def bind(self, record, log):
+            _ = log
+            return record
+  : fixed: |
+      class Sync:
+          def bind(self, record, _log):
+              return record
+    labels:
+    - source: |-
+        def bind(self, record, log):
+                _ = log
+                return record
+      style: primary
+      start: 16
+      end: 82
+    - source: log
+      style: secondary
+      start: 57
+      end: 60
+    - source: _ = log
+      style: secondary
+      start: 53
+      end: 60
+    - source: _ = log
+      style: secondary
+      start: 53
+      end: 60
+    - source: _ = log
+      style: secondary
+      start: 53
+      end: 60
+    - source: log
+      style: secondary
+      start: 39
+      end: 42
+    - source: log
+      style: secondary
+      start: 39
+      end: 42
+    - source: return record
+      style: secondary
+      start: 69
+      end: 82
+    - source: |-
+        _ = log
+                return record
+      style: secondary
+      start: 53
+      end: 82
+  ? |
+    def bind(record, *, log):
+        _ = log
+        return record
+  : fixed: |
+      def bind(record, *, _log):
+          return record
+    labels:
+    - source: |-
+        def bind(record, *, log):
+            _ = log
+            return record
+      style: primary
+      start: 0
+      end: 55
+    - source: log
+      style: secondary
+      start: 34
+      end: 37
+    - source: _ = log
+      style: secondary
+      start: 30
+      end: 37
+    - source: _ = log
+      style: secondary
+      start: 30
+      end: 37
+    - source: _ = log
+      style: secondary
+      start: 30
+      end: 37
+    - source: log
+      style: secondary
+      start: 20
+      end: 23
+    - source: log
+      style: secondary
+      start: 20
+      end: 23
+    - source: return record
+      style: secondary
+      start: 42
+      end: 55
+    - source: |-
+        _ = log
+            return record
+      style: secondary
+      start: 30
+      end: 55
+  ? |
+    def bind(record, *log):
+        _ = log
+        return record
+  : fixed: |
+      def bind(record, *_log):
+          return record
+    labels:
+    - source: |-
+        def bind(record, *log):
+            _ = log
+            return record
+      style: primary
+      start: 0
+      end: 53
+    - source: log
+      style: secondary
+      start: 32
+      end: 35
+    - source: _ = log
+      style: secondary
+      start: 28
+      end: 35
+    - source: _ = log
+      style: secondary
+      start: 28
+      end: 35
+    - source: _ = log
+      style: secondary
+      start: 28
+      end: 35
+    - source: '*log'
+      style: secondary
+      start: 17
+      end: 21
+    - source: '*log'
+      style: secondary
+      start: 17
+      end: 21
+    - source: return record
+      style: secondary
+      start: 40
+      end: 53
+    - source: |-
+        _ = log
+            return record
+      style: secondary
+      start: 28
+      end: 53
+  ? |
+    def bind(record, log):
+        _ = record
+        _ = log
+        return 1
+  : fixed: |
+      def bind(_record, log):
+          _ = log
+          return 1
+    labels:
+    - source: |-
+        def bind(record, log):
+            _ = record
+            _ = log
+            return 1
+      style: primary
+      start: 0
+      end: 62
+    - source: record
+      style: secondary
+      start: 31
+      end: 37
+    - source: _ = record
+      style: secondary
+      start: 27
+      end: 37
+    - source: _ = record
+      style: secondary
+      start: 27
+      end: 37
+    - source: _ = record
+      style: secondary
+      start: 27
+      end: 37
+    - source: record
+      style: secondary
+      start: 9
+      end: 15
+    - source: record
+      style: secondary
+      start: 9
+      end: 15
+    - source: _ = log
+      style: secondary
+      start: 42
+      end: 49
+    - source: |-
+        _ = record
+            _ = log
+            return 1
+      style: secondary
+      start: 27
+      end: 62
+  ? |
+    def bind(record, log):
+        del log
+        return record
+  : fixed: |
+      def bind(record, _log):
+          return record
+    labels:
+    - source: |-
+        def bind(record, log):
+            del log
+            return record
+      style: primary
+      start: 0
+      end: 52
+    - source: log
+      style: secondary
+      start: 31
+      end: 34
+    - source: del log
+      style: secondary
+      start: 27
+      end: 34
+    - source: del log
+      style: secondary
+      start: 27
+      end: 34
+    - source: log
+      style: secondary
+      start: 17
+      end: 20
+    - source: log
+      style: secondary
+      start: 17
+      end: 20
+    - source: return record
+      style: secondary
+      start: 39
+      end: 52
+    - source: |-
+        del log
+            return record
+      style: secondary
+      start: 27
+      end: 52
+  ? |
+    def bind(record, log: Log | None = None):
+        """Doc."""
+        _ = log
+  : fixed: |
+      def bind(record, _log: Log | None = None):
+          """Doc."""
+    labels:
+    - source: |-
+        def bind(record, log: Log | None = None):
+            """Doc."""
+            _ = log
+      style: primary
+      start: 0
+      end: 68
+    - source: log
+      style: secondary
+      start: 65
+      end: 68
+    - source: _ = log
+      style: secondary
+      start: 61
+      end: 68
+    - source: _ = log
+      style: secondary
+      start: 61
+      end: 68
+    - source: _ = log
+      style: secondary
+      start: 61
+      end: 68
+    - source: 'log: Log | None = None'
+      style: secondary
+      start: 17
+      end: 39
+    - source: 'log: Log | None = None'
+      style: secondary
+      start: 17
+      end: 39
+    - source: _ = log
+      style: secondary
+      start: 61
+      end: 68
+    - source: |-
+        """Doc."""
+            _ = log
+      style: secondary
+      start: 46
+      end: 68
+  ? |
+    def bind(record: log, log):
+        _ = log
+        return record
+  : fixed: |
+      def bind(record: log, _log):
+          return record
+    labels:
+    - source: |-
+        def bind(record: log, log):
+            _ = log
+            return record
+      style: primary
+      start: 0
+      end: 57
+    - source: log
+      style: secondary
+      start: 36
+      end: 39
+    - source: _ = log
+      style: secondary
+      start: 32
+      end: 39
+    - source: _ = log
+      style: secondary
+      start: 32
+      end: 39
+    - source: _ = log
+      style: secondary
+      start: 32
+      end: 39
+    - source: log
+      style: secondary
+      start: 22
+      end: 25
+    - source: log
+      style: secondary
+      start: 22
+      end: 25
+    - source: return record
+      style: secondary
+      start: 44
+      end: 57
+    - source: |-
+        _ = log
+            return record
+      style: secondary
+      start: 32
+      end: 57
+  ? |
+    def bind(self, record, log):
+        _ = log
+        _ = log
+        return record
+  : fixed: |
+      def bind(self, record, _log):
+          return record
+    labels:
+    - source: |-
+        def bind(self, record, log):
+            _ = log
+            _ = log
+            return record
+      style: primary
+      start: 0
+      end: 70
+    - source: log
+      style: secondary
+      start: 37
+      end: 40
+    - source: _ = log
+      style: secondary
+      start: 33
+      end: 40
+    - source: _ = log
+      style: secondary
+      start: 33
+      end: 40
+    - source: _ = log
+      style: secondary
+      start: 33
+      end: 40
+    - source: log
+      style: secondary
+      start: 23
+      end: 26
+    - source: log
+      style: secondary
+      start: 23
+      end: 26
+    - source: _ = log
+      style: secondary
+      start: 45
+      end: 52
+    - source: |-
+        _ = log
+            _ = log
+            return record
+      style: secondary
+      start: 33
+      end: 70
+  ? |
+    def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
+        """Build the recording runner."""
+        _ = log
+
+        def run_sync(*args: object, **kwargs: object) -> R:
+            record(args, kwargs)
+            return self.value
+
+        return run_sync
+  : fixed: |
+      def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
+          """Build the recording runner."""
+
+          def run_sync(*args: object, **kwargs: object) -> R:
+              record(args, kwargs)
+              return self.value
+
+          return run_sync
+    labels:
+    - source: |-
+        def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
+            """Build the recording runner."""
+            _ = log
+
+            def run_sync(*args: object, **kwargs: object) -> R:
+                record(args, kwargs)
+                return self.value
+
+            return run_sync
+      style: primary
+      start: 0
+      end: 257
+    - source: log
+      style: secondary
+      start: 121
+      end: 124
+    - source: _ = log
+      style: secondary
+      start: 117
+      end: 124
+    - source: _ = log
+      style: secondary
+      start: 117
+      end: 124
+    - source: _ = log
+      style: secondary
+      start: 117
+      end: 124
+    - source: 'log: _CallLog'
+      style: secondary
+      start: 34
+      end: 47
+    - source: 'log: _CallLog'
+      style: secondary
+      start: 34
+      end: 47
+    - source: _ = log
+      style: secondary
+      start: 117
+      end: 124
+    - source: |-
+        """Build the recording runner."""
+            _ = log
+
+            def run_sync(*args: object, **kwargs: object) -> R:
+                record(args, kwargs)
+                return self.value
+
+            return run_sync
+      style: secondary
+      start: 79
+      end: 257

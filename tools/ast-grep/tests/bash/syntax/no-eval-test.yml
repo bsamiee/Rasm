@@ -1,0 +1,65 @@
+id: no-eval
+valid:
+    # The command built in an array and run as words
+    - |
+      cmd=(git log --oneline)
+      "${cmd[@]}"
+    # Indirect read through the name
+    - printf '%s\n' "${!name}"
+    # Nameref bound to the caller's variable
+    - |
+      f() { local -n out=$1; out=value; }
+    # The lookup of the builtin, -v is the first argument
+    - command -v eval
+    # The type lookup, the word as the first argument of another name
+    - type eval
+    # The word as an argument of another command
+    - printf '%s\n' eval
+    # A name holding the word as a prefix
+    - evaluate "$input"
+    # A literal program after -c, the value passed as a positional parameter
+    - bash -c 'printf "%s\n" "$1"' _ "$value"
+    # A script file run by path
+    - bash script.sh "$x"
+    # A literal program under sh
+    - sh -c 'ls'
+    # The -c option of another command
+    - grep -c "$pattern" file
+    # A double-quoted literal program
+    - bash -c "ls -la"
+invalid:
+    # The -c option joined to another flag
+    - bash -ec "$cmd"
+    # The bare parameter as the program
+    - bash -c $cmd
+    # The program joined from text and an expansion
+    - bash -c run_$x
+    # The joined flags under sh
+    - sh -xc "$cmd"
+    # The name behind a backslash
+    - \eval "$cmd"
+    # The name single-quoted
+    - "'eval' \"$cmd\""
+    # A shell over a string built at run time
+    - bash -c "$cmd"
+    # The program holding an expansion beside literal text
+    - sh -c "run $x"
+    # Positional parameters after the built program
+    - bash -c "$cmd" -- "$@"
+    # The name quoted
+    - '"eval" "$cmd"'
+    # The instance
+    - eval "$cmd"
+    # The builtin prefix
+    - builtin eval "$cmd"
+    # The command prefix
+    - command eval "$cmd"
+    # Inside a command substitution
+    - x=$(eval "$cmd")
+    # Inside a function body
+    - |
+      f() { eval "$1"; }
+    # Second command of a list
+    - a && eval "$b"
+    # First stage of a pipeline
+    - eval "$cmd" | tee log

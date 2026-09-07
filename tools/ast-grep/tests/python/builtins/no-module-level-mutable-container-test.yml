@@ -1,0 +1,76 @@
+id: no-module-level-mutable-container
+valid:
+    # The corrected form, the frozen mapping
+    - |
+      _SCALARS = frozendict({"int": "int", "size": "long"})
+    # Tuple and a frozenset
+    - |
+      _HOST_TOOLS = ("energyplus", "ktx")
+      _KEYWORDS = frozenset({"base", "default"})
+    # The export list, read once by import
+    - |
+      __all__ = ["generate"]
+    # Local inside a def, owned by its scope
+    - |
+      def kinds() -> dict[str, str]:
+          table: dict[str, str] = {}
+          return table
+    # Class attribute, ruff mutable-class-default reports it
+    - |
+      class Registry:
+          items: list[str] = []
+    # Binding inside a nested def
+    - |
+      def outer():
+          def inner():
+              table = {}
+              return table
+          return inner
+    # Struct field default, a factory the class owns
+    - |
+      class Spy(msgspec.Struct):
+          calls: list[str] = msgspec.field(default_factory=list)
+invalid:
+    # The instance, the annotated dict display
+    - |
+      _LANGUAGES: dict[Language, _Merge] = {"dotnet": _Merge("*.xml", ())}
+    # The list display
+    - |
+      PROPERTY_TESTS: list[PropertyRecord] = []
+    # The set constructor
+    - |
+      _RECORDED: set[str] = set()
+    # The dict display without an annotation
+    - |
+      _SCALARS = {"int": "int", "size": "long"}
+    # The set display
+    - |
+      _NAMES = {"a", "b"}
+    # The dict constructor
+    - |
+      _TABLE = dict(a=1)
+    # The list constructor
+    - |
+      _ITEMS = list(range(3))
+    # The read-only proxy over a dict
+    - |
+      _TABLE = types.MappingProxyType({"a": 1})
+    # Weak set
+    - |
+      _DECORATED: weakref.WeakSet[object] = weakref.WeakSet()
+    # Default dict
+    - |
+      _COUNTS = collections.defaultdict(int)
+    # Dictionary comprehension
+    - |
+      _RETURNS = {f"o{element}": cs for element, cs in _SCALARS.items()}
+    # List comprehension
+    - |
+      _NAMES = [name for name in raw]
+    # Set comprehension
+    - |
+      _KEYS = {key for key in raw}
+    # Binding under a module-level if
+    - |
+      if TYPE_CHECKING:
+          _CACHE: dict[str, int] = {}

@@ -148,8 +148,10 @@ _tmp/
 .claude/agent-memory-local/
 .claude/skills/**/.cache/
 .claude/settings.local.json
+.claude/types/
 .claude/worktrees/
 .playwright-mcp/
+docs/research
 
 # --- [SECRETS] ---------------------------------------------------------------
 

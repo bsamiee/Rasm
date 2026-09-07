@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-control-flow-expression-statement
+language: python
+severity: error
+rule:
+    matches:
+        python-discarded-expression:
+            value: # The forms that select or iterate, a bare call or await is the effect itself and a name alone is ruff useless-expression
+                any:
+                    - kind: conditional_expression
+                    - kind: boolean_operator
+                    - kind: list_comprehension
+                    - kind: set_comprehension
+                    - kind: dictionary_comprehension
+                    - kind: generator_expression
+message: Expression statement selects or iterates for an effect and drops the value it builds
+note: >-
+    Write the statement the expression spells, `if <condition>:`, `if not <condition>:`, or `for <target> in <items>:`,
+    with the effect as its body

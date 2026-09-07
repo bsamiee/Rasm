@@ -1,6 +1,109 @@
 id: no-fourth-lambda-level
 snapshots:
   ? |
+    def build():
+        return outer(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 78
+      end: 93
+    - source: '(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 62
+      end: 101
+    - source: c
+      style: secondary
+      start: 70
+      end: 71
+    - source: '(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 46
+      end: 105
+    - source: b
+      style: secondary
+      start: 54
+      end: 55
+    - source: '(lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a), items)'
+      style: secondary
+      start: 29
+      end: 113
+    - source: a
+      style: secondary
+      start: 37
+      end: 38
+    - source: 'lambda a: middle(lambda b: inner(lambda c: last(lambda d: d + c, a), a), a)'
+      style: secondary
+      start: 30
+      end: 105
+    - source: 'lambda b: inner(lambda c: last(lambda d: d + c, a), a)'
+      style: secondary
+      start: 47
+      end: 101
+    - source: 'lambda c: last(lambda d: d + c, a)'
+      style: secondary
+      start: 63
+      end: 97
+    - source: '(lambda d: d + c, a)'
+      style: secondary
+      start: 77
+      end: 97
+    - source: d
+      style: secondary
+      start: 85
+      end: 86
+  ? |
+    rows = outer(lambda a: middle(lambda b: inner(lambda c: group.each(lambda d: d + c), a), a), items)
+  : labels:
+    - source: 'lambda d: d + c'
+      style: primary
+      start: 67
+      end: 82
+    - source: '(lambda c: group.each(lambda d: d + c), a)'
+      style: secondary
+      start: 45
+      end: 87
+    - source: c
+      style: secondary
+      start: 53
+      end: 54
+    - source: '(lambda b: inner(lambda c: group.each(lambda d: d + c), a), a)'
+      style: secondary
+      start: 29
+      end: 91
+    - source: b
+      style: secondary
+      start: 37
+      end: 38
+    - source: '(lambda a: middle(lambda b: inner(lambda c: group.each(lambda d: d + c), a), a), items)'
+      style: secondary
+      start: 12
+      end: 99
+    - source: a
+      style: secondary
+      start: 20
+      end: 21
+    - source: 'lambda a: middle(lambda b: inner(lambda c: group.each(lambda d: d + c), a), a)'
+      style: secondary
+      start: 13
+      end: 91
+    - source: 'lambda b: inner(lambda c: group.each(lambda d: d + c), a)'
+      style: secondary
+      start: 30
+      end: 87
+    - source: 'lambda c: group.each(lambda d: d + c)'
+      style: secondary
+      start: 46
+      end: 83
+    - source: '(lambda d: d + c)'
+      style: secondary
+      start: 66
+      end: 83
+    - source: d
+      style: secondary
+      start: 74
+      end: 75
+  ? |
     rows = outer(lambda a: middle(lambda b: inner(lambda c: last(key=lambda d: d + c), a), a), items)
   : labels:
     - source: 'lambda d: d + c'

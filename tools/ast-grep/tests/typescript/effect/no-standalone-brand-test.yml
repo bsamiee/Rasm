@@ -1,0 +1,35 @@
+id: no-standalone-brand
+valid:
+    # The brand as a field refinement of the owning class
+    - 'class Item extends Schema.Class<Item>("Item")({ id: Schema.String.pipe(Schema.brand("ItemId")), name: Schema.String }) {}'
+    # Schema without a brand
+    - 'const Item = Schema.Struct({ id: Schema.String });'
+    # Member named brand on a value outside the constructors
+    - 'const label = product.brand("x");'
+    # Type alias over the class field, no declarator with a brand call
+    - 'type ItemId = Item["id"];'
+    # Type alias over a generic type outside the Brand module
+    - 'type Rows = ReadonlyArray<Row>;'
+invalid:
+    # The instance, a branded schema declared on its own
+    - 'const ItemId = Schema.String.pipe(Schema.brand("ItemId"));'
+    # Brand as a data-first call
+    - 'const ItemId = Schema.brand(Schema.String, "ItemId");'
+    # Exported declaration
+    - 'export const ItemId = Schema.String.pipe(Schema.brand("ItemId"));'
+    # Nominal brand constructor
+    - 'const ItemId = Brand.nominal<ItemId>();'
+    # Refined brand constructor
+    - 'const Positive = Brand.refined<Positive>((value) => value > 0, (value) => Brand.error(`${value} is not positive`));'
+    # Composed brand
+    - 'const PositiveInt = Brand.all(Positive, Int);'
+    # Brand nested inside a struct declared on its own
+    - 'const Item = Schema.Struct({ id: Schema.String.pipe(Schema.brand("ItemId")) });'
+    # Brand under a let binding
+    - 'let ItemId = Schema.String.pipe(Schema.brand("ItemId"));'
+    # Branded type declared as an alias, the type the nominal constructor reads
+    - 'type ItemId = string & Brand.Brand<"ItemId">;'
+    # Exported alias over the Branded spelling
+    - 'export type Positive = number & Brand.Branded<number, "Positive">;'
+    # Brand declared inside a function body, the nearest declarator names it
+    - 'const make = () => { const Inner = Schema.String.pipe(Schema.brand("Inner")); return Inner; };'

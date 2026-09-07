@@ -1,0 +1,671 @@
+id: no-succeed-in-flat-map
+snapshots:
+  const next = Channel.flatMap(channel, (value) => Channel.succeed(value + 1));:
+    fixed: const next = Channel.map(channel, (value) => value + 1);
+    labels:
+    - source: Channel.flatMap(channel, (value) => Channel.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 76
+    - source: Channel.flatMap
+      style: secondary
+      start: 13
+      end: 28
+    - source: Channel.succeed
+      style: secondary
+      start: 49
+      end: 64
+    - source: Channel.succeed(value + 1)
+      style: secondary
+      start: 49
+      end: 75
+    - source: (value) => Channel.succeed(value + 1)
+      style: secondary
+      start: 38
+      end: 75
+    - source: (value) => Channel.succeed(value + 1)
+      style: secondary
+      start: 38
+      end: 75
+  const next = Effect.andThen(work, (value) => Effect.succeed(value + 1));:
+    fixed: const next = Effect.map(work, (value) => value + 1);
+    labels:
+    - source: Effect.andThen(work, (value) => Effect.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 71
+    - source: Effect.andThen
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 45
+      end: 59
+    - source: Effect.succeed(value + 1)
+      style: secondary
+      start: 45
+      end: 70
+    - source: (value) => Effect.succeed(value + 1)
+      style: secondary
+      start: 34
+      end: 70
+    - source: (value) => Effect.succeed(value + 1)
+      style: secondary
+      start: 34
+      end: 70
+  const next = Effect.flatMap(work, () => Effect.succeed(1));:
+    fixed: const next = Effect.as(work, 1);
+    labels:
+    - source: Effect.flatMap(work, () => Effect.succeed(1))
+      style: primary
+      start: 13
+      end: 58
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 40
+      end: 54
+    - source: Effect.succeed(1)
+      style: secondary
+      start: 40
+      end: 57
+    - source: () => Effect.succeed(1)
+      style: secondary
+      start: 34
+      end: 57
+    - source: () => Effect.succeed(1)
+      style: secondary
+      start: 34
+      end: 57
+  const next = Effect.flatMap(work, () => { return Effect.succeed(1); });:
+    fixed: const next = Effect.as(work, 1);
+    labels:
+    - source: Effect.flatMap(work, () => { return Effect.succeed(1); })
+      style: primary
+      start: 13
+      end: 70
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 49
+      end: 63
+    - source: Effect.succeed(1)
+      style: secondary
+      start: 49
+      end: 66
+    - source: return Effect.succeed(1);
+      style: secondary
+      start: 42
+      end: 67
+    - source: '{ return Effect.succeed(1); }'
+      style: secondary
+      start: 40
+      end: 69
+    - source: () => { return Effect.succeed(1); }
+      style: secondary
+      start: 34
+      end: 69
+    - source: () => { return Effect.succeed(1); }
+      style: secondary
+      start: 34
+      end: 69
+  const next = Effect.flatMap(work, (value) => Effect.succeed(value + 1));:
+    fixed: const next = Effect.map(work, (value) => value + 1);
+    labels:
+    - source: Effect.flatMap(work, (value) => Effect.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 71
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 45
+      end: 59
+    - source: Effect.succeed(value + 1)
+      style: secondary
+      start: 45
+      end: 70
+    - source: (value) => Effect.succeed(value + 1)
+      style: secondary
+      start: 34
+      end: 70
+    - source: (value) => Effect.succeed(value + 1)
+      style: secondary
+      start: 34
+      end: 70
+  const next = Effect.flatMap(work, (value) => Effect.succeed({ value }));:
+    fixed: const next = Effect.map(work, (value) => ({ value }));
+    labels:
+    - source: Effect.flatMap(work, (value) => Effect.succeed({ value }))
+      style: primary
+      start: 13
+      end: 71
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 45
+      end: 59
+    - source: Effect.succeed({ value })
+      style: secondary
+      start: 45
+      end: 70
+    - source: (value) => Effect.succeed({ value })
+      style: secondary
+      start: 34
+      end: 70
+    - source: (value) => Effect.succeed({ value })
+      style: secondary
+      start: 34
+      end: 70
+  const next = Effect.flatMap(work, (value) => { return Effect.succeed(value + 1); });:
+    fixed: const next = Effect.map(work, (value) => { return value + 1; });
+    labels:
+    - source: Effect.flatMap(work, (value) => { return Effect.succeed(value + 1); })
+      style: primary
+      start: 13
+      end: 83
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 54
+      end: 68
+    - source: Effect.succeed(value + 1)
+      style: secondary
+      start: 54
+      end: 79
+    - source: return Effect.succeed(value + 1);
+      style: secondary
+      start: 47
+      end: 80
+    - source: '{ return Effect.succeed(value + 1); }'
+      style: secondary
+      start: 45
+      end: 82
+    - source: (value) => { return Effect.succeed(value + 1); }
+      style: secondary
+      start: 34
+      end: 82
+    - source: (value) => { return Effect.succeed(value + 1); }
+      style: secondary
+      start: 34
+      end: 82
+  'const next = Effect.flatMap(work, (value: number) => Effect.succeed(value + 1));':
+    fixed: 'const next = Effect.map(work, (value: number) => value + 1);'
+    labels:
+    - source: 'Effect.flatMap(work, (value: number) => Effect.succeed(value + 1))'
+      style: primary
+      start: 13
+      end: 79
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 53
+      end: 67
+    - source: Effect.succeed(value + 1)
+      style: secondary
+      start: 53
+      end: 78
+    - source: '(value: number) => Effect.succeed(value + 1)'
+      style: secondary
+      start: 34
+      end: 78
+    - source: '(value: number) => Effect.succeed(value + 1)'
+      style: secondary
+      start: 34
+      end: 78
+  const next = Effect.flatMap(work, function () { return Effect.succeed(1); });:
+    fixed: const next = Effect.as(work, 1);
+    labels:
+    - source: Effect.flatMap(work, function () { return Effect.succeed(1); })
+      style: primary
+      start: 13
+      end: 76
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 55
+      end: 69
+    - source: Effect.succeed(1)
+      style: secondary
+      start: 55
+      end: 72
+    - source: return Effect.succeed(1);
+      style: secondary
+      start: 48
+      end: 73
+    - source: '{ return Effect.succeed(1); }'
+      style: secondary
+      start: 46
+      end: 75
+    - source: function () { return Effect.succeed(1); }
+      style: secondary
+      start: 34
+      end: 75
+    - source: function () { return Effect.succeed(1); }
+      style: secondary
+      start: 34
+      end: 75
+  const next = Effect.flatMap(work, function (value) { return Effect.succeed(value + 1); });:
+    fixed: const next = Effect.map(work, function (value) { return value + 1; });
+    labels:
+    - source: Effect.flatMap(work, function (value) { return Effect.succeed(value + 1); })
+      style: primary
+      start: 13
+      end: 89
+    - source: Effect.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Effect.succeed
+      style: secondary
+      start: 60
+      end: 74
+    - source: Effect.succeed(value + 1)
+      style: secondary
+      start: 60
+      end: 85
+    - source: return Effect.succeed(value + 1);
+      style: secondary
+      start: 53
+      end: 86
+    - source: '{ return Effect.succeed(value + 1); }'
+      style: secondary
+      start: 51
+      end: 88
+    - source: function (value) { return Effect.succeed(value + 1); }
+      style: secondary
+      start: 34
+      end: 88
+    - source: function (value) { return Effect.succeed(value + 1); }
+      style: secondary
+      start: 34
+      end: 88
+  const next = Either.flatMap(decoded, () => Either.right(1));:
+    fixed: const next = Either.map(decoded, () => 1);
+    labels:
+    - source: Either.flatMap(decoded, () => Either.right(1))
+      style: primary
+      start: 13
+      end: 59
+    - source: Either.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Either.right
+      style: secondary
+      start: 43
+      end: 55
+    - source: Either.right(1)
+      style: secondary
+      start: 43
+      end: 58
+    - source: () => Either.right(1)
+      style: secondary
+      start: 37
+      end: 58
+    - source: () => Either.right(1)
+      style: secondary
+      start: 37
+      end: 58
+  const next = Exit.flatMap(exit, (value) => Exit.succeed(value + 1));:
+    fixed: const next = Exit.map(exit, (value) => value + 1);
+    labels:
+    - source: Exit.flatMap(exit, (value) => Exit.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 67
+    - source: Exit.flatMap
+      style: secondary
+      start: 13
+      end: 25
+    - source: Exit.succeed
+      style: secondary
+      start: 43
+      end: 55
+    - source: Exit.succeed(value + 1)
+      style: secondary
+      start: 43
+      end: 66
+    - source: (value) => Exit.succeed(value + 1)
+      style: secondary
+      start: 32
+      end: 66
+    - source: (value) => Exit.succeed(value + 1)
+      style: secondary
+      start: 32
+      end: 66
+  const next = Micro.flatMap(work, (value) => Micro.succeed(value + 1));:
+    fixed: const next = Micro.map(work, (value) => value + 1);
+    labels:
+    - source: Micro.flatMap(work, (value) => Micro.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 69
+    - source: Micro.flatMap
+      style: secondary
+      start: 13
+      end: 26
+    - source: Micro.succeed
+      style: secondary
+      start: 44
+      end: 57
+    - source: Micro.succeed(value + 1)
+      style: secondary
+      start: 44
+      end: 68
+    - source: (value) => Micro.succeed(value + 1)
+      style: secondary
+      start: 33
+      end: 68
+    - source: (value) => Micro.succeed(value + 1)
+      style: secondary
+      start: 33
+      end: 68
+  const next = Option.andThen(found, () => Option.some(1));:
+    fixed: const next = Option.as(found, 1);
+    labels:
+    - source: Option.andThen(found, () => Option.some(1))
+      style: primary
+      start: 13
+      end: 56
+    - source: Option.andThen
+      style: secondary
+      start: 13
+      end: 27
+    - source: Option.some
+      style: secondary
+      start: 41
+      end: 52
+    - source: Option.some(1)
+      style: secondary
+      start: 41
+      end: 55
+    - source: () => Option.some(1)
+      style: secondary
+      start: 35
+      end: 55
+    - source: () => Option.some(1)
+      style: secondary
+      start: 35
+      end: 55
+  const next = Option.flatMap(found, (value) => Option.some(value + 1));:
+    fixed: const next = Option.map(found, (value) => value + 1);
+    labels:
+    - source: Option.flatMap(found, (value) => Option.some(value + 1))
+      style: primary
+      start: 13
+      end: 69
+    - source: Option.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Option.some
+      style: secondary
+      start: 46
+      end: 57
+    - source: Option.some(value + 1)
+      style: secondary
+      start: 46
+      end: 68
+    - source: (value) => Option.some(value + 1)
+      style: secondary
+      start: 35
+      end: 68
+    - source: (value) => Option.some(value + 1)
+      style: secondary
+      start: 35
+      end: 68
+  const next = STM.flatMap(transaction, (value) => STM.succeed(value + 1));:
+    fixed: const next = STM.map(transaction, (value) => value + 1);
+    labels:
+    - source: STM.flatMap(transaction, (value) => STM.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 72
+    - source: STM.flatMap
+      style: secondary
+      start: 13
+      end: 24
+    - source: STM.succeed
+      style: secondary
+      start: 49
+      end: 60
+    - source: STM.succeed(value + 1)
+      style: secondary
+      start: 49
+      end: 71
+    - source: (value) => STM.succeed(value + 1)
+      style: secondary
+      start: 38
+      end: 71
+    - source: (value) => STM.succeed(value + 1)
+      style: secondary
+      start: 38
+      end: 71
+  const next = Sink.flatMap(sink, (value) => Sink.succeed(value + 1));:
+    fixed: const next = Sink.map(sink, (value) => value + 1);
+    labels:
+    - source: Sink.flatMap(sink, (value) => Sink.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 67
+    - source: Sink.flatMap
+      style: secondary
+      start: 13
+      end: 25
+    - source: Sink.succeed
+      style: secondary
+      start: 43
+      end: 55
+    - source: Sink.succeed(value + 1)
+      style: secondary
+      start: 43
+      end: 66
+    - source: (value) => Sink.succeed(value + 1)
+      style: secondary
+      start: 32
+      end: 66
+    - source: (value) => Sink.succeed(value + 1)
+      style: secondary
+      start: 32
+      end: 66
+  const next = Stream.flatMap(stream, (value) => Stream.succeed(value + 1));:
+    fixed: const next = Stream.map(stream, (value) => value + 1);
+    labels:
+    - source: Stream.flatMap(stream, (value) => Stream.succeed(value + 1))
+      style: primary
+      start: 13
+      end: 73
+    - source: Stream.flatMap
+      style: secondary
+      start: 13
+      end: 27
+    - source: Stream.succeed
+      style: secondary
+      start: 47
+      end: 61
+    - source: Stream.succeed(value + 1)
+      style: secondary
+      start: 47
+      end: 72
+    - source: (value) => Stream.succeed(value + 1)
+      style: secondary
+      start: 36
+      end: 72
+    - source: (value) => Stream.succeed(value + 1)
+      style: secondary
+      start: 36
+      end: 72
+  const next = decoded.pipe(Either.flatMap(() => Either.right(1)));:
+    fixed: const next = decoded.pipe(Either.map(() => 1));
+    labels:
+    - source: Either.flatMap(() => Either.right(1))
+      style: primary
+      start: 26
+      end: 63
+    - source: Either.flatMap
+      style: secondary
+      start: 26
+      end: 40
+    - source: Either.right
+      style: secondary
+      start: 47
+      end: 59
+    - source: Either.right(1)
+      style: secondary
+      start: 47
+      end: 62
+    - source: () => Either.right(1)
+      style: secondary
+      start: 41
+      end: 62
+    - source: () => Either.right(1)
+      style: secondary
+      start: 41
+      end: 62
+  const next = work.pipe(Effect.flatMap(() => Effect.succeed(1)));:
+    fixed: const next = work.pipe(Effect.as(1));
+    labels:
+    - source: Effect.flatMap(() => Effect.succeed(1))
+      style: primary
+      start: 23
+      end: 62
+    - source: Effect.flatMap
+      style: secondary
+      start: 23
+      end: 37
+    - source: Effect.succeed
+      style: secondary
+      start: 44
+      end: 58
+    - source: Effect.succeed(1)
+      style: secondary
+      start: 44
+      end: 61
+    - source: () => Effect.succeed(1)
+      style: secondary
+      start: 38
+      end: 61
+    - source: () => Effect.succeed(1)
+      style: secondary
+      start: 38
+      end: 61
+  const next = work.pipe(Effect.flatMap(() => { return Effect.succeed(1); }));:
+    fixed: const next = work.pipe(Effect.as(1));
+    labels:
+    - source: Effect.flatMap(() => { return Effect.succeed(1); })
+      style: primary
+      start: 23
+      end: 74
+    - source: Effect.flatMap
+      style: secondary
+      start: 23
+      end: 37
+    - source: Effect.succeed
+      style: secondary
+      start: 53
+      end: 67
+    - source: Effect.succeed(1)
+      style: secondary
+      start: 53
+      end: 70
+    - source: return Effect.succeed(1);
+      style: secondary
+      start: 46
+      end: 71
+    - source: '{ return Effect.succeed(1); }'
+      style: secondary
+      start: 44
+      end: 73
+    - source: () => { return Effect.succeed(1); }
+      style: secondary
+      start: 38
+      end: 73
+    - source: () => { return Effect.succeed(1); }
+      style: secondary
+      start: 38
+      end: 73
+  const next = work.pipe(Effect.flatMap((value) => Effect.succeed(value + 1)));:
+    fixed: const next = work.pipe(Effect.map((value) => value + 1));
+    labels:
+    - source: Effect.flatMap((value) => Effect.succeed(value + 1))
+      style: primary
+      start: 23
+      end: 75
+    - source: Effect.flatMap
+      style: secondary
+      start: 23
+      end: 37
+    - source: Effect.succeed
+      style: secondary
+      start: 49
+      end: 63
+    - source: Effect.succeed(value + 1)
+      style: secondary
+      start: 49
+      end: 74
+    - source: (value) => Effect.succeed(value + 1)
+      style: secondary
+      start: 38
+      end: 74
+    - source: (value) => Effect.succeed(value + 1)
+      style: secondary
+      start: 38
+      end: 74
+  const next = work.pipe(Effect.flatMap(function () { return Effect.succeed(1); }));:
+    fixed: const next = work.pipe(Effect.as(1));
+    labels:
+    - source: Effect.flatMap(function () { return Effect.succeed(1); })
+      style: primary
+      start: 23
+      end: 80
+    - source: Effect.flatMap
+      style: secondary
+      start: 23
+      end: 37
+    - source: Effect.succeed
+      style: secondary
+      start: 59
+      end: 73
+    - source: Effect.succeed(1)
+      style: secondary
+      start: 59
+      end: 76
+    - source: return Effect.succeed(1);
+      style: secondary
+      start: 52
+      end: 77
+    - source: '{ return Effect.succeed(1); }'
+      style: secondary
+      start: 50
+      end: 79
+    - source: function () { return Effect.succeed(1); }
+      style: secondary
+      start: 38
+      end: 79
+    - source: function () { return Effect.succeed(1); }
+      style: secondary
+      start: 38
+      end: 79

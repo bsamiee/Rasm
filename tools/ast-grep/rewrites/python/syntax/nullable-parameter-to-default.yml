@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: nullable-parameter-to-default
+language: python
+severity: off
+utils:
+    # The typed parameter with a None default, a union with None on either side, an annotation alone is opaque and stays
+    typed-nullable:
+        kind: typed_default_parameter
+        all:
+            - has: {field: name, pattern: $P}
+            - has: {field: value, kind: none}
+            - has:
+                  field: type
+                  has:
+                      kind: binary_operator
+                      any:
+                          - all: [{has: {field: left, pattern: $T}}, {has: {field: right, kind: none}}]
+                          - all: [{has: {field: left, kind: none}}, {has: {field: right, pattern: $T}}]
+    # The untyped parameter with a None default
+    untyped-nullable:
+        kind: default_parameter
+        all:
+            - has: {field: name, pattern: $P}
+            - has: {field: value, kind: none}
+    # The parameter accepting None through its default, each rewriter names its own form so the type capture stays declared
+    nullable-parameter:
+        any: [{matches: typed-nullable}, {matches: untyped-nullable}]
+    # The resolution of the parameter to a default, the conditional spellings and the statement form, the or form tests truthiness and stays
+    resolution-shape:
+        any:
+            - pattern: $P if $P is not None else $_
+            - pattern: $_ if $P is None else $P
+            - kind: if_statement
+              all:
+                  - has: {field: condition, pattern: $P is None}
+                  - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $_}}, not: {has: {nthChild: 2}}}
+                  - not: {has: {field: alternative, kind: else_clause}}
+    # The resolution to the default the signature takes
+    resolution:
+        matches: resolution-shape
+        any:
+            - pattern: $P if $P is not None else $D
+            - pattern: $D if $P is None else $P
+            - kind: if_statement
+              has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}}
+    # Test of the parameter against None outside a resolution, a branch the default leaves dead, the resolution is the test's parent
+    other-none-test:
+        kind: comparison_operator
+        any: [{pattern: $P is None}, {pattern: $P is not None}]
+        not: {inside: {matches: resolution-shape}}
+rule:
+    kind: function_definition
+    pattern: $DEF
+    all:
+        - has: {field: parameters, has: {matches: nullable-parameter}}
+        - has: {field: body, has: {stopBy: {matches: python-function-boundary}, matches: resolution}}
+        # The parameter stays nullable under a resolution to another default or a None test outside the resolution
+        - not:
+              has:
+                  field: body
+                  has:
+                      stopBy: {matches: python-function-boundary}
+                      any:
+                          - matches: other-none-test
+                          - matches: resolution-shape
+                            not: {matches: resolution}
+constraints:
+    D: {matches: python-signature-default}
+rewriters:
+    - id: typed-parameter
+      rule: {matches: typed-nullable}
+      fix: '$P: $T = $D'
+    - id: untyped-parameter
+      rule: {matches: untyped-nullable}
+      fix: $P=$D
+    # The parenthesized resolution first, its parentheses leave with the conditional
+    - id: parenthesized-resolution
+      rule: {kind: parenthesized_expression, has: {kind: conditional_expression, matches: resolution}}
+      fix: $P
+    - id: expression-resolution
+      rule: {kind: conditional_expression, matches: resolution}
+      fix: $P
+    - id: statement-resolution
+      rule: {kind: if_statement, matches: resolution}
+      fix: ''
+transform:
+    OUT: rewrite($DEF, rewriters=[typed-parameter, untyped-parameter, parenthesized-resolution, expression-resolution, statement-resolution])
+    CLEAN: replace($OUT, replace='(?m)\n[ \t]+$', by='') # The dropped statement leaves a whitespace line, formatted code holds none
+fix: $CLEAN
+message: Parameter `$P` accepts None and the body resolves None to `$D`
+note: 'State the default in the signature, `<parameter>: <type> = <default>`, and drop the None arm'

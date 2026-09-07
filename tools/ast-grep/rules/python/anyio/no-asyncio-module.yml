@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-asyncio-module
+language: python
+severity: error
+rule:
+    pattern: $USE
+    matches: {python-module-use: {module: {regex: '^asyncio(\.[\w.]+)?$'}}}
+message: '`$USE` uses asyncio, the backend anyio runs on'
+note: >-
+    Call the anyio member, `anyio.run`, `anyio.sleep`, `anyio.create_task_group`, `anyio.Lock`, `anyio.Event`,
+    `anyio.Semaphore`, or `anyio.create_memory_object_stream`

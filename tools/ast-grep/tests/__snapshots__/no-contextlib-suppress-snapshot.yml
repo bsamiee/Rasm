@@ -1,0 +1,29 @@
+id: no-contextlib-suppress
+snapshots:
+  ? |
+    from contextlib import suppress
+  : labels:
+    - source: suppress
+      style: primary
+      start: 23
+      end: 31
+  ? |
+    import contextlib
+
+    with contextlib.suppress(OSError):
+        path.unlink()
+  : labels:
+    - source: contextlib.suppress
+      style: primary
+      start: 24
+      end: 43
+  ? |
+    import contextlib as ctx
+
+    with ctx.suppress(OSError):
+        path.unlink()
+  : labels:
+    - source: ctx.suppress
+      style: primary
+      start: 31
+      end: 43

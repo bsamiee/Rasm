@@ -3,6 +3,7 @@ packages:
   - 'libs/typescript/ui/*'
   - 'apps/*/*'
   - 'tests/typescript/*'
+  - '.claude/plugins/*'
 
 cacheDir: .cache/pnpm/cache
 
@@ -298,6 +299,8 @@ catalog:
   vite-plugin-svgr: 5.2.0
   vite-plugin-webfont-dl: 3.13.1
   '@octokit/rest': 22.0.1
+  '@playwright/mcp': 0.0.80
+  hostinger-api-mcp: 1.57.0
 
 catalogMode: strict
 

@@ -1,4 +1,20 @@
-import { Array, type Context, Effect, Exit, HashMap, Match, Metric, type MetricPair, MetricState, Option, Order, pipe, Record, Tracer } from 'effect';
+import {
+    Array,
+    type Context,
+    Effect,
+    Exit,
+    HashMap,
+    Match,
+    Metric,
+    type MetricPair,
+    MetricState,
+    MutableRef,
+    Option,
+    Order,
+    pipe,
+    Record,
+    Tracer,
+} from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -93,13 +109,13 @@ class _CapturedSpan implements Tracer.Span {
     readonly _tag = 'Span' as const;
     readonly attributes = new Map<string, unknown>();
     readonly context: Context.Context<never>;
-    readonly events: SpanEvent[] = [];
     readonly kind: Tracer.SpanKind;
     readonly name: string;
     readonly parent: Option.Option<Tracer.AnySpan>;
     readonly sampled = true;
     readonly spanId: string;
     readonly traceId: string;
+    private _events: readonly SpanEvent[] = [];
     private _links: Tracer.SpanLink[];
     private _status: Tracer.SpanStatus;
 
@@ -112,6 +128,10 @@ class _CapturedSpan implements Tracer.Span {
         this.traceId = Option.match(parent, { onNone: () => `trace-${ordinal}`, onSome: (span) => span.traceId });
         this._links = [...links];
         this._status = { _tag: 'Started', startTime };
+    }
+
+    get events(): readonly SpanEvent[] {
+        return this._events;
     }
 
     get links(): readonly Tracer.SpanLink[] {
@@ -135,7 +155,7 @@ class _CapturedSpan implements Tracer.Span {
     }
 
     event(name: string, _startTime: bigint, attributes?: Record<string, unknown>): void {
-        this.events.push({ name, attributes: attributes ?? {} });
+        this._events = [...this._events, { name, attributes: attributes ?? {} }];
     }
 }
 
@@ -150,7 +170,7 @@ const _spanRecord = (span: _CapturedSpan): SpanRecord => ({
         ),
     ),
     attributes: Record.fromEntries(span.attributes),
-    events: [...span.events],
+    events: span.events,
     outcome: Match.value(span.status).pipe(
         Match.tag('Started', (): SpanOutcome => 'open'),
         Match.tag('Ended', ({ exit }) => Exit.match(exit, { onSuccess: (): SpanOutcome => 'success', onFailure: (): SpanOutcome => 'failure' })),
@@ -162,12 +182,12 @@ const Telemetry: Telemetry = {
     snapshot: Effect.map(Metric.snapshot, (pairs) => Array.flatMap(pairs, _readings)),
     capture: (work) =>
         Effect.suspend(() => {
-            const capturedSpans: _CapturedSpan[] = [];
+            const capturedSpans = MutableRef.make<readonly _CapturedSpan[]>([]);
             const tracer = Tracer.make({
                 context: (f) => f(),
                 span: (...args: SpanArguments) => {
-                    const span = new _CapturedSpan(capturedSpans.length + 1, ...args);
-                    capturedSpans.push(span);
+                    const span = new _CapturedSpan(MutableRef.get(capturedSpans).length + 1, ...args);
+                    MutableRef.update(capturedSpans, Array.append(span));
                     return span;
                 },
             });
@@ -175,7 +195,7 @@ const Telemetry: Telemetry = {
                 const before = _keyedReadings(yield* Metric.snapshot);
                 const exit = yield* Effect.exit(Effect.withTracer(work, tracer));
                 const after = _keyedReadings(yield* Metric.snapshot);
-                return { exit, metricChanges: _metricChanges(before, after), spans: Array.map(capturedSpans, _spanRecord) };
+                return { exit, metricChanges: _metricChanges(before, after), spans: Array.map(MutableRef.get(capturedSpans), _spanRecord) };
             });
         }),
 };

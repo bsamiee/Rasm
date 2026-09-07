@@ -32,8 +32,16 @@ valid:
     - 'const value = x !== null ? Option.some(x) : Option.none();'
     # Two present arms are a choice
     - 'const code = ok ? Option.some(a) : Option.some(b);'
-    # An Effect branch belongs to the Effect lift
+    # Effect branches belong to the Effect lift
     - 'const code = ok ? Effect.succeed(a) : Effect.fail(e);'
+    # Await as the condition, the thunk the lift takes is synchronous
+    - 'const code = (await ready) ? Option.some(a) : Option.none();'
+    # Await inside the condition
+    - 'const code = check(await load()) ? Option.some(a) : Option.none();'
+    # Yield as the condition
+    - 'const code = (yield* ready) ? Option.some(a) : Option.none();'
+    # Yield inside the condition
+    - 'const code = check(yield* load) ? Option.some(a) : Option.none();'
 invalid:
     # The instance, a member read present when a comparison on another member holds, the comparison narrows nothing
     - 'const code = item.verdict === "regression" ? Option.some(item.name) : Option.none();'
@@ -61,3 +69,9 @@ invalid:
     - 'const step = descending ? Option.some(-1) : Option.none();'
     # Template string without a call
     - 'const key = ok ? Option.some(`${group}-${name}`) : Option.none();'
+    # Await inside a nested arrow in the condition, the nested function holds it
+    - 'const code = rows.some(async (row) => await row) ? Option.some(a) : Option.none();'
+    # Subscript condition negates without parentheses
+    - 'const name = flags[0] ? Option.none() : Option.some(label);'
+    # Non-null asserted condition negates without parentheses
+    - 'const name = held! ? Option.none() : Option.some(label);'

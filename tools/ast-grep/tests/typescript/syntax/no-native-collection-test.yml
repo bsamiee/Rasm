@@ -1,0 +1,45 @@
+id: no-native-collection
+valid:
+    # The immutable map
+    - 'const index = HashMap.fromIterable(entries);'
+    # The empty immutable map
+    - 'const index = HashMap.empty<string, Row>();'
+    # The immutable set
+    - 'const names = HashSet.fromIterable(values);'
+    # The mutable map one scope owns
+    - 'const seen = MutableHashMap.empty<string, Row>();'
+    # The grouping through the effect Array module
+    - 'const groups = Array.groupBy(rows, (row) => row.kind);'
+    # Class implementing a package interface that names the native type
+    - 'class Captured implements Tracer.Span { readonly attributes = new Map<string, unknown>(); }'
+    # Native map built in a method of the implementing class
+    - 'class Captured implements Tracer.Span { attribute(key: string, value: unknown): void { this.held = new Map([[key, value]]); } }'
+    # Map as a type annotation
+    - 'const index: ReadonlyMap<string, Row> = table;'
+    # Constructor named like Map on another path
+    - 'const index = new collections.Map();'
+    # Static named like groupBy on another object
+    - 'const groups = Chunk.groupBy(rows, key);'
+invalid:
+    # The instance, a map with type arguments
+    - 'const index = new Map<string, Row>();'
+    # Map without type arguments
+    - 'const index = new Map();'
+    # Map built from entries
+    - 'const index = new Map(entries);'
+    # Set
+    - 'const names = new Set<string>();'
+    # Weak map
+    - 'const cache = new WeakMap<object, Row>();'
+    # Weak set
+    - 'const seen = new WeakSet<object>();'
+    # Map in a class without an implements clause
+    - 'class Table { readonly index = new Map<string, Row>(); }'
+    # Map in a class that extends alone
+    - 'class Table extends Base { readonly index = new Map<string, Row>(); }'
+    # The grouping static of Map
+    - 'const groups = Map.groupBy(rows, (row) => row.kind);'
+    # The grouping static of Object
+    - 'const groups = Object.groupBy(rows, (row) => row.kind);'
+    # Map through globalThis
+    - 'const index = new globalThis.Map<string, Row>();'

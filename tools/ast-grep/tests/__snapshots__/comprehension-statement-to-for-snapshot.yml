@@ -1,0 +1,119 @@
+id: comprehension-statement-to-for
+snapshots:
+  ? |
+    (record(module) for module in modules.values() if module)
+  : fixed: |
+      for module in modules.values():
+          if module:
+              record(module)
+    labels:
+    - source: (record(module) for module in modules.values() if module)
+      style: primary
+      start: 0
+      end: 57
+  ? |
+    (record(module) for module in modules.values())
+  : fixed: |
+      for module in modules.values():
+          record(module)
+    labels:
+    - source: (record(module) for module in modules.values())
+      style: primary
+      start: 0
+      end: 47
+  ? |
+    [[record(item) for item in group] for group in groups]
+  : fixed: |
+      for group in groups:
+          [record(item) for item in group]
+    labels:
+    - source: '[[record(item) for item in group] for group in groups]'
+      style: primary
+      start: 0
+      end: 54
+  ? |
+    [record(module) for module in modules.values() if module]
+  : fixed: |
+      for module in modules.values():
+          if module:
+              record(module)
+    labels:
+    - source: '[record(module) for module in modules.values() if module]'
+      style: primary
+      start: 0
+      end: 57
+  ? |
+    [record(module) for module in modules.values()]
+  : fixed: |
+      for module in modules.values():
+          record(module)
+    labels:
+    - source: '[record(module) for module in modules.values()]'
+      style: primary
+      start: 0
+      end: 47
+  ? |
+    [record(name, module) for name, module in modules.items()]
+  : fixed: |
+      for name, module in modules.items():
+          record(name, module)
+    labels:
+    - source: '[record(name, module) for name, module in modules.items()]'
+      style: primary
+      start: 0
+      end: 58
+  ? |
+    [start(item) if item.ready else queue(item) for item in items]
+  : fixed: |
+      for item in items:
+          start(item) if item.ready else queue(item)
+    labels:
+    - source: '[start(item) if item.ready else queue(item) for item in items]'
+      style: primary
+      start: 0
+      end: 62
+  ? |
+    def purge():
+        [sys.modules.pop(name, None) for name in names]
+  : fixed: |
+      def purge():
+          for name in names:
+              sys.modules.pop(name, None)
+    labels:
+    - source: '[sys.modules.pop(name, None) for name in names]'
+      style: primary
+      start: 17
+      end: 64
+  ? |
+    if ready:
+        [record(module) for module in modules.values()]
+  : fixed: |
+      if ready:
+          for module in modules.values():
+              record(module)
+    labels:
+    - source: '[record(module) for module in modules.values()]'
+      style: primary
+      start: 14
+      end: 61
+  ? |
+    {record(module) for module in modules.values() if module}
+  : fixed: |
+      for module in modules.values():
+          if module:
+              record(module)
+    labels:
+    - source: '{record(module) for module in modules.values() if module}'
+      style: primary
+      start: 0
+      end: 57
+  ? |
+    {record(module) for module in modules.values()}
+  : fixed: |
+      for module in modules.values():
+          record(module)
+    labels:
+    - source: '{record(module) for module in modules.values()}'
+      style: primary
+      start: 0
+      end: 47

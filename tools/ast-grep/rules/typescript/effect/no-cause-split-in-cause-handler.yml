@@ -14,7 +14,7 @@ utils:
                 - has:
                       field: property
                       regex: "^(tapErrorCause|tapErrorCauseIf|catchAllCause|catchSomeCause|catchCauseIf|onError|matchCause|matchCauseEffect|\
-                          mapErrorCause)$"
+                          mapErrorCause|foldCauseChannel|readWithCause)$"
     # Reader of one case of the Cause, called or passed point-free, Micro reads its MicroCause through causeIs predicates, squash reads all
     case-reader:
         pattern: $MODULE.$READER
@@ -27,7 +27,7 @@ rule:
     all:
         - matches: cause-handler
         - has: {field: arguments, has: {stopBy: end, matches: case-reader}}
-message: The cause handler splits the Cause into its failure and defect cases through $MODULE.$READER
+message: The cause handler splits the Cause into its failure and defect cases through `$MODULE.$READER`
 note: >-
     Handle the failure with the error-typed combinator (Effect.tapError, Effect.catchAll, Effect.catchTag)
     and the defect with its own (Effect.tapDefect, Effect.catchAllDefect), each handler receives one case

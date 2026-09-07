@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-itertools-chain
+language: python
+severity: error
+utils:
+    # The name a from-import binds, plain or aliased, the alias binds first from the callee and the import proves it
+    chain-name:
+        kind: identifier
+        pattern: $FN
+        inside:
+            kind: module
+            stopBy: end
+            has:
+                stopBy: end
+                kind: import_from_statement
+                all:
+                    - has: {field: module_name, regex: '^itertools$'}
+                    - any:
+                          - has: {field: name, kind: dotted_name, regex: '^chain$', pattern: $FN}
+                          - has: {field: name, kind: aliased_import, all: [{has: {field: name, regex: '^chain$'}}, {has: {field: alias, pattern: $FN}}]}
+    chain-callee:
+        any:
+            - matches: chain-name
+            - matches: {python-module-member: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
+rule:
+    kind: call
+    pattern: $CALL
+    has:
+        field: function
+        any:
+            - matches: chain-callee
+            # The class method spelling, from_iterable is the one attribute of chain
+            - kind: attribute
+              has: {field: object, matches: chain-callee}
+message: '`$CALL` flattens through itertools.chain'
+note: Unpack in a comprehension, `[*<item> for <item> in <items>]`, or in a display, `[*<a>, *<b>]`

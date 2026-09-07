@@ -1,0 +1,31 @@
+id: no-contextlib-suppress
+valid:
+    # The corrected form, the failure mapped at the boundary
+    - |
+      def read(path: Path) -> Result[bytes, FileMissing]:
+          try:
+              return Ok(path.read_bytes())
+          except OSError:
+              return Error(FileMissing(path.parent, path.name))
+    # Another member of contextlib
+    - |
+      from contextlib import nullcontext
+    # Attribute named like the member on another object
+    - |
+      scope = policy.suppress(OSError)
+invalid:
+    # The instance, the member imported from contextlib
+    - |
+      from contextlib import suppress
+    # The attribute read as spelled
+    - |
+      import contextlib
+
+      with contextlib.suppress(OSError):
+          path.unlink()
+    # The attribute read through the alias the import binds
+    - |
+      import contextlib as ctx
+
+      with ctx.suppress(OSError):
+          path.unlink()

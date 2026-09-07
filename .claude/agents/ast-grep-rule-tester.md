@@ -37,30 +37,32 @@ Decide every question from the filtered test output, the snapshot diff, the `sca
 <context_gathering>
 Read in order before the first edit:
 1. `README.md` and `CLAUDE.md`
-2. `.claude/settings.json`, its `permissions.deny` list names the command patterns a proof must avoid
+2. `.claude/plugins/function-hooks/hooks/policies/shell.ts` and `git.ts`, their rows name the commands a proof avoids and the form each refusal names
 3. `sgconfig.yml`, then every rule, util, test, and snapshot file in scope, whole, paired by id
 4. `ast-grep test` and `ast-grep scan <root>` as the baseline, and the report attributes your changes alone
 5. The installed types of each package a rule reads, for the sibling functions its module exports
-6. `.claude/skills/ast-grep/.archive/tests/tests-findings.md`, when present, for the runner's proven behavior
+6. `dump_syntax_tree` over a commented body of each language in scope, for where the grammar places a comment
+7. `.claude/skills/ast-grep/.archive/tests/tests-findings.md`, when present, for the runner's proven behavior
 </context_gathering>
 
 <sources>
 Every case and correction names the run or the page that decides it:
 
-| [INDEX] | [QUESTION]                             | [SOURCE]                                                                                       |
-| :-----: | :------------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | What a case classifies as              | `ast-grep test --filter '^<id>$'`, the mark and its `[Missing]` or `[Noisy]` text              |
-|  [02]   | What a rule reported for a case        | Snapshot entry, its `labels` and `fixed`                                                       |
-|  [03]   | Whether an arm has a case              | `rule-checks.sh arms <ext>`                                                                    |
-|  [04]   | Whether a fix consumed a sibling       | `ast-grep scan --filter '^<id>$' --json=compact <file>`, `replacementOffsets` past the match   |
-|  [05]   | Whether a case or fixed text re-parses | `rule-checks.sh parse <ext>`                                                                   |
-|  [06]   | How wide a rule is over its cases      | `rule-checks.sh width <ext>`                                                                   |
-|  [07]   | Node shape of a case                   | `dump_syntax_tree`, `ast-grep run -l <lang> -p '<code>' --debug-query=cst` past one node       |
-|  [08]   | Device on one case                     | `test_match_code_rule` with severity omitted, the JSON `metaVariables` and `labels`            |
-|  [09]   | Proof call that fails                  | `printf '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 8 explains |
-|  [10]   | Sibling function of a package module   | Installed types under `node_modules/<package>/`, each overload of a `dual` export a sibling    |
-|  [11]   | Maintained tests over the construct    | `github` MCP `search_code` with `path:*-test.yml <construct>`, then `get_file_contents`        |
-|  [12]   | Everything else on the web             | `search-tavily`, then `exa`                                                                    |
+| [INDEX] | [QUESTION]                              | [SOURCE]                                                                                       |
+| :-----: | :-------------------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | What a case classifies as               | `ast-grep test --filter '^<id>$'`, the mark and its `[Missing]` or `[Noisy]` text              |
+|  [02]   | What a rule reported for a case         | Snapshot entry, its `labels` and `fixed`                                                       |
+|  [03]   | Whether an arm has a case               | `rule-checks.sh arms <ext>`                                                                    |
+|  [04]   | Whether a fix consumed a sibling        | `ast-grep scan --filter '^<id>$' --json=compact <file>`, `replacementOffsets` past the match   |
+|  [05]   | Whether a case or fixed text re-parses  | `rule-checks.sh parse <ext>`                                                                   |
+|  [06]   | How wide a rule is over its cases       | `rule-checks.sh width <ext>`                                                                   |
+|  [07]   | Node shape of a case                    | `dump_syntax_tree`, `ast-grep run -l <lang> -p '<code>' --debug-query=cst` past one node       |
+|  [08]   | Device on one case                      | `test_match_code_rule` with severity omitted, the JSON `metaVariables` and `labels`            |
+|  [09]   | Proof call that fails                   | `printf '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 8 explains |
+|  [10]   | Sibling function of a package module    | Installed types under `node_modules/<package>/`, each overload of a `dual` export a sibling    |
+|  [11]   | Maintained tests over the construct     | `github` MCP `search_code` with `path:*-test.yml <construct>`, then `get_file_contents`        |
+|  [12]   | Everything else on the web              | `search-tavily`, then `exa`                                                                    |
+|  [13]   | Whether a fixed text checks and formats | `tsc --strict` or the Python fix proof of `rule-testing`, over a scratch copy of the case      |
 
 The installed binary decides when a documentation page or a gathering report disagrees with it, and a test proves neither `files:` scoping nor a suppression comment, `scan` over a path does.
 </sources>
@@ -74,58 +76,49 @@ You own the test and snapshot files of your scope under the directories `testCon
 </ownership>
 
 <checks>
-Use `rule-checks.sh gate <ext>` to prove the rules tree, and record each printed line as `rule | check | arm or case | result`. Lines outside your scope go to the agent that holds them, a red test is fixed and the script rerun, an `unchecked arm` line goes to `main` for the script and stays a finding, and a rule with `expandStart` or `expandEnd` adds the `replacementOffsets` proof over one case.
+Use `pnpm exec nx run rasm:rules:<ext>` to prove the rules tree and `rule-checks.sh gate <ext> '^<id>$'` one rule, and record each printed line as `rule | check | arm or case | result`. Lines outside your scope go to the agent that holds them, a red test is fixed and the script rerun, an `unchecked arm` line takes the rule-shape change `rule-testing` states, and a rule with `expandStart` or `expandEnd` adds the `replacementOffsets` proof over one case.
 
 Each `uncovered arm` path reads as the row of the `rule-testing` adversarial table that writes its case:
 
-| [INDEX] | [PATH]                                       | [ROW]                                                          |
-| :-----: | :------------------------------------------- | :------------------------------------------------------------- |
-|  [01]   | `blank` of a `regex` under `constraints`     | 04                                                             |
-|  [02]   | `blank` of a `regex` on an element or callee | 10                                                             |
-|  [03]   | `blank` of a `regex` under `not`             | 03                                                             |
-|  [04]   | `delete` of an `any` branch                  | 02                                                             |
-|  [05]   | `delete` of a `not`                          | 03                                                             |
-|  [06]   | `delete` of a `stopBy`                       | 05                                                             |
-|  [07]   | `delete` of a `constraints` entry            | 04                                                             |
-|  [08]   | `delete` of an `nthChild`                    | `constraints` on the pattern capture that replaces it, then 04 |
-|  [09]   | Path inside a util id                        | 06, the case in a calling rule's test                          |
+| [INDEX] | [PATH]                                         | [ROW]                                                          |
+| :-----: | :--------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | `blank` of a `regex` under `constraints`       | 04                                                             |
+|  [02]   | `blank` of a `regex` on an element or callee   | 10                                                             |
+|  [03]   | `blank` of a `regex` under `not`               | 03                                                             |
+|  [04]   | `delete` of an `any` branch                    | 02                                                             |
+|  [05]   | `delete` of a `not`                            | 03                                                             |
+|  [06]   | `delete` of a `stopBy`                         | 05                                                             |
+|  [07]   | `delete` of a `constraints` entry              | 04                                                             |
+|  [08]   | `delete` of an `nthChild`                      | `constraints` on the pattern capture that replaces it, then 04 |
+|  [09]   | Path inside a util id                          | 06, the case in a calling rule's test                          |
+|  [10]   | `delete` of a `not: inside` once-reporting arm | 08, closed by `rule-checks.sh width <ext>` at one hit          |
 </checks>
 
 <procedure>
 1. Run `ast-grep scan <root>`, and stop on a failure that predates your run, reporting it to `main`
-2. Run `rule-checks.sh gate <ext>` under `<checks>`
+2. Run `pnpm exec nx run rasm:rules:<ext>` under `<checks>`
 3. Read each rule with its `note` and its test whole, list the arms, and write the disproving case per device of `rule-testing`
-4. For each util a rule references, write one `invalid:` case through its base clause, and one `valid:` case per util arm across its callers
-5. Place each util case in the test of a calling rule, because a test naming a util id prints `Configuration not found!`
-6. Add each case under the set its correction decides, run the filtered test, and read `Missing`, `Noisy`, and a pass as the reference states
-7. Correct the rule for a real case you hold, and send the case with its correction to the agent that holds the rule otherwise
-8. Run `ast-grep test -U --filter '^<id>$'`, read the diff label by label, and delete each key `orphan or missing snapshot key` names with its case
-9. Read `git log -p` over each rebuilt test and restore what the rebuild dropped
-10. Rerun the gate
+4. Add each case under the set its correction decides, run `ast-grep test --filter '^<id>$'`, and read `Missing`, `Noisy`, and a pass by the reference
+5. Correct the rule for a real case you hold, and send the case with its correction to the agent that holds the rule otherwise
+6. Run `ast-grep test -U --filter '^<id>$'`, read the diff label by label, and delete each key `orphan or missing snapshot key` names with its case
+7. Read `git log -p` over each rebuilt test and restore what the rebuild dropped
+8. Rerun the gate
 </procedure>
 
 <gate>
 Every command returns zero warnings and zero errors:
-- `rule-checks.sh gate <ext>` per language in scope, no line, exit 0
+- `pnpm exec nx run rasm:rules:<ext>` per language in scope, no line, exit 0
 - `ast-grep scan <root>`, exit 0, and `ast-grep scan --error=unused-suppression --error=no-suppress-all <root>`, exit 0
 - `awk 'length > 150' <file>` over every comment line you wrote, empty
 - The clean-prose scan table over every case comment you wrote, no hit
 </gate>
 
 <anti_patterns>
-| [INDEX] | [SMELL]                                                | [CORRECT_FORM]                                                   |
-| :-----: | :----------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | `-U` run to turn a red run green                       | Diff read, a case per moved label, then `-U`                     |
-|  [02]   | Case holding two violations                            | One violation per case, the second as its own case               |
-|  [03]   | Valid case that parses as `ERROR` or another kind      | `--debug-query=ast` on the case, the case rewritten              |
-|  [04]   | `--skip-snapshot-tests` in the gate                    | Snapshot run                                                     |
-|  [05]   | Rule kept because every case passes                    | `rule-checks.sh arms <ext>`, an arm covered by a case or a count |
-|  [06]   | Scoping or a waiver proven by a test                   | `scan` over a path                                               |
-|  [07]   | Source file edited to make a case pass                 | Finding sent to `main` with the correction the `note` states     |
-|  [08]   | Case written after the rule widened                    | Case, its `Missing` run, then the widening                       |
-|  [09]   | Once-reporting arm proven by a case                    | Hit count per case from `rule-checks.sh width <ext>`             |
-|  [10]   | Orphaned snapshot key kept                             | Key deleted with its case                                        |
-|  [11]   | Skill, reference, or agent line changed during the run | Suggestion in `suggestions:`, the file untouched                 |
+| [INDEX] | [SMELL]                                                | [CORRECT_FORM]                                                 |
+| :-----: | :----------------------------------------------------- | :------------------------------------------------------------- |
+|  [01]   | Source file edited to make a case pass                 | Finding sent to `main` with the correction the `note` states   |
+|  [02]   | Skill, reference, or agent line changed during the run | Suggestion in `suggestions:`, the file untouched               |
+|  [03]   | Whole `rule-checks.sh gate` run per rule               | `gate <ext> '^<id>$'` per rule, the whole gate once per family |
 </anti_patterns>
 
 <output_contract>

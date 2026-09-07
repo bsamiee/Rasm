@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: require-walrus-in-condition
+language: python
+severity: error
+utils:
+    # The name as the whole condition, its negation, or the first operand of a comparison
+    tested-name:
+        any:
+            - kind: identifier
+              pattern: $N
+            - kind: not_operator
+              has: {field: argument, kind: identifier, pattern: $N}
+            - kind: comparison_operator
+              has: {kind: identifier, pattern: $N, nthChild: 1}
+rule:
+    kind: if_statement
+    pattern: $IF
+    all:
+        - follows: # The statement directly before binds the name the condition tests, a while re-evaluates the value per iteration
+              kind: expression_statement
+              has:
+                  kind: assignment
+                  all:
+                      - has: {field: left, kind: identifier, pattern: $N}
+                      # Chained assignments bind a second name, a walrus takes the first element of a tuple and holds no yield
+                      - has: {field: right, pattern: $V, not: {any: [{kind: assignment}, {kind: expression_list}, {kind: yield}]}}
+                      - not: {has: {field: type, kind: type}} # Annotations state a type the walrus cannot carry
+        - has: {field: condition, matches: tested-name}
+constraints:
+    V: {not: {regex: '\n'}} # Values on one line keep their layout inside the walrus parentheses
+rewriters:
+    # The tested name as the whole condition of the reported if, ruff format strips the parentheses around a walrus condition
+    - id: bind-as-condition
+      rule: {kind: identifier, pattern: $N, inside: {pattern: $IF, field: condition}}
+      fix: $N := $V
+    # The tested name under an operator of the condition, a name in the body or in a nested if keeps its text
+    - id: bind-in-operator
+      rule:
+          kind: identifier
+          pattern: $N
+          inside: {any: [{kind: not_operator}, {kind: comparison_operator}], inside: {pattern: $IF, field: condition}}
+      fix: ($N := $V)
+transform:
+    OUT: rewrite($IF, rewriters=[bind-as-condition, bind-in-operator])
+fix:
+    template: $OUT
+    expandStart: {kind: expression_statement} # The assignment before the if leaves, the walrus binds the name
+message: The statement before the `if` binds `$N` and the condition tests it
+note: Bind and test in one expression, `if <name> := <value>:`, the name stays bound after the branch

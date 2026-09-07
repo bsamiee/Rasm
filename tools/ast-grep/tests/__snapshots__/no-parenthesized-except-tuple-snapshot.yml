@@ -1,0 +1,77 @@
+id: no-parenthesized-except-tuple
+snapshots:
+  ? |
+    try:
+        load(path)
+    except (OSError, msgspec.DecodeError):
+        return Error(failure)
+  : fixed: |
+      try:
+          load(path)
+      except OSError, msgspec.DecodeError:
+          return Error(failure)
+    labels:
+    - source: (OSError, msgspec.DecodeError)
+      style: primary
+      start: 27
+      end: 57
+    - source: |-
+        except (OSError, msgspec.DecodeError):
+            return Error(failure)
+      style: secondary
+      start: 20
+      end: 84
+    - source: msgspec.DecodeError
+      style: secondary
+      start: 37
+      end: 56
+  ? |
+    try:
+        load(path)
+    except (OSError, tarfile.TarError, zipfile.BadZipFile):
+        return Error(failure)
+  : fixed: |
+      try:
+          load(path)
+      except OSError, tarfile.TarError, zipfile.BadZipFile:
+          return Error(failure)
+    labels:
+    - source: (OSError, tarfile.TarError, zipfile.BadZipFile)
+      style: primary
+      start: 27
+      end: 74
+    - source: |-
+        except (OSError, tarfile.TarError, zipfile.BadZipFile):
+            return Error(failure)
+      style: secondary
+      start: 20
+      end: 101
+    - source: tarfile.TarError
+      style: secondary
+      start: 37
+      end: 53
+  ? |
+    try:
+        load(path)
+    except* (OSError, ValueError):
+        return Error(failure)
+  : fixed: |
+      try:
+          load(path)
+      except* OSError, ValueError:
+          return Error(failure)
+    labels:
+    - source: (OSError, ValueError)
+      style: primary
+      start: 28
+      end: 49
+    - source: |-
+        except* (OSError, ValueError):
+            return Error(failure)
+      style: secondary
+      start: 20
+      end: 76
+    - source: ValueError
+      style: secondary
+      start: 38
+      end: 48

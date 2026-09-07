@@ -21,6 +21,13 @@ snapshots:
       style: primary
       start: 59
       end: 68
+  const known = Iterable.contains(Object.keys(packaging), target);:
+    labels:
+    - source: packaging
+      message: The record with the listed keys
+      style: primary
+      start: 44
+      end: 53
   const known = Object.keys(packaging).includes(target);:
     labels:
     - source: packaging

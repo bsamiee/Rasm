@@ -29,7 +29,9 @@ runs:
         key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
     - run: pnpm install
       shell: bash
-    - run: uv sync --locked ${{ inputs.python }}
+    - run: read -ra groups <<<"$PYTHON_GROUPS" && uv sync --locked "${groups[@]}" # The input holds words such as --only-group eng
       shell: bash
+      env:
+        PYTHON_GROUPS: ${{ inputs.python }}
     - run: uv cache prune --ci
       shell: bash

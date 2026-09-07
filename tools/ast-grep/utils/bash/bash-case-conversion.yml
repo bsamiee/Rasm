@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# tr between the two case classes in either direction, awk over tolower and toupper, or sed with \L, \U, or a y command over the
+# alphabet, the slot binds the target class word or the program
+id: bash-case-conversion
+language: bash
+arguments: [target]
+rule:
+    kind: command
+    any:
+        - all: # The classes as [:upper:] and [:lower:], as ranges, or as bracketed ranges, quoted or bare
+              - has: {field: name, regex: '^tr$'}
+              - has: {nthChild: 2, regex: "^[\"']?\\[?(\\[:upper:\\]|\\[:lower:\\]|A-Z|a-z)\\]?[\"']?$"}
+              - has: {nthChild: 3, regex: "^[\"']?\\[?(\\[:upper:\\]|\\[:lower:\\]|A-Z|a-z)\\]?[\"']?$", matches: target}
+        - all:
+              - has: {field: name, regex: '^awk$'}
+              - has: {regex: 'to(lower|upper)\(\$0\)', matches: target}
+              - not: {has: {nthChild: 3, not: {kind: herestring_redirect}}} # A file operand or an option before the program changes the input
+        - all:
+              - has: {field: name, regex: '^sed$'}
+              - has: {regex: 's/\.\*/\\[LU]&/|y/[A-Za-z]{26}/[A-Za-z]{26}/', matches: target} # The whole line, s/<part>/\U&/ converts the part
+              - not: {has: {nthChild: 3, not: {kind: herestring_redirect}}}

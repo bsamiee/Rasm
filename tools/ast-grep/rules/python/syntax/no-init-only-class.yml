@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+id: no-init-only-class
+language: python
+severity: error
+utils:
+    # Assignment of a constructor argument or a literal to an attribute of self, plain, annotated, or unpacked into attributes
+    self-assignment:
+        kind: expression_statement
+        has:
+            kind: assignment
+            has:
+                field: left
+                any:
+                    - kind: attribute
+                      has: {field: object, regex: '^self$'}
+                    - kind: pattern_list
+                      has: {kind: attribute, has: {field: object, regex: '^self$'}}
+rule:
+    kind: class_definition
+    all:
+        - has: {field: name, pattern: $NAME}
+        # Plain names or no base, a base under a package path is a Struct or a model that declares its fields
+        - not: {has: {field: superclasses, has: {pattern: $_, not: {kind: identifier}}}}
+        # Exception hierarchies and protocols keep the class, and a Struct, a model, or an enum under a plain name declares its fields
+        - not: {has: {field: superclasses, has: {kind: identifier, regex: '(Error|Exception|Protocol|Struct|Model|Enum)$'}}}
+        - has:
+              field: body
+              has:
+                  kind: function_definition
+                  all:
+                      - has: {field: name, regex: '^__init__$'}
+                      - has:
+                            field: body
+                            all: # Every statement after the docstring assigns an attribute of self, a call or a branch is behavior
+                                - has: {matches: self-assignment}
+                                - not: {has: {not: {any: [{matches: python-docstring}, {matches: self-assignment}, {kind: comment}]}}}
+message: '`__init__` of `$NAME` assigns attributes of self alone, a record spelled as a class'
+note: Declare the fields on a `msgspec.Struct`, `frozen=True` where the value never changes, and drop `__init__`
+labels:
+    NAME: {style: primary, message: The class with an init that assigns fields alone}

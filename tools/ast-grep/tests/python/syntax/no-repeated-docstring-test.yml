@@ -1,0 +1,193 @@
+id: no-repeated-docstring
+valid:
+    # The corrected form, one comment before the group and no docstring on its members
+    - |
+      # Each behavior's bind builds the recording runner the spy installs on the target
+      class Sync:
+          def bind(self, record):
+              return record
+
+
+      class Batch:
+          def bind(self, record):
+              return record
+    # Distinct docstrings
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      def save(path):
+          """Write the file."""
+    # Same docstring on a module and a function, the module is no function
+    - |
+      """Read the file."""
+
+
+      def load(path):
+          """Read the file."""
+    # Same string as a value and as a docstring
+    - |
+      def load(path):
+          return "Read the file."
+
+
+      def read(path):
+          """Read the file."""
+    # String statement after another statement, a value and no docstring
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      def read(path):
+          path = resolve(path)
+          """Read the file."""
+    # Same docstring in a later function, the earlier one reports nothing
+    - |
+      def load(path):
+          """Read the file."""
+    # Same docstring on a class and a function, the class is no function
+    - |
+      class Reader:
+          """Read the file."""
+
+
+      def read(path):
+          """Read the file."""
+    # Same text under another quote style, the string nodes differ by their quotes and ruff format writes one style
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      def read(path):
+          '''Read the file.'''
+invalid:
+    # The instance, methods across classes with one docstring text
+    - |
+      class Sync:
+          def bind(self, record):
+              """Build the recording runner the spy installs on the target."""
+              return record
+
+
+      class Async:
+          def bind(self, record):
+              """Build the recording runner the spy installs on the target."""
+              return record
+    # Module-level functions
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      def read(path):
+          """Read the file."""
+    # Methods of one class
+    - |
+      class Reader:
+          def load(self, path):
+              """Read the file."""
+
+          def read(self, path):
+              """Read the file."""
+    # Statement between the functions, the walk passes it
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      LIMIT = 3
+
+
+      def read(path):
+          """Read the file."""
+    # Class between the classes, the walk up passes it
+    - |
+      class Sync:
+          def bind(self, record):
+              """Build the recording runner."""
+
+
+      class Plain:
+          pass
+
+
+      class Async:
+          def bind(self, record):
+              """Build the recording runner."""
+    # Decorated later function
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      @cache
+      def read(path):
+          """Read the file."""
+    # Decorated earlier function
+    - |
+      @cache
+      def load(path):
+          """Read the file."""
+
+
+      def read(path):
+          """Read the file."""
+    # Nested earlier function
+    - |
+      def outer(path):
+          def load():
+              """Read the file."""
+
+
+      def read(path):
+          """Read the file."""
+    # Async later function
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      async def read(path):
+          """Read the file."""
+    # Nested later function, the walk up reaches the earlier sibling of the outer def
+    - |
+      def read(path):
+          """Read the file."""
+
+
+      def outer(path):
+          def load():
+              """Read the file."""
+    # Comment before the later docstring, the comment sits before the block
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      def read(path):
+          # The same text
+          """Read the file."""
+    # Lambda assignment between the functions
+    - |
+      def load(path):
+          """Read the file."""
+
+
+      run = lambda: load(1)
+
+
+      def read(path):
+          """Read the file."""
+    # Overloads with one docstring each
+    - |
+      @overload
+      def load(path: str) -> str:
+          """Read the file."""
+
+
+      @overload
+      def load(path: int) -> int:
+          """Read the file."""

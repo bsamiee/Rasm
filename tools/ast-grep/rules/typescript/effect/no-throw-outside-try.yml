@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throw-outside-try
+language: tsx
+severity: error
+# The plugin loader accepts claude-code and relative .ts imports alone, a spec drives host contracts (fast-check commands) that throw
+ignores: ['.claude/plugins/**', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+utils:
+    # Constructor with a thunk caught into the error channel, the throw inside it is the failure
+    try-constructor:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            regex: '^(Effect|Micro)\.(try|tryPromise|tryMap|tryMapPromise)$|^(Either|STM|ParseResult)\.try$|^Option\.liftThrowable$'
+rule:
+    kind: throw_statement
+    not: {inside: {stopBy: end, matches: try-constructor}}
+message: The throw leaves the typed error channel
+note: >-
+    Fail through the channel, `Effect.fail(new LoadError({ cause }))` with a tagged error,
+    and wrap a throwing call in `Effect.try({ try, catch })` or `Effect.tryPromise({ try, catch })`

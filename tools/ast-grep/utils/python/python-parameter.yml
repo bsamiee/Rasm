@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# Parameter of a def with the name the slot matches, every parameter kind, called on the direct children of a parameters node
+id: python-parameter
+language: python
+arguments: [name]
+rule:
+    any:
+        - kind: identifier
+          matches: name
+        - kind: typed_parameter
+          has: {kind: identifier, matches: name} # The name is the first child and carries no field
+        - kind: default_parameter
+          has: {field: name, matches: name}
+        - kind: typed_default_parameter
+          has: {field: name, matches: name}
+        - kind: list_splat_pattern
+          has: {kind: identifier, matches: name}
+        - kind: dictionary_splat_pattern
+          has: {kind: identifier, matches: name}

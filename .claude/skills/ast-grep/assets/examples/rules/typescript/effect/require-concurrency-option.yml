@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/typescript_rule.json
+id: require-concurrency-option
+language: typescript
+severity: error
+utils:
+    concurrent-call:
+        any:
+            - pattern: Effect.forEach($$$ARGS)
+            - pattern: Effect.all($$$ARGS)
+            - pattern: Stream.mapEffect($$$ARGS)
+    declares-concurrency:
+        has:
+            field: arguments
+            has: # Default neighbor traversal, a concurrency option inside a nested callback belongs to the inner call
+                kind: object
+                has:
+                    any:
+                        - kind: pair
+                          has: {field: key, regex: '^concurrency$'}
+                        - kind: shorthand_property_identifier
+                          regex: '^concurrency$'
+rule:
+    all:
+        - matches: concurrent-call
+        - not: {matches: declares-concurrency}
+message: The call runs its effects in sequence without the concurrency option
+note: >-
+    Add `{ concurrency: <n | "unbounded" | "inherit"> }` at the call as an object literal,
+    an options identifier or wrapped object cannot be proven

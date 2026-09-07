@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# A word the shell produces at run time, a parameter, command, or arithmetic expansion, bare or inside double quotes
+id: bash-expanding-word
+language: bash
+rule:
+    any:
+        - kind: simple_expansion
+        - kind: expansion
+        - kind: command_substitution
+        - kind: arithmetic_expansion
+        - kind: string
+          has: {any: [{kind: simple_expansion}, {kind: expansion}, {kind: command_substitution}, {kind: arithmetic_expansion}]}
+        - kind: concatenation # A word joined from literal text and an expansion, a$x, "$x"y, "$a"/"$b"
+          has: {matches: bash-expanding-word}

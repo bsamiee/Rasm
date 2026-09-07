@@ -1,0 +1,134 @@
+id: no-fold-by-loop
+snapshots:
+  const ids = (pairs) => { const out = []; for (const [id] of pairs) { out.push(id); } return out; };:
+    fixed: const ids = (pairs) => { const out = []; return (pairs).map(([id]) => (id)); return out; };
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 92
+      end: 95
+  'const index = (items) => { let byId = {}; for (const item of items) { byId = { ...byId, [item.id]: item }; } return byId; };':
+    fixed: 'const index = (items) => { let byId = {}; return (items).reduce((byId, item) => ({ ...byId, [item.id]: item }), {}); return byId; };'
+    labels:
+    - source: byId
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 116
+      end: 120
+  const last = (items) => { let held = null; for (const item of items) held = item; return held; };:
+    fixed: const last = (items) => { let held = null; return (items).reduce((held, item) => (item), null); return held; };
+    labels:
+    - source: held
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 89
+      end: 93
+  const names = (items) => { const out = []; for (const item of items) out.push(item.name); return out; };:
+    fixed: const names = (items) => { const out = []; return (items).map((item) => (item.name)); return out; };
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 97
+      end: 100
+  const names = (items) => { const out = []; for (const item of items) { out.push(item.name); } return out; };:
+    fixed: const names = (items) => { const out = []; return (items).map((item) => (item.name)); return out; };
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 101
+      end: 104
+  const names = (items) => { let out = []; for (const item of items) { out.push(item.name); } return out; };:
+    fixed: const names = (items) => { let out = []; return (items).map((item) => (item.name)); return out; };
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 99
+      end: 102
+  ? 'const names = (items: readonly Item[]): string[] => { const out: string[] = []; for (const item of items) { out.push(item.name); } return out; };'
+  : fixed: 'const names = (items: readonly Item[]): string[] => { const out: string[] = []; return (items).map((item) => (item.name)); return out; };'
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 138
+      end: 141
+  const parts = (items) => { const out = []; for (const item of items) { out.push(...item.parts); } return out; };:
+    fixed: const parts = (items) => { const out = []; return (items).flatMap((item) => (item.parts)); return out; };
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 105
+      end: 108
+  const product = (items) => { let total = 1; for (const item of items) { total **= item; } return total; };:
+    fixed: const product = (items) => { let total = 1; return (items).reduce((total, item) => (total ** (item)), 1); return total; };
+    labels:
+    - source: total
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 97
+      end: 102
+  ? |
+    const redact = (text: string): string => {
+        let redacted = text;
+        for (const [id, value] of secrets) {
+            redacted = redacted.replaceAll(value, id);
+        }
+        return redacted;
+    };
+  : fixed: |
+      const redact = (text: string): string => {
+          let redacted = text;
+          return (secrets).reduce((redacted, [id, value]) => (redacted.replaceAll(value, id)), text);
+          return redacted;
+      };
+    labels:
+    - source: redacted
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 177
+      end: 185
+  'const rows = (items) => { const out = []; for (const item of items) { out.push({ id: item.id }); } return out; };':
+    fixed: 'const rows = (items) => { const out = []; return (items).map((item) => ({ id: item.id })); return out; };'
+    labels:
+    - source: out
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 106
+      end: 109
+  const sum = (items) => { let total = 0; for (const item of items) total += item; return total; };:
+    fixed: const sum = (items) => { let total = 0; return (items).reduce((total, item) => (total + (item)), 0); return total; };
+    labels:
+    - source: total
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 88
+      end: 93
+  const sum = (items) => { let total = 0; for (const item of items) { total *= item; } return total; };:
+    fixed: const sum = (items) => { let total = 0; return (items).reduce((total, item) => (total * (item)), 0); return total; };
+    labels:
+    - source: total
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 92
+      end: 97
+  const sum = (items, fallback) => { let total = 0; for (const item of items || fallback) { total += item; } return total; };:
+    fixed: const sum = (items, fallback) => { let total = 0; return (items || fallback).reduce((total, item) => (total + (item)), 0); return total; };
+    labels:
+    - source: total
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 114
+      end: 119
+  const sum = async () => { let total = 0; for (const item of await load()) { total += item; } return total; };:
+    fixed: const sum = async () => { let total = 0; return (await load()).reduce((total, item) => (total + (item)), 0); return total; };
+    labels:
+    - source: total
+      message: The accumulator the loop reassigns
+      style: primary
+      start: 100
+      end: 105

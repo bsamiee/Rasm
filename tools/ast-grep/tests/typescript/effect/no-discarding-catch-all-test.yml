@@ -1,0 +1,65 @@
+id: no-discarding-catch-all
+valid:
+    # The fallback stated in one member
+    - 'const held = Effect.orElseSucceed(work, () => false);'
+    # Recovery by tag
+    - "const held = Effect.catchTag(work, 'LoadError', () => Effect.succeed(false));"
+    # Handler that reads the failure, a fold and no discard
+    - 'const held = Effect.catchAll(work, (error) => Effect.succeed(error.message));'
+    # Handler that runs an operation
+    - 'const held = Effect.catchAll(work, () => reload(path));'
+    # Void handler, the success value survives beside the void and the sibling no-discarding-cause-handler reports it
+    - 'const held = Effect.catchAll(work, () => Effect.void);'
+    # Cause handler, the sibling reports it
+    - 'const held = Effect.catchAllCause(work, () => Effect.succeed(false));'
+    # Layer failure handler, the module exports no orElseSucceed and the sibling reports it
+    - 'const held = Layer.catchAll(layer, () => Layer.succeed(Service, fallback));'
+    # Handler with a block body holding a statement before the return
+    - 'const held = Effect.catchAll(work, () => { report(); return Effect.succeed(false); });'
+    # Match on a module outside the carrier set
+    - 'const held = Item.catchAll(item, () => Item.succeed(false));'
+    # Handler under a read parameter name
+    - 'const held = Effect.catchAll(work, (error) => Effect.succeed(fallback));'
+    # Handler under a bare read parameter name
+    - 'const held = Effect.catchAll(work, error => Effect.succeed(fallback));'
+    # Micro failure handler answering a constant failure, the module exports no orElseFail and Micro.mapError renames the failure
+    - 'const held = Micro.catchAll(work, () => Micro.fail(error));'
+    # orElse handler that runs an operation
+    - 'const held = Effect.orElse(work, () => reload(path));'
+    # Handler that reads the failure into the constant failure
+    - 'const held = Effect.catchAll(work, (error) => Effect.fail(new OtherError({ cause: error })));'
+    # Option orElse, the module exports orElseSome and no orElseSucceed
+    - 'const held = Option.orElse(found, () => Option.some(1));'
+invalid:
+    # The instance, a constant lifted in the handler
+    - 'const held = Effect.catchAll(work, () => Effect.succeed(false));'
+    # Data-last handler as a pipe step
+    - 'const held = work.pipe(Effect.catchAll(() => Effect.succeed(false)));'
+    # Handler with a block body holding the one return
+    - 'const held = Effect.catchAll(work, () => { return Effect.succeed(false); });'
+    # Function expression handler
+    - 'const held = Effect.catchAll(work, function () { return Effect.succeed(false); });'
+    # Handler with an underscore parameter, declared and never read
+    - 'const held = Effect.catchAll(work, (_) => Effect.succeed(false));'
+    # Handler with a bare underscore parameter
+    - 'const held = Effect.catchAll(work, _error => Effect.succeed(false));'
+    # Micro sibling
+    - 'const held = Micro.catchAll(work, () => Micro.succeed(false));'
+    # STM sibling
+    - 'const held = STM.catchAll(transaction, () => STM.succeed(false));'
+    # Stream sibling, data-last
+    - 'const held = stream.pipe(Stream.catchAll(() => Stream.succeed(false)));'
+    # Lifted object as the constant
+    - 'const held = Effect.catchAll(work, () => Effect.succeed({ rows: [] }));'
+    # orElse spelling of the discarding handler
+    - 'const held = Effect.orElse(work, () => Effect.succeed(false));'
+    # Stream orElse as a pipe step
+    - 'const held = stream.pipe(Stream.orElse(() => Stream.succeed(false)));'
+    # Handler answering a constant failure, the fallback is orElseFail
+    - 'const held = Effect.catchAll(work, () => Effect.fail(new OtherError({ path })));'
+    # STM constant failure as a pipe step
+    - 'const held = transaction.pipe(STM.catchAll(() => STM.fail(error)));'
+    # orElse handler with a block body answering the constant failure
+    - 'const held = Effect.orElse(work, () => { return Effect.fail(error); });'
+    # Data-last handler with a block body holding the one return
+    - 'const held = work.pipe(Effect.catchAll(() => { return Effect.succeed(false); }));'

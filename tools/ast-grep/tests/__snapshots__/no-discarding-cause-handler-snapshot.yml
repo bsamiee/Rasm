@@ -1,0 +1,332 @@
+id: no-discarding-cause-handler
+snapshots:
+  const held = Channel.catchAll(channel, () => Channel.void);:
+    labels:
+    - source: Channel.catchAll(channel, () => Channel.void)
+      style: primary
+      start: 13
+      end: 58
+    - source: Channel.catchAll
+      style: secondary
+      start: 13
+      end: 29
+    - source: Channel.catchAll
+      style: secondary
+      start: 13
+      end: 29
+    - source: () => Channel.void
+      style: secondary
+      start: 39
+      end: 57
+    - source: () => Channel.void
+      style: secondary
+      start: 39
+      end: 57
+  const held = Channel.catchAllCause(channel, () => Channel.void);:
+    labels:
+    - source: Channel.catchAllCause(channel, () => Channel.void)
+      style: primary
+      start: 13
+      end: 63
+    - source: Channel.catchAllCause
+      style: secondary
+      start: 13
+      end: 34
+    - source: Channel.catchAllCause
+      style: secondary
+      start: 13
+      end: 34
+    - source: () => Channel.void
+      style: secondary
+      start: 44
+      end: 62
+    - source: () => Channel.void
+      style: secondary
+      start: 44
+      end: 62
+  const held = Effect.catchAll(work, () => Effect.void);:
+    labels:
+    - source: Effect.catchAll(work, () => Effect.void)
+      style: primary
+      start: 13
+      end: 53
+    - source: Effect.catchAll
+      style: secondary
+      start: 13
+      end: 28
+    - source: Effect.catchAll
+      style: secondary
+      start: 13
+      end: 28
+    - source: () => Effect.void
+      style: secondary
+      start: 35
+      end: 52
+    - source: () => Effect.void
+      style: secondary
+      start: 35
+      end: 52
+  const held = Effect.catchAllCause(work, () => Effect.succeed(false));:
+    labels:
+    - source: Effect.catchAllCause(work, () => Effect.succeed(false))
+      style: primary
+      start: 13
+      end: 68
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: () => Effect.succeed(false)
+      style: secondary
+      start: 40
+      end: 67
+    - source: () => Effect.succeed(false)
+      style: secondary
+      start: 40
+      end: 67
+  const held = Effect.catchAllCause(work, () => { return Effect.void; });:
+    labels:
+    - source: Effect.catchAllCause(work, () => { return Effect.void; })
+      style: primary
+      start: 13
+      end: 70
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: () => { return Effect.void; }
+      style: secondary
+      start: 40
+      end: 69
+    - source: () => { return Effect.void; }
+      style: secondary
+      start: 40
+      end: 69
+  const held = Effect.catchAllCause(work, (_cause) => Effect.void);:
+    labels:
+    - source: Effect.catchAllCause(work, (_cause) => Effect.void)
+      style: primary
+      start: 13
+      end: 64
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: (_cause) => Effect.void
+      style: secondary
+      start: 40
+      end: 63
+    - source: (_cause) => Effect.void
+      style: secondary
+      start: 40
+      end: 63
+  const held = Effect.catchAllCause(work, function () { return Effect.void; });:
+    labels:
+    - source: Effect.catchAllCause(work, function () { return Effect.void; })
+      style: primary
+      start: 13
+      end: 76
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: function () { return Effect.void; }
+      style: secondary
+      start: 40
+      end: 75
+    - source: function () { return Effect.void; }
+      style: secondary
+      start: 40
+      end: 75
+  const held = Effect.catchAllDefect(work, () => Effect.void);:
+    labels:
+    - source: Effect.catchAllDefect(work, () => Effect.void)
+      style: primary
+      start: 13
+      end: 59
+    - source: Effect.catchAllDefect
+      style: secondary
+      start: 13
+      end: 34
+    - source: Effect.catchAllDefect
+      style: secondary
+      start: 13
+      end: 34
+    - source: () => Effect.void
+      style: secondary
+      start: 41
+      end: 58
+    - source: () => Effect.void
+      style: secondary
+      start: 41
+      end: 58
+  const held = Layer.catchAll(layer, () => Layer.succeed(Service, fallback));:
+    labels:
+    - source: Layer.catchAll(layer, () => Layer.succeed(Service, fallback))
+      style: primary
+      start: 13
+      end: 74
+    - source: Layer.catchAll
+      style: secondary
+      start: 13
+      end: 27
+    - source: Layer.catchAll
+      style: secondary
+      start: 13
+      end: 27
+    - source: () => Layer.succeed(Service, fallback)
+      style: secondary
+      start: 35
+      end: 73
+    - source: () => Layer.succeed(Service, fallback)
+      style: secondary
+      start: 35
+      end: 73
+  const held = Layer.catchAllCause(layer, () => Layer.succeed(Service, fallback));:
+    labels:
+    - source: Layer.catchAllCause(layer, () => Layer.succeed(Service, fallback))
+      style: primary
+      start: 13
+      end: 79
+    - source: Layer.catchAllCause
+      style: secondary
+      start: 13
+      end: 32
+    - source: Layer.catchAllCause
+      style: secondary
+      start: 13
+      end: 32
+    - source: () => Layer.succeed(Service, fallback)
+      style: secondary
+      start: 40
+      end: 78
+    - source: () => Layer.succeed(Service, fallback)
+      style: secondary
+      start: 40
+      end: 78
+  const held = Micro.catchAll(work, () => Micro.void);:
+    labels:
+    - source: Micro.catchAll(work, () => Micro.void)
+      style: primary
+      start: 13
+      end: 51
+    - source: Micro.catchAll
+      style: secondary
+      start: 13
+      end: 27
+    - source: Micro.catchAll
+      style: secondary
+      start: 13
+      end: 27
+    - source: () => Micro.void
+      style: secondary
+      start: 34
+      end: 50
+    - source: () => Micro.void
+      style: secondary
+      start: 34
+      end: 50
+  const held = Micro.catchAllCause(work, () => Micro.void);:
+    labels:
+    - source: Micro.catchAllCause(work, () => Micro.void)
+      style: primary
+      start: 13
+      end: 56
+    - source: Micro.catchAllCause
+      style: secondary
+      start: 13
+      end: 32
+    - source: Micro.catchAllCause
+      style: secondary
+      start: 13
+      end: 32
+    - source: () => Micro.void
+      style: secondary
+      start: 39
+      end: 55
+    - source: () => Micro.void
+      style: secondary
+      start: 39
+      end: 55
+  const held = STM.catchAll(transaction, () => STM.void);:
+    labels:
+    - source: STM.catchAll(transaction, () => STM.void)
+      style: primary
+      start: 13
+      end: 54
+    - source: STM.catchAll
+      style: secondary
+      start: 13
+      end: 25
+    - source: STM.catchAll
+      style: secondary
+      start: 13
+      end: 25
+    - source: () => STM.void
+      style: secondary
+      start: 39
+      end: 53
+    - source: () => STM.void
+      style: secondary
+      start: 39
+      end: 53
+  const held = Stream.catchAllCause(stream, () => Stream.succeed(false));:
+    labels:
+    - source: Stream.catchAllCause(stream, () => Stream.succeed(false))
+      style: primary
+      start: 13
+      end: 70
+    - source: Stream.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: Stream.catchAllCause
+      style: secondary
+      start: 13
+      end: 33
+    - source: () => Stream.succeed(false)
+      style: secondary
+      start: 42
+      end: 69
+    - source: () => Stream.succeed(false)
+      style: secondary
+      start: 42
+      end: 69
+  const held = work.pipe(Effect.catchAllCause(() => Effect.succeed(false)));:
+    labels:
+    - source: Effect.catchAllCause(() => Effect.succeed(false))
+      style: primary
+      start: 23
+      end: 72
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 23
+      end: 43
+    - source: Effect.catchAllCause
+      style: secondary
+      start: 23
+      end: 43
+    - source: () => Effect.succeed(false)
+      style: secondary
+      start: 44
+      end: 71
+    - source: () => Effect.succeed(false)
+      style: secondary
+      start: 44
+      end: 71

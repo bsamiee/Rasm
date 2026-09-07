@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+id: no-exit-in-else-clause
+language: bash
+severity: error
+utils:
+    leaving-command:
+        kind: command
+        has: {field: name, regex: '^(exit|return|continue|break)$'}
+rule:
+    kind: if_statement
+    all:
+        - not: {has: {kind: elif_clause}} # An elif chain selects among cases and takes case or one guard per arm
+        - has:
+              kind: else_clause
+              has: {matches: leaving-command, nthChild: {position: 1, reverse: true}} # A comment after the body sits outside the clause
+        # The then branch ends in no leaving command, its last statement is the one that precedes else with no statement between,
+        # a comment after it is no statement
+        - not:
+              has:
+                  matches: leaving-command
+                  precedes: {stopBy: end, kind: else_clause}
+                  not: {precedes: {stopBy: end, pattern: $_, not: {kind: comment}, precedes: {stopBy: end, kind: else_clause}}}
+message: The else clause leaves the enclosing scope while the then branch continues
+note: 'Guard first, `<test> || { <else body>; }`, and keep the then branch unnested'

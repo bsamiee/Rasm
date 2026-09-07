@@ -1,0 +1,39 @@
+id: no-promise-outside-boundary
+valid:
+    # The boundary, the promise converted once
+    - 'const loaded = Effect.tryPromise({ try: () => load(path), catch: (cause) => new LoadError({ cause }) });'
+    # Await inside the thunk of the boundary
+    - 'const loaded = Effect.promise(async () => { const raw = await load(path); return decode(raw); });'
+    # Chain inside the thunk of the boundary
+    - 'const loaded = Effect.promise(() => load(path).then(decode));'
+    # Await inside the try option of the mapping boundary
+    - 'const loaded = Effect.tryMapPromise(work, { try: async (item) => await load(item), catch: (cause) => new LoadError({ cause }) });'
+    # Await under the Micro boundary
+    - 'const loaded = Micro.tryPromise({ try: async () => await load(path), catch: (cause) => new LoadError({ cause }) });'
+    # For-await inside the iterable boundary
+    - 'const rows = Stream.fromAsyncIterable((async function* () { for await (const row of source) { yield row; } })(), (cause) => new LoadError({ cause }));'
+    # Plain loop, no await
+    - 'for (const row of rows) { use(row); }'
+    # Method named outside the settlement set
+    - 'const rows = Array.map(items, decode).filter(present);'
+    # Effect combinators named catch on another module, the property regex reads then, catch, and finally alone
+    - 'const recovered = Effect.catchAll(work, () => Effect.succeed(fallback));'
+    # Yield of an effect inside a generator, no promise
+    - 'const loaded = Effect.gen(function* () { return yield* load(path); });'
+invalid:
+    # The instance, an await in domain code
+    - 'const loaded = async () => { const raw = await load(path); return decode(raw); };'
+    # For-await over an async iterable
+    - 'const drain = async () => { for await (const row of source) { use(row); } };'
+    # Then chain
+    - 'const loaded = load(path).then(decode);'
+    # Catch chain
+    - 'const loaded = load(path).catch(report);'
+    # Finally chain
+    - 'const loaded = load(path).finally(close);'
+    # Await inside a callback owned outside the boundary
+    - 'const rows = Array.map(items, async (item) => await load(item));'
+    # Await inside a nested function the boundary does not hold
+    - 'const loaded = Effect.sync(async () => await load(path));'
+    # Chain on a run, the promise of the run consumed in place
+    - 'const done = Effect.runPromise(work).then(report);'
