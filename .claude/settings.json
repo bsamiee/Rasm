@@ -166,7 +166,6 @@
       }
     }
   },
-  "outputStyle": "clean-prose",
   "effortLevel": "high",
   "skipDangerousModePermissionPrompt": true,
   "claudeMdExcludes": [
