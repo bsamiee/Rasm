@@ -24,7 +24,7 @@ finding() {
 tmp=$(mktemp -d)
 trap 'rm -rf "$tmp"' EXIT
 cases=$tmp/cases
-# Facts per id as field,id, a path and text per case label, the base hits, the FAIL ids, and the running jobs by pid
+# Facts per id as field,id, path and text per case label, base hits, FAIL ids, running jobs by pid
 declare -A rule=() case_path=() text=() hits=() failed=() job_of=()
 owned=() test_filter='' lang=''
 
@@ -33,8 +33,8 @@ owned=() test_filter='' lang=''
 # jq programs over the documents in one assignment, the one directive covers every `$` name jq owns
 # roles: role and directory of the deepest configured directory holding the file, id and language as the loader reads them
 # pairing: rules paired with tests and snapshots by id over the whole tree, file stems, severity, fixture keys, and case sets
-# reach: utils a rule reaches through matches, and the rules that reach a util
-# facts: the language's rules with invalid cases as field,id pairs, case texts at the paths the files: globs match, the test filter and util findings under arms
+# reach: utils a rule reaches through matches, and the rules reaching a util
+# facts: language rules with invalid cases as field,id pairs, case texts at paths their files: globs match, the test filter and util findings under arms
 # jobs: one record per batch of eight arms of a rule or util a scoped rule reaches, callers reduced to the passing rules with cases
 # shellcheck disable=SC2016
 roles='. as $doc | [{role: "rule", dir: $config.ruleDirs[]}, {role: "util", dir: $config.utilDirs[]}, {role: "test", dir: $config.testConfigs[].testDir}, {role: "snapshot", dir: $config.testConfigs[].snapshotDir}]
@@ -118,7 +118,7 @@ roles='. as $doc | [{role: "rule", dir: $config.ruleDirs[]}, {role: "util", dir:
 
 # --- [RUNS] -----------------------------------------------------------------------------
 
-# Findings exit 1, while loader and execution failures retain their diagnostics and status
+# Findings exit 1, loader and execution failures keep their diagnostics and status
 scan_matches() {
     local rc=0 errors=$tmp/scan-$BASHPID.log
     ast-grep scan --json=stream "$@" 2>"$errors" || rc=$?
@@ -189,7 +189,7 @@ check_width() {
     done
 }
 
-# One arm batch of one id over its callers under a job root, proved by classification, hit counts, and fixed source and not by label changes
+# One arm batch of one id over its callers under a job root, proved by classification, hit counts, and fixed source, never by label changes
 cover_arms() {
     local n=$1 id=$2 file=$3 block=$4 root=$tmp/jobs/$1 caller op p mutation rc out regex expected='' actual snapshots=() originals=()
     local canon='{"id": .id, "snapshots": (.snapshots | map_values(.fixed))} | sort_keys(..)' # Fixed texts of a snapshot file as one canonical JSON line
@@ -214,7 +214,7 @@ cover_arms() {
             0) ;;
             4) continue ;;
             8)
-                printf 'invalid mutation: %s %s %s, excluded from coverage\n' "$id" "$op" "$p" >>"$root/invalid-mutations.log" # Loader's lines stay out, the arm's own case proves it
+                printf 'invalid mutation: %s %s %s, excluded from coverage\n' "$id" "$op" "$p" >>"$root/invalid-mutations.log" # Loader's lines stay out, the arm's case proves it
                 continue
                 ;;
             *)
@@ -237,7 +237,7 @@ cover_arms() {
     done <<<"${block%$'\n'}"
 }
 
-# One job reaped by wait -n, a nonzero exit is a finding: a job that dies under -e prints nothing, and its arms stay unproven
+# One job reaped by wait -n, a job dying under -e prints nothing and its nonzero exit is the finding
 reap() {
     local rc=0 pid
     wait -n -p pid "${!job_of[@]}" || rc=$?
@@ -310,7 +310,7 @@ check_parse() {
 
 measure() {
     local found hits
-    # Element selector and function-depth rule per language, the two counts a fix is measured by
+    # Element selector and function-depth rule per language, the counts a fix is measured by
     local -A elements=(
         [tsx]=':is(program, export_statement) > :is(lexical_declaration, variable_declaration, function_declaration, generator_function_declaration, type_alias_declaration, interface_declaration, class_declaration, abstract_class_declaration, enum_declaration, ambient_declaration), export_statement > :is(function_expression, arrow_function), program > expression_statement > internal_module'
         [python]='module > :is(function_definition, class_definition, type_alias_statement), module > expression_statement > assignment'

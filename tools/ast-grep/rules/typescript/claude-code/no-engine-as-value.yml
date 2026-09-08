@@ -16,8 +16,7 @@ utils:
             field: object
             inside: {any: [{pattern: $.plugin.name}, {pattern: $.plugin.root}]}
 rule:
-    kind: identifier, shorthand_property_identifier
-    regex: ^\$$
+    matches: claude-code-engine-name
     not:
         any:
             - {matches: engine-call-site}

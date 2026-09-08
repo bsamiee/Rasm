@@ -6,7 +6,7 @@ files: ["<scope-glob>"]
 ignores: ["<boundary-glob>"]
 rule:
     all:
-        - pattern: <code with $VAR and $$$ARGS, or $NODE alone to bind the matched node, the document included, for a transform>
+        - pattern: <code with $VAR and $$$ARGS, or $NODE alone binding the matched node, document included, for a transform>
         - has: {kind: <kind>, field: <role>}
         - follows: {kind: <kind>, stopBy: end}
         - not: {inside: {kind: <exempting-kind>, stopBy: end}}
@@ -17,6 +17,6 @@ transform:
         replace: {source: $VAR, replace: "<regex>", by: "<replacement, $$ a literal dollar, ${n} a group, \n decoded, no metavariable>"}
 fix: <template referencing $VAR and $NEW>
 message: <violation with captured or transformed values>
-note: <the required form and its reason>
+note: <required form and its reason>
 labels:
-    VAR: {style: primary, message: "<reason for highlighting the capture>"}
+    VAR: {style: primary, message: "<reason the capture is highlighted>"}

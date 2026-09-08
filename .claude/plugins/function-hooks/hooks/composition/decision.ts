@@ -1,61 +1,43 @@
-// Decision as a case record of rewrite, deny, and answer, fold runs a rule table and absurd closes an arm the type rules out
-
-// --- [IMPORTS] -------------------------------------------------------------------------
-
-import { fromPredicate } from './option.ts';
+// Decision of a rule over an event: the event to run beneath with its context lines, a refusal, or an answer in the engine's place
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface DecisionCases<E, R, D, B> {
-    readonly rewrite: (e: E, context: readonly string[]) => B;
-    readonly deny: (reason: D) => B;
-    readonly answer: (result: R) => B;
-}
+type Decision<E, R = unknown> =
+    | { readonly kind: 'rewrite'; readonly e: E; readonly context: readonly string[] }
+    | { readonly kind: 'deny'; readonly reason: string }
+    | { readonly kind: 'answer'; readonly result: R };
 
-interface Decision<E, R, D> {
-    readonly match: <B>(cases: DecisionCases<E, R, D, B>) => B;
-}
-
-type Rule<E, R, D> = (e: E) => Decision<E, R, D>;
+type Rule<E, R = unknown> = (e: E) => Decision<E, R>;
 
 // --- [CONSTRUCTORS] --------------------------------------------------------------------
 
-// The event to run beneath with the context lines
-const rewrite = <E, R, D>(e: E, context: readonly string[]): Decision<E, R, D> => ({ match: (cases) => cases.rewrite(e, context) });
+const rewrite = <E, R = unknown>(e: E, context: readonly string[] = []): Decision<E, R> => ({ kind: 'rewrite', e, context });
 
-const deny = <E, R, D>(reason: D): Decision<E, R, D> => ({ match: (cases) => cases.deny(reason) });
+const deny = <E, R = unknown>(reason: string): Decision<E, R> => ({ kind: 'deny', reason });
 
-const answer = <E, R, D>(result: R): Decision<E, R, D> => ({ match: (cases) => cases.answer(result) });
-
-// The arm of a case a decision's type rules out, deny where D is never and answer where R is never
-const absurd = (value: never): never => value;
+const answer = <E, R>(result: R): Decision<E, R> => ({ kind: 'answer', result });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Lifts a rule over a narrower input, a non-matching input passes through as rewrite(e, []), the pass form
+// Lifts a rule over the events a refinement selects, every other event passes
 const when =
-    <E, N extends E, R, D>(refinement: (e: E) => e is N, rule: Rule<N, R, D>): Rule<E, R, D> =>
-    (e: E): Decision<E, R, D> =>
-        fromPredicate(refinement)(e).match<Decision<E, R, D>>({ some: rule, none: () => rewrite(e, []) });
+    <E, N extends E, R = unknown>(refine: (e: E) => e is N, rule: Rule<N, R>): Rule<E, R> =>
+    (e: E): Decision<E, R> =>
+        refine(e) ? rule(e) : rewrite(e);
 
-// The rule applied under the rewrite with the context accumulated, a deny or an answer stays, the dependent step of a Decision chain
-const bind =
-    <E, R, D>(rule: Rule<E, R, D>): ((decision: Decision<E, R, D>) => Decision<E, R, D>) =>
-    (decision: Decision<E, R, D>): Decision<E, R, D> =>
-        decision.match<Decision<E, R, D>>({
-            rewrite: (current, context) =>
-                rule(current).match<Decision<E, R, D>>({ rewrite: (next, more) => rewrite(next, [...context, ...more]), deny, answer }),
-            deny,
-            answer,
-        });
-
-// Runs the rules in table order, a rewrite feeds the next rule and accumulates context, a deny or an answer ends the fold
+// Runs the rules in table order, each rewrite feeds the next rule and keeps every context line, a deny or an answer ends the fold
 const fold =
-    <E, R, D>(rules: readonly Rule<E, R, D>[]): Rule<E, R, D> =>
-    (e: E): Decision<E, R, D> =>
-        rules.reduce<Decision<E, R, D>>((decision, rule) => bind(rule)(decision), rewrite(e, []));
+    <E, R = unknown>(rules: readonly Rule<E, R>[]): Rule<E, R> =>
+    (e: E): Decision<E, R> =>
+        rules.reduce<Decision<E, R>>((decision, rule) => {
+            if (decision.kind !== 'rewrite') {
+                return decision;
+            }
+            const next = rule(decision.e);
+            return next.kind === 'rewrite' ? rewrite(next.e, [...decision.context, ...next.context]) : next;
+        }, rewrite(e));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Decision, Rule };
-export { absurd, answer, bind, deny, fold, rewrite, when };
+export { answer, deny, fold, rewrite, when };

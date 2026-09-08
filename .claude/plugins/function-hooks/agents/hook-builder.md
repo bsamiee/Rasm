@@ -46,20 +46,24 @@ Step 4 reads declarations by the literal the code spells, because outline `--mat
 
 Every change names the declaration, page, or output line that decides it:
 
-| [INDEX] | [QUESTION]                       | [SOURCE]                                                                                                                                                             |
-| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | Event input, result, doc         | `claude-code.d.ts` through `rg -n "'<event>':"`, the input row under its doc comment and the result row                                                              |
-|  [02]   | `$` method and op rows           | `claude-code.d.ts` through `rg -n "^\s+<noun>: \{\|'<noun>\.<verb>':"`, the `CoreEngineInterface` block                                                              |
-|  [03]   | Named type of a row              | `claude-code.d.ts` through `rg -n 'export (type\|interface) <Name>\b'`, then `Read` at the line                                                                      |
-|  [04]   | Input of a called or served tool | `claude-code-mcp.d.ts` and `hooks/host/tools.d.ts` through `rg -n` on the quoted tool name                                                                           |
-|  [05]   | Registrations and `$` calls      | `claude plugin validate <plugin>`, its hooks and calls lines                                                                                                         |
-|  [06]   | Loading, agents, options, flags  | `mcp__claudeCodeDocs__search_claude_code_docs`, then `mcp__claudeCodeDocs__query_docs_filesystem_claude_code_docs` under `/en/`, plugin agent fields under `/en/plugins-reference.mdx` and `/en/sub-agents.mdx` |
-|  [07]   | Instances and count of a shape   | `mcp__ast-grep__find_code_by_rule`, `language: tsx`, the absolute plugin path, `max_results: 3`                                                                      |
-|  [08]   | Node kinds and fields for a rule | `mcp__ast-grep__dump_syntax_tree`, `language: tsx`, `format: cst`, on the plugin code                                                                                |
-|  [09]   | What a hook decided at runtime   | The `harness` record the `proof` command of `<proofs>` logs, and `.artifacts/harness/proof-<row>.txt` for an interactive run                                         |
-|  [10]   | What the installed copy loads    | `.artifacts/harness/debug.txt` after `pnpm exec nx run rasm:harness`, its load line                                                                                  |
-|  [11]   | Targets and their cache          | `pnpm exec nx show project function-hooks --json \| jq '.targets'`                                                                                                   |
-|  [12]   | Everything else on the web       | `Skill(search-tavily)`, then `mcp__exa__web_search_exa`                                                                                                              |
+| [INDEX] | [QUESTION]                       | [SOURCE]                                                                                                       |
+| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Event input, result, doc         | `claude-code.d.ts` through `rg -n "'<event>':"`, input row under its doc comment and result row                |
+|  [02]   | `$` method and op rows           | `claude-code.d.ts` through `rg -n "^\s+<noun>: \{\|'<noun>\.<verb>':"`, the `CoreEngineInterface` block        |
+|  [03]   | Named type of a row              | `claude-code.d.ts` through `rg -n 'export (type\|interface) <Name>\b'`, then `Read` at line                    |
+|  [04]   | Input of a called tool           | `claude-code-mcp.d.ts` through `rg -n` on quoted tool name                                                     |
+|  [05]   | Registrations and `$` calls      | `claude plugin validate <plugin>`, its hooks and calls lines                                                   |
+|  [07]   | Instances and count of a shape   | `mcp__ast-grep__find_code_by_rule`, `language: tsx`, absolute plugin path, `max_results: 3`                    |
+|  [08]   | Node kinds and fields for a rule | `mcp__ast-grep__dump_syntax_tree`, `language: tsx`, `format: cst`, on plugin code                              |
+|  [09]   | What a hook decided at runtime   | `harness` records `proof` command of `<proofs>` logs, `.artifacts/harness/proof-<row>.txt` for interactive run |
+|  [10]   | What the installed copy loads    | `.artifacts/harness/debug.txt` after `pnpm exec nx run rasm:harness`, its load line                            |
+|  [11]   | Targets and their cache          | `pnpm exec nx show project function-hooks --json \| jq '.targets'`                                             |
+|  [12]   | Everything else on the web       | `Skill(search-tavily)`, then `mcp__exa__web_search_exa`                                                        |
+
+Loading, agents, options, flags:
+- `mcp__claudeCodeDocs__search_claude_code_docs`
+- `mcp__claudeCodeDocs__query_docs_filesystem_claude_code_docs` under `/en/`
+- plugin agent fields under `/en/plugins-reference.mdx` and `/en/sub-agents.mdx`
 
 Declarations and the debug file decide over a page, a memory, or a report. Docs hold no hook API page, and the `find_code_by_rule` header `Found 3 matches (showing first 3 of N)` is the count.
 
@@ -78,7 +82,7 @@ Declarations and the debug file decide over a page, a memory, or a report. Docs 
 Facts runs proved:
 - Edit-time lines under a tool result are a change's first verdict, and the gate scan over the whole plugin its last
 - Edit-time lines are the family's hits on the written file with a `fix:` command, and a manifest's affected projects
-- Interactive registrations, served tool, status line, and band prove under `expect`, because a `-p` run raises `session.start` with `surface none`
+- Interactive registrations and the band prove under `expect`, because a `-p` run raises `session.start` with `surface none`
 - `--plugin-dir` loads write their rows to `function-hooks_inline-<hash>.json` under `~/.claude/plugins/store/`, apart from the installed copy's file
 - Session-scoped store rows of a proof leave at the next `--plugin-dir` start, and `scan/<id>` and `findings/<id>` rows outlive it
 - Probe files go under `.artifacts/harness/`, because a `-p` session refuses a write under `.claude/` as a sensitive path before any row runs
@@ -92,35 +96,34 @@ Facts runs proved:
 
 Every row proves under `uv run --only-group eng python -m eng.scripts.harness proof <row> '<prompt>' --option <name> <value>`, run from the repository root with the plugin tree loaded and no Nx target between, because `run-commands` re-splits a forwarded prompt through the shell, one `--option` pair per plugin option the row needs, and its files at `.artifacts/harness/proof-<row>.jsonl` and `.txt`. Prompts open with `Run exactly this tool call and report its result verbatim, do not try another route:`, name the call, and close with `Then quote verbatim every additional context line the tool result carried, or state that it carried none.` The logged record holds the reads:
 
-| [INDEX] | [FIELD]        | [READ]                                                                                                              |
-| :-----: | :------------- | :------------------------------------------------------------------------------------------------------------------ |
-|  [01]   | `tool_results` | `<tool_use_error><reason></tool_use_error>` on a deny, the answer blocks on an answer, the output on a pass         |
-|  [02]   | `result`       | Restated context of a rewrite, because a `-p` transcript holds no context line                                      |
-|  [03]   | `engine`       | Load, deny, answer, settled, `$.store.set`, `$.process.run`, `$.mcp.call`, redaction, `hook failed`, and `ui.render` |
+| [INDEX] | [FIELD]        | [READ]                                                                                                           |
+| :-----: | :------------- | :--------------------------------------------------------------------------------------------------------------- |
+|  [01]   | `tool_results` | `<tool_use_error><reason></tool_use_error>` on deny, answer blocks on an answer, output on a pass                |
+|  [02]   | `result`       | Restated context of a rewrite, `-p` transcript holds no context line                                             |
+|  [03]   | `engine`       | Load, deny, answer, settled, `$.store.set`, `$.process.run`, `$.mcp.call`, redaction, `hook failed`, `ui.render` |
 
-Draw-path, timer, and served-tool hooks prove under the interactive form alone, read by `rg` over its debug file: `expect -c 'set timeout 60; log_user 0; spawn claude --plugin-dir .claude/plugins/function-hooks --debug-file .artifacts/harness/proof-<row>.txt --settings {{"pluginConfigs":{"function-hooks":{"options":{"<option>":true}}}}}; expect -re {shift\+tab}; after 1500; send "<prompt>\r"; expect -re {done \d+:\d\d}; send "/exit\r"; expect eof'`. Redaction proofs seed `secrets` in the plugin's inline store file under `~/.claude/plugins/store/`, read the rewrite line under `engine`, and remove the seed.
+Draw-path and dispatch hooks prove under the interactive form alone, read by `rg` over its debug file: `expect -c 'set timeout 60; log_user 0; spawn claude --plugin-dir .claude/plugins/function-hooks --debug-file .artifacts/harness/proof-<row>.txt --settings {{"pluginConfigs":{"function-hooks":{"options":{"<option>":true}}}}}; expect -re {shift\+tab}; after 1500; send "<prompt>\r"; expect -re {done \d+:\d\d}; send "/exit\r"; expect eof'`. Redaction proofs seed `secrets` in the plugin's inline store file under `~/.claude/plugins/store/`, read the rewrite line under `engine`, and remove the seed.
 
 </proofs>
 
 <procedure>
 
-1. Decide the design under `<decision>`, and write event, table, move, store key, option, and proof line before the first edit
-2. Count instances of the shape a change adds with `mcp__ast-grep__find_code_by_rule`, and move a second instance into its owning module
-3. Write the row, decoder, or block in its owning file as one exact-string edit that asserts one match, read its result, and act on lines under it
+1. Decide the design under `<decision>`, write event, table, move, store key, option, and proof line before first edit
+2. Count instances of the shape a change adds with `mcp__ast-grep__find_code_by_rule`, move a second instance into its owning module
+3. Write the row, decoder, or block in its owning file as one exact-string edit that asserts one match, read its result, act on lines under it
 4. Write or extend the spec beside its module, folding the rule over a literal event and comparing its decision as data
-5. Run `pnpm exec nx run function-hooks:typecheck`, then `pnpm exec nx run function-hooks:check`, and fix each finding in code
-6. Run `claude plugin validate <plugin>`, and read the added registration and `$` calls in its hooks and calls lines
-7. Prove each row by the `proof` command of `<proofs>` with the options its event needs, and read the record's tool results, result, and engine lines
+5. Run `pnpm exec nx run function-hooks:typecheck`, then `pnpm exec nx run function-hooks:check`, fix each finding in code
+6. Run `claude plugin validate <plugin>`, read the added registration and `$` calls in its hooks and calls lines
+7. Prove each row by `proof` command of `<proofs>` with the options its event needs, read the record's tool results, result, and engine lines
 8. Prove a once row by two sequential calls in one prompt, one `$.store.set` line under `injected/` for its key and two `tool.call settled` lines
-9. Remove the form a row replaces after its proof in one change. Record a file outside your table (`CLAUDE.md`, `.claude/settings.json`, a skill, agent, or memory file, `eng/scripts/harness.py`) as an `open:` row with the replacing row's proof line
-10. State the shape a fix set before and after in one line, and read its node with `mcp__ast-grep__dump_syntax_tree` on the plugin code
-11. Write rule and test under the `claude-code` family from `ast-grep` templates, read test and pairing lines under each write, then `ast-grep test --include-off -U --filter '^<id>$'`
-12. Run `ast-grep scan --filter '^<id>$' <plugin>`, and read every hit as a finding or a defect
+9. Remove the form a row replaces after its proof in one change. Record a file outside your table (`CLAUDE.md`, `.claude/settings.json`, skill, agent, or memory file, `eng/scripts/harness.py`) as `open:` row with the replacing row's proof line
+10. State the shape a fix set before and after in one line, read its node with `mcp__ast-grep__dump_syntax_tree` on plugin code
+11. Write rule and test under `claude-code` family from `ast-grep`, read test and pairing lines under each write, then `ast-grep test --include-off -U --filter '^<id>$'`
+12. Run `ast-grep scan --filter '^<id>$' <plugin>`, read every hit as a finding or defect
 13. Run `pnpm exec nx run rasm:rules`, a rerun with no rule change replays the cached result
-14. Run `pnpm exec nx run rasm:harness`, and read `hooks module function-hooks loaded` once in `.artifacts/harness/debug.txt`
-15. Bound fix-and-prove cycles at 3 per row, and put the remainder under `open:` with its evidence
+14. Run `pnpm exec nx run rasm:harness`, read `hooks module function-hooks loaded` once in `.artifacts/harness/debug.txt`
+15. Bound fix-and-prove cycles at 3 per row, put the remainder under `open:` with its evidence
 16. Delete `.artifacts/harness/proof-<row>.txt` and `.jsonl` of each proved row and every probe file. Delete each `scan/` or `findings/` key a probe's `$.store.set` line names from `~/.claude/plugins/store/function-hooks_inline-<hash>.json` through `jq 'del(.["<key>"])'`, a refused rewrite of the home file under `open:` with the key
-17. Run the gate, and again after a builder sharing the plugin finishes, because its uncommitted edits fail `function-hooks:check` and `rasm:harness`
 
 Fix a `check` finding from a wrong rule in the rule, under the `ast-grep` skill.
 
@@ -135,8 +138,8 @@ Every command returns zero warnings and zero errors:
 - `ast-grep scan --filter '^<id>$' <plugin>` for each rule written, no line
 - `pnpm exec nx run rasm:rules`, `test result: ok. N passed; 0 failed`
 - `pnpm exec nx run rasm:harness`, exit 0, and `rg -c 'hooks module function-hooks loaded' .artifacts/harness/debug.txt` prints `1`
-- Every proof row read through its `harness` record, once rows by sequential calls, and the `engine` field of each holds no `hook failed` line
-- The interactive form for a draw-path, timer, or served-tool hook, `session.start: raised (surface terminal, interactive)` and the hook's own line
+- Every proof row read through its `harness` record, once rows by sequential calls, the `engine` field of each holds no `hook failed` line
+- The interactive form for a draw-path or dispatch hook, `session.start: raised (surface terminal, interactive)` and the hook's own line
 - `rg -n 'ui.render settled in' .artifacts/harness/proof-<row>.txt` for a draw-path hook, one line per frame, the maximum after the first frame reported in `proofs:`
 - `ast-grep scan --no-ignore hidden <plugin>` over every comment, reason, and context line you wrote, no hit
 
@@ -144,12 +147,12 @@ Every command returns zero warnings and zero errors:
 
 <done_when>
 
-- Every change in scope is a row, a decoder, a block, or a hook in its owning file with a spec beside the module
-- Every row has a runtime proof read through `<proofs>` in the transcript and the debug file
-- Every form a row replaced is gone in the same change, and `rg -n -F '<old form>' <plugin>` prints nothing
-- Every shape the change set has its rule in the `claude-code` family
-- Every gate result line sits in the transcript, and no partial edit, deferred value, or workaround remains
-- `fd proof- .artifacts/harness` prints nothing, and the inline store file holds no key a probe wrote
+- Every change in scope is a row, decoder, block, or hook in its owning file with a spec beside the module
+- Every row has a runtime proof read through `<proofs>` in transcript and debug file
+- Every form a row replaced is gone in the same change, `rg -n -F '<old form>' <plugin>` prints nothing
+- Every shape the change set has its rule in `claude-code` family
+- Every gate result line sits in transcript, no partial edit, deferred value, or workaround remains
+- `fd proof- .artifacts/harness` prints nothing, the inline store file holds no key a probe wrote
 
 </done_when>
 

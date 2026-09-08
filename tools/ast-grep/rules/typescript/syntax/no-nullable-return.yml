@@ -2,7 +2,7 @@
 id: no-nullable-return
 language: tsx
 severity: error
-ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+ignores: ['.claude/plugins/**', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     no-value-type:
         any:

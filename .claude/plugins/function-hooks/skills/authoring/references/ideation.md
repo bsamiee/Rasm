@@ -12,11 +12,11 @@ Each hook makes one move on one event, and plugin parts compose moves into one h
 |  [04]   | Answer for the engine    | `tool.describe`, `prompt.section`              | Rule returning `answer`, a function of the tables      |
 |  [05]   | Draw                     | `ui.render`                                    | Matched hook on one component, `$.ui.resolve(e)`       |
 |  [06]   | Record state             | Any event, after `next`                        | One `$.store.set` per row, decoded by its reader       |
-|  [07]   | Serve a tool             | `session.start`, `tool.call`                   | `$.tool.register` and a matched hook, the handler pure |
-|  [08]   | Spawn and brief an agent | `session.start`, `agent.spawn`                 | `$.agent.spawn` from a timer, the brief from `AGENTS`  |
+|  [07]   | Land a record            | `tool.call`                                    | Row with `write`, the child lands the answered text    |
+|  [08]   | Spawn and brief an agent | `session.start`, `agent.spawn`                 | `$.agent.spawn` at start, the brief from `AGENTS`      |
 |  [09]   | Classify                 | `turn.complete`                                | `$.model.classify` the kind, `$.model.fork` the fields |
 |  [10]   | Speak                    | `turn.complete`                                | `$.model.complete` for one line, `$.audio.speak`       |
-|  [11]   | Schedule                 | `session.start`                                | `$.clock.every`, a tick that reads the store and holds |
+|  [11]   | Settle                   | `session.start`                                | Spawn's final text lands the batch and stamps a part   |
 
 ## [02]-[POTENTIALITIES]
 
@@ -53,9 +53,8 @@ Complex hooks compose parts, one adapter, one fold, and the store as the one sta
 - Store read feeding a fold: the adapter decodes `injected/`, `snapshot/`, and `prompt/` rows into a facts record the rules take as an argument
 - Rewrite feeding a guard: restoration puts secret values back before the git guard reads the command
 - Recording feeding a requirement: a successful snapshot call stamps `snapshot/<session>/<vm>`, and the hostinger family requires the stamp
-- Timer feeding a spawn: a tick batches open findings by kind, or a due part, under `dispatch/<batchId>` and spawns the editor
-- Spawn feeding a close: the editor's final message is the close input, decoded through `decodeJson` and `decodeClose` into its handler
-- Classifier feeding a served tool: `turn.complete` writes `findings/<id>`, `close` lists and lands the rows
+- Classifier feeding a spawn: `turn.complete` writes `findings/<id>`, next start batches open rows by kind, or due part, under `dispatch/<batchId>` and spawns the orchestrator
+- Spawn feeding a settle: orchestrator's final message lands the batch's rows with its first line as proof
 - Skill load feeding a stop: `skill.prompt` stamps `loaded/<session>/<skill>`, and the once lines that route to the skill stop
 
 ## [04]-[QUESTIONS]
@@ -63,10 +62,10 @@ Complex hooks compose parts, one adapter, one fold, and the store as the one sta
 Decide each before the row is written, in order:
 1. Which event holds the fact when a decision is needed, and whether it fires under `-p`
 2. What `$` must supply beyond `e`, read in the hook body and handed to the rule as an argument
-3. Whether the move is a deny (the correct form named), a rewrite (the context line), a context line (`once` or `each`), or an answer
+3. Whether the move is a deny (the correct form named), rewrite (context line), context line (`once` or `each`), or an answer
 4. Which table holds the row, and whether its row type needs a field every table consumer then reads
-5. Which proof shows it: a spec over a literal event, the `--plugin-dir --debug-file -p` run, and the debug line it must print
+5. Which proof shows it: a spec over a literal event, `--plugin-dir --debug-file -p` run, and the debug line it must print
 6. Whether the answer is cached, and which writer invalidates it
-7. Whether a person acts on what a surface shows, and which surface: notice under the call, band, status line, or none
-8. Whether the work outlives the dispatch, and then whether it starts in `session.start`
-9. Whether the call reaches the plugin's own hooks, and whether a spawned agent's calls reach a served tool
+7. Whether a person acts on what a surface shows, and which surface: notice under the call, band, or none
+8. Whether the work outlives the dispatch, then whether it starts in `session.start`
+9. Whether the call reaches the plugin's own hooks

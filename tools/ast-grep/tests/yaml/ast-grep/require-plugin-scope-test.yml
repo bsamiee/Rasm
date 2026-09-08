@@ -1,0 +1,44 @@
+id: require-plugin-scope
+valid:
+    - |
+      id: no-item
+      language: tsx
+      files:
+          - '**/.claude/plugins/**'
+      ignores:
+          - '**/*.spec.ts'
+      rule: {kind: pair}
+    - |
+      id: no-item
+      files: ["**/.claude/plugins/**/hooks/**", "**/.claude/plugins/**/hooks/text/**"]
+      rule: {kind: pair}
+    - |
+      id: no-item
+      files: [**/.claude/plugins/**]
+      rule: {kind: pair}
+    - |
+      {id: no-item, files: ['**/.claude/plugins/**'], rule: {kind: pair}}
+invalid:
+    - |
+      id: no-item
+      language: tsx
+      rule: {kind: pair}
+    - |
+      id: no-item
+      files:
+          - '**/*.ts'
+      rule: {kind: pair}
+    - |
+      id: no-item
+      files: ['**/.claude/plugins/**', 'libs/typescript/**']
+      rule: {kind: pair}
+    - |
+      id: no-item
+      files: ['.claude/plugins/**']
+      rule: {kind: pair}
+    - |
+      id: no-item
+      files: [**/.claude/**]
+      rule: {kind: pair}
+    - |
+      {id: no-item, files: ['**/*.ts'], rule: {kind: pair}}

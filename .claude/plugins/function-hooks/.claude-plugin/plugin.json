@@ -26,7 +26,7 @@
         "dispatch": {
             "type": "boolean",
             "title": "Dispatch the editor",
-            "description": "Serves the close tool and runs the timer that spawns the editor agent over open findings",
+            "description": "Spawns the orchestrator over the open findings or a due guidance part at session start and draws the band",
             "default": false
         }
     }

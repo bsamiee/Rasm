@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-case-record
+language: tsx
+severity: error
+files:
+    - '**/.claude/plugins/**'
+ignores:
+    - '**/*.spec.ts'
+utils:
+    case-call:
+        kind: call_expression
+        all:
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - {has: {field: property, regex: ^match$}}
+                    - {not: {has: {field: object, kind: identifier, regex: '^[A-Z]'}}}
+            - {has: {field: arguments, has: {nthChild: 1, kind: object}}}
+    case-constructor:
+        any:
+            - pattern: {context: 'const c = { match: ($C) => $C.$K($$$) }', selector: pair}
+            - pattern: {context: 'const c = { match: ($C: $_T) => $C.$K($$$) }', selector: pair}
+            - pattern: {context: 'const c = { match: <$_B>($C: $_T) => $C.$K($$$) }', selector: pair}
+    case-signature:
+        any:
+            - kind: property_signature
+              all:
+                - {has: {field: name, regex: ^match$}}
+                - {has: {field: type, has: {kind: function_type, has: {field: type_parameters, kind: type_parameters}}}}
+            - kind: method_signature
+              all:
+                - {has: {field: name, regex: ^match$}}
+                - {has: {field: type_parameters, kind: type_parameters}}
+    decision-field-test:
+        kind: binary_expression
+        all:
+            - {has: {field: operator, regex: ^in$}}
+            - {has: {field: left, kind: string, regex: '^[''"](e|reason|result)[''"]$'}}
+rule:
+    any:
+        - {matches: case-call}
+        - {matches: case-constructor}
+        - {matches: case-signature}
+        - {matches: decision-field-test}
+    pattern: $MATCH
+message: The case record dispatches through closures in place of a union tagged by `kind` or a nullable
+note: Tag the union by `kind` and read `value.kind`, and read a nullable through `?.`, `??`, or a ternary
+labels: {MATCH: {style: primary}}

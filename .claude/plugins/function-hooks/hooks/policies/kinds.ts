@@ -1,19 +1,16 @@
-// Weakness kinds and labels for the classifier, with the fork prompt and the decoder that fill a finding's fields under the evidence rule
+// Weakness kinds for the classifier, with the fork prompt and the decoder that fill a finding's fields under the evidence rule
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ModelForkReply } from 'claude-code';
-import { flatMap, fromNullable, fromPredicate, liftPredicate, map, type Option, struct } from '../composition/option.ts';
-import { decodeJson, isNullableString, isString, KIND_NAMES, type Kind } from '../host/store.ts';
+import { decodeJson, isNullableString, isString, KIND_NAMES, type Kind, struct } from '../host/store.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-type Move = 'Correct' | 'Reframe' | 'Delete' | 'Add' | 'Move';
 
 interface KindRow {
     readonly criterion: string;
     readonly evidence: string;
-    readonly move: Move;
+    readonly move: 'Correct' | 'Reframe' | 'Delete' | 'Add' | 'Move';
 }
 
 interface Fields {
@@ -23,17 +20,8 @@ interface Fields {
     readonly change: string;
 }
 
-// The fork's reply, null in a field the transcript does not ground, a null file or evidence drops the row and a null section or change reads as ''
-interface Reply {
-    readonly file: string;
-    readonly section: string | null;
-    readonly evidence: string;
-    readonly change: string | null;
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-// One row per kind
 const KINDS: Readonly<Record<Kind, KindRow>> = {
     stale: {
         criterion: 'Held once, and the tool, documentation, or repository moved on',
@@ -63,15 +51,16 @@ const KINDS: Readonly<Record<Kind, KindRow>> = {
     narrative: { criterion: 'Records what happened in place of what holds', evidence: 'Line, and the fact that remains', move: 'Delete' },
 };
 
-// The label for an answer that states no weakness, outside KIND_NAMES
-const NONE_LABEL = 'none';
-// Every label $.model.classify chooses from, the none label ends the arm before the fork
-const LABELS = [...KIND_NAMES, NONE_LABEL] as const;
+// Every label $.model.classify chooses from, the none label ends the classification before the fork
+const LABELS = [...KIND_NAMES, 'none'] as const;
 
 const _COMMAND_LINE = /^(?:\$ |`[^`]+`).*\n.+/mu;
 const _DOCUMENTATION = /\S*(?:\/\S+|\.md)\S*\s+[^\n]*\S+\s+[^\n]*\S+/u;
 const _LOCATION = /\S+:\d+/gu;
 const _MINIMUM_LOCATIONS = 2;
+
+// The fork's reply, null in a field the transcript does not ground, a null file or evidence drops the row and a null section or change reads as ''
+const _isReply = struct({ file: isString, section: isNullableString, evidence: isString, change: isNullableString });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -80,7 +69,7 @@ const hasEvidence = (text: string): boolean =>
     _COMMAND_LINE.test(text) || _DOCUMENTATION.test(text) || [...text.matchAll(_LOCATION)].length >= _MINIMUM_LOCATIONS;
 
 // The $.model.fork prompt that fills a finding's fields for one kind over the session's own transcript, the answer as data after the rule
-const CLASSIFIER_PROMPT = (kind: Kind, answer: string): string =>
+const classifierPrompt = (kind: Kind, answer: string): string =>
     [
         `The answer after the --- line states a weakness of kind "${kind}": ${KINDS[kind].criterion}.`,
         `Reply with one JSON object and nothing else: {"file": "<the guidance file the weakness sits in>", "section": "<its heading>", "evidence": "<${KINDS[kind].evidence}>", "change": "<the one-line change that lands it, or a question ending in ? when the user must decide>"}.`,
@@ -91,30 +80,16 @@ const CLASSIFIER_PROMPT = (kind: Kind, answer: string): string =>
         answer,
     ].join('\n');
 
-const _isReply: (value: unknown) => value is Reply = struct({
-    file: isString,
-    section: isNullableString,
-    evidence: isString,
-    change: isNullableString,
-});
-
-const _fields = (reply: Reply): Fields => ({
-    file: reply.file,
-    section: reply.section ?? '',
-    evidence: reply.evidence,
-    change: reply.change ?? '',
-});
-
-// The fork's text is external input, a parse failure, a missing field, or a null file or evidence maps to none
-const decodeFields = (text: string): Option<Fields> => map(_fields)(flatMap(fromPredicate(_isReply))(decodeJson(text)));
-
-// The fields of a fork's reply, none on a null reply (a cold snapshot or an API error), an undecodable text, or evidence that is a recollection
-const fieldsOf = (reply: ModelForkReply | null): Option<Fields> =>
-    flatMap(liftPredicate<Fields>((fields) => hasEvidence(fields.evidence)))(
-        flatMap(decodeFields)(map((forked: ModelForkReply) => forked.text)(fromNullable(reply))),
-    );
+// The fields of a fork's reply, undefined on a null reply (a cold snapshot or an API error), an undecodable text, or evidence that is a recollection
+const fieldsOf = (reply: ModelForkReply | null): Fields | undefined => {
+    const value = reply === null ? undefined : decodeJson(reply.text);
+    if (!(_isReply(value) && hasEvidence(value.evidence))) {
+        return undefined;
+    }
+    return { file: value.file, section: value.section ?? '', evidence: value.evidence, change: value.change ?? '' };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Fields, KindRow, Move, Reply };
-export { CLASSIFIER_PROMPT, decodeFields, fieldsOf, hasEvidence, KINDS, LABELS, NONE_LABEL };
+export type { Fields, KindRow };
+export { classifierPrompt, fieldsOf, hasEvidence, KINDS, LABELS };

@@ -16,7 +16,7 @@ valid:
     - "deny(row.deny);"
     - 'on("tool.call", ($, e, next) => { return { deny }; });'
     - 'on("tool.call", ($, e, next) => { return { drop: render(row) }; });'
-    - "on(\"tool.call\", ($, e, next) => { return decision.match({ rewrite: (e) => e, deny: (reason) => ({ kind: 'deny', reason }), answer: (result) => result }); });"
+    - "on(\"tool.call\", ($, e, next) => { return decision.kind === 'deny' ? { deny: decision.reason } : next(decision.e); });"
     - 'on("tool.call", ($, e, next) => { return { deny: strict ? render(row) : render(other) }; });'
     - 'on("tool.call", ($, e, next) => { return { deny: reason ?? fallback }; });'
     - "on(\"tool.call\", ($, e, next) => { return { 'deny': 'git stash hides uncommitted work, keep the work as it is' }; });"

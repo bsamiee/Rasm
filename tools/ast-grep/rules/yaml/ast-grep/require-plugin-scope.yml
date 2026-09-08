@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-plugin-scope
+language: yaml
+severity: error
+files: [tools/ast-grep/rules/*/claude-code/**]
+utils:
+    document-mapping:
+        kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)
+    files-pair:
+        kind: block_mapping_pair, flow_pair
+        all:
+            - {has: {field: key, regex: '^(files|"files"|''files'')$'}}
+            - {inside: {matches: document-mapping}}
+rule:
+    any:
+        - matches: document-mapping
+          not: {has: {matches: files-pair}}
+        - kind: flow_node
+          all:
+            - {inside: {kind: 'block_sequence_item, flow_sequence'}}
+            - {inside: {matches: files-pair, stopBy: {kind: 'block_mapping_pair, flow_pair'}}}
+            - not:
+                regex: "^['\"]?\\*\\*/\\.claude/plugins/"
+message: The plugin family rule reads files outside `.claude/plugins/**`
+note: "Set `files:` to globs under `**/.claude/plugins/**`, and add `ignores: ['**/*.spec.ts']` where the subject is production code"

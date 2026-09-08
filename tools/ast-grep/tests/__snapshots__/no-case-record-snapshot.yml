@@ -1,0 +1,86 @@
+id: no-case-record
+snapshots:
+  ? |
+    const answered = "result" in decision;
+  : labels:
+    - source: '"result" in decision'
+      style: primary
+      start: 17
+      end: 37
+  ? |
+    const answered = { match: <B>(cases: Cases<B>) => cases.answer(result) };
+  : labels:
+    - source: 'match: <B>(cases: Cases<B>) => cases.answer(result)'
+      style: primary
+      start: 19
+      end: 70
+  ? |
+    const denied = { match: (cases: Cases) => cases.deny(reason) };
+  : labels:
+    - source: 'match: (cases: Cases) => cases.deny(reason)'
+      style: primary
+      start: 17
+      end: 60
+  ? |
+    const held = 'reason' in decision ? { deny: decision.reason } : next(decision.e);
+  : labels:
+    - source: '''reason'' in decision'
+      style: primary
+      start: 13
+      end: 33
+  ? |
+    const none = <A>(): Option<A> => ({ match: (cases) => cases.none() });
+  : labels:
+    - source: 'match: (cases) => cases.none()'
+      style: primary
+      start: 36
+      end: 66
+  ? |
+    const passed = 'e' in decision;
+  : labels:
+    - source: '''e'' in decision'
+      style: primary
+      start: 15
+      end: 30
+  ? |
+    const some = <A>(value: A): Option<A> => ({ match: (cases) => cases.some(value) });
+  : labels:
+    - source: 'match: (cases) => cases.some(value)'
+      style: primary
+      start: 44
+      end: 79
+  ? |
+    const value = option.match<Option<B>>({ some: f, none });
+  : labels:
+    - source: 'option.match<Option<B>>({ some: f, none })'
+      style: primary
+      start: 14
+      end: 56
+  ? |
+    fromBoolean(held).match<void>({ some: () => $.ui.notice(id, text), none: () => undefined });
+  : labels:
+    - source: 'fromBoolean(held).match<void>({ some: () => $.ui.notice(id, text), none: () => undefined })'
+      style: primary
+      start: 0
+      end: 91
+  ? |
+    interface Option<A> { readonly match: <B>(cases: OptionCases<A, B>) => B; }
+  : labels:
+    - source: 'readonly match: <B>(cases: OptionCases<A, B>) => B'
+      style: primary
+      start: 22
+      end: 72
+  ? |
+    return decision.match<Promise<Result>>({ rewrite: (e, context) => next(e), deny: absurd, answer: absurd });
+  : labels:
+    - source: 'decision.match<Promise<Result>>({ rewrite: (e, context) => next(e), deny: absurd, answer: absurd })'
+      style: primary
+      start: 7
+      end: 106
+  ? |
+    type Carrier = { match<B>(cases: Cases<B>): B };
+  : labels:
+    - source: 'match<B>(cases: Cases<B>): B'
+      style: primary
+      start: 17
+      end: 45

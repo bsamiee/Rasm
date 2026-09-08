@@ -1,0 +1,86 @@
+id: require-event-registration
+snapshots:
+  ? |
+    import type { FsEntry, On } from 'claude-code';
+    const skillPrompt = (on: On): void => {};
+    export { skillPrompt };
+  : labels:
+    - source: |
+        import type { FsEntry, On } from 'claude-code';
+        const skillPrompt = (on: On): void => {};
+        export { skillPrompt };
+      style: primary
+      start: 0
+      end: 114
+    - source: '''claude-code'''
+      style: secondary
+      start: 33
+      end: 46
+    - source: On
+      style: secondary
+      start: 23
+      end: 25
+    - source: On
+      style: secondary
+      start: 23
+      end: 25
+    - source: import type { FsEntry, On } from 'claude-code';
+      style: secondary
+      start: 0
+      end: 47
+  ? |
+    import type { On } from 'claude-code';
+    import type { Options } from '../host/options.ts';
+    const anyEvent = (_on: On, _options: Options): void => undefined;
+    export { anyEvent };
+  : labels:
+    - source: |
+        import type { On } from 'claude-code';
+        import type { Options } from '../host/options.ts';
+        const anyEvent = (_on: On, _options: Options): void => undefined;
+        export { anyEvent };
+      style: primary
+      start: 0
+      end: 177
+    - source: '''claude-code'''
+      style: secondary
+      start: 24
+      end: 37
+    - source: On
+      style: secondary
+      start: 14
+      end: 16
+    - source: On
+      style: secondary
+      start: 14
+      end: 16
+    - source: import type { On } from 'claude-code';
+      style: secondary
+      start: 0
+      end: 38
+  ? |
+    import { type On } from "claude-code";
+    const turnStart = (on: On): void => undefined;
+  : labels:
+    - source: |
+        import { type On } from "claude-code";
+        const turnStart = (on: On): void => undefined;
+      style: primary
+      start: 0
+      end: 86
+    - source: '"claude-code"'
+      style: secondary
+      start: 24
+      end: 37
+    - source: On
+      style: secondary
+      start: 14
+      end: 16
+    - source: type On
+      style: secondary
+      start: 9
+      end: 16
+    - source: import { type On } from "claude-code";
+      style: secondary
+      start: 0
+      end: 38

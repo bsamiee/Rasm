@@ -5,125 +5,117 @@ description: "Use when adding, changing, or reviewing a function-hooks plugin ho
 
 # [FUNCTION_HOOKS]
 
-Build hooks in `.claude/plugins/function-hooks/` from pure policy rules and typed event adapters. The module refuses, rewrites, and annotates tool calls, routes skills, briefs agents, and records findings.
+Build hooks in `.claude/plugins/function-hooks/` from pure policy rules and typed event adapters. Module refuses, rewrites, and annotates tool calls, routes skills, briefs agents, and records findings. Read `.claude/types/claude-code.d.ts` for each event, result, and `$` method in scope, use `plugin-authoring` for the engine orientation.
 
-Read `.claude/types/claude-code.d.ts` for each event, result, and `$` method in scope, and use `plugin-authoring` for the engine orientation.
-
-Plugin skills belong at `skills/<name>/SKILL.md` and agents at `agents/<name>.md`, loaded as `function-hooks:<name>`.
+Plugin skills belong at `skills/<name>/SKILL.md`, agents `agents/<name>.md`, loaded as `function-hooks:<name>`.
 
 [REFERENCES]:
 - [01]-[API](references/api.md): Event contracts and runtime proof
 - [02]-[BUILDING_BLOCKS](references/building-blocks.md): Policy composition and module design
 - [03]-[IDEATION](references/ideation.md): Choosing behavior from the declared capabilities
 
-Delegate every edit under the folder to [HOOK_BUILDER](../../agents/hook-builder.md), one bounded scope with its runtime proof per dispatch.
+[HOOK_BUILDER](../../agents/hook-builder.md), one bounded scope with its runtime proof per dispatch.
 
 ## [01]-[RUNTIME]
 
-`register(on, options)` in `hooks/register.ts` runs once per load in an environment with no DOM and no Node, and `$` is the one way out:
-- `on(event, hook)` registers the one plain hook of an event, and `on(event, matcher, hook)` a matched hook, any number per event
-- Hooks are `($, e, next)`, with `e` the input frozen to every depth and `next(e)` the hooks beneath, then the engine
-- Returns without `next` answer for the engine, `next({ ...e, field })` rewrites what runs beneath, and `await next(e)` reads the result
-- Registration order is nesting order, and the first registration wraps every later one
-- Every `$` call is itself an event, seen by hooks that wrap the caller and by none of the caller's own hooks
-- Loader refusals: an import outside `claude-code` or a relative `.ts` path, an empty matcher, and a second plain hook on one event
-- Loader refusals: `$` outside a `$.noun.verb(...)` call or a `$.plugin` read, and `e.field = value` throws inside the hook
-- Hooks that throw, overrun their budget, or answer a wrong shape are skipped, the chain continues, and `claude --debug` names them
-- Empty `deny` reasons are fail-open, hooks that return `{}` or `undefined` are skipped, and a skipped `next` is no deny
-- Settings `command` hooks and `permissions` run inside `next(e)` beneath every function hook, and a function hook's deny stops before them
-- Managed-settings hooks run before every function hook, and their deny is the call's result
+`register(on, options)` in `hooks/register.ts` runs once per load in an environment with no DOM and no Node, `$` is the one way out:
+- `on(event, hook)` registers the plain hook of an event, `on(event, matcher, hook)` a matched hook, any number per event
+- Hooks are `($, e, next)`, with `e` input frozen to every depth and `next(e)` the hooks beneath, then the engine
+- Returns without `next` answer for the engine, `next({ ...e, field })` rewrites what runs beneath, `await next(e)` reads the result
+- Registration order is nesting order, the first registration wraps every later one
+- Every `$` call is an event, seen by hooks that wrap the caller and by none of the caller's hooks
+- Loader refusals: import outside `claude-code` or relative `.ts` path, empty matcher, second plain hook on one event
+- Loader refusals: `$` outside `$.noun.verb(...)` call or `$.plugin` read, `e.field = value` throws inside the hook
+- Hooks that throw, overrun their budget, or answer a wrong shape are skipped, the chain continues, `claude --debug` names them
+- Empty `deny` reasons are fail-open, hooks that return `{}` or `undefined` are skipped, a skipped `next` is no deny
+- Settings `command` hooks and `permissions` run inside `next(e)` beneath every function hook, a function hook's deny stops before them
+- Managed-settings hooks run before function hooks, their deny is the call's result
 
 ## [02]-[APPROACH]
 
-Every hook is an adapter over pure rules, and the adapter is the one place a `$` call or a `next` call appears:
-- Rules are `(e) => Decision`, a `rewrite`, a `deny(reason)`, or an `answer(result)`, and `fold` runs a table of rules in order
-- `$.store` is the one state, read in the hook body of the event that needs it, and no module binding changes after load
-- Give each fact one owner: a key one writer, a reason one row, and a decoder one export
-- Deny reasons name the correct form (command, tool, skill), and the model retries from the reason alone
-- Rewrites that change what runs add a `context` line naming the change, and same-bytes rewrites add none, because the model reads its written command alone
-- Rows replacing a prose rule, a deny glob, or a settings hook land with their runtime proof, and the old form leaves in the same change
+Every hook is an adapter over pure rules, the adapter is where `$` call or `next` call appear:
+- Rules are `(e) => Decision`, `rewrite`, `deny(reason)`, or `answer(result)`, `fold` runs a table of rules in order
+- `$.store` is the state, read in the hook body of the event that needs it, no module binding changes after load
+- Give each fact one owner: a key one writer, a reason one row, a guard one export
+- Deny reasons name the correct form (command, tool, skill), the model retries from the reason alone
+- Rewrites that change what runs add `context` line naming the change, same-bytes rewrites add none, model reads its written command alone
+- Rows replacing a prose rule, deny glob, or settings hook land with runtime proof, the old form leaves in the same change
 
 ## [03]-[FOLDERS]
 
-`hooks/` holds one folder per category of concern with each spec beside its module. Imports point from `events/` through `policies/` down to `host/`, `text/`, and `composition/`, and `register.ts` at the root imports event files alone:
+`hooks/` holds one folder per category of concern with each spec beside its module. Imports point from `events/` through `policies/` down to `host/`, `text/`, `composition/`, and `register.ts` at the root imports event files alone:
 
-[COMPOSITION]: Carriers for a value with cases, each a record of one `match` over a case record, the dispatch every file uses in place of a branch
-- Constructors build one case each, operations are data-last functions over a carrier, and the one two-way `if` lifts a refinement
-- Every other branch is a `match` with its result type written, because the compiler binds its type argument to the first arm
-- Reach for a carrier when a value is absent, refined, or decided, and for an operation when a `match` rebuilds the carrier it read
-- Share operations that express the same carrier transformation across consumers, and add an arm with its first consumer
-- Specs fold the operations over literal values and read the result through one case record into plain data
+[COMPOSITION]: `Decision` union of rewrite, deny, and answer, `when` over a refinement, `fold` over a rule table
+- Absence is `T | undefined` narrowed by language, a branch is a ternary, early return, or `find` over a table
+- Specs compare a decision against its literal
 
 [TEXT]: Operations from text to data or to text, with no engine type and no policy row, that a policy calls on a field it reads
-- Group operations by text form (a command, a value list, a document), with their types and specs beside the module
-- Positions survive as spans, a policy rewrites by splicing a span and its context line names what changed
-- Share text operations when policies need the same interpretation, and keep operations used by one policy local under a `_` name
+- Group operations by text form (command, value list, document), with their types and specs
+- Positions survive as spans, policy rewrites by splicing a span and its context line names what changed
+- Share text operations when policies need the same interpretation, keep operations used by one policy local under `_` name
 - Add operations to the module for their text form, creating a module when a shared form has no owner
-- Reasons, skill names, and rows stay in the policies, the folder knows no table
+- Reasons, skill names, and rows stay in policies, the folder knows no table
 
-[HOST]: Boundary to the engine, store keys and decoders, options narrowed once, and the input of every served tool
-- Store facts are namespaces with one key per row, a key builder with filters over the key list, and one decoder per row type
-- Decoders lift a refinement over an unknown value into the carrier, and the events read every store value through them
+[HOST]: Boundary to the engine, store keys, guards, and options narrowed once
+- Store facts are namespaces with one key per row, key builder with filters over the key list, and one guard per row type
+- Events read every store value through `decode(guard)`, a value outside the guard reads as undefined
 - Options derive from a row table that matches the manifest, narrowed once at load with no default restated
 - Reuse the namespace and row shape that express a stored fact
-- Add a shape when readers need new data, with its namespace, interface, refinement, decoder, and spec cases for the valid, wrong, and missing row
+- Add a shape when readers need new data, with namespace, interface, guard, and spec row for the valid, wrong, and missing value
 
 [POLICIES]: One file per subject, its table `as const satisfies` a row type, and the rules that compute a decision from the rows
-- Rows are data, the predicate that selects them and one move, a deny with its reason, a rewrite with its context, a context line, or an answer
+- Rows are data with one move, undefined for an event it leaves as given: a deny with its reason, rewrite with its context, lines, or an answer
 - Rules read the event and facts its adapter gathered, compute hits, and return the first deny, else a rewrite with every context line
-- Files export their table, rule, and the once keys the adapter stamps, and no policy calls `$` or `next`
+- Files export their table, rule, and keys the adapter stamps, no policy calls `$` or `next`
 - Use a row for another case of an existing policy and keep one-off logic in its owning module
-- Add a file for a subject with no table, and a moved expression alone earns none
-- Keep table-driven rules with their table and row type, and compare every rule's decisions over literal events in its spec
+- Add a file for a subject with no table, a moved expression alone earns none
+- Keep table-driven rules with their table and row type, compare every rule's decisions over literal events in its spec
 
 [EVENTS]: One adapter per engine event, the file that turns a pure decision into the engine's result
 - Hook bodies read the session and store keys their rules need, then gather the `$` facts a rule takes as arguments
 - Bodies fold their subject's rules over `e`, each lifted by its refinement, in the order that is the policy
-- Decisions map through one case record with its result type written onto the event's result union, and a deny becomes that union's refusal
+- Decisions map by `kind` onto the event's result union, a deny becomes that union's refusal
 - Rewrite arms stamp once keys, show the context under the open call, then await `next`
 - After `next` the body records what a successful call proves and appends context to a result the union lets hold it
-- Files with no rows export a registration that registers nothing, and they gain `on(event, hook)` with their first row
-- First rows bring the event's input and result types from the declarations, with store read, fold, and case record
 
 [NEW_FOLDER]: Concerns that fit no folder take a folder of their own under `hooks/` when each criterion holds:
 - Its name is an established term for the concern, in the vocabulary of the declarations or of TypeScript
-- Two or more modules hold the concern, each with its spec beside it, and a lone module stays in its nearest concern's folder
+- Two or more modules hold the concern, and a lone module stays in its nearest concern's folder
 - It adds no level alone, its modules sit at its root, and no folder nests inside it
-- Relative `.ts` imports reach it, and tsconfig `include`, the biome override, rule family, and spec glob cover it with no change
-- Its modules import the carriers and no event file, and imports keep pointing one way
+- Relative `.ts` imports reach it, and tsconfig `include`, biome override, rule family, and spec glob cover it with no change
+- Its modules import no event file, imports keep pointing one way
 
 ## [04]-[OWNERS]
 
-Each addition lands in its owning table or module, and the plugin's `README.md` names the file that holds each:
+Each addition lands in its owning table or module, the plugin's `README.md` names the file that holds each:
 
-| [INDEX] | [ADDITION]                    | [OWNER]                                                          |
-| :-----: | :---------------------------- | :--------------------------------------------------------------- |
-|  [01]   | Shell or git behavior         | `SHELL` or `GIT`                                                 |
-|  [02]   | File path or content behavior | `PATHS`                                                          |
-|  [03]   | Tool routing or description   | `TOOLS`, `SERVERS`, `FETCH`, `FAMILIES`, or `DESCRIBE`           |
-|  [04]   | Agent brief or availability   | `AGENTS` or `OFFERS`                                             |
-|  [05]   | Classifier kind               | `KINDS`                                                          |
-|  [06]   | Stored fact                   | `NAMESPACES` and a store decoder                                 |
-|  [07]   | Hook on an event with no rows | Registration in the event's file                                 |
-|  [08]   | User option                   | Manifest `userConfig` and `OPTIONS`                              |
-|  [09]   | Served tool                   | Registration, matched handler, and input declaration             |
-|  [10]   | Shared text operation         | Its module under `text/`                                         |
-|  [11]   | Recurring structural defect   | Existing or new rule in the `claude-code` family                 |
-|  [12]   | Command after an edit         | `SCAN`                                                           |
-|  [13]   | Incorrect Roslyn diagnostic   | `WRONG_DIAGNOSTICS`, with its retirement condition in the README |
+| [INDEX] | [ADDITION]                    | [OWNER]                                                      |
+| :-----: | :---------------------------- | :----------------------------------------------------------- |
+|  [01]   | Shell or git behavior         | `SHELL` or `GIT`                                             |
+|  [02]   | File path or content behavior | `PATHS`                                                      |
+|  [03]   | Tool routing or description   | `TOOLS`, `SERVERS`, `FETCH`, `FAMILIES`, or `DESCRIBE`       |
+|  [04]   | Agent brief                   | `AGENTS`                                                     |
+|  [05]   | Classifier kind               | `KINDS`                                                      |
+|  [06]   | Stored fact                   | `NAMESPACES` and a store guard                               |
+|  [07]   | Hook on an unhooked event     | New file under `events/` registered in `register.ts`         |
+|  [08]   | User option                   | Manifest `userConfig` and `OPTIONS`                          |
+|  [10]   | Shared text operation         | Its module under `text/`                                     |
+|  [11]   | Recurring structural defect   | Existing or new rule in `claude-code` family                 |
+|  [12]   | Command after an edit         | `SCAN`                                                       |
+|  [13]   | Incorrect Roslyn diagnostic   | `WRONG_DIAGNOSTICS`, with its retirement condition in README |
 
 ## [05]-[CHECKS]
 
-Static checks run at zero findings before a runtime proof, and the plugin's `README.md` holds their commands:
+Static checks run at zero findings before a runtime proof, the plugin's `README.md` holds their commands:
 - Specs sit beside their modules and fold rules over literal events
-- Timers and served tools are proven in an interactive session, because a `-p` run exits before either matters
+- The dispatch and band are proven in an interactive session, `-p` run raises `session.start` with no surface
 
 ## [06]-[HARNESS]
 
-`pnpm exec nx run rasm:harness` runs `eng/scripts/harness.py` after a Claude Code update, an MCP server change, or a plugin edit. It is the one route to declarations under `.claude/types/` and the installed copy under `~/.claude/plugins/cache/`:
-- Target depends on the plugin's `lint` and `test`
-- Failures name the fix: a configured server absent from `claude-code-mcp.d.ts`, or a version line other than `claude --version`
-- Installed copies prove their load in a debug file under `.artifacts/`, and a copy that fails to load fails the run
+`pnpm exec nx run rasm:harness` runs `eng/scripts/harness.py` after a Claude Code update, MCP server change, or plugin edit. It is the route to declarations under `.claude/types/` and the installed copy under `~/.claude/plugins/cache/`:
+- Target depends on plugin's `lint` and `test`
+- Failures name the fix: a configured server absent from `claude-code-mcp.d.ts`, or version line other than `claude --version`
+- Installed copies prove their load in a debug file under `.artifacts/`, a copy that fails to load fails the run
 - `uv run --only-group eng python -m eng.scripts.harness proof <row> '<prompt>'` proves one row on the plugin tree and logs its reads
 - `computer-use` never appears in the declarations a `-p` session writes
-- Each regeneration is read for a declared capability a hook hand-rolls, and the capability replaces the hand-rolled step
+- Each regeneration is read for a declared capability a hook hand-rolls, the capability replaces the hand-rolled step

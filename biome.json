@@ -115,8 +115,20 @@
             "linter": {
                 "rules": {
                     "complexity": {
+                        "noExcessiveCognitiveComplexity": {
+                            "level": "error",
+                            "options": {
+                                "maxAllowedComplexity": 30
+                            }
+                        },
                         "noExcessiveLinesPerFunction": "off",
-                        "useLiteralKeys": "off"
+                        "useLiteralKeys": "off",
+                        "useMaxParams": {
+                            "level": "error",
+                            "options": {
+                                "max": 8
+                            }
+                        }
                     },
                     "suspicious": {
                         "noShadowRestrictedNames": "off"

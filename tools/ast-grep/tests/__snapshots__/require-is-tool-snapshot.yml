@@ -82,14 +82,14 @@ snapshots:
       start: 17
       end: 83
   ? |
-    const held = fromNullable(input).match({ some: (e: ToolCallInput): e is Bash => e.tool === 'Bash', none: () => false });
+    const rows = { bash: (e: ToolCallInput): e is Bash => e.tool === 'Bash' };
   : fixed: |
-      const held = fromNullable(input).match({ some: isTool('Bash'), none: () => false });
+      const rows = { bash: isTool('Bash') };
     labels:
     - source: '(e: ToolCallInput): e is Bash => e.tool === ''Bash'''
       style: primary
-      start: 47
-      end: 97
+      start: 21
+      end: 71
   ? |
     const rule = when((e: ToolCallInput): e is Edit => e.tool === 'Edit', editRule);
   : fixed: |

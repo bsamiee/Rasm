@@ -1,0 +1,51 @@
+id: no-unread-parameter
+snapshots:
+  ? |
+    const _slices = (guarded: readonly string[]) => (_argv: Argv): readonly Argv[] => [];
+  : labels:
+    - source: _argv
+      style: primary
+      start: 49
+      end: 54
+  ? |
+    const agentSpawn = (on: On, _options: Options): void => { on('agent.spawn', ($, e, next) => next(e)); };
+  : labels:
+    - source: _options
+      style: primary
+      start: 28
+      end: 36
+  ? |
+    const anyEvent = (on: On, _options: Options): void => undefined;
+  : labels:
+    - source: _options
+      style: primary
+      start: 26
+      end: 34
+  ? |
+    const decode = (_guard?: Guard<T>): undefined => undefined;
+  : labels:
+    - source: _guard
+      style: primary
+      start: 16
+      end: 22
+  ? |
+    const lift = (tool: string) => { return function (_e: ToolCallInput): boolean { return true; }; };
+  : labels:
+    - source: _e
+      style: primary
+      start: 50
+      end: 52
+  ? |
+    export const pathRule = (seen: ReadonlySet<string>) => <E extends PathEvent>(_e: E): Decision<E> => rewrite(e);
+  : labels:
+    - source: _e
+      style: primary
+      start: 77
+      end: 79
+  ? |
+    function briefed(_type: string, prompt: string): string { return prompt; }
+  : labels:
+    - source: _type
+      style: primary
+      start: 17
+      end: 22

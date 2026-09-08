@@ -1,0 +1,21 @@
+id: no-type-level-guard
+valid:
+    - |
+      type _ServerOf<K> = K extends `mcp__${infer S}__${string}` ? S : never;
+    - |
+      type Struct<S> = { readonly [K in keyof S]: S[K] extends Guard<infer T> ? T : never };
+    - |
+      type Named<T extends ToolName> = Extract<ToolCallInput, { readonly tool: T }>;
+    - |
+      const isRead = (tool: string): boolean => tool.startsWith(PREFIX) && !CONTROL.includes(tool.slice(PREFIX.length));
+    - |
+      type Wide<T> = T extends [never] ? never : T;
+    - |
+      type Exact<T> = [T] extends [string] ? true : false;
+invalid:
+    - |
+      const FAMILIES: readonly Family[] = ROWS satisfies [_Missing] extends [never] ? readonly Family[] : never;
+    - |
+      type _Missing = { [P in _Prefix]: [Extract<keyof McpToolInputs, `${P}${string}`>] extends [never] ? P : never }[_Prefix];
+    - |
+      type Proven<T> = [T] extends [never] ? true : false;

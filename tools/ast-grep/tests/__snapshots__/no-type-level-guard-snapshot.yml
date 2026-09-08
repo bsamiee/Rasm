@@ -1,0 +1,23 @@
+id: no-type-level-guard
+snapshots:
+  ? |
+    const FAMILIES: readonly Family[] = ROWS satisfies [_Missing] extends [never] ? readonly Family[] : never;
+  : labels:
+    - source: '[_Missing] extends [never] ? readonly Family[] : never'
+      style: primary
+      start: 51
+      end: 105
+  ? |
+    type Proven<T> = [T] extends [never] ? true : false;
+  : labels:
+    - source: '[T] extends [never] ? true : false'
+      style: primary
+      start: 17
+      end: 51
+  ? |
+    type _Missing = { [P in _Prefix]: [Extract<keyof McpToolInputs, `${P}${string}`>] extends [never] ? P : never }[_Prefix];
+  : labels:
+    - source: '[Extract<keyof McpToolInputs, `${P}${string}`>] extends [never] ? P : never'
+      style: primary
+      start: 34
+      end: 109

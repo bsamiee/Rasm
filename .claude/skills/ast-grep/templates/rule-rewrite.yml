@@ -25,5 +25,5 @@ transform:
             rewriters: [<rewriter-id>]
             joinBy: "<separator>"
 fix: <template referencing $OUT>
-message: <the construct being replaced>
-note: <the required form and its reason>
+message: <replaced construct>
+note: <required form and its reason>

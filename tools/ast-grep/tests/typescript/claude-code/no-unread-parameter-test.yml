@@ -1,0 +1,31 @@
+id: no-unread-parameter
+valid:
+    - |
+      on('tool.describe', (_$, e, next) => next(e));
+    - |
+      const SCAN = [{ argv: (_path, ruleIds): readonly string[] => ['ast-grep'] }];
+    - |
+      const stale = dispatches.filter((_name, index) => !_holds(rows[index], now));
+    - |
+      const chain = own.split('/').map((_segment, index, segments) => segments.slice(0, index + 1).join('/'));
+    - |
+      const _UNQUOTE = { plain: (raw): string => raw };
+    - |
+      const briefed = (subagentType: string, prompt: string): string => prompt;
+    - |
+      const _WRITE = 'cat > "$1"'; const path = _path(e);
+invalid:
+    - |
+      const anyEvent = (on: On, _options: Options): void => undefined;
+    - |
+      const agentSpawn = (on: On, _options: Options): void => { on('agent.spawn', ($, e, next) => next(e)); };
+    - |
+      function briefed(_type: string, prompt: string): string { return prompt; }
+    - |
+      const _slices = (guarded: readonly string[]) => (_argv: Argv): readonly Argv[] => [];
+    - |
+      export const pathRule = (seen: ReadonlySet<string>) => <E extends PathEvent>(_e: E): Decision<E> => rewrite(e);
+    - |
+      const lift = (tool: string) => { return function (_e: ToolCallInput): boolean { return true; }; };
+    - |
+      const decode = (_guard?: Guard<T>): undefined => undefined;

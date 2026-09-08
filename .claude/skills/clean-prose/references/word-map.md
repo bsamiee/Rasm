@@ -1,6 +1,6 @@
 # [WORD_MAP]
 
-Deletion rows remove the word, replacement rows substitute the listed word, and the noun and phrasal rows substitute the listed verb.
+Deletion rows remove the word, replacement rows substitute listed word, noun and phrasal rows substitute listed verb.
 
 ## [01]-[DELETIONS]
 

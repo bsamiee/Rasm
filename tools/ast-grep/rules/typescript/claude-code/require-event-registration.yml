@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-event-registration
+language: tsx
+severity: error
+files:
+    - '**/.claude/plugins/**/hooks/**'
+ignores:
+    - '**/*.spec.ts'
+rule:
+    kind: program
+    all:
+        - has:
+            kind: import_statement
+            all:
+                - {has: {field: source, regex: '^[''"]claude-code[''"]$'}}
+                - {has: {stopBy: end, kind: import_specifier, has: {field: name, regex: ^On$}}}
+        - {not: {has: {stopBy: end, matches: claude-code-registration}}}
+message: The module takes the registration interface `On` and registers no hook
+note: Delete the module, and add it with its `on('<event>', hook)` call when a hook exists

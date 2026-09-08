@@ -1,4 +1,4 @@
-// Line operations over the text a child wrote or a reply holds, the non-empty lines and the first of them
+// Line operations over the text a child wrote or a reply holds
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 

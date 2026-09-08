@@ -1,0 +1,37 @@
+id: require-event-registration
+valid:
+    - |
+      import type { On } from 'claude-code';
+      const agentSpawn = (on: On): void => { on('agent.spawn', ($, e, next) => next(e)); };
+      export { agentSpawn };
+    - |
+      import type { Register } from 'claude-code';
+      const register: Register = (on, raw) => { sessionStart(on, options(raw)); };
+      export { register };
+    - |
+      import type { On } from 'claude-code';
+      const _stamps = (on: On): void => { on('skill.prompt', async ($, e, next) => next(e)); };
+      const skillPrompt = (on: On): void => { _stamps(on); };
+      export { skillPrompt };
+    - |
+      import type { ToolCallInput } from 'claude-code';
+      const isTool = (tool: string) => (e: ToolCallInput): boolean => e.tool === tool;
+    - |
+      import type { On } from 'claude-code';
+      const uiRender = (register: On): void => { register('ui.render', ($, e, next) => next(e)); };
+    - |
+      import type { On } from './on.ts';
+      const probe = (on: On): void => undefined;
+invalid:
+    - |
+      import type { On } from 'claude-code';
+      import type { Options } from '../host/options.ts';
+      const anyEvent = (_on: On, _options: Options): void => undefined;
+      export { anyEvent };
+    - |
+      import type { FsEntry, On } from 'claude-code';
+      const skillPrompt = (on: On): void => {};
+      export { skillPrompt };
+    - |
+      import { type On } from "claude-code";
+      const turnStart = (on: On): void => undefined;

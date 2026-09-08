@@ -19,7 +19,7 @@ runs:
           with:
             <option>: <value>
         - id: <step>
-          run: printf '<output>=%s\n' "$INPUT" >>"$GITHUB_OUTPUT" # The expression reaches the script through env
+          run: printf '<output>=%s\n' "$INPUT" >>"$GITHUB_OUTPUT" # Expression reaches the script through env
           shell: bash # Every run step declares its shell, the workflow defaults reach no composite step
           env:
             INPUT: ${{ inputs.<input> }}

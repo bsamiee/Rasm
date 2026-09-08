@@ -1,4 +1,4 @@
-# Workflow of one repository event, the jobs hold commands alone and the Nx targets hold the build logic
+# Workflow of one repository event, jobs hold commands alone and Nx targets hold the build logic
 name: <Name>
 
 on:
@@ -6,12 +6,12 @@ on:
     workflow_dispatch:
         inputs:
             <input>:
-                description: <purpose> # Typed input the jobs read through the inputs context
+                description: <purpose> # Typed input jobs read through the inputs context
                 default: <value>
 
-permissions: # The keys the jobs call, every unnamed key is none
+permissions: # Keys the jobs call, every unnamed key is none
     contents: read
-    actions: read # The run lookup of nx-set-shas
+    actions: read # Run lookup of nx-set-shas
 
 concurrency:
     group: ${{ github.workflow }}-${{ github.ref }} # One group per workflow and ref
@@ -19,7 +19,7 @@ concurrency:
 
 defaults:
     run:
-        shell: bash # bash -eo pipefail on every run step, a composite step declares its own shell
+        shell: bash # bash -eo pipefail on every run step, a composite step declares its shell
 
 jobs:
     <job>:
@@ -30,12 +30,12 @@ jobs:
               with:
                 fetch-depth: 0 # Tags and merge bases for nx affected and the release versions
                 filter: tree:0 # Treeless clone, trees fetched on demand
-                persist-credentials: false # The token stays out of .git/config, the release checkout alone keeps it
+                persist-credentials: false # Token stays out of .git/config, the release checkout alone keeps it
             - uses: nrwl/nx-set-shas@v5
               with:
-                workflow-id: <workflow file> # The file name of the workflow, without it the action looks the current run up
+                workflow-id: <workflow file> # Workflow file name, without it the action looks the current run up
             - uses: ./.github/actions/setup
-            - run: nx affected -t <target> --exclude='*,!tag:language:<language>' # The language tag selects the projects
+            - run: nx affected -t <target> --exclude='*,!tag:language:<language>' # Language tag selects the projects
             - run: <command> "$VALUE" # Expressions reach the script through env, GitHub substitutes them into the text otherwise
               env:
                 VALUE: ${{ inputs.<input> }}
@@ -44,7 +44,7 @@ jobs:
                 name: <artifact> # One name per matrix entry where a matrix exists, the runtime identifier in the name
                 path: .artifacts/<area>/<output>
 
-    # The one status check the ruleset requires, a skipped or cancelled job fails it
+    # One status check the ruleset requires, a skipped or cancelled job fails it
     required:
         needs: [<job>]
         if: always()

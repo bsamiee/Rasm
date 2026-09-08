@@ -3,11 +3,10 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { On } from 'claude-code';
-import { flatMap, forEach, fromBoolean, fromPredicate, liftPredicate, map, none, type Option } from '../composition/option.ts';
-import { type Options, whenEnabled } from '../host/options.ts';
-import { decodeSummary, isKind, type Kind, key, type Summary } from '../host/store.ts';
-import { FINDING_VIEWS, type FindingInput, finding, withFinding } from '../policies/findings.ts';
-import { CLASSIFIER_PROMPT, type Fields, fieldsOf, LABELS } from '../policies/kinds.ts';
+import type { Options } from '../host/options.ts';
+import { type Entry, findings, isKind, key, keys } from '../host/store.ts';
+import { FINDING_VIEWS, finding, summarize } from '../policies/findings.ts';
+import { classifierPrompt, fieldsOf, LABELS } from '../policies/kinds.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -18,50 +17,53 @@ const _SUMMARY_SYSTEM = 'The message is an assistant answer to the person, reply
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
-// Each step holds its own catch, a failed call drops the line and never the turn
+// A failed call drops the line and never the turn
 const _speak = (on: On): void => {
     on('turn.complete', { reason: 'answer' }, async ($, e, next) => {
         const result = await next(e);
-        // Failed completions speak nothing, and the answer is data under the system line
-        const line = await forEach(() => $.model.complete({ model: _MODEL, system: _SUMMARY_SYSTEM, prompt: e.answer, maxTokens: _SUMMARY_TOKENS }))(
-            fromBoolean(e.answer !== ''),
-        ).catch((): Option<string> => none());
-        await forEach((spoken: string) => $.audio.speak(spoken))(flatMap(liftPredicate<string>((text) => text !== ''))(line)).catch(() => undefined);
+        if (e.answer !== '') {
+            await $.model
+                .complete({ model: _MODEL, system: _SUMMARY_SYSTEM, prompt: e.answer, maxTokens: _SUMMARY_TOKENS })
+                .then((line) => (line === '' ? undefined : $.audio.speak(line)))
+                .catch(() => undefined);
+        }
         return result;
     });
 };
 
-// Each step holds its own catch, a failed call drops the row and never the turn
+// The none label and a failed call end the classification, the fork runs for a kind alone and a grounded reply alone writes a row
 const _classify = (on: On): void => {
     on('turn.complete', { reason: 'answer' }, async ($, e, next) => {
         const result = await next(e);
-        // The none label and a failed call end the classification here, the fork runs for a kind alone
-        const label = await forEach(() => $.model.classify(e.answer, LABELS, { model: _MODEL }))(fromBoolean(e.answer !== '')).catch(
-            (): Option<string | undefined> => none(),
-        );
-        const kind = flatMap(fromPredicate(isKind))(label);
-        // The fork reads the session's own transcript and answers null in place of a rejection, and fieldsOf reads a row from a grounded reply alone
-        const reply = await forEach((named: Kind) => $.model.fork({ prompt: CLASSIFIER_PROMPT(named, e.answer) }))(kind);
-        const session = await $.session.id();
-        const input = flatMap((fields: Fields) =>
-            map((named: Kind): FindingInput => ({ session, kind: named, fields, now: $.clock.now(), random: crypto.randomUUID() }))(kind),
-        )(flatMap(fieldsOf)(reply));
-        // The summary row session.start wrote is rewritten beside the findings row, the band and the block read the summary alone
-        await forEach(async (row: FindingInput): Promise<void> => {
-            const keyed = finding(row);
-            const summary = decodeSummary(await $.store.get(key('summary')));
-            await forEach((current: Summary) =>
-                Promise.all([$.store.set(keyed.key, keyed.row), $.store.set(key('summary'), withFinding(current, keyed.row))]),
-            )(summary);
-            FINDING_VIEWS.map((view) => $.ui.invalidate(view));
-        })(input).catch(() => undefined);
+        if (e.answer === '') {
+            return result;
+        }
+        const label = await $.model.classify(e.answer, LABELS, { model: _MODEL }).catch((): undefined => undefined);
+        if (!isKind(label)) {
+            return result;
+        }
+        const fields = fieldsOf(await $.model.fork({ prompt: classifierPrompt(label, e.answer) }).catch((): null => null));
+        if (fields === undefined) {
+            return result;
+        }
+        const row = finding({ session: await $.session.id(), kind: label, fields, now: $.clock.now(), random: crypto.randomUUID() });
+        await $.store.set(row.key, row.row);
+        // The summary row is rebuilt beside the findings row, the band and the block read the summary alone
+        const all = await $.store.keys();
+        const entries = await Promise.all(keys('findings')(all).map(async (name): Promise<Entry> => ({ key: name, value: await $.store.get(name) })));
+        await $.store.set(key('summary'), summarize(findings(entries).map((entry) => entry.row)));
+        FINDING_VIEWS.map((view) => $.ui.invalidate(view));
         return result;
     });
 };
 
 const turnComplete = (on: On, options: Options): void => {
-    whenEnabled(options.speak, () => _speak(on));
-    whenEnabled(options.classify, () => _classify(on));
+    if (options.speak) {
+        _speak(on);
+    }
+    if (options.classify) {
+        _classify(on);
+    }
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

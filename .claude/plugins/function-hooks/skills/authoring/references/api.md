@@ -47,7 +47,7 @@
 |  [05]   | `$.session` | Session facts as data                      | `messages()` answers 4096 rows at most, `surface()` is `null` under `-p` |
 |  [06]   | `$.turn`    | Running turn cancelled                     | `abort` takes the `turnId` of `turn.start` and rejects on any other      |
 |  [07]   | `$.prompt`  | Prompt handed to an idle session           | `submit` runs `prompt.submit` under origin `{ kind: 'plugin', name }`    |
-|  [08]   | `$.tool`    | Served tool, or a call of the plugin's own | `register` lists `mcp__<plugin>__<name>` from the next prompt            |
+|  [08]   | `$.tool`    | A call of the plugin's own                 | `call` runs the permission check and the tool                            |
 |  [09]   | `$.agent`   | Subagent seen through its resolved text    | `spawn` runs under the plugin's origin and answers `text` or `deny`      |
 |  [10]   | `$.fs`      | File under the working directory           | Reads reach the temp directory, writes stay under the working directory  |
 |  [11]   | `$.store`   | Fact that outlives a call                  | One JSON file per plugin under `~/.claude/plugins/store/`                |
@@ -90,30 +90,17 @@ The loader reads `register.ts` and its relative imports at load into an environm
 - `keys()` answers every key in insertion order, the last key under a namespace is its newest, and a namespace prefix with a filter is the query
 - Values are JSON data
 
-## [06]-[TIMERS]
+## [06]-[WAITS]
 
-`$.clock.every` and `$.clock.after` run in the plugin's own environment, and a reload drops them with the old environment:
-- Timers start in `session.start`, and a reload's `session.start` starts them again
-- Ticks read the store fresh and run under their own `.catch`
-- Dispatching ticks hold while the last dispatch is unsettled, and the policy file states their bound
-- `$.clock.sleep(ms, { signal: next.signal })` ends a wait with its dispatch, and a hook's budget bounds the rest
+`$.clock.sleep(ms, { signal: next.signal })` ends a wait with its dispatch, and a hook's budget bounds the rest. `$.clock.every` and `$.clock.after` run in the plugin's own environment, and a reload drops them with the old environment.
 
-## [07]-[SERVED_TOOLS]
-
-`$.tool.register(spec)` in `session.start` lists `mcp__function-hooks__<name>` for the model by turn one, awaited before `next(e)`:
-- Handlers are matched `tool.call` hooks on `{ tool: 'mcp__function-hooks__<name>' }` returning `{ result }`, and an unanswered call fails
-- Input types merge into `McpToolInputs` through the declaration beside the store, and a matched hook's `e` holds its arguments
-- Handlers are pure in a policy file, and the hook maps their writes to `$.store.set` and invalidates cached answers that read the rows
-- Registrations under an option register with their handler in the same option branch, and the tool is absent while that option is off
-
-## [08]-[SPAWNS]
+## [07]-[SPAWNS]
 
 `$.agent.spawn(input)` runs a subagent under the plugin's own origin for its whole life:
-- Subagent calls reach other plugins' hooks and skip the plugin's own, and a served tool answers a model-spawned agent alone
+- Subagent calls reach other plugins' hooks and skip the plugin's own
 - Calls resolve with `{ model, text }` once the subagent ran, `isError` set when it failed, or `{ deny }` for a refused spawn
 - `text` is the plugin's one view of a run, its final message, or why it failed under `isError`
-- Spawning hooks compose their prompt through the rule the `agent.spawn` adapter folds, because the plugin's own hooks skip its spawn
-- Prompts hold every fact the agent cannot fetch (rows, batch id, memory directory)
+- Prompts hold every fact the agent cannot fetch (rows, batch id, scope)
 - `$.agent.spawn` answers no agent id, and `$.tool.call({ tool: 'Agent', ... })` answers `{ agentId }` as `$.agent.list()` names it
 - `$.session.id()` and `$.session.cwd()` inside a subagent's call answer the main session's id and root
 - `$.agent.list()` names running agents as `{ id, description, type, status }` (`AgentInfo`), no name and no link to a call

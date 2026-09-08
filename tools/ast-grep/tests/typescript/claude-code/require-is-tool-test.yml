@@ -1,6 +1,8 @@
 id: require-is-tool
 valid:
     - |
+      const rows = TOOLS.filter((row) => row.tool === e.tool);
+    - |
       const _isBash = isTool('Bash');
     - |
       const isTool = <T extends ToolName>(tool: T): ((e: ToolCallInput) => e is Named<T>) => (e: ToolCallInput): e is Named<T> => e.tool === tool;
@@ -52,7 +54,7 @@ invalid:
     - |
       const _isBash = (): ((e: ToolCallInput) => e is Bash) => (e: ToolCallInput): e is Bash => e.tool === 'Bash';
     - |
-      const held = fromNullable(input).match({ some: (e: ToolCallInput): e is Bash => e.tool === 'Bash', none: () => false });
+      const rows = { bash: (e: ToolCallInput): e is Bash => e.tool === 'Bash' };
     - |
       const _isBash = (e: ToolCallInput): e is Bash => (e.tool === 'Bash');
     - |

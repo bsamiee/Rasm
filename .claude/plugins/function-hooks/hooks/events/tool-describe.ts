@@ -2,21 +2,17 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { On, ToolDescribeResult } from 'claude-code';
-import { absurd } from '../composition/decision.ts';
-import type { Options } from '../host/options.ts';
-import { describeRule } from '../policies/tools.ts';
+import type { On } from 'claude-code';
+import { describeLine } from '../policies/tools.ts';
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
-const toolDescribe = (on: On, _options: Options): void => {
-    on('tool.describe', (_$, e, next) =>
-        describeRule(e).match<ToolDescribeResult | Promise<ToolDescribeResult>>({
-            answer: (result) => result,
-            rewrite: (input, _context) => next(input),
-            deny: absurd,
-        }),
-    );
+// Reads the tables alone, the per-session description cache then holds with no invalidate
+const toolDescribe = (on: On): void => {
+    on('tool.describe', (_$, e, next) => {
+        const line = describeLine(e.tool);
+        return line === undefined ? next(e) : { description: `${line}\n${e.description}` };
+    });
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

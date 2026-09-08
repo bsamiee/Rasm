@@ -2,41 +2,14 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { BuiltinToolName, McpContentBlock, McpToolInputs, ToolCallInput, ToolDescribeInput, ToolDescribeResult } from 'claude-code';
-import { absurd, answer, type Decision, deny, type Rule, rewrite, when } from '../composition/decision.ts';
-import {
-    flatMap,
-    fromBoolean,
-    fromNullable,
-    fromPredicate,
-    getOrElse,
-    isRecord,
-    liftPredicate,
-    map,
-    none,
-    type Option,
-    some,
-    toArray,
-} from '../composition/option.ts';
-import { isString } from '../host/store.ts';
+import type { BuiltinToolName, McpContentBlock, McpToolInputs, ToolCallInput } from 'claude-code';
+import { answer, type Decision, deny, rewrite } from '../composition/decision.ts';
+import { isRecord, isString, type Namespace } from '../host/store.ts';
 import { basename } from '../text/path.ts';
-import type { Once } from './paths.ts';
+import type { OnceLine } from './paths.ts';
 import { SOLUTION } from './roslyn.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-// The server names the generated declarations hold, one per mcp__<server>__ prefix
-type _ServerOf<K> = K extends `mcp__${infer S}__${string}` ? S : never;
-type Server = _ServerOf<keyof McpToolInputs>;
-
-type Requirement = 'vm-snapshot' | 'dns-read' | 'operator-named-target';
-type Recording = 'vm-snapshot' | 'dns-read';
-
-// The event as the id and once reads see it, any tool with its arguments unknown
-interface ToolEvent {
-    readonly tool: string;
-    readonly [argument: string]: unknown;
-}
 
 type ToolName = keyof McpToolInputs | BuiltinToolName;
 
@@ -49,42 +22,7 @@ interface Rewritten {
     readonly context: string;
 }
 
-// The event after the rewrite rows of its tool with the line of each row that applied
-interface Applied {
-    readonly e: ToolCallInput;
-    readonly context: readonly string[];
-}
-
-// Answer, deny, and rewrite rules run over the tool's own event, lifted by _answeredWhen, _refused, and _rewritten, and read its typed fields,
-// an answer is the content blocks of an MCP reply as next resolves them, the shape core validates a hook's answer against
-interface ToolRow {
-    readonly answer?: (e: ToolCallInput) => Option<readonly McpContentBlock[]>;
-    readonly deny?: Rule<ToolCallInput, never, string>;
-    readonly rewrite?: (e: ToolCallInput, facts: Facts) => Option<Rewritten>;
-    readonly once?: Once;
-    readonly each?: string;
-    readonly records?: Recording;
-}
-
-interface ToolEntry extends ToolRow {
-    readonly tool: ToolName;
-}
-
-interface Family {
-    readonly prefix: string;
-    readonly requires: Requirement;
-}
-
-interface Route {
-    readonly host: string;
-    readonly route: string;
-}
-
-interface ServerRow {
-    readonly skill: string;
-    readonly line: string;
-}
-
+// The session facts the rows read, the once keys injected, the recorded snapshots and DNS reads, the redacted prompt, and the working directory
 interface Facts {
     readonly seen: ReadonlySet<string>;
     readonly snapshots: ReadonlySet<string>;
@@ -93,117 +31,72 @@ interface Facts {
     readonly cwd: string;
 }
 
-interface Recorded {
-    readonly kind: Recording;
-    readonly id: string;
+// Rows over one tool's event as the declarations type it, an undefined deny, answer, or rewrite passes the call on, and records names the
+// namespace a successful call stamps its target id under
+interface Rules<T extends ToolName> {
+    readonly deny?: (e: Named<T>) => string | undefined;
+    readonly answer?: (e: Named<T>) => readonly McpContentBlock[] | undefined;
+    readonly rewrite?: (e: Named<T>, facts: Facts) => Rewritten | undefined;
+    readonly once?: OnceLine;
+    readonly each?: string;
+    readonly records?: Namespace;
 }
 
-// The line prepended to one tool's description, a row over a name the declarations lack fails tsc
-interface DescribeRow {
+// A row as the table holds it, its rules lifted over the event union through the tool's own refinement
+interface ToolRow extends Rules<ToolName> {
     readonly tool: ToolName;
-    readonly line: string;
+}
+
+// A destructive hostinger tool family by name prefix, the fact the session must hold before a call and the reason without it
+interface Family {
+    readonly prefix: string;
+    readonly holds: (facts: Facts, id: string) => boolean;
+    readonly reason: string;
+}
+
+interface Recorded {
+    readonly namespace: Namespace;
+    readonly id: string;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _FETCH_FALLBACK = 'tvly extract or mcp__exa__web_fetch_exa';
 const _SERVER_NAME = /^mcp__(?<server>.+?)__/u;
-
-const FETCH: readonly Route[] = [
-    { host: 'code.claude.com', route: 'mcp__claudeCodeDocs__search_claude_code_docs' },
-    { host: 'docs.anthropic.com', route: 'mcp__claudeCodeDocs__search_claude_code_docs' },
-    { host: 'platform.openai.com', route: 'mcp__openaiDeveloperDocs__search_openai_docs' },
-    { host: 'github.com', route: 'mcp__github__get_file_contents' },
-    { host: 'nuget.org', route: 'mcp__nuget__get_package_context' },
-];
-
-const _FAMILY_ROWS = [
-    { prefix: 'mcp__hostinger__VPS_recreate', requires: 'vm-snapshot' },
-    { prefix: 'mcp__hostinger__VPS_restore', requires: 'vm-snapshot' },
-    { prefix: 'mcp__hostinger__VPS_delete', requires: 'vm-snapshot' },
-    { prefix: 'mcp__hostinger__DNS_reset', requires: 'dns-read' },
-    { prefix: 'mcp__hostinger__domains_purchase', requires: 'operator-named-target' },
-    { prefix: 'mcp__hostinger__billing_createPurchaseOrder', requires: 'operator-named-target' },
-    { prefix: 'mcp__hostinger__VPS_purchase', requires: 'operator-named-target' },
-] as const satisfies readonly Family[];
-
-// Families that vanish from the generated declarations name themselves in _Missing, and the satisfies on FAMILIES then fails tsc
-type _Prefix = (typeof _FAMILY_ROWS)[number]['prefix'];
-type _Missing = { [P in _Prefix]: [Extract<keyof McpToolInputs, `${P}${string}`>] extends [never] ? P : never }[_Prefix];
-const FAMILIES: readonly Family[] = _FAMILY_ROWS satisfies [_Missing] extends [never] ? readonly Family[] : never;
-
-const _REQUIREMENT: Readonly<Record<Requirement, { readonly holds: (facts: Facts, id: string) => boolean; readonly reason: string }>> = {
-    'vm-snapshot': {
-        holds: (facts, id): boolean => facts.snapshots.has(id),
-        reason: 'Call mcp__hostinger__VPS_createSnapshotV1 on the machine first, then retry',
-    },
-    'dns-read': {
-        holds: (facts, id): boolean => facts.dns.has(id),
-        reason: 'Call mcp__hostinger__DNS_getDNSRecordsV1 on the domain first, then retry',
-    },
-    'operator-named-target': {
-        holds: (facts, id): boolean => id !== '' && facts.prompt.includes(id),
-        reason: 'The current prompt names no target, the operator names it before a purchase',
-    },
-};
-
-const _route = (url: string): string =>
-    getOrElse(() => _FETCH_FALLBACK)(
-        flatMap(() => fromNullable(FETCH.find((route) => new URL(url).hostname.endsWith(route.host))?.route))(fromBoolean(URL.canParse(url))),
-    );
-
-// The declarations' own narrowing on the tool field, the refinement when lifts a typed rule over, one tool name per refinement
-const isTool =
-    <T extends ToolName>(tool: T): ((e: ToolCallInput) => e is Named<T>) =>
-    (e: ToolCallInput): e is Named<T> =>
-        e.tool === tool;
-
-// Deny rows whose reason holds under the fields the declarations give the tool, a none passes the call
-const _refusedWhen = <T extends ToolName>(tool: T, reason: (e: Named<T>) => Option<string>): ToolEntry => ({
-    tool,
-    deny: when(
-        isTool(tool),
-        (e: Named<T>): Decision<Named<T>, never, string> =>
-            reason(e).match<Decision<Named<T>, never, string>>({ some: deny, none: () => rewrite(e, []) }),
-    ),
-});
-
-// Answer rows whose result holds under the fields the declarations give the tool, a none passes the call to the server
-const _answeredWhen = <T extends ToolName>(tool: T, result: (e: Named<T>) => Option<readonly McpContentBlock[]>): ToolEntry => ({
-    tool,
-    answer: (e) => flatMap(result)(fromPredicate(isTool(tool))(e)),
-});
-
-// Deny rows with a reason over every call of the tool, WebFetch's url a string
-const _refused = <T extends ToolName>(tool: T, reason: (e: Named<T>) => string): ToolEntry => _refusedWhen(tool, (e) => some(reason(e)));
-
-// Rewrite rows over the fields the declarations give the tool, a none leaves the event as the row before it produced
-const _rewritten = <T extends ToolName>(tool: T, change: (e: Named<T>, facts: Facts) => Option<Rewritten>): ToolEntry => ({
-    tool,
-    rewrite: (e, facts) => flatMap((named: Named<T>) => change(named, facts))(fromPredicate(isTool(tool))(e)),
-});
-
-// The two search tools, find_code takes the language as a field and find_code_by_rule on the language line of its yaml
-type Searched = Named<'mcp__ast-grep__find_code' | 'mcp__ast-grep__find_code_by_rule'>;
-
 const _TSX_LINE = 'Ran with language tsx, sgconfig.yml languageGlobs maps every .ts file to tsx and typescript finds nothing';
 const _FOLDER_LINE = 'Resolved project_folder against the working directory, the server reads an absolute path';
 const _YAML_TYPESCRIPT = /^(?<key>\s*language:\s*)typescript\s*$/mu;
 
-const _tsxField = (e: Named<'mcp__ast-grep__find_code'>): Option<Rewritten> =>
-    liftPredicate<Rewritten>(() => e.language === 'typescript')({ e: { ...e, language: 'tsx' }, context: _TSX_LINE });
+// The route WebFetch names per host, and the fetch tools for every other host
+const FETCH: Readonly<Record<string, string>> = {
+    'code.claude.com': 'mcp__claudeCodeDocs__search_claude_code_docs',
+    'docs.anthropic.com': 'mcp__claudeCodeDocs__search_claude_code_docs',
+    'platform.openai.com': 'mcp__openaiDeveloperDocs__search_openai_docs',
+    'github.com': 'mcp__github__get_file_contents',
+    'nuget.org': 'mcp__nuget__get_package_context',
+};
+const _FETCH_FALLBACK = 'tvly extract or mcp__exa__web_fetch_exa';
 
-const _tsxYaml = (e: Named<'mcp__ast-grep__find_code_by_rule'>): Option<Rewritten> =>
-    liftPredicate<Rewritten>(() => _YAML_TYPESCRIPT.test(e.yaml))({
-        e: { ...e, yaml: e.yaml.replace(_YAML_TYPESCRIPT, '$<key>tsx') },
-        context: _TSX_LINE,
-    });
-
-const _absoluteFolder = (e: Searched, facts: Facts): Option<Rewritten> =>
-    liftPredicate<Rewritten>(() => !e.project_folder.startsWith('/'))({
-        e: { ...e, ['project_folder']: `${facts.cwd}/${e.project_folder}` },
-        context: _FOLDER_LINE,
-    });
+const FAMILIES: readonly Family[] = [
+    ...['mcp__hostinger__VPS_recreate', 'mcp__hostinger__VPS_restore', 'mcp__hostinger__VPS_delete'].map(
+        (prefix): Family => ({
+            prefix,
+            holds: (facts, id): boolean => facts.snapshots.has(id),
+            reason: 'Call mcp__hostinger__VPS_createSnapshotV1 on the machine first, then retry',
+        }),
+    ),
+    {
+        prefix: 'mcp__hostinger__DNS_reset',
+        holds: (facts, id): boolean => facts.dns.has(id),
+        reason: 'Call mcp__hostinger__DNS_getDNSRecordsV1 on the domain first, then retry',
+    },
+    ...['mcp__hostinger__domains_purchase', 'mcp__hostinger__billing_createPurchaseOrder', 'mcp__hostinger__VPS_purchase'].map(
+        (prefix): Family => ({
+            prefix,
+            holds: (facts, id): boolean => id !== '' && facts.prompt.includes(id),
+            reason: 'The current prompt names no target, the operator names it before a purchase',
+        }),
+    ),
+];
 
 // The server trusts every solution on its command line for the session, and .mcp.json names the workspace solution there
 const _TRUST_ANSWER: readonly McpContentBlock[] = [
@@ -213,175 +106,142 @@ const _TRUST_ANSWER: readonly McpContentBlock[] = [
     },
 ];
 
-// Rows over the tool names the declarations know, a tool's rewrite rows run in table order and each reads the event the one before produced
-const TOOLS: readonly ToolEntry[] = [
-    _refused('WebSearch', (): string => 'WebSearch is refused, search with mcp__exa__web_search_exa or tvly search'),
-    _refused('WebFetch', (e): string => `WebFetch is refused, ${_route(e.url)}`),
-    _refused(
-        'mcp__playwright__browser_run_code_unsafe',
-        (): string => 'browser_run_code_unsafe runs arbitrary code in the page, use the typed browser tools',
-    ),
-    _answeredWhen(
-        'mcp__roslyn-codelens__trust_solution',
-        (e): Option<readonly McpContentBlock[]> => liftPredicate<readonly McpContentBlock[]>(() => basename(e.path) === SOLUTION)(_TRUST_ANSWER),
-    ),
-    { tool: 'mcp__hostinger__VPS_createSnapshotV1', records: 'vm-snapshot' },
-    { tool: 'mcp__hostinger__DNS_getDNSRecordsV1', records: 'dns-read' },
-    _rewritten('mcp__ast-grep__find_code', _tsxField),
-    _rewritten('mcp__ast-grep__find_code', _absoluteFolder),
-    _rewritten('mcp__ast-grep__find_code_by_rule', _tsxYaml),
-    _rewritten('mcp__ast-grep__find_code_by_rule', _absoluteFolder),
-];
-
-const SERVERS: Readonly<Partial<Record<Server, ServerRow>>> = {
-    context7: { skill: 'search-context7', line: 'Load the search-context7 skill, it caps each query' },
-    'roslyn-codelens': { skill: 'dotnet-roslyn-codelens', line: 'Load the dotnet-roslyn-codelens skill' },
-    hostinger: { skill: 'hostinger', line: 'Load the hostinger skill' },
-    binlog: { skill: 'dotnet-msbuild-diagnostics', line: 'Load the dotnet-msbuild-diagnostics skill for the binlog tools' },
-    nuget: { skill: 'dotnet-msbuild-packaging', line: 'Load the dotnet-msbuild-packaging skill for the nuget tools' },
-    'ast-grep': { skill: 'ast-grep', line: 'Load the ast-grep skill for the ast-grep tools' },
+// One skill per server, its line injected once per session before the first call
+const SERVERS: Readonly<Partial<Record<string, OnceLine>>> = {
+    context7: { key: 'search-context7', line: 'Load the search-context7 skill, it caps each query' },
+    'roslyn-codelens': { key: 'dotnet-roslyn-codelens', line: 'Load the dotnet-roslyn-codelens skill' },
+    hostinger: { key: 'hostinger', line: 'Load the hostinger skill' },
+    binlog: { key: 'dotnet-msbuild-diagnostics', line: 'Load the dotnet-msbuild-diagnostics skill for the binlog tools' },
+    nuget: { key: 'dotnet-msbuild-packaging', line: 'Load the dotnet-msbuild-packaging skill for the nuget tools' },
+    'ast-grep': { key: 'ast-grep', line: 'Load the ast-grep skill for the ast-grep tools' },
 };
 
-// One row per tool that a fresh session calls wrong the first time, the ast-grep rows from the facts the skill's search section holds
-const DESCRIBE = [
-    { tool: 'WebSearch', line: 'WebSearch is refused, mcp__exa__web_search_exa and tvly search replace it' },
-    { tool: 'WebFetch', line: 'WebFetch is refused, the docs and github tools, tvly extract, and mcp__exa__web_fetch_exa replace it' },
-    {
-        tool: 'mcp__roslyn-codelens__trust_solution',
-        line: `The command-line solution ${SOLUTION} is trusted for the session, the plugin answers a call on it without the server, and trust_solution serves another solution alone`,
-    },
-    {
-        tool: 'mcp__ast-grep__dump_syntax_tree',
-        line: 'format=cst shows the node kinds and field names a rule reads, and format=pattern shows how a pattern parses',
-    },
-    {
-        tool: 'mcp__ast-grep__find_code',
-        line: 'The plugin rewrites language typescript to tsx and a relative project_folder to an absolute one',
-    },
-    {
-        tool: 'mcp__ast-grep__find_code_by_rule',
-        line: 'The plugin rewrites language typescript to tsx and a relative project_folder to an absolute one, inline rules bind local utils alone, and ast-grep scan -c <config> proves a global util',
-    },
-    {
-        tool: 'mcp__ast-grep__test_match_code_rule',
-        line: "No match, a rejected rule, and an error diagnostic read as one failure, and printf '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $? separates them by exit code 0, 8, and 1",
-    },
-] as const satisfies readonly DescribeRow[];
+// One line per tool that a fresh session calls wrong the first time, prepended to the tool's description
+const DESCRIBE: Readonly<Partial<Record<ToolName, string>>> = {
+    ['WebSearch']: 'WebSearch is refused, mcp__exa__web_search_exa and tvly search replace it',
+    ['WebFetch']: 'WebFetch is refused, the docs and github tools, tvly extract, and mcp__exa__web_fetch_exa replace it',
+    'mcp__roslyn-codelens__trust_solution': `The command-line solution ${SOLUTION} is trusted for the session, the plugin answers a call on it without the server, and trust_solution serves another solution alone`,
+    'mcp__ast-grep__dump_syntax_tree': 'format=cst shows the node kinds and field names a rule reads, and format=pattern shows how a pattern parses',
+    'mcp__ast-grep__find_code': 'The plugin rewrites language typescript to tsx and a relative project_folder to an absolute one',
+    'mcp__ast-grep__find_code_by_rule':
+        'The plugin rewrites language typescript to tsx and a relative project_folder to an absolute one, inline rules bind local utils alone, and ast-grep scan -c <config> proves a global util',
+    'mcp__ast-grep__test_match_code_rule':
+        "No match, a rejected rule, and an error diagnostic read as one failure, and printf '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $? separates them by exit code 0, 8, and 1",
+};
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _isKnownServer = (name: string): name is Server => Object.hasOwn(SERVERS, name);
+// The declarations' own narrowing on the tool field
+const isTool =
+    <T extends ToolName>(tool: T): ((e: ToolCallInput) => e is Named<T>) =>
+    (e: ToolCallInput): e is Named<T> =>
+        e.tool === tool;
 
-// The server of an MCP tool name when the server table holds it
-const server = (tool: string): Option<Server> => flatMap(fromPredicate(_isKnownServer))(fromNullable(_SERVER_NAME.exec(tool)?.groups?.server));
+const _route = (url: string): string => {
+    const host = URL.canParse(url) ? new URL(url).hostname : '';
+    return Object.entries(FETCH).find(([suffix]) => host.endsWith(suffix))?.[1] ?? _FETCH_FALLBACK;
+};
+
+// A row of one tool, each rule typed over that tool's event and lifted over the union, an event of another tool passes
+const _row = <T extends ToolName>(tool: T, rules: Rules<T>): ToolRow => {
+    const is = isTool(tool);
+    return {
+        ...rules,
+        tool,
+        deny: (e): string | undefined => (is(e) ? rules.deny?.(e) : undefined),
+        answer: (e): readonly McpContentBlock[] | undefined => (is(e) ? rules.answer?.(e) : undefined),
+        rewrite: (e, facts): Rewritten | undefined => (is(e) ? rules.rewrite?.(e, facts) : undefined),
+    };
+};
+
+// The folder of the two ast-grep search tools resolved against the working directory
+const _absoluteFolder = (e: Named<'mcp__ast-grep__find_code' | 'mcp__ast-grep__find_code_by_rule'>, facts: Facts): Rewritten | undefined =>
+    e.project_folder.startsWith('/') ? undefined : { e: { ...e, ['project_folder']: `${facts.cwd}/${e.project_folder}` }, context: _FOLDER_LINE };
+
+// Rows over the tool names the declarations know, a tool's rewrite rows run in table order and each reads the event the one before produced
+const TOOLS: readonly ToolRow[] = [
+    _row('WebSearch', { deny: (): string => 'WebSearch is refused, search with mcp__exa__web_search_exa or tvly search' }),
+    _row('WebFetch', { deny: (e): string => `WebFetch is refused, ${_route(e.url)}` }),
+    _row('mcp__playwright__browser_run_code_unsafe', {
+        deny: (): string => 'browser_run_code_unsafe runs arbitrary code in the page, use the typed browser tools',
+    }),
+    _row('mcp__roslyn-codelens__trust_solution', {
+        answer: (e): readonly McpContentBlock[] | undefined => (basename(e.path) === SOLUTION ? _TRUST_ANSWER : undefined),
+    }),
+    _row('mcp__hostinger__VPS_createSnapshotV1', { records: 'snapshot' }),
+    _row('mcp__hostinger__DNS_getDNSRecordsV1', { records: 'dns' }),
+    _row('mcp__ast-grep__find_code', {
+        rewrite: (e): Rewritten | undefined => (e.language === 'typescript' ? { e: { ...e, language: 'tsx' }, context: _TSX_LINE } : undefined),
+    }),
+    _row('mcp__ast-grep__find_code', { rewrite: _absoluteFolder }),
+    _row('mcp__ast-grep__find_code_by_rule', {
+        rewrite: (e): Rewritten | undefined =>
+            _YAML_TYPESCRIPT.test(e.yaml) ? { e: { ...e, yaml: e.yaml.replace(_YAML_TYPESCRIPT, '$<key>tsx') }, context: _TSX_LINE } : undefined,
+    }),
+    _row('mcp__ast-grep__find_code_by_rule', { rewrite: _absoluteFolder }),
+];
+
+const _rows = (e: ToolCallInput): readonly ToolRow[] => TOOLS.filter((row) => row.tool === e.tool);
 
 // The billing tool names its targets under items, the other purchases under item_id, the machine and domain tools by their id
-type _Items = McpToolInputs['mcp__hostinger__billing_createPurchaseOrderV1']['items'];
+const _id = (e: ToolCallInput): string => {
+    const fields: Readonly<Record<string, unknown>> = e;
+    const items = Array.isArray(fields.items) ? fields.items : [];
+    const first: unknown = items[0];
+    return String(fields.virtualMachineId ?? fields.domain ?? fields.item_id ?? (isRecord(first) && isString(first.item_id) ? first.item_id : ''));
+};
 
-const _isItems = (value: unknown): value is _Items => Array.isArray(value) && value.every((item) => isRecord(item) && isString(item.item_id));
+const _serverOnce = (tool: string): OnceLine | undefined => SERVERS[_SERVER_NAME.exec(tool)?.groups?.server ?? ''];
 
-const _id = (e: ToolEvent): string =>
-    String(
-        e.virtualMachineId ??
-            e.domain ??
-            e.item_id ??
-            getOrElse(() => '')(map((items: _Items): string => items[0]?.item_id ?? '')(fromPredicate(_isItems)(e.items))),
-    );
+// The once lines the call raises, the server's skill line then the tool's own
+const toolOnce = (e: ToolCallInput): readonly OnceLine[] => [_serverOnce(e.tool) ?? [], _rows(e).flatMap((row) => row.once ?? [])].flat();
 
-const _family = (tool: string): Option<Family> => fromNullable(FAMILIES.find((family) => tool.startsWith(family.prefix)));
+const _familyReason = (e: ToolCallInput, facts: Facts): string | undefined => {
+    const family = FAMILIES.find((candidate) => e.tool.startsWith(candidate.prefix));
+    return family !== undefined && !family.holds(facts, _id(e)) ? family.reason : undefined;
+};
 
-const _rows = (tool: string): readonly ToolEntry[] => TOOLS.filter((row) => row.tool === tool);
-
-// The first row of the tool, the one its deny, once, each, and records fields sit on
-const _row = (tool: string): Option<ToolEntry> => fromNullable(_rows(tool)[0]);
-
-const _serverRow = (tool: string): Option<ServerRow> => flatMap((name: Server) => fromNullable(SERVERS[name]))(server(tool));
-
-const _serverOnce = (tool: string): Option<Once> => map((row: ServerRow): Once => ({ key: row.skill, line: row.line }))(_serverRow(tool));
-
-const _onceRows = (tool: string): readonly Once[] => [
-    ...toArray(_serverOnce(tool)),
-    ...toArray(flatMap((row: ToolRow) => fromNullable(row.once))(_row(tool))),
-];
-
-const _requirementReason = (e: ToolEvent, facts: Facts): Option<string> =>
-    flatMap((family: Family) =>
-        liftPredicate<string>(() => !_REQUIREMENT[family.requires].holds(facts, _id(e)))(_REQUIREMENT[family.requires].reason),
-    )(_family(e.tool));
-
-// The row's deny rule run over the event, its decision read as the reason or none
-const _rowReason = (e: ToolCallInput): Option<string> =>
-    flatMap((rule: Rule<ToolCallInput, never, string>) =>
-        rule(e).match<Option<string>>({ deny: some, rewrite: () => none<string>(), answer: absurd }),
-    )(flatMap((row: ToolRow) => fromNullable(row.deny))(_row(e.tool)));
-
-const _denyReason = (e: ToolCallInput, facts: Facts): Option<string> =>
-    _rowReason(e).match<Option<string>>({ some, none: () => _requirementReason(e, facts) });
-
-const _context = (e: ToolEvent, facts: Facts): readonly string[] => [
-    ..._onceRows(e.tool)
-        .filter((once) => !facts.seen.has(once.key))
-        .map((once) => once.line),
-    ...toArray(flatMap((row: ToolRow) => fromNullable(row.each))(_row(e.tool))),
-];
-
-// The tool's rewrite rows folded in table order, a row that applies feeds the next its event and adds its line, a none keeps the state
-const _applied = (e: ToolCallInput, facts: Facts): Applied =>
-    _rows(e.tool).reduce<Applied>(
-        (state, row) =>
-            flatMap((change: NonNullable<ToolRow['rewrite']>) => change(state.e, facts))(fromNullable(row.rewrite)).match<Applied>({
-                some: (next) => ({ e: next.e, context: [...state.context, next.context] }),
-                none: () => state,
-            }),
-        { e, context: [] },
-    );
-
-// The rewritten event with the rewrite lines, then the once and each lines
-const _pass = (applied: Applied, facts: Facts): Decision<ToolCallInput, unknown, string> =>
-    rewrite(applied.e, [...applied.context, ..._context(applied.e, facts)]);
-
-// The row's answer rule run over the event, the result the plugin serves in the server's place or none
-const _rowAnswer = (e: ToolCallInput): Option<readonly McpContentBlock[]> =>
-    flatMap((rule: NonNullable<ToolRow['answer']>) => rule(e))(flatMap((row: ToolRow) => fromNullable(row.answer))(_row(e.tool)));
-
-// The table answer ends the rule, then the table deny or the family requirement, otherwise the rewrite rows run and their lines join the
-// once and each lines
+// The table answer ends the rule, then the table deny or the family requirement, otherwise the rewrite rows run and their lines join the once and each lines
 const toolRule =
-    (facts: Facts): Rule<ToolCallInput, unknown, string> =>
-    (e: ToolCallInput): Decision<ToolCallInput, unknown, string> =>
-        _rowAnswer(e).match<Decision<ToolCallInput, unknown, string>>({
-            some: answer,
-            none: () =>
-                _denyReason(e, facts).match<Decision<ToolCallInput, unknown, string>>({
-                    some: deny,
-                    none: () => _pass(_applied(e, facts), facts),
-                }),
-        });
+    (facts: Facts): ((e: ToolCallInput) => Decision<ToolCallInput, readonly McpContentBlock[]>) =>
+    (e: ToolCallInput): Decision<ToolCallInput, readonly McpContentBlock[]> => {
+        const rows = _rows(e);
+        const answered = rows.map((row) => row.answer?.(e)).find((blocks) => blocks !== undefined);
+        if (answered !== undefined) {
+            return answer(answered);
+        }
+        const reason = rows.map((row) => row.deny?.(e)).find((found) => found !== undefined) ?? _familyReason(e, facts);
+        if (reason !== undefined) {
+            return deny(reason);
+        }
+        const applied = rows.reduce<{ readonly e: ToolCallInput; readonly context: readonly string[] }>(
+            (state, row) => {
+                const next = row.rewrite?.(state.e, facts);
+                return next === undefined ? state : { e: next.e, context: [...state.context, next.context] };
+            },
+            { e, context: [] },
+        );
+        const once = toolOnce(e).filter((line) => line.key === undefined || !facts.seen.has(line.key));
+        return rewrite(applied.e, [...applied.context, ...once.map((line) => line.line), ...rows.flatMap((row) => row.each ?? [])]);
+    };
 
 // The fact a successful call records, read by the hostinger families later in the session
-const toolRecords = (e: ToolEvent): Option<Recorded> =>
-    flatMap((row: ToolRow) => map((kind: Recording): Recorded => ({ kind, id: _id(e) }))(fromNullable(row.records)))(_row(e.tool));
+const toolRecords = (e: ToolCallInput): Recorded | undefined => {
+    const [namespace] = _rows(e).flatMap((row) => row.records ?? []);
+    return namespace === undefined ? undefined : { namespace, id: _id(e) };
+};
 
-// The keys the adapter stamps as injected once the call ran
-const toolSkills = (e: ToolEvent): readonly string[] => _onceRows(e.tool).map((once) => once.key);
-
-// The owning skill's line, then the tool's own row, one per line, none when the tool has neither
-const _describeLine = (tool: string): Option<string> =>
-    liftPredicate<string>((line) => line !== '')(
-        [
-            ...toArray(map((row: ServerRow) => `Load the ${row.skill} skill before the first call`)(_serverRow(tool))),
-            ...toArray(map((row: DescribeRow) => row.line)(fromNullable(DESCRIBE.find((row) => row.tool === tool)))),
-        ].join('\n'),
+// The owning skill's line, then the tool's own row, one per line, undefined when the tool has neither
+const describeLine = (tool: string): string | undefined => {
+    const server = _serverOnce(tool);
+    const own = DESCRIBE[tool as ToolName];
+    const text = [...(server === undefined ? [] : [`Load the ${server.key} skill before the first call`]), ...(own === undefined ? [] : [own])].join(
+        '\n',
     );
-
-// Reads the tables alone, the per-session description cache then holds with no invalidate
-const describeRule = <E extends ToolDescribeInput>(e: E): Decision<E, ToolDescribeResult, never> =>
-    _describeLine(e.tool).match<Decision<E, ToolDescribeResult, never>>({
-        some: (line) => answer({ description: `${line}\n${e.description}` }),
-        none: () => rewrite(e, []),
-    });
+    return text === '' ? undefined : text;
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { DescribeRow, Facts, Family, Named, Recorded, Route, Server, ServerRow, ToolEntry, ToolEvent, ToolName, ToolRow };
-export { DESCRIBE, describeRule, FAMILIES, FETCH, isTool, SERVERS, TOOLS, toolRecords, toolRule, toolSkills };
+export type { Facts, Family, Named, Recorded, ToolName, ToolRow };
+export { describeLine, isTool, toolOnce, toolRecords, toolRule };

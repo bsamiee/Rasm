@@ -1,8 +1,65 @@
-// Store keys and decoders, one key per row under a namespace because the store has no compare-and-set
+// Store keys and the refinements that read a stored value, one key per row under a namespace because the store has no compare-and-set
 
-// --- [IMPORTS] -------------------------------------------------------------------------
+// --- [TYPES] ---------------------------------------------------------------------------
 
-import { fromPredicate, getOrElse, isRecord, liftPredicate, map, none, type Option, some, struct, toArray } from '../composition/option.ts';
+type Namespace = (typeof NAMESPACES)[number];
+
+type Kind = (typeof KIND_NAMES)[number];
+
+type Status = (typeof STATUS)[number];
+
+type Part = (typeof PART_NAMES)[number];
+
+type Guard<T> = (value: unknown) => value is T;
+
+// A record of field refinements and the record type it reads
+type Shape = Readonly<Record<string, Guard<unknown>>>;
+
+type Struct<S extends Shape> = { readonly [K in keyof S]: S[K] extends Guard<infer T> ? T : never };
+
+// The value of secrets, and of session/<session>: the variables `mise env --json` answers, the init.env of every $.process.run
+type StringRecord = Readonly<Record<string, string>>;
+
+interface Notice {
+    readonly text: string;
+}
+
+// The snapshot over every findings row, the one key the band and the open-question block read
+interface Summary {
+    readonly open: number;
+    readonly questions: readonly string[];
+}
+
+interface Finding {
+    readonly session: string;
+    readonly file: string;
+    readonly section: string;
+    readonly evidence: string;
+    readonly change: string;
+    readonly kind: Kind;
+    readonly status: Status;
+    readonly proof: string;
+    readonly ts: number;
+}
+
+// The ISO time each guidance part was last cleaned, null for a reset stamp
+type Cleaned = Readonly<Partial<Record<Part, string | null>>>;
+
+// The batch one session start spawned the orchestrator over: open rows of one kind, or a guidance part due for cleaning
+type Dispatch =
+    | { readonly spawnedAt: number; readonly rows: readonly string[]; readonly kind: Kind }
+    | { readonly spawnedAt: number; readonly rows: readonly []; readonly part: Part };
+
+// One rule hit of an edit-time scan under scan/<iso>-<rand>, the key's stamp is the time of the hit
+interface Scan {
+    readonly ruleId: string;
+    readonly file: string;
+}
+
+interface Entry {
+    readonly key: string;
+    readonly value: unknown;
+}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -35,96 +92,6 @@ const _RANDOM_LENGTH = 8;
 // The ISO stamp id() writes before the random tail, stampOf reads it back
 const _ISO_LENGTH = new Date(0).toISOString().length;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Namespace = (typeof NAMESPACES)[number];
-
-type Kind = (typeof KIND_NAMES)[number];
-
-type Status = (typeof STATUS)[number];
-
-type Part = (typeof PART_NAMES)[number];
-
-type Secrets = Readonly<Record<string, string>>;
-
-// The variables `mise env --json` answers in the session's working directory, PATH and the mise.toml [env] rows, the init.env of every $.process.run
-type Environment = Readonly<Record<string, string>>;
-
-interface Session {
-    readonly startedAt: number;
-    readonly memoryDir: string | null;
-    readonly remoteOwner: string | null;
-    readonly env: Environment;
-}
-
-interface Notice {
-    readonly text: string;
-}
-
-// The snapshot over every findings row, the open count and one line per open-question row, the one key the band and the block read
-interface Summary {
-    readonly open: number;
-    readonly questions: readonly string[];
-}
-
-interface Finding {
-    readonly session: string;
-    readonly file: string;
-    readonly section: string;
-    readonly evidence: string;
-    readonly change: string;
-    readonly kind: Kind;
-    readonly status: Status;
-    readonly proof: string;
-    readonly ts: number;
-}
-
-type Cleaned = Readonly<Partial<Record<Part, string | null>>>;
-
-// The value under the once-per-session keys of injected, loaded, snapshot, and dns, and under roslyn/<session> the last .cs write
-interface Stamp {
-    readonly session: string;
-    readonly at: number;
-}
-
-// The batch the timer spawned the editor over, under dispatch/<batchId>: a kind batch over open rows, or a part cleaning batch with none
-interface KindDispatch {
-    readonly rows: readonly string[];
-    readonly spawnedAt: number;
-    readonly kind: Kind;
-}
-
-interface PartDispatch {
-    readonly rows: readonly [];
-    readonly spawnedAt: number;
-    readonly part: Part;
-}
-
-type Dispatch = KindDispatch | PartDispatch;
-
-// The durable stamp under skill/<name>, the newest session that loaded the skill, survives session.start's pruning
-interface Skill {
-    readonly loadedAt: number;
-    readonly session: string;
-}
-
-// One rule hit of an edit-time scan under the durable scan/<iso>-<rand>, the key's stamp is the time of the hit
-interface Scan {
-    readonly ruleId: string;
-    readonly file: string;
-}
-
-// Finding with the key it sits under, the shape the close tool reads and writes
-interface KeyedFinding {
-    readonly key: string;
-    readonly row: Finding;
-}
-
-interface Entry {
-    readonly key: string;
-    readonly value: unknown;
-}
-
 // --- [KEYS] ----------------------------------------------------------------------------
 
 const key = (namespace: Namespace, ...parts: readonly string[]): string => [namespace, ...parts].join('/');
@@ -150,53 +117,50 @@ const ids =
 // Row ids from a $.clock.now() value and a crypto.randomUUID() value
 const id = (now: number, random: string): string => `${new Date(now).toISOString()}-${random.slice(0, _RANDOM_LENGTH)}`;
 
-// The clock value an id() row id opens with, none when its ISO stamp does not parse
-const stampOf = (rowId: string): Option<number> => liftPredicate<number>((at) => !Number.isNaN(at))(Date.parse(rowId.slice(0, _ISO_LENGTH)));
-
-// The value every once-per-session key holds, from the session id and a $.clock.now() value
-const stamp = (session: string, at: number): Stamp => ({ session, at });
+// The clock value an id() row id opens with, undefined when its ISO stamp does not parse
+const stampOf = (rowId: string): number | undefined => {
+    const at = Date.parse(rowId.slice(0, _ISO_LENGTH));
+    return Number.isNaN(at) ? undefined : at;
+};
 
 // --- [REFINEMENTS] ---------------------------------------------------------------------
 
-const isString = (value: unknown): value is string => typeof value === 'string';
+const isString: Guard<string> = (value): value is string => typeof value === 'string';
 
-const isNumber = (value: unknown): value is number => typeof value === 'number';
+const isNumber: Guard<number> = (value): value is number => typeof value === 'number';
 
-const isNullableString = (value: unknown): value is string | null => value === null || isString(value);
+const isNullableString: Guard<string | null> = (value): value is string | null => value === null || isString(value);
 
-const _isStringArray = (value: unknown): value is readonly string[] => Array.isArray(value) && value.every(isString);
+const isRecord: Guard<Readonly<Record<string, unknown>>> = (value): value is Readonly<Record<string, unknown>> =>
+    typeof value === 'object' && value !== null && !Array.isArray(value);
 
-// The field a dispatch row of the other kind lacks, and the empty rows of a part dispatch
-const _isUndefined = (value: unknown): value is undefined => value === undefined;
+const isStringArray: Guard<readonly string[]> = (value): value is readonly string[] => Array.isArray(value) && value.every(isString);
 
-const _isEmptyArray = (value: unknown): value is readonly [] => Array.isArray(value) && value.length === 0;
+const isKind: Guard<Kind> = (value): value is Kind => KIND_NAMES.some((kind) => kind === value);
 
-const isKind = (value: unknown): value is Kind => KIND_NAMES.some((kind) => kind === value);
+const isPart: Guard<Part> = (value): value is Part => PART_NAMES.some((part) => part === value);
 
-const isPart = (value: unknown): value is Part => PART_NAMES.some((part) => part === value);
+const _isStatus: Guard<Status> = (value): value is Status => STATUS.some((status) => status === value);
 
-const _isStatus = (value: unknown): value is Status => STATUS.some((status) => status === value);
+// The refinement widened to admit an absent value, the form of an optional field in a shape
+const optional =
+    <T>(guard: Guard<T>): Guard<T | undefined> =>
+    (value): value is T | undefined =>
+        value === undefined || guard(value);
 
-const _isStringRecord = (value: unknown): value is Readonly<Record<string, string>> => isRecord(value) && Object.values(value).every(isString);
+// One refinement over unknown from a shape of field refinements, holds on a record whose every named field passes its own
+const struct =
+    <S extends Shape>(shape: S): Guard<Struct<S>> =>
+    (value): value is Struct<S> =>
+        isRecord(value) && Object.entries(shape).every(([field, guard]) => guard(value[field]));
 
-const _isSecrets: (value: unknown) => value is Secrets = _isStringRecord;
+const isStringRecord: Guard<StringRecord> = (value): value is StringRecord => isRecord(value) && Object.values(value).every(isString);
 
-const _isEnvironment: (value: unknown) => value is Environment = _isStringRecord;
+const isNotice: Guard<Notice> = struct({ text: isString });
 
-const _isSession: (value: unknown) => value is Session = struct({
-    startedAt: isNumber,
-    memoryDir: isNullableString,
-    remoteOwner: isNullableString,
-    env: _isEnvironment,
-});
+const isSummary: Guard<Summary> = struct({ open: isNumber, questions: isStringArray });
 
-const _isNotice: (value: unknown) => value is Notice = struct({ text: isString });
-
-const _isSummary: (value: unknown) => value is Summary = struct({ open: isNumber, questions: _isStringArray });
-
-const _isStamp: (value: unknown) => value is Stamp = struct({ session: isString, at: isNumber });
-
-const _isFinding: (value: unknown) => value is Finding = struct({
+const isFinding: Guard<Finding> = struct({
     session: isString,
     file: isString,
     section: isString,
@@ -208,132 +172,73 @@ const _isFinding: (value: unknown) => value is Finding = struct({
     ts: isNumber,
 });
 
-// The cleaned stamps as the store holds them and as the close input carries them, one refinement for both readers
-const isCleaned = (value: unknown): value is Cleaned =>
+const isCleaned: Guard<Cleaned> = (value): value is Cleaned =>
     isRecord(value) && Object.entries(value).every(([name, part]) => isPart(name) && isNullableString(part));
 
-const isKindDispatch: (value: unknown) => value is KindDispatch = struct({
-    rows: _isStringArray,
-    spawnedAt: isNumber,
-    kind: isKind,
-    part: _isUndefined,
-});
+const _isKindDispatch: Guard<Extract<Dispatch, { kind: Kind }>> = struct({ spawnedAt: isNumber, rows: isStringArray, kind: isKind });
 
-const isPartDispatch: (value: unknown) => value is PartDispatch = struct({
-    rows: _isEmptyArray,
+const _isPartDispatch: Guard<Extract<Dispatch, { part: Part }>> = struct({
     spawnedAt: isNumber,
+    rows: (value): value is readonly [] => Array.isArray(value) && value.length === 0,
     part: isPart,
-    kind: _isUndefined,
 });
 
-const _isDispatch = (value: unknown): value is Dispatch => isKindDispatch(value) || isPartDispatch(value);
+const isDispatch: Guard<Dispatch> = (value): value is Dispatch => _isKindDispatch(value) || _isPartDispatch(value);
 
-const _isSkill: (value: unknown) => value is Skill = struct({ loadedAt: isNumber, session: isString });
-
-const _isScan: (value: unknown) => value is Scan = struct({ ruleId: isString, file: isString });
+const isScan: Guard<Scan> = struct({ ruleId: isString, file: isString });
 
 // --- [DECODERS] ------------------------------------------------------------------------
 
-const decodeSecrets: (value: unknown) => Option<Secrets> = fromPredicate(_isSecrets);
-
-const decodeEnvironment: (value: unknown) => Option<Environment> = fromPredicate(_isEnvironment);
-
-const decodeSession: (value: unknown) => Option<Session> = fromPredicate(_isSession);
-
-const decodeNotice: (value: unknown) => Option<Notice> = fromPredicate(_isNotice);
-
-const decodeSummary: (value: unknown) => Option<Summary> = fromPredicate(_isSummary);
-
-// The roslyn/<session> row, the once keys are read by presence and never decoded
-const decodeStamp: (value: unknown) => Option<Stamp> = fromPredicate(_isStamp);
-
-const decodeFinding: (value: unknown) => Option<Finding> = fromPredicate(_isFinding);
-
-const decodeCleaned: (value: unknown) => Option<Cleaned> = fromPredicate(isCleaned);
-
-const decodeDispatch: (value: unknown) => Option<Dispatch> = fromPredicate(_isDispatch);
-
-const decodeSkill: (value: unknown) => Option<Skill> = fromPredicate(_isSkill);
-
-const decodeScan: (value: unknown) => Option<Scan> = fromPredicate(_isScan);
-
-// Every value under findings/ that decodes, the rows the events read together
-const decodeFindings = (values: readonly unknown[]): readonly Finding[] => values.flatMap((value) => toArray(decodeFinding(value)));
-
-const decodeKeyedFindings = (entries: readonly Entry[]): readonly KeyedFinding[] =>
-    entries.flatMap((entry) => toArray(map((row: Finding): KeyedFinding => ({ key: entry.key, row }))(decodeFinding(entry.value))));
-
-// The plugin's one JSON boundary, every text from the host or the model crosses it and a throw reads as none
-const decodeJson = (text: string): Option<unknown> => {
+// The plugin's one JSON boundary, every text from the host or the model crosses it and a throw reads as undefined
+const decodeJson = (text: string): unknown => {
     try {
-        return some(JSON.parse(text));
+        return JSON.parse(text);
     } catch {
-        return none();
+        return undefined;
     }
 };
 
-// Absent or malformed secrets or cleaned values read as the empty record, the seed and the first close are outside the plugin's own writes
-const secretsOf = (value: unknown): Secrets => getOrElse((): Secrets => ({}))(decodeSecrets(value));
+// The value under a refinement, undefined for a value outside it
+const decode =
+    <T>(guard: Guard<T>): ((value: unknown) => T | undefined) =>
+    (value: unknown): T | undefined =>
+        guard(value) ? value : undefined;
 
-const cleanedOf = (value: unknown): Cleaned => getOrElse((): Cleaned => ({}))(decodeCleaned(value));
+// The findings rows of a list of entries with their keys, an entry outside the shape drops
+const findings = (entries: readonly Entry[]): readonly (Entry & { readonly row: Finding })[] =>
+    entries.flatMap((entry) => (isFinding(entry.value) ? [{ ...entry, row: entry.value }] : []));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type {
-    Cleaned,
-    Dispatch,
-    Entry,
-    Environment,
-    Finding,
-    KeyedFinding,
-    Kind,
-    KindDispatch,
-    Namespace,
-    Notice,
-    Part,
-    PartDispatch,
-    Scan,
-    Secrets,
-    Session,
-    Skill,
-    Stamp,
-    Status,
-    Summary,
-};
+export type { Cleaned, Dispatch, Entry, Finding, Guard, Kind, Namespace, Notice, Part, Scan, Status, StringRecord, Summary };
 export {
-    cleanedOf,
-    decodeCleaned,
-    decodeDispatch,
-    decodeEnvironment,
-    decodeFinding,
-    decodeFindings,
+    decode,
     decodeJson,
-    decodeKeyedFindings,
-    decodeNotice,
-    decodeScan,
-    decodeSecrets,
-    decodeSession,
-    decodeSkill,
-    decodeStamp,
-    decodeSummary,
+    findings,
     id,
     ids,
     isCleaned,
+    isDispatch,
+    isFinding,
     isKind,
-    isKindDispatch,
+    isNotice,
     isNullableString,
     isNumber,
     isPart,
-    isPartDispatch,
+    isRecord,
+    isScan,
     isString,
+    isStringArray,
+    isStringRecord,
+    isSummary,
     KIND_NAMES,
     key,
     keys,
     NAMESPACES,
+    optional,
     PART_NAMES,
     STATUS,
-    secretsOf,
-    stamp,
     stampOf,
+    struct,
     suffix,
 };

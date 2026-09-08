@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-event-layer-in-policy
+language: tsx
+severity: error
+files:
+    - '**/.claude/plugins/**/hooks/policies/**'
+    - '**/.claude/plugins/**/hooks/text/**'
+    - '**/.claude/plugins/**/hooks/host/**'
+    - '**/.claude/plugins/**/hooks/composition/**'
+ignores:
+    - '**/*.spec.ts'
+rule:
+    any:
+        - matches: claude-code-engine-name
+        - {kind: call_expression, has: {field: function, kind: identifier, regex: ^next$}}
+        - kind: string
+          inside: {kind: 'import_statement, export_statement', field: source}
+          regex: '/events/'
+    pattern: $MATCH
+message: '`$MATCH` binds the module to the event layer'
+note: Keep `$`, `next`, and the event modules under `hooks/events/`, and pass a policy the values it decides on
+labels: {MATCH: {style: primary}}
