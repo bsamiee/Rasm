@@ -1,0 +1,13 @@
+# YAML lint beside yamlfmt, which owns indentation and width
+
+extends: default
+
+rules:
+    line-length: disable
+    indentation: disable
+    document-start: disable
+    truthy:
+        allowed-values: ["true", "false", "off"] # ast-grep severity off
+        check-keys: false # Workflow on key
+    comments:
+        min-spaces-from-content: 1

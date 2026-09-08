@@ -232,6 +232,7 @@
         "otplib": "catalog:",
         "papaparse": "catalog:",
         "parquet-wasm": "catalog:",
+        "pg-formatter": "catalog:",
         "prosemirror-collab": "catalog:",
         "prosemirror-commands": "catalog:",
         "prosemirror-dropcursor": "catalog:",
@@ -345,15 +346,17 @@
                 ],
                 "options": {
                     "commands": [
-                        "biome check --error-on-warnings {args}",
-                        "actionlint",
-                        "zizmor --offline .github",
-                        "git ls-files --cached --others --exclude-standard -z -- '*.sh' | xargs -0 -r shellcheck",
-                        "ast-grep scan --no-ignore hidden *.ts *.props *.targets *.slnx NuGet.config nx.json package.json .claude/settings.json .claude/skills/ast-grep/scripts .github infra tools"
+                        "biome check --error-on-warnings --no-errors-on-unmatched {args}",
+                        "ast-grep scan --no-ignore hidden {args}",
+                        "typos {args}",
+                        "fd -H -s -p -e yml -e yaml '\\.github/workflows/' {args} -X actionlint",
+                        "fd -H -s -p -e yml -e yaml '\\.github/(workflows|actions)/' {args} -X zizmor --offline",
+                        "fd -H -e sh . {args} -X shellcheck",
+                        "fd -H -e yaml -e yml -E __snapshots__ -E pnpm-lock.yaml . {args} -X yamllint",
+                        "fd -e sql . {args} -X sqlfluff lint"
                     ],
-                    "args": "*.json *.ts .mcp.json .vscode infra tools tests/typescript/ast-grep",
-                    "forwardAllArgs": false,
-                    "parallel": false
+                    "parallel": false,
+                    "forwardAllArgs": false
                 },
                 "inputs": [
                     "tooling",
@@ -361,8 +364,10 @@
                     "{workspaceRoot}/.claude/settings.json",
                     "{workspaceRoot}/.shellcheckrc",
                     "{workspaceRoot}/**/*.sh",
+                    "{workspaceRoot}/**/*.{yaml,yml}",
+                    "{workspaceRoot}/**/*.sql",
                     {
-                        "runtime": "actionlint --version && zizmor --version && shellcheck --version"
+                        "runtime": "actionlint --version && zizmor --version && shellcheck --version && typos --version && yamllint --version && sqlfluff --version"
                     }
                 ]
             },
@@ -371,16 +376,19 @@
                 "cache": false,
                 "options": {
                     "commands": [
-                        "biome check --write --error-on-warnings *.json *.ts .mcp.json .vscode infra tools tests/typescript/ast-grep",
-                        "git ls-files --cached --others --exclude-standard -z -- '*.sh' | xargs -0 -r shfmt -w",
-                        "fd --hidden --type f --extension yaml --extension yml --exclude __snapshots__ --exclude pnpm-lock.yaml --exec-batch yamlfmt"
+                        "biome check --write --error-on-warnings --no-errors-on-unmatched {args}",
+                        "typos --write-changes {args}",
+                        "fd -H -e sh . {args} -X shfmt -w",
+                        "fd -H -e yaml -e yml -E __snapshots__ -E pnpm-lock.yaml . {args} -X yamlfmt",
+                        "fd -e sql . {args} -X pg-formatter --inplace"
                     ],
-                    "parallel": false
+                    "parallel": false,
+                    "forwardAllArgs": false
                 },
                 "inputs": [
                     "tooling",
                     {
-                        "runtime": "shfmt --version"
+                        "runtime": "shfmt --version && typos --version && pg-formatter --version"
                     }
                 ]
             },
@@ -392,9 +400,39 @@
                     "grammar"
                 ]
             },
-            "check": {},
-            "typecheck": {
+            "check": {
+                "executor": "nx:run-commands",
+                "cache": true,
+                "dependsOn": [
+                    "grammar",
+                    "rules"
+                ],
+                "options": {
+                    "commands": [
+                        "biome check --error-on-warnings --no-errors-on-unmatched {args}",
+                        "ast-grep scan --no-ignore hidden {args}",
+                        "typos {args}",
+                        "fd -H -s -p -e yml -e yaml '\\.github/workflows/' {args} -X actionlint",
+                        "fd -H -s -p -e yml -e yaml '\\.github/(workflows|actions)/' {args} -X zizmor --offline",
+                        "fd -H -e sh . {args} -X shellcheck",
+                        "fd -H -e yaml -e yml -E __snapshots__ -E pnpm-lock.yaml . {args} -X yamllint",
+                        "fd -e sql . {args} -X sqlfluff lint",
+                        "tsc --build --pretty false"
+                    ],
+                    "parallel": false,
+                    "forwardAllArgs": false
+                },
                 "inputs": [
+                    "tooling",
+                    "{workspaceRoot}/.github/**/*",
+                    "{workspaceRoot}/.claude/settings.json",
+                    "{workspaceRoot}/.shellcheckrc",
+                    "{workspaceRoot}/**/*.sh",
+                    "{workspaceRoot}/**/*.{yaml,yml}",
+                    "{workspaceRoot}/**/*.sql",
+                    {
+                        "runtime": "actionlint --version && zizmor --version && shellcheck --version && typos --version && yamllint --version && sqlfluff --version"
+                    },
                     "{workspaceRoot}/*.config.ts",
                     "{workspaceRoot}/{tsconfig.json,tsconfig.base.json}",
                     "{workspaceRoot}/package.json",
@@ -445,6 +483,23 @@
                         "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore Workspace.slnx"
                     ],
                     "parallel": false
+                },
+                "configurations": {
+                    "python": {
+                        "commands": [
+                            "uv lock --upgrade"
+                        ]
+                    },
+                    "typescript": {
+                        "commands": [
+                            "pnpm update --latest --recursive"
+                        ]
+                    },
+                    "dotnet": {
+                        "commands": [
+                            "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore Workspace.slnx"
+                        ]
+                    }
                 }
             },
             "workflow": {

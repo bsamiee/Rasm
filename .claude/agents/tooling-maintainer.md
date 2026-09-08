@@ -84,7 +84,7 @@ Binary `mise which <tool>` names and the `nx show project` output decide over a 
 Every command returns zero warnings and zero errors:
 - `mise ls --current`, every row from `mise.toml` or `global.json` and none from a machine profile
 - `NX_DAEMON=false pnpm exec nx show projects --json | jq -S` diffed against the baseline, the intended edges alone
-- `pnpm exec nx run <root>:lint` and `pnpm exec nx run <root>:typecheck`, no finding line
+- `pnpm exec nx run <root>:check`, no finding line
 - `git diff | shasum` before and after `pnpm exec nx affected -t check`, equal hashes and every task at zero
 - `pnpm exec nx run <root>:harness` when `.claude/settings.json`, `.mcp.json`, or the plugin changed, its load line in the debug file
 - Clean-prose scan table over every comment line you wrote, no hit

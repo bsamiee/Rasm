@@ -86,7 +86,7 @@ Every command returns zero warnings and zero errors:
 - `pnpm exec biome check --write --error-on-warnings <scope>`, then `pnpm exec biome check --error-on-warnings <scope>` again, empty
 - `pnpm exec tsc --build --pretty false`, no output
 - `git diff | shasum` before and after `pnpm exec nx run-many -t check -p tag:language:typescript`, equal hashes and every task at zero
-- `pnpm exec nx run <root>:lint` and `pnpm exec nx run <root>:typecheck` when a root configuration, plugin, or rule file changed, no finding line
+- `pnpm exec nx run <root>:check` when a root configuration, plugin, or rule file changed, no finding line
 - `pnpm exec nx run <root>:coverage --language typescript`, the merged line
 - `pnpm exec nx graph --file=.artifacts/nx/graph.json`, every dependency from a consumer on a packaging project
 - `fd -g package.json apps libs tests | xargs -r jq -r '.nx.targets//{}|to_entries[]|select(.value=={})|input_filename+" "+.key'`, no line

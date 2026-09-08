@@ -302,6 +302,7 @@ catalog:
     '@octokit/rest': 22.0.1
     '@playwright/mcp': 0.0.80
     hostinger-api-mcp: 1.57.0
+    pg-formatter: 2.0.8
 overrides:
     # Providers' ^3 peer range excludes the catalog prerelease, and a second copy of the core fails resource registration
     '@pulumi/pulumi': 'catalog:'
@@ -348,6 +349,7 @@ allowBuilds:
     esbuild: true
     msgpackr-extract: true
     nx: true
+    pg-formatter: true # Postinstall fetches the pgFormatter perl script the binary runs
     protobufjs: true
     sharp: true
     unrs-resolver: true

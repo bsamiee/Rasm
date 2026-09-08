@@ -88,7 +88,7 @@ Action's `action.yml` at its tag and the run's own lines decide over a page or a
 Every command returns zero warnings and zero errors:
 - `pnpm exec nx run <root>:lint`, no actionlint, zizmor, or shellcheck line
 - `zizmor --offline .github`, the `No findings to report` line
-- `pnpm exec nx run <root>:typecheck` when a change reads a program row, exit 0, and the user's `up` run proves the row
+- `pnpm exec nx run <root>:check` when a change reads a program row, exit 0, and the user's `up` run proves the row
 - `pnpm exec nx run <root>:format`, then `git diff --exit-code` over `.github/`, exit 0
 - `pnpm exec nx run <root>:workflow -- --list`, every job of `ci.yml` listed
 - `pnpm exec nx run <root>:workflow -- --job=<job>` for each changed Linux job, the job's steps run and exit 0

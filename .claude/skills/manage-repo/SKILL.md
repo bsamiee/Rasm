@@ -235,7 +235,7 @@ The repository program declares the store project, its configs, and its tokens, 
 - `@pulumiverse/doppler` 0.9.0 is two years behind upstream, with no GitHub integration, change-request policy, or rotated secret
 - Trusted publishers on nuget.org, PyPI, and npm stay account settings, because neither the GitHub nor the Doppler provider models them
 
-The program's dependencies sit in the root catalog and manifest, the root `tsconfig.json` includes its files for the root `typecheck` target, and the root `up` and `refresh` targets run the program's entry under `doppler run --project <project> --config <config>` with the summary of resource changes as the proof:
+The program's dependencies sit in the root catalog and manifest, the root `tsconfig.json` includes its files for the `tsc --build` step of the root `check` target, and the root `up` and `refresh` targets run the program's entry under `doppler run --project <project> --config <config>` with the summary of resource changes as the proof:
 - The entry runs the stack through the Automation API on Pulumi Cloud with `PULUMI_ACCESS_TOKEN` from the environment and service secrets
 - Plugins sit under `.cache/pulumi/`
 - The infrastructure targets are `up` and `refresh`, and the automation entry holds the same subcommands

@@ -44,12 +44,30 @@ Use `mise.toml` `[settings]` and `[tools]` to resolve runtimes and binaries. Pac
 - `yq` resolves to Mike Farah's YAML processor, and `jq` resolves to jqlang's JSON processor
 - `ripgrep` supplies `rg`, and `fd` supplies filesystem queries used by repository and agent commands
 - `act` runs the workflow jobs, and `docker-cli` removes their containers
+- `sd` replaces literals, `difftastic` supplies `difft` for syntax-tree diffs, `hyperfine` times commands, and `duckdb` reads data files
+- `typos` reads under `lint` and writes under `format`, and `pyproject.toml` holds its `[tool.typos]` tables beside `[tool.sqlfluff.core]`
+- `sqlfluff` and `yamllint` are `dev` group rows the `.venv` copies resolve, and `.yamllint.yaml` holds the rules yamlfmt does not own
+- `pg-formatter` is a root devDependency under `allowBuilds`, because its postinstall fetches the pgFormatter script the binary runs
+- `[tool.sqlfluff.core]` excludes the layout rules, because `pg-formatter` writes the layout
+- `npm:pg-formatter` takes a `postinstall` row that runs the package's own script, because the npm backend installs with scripts ignored
 - Let the pipx backend order its configured Python and uv dependencies before installation
 - `claude` is the native install from the Claude Code installer, self-updating, the one binary the `harness` target and the agent sessions run
 - `claude` is no `[tools]` row: the docs list no mise route, and `claude update` recreates the native launcher beside any other copy
 - `mise` itself is the nix home-manager binary of the machine profile, and its upgrade belongs there
 - `[settings] lockfile` and `mise.lock` stay out, because a lock pins every `latest` row to the version it held at lock time
 - `[tool_alias]` names a version alias, `[plugins]` repoints a tool to a backend, and `mise install --yes` answers every confirmation prompt
+
+Add a binary in run order, and every step leaves its line in the report:
+1. Confirm no MCP server, installed tool, or package covers the need, and name the consumer the row's comment states
+2. Read `mise registry | rg '^<name> '` for the backend, and write `ubi:<owner>/<repo>`, `pipx:<package>`, or `npm:<package>` for a tool without an entry
+3. Add the row at `latest` in its group of `[tools]`, run `mise install --yes`, and read `mise which <binary>` under the mise install directory
+4. Run the tool once over a real input from the repository root, and read its output
+5. Join a checker to the root `lint` commands and a writer to `format`, add its version to the target's runtime input, and its files to `inputs`
+6. Put its configuration in `pyproject.toml` `[tool.*]` or the shared file it documents, and a file of its own at the root with a layout tree line
+7. Add `Bash(<binary> *)` to the allow list in `.claude/settings.json`, and the row's purpose to the toolchain list
+8. Run `mise ls --current`, `nx run <root>:lint`, and `nx run <root>:format` with `git diff --exit-code`, and read each result line
+
+A Python or Node tool with a `[tool.*]` table or a postinstall its binary needs joins its package manager instead, `sqlfluff` and `yamllint` as `dev` group rows and `pg-formatter` as a catalog row under `allowBuilds`.
 
 Use native command options to select and consume results without parsing display text:
 - Use `fd -t f -e <extension>` for file selection and `-g` for filename globs, with `-p` when matching full paths
@@ -59,7 +77,7 @@ Use native command options to select and consume results without parsing display
 - Preserve filename boundaries with `fd -0` or `rg -l -0` when another process consumes a path stream
 - Use `rg --json` for structured matches, and distinguish matching lines from occurrence counts
 
-`fd -X` runs nothing when no path matches, splits a batch at the operating system's argument limit, and orders nothing, so a sequential per-file run takes `--threads=1` before `-x`. `git ls-files --cached --others --exclude-standard -z` lists the tracked and the new files with the tracked files an ignore rule matches, the set the root `lint` and `format` targets hand to shellcheck and shfmt. `fd -H` includes hidden paths, `-I` includes ignored paths, and `rg --no-config` ignores the options `RIPGREP_CONFIG_PATH` names.
+`fd -X` runs nothing when no path matches, splits a batch at the operating system's argument limit, and orders nothing, so a sequential per-file run takes `--threads=1` before `-x`. `fd <pattern> <path>...` takes the pattern first, and `.` is the pattern that matches every name when the scope is the path. `fd -p` matches the pattern against the absolute path of a named search path, so a pattern over a directory name takes `-s`, because smart case matches a parent directory of another case. `fd -H` includes hidden paths, `-I` includes ignored paths, and `rg --no-config` ignores the options `RIPGREP_CONFIG_PATH` names.
 
 ## [03]-[TASK_RUNNER]
 
@@ -119,6 +137,14 @@ Each part of the task graph has one file, and a fact appears in one of them:
 
 `format` is the one source-writing target, `lint`, `typecheck`, and `test` read, `check` composes the readers without `format`, and `format` stays uncached because it changes source with no restorable output and a reverted input runs its corrections again. Preserve inferred dependencies with `"..."`, `^typecheck` included, when extending a target.
 
+Root `lint`, `format`, and `check` take a scope after `--`, `pnpm exec nx run <root>:<target> -- <path>...`, and an empty scope is the tree:
+- `{args}` sits where each tool takes its paths, and `forwardAllArgs: false` keeps the scope off the commands without it
+- Tools with a path argument take the scope there, and Biome takes `--no-errors-on-unmatched` for a scope without its files
+- Tools without a path argument take their files from `fd <pattern> {args} -X <tool>`, and a scope without a match runs nothing
+- Path keys in a tool configuration (`actionlint.yaml` `paths`) are globs, because a tree run adds the `./` prefix and a scoped run does not
+- `upgrade` takes a language as a configuration, `pnpm exec nx run <root>:upgrade:<python|typescript|dotnet>`, and no configuration runs every manager
+- Nx hashes the scope with the task, so a scoped run and a tree run each cache under their own key
+
 `tools/nx/workspace.ts` exports `createNodes` over one glob and `createDependencies` beside it:
 
 ```ts
@@ -165,22 +191,21 @@ Declare operations shared across projects in the root manifest's `nx` field. Tag
 | :-----: | :---------- | :-------------------------------------------------------------------------------------------------------------- | :------ |
 |  [01]   | `restore`   | `dotnet restore <solution>`, the one restore the .NET `build`, `format`, and publish defaults need              | `true`  |
 |  [02]   | `grammar`   | `tree-sitter build` of the XML grammar under `.cache/ast-grep/`, the scanning targets depend on it              | `true`  |
-|  [03]   | `lint`      | Biome, `actionlint`, `shellcheck` over the `.sh` files, and `ast-grep scan` over the root files and tool trees  | `true`  |
-|  [04]   | `format`    | `biome check --write` over the root files and the tool trees, `shfmt -w`, and `yamlfmt` over the authored YAML  | `false` |
-|  [05]   | `check`     | Nothing, the tag-filtered `check` default fills it                                                              | Unset   |
-|  [06]   | `typecheck` | `tsc --build` over the root configuration files, the plugin files, and the infrastructure program               | `true`  |
-|  [07]   | `up`        | `doppler run` around the infrastructure program's `up`                                                          | `false` |
-|  [08]   | `refresh`   | `doppler run` around the infrastructure program's `refresh`                                                     | `false` |
-|  [09]   | `coverage`  | Coverage script, one language's reports merged                                                                  | `false` |
-|  [10]   | `rewrite`   | `ast-grep scan -U` with the filter, error, and path arguments the root `README.md` invocation passes after `--` | `false` |
-|  [11]   | `mutation`  | Mutation script                                                                                                 | `false` |
-|  [12]   | `upgrade`   | `uv lock --upgrade`, `pnpm update --latest --recursive`, and dotnet-outdated under `dotnet dnx`                 | `false` |
-|  [13]   | `workflow`  | Workflow script, `act` over `ci.yml` on the host architecture, the job containers removed on every exit         | `false` |
-|  [14]   | `harness`   | Harness script, `.claude/types` regenerated, the plugin proven by its load line, its cached copy reinstalled    | `false` |
-|  [15]   | `rules`     | `ast-grep test --include-off` and the rewrite, outline, and injection tests under Node's test runner            | `true`  |
-|  [16]   | `outline`   | `ast-grep outline` with every outline rule under `tools/ast-grep/outline/`                                      | `false` |
+|  [03]   | `lint`      | Biome, ast-grep, typos, actionlint, zizmor, shellcheck, yamllint, and sqlfluff over the scope                   | `true`  |
+|  [04]   | `format`    | `biome check --write`, `typos --write-changes`, `shfmt -w`, `yamlfmt`, and `pg-formatter --inplace` over the scope | `false` |
+|  [05]   | `check`     | The `lint` commands over the scope, then `tsc --build` over the root configuration and program files          | `true`  |
+|  [06]   | `up`        | `doppler run` around the infrastructure program's `up`                                                          | `false` |
+|  [07]   | `refresh`   | `doppler run` around the infrastructure program's `refresh`                                                     | `false` |
+|  [08]   | `coverage`  | Coverage script, one language's reports merged                                                                  | `false` |
+|  [09]   | `rewrite`   | `ast-grep scan -U` with the filter, error, and path arguments the root `README.md` invocation passes after `--` | `false` |
+|  [10]   | `mutation`  | Mutation script                                                                                                 | `false` |
+|  [11]   | `upgrade`   | `uv lock --upgrade`, `pnpm update --latest --recursive`, and dotnet-outdated, one per configuration            | `false` |
+|  [12]   | `workflow`  | Workflow script, `act` over `ci.yml` on the host architecture, the job containers removed on every exit         | `false` |
+|  [13]   | `harness`   | Harness script, `.claude/types` regenerated, the plugin proven by its load line, its cached copy reinstalled    | `false` |
+|  [14]   | `rules`     | `ast-grep test --include-off` and the rewrite, outline, and injection tests under Node's test runner            | `true`  |
+|  [15]   | `outline`   | `ast-grep outline` with every outline rule under `tools/ast-grep/outline/`                                      | `false` |
 
-`lint` depends on `rules` and `grammar`, project lint targets depend on `grammar` before their scoped scans, and the `lint` inputs hold the `.github/` tree, `.shellcheckrc`, every `.sh` file, and the actionlint and shellcheck versions.
+`lint` and `check` depend on `rules` and `grammar` and on no other root target, project lint targets depend on `grammar` before their scoped scans, and the `lint` inputs hold the `.github/` tree, `.shellcheckrc`, every `.sh`, YAML, and `.sql` file, and the versions of the tools it runs.
 
 The `tooling` named input holds the root files, the `.vscode/`, `infra/`, and `tools/` trees, the ast-grep scripts, and the integration tests, and root `lint` and `format` read it beside their runtime inputs.
 

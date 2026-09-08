@@ -31,14 +31,18 @@ Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and 
 
 [CLI_TOOLING]:
 
-| [INDEX] | [TOOL]    | [GUIDANCE]                                                                                                  |
-| :-----: | :-------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`    | `tree <dir>` lists all directories and files, `-D` for dirs only                                            |
-|  [02]   | `loc`     | `loc <dir>` for true LOC count with complexity score, folder total + per file                               |
-|  [03]   | `fd`      | Use for ALL normal filesystem queries/actions, superseded by specialized skills/mcp depending on context    |
-|  [04]   | `rg`      | `rg <pattern> <paths>` for literals, comments, and prose, never for code search                             |
-|  [05]   | `gh`      | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
-|  [06]   | `jq`/`yq` | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
+| [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                  |
+| :-----: | :---------- | :---------------------------------------------------------------------------------------------------------- |
+|  [01]   | `tree`      | `tree <dir>` lists all directories and files, `-D` for dirs only                                            |
+|  [02]   | `loc`       | `loc <dir>` for true LOC count with complexity score, folder total + per file                               |
+|  [03]   | `fd`        | Use for ALL normal filesystem queries/actions, superseded by specialized skills/mcp depending on context    |
+|  [04]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, never for code search                             |
+|  [05]   | `gh`        | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
+|  [06]   | `jq`/`yq`   | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |
+|  [07]   | `sd`        | `sd '<regex>' '<replacement>' <files>` for a literal or regex rewrite over files, `-s` for a fixed string   |
+|  [08]   | `difft`     | `difft <before> <after>` for a syntax-tree diff, `GIT_EXTERNAL_DIFF=difft git diff` over a change           |
+|  [09]   | `hyperfine` | `hyperfine -r <runs> '<command>'` times commands under the same controls, `-N` skips the shell              |
+|  [10]   | `duckdb`    | `duckdb -c '<sql>'` queries CSV, Parquet, and JSON files in place, `-json` for machine output               |
 
 ## [02]-[IMPLEMENTATION_STANDARDS]
 
