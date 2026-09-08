@@ -62,11 +62,11 @@ Rasm/
 
 ## [02]-[TASKS]
 
-[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`. Work directories a tool cannot relocate are ignored and hold no durable output.
+[REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`.
 
 Nx runs every developer command as a target configured through `nx.json` and the root `package.json` `nx` field:
 - `nx run rasm:lint <scope>...` and `nx run rasm:format <scope>...` run checkers or writers of every file kind in scope
-- Scope tokens are kind words (`dotnet`, `python`, `typescript`, `shell`, `yaml`, `sql`, `markdown`) or paths, an empty scope is the tree
+- Scope tokens are kind words (`dotnet`, `python`, `typescript`, `shell`, `yaml`, `sql`) or paths, an empty scope is the tree
 - `nx run-many -t <target> -p tag:language:<language>` runs one target across one language, `nx run <project>:<target>` one project
 - `check` composes `lint` and `typecheck` at the root with `typecheck` and `test` per project through `dependsOn`
 - `format` applies lint fixes and formatting, then reports remaining findings

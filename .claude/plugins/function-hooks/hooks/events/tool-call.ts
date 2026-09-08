@@ -8,7 +8,6 @@ import {
     flatMap,
     forEach,
     fromBoolean,
-    fromNullable,
     fromPredicate,
     getOrElse,
     isRecord,
@@ -186,9 +185,6 @@ const _isBash = isTool('Bash');
 
 const _isPath = (e: ToolCallInput): e is PathEvent => _PATH_TOOLS.some((tool) => tool === e.tool);
 
-// The markdown lines of an Edit number from the file, read in the hook body before the call
-const _isEdit = isTool('Edit');
-
 const _isWritten = (e: ToolCallInput): e is Written => e.tool === 'Edit' || e.tool === 'Write';
 
 // Bash always, Monitor when it watches a command, and a ws monitor never
@@ -219,10 +215,6 @@ const _onceKeys = (input: ToolCallInput, sets: Stamps): readonly string[] =>
         ]),
     ].filter((name) => !sets.seen.has(name));
 
-// The guidance directories the markdown rows measure, from the session row session.start wrote, none without the row
-const _guidance = (facts: Option<Session>): readonly string[] =>
-    getOrElse((): readonly string[] => [])(map((session: Session) => [...session.claudeChain, ...toArray(fromNullable(session.memoryDir))])(facts));
-
 // The session's stamp sets, the once keys injected or loaded, the recorded snapshots, and the read domains
 const _stamps = (all: readonly string[], session: string): Stamps => ({
     seen: new Set([...ids('injected', session)(all), ...ids('loaded', session)(all)]),
@@ -241,15 +233,6 @@ const _existing = async (e: ToolCallInput, exists: (path: string) => Promise<boo
     new Set(
         await traverse(_present(exists))(
             getOrElse((): readonly string[] => [])(map((commanded: Commanded) => gitPaths(commanded.command))(fromPredicate(_hasCommand)(e))),
-        ),
-    );
-
-// The edited file's text before an Edit, '' for another tool or an absent file, the fs noun rejects a path outside the working directory
-// and a memory-directory file then reads as '' with its lines numbered from the text
-const _fileText = async (e: ToolCallInput, exists: (path: string) => Promise<boolean>, read: (path: string) => Promise<string>): Promise<string> =>
-    getOrElse(() => '')(
-        await forEach(read)(
-            getOrElse<Option<string>>(none)(await forEach(_present(exists))(map((edit: Named<'Edit'>) => edit.file_path)(fromPredicate(_isEdit)(e)))),
         ),
     );
 
@@ -479,9 +462,8 @@ const _call = (on: On, options: Options): void => {
         const run = (argv: readonly string[], env: Environment): Promise<Run> => $.process.run(argv, { env }).catch(abort);
         // The answered Write's child, the record on its stdin, where $.fs.writeFile refuses a .claude path
         const land = (record: Landing, env: Environment): Promise<Run> => $.process.run(record.argv, { env, stdin: record.stdin }).catch(abort);
-        const [existing, file, caches, searches] = await Promise.all([
+        const [existing, caches, searches] = await Promise.all([
             _existing(rewritten, exists),
-            _fileText(e, exists, (path) => $.fs.readFile(path).catch(() => '')),
             _nxCaches(rewritten, facts, run),
             _searched(e, cwd, facts, run),
         ]);
@@ -499,7 +481,7 @@ const _call = (on: On, options: Options): void => {
             fold<ToolCallInput, unknown, string>([
                 when(_isBash, skipNxCache(caches)),
                 when(_hasCommand, gitGuard(existing)),
-                when(_isPath, pathRule({ seen: sets.seen, guidance: _guidance(facts), file, searches })),
+                when(_isPath, pathRule({ seen: sets.seen, searches })),
                 toolRule({ ...sets, prompt, cwd }),
                 when(_isBash, packageManager(options.packageManager)),
             ]),

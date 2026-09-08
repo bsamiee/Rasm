@@ -58,7 +58,6 @@ File on disk, `<tool> --help`, and the documentation decide over a plan entry, a
 
 <decision>
 
-- Width applies to markdown table rows, list and numbered items, 150 columns with leeway per entry
 - Shortening an entry is a judgment on that entry, never a count to drive to zero
 - Regex and count checks list hits, not findings, a fix per hit leaves restated facts and chained sentences in place
 - Read each sentence word by word, delete any word whose absence loses nothing (`and`, `a`, `an`, `the` among them), and keep the remainder
@@ -113,7 +112,6 @@ Rename coined names through the tool that updates every reference, and prove eac
 <gate>
 
 Every command returns zero warnings and zero errors:
-- `awk 'length >= 150 && /^(- |\| |[0-9]+\. )/ {print FILENAME": "FNR}' <scope>` lists entries over the width, each rebuilt, never sheared
 - `rg -n -w because <scope>`, no line, exit 1
 - `nx run rasm:lint <scope>`, exit 0
 - `git diff | shasum` before and after `nx run rasm:format <scope>`, equal hashes

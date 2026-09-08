@@ -15,16 +15,14 @@ type Plain<R, D> =
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _NONE: ReadonlySet<string> = new Set();
-const _FRESH = { seen: _NONE, guidance: ['/repo/docs'], file: '', searches: [] };
+const _FRESH = { seen: _NONE, searches: [] };
 const _PACKAGING: ReadonlySet<string> = new Set(['dotnet-msbuild-packaging', 'dotnet-msbuild-evaluation', 'dotnet-msbuild-antipatterns']);
 const _CATALOG_ROW = 'catalog:\n    ssh2: 1.17.0\n';
 const _MANIFEST_ROW = '        "ssh2": "catalog:",\n';
 const _VERSION_ROW = '<PackageVersion Include="Thinktecture.Runtime.Extensions" Version="9.0.0" />\n';
 const _KEEP = 'keep the dropped row and add the missing dependency record, or remove it there too';
-const _OVER = 160;
-const _LONG = `- ${'x'.repeat(_OVER)}`;
-// File with a third line an Edit replaces
-const _FILE = '# Title\n\n- third line\n- fourth line\n';
+const _REFERENCE = 'op://Tokens/x/credential';
+const _OP_DENY = 'Secrets come from Doppler alone, an op:// reference never lands in a file, use doppler secrets';
 const _SCRATCHPAD = '/private/tmp/claude-501/slug/session/scratchpad';
 const _SCRATCH = '/repo/.claude/scratch/agent-context-gathering/probe';
 
@@ -72,12 +70,17 @@ describe('pathRule', () => {
         });
     });
 
-    it('denies an op reference outside the skills directory and passes one inside it', () => {
-        expect(_plain(pathRule(_FRESH)(_write('/repo/tmp-proof.md', 'op://Tokens/x/credential')))).toStrictEqual({
+    it('denies an added op reference outside .claude and passes a kept one and a harness one', () => {
+        expect(_plain(pathRule(_FRESH)(_write('/repo/tmp-proof.md', _REFERENCE)))).toStrictEqual({ kind: 'deny', reason: _OP_DENY });
+        expect(_plain(pathRule(_FRESH)(_edit('/repo/README.md', 'read one', `read one and ${_REFERENCE}`)))).toStrictEqual({
             kind: 'deny',
-            reason: 'Secrets come from Doppler alone, an op:// reference never lands in a file, use doppler secrets',
+            reason: _OP_DENY,
         });
-        expect(_plain(pathRule(_FRESH)(_write('/repo/.claude/skills/secrets/SKILL.md', 'op read op://x')))).toStrictEqual({
+        expect(_plain(pathRule(_FRESH)(_edit('/repo/README.md', `read ${_REFERENCE}`, `reads ${_REFERENCE}`)))).toStrictEqual({
+            kind: 'rewrite',
+            context: [],
+        });
+        expect(_plain(pathRule(_FRESH)(_write('/repo/.claude/skills/secrets/SKILL.md', `op read ${_REFERENCE}`)))).toStrictEqual({
             kind: 'rewrite',
             context: ['Search the docs with mcp__claudeCodeDocs__search_claude_code_docs'],
         });
@@ -125,23 +128,8 @@ describe('pathRule', () => {
         expect(toArray(landing(_write(`${_SCRATCH}/record.md`, 'probe line')))).toStrictEqual([]);
     });
 
-    it('denies an op reference in a notebook cell and passes markdown source outside the guidance directories', () => {
-        expect(_plain(pathRule(_FRESH)(_cell('/repo/tmp-proof.ipynb', 'op://Tokens/x/credential')))).toStrictEqual({
-            kind: 'deny',
-            reason: 'Secrets come from Doppler alone, an op:// reference never lands in a file, use doppler secrets',
-        });
-        expect(_plain(pathRule(_FRESH)(_cell('/repo/scratch/a.ipynb', `# Title\n${_LONG}`)))).toStrictEqual({ kind: 'rewrite', context: [] });
-    });
-
-    it('measures a markdown entry and a self-reference', () => {
-        expect(_plain(pathRule(_FRESH)(_write('/repo/docs/a.md', `# Title\n${_LONG}\nRead this file first.`)))).toStrictEqual({
-            kind: 'rewrite',
-            context: [`Entry at line 2 is ${_LONG.length} columns, the limit is 150`, 'Self-reference at line 3: this file'],
-        });
-    });
-
-    it('leaves a markdown file outside the guidance directories unmeasured', () => {
-        expect(_plain(pathRule(_FRESH)(_write('/repo/scratch/a.md', `# Title\n${_LONG}`)))).toStrictEqual({ kind: 'rewrite', context: [] });
+    it('denies an op reference in a notebook cell', () => {
+        expect(_plain(pathRule(_FRESH)(_cell('/repo/tmp-proof.ipynb', _REFERENCE)))).toStrictEqual({ kind: 'deny', reason: _OP_DENY });
     });
 
     it('routes a C# file, an infra file, and an env file to their skills', () => {
@@ -172,30 +160,7 @@ describe('pathRule', () => {
             ],
         });
         expect(pathSkills(e)).toStrictEqual(['dotnet-msbuild-evaluation', 'dotnet-msbuild-antipatterns', 'dotnet-msbuild-execution', 'manage-repo']);
-        expect(_plain(pathRule({ ..._FRESH, seen: new Set(pathSkills(e)), guidance: [] })(e))).toStrictEqual({ kind: 'rewrite', context: [] });
-    });
-});
-
-describe('pathRule line numbers', () => {
-    it('numbers an Edit from the file line the replaced text starts at', () => {
-        expect(_plain(pathRule({ ..._FRESH, file: _FILE })(_edit('/repo/docs/a.md', '- third line', _LONG)))).toStrictEqual({
-            kind: 'rewrite',
-            context: [`Entry at line 3 is ${_LONG.length} columns, the limit is 150`],
-        });
-    });
-
-    it('numbers a Write from its content', () => {
-        expect(_plain(pathRule({ ..._FRESH, file: _FILE })(_write('/repo/docs/a.md', `# Title\n${_LONG}`)))).toStrictEqual({
-            kind: 'rewrite',
-            context: [`Entry at line 2 is ${_LONG.length} columns, the limit is 150`],
-        });
-    });
-
-    it('numbers an Edit from the replacement when the file lacks the replaced text', () => {
-        expect(_plain(pathRule({ ..._FRESH, file: _FILE })(_edit('/repo/docs/a.md', '- absent line', `x\n${_LONG}`)))).toStrictEqual({
-            kind: 'rewrite',
-            context: [`Entry at line 2 is ${_LONG.length} columns, the limit is 150`],
-        });
+        expect(_plain(pathRule({ ..._FRESH, seen: new Set(pathSkills(e)) })(e))).toStrictEqual({ kind: 'rewrite', context: [] });
     });
 });
 
@@ -203,7 +168,7 @@ describe('pathRule per edit', () => {
     it('adds the per-edit lines for a package version, a tool version, and a pin', () => {
         expect(
             _plain(
-                pathRule({ ..._FRESH, seen: _PACKAGING, guidance: [] })(
+                pathRule({ ..._FRESH, seen: _PACKAGING })(
                     _edit(
                         '/repo/Directory.Packages.props',
                         '<PackageVersion Include="A" Version="1" />',
@@ -213,9 +178,7 @@ describe('pathRule per edit', () => {
             ),
         ).toStrictEqual({ kind: 'rewrite', context: ['Verify the row with mcp__nuget__get_package_context'] });
         expect(
-            _plain(
-                pathRule({ ..._FRESH, seen: new Set(['manage-repo']), guidance: [] })(_edit('/repo/mise.toml', 'buf = "latest"', 'buf = "1.2.3"')),
-            ),
+            _plain(pathRule({ ..._FRESH, seen: new Set(['manage-repo']) })(_edit('/repo/mise.toml', 'buf = "latest"', 'buf = "1.2.3"'))),
         ).toStrictEqual({
             kind: 'rewrite',
             context: ['Pinned tool versions take their reason in a comment on the row'],

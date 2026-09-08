@@ -256,7 +256,6 @@ Sentences that state what another file owns leave the agent:
 ## [06]-[CHECKS]
 
 Every check runs before the description is written:
-- `awk 'length >= 150 && /^(- |\| |[0-9]+\. )/ {print FILENAME": "FNR}' <agent>` lists the entries to judge, each on its own, over untouched lines
 - `ast-grep scan --no-ignore hidden <agent>` prints no hit, and `typos <agent>` prints no line
 - `rg -n --pcre2 '^(- |[0-9]+\. |\| +)?(A|An) [a-z`]' <agent>` prints nothing, because an entry or sentence opens with its subject
 - `awk '{n=split($0,s,/[.:] /); for(i=1;i<=n;i++){t=tolower(" " s[i] " "); c=gsub(/ the /,"&",t); d=gsub(/ and /,"&",t); if(c>2||d>2) print FNR": the="c" and="d}}' <agent>` lists the sentences to judge, at most two `the` and two `and` each

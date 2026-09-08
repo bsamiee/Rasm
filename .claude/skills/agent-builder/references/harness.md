@@ -112,7 +112,6 @@ The `function-hooks` plugin reads every tool call, refuses forms with a message 
 |  [07]   | Description line    | Prepended when a schema loads, the skill to load, the refused state, the `--stdin` exit codes                   |
 |  [08]   | Spawn brief         | Four lines for `fork`, two for `general-purpose`, each ending in one report contract line, none for a named agent |
 |  [09]   | Roslyn after-write  | `get_diagnostics` on the project, the `SolutionNotTrusted` recovery, the `IDE0055` drop, the 200 ms debounce    |
-|  [10]   | Width line          | `Entry at line N is M columns` under every `.md` edit in the `CLAUDE.md` chain or the memory directory          |
 
 Facts a step depends on:
 - Refusals name the form to run, and the classifier's denial ends `You *may* attempt to accomplish this action using other means`

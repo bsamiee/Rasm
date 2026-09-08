@@ -54,7 +54,7 @@ const _STATUSES = ['open', 'open-question', 'landed', 'closed'];
 
 const _SECRETS = { tokenA: 'value-a' };
 const _ENVIRONMENT = { path: '/repo/node_modules/.bin:/usr/bin' };
-const _SESSION = { startedAt: _TS, claudeChain: ['/repo'], memoryDir: null, remoteOwner: 'owner', env: _ENVIRONMENT };
+const _SESSION = { startedAt: _TS, memoryDir: null, remoteOwner: 'owner', env: _ENVIRONMENT };
 const _NOTICE = { text: 'a line' };
 const _FINDING = {
     session: 's',

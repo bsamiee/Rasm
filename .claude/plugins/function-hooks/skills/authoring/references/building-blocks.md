@@ -74,7 +74,6 @@ Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - Each `$.process.run` maps a rejected child through its own `.catch` to an abort `Run`, `exitCode` -1 and the error as the first stderr line
 - The row's own lines then report a child that cannot start
 - The `$.fs.exists` facts the git refinements need are gathered over `gitPaths(command)` as `{ path, found }` records in one `Promise.all`
-- Edited file text is read in the hook body as `PathFacts.file`, and a markdown row numbers an `Edit`'s lines from it
 - The case record maps `deny` to `{ deny }`, `answer` to `{ result }`, and `rewrite` to `next`, with `$.ui.notice(e.tool_use_id, context.join(' '))`
 - The engine's command checks (`Blocked: sleep`) run beneath `next` over the rewritten command, and a dropped leaf never reaches them
 - Matched hooks narrow through their matcher, `{ interactive: true }` on `session.start` and `{ tool: 'mcp__function-hooks__close' }` on `tool.call`

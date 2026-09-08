@@ -16,14 +16,14 @@ type Plain =
 
 const _TASK = 'Shorten the entry.';
 const _BATCH_ID = '2026-09-06T00:00:00.000Z-random-u';
-const _FORK_WIDTH_LINE = 'Write in clean-prose, the 150 width read with leeway per entry.';
+const _FORK_PROSE_LINE = 'Write in clean-prose.';
 const _NO_BATCH = none<never>();
 
 // The lines a file-less worker's prompt gains, the one owner of its report shape
 const _FORK_LINES = [
     'Never rewrite a whole file in one move: read the file whole, write one scoped change, read the result.',
     'Read the skill the step names and the reference it touches before the first edit, apply each change as an exact-string replacement that asserts one match, and land any defect you meet in the same file in the same step.',
-    _FORK_WIDTH_LINE,
+    _FORK_PROSE_LINE,
     'Report result: done, partial, or not started, changes: with file and line, open: with the evidence, gate: with each check the task names and its result line, and suggestions: on the brief or a preloaded skill, in at most 12 lines.',
 ];
 const _GENERAL_PURPOSE_LINES = [
@@ -54,9 +54,9 @@ const _brief = (subagentType: string): readonly string[] => AGENTS.find((row) =>
 // --- [TESTS] ---------------------------------------------------------------------------
 
 describe('AGENTS', () => {
-    it('holds the four briefs with the width line the guidance plan states', () => {
+    it('holds the four briefs with the clean-prose line', () => {
         expect(AGENTS.map((row) => row.subagentType)).toStrictEqual(['fork', 'general-purpose', EDITOR, REVIEWER]);
-        expect(_brief('fork')).toContain(_FORK_WIDTH_LINE);
+        expect(_brief('fork')).toContain(_FORK_PROSE_LINE);
         expect(_brief(EDITOR).some((line) => line.includes(REVIEWER))).toBe(true);
     });
 });

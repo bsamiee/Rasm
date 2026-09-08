@@ -75,7 +75,7 @@ Files under `tools/ast-grep/outline/` hold one extractor each. Items have no par
 - JSON entries hold `role`, `symbolType`, `name`, `range` (`byteOffset`, zero-based `start` and `end`), `signature`, and `astKind`
 - Items add `isImport`, `isExported`, and `members` (omitted when empty), and a member adds `isPublic`
 - Injected regions (a `run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
-- Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
+- Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, and php
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, and the first match on a node wins
 - `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`, tsx members need the bundled set
 - `nx-target` accepts an `object` or `array` value, because `targetDefaults` of `nx.json` holds an array of objects and `package.json` one object
@@ -105,7 +105,6 @@ Reuse a bundled extractor that selects the construct. Choose the item boundary b
 
 Refusals:
 - Policy table rows: a row has no identifier, and the bundled const item's range locates the table
-- Markdown table rows and list items: reference text an agent reads, `rg -n '^\|'` prints them
 - `NuGet.config` and `Workspace.slnx` declarations: read whole, `rg -n 'Path=|key='` prints them
 - Python cyclopts commands: `rg -n '^@_app'` prints them, and the bundled function item holds the signature
 - Bash `case` arms of `rule-checks.sh`: the arms name the functions the map lists

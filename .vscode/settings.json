@@ -48,9 +48,7 @@
     "js/ts.tsdk.path": "./node_modules/typescript",
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 
-    // --- [MARKDOWN] --------------------------------------------------------------------
     "files.associations": { "SKILL.md": "markdown", "**/.claude/agents/*.md": "markdown" },
-    "[markdown]": { "editor.defaultFormatter": "yzhang.markdown-all-in-one" },
 
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true

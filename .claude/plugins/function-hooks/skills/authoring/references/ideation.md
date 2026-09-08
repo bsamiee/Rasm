@@ -57,7 +57,6 @@ Complex hooks compose parts, one adapter, one fold, and the store as the one sta
 - Spawn feeding a close: the editor's final message is the close input, decoded through `decodeJson` and `decodeClose` into its handler
 - Classifier feeding a served tool: `turn.complete` writes `findings/<id>`, `close` lists and lands the rows
 - Skill load feeding a stop: `skill.prompt` stamps `loaded/<session>/<skill>`, and the once lines that route to the skill stop
-- Session fact feeding a measurement: `session.start` writes the guidance directories, and the markdown row measures edits under them
 
 ## [04]-[QUESTIONS]
 

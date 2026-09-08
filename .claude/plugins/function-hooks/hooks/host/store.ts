@@ -52,7 +52,6 @@ type Environment = Readonly<Record<string, string>>;
 
 interface Session {
     readonly startedAt: number;
-    readonly claudeChain: readonly string[];
     readonly memoryDir: string | null;
     readonly remoteOwner: string | null;
     readonly env: Environment;
@@ -186,7 +185,6 @@ const _isEnvironment: (value: unknown) => value is Environment = _isStringRecord
 
 const _isSession: (value: unknown) => value is Session = struct({
     startedAt: isNumber,
-    claudeChain: _isStringArray,
     memoryDir: isNullableString,
     remoteOwner: isNullableString,
     env: _isEnvironment,

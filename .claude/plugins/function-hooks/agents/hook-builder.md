@@ -77,7 +77,7 @@ Declarations and the debug file decide over a page, a memory, or a report. Docs 
 
 Facts runs proved:
 - Edit-time lines under a tool result are a change's first verdict, and the gate scan over the whole plugin its last
-- Edit-time lines are the family's hits on the written file with a `fix:` command, each markdown entry's width, and a manifest's affected projects
+- Edit-time lines are the family's hits on the written file with a `fix:` command, and a manifest's affected projects
 - Interactive registrations, served tool, status line, and band prove under `expect`, because a `-p` run raises `session.start` with `surface none`
 - `--plugin-dir` loads write their rows to `function-hooks_inline-<hash>.json` under `~/.claude/plugins/store/`, apart from the installed copy's file
 - Session-scoped store rows of a proof leave at the next `--plugin-dir` start, and `scan/<id>` and `findings/<id>` rows outlive it

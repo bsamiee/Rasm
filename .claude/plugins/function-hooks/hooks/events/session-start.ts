@@ -154,9 +154,8 @@ const _facts = (on: On): void => {
         const env = getOrElse((): Environment => {
             throw new Error(`mise env --json answered exit ${answered.exitCode} in ${e.cwd}: ${answered.stderr.trim()}`);
         })(flatMap(decodeEnvironment)(decodeJson(answered.stdout)));
-        const [session, ancestors, repo, home, settings] = await Promise.all([
+        const [session, repo, home, settings] = await Promise.all([
             $.session.id(),
-            $.fs.ancestors({ names: ['CLAUDE.md'] }),
             $.session.repo(),
             $.process.run(['printenv', 'HOME'], { env }),
             // The settings files present, the exists gate keeps a missing file off the engine's error log
@@ -171,7 +170,6 @@ const _facts = (on: On): void => {
         // The session row is the store's JSON boundary, absence leaves the module as null here alone
         await $.store.set(key('session', session), {
             startedAt: $.clock.now(),
-            claudeChain: ancestors.map((ancestor) => ancestor.dir),
             memoryDir: getOrElse((): string | null => null)(memoryDir),
             remoteOwner: getOrElse((): string | null => null)(_owner(repo)),
             env,

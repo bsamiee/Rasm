@@ -96,7 +96,6 @@ Run results decide over a file's sentence, and docs decide over a harness fact i
 <gate>
 
 Every command returns zero warnings and zero errors:
-- `awk 'length >= 150 && /^(- |\| |[0-9]+\. )/ {print FILENAME": "FNR}' <agent>` lists entries over the width, each you changed rebuilt
 - `rg -n --pcre2 '^(- |[0-9]+\. |\| +)?(A|An) [a-z`]' <agent>`, no line, exit 1
 - `rg -n 'relevant|as needed|when the task permits|testing scope|with judgment|appropriate|rows? [0-9]' <agent>`, no line, exit 1
 - `awk '/^<context_gathering>$/,/^<\/context_gathering>$/' <agent> | rg -n ToolSearch`, no line, exit 1

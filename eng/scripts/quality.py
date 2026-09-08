@@ -89,7 +89,6 @@ _KINDS: frozendict[str, Kind] = frozendict({
         ("**/__snapshots__/**", "**/pnpm-lock.yaml"),  # Generated YAML keeps its generator's layout
     ),
     "sql": Kind(("**/*.sql",), frozendict({"lint": (Step(("sqlfluff", "lint")),), "format": (Step(("pg-formatter", "--inplace")),)})),
-    "markdown": Kind(("**/*.md",)),
 })
 
 _log = structlog.get_logger(__name__)

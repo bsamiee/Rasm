@@ -53,28 +53,23 @@ interface DependencyRecord {
     readonly held: (name: string) => string;
 }
 
-// Guidance rows apply under the CLAUDE.md chain and the memory directory alone, the facts the session row holds
 interface PathRow {
-    readonly match: (path: string, text: string) => boolean;
+    readonly match: (path: string, text: string, old: string) => boolean;
     readonly tools: readonly PathTool[];
     readonly deny?: (path: string) => string;
     readonly answer?: (path: string, text: string) => WriteResult;
     readonly once?: readonly Once[];
     readonly each?: (path: string, text: string, old: string, facts: PathFacts) => readonly string[];
-    readonly guidance?: true;
 }
 
-// The file is the edited file's text before the call, '' when unread, an Edit's lines number from the file, the searches its dropped rows' runs
+// The searches are the dropped rows' runs
 interface PathFacts {
     readonly seen: ReadonlySet<string>;
-    readonly guidance: readonly string[];
-    readonly file: string;
     readonly searches: readonly Searched[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _WIDTH = 150;
 const BINLOG_DENY = '.binlog files are binary, call mcp__binlog__binlog_overview on the file';
 const OP_DENY = 'Secrets come from Doppler alone, an op:// reference never lands in a file, use doppler secrets';
 const _ALL: readonly PathTool[] = ['Read', 'Edit', 'Write'];
@@ -89,15 +84,12 @@ const _LAND = 'if [ -e "$1" ]; then echo update; cat -- "$1"; else echo create; 
 const _UPDATE = 'update\n';
 // Every tool that lands text in a file, the content rows read the text whatever the file
 const _CONTENT_WRITES: readonly PathTool[] = ['Edit', 'Write', 'NotebookEdit'];
-const _OP = /op:\/\/|\bop\s+(?:read|inject|item|run)\b/u;
+const _OP = /op:\/\/|\bop\s+(?:read|inject|item|run)\b/gu;
 const _TARGET = /<Target\b/u;
 const _PACKAGE_REFERENCE = /PackageReference/u;
 const _VERSION_ATTRIBUTE = /Version=/u;
 const _TOOL_VERSION = /[=]\s*"\d[^"]*"/u;
 const _PIN = /[=]=\d|"\s*:\s*"[~^]?\d/u;
-const _ENTRY = /^(?:- |\| |\d+\. )/u;
-const _SELF_REFERENCE = /this file|see above|see below|this section/giu;
-const _LINE = /\r?\n/u;
 const _README = 'README.md';
 // The rg exits of a finished search, 0 with holders and 1 with none, any other exit is a failed child
 const _SEARCH_EXITS: readonly number[] = [0, 1];
@@ -148,6 +140,8 @@ const _path = (e: PathEvent): string => _field(e, 'file_path') || _field(e, 'not
 const _text = (e: PathEvent): string => _field(e, 'content') || _field(e, 'new_string') || _field(e, 'new_source');
 
 const _old = (e: PathEvent): string => _field(e, 'old_string');
+
+const _references = (text: string): number => [...text.matchAll(_OP)].length;
 
 // The record answered as a created file with no patch, the fields BuiltinToolResults.Write requires
 const _writeResult = (path: string, text: string): WriteResult => ({
@@ -209,23 +203,6 @@ const recordSearches = (e: PathEvent, cwd: string): readonly Search[] =>
         })),
     );
 
-// The file line the written text starts at: the line breaks before old in the file, 0 for a Write, an unread file, or an absent old
-const _baseLine = (file: string, old: string): number =>
-    getOrElse(() => 0)(map((at: number) => file.slice(0, at).split(_LINE).length - 1)(liftPredicate<number>((at) => at >= 0)(file.indexOf(old))));
-
-// Entries at or over the width and self-references, one line each, numbered from the file line the text starts at
-const _markdownLines = (text: string, base: number): readonly string[] =>
-    text
-        .split(_LINE)
-        .flatMap((line, index) => [
-            ...toArray(
-                liftPredicate<string>(() => _ENTRY.test(line) && line.length >= _WIDTH)(
-                    `Entry at line ${base + index + 1} is ${line.length} columns, the limit is ${_WIDTH}`,
-                ),
-            ),
-            ...[...line.matchAll(_SELF_REFERENCE)].map((hit) => `Self-reference at line ${base + index + 1}: ${hit[0]}`),
-        ]);
-
 // --- [ROWS] ----------------------------------------------------------------------------
 
 const PATHS = [
@@ -235,7 +212,8 @@ const PATHS = [
         deny: (): string => BINLOG_DENY,
     },
     {
-        match: (path, text): boolean => _OP.test(text) && !under(path, '.claude/skills'),
+        // A reference the write adds, the harness tree documents and tests the rule
+        match: (path, text, old): boolean => _references(text) > _references(old) && !under(path, '.claude'),
         tools: _CONTENT_WRITES,
         deny: (): string => OP_DENY,
     },
@@ -299,36 +277,22 @@ const PATHS = [
         tools: _WRITES,
         each: (): readonly string[] => ['The lock file alone pins versions, spell the row unpinned'],
     },
-    {
-        match: (path): boolean => extension(path) === '.md',
-        tools: _WRITES,
-        each: (_file, text, replaced, facts): readonly string[] => _markdownLines(text, _baseLine(facts.file, replaced)),
-        guidance: true,
-    },
 ] as const satisfies readonly PathRow[];
 
 // --- [RULES] ---------------------------------------------------------------------------
 
-const pathHits = (e: PathEvent): readonly PathRow[] => PATHS.filter((row: PathRow) => row.tools.includes(e.tool) && row.match(_path(e), _text(e)));
+const pathHits = (e: PathEvent): readonly PathRow[] =>
+    PATHS.filter((row: PathRow) => row.tools.includes(e.tool) && row.match(_path(e), _text(e), _old(e)));
 
 // The keys the adapter stamps as injected once the call ran
 const pathSkills = (e: PathEvent): readonly string[] => [...new Set(pathHits(e).flatMap((row) => (row.once ?? []).map((once) => once.key)))];
 
-const _underGuidance = (path: string, guidance: readonly string[]): boolean => guidance.some((directory) => path.startsWith(`${directory}/`));
-
-const _applies =
-    (e: PathEvent, facts: PathFacts): ((row: PathRow) => boolean) =>
-    (row: PathRow): boolean =>
-        row.guidance === undefined || _underGuidance(_path(e), facts.guidance);
-
 const _context = (e: PathEvent, facts: PathFacts): readonly string[] => [
     ...new Set(
-        pathHits(e)
-            .filter(_applies(e, facts))
-            .flatMap((row) => [
-                ...(row.once ?? []).filter((once) => !facts.seen.has(once.key)).map((once) => once.line),
-                ...(row.each ?? ((): readonly string[] => []))(_path(e), _text(e), _old(e), facts),
-            ]),
+        pathHits(e).flatMap((row) => [
+            ...(row.once ?? []).filter((once) => !facts.seen.has(once.key)).map((once) => once.line),
+            ...(row.each ?? ((): readonly string[] => []))(_path(e), _text(e), _old(e), facts),
+        ]),
     ),
 ];
 
