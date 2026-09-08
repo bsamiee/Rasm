@@ -13,25 +13,20 @@ valid:
           from logging import getLogger
       def emit():
           getLogger().info("event")
-    # The corrected form, structlog configured once and its logger called
     - |
       import structlog
 
       structlog.configure(processors=[structlog.processors.JSONRenderer()])
       _log = structlog.get_logger(__name__)
       _log.info("staged", path=str(path))
-    # Level constant of the module
     - |
       import logging
 
       level = logging.INFO
-    # The handler type of the module, the structlog stdlib integration reads it
     - |
       from logging import Handler
-    # Attribute named like the member on another object
     - |
       log.info("staged")
-    # Root logger access and handlers configure the ProcessorFormatter transport
     - |
       import logging
       import structlog
@@ -40,7 +35,6 @@ valid:
       logging.basicConfig(handlers=[handler])
       logging.getLogger().setLevel(logging.INFO)
     - "from logging import basicConfig, getLogger"
-    # A nested import supplies no alias to another function
     - |
       def setup():
           import logging as lg
@@ -49,6 +43,17 @@ valid:
     - 'logging.getLogger("worker").addHandler(handler)'
     - 'structlog.get_logger().info("event")'
     - 'other.getLogger().info("event")'
+    - 'logging.getLogger("worker").makeRecord(name, level, path, line, "event", (), None).error'
+    - |
+      import logging
+      def setup():
+          logger = logging.getLogger(__name__)
+      child = logger.getChild("stage")
+      child.info("event")
+    - 'other.getChild("worker").info("event")'
+    - |
+      import structlog
+      structlog.get_logger().getChild("worker").info("event")
     - |
       from other import getLogger
       getLogger().info("event")
@@ -56,6 +61,33 @@ valid:
     - |
       from logging import makeLogRecord
       makeLogRecord({"error": code}).error
+    - |
+      import structlog
+      logger = structlog.get_logger(__name__)
+      logger.info("event")
+    - |
+      import logging
+      logger = logging.getLogger(__name__)
+      def emit(logger):
+          logger.info("event")
+    - |
+      import logging
+      import structlog
+      logger = logging.getLogger(__name__)
+      def emit():
+          logger = structlog.get_logger()
+          logger.info("event")
+    - |
+      import logging
+      def setup():
+          logger = logging.getLogger(__name__)
+      def emit():
+          logger.info("event")
+    - |
+      import logging
+      logger = logging.getLogger(__name__)
+      for logger in loggers:
+          logger.info("event")
 invalid:
     - 'logging.info("staged")'
     - "from logging import error as emit"
@@ -78,3 +110,38 @@ invalid:
     - 'logging.Logger("worker").info("event")'
     - 'logging.RootLogger(logging.INFO).warning("event")'
     - 'logging.LoggerAdapter(logger, {"job": name}).error("failed")'
+    - |
+      import logging
+      logger = logging.getLogger(__name__)
+      logger.info("event")
+    - |
+      from logging import getLogger
+      def emit():
+          log = getLogger(__name__)
+          log.error("failed")
+    - |
+      import logging
+      logger: logging.Logger = logging.getLogger(__name__)
+      logger.debug("event")
+    - 'logging.warn("event")'
+    - 'logging.getLogger("worker").getChild("stage").info("event")'
+    - |
+      import logging
+      logger = logging.getLogger(__name__)
+      child = logger.getChild("stage")
+      child.warning("event")
+    - |
+      from logging import getLogger
+      getLogger("a").getChild("b").getChild("c").error("failed")
+    - |
+      import logging
+      logger = logging.getLogger(__name__)
+      class Worker:
+          def run(self):
+              logger.info("event")
+    - |
+      import logging
+      if verbose:
+          logger = logging.getLogger(__name__)
+      child = logger.getChild("stage")
+      child.info("event")

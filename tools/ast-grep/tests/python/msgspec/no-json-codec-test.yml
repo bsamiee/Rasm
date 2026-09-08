@@ -4,7 +4,6 @@ valid:
     - 'import msgspec.json'
     - 'response.json()'
     - 'import jsonschema'
-    # An adopted HTTP client's json method can raise the stdlib decoding error.
     - |
       from json import JSONDecodeError
       try:
@@ -17,7 +16,6 @@ valid:
     - 'import json as j'
     - 'import os, json'
     - 'custom.loads(raw)'
-    # Nested modules export their own codec class, not every top-level API.
     - 'json.encoder.loads(raw)'
     - 'json.decoder.dumps(value)'
     - 'json.decoder.JSONEncoder()'
@@ -37,3 +35,11 @@ invalid:
     - |
       import json as codec
       codec.loads(raw)
+    - |
+      from json import loads as parse
+      parse(raw)
+    - |
+      import json
+      class Encoder(json.JSONEncoder):
+          pass
+    - 'from json import dumps, JSONDecodeError'

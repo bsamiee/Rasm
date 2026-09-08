@@ -133,13 +133,9 @@ const _rowLines = (named: Batch, entries: readonly Entry[]): readonly string[] =
             ),
     );
 
-// The plugin's own spawn skips its agent.spawn hook, the editor's brief, the batch lines, the memory directory, and the rows join the prompt here,
-// and the batch id is the editor's name and its probe directory label
+// The plugin's own spawn skips its agent.spawn hook, the editor's brief, the batch lines, the memory directory, and the rows join the prompt here
 const _editorPrompt = (named: Batch, entries: readonly Entry[], memoryDir: Option<string>): string =>
-    spawnRule<Spawn>(
-        some(named),
-        named.batchId,
-    )({
+    spawnRule<Spawn>(some(named))({
         subagentType: EDITOR,
         prompt: [`Batch ${named.batchId}`, ...toArray(map((dir: string) => `memory: ${dir}`)(memoryDir)), ..._rowLines(named, entries)].join('\n'),
     }).match<string>({

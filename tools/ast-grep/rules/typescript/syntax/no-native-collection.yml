@@ -1,25 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, HashMap.empty() in place of new Map() fails at the consumers with TS2339 Property 'set' does not exist on 'HashMap'
 id: no-native-collection
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, HashMap and HashSet have no place there
+ignores: ['.claude/plugins/**']
 rule:
     any:
         - kind: new_expression
           all:
             - has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?(Map|Set)$', matches: syntax-global-reference}
-            # An explicit annotation states the native representation independently of its declaration form
             - not:
-                inside:
-                    kind: public_field_definition, variable_declarator
-                    field: value
-                    stopBy: {not: {kind: parenthesized_expression}}
-                    has:
-                        field: type
+                any:
+                    - inside:
+                        kind: public_field_definition, variable_declarator, required_parameter, optional_parameter
+                        field: value
+                        stopBy: {not: {kind: parenthesized_expression}}
+                        has:
+                            field: type
+                            has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
+                    - inside:
+                        kind: satisfies_expression
+                        stopBy: {not: {kind: parenthesized_expression}}
                         has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
-        # The grouping statics answer a native Map or a plain object
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$', matches: syntax-global-reference}
-message: 'The collection is built through the native `$NAME`, and the effect package owns the immutable and the mutable form'
+message: 'The collection is built through the native `$NAME`'
 note: Build the collection through HashMap, HashSet, or Array.groupBy, or MutableHashMap and MutableHashSet where one scope owns the writes

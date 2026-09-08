@@ -94,7 +94,7 @@ const _FACTS: Facts = {
         { language: 'dotnet', count: 3 },
     ],
     rewrites: [
-        { language: 'typescript', package: 'syntax', ids: ['guard-return-to-ternary'] },
+        { language: 'typescript', package: 'effect', ids: ['option-nullish-ternary-to-from-nullable'] },
         { language: 'dotnet', package: 'msbuild', ids: ['exec-to-task', 'absolute-to-relative-path'] },
     ],
 };
@@ -103,7 +103,7 @@ const _FACTS: Facts = {
 const _IDS: ScanFacts = {
     rules: [
         { id: 'no-x', language: 'typescript' },
-        { id: 'no-central-property-in-project', language: 'dotnet' },
+        { id: 'no-x-property', language: 'dotnet' },
         { id: 'no-repeated-literal-in-function', language: 'python' },
         { id: 'no-fixed-sleep', language: 'python' },
     ],
@@ -147,6 +147,11 @@ describe('scanRows', () => {
         expect(scanRows('tools/ast-grep/rules/README.md', _NO_IDS)).toStrictEqual([]);
     });
 
+    it('skips the task graph for a path outside the working directory, the absolute form relative keeps', () => {
+        expect(scanRows('/private/tmp/scratchpad/package.json', _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
+        expect(scanRows('/private/tmp/scratchpad/tools/nx/workspace.ts', _NO_IDS)).toStrictEqual([SCAN[_FAMILY]]);
+    });
+
     it('runs the test and pairing rows for a snapshot whatever the facts list, and needs the rule ids for a util alone', () => {
         expect(scanRows('tools/ast-grep/tests/__snapshots__/no-gone-snapshot.yml', _IDS)).toStrictEqual([SCAN[_TREE], SCAN[_PAIRING]]);
         expect(scanRows('tools/ast-grep/tests/__snapshots__/no-x-snapshot.yml', _NO_IDS)).toStrictEqual([SCAN[_TREE], SCAN[_PAIRING]]);
@@ -177,10 +182,11 @@ describe('scanRows', () => {
         expect(_ROWS[_PAIRING]?.argv(_PYTHON_UTIL, _IDS)).toStrictEqual([_PAIRING_SCRIPT, 'pairing']);
         expect(_ROWS[_PAIRING]?.timeoutMs).toBeUndefined();
         expect(_ROWS[_GRAPH]?.argv('nx.json', _NO_IDS)).toStrictEqual([..._GRAPH_PREFIX, '--files=nx.json']);
+        expect(_ROWS[_GRAPH]?.argv('libs/typescript/item/package.json', _NO_IDS).at(-1)).toBe('--files=libs/typescript/item/package.json');
     });
 
     it('filters the util test run to the rule ids of its language, and to a regex no id matches without one', () => {
-        expect(_ROWS[_UTILS]?.argv('tools/ast-grep/utils/dotnet/msbuild-property.yml', _IDS).at(-1)).toBe('^(no-central-property-in-project)$');
+        expect(_ROWS[_UTILS]?.argv('tools/ast-grep/utils/dotnet/msbuild-property.yml', _IDS).at(-1)).toBe('^(no-x-property)$');
         expect(_ROWS[_UTILS]?.argv(_BASH_UTIL, _IDS).at(-1)).toBe('^$');
         expect(_ROWS[_UTILS]?.argv(_PYTHON_UTIL, _NO_IDS).at(-1)).toBe('^$');
     });
@@ -297,7 +303,7 @@ describe('facts', () => {
                 'Custom grammar .cache/ast-grep/xml.so present',
                 'Rules per family: dotnet/msbuild 40, typescript/claude-code 17, typescript/syntax 8',
                 'Utils per language: dotnet 3, typescript 27',
-                'Rewrites: dotnet/msbuild absolute-to-relative-path, dotnet/msbuild exec-to-task, typescript/syntax guard-return-to-ternary',
+                'Rewrites: dotnet/msbuild absolute-to-relative-path, dotnet/msbuild exec-to-task, typescript/effect option-nullish-ternary-to-from-nullable',
             ].join('\n'),
         );
     });

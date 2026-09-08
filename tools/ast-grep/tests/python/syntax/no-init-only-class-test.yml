@@ -1,136 +1,111 @@
 id: no-init-only-class
 valid:
-    # The corrected form, a Struct with fields
     - |
       class Recorder(msgspec.Struct):
           labels: list[str] = msgspec.field(default_factory=list)
           failures: list[str] = msgspec.field(default_factory=list)
-    # Init with a call beside the assignments
     - |
       class Recorder:
           def __init__(self, token):
               self.token = token
               register(self)
-    # Init with a branch
     - |
       class Recorder:
           def __init__(self, token):
               if token:
                   self.token = token
-    # Init assigning a local
     - |
       class Recorder:
           def __init__(self, token):
               value = token
               self.token = value
-    # Base under a package path, a Struct declares its fields
     - |
       class Recorder(msgspec.Struct):
           def __init__(self, token):
               self.token = token
-    # Exception subclass
     - |
       class Missing(Exception):
           def __init__(self, path):
               self.path = path
-    # Protocol
     - |
       class Reader(Protocol):
           def __init__(self, path):
               self.path = path
-    # Method other than init assigning attributes of self alone
     - |
       class Recorder:
           def reset(self):
               self.token = 0
-    # Init assigning an attribute of another object
     - |
       class Recorder:
           def __init__(self, other):
               other.token = 1
-    # Init unpacking into attributes of another object
     - |
       class Recorder:
           def __init__(self, other, left, right):
               other.left, other.right = left, right
-    # Class without an init
     - |
       class Recorder:
           def read(self):
               return self.token
-    # Init of the docstring alone
     - |
       class Recorder:
           def __init__(self):
               """Doc."""
-    # Init calling super().__init__() beside the assignment
     - |
       class Recorder(Base):
           def __init__(self, token):
               """Hold the token."""
               super().__init__()
               self.token = token
-    # Augmented assignment to an attribute of self
     - |
       class Recorder:
           def __init__(self, token):
               self.token = token
               self.count += 1
-    # Struct under a plain name
     - |
       class Recorder(Struct):
           def __init__(self, token):
               self.token = token
-    # Model under a plain name
     - |
       class Recorder(BaseModel):
           def __init__(self, token):
               self.token = token
-    # Enum with a member init
     - |
       class Color(Enum):
           RED = 1
 
           def __init__(self, value):
               self.code = value
-    # Decorated init, a decorator transforms it
     - |
       class Recorder:
           @override
           def __init__(self, token):
               self.token = token
-    # Keyword base, a metaclass builds the class
     - |
       class Recorder(metaclass=Meta):
           def __init__(self, token):
               self.token = token
-    # Plain named base
     - |
       class Recorder(Base):
           def __init__(self, token):
               self.token = token
-    # Field initialization calls a factory and owns construction behavior
     - |
       class Recorder:
           def __init__(self, token):
               self.token = register(token)
-    # Unpacking also writes another object and is not field-only construction
     - |
       class Recorder:
           def __init__(self, other, left, right):
               self.left, other.right = left, right
-    # Class decorator can register the constructor
     - |
       @register
       class Recorder:
           def __init__(self, token):
               self.token = token
-    # Property access in the initializer can invoke a descriptor
     - |
       class Recorder:
           def __init__(self, source):
               self.token = source.token
-    # Property writes execute the declared setter
     - |
       class Recorder:
           def __init__(self, token):
@@ -143,14 +118,12 @@ valid:
           @token.setter
           def token(self, value):
               record(value)
-    # A class field can install a descriptor
     - |
       class Recorder:
           token = Descriptor()
 
           def __init__(self, token):
               self.token = token
-    # Attribute assignment hook owns mutation behavior
     - |
       class Recorder:
           def __init__(self, token):
@@ -158,17 +131,14 @@ valid:
 
           def __setattr__(self, name, value):
               record(name, value)
-    # Interpolated initializer computes its field at construction
     - |
       class Recorder:
           def __init__(self, value):
               self.label = f"record {value}"
-    # Collection initializer invokes effects in its elements
     - |
       class Recorder:
           def __init__(self):
               self.labels = [record()]
-    # Decorated attribute hook still owns field writes
     - |
       class Recorder:
           def __init__(self, value):
@@ -178,7 +148,6 @@ valid:
           def __setattr__(self, name, value):
               record(name, value)
 invalid:
-    # The instance, a schema-opaque leaf with one field
     - |
       class _Opaque:
           """Schema-opaque leaf."""
@@ -189,36 +158,30 @@ invalid:
           @override
           def __repr__(self) -> str:
               return f"_Opaque({self.token})"
-    # Two annotated fields with literal values
     - |
       class Recorder:
           def __init__(self) -> None:
               self.labels: list[str] = []
               self.failures: list[str] = []
-    # Init under a docstring
     - |
       class Recorder:
           def __init__(self, token):
               """Hold the token."""
               self.token = token
-    # Tuple of attributes unpacked from the arguments
     - |
       class Recorder:
           def __init__(self, left, right):
               self.left, self.right = left, right
-    # Class-level field beside the init
     - |
       class Recorder:
           limit = 3
 
           def __init__(self, token):
               self.token = token
-    # Trailing comment in the init body, a comment is no statement
     - |
       class Recorder:
           def __init__(self, token):
               self.token = token  # The one field
-    # Class nested in a def
     - |
       def make():
           class Recorder:
@@ -226,7 +189,23 @@ invalid:
                   self.token = token
 
           return Recorder
-    # Literal string field declares stored data
+    - |
+      class Recorder:
+          def __init__(self, *items, **options):
+              self.items = items
+              self.options = options
+    - |
+      class Recorder:
+          kinds = ["a", Kind()]
+
+          def __init__(self, token):
+              self.token = token
+    - |
+      class Recorder:
+          __slots__ = ("token",)
+
+          def __init__(self, token):
+              self.token = token
     - |
       class Recorder:
           def __init__(self):

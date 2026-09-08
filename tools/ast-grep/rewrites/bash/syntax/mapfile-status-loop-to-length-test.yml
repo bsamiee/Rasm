@@ -1,28 +1,20 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# Enable on demand with ast-grep scan --filter '^mapfile-status-loop-to-length-test$' --error=mapfile-status-loop-to-length-test -U <paths>
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: mapfile-status-loop-to-length-test
 language: bash
 severity: off
 ignores: ["**/*.json"]
 utils:
-    # A reader with an explicit array name after its options, the name the length test reads
     named-reader:
         kind: command
         all:
-            - any:
-                - has: {field: name, regex: '^(mapfile|readarray)$'}
-                - all:
-                    - has: {field: name, regex: '^builtin$'}
-                    - has: {field: argument, regex: '^(mapfile|readarray)$'}
+            - has: {matches: {bash-invoked-name: {name: {regex: '^(mapfile|readarray)$'}, runner: {regex: '^(builtin|command)$'}}}}
             - not: {has: {kind: word, regex: '^["'']?-[a-zA-Z]*C'}}
             - has: {kind: word, pattern: $ARRAY, regex: '^[A-Za-z_][A-Za-z0-9_]*$', nthChild: {position: 1, reverse: true}}
-            # The last word names the array when it does not complete a value-taking option, -d -n -O -s -u -C -c
             - not: {has: {kind: word, regex: '^-[a-zA-Z]*[dnOsuCc]$', precedes: {kind: word, pattern: $ARRAY}}}
             - not: {has: {matches: bash-expanding-word}}
 rule:
     matches: named-reader
     pattern: $READER
-    # The reader alone as the loop's condition, a second condition or a redirect of the reader changes what each pass reads
     inside:
         kind: while_statement
         field: condition
@@ -30,4 +22,4 @@ rule:
         not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'do_group, comment'}}}}}
 fix: '$READER && (( ${#$ARRAY[@]} ))'
 message: mapfile and readarray succeed at EOF, and the loop runs on after the last batch
-note: Test the batch's length beside the reader, `while mapfile -tn 8 batch && (( ${#batch[@]} )); do`, so the empty batch at EOF ends the loop
+note: Test the batch's length beside the reader, `while mapfile -tn 8 batch && (( ${#batch[@]} )); do`, and the empty batch at EOF ends the loop

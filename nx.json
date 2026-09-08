@@ -9,6 +9,8 @@
         "sharedGlobals": [
             "{workspaceRoot}/nx.json",
             "{workspaceRoot}/mise.toml",
+            "{workspaceRoot}/mise.unix.toml",
+            "{workspaceRoot}/.miserc.toml",
             "{workspaceRoot}/tools/nx/*.ts",
             "{workspaceRoot}/sgconfig.yml",
             "{workspaceRoot}/tools/ast-grep/**/*",

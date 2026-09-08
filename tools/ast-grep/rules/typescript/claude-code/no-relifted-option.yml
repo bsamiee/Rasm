@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# A none arm alone does not prove an Option-valued fold; mixed scalar and Option results are valid.
 id: no-relifted-option
 language: tsx
 severity: error
@@ -27,10 +26,30 @@ utils:
             - {has: {field: key, pattern: {context: 'const cases = { none: 0 }', selector: property_identifier}}}
             - {has: {field: value, pattern: '() => []'}}
     option-operation:
-        any:
-            - {kind: variable_declarator}
-            - {kind: function_declaration}
+        kind: variable_declarator, function_declaration
         has: {field: name, regex: ^(map|flatMap|getOrElse|toArray|liftPredicate)$}
+    option-typed-match:
+        matches: match-cases
+        inside:
+            kind: arguments
+            inside: {kind: call_expression, has: {field: type_arguments, pattern: {context: match<Option<$_>>(), selector: type_arguments}}}
+    option-answer:
+        kind: arrow_function
+        has: {field: body, kind: call_expression, has: {field: function, kind: identifier, regex: ^(some|none|fromNullable)$}}
+    identity-arm:
+        any:
+            - {pattern: ($X) => $X}
+            - {pattern: '($X: $_) => $X'}
+            - {pattern: '($X) => { return $X; }'}
+            - {pattern: '($X: $_) => { return $X; }'}
+    one-element-arm:
+        kind: arrow_function
+        has:
+            field: body
+            kind: array
+            all:
+                - {has: {pattern: $_, not: {kind: spread_element}}}
+                - {not: {has: {nthChild: 2}}}
 rule:
     kind: pair
     all:
@@ -39,36 +58,14 @@ rule:
         - any:
             - all:
                 - {inside: {matches: match-cases, has: {matches: none-arm}}}
-                - any:
-                    - inside:
-                        matches: match-cases
-                        inside:
-                            kind: arguments
-                            inside:
-                                kind: call_expression
-                                has: {field: type_arguments, pattern: {context: match<Option<$_>>(), selector: type_arguments}}
-                    - has:
-                        field: value
-                        kind: arrow_function
-                        has:
-                            field: body
-                            kind: call_expression
-                            has: {field: function, kind: identifier, regex: ^(some|none|fromNullable)$}
-            - {has: {field: value, any: [{pattern: ($X) => $X}, {pattern: '($X: $_) => $X'}]}}
+                - any: [{inside: {matches: option-typed-match}}, {has: {field: value, matches: option-answer}}]
+            - {has: {field: value, matches: identity-arm}}
             - all:
-                - has:
-                    field: value
-                    kind: arrow_function
-                    has:
-                        field: body
-                        kind: array
-                        all:
-                            - {has: {pattern: $_, not: {kind: spread_element}}}
-                            - {not: {has: {nthChild: 2}}}
+                - {has: {field: value, matches: one-element-arm}}
                 - {inside: {matches: match-cases, has: {matches: empty-arm}}}
         - not:
-            inside: {stopBy: {any: [{kind: variable_declarator}, {kind: function_declaration}]}, matches: option-operation}
+            inside: {stopBy: {kind: 'variable_declarator, function_declaration'}, matches: option-operation}
     pattern: $MATCH
-message: The case record rebuilds the Option's own cases, and `composition/option.ts` exports the operation the arms spell
-note: 'Call `map(f)(option)` for `some: (x) => some(f(x))`, `flatMap(f)(option)` for an arm that answers an Option, `getOrElse(() => fallback)(option)` for `some: (x) => x`, and `toArray(option)` or `toArray(map(f)(option))` for a one-element arm beside `none: () => []`'
+message: The case record rebuilds an Option operation `composition/option.ts` exports
+note: Call the exported operation over the option, `map(f)(option)`, `flatMap(f)(option)`, `getOrElse(fallback)(option)`, or `toArray(option)`
 labels: {MATCH: {style: primary}}

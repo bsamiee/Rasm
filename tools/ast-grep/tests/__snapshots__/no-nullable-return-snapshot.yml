@@ -292,6 +292,20 @@ snapshots:
       style: secondary
       start: 52
       end: 95
+  'const found = (key: string): Row | null => { return present ? null : null; };':
+    labels:
+    - source: 'return present ? null : null;'
+      style: primary
+      start: 45
+      end: 74
+    - source: 'null'
+      style: secondary
+      start: 62
+      end: 66
+    - source: 'present ? null : null'
+      style: secondary
+      start: 52
+      end: 73
   'const found = (key: string): Row | null => { return present ? table[key] : null; };':
     labels:
     - source: 'return present ? table[key] : null;'
@@ -532,6 +546,20 @@ snapshots:
       style: secondary
       start: 53
       end: 62
+  'const found = async (key: string): Promise<Row | undefined> => undefined;':
+    labels:
+    - source: 'async (key: string): Promise<Row | undefined> => undefined'
+      style: primary
+      start: 14
+      end: 72
+    - source: undefined
+      style: secondary
+      start: 63
+      end: 72
+    - source: ': Promise<Row | undefined>'
+      style: secondary
+      start: 33
+      end: 59
   'const found = async (key: string): Promise<Row | undefined> => { return undefined; };':
     labels:
     - source: return undefined;
@@ -560,6 +588,16 @@ snapshots:
       style: secondary
       start: 45
       end: 49
+  'const table = { find(key: string): Row | null { return null; } };':
+    labels:
+    - source: return null;
+      style: primary
+      start: 48
+      end: 60
+    - source: 'null'
+      style: secondary
+      start: 55
+      end: 59
   'function found(key: string): Row | null { return null; }':
     labels:
     - source: return null;

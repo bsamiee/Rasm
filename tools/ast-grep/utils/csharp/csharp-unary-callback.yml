@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: csharp-unary-callback
 language: csharp
 arguments: [parameter, body]
@@ -36,3 +36,4 @@ rule:
         - matches: lambda
         - kind: argument
           has: {matches: lambda}
+          not: {has: {kind: comment}}

@@ -1,18 +1,66 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-inline-msgspec-codec
 language: python
 severity: error
+utils:
+    class-import:
+        kind: import_from_statement
+        all:
+            - has: {field: module_name, pattern: $SOURCE, regex: '^msgspec\.(json|msgpack)$'}
+            - has:
+                any:
+                    - kind: dotted_name
+                      matches: codec-class
+                    - kind: aliased_import
+                      has: {field: name, matches: codec-class}
+    function-import:
+        kind: import_from_statement
+        all:
+            - has: {field: module_name, pattern: $SOURCE}
+            - has:
+                any:
+                    - kind: dotted_name
+                      matches: codec-function
+                      pattern: $FUNCTION
+                    - kind: aliased_import
+                      all:
+                        - has: {field: name, matches: codec-function}
+                        - has: {field: alias, pattern: $FUNCTION}
+    imported-codec:
+        inside:
+            kind: module, function_definition
+            stopBy: end
+            all:
+                - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: class-import}
+                - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: function-import}
+    codec-class: {regex: "^(Encoder|Decoder)$"}
+    codec-function: {regex: "^(encode|decode)$"}
+    codec-module: {regex: '^msgspec\.(json|msgpack)$'}
+    imported-encoder: {kind: call, has: {field: function, matches: {python-imported-name: {module: {matches: codec-module}, name: {regex: "^Encoder$"}}}}}
+    imported-decoder: {kind: call, has: {field: function, matches: {python-imported-name: {module: {matches: codec-module}, name: {regex: "^Decoder$"}}}}}
 rule:
-    all:
-        - any:
-            - pattern: $MODULE.Encoder().encode($VALUE)
-            - pattern: $MODULE.Decoder().decode($VALUE)
-        - has: {field: function, has: {field: attribute, pattern: $METHOD}}
+    kind: call
+    any:
+        - all:
+            - any:
+                - pattern: $MODULE.Encoder().encode($VALUE)
+                - pattern: $MODULE.Decoder().decode($VALUE)
+            - has: {field: function, has: {field: attribute, pattern: $METHOD}}
+        - all:
+            - matches: imported-codec
+            - any:
+                - pattern: $ENCODER().encode($VALUE)
+                  has: {field: function, has: {field: object, matches: imported-encoder}}
+                - pattern: $DECODER().decode($VALUE)
+                  has: {field: function, has: {field: object, matches: imported-decoder}}
     not: {has: {kind: comment, stopBy: end}}
 constraints:
     MODULE: {matches: python-msgspec-module}
     VALUE: {not: {kind: "keyword_argument, list_splat, dictionary_splat"}}
-fix: "$MODULE.$METHOD($VALUE)"
+transform:
+    HEAD: {replace: {source: $MODULE, replace: "(?s)^(.+)$", by: "$1."}}
+    METHOD_NAME: {replace: {source: $METHOD, replace: "^(.+)$", by: "$1"}}
+    FUNCTION_NAME: {replace: {source: $FUNCTION, replace: "^(.+)$", by: "$1"}}
+fix: "$HEAD$METHOD_NAME$FUNCTION_NAME($VALUE)"
 message: "Inline msgspec codec construction discards the codec after one operation"
 note: Call the module's `encode` or `decode` for the default configuration, and keep one `Encoder` or `Decoder` instance for repeated use
-labels: {MODULE: {style: primary, message: Codec module}}

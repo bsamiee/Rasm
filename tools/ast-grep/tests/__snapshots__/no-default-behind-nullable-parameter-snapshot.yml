@@ -343,6 +343,64 @@ snapshots:
       start: 0
       end: 107
   ? |
+    class Mode:
+        FAST = 1
+
+    class Reader:
+        def run(self, mode: int | None = None) -> int:
+            return mode if mode is not None else Mode.FAST
+  : labels:
+    - source: 'mode: int | None = None'
+      style: primary
+      start: 58
+      end: 81
+    - source: mode
+      style: secondary
+      start: 58
+      end: 62
+    - source: None
+      style: secondary
+      start: 77
+      end: 81
+    - source: mode if mode is not None else Mode.FAST
+      style: secondary
+      start: 106
+      end: 145
+    - source: mode if mode is not None else Mode.FAST
+      style: secondary
+      start: 106
+      end: 145
+    - source: |-
+        def run(self, mode: int | None = None) -> int:
+                return mode if mode is not None else Mode.FAST
+      style: secondary
+      start: 44
+      end: 145
+    - source: Mode
+      style: secondary
+      start: 136
+      end: 140
+    - source: Mode
+      style: secondary
+      start: 6
+      end: 10
+    - source: |-
+        class Mode:
+            FAST = 1
+      style: secondary
+      start: 0
+      end: 24
+    - source: |
+        class Mode:
+            FAST = 1
+
+        class Reader:
+            def run(self, mode: int | None = None) -> int:
+                return mode if mode is not None else Mode.FAST
+      style: secondary
+      start: 0
+      end: 146
+  ? |
     class Reader:
         pass
 

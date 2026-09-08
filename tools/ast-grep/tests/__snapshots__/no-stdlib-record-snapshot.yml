@@ -15,6 +15,13 @@ snapshots:
       start: 24
       end: 33
   ? |
+    from dataclasses import dataclass as record
+  : labels:
+    - source: dataclass
+      style: primary
+      start: 24
+      end: 33
+  ? |
     from typing import NamedTuple
   : labels:
     - source: NamedTuple

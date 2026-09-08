@@ -1,4 +1,3 @@
-# Load through customLanguages.<name>.outlineRules or a repeated --outline-rules flag
 id: <item-extractor-id>
 language: <language>
 role: item
@@ -11,12 +10,9 @@ rule:
         - inside: {kind: <module-kind>}
         - inside: {kind: <export-kind>, inside: {kind: <module-kind>}}
 transform:
-    HEADER: rewrite($DECLARATION, rewriters=[omit-body])
-    SIGNATURE: replace($HEADER, replace='\s+$', by='')
-rewriters:
-    - id: omit-body
-      rule: {kind: <body-kind>, inside: {pattern: $DECLARATION}}
-      fix: '' # Keep bodies nested inside header expressions
+    BODYLESS: {replace: {source: $DECLARATION, replace: '\s*(\{[\s\S]*$|=>[\s\S]*$|;\s*$)', by: ''}}
+    LINE: {replace: {source: $BODYLESS, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $SIGNATURE
-isExported: {inside: {kind: <export-kind>}} # Use the language's written export form
+isExported: {inside: {kind: <export-kind>}}

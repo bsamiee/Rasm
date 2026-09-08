@@ -1,43 +1,33 @@
 id: echo-expansion-to-printf
 valid:
-    # A literal operand needs no conversion
     - echo "done"
-    # Two operands print joined by a space, one printf argument holds no join
     - echo "$x" "$y"
-    # An unquoted expansion splits into several arguments
     - echo $x
-    # A joined word holds an unquoted expansion
     - echo "$x"y
-    # Two flags, -ne, and -E stay with echo
     - echo -ne "$x"
     - echo -E "$x"
     - echo -n -e "$x"
-    # A flag after the operand is an operand
     - echo "$x" -n
-    # No operand
     - echo -n
-    # An unquoted expansion beside the quoted operand splits into more arguments
     - echo $y "$x"
-    # An assignment prefix stays with the command
     - X=1 echo "$x"
-    # Another command with one quoted operand
     - cat "$file"
-    # Another command
     - "printf '%s\\n' \"$x\""
+    - echo "$@"
+    - echo "${values[@]}"
+    - echo "${!prefix@}"
+    - echo "${@:2}"
 invalid:
-    # The instance, a quoted parameter
     - echo "$x"
-    # -n drops the newline
     - echo -n "$x"
-    # -e interprets escapes, %b keeps that
     - echo -e "$x\n$y"
-    # A redirect stays outside the command
     - echo "$x" >&2
-    # A quoted command substitution
     - echo "$(date)"
-    # Text around the expansion inside the quotes
+    - echo "$*"
+    - echo "${values[*]}"
+    - echo "user@$host"
+    - y=$(echo "$x")
     - 'echo "value: ${count}"'
-    # Inside a function under a pipeline
     - |
       report() {
           echo "$1" | sort

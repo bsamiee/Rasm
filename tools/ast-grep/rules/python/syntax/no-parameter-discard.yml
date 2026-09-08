@@ -1,15 +1,14 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parameter-discard
 language: python
 severity: error
-# Report-only, the probed fix deleting the discard leaves `ARG001 Unused function argument: extra`, the rename touches the keyword callers
 rule:
     all:
         - kind: expression_statement
           has: {kind: assignment, pattern: _ = $P, has: {field: right, kind: identifier}}
         - inside:
             kind: function_definition
-            stopBy: {matches: python-function-boundary} # The def that declares the parameter the statement discards
+            stopBy: {matches: python-function-boundary}
             has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}}}
 message: The body discards parameter `$P`
 note: Name an unused parameter with a leading underscore and update its keyword callers, or keep the name an external callable contract requires

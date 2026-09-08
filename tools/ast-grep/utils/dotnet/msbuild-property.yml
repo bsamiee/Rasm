@@ -1,14 +1,12 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-property # Property element under a PropertyGroup with a tag name passing the name rule
+id: msbuild-property
 language: xml
 arguments: [name]
 rule:
     kind: element
     all:
-        # The name slot forwards into msbuild-element and exports no capture, no caller binds a name
         - matches: {msbuild-element: {name: {matches: name}}}
         - inside: {kind: content, inside: {kind: element, has: {matches: msbuild-tag, has: {kind: Name, regex: '^PropertyGroup$'}}}}
-        # ProjectExtensions stores arbitrary XML, including element names used by MSBuild
         - not:
             inside:
                 kind: element

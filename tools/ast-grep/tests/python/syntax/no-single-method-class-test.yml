@@ -1,10 +1,8 @@
 id: no-single-method-class
 valid:
-    # The corrected form, a function
     - |
       def render(item):
           return item.name
-    # Two methods
     - |
       class Reader:
           def load(self):
@@ -12,34 +10,28 @@ valid:
 
           def save(self):
               return self.path
-    # Protocol, a base names the role
     - |
       class Reader(Protocol):
           def load(self) -> str: ...
-    # Exception subclass
     - |
       class Missing(Exception):
           def __str__(self):
               return "missing"
-    # Struct subclass
     - |
       class Item(msgspec.Struct):
           def render(self):
               return self.name
-    # Class-level field beside the method
     - |
       class Reader:
           path = "item"
 
           def load(self):
               return self.path
-    # Decorated method, the decorator names a role
     - |
       class Reader:
           @property
           def path(self):
               return "item"
-    # Static method beside a plain method
     - |
       class Reader:
           @staticmethod
@@ -48,13 +40,11 @@ valid:
 
           def load(self):
               return self.path
-    # Init alone
     - |
       class Reader:
           def __init__(self, path):
               self.path = path
               register(self)
-    # Nested class beside the method
     - |
       class Renderer:
           class Inner:
@@ -62,12 +52,10 @@ valid:
 
           def render(self, item):
               return item.name
-    # Keyword base, a metaclass builds the class
     - |
       class Renderer(metaclass=Meta):
           def render(self, item):
               return item.name
-    # Init under a docstring with no other method
     - |
       class Renderer:
           """Render items."""
@@ -75,7 +63,6 @@ valid:
           def __init__(self, prefix):
               self.prefix = prefix
               register(self)
-    # Special methods implement language protocols without requiring a base class
     - |
       class Empty:
           def __bool__(self):
@@ -97,7 +84,6 @@ valid:
           @classmethod
           def __class_getitem__(cls, item):
               return item
-    # Class method depends on class identity beside a static method
     - |
       class Tools:
           @staticmethod
@@ -107,39 +93,33 @@ valid:
           @classmethod
           def make(cls):
               return cls()
-    # Class method receives the owning class
     - |
       class Tools:
           @classmethod
           def make(cls):
               return cls()
-    # Class decorator can consume the class identity
     - |
       @register
       class Renderer:
           def render(self, item):
               return item.name
-    # Static method reads its implicit class cell
     - |
       class Factory:
           @staticmethod
           def make():
               return __class__()
-    # Static special method implements construction
     - |
       class Factory:
           @staticmethod
           def __new__(cls):
               return object.__new__(cls)
 invalid:
-    # The instance, one method with a docstring
     - |
       class Renderer:
           """Render items."""
 
           def render(self, item):
               return item.name
-    # One method beside __init__
     - |
       class Renderer:
           def __init__(self, prefix):
@@ -148,7 +128,6 @@ invalid:
 
           def render(self, item):
               return self.prefix + item.name
-    # Static method under a docstring
     - |
       class Tools:
           """Render items."""
@@ -156,32 +135,27 @@ invalid:
           @staticmethod
           def render(item):
               return item.name
-    # Comment after the one method, a comment is no member
     - |
       class Renderer:
           def render(self, item):
               return item.name
           # The one method
-    # Async method
     - |
       class Renderer:
           async def render(self, item):
               return item.name
-    # Comment before the static method, the comment sits before the block
     - |
       class Tools:
           # The one function
           @staticmethod
           def render(item):
               return item.name
-    # Comment after the static method, a comment is no member
     - |
       class Tools:
           @staticmethod
           def render(item):
               return item.name
           # The one function
-    # Static method under a second decorator
     - |
       class Tools:
           @staticmethod

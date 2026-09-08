@@ -1,45 +1,43 @@
 id: no-absolute-path-in-item
 valid:
-    # Path composed from the file directory
     - |
       <Import Project="$(MSBuildThisFileDirectory)eng/custom.props" Condition="Exists('$(MSBuildThisFileDirectory)eng/custom.props')" />
-    # Host assembly resolved through an overridable property
     - |
       <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" Private="false" />
-    # Relative project reference
     - |
-      <ProjectReference Include="../Rasm.Interop.Excel/Rasm.Interop.Excel.csproj" />
-    # Solution folder name opening with a slash, no path
+      <ProjectReference Include="../Item/Item.csproj" />
     - |
       <Folder Name="/libs/dotnet/" />
-    # Package path, relative to the package root
     - |
       <None Include="$(StageRoot)runtimes/**" Pack="true" PackagePath="runtimes/" />
-    # Property named like a path parameter, a property group holds no item
     - |
       <PropertyGroup><Path>/usr/local/bin</Path></PropertyGroup>
+    - |
+      <Exec Command="/usr/bin/codesign --sign - $(TargetPath)" />
+    - |
+      <None Include="./item.txt" />
 invalid:
-    # Single-quoted hint path with a drive letter
     - |
       <Reference Include='Tool' HintPath='C:\tools\mytool\mytool.dll' />
-    # Hint path in the child-element form
     - |
       <Reference Include="Tool"><HintPath>C:\tools\mytool\mytool.dll</HintPath></Reference>
-    # Hint path with a drive letter
     - |
       <Reference Include="Tool" HintPath="C:\tools\mytool\mytool.dll" Private="false" />
-    # Unix prefix in an item
     - |
       <None Include="/usr/local/share/data.bin" CopyToOutputDirectory="PreserveNewest" />
-    # Import from one machine
     - |
       <Import Project="/Users/someone/build/common.props" />
-    # Reference into the user's package cache
     - |
       <Reference Include="Newtonsoft.Json" HintPath="~/.nuget/packages/newtonsoft.json/13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
-    # Solution project path from one checkout
     - |
-      <Project Path="/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
-    # Root outside the fixed Unix list
+      <Project Path="/Users/someone/checkout/libs/Item/Item.csproj" />
     - |
       <Compile Include="/srv/generated/Bindings.cs" />
+    - |
+      <Exec Command="build" WorkingDirectory="/opt/tool" />
+    - |
+      <Compile Include="C:/src/item.cs" />
+    - |
+      <Copy SourceFiles="~/item.txt" DestinationFolder="$(OutDir)" />
+    - |
+      <Reference Include="Tool"><HintPath>/usr/lib/tool.dll</HintPath></Reference>

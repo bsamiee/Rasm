@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nul-suffix-in-jq-program
+language: bash
+severity: error
+ignores: ["**/*.json"]
+rule:
+    kind: command
+    all:
+        - has: {matches: {bash-invoked-name: {name: {regex: '^(?:\S+/)?jq$'}, runner: {regex: '^(?:\S+/)?(command|env|exec|sudo|time)$'}}}}
+        - has: {kind: raw_string, pattern: $PROGRAM, regex: "\\\\u0000\"'$"}
+message: The jq program appends a NUL to every output by hand
+note: 'Pass `--raw-output0` in place of `-j` and the `"\u0000"` suffix, because jq then delimits every output with NUL and refuses a value holding one'

@@ -1,0 +1,65 @@
+# Reusable workflow a caller job runs through uses, typed inputs in and job outputs out
+name: <Name>
+
+on:
+    workflow_call:
+        inputs:
+            <input>:
+                description: <purpose>
+                type: string # boolean, number, or string, an unset default reads false, 0, or ""
+                default: <value>
+        outputs:
+            <output>:
+                description: <purpose>
+                value: ${{ jobs.<job>.outputs.<output> }} # Workflow outputs read job outputs alone
+
+permissions:
+    contents: read # Called workflows narrow the caller's token and widen nothing
+
+defaults:
+    run:
+        shell: bash
+
+jobs:
+    <job>:
+        strategy:
+            fail-fast: false # Every platform reports its own result
+            matrix:
+                include: # One row per runtime identifier and the runner that builds it
+                    - {rid: <rid>, runner: <runner>}
+        runs-on: ${{ matrix.runner }}
+        timeout-minutes: <minutes>
+        outputs:
+            <output>: ${{ steps.<step>.outputs.<output> }} # Matrix jobs merge their outputs, the last job's value wins per name
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                persist-credentials: false
+            - uses: ./.github/actions/setup
+            - id: <step>
+              run: <command> "$INPUT" # The output line goes to GITHUB_OUTPUT as name=value
+              env:
+                INPUT: ${{ inputs.<input> }}
+            - run: tar -czf "$RUNNER_TEMP/<artifact>-$RID.tar.gz" <path> # One archive keeps the file modes
+              working-directory: .artifacts
+              env:
+                RID: ${{ matrix.rid }}
+            - uses: actions/upload-artifact@v7
+              with:
+                path: ${{ runner.temp }}/<artifact>-${{ matrix.rid }}.tar.gz
+                archive: false # One file uploaded as it is, its file name is the artifact name
+
+    <consumer>:
+        needs: <job>
+        runs-on: <runner>
+        timeout-minutes: <minutes>
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                persist-credentials: false
+            - uses: ./.github/actions/setup
+            - uses: actions/download-artifact@v8
+              with:
+                pattern: <artifact>-* # Every matrix upload into one directory, the digest checked on download
+                merge-multiple: true
+                path: ${{ runner.temp }}/<artifact>

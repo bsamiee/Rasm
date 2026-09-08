@@ -1,35 +1,28 @@
 id: no-registration-outside-register
 valid:
-    # One plain registration per event in register
     - |
       const register = (on: On): void => {
           on('session.start', ($, e, next) => next(e));
           on('tool.call', ($, e, next) => next(e));
       };
-    # Matched registrations on one event, the loader keeps both
     - |
       on('tool.call', { tool: 'Bash' }, ($, e, next) => next(e));
       on('tool.call', { tool: 'Read' }, ($, e, next) => next(e));
-    # Plain and matched registration on one event
     - |
       on('tool.call', ($, e, next) => next(e));
       on('tool.call', { tool: 'Bash' }, ($, e, next) => next(e));
-    # The catch-all registration beside a named one
     - |
       on('*', ($, e, next) => next(e));
       on('tool.call', ($, e, next) => next(e));
-    # Registration inside an event file's function, on is its parameter and no hook owns the call
     - |
       const toolCall = (on: On, options: Options): void => {
           on('tool.call', ($, e, next) => next(e));
       };
-    # Call named other than on inside a hook
     - |
       on('session.start', ($, e, next) => {
           arm('tool.call');
           return next(e);
       });
-    # Plain registrations on one event in separate blocks
     - |
       const first = (on: On): void => {
           on('tool.call', ($, e, next) => next(e));
@@ -37,42 +30,38 @@ valid:
       const second = (on: On): void => {
           on('tool.call', ($, e, next) => next(e));
       };
-    # Two calls of a parameter typed other than On, no registration
     - |
       const arm = (register: Other): void => {
           register('tool.call', ($, e, next) => next(e));
           register('tool.call', ($, e, next) => next(e));
       };
-    # Member call named on inside a hook, an emitter and no registration
     - |
       on('session.start', ($, e, next) => {
           emitter.on('change', redraw);
           return next(e);
       });
-    # Plain registration after a matched one on the same event
     - |
       on('tool.call', { tool: 'Bash' }, ($, e, next) => next(e));
       on('tool.call', ($, e, next) => next(e));
-    # Registration per event in a loop callback, the callback is no hook
     - |
       const arm = (on: On): void => {
           EVENTS.forEach((event) => on(event, ($, e, next) => next(e)));
       };
     - "on(nextEvent(), first); on(nextEvent(), second);"
     - 'on(EVENT, first); EVENT = "other"; on(EVENT, second);'
-    # Second plain registration on an event held in a constant
     - |
       on(EVENT, ($, e, next) => next(e));
       on(EVENT, ($, e, next) => next(e));
     - 'on("tool.\u0063all", first); on("tool.\u0064escribe", second);'
+    - 'on(`tool.${kind}`, first); on(`tool.${kind}`, second);'
 invalid:
-    # Registration inside a session.start hook, it runs at dispatch time
+    - 'on(`tool.call`, first); on(`tool.call`, second);'
+    - "on('tool.call', first); on(`tool.call`, second);"
     - |
       on('session.start', ($, e, next) => {
           on('tool.call', ($, e, next) => next(e));
           return next(e);
       });
-    # Registration inside a closure inside a hook
     - |
       on('session.start', ($, e, next) => {
           const arm = (): void => {
@@ -81,36 +70,29 @@ invalid:
           arm();
           return next(e);
       });
-    # Registration inside a matched hook
     - |
       on('tool.call', { tool: 'Bash' }, ($, e, next) => {
           on('prompt.submit', ($, e, next) => next(e));
           return next(e);
       });
-    # Second plain registration on one event in one block
     - |
       on('tool.call', ($, e, next) => next(e));
       on('tool.call', ($, e, next) => next(e));
-    # Second plain registration with the event in double quotes
     - |
       on("tool.call", ($, e, next) => next(e));
       on("tool.call", ($, e, next) => next(e));
-    # Second plain catch-all registration
     - |
       on('*', ($, e, next) => next(e));
       on('*', ($, e, next) => next(e));
-    # Second plain registration separated by another statement
     - |
       on('tool.call', ($, e, next) => next(e));
       on('session.start', ($, e, next) => next(e));
       on('tool.call', ($, e, next) => next(e));
-    # Second plain registration through a parameter typed On under another name
     - |
       const arm = (register: On): void => {
           register('tool.call', ($, e, next) => next(e));
           register('tool.call', ($, e, next) => next(e));
       };
-    # Registration inside a hook registered through a parameter typed On
     - |
       const arm = (register: On): void => {
           register('session.start', ($, e, next) => {
@@ -118,23 +100,19 @@ invalid:
               return next(e);
           });
       };
-    # Second plain registration after a matched one on the same event
     - |
       on('tool.call', ($, e, next) => next(e));
       on('tool.call', { tool: 'Bash' }, ($, e, next) => next(e));
       on('tool.call', ($, e, next) => next(e));
-    # Second plain registration with the hook passed by name
     - |
       on('tool.call', first);
       on('tool.call', second);
-    # Registration inside a hook bound to a name before the registration
     - |
       const hook = ($, e, next) => {
           on('tool.call', ($, e, next) => next(e));
           return next(e);
       };
       on('session.start', hook);
-    # Registration inside a matched hook bound to a name
     - |
       const hook = ($, e, next) => {
           on('prompt.submit', ($, e, next) => next(e));
@@ -142,3 +120,9 @@ invalid:
       };
       on('tool.call', { tool: 'Bash' }, hook);
     - "on(\"tool.call\", first); on('tool.call', second);"
+    - |
+      on('session.start', hook);
+      function hook($, e, next) {
+          on('tool.call', ($, e, next) => next(e));
+          return next(e);
+      }

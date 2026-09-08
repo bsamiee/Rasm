@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-asyncio-module
 language: python
 severity: error
-# Report-only, the probed fix `asyncio` to `anyio` fails `anyio.run(main())`, `TypeError: 'coroutine' object is not callable`
 rule:
     pattern: $USE
     matches: {python-module-use: {module: {regex: '^asyncio(\.[\w.]+)?$'}}}

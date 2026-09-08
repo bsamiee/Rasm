@@ -1,0 +1,187 @@
+id: no-identity-record
+snapshots:
+  'const A = { A: ''A'', B: ''B'' };':
+    labels:
+    - source: '{ A: ''A'', B: ''B'' }'
+      style: primary
+      start: 10
+      end: 28
+    - source: 'const A = { A: ''A'', B: ''B'' };'
+      style: secondary
+      start: 0
+      end: 29
+    - source: 'A = { A: ''A'', B: ''B'' }'
+      style: secondary
+      start: 6
+      end: 28
+    - source: A
+      style: secondary
+      start: 16
+      end: 17
+    - source: '''A'''
+      style: secondary
+      start: 15
+      end: 18
+    - source: A
+      style: secondary
+      start: 12
+      end: 13
+    - source: 'A: ''A'''
+      style: secondary
+      start: 12
+      end: 18
+  'const ACTIONS_VARIABLES: Record<''NUGET_USER'', string> = { NUGET_USER: ''NUGET_USER'' };':
+    labels:
+    - source: '{ NUGET_USER: ''NUGET_USER'' }'
+      style: primary
+      start: 56
+      end: 84
+    - source: 'const ACTIONS_VARIABLES: Record<''NUGET_USER'', string> = { NUGET_USER: ''NUGET_USER'' };'
+      style: secondary
+      start: 0
+      end: 85
+    - source: 'ACTIONS_VARIABLES: Record<''NUGET_USER'', string> = { NUGET_USER: ''NUGET_USER'' }'
+      style: secondary
+      start: 6
+      end: 84
+    - source: NUGET_USER
+      style: secondary
+      start: 71
+      end: 81
+    - source: '''NUGET_USER'''
+      style: secondary
+      start: 70
+      end: 82
+    - source: NUGET_USER
+      style: secondary
+      start: 58
+      end: 68
+    - source: 'NUGET_USER: ''NUGET_USER'''
+      style: secondary
+      start: 58
+      end: 82
+  'const C = { /* names */ C: ''C'' };':
+    labels:
+    - source: '{ /* names */ C: ''C'' }'
+      style: primary
+      start: 10
+      end: 32
+    - source: 'const C = { /* names */ C: ''C'' };'
+      style: secondary
+      start: 0
+      end: 33
+    - source: 'C = { /* names */ C: ''C'' }'
+      style: secondary
+      start: 6
+      end: 32
+    - source: C
+      style: secondary
+      start: 28
+      end: 29
+    - source: '''C'''
+      style: secondary
+      start: 27
+      end: 30
+    - source: C
+      style: secondary
+      start: 24
+      end: 25
+    - source: 'C: ''C'''
+      style: secondary
+      start: 24
+      end: 30
+  'const D = { D: ''D'' } as const satisfies Record<string, string>;':
+    labels:
+    - source: '{ D: ''D'' }'
+      style: primary
+      start: 10
+      end: 20
+    - source: 'const D = { D: ''D'' } as const satisfies Record<string, string>;'
+      style: secondary
+      start: 0
+      end: 63
+    - source: 'D = { D: ''D'' } as const satisfies Record<string, string>'
+      style: secondary
+      start: 6
+      end: 62
+    - source: D
+      style: secondary
+      start: 16
+      end: 17
+    - source: '''D'''
+      style: secondary
+      start: 15
+      end: 18
+    - source: D
+      style: secondary
+      start: 12
+      end: 13
+    - source: 'D: ''D'''
+      style: secondary
+      start: 12
+      end: 18
+  'const E = ({ E: ''E'' });':
+    labels:
+    - source: '{ E: ''E'' }'
+      style: primary
+      start: 11
+      end: 21
+    - source: 'const E = ({ E: ''E'' });'
+      style: secondary
+      start: 0
+      end: 23
+    - source: 'E = ({ E: ''E'' })'
+      style: secondary
+      start: 6
+      end: 22
+    - source: E
+      style: secondary
+      start: 17
+      end: 18
+    - source: '''E'''
+      style: secondary
+      start: 16
+      end: 19
+    - source: E
+      style: secondary
+      start: 13
+      end: 14
+    - source: 'E: ''E'''
+      style: secondary
+      start: 13
+      end: 19
+  ? |
+    export const B = { "X": "X", 'Y': 'Y' };
+  : labels:
+    - source: '{ "X": "X", ''Y'': ''Y'' }'
+      style: primary
+      start: 17
+      end: 39
+    - source: 'const B = { "X": "X", ''Y'': ''Y'' };'
+      style: secondary
+      start: 7
+      end: 40
+    - source: 'B = { "X": "X", ''Y'': ''Y'' }'
+      style: secondary
+      start: 13
+      end: 39
+    - source: X
+      style: secondary
+      start: 25
+      end: 26
+    - source: '"X"'
+      style: secondary
+      start: 24
+      end: 27
+    - source: X
+      style: secondary
+      start: 20
+      end: 21
+    - source: '"X"'
+      style: secondary
+      start: 19
+      end: 22
+    - source: '"X": "X"'
+      style: secondary
+      start: 19
+      end: 27

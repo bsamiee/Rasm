@@ -310,6 +310,37 @@ snapshots:
       style: secondary
       start: 6
       end: 12
+  ((m = m + n * 2)):
+    fixed: ((m += n * 2))
+    labels:
+    - source: m = m + n * 2
+      style: primary
+      start: 2
+      end: 15
+    - source: m
+      style: secondary
+      start: 2
+      end: 3
+    - source: =
+      style: secondary
+      start: 4
+      end: 5
+    - source: m
+      style: secondary
+      start: 6
+      end: 7
+    - source: +
+      style: secondary
+      start: 8
+      end: 9
+    - source: n * 2
+      style: secondary
+      start: 10
+      end: 15
+    - source: m + n * 2
+      style: secondary
+      start: 6
+      end: 15
   ((m = m + n)):
     fixed: ((m += n))
     labels:
@@ -558,6 +589,37 @@ snapshots:
       style: secondary
       start: 6
       end: 11
+  ((values[i] = values[i] + 1)):
+    fixed: ((values[i] += 1))
+    labels:
+    - source: values[i] = values[i] + 1
+      style: primary
+      start: 2
+      end: 27
+    - source: values[i]
+      style: secondary
+      start: 2
+      end: 11
+    - source: =
+      style: secondary
+      start: 12
+      end: 13
+    - source: values[i]
+      style: secondary
+      start: 14
+      end: 23
+    - source: +
+      style: secondary
+      start: 24
+      end: 25
+    - source: '1'
+      style: secondary
+      start: 26
+      end: 27
+    - source: values[i] + 1
+      style: secondary
+      start: 14
+      end: 27
   for ((i=0; i<3; i=i+1)); do printf "%s" "$i"; done:
     fixed: for ((i=0; i<3; i += 1)); do printf "%s" "$i"; done
     labels:

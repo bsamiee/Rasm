@@ -321,6 +321,40 @@ snapshots:
       start: 16
       end: 98
   ? |
+    <packageSources><clear /><add key="local" value="./.artifacts/nuget" /></packageSources>
+  : fixed: |
+      <packageSources><clear /><add key="local" value=".artifacts/nuget" /></packageSources>
+    labels:
+    - source: <add key="local" value="./.artifacts/nuget" />
+      style: primary
+      start: 25
+      end: 71
+    - source: <packageSources><clear /><add key="local" value="./.artifacts/nuget" /></packageSources>
+      style: secondary
+      start: 0
+      end: 88
+    - source: <clear /><add key="local" value="./.artifacts/nuget" />
+      style: secondary
+      start: 16
+      end: 71
+  ? |
+    <packageSources><clear /><add key="local" value=".artifacts/nuget/" /></packageSources>
+  : fixed: |
+      <packageSources><clear /><add key="local" value=".artifacts/nuget" /></packageSources>
+    labels:
+    - source: <add key="local" value=".artifacts/nuget/" />
+      style: primary
+      start: 25
+      end: 70
+    - source: <packageSources><clear /><add key="local" value=".artifacts/nuget/" /></packageSources>
+      style: secondary
+      start: 0
+      end: 87
+    - source: <clear /><add key="local" value=".artifacts/nuget/" />
+      style: secondary
+      start: 16
+      end: 70
+  ? |
     <packageSources><clear /><add key="local" value="eng/nuget" /></packageSources>
   : fixed: |
       <packageSources><clear /><add key="local" value=".artifacts/nuget" /></packageSources>

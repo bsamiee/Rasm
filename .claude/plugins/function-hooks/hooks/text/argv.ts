@@ -96,6 +96,7 @@ const _DOUBLE_ESCAPE = /\\(?<escaped>["\\])/gu;
 const _SEGMENT =
     /(?<space>[ \t\f\v]+)|(?<punctuation>[;&|<>()\n\r]+)|(?<comment>#[^\n]*\n?)|(?<single>'[^']*')|(?<singleOpen>'[^']*)|(?<double>"(?:[^"\\]|\\.)*")|(?<doubleOpen>"(?:[^"\\]|\\.)*)|(?<escape>\\(?:.|$))|(?<plain>[^ \t\f\v;&|<>()\n\r'"\\#]+)/gsu;
 const _SEGMENT_KINDS: readonly SegmentKind[] = ['space', 'punctuation', 'comment', 'single', 'singleOpen', 'double', 'doubleOpen', 'escape', 'plain'];
+const _SINGLE_KINDS: readonly SegmentKind[] = ['single', 'singleOpen'];
 const _INLINE_FLAGS: readonly string[] = ['--eval', '--command', '--print', '--execute'];
 const _INTERPRETERS: readonly string[] = ['python', 'node', 'ruby', 'perl'];
 const _SHELLS: readonly string[] = ['sh', 'bash', 'zsh', 'dash', 'ksh', 'eval'];
@@ -175,6 +176,12 @@ const _substitutions = (text: string): readonly Span[] => {
 
 const _segmentKind = (match: RegExpMatchArray): SegmentKind => _SEGMENT_KINDS.find((kind) => match.groups?.[kind] !== undefined) ?? 'plain';
 
+// Single quotes expand nothing, a backtick inside them is text and the blanked runs keep every index
+const _literal = (text: string): string =>
+    [...text.matchAll(_SEGMENT)]
+        .filter((match) => _SINGLE_KINDS.includes(_segmentKind(match)))
+        .reduce((current, match) => _blankSpan(current, { start: match.index ?? 0, end: (match.index ?? 0) + match[0].length }), text);
+
 const _flush = (lexing: Lexing): Lexing =>
     lexing.current.match<Lexing>({
         some: (building) => ({ tokens: [...lexing.tokens, { separator: false, word: building }], current: none() }),
@@ -249,13 +256,13 @@ const strip = (argv: readonly Word[]): readonly Word[] =>
         none: () => argv,
     });
 
-// The operand after a short, clustered, or long inline flag ending in the letter
+// The operand after a short, clustered, or long inline flag ending in the letter, a blanked substitution is spaces and no body
 const _flagOperand = (argv: readonly Word[], letter: string): Option<Word> => {
     const hit = argv.findIndex(
         (word) => _INLINE_FLAGS.includes(word.text) || (word.text.startsWith('-') && !word.text.startsWith('--') && word.text.endsWith(letter)),
     );
     return flatMap(() =>
-        fromPredicate((word: Word | undefined): word is Word => word !== undefined && word.text !== '')(
+        fromPredicate((word: Word | undefined): word is Word => word !== undefined && word.text.trim() !== '')(
             argv.slice(hit + 1).find((word) => word.text !== '--'),
         ),
     )(fromBoolean(hit >= 0));
@@ -324,10 +331,13 @@ const _headClass = (argv: readonly Word[], head: Word): HeadClass => {
     );
 };
 
+// The raw leaf of a wrapped shell, interpreter, or nothing, the prefix a rule over the wrapper words reads after the body
+const _wrapped = (argv: readonly Word[], raw: readonly Word[]): readonly Leaf[] => toArray(liftPredicate<Leaf>(() => argv.length < raw.length)(raw));
+
 // Plain leaves keep their env assignments and wrappers, the git guard strips them and the shell rows read the runner word
 const _HEAD: Readonly<Record<HeadClass, (argv: readonly Word[], head: Word, frame: Frame, raw: readonly Word[]) => readonly Leaf[]>> = {
-    shell: _shell,
-    interpreter: _interpreter,
+    shell: (argv, head, frame, raw): readonly Leaf[] => [..._shell(argv, head, frame), ..._wrapped(argv, raw)],
+    interpreter: (argv, head, frame, raw): readonly Leaf[] => [..._interpreter(argv, head, frame), ..._wrapped(argv, raw)],
     plain: (_argv, _head, _frame, raw): readonly Leaf[] => [raw],
 };
 
@@ -335,7 +345,7 @@ const _resolve = (raw: readonly Word[], frame: Frame): readonly Leaf[] => {
     const argv = strip(raw);
     return fromNullable(argv[0]).match<readonly Leaf[]>({
         some: (head) => _HEAD[_headClass(argv, head)](argv, head, frame, raw),
-        none: () => [],
+        none: () => _wrapped(argv, raw),
     });
 };
 
@@ -358,10 +368,10 @@ const _leaves = (text: string, frame: Omit<Frame, 'text'>): readonly Leaf[] => {
         fromBoolean(quote !== '').match<string>({ some: () => ' '.repeat(match.length), none: () => match }),
     );
     const continued = _blank(unquoted, _CONTINUE);
-    const backticks = [...continued.matchAll(_BACKTICK)].map(
+    const backticks = [..._literal(continued).matchAll(_BACKTICK)].map(
         (match): Span => ({ start: (match.index ?? 0) + 1, end: (match.index ?? 0) + match[0].length - 1 }),
     );
-    const flat = _blank(continued, _BACKTICK);
+    const flat = backticks.reduce((current, span) => _blankSpan(current, { start: span.start - 1, end: span.end + 1 }), continued);
     const substitutions = _substitutions(flat);
     const lexed = _blank(
         _blank(

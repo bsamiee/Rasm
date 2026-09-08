@@ -27,6 +27,7 @@ jobs:
               with:
                 fetch-depth: 0
                 filter: tree:0
+                persist-credentials: false
             - uses: ./.github/actions/setup
             - id: cache
               uses: ./.github/actions/native-cache
@@ -38,24 +39,17 @@ jobs:
             - if: always() && steps.cache.outputs.vcpkg-key != ''
               uses: actions/cache/save@v6
               with:
-                path: |
-                    .cache/vcpkg-archives
-                    .cache/vcpkg-downloads
+                path: ${{ steps.cache.outputs.vcpkg-path }}
                 key: ${{ steps.cache.outputs.vcpkg-key }}
             - if: always() && steps.cache.outputs.releases-key != ''
               uses: actions/cache/save@v6
               with:
-                path: |
-                    .cache/energyplus
-                    .cache/ktx
-                    .cache/sqlitevec
-                    .cache/duckdbextensions
-                    .cache/tools
+                path: ${{ steps.cache.outputs.releases-path }}
                 key: ${{ steps.cache.outputs.releases-key }}
             - if: always() && matrix.rid == 'osx-arm64' && steps.cache.outputs.emgucv-key != ''
               uses: actions/cache/save@v6
               with:
-                path: .cache/emgucv/artifacts
+                path: ${{ steps.cache.outputs.emgucv-path }}
                 key: ${{ steps.cache.outputs.emgucv-key }}
             - run: tar -czf "$RUNNER_TEMP/native-stage-$RID.tar.gz" native/*/stage
               working-directory: .artifacts
@@ -75,6 +69,7 @@ jobs:
               with:
                 fetch-depth: 0
                 filter: tree:0
+                persist-credentials: false
             - uses: ./.github/actions/setup
             - uses: actions/download-artifact@v8
               with:

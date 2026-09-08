@@ -1,0 +1,36 @@
+id: unquoted-replacement-to-quoted
+valid:
+    - result=${value:-prefix$replacement}
+    - result=${value//${pattern}/literal}
+    - result=${value//pattern/"$replacement"}
+    - result="${value//pattern/"${replacement}"}"
+    - result=${value//pattern/\&}
+    - result=${value//pattern/&suffix}
+    - result=${value//$pattern/literal}
+    - result=${value/$pattern}
+    - result=${value:-$replacement}
+    - result=${values[$index]//pattern/literal}
+    - result=${value//pattern/${replacements[@]}}
+    - result=${value//pattern/${replacements[@]:1}}
+    - result=${value//pattern/$((count + 1))}
+    - result=${value//pattern/${#value}}
+    - result=${value//pattern/$'\n'}
+    - result=${value/$pattern/literal}
+invalid:
+    - result=${value/pattern/$replacement}
+    - result=${value//pattern/$replacement}
+    - result=${value/#pattern/$replacement}
+    - result=${value/%pattern/$replacement}
+    - result=${value//@JOB@/${root}}
+    - result=${values[@]/#/$root/}
+    - result=${value//pattern/prefix$replacement}
+    - result="${value//pattern/$replacement}"
+    - result=${value//pattern/&$suffix}
+    - result=${value//pattern/${replacements[0]}}
+    - result=${value//pattern/${replacements[$index]}}
+    - result=${value//pattern/$1}
+    - result=${value//pattern/${replacement:-none}}
+    - result=${value//pattern/$(produce)}
+    - result=${value//pattern/${!name}}
+    - result=${value//pattern/${replacements[$index]:-none}}
+    - result=${value//pattern/"$first"$second}

@@ -8,6 +8,15 @@ snapshots:
       start: 19
       end: 23
   ? |
+    from typing import cast as as_type
+
+    value = as_type(int, raw)
+  : labels:
+    - source: cast
+      style: primary
+      start: 19
+      end: 23
+  ? |
     from typing_extensions import cast
   : labels:
     - source: cast
@@ -23,6 +32,16 @@ snapshots:
       style: primary
       start: 23
       end: 34
+  ? |
+    import typing as schema
+    from schema import Field
+
+    value = schema.cast(int, raw)
+  : labels:
+    - source: schema.cast
+      style: primary
+      start: 58
+      end: 69
   ? |
     import typing as t
 

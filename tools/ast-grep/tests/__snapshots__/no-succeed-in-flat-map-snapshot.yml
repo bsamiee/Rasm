@@ -42,6 +42,27 @@ snapshots:
       style: primary
       start: 46
       end: 104
+  import { Effect } from "effect"; const next = Effect.andThen(work, Effect.succeed(1));:
+    fixed: import { Effect } from "effect"; const next = Effect.as(work, 1);
+    labels:
+    - source: Effect.andThen(work, Effect.succeed(1))
+      style: primary
+      start: 46
+      end: 85
+  import { Effect } from "effect"; const next = Effect.andThen(work, Effect.succeed({ value }));:
+    fixed: import { Effect } from "effect"; const next = Effect.as(work, ({ value }));
+    labels:
+    - source: Effect.andThen(work, Effect.succeed({ value }))
+      style: primary
+      start: 46
+      end: 93
+  import { Effect } from "effect"; const next = Effect.andThen<number>(work, Effect.succeed(1));:
+    fixed: import { Effect } from "effect"; const next = Effect.as(work, 1);
+    labels:
+    - source: Effect.andThen<number>(work, Effect.succeed(1))
+      style: primary
+      start: 46
+      end: 93
   import { Effect } from "effect"; const next = Effect.flatMap(work, () => Effect.succeed(1));:
     fixed: import { Effect } from "effect"; const next = Effect.map(work, () => 1);
     labels:
@@ -98,6 +119,13 @@ snapshots:
       style: primary
       start: 46
       end: 103
+  import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => (Effect.succeed(value + 1)));:
+    fixed: import { Effect } from "effect"; const next = Effect.map(work, (value) => (value + 1));
+    labels:
+    - source: Effect.flatMap(work, (value) => (Effect.succeed(value + 1)))
+      style: primary
+      start: 46
+      end: 106
   import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => Effect.succeed(value + 1));:
     fixed: import { Effect } from "effect"; const next = Effect.map(work, (value) => value + 1);
     labels:
@@ -196,6 +224,41 @@ snapshots:
       style: primary
       start: 46
       end: 98
+  import { Effect } from "effect"; const next = Effect.flatMap<number>(work, () => Effect.void);:
+    fixed: import { Effect } from "effect"; const next = Effect.asVoid(work);
+    labels:
+    - source: Effect.flatMap<number>(work, () => Effect.void)
+      style: primary
+      start: 46
+      end: 93
+  import { Effect } from "effect"; const next = Effect.flatMap<number>(work, (value) => Effect.succeed(value + 1));:
+    fixed: import { Effect } from "effect"; const next = Effect.map(work, (value) => value + 1);
+    labels:
+    - source: Effect.flatMap<number>(work, (value) => Effect.succeed(value + 1))
+      style: primary
+      start: 46
+      end: 112
+  import { Effect } from "effect"; const next = pipe(work, Effect.flatMap((value) => Effect.succeed(value + 1)));:
+    fixed: import { Effect } from "effect"; const next = pipe(work, Effect.map((value) => value + 1));
+    labels:
+    - source: Effect.flatMap((value) => Effect.succeed(value + 1))
+      style: primary
+      start: 57
+      end: 109
+  import { Effect } from "effect"; const next = work.pipe(Effect.andThen(Effect.succeed(current)));:
+    fixed: import { Effect } from "effect"; const next = work.pipe(Effect.as(current));
+    labels:
+    - source: Effect.andThen(Effect.succeed(current))
+      style: primary
+      start: 56
+      end: 95
+  import { Effect } from "effect"; const next = work.pipe(Effect.andThen<number>(Effect.succeed(1)));:
+    fixed: import { Effect } from "effect"; const next = work.pipe(Effect.as(1));
+    labels:
+    - source: Effect.andThen<number>(Effect.succeed(1))
+      style: primary
+      start: 56
+      end: 97
   import { Effect } from "effect"; const next = work.pipe(Effect.flatMap(() => Effect.succeed(1)));:
     fixed: import { Effect } from "effect"; const next = work.pipe(Effect.map(() => 1));
     labels:
@@ -238,6 +301,13 @@ snapshots:
       style: primary
       start: 56
       end: 101
+  import { Effect } from "effect"; const next = work.pipe(Effect.flatMap((value) => (Effect.succeed({ value }))));:
+    fixed: import { Effect } from "effect"; const next = work.pipe(Effect.map((value) => (({ value }))));
+    labels:
+    - source: Effect.flatMap((value) => (Effect.succeed({ value })))
+      style: primary
+      start: 56
+      end: 110
   import { Effect } from "effect"; const next = work.pipe(Effect.flatMap((value) => Effect.succeed(value + 1)));:
     fixed: import { Effect } from "effect"; const next = work.pipe(Effect.map((value) => value + 1));
     labels:
@@ -252,6 +322,20 @@ snapshots:
       style: primary
       start: 56
       end: 113
+  import { Effect } from "effect"; const next = work.pipe(Effect.flatMap<number>(() => Effect.void));:
+    fixed: import { Effect } from "effect"; const next = work.pipe(Effect.asVoid);
+    labels:
+    - source: Effect.flatMap<number>(() => Effect.void)
+      style: primary
+      start: 56
+      end: 97
+  import { Effect } from "effect"; const next = work.pipe(Effect.flatMap<number>((value) => Effect.succeed(value + 1)));:
+    fixed: import { Effect } from "effect"; const next = work.pipe(Effect.map((value) => value + 1));
+    labels:
+    - source: Effect.flatMap<number>((value) => Effect.succeed(value + 1))
+      style: primary
+      start: 56
+      end: 116
   import { Either } from "effect"; const next = Either.flatMap(decoded, () => Either.right(1));:
     fixed: import { Either } from "effect"; const next = Either.map(decoded, () => 1);
     labels:
@@ -273,6 +357,13 @@ snapshots:
       style: primary
       start: 44
       end: 98
+  import { Exit } from "effect"; const next = exit.pipe(Exit.flatMap((value) => Exit.succeed(value + 1)));:
+    fixed: import { Exit } from "effect"; const next = exit.pipe(Exit.map((value) => value + 1));
+    labels:
+    - source: Exit.flatMap((value) => Exit.succeed(value + 1))
+      style: primary
+      start: 54
+      end: 102
   import { Micro } from "effect"; const next = Micro.flatMap(work, (value) => Micro.succeed(value + 1));:
     fixed: import { Micro } from "effect"; const next = Micro.map(work, (value) => value + 1);
     labels:
@@ -287,6 +378,13 @@ snapshots:
       style: primary
       start: 46
       end: 89
+  import { Option } from "effect"; const next = Option.andThen(found, Option.some(1));:
+    fixed: import { Option } from "effect"; const next = Option.as(found, 1);
+    labels:
+    - source: Option.andThen(found, Option.some(1))
+      style: primary
+      start: 46
+      end: 83
   import { Option } from "effect"; const next = Option.flatMap(found, () => Option.void);:
     fixed: import { Option } from "effect"; const next = Option.asVoid(found);
     labels:
@@ -322,6 +420,13 @@ snapshots:
       style: primary
       start: 43
       end: 102
+  import { STM } from "effect"; const next = STM.flatMap(transaction, (value) => { return STM.succeed(value + 1); });:
+    fixed: import { STM } from "effect"; const next = STM.map(transaction, (value) => { return value + 1; });
+    labels:
+    - source: STM.flatMap(transaction, (value) => { return STM.succeed(value + 1); })
+      style: primary
+      start: 43
+      end: 114
   import { Sink } from "effect"; const next = Sink.flatMap(sink, (value) => Sink.succeed(value + 1));:
     fixed: import { Sink } from "effect"; const next = Sink.map(sink, (value) => value + 1);
     labels:

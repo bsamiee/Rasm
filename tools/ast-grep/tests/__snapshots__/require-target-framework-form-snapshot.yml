@@ -70,3 +70,30 @@ snapshots:
       style: primary
       start: 24
       end: 95
+  ? |
+    <PropertyGroup><TargetFramework>$(Primary);$(Secondary)</TargetFramework></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><TargetFrameworks>$(Primary);$(Secondary)</TargetFrameworks></PropertyGroup>
+    labels:
+    - source: <TargetFramework>$(Primary);$(Secondary)</TargetFramework>
+      style: primary
+      start: 15
+      end: 73
+  ? |
+    <PropertyGroup><TargetFramework>net10.0 ; netstandard2.0</TargetFramework></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><TargetFrameworks>net10.0 ; netstandard2.0</TargetFrameworks></PropertyGroup>
+    labels:
+    - source: <TargetFramework>net10.0 ; netstandard2.0</TargetFramework>
+      style: primary
+      start: 15
+      end: 74
+  ? |
+    <PropertyGroup><TargetFrameworks>net10.0-windows10.0.19041</TargetFrameworks></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><TargetFramework>net10.0-windows10.0.19041</TargetFramework></PropertyGroup>
+    labels:
+    - source: <TargetFrameworks>net10.0-windows10.0.19041</TargetFrameworks>
+      style: primary
+      start: 15
+      end: 77

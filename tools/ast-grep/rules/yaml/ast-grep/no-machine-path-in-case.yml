@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-machine-path-in-case
+language: yaml
+severity: error
+files: [tools/ast-grep/tests/**]
+ignores: [tools/ast-grep/tests/__snapshots__/**, tools/ast-grep/tests/yaml/ast-grep/no-machine-path-in-case-test.yml]
+rule:
+    matches: ast-grep-case-item
+    has:
+        kind: block_node, flow_node
+        has:
+            kind: block_scalar, double_quote_scalar, single_quote_scalar, plain_scalar
+            pattern: $CASE
+            regex: '(?:^|[^\w:/.])(?:/Volumes/|(?:/|[A-Za-z]:[\\/])[^\s"'']*[\\/]Rasm[\\/])'
+transform:
+    PATH: {replace: {source: $CASE, replace: '(?s)^.*?(?:^|[^\w:/.])((?:/Volumes/|(?:/|[A-Za-z]:[\\/])[^\s"'']*[\\/]Rasm[\\/])(?:[^\s"''\\]|\\[^\s"''])*).*$', by: '$1'}}
+message: The case holds `$PATH`, a path of one machine
+note: Write a placeholder user or checkout under the root the rule pins, `/Users/someone/checkout/libs/Item/Item.csproj`

@@ -23,6 +23,21 @@ snapshots:
       start: 66
       end: 152
   ? |
+    <Project><ItemGroup Label="  "><PackageVersion Include="Item" Version="1.0.0" /></ItemGroup></Project>
+  : labels:
+    - source: <ItemGroup Label="  "><PackageVersion Include="Item" Version="1.0.0" /></ItemGroup>
+      style: primary
+      start: 9
+      end: 92
+    - source: <PackageVersion Include="Item" Version="1.0.0" />
+      style: secondary
+      start: 31
+      end: 80
+    - source: <PackageVersion Include="Item" Version="1.0.0" />
+      style: secondary
+      start: 31
+      end: 80
+  ? |
     <Project><ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:
     - source: <ItemGroup Label=""><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup>
@@ -52,6 +67,21 @@ snapshots:
       style: secondary
       start: 29
       end: 113
+  ? |
+    <Project><ItemGroup><GlobalPackageReference Include="Item" Version="1.0.0" /></ItemGroup></Project>
+  : labels:
+    - source: <ItemGroup><GlobalPackageReference Include="Item" Version="1.0.0" /></ItemGroup>
+      style: primary
+      start: 9
+      end: 89
+    - source: <GlobalPackageReference Include="Item" Version="1.0.0" />
+      style: secondary
+      start: 20
+      end: 77
+    - source: <GlobalPackageReference Include="Item" Version="1.0.0" />
+      style: secondary
+      start: 20
+      end: 77
   ? |
     <Project><ItemGroup><PackageVersion Include="CsCheck" Version="4.8.0" /> <!-- Property-based testing --></ItemGroup></Project>
   : labels:

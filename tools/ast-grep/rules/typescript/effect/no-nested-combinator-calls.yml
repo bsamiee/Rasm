@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# The rewrite nested-module-calls-to-pipe applies the fix in files that import pipe from effect
 id: no-nested-combinator-calls
 language: tsx
 severity: error
@@ -10,24 +9,22 @@ utils:
             field: function
             kind: member_expression
             has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?[A-Z]\w*$'}}}}
-    # Imported module operations with a data-last or unary pipeline form
     step:
-        matches: module-call
         all:
-            - has:
-                field: function
-                has:
-                    field: property
-                    regex: "^(map|flatMap|filter|filterMap|getOrElse|orElse|mapError|flatten|provide|merge|mapOut|filterInput|fromIterable)$"
+            - matches: module-call
+            - matches: effect-pipe-step
             - not: {has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Schema$"}}}}}}
-    # A unary transform consumes its first argument; dual operations require the data-first arity.
     data-first-step:
         matches: step
         has:
             field: arguments
             has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: module-call}
         any:
-            - has: {field: function, has: {field: property, regex: "^(flatten|fromIterable)$"}}
+            - has:
+                field: function
+                has:
+                    field: property
+                    regex: "^(flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$"
             - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 rule:
     pattern: $CALL
@@ -39,7 +36,6 @@ rule:
                 nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                 matches: data-first-step
                 has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: data-first-step}}
-        # The outermost call of a chain reports once, an inner call sits as the first argument of another step
         - not:
             all:
                 - nthChild: {position: 1, ofRule: {not: {kind: comment}}}

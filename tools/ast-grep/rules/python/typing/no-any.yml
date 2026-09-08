@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-any
 language: python
 severity: error
-# Report-only, the probed fix `Any` to `object` fails `value + 1`, `Operator + is not supported between objects of type object and Literal[1]`
 rule:
     matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^Any$', pattern: $NAME}}}
 message: '`$NAME` disables the type checker at every use'

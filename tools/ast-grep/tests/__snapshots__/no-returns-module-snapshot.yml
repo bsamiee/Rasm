@@ -1,6 +1,13 @@
 id: no-returns-module
 snapshots:
   ? |
+    from returns import result
+  : labels:
+    - source: returns
+      style: primary
+      start: 5
+      end: 12
+  ? |
     from returns.maybe import Maybe
   : labels:
     - source: returns.maybe

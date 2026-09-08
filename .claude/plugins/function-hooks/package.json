@@ -8,7 +8,7 @@
         "targets": {
             "lint": {},
             "format": {},
-            "check": {},
+            "check": { "dependsOn": ["lint", "test"] },
             "typecheck": { "cache": false },
             "test": {
                 "cache": false,

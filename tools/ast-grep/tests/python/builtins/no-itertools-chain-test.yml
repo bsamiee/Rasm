@@ -1,82 +1,121 @@
 id: no-itertools-chain
 valid:
-    # The corrected form, the unpacking comprehension
     - |
       flat = [*row for row in rows]
-    # The unpacking display
     - |
       flat = [*first, *second]
-    # Local function named chain, no import binds it
     - |
       def chain(*parts):
           return parts
 
       flat = chain(first, second)
-    # Another member of itertools
     - |
       from itertools import starmap
 
       pairs = starmap(combine, rows)
-    # Another member of itertools read as an attribute
     - |
       import itertools
 
       pairs = itertools.starmap(combine, rows)
-    # Name chain imported from another module
     - |
       from links import chain
 
       flat = chain(*rows)
-    # Another member of itertools under an alias
     - |
       from itertools import starmap as link
 
       flat = link(*rows)
-    # Attribute named like the member on another object
     - |
       links = graph.chain(*rows)
     - |
       import itertools
       value = itertools.chain.custom(rows)
-    # Imported chain names can be replaced by a parameter
     - |
       from itertools import chain
       def flatten(chain):
           return list(chain(rows))
+    - |
+      from itertools import chain
+      from links import chain
+
+      flat = chain(*rows)
+    - |
+      from itertools import chain
+      import chain
+
+      flat = chain(*rows)
+    - |
+      from itertools import chain
+      from links import *
+
+      flat = chain(*rows)
+    - |
+      from itertools import chain
+      def build(value):
+          match value:
+              case [chain]:
+                  return chain(*rows)
+    - |
+      from itertools import chain
+      def build(value):
+          match value:
+              case [*chain]:
+                  return chain(*rows)
+    - |
+      from itertools import chain
+      def build(value):
+          match value:
+              case Item() as chain:
+                  return chain(*rows)
+    - |
+      from itertools import chain
+      def build(value):
+          match value:
+              case Item(field=chain):
+                  return chain(*rows)
 invalid:
-    # The instance, the name a from-import binds, splatted
     - |
       from itertools import chain
 
       flat = list(chain(*rows))
-    # Two iterables
     - |
       from itertools import chain
 
       flat = chain(first, second)
-    # The class method spelling
     - |
       from itertools import chain
 
       flat = chain.from_iterable(rows)
-    # The aliased from-import
     - |
       from itertools import chain as link
 
       flat = link(*rows)
-    # The attribute read as spelled
     - |
       import itertools
 
       flat = itertools.chain(*rows)
-    # The class method through the alias the import binds
     - |
       import itertools as it
 
       flat = it.chain.from_iterable(rows)
-    # The import inside the def that calls it, the walk reaches it from the module
     - |
       def flatten(rows):
           from itertools import chain
 
           return chain(*rows)
+    - |
+      class Rows:
+          from itertools import chain
+
+          flat = chain(*parts)
+    - |
+      from itertools import chain
+      from itertools import *
+
+      flat = chain(*rows)
+    - |
+      from itertools import chain
+      def build(value):
+          match value:
+              case constants.chain:
+                  return chain(*rows)

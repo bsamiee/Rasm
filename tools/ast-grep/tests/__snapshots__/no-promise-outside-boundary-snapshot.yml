@@ -1,5 +1,11 @@
 id: no-promise-outside-boundary
 snapshots:
+  async function run() { await using handle = open(path); }:
+    labels:
+    - source: await using handle = open(path)
+      style: primary
+      start: 23
+      end: 54
   'class Actions extends VersionActions { override async updateProjectVersion(): Promise<string[]> { return await load(); } }':
     labels:
     - source: await load()
@@ -28,6 +34,12 @@ snapshots:
       style: primary
       start: 41
       end: 57
+  const raw = await load(path);:
+    labels:
+    - source: await load(path)
+      style: primary
+      start: 12
+      end: 28
   const rows = Array.map(items, async (item) => await load(item));:
     labels:
     - source: await load(item)
@@ -52,12 +64,24 @@ snapshots:
       style: primary
       start: 91
       end: 103
+  import { Effect } from "effect"; const chained = Effect.andThen(work, async () => await load(path));:
+    labels:
+    - source: await load(path)
+      style: primary
+      start: 82
+      end: 98
   import { Effect } from "effect"; const loaded = Effect.sync(async () => await load(path));:
     labels:
     - source: await load(path)
       style: primary
       start: 72
       end: 88
+  ? 'import { Micro } from "effect"; const loaded = Micro.tryMapPromise(work, { try: async () => await load(path), catch: mapError });'
+  : labels:
+    - source: await load(path)
+      style: primary
+      start: 92
+      end: 108
   ? 'import { VersionActions } from "nx/release"; class Actions extends VersionActions { async updateProjectVersion(): Promise<string[]> { return await load(); } }'
   : labels:
     - source: await load()

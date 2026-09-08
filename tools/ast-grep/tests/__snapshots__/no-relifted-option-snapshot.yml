@@ -12,6 +12,18 @@ snapshots:
       style: primary
       start: 41
       end: 79
+  'const field = held.match<string>({ some: (value) => { return value; }, none: () => '''' });':
+    labels:
+    - source: 'some: (value) => { return value; }'
+      style: primary
+      start: 35
+      end: 69
+  'const field = held.match<string>({ some: (value: string) => { return value; }, none: () => '''' });':
+    labels:
+    - source: 'some: (value: string) => { return value; }'
+      style: primary
+      start: 35
+      end: 77
   'const field = isString(fields[name]).match<string>({ some: (value) => value, none: () => '''' });':
     labels:
     - source: 'some: (value) => value'
@@ -82,6 +94,12 @@ snapshots:
       style: primary
       start: 88
       end: 108
+  'const same = held.match<Option<Row>>({ some: some, none: () => none() });':
+    labels:
+    - source: 'some: some'
+      style: primary
+      start: 39
+      end: 49
   ? 'const substitution = fromPredicate(isString)(pair.from).match<Option<Substitution>>({ some: (from) => some({ pattern: pair.to, value: from }), none });'
   : labels:
     - source: 'some: (from) => some({ pattern: pair.to, value: from })'

@@ -1,15 +1,15 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-parenthesized-except-tuple
 language: python
 severity: error
 rule:
     kind: tuple
     pattern: $TYPES
-    inside: {kind: except_clause, field: value} # Tuples under an as clause sit under as_pattern and keep their parentheses
+    inside: {kind: except_clause, field: value}
     not: {has: {kind: list_splat}}
-    has: {nthChild: 2} # Two types or more, a one-element tuple is ruff redundant-tuple-in-exception-handler
+    has: {nthChild: 2}
 constraints:
-    TYPES: {not: {regex: '\n'}} # Tuple on one line, a wrapped tuple needs its parentheses
+    TYPES: {not: {regex: '\n'}}
 transform:
     MEMBERS: {replace: {source: $TYPES, replace: '^\(\s*(.*?)\s*,?\s*\)$', by: '$1'}}
 fix: $MEMBERS

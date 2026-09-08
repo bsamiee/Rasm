@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-identity-callback
+language: csharp
+rule:
+    any:
+        - regex: '^((global::)?(LanguageExt\.)?Prelude\.)?identity$'
+        - matches:
+            csharp-unary-callback:
+                parameter: {pattern: $VALUE}
+                body:
+                    any:
+                        - pattern: $VALUE
+                        - pattern:
+                            context: 'class C { object F() => M(x => { return $VALUE; }); }'
+                            selector: block
+                            strictness: cst

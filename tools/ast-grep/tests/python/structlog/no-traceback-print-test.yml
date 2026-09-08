@@ -1,6 +1,5 @@
 id: no-traceback-print
 valid:
-    # The corrected form, the exception logged inside the handler
     - |
       import structlog
 
@@ -8,27 +7,82 @@ valid:
           load(path)
       except OSError:
           structlog.get_logger(__name__).exception("load failed", path=str(path))
-    # Formatting member of the module, its text is a value
     - |
       import traceback
 
       text = traceback.format_exc()
-    # Attribute named like the member on another object
     - |
       reporter.print_exc()
     - 'structlog.get_logger().error("failed", exc_info=error)'
     - 'structlog.get_logger().info("stack", stack_info=True)'
+    - |
+      import traceback
+
+      lines = traceback.format_exception(error)
+    - |
+      import traceback
+
+      frames = traceback.extract_stack()
+    - |
+      from traceback import TracebackException
+
+      lines = TracebackException.from_exception(error).format()
+    - |
+      import traceback
+
+      report = traceback.TracebackException(type(error), error, error.__traceback__)
+    - |
+      from traceback import TracebackException
+
+      TracebackException.builder(error).print()
+    - |
+      import other
+
+      other.TracebackException.from_exception(error).print()
+    - |
+      import traceback
+
+      traceback.Other(error).print()
+    - |
+      from traceback import Other
+
+      Other(error).print()
+    - |
+      from other import TracebackException
+
+      TracebackException.from_exception(error).print()
 invalid:
-    # The instance, the attribute read as spelled
     - |
       import traceback
 
       traceback.print_exc()
-    # The member imported from the module
     - |
       from traceback import print_exception
-    # The attribute read through the alias the import binds
     - |
       import traceback as tb
 
       tb.print_stack()
+    - |
+      import traceback
+
+      traceback.print_list(entries)
+    - |
+      import traceback
+
+      traceback.print_last()
+    - |
+      from traceback import print_exc as dump
+
+      dump()
+    - |
+      from traceback import TracebackException
+
+      TracebackException.from_exception(error).print()
+    - |
+      import traceback
+
+      traceback.TracebackException(type(error), error, error.__traceback__).print(chain=False)
+    - |
+      import traceback as tb
+
+      tb.TracebackException.from_exception(error).print()

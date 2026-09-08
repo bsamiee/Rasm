@@ -1,12 +1,10 @@
 id: no-default-behind-nullable-parameter
 valid:
-    # The corrected form, the default in the signature
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str = PROFILE_STATEFUL) -> None:
           run_as_test(machine, settings=get_profile(profile))
-    # Nullable parameter matched as a case, absence is a case of the value
     - |
       def run(machine, *, settings: Settings | None = None) -> None:
           match settings:
@@ -14,68 +12,55 @@ valid:
                   run_as_test(machine)
               case found:
                   run_as_test(machine, settings=found)
-    # Default other than None
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = PROFILE_STATEFUL) -> None:
           resolved = profile if profile is not None else PROFILE_STATEFUL
-    # Resolution of another name
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           resolved = other if other is not None else PROFILE_STATEFUL
-    # Resolution inside a nested def reading the outer parameter, the walk stops at its boundary
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           def inner() -> str:
               return profile if profile is not None else PROFILE_STATEFUL
-    # Resolution inside a lambda, the walk stops at its boundary
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           resolve = lambda: profile if profile is not None else PROFILE_STATEFUL
-    # Default computed by a call, the value exists where it is read
     - |
       def run(machine, *, settings: Settings | None = None) -> None:
           run_as_test(machine, settings=settings if settings is not None else get_profile(PROFILE_STATEFUL))
-    # Default read from a local, the value exists where it is read
     - |
       def stage(libraries, rid: Rid | None) -> None:
           space = workspace()
           run(libraries, rid or space.host)
-    # Default bound to a mutable literal, the signature cannot hold it
     - |
       def collect(items: list[str] | None = None) -> list[str]:
           return items if items is not None else []
-    # Default rooted at a local, the attribute chain reads a value bound in the body
     - |
       def stage(rid: Rid | None) -> None:
           space = workspace()
           target = rid if rid is not None else space.host
-    # Lambda default parameter, a lambda is no def
     - |
       resolve = lambda count=None: count or 3
-    # Truthiness spelled as a conditional, ruff if-exp-instead-of-or-operator rewrites it to the or form
     - |
       def run(profile: str | None = None) -> str:
           return profile if profile else "stateful"
-    # None resolved to None
     - |
       def run(profile: str | None = None) -> str | None:
           return profile if profile is not None else None
-    # Default named by a local of another def
     - |
       def other() -> None:
           LIMIT = 3
 
       def run(count: int | None = None) -> int:
           return count if count is not None else LIMIT
-    # Statement form with a second statement in the branch, the branch does more than resolve the default
     - |
       LIMIT = 3
 
@@ -84,7 +69,6 @@ valid:
               count = LIMIT
               log(count)
           return count
-    # Statement form with an else branch, the other arm computes from the value
     - |
       LIMIT = 3
 
@@ -94,30 +78,25 @@ valid:
           else:
               count = count + 1
           return count
-    # Tuple of locals, the elements are computed where they are read
     - |
       def run(items: tuple[str, str] | None = None) -> tuple[str, str]:
           first = read()
           second = read()
           return items if items is not None else (first, second)
-    # A same-named parameter shadows the module default
     - |
       LIMIT = 3
 
       def run(count: int | None, LIMIT: int):
           return count if count is not None else LIMIT
-    # A local assignment shadows the module default
     - |
       LIMIT = 3
 
       def run(count: int | None):
           LIMIT = read()
           return count if count is not None else LIMIT
-    # Interpolated string is computed at call time
     - |
       def run(path: str | None, root: str):
           return path if path is not None else f"{root}/file"
-    # An elif branch transforms present values
     - |
       def run(count: int | None):
           if count is None:
@@ -125,145 +104,136 @@ valid:
           elif count < 0:
               count = -count
           return count
-    # An attribute default is rooted at a local parameter rather than the imported module
+    - |
+      class Reader:
+          LIMIT = 3
+
+          def run(self, count: int | None = None) -> int:
+              return count if count is not None else Reader.LIMIT
+    - |
+      class Reader:
+          def make(self, factory: Callable[[], Reader] | None = None) -> Reader:
+              return (factory if factory is not None else Reader)()
     - |
       import settings
 
       def run(value: str | None, settings: Settings):
           return value if value is not None else settings.profile
 invalid:
-    # The instance, the parameter tested against None and replaced by an imported constant
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           resolved = profile if profile is not None else PROFILE_STATEFUL
-    # Arms swapped, the default first
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           resolved = PROFILE_STATEFUL if profile is None else profile
-    # Boolean or spelling
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           resolved = profile or PROFILE_STATEFUL
-    # Default on an imported module, the chain's root is the import
     - |
       import operator
 
       def check(left, right, equal: Equality | None = None) -> None:
           assert (equal if equal is not None else operator.eq)(left, right)
-    # Parameter without a default, the alias in its annotation accepts None and the body resolves it
     - |
       import operator
 
       def check(left, right, equal: _Equality[T]) -> None:
           assert (equal if equal is not None else operator.eq)(left, right)
-    # Default assigned at module level
     - |
       LIMIT = 3
 
       def run(count: int | None = None) -> int:
           return count if count is not None else LIMIT
-    # String literal default
     - |
       def run(profile: str | None = None) -> str:
           return profile if profile is not None else "stateful"
-    # Integer literal default
     - |
       def run(count: int | None = None) -> int:
           return count or 3
-    # Float literal default
     - |
       def run(ratio: float | None = None) -> float:
           return ratio if ratio is not None else 0.5
-    # True default
     - |
       def run(strict: bool | None = None) -> bool:
           return strict if strict is not None else True
-    # False default
     - |
       def run(strict: bool | None = None) -> bool:
           return strict if strict is not None else False
-    # Attribute chain of two members rooted at an import
     - |
       import settings
 
       def run(profile: str | None = None) -> str:
           return profile if profile is not None else settings.defaults.profile
-    # Default named by a class at module level
     - |
       class Reader:
           pass
 
       def run(make: Callable[[], Reader] | None = None) -> Reader:
           return (make if make is not None else Reader)()
-    # Default named by a def at module level
     - |
       def fallback() -> int:
           return 3
 
       def run(make: Callable[[], int] | None = None) -> int:
           return (make if make is not None else fallback)()
-    # Resolution nested in a statement of a branch
     - |
       from runtime import PROFILE_STATEFUL
 
       def run(machine, *, profile: str | None = None) -> None:
           if machine:
               resolved = profile if profile is not None else PROFILE_STATEFUL
-    # Untyped parameter with a None default
     - |
       def run(count=None):
           return count or 3
-    # Negative literal default
     - |
       def run(count: int | None = None) -> int:
           return count if count is not None else -1
-    # Negative float default
     - |
       def run(ratio: float | None = None) -> float:
           return ratio if ratio is not None else -0.5
-    # Empty tuple default, an immutable literal
     - |
       def run(items: tuple[str, ...] | None = None) -> tuple[str, ...]:
           return items if items is not None else ()
-    # Default assigned with an annotation at module level
     - |
       LIMIT: int = 3
 
       def run(count: int | None = None) -> int:
           return count if count is not None else LIMIT
-    # Aliased import, the alias is the module-level name
     - |
       from runtime import PROFILE_STATEFUL as PROFILE
 
       def run(profile: str | None = None) -> str:
           return profile if profile is not None else PROFILE
-    # Async def
     - |
       LIMIT = 3
 
       async def run(count: int | None = None) -> int:
           return count if count is not None else LIMIT
-    # Method
     - |
       LIMIT = 3
 
       class Reader:
           def run(self, count: int | None = None) -> int:
               return count if count is not None else LIMIT
-    # Decorated def
     - |
       LIMIT = 3
 
       @cache
       def run(count: int | None = None) -> int:
           return count if count is not None else LIMIT
-    # Statement form, the None branch assigns the default to the parameter
+    - |
+      class Mode:
+          FAST = 1
+
+      class Reader:
+          def run(self, mode: int | None = None) -> int:
+              return mode if mode is not None else Mode.FAST
     - |
       LIMIT = 3
 

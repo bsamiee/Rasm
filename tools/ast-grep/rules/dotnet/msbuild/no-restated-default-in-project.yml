@@ -5,7 +5,6 @@ severity: error
 files: ['**/*.csproj']
 rule:
     pattern: _PROPERTY
-    # One arm per value, the names in each arm hold that value as the SDK default or the Directory.Build.props value
     any:
         - matches: {msbuild-property-value: {name: {regex: '^OutputType$'}, text: {regex: '(?i)^\s*Library\s*$'}}}
         - matches: {msbuild-property-value: {name: {regex: "^(EnableDefaultItems|EnableDefaultCompileItems|GenerateAssemblyInfo|Deterministic|CheckForOverflowUnderflow|GenerateDocumentationFile|PublishRepositoryUrl|IncludeSymbols)$"}, text: {regex: '(?i)^\s*true\s*$'}}}

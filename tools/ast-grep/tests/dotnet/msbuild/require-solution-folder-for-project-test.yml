@@ -1,16 +1,20 @@
 id: require-solution-folder-for-project
 valid:
-    # Project under the folder of its directory chain
     - |
-      <Solution><Folder Name="/tests/dotnet/libs/"><Project Path="tests/dotnet/libs/Rasm.Interop.Tests/Rasm.Interop.Tests.csproj" /></Folder>
+      <Solution><Folder Name="/tests/dotnet/libs/"><Project Path="tests/dotnet/libs/Item.Tests/Item.Tests.csproj" /></Folder>
         </Solution>
-    # Empty folder marking a level of the tree
     - |
       <Solution><Folder Name="/tests/" /></Solution>
-invalid:
-    # Project in the solution root, the form dotnet sln add --in-root writes
     - |
-      <Solution><Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" /></Solution>
-    # Project in the root beside a folder holding another
+      <Solution><Folder Name="/libs/"><Folder Name="/libs/dotnet/"><Project Path="libs/dotnet/Item/Item.csproj" /></Folder></Folder></Solution>
+    - |
+      <Solution><Properties Name="Visual Studio"><Property Name="OpenWith" Value="17" /></Properties></Solution>
+invalid:
+    - |
+      <Solution><Project Path="tests/dotnet/Support/Support.csproj" /></Solution>
     - |
       <Solution><Folder Name="/libs/"><Project Path="libs/A/A.csproj" /></Folder><Project Path="tools/B/B.csproj" /></Solution>
+    - |
+      <Solution><Project Path="libs/Item/Item.csproj"></Project></Solution>
+    - |
+      <Solution><Project Path="libs/Item/Item.csproj" Type="Classic C#" /></Solution>

@@ -750,6 +750,100 @@ snapshots:
       end: 58
   ? |-
     import { Option } from "effect";
+    const held = Option.match(found, { onNone: function () { return false; }, onSome: function () { return true; } });
+  : fixed: |-
+      import { Option } from "effect";
+      const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onNone: function () { return false; }, onSome: function () { return true; } })'
+      style: primary
+      start: 46
+      end: 146
+    - source: function () { return true; }
+      style: secondary
+      start: 115
+      end: 143
+    - source: 'onSome: function () { return true; }'
+      style: secondary
+      start: 107
+      end: 143
+    - source: function () { return false; }
+      style: secondary
+      start: 76
+      end: 105
+    - source: 'onNone: function () { return false; }'
+      style: secondary
+      start: 68
+      end: 105
+    - source: '{ onNone: function () { return false; }, onSome: function () { return true; } }'
+      style: secondary
+      start: 66
+      end: 145
+    - source: '{ onNone: function () { return false; }, onSome: function () { return true; } }'
+      style: secondary
+      start: 66
+      end: 145
+    - source: Option
+      style: secondary
+      start: 46
+      end: 52
+    - source: match
+      style: secondary
+      start: 53
+      end: 58
+    - source: Option.match
+      style: secondary
+      start: 46
+      end: 58
+  ? |-
+    import { Option } from "effect";
+    const held = Option.match(found, { onSome: () => true, onNone: () => false });
+  : fixed: |-
+      import { Option } from "effect";
+      const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onSome: () => true, onNone: () => false })'
+      style: primary
+      start: 46
+      end: 110
+    - source: () => true
+      style: secondary
+      start: 76
+      end: 86
+    - source: 'onSome: () => true'
+      style: secondary
+      start: 68
+      end: 86
+    - source: () => false
+      style: secondary
+      start: 96
+      end: 107
+    - source: 'onNone: () => false'
+      style: secondary
+      start: 88
+      end: 107
+    - source: '{ onSome: () => true, onNone: () => false }'
+      style: secondary
+      start: 66
+      end: 109
+    - source: '{ onSome: () => true, onNone: () => false }'
+      style: secondary
+      start: 66
+      end: 109
+    - source: Option
+      style: secondary
+      start: 46
+      end: 52
+    - source: match
+      style: secondary
+      start: 53
+      end: 58
+    - source: Option.match
+      style: secondary
+      start: 46
+      end: 58
+  ? |-
+    import { Option } from "effect";
     const held = Option.match({ onNone: () => false, onSome: () => true })(found);
   : fixed: |-
       import { Option } from "effect";
@@ -890,6 +984,69 @@ snapshots:
       start: 49
       end: 61
   ? |-
+    import { Option, Function as F } from "effect";
+    const held = Option.match(found, { onNone: F.constFalse, onSome: F.constTrue });
+  : fixed: |-
+      import { Option, Function as F } from "effect";
+      const held = Option.isSome(found);
+    labels:
+    - source: 'Option.match(found, { onNone: F.constFalse, onSome: F.constTrue })'
+      style: primary
+      start: 61
+      end: 127
+    - source: constTrue
+      style: secondary
+      start: 115
+      end: 124
+    - source: F
+      style: secondary
+      start: 113
+      end: 114
+    - source: F.constTrue
+      style: secondary
+      start: 113
+      end: 124
+    - source: 'onSome: F.constTrue'
+      style: secondary
+      start: 105
+      end: 124
+    - source: constFalse
+      style: secondary
+      start: 93
+      end: 103
+    - source: F
+      style: secondary
+      start: 91
+      end: 92
+    - source: F.constFalse
+      style: secondary
+      start: 91
+      end: 103
+    - source: 'onNone: F.constFalse'
+      style: secondary
+      start: 83
+      end: 103
+    - source: '{ onNone: F.constFalse, onSome: F.constTrue }'
+      style: secondary
+      start: 81
+      end: 126
+    - source: '{ onNone: F.constFalse, onSome: F.constTrue }'
+      style: secondary
+      start: 81
+      end: 126
+    - source: Option
+      style: secondary
+      start: 61
+      end: 67
+    - source: match
+      style: secondary
+      start: 68
+      end: 73
+    - source: Option.match
+      style: secondary
+      start: 61
+      end: 73
+  ? |-
     import { Option, Function } from "effect";
     const held = Option.match(found, { onNone: Function.constFalse, onSome: Function.constTrue });
   : fixed: |-
@@ -900,6 +1057,10 @@ snapshots:
       style: primary
       start: 56
       end: 136
+    - source: constTrue
+      style: secondary
+      start: 124
+      end: 133
     - source: Function
       style: secondary
       start: 115
@@ -912,6 +1073,10 @@ snapshots:
       style: secondary
       start: 107
       end: 133
+    - source: constFalse
+      style: secondary
+      start: 95
+      end: 105
     - source: Function
       style: secondary
       start: 86
@@ -944,3 +1109,50 @@ snapshots:
       style: secondary
       start: 56
       end: 68
+  ? |-
+    import { STM } from "effect";
+    const passed = STM.match(transaction, { onFailure: () => false, onSuccess: () => true });
+  : fixed: |-
+      import { STM } from "effect";
+      const passed = STM.isSuccess(transaction);
+    labels:
+    - source: 'STM.match(transaction, { onFailure: () => false, onSuccess: () => true })'
+      style: primary
+      start: 45
+      end: 118
+    - source: () => true
+      style: secondary
+      start: 105
+      end: 115
+    - source: 'onSuccess: () => true'
+      style: secondary
+      start: 94
+      end: 115
+    - source: () => false
+      style: secondary
+      start: 81
+      end: 92
+    - source: 'onFailure: () => false'
+      style: secondary
+      start: 70
+      end: 92
+    - source: '{ onFailure: () => false, onSuccess: () => true }'
+      style: secondary
+      start: 68
+      end: 117
+    - source: '{ onFailure: () => false, onSuccess: () => true }'
+      style: secondary
+      start: 68
+      end: 117
+    - source: STM
+      style: secondary
+      start: 45
+      end: 48
+    - source: match
+      style: secondary
+      start: 49
+      end: 54
+    - source: STM.match
+      style: secondary
+      start: 45
+      end: 54

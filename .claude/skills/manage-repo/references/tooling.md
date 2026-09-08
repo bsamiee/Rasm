@@ -8,6 +8,7 @@ Configure the shared process environment, toolchain, task runner, harness, and e
 - Targets and scripts take the values from the shell hook or the shims, CI steps from the setup action, and the agent shell from the settings hooks
 - Outside an activated shell, use `mise exec -- <command>` to select the configured runtime and environment
 - `.claude/settings.json` registers the environment hook under `SessionStart` and `CwdChanged`, its output the preamble of every `Bash` command
+- The plugin rewrites a `mise x`, `mise exec`, or `eval "$(mise env -s bash)" &&` leaf to the command it wraps, and reads inside a `sh -c` wrapper
 - `.claude/settings.json` `env` sets `SHELL` to `bash`, so the `Bash` tool spawns bash 5.3 from PATH in place of the login zsh
 - The plugin's child processes take the values from the session row's `env`
 - Both channels run `mise` from the PATH `claude` was launched with
@@ -18,11 +19,15 @@ Configure the shared process environment, toolchain, task runner, harness, and e
 
 `UV_CACHE_DIR` overrides the machine profile's exported cache path, which otherwise takes precedence over the uv manifest.
 
-The `[env]` table holds `_.path = "./node_modules/.bin"`, the .NET no-logo and telemetry opt-out, `UV_PYTHON`, `PYTHONPYCACHEPREFIX`, and `NX_WORKSPACE_DATA_DIRECTORY`:
+The `[env]` table holds `_.path = "./node_modules/.bin"`, the .NET no-logo and telemetry opt-out, `UV_PYTHON`, `PYTHONPYCACHEPREFIX`, `NX_WORKSPACE_DATA_DIRECTORY`, and the `LIBKTX_*` rows:
 - `UV_PYTHON` renders the mise interpreter path with `tools = true`, and `.venv/bin/python3` reports it as `sys.base_prefix`
 - `PYTHONPYCACHEPREFIX` sits in `[env]` because no `pyproject.toml` table sets it
 - `NX_WORKSPACE_DATA_DIRECTORY` relocates the graph database under `.cache/nx/`, `nx.json` holds `cacheDirectory` alone
 - `_.path` resolves command names to the workspace package versions
+- `LIBKTX_VERSION` renders `exec` of `yq -r .version-string` over `eng/native/ktx/release.json` under `tools = true`
+- `LIBKTX_INSTALL_DIR` is the provision link `.cache/tools/ktx`, and Windows derives the `include`, `lib`, and DLL directories from it
+- `mise.unix.toml` holds the POSIX-only rows `LIBKTX_INCLUDE_DIR` and `LIBKTX_LIB_DIR`, and `LIBKTX_LIB_DIR` stays unset on Windows
+- `.miserc.toml` alone holds `auto_env = true`, the early-init setting that loads `mise.unix.toml`, a `[settings]` row in `mise.toml` has no effect
 
 ## [02]-[TOOLCHAIN]
 
@@ -38,9 +43,13 @@ Use `mise.toml` `[settings]` and `[tools]` to resolve runtimes and binaries. Pac
 - Preserve the Bash tool's postinstall correction until the pkgx backend generates a launcher with a nonrecursive interpreter
 - `yq` resolves to Mike Farah's YAML processor, and `jq` resolves to jqlang's JSON processor
 - `ripgrep` supplies `rg`, and `fd` supplies filesystem queries used by repository and agent commands
+- `act` runs the workflow jobs, and `docker-cli` removes their containers
 - Let the pipx backend order its configured Python and uv dependencies before installation
 - `claude` is the native install from the Claude Code installer, self-updating, the one binary the `harness` target and the agent sessions run
 - `claude` is no `[tools]` row: the docs list no mise route, and `claude update` recreates the native launcher beside any other copy
+- `mise` itself is the nix home-manager binary of the machine profile, and its upgrade belongs there
+- `[settings] lockfile` and `mise.lock` stay out, because a lock pins every `latest` row to the version it held at lock time
+- `[tool_alias]` names a version alias, `[plugins]` repoints a tool to a backend, and `mise install --yes` answers every confirmation prompt
 
 Use native command options to select and consume results without parsing display text:
 - Use `fd -t f -e <extension>` for file selection and `-g` for filename globs, with `-p` when matching full paths
@@ -80,7 +89,7 @@ Use native command options to select and consume results without parsing display
 - The local plugin emits empty `lint`, `format`, `typecheck`, and `check` targets the defaults fill, and `nx-release-publish` for a tagged library
 - When the root target lists `commands`, exclude the root project (`!<root>`) from the filtered entry, because a default `command` replaces the list
 - `"..."` in a filtered entry's `inputs`, or in a manifest's `nx.targets.<target>.inputs`, spreads the inputs the plugin inferred
-- `sharedGlobals` names `nx.json`, `mise.toml`, `tools/nx/*.ts`, `sgconfig.yml`, `tools/ast-grep/**/*`, and the `ast-grep --version` runtime input
+- `sharedGlobals` names `nx.json`, the mise files, `tools/nx/*.ts`, `sgconfig.yml`, `tools/ast-grep/**/*`, and the `ast-grep --version` runtime input
 - `default` includes `sharedGlobals`, and an edit to a shared file marks every project affected
 - Targets with explicit inputs keep every shared input their command reads
 - Extra arguments forward to the command, `nx run Native.Item:stage --rid linux-x64` reaches the script as `--rid=linux-x64`
@@ -99,6 +108,10 @@ Each part of the task graph has one file, and a fact appears in one of them:
 |  [05]   | `project.json`     | `name`, tags, `provision`, empty targets                 | A target body a default supplies                |
 
 - `targetDefaults` filter by `tag:language:<language>`, and a project reaches a default through its tag alone
+- `targetDefaults` takes an executor name as a key (`"nx:run-commands": {"options": ...}`) with no `executor` pair, in the filtered array form too
+- Named configurations merge over `options`, `{"parallel": true}` alone runs the base `commands` list in parallel, and own `commands` inherit none
+- `readyWhen` beside `commands` is valid under `parallel: true` alone, and keeping it under `parallel: false` writes a form the executor refuses
+- The run-commands executor spawns the `command` string through `sh`, so a glob or `$( )` expands at run time, and `NO_COLOR=1` turns color off
 - A target input names its language input (`dotnet`, `python`, `typescript`), and a root file path sits in one named input alone
 - Sibling files of one directory join as one brace glob, `Directory.{Build.props,Build.targets,Packages.props}`
 - One command sits under `command` with `forwardAllArgs` beside it, and `commands` holds plain strings for two or more
@@ -162,16 +175,16 @@ Declare operations shared across projects in the root manifest's `nx` field. Tag
 |  [10]   | `rewrite`   | `ast-grep scan -U` with the filter, error, and path arguments the root `README.md` invocation passes after `--` | `false` |
 |  [11]   | `mutation`  | Mutation script                                                                                                 | `false` |
 |  [12]   | `upgrade`   | `uv lock --upgrade`, `pnpm update --latest --recursive`, and dotnet-outdated under `dotnet dnx`                 | `false` |
-|  [13]   | `workflow`  | `act` over `ci.yml`, one image per Linux runner label, and the three server paths under `.cache/act/`           | `false` |
+|  [13]   | `workflow`  | Workflow script, `act` over `ci.yml` on the host architecture, the job containers removed on every exit         | `false` |
 |  [14]   | `harness`   | Harness script, `.claude/types` regenerated, the plugin proven by its load line, its cached copy reinstalled    | `false` |
-|  [15]   | `rules`     | `rule-checks.sh gate <ext>` per language and the rewrite and outline tests under Node's test runner             | `true`  |
+|  [15]   | `rules`     | `ast-grep test --include-off` and the rewrite, outline, and injection tests under Node's test runner            | `true`  |
 |  [16]   | `outline`   | `ast-grep outline` with every outline rule under `tools/ast-grep/outline/`                                      | `false` |
 
 `lint` depends on `rules` and `grammar`, project lint targets depend on `grammar` before their scoped scans, and the `lint` inputs hold the `.github/` tree, `.shellcheckrc`, every `.sh` file, and the actionlint and shellcheck versions.
 
 The `tooling` named input holds the root files, the `.vscode/`, `infra/`, and `tools/` trees, the ast-grep scripts, and the integration tests, and root `lint` and `format` read it beside their runtime inputs.
 
-`nx run rasm:rules:<ext>` gates one language and `nx run rasm:rules` every registered language, the languages run in sequence because each gate parallelizes its own mutations, and the `rules` inputs hold the rule tree, the skill templates and script, the plugin, and the runtime versions. `nx run rasm:outline -- <paths> --items structure` outlines repository source, and the native outline options pass through unchanged. Use `ast-grep` for one rule's checks, the extractor design, and the views.
+`nx run rasm:rules` runs the ast-grep test cases and the Node tests, and the `rules` inputs hold the rule tree, the skill templates and script, the plugin, and the runtime versions. `nx run rasm:outline -- <paths> --items structure` outlines repository source, and the native outline options pass through unchanged. Use `ast-grep` for one rule's checks, the extractor design, and the views.
 
 - `upgrade` moves every language's dependency set to its newest release, prereleases included, and every command writes a shared file
 - `upgrade` runs `dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore <solution>` for the .NET set
@@ -208,14 +221,14 @@ Configure the agent harness, editor, and git by language, file type, or event:
 - `${VAR}` headers on the servers that take a token expand from the environment of the `claude` launch
 - `doppler run --project agent-runtime --config dev -- claude` supplies every token header
 - `mise exec` puts `_.path` first on each server's PATH, and the servers run from `node_modules/.bin`, the ast-grep `pipx:` row, or `dotnet dnx`
-- The ast-grep entry sets `AST_GREP_CONFIG` to `${CLAUDE_PROJECT_DIR:-.}/sgconfig.yml`, and the plugin's `mise x` row binds Bash commands alone
+- The ast-grep entry sets `AST_GREP_CONFIG` to `${CLAUDE_PROJECT_DIR:-.}/sgconfig.yml`, and the plugin's `mise x` rows rewrite Bash commands alone
 - `.gitattributes` normalizes text to LF and stores binary design assets as Git LFS pointers by extension
 
 ## [07]-[ANTI_PATTERNS]
 
 | [INDEX] | [SMELL]                                                      | [CORRECT_FORM]                                                          |
 | :-----: | :----------------------------------------------------------- | :---------------------------------------------------------------------- |
-|  [01]   | `mise x <command>` or a mise task wrapping a target          | Target under the mise environment from the hook or the shims            |
+|  [01]   | `mise x <command>` or a mise task wrapping a target          | Direct command under the mise environment from the hook or the shims    |
 |  [02]   | Unneeded runtime pin or release-age delay                    | `latest`, with documented SDK and interpreter constraints               |
 |  [03]   | Duplicated manifest settings in `[env]`                      | Manifest setting, or an explicit override of an inherited process value |
 |  [04]   | `[env]` rows for a directory one script or program computes  | Script or program derives it beside its other paths                     |

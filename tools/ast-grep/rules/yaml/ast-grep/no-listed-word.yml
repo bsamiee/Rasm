@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-listed-word
+language: yaml
+severity: error
+files: [tools/ast-grep/rules/**, tools/ast-grep/utils/**, tools/ast-grep/rewrites/**, tools/ast-grep/tests/**, tools/ast-grep/outline/**]
+ignores: [tools/ast-grep/tests/__snapshots__/**]
+rule:
+    pattern: $TEXT
+    all:
+        - any: [{kind: comment}, {matches: ast-grep-prose-value}]
+        - any:
+            - regex: |-
+                (?ix)^(?:[^`]*`[^`]*`)*[^`]*(?:\b(?:
+                    so|therefore|thus|hence|which\ is\ why|consequently|furthermore|moreover|also
+                    |simply|just|actually|essentially|basically|really|very|quite|somewhat|easily
+                    |robust|powerful|comprehensive|seamless(?:ly)?|elegant|clean(?:ly)?|modern|lightweight|best
+                    |note\ that|it\ is\ worth\ noting|it\ is\ important\ to|in\ other\ words|as\ mentioned|in\ summary
+                    |possibly|typically|generally|usually|often|in\ some\ cases|in\ most\ cases|where\ appropriate
+                    |a\ number\ of|various|several|multiple|the\ two|the\ three
+                    |since\ version|as\ of|in\ version|upgrade\ from|legacy|new\ and\ current|migrate
+                    |such\ as|whose|and/or
+                    |should|might|could|would
+                    |ship(?:ped|ping|s)?|seat(?:ed|s)?|roster|admission|blessed|mint(?:ed)?|strat(?:a|um)|substrate|backbone
+                    |realm|landscape|capsule|rung|ladder|charter|doctrine|ruling|corpus|bespoke|weave|estate|pluggable|toolkit
+                    |phantom|census|materialize|egress|pristine|in-flight|autosave|guardrail|beacon|custodian|posture
+                    |carr(?:y|ies|ied)|rides|travels|lives|payload|law|twin|flips|mirrors|interior|tolerate|repair|harmless
+                    |floors|peers\ on|host-free|feature\ parity|publication-quality|vocabulary\ table|closed\ family
+                    |building\ blocks|sibling\ variant|fan-out\ degree
+                    |crucial(?:ly)?|vital|pivotal|paramount|dramatically|significantly|greatly|highly|extremely|incredibly
+                    |notably|importantly|arguably|groundbreaking|cutting-edge|state-of-the-art|innovative|unprecedented
+                    |transformative|revolutionary|tapestry|testament|synergy|interplay|intricate|vibrant|nuanced|multifaceted
+                    |holistic|meticulous|effortlessly|blazingly|performant|intuitively|conveniently|currently|at\ this\ point
+                    |at\ this\ time|going\ forward|additionally|in\ addition|subsequently|lastly|please|certainly|absolutely
+                    |oops|let\ us|feel\ free|I\ hope\ this\ helps|that\ being\ said|studies\ show
+                    |in\ terms\ of|with\ regard\ to|as\ far\ as|when\ it\ comes\ to
+                    |from\ the\ perspective\ of|in\ the\ context\ of|is\ designed\ to|aims\ to|is\ intended\ to|genuinely
+                    |honestly|frankly|admittedly|straightforward|minimalist
+                    |leverag(?:e[ds]?|ing)|harness(?:e[ds]|ing)?|employ(?:s|ed|ing)?|utiliz(?:e[ds]?|ing)|facilitat(?:e[ds]?|ing)
+                    |foster(?:s|ed|ing)?|empower(?:s|ed|ing)?|bolster(?:s|ed|ing)?|enhanc(?:e[ds]?|ing)|elevat(?:e[ds]?|ing)
+                    |optimiz(?:e[ds]?|ing)|streamlin(?:e[ds]?|ing)|showcas(?:e[ds]?|ing)|emphasiz(?:e[ds]?|ing)
+                    |plethora|myriad|a\ wealth\ of|paradigm|boasts|tackl(?:e[ds]?|ing)|ascertain|determin(?:e[ds]?|ing)
+                    |commenc(?:e[ds]?|ing)|initiat(?:e[ds]?|ing)|embark(?:s|ed|ing)?|ceas(?:e[ds]?|ing)|endeavor(?:s|ed|ing)?
+                    |delv(?:e[ds]?|ing)\ into|div(?:e[ds]?|ing)\ into|functionality|in\ order\ to|prior\ to
+                    |due\ to|except\ for|in\ the\ event\ that|however|nevertheless|that\ said|in\ spite\ of
+                    |despite\ the\ fact\ that|need\ to|have\ to|enables\ you\ to|allows\ you\ to|as\ needed|as\ necessary
+                    |as\ appropriate|out\ of\ the\ box|under\ the\ hood|gracefully\ handles
+                    |perform\ an\ analysis\ of|make\ a\ decision|provide\ support\ for|conduct\ a\ review\ of
+                    |carry\ out\ validation\ of|take\ into\ consideration|give\ an\ indication\ of|is\ responsible\ for
+                    |serves\ as|acts\ as|functions\ as|allows\ for|provides\ the\ ability|is\ able\ to|has\ the\ ability\ to
+                    |is\ used\ to|in\ charge\ of
+                    |set\ up|spin\ up|kick\ off|tear\ down|reach\ out|figure\ out|hook\ up|wire\ up|pull\ in|put\ together
+                    |go\ down|come\ up|bail\ out|end\ up
+                )\b|\b(?:e\.g|i\.e|etc)\.|\b\w+(?:'ll|'re|n't|'ve|'d)\b)
+            - regex: '(?i)^(?:[^`]*`[^`]*`)*[^`]*\brather\b(?:\s*$|\s*[^\sa-z]|\s+(?:[^t\s]|t[^h\s]|th[^a\s]|tha[^n\s]|than\w))'
+            - regex: '(?i)^(?:[^`]*`[^`]*`)*[^`]*\bmay\b(?:\s*$|\s*[^\sa-z]|\s+(?:[^h\s]|h[^a\s]|ha[^v\s]|hav[^e\s]|have\w))'
+transform:
+    BARE: {replace: {source: $TEXT, replace: '(?i)\b(rather than|may have)\b', by: ''}}
+    WORD:
+        replace:
+            source: $BARE
+            by: '$1'
+            replace: |-
+                (?isx)^(?:[^`]*`[^`]*`)*?[^`]*?(\b(?:
+                    so|therefore|thus|hence|which\ is\ why|consequently|furthermore|moreover|also
+                    |simply|just|actually|essentially|basically|really|very|quite|rather|somewhat|easily
+                    |robust|powerful|comprehensive|seamless(?:ly)?|elegant|clean(?:ly)?|modern|lightweight|best
+                    |note\ that|it\ is\ worth\ noting|it\ is\ important\ to|in\ other\ words|as\ mentioned|in\ summary
+                    |possibly|typically|generally|usually|often|in\ some\ cases|in\ most\ cases|where\ appropriate
+                    |a\ number\ of|various|several|multiple|the\ two|the\ three
+                    |since\ version|as\ of|in\ version|upgrade\ from|legacy|new\ and\ current|migrate
+                    |such\ as|whose|and/or
+                    |should|may|might|could|would
+                    |ship(?:ped|ping|s)?|seat(?:ed|s)?|roster|admission|blessed|mint(?:ed)?|strat(?:a|um)|substrate|backbone
+                    |realm|landscape|capsule|rung|ladder|charter|doctrine|ruling|corpus|bespoke|weave|estate|pluggable|toolkit
+                    |phantom|census|materialize|egress|pristine|in-flight|autosave|guardrail|beacon|custodian|posture
+                    |carr(?:y|ies|ied)|rides|travels|lives|payload|law|twin|flips|mirrors|interior|tolerate|repair|harmless
+                    |floors|peers\ on|host-free|feature\ parity|publication-quality|vocabulary\ table|closed\ family
+                    |building\ blocks|sibling\ variant|fan-out\ degree
+                    |crucial(?:ly)?|vital|pivotal|paramount|dramatically|significantly|greatly|highly|extremely|incredibly
+                    |notably|importantly|arguably|groundbreaking|cutting-edge|state-of-the-art|innovative|unprecedented
+                    |transformative|revolutionary|tapestry|testament|synergy|interplay|intricate|vibrant|nuanced|multifaceted
+                    |holistic|meticulous|effortlessly|blazingly|performant|intuitively|conveniently|currently|at\ this\ point
+                    |at\ this\ time|going\ forward|additionally|in\ addition|subsequently|lastly|please|certainly|absolutely
+                    |oops|let\ us|feel\ free|I\ hope\ this\ helps|that\ being\ said|studies\ show
+                    |in\ terms\ of|with\ regard\ to|as\ far\ as|when\ it\ comes\ to
+                    |from\ the\ perspective\ of|in\ the\ context\ of|is\ designed\ to|aims\ to|is\ intended\ to|genuinely
+                    |honestly|frankly|admittedly|straightforward|minimalist
+                    |leverag(?:e[ds]?|ing)|harness(?:e[ds]|ing)?|employ(?:s|ed|ing)?|utiliz(?:e[ds]?|ing)|facilitat(?:e[ds]?|ing)
+                    |foster(?:s|ed|ing)?|empower(?:s|ed|ing)?|bolster(?:s|ed|ing)?|enhanc(?:e[ds]?|ing)|elevat(?:e[ds]?|ing)
+                    |optimiz(?:e[ds]?|ing)|streamlin(?:e[ds]?|ing)|showcas(?:e[ds]?|ing)|emphasiz(?:e[ds]?|ing)
+                    |plethora|myriad|a\ wealth\ of|paradigm|boasts|tackl(?:e[ds]?|ing)|ascertain|determin(?:e[ds]?|ing)
+                    |commenc(?:e[ds]?|ing)|initiat(?:e[ds]?|ing)|embark(?:s|ed|ing)?|ceas(?:e[ds]?|ing)|endeavor(?:s|ed|ing)?
+                    |delv(?:e[ds]?|ing)\ into|div(?:e[ds]?|ing)\ into|functionality|in\ order\ to|prior\ to
+                    |due\ to|except\ for|in\ the\ event\ that|however|nevertheless|that\ said|in\ spite\ of
+                    |despite\ the\ fact\ that|need\ to|have\ to|enables\ you\ to|allows\ you\ to|as\ needed|as\ necessary
+                    |as\ appropriate|out\ of\ the\ box|under\ the\ hood|gracefully\ handles
+                    |perform\ an\ analysis\ of|make\ a\ decision|provide\ support\ for|conduct\ a\ review\ of
+                    |carry\ out\ validation\ of|take\ into\ consideration|give\ an\ indication\ of|is\ responsible\ for
+                    |serves\ as|acts\ as|functions\ as|allows\ for|provides\ the\ ability|is\ able\ to|has\ the\ ability\ to
+                    |is\ used\ to|in\ charge\ of
+                    |set\ up|spin\ up|kick\ off|tear\ down|reach\ out|figure\ out|hook\ up|wire\ up|pull\ in|put\ together
+                    |go\ down|come\ up|bail\ out|end\ up
+                )\b|\b(?:e\.g|i\.e|etc)\.|\b\w+(?:'ll|'re|n't|'ve|'d)\b).*$
+message: The text holds `$WORD`, a word of the `clean-prose` tables
+note: Write the real term, the condition, or the replacement the word map lists

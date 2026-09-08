@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# Enable on demand with ast-grep scan --filter '^echo-expansion-to-printf$' --error=echo-expansion-to-printf -U <paths>
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: echo-expansion-to-printf
 language: bash
 severity: off
@@ -9,13 +8,12 @@ rule:
     pattern: $ECHO
     all:
         - has: {field: name, regex: '^echo$'}
-        # One quoted operand, alone or after one -n or -e flag, prints as one printf argument, a field read tests the first argument alone
         - has: {kind: string, pattern: $TEXT, matches: bash-expanding-word}
         - not: {has: {not: {kind: 'command_name, word, string'}}}
         - not: {has: {kind: string, not: {nthChild: {position: 1, reverse: true}}}}
         - not: {has: {kind: word, not: {regex: '^-[ne]$'}}}
         - not: {has: {kind: word, nthChild: {position: 2, ofRule: {kind: word}}}}
-# No flag prints the text with a newline, -n drops the newline, and -e interprets escapes through %b
+        - not: {has: {kind: string, has: {kind: 'simple_expansion, expansion', regex: '\$\{?@|\[@\]|@\}'}}}
 rewriters:
     - id: line
       rule: {pattern: $ECHO, not: {has: {field: argument, kind: word}}}
@@ -30,4 +28,4 @@ transform:
     PRINTF: rewrite($ECHO, rewriters=[line, no-newline, escapes])
 fix: $PRINTF
 message: echo interprets the expanded text as options or escape sequences
-note: Print the text through printf with a literal format, `printf '%s\n' "$value"`, so a leading dash or a backslash in the value prints as text
+note: Print the text through printf with a literal format, `printf '%s\n' "$value"`, and a leading dash or a backslash in the value prints as text

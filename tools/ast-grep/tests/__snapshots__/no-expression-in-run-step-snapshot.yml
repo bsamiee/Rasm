@@ -92,6 +92,30 @@ snapshots:
     jobs:
       build:
         steps:
+          - parallel:
+              - run: echo ${{ inputs.x }}
+  : labels:
+    - source: 'run: echo ${{ inputs.x }}'
+      style: primary
+      start: 56
+      end: 81
+    - source: run
+      style: secondary
+      start: 56
+      end: 59
+    - source: |
+        run: echo ${{ inputs.x }}
+      style: secondary
+      start: 56
+      end: 82
+    - source: echo ${{ inputs.x }}
+      style: secondary
+      start: 61
+      end: 81
+  ? |
+    jobs:
+      build:
+        steps:
           - run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"
   : labels:
     - source: 'run: "tar -czf $RUNNER_TEMP/native-stage-${{ matrix.rid }}.tar.gz native/*/stage"'
@@ -393,6 +417,46 @@ snapshots:
       style: secondary
       start: 39
       end: 79
+  ? |-
+    jobs:
+      build:
+        steps:
+          - run: |-
+              echo start
+              echo ${{ inputs.x }}
+  : labels:
+    - source: |-
+        run: |-
+                  echo start
+                  echo ${{ inputs.x }}
+      style: primary
+      start: 34
+      end: 93
+    - source: run
+      style: secondary
+      start: 34
+      end: 37
+    - source: |-
+        run: |-
+                  echo start
+                  echo ${{ inputs.x }}
+      style: secondary
+      start: 34
+      end: 93
+    - source: |-
+        |-
+                  echo start
+                  echo ${{ inputs.x }}
+      style: secondary
+      start: 39
+      end: 93
+    - source: |-
+        |-
+                  echo start
+                  echo ${{ inputs.x }}
+      style: secondary
+      start: 39
+      end: 93
   ? |
     jobs:
       build:
@@ -415,6 +479,27 @@ snapshots:
       style: secondary
       start: 40
       end: 68
+  ? |
+    jobs:
+      build:
+        steps: [{run: "echo ${{ inputs.x }}"}]
+  : labels:
+    - source: 'run: "echo ${{ inputs.x }}"'
+      style: primary
+      start: 28
+      end: 55
+    - source: run
+      style: secondary
+      start: 28
+      end: 31
+    - source: '{run: "echo ${{ inputs.x }}"}'
+      style: secondary
+      start: 27
+      end: 56
+    - source: '"echo ${{ inputs.x }}"'
+      style: secondary
+      start: 33
+      end: 55
   ? |
     jobs:
       build:
@@ -474,6 +559,25 @@ snapshots:
       style: secondary
       start: 41
       end: 63
+  ? |
+    jobs: {build: {steps: [{run: !!str "echo ${{ inputs.x }}"}]}}
+  : labels:
+    - source: 'run: !!str "echo ${{ inputs.x }}"'
+      style: primary
+      start: 24
+      end: 57
+    - source: run
+      style: secondary
+      start: 24
+      end: 27
+    - source: '{run: !!str "echo ${{ inputs.x }}"}'
+      style: secondary
+      start: 23
+      end: 58
+    - source: '!!str "echo ${{ inputs.x }}"'
+      style: secondary
+      start: 29
+      end: 57
   ? |
     jobs: {build: {steps: [{shell: python, run: "print('${{ inputs.value }}')"}]}}
   : labels:

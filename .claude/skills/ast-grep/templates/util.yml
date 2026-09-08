@@ -1,10 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Global utility under utilDirs, called as matches: {<package>-<shape>: {<slot>: <rule>}}
 id: <package>-<shape>
 language: <language>
-arguments: [<slot>] # Omit for a fixed predicate, parameterized calls supply every declared argument, and a fixed predicate with one caller stays inline in that rule
+arguments: [<slot>]
 rule:
-    kind: <kind> # Argument rules do not infer candidate kinds
+    kind: <kind>
     has: {field: <role>, matches: <slot>}
-# Caller argument captures reach fix, message, and labels, utility-owned captures stay local, and a capture a util binds is not equal across two consumers, each consumer binds it in its own clause
-# Compose shared utilities at the root when forwarding slots

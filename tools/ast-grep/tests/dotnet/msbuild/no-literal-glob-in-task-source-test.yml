@@ -1,23 +1,23 @@
 id: no-literal-glob-in-task-source
 valid:
-    # Item list with a tree-preserving transform
     - '<Target Name="Stage"><Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->''$(StageRoot)%(RecursiveDir)%(Filename)%(Extension)'')" /></Target>'
-    # One file
     - '<Target Name="Stage"><Copy SourceFiles="$(StageRoot)manifest.yml" DestinationFolder="$(IntermediateOutputPath)stage/" /></Target>'
-    # Wildcard in the destination alone
     - '<Target Name="Stage"><Copy SourceFiles="@(Asset)" DestinationFolder="$(StageRoot)**/" /></Target>'
-    # Item holding the glob as metadata, no task runs
     - '<ItemGroup><_Stage Include="native" SourceFiles="source/**/*.txt" /></ItemGroup>'
+    - '<Target Name="Stage"><Copy SourceFiles="$(StageRoot)item.txt;$(StageRoot)other.txt" DestinationFolder="stage/" /></Target>'
+    - '<Target Name="Clean"><ItemGroup><_Stale Include="stage/**/*.tmp" /></ItemGroup><Delete Files="@(_Stale)" /></Target>'
+    - '<Target Name="Clean"><RemoveDir Directories="stage/*" /></Target>'
+    - '<Target Name="Stage"><Copy Files="source/*.txt" DestinationFolder="stage/" /></Target>'
+    - '<Target Name="Clean"><Delete><Files>stage/*.tmp</Files></Delete></Target>'
+    - '<Target Name="Clean"><Delete Files="@(_Stale)" Condition="''$(Pattern)'' == ''*.tmp''" /></Target>'
 invalid:
-    # Recursive glob into a folder, the item keeps the tree through RecursiveDir
+    - '<Target Name="Clean"><Delete Files="stage/*.tmp" /></Target>'
+    - '<Target Name="Stamp"><Touch Files="stage/**/*.txt" AlwaysCreate="true" /></Target>'
     - '<Target Name="Stage"><Copy SourceFiles="source/**/*.txt" DestinationFolder="stage/" /></Target>'
-    # Move with the same shape
     - '<Target Name="Stage"><Move SourceFiles="source/**/*.txt" DestinationFolder="stage/" /></Target>'
-    # Destination list given, the item alone joins
     - '<Target Name="Stage"><Copy SourceFiles="source/**/*.txt" DestinationFiles="@(_Destinations)" /></Target>'
-    # One-level glob into a folder, the folder stays
     - '<Target Name="Stage"><Copy SourceFiles="source/*.txt" DestinationFolder="stage/" /></Target>'
-    # Single-character wildcard
     - '<Target Name="Stage"><Move SourceFiles="source/file?.txt" DestinationFolder="stage/" /></Target>'
-    # Single-quoted attributes and a condition, the condition stays on the task
     - "<Target Name='Stage'><Copy Condition='$(Stage) == true' SourceFiles='source/**/*.txt' DestinationFolder='stage' /></Target>"
+    - '<Target Name="Stage"><Copy SourceFiles="item.txt;source/*.txt" DestinationFolder="stage/" /></Target>'
+    - '<Target Name="Stage"><Copy SourceFiles="$(StageRoot)**/*.txt" DestinationFolder="$(OutDir)stage/" /></Target>'

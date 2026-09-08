@@ -1,11 +1,10 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: require-strict-mode
 language: bash
 severity: error
 ignores: ["**/*.json"]
-files: ['**/*.sh'] # Injected regions inherit the runner's shell options.
+files: ['**/*.sh']
 utils:
-    # Literal option-only commands cannot mistake positional data after -- for flags.
     option-setup:
         kind: command
         regex: '^set(?:\s+(?:["'']?-[abefhkmnptuvxBCEHPT]+["'']?|["'']?-[abefhkmnoptuvxBCEHPT]*o[abefhkmnoptuvxBCEHPT]*["'']?\s+["'']?[a-z][a-z-]*["'']?))+\s*$'
@@ -17,7 +16,6 @@ rule:
             - has: {matches: option-setup, regex: '\s+["'']?-[abefhkmnoptuvxBCEHPT]*e|\s+["'']?errexit["'']?(?:\s|$)'}
             - has: {matches: option-setup, regex: '\s+["'']?-[abefhkmnoptuvxBCEHPT]*u|\s+["'']?nounset["'']?(?:\s|$)'}
             - has: {matches: option-setup, regex: '\s+["'']?-[abefhkmnoptuvxBCEHPT]*o[abefhkmnoptuvxBCEHPT]*["'']?\s+["'']?pipefail["'']?(?:\s|$)'}
-# The setup line follows the shebang when the script has one and opens the script otherwise
 transform:
     STRICT: {replace: {source: $SCRIPT, replace: '^(#![^\n]*\n)?', by: "${1}set -euo pipefail\n"}}
 fix: $STRICT

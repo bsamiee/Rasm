@@ -5,8 +5,9 @@
 import { type Decision, deny, rewrite } from '../composition/decision.ts';
 import { flatMap, fromBoolean, fromNullable, getOrElse, liftPredicate, map, type Option, toArray } from '../composition/option.ts';
 import { type Leaf, leaves, pastAssignments, strip, type Word } from '../text/argv.ts';
-import { basename } from '../text/path.ts';
-import { BINLOG_DENY, OP_DENY, PROBE, probeDeny } from './paths.ts';
+import { basename, extension, under } from '../text/path.ts';
+import { BINLOG_DENY, OP_DENY } from './paths.ts';
+import { TREE } from './scan.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -46,10 +47,9 @@ interface Timed {
     readonly timeout?: number;
 }
 
-// A leaf headed by timeout: its options, the duration, the first word of the wrapped command, and whether the leaf is the whole command
+// A leaf headed by timeout: the duration past its options, the first word of the wrapped command, and whether the leaf is the whole command
 interface Prefix {
     readonly head: Word;
-    readonly options: readonly Word[];
     readonly duration: Option<Word>;
     readonly wrapped: Option<Word>;
     readonly whole: boolean;
@@ -67,13 +67,24 @@ interface NxTarget {
     readonly flag: Word;
 }
 
+// The -r flag of a scan leaf with its file, the span from the flag word to the file word and the file it names
+interface RuleFile {
+    readonly start: number;
+    readonly end: number;
+    readonly file: string;
+}
+
 // The cache flag of each project:target the adapter read from nx show project, absent when the manifest states none or the read failed
 type NxCaches = Readonly<Record<string, boolean>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _MAX_REWRITES = 8;
-const _MISE_REST = 3;
+const _MISE_EXEC: readonly string[] = ['x', 'exec'];
+const _MISE_ENV = 'env';
+// The eval word with the opening of the substitution before the leaf, and the closing with the joining operator after it
+const _EVAL_OPEN = /\beval\s+"?\$\($/u;
+const _EVAL_CLOSE = /^\)"?\s*(?:&&|;)?\s*/u;
 const _PACKAGE_INDEX = 3;
 const _PREVIEW: readonly string[] = ['--dry-run', '--dryRun', '--dryrun'];
 // -n is a dry run for act and the guarded git subcommands alone, uv reads it as --no-cache and pytest as its worker count
@@ -96,18 +107,15 @@ const _MS_PER_SECOND = 1000;
 const _TIMEOUT_WORDS: readonly string[] = ['timeout', 'gtimeout'];
 // -s and -k take the next word as their value, the = and attached spellings are one word
 const _TIMEOUT_VALUE_OPTIONS: readonly string[] = ['-s', '--signal', '-k', '--kill-after'];
-const _SECONDS = /^\d+$/u;
-// A leading timeout word with no leaf of its own, the parser resolved the shell body it wraps or stripped a bare prefix to nothing
-const _TIMEOUT_TEXT = /^\s*g?timeout(?:\s|$)/u;
-const _TIMEOUT_UNRESOLVED = `The timeout prefix wraps a shell or nothing, drop it and run what it wraps with the Bash timeout parameter in milliseconds (max ${_TIMEOUT_MAX_MS})`;
+// The GNU duration, a number with an optional unit suffix, and the seconds each unit holds
+const _DURATION = /^(?<number>\d+(?:\.\d*)?|\.\d+)(?<unit>[smhd]?)$/u;
+const _UNIT_SECONDS: Readonly<Record<string, number>> = { '': 1, s: 1, m: 60, h: 3600, d: 86_400 };
 const _UPDATE_ALL: readonly string[] = ['-U', '--update-all'];
 const _FILTER: readonly string[] = ['--filter', '-f'];
 // A scratch config or test directory is one agent's own tree, its snapshots are nobody else's
 const _OWN_TREE: readonly string[] = ['-c', '--config', '-t', '--test-dir'];
 const _TEST_UPDATE_DENY =
     "ast-grep test -U with no --filter rewrites every changed snapshot in the shared tree, run ast-grep test -U --filter '^<id>$' for the rule whose snapshot changed";
-// The configurations of the rasm:rules target, package.json nx.targets.rules.configurations, each one rule-checks.sh gate <ext>
-const _GATE_EXTENSIONS: readonly string[] = ['ts', 'py', 'sh', 'yml', 'csproj', 'cs', 'json'];
 const _NX_TARGET = /^(?<project>[^:]+):(?<target>[^:]+)/u;
 const _SKIP_CACHE: readonly string[] = ['--skip-nx-cache', '--skipNxCache'];
 const _AST_GREP = 'ast-grep';
@@ -126,6 +134,23 @@ const _TYPESCRIPT = 'typescript';
 const _TSX = 'tsx';
 const _STDIN = '--stdin';
 const _CONFIG: readonly string[] = ['-c', '--config'];
+const _SCAN = 'scan';
+const _RULE_FLAGS: readonly string[] = ['-r', '--rule'];
+const _RULE_ATTACHED = /^--rule=(?<file>.+)$/u;
+const _YAML = /\.ya?ml$/u;
+// A rule id as the tree spells it, rule-checks.sh pairing fails a file stem that differs from the id
+const _RULE_ID = /^[a-z][a-z0-9-]*$/u;
+// The test options that take the next word as their value
+const _TEST_VALUE_OPTIONS: readonly string[] = ['-t', '--test-dir', '--snapshot-dir', '-f', '--filter', '-c', '--config', '--color'];
+const _LANG_ATTACHED = /^(?:-l=?|--lang=)\S+$/u;
+// The operator after a leaf and the operator before a last leaf, a pipe feeds a command and a sleep beside a pipe stays
+const _JOIN_AFTER = /^[ \t]*(?:&&|\|\||;|&|\r?\n)\s*/u;
+const _JOIN_BEFORE = /\s*(?:&&|\|\||;|&|\r?\n)\s*$/u;
+// The compound openers and closers by leaf head, a sleep inside a loop or an if body is the until form and stays
+const _OPENERS: readonly string[] = ['if', 'do', '{', 'case'];
+const _CLOSERS: readonly string[] = ['fi', 'done', '}', 'esac'];
+const _WAIT =
+    'run the command it waits for with run_in_background: true and read its completion notification, or watch the condition with an until loop under the Monitor tool';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -154,13 +179,6 @@ const _removal = (word: Word): Splice => ({ start: Math.max(word.start - 1, 0), 
 const _without = (command: string, word: Word): string => _splice(command, [_removal(word)]);
 
 const _sub = (leaf: Leaf): string => _GH_WRITES.find((sub) => _texts(leaf).slice(1).join(' ').startsWith(sub)) ?? '';
-
-// The words after -- run directly, else the words after the tool spec, none when nothing follows
-const _rest = (leaf: Leaf): Option<string> => {
-    const texts = _texts(leaf);
-    const start = getOrElse(() => _MISE_REST)(map((dash: number) => dash + 1)(liftPredicate<number>((dash) => dash >= 0)(texts.indexOf('--'))));
-    return liftPredicate<string>((rest) => rest !== '')(texts.slice(start).join(' '));
-};
 
 const _previewFlags = (leaf: Leaf): readonly string[] =>
     fromBoolean(_SHORT_PREVIEW.includes(_head(leaf))).match<readonly string[]>({
@@ -207,6 +225,7 @@ const _rewritesSharedSnapshots = (leaf: Leaf): boolean => {
         basename(_word(strip(leaf), 0)) === 'ast-grep' &&
         words[1] === 'test' &&
         words.some((word) => _UPDATE_ALL.includes(word)) &&
+        _bareIds(strip(leaf)).length === 0 &&
         !words.some((word) => _FILTER.includes(word) || word.startsWith('--filter=') || _OWN_TREE.includes(word))
     );
 };
@@ -218,17 +237,46 @@ const _leafSpan = (leaf: Leaf, text: string): Splice => ({
     text,
 });
 
-const _gateRewrite = (leaf: Leaf, command: string): Rewritten => {
-    const ext = _word(leaf, 2);
+const _isMiseExec = (leaf: Leaf): boolean => _MISE_EXEC.includes(_word(leaf, 1));
+
+// The first word of the command mise exec runs, after -- when present, else the first word past the tool specs that holds no @
+const _miseCommand = (leaf: Leaf): Option<Word> =>
+    liftPredicate<number>((dash) => dash >= 0)(_texts(leaf).indexOf('--')).match<Option<Word>>({
+        some: (dash) => fromNullable(leaf[dash + 1]),
+        none: () => fromNullable(leaf.slice(2).find((word) => !word.text.includes('@'))),
+    });
+
+// An option among the words before and at the command, -C or --command, changes what runs and has no direct form
+const _miseOption = (leaf: Leaf): boolean => {
+    const end = getOrElse(() => leaf.length)(map((word: Word) => leaf.indexOf(word) + 1)(_miseCommand(leaf)));
+    return leaf.slice(2, end).some((word) => word.text !== '--' && word.text.startsWith('-'));
+};
+
+const _miseRewrite = (leaf: Leaf, command: string): Rewritten => {
+    const span = _leafSpan(leaf, '');
+    const end = getOrElse(() => span.end)(map((word: Word) => word.start)(_miseCommand(leaf)));
     return {
-        command: _splice(command, [_leafSpan(leaf, `pnpm exec nx run rasm:rules:${ext}`)]),
-        context: `Ran the gate through nx run rasm:rules:${ext}, a rerun with no change under tools/ast-grep/ replays the cached result`,
+        command: _splice(command, [{ start: span.start, end, text: '' }]),
+        context: `Ran ${command.slice(end, span.end)} in place of ${command.slice(span.start, end).trim()}, the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE, and a missing binary is a missing [tools] row in mise.toml followed by mise install`,
     };
 };
 
-// The first word of the leaf under the shared probe directory, '' when none, the row's when holds one
-const _probeWord = (leaf: Leaf): string =>
-    getOrElse(() => '')(map((word: Word) => word.text)(fromNullable(leaf.find((word) => PROBE.test(word.text)))));
+// The command with the eval word through the closing quote and the joining operator removed, none when the substitution sits elsewhere
+const _evalDropped = (leaf: Leaf, command: string): Option<string> => {
+    const span = _leafSpan(leaf, '');
+    const close = getOrElse(() => 0)(map((match: RegExpMatchArray) => match[0].length)(fromNullable(command.slice(span.end).match(_EVAL_CLOSE))));
+    return map((open: RegExpMatchArray) => _splice(command, [{ start: open.index ?? 0, end: span.end + close, text: '' }]))(
+        fromNullable(command.slice(0, span.start).match(_EVAL_OPEN)),
+    );
+};
+
+const _evalEnv = (leaf: Leaf, command: string, runs: boolean): boolean =>
+    _word(leaf, 1) === _MISE_ENV && _evalDropped(leaf, command).match<boolean>({ some: (rest) => (rest.trim() !== '') === runs, none: () => false });
+
+const _evalRewrite = (leaf: Leaf, command: string): Rewritten => ({
+    command: getOrElse(() => command)(_evalDropped(leaf, command)),
+    context: `Dropped eval "$(${_texts(leaf).join(' ')})", the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE`,
+});
 
 // The nx run <project>:<target> leaf with its skip-cache flag, none for another command or a run without the flag
 const _nxTarget = (leaf: Leaf): Option<NxTarget> => {
@@ -335,48 +383,173 @@ const _streamRewrite = (leaf: Leaf, command: string): Rewritten => ({
     context: 'Ran --json=stream before wc -l, the array form counts one line',
 });
 
+const _isScan = (word: string): boolean => word === _SCAN;
+
+const _hasConfig = (words: readonly Word[]): boolean => words.some((word) => _CONFIG.includes(word.text) || word.text.startsWith('--config='));
+
+// The span from the flag word to the file word of -r <file>, --rule <file>, or --rule=<file>, and the file it names
+const _ruleFile = (words: readonly Word[]): Option<RuleFile> =>
+    fromNullable(
+        words.flatMap((word, index): readonly RuleFile[] => [
+            ...toArray(
+                map((match: RegExpMatchArray): RuleFile => ({ start: word.start, end: word.end, file: _group(match, 'file') }))(
+                    fromNullable(word.text.match(_RULE_ATTACHED)),
+                ),
+            ),
+            ...toArray(
+                map((file: Word): RuleFile => ({ start: word.start, end: file.end, file: file.text }))(
+                    flatMap(() => fromNullable(words[index + 1]))(fromBoolean(_RULE_FLAGS.includes(word.text))),
+                ),
+            ),
+        ])[0],
+    );
+
+const _isRewriteFile = (file: string): boolean => under(file, TREE.rewrites);
+
+// A rule file of the tree under the root config, a scratch config registers its own set and a draft outside the tree has no id
+const _treeRule = (words: readonly Word[]): Option<RuleFile> =>
+    flatMap(liftPredicate<RuleFile>((found) => _YAML.test(found.file) && (under(found.file, TREE.rules) || _isRewriteFile(found.file))))(
+        flatMap(() => _ruleFile(words))(fromBoolean(!_hasConfig(words))),
+    );
+
+const _ruleId = (file: string): string => basename(file).slice(0, -extension(file).length);
+
+const _filterFlag = (id: string): string => `--filter '^${id}$'`;
+
+// The filter for the file's id, with --error=<id> under rewrites/ where the severity is off
+const _filterText = (file: string): string =>
+    fromBoolean(_isRewriteFile(file)).match<string>({
+        some: () => `${_filterFlag(_ruleId(file))} --error=${_ruleId(file)}`,
+        none: () => _filterFlag(_ruleId(file)),
+    });
+
+const _ruleRewrite = (leaf: Leaf, command: string): Rewritten =>
+    _treeRule(strip(leaf)).match<Rewritten>({
+        some: (found) => ({
+            command: _splice(command, [{ start: found.start, end: found.end, text: _filterText(found.file) }]),
+            context: `Ran ${_filterText(found.file)} in place of ${command.slice(found.start, found.end)}, scan -r loads no utilDirs and the root sgconfig.yml registers the rule`,
+        }),
+        none: () => ({ command, context: '' }),
+    });
+
+// The words past the subcommand that are no option and no option value, the ids a bare test form names
+const _bareIds = (words: readonly Word[]): readonly Word[] =>
+    words.filter((word, index) => index > 1 && _RULE_ID.test(word.text) && !_TEST_VALUE_OPTIONS.includes(_word(words, index - 1)));
+
+const _idsPattern = (ids: readonly Word[]): string =>
+    fromBoolean(ids.length > 1).match<string>({ some: () => `(${_texts(ids).join('|')})`, none: () => _word(ids, 0) });
+
+// The first bare id becomes the filter and the rest leave
+const _filterRewrite = (leaf: Leaf, command: string): Rewritten => {
+    const ids = _bareIds(strip(leaf));
+    const filter = _filterFlag(_idsPattern(ids));
+    return {
+        command: _splice(
+            command,
+            ids.map(
+                (word, index): Splice =>
+                    fromBoolean(index === 0).match<Splice>({
+                        some: () => ({ start: word.start, end: word.end, text: filter }),
+                        none: () => _removal(word),
+                    }),
+            ),
+        ),
+        context: `Ran ast-grep test ${filter}, test takes no positional and --filter selects the cases by rule id`,
+    };
+};
+
+// The -l or --lang words with their values, in the split, =, and attached spellings
+const _langWords = (words: readonly Word[]): readonly Word[] =>
+    words.filter((word, index) => _LANG.includes(word.text) || _LANG_ATTACHED.test(word.text) || _LANG.includes(_word(words, index - 1)));
+
+const _langDrop = (leaf: Leaf, command: string): Rewritten => ({
+    command: _removals(_langWords(strip(leaf)), command),
+    context: `Dropped ${_texts(_langWords(strip(leaf))).join(' ')}, scan takes no language flag and each rule's language field parses its files`,
+});
+
+// --- [SLEEP] ---------------------------------------------------------------------------
+
+const _isSleep = (leaf: Leaf): boolean => _head(leaf) === 'sleep';
+
+const _leafText = (leaf: Leaf, command: string): string => command.slice(_leafSpan(leaf, '').start, _leafSpan(leaf, '').end);
+
+// The compound depth at the leaf, the openers less the closers among the leaves before it
+const _depth = (leaf: Leaf, command: string): number => {
+    const { start } = _leafSpan(leaf, '');
+    return _leaves(command)
+        .filter((other) => _leafSpan(other, '').end <= start)
+        .reduce((depth, other) => depth + Number(_OPENERS.includes(_head(other))) - Number(_CLOSERS.includes(_head(other))), 0);
+};
+
+// The span of a top-level sleep leaf with its joining operator, the one after it or the one before a last leaf, none beside a pipe
+const _sleepSpan = (leaf: Leaf, command: string): Option<Splice> => {
+    const span = _leafSpan(leaf, '');
+    const rest = command.slice(span.end);
+    return fromNullable(
+        [
+            ...toArray(
+                map((match: RegExpMatchArray): Splice => ({ start: span.start, end: span.end + match[0].length, text: '' }))(
+                    fromNullable(rest.match(_JOIN_AFTER)),
+                ),
+            ),
+            ...toArray(
+                map((match: RegExpMatchArray): Splice => ({ start: match.index ?? 0, end: span.end, text: '' }))(
+                    flatMap(() => fromNullable(command.slice(0, span.start).match(_JOIN_BEFORE)))(fromBoolean(rest.trim() === '')),
+                ),
+            ),
+        ][0],
+    );
+};
+
+const _allSleep = (command: string): boolean => _leaves(command).every(_isSleep);
+
+// One leaf leaves per pass, the re-read of the rewritten command drops the next
+const _sleepRewrite = (leaf: Leaf, command: string): Rewritten => ({
+    command: _splice(command, toArray(_sleepSpan(leaf, command))),
+    context: `Dropped ${_leafText(leaf, command)}, ${_WAIT}`,
+});
+
 // --- [TIMEOUT] -------------------------------------------------------------------------
 
 // The first word after the options that is no option and no value of -s or -k
 const _durationIndex = (tail: readonly Word[]): number =>
     tail.findIndex((word, index) => !(word.text.startsWith('-') || _TIMEOUT_VALUE_OPTIONS.includes(_word(tail, index - 1))));
 
-const _whole = (leaf: Leaf, command: string, count: number): boolean =>
-    count === 1 && leaf[0]?.start === command.length - command.trimStart().length && leaf.at(-1)?.end === command.trimEnd().length;
+// The leaf spans the trimmed command, the leaves of a wrapped shell body sit inside it
+const _whole = (leaf: Leaf, command: string): boolean =>
+    leaf[0]?.start === command.length - command.trimStart().length && leaf.at(-1)?.end === command.trimEnd().length;
 
-const _prefix = (leaf: Leaf, command: string, count: number): Option<Prefix> =>
+const _prefix = (leaf: Leaf, command: string): Option<Prefix> =>
     map((head: Word): Prefix => {
         const tail = pastAssignments(leaf).slice(1);
         const split = getOrElse(() => tail.length)(liftPredicate<number>((index) => index >= 0)(_durationIndex(tail)));
-        return {
-            head,
-            options: tail.slice(0, split),
-            duration: fromNullable(tail[split]),
-            wrapped: fromNullable(tail[split + 1]),
-            whole: _whole(leaf, command, count),
-        };
+        return { head, duration: fromNullable(tail[split]), wrapped: fromNullable(tail[split + 1]), whole: _whole(leaf, command) };
     })(flatMap(liftPredicate<Word>((word) => _TIMEOUT_WORDS.includes(basename(word.text))))(fromNullable(pastAssignments(leaf)[0])));
 
 const _durationText = (prefix: Prefix): string => _word(toArray(prefix.duration), 0);
 
-const _milliseconds = (prefix: Prefix): number => Number(_durationText(prefix)) * _MS_PER_SECOND;
+// The duration in milliseconds under the GNU grammar, none for a spelling outside it
+const _milliseconds = (prefix: Prefix): Option<number> =>
+    map((match: RegExpMatchArray) => Math.round(Number(_group(match, 'number')) * _UNIT_SECONDS[_group(match, 'unit')] * _MS_PER_SECOND))(
+        fromNullable(_durationText(prefix).match(_DURATION)),
+    );
 
-// The command with the words from the timeout word to the wrapped command removed, '' when none follows
-const _unwrapped = (prefix: Prefix, command: string): string =>
-    prefix.wrapped.match<string>({
-        some: (word) => _splice(command, [{ start: prefix.head.start, end: word.start, text: '' }]),
-        none: () => '',
-    });
+// The span from the timeout word to the wrapped command, none when nothing follows
+const _dropped = (prefix: Prefix): Option<Splice> =>
+    map((word: Word): Splice => ({ start: prefix.head.start, end: word.start, text: '' }))(prefix.wrapped);
+
+// The command with every prefix removed by its span, the redirects and quoting around them stay byte for byte
+const _unwrapped = (prefixes: readonly Prefix[], command: string): string =>
+    _splice(
+        command,
+        prefixes.flatMap((prefix) => toArray(_dropped(prefix))),
+    );
 
 const _advice = (prefix: Prefix, command: string): string =>
-    `run ${getOrElse(() => 'the command')(liftPredicate<string>((rest) => rest !== '')(_unwrapped(prefix, command)))} with the Bash timeout parameter in milliseconds (max ${_TIMEOUT_MAX_MS})`;
+    `run ${getOrElse(() => 'the command')(map(() => _unwrapped([prefix], command))(prefix.wrapped))} with the Bash timeout parameter in milliseconds (max ${_TIMEOUT_MAX_MS})`;
 
 // The refusals in the order the first holding one decides, and a prefix past every row rewrites
 const _TIMEOUT = [
-    {
-        when: (prefix: Prefix): boolean => !prefix.whole,
-        deny: (prefix: Prefix, command: string): string => `timeout inside a compound command has no exact Bash form, ${_advice(prefix, command)}`,
-    },
     {
         when: (prefix: Prefix): boolean => toArray(prefix.duration).length === 0,
         deny: (prefix: Prefix, command: string): string => `timeout names no duration, ${_advice(prefix, command)}`,
@@ -386,44 +559,74 @@ const _TIMEOUT = [
         deny: (): string => `timeout names no command, run the command with the Bash timeout parameter in milliseconds (max ${_TIMEOUT_MAX_MS})`,
     },
     {
-        when: (prefix: Prefix): boolean => prefix.options.length > 0,
+        when: (prefix: Prefix): boolean => toArray(_milliseconds(prefix)).length === 0,
         deny: (prefix: Prefix, command: string): string =>
-            `The timeout options ${_texts(prefix.options).join(' ')} have no Bash form, ${_advice(prefix, command)}`,
-    },
-    {
-        when: (prefix: Prefix): boolean => !_SECONDS.test(_durationText(prefix)),
-        deny: (prefix: Prefix, command: string): string =>
-            `The timeout duration ${_durationText(prefix)} is not whole seconds, ${_advice(prefix, command)}`,
-    },
-    {
-        when: (prefix: Prefix): boolean => _milliseconds(prefix) > _TIMEOUT_MAX_MS,
-        deny: (prefix: Prefix, command: string): string =>
-            `timeout ${_durationText(prefix)} exceeds the Bash timeout maximum of ${_TIMEOUT_MAX_MS} ms, run ${_unwrapped(prefix, command)} with timeout: ${_TIMEOUT_MAX_MS} or run_in_background: true`,
+            `The timeout duration ${_durationText(prefix)} is no number with an optional s, m, h, or d suffix, ${_advice(prefix, command)}`,
     },
 ] as const satisfies readonly TimeoutRow[];
 
-// The prefix leaves, and the parameter takes the smaller of the duration and the bound already on the input
-const _exact = <E extends Timed>(e: E, prefix: Prefix): Decision<E, unknown, string> => {
-    const ms = _milliseconds(prefix);
-    const bound = Math.min(ms, getOrElse(() => ms)(fromNullable(e.timeout)));
-    const command = _unwrapped(prefix, e.command);
-    return rewrite({ ...e, command, timeout: bound }, [`Ran ${command} under the Bash timeout parameter at ${bound} ms`]);
+// The largest duration under the maximum, one process under both bounds takes the smaller, leaves under their own bounds take the larger
+const _bound = (e: Timed, prefixes: readonly Prefix[]): number => {
+    const largest = Math.min(_TIMEOUT_MAX_MS, Math.max(...prefixes.flatMap((prefix) => toArray(_milliseconds(prefix)))));
+    return fromBoolean(prefixes.every((prefix) => prefix.whole)).match<number>({
+        some: () => Math.min(largest, getOrElse(() => largest)(fromNullable(e.timeout))),
+        none: () => Math.max(largest, getOrElse(() => 0)(fromNullable(e.timeout))),
+    });
 };
 
-const _timed = <E extends Timed>(e: E, prefix: Prefix): Decision<E, unknown, string> =>
-    fromNullable(_TIMEOUT.find((row) => row.when(prefix))).match<Decision<E, unknown, string>>({
-        some: (row) => deny(row.deny(prefix, e.command)),
-        none: () => _exact(e, prefix),
-    });
+// One line per duration past the maximum, the bound the cap keeps lifts under run_in_background
+const _capped = (prefixes: readonly Prefix[]): readonly string[] =>
+    prefixes
+        .filter((prefix) => getOrElse(() => 0)(_milliseconds(prefix)) > _TIMEOUT_MAX_MS)
+        .map(
+            (prefix) =>
+                `timeout ${_durationText(prefix)} exceeds the Bash timeout maximum of ${_TIMEOUT_MAX_MS} ms and ran capped, run_in_background: true runs past it`,
+        );
+
+const _exact = <E extends Timed>(e: E, prefixes: readonly Prefix[]): Decision<E, unknown, string> => {
+    const bound = _bound(e, prefixes);
+    const command = _unwrapped(prefixes, e.command);
+    return rewrite({ ...e, command, timeout: bound }, [`Ran ${command} under the Bash timeout parameter at ${bound} ms`, ..._capped(prefixes)]);
+};
+
+// The first refusal over the prefixes in command order decides, else every prefix moves to the parameter
+const _timed = <E extends Timed>(e: E, prefixes: readonly Prefix[]): Decision<E, unknown, string> =>
+    fromNullable(
+        prefixes.flatMap((prefix) =>
+            toArray(map((row: TimeoutRow) => row.deny(prefix, e.command))(fromNullable(_TIMEOUT.find((row) => row.when(prefix))))),
+        )[0],
+    ).match<Decision<E, unknown, string>>({ some: deny, none: () => _exact(e, prefixes) });
 
 // --- [ROWS] ----------------------------------------------------------------------------
 
 const SHELL = [
     {
         word: ['mise'],
-        when: (leaf: Leaf): boolean => _word(leaf, 1) === 'x' || _word(leaf, 1) === 'exec',
+        when: (leaf: Leaf): boolean => _isMiseExec(leaf) && toArray(_miseCommand(leaf)).length === 0,
         deny: (leaf: Leaf): string =>
-            `mise x is refused, the SessionStart hook writes the mise environment to CLAUDE_ENV_FILE, run ${getOrElse(() => 'the command')(_rest(leaf))} directly`,
+            `mise ${_word(leaf, 1)} names no command, the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE, run the command directly`,
+    },
+    {
+        word: ['mise'],
+        when: (leaf: Leaf): boolean => _isMiseExec(leaf) && _miseOption(leaf),
+        deny: (leaf: Leaf): string =>
+            `mise ${_word(leaf, 1)} holds an option before the command, the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE, run the command itself in place of mise ${_word(leaf, 1)} [<tool>@<version>...] -- <command>, with -C <dir> as cd <dir> && <command> and --command as the command`,
+    },
+    {
+        word: ['mise'],
+        when: (leaf: Leaf): boolean => _isMiseExec(leaf) && toArray(_miseCommand(leaf)).length > 0 && !_miseOption(leaf),
+        rewrite: _miseRewrite,
+    },
+    {
+        word: ['mise'],
+        when: (leaf: Leaf, command: string): boolean => _evalEnv(leaf, command, false),
+        deny: (): string =>
+            'eval "$(mise env)" names no command after it, the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE, run the command directly',
+    },
+    {
+        word: ['mise'],
+        when: (leaf: Leaf, command: string): boolean => _evalEnv(leaf, command, true),
+        rewrite: _evalRewrite,
     },
     {
         word: ['nx', 'pnpm', 'dotnet', 'uv', 'pulumi', 'act', 'git'],
@@ -464,19 +667,20 @@ const SHELL = [
         deny: (): string => OP_DENY,
     },
     {
-        word: [],
-        when: (leaf: Leaf): boolean => _probeWord(leaf) !== '',
-        deny: (leaf: Leaf): string => probeDeny(_probeWord(leaf)),
+        word: ['sleep'],
+        when: (_leaf: Leaf, command: string): boolean => _allSleep(command),
+        deny: (leaf: Leaf, command: string): string => `${_leafText(leaf, command)} waits on nothing, ${_WAIT}`,
+    },
+    {
+        word: ['sleep'],
+        when: (leaf: Leaf, command: string): boolean =>
+            !_allSleep(command) && _depth(leaf, command) === 0 && toArray(_sleepSpan(leaf, command)).length > 0,
+        rewrite: _sleepRewrite,
     },
     {
         word: ['ast-grep', 'pnpm', 'npx'],
         when: _rewritesSharedSnapshots,
         deny: (): string => _TEST_UPDATE_DENY,
-    },
-    {
-        word: ['rule-checks.sh'],
-        when: (leaf: Leaf): boolean => leaf.slice(2).length === 1 && _word(leaf, 1) === 'gate' && _GATE_EXTENSIONS.includes(_word(leaf, 2)),
-        rewrite: _gateRewrite,
     },
     {
         word: ['ast-grep', 'pnpm', 'npx'],
@@ -502,6 +706,21 @@ const SHELL = [
         word: ['ast-grep', 'pnpm', 'npx'],
         when: _astGrepWhen(_isSearch, (words, command) => _matching(words, _JSON_ARRAY).length > 0 && _countsLines(words, command)),
         rewrite: _streamRewrite,
+    },
+    {
+        word: ['ast-grep', 'pnpm', 'npx'],
+        when: _astGrepWhen(_isScan, (words) => toArray(_treeRule(words)).length > 0),
+        rewrite: _ruleRewrite,
+    },
+    {
+        word: ['ast-grep', 'pnpm', 'npx'],
+        when: _astGrepWhen(_isTest, (words) => _bareIds(words).length > 0),
+        rewrite: _filterRewrite,
+    },
+    {
+        word: ['ast-grep', 'pnpm', 'npx'],
+        when: _astGrepWhen(_isScan, (words) => _langWords(words).length > 0),
+        rewrite: _langDrop,
     },
     {
         word: ['grep'],
@@ -634,18 +853,14 @@ const packageManager =
         });
     };
 
-// The first timeout prefix determines whether its duration can move to the Bash parameter
-const commandTimeout = <E extends Timed>(e: E): Decision<E, unknown, string> => {
-    const parsed = _leaves(e.command);
-    return fromNullable(parsed.flatMap((leaf) => toArray(_prefix(leaf, e.command, parsed.length)))[0]).match<Decision<E, unknown, string>>({
-        some: (prefix) => _timed(e, prefix),
-        none: () =>
-            fromBoolean(_TIMEOUT_TEXT.test(e.command)).match<Decision<E, unknown, string>>({
-                some: () => deny(_TIMEOUT_UNRESOLVED),
-                none: () => rewrite(e, []),
-            }),
+// Every timeout prefix of the command moves its duration to the Bash parameter, a wrapped shell body keeps its prefix leaf for the read
+const commandTimeout = <E extends Timed>(e: E): Decision<E, unknown, string> =>
+    liftPredicate<readonly Prefix[]>((prefixes) => prefixes.length > 0)(
+        _leaves(e.command).flatMap((leaf) => toArray(_prefix(leaf, e.command))),
+    ).match<Decision<E, unknown, string>>({
+        some: (prefixes) => _timed(e, prefixes),
+        none: () => rewrite(e, []),
     });
-};
 
 // Every nx run leaf of the command that carries a skip-cache flag, the pairs the adapter reads nx show project for
 const nxTargets = (command: string): readonly NxTarget[] => _leaves(command).flatMap((leaf) => toArray(_nxTarget(leaf)));

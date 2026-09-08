@@ -4,7 +4,6 @@ valid:
       import msgspec.json as codec
       from msgspec.json import Encoder as codec
       codec.Encoder().encode(value)
-    # A later import owns the alias, so its codec contract is unknown.
     - |
       import msgspec.json as codec
       from custom import codec
@@ -95,13 +94,64 @@ valid:
     - |
       import other.json as codec
       codec.Encoder().encode(value)
-    # The dotted-module alias branch also observes local bindings.
+    - |
+      from msgspec.json import Encoder
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Encoder
+      from msgspec.msgpack import encode
+      Encoder().encode(value)
+    - |
+      from other.json import Encoder, encode
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Encoder
+      from msgspec.msgpack import encode, Decoder
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Encoder, Other, encode
+      Other().encode(value)
+    - |
+      from msgspec.msgpack import Decoder, Other, decode
+      Other().decode(value)
+    - |
+      from msgspec.json import Decoder, encode
+      from other import Encoder
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Encoder
+      def setup():
+          from msgspec.json import encode
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Encoder
+      from msgspec.msgpack import encode
+      def setup():
+          from msgspec.msgpack import Decoder
+      Encoder().encode(value)
+    - |
+      from other import Decoder, encode
+      from msgspec.json import Encoder
+      Encoder().encode(value)
+    - |
+      from msgspec.msgpack import encode
+      from msgspec.json import Encoder
+      Encoder().encode(value)
+    - |
+      from msgspec.msgpack import encode
+      def setup():
+          from msgspec.msgpack import Decoder
+      from msgspec.json import Encoder
+      Encoder().encode(value)
+    - |
+      from other import Encoder
+      from msgspec.json import encode
+      Encoder().encode(value)
     - |
       import msgspec.json as codec
       def encode(codec):
           return codec.Encoder().encode(value)
 invalid:
-    # Attribute and subscript targets evaluate names without rebinding them.
     - |
       from msgspec import json
       target[json], other = values
@@ -122,3 +172,30 @@ invalid:
     - |
       import msgspec.json as codec
       codec.Encoder().encode(value)
+    - |
+      import msgspec
+      text = msgspec.json.Encoder().encode(value).decode()
+    - |
+      from msgspec.json import Encoder, encode
+      Encoder().encode(value)
+    - |
+      from msgspec.msgpack import Decoder
+      from msgspec.msgpack import decode
+      Decoder().decode(value)
+    - |
+      from msgspec.json import Encoder as JsonEncoder, encode as dump
+      JsonEncoder().encode(value)
+    - |
+      from msgspec.json import Encoder
+      try:
+          from msgspec.json import encode
+      except ImportError:
+          pass
+      Encoder().encode(value)
+    - |
+      try:
+          from msgspec.json import Decoder
+      except ImportError:
+          pass
+      from msgspec.json import decode
+      Decoder().decode(value)

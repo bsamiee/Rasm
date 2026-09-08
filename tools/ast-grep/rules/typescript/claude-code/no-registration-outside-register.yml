@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Only unescaped literal event names prove repeated registrations; expressions can evaluate to different events.
 id: no-registration-outside-register
 language: tsx
 severity: error
@@ -13,7 +12,10 @@ utils:
             pattern: $_($_, $_)
             has:
                 field: arguments
-                has: {kind: string, has: {kind: string_fragment, pattern: $EV}, not: {has: {kind: escape_sequence}}}
+                has:
+                    kind: string, template_string
+                    has: {kind: string_fragment, pattern: $EV}
+                    not: {has: {kind: 'escape_sequence, template_substitution'}}
 rule:
     any:
         - {matches: claude-code-registration, inside: {stopBy: end, matches: claude-code-hook}}

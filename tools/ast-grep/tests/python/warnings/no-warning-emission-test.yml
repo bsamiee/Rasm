@@ -1,41 +1,34 @@
 id: no-warning-emission
 valid:
-    # The reason is a result value.
     - |
       def stage(library: str, rid: str) -> Result[Staged, Unsupported]:
           return Error(Unsupported(library, rid))
-    # Dependency warnings can be collected at a boundary without suppressing their evidence.
     - |
       import warnings
       with warnings.catch_warnings(record=True, action="always") as captured:
           dependency.load()
       report(captured)
-    # Strict handling surfaces warnings as failures.
     - |
       import warnings
       warnings.simplefilter("error")
-    # Importing filter APIs does not emit a warning.
     - 'from warnings import catch_warnings, filterwarnings'
-    # A different module owns this decorator.
     - 'marker = registry.deprecated'
-    # Other backport members remain supported.
     - 'from typing_extensions import TypeIs'
 invalid:
-    # Direct import of an emitter.
     - 'from warnings import warn'
-    # A warning emitted through its owning module.
     - 'warnings.warn("stage failed", RuntimeWarning)'
-    # Explicit origin does not change emission semantics.
     - 'warnings.warn_explicit("stage failed", RuntimeWarning, "worker.py", 3)'
-    # A renamed module preserves ownership.
     - |
       import warnings as w
       w.warn("stage failed")
-    # Stdlib deprecation decorator.
     - 'from warnings import deprecated'
-    # Backport deprecation decorator.
+    - |
+      import warnings
+
+      class Old:
+          @warnings.deprecated("gone")
+          def run(self): ...
     - 'from typing_extensions import deprecated'
-    # Backport alias preserves ownership.
     - |
       import typing_extensions as te
       @te.deprecated("use stage")

@@ -153,7 +153,7 @@ class Workspace(msgspec.Struct, frozen=True, gc=False):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _LOCK_FILE = "uv.lock"
-_HOST_TOOLS = ("energyplus", "ktx")  # Executable folders linked under .cache/tools, the sqlite-vec loadable stays a stage input
+_HOST_TOOLS = ("energyplus", "ktx")  # Release roots linked under .cache/tools, the sqlite-vec loadable stays a stage input
 
 _log = structlog.get_logger(__name__)
 _app = cyclopts.App(name="provision")
@@ -194,7 +194,6 @@ def workspace(start: Path, host_system: str, host_machine: str) -> Result[Worksp
 
     def build(root: Path, host: Rid) -> Workspace:
         binary_cache, downloads = root / ".cache" / "vcpkg-archives", root / ".cache" / "vcpkg-downloads"
-        # ast-grep-ignore: no-os-environ, the write names the cache directories of the native-cache action for every vcpkg child process
         os.environ.update(VCPKG_DEFAULT_BINARY_CACHE=str(binary_cache), VCPKG_DOWNLOADS=str(downloads))
         return Workspace(root, host, binary_cache, downloads, root / ".cache", root / "eng" / "native", root / ".artifacts" / "native")
 
@@ -429,7 +428,7 @@ async def _pkg_config(space: Workspace, vcpkg: Path) -> Result[None, CommandFail
     name, _, arch = space.host.partition("-")
     triplet = f"{arch}-{name}"
     tool = host_tools / "installed" / triplet / "tools" / "pkgconf" / "pkgconf"
-    os.environ["PKG_CONFIG"] = str(tool)  # ast-grep-ignore: no-os-environ, the write names the host pkgconf for every vcpkg child process
+    os.environ["PKG_CONFIG"] = str(tool)
     if tool.exists():
         return Ok(None)
     # The pkgconf port validates its own pc file with pkg-config, absent on this machine
@@ -456,11 +455,12 @@ async def native_build_tools(space: Workspace) -> Result[Path, Failure]:
 
 
 def _tool_link(space: Workspace, library: str, pinned: Path) -> Path:
-    """Link the folder holding a pinned executable at the version-free tools/<library>, the path consumers read, and return the link."""
+    """Link the release root of a pinned executable at the version-free tools/<library> consumers read, and return the link."""
+    root = pinned.parent.parent if pinned.parent.name == "bin" else pinned.parent
     link = space.cache / "tools" / library
     link.parent.mkdir(parents=True, exist_ok=True)
     link.unlink(missing_ok=True)
-    link.symlink_to(os.path.relpath(pinned.parent, link.parent), target_is_directory=True)  # Relative, the tools tree restores from a cache
+    link.symlink_to(os.path.relpath(root, link.parent), target_is_directory=True)  # Relative, the tools tree restores from a cache
     return link
 
 

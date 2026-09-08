@@ -1,100 +1,68 @@
 id: no-native-collection
 valid:
-    # A native contract requires no class to hold its explicitly annotated collection
     - 'const attributes: ReadonlyMap<string, unknown> = new Map();'
     - 'function capture() { const names: ReadonlySet<string> = (new Set()); return { names }; }'
-    # A standalone block owns its lexical constructor binding.
     - '{ const Map = Constructor; new Map(); }'
-    # Function names, parameters, and hoisted var bindings own their native-like names.
     - 'const create = function Map() { return new Map(); };'
     - 'const create = Map => new Map();'
     - 'function create() { if (ready) { var Map = Constructor; } return new Map(); }'
     - 'function create() { var { Map } = constructors; return new Map(); }'
-    # Loop and catch bindings belong to their own scope.
     - 'for (const Map of constructors) { new Map(); }'
     - 'for (const { Map } of constructors) { new Map(); }'
     - 'for (let Map = Constructor; ready;) { new Map(); }'
     - 'for (let { Map } = constructors; ready;) { new Map(); }'
     - 'try { work(); } catch (Map) { new Map(); }'
     - 'try { work(); } catch ({ Map }) { new Map(); }'
-    # Named class expressions and block declarations introduce bindings too.
     - 'const Constructor = class Map { create() { return new Map(); } };'
     - 'function Map() {} new Map();'
     - 'class Map {} new Map();'
     - 'const { Map } = constructors; new Map();'
-    # Only binding positions shadow native constructors, including nested patterns.
     - 'const { raw: Map } = source; new Map();'
     - 'function run({ table: [Set = fallback] }) { return new Set(); }'
     - 'const [...Map] = source; new Map();'
-    # Comments do not change the local import binding.
     - 'import { Table as Map /* local */ } from "./domain"; const table = new Map();'
-    # Local and imported bindings do not identify a native global.
     - 'function create(Map: { new (): unknown }) { return new Map(); }'
     - 'import { Table as Map } from "./domain"; const table = new Map();'
-    # Weak map
     - 'const cache = new WeakMap<object, Row>();'
-    # Weak set
     - 'const seen = new WeakSet<object>();'
-    # The immutable map
     - 'const index = HashMap.fromIterable(entries);'
-    # The empty immutable map
     - 'const index = HashMap.empty<string, Row>();'
-    # The immutable set
     - 'const names = HashSet.fromIterable(values);'
-    # The mutable map one scope owns
     - 'const seen = MutableHashMap.empty<string, Row>();'
-    # The grouping through the effect Array module
     - 'const groups = Array.groupBy(rows, (row) => row.kind);'
-    # Class implementing a package interface that names the native type
     - 'class Captured implements Tracer.Span { readonly attributes: ReadonlyMap<string, unknown> = new Map<string, unknown>(); }'
-    # An explicit native set field contract keeps its representation
     - 'class Captured { readonly names: ReadonlySet<string> = new Set(); }'
-    # Map as a type annotation
     - 'const index: ReadonlyMap<string, Row> = table;'
-    # Constructor named like Map on another path
     - 'const index = new collections.Map();'
-    # Static named like groupBy on another object
     - 'const groups = Chunk.groupBy(rows, key);'
-    # Parentheses preserve the explicit native field representation
     - 'class Captured { readonly names: ReadonlyMap<string, Row> = (new Map()); }'
+    - 'import Map from "./map"; const table = new Map();'
+    - 'function run(index: ReadonlyMap<string, Row> = new Map()) { return index; }'
+    - 'const index = new Map<string, Row>() satisfies ReadonlyMap<string, Row>;'
+    - 'const names = (new Set<string>()) satisfies ReadonlySet<string>;'
 invalid:
-    # The annotation belongs to the outer initializer, not a nested allocation
     - 'const attributes: ReadonlyMap<string, unknown> = new Map(new Map());'
-    # A generic iterable contract does not require a native collection
     - 'const names: Iterable<string> = new Set();'
-    # A declaration in a nested function does not shadow its enclosing scope.
     - 'function create() { const child = () => { var Map = Constructor; }; return new Map(); }'
-    # Default values and computed keys read a name without declaring it.
     - 'const { table = Map } = source; new Map();'
     - 'function run({ table = Set }) { return new Set(); }'
     - 'const { [Map.name]: table } = source; new Map();'
-    # An aliased export leaves the original global name unbound.
     - 'import { Map as Table } from "./domain"; const table = new Map();'
-    # An iterable contract does not require the native Map representation
     - 'class Captured { readonly entries: Iterable<[string, Row]> = new Map(); }'
-    # A field type exempts its initializer, not a separate allocation nested inside it
     - 'class Captured { readonly names: ReadonlyMap<string, Row> = new Map(new Map()); }'
-    # An implements clause alone establishes no native collection contract
     - 'class Captured implements Disposable { dispose() { return new Map(); } }'
-    # An inferred field inside an implementing class is not an explicit native contract
     - 'class Captured implements Tracer.Span { readonly attributes = new Map<string, unknown>(); }'
-    # A typed native field does not exempt unrelated allocations in a method
     - 'class Captured { readonly attributes: ReadonlyMap<string, unknown>; build() { return new Map(); } }'
-    # The instance, a map with type arguments
     - 'const index = new Map<string, Row>();'
-    # Map without type arguments
     - 'const index = new Map();'
-    # Map built from entries
     - 'const index = new Map(entries);'
-    # Set
     - 'const names = new Set<string>();'
-    # Map in a class without an implements clause
     - 'class Table { readonly index = new Map<string, Row>(); }'
-    # Map in a class that extends alone
     - 'class Table extends Base { readonly index = new Map<string, Row>(); }'
-    # The grouping static of Map
     - 'const groups = Map.groupBy(rows, (row) => row.kind);'
-    # The grouping static of Object
     - 'const groups = Object.groupBy(rows, (row) => row.kind);'
-    # Map through globalThis
     - 'const index = new globalThis.Map<string, Row>();'
+    - 'const index = new Map;'
+    - 'interface Map { size: number; } const index = new Map();'
+    - 'const index = new Map<string, Row>() satisfies Iterable<[string, Row]>;'
+    - 'const index = new Map(new Map()) satisfies ReadonlyMap<string, Row>;'

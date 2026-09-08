@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, a placeholder label evaluates because MSBuild reads no Label, and the group's responsibility is text the file does not hold
 id: require-label-on-package-group
 language: xml
 severity: error

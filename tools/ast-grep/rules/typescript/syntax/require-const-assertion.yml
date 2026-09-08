@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-const-assertion
+language: tsx
+severity: error
+utils:
+    literal-value:
+        any:
+            - kind: 'object, array'
+            - kind: parenthesized_expression
+              has: {matches: literal-value}
+rule:
+    kind: satisfies_expression
+    pattern: $VALUE satisfies $TYPE
+    inside: {kind: variable_declarator, field: value, stopBy: {not: {kind: parenthesized_expression}}, inside: {matches: syntax-module-constant}}
+constraints:
+    VALUE: {matches: literal-value}
+fix: $VALUE as const satisfies $TYPE
+message: The `satisfies` clause alone widens every literal type and array of the module constant
+note: Write `as const satisfies <type>`, the assertion keeps the literal types and the clause keeps the check

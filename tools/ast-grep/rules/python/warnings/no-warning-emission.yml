@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-warning-emission
 language: python
 severity: error
-# Report-only, the probed fix `pass` in place of the call fails `assert caught`, `AssertionError: no warning recorded`
 rule:
     pattern: $USE
     any:

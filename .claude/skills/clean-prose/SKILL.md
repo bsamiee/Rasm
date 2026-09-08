@@ -49,6 +49,7 @@ Every word that fails a test takes the current term for the thing it names, and 
 |  [26]   | tolerate, repair (a missing asset), inert          | register, add, does nothing                    |
 |  [27]   | harmless (a repeated call), pluggable, wiring      | changes nothing, delete, composing             |
 |  [28]   | toolkit, suite, building blocks (after a package)  | delete, primitives                             |
+|  [29]   | pool (concurrent jobs), migration shim             | jobs, degree of parallelism, the old path      |
 
 The repository, product, or organization name belongs in identifiers the ecosystem requires, in package descriptions, in CLI help text, and in prose as a contrast with another product.
 
@@ -73,6 +74,7 @@ Delete the word and read the sentence again, and the remainder stands when it st
 |  [05]   | Hedges with no uncertainty | possibly, typically, generally, usually, often, in some cases, in most cases, where appropriate   |
 |  [06]   | Enumeration devices        | one, two, three, first, second, several, a number of, various, multiple, counts before a list     |
 |  [07]   | Version markers            | since version, as of, in version, upgrade from, legacy, new and current (as a version), migrate   |
+|  [08]   | Contrast fillers           | still, already, rather than, when the contrasted form is absent from the sentence                 |
 
 | [INDEX] | [RESTRUCTURE] | [FORM]                                                                                          |
 | :-----: | :------------ | :---------------------------------------------------------------------------------------------- |
@@ -82,7 +84,7 @@ Delete the word and read the sentence again, and the remainder stands when it st
 |  [04]   | etc.          | Name the items                                                                                  |
 |  [05]   | and/or        | One of them, or "X, Y, or both"                                                                 |
 
-Numbers stay as real values in their original spelling, and counts of items the reader can see go. Prose names a package, tool, or API at the newest standard without a version, and a version stays in a package manager manifest or where the fact holds for one version alone. Frequency and time words stay when the source measured them and otherwise become the condition. Hedges with real uncertainty stay as "can" or as the condition under which the statement holds. Sentences and clauses that repeat a fact the file or the owning file states, or state what the heading, the code, or the previous sentence supplies, go, and a fact only they held moves into the sentence that holds its topic.
+Numbers stay as real values in their original spelling, and counts of items the reader can see go. Prose names a package, tool, or API at the newest standard without a version, and a version stays in a package manager manifest or where the fact holds for one version alone. Behavior observed on one version goes to the record as the observation, and the comment states the behavior. Frequency and time words stay when the source measured them and otherwise become the condition. Hedges with real uncertainty stay as "can" or as the condition under which the statement holds. Sentences and clauses that repeat a fact the file or the owning file states, or state what the heading, the code, or the previous sentence supplies, go, and a fact only they held moves into the sentence that holds its topic.
 
 ## [04]-[SENTENCES]
 
@@ -93,7 +95,7 @@ Each sentence states one instruction or one fact in active voice and simple pres
 - Em dashes appear as `value — description` in a list item or table cell
 - Parentheses hold a phrase, and a sentence inside them folds into the surrounding sentence or goes
 - Statements, list items, and table cells open with the noun that names their subject, and instructions open with the verb
-- Generic singular subjects ("a target that") become the plural ("targets that") or the verb, and "the" opens a subject the context identifies
+- Generic singular subjects ("a target that") become the plural ("targets that") or the verb
 - Runs of list items with one noun opener restructure around the verb or the category noun
 - Overlap inside a sentence, one fact in two phrasings, keeps one phrasing
 - Noun chains stop at three words, and a longer chain breaks with a preposition (`the timeout value for the connection pool`)
@@ -105,7 +107,7 @@ Each sentence states one instruction or one fact in active voice and simple pres
 - Warnings precede the step they guard and state the command or condition, then the risk
 - Verbs name actions, and nominalizations and phrasal verbs take the verb from the word map
 - Statements name the actor as their subject, and passive voice stays for an unknown actor
-- Articles stay before a noun the context identifies, and generic nouns, listing lines, tree comments, and a noun before an identifier take none
+- Generic nouns, listing lines, comment openers, and a noun before an identifier take no article
 - One word names one concept for the whole file: "check" or "verify" for one operation
 - Contractions expand, and spelling is American
 
@@ -162,6 +164,7 @@ Comments state intent or a constraint the code cannot show, in one line and one 
 - Consecutive full-line comments merge into one, or the one that repeats the code goes
 - Comments that name the source a value was ported from go once that source leaves the repository, or names a file the repository does not hold
 - Inline comments stay and get the same removals
+- Test case comments name the shape of the case as a noun phrase with no article opener, then the fact that decides it
 - Section dividers, structured doc comments with one element per line, commented-out configuration templates, and tool directives keep their form
 - Doc comment summaries are one sentence that states what the member returns or does, and remarks keep one fact per sentence
 - Members keep every `<param>` element or none
@@ -214,3 +217,4 @@ New text follows the same rules from the first draft and gets the table and scan
 |  [25]   | Sentence that walks the steps a command, target, or script runs   | Paraphrased code        | Name it, state its purpose                |
 |  [26]   | Opening sentence or docstring with a `:` list of the contents     | Scope enumeration       | One category, or delete                   |
 |  [27]   | `?` outside a quoted message                                      | Question                | State the fact or the purpose             |
+|  [28]   | `# The `, `# A `, `# An ` opening a comment                       | Article-led comment     | Delete the article, change nothing else   |

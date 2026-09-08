@@ -1,18 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, Effect.promise(() => p) in place of await p fails at the consumer with TS2365 Operator '+' cannot be applied to Effect
 id: no-promise-outside-boundary
 language: tsx
 severity: error
-# The plugin loader accepts claude-code and relative .ts imports alone, a config root and a spec are the host's boundary and await there
 ignores: ['.claude/plugins/**', '**/*.config.ts', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 rule:
     all:
         - any:
             - kind: await_expression
-            # The await keyword is an unnamed child of the loop statement
             - kind: for_in_statement
               has: {regex: '^await$'}
-        # The constructor that converts the promise holds the chain and the await inside its thunk, tested after the shape
         - not:
             any:
                 - inside: {stopBy: {matches: syntax-function-boundary}, matches: effect-promise-boundary}

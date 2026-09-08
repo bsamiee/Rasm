@@ -23,6 +23,16 @@ snapshots:
       start: 59
       end: 73
   ? |
+    const register = (hooks: On) => hooks('ui.render', async ($, e, next) => {
+        const all = await $.store.keys();
+        return next(e);
+    });
+  : labels:
+    - source: $.store.keys()
+      style: primary
+      start: 97
+      end: 111
+  ? |
     on('prompt.context', async ($, e, next) => {
         const all = await $.store.keys();
         return next(e);
@@ -42,6 +52,18 @@ snapshots:
       style: primary
       start: 149
       end: 166
+  ? |
+    on('prompt.context', async ($, e, next) => {
+        for await (const name of names()) {
+            rows.push(await $.store.get(name));
+        }
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 109
+      end: 126
   'on(''prompt.section'', async ($, e, next) => next(await $.store.keys() ? e : e));':
     labels:
     - source: $.store.keys()
@@ -54,6 +76,40 @@ snapshots:
       style: primary
       start: 53
       end: 67
+  ? |
+    on('tool.describe', async ($, e, next) => {
+        for (const name in table) {
+            rows.push(await $.store.get(name));
+        }
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 100
+      end: 117
+  ? |
+    on('ui.render', async ($, e, next) => {
+        const values = await Promise.allSettled(names.map((name) => $.store.get(name)));
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 104
+      end: 121
+  ? |
+    on('ui.render', async ($, e, next) => {
+        for (const name of names) {
+            rows.push(await $.store.get(name));
+        }
+        return next(e);
+    });
+  : labels:
+    - source: $.store.get(name)
+      style: primary
+      start: 96
+      end: 113
   ? |
     on('ui.render', { component: 'AbovePrompt' }, async ($, e, next) => {
         const [notice, ...values] = await Promise.all([$.store.get(key('notice')), ...keys('findings')(all).map((name) => $.store.get(name))]);

@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# The rewrite mapfile-status-loop-to-length-test fixes the named-array form, a redirected reader reopens its file on every pass
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-mapfile-status-loop
 language: bash
 severity: error
@@ -13,11 +12,7 @@ utils:
     reader:
         any:
             - kind: command
-              any:
-                - has: {field: name, regex: '^(mapfile|readarray)$'}
-                - all:
-                    - has: {field: name, regex: '^builtin$'}
-                    - has: {field: argument, regex: '^(mapfile|readarray)$'}
+              has: {matches: {bash-invoked-name: {name: {regex: '^(mapfile|readarray)$'}, runner: {regex: '^(builtin|command)$'}}}}
               not:
                 has:
                     any:
@@ -31,7 +26,6 @@ rule:
     regex: '^while\b'
     all:
         - has: {field: condition, matches: reader}
-        # Another condition can test the number of records just read.
         - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'do_group, comment'}}}}}
         - not:
             has:
@@ -52,7 +46,6 @@ rule:
                                     kind: while_statement
                                     pattern: $LOOP
                                     stopBy: {kind: 'while_statement, for_statement, c_style_for_statement'}
-                                # Syntax alone does not compare a supplied level with the enclosing loop count.
                                 - has: {field: argument, not: {regex: '^["'']?1["'']?$'}}
-message: mapfile and readarray succeed at EOF, so their status cannot terminate this loop
+message: mapfile and readarray succeed at EOF, their status never ends the loop
 note: Read once, or test the populated array length after each bounded batch, and keep the producer's failure handling

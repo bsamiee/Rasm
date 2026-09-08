@@ -1,20 +1,16 @@
 id: no-retry
 valid:
-    # One attempt returns the boundary failure
     - |
       async def transfer(client, url):
           try:
               return Ok(await client.get(url))
           except httpx.TransportError as error:
               return Error(DownloadFailed(url, str(error)))
-    # Another member of stamina
     - |
       import stamina
       active = stamina.is_active()
-    # A different module owns the same member name
     - |
       from scheduler import retry_context
-    # An unused counter does not prove repeated input: next consumes candidates
     - |
       def read(candidates):
           for _ in range(3):
@@ -22,7 +18,6 @@ valid:
                   return next(candidates).read_text()
               except OSError:
                   continue
-    # State can change before the try without reading the loop counter
     - |
       def read(candidates):
           for _ in range(3):
@@ -32,32 +27,24 @@ valid:
               except OSError:
                   pass
 invalid:
-    # Decorator through the owning module
     - |
       import stamina
       @stamina.retry(on=OSError, attempts=3)
       def read(path):
           return path.read_text()
-    # Direct import
     - |
       from stamina import retry
-    # Renamed import
     - |
       from stamina import retry as again
-    # Context through a module alias
     - |
       import stamina as s
       contexts = s.retry_context(on=OSError)
-    # Synchronous caller
     - |
       from stamina import RetryingCaller
-    # Asynchronous caller
     - |
       import stamina
       caller = stamina.AsyncRetryingCaller(attempts=3)
-    # Bound synchronous caller
     - |
       from stamina import BoundRetryingCaller
-    # Bound asynchronous caller
     - |
       from stamina import BoundAsyncRetryingCaller

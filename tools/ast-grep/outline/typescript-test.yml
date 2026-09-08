@@ -1,0 +1,26 @@
+id: typescript-test
+language: tsx
+role: item
+symbolType: function
+rule:
+    kind: call_expression
+    inside: {kind: expression_statement, inside: {kind: program}}
+    all:
+        - has:
+            field: function
+            pattern: $CALLEE
+            any:
+                - kind: identifier
+                  regex: ^(describe|test|it)$
+                - kind: member_expression
+                  has: {field: object, kind: identifier, regex: '^(describe|test|it)$'}
+                - kind: call_expression
+                  has: {field: function, kind: member_expression, has: {field: object, kind: identifier, regex: '^(describe|test|it)$'}}
+                - kind: call_expression
+                  has: {field: function, kind: identifier, regex: '^layer$'}
+        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $TITLE}}
+transform:
+    NAME: {replace: {source: $TITLE, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
+name: $NAME
+signature: $CALLEE($TITLE)
+isExported: false

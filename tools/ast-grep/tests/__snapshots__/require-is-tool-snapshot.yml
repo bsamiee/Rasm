@@ -10,6 +10,15 @@ snapshots:
       start: 57
       end: 107
   ? |
+    const _isBash = (e: ToolCallInput): e is Bash => 'Bash' === e.tool;
+  : fixed: |
+      const _isBash = isTool('Bash');
+    labels:
+    - source: '(e: ToolCallInput): e is Bash => ''Bash'' === e.tool'
+      style: primary
+      start: 16
+      end: 66
+  ? |
     const _isBash = (e: ToolCallInput): e is Bash => (e.tool === 'Bash');
   : fixed: |
       const _isBash = isTool('Bash');
@@ -90,3 +99,31 @@ snapshots:
       style: primary
       start: 18
       end: 68
+  'const rule = when(isEdit, editRule); function isBash(e: ToolCallInput): e is Bash { return e.tool === "Bash"; }':
+    fixed: const rule = when(isEdit, editRule); const isBash = isTool("Bash");
+    labels:
+    - source: 'function isBash(e: ToolCallInput): e is Bash { return e.tool === "Bash"; }'
+      style: primary
+      start: 37
+      end: 111
+  'export function isEdit(e: ToolCallInput): e is Edit { return e.tool === "Edit"; }':
+    fixed: export const isEdit = isTool("Edit");
+    labels:
+    - source: 'function isEdit(e: ToolCallInput): e is Edit { return e.tool === "Edit"; }'
+      style: primary
+      start: 7
+      end: 81
+  'function isBash(e: ToolCallInput): e is Bash { return e.tool === "Bash"; }':
+    fixed: const isBash = isTool("Bash");
+    labels:
+    - source: 'function isBash(e: ToolCallInput): e is Bash { return e.tool === "Bash"; }'
+      style: primary
+      start: 0
+      end: 74
+  'function isBash(e: ToolCallInput): e is Bash { return e.tool === "Bash"; } const rule = when(isBash, bashRule);':
+    fixed: const isBash = isTool("Bash"); const rule = when(isBash, bashRule);
+    labels:
+    - source: 'function isBash(e: ToolCallInput): e is Bash { return e.tool === "Bash"; }'
+      style: primary
+      start: 0
+      end: 74

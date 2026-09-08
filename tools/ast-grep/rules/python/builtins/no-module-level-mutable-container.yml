@@ -1,10 +1,8 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-module-level-mutable-container
 language: python
 severity: error
-# Report-only, the probed fix a tuple in place of the list fails the writer, `AttributeError: 'tuple' object has no attribute 'append'`
 utils:
-    # Displays, comprehensions, and constructors of the mutable containers, with constructor names scoped to their owning API
     mutable-container:
         any:
             - kind: dictionary
@@ -23,9 +21,8 @@ rule:
     all:
         - has: {field: left, kind: identifier, pattern: $NAME}
         - has: {field: right, matches: mutable-container}
-        # Binding outside every def and class, a class attribute is ruff mutable-class-default and its scope owns a local
         - inside: {kind: expression_statement, not: {inside: {stopBy: end, any: [{matches: python-function-boundary}, {kind: class_definition}]}}}
 constraints:
-    NAME: {not: {regex: '^__all__$'}} # The export list the language reference spells as a list, read once by import
+    NAME: {not: {regex: '^__all__$'}}
 message: 'Module-level `$NAME` holds a mutable container, ambient state every function of the module can write'
 note: Bind an immutable value, `frozendict`, a tuple, or `frozenset`, and hold changing state in a local, a `pytest.StashKey`, or an argument

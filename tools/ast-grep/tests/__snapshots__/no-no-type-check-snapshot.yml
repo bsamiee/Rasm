@@ -8,6 +8,13 @@ snapshots:
       start: 19
       end: 32
   ? |
+    from typing import no_type_check as skip
+  : labels:
+    - source: no_type_check
+      style: primary
+      start: 19
+      end: 32
+  ? |
     from typing_extensions import no_type_check
   : labels:
     - source: no_type_check

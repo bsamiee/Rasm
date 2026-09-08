@@ -4,22 +4,29 @@ language: xml
 severity: error
 rule:
     pattern: _TASK
-    all:
-        - matches: {msbuild-element: {name: {regex: "^(Copy|Move)$"}}}
-        - matches: {msbuild-metadata: {name: {regex: "^SourceFiles$"}, value: {regex: "[*?]"}}}
+    any:
+        - all:
+            - matches: {msbuild-element: {name: {regex: "^(Copy|Move)$"}}}
+            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: "^SourceFiles$"}, value: {regex: "[*?]"}}}}}
+        - all:
+            - matches: {msbuild-element: {name: {regex: "^(Delete|Touch)$"}}}
+            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: "^Files$"}, value: {regex: "[*?]"}}}}}
 transform:
-    # The glob becomes an item the task reads, cleared first because every fixed task of the target shares the item name
     ITEMIZED:
         replace:
             source: $TASK
             replace: '(?s)^<(Copy|Move)\b(?P<a>[^<]*?)\bSourceFiles\s*=\s*["''](?P<g>[^"'']*)["'']'
             by: '<ItemGroup><_${1}Source Remove="@(_${1}Source)" /><_${1}Source Include="${g}" /></ItemGroup><${1}${a}SourceFiles="@(_${1}Source)"'
-    # A recursive glob into a folder keeps its tree through a RecursiveDir transform, the probe copied source/x/f.txt to stage/x/f.txt
-    TREED:
+    LISTED:
         replace:
             source: $ITEMIZED
+            replace: '(?s)^<(Delete|Touch)\b(?P<a>[^<]*?)\bFiles\s*=\s*["''](?P<g>[^"'']*)["'']'
+            by: '<ItemGroup><_${1}File Remove="@(_${1}File)" /><_${1}File Include="${g}" /></ItemGroup><${1}${a}Files="@(_${1}File)"'
+    TREED:
+        replace:
+            source: $LISTED
             replace: '(?s)^(<ItemGroup>.*?Include="[^"]*\*\*[^"]*".*?<(Copy|Move)\b[^<]*?)\bDestinationFolder\s*=\s*["''](?P<d>[^"'']*?)/?["'']'
             by: '${1}DestinationFiles="@(_${2}Source->''${d}/%(RecursiveDir)%(Filename)%(Extension)'')"'
 fix: $TREED
-message: Copy and Move treat a literal SourceFiles glob as a file name and cannot find the file
-note: Expand the glob in an item Include and pass the item list, with a RecursiveDir transform in DestinationFiles to keep the tree
+message: The task reads a literal glob in its file list as a file name and finds no file, wildcards expand in an item Include alone
+note: Expand the glob in an item Include and pass the item list, with a RecursiveDir transform in DestinationFiles to keep a copied tree

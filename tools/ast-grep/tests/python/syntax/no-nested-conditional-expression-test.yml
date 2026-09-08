@@ -1,6 +1,5 @@
 id: no-nested-conditional-expression
 valid:
-    # The corrected form, a match statement with one case per arm
     - |
       def classify(schema):
           match schema:
@@ -10,40 +9,30 @@ valid:
                   return binary.map(memoryview)
               case _:
                   return binary
-    # One conditional expression
     - |
       value = left if flag else right
-    # Conditional inside a call argument of an arm, the walk stops at the call
     - |
       value = left if flag else build(inner if other else right)
-    # Conditional inside a lambda body of an arm, the walk stops at the lambda
     - |
       value = left if flag else (lambda: inner if other else right)
-    # Inner conditional bound by a walrus in parentheses, the walk stops at the binding
     - |
       value = left if flag else (inner := (a if other else b))
-    # Conditional inside a subscript of an arm, the walk stops at the subscript
     - |
       value = left if flag else table[inner if other else right]
-    # Conditional inside an f-string of an arm, the walk stops at the string
+    - |
+      value = left if flag else (inner if other else right) + 1
     - |
       value = f"{a if b else c}" if flag else right
 invalid:
-    # The instance, a chain of arms in the else position
     - |
       value = binary.map(bytearray) if isinstance(schema, ByteArrayType) else binary.map(memoryview) if isinstance(schema, MemoryViewType) else binary
-    # Inner conditional in parentheses
     - |
       value = left if flag else (inner if other else right)
-    # Inner conditional in the first arm
     - |
       value = (inner if other else left) if flag else right
-    # Inner conditional as the condition
     - |
       value = left if (inner if other else flag) else right
-    # Three levels report once at the outermost
     - |
       value = first if one else second if two else third if three else fourth
-    # Three levels through parentheses still report only the outermost
     - |
       value = left if flag else (inner if other else (deep if third else right))

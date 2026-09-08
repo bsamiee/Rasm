@@ -16,29 +16,49 @@ outputs:
     emgucv-key:
         description: Cache key to save after a miss for emgucv
         value: ${{ steps.emgucv.outputs.cache-hit != 'true' && steps.emgucv.outputs.cache-primary-key || '' }}
+    vcpkg-path:
+        description: Paths the vcpkg entry holds
+        value: ${{ steps.paths.outputs.vcpkg }}
+    releases-path:
+        description: Paths the release downloads entry holds
+        value: ${{ steps.paths.outputs.releases }}
+    emgucv-path:
+        description: Path the emgucv entry holds
+        value: ${{ steps.paths.outputs.emgucv }}
 
 runs:
     using: composite
     steps:
+        - id: paths
+          run: |
+            cat >>"$GITHUB_OUTPUT" <<'OUTPUT'
+            vcpkg<<PATHS
+            .cache/vcpkg-archives
+            .cache/vcpkg-downloads
+            PATHS
+            releases<<PATHS
+            .cache/energyplus
+            .cache/ktx
+            .cache/sqlitevec
+            .cache/duckdbextensions
+            .cache/tools
+            PATHS
+            emgucv=.cache/emgucv/artifacts
+            OUTPUT
+          shell: bash
         - id: vcpkg
           uses: actions/cache/restore@v6
           with:
-            path: |
-                .cache/vcpkg-archives
-                .cache/vcpkg-downloads
+            path: ${{ steps.paths.outputs.vcpkg }}
             key: vcpkg-${{ inputs.rid }}-${{ hashFiles('eng/native/*/vcpkg.json') }}
         - id: releases
           uses: actions/cache/restore@v6
           with:
-            path: |
-                .cache/energyplus
-                .cache/ktx
-                .cache/sqlitevec
-                .cache/duckdbextensions
-                .cache/tools
+            path: ${{ steps.paths.outputs.releases }}
             key: releases-${{ inputs.rid }}-${{ hashFiles('eng/native/*/release.json', 'eng/native/*/extensions.json') }}
         - id: emgucv
+          if: inputs.rid == 'osx-arm64'
           uses: actions/cache/restore@v6
           with:
-            path: .cache/emgucv/artifacts
+            path: ${{ steps.paths.outputs.emgucv }}
             key: emgucv-${{ inputs.rid }}-${{ hashFiles('eng/native/emgucv/source.json') }}

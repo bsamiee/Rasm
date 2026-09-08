@@ -43,6 +43,24 @@ snapshots:
       start: 0
       end: 190
   ? |
+    <ProjectReference Include="Item.csproj" SetTargetFramework=" TargetFramework = net10.0 " UndefineProperties=" TargetFramework " />
+  : fixed: |
+      <ProjectReference Include="Item.csproj"  UndefineProperties=" TargetFramework " />
+    labels:
+    - source: <ProjectReference Include="Item.csproj" SetTargetFramework=" TargetFramework = net10.0 " UndefineProperties=" TargetFramework " />
+      style: primary
+      start: 0
+      end: 130
+  ? |
+    <ProjectReference Include="Item.csproj" SetTargetFramework="Platform=x64;TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+  : fixed: |
+      <ProjectReference Include="Item.csproj"  UndefineProperties="TargetFramework" />
+    labels:
+    - source: <ProjectReference Include="Item.csproj" SetTargetFramework="Platform=x64;TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+      style: primary
+      start: 0
+      end: 137
+  ? |
     <ProjectReference Include="a.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework"><Private Condition="'$(Mode)' == 'copy'">false</Private></ProjectReference>
   : fixed: |
       <ProjectReference Include="a.csproj"  UndefineProperties="TargetFramework"><Private Condition="'$(Mode)' == 'copy'">false</Private></ProjectReference>
@@ -69,3 +87,12 @@ snapshots:
       style: primary
       start: 0
       end: 132
+  ? |
+    <ProjectReference Update="Item.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+  : fixed: |
+      <ProjectReference Update="Item.csproj"  UndefineProperties="TargetFramework" />
+    labels:
+    - source: <ProjectReference Update="Item.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+      style: primary
+      start: 0
+      end: 123

@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Parameter of a def with the name the slot matches, every parameter kind, called on the direct children of a parameters node
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-parameter
 language: python
 arguments: [name]

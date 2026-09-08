@@ -18,3 +18,30 @@ snapshots:
       style: primary
       start: 17
       end: 57
+  ? |
+    <Import Project="$(MSBuildThisFileDirectory)\common.props" />
+  : fixed: |
+      <Import Project="$(MSBuildThisFileDirectory)common.props" />
+    labels:
+    - source: '"$(MSBuildThisFileDirectory)\common.props"'
+      style: primary
+      start: 16
+      end: 58
+  ? |
+    <Import Project='$(MSBuildThisFileDirectory)/common.props' />
+  : fixed: |
+      <Import Project='$(MSBuildThisFileDirectory)common.props' />
+    labels:
+    - source: '''$(MSBuildThisFileDirectory)/common.props'''
+      style: primary
+      start: 16
+      end: 58
+  ? |
+    <PropertyGroup><RepoRoot>$(MSBuildThisFileDirectory)/</RepoRoot></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot></PropertyGroup>
+    labels:
+    - source: $(MSBuildThisFileDirectory)/
+      style: primary
+      start: 25
+      end: 53

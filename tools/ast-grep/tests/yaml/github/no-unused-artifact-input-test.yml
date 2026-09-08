@@ -1,13 +1,11 @@
 id: no-unused-artifact-input
 valid:
-    # A quote embedded in an unquoted scalar is data, not a matching quote pair.
     - |
       jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false', name: package, path: file}}]}}
     - |
       jobs: {build: {steps: [{uses: actions/upload-artifact@v7', with: {archive: false, name: package, path: file}}]}}
     - |
       jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: 9', path: file}}]}}
-    # Deleting compression could expose an invalid merged level that the action validates.
     - |
       jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, <<: {compression-level: 10}, compression-level: 3, path: file}}]}}
     - |
@@ -133,6 +131,21 @@ valid:
         , path: package.tar}}]}}
     - |
       jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: &shared {archive: false, name: custom, path: file}}, {uses: another/action@v1, with: *shared}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: {archive: "false", name: package, overwrite: "TRUE", path: file}
+    - |
+      jobs:
+        build:
+          env: &inputs {archive: false, name: package, path: file}
+          steps:
+            - uses: actions/upload-artifact@v7
+              with: *inputs
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, env: {archive: false}, with: {name: package, path: file}}]}}
 invalid:
     - |
       jobs:
@@ -212,3 +225,35 @@ invalid:
       jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, name: custom, path: file}}]}}
     - |
       jobs: {build: {steps: [{parallel: [{uses: actions/upload-artifact@v7, with: {archive: false, name: package, path: file}}]}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - with:
+                archive: false
+                name: package
+                path: file
+              uses: actions/upload-artifact@v7
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with:
+                name: package
+                archive: "false"
+                path: file
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: "0", path: file}}]}}
+    - |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, name: package, overwrite: FALSE, path: file}}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/upload-artifact@v7
+              with:
+                archive: false
+                path: file
+                # The artifact name
+                name: package

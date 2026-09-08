@@ -6,7 +6,9 @@ import type { ToolCallInput } from 'claude-code';
 import { type Decision, deny, type Rule, rewrite } from '../composition/decision.ts';
 import { fromNullable, fromPredicate, getOrElse, liftPredicate, map, toArray } from '../composition/option.ts';
 import { isString } from '../host/store.ts';
-import { basename, extension, under } from '../text/path.ts';
+import { first, lines } from '../text/lines.ts';
+import { basename, extension, relative, under } from '../text/path.ts';
+import type { Run } from './scan.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -23,21 +25,40 @@ interface Once {
     readonly line: string;
 }
 
+// The rg search over the sibling records of a dropped dependency row, one per name the edit drops
+interface Search {
+    readonly name: string;
+    readonly argv: readonly string[];
+}
+
+// A search with the child's answer, the holder paths on stdout relative to the working directory
+interface Searched extends Search {
+    readonly run: Run;
+}
+
+// A dependency record: the row pattern with its name group, the sibling record globs, and the regex a name is held by in them
+interface DependencyRecord {
+    readonly row: RegExp;
+    readonly globs: readonly string[];
+    readonly held: (name: string) => string;
+}
+
 // Guidance rows apply under the CLAUDE.md chain and the memory directory alone, the facts the session row holds
 interface PathRow {
     readonly match: (path: string, text: string) => boolean;
     readonly tools: readonly PathTool[];
     readonly deny?: (path: string) => string;
     readonly once?: readonly Once[];
-    readonly each?: (path: string, text: string, old: string, base: number) => readonly string[];
+    readonly each?: (path: string, text: string, old: string, facts: PathFacts) => readonly string[];
     readonly guidance?: true;
 }
 
-// The file is the edited file's text before the call, '' when unread, an Edit's lines number from the file
+// The file is the edited file's text before the call, '' when unread, an Edit's lines number from the file, the searches its dropped rows' runs
 interface PathFacts {
     readonly seen: ReadonlySet<string>;
     readonly guidance: readonly string[];
     readonly file: string;
+    readonly searches: readonly Searched[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -45,8 +66,6 @@ interface PathFacts {
 const _WIDTH = 150;
 const BINLOG_DENY = '.binlog files are binary, call mcp__binlog__binlog_overview on the file';
 const OP_DENY = 'Secrets come from Doppler alone, an op:// reference never lands in a file, use doppler secrets';
-// The probe directory every agent of the session shares under the scratchpad, the tail keeps the rest of the path
-const PROBE = /\/scratchpad\/probe(?<tail>\/|$)/u;
 const _ALL: readonly PathTool[] = ['Read', 'Edit', 'Write'];
 const _WRITES: readonly PathTool[] = ['Edit', 'Write'];
 // Every tool that lands text in a file, the content rows read the text whatever the file
@@ -60,23 +79,42 @@ const _PIN = /[=]=\d|"\s*:\s*"[~^]?\d/u;
 const _ENTRY = /^(?:- |\| |\d+\. )/u;
 const _SELF_REFERENCE = /this file|see above|see below|this section/giu;
 const _LINE = /\r?\n/u;
-// One dependency row per manifest, counted in the old and the new text to tell an added row from a dropped one
-const _DEPENDENCY_ROW: Readonly<Partial<Record<string, RegExp>>> = {
-    'Directory.Packages.props': /<PackageVersion\s/gu,
-    'package.json': /^\s*"[^"]+":\s*"(?:catalog:|workspace:|[~^]?\d)/gmu,
-    'pnpm-workspace.yaml': /^\s{2,}[\w@/.-]+:\s*\S/gmu,
-    'pyproject.toml': /^\s*"[\w.[\],=<>!~ -]+"\s*,?\s*$/gmu,
+const _README = 'README.md';
+// The rg exits of a finished search, 0 with holders and 1 with none, any other exit is a failed child
+const _SEARCH_EXITS: readonly number[] = [0, 1];
+const _REGEX_SPECIAL = /[\\^$.*+?()[\]{}|]/gu;
+// The separators a PEP 503 normalization folds, uv.lock spells a name normalized
+const _NAME_JOIN = /[-_.]+/gu;
+const _TYPESCRIPT_GLOBS: readonly string[] = ['package.json', 'pnpm-workspace.yaml'];
+const _escape = (name: string): string => name.replace(_REGEX_SPECIAL, '\\$&');
+const _typescriptHeld = (name: string): string => `^\\s+'?${_escape(name)}'?:|^\\s*"${_escape(name)}":\\s*"`;
+// One dependency record per manifest, its rows named in the old and the new text to tell an added row from a dropped one
+const _RECORDS: Readonly<Partial<Record<string, DependencyRecord>>> = {
+    'Directory.Packages.props': {
+        row: /<PackageVersion\s+Include="(?<name>[^"]+)"/gu,
+        globs: ['*.csproj', '*.props', '*.targets'],
+        held: (name) => `PackageReference\\s+Include="${_escape(name)}"`,
+    },
+    'package.json': { row: /^\s*"(?<name>[^"]+)":\s*"(?:catalog:|workspace:|[~^]?\d)/gmu, globs: _TYPESCRIPT_GLOBS, held: _typescriptHeld },
+    'pnpm-workspace.yaml': { row: /^\s{2,}'?(?<name>[\w@/.-]+)'?:\s*\S/gmu, globs: _TYPESCRIPT_GLOBS, held: _typescriptHeld },
+    'pyproject.toml': {
+        row: /^\s*"(?<name>[\w.-]+)[\w.[\],=<>!~ -]*"\s*,?\s*$/gmu,
+        globs: ['pyproject.toml', 'uv.lock'],
+        held: (name) => `^\\s*"${name.replace(_NAME_JOIN, '[-_.]+')}[^\\w.-]|^name = "${name.replace(_NAME_JOIN, '[-_.]+')}"`,
+    },
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _skill = (name: string): Once => ({ key: name, line: `Load the ${name} skill` });
 
-// The deny of a write under the shared probe directory, the agent-labelled directory spliced from the path, main for the main agent
-const probeDeny = (path: string): string =>
-    `${path} sits in the probe/ directory every agent of the session shares, write under ${path.replace(PROBE, '/scratchpad/<label>-probe$<tail>')}, the label your brief states (main for the main agent)`;
+const _names = (text: string, row: RegExp): readonly string[] => [...text.matchAll(row)].map((hit) => hit.groups?.name ?? '');
 
-const _count = (text: string, pattern: RegExp): number => [...text.matchAll(pattern)].length;
+// The distinct names in text and not in other, the added rows as (new, old) and the dropped rows as (old, new)
+const _only = (text: string, other: string, row: RegExp): readonly string[] => {
+    const known = new Set(_names(other, row));
+    return [...new Set(_names(text, row))].filter((name) => !known.has(name));
+};
 
 // String fields of any variant, empty where the variant lacks them
 const _field = (e: PathEvent, name: Field): string => {
@@ -92,17 +130,49 @@ const _text = (e: PathEvent): string => _field(e, 'content') || _field(e, 'new_s
 
 const _old = (e: PathEvent): string => _field(e, 'old_string');
 
-const _dependencyLines = (path: string, text: string, old: string): readonly string[] =>
-    toArray(fromNullable(_DEPENDENCY_ROW[basename(path)])).flatMap((row) => [
-        ...toArray(
-            liftPredicate<string>(() => _count(text, row) > _count(old, row))('Record the dependency in the owning README.md dependency list'),
-        ),
-        ...toArray(
-            liftPredicate<string>(() => _count(text, row) < _count(old, row))(
-                'Add the missing dependency record to its manifest or README.md dependency list and keep the dropped row',
+// The lines of a dropped name's search: a failed child, or the holders that keep the drop from being a removal
+const _droppedLines = (name: string, searches: readonly Searched[]): readonly string[] =>
+    searches
+        .filter((search) => search.name === name)
+        .flatMap((search) => [
+            ...toArray(
+                liftPredicate<string>(() => !_SEARCH_EXITS.includes(search.run.exitCode))(
+                    `The record search for ${name} failed, rg exited ${search.run.exitCode}: ${first(search.run.stderr)}`,
+                ),
             ),
+            ...toArray(
+                liftPredicate<string>(() => lines(search.run.stdout).length > 0)(
+                    `${name} remains in ${lines(search.run.stdout).join(', ')}, keep the dropped row and add the missing dependency record, or remove it there too`,
+                ),
+            ),
+        ]);
+
+const _dependencyLines = (path: string, text: string, old: string, facts: PathFacts): readonly string[] =>
+    toArray(fromNullable(_RECORDS[basename(path)])).flatMap((record) => [
+        ...toArray(
+            liftPredicate<string>(() => _only(text, old, record.row).length > 0)('Record the dependency in the owning README.md dependency list'),
         ),
+        ..._only(old, text, record.row).flatMap((name) => _droppedLines(name, facts.searches)),
     ]);
+
+// One rg search per dropped row over the sibling records of its language and every README.md, the edited file excluded by the last glob
+const recordSearches = (e: PathEvent, cwd: string): readonly Search[] =>
+    toArray(fromNullable(_RECORDS[basename(_path(e))])).flatMap((record) =>
+        _only(_old(e), _text(e), record.row).map((name) => ({
+            name,
+            argv: [
+                'rg',
+                '--files-with-matches',
+                '--ignore-case',
+                '--hidden',
+                ...[...record.globs, _README].flatMap((glob) => ['--glob', glob]),
+                '--glob',
+                `!/${relative(cwd, _path(e))}`,
+                '--regexp',
+                `${record.held(name)}|\`${_escape(name)}\``,
+            ],
+        })),
+    );
 
 // The file line the written text starts at: the line breaks before old in the file, 0 for a Write, an unread file, or an absent old
 const _baseLine = (file: string, old: string): number =>
@@ -134,13 +204,6 @@ const PATHS = [
         tools: _CONTENT_WRITES,
         deny: (): string => OP_DENY,
     },
-    {
-        // RegExp.test reads its receiver, the arrow binds PROBE to it
-        // ast-grep-ignore: no-forwarding-arrow
-        match: (path): boolean => PROBE.test(path),
-        tools: _CONTENT_WRITES,
-        deny: probeDeny,
-    },
     { match: (path): boolean => extension(path) === '.cs', tools: _ALL, once: [_skill('dotnet-roslyn-codelens'), _skill('dotnet-coding')] },
     {
         match: (path): boolean => ['.csproj', '.props', '.targets'].includes(extension(path)),
@@ -160,7 +223,8 @@ const PATHS = [
     },
     {
         match: (path): boolean =>
-            ['eng', 'infra', 'tools', '.github'].some((directory) => under(path, directory)) || ['mise.toml', 'nx.json'].includes(basename(path)),
+            ['eng', 'infra', 'tools', '.github'].some((directory) => under(path, directory)) ||
+            ['mise.toml', 'mise.unix.toml', '.miserc.toml', 'nx.json'].includes(basename(path)),
         tools: _ALL,
         once: [_skill('manage-repo')],
     },
@@ -181,7 +245,7 @@ const PATHS = [
         each: (): readonly string[] => ['Verify the row with mcp__nuget__get_package_context'],
     },
     {
-        match: (path): boolean => _DEPENDENCY_ROW[basename(path)] !== undefined,
+        match: (path): boolean => _RECORDS[basename(path)] !== undefined,
         tools: _WRITES,
         each: _dependencyLines,
     },
@@ -198,7 +262,7 @@ const PATHS = [
     {
         match: (path): boolean => extension(path) === '.md',
         tools: _WRITES,
-        each: (_file, text, _replaced, base): readonly string[] => _markdownLines(text, base),
+        each: (_file, text, replaced, facts): readonly string[] => _markdownLines(text, _baseLine(facts.file, replaced)),
         guidance: true,
     },
 ] as const satisfies readonly PathRow[];
@@ -223,7 +287,7 @@ const _context = (e: PathEvent, facts: PathFacts): readonly string[] => [
             .filter(_applies(e, facts))
             .flatMap((row) => [
                 ...(row.once ?? []).filter((once) => !facts.seen.has(once.key)).map((once) => once.line),
-                ...(row.each ?? ((): readonly string[] => []))(_path(e), _text(e), _old(e), _baseLine(facts.file, _old(e))),
+                ...(row.each ?? ((): readonly string[] => []))(_path(e), _text(e), _old(e), facts),
             ]),
     ),
 ];
@@ -239,5 +303,5 @@ const pathRule =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Once, PathEvent, PathFacts, PathRow, PathTool };
-export { BINLOG_DENY, OP_DENY, PATHS, PROBE, pathRule, pathSkills, probeDeny };
+export type { Once, PathEvent, PathFacts, PathRow, PathTool, Search, Searched };
+export { BINLOG_DENY, OP_DENY, PATHS, pathRule, pathSkills, recordSearches };

@@ -6,15 +6,16 @@ rule:
     pattern: _EXEC
     all:
         - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
-        - matches:
-            msbuild-metadata:
-                name: {regex: '^Command$'}
-                value:
-                    regex: "^[\"']?\\s*(&quot;)?\\s*((mkdir|md|rmdir|rd|copy|cp|xcopy|robocopy|del|rm|move|mv|ren|rename|touch)\\b|echo\\b[^\"]*(>|&gt;))"
+        - has:
+            matches: msbuild-tag
+            has:
+                matches:
+                    msbuild-attribute:
+                        name: {regex: '^Command$'}
+                        value:
+                            regex: "^[\"']?\\s*(&quot;)?\\s*((mkdir|md|rmdir|rd|copy|cp|xcopy|robocopy|del|rm|move|mv|ren|rename|touch)\\b|echo\\b[^\"]*(>|&gt;))"
 transform:
-    # A task with a working directory keeps its Exec, the built-in tasks resolve paths from the project directory
     KEPT: {replace: {source: $EXEC, replace: '(?s)^<Exec\b(.*\bWorkingDirectory\s*=)', by: '<ExecKeep${1}'}}
-    # One operand per command, a directory, a file, or an echo redirect, and a copy, move, or rename stays because its destination kind is unknown
     MADE:
         replace:
             source: $KEPT
@@ -28,7 +29,7 @@ transform:
     DELETED:
         replace:
             source: $REMOVED
-            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:del|rm)\s+([^"''\s-][^"''\s]*)\s*["'']'
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:del|rm(?:\s+-f)?)\s+([^"''\s-][^"''\s]*)\s*["'']'
             by: '<Delete${1}Files="${2}"'
     TOUCHED:
         replace:

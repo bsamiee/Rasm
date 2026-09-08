@@ -4,29 +4,11 @@ language: xml
 severity: error
 rule:
     pattern: _REFERENCE
-    # Analyzers, source generators, and build tools, the development dependencies with no runtime asset a consumer needs
     matches:
         msbuild-package-reference:
             id:
                 regex: "(?i)^[\"']([A-Za-z0-9.]+\\.(Analyzers?|SourceGenerators?|Generators?)|Riok\\.Mapperly|Grpc\\.Tools|MessagePackAnalyzer|Microsoft\\.CodeAnalysis\\.CSharp|Microsoft\\.CodeAnalysis\\.Analyzers|MinVer|Generator\\.Equals)[\"']$"
-    not:
-        any:
-            - all:
-                - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^["'']\s*all\s*["'']$'}}}}}
-                - not:
-                    has:
-                        kind: content
-                        has:
-                            matches: {msbuild-element: {name: {regex: '^PrivateAssets$'}}}
-                            not: {has: {kind: content, regex: '(?i)^\s*all\s*$'}}
-            - has:
-                kind: content
-                has:
-                    kind: element
-                    nthChild: {position: 1, reverse: true, ofRule: {matches: {msbuild-element: {name: {regex: '^PrivateAssets$'}}}}}
-                    all:
-                        - has: {kind: content, regex: '(?i)^\s*all\s*$'}
-                        - not: {has: {kind: STag, has: {kind: Attribute}}}
+    not: {matches: {msbuild-effective-metadata: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^["'']?\s*all\s*["'']?$'}}}}
 transform:
     FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
 fix: $FIXED

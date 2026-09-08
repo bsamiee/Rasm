@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Follow the receiver to its unbound root; callers identify the native operation.
 id: syntax-global-reference
 language: tsx
 rule:

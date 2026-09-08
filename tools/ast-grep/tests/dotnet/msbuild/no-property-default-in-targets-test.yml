@@ -1,22 +1,28 @@
 id: no-property-default-in-targets
 valid:
-    # Value derived from a body property, a .targets value
     - |
       <PropertyGroup Label="Release Version"><MinVerTagPrefix>$(ReleaseGroup)@</MinVerTagPrefix></PropertyGroup>
-    # Version read from the manifest before pack computes the package version
     - |
       <PropertyGroup><Version Condition="'$(_ManifestVersion)' != ''">$(_ManifestVersion)</Version></PropertyGroup>
-    # Property a target sets at execution time
     - |
       <Target Name="Pick"><PropertyGroup><RuntimeIdentifier>osx-arm64</RuntimeIdentifier></PropertyGroup></Target>
+    - |
+      <PropertyGroup><TargetFrameworkVersion>v4.8</TargetFrameworkVersion></PropertyGroup>
+    - |
+      <ItemGroup><ProjectReference Include="Item.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework></ProjectReference></ItemGroup>
 invalid:
-    # The framework default that once sat in Directory.Build.targets, the SDK had already inferred the runtime identity
     - |
       <PropertyGroup Label="Framework Default">
         <TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup>
-    # Runtime identifier pinned after RID inference ran
     - |
       <PropertyGroup><RuntimeIdentifier Condition="'$(HostPlatform)' == 'true'">osx-arm64</RuntimeIdentifier></PropertyGroup>
-    # The artifacts root after the SDK composed the output paths
     - |
       <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory).artifacts</ArtifactsPath></PropertyGroup>
+    - |
+      <PropertyGroup><TargetFrameworks Condition="'$(TargetFrameworks)' == ''">net10.0;netstandard2.0</TargetFrameworks></PropertyGroup>
+    - |
+      <PropertyGroup><UseArtifactsOutput>true</UseArtifactsOutput></PropertyGroup>
+    - |
+      <PropertyGroup><ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally></PropertyGroup>
+    - |
+      <Choose><When Condition="'$(Host)' == ''"><PropertyGroup><RuntimeIdentifiers>osx-arm64;linux-x64</RuntimeIdentifiers></PropertyGroup></When></Choose>

@@ -1,4 +1,3 @@
-# These are reviewed rewrite selections, not evidence that a pipeline consumer needs escaping state.
 id: pipeline-reader-to-process-substitution
 valid:
     - read -r line < <(producer)
@@ -11,6 +10,10 @@ valid:
     - '! producer | read -r value'
     - time producer | read -r value
     - time -p producer | read -r value
+    - producer | read -r value <<<"$fallback"
+    - producer | runner read -r value
+    - producer | builtin printf '%s\n' done
+    - producer | for x in a; do read -r y; done
 invalid:
     - producer | read -r value
     - producer | IFS= read -r value
@@ -25,7 +28,11 @@ invalid:
     - producer | read -r value 2>/dev/null
     - if producer | read -r value; then consume "$value"; fi
     - printf "%s" "$(first | second)" | read -r value
-    # A quoted pipe belongs to the producer argument
     - printf '%s' 'text | read -r field' | read -r value
     - output=$(producer | read -r value; printf "%s" "$value")
     - shopt -s lastpipe; producer | read -r value
+    - producer | builtin read -r value
+    - producer | command mapfile -t values
+    - producer | read -r value <&3
+    - producer | while read -r line; do count=1; done > out
+    - producer | command -p -- read -r value

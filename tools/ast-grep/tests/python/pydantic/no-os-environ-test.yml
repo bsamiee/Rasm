@@ -1,35 +1,42 @@
 id: no-os-environ
 valid:
-    # Neither another module nor another member establishes an environment read.
     - 'custom.getenv("PORT")'
-    - 'os.getpid()'
     - 'custom.environ["PORT"]'
-    - 'os.__dict__["__name__"]'
     - |
       from custom import getenv
       getenv("PORT")
     - |
+      from custom import environ
+      environ["PORT"]
+    - 'os.getpid()'
+    - 'os.__dict__["__name__"]'
+    - |
       from os import getpid
       getpid()
     - |
-      from custom import environ
-      environ["PORT"]
-    - |
       from os import __dict__ as namespace
       namespace["__name__"]
-    # Writes and child-process mappings are boundary effects, not configuration decoding.
     - 'os.environ["PORT"] = "8080"'
     - 'os.environ["PORT"], other = values'
     - 'del os.environ["PORT"]'
     - 'os.environ["PATH"] += suffix'
     - 'os.environ.update(overrides)'
+    - 'os.environ.clear()'
+    - 'os.environ.pop("TOKEN")'
+    - 'os.environ.setdefault("STORAGE", str(home))'
+    - '"PORT" in settings'
+    - 'same = settings == os.environ'
+    - 'registered = os.environ in registry'
+    - 'process.environ.items()'
     - 'anyio.run_process(command, env=os.environ)'
     - 'from os import environ'
     - |
       from os import getenv
       def configure(getenv):
           return getenv("PORT")
-    # The corrected form, the typed settings read once
+    - 'os.putenv("PORT", "8080")'
+    - 'os.unsetenv("PORT")'
+    - '[os.environ["PORT"]] = values'
     - |
       from pydantic_settings import BaseSettings
 
@@ -37,28 +44,22 @@ valid:
           nuget_api_key: str
 
       settings = Settings()
-    # Another member of the module
     - |
       import os
 
       pid = os.getpid()
-    # Attribute named like the member on another object
     - |
       variables = process.environ
 invalid:
-    # A name evaluated in another assignment target remains a read.
     - 'other[os.environ["PORT"]] = value'
-    # The instance, the mapping read as spelled
     - |
       import os
 
       home = os.environ.get("HYPOTHESIS_STORAGE_DIRECTORY")
-    # The getter read as spelled
     - |
       import os
 
       home = os.getenv("HOME")
-    # The imported mapping is diagnosed at its read, not its import.
     - |
       from os import environ
       port = environ["PORT"]
@@ -67,8 +68,17 @@ invalid:
       port = getenv("PORT")
     - 'os.environb.get(b"PORT")'
     - 'os.getenvb(b"PORT")'
-    # The attribute read through the alias the import binds
+    - 'os.environ.get("PORT", "8080")'
+    - 'port = int(os.environ["PORT"])'
+    - 'suffix += os.environ["PATH"]'
     - |
       import os as system
 
       home = system.environ["HOME"]
+    - 'for name, value in os.environ.items(): pass'
+    - 'snapshot = os.environ.copy()'
+    - 'if "DEBUG" in os.environ: pass'
+    - |
+      from os import environ
+      missing = "PORT" not in environ
+    - 'names = sorted(os.environ.keys())'

@@ -1,5 +1,15 @@
 id: no-json-parse
 snapshots:
+  const row = JSON.parse(text) as Row;:
+    labels:
+    - source: JSON.parse(text)
+      style: primary
+      start: 12
+      end: 28
+    - source: JSON.parse
+      style: secondary
+      start: 12
+      end: 22
   const row = JSON.parse(text);:
     labels:
     - source: JSON.parse(text)

@@ -1,0 +1,22 @@
+id: no-identity-record
+valid:
+    - const NAMES = ['A', 'B'] as const;
+    - "const F = { F: 'F', G: 'H' };"
+    - "const G = { G: { G: 'G' } };"
+    - "const H = { [A.A]: 'A' };"
+    - 'const I = { A };'
+    - "const J = { ...A, J: 'J' };"
+    - "const K = load({ K: 'K' });"
+    - "const L = () => { const M = { M: 'M' }; return M; };"
+    - 'const N = {};'
+    - 'const O = { O: `O` };'
+    - "const P = { 1: '1' };"
+    - "let Q = { Q: 'Q' };"
+invalid:
+    - "const ACTIONS_VARIABLES: Record<'NUGET_USER', string> = { NUGET_USER: 'NUGET_USER' };"
+    - "const A = { A: 'A', B: 'B' };"
+    - |
+      export const B = { "X": "X", 'Y': 'Y' };
+    - "const D = { D: 'D' } as const satisfies Record<string, string>;"
+    - "const E = ({ E: 'E' });"
+    - "const C = { /* names */ C: 'C' };"

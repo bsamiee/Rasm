@@ -1,6 +1,5 @@
 id: no-filter-over-lifted-value
 valid:
-    # An escaped suffix changes the imported package
     - 'import * as O from "effect/Option\u002fother"; O.filter(O.some(input), predicate);'
     - 'import { Option } from "effect"; Option.filter(Option.some<number | string>(1), x => true);'
     - 'import { Option } from "effect"; Option.filter(Option.some(input), /* preserve */ predicate);'
@@ -11,24 +10,12 @@ valid:
     - 'import * as O from "Option"; const value = O.filter(O.some(input), predicate);'
     - 'import { Option as pipe } from "effect/Function"; const value = pipe.filter(pipe.some(input), predicate);'
     - 'import { Effect } from "effect/Function"; const value = Effect.filterOrFail(Effect.succeed(input), predicate, failure);'
-    - 'import { Option } from "effect"; const value = Option.some(input).pipe(Option.filter(predicate), factory());'
-    # Either sibling through the pipe method with a later step
-    - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));'
-    # Option sibling through the pipe method with a later step
-    - 'import { Effect, Either, Option, pipe } from "effect"; const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim));'
-    # The lift
     - "import { Effect, Either, Option, pipe } from 'effect'; const checked = Effect.liftPredicate(report, (held) => held.verdict !== 'regression', () => error);"
-    # Filter over an effect that runs an operation
     - "import { Effect, Either, Option, pipe } from 'effect'; const checked = Effect.filterOrFail(load(name), (held) => held.verdict !== 'regression', () => error);"
-    # Filter over an option built from a nullable
     - 'import { Effect, Either, Option, pipe } from "effect"; const named = Option.filter(Option.fromNullable(name), String.isNonEmpty);'
-    # Defect guard over a lifted value, no lift takes a defect
     - "import { Effect, Either, Option, pipe } from 'effect'; const checked = Effect.filterOrDie(Effect.succeed(report), (held) => held.ok, () => new Error('rejected'));"
-    # Micro guard over a lifted value, the Micro module exports no lift
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Micro.filterOrFail(Micro.succeed(report), (held) => held.ok, () => error);'
-    # Map step before the guard, the guard reads the mapped value
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Effect.succeed(report).pipe(Effect.map(summarize), Effect.filterOrFail((held) => held.ok, () => error));'
-    # Lifted value guarded through filterOrElse, the fallback is an effect and no lift holds it
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Effect.filterOrElse(Effect.succeed(report), (held) => held.ok, () => load(name));'
     - "const value = Option.filter(Option.some(input), predicate);"
     - 'import { Option } from "other"; const value = Option.filter(Option.some(input), predicate);'
@@ -37,6 +24,7 @@ valid:
     - 'import type { Option } from "effect"; const value = Option.filter(Option.some(input), predicate);'
     - 'import { type Option } from "effect"; const value = Option.filter(Option.some(input), predicate);'
     - 'import { Either as Option } from "effect"; const value = Option.filter(Option.some(input), predicate);'
+    - 'import { Effect } from "effect"; const checked = Effect.filterOrFail(Effect.succeed(report), (held) => held.ok);'
 invalid:
     - 'import { Option, pipe } from "effect"; const value = pipe(Option.some(input), Option.filter(predicate), factory());'
     - 'import { Either, pipe } from "effect"; const value = pipe(Either.right(input), Either.filterOrLeft(predicate, failure), factory());'
@@ -44,29 +32,20 @@ invalid:
     - 'import { Option as O } from "effect"; const value = O.filter(O.some(input), predicate);'
     - 'import * as E from "effect/Effect"; const value = E.succeed(input).pipe(E.filterOrFail(predicate, failure), E.map(render));'
     - 'import { Either as E, pipe as flow } from "effect/index"; const value = flow(E.right(input), E.filterOrLeft(predicate, failure));'
-    # The instance, a local lifted into an effect and guarded
     - "import { Effect, Either, Option, pipe } from 'effect'; const checked = Effect.filterOrFail(Effect.succeed(report), (held) => held.verdict !== 'regression', () => error);"
-    # Guard as the one pipe step
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error));'
-    # Guard as the first step of the pipe function
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error));'
-    # Guard followed by more steps, the lift keeps the rest of the pipe
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Effect.succeed(report).pipe(Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize));'
-    # Guard followed by more steps through the pipe function
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error), Effect.map(summarize));'
-    # Either sibling
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Either.filterOrLeft(Either.right(report), (held) => held.ok, () => left);'
-    # Either sibling through the pipe method
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left));'
-    # Either sibling through the pipe function
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left));'
-    # Either sibling through the pipe function with a later step
     - 'import { Effect, Either, Option, pipe } from "effect"; const checked = pipe(Either.right(report), Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));'
-    # Option sibling
     - 'import { Effect, Either, Option, pipe } from "effect"; const named = Option.filter(Option.some(name), String.isNonEmpty);'
-    # Option sibling through the pipe method
     - 'import { Effect, Either, Option, pipe } from "effect"; const named = Option.some(name).pipe(Option.filter(String.isNonEmpty));'
-    # Option sibling through the pipe function
     - 'import { Effect, Either, Option, pipe } from "effect"; const named = pipe(Option.some(name), Option.filter(String.isNonEmpty));'
-    # Option sibling through the pipe function with a later step
     - 'import { Effect, Either, Option, pipe } from "effect"; const named = pipe(Option.some(name), Option.filter(String.isNonEmpty), Option.map(String.trim));'
+    - 'import { Option } from "effect"; const value = Option.some(input).pipe(Option.filter(predicate), factory());'
+    - 'import { Effect, Either, Option, pipe } from "effect"; const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));'
+    - 'import { Effect, Either, Option, pipe } from "effect"; const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim));'
+    - 'import { Option } from "effect"; const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim), Option.getOrElse(() => ""));'

@@ -23,6 +23,7 @@ rule:
             - any:
                 - pattern: "$MODULE.filterOrLeft($MODULE.right($_), $_, $_)"
                 - pattern: "$MODULE.right($_).pipe($MODULE.filterOrLeft($_, $_))"
+                - pattern: "$MODULE.right($_).pipe($MODULE.filterOrLeft($_, $_), $$$)"
                 - pattern: "$PIPE($MODULE.right($_), $MODULE.filterOrLeft($_, $_))"
                 - pattern: "$PIPE($MODULE.right($_), $MODULE.filterOrLeft($_, $_), $$$)"
             - has:
@@ -34,6 +35,7 @@ rule:
             - any:
                 - pattern: "$MODULE.filter($MODULE.some($_), $_)"
                 - pattern: "$MODULE.some($_).pipe($MODULE.filter($_))"
+                - pattern: "$MODULE.some($_).pipe($MODULE.filter($_), $$$)"
                 - pattern: "$PIPE($MODULE.some($_), $MODULE.filter($_))"
                 - pattern: "$PIPE($MODULE.some($_), $MODULE.filter($_), $$$)"
             - has:
@@ -52,9 +54,12 @@ rewriters:
         any:
             - pattern: "$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS))"
             - pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS))"
+              has: {field: function, kind: identifier}
       fix: $M.liftPredicate($VALUE, $$$ARGS)
     - id: functional-steps
-      rule: {pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS), $$$REST)"}
+      rule:
+        pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS), $$$REST)"
+        has: {field: function, kind: identifier}
       fix: $PIPE($VALUE, $M.liftPredicate($$$ARGS), $$$REST)
     - id: method-steps
       rule:
@@ -64,5 +69,5 @@ transform:
     LIFT: rewrite($CALL, rewriters=[direct, pipe, functional-steps, method-steps])
 labels: {CALL: {style: primary}}
 fix: $LIFT
-message: The predicate filters a value the call just lifted into the carrier
+message: The predicate filters a value the call lifted into the carrier
 note: Call the module's `liftPredicate(value, predicate)` with the error callback for Effect or Either, keeping later pipe steps outside the call

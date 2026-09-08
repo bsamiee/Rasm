@@ -1,7 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { describe, expect, it } from 'vitest';
-import type { Decision } from '../composition/decision.ts';
+import { type Decision, fold } from '../composition/decision.ts';
+import { gitGuard } from './git.ts';
 import { commandTimeout, type NxCaches, nxTargets, packageManager, shellHits, shellRule, shellSkills, skipNxCache } from './shell.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -45,14 +46,22 @@ const _holdsAll =
 const _skip = (command: string, caches: NxCaches): Plain => _plain(skipNxCache(caches)(_call(command)));
 
 const _SCRATCHPAD = '/private/tmp/claude-501/slug/session/scratchpad';
-const _GATE = '.claude/skills/ast-grep/scripts/rule-checks.sh';
+const _RULE_CHECKS = '.claude/skills/ast-grep/scripts/rule-checks.sh';
 
 // --- [CASES] ---------------------------------------------------------------------------
 
 const _DENIED: readonly (readonly [string, readonly string[]])[] = [
-    ['mise x -- node --version', ['mise x is refused', 'run node --version directly']],
-    ['echo $(mise x -- node -v)', ['mise x is refused']],
-    ["sh -c 'mise exec -- node -v'", ['mise x is refused', 'run node -v directly']],
+    ['mise x', ['mise x names no command', 'run the command directly']],
+    ['mise exec node@22', ['mise exec names no command']],
+    ['mise x zizmor@latest --', ['mise x names no command']],
+    [
+        'mise x -C dir node@20 node -v',
+        ['mise x holds an option before the command', 'mise x [<tool>@<version>...] -- <command>', '-C <dir> as cd <dir> &&'],
+    ],
+    ['mise x -C dir node@20 -- node app.js', ['mise x holds an option before the command']],
+    ['mise exec node@20 --command "node -v"', ['mise exec holds an option before the command', '--command as the command']],
+    ['mise x -j 4 -- node -v', ['mise x holds an option before the command']],
+    ['eval "$(mise env -s bash)"', ['eval "$(mise env)" names no command after it', 'run the command directly']],
     ['pnpm exec nx release --dry-run', ['Preview flags are refused', 'pnpm exec nx release']],
     ['git push -n', ['Preview flags are refused', 'git push']],
     ['pnpm add effect@3', ['Unpinned: pnpm add effect@catalog:']],
@@ -69,18 +78,17 @@ const _DENIED: readonly (readonly [string, readonly string[]])[] = [
     ['ast-grep test --update-all --include-off', ['ast-grep test -U with no --filter']],
     ['pnpm exec ast-grep test -U', ['ast-grep test -U with no --filter']],
     ['npx ast-grep test -U', ['ast-grep test -U with no --filter']],
-    [
-        `mkdir -p ${_SCRATCHPAD}/probe`,
-        ['sits in the probe/ directory every agent of the session shares', `write under ${_SCRATCHPAD}/<label>-probe,`],
-    ],
-    [
-        `cp a.ts ${_SCRATCHPAD}/probe/a.ts`,
-        [`${_SCRATCHPAD}/probe/a.ts sits in the probe/ directory`, `write under ${_SCRATCHPAD}/<label>-probe/a.ts,`],
-    ],
+    ['sleep 60', ['sleep 60 waits on nothing', 'run_in_background: true', 'until loop under the Monitor tool']],
+    ['sleep', ['sleep waits on nothing']],
+    ['sleep 5; sleep 10', ['sleep 5 waits on nothing']],
+    ['sleep 2 &&\n  sleep 3', ['sleep 2 waits on nothing']],
 ];
 
 const _PASSED: readonly string[] = [
     'echo "the phrase mise x appears in prose"',
+    'mise env --json',
+    'mise install',
+    'echo "$(mise env -s bash)"',
     'git commit -n -m x',
     'uv run pytest -n 4',
     'pnpm add effect@catalog:',
@@ -97,11 +105,22 @@ const _PASSED: readonly string[] = [
     'biome check -l typescript',
     'echo "ast-grep run -l typescript"',
     'ast-grep run -l typescript -p x --stdin',
-    `ast-grep run -c ${_SCRATCHPAD}/x-probe/sgconfig.yml -l typescript -p x .`,
-    `ast-grep run --config=${_SCRATCHPAD}/x-probe/sgconfig.yml -l typescript -p x .`,
+    `ast-grep run -c ${_SCRATCHPAD}/own-tree/sgconfig.yml -l typescript -p x .`,
+    `ast-grep run --config=${_SCRATCHPAD}/own-tree/sgconfig.yml -l typescript -p x .`,
     'cd /tmp/x && ast-grep run -l typescript -p x .',
     'ast-grep run -l tsx -p typescript .',
-    'ast-grep scan -l typescript .',
+    'ast-grep run -p x -r y .',
+    `ast-grep scan -r ${_SCRATCHPAD}/own-tree/draft.yml .`,
+    `ast-grep scan -c ${_SCRATCHPAD}/own-tree/sgconfig.yml -r tools/ast-grep/rules/a/b/c.yml .`,
+    'echo "ast-grep scan -r tools/ast-grep/rules/a/b/c.yml"',
+    "ast-grep test --include-off --filter '^no-json-parse$'",
+    `ast-grep test --include-off -t ${_SCRATCHPAD}/own-tree/tests`,
+    'until [ -f x ]; do sleep 2; done; cat x',
+    'until [ -f x ]; do\n    sleep 2\ndone\ncat x',
+    'for i in 1 2; do sleep 1; done',
+    'if [ -f x ]; then\n    sleep 1\nfi',
+    'echo "sleep 60 in prose"',
+    'sleep 1 | cat',
     'echo ast-grep scan --json -U in prose',
     'git log --json -U',
     'echo "ast-grep scan --json -U"',
@@ -111,13 +130,9 @@ const _PASSED: readonly string[] = [
     'git rebase -i -U',
     'echo "ast-grep scan -i -U"',
     'ast-grep scan -i .',
-    `ls ${_SCRATCHPAD}/probe-env`,
-    `${_GATE} pairing ts`,
-    `${_GATE} gate xml`,
-    _GATE,
-    'rule-checks.sh gate',
-    `${_GATE} gate ts '^no-filter-over-lifted-value$'`,
-    `${_GATE} gate ts > gate.log`,
+    `ls ${_SCRATCHPAD}/env`,
+    `${_RULE_CHECKS} pairing ts`,
+    _RULE_CHECKS,
 ];
 
 const _INCLUDE_OFF_LINE = 'Ran ast-grep test --include-off, the severity: off rewrite rules under rewrites/ run only under that flag';
@@ -125,27 +140,62 @@ const _TSX_LINE = 'Ran with -l tsx, sgconfig.yml languageGlobs maps every .ts fi
 const _JSON_LINE = 'Dropped --json beside -U, the two together write nothing';
 const _INTERACTIVE_LINE = 'Dropped -i beside -U, -U accepts every diff and -i prompts on a terminal the Bash tool lacks';
 const _STREAM_LINE = 'Ran --json=stream before wc -l, the array form counts one line';
+const _WAIT_LINE =
+    'run the command it waits for with run_in_background: true and read its completion notification, or watch the condition with an until loop under the Monitor tool';
+
+const _sleepLine = (leaf: string): string => `Dropped ${leaf}, ${_WAIT_LINE}`;
+
+const _ruleLine = (filter: string, flag: string): string =>
+    `Ran ${filter} in place of ${flag}, scan -r loads no utilDirs and the root sgconfig.yml registers the rule`;
+
+const _testIdLine = (pattern: string): string =>
+    `Ran ast-grep test --filter '${pattern}', test takes no positional and --filter selects the cases by rule id`;
+
+const _langLine = (words: string): string => `Dropped ${words}, scan takes no language flag and each rule's language field parses its files`;
+
+const _miseLine = (rest: string, prefix: string): string =>
+    `Ran ${rest} in place of ${prefix}, the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE, and a missing binary is a missing [tools] row in mise.toml followed by mise install`;
+
+const _evalLine = (body: string): string => `Dropped eval "$(${body})", the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE`;
 
 // The command, its rewrite, and the context lines, and the rewrite passes unchanged on a second read
 const _REWRITTEN: readonly (readonly [string, string, readonly string[]])[] = [
+    ['eval "$(mise env -s bash)" && zizmor --version', 'zizmor --version', [_evalLine('mise env -s bash')]],
+    ['eval "$(mise env)"; node -v', 'node -v', [_evalLine('mise env')]],
+    ['eval $(mise env -s bash) && node -v', 'node -v', [_evalLine('mise env -s bash')]],
+    ['eval "$(mise env -s bash)"\nnode -v', 'node -v', [_evalLine('mise env -s bash')]],
+    ['eval "$(mise env -s bash)" && git push --force', 'git push --force', [_evalLine('mise env -s bash')]],
+    ['eval "$(mise env -s bash)" && mise x -- node -v', 'node -v', [_miseLine('node -v', 'mise x --'), _evalLine('mise env -s bash')]],
+    ['mise x zizmor@latest -- zizmor --version', 'zizmor --version', [_miseLine('zizmor --version', 'mise x zizmor@latest --')]],
+    ['mise exec -- zizmor --version', 'zizmor --version', [_miseLine('zizmor --version', 'mise exec --')]],
+    ['mise x zizmor@latest -- zizmor --help', 'zizmor --help', [_miseLine('zizmor --help', 'mise x zizmor@latest --')]],
+    ['mise x zizmor@latest -- zizmor --help 2>&1', 'zizmor --help 2>&1', [_miseLine('zizmor --help 2>&1', 'mise x zizmor@latest --')]],
+    ['mise exec -- node -v', 'node -v', [_miseLine('node -v', 'mise exec --')]],
+    ['mise x node@22 node -v', 'node -v', [_miseLine('node -v', 'mise x node@22')]],
+    ['mise x node@22 python@3.11 -- node -v', 'node -v', [_miseLine('node -v', 'mise x node@22 python@3.11 --')]],
+    ['mise x -- echo "a b"', 'echo "a b"', [_miseLine('echo "a b"', 'mise x --')]],
+    ['echo $(mise x -- node -v)', 'echo $(node -v)', [_miseLine('node -v', 'mise x --')]],
+    ["sh -c 'mise exec -- node -v'", "sh -c 'node -v'", [_miseLine('node -v', 'mise exec --')]],
+    ['mise x -- node -v | head -1', 'node -v | head -1', [_miseLine('node -v', 'mise x --')]],
+    ['mise x -- node -v && ls tools', 'node -v && ls tools', [_miseLine('node -v', 'mise x --')]],
     ['ast-grep test', 'ast-grep test --include-off', [_INCLUDE_OFF_LINE]],
     ["ast-grep test -U --filter '^no-return-by-branch$'", "ast-grep test --include-off -U --filter '^no-return-by-branch$'", [_INCLUDE_OFF_LINE]],
     ["ast-grep test -U -f '^x$'", "ast-grep test --include-off -U -f '^x$'", [_INCLUDE_OFF_LINE]],
     ['ast-grep test -U --filter=^x$', 'ast-grep test --include-off -U --filter=^x$', [_INCLUDE_OFF_LINE]],
     [
-        `ast-grep test -U -c ${_SCRATCHPAD}/x-probe/sgconfig.yml`,
-        `ast-grep test --include-off -U -c ${_SCRATCHPAD}/x-probe/sgconfig.yml`,
+        `ast-grep test -U -c ${_SCRATCHPAD}/own-tree/sgconfig.yml`,
+        `ast-grep test --include-off -U -c ${_SCRATCHPAD}/own-tree/sgconfig.yml`,
         [_INCLUDE_OFF_LINE],
     ],
     [
-        `ast-grep test -U --config ${_SCRATCHPAD}/x-probe/sgconfig.yml`,
-        `ast-grep test --include-off -U --config ${_SCRATCHPAD}/x-probe/sgconfig.yml`,
+        `ast-grep test -U --config ${_SCRATCHPAD}/own-tree/sgconfig.yml`,
+        `ast-grep test --include-off -U --config ${_SCRATCHPAD}/own-tree/sgconfig.yml`,
         [_INCLUDE_OFF_LINE],
     ],
-    [`ast-grep test -U -t ${_SCRATCHPAD}/x-probe/tests`, `ast-grep test --include-off -U -t ${_SCRATCHPAD}/x-probe/tests`, [_INCLUDE_OFF_LINE]],
+    [`ast-grep test -U -t ${_SCRATCHPAD}/own-tree/tests`, `ast-grep test --include-off -U -t ${_SCRATCHPAD}/own-tree/tests`, [_INCLUDE_OFF_LINE]],
     [
-        `ast-grep test -U --test-dir ${_SCRATCHPAD}/x-probe/tests`,
-        `ast-grep test --include-off -U --test-dir ${_SCRATCHPAD}/x-probe/tests`,
+        `ast-grep test -U --test-dir ${_SCRATCHPAD}/own-tree/tests`,
+        `ast-grep test --include-off -U --test-dir ${_SCRATCHPAD}/own-tree/tests`,
         [_INCLUDE_OFF_LINE],
     ],
     ['pnpm exec ast-grep test', 'pnpm exec ast-grep test --include-off', [_INCLUDE_OFF_LINE]],
@@ -166,6 +216,55 @@ const _REWRITTEN: readonly (readonly [string, string, readonly string[]])[] = [
     ['ast-grep scan -i -U y.ts', 'ast-grep scan -U y.ts', [_INTERACTIVE_LINE]],
     ['npx ast-grep run -p x -r y --interactive -U .', 'npx ast-grep run -p x -r y -U .', [_INTERACTIVE_LINE]],
     ["ast-grep test -i -U --filter '^x$'", "ast-grep test --include-off -U --filter '^x$'", [_INCLUDE_OFF_LINE, _INTERACTIVE_LINE]],
+    [
+        'ast-grep scan -r tools/ast-grep/rules/python/pydantic/no-os-environ.yml eng/scripts/provision.py',
+        "ast-grep scan --filter '^no-os-environ$' eng/scripts/provision.py",
+        [_ruleLine("--filter '^no-os-environ$'", '-r tools/ast-grep/rules/python/pydantic/no-os-environ.yml')],
+    ],
+    [
+        'pnpm exec ast-grep scan --rule /Users/x/Rasm/tools/ast-grep/rules/typescript/claude-code/require-is-tool.yml --json=stream .claude/plugins',
+        "pnpm exec ast-grep scan --filter '^require-is-tool$' --json=stream .claude/plugins",
+        [_ruleLine("--filter '^require-is-tool$'", '--rule /Users/x/Rasm/tools/ast-grep/rules/typescript/claude-code/require-is-tool.yml')],
+    ],
+    [
+        'ast-grep scan --rule=tools/ast-grep/rewrites/bash/tooling/npm-command-to-pnpm.yml .github',
+        "ast-grep scan --filter '^npm-command-to-pnpm$' --error=npm-command-to-pnpm .github",
+        [
+            _ruleLine(
+                "--filter '^npm-command-to-pnpm$' --error=npm-command-to-pnpm",
+                '--rule=tools/ast-grep/rewrites/bash/tooling/npm-command-to-pnpm.yml',
+            ),
+        ],
+    ],
+    ['ast-grep test no-json-parse', "ast-grep test --include-off --filter '^no-json-parse$'", [_INCLUDE_OFF_LINE, _testIdLine('^no-json-parse$')]],
+    [
+        'ast-grep test -U no-json-parse',
+        "ast-grep test --include-off -U --filter '^no-json-parse$'",
+        [_INCLUDE_OFF_LINE, _testIdLine('^no-json-parse$')],
+    ],
+    [
+        'ast-grep test --include-off no-json-parse no-never-arm',
+        "ast-grep test --include-off --filter '^(no-json-parse|no-never-arm)$'",
+        [_testIdLine('^(no-json-parse|no-never-arm)$')],
+    ],
+    ['ast-grep scan -l typescript .', 'ast-grep scan .', [_langLine('-l typescript')]],
+    [
+        'ast-grep scan --lang=tsx --stdin --inline-rules "$(cat x.yml)"',
+        'ast-grep scan --stdin --inline-rules "$(cat x.yml)"',
+        [_langLine('--lang=tsx')],
+    ],
+    ['ast-grep scan -ltsx tools/nx', 'ast-grep scan tools/nx', [_langLine('-ltsx')]],
+    ['sleep 60 && ast-grep scan --filter x .', 'ast-grep scan --filter x .', [_sleepLine('sleep 60')]],
+    ['sleep 5; echo ok', 'echo ok', [_sleepLine('sleep 5')]],
+    ['echo ok; sleep 5', 'echo ok', [_sleepLine('sleep 5')]],
+    ['sleep 2 &&\n  echo ok', 'echo ok', [_sleepLine('sleep 2')]],
+    ['echo a; sleep 1; echo b', 'echo a; echo b', [_sleepLine('sleep 1')]],
+    ['sleep 1; sleep 2; echo ok', 'echo ok', [_sleepLine('sleep 1'), _sleepLine('sleep 2')]],
+    ['echo ok; sleep 1; sleep 2', 'echo ok', [_sleepLine('sleep 1'), _sleepLine('sleep 2')]],
+    ["sh -c 'sleep 1; echo ok'", "sh -c 'echo ok'", [_sleepLine('sleep 1')]],
+    ['sleep 1 2>/dev/null && echo ok', 'echo ok', [_sleepLine('sleep 1 2>/dev/null')]],
+    ['sleep 3 & echo ok', 'echo ok', [_sleepLine('sleep 3')]],
+    ['sleep 60 && ast-grep test', 'ast-grep test --include-off', [_sleepLine('sleep 60'), _INCLUDE_OFF_LINE]],
 ];
 
 // Commands with a wc -l leaf, read with the loc key seen so the wc row adds no line
@@ -211,40 +310,75 @@ const _CONTEXT: readonly (readonly [string, string, string])[] = [
 ];
 
 const _TIMEOUT_DENIED: readonly (readonly [string, readonly string[]])[] = [
-    ['timeout 5s echo ok', ['The timeout duration 5s is not whole seconds', 'run echo ok with the Bash timeout parameter']],
-    ['timeout 0.5 echo ok', ['The timeout duration 0.5 is not whole seconds']],
-    ['timeout -s KILL 10 echo ok', ['The timeout options -s KILL have no Bash form', 'run echo ok with the Bash timeout parameter']],
-    ['timeout -k 5 10 echo ok', ['The timeout options -k 5 have no Bash form']],
-    ['timeout --signal=KILL --foreground 10 echo ok', ['The timeout options --signal=KILL --foreground have no Bash form']],
     [
-        "timeout 30 sh -c 'echo ok'",
-        ['The timeout prefix wraps a shell or nothing', 'run what it wraps with the Bash timeout parameter in milliseconds (max 600000)'],
+        'timeout abc echo ok',
+        ['The timeout duration abc is no number with an optional s, m, h, or d suffix', 'run echo ok with the Bash timeout parameter'],
     ],
-    [
-        "sh -c 'timeout 30 echo ok'",
-        ['timeout inside a compound command has no exact Bash form', "run sh -c 'echo ok' with the Bash timeout parameter"],
-    ],
-    ['echo $(timeout 5 echo ok)', ['timeout inside a compound command', 'run echo $(echo ok) with the Bash timeout parameter']],
-    ['echo ok | timeout 5 cat', ['timeout inside a compound command', 'run echo ok | cat with the Bash timeout parameter']],
-    ['timeout 30 echo ok && ls', ['timeout inside a compound command', 'run echo ok && ls with the Bash timeout parameter']],
-    [
-        'timeout 700 sleep 1',
-        ['timeout 700 exceeds the Bash timeout maximum of 600000 ms', 'run sleep 1 with timeout: 600000 or run_in_background: true'],
-    ],
-    ['timeout', ['The timeout prefix wraps a shell or nothing']],
-    ['timeout 30', ['The timeout prefix wraps a shell or nothing']],
+    ['timeout 5x echo ok', ['The timeout duration 5x is no number']],
+    ['timeout', ['timeout names no duration', 'run the command with the Bash timeout parameter']],
+    ['timeout 30', ['timeout names no command']],
+    ['ls && timeout 30', ['timeout names no command']],
     ['timeout -s KILL', ['timeout names no duration', 'run the command with the Bash timeout parameter']],
     ['timeout 5s', ['timeout names no command']],
+    ['ls && timeout 5s', ['timeout names no command']],
 ];
 
-const _TIMEOUT_PASSED: readonly string[] = ['echo "the word timeout in prose"', 'git config --get http.timeout', 'sleep 1'];
+const _TIMEOUT_PASSED: readonly string[] = [
+    'echo "the word timeout in prose"',
+    'git config --get http.timeout',
+    'sleep 1',
+    'echo "timeout 5 x" && ls',
+    "echo 'run `timeout 30 x` later'",
+];
 
 // Durations in milliseconds, the Bash timeout parameter's unit and its maximum
+const _HALF_SECOND = 500;
 const _FIVE_SECONDS = 5000;
 const _TEN_SECONDS = 10_000;
 const _THIRTY_SECONDS = 30_000;
 const _TWO_MINUTES = 120_000;
+const _FIVE_MINUTES = 300_000;
 const _TEN_MINUTES = 600_000;
+
+const _bashTimeoutLine = (command: string, bound: number): string => `Ran ${command} under the Bash timeout parameter at ${bound} ms`;
+
+const _cappedLine = (duration: string): string =>
+    `timeout ${duration} exceeds the Bash timeout maximum of 600000 ms and ran capped, run_in_background: true runs past it`;
+
+// The command, its rewrite, the parameter, and the context lines, the prefixes leave by span with the redirects and quoting byte for byte
+const _TIMEOUT_REWRITTEN: readonly (readonly [string, string, number, readonly string[]])[] = [
+    ['timeout 5s echo ok', 'echo ok', _FIVE_SECONDS, [_bashTimeoutLine('echo ok', _FIVE_SECONDS)]],
+    ['timeout 0.5 echo ok', 'echo ok', _HALF_SECOND, [_bashTimeoutLine('echo ok', _HALF_SECOND)]],
+    ['timeout 2m echo ok', 'echo ok', _TWO_MINUTES, [_bashTimeoutLine('echo ok', _TWO_MINUTES)]],
+    ['timeout 1h echo ok', 'echo ok', _TEN_MINUTES, [_bashTimeoutLine('echo ok', _TEN_MINUTES), _cappedLine('1h')]],
+    ['timeout 700 sleep 1', 'sleep 1', _TEN_MINUTES, [_bashTimeoutLine('sleep 1', _TEN_MINUTES), _cappedLine('700')]],
+    ['timeout -s KILL 10 echo ok', 'echo ok', _TEN_SECONDS, [_bashTimeoutLine('echo ok', _TEN_SECONDS)]],
+    ['timeout -k 5 10 echo ok', 'echo ok', _TEN_SECONDS, [_bashTimeoutLine('echo ok', _TEN_SECONDS)]],
+    ['timeout --signal=KILL --foreground 10 echo ok', 'echo ok', _TEN_SECONDS, [_bashTimeoutLine('echo ok', _TEN_SECONDS)]],
+    ["sh -c 'timeout 30 echo ok'", "sh -c 'echo ok'", _THIRTY_SECONDS, [_bashTimeoutLine("sh -c 'echo ok'", _THIRTY_SECONDS)]],
+    ["timeout 30 sh -c 'git status'", "sh -c 'git status'", _THIRTY_SECONDS, [_bashTimeoutLine("sh -c 'git status'", _THIRTY_SECONDS)]],
+    [
+        "ls && timeout 30 sh -c 'git status'",
+        "ls && sh -c 'git status'",
+        _THIRTY_SECONDS,
+        [_bashTimeoutLine("ls && sh -c 'git status'", _THIRTY_SECONDS)],
+    ],
+    ['echo $(timeout 5 echo ok)', 'echo $(echo ok)', _FIVE_SECONDS, [_bashTimeoutLine('echo $(echo ok)', _FIVE_SECONDS)]],
+    ['echo ok | timeout 5 cat', 'echo ok | cat', _FIVE_SECONDS, [_bashTimeoutLine('echo ok | cat', _FIVE_SECONDS)]],
+    ['timeout 30 echo ok && ls', 'echo ok && ls', _THIRTY_SECONDS, [_bashTimeoutLine('echo ok && ls', _THIRTY_SECONDS)]],
+    [
+        'timeout 300 uv sync --locked --all-groups 2>&1 | tail -40',
+        'uv sync --locked --all-groups 2>&1 | tail -40',
+        _FIVE_MINUTES,
+        [_bashTimeoutLine('uv sync --locked --all-groups 2>&1 | tail -40', _FIVE_MINUTES)],
+    ],
+    [
+        'ls && timeout 300 uv sync --locked 2>&1 | tail -40; timeout 1m echo "a  b" >out.txt',
+        'ls && uv sync --locked 2>&1 | tail -40; echo "a  b" >out.txt',
+        _FIVE_MINUTES,
+        [_bashTimeoutLine('ls && uv sync --locked 2>&1 | tail -40; echo "a  b" >out.txt', _FIVE_MINUTES)],
+    ],
+];
 
 // --- [TESTS] ---------------------------------------------------------------------------
 
@@ -284,18 +418,30 @@ describe('shellRule', () => {
     it('keeps the first line of a once key shared by two rows', () => {
         expect(_fresh("grep -P Foo 'tools/**/*.ts'")).toMatchObject({ context: ['Load the ast-grep skill, rg is for literals and comments'] });
     });
+});
 
-    it.each(['ts', 'py', 'sh', 'yml', 'csproj', 'cs', 'json'])(
-        'rewrites a direct gate %s run to the rasm:rules configuration of its language',
-        (ext) => {
-            expect(_fresh(`${_GATE} gate ${ext}`)).toStrictEqual({
-                kind: 'rewrite',
-                command: `pnpm exec nx run rasm:rules:${ext}`,
-                timeout: undefined,
-                context: [`Ran the gate through nx run rasm:rules:${ext}, a rerun with no change under tools/ast-grep/ replays the cached result`],
-            });
-        },
-    );
+// The adapter's order over a Bash call, the timeout pass before and after the shell rewrite
+const _ordered = (command: string): Plain =>
+    _plain(fold<Call, unknown, string>([commandTimeout, shellRule(new Set()), commandTimeout])(_call(command)));
+
+describe('fold order', () => {
+    it('moves a timeout prefix the mise rewrite exposes to the Bash parameter', () => {
+        expect(_ordered('mise x -- timeout 30 node -v')).toStrictEqual({
+            kind: 'rewrite',
+            command: 'node -v',
+            timeout: _THIRTY_SECONDS,
+            context: [_miseLine('timeout 30 node -v', 'mise x --'), 'Ran node -v under the Bash timeout parameter at 30000 ms'],
+        });
+    });
+
+    it('rewrites the mise leaf a timeout prefix wrapped', () => {
+        expect(_ordered('timeout 30 mise x -- node -v')).toStrictEqual({
+            kind: 'rewrite',
+            command: 'node -v',
+            timeout: _THIRTY_SECONDS,
+            context: ['Ran mise x -- node -v under the Bash timeout parameter at 30000 ms', _miseLine('node -v', 'mise x --')],
+        });
+    });
 });
 
 describe('skipNxCache', () => {
@@ -387,6 +533,31 @@ describe('commandTimeout', () => {
 
     it.each(_TIMEOUT_PASSED)('passes %j', (command) => {
         expect(_timed(command)).toStrictEqual(_pass(command));
+    });
+
+    it.each(_TIMEOUT_REWRITTEN)(
+        'rewrites %j to %j under the parameter at %d ms and passes the rewrite unchanged',
+        (command, rewritten, bound, context) => {
+            expect(_timed(command)).toStrictEqual({ kind: 'rewrite', command: rewritten, timeout: bound, context });
+            expect(_timed(rewritten, bound)).toStrictEqual({ kind: 'rewrite', command: rewritten, timeout: bound, context: [] });
+        },
+    );
+
+    it('moves the prefix of a shell body to the parameter and leaves the body to the git rows', () => {
+        expect(_plain(fold([commandTimeout, gitGuard(new Set())])(_call("timeout 30 sh -c 'git reset --hard'")))).toStrictEqual({
+            kind: 'deny',
+            reason: expect.toSatisfy(_holdsAll(['git-guard: git reset --hard wipes working-tree or index state'])),
+        });
+        expect(_timed("timeout 30 sh -c 'git status'", _TWO_MINUTES)).toMatchObject({ command: "sh -c 'git status'", timeout: _THIRTY_SECONDS });
+    });
+
+    it('keeps a larger parameter over the leaves of a compound command and raises a smaller one to the largest duration', () => {
+        expect(_timed('timeout 30 echo ok && ls', _TWO_MINUTES)).toMatchObject({ kind: 'rewrite', command: 'echo ok && ls', timeout: _TWO_MINUTES });
+        expect(_timed('timeout 30 echo ok && ls', _TEN_SECONDS)).toMatchObject({
+            kind: 'rewrite',
+            command: 'echo ok && ls',
+            timeout: _THIRTY_SECONDS,
+        });
     });
 
     it.each(['timeout', 'gtimeout'])('moves %s duration to the Bash parameter', (command) => {

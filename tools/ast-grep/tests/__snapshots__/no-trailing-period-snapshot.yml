@@ -1,0 +1,159 @@
+id: no-trailing-period
+snapshots:
+  ? |
+    "note": Write the item.
+  : fixed: |
+      "note": Write the item
+    labels:
+    - source: Write the item.
+      style: primary
+      start: 8
+      end: 23
+  ? |
+    # The shape the rule reads.
+    id: <id>
+  : fixed: |
+      # The shape the rule reads
+      id: <id>
+    labels:
+    - source: '# The shape the rule reads.'
+      style: primary
+      start: 0
+      end: 27
+  ? |
+    id: <id>
+    valid:
+        # The corrected form
+        - item
+        # A near miss.
+        - other
+  : fixed: |
+      id: <id>
+      valid:
+          # The corrected form
+          - item
+          # A near miss
+          - other
+    labels:
+    - source: '# A near miss.'
+      style: primary
+      start: 56
+      end: 70
+  ? |
+    labels: {ITEM: {style: primary, message: 'The item.'}}
+  : fixed: |
+      labels: {ITEM: {style: primary, message: 'The item'}}
+    labels:
+    - source: '''The item.'''
+      style: primary
+      start: 41
+      end: 52
+  ? |
+    message: "The item holds a period."
+  : fixed: |
+      message: "The item holds a period"
+    labels:
+    - source: '"The item holds a period."'
+      style: primary
+      start: 9
+      end: 35
+  ? |
+    message: The item holds a period.
+  : fixed: |
+      message: The item holds a period
+    labels:
+    - source: The item holds a period.
+      style: primary
+      start: 9
+      end: 33
+  ? |
+    message: The item loads...
+  : fixed: |
+      message: The item loads
+    labels:
+    - source: The item loads...
+      style: primary
+      start: 9
+      end: 26
+  ? |
+    message: The item. # The one item
+  : fixed: |
+      message: The item # The one item
+    labels:
+    - source: The item.
+      style: primary
+      start: 9
+      end: 18
+  ? |
+    note: 'Write `Item`.'
+  : fixed: |
+      note: 'Write `Item`'
+    labels:
+    - source: '''Write `Item`.'''
+      style: primary
+      start: 6
+      end: 21
+  ? |
+    note: >
+      Write the item.
+  : fixed: |
+      note: >
+        Write the item
+    labels:
+    - source: |
+        >
+          Write the item.
+      style: primary
+      start: 6
+      end: 26
+  ? |
+    note: >-
+      Write the item
+      on one line.
+  : fixed: |
+      note: >-
+        Write the item
+        on one line
+    labels:
+    - source: |
+        >-
+          Write the item
+          on one line.
+      style: primary
+      start: 6
+      end: 41
+  ? |
+    note: |
+      Write the item.
+  : fixed: |
+      note: |
+        Write the item
+    labels:
+    - source: |
+        |
+          Write the item.
+      style: primary
+      start: 6
+      end: 26
+  ? |
+    note: |-
+      Write the item.
+  : fixed: |
+      note: |-
+        Write the item
+    labels:
+    - source: |
+        |-
+          Write the item.
+      style: primary
+      start: 6
+      end: 27
+  ? |
+    rule: {kind: item} # The one kind.
+  : fixed: |
+      rule: {kind: item} # The one kind
+    labels:
+    - source: '# The one kind.'
+      style: primary
+      start: 19
+      end: 34

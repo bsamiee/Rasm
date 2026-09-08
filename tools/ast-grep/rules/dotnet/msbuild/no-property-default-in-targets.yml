@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, no form in the .targets file evaluates before the SDK reads it, the probe build failed with NETSDK1013 for net10.0
 id: no-property-default-in-targets
 language: xml
 severity: error

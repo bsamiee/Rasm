@@ -52,12 +52,42 @@ snapshots:
       style: primary
       start: 67
       end: 76
+  on("tool.call", ($, e, next) => { e ??= {...e}; e.count++; return next(e); });:
+    labels:
+    - source: e.count++
+      style: primary
+      start: 48
+      end: 57
+  on("tool.call", ($, e, next) => { e ||= {...e}; e.count++; return next(e); });:
+    labels:
+    - source: e.count++
+      style: primary
+      start: 48
+      end: 57
+  on("tool.call", ($, e, next) => { e.count++; e = {...e}; return next(e); });:
+    labels:
+    - source: e.count++
+      style: primary
+      start: 34
+      end: 43
   'on("tool.call", ($, e, next) => { for (const { other: row = e } of rows) { e.count++; } return next(e); });':
     labels:
     - source: e.count++
       style: primary
       start: 75
       end: 84
+  on("tool.call", ($, e, next) => { for (e.row of rows) { work(); } return next(e); });:
+    labels:
+    - source: for (e.row of rows) { work(); }
+      style: primary
+      start: 34
+      end: 65
+  on("tool.call", ($, e, next) => { if (ready) { e = {...e}; } e.count++; return next(e); });:
+    labels:
+    - source: e.count++
+      style: primary
+      start: 61
+      end: 70
   ? |
     on('*', function ($, e, next) {
         e.text = '';

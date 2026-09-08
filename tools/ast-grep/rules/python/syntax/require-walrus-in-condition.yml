@@ -1,9 +1,8 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: require-walrus-in-condition
 language: python
 severity: error
 utils:
-    # Every ancestor preserves the first evaluation position and the containing scope
     first-operand:
         kind: ":is(identifier, parenthesized_expression, not_operator, comparison_operator, boolean_operator, attribute, subscript, binary_operator, call, unary_operator, await)"
         any:
@@ -29,7 +28,7 @@ rule:
                 kind: assignment
                 all:
                     - has: {field: left, kind: identifier, pattern: $N}
-                    - has: {field: right, pattern: $V, not: {any: [{kind: assignment}, {kind: expression_list}, {kind: yield}]}}
+                    - has: {field: right, pattern: $V, not: {kind: 'assignment, expression_list, yield'}}
                     - not: {has: {field: type, kind: type}}
         - has:
             field: condition

@@ -1,78 +1,79 @@
 id: require-private-false-on-host-reference
 valid:
-    # The host assembly form of Directory.Build.targets
     - |
       <Reference Include="@(_RhinoHostAssembly)" HintPath="$(RhinoAssemblyDirectory)%(Identity).dll" Private="false" />
-    # The child-element form
     - |
       <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>false</Private></Reference>
-    # The path as an attribute and the copy flag as a child
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private>false</Private></Reference>
-    # Framework reference without a path, nothing copies
     - |
       <Reference Include="System.Windows.Forms" />
-    # Item listing the host assemblies before a Reference adds them
     - |
       <ItemGroup><_HostAssembly Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" /></ItemGroup>
-    # Single-quoted copy flag
     - |
       <Reference Include='Eto' HintPath='$(EtoReferencePath)' Private='false' />
-    # A package assembly is not proven host-supplied by HintPath
     - |
       <Reference Include="Newtonsoft.Json" HintPath="../packages/Newtonsoft.Json.13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
-    # Final unconditional metadata overrides an earlier value
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private>build</Private><Private>false</Private></Reference>
-    # Unrelated metadata does not override the compliant attribute
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="false"><Other>other</Other></Reference>
-    # A redundant conditional value does not weaken the compliant attribute
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="false"><Private Condition="false">false</Private></Reference>
-    # Other metadata after the final value does not override it
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private>false</Private><Other>other</Other></Reference>
-    # An unrelated attribute does not identify the assembly
     - |
       <Reference Other="Eto" HintPath="$(EtoReferencePath)" />
-    # Host identity alone does not prove a host path
     - |
       <Reference Include="Eto" />
+    - |
+      <Reference Include="RhinoCommon, Version=8.0.0.0, Culture=neutral" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" Private="false" />
+    - |
+      <Reference Include="RhinoCommon"><HintPath>$(RhinoAssemblyDirectory)RhinoCommon.dll</HintPath><Private>False</Private></Reference>
+    - |
+      <Reference Include="RhinoCommon"><HintPath></HintPath></Reference>
+    - |
+      <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" Private="false" />
+    - |
+      <Reference Include="EtoForms" HintPath="$(LibraryPath)EtoForms.dll" />
+    - |
+      <Reference Include="Grasshopper2X" HintPath="$(LibraryPath)Grasshopper2X.dll" />
 invalid:
-    # Single-quoted hint path, the fix keeps its quotes and writes the attribute in double quotes
     - |
       <Reference Include='RhinoCommon' HintPath='$(RhinoAssemblyDirectory)RhinoCommon.dll' />
-    # Host assembly copied into the output, the host then loads the copy
     - |
       <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
-    # The child-element form with Private true
     - |
       <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>true</Private></Reference>
-    # The copy flag read from a property, the form the host references held before the literal
     - |
       <Reference Include="RhinoCommon"><HintPath>$(RhinoCommonReferencePath)</HintPath><Private>$(HostReferencePrivate)</Private></Reference>
-    # False on the version binding, the copy flag stays at its default
     - |
       <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" SpecificVersion="false" />
-    # Start tag with the path child and no copy flag, the fix adds the attribute and keeps the child
     - |
       <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath></Reference>
-    # Conditioned copy flag child set to true, the fix replaces it with the attribute
     - |
       <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private Condition="'$(CopyHost)' == 'true'">true</Private></Reference>
-    # spacing and quoted metadata lookalike
     - |
       <Reference Include = "Eto" HintPath = "$(EtoReferencePath)" Note=' Private="kept" >' Private = "true" />
-    # conditional false does not prevent default copying
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private Condition="'$(Pin)' == 'true'">false</Private></Reference>
-    # A later conflicting value overrides an earlier compliant value
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Private>false</Private><Private>other</Private></Reference>
-    # Unrelated metadata cannot supply the required value
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Other>false</Other></Reference>
-    # A conflicting child overrides the compliant attribute
     - |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="false"><Private>other</Private></Reference>
+    - |
+      <Reference Include="RhinoCommon, Version=8.0.0.0, Culture=neutral" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+    - |
+      <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="true" />
+    - |
+      <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>false</Private><Private Condition="'$(Copy)' == 'true'">true</Private></Reference>
+    - |
+      <Reference Include="Rhino.UI" HintPath="$(RhinoAssemblyDirectory)Rhino.UI.dll" />
+    - |
+      <Reference Include="Eto.macOS"><HintPath>$(RhinoAssemblyDirectory)Eto.macOS.dll</HintPath></Reference>
+    - |
+      <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" />
+    - |
+      <Reference Include="Grasshopper;GH_IO" HintPath="$(GrasshopperPluginPath)%(Identity).dll" />

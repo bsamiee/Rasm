@@ -1,40 +1,32 @@
 id: no-event-mutation
 valid:
     - 'on("tool.call", ($, event, next) => { const seen = []; seen.push(event); return next(event); });'
-    # The correction, a copy passed to the chain
     - "on('tool.call', ($, e, next) => next({ ...e, command: restore(e.command) }));"
-    # Local copy mutated, the event stays as read
     - |
       on('prompt.submit', ($, e, next) => {
           const copy = { ...e, text: redact(e.text) };
           copy.text = trim(copy.text);
           return next(copy);
       });
-    # Assignment into a local under another name
     - |
       on('tool.call', ($, e, next) => {
           const row = { command: e.command };
           row.command = restore(row.command);
           return next({ ...e, ...row });
       });
-    # Read of a member
     - "on('tool.call', ($, e, next) => next({ ...e, context: [e.tool] }));"
-    # Object.assign onto an empty object, the event is a source
     - "on('tool.call', ($, e, next) => next(Object.assign({}, e, { command: 'ls' })));"
-    # Delete on a local
     - |
       on('tool.call', ($, e, next) => {
           const copy = { ...e };
           delete copy.tool_use_id;
           return next(copy);
       });
-    # Mutation of a parameter named e outside a hook, no on(...) call owns it
     - |
       const touch = (e) => {
           e.command = 'ls';
           return e;
       };
-    # Nested arrow re-binding the event's name, the mutation reads the nested parameter
     - |
       on('tool.call', ($, e, next) => {
           const rows = list.map((e) => {
@@ -43,7 +35,6 @@ valid:
           });
           return next({ ...e, context: rows });
       });
-    # Nested function expression re-binding the name
     - |
       on('tool.call', ($, e, next) => {
           const rows = list.map(function (e) {
@@ -52,7 +43,6 @@ valid:
           });
           return next({ ...e, context: rows });
       });
-    # Nested function declaration re-binding the name
     - |
       on('tool.call', ($, e, next) => {
           function bump(e) {
@@ -61,7 +51,6 @@ valid:
           }
           return next({ ...e, context: [bump(row)] });
       });
-    # Nested method re-binding the name
     - |
       on('tool.call', ($, e, next) => {
           const actions = {
@@ -71,7 +60,6 @@ valid:
           };
           return next({ ...e, context: [actions] });
       });
-    # Nested generator function re-binding the name
     - |
       on('tool.call', ($, e, next) => {
           const rows = list.map(function* (e) {
@@ -80,27 +68,20 @@ valid:
           });
           return next({ ...e, context: rows });
       });
-    # Object.assign with the event as a later source, a read
     - "on('tool.call', ($, e, next) => next(Object.assign({}, e)));"
-    # Object.freeze on the event, no write
     - |
       on('tool.call', ($, e, next) => {
           Object.freeze(e);
           return next(e);
       });
-    # Hook-shaped function under a call other than on, no registration owns it
     - |
       register('tool.call', ($, e, next) => {
           e.command = 'ls';
           return next(e);
       });
-    # Non-mutating array method on a member
     - "on('tool.call', ($, e, next) => next({ ...e, context: e.context.concat(['line']) }));"
-    # Unary operator other than delete on a member
     - "on('tool.call', ($, e, next) => next({ ...e, context: [String(!e.tool)] }));"
-    # Call on a member with a method the array mutation list omits
     - "on('tool.call', ($, e, next) => next({ ...e, context: e.context.map(trim) }));"
-    # Catch parameter re-binding the event's name, the mutation reads the error
     - |
       on('tool.call', async ($, e, next) => {
           try {
@@ -110,19 +91,16 @@ valid:
               throw e;
           }
       });
-    # Member of the event as a default value in a destructuring target, a read
     - |
       on('tool.call', ($, e, next) => {
           [command = e.command] = parts;
           return next({ ...e, command });
       });
-    # Member of the event nested in a default value, the guard walks to the pattern's assignment
     - |
       on('tool.call', ($, e, next) => {
           [command = trim(e.command)] = parts;
           return next({ ...e, command });
       });
-    # Loop variable re-binding the event's name, the mutation reads the element
     - |
       on('tool.call', ($, e, next) => {
           for (const e of rows) {
@@ -130,7 +108,6 @@ valid:
           }
           return next(e);
       });
-    # Counted loop declaring the event's name
     - |
       on('tool.call', ($, e, next) => {
           for (let e = first; e !== null; e = e.next) {
@@ -138,7 +115,6 @@ valid:
           }
           return next(e);
       });
-    # Nested block declaring the event's name, the mutation reads the local
     - |
       on('tool.call', ($, e, next) => {
           if (ready) {
@@ -147,10 +123,8 @@ valid:
           }
           return next(e);
       });
-    # Object.assign onto a spread copy of the event
     - |
       on('tool.call', ($, e, next) => next(Object.assign({ ...e }, patch)));
-    # Nested arrow with a destructured parameter re-binding the event's name
     - |
       on('tool.call', ($, e, next) => {
           rows.map(({ e }) => {
@@ -159,16 +133,13 @@ valid:
           });
           return next(e);
       });
-    # Reassignment of the parameter binds a new value, the event stays
     - |
       on('tool.call', ($, e, next) => {
           e = { ...e, command: 'ls' };
           return next(e);
       });
-    # Reflect.get reads the event
     - |
       on('tool.call', ($, e, next) => next({ ...e, context: [Reflect.get(e, 'tool')] }));
-    # Nested arrow with a defaulted parameter re-binding the event's name
     - |
       on('tool.call', ($, e, next) => {
           const bump = (e = row) => {
@@ -176,7 +147,6 @@ valid:
           };
           return next(e);
       });
-    # Destructured loop variable re-binding the event's name
     - |
       on('tool.call', ($, e, next) => {
           for (const [e] of pairs) {
@@ -184,7 +154,6 @@ valid:
           }
           return next(e);
       });
-    # Function-scoped var reassigns the parameter to a copy
     - |
       on('tool.call', ($, e, next) => {
           if (ready) {
@@ -193,13 +162,11 @@ valid:
           }
           return next(e);
       });
-    # Object.defineProperty on another object with the event as the descriptor value
     - |
       on('tool.call', ($, e, next) => {
           Object.defineProperty(row, 'event', { value: e });
           return next(e);
       });
-    # Loop variable destructured as a shorthand under the event's name
     - |
       on('tool.call', ($, e, next) => {
           for (const { e } of rows) {
@@ -207,7 +174,6 @@ valid:
           }
           return next(e);
       });
-    # Loop variable destructured under a renamed key, the walk reaches inside the pattern
     - |
       on('tool.call', ($, e, next) => {
           for (const { row: e } of rows) {
@@ -219,105 +185,92 @@ valid:
     - 'on("tool.call", ($, e, next) => { { const { e } = row; e.count++; } return next(e); });'
     - 'function first() { const hook = ($,e,next)=>{e.count++; return next(e)}; return hook; } function second(on: On) { const hook = ($,e,next)=>next(e); on("tool.call",hook); }'
     - 'on("tool.call", ($, e, next) => { e = {...e}; e.count++; return next(e); });'
-    - 'on("tool.call", ($, e, next) => { e ||= {...e}; e.count++; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e &&= {...e}; e.count++; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e = {...e}; if (ready) { e.count++; } return next(e); });'
     - 'const hook = ($, e, next) => next(e); { const hook = ($, e, next) => { e.count++; return next(e); }; } on("tool.call", hook);'
     - 'on("tool.call", ($, e, next) => { function* bump(e) { e.count++; yield e; } return next(e); });'
     - 'on("tool.call", ($, e, next) => { const apply = (...e) => { e.count++; }; return next(e); });'
     - 'on("tool.call", ($, e, next) => { const apply = ({row: e = value}) => { e.count++; }; return next(e); });'
     - 'on("tool.call", ($, e, next) => { const apply = ({e = value}) => { e.count++; }; return next(e); });'
     - 'on("tool.call", ($, e, next) => { for (let e = row; ready;) { e.count++; } return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e = {...e}; for (e.row of rows) { work(); } return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e = {...e}; log(e); e.count++; return next(e); });'
 invalid:
-    # an assignment into a member of the event
     - |
       on('tool.call', ($, e, next) => {
           e.command = restore(e.command);
           return next(e);
       });
-    # Compound assignment into a nested member
     - |
       on('prompt.submit', ($, e, next) => {
           e.origin.text += ' redacted';
           return next(e);
       });
-    # Index assignment
     - |
       on('tool.call', ($, e, next) => {
           e['command'] = 'ls';
           return next(e);
       });
-    # Increment of a member
     - |
       on('turn.complete', ($, e, next) => {
           e.count++;
           return next(e);
       });
-    # Decrement of a nested member
     - |
       on('turn.complete', ($, e, next) => {
           --e.usage.turns;
           return next(e);
       });
-    # Delete of a nested member
     - |
       on('tool.call', ($, e, next) => {
           delete e.input.command;
           return next(e);
       });
-    # Object.assign onto the event
     - |
       on('tool.call', ($, e, next) => {
           Object.assign(e, { command: 'ls' });
           return next(e);
       });
-    # Object.assign onto a member of the event
     - |
       on('tool.call', ($, e, next) => {
           Object.assign(e.input, { command: 'ls' });
           return next(e);
       });
-    # Property defined on the event
     - |
       on('tool.call', ($, e, next) => {
           Object.defineProperty(e, 'command', { value: 'ls' });
           return next(e);
       });
-    # Properties defined on a member of the event
     - |
       on('tool.call', ($, e, next) => {
           Object.defineProperties(e.input, { command: { value: 'ls' } });
           return next(e);
       });
-    # Prototype replaced on the event
     - |
       on('tool.call', ($, e, next) => {
           Object.setPrototypeOf(e, base);
           return next(e);
       });
-    # Reflect.set onto the event
     - |
       on('tool.call', ($, e, next) => {
           Reflect.set(e, 'command', 'ls');
           return next(e);
       });
-    # Reflect.deleteProperty on a member of the event
     - |
       on('tool.call', ($, e, next) => {
           Reflect.deleteProperty(e.input, 'command');
           return next(e);
       });
-    # Reflect.defineProperty on the event
     - |
       on('tool.call', ($, e, next) => {
           Reflect.defineProperty(e, 'command', { value: 'ls' });
           return next(e);
       });
-    # Reflect.setPrototypeOf on the event
     - |
       on('tool.call', ($, e, next) => {
           Reflect.setPrototypeOf(e, base);
           return next(e);
       });
-    # Mutation after a nested block that declares the event's name, the block is no ancestor
     - |
       on('tool.call', ($, e, next) => {
           if (ready) {
@@ -327,7 +280,6 @@ invalid:
           e.count += 1;
           return next(e);
       });
-    # Mutation inside a nested method that binds a parameter under another name
     - |
       on('tool.call', ($, e, next) => {
           const actions = {
@@ -337,31 +289,26 @@ invalid:
           };
           return next(e);
       });
-    # Mutating array method on a member
     - |
       on('tool.call', ($, e, next) => {
           e.context.push('line');
           return next(e);
       });
-    # Event parameter under another name
     - |
       on('tool.call', ($, input, next) => {
           input.command = 'ls';
           return next(input);
       });
-    # Matched registration, the hook is the third argument
     - |
       on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
           e.command = 'ls';
           return next(e);
       });
-    # Function expression hook
     - |
       on('*', function ($, e, next) {
           e.text = '';
           return next(e);
       });
-    # Mutation inside a nested arrow that binds no parameter of the event's name, the event is lexical
     - |
       on('tool.call', ($, e, next) => {
           const apply = (command) => {
@@ -370,7 +317,6 @@ invalid:
           apply('ls');
           return next(e);
       });
-    # Mutation inside a nested function with a parameter under another name
     - |
       on('tool.call', ($, e, next) => {
           list.forEach(function (row) {
@@ -378,37 +324,31 @@ invalid:
           });
           return next(e);
       });
-    # Destructuring assignment into a member of the event
     - |
       on('tool.call', ($, e, next) => {
           [e.command] = parts;
           return next(e);
       });
-    # Object pattern with a member of the event as a target
     - |
       on('tool.call', ($, e, next) => {
           ({ command: e.command } = row);
           return next(e);
       });
-    # Member of the event as a target nested two patterns down
     - |
       on('tool.call', ($, e, next) => {
           [[e.command]] = pairs;
           return next(e);
       });
-    # Index assignment into a nested member
     - |
       on('tool.call', ($, e, next) => {
           e.context[0] = 'line';
           return next(e);
       });
-    # Length assignment into a member
     - |
       on('tool.call', ($, e, next) => {
           e.context.length = 0;
           return next(e);
       });
-    # Nested arrow with a default value reading the event, the parameter is another name
     - |
       on('tool.call', ($, e, next) => {
           const apply = (command = e.command) => {
@@ -417,32 +357,27 @@ invalid:
           apply();
           return next(e);
       });
-    # Hook bound to a name before the registration
     - |
       const hook = ($, e, next) => {
           e.command = 'ls';
           return next(e);
       };
       on('tool.call', hook);
-    # Logical assignment into a member
     - |
       on('tool.call', ($, e, next) => {
           e.command ??= 'ls';
           return next(e);
       });
-    # Splice on a nested member
     - |
       on('tool.call', ($, e, next) => {
           e.input.args.splice(0, 1);
           return next(e);
       });
-    # Rest element target over a member of the event
     - |
       on('tool.call', ($, e, next) => {
           [...e.context] = parts;
           return next(e);
       });
-    # Loop assigning into a member of the event
     - |
       on('tool.call', ($, e, next) => {
           for (e.command of commands) {
@@ -450,14 +385,12 @@ invalid:
           }
           return next(e);
       });
-    # Hook bound to a name under a matched registration
     - |
       const hook = ($, e, next) => {
           e.command = 'ls';
           return next(e);
       };
       on('tool.call', { tool: 'Bash' }, hook);
-    # Hook registered through a parameter typed On
     - |
       const arm = (register: On): void => {
           register('tool.call', ($, e, next) => {
@@ -469,3 +402,8 @@ invalid:
     - 'on("tool.call", ($, e, next) => { const apply = ({ row = e }) => { e.count++; }; return next(e); });'
     - 'function hook($, e, next) { e.count++; return next(e); } on("tool.call", hook);'
     - 'function register(on: On) { const hook = ($, e, next) => { e.count++; return next(e); }; on("tool.call", hook); }'
+    - 'on("tool.call", ($, e, next) => { for (e.row of rows) { work(); } return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e.count++; e = {...e}; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e ??= {...e}; e.count++; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { e ||= {...e}; e.count++; return next(e); });'
+    - 'on("tool.call", ($, e, next) => { if (ready) { e = {...e}; } e.count++; return next(e); });'

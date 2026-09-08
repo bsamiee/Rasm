@@ -2,42 +2,94 @@ id: no-forwarding-shell-function
 snapshots:
   ? |
     forward() {
-        # The complete argument list.
+        # The complete argument list
         handle "$@"
     }
   : labels:
     - source: |-
         forward() {
-            # The complete argument list.
+            # The complete argument list
             handle "$@"
         }
       style: primary
       start: 0
-      end: 63
+      end: 62
     - source: forward
       style: secondary
       start: 0
       end: 7
     - source: handle
       style: secondary
-      start: 50
-      end: 56
+      start: 49
+      end: 55
     - source: '"$@"'
       style: secondary
-      start: 57
-      end: 61
+      start: 56
+      end: 60
     - source: handle "$@"
       style: secondary
-      start: 50
-      end: 61
+      start: 49
+      end: 60
     - source: |-
         {
-            # The complete argument list.
+            # The complete argument list
             handle "$@"
         }
       style: secondary
       start: 10
-      end: 63
+      end: 62
+  forward() { ./handle "$@"; }:
+    labels:
+    - source: forward() { ./handle "$@"; }
+      style: primary
+      start: 0
+      end: 28
+    - source: forward
+      style: secondary
+      start: 0
+      end: 7
+    - source: ./handle
+      style: secondary
+      start: 12
+      end: 20
+    - source: '"$@"'
+      style: secondary
+      start: 21
+      end: 25
+    - source: ./handle "$@"
+      style: secondary
+      start: 12
+      end: 25
+    - source: '{ ./handle "$@"; }'
+      style: secondary
+      start: 10
+      end: 28
+  forward() { /usr/bin/handle "$@"; }:
+    labels:
+    - source: forward() { /usr/bin/handle "$@"; }
+      style: primary
+      start: 0
+      end: 35
+    - source: forward
+      style: secondary
+      start: 0
+      end: 7
+    - source: /usr/bin/handle
+      style: secondary
+      start: 12
+      end: 27
+    - source: '"$@"'
+      style: secondary
+      start: 28
+      end: 32
+    - source: /usr/bin/handle "$@"
+      style: secondary
+      start: 12
+      end: 32
+    - source: '{ /usr/bin/handle "$@"; }'
+      style: secondary
+      start: 10
+      end: 35
   forward() { handle "$@"; }:
     labels:
     - source: forward() { handle "$@"; }
@@ -90,6 +142,32 @@ snapshots:
       style: secondary
       start: 10
       end: 28
+  forward() { handle.sh "$@"; }:
+    labels:
+    - source: forward() { handle.sh "$@"; }
+      style: primary
+      start: 0
+      end: 29
+    - source: forward
+      style: secondary
+      start: 0
+      end: 7
+    - source: handle.sh
+      style: secondary
+      start: 12
+      end: 21
+    - source: '"$@"'
+      style: secondary
+      start: 22
+      end: 26
+    - source: handle.sh "$@"
+      style: secondary
+      start: 12
+      end: 26
+    - source: '{ handle.sh "$@"; }'
+      style: secondary
+      start: 10
+      end: 29
   function forward { handle "$@"; }:
     labels:
     - source: function forward { handle "$@"; }
@@ -116,3 +194,133 @@ snapshots:
       style: secondary
       start: 17
       end: 33
+  function forward() { handle "$@"; }:
+    labels:
+    - source: function forward() { handle "$@"; }
+      style: primary
+      start: 0
+      end: 35
+    - source: forward
+      style: secondary
+      start: 9
+      end: 16
+    - source: handle
+      style: secondary
+      start: 21
+      end: 27
+    - source: '"$@"'
+      style: secondary
+      start: 28
+      end: 32
+    - source: handle "$@"
+      style: secondary
+      start: 21
+      end: 32
+    - source: '{ handle "$@"; }'
+      style: secondary
+      start: 19
+      end: 35
+  run() { builtin handle "$@"; }:
+    labels:
+    - source: run() { builtin handle "$@"; }
+      style: primary
+      start: 0
+      end: 30
+    - source: run
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle
+      style: secondary
+      start: 16
+      end: 22
+    - source: '"$@"'
+      style: secondary
+      start: 23
+      end: 27
+    - source: builtin handle "$@"
+      style: secondary
+      start: 8
+      end: 27
+    - source: '{ builtin handle "$@"; }'
+      style: secondary
+      start: 6
+      end: 30
+  run() { command -- ./handle.sh "$@"; }:
+    labels:
+    - source: run() { command -- ./handle.sh "$@"; }
+      style: primary
+      start: 0
+      end: 38
+    - source: run
+      style: secondary
+      start: 0
+      end: 3
+    - source: ./handle.sh
+      style: secondary
+      start: 19
+      end: 30
+    - source: '"$@"'
+      style: secondary
+      start: 31
+      end: 35
+    - source: command -- ./handle.sh "$@"
+      style: secondary
+      start: 8
+      end: 35
+    - source: '{ command -- ./handle.sh "$@"; }'
+      style: secondary
+      start: 6
+      end: 38
+  run() { command -p -- handle "$@"; }:
+    labels:
+    - source: run() { command -p -- handle "$@"; }
+      style: primary
+      start: 0
+      end: 36
+    - source: run
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle
+      style: secondary
+      start: 22
+      end: 28
+    - source: '"$@"'
+      style: secondary
+      start: 29
+      end: 33
+    - source: command -p -- handle "$@"
+      style: secondary
+      start: 8
+      end: 33
+    - source: '{ command -p -- handle "$@"; }'
+      style: secondary
+      start: 6
+      end: 36
+  run() { command handle "$@"; }:
+    labels:
+    - source: run() { command handle "$@"; }
+      style: primary
+      start: 0
+      end: 30
+    - source: run
+      style: secondary
+      start: 0
+      end: 3
+    - source: handle
+      style: secondary
+      start: 16
+      end: 22
+    - source: '"$@"'
+      style: secondary
+      start: 23
+      end: 27
+    - source: command handle "$@"
+      style: secondary
+      start: 8
+      end: 27
+    - source: '{ command handle "$@"; }'
+      style: secondary
+      start: 6
+      end: 30

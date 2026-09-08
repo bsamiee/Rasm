@@ -6,10 +6,6 @@ snapshots:
       style: primary
       start: 0
       end: 60
-    - source: builtin
-      style: secondary
-      start: 6
-      end: 13
     - source: mapfile
       style: secondary
       start: 14
@@ -24,10 +20,6 @@ snapshots:
       style: primary
       start: 0
       end: 66
-    - source: builtin
-      style: secondary
-      start: 6
-      end: 13
     - source: readarray
       style: secondary
       start: 14
@@ -36,6 +28,48 @@ snapshots:
       style: secondary
       start: 6
       end: 35
+  while command -p readarray -tn 64 rows; do process "${rows[@]}"; done:
+    labels:
+    - source: while command -p readarray -tn 64 rows; do process "${rows[@]}"; done
+      style: primary
+      start: 0
+      end: 69
+    - source: readarray
+      style: secondary
+      start: 17
+      end: 26
+    - source: command -p readarray -tn 64 rows
+      style: secondary
+      start: 6
+      end: 38
+  while command mapfile -t rows; do process "${rows[@]}"; done:
+    labels:
+    - source: while command mapfile -t rows; do process "${rows[@]}"; done
+      style: primary
+      start: 0
+      end: 60
+    - source: mapfile
+      style: secondary
+      start: 14
+      end: 21
+    - source: command mapfile -t rows
+      style: secondary
+      start: 6
+      end: 29
+  while mapfile -t -u 3 rows; do process "${rows[@]}"; done:
+    labels:
+    - source: while mapfile -t -u 3 rows; do process "${rows[@]}"; done
+      style: primary
+      start: 0
+      end: 57
+    - source: mapfile
+      style: secondary
+      start: 6
+      end: 13
+    - source: mapfile -t -u 3 rows
+      style: secondary
+      start: 6
+      end: 26
   while mapfile -t rows < input; do process "${rows[@]}"; done:
     labels:
     - source: while mapfile -t rows < input; do process "${rows[@]}"; done
@@ -56,18 +90,18 @@ snapshots:
       end: 29
   ? |
     while mapfile -t rows; do
-        # Process the next batch.
+        # Process the next batch
         process "${rows[@]}"
     done
   : labels:
     - source: |-
         while mapfile -t rows; do
-            # Process the next batch.
+            # Process the next batch
             process "${rows[@]}"
         done
       style: primary
       start: 0
-      end: 85
+      end: 84
     - source: mapfile
       style: secondary
       start: 6
@@ -166,6 +200,34 @@ snapshots:
       style: primary
       start: 0
       end: 52
+    - source: mapfile
+      style: secondary
+      start: 6
+      end: 13
+    - source: mapfile -t rows
+      style: secondary
+      start: 6
+      end: 21
+  while mapfile -t rows; do process "${rows[@]}"; done < input:
+    labels:
+    - source: while mapfile -t rows; do process "${rows[@]}"; done
+      style: primary
+      start: 0
+      end: 52
+    - source: mapfile
+      style: secondary
+      start: 6
+      end: 13
+    - source: mapfile -t rows
+      style: secondary
+      start: 6
+      end: 21
+  while mapfile -t rows; do while pending; do break; done; process "${rows[@]}"; done:
+    labels:
+    - source: while mapfile -t rows; do while pending; do break; done; process "${rows[@]}"; done
+      style: primary
+      start: 0
+      end: 83
     - source: mapfile
       style: secondary
       start: 6

@@ -10,6 +10,15 @@ snapshots:
       start: 17
       end: 63
   ? |
+    <Compile Include='$(MSBuildProjectDirectory)/../shared/item.cs' />
+  : fixed: |
+      <Compile Include="$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', 'shared', 'item.cs'))" />
+    labels:
+    - source: '''$(MSBuildProjectDirectory)/../shared/item.cs'''
+      style: primary
+      start: 17
+      end: 63
+  ? |
     <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
   : fixed: |
       <Import Project="$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', '..', 'build', 'common.props'))" />
@@ -64,6 +73,24 @@ snapshots:
       start: 25
       end: 76
   ? |
+    <PropertyGroup><ParentDir>$(MSBuildThisFileDirectory)../</ParentDir></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ParentDir>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</ParentDir></PropertyGroup>
+    labels:
+    - source: $(MSBuildThisFileDirectory)../
+      style: primary
+      start: 26
+      end: 56
+  ? |
+    <PropertyGroup><Root>$(MSBuildThisFileDirectoryNoRoot)../item</Root></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><Root>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectoryNoRoot)', '..', 'item'))</Root></PropertyGroup>
+    labels:
+    - source: $(MSBuildThisFileDirectoryNoRoot)../item
+      style: primary
+      start: 21
+      end: 61
+  ? |
     <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
   : fixed: |
       <PropertyGroup><Roots>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'a'));$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '..', 'b'))</Roots></PropertyGroup>
@@ -88,14 +115,14 @@ snapshots:
       start: 26
       end: 84
   ? |
-    <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/</StageRoot></PropertyGroup>
+    <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/item/stage/</StageRoot></PropertyGroup>
   : fixed: |
-      <PropertyGroup><StageRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', '.artifacts', 'native', 'lcms2', 'stage'))</StageRoot></PropertyGroup>
+      <PropertyGroup><StageRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', '..', '.artifacts', 'native', 'item', 'stage'))</StageRoot></PropertyGroup>
     labels:
-    - source: $(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/
+    - source: $(MSBuildThisFileDirectory)../../../.artifacts/native/item/stage/
       style: primary
       start: 26
-      end: 92
+      end: 91
   ? |
     <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
   : fixed: |
@@ -115,11 +142,11 @@ snapshots:
       start: 25
       end: 104
   ? |
-    <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../duckdbextensions/extensions.json</VcpkgManifest></PropertyGroup>
+    <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../manifests/extensions.json</VcpkgManifest></PropertyGroup>
   : fixed: |
-      <PropertyGroup><VcpkgManifest>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', 'duckdbextensions', 'extensions.json'))</VcpkgManifest></PropertyGroup>
+      <PropertyGroup><VcpkgManifest>$([MSBuild]::NormalizePath('$(MSBuildProjectDirectory)', '..', 'manifests', 'extensions.json'))</VcpkgManifest></PropertyGroup>
     labels:
-    - source: $(MSBuildProjectDirectory)/../duckdbextensions/extensions.json
+    - source: $(MSBuildProjectDirectory)/../manifests/extensions.json
       style: primary
       start: 30
-      end: 92
+      end: 85

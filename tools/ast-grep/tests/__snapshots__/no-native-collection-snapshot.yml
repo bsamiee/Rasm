@@ -120,6 +120,36 @@ snapshots:
       style: secondary
       start: 18
       end: 21
+  const index = new Map(new Map()) satisfies ReadonlyMap<string, Row>;:
+    labels:
+    - source: new Map()
+      style: primary
+      start: 22
+      end: 31
+    - source: Map
+      style: secondary
+      start: 26
+      end: 29
+  const index = new Map;:
+    labels:
+    - source: new Map
+      style: primary
+      start: 14
+      end: 21
+    - source: Map
+      style: secondary
+      start: 18
+      end: 21
+  const index = new Map<string, Row>() satisfies Iterable<[string, Row]>;:
+    labels:
+    - source: new Map<string, Row>()
+      style: primary
+      start: 14
+      end: 36
+    - source: Map
+      style: secondary
+      start: 18
+      end: 21
   const index = new Map<string, Row>();:
     labels:
     - source: new Map<string, Row>()
@@ -210,3 +240,13 @@ snapshots:
       style: secondary
       start: 59
       end: 62
+  'interface Map { size: number; } const index = new Map();':
+    labels:
+    - source: new Map()
+      style: primary
+      start: 46
+      end: 55
+    - source: Map
+      style: secondary
+      start: 50
+      end: 53

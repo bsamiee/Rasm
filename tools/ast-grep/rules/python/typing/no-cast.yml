@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-cast
 language: python
 severity: error
-# Report-only, the probed fix `cast(int, value)` to `value` fails, `Return type does not match returned value: expected int, found object`
 rule:
     matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^cast$', pattern: $NAME}}}
 message: '`$NAME` asserts a type the checker has no evidence for'

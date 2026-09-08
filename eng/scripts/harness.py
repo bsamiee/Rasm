@@ -194,7 +194,6 @@ async def _session(root: Path, types: Path, required: frozenset[str]) -> Result[
     )
     # MCP_CONNECTION_NONBLOCKING=0 holds startup on the whole server batch before the init event (Agent SDK mcp#connection-timing),
     # and MCP_CONNECT_TIMEOUT_MS bounds that hold at the startup timeout MCP_TIMEOUT documents (30 s), the batch measured at 8.5 s
-    # ast-grep-ignore: no-os-environ, the read copies the shell environment for the child with the blocking connect over it
     env = {**os.environ, "MCP_CONNECTION_NONBLOCKING": "0", "MCP_CONNECT_TIMEOUT_MS": "30000"}
     try:
         process = await anyio.open_process(argv, cwd=root, env=env, stderr=None)

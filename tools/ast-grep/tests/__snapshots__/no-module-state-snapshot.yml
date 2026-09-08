@@ -18,6 +18,34 @@ snapshots:
       style: secondary
       start: 7
       end: 10
+  'let cache: Item | undefined;':
+    labels:
+    - source: 'let cache: Item | undefined;'
+      style: primary
+      start: 0
+      end: 28
+    - source: 'let cache: Item | undefined;'
+      style: secondary
+      start: 0
+      end: 28
+    - source: let
+      style: secondary
+      start: 0
+      end: 3
+  let first = 0, second = 1;:
+    labels:
+    - source: let first = 0, second = 1;
+      style: primary
+      start: 0
+      end: 26
+    - source: let first = 0, second = 1;
+      style: secondary
+      start: 0
+      end: 26
+    - source: let
+      style: secondary
+      start: 0
+      end: 3
   let nextSpanId = 0;:
     labels:
     - source: let nextSpanId = 0;

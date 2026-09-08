@@ -1,18 +1,15 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# Report only, a read loop in place of the for splits on lines alone, the probe prints [a b] where the original prints [a] and [b]
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-loop-over-command-substitution
 language: bash
 severity: error
 ignores: ["**/*.json"]
 rule:
     kind: for_statement
-    has: # The words the loop iterates, an unquoted substitution or scalar among them splits on IFS and expands globs
+    has:
         any:
             - kind: command_substitution
               pattern: $SUB
-              not: {has: {kind: command, has: {field: name, regex: '^(ls|find|cat)$'}}} # shellcheck SC2045, SC2044, SC2013
-            # A scalar holding a list, the name a direct child, an array's name sits under its subscript and the bare array and the
-            # bare $@ and $* forms are shellcheck SC2068 and SC2048
+              not: {has: {kind: command, has: {field: name, regex: '^(ls|find|cat)$'}}}
             - kind: simple_expansion
               pattern: $SUB
               has: {kind: variable_name}

@@ -10,6 +10,24 @@ snapshots:
       start: 0
       end: 94
   ? |
+    <PackageReference Include="Grpc.Tools" Version="1.0.0" />
+  : fixed: |
+      <PackageReference Include="Grpc.Tools" Version="1.0.0" PrivateAssets="all"/>
+    labels:
+    - source: <PackageReference Include="Grpc.Tools" Version="1.0.0" />
+      style: primary
+      start: 0
+      end: 57
+  ? |
+    <PackageReference Include="Item.Generators" />
+  : fixed: |
+      <PackageReference Include="Item.Generators" PrivateAssets="all"/>
+    labels:
+    - source: <PackageReference Include="Item.Generators" />
+      style: primary
+      start: 0
+      end: 46
+  ? |
     <PackageReference Include="MinVer" />
   : fixed: |
       <PackageReference Include="MinVer" PrivateAssets="all"/>

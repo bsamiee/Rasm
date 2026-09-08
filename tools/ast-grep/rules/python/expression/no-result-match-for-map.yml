@@ -1,46 +1,38 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-result-match-for-map
 language: python
 severity: error
 utils:
-    # Simple success patterns bind or discard one payload; destructuring needs an explicit review
     ok-pattern:
         kind: class_pattern
-        has: {kind: dotted_name, pattern: $RESULT_CLASS} # The error arm's class carries the Result regex, the ok arm repeats the spelling
+        has: {kind: dotted_name, pattern: $RESULT_CLASS}
         all:
             - any:
-                # The value captured as a name, the closure leaves ok as the keyword with a name value, a dotted value compares against a constant
                 - has: {kind: case_pattern, has: {kind: keyword_pattern, has: {kind: dotted_name, regex: '^[A-Za-z_]\w*$'}}}
-                # Wildcards discard the success value; callback parameter names require review
                 - has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*=\s*_$'}}
-                # Ok keyword absent, the arm reads no value
                 - not: {has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*='}}}
-            # Every sub-pattern is the ok tag or the ok keyword
             - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']ok["'']$|ok\s*=)'}}}}
-    # An unguarded success arm binds or discards the payload
     ok-arm:
         kind: case_clause
         all:
             - has: {kind: case_pattern, has: {matches: ok-pattern}}
             - not: {has: {field: guard, kind: if_clause}}
-            # A catch-all Result() is only the success arm after error propagation.
             - any:
                 - has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: case_pattern}}}
                 - follows: {matches: python-result-error-arm}
 rule:
     kind: match_statement
     all:
-        - inside: {kind: function_definition, stopBy: end} # Under a function body at any depth, a return in an arm returns for the function
+        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+        - has: {field: subject, pattern: $SUBJECT}
+        - inside: {kind: function_definition, stopBy: end}
         - not: {inside: {kind: try_statement, has: {kind: finally_clause}, stopBy: {kind: function_definition}}}
-        - not: {has: {kind: comment, stopBy: end}} # Commented dispatch needs an explicit review of its explanation
         - has:
             field: body
             kind: block
             all:
-                # The error arm's class binds the spelling the ok arm repeats
                 - has: {matches: python-result-error-arm, has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: dotted_name, pattern: $RESULT_CLASS}}}}
-                - not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}} # Two arms, a comment between them is no arm
-        - has: {field: subject, pattern: $SUBJECT} # The subject the message names
+                - not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}}
         - has:
             field: body
             has:
@@ -50,8 +42,8 @@ rule:
                     kind: block
                     has: {matches: python-result-ok-return}
                     not: {has: {nthChild: 2}}
-        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+        - not: {has: {kind: comment, stopBy: end}}
 labels:
     SUBJECT: {style: primary, message: Result transformation}
 message: Match over `$SUBJECT` repeats error propagation around an Ok transformation
-note: Return `<subject>.map(<transformation>)` for a synchronous Ok value, and keep the match where it narrows the payload or maps the error
+note: Return `<subject>.map(<transformation>)` for a synchronous Ok value, and keep the match where it narrows the value or maps the error

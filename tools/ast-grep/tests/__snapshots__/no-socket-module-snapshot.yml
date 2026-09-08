@@ -13,6 +13,58 @@ snapshots:
       start: 50
       end: 67
   ? |
+    from socket import create_connection as connect
+
+    connection = connect(("localhost", 80))
+  : labels:
+    - source: connect(("localhost", 80))
+      style: primary
+      start: 62
+      end: 88
+    - source: connect
+      style: secondary
+      start: 62
+      end: 69
+  ? |
+    from socket import gethostbyname
+
+    address = gethostbyname(host)
+  : labels:
+    - source: gethostbyname(host)
+      style: primary
+      start: 44
+      end: 63
+    - source: gethostbyname
+      style: secondary
+      start: 44
+      end: 57
+  ? |
+    import socket
+
+    addresses = socket.getaddrinfo(host, 80)
+  : labels:
+    - source: socket.getaddrinfo(host, 80)
+      style: primary
+      start: 27
+      end: 55
+    - source: socket.getaddrinfo
+      style: secondary
+      start: 27
+      end: 45
+  ? |
+    import socket
+
+    name = socket.getfqdn(host)
+  : labels:
+    - source: socket.getfqdn(host)
+      style: primary
+      start: 22
+      end: 42
+    - source: socket.getfqdn
+      style: secondary
+      start: 22
+      end: 36
+  ? |
     import socket
     connection = socket.socket()
   : labels:
@@ -37,3 +89,16 @@ snapshots:
       style: secondary
       start: 32
       end: 48
+  ? |
+    import socket as sk
+
+    name = sk.getnameinfo(address, 0)
+  : labels:
+    - source: sk.getnameinfo(address, 0)
+      style: primary
+      start: 28
+      end: 54
+    - source: sk.getnameinfo
+      style: secondary
+      start: 28
+      end: 42

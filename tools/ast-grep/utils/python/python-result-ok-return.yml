@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Return of one synchronous value under the Ok constructor, a consumer captures the value in its own clause
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-result-ok-return
 language: python
 rule:

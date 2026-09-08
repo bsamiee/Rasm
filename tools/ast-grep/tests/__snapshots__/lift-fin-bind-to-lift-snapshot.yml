@@ -1,5 +1,12 @@
 id: lift-fin-bind-to-lift
 snapshots:
+  class C { object F() => IO.lift<Fin <int>>(Next).Bind(fin => IO.lift(fin)); }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: IO.lift<Fin <int>>(Next).Bind(fin => IO.lift(fin))
+      style: primary
+      start: 24
+      end: 74
   class C { object F() => IO.lift<Fin<int>>(() => Next()).Bind((fin) => IO.lift(fin)); }:
     fixed: class C { object F() => IO.lift(() => Next()); }
     labels:
@@ -14,6 +21,13 @@ snapshots:
       style: primary
       start: 24
       end: 91
+  class C { object F() => IO.lift<Fin<int>>((EnvIO env) => Next()).Bind(fin => IO.lift(fin)); }:
+    fixed: class C { object F() => IO.lift((EnvIO env) => Next()); }
+    labels:
+    - source: IO.lift<Fin<int>>((EnvIO env) => Next()).Bind(fin => IO.lift(fin))
+      style: primary
+      start: 24
+      end: 90
   class C { object F() => IO.lift<Fin<int>>(Next).Bind((Fin<int> fin) => IO.lift(fin)); }:
     fixed: class C { object F() => IO.lift(Next); }
     labels:
@@ -21,6 +35,42 @@ snapshots:
       style: primary
       start: 24
       end: 84
+  class C { object F() => IO.lift<Fin<int>>(Next).Bind(IO.lift); }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: IO.lift<Fin<int>>(Next).Bind(IO.lift)
+      style: primary
+      start: 24
+      end: 61
+    - source: IO.lift
+      style: secondary
+      start: 53
+      end: 60
+  'class C { object F() => IO.lift<Fin<int>>(Next).Bind(f: IO.lift); }':
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: 'IO.lift<Fin<int>>(Next).Bind(f: IO.lift)'
+      style: primary
+      start: 24
+      end: 64
+    - source: IO.lift
+      style: secondary
+      start: 56
+      end: 63
+  class C { object F() => IO.lift<Fin<int>>(Next).Bind(fin => IO.lift(() => fin)); }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: IO.lift<Fin<int>>(Next).Bind(fin => IO.lift(() => fin))
+      style: primary
+      start: 24
+      end: 79
+  class C { object F() => IO.lift<Fin<int>>(Next).Bind(fin => IO.lift(fin)).Map(x => x); }:
+    fixed: class C { object F() => IO.lift(Next).Map(x => x); }
+    labels:
+    - source: IO.lift<Fin<int>>(Next).Bind(fin => IO.lift(fin))
+      style: primary
+      start: 24
+      end: 73
   class C { object F() => IO.lift<Fin<int>>(Next).Bind(fin => IO.lift(fin)); }:
     fixed: class C { object F() => IO.lift(Next); }
     labels:
@@ -28,6 +78,20 @@ snapshots:
       style: primary
       start: 24
       end: 73
+  class C { object F() => IO.lift<Fin<int>>(Next).Bind(fin => IO.lift<int>(() => fin)); }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: IO.lift<Fin<int>>(Next).Bind(fin => IO.lift<int>(() => fin))
+      style: primary
+      start: 24
+      end: 84
+  class C { object F() => IO.lift<Fin<int>>(Next).Bind(fin => IO.lift<int>(fin)); }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: IO.lift<Fin<int>>(Next).Bind(fin => IO.lift<int>(fin))
+      style: primary
+      start: 24
+      end: 78
   class C { object F() => IO.lift<Fin<int>>(Next).Bind(static (fin) => IO.lift(fin)); }:
     fixed: class C { object F() => IO.lift(Next); }
     labels:
@@ -56,6 +120,20 @@ snapshots:
       style: primary
       start: 24
       end: 109
+  class C { object F() => from fin in IO.lift<Fin<int>>(Next) from x in IO.lift(fin) select x; }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: from fin in IO.lift<Fin<int>>(Next) from x in IO.lift(fin) select x
+      style: primary
+      start: 24
+      end: 91
+  class C { object F() => from fin in IO.lift<Fin<int>>(Next) from x in IO.lift<int>(fin) select x; }:
+    fixed: class C { object F() => IO.lift(Next); }
+    labels:
+    - source: from fin in IO.lift<Fin<int>>(Next) from x in IO.lift<int>(fin) select x
+      style: primary
+      start: 24
+      end: 96
   ? class C { object F() => global::LanguageExt.IO.lift<global::LanguageExt.Fin<int>>(Next).Bind(fin => global::LanguageExt.IO.lift(fin)); }
   : fixed: class C { object F() => global::LanguageExt.IO.lift(Next); }
     labels:

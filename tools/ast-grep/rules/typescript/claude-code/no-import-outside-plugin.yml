@@ -7,7 +7,7 @@ files:
 ignores:
     - '**/*.spec.ts'
 rule:
-    kind: string
+    kind: string, template_string
     pattern: $MATCH
     any:
         - {inside: {kind: import_statement, field: source}}
@@ -17,7 +17,10 @@ rule:
           inside:
             kind: arguments
             inside: {kind: call_expression, has: {field: function, regex: ^(require|import)$}}
-    not: {regex: '^[''"](claude-code|\.\.?/.*\.ts)[''"]$'}
-message: The module imports `$MATCH` and the loader accepts `claude-code` and relative `.ts` paths alone
+    not:
+        any:
+            - {regex: '^[''"`](claude-code|\.\.?/.*\.ts)[''"`]$'}
+            - {has: {kind: template_substitution}}
+message: The module imports `$MATCH`, a source the loader refuses
 note: Import the plugin API from `claude-code` and every other module by its relative `.ts` path, `import { fold } from './decision.ts'`
 labels: {MATCH: {style: primary}}

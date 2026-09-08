@@ -4,6 +4,7 @@
 
 from typing import TYPE_CHECKING
 
+import anyio
 import pytest
 lazy import asyncssh
 lazy import httpx
@@ -66,8 +67,9 @@ async def test_ssh_exec_round_trip_without_tcp() -> None:
         done = await conn.run("echo hi", encoding=None, check=False)
         assert (done.stdout, done.exit_status) == (b"remote-ok:echo hi\n", 0), f"exec returned an unexpected result: {done.stdout!r}"
     finally:
-        conn.close()
-        await conn.wait_closed()
+        with anyio.CancelScope(shield=True):
+            conn.close()
+            await conn.wait_closed()
 
 
 @pytest.mark.anyio
@@ -81,8 +83,9 @@ async def test_ssh_handler_owns_reply_and_exit_code() -> None:
             f"handler returned an unexpected reply or exit code: {done.stdout!r}/{done.exit_status}"
         )
     finally:
-        conn.close()
-        await conn.wait_closed()
+        with anyio.CancelScope(shield=True):
+            conn.close()
+            await conn.wait_closed()
 
 
 @pytest.mark.anyio
@@ -97,8 +100,9 @@ async def test_ssh_streaming_process_returns_bytes_and_exit_code() -> None:
         proc.close()
         await proc.wait_closed()
     finally:
-        conn.close()
-        await conn.wait_closed()
+        with anyio.CancelScope(shield=True):
+            conn.close()
+            await conn.wait_closed()
 
 
 @pytest.mark.anyio
@@ -111,8 +115,9 @@ async def test_ssh_factory_yields_fresh_connections() -> None:
             done = await conn.run(f"connection {connection_index}", encoding=None, check=False)
             assert done.stdout == f"remote-ok:connection {connection_index}\n".encode(), f"connection {connection_index} failed: {done.stdout!r}"
         finally:
-            conn.close()
-            await conn.wait_closed()
+            with anyio.CancelScope(shield=True):
+                conn.close()
+                await conn.wait_closed()
 
 
 @pytest.mark.anyio
@@ -130,8 +135,9 @@ async def test_ssh_sftp_chroot_serves_and_confines(tmp_path: Path) -> None:
                 await handle.write("contained")
         assert (tmp_path / "escape.txt").read_text(encoding="utf-8") == "contained", "absolute sftp path escaped the chroot"
     finally:
-        conn.close()
-        await conn.wait_closed()
+        with anyio.CancelScope(shield=True):
+            conn.close()
+            await conn.wait_closed()
 
 
 # --- [REMOTE_FS] ------------------------------------------------------------------------

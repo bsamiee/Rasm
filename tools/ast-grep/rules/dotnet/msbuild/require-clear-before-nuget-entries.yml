@@ -31,5 +31,5 @@ rewriters:
         matches: {msbuild-element: {name: {regex: '^clear$'}}}
         inside: {kind: content, inside: {pattern: _SECTION}}
       fix: ''
-message: The NuGet.config section opens without <clear />, a user or machine config adds a source, disable, or mapping to the restore
+message: The section opens without <clear />, and a user or machine config adds its own entries to the restore
 note: Put <clear /> before the first entry

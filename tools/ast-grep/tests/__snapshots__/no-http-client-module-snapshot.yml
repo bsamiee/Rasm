@@ -43,6 +43,20 @@ snapshots:
       start: 7
       end: 15
   ? |
+    import requests.adapters
+  : labels:
+    - source: requests.adapters
+      style: primary
+      start: 7
+      end: 24
+  ? |
+    import urllib.request as ur
+  : labels:
+    - source: urllib.request
+      style: primary
+      start: 7
+      end: 21
+  ? |
     import urllib3 as u3
   : labels:
     - source: urllib3

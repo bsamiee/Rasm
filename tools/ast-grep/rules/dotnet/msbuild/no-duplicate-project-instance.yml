@@ -1,16 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, dropping Properties loses the global value, the probe printed _IsPublishing=[] where the task call printed true
 id: no-duplicate-project-instance
 language: xml
 severity: error
 rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^MSBuild$'}}}
-        - matches:
-            msbuild-metadata:
-                name: {regex: '^Projects$'}
-                value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile)\)'}
-        # Properties value with one character past the quotes, an empty value passes no global property
-        - matches: {msbuild-metadata: {name: {regex: '^Properties$'}, value: {regex: '[^"''\s]'}}}
-message: The MSBuild task calls its own project with global properties, a second instance shares bin and obj with the first
+        - has:
+            matches: msbuild-tag
+            all:
+                - has: {matches: {msbuild-attribute: {name: {regex: '^Projects$'}, value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile)\)'}}}}
+                - has: {matches: {msbuild-attribute: {name: {regex: '^(Properties|RemoveProperties)$'}, value: {regex: '[^"''\s]'}}}}
+message: The MSBuild task calls its own project under another global property set, a second instance runs every target again over the same bin and obj
 note: Run the target in the same instance through DependsOnTargets

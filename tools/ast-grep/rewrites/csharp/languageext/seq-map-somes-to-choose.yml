@@ -1,18 +1,17 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: seq-map-somes-to-choose
 language: csharp
 severity: off
 rule:
-    pattern:
-        context: "class C { object F() => $SOURCE.$MAP($SELECTOR).Somes(); }"
-        selector: invocation_expression
-        strictness: cst
+    any:
+        - pattern: {context: "class C { object F() => $SOURCE.$MAP($SELECTOR).Somes(); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $SOURCE.$MAP($SELECTOR).Somes<$_TYPE>(); }", selector: invocation_expression, strictness: cst}
 constraints:
     MAP: {regex: "^(Map|Select)$"}
     SELECTOR:
         not:
             has:
-                kind: lambda_expression
+                kind: lambda_expression, anonymous_method_expression
                 stopBy: {not: {kind: "argument, cast_expression, parenthesized_expression"}}
                 has:
                     field: parameters
@@ -28,4 +27,4 @@ transform:
     ARGUMENT: rewrite($SELECTOR, rewriters=[rename-selector-parameter])
 fix: "$SOURCE.Choose($ARGUMENT)"
 message: Use `Choose` to map a sequence and retain Some values
-note: Select LanguageExt Seq<A> calls with a unary Func<A, Option<B>> selector through Roslyn. Choose preserves deferred selection and memoizes the resulting sequence without creating an intermediate Seq<Option<B>>. Indexed selectors and other sequence implementations need their owning overload.
+note: Write Choose with the unary Func<A, Option<B>> selector, Roslyn resolves the Seq<A> receiver, and keep indexed selectors with Map

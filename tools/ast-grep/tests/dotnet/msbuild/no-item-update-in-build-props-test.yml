@@ -1,46 +1,52 @@
 id: no-item-update-in-build-props
 valid:
-    # Include adding items at any point
     - |
       <ItemGroup><PackageReference Include="MinVer" PrivateAssets="all" /></ItemGroup>
-    # Exclusion the SDK glob reads
     - |
       <PropertyGroup><DefaultItemExcludes>$(DefaultItemExcludes);Generated/**</DefaultItemExcludes></PropertyGroup>
-    # Inside a target the items exist
     - |
       <Target Name="Mark" BeforeTargets="AssignTargetPaths"><ItemGroup><None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
         </ItemGroup></Target>
-    # Non-default item collections require evaluation
     - |
       <ItemGroup><PackageReference Update="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup>
-    # Explicit items exist before updates and removals
     - |
       <Project><ItemGroup><None Include="data.txt" /><None Update="data.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup></Project>
-    # Explicit definitions can be in an earlier item group
     - |
       <Project><ItemGroup><Compile Include="data.cs" /></ItemGroup><ItemGroup><Compile Remove="data.cs" /></ItemGroup></Project>
-    # Imports can populate default-named collections before this file updates them
     - |
       <Project><Import Project="items.props" /><ItemGroup><EmbeddedResource Update="data.resx" /></ItemGroup></Project>
-    # Custom items can be declared before an update in Directory.Build.props
     - |
       <Project><ItemGroup><Asset Include="data.txt" /><Asset Update="data.txt" /></ItemGroup></Project>
-    # Item definitions supply metadata defaults without updating a collection
     - |
       <ItemDefinitionGroup><None><CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory></None></ItemDefinitionGroup>
+    - |
+      <ItemGroup><Content Update="item.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+    - |
+      <Project><Sdk Name="Item.Sdk" /><ItemGroup><Compile Remove="item.cs" /></ItemGroup></Project>
+    - |
+      <Project><ImportGroup><Import Project="items.props" /></ImportGroup><ItemGroup><Compile Remove="item.cs" /></ItemGroup></Project>
+    - |
+      <Project><ItemGroup><Compile Include="item.cs" /><None Include="item.txt" /><Compile Remove="item.cs" /></ItemGroup></Project>
+    - |
+      <Project><ItemGroup><Compile Include="item.cs" /></ItemGroup><PropertyGroup /><ItemGroup><Compile Remove="item.cs" /></ItemGroup></Project>
 invalid:
-    # Update on an item the SDK glob adds later, no None item exists yet
     - |
       <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
-    # Remove before the Compile glob ran
     - |
       <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
-    # A different collection's Include does not populate Compile
     - |
       <Project><ItemGroup><None Include="data.txt" /><Compile Remove="data.cs" /></ItemGroup></Project>
-    # Update is not an item producer
     - |
       <Project><ItemGroup><None Update="data.txt" /></ItemGroup></Project>
-    # An unrelated element cannot import item definitions
     - |
       <Project><PropertyGroup><Description>items.props</Description></PropertyGroup><ItemGroup><EmbeddedResource Remove="data.resx" /></ItemGroup></Project>
+    - |
+      <ItemGroup><Compile Update="item.cs" Link="Item/item.cs" /></ItemGroup>
+    - |
+      <ItemGroup><None Remove="item.txt" /></ItemGroup>
+    - |
+      <Project><ItemGroup><Compile Remove="item.cs" /><Compile Include="item.cs" /></ItemGroup></Project>
+    - |
+      <Project><ItemGroup><None Update="item.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup><ItemGroup><None Include="item.txt" /></ItemGroup></Project>
+    - |
+      <Project><ItemDefinitionGroup><Compile Condition="'$(Mode)' == 'link'"><Link>item.cs</Link></Compile></ItemDefinitionGroup><ItemGroup><Compile Remove="item.cs" /></ItemGroup></Project>

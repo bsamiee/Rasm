@@ -42,7 +42,6 @@ transform:
     CORRECTED: rewrite($ENTRY, rewriters=[nuget-source, local-source, nuget-package, local-package, drop])
 fix: $CORRECTED
 rewriters:
-    # A source row naming nuget.org by key or by address takes the pair, one naming the local feed takes its pair, the entry decides the element
     - id: nuget-source
       rule:
         pattern: _ENTRY
@@ -57,7 +56,6 @@ rewriters:
             - matches: {msbuild-metadata: {name: {regex: "^key$"}, value: {regex: '^["'']local["'']$'}}}
             - matches: {msbuild-metadata: {name: {regex: "^value$"}, value: {regex: '^["'']\.artifacts/nuget["'']$'}}}
       fix: <add key="local" value=".artifacts/nuget" />
-    # A package row under a source of the pair takes the source's pattern while the source lacks it
     - id: nuget-package
       rule:
         pattern: _ENTRY
@@ -74,7 +72,6 @@ rewriters:
             inside: {matches: local-feed-source}
             not: {has: {matches: {msbuild-metadata: {name: {regex: "^pattern$"}, value: {regex: '^["'']Rasm\.\*["'']$'}}}}}
       fix: <package pattern="Rasm.*" />
-    # Every other source, mapping, or package row leaves
     - id: drop
       rule: {pattern: _ENTRY}
       fix: ''

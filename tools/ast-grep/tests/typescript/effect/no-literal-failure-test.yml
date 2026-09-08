@@ -1,6 +1,5 @@
 id: no-literal-failure
 valid:
-    # A local or imported constructor can own a tagged error despite its native spelling.
     - |-
       import { Effect, Data } from "effect";
       class Error extends Data.TaggedError("LocalError")<{}> {}
@@ -15,62 +14,47 @@ valid:
     - |-
       import { Effect } from "effect";
       Effect.mapError(work, error => { const detail = { text() { return "gone"; } }; return new LoadError({ detail }); })
-    # Nonliteral unary expressions are outside literal matching.
     - |-
       import { Effect } from "effect";
       Effect.fail(typeof 1)
-    # A nested callback returning a primitive is not the error returned by its owner.
     - |-
       import { Effect } from "effect";
       Effect.mapError(work, error => { const label = () => "gone"; return new LoadError({ label }); })
-    # A fail value that happens to be callable is not a failSync thunk.
     - |-
       import { Effect } from "effect";
       Effect.fail(() => "gone")
-    # The tagged error
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(new LoadError({ path }));
-    # Tagged error through a lazy failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.failSync(() => new LoadError({ path }));
-    # Error value held in a name
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(error);
-    # Error built by a call
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(loadError(path));
-    # Fail member on a module outside the carrier set
     - |-
       const checked = Item.fail("gone");
-    # Cause built from a tagged error
     - |-
       import { Cause } from "effect";
       const cause = Cause.fail(new LoadError({ path }));
-    # Effect member outside the fail set with a literal
     - |-
       import { Effect } from "effect";
       const held = Effect.succeed("done");
-    # Object literal with a tag, matched by its tag
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail({ _tag: "Gone" } as const);
-    # Predicate thunk on a member outside the failing family
     - |-
       import { Effect } from "effect";
       const checked = Effect.filterOrFail(work, () => true);
-    # Mapper answering a tagged error
     - |-
       import { Effect } from "effect";
       const checked = Effect.mapError(work, (error) => new LoadError({ cause: error }));
-    # Deferred completed with an error value held in a name
     - |-
       import { Deferred } from "effect";
       const done = Deferred.fail(deferred, error);
-    # Config.fail takes a message by contract
     - |-
       const missing = Config.fail("missing");
     - import { Effect } from "other"; Effect.fail("gone")
@@ -82,17 +66,48 @@ valid:
     - import { Cause as E } from "effect"; E.mapError(cause, () => "gone")
     - import { Option as E } from "effect"; E.fromOption(found, () => "gone")
     - import { Either as E } from "effect"; E.map(decoded, () => "success")
-
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.mapError(work, (error) => error.message);
+    - |-
+      import { Effect } from "effect";
+      Effect.mapError(work, (error) => { const label = () => { return "gone"; }; return new LoadError({ label }); })
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.filterOrFail(work, (item) => item.ready);
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.filterOrFail(work, () => true, () => new LoadError({ path }));
+    - import { Option as E } from "effect"; E.filterOrFail(found, isItem, () => "gone")
+    - 'import { Effect } from "effect"; Effect.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) })'
+    - 'import { Effect } from "effect"; Effect.try({ try: () => "done", catch: (cause) => new ParseError({ cause }) })'
+    - 'import { Effect } from "effect"; Effect.mapBoth(work, { onFailure: (error) => new LoadError({ error }), onSuccess: () => "done" })'
+    - 'import { Effect } from "effect"; Effect.match(work, { onFailure: () => "gone", onSuccess: () => "done" })'
+    - 'import { Micro as E } from "effect"; E.mapBoth(work, { onFailure: () => "gone", onSuccess: (value) => value })'
+    - 'import { Micro as E } from "effect"; E.tryMap(work, { try: (value) => parse(value), catch: () => "gone" })'
+    - 'import { Effect } from "effect"; Effect.try({ try() { return "done"; }, catch: (cause) => new ParseError({ cause }) })'
+    - 'import { Either } from "effect"; Either.match(decoded, { onLeft: () => "gone", onRight: (value) => value })'
+    - 'import { Option as E } from "effect"; E.try({ try: () => parse(raw), catch: () => "gone" })'
 invalid:
-    # Qualifying a native constructor does not give its error a domain tag.
+    - 'import { Effect } from "effect"; Effect.try({ try: () => parse(raw), catch: () => "gone" })'
+    - 'import { Effect } from "effect"; Effect.tryPromise({ try: () => load(path), catch: (cause) => new Error("gone") })'
+    - 'import { Effect } from "effect"; work.pipe(Effect.tryMap({ try: (value) => parse(value), catch: () => "gone" }))'
+    - 'import { Effect } from "effect"; Effect.tryMapPromise(work, { try: (value) => load(value), catch: () => 404 })'
+    - 'import { Effect } from "effect"; Effect.try({ try: () => parse(raw), catch() { return "gone"; } })'
+    - 'import { Micro } from "effect"; Micro.try({ try: () => parse(raw), catch: () => "gone" })'
+    - 'import { STM } from "effect"; STM.try({ try: () => parse(raw), catch: () => "gone" })'
+    - 'import { Either } from "effect"; Either.try({ try: () => parse(raw), catch: () => "gone" })'
+    - 'import { Effect } from "effect"; Effect.mapBoth(work, { onFailure: (error) => `load failed: ${error.message}`, onSuccess: (value) => value })'
+    - 'import { STM } from "effect"; transaction.pipe(STM.mapBoth({ onFailure: () => "gone", onSuccess: (value) => value }))'
+    - 'import { Exit } from "effect"; Exit.mapBoth(exit, { onFailure: () => "gone", onSuccess: (value) => value })'
+    - 'import { Stream } from "effect"; Stream.mapBoth(stream, { onFailure: () => "gone", onSuccess: (value) => value })'
+    - 'import { Either } from "effect"; Either.mapBoth(decoded, { onLeft: () => "gone", onRight: (value) => value })'
     - |-
       import { Effect } from "effect";
       Effect.fail(new globalThis.TypeError("gone"))
-    # Deferred also owns a lazy failure constructor.
     - |-
       import { Deferred } from "effect";
       Deferred.failSync(deferred, () => "gone")
-    # Earlier statements do not tag the returned failure.
     - |-
       import { Effect } from "effect";
       Effect.mapError(work, (error) => { report(); return "gone"; })
@@ -105,125 +120,119 @@ invalid:
     - |-
       import { Effect } from "effect";
       Effect.fail(+1)
-    # The instance, a string literal failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail("gone");
-    # Literal under a const cast
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail("gone" as const);
-    # Template failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(`${path} is gone`);
-    # Number failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(404);
-    # Boolean failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(false);
-    # Undefined failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(undefined);
-    # Untagged Error
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(new Error("gone"));
-    # Untagged TypeError
     - |-
       import { Effect } from "effect";
       const checked = Effect.fail(new TypeError("gone"));
-    # Lazy literal failure
     - |-
       import { Effect } from "effect";
       const checked = Effect.failSync(() => "gone");
-    # Lazy untagged Error
     - |-
       import { Effect } from "effect";
       const checked = Effect.failSync(() => new Error("gone"));
-    # Micro sibling
     - |-
       import { Micro } from "effect";
       const checked = Micro.fail("gone");
-    # STM sibling
     - |-
       import { STM } from "effect";
       const checked = STM.fail("gone");
-    # Stream sibling
     - |-
       import { Stream } from "effect";
       const checked = Stream.fail("gone");
-    # Layer sibling
     - |-
       import { Layer } from "effect";
       const checked = Layer.fail("gone");
-    # Channel sibling
     - |-
       import { Channel } from "effect";
       const checked = Channel.fail("gone");
-    # Sink sibling
     - |-
       import { Sink } from "effect";
       const checked = Sink.fail("gone");
-    # Exit sibling
     - |-
       import { Exit } from "effect";
       const checked = Exit.fail("gone");
-    # Cause sibling
     - |-
       import { Cause } from "effect";
       const cause = Cause.fail("gone");
-    # Either left with a literal
     - |-
       import { Either } from "effect";
       const checked = Either.left("gone");
-    # Deferred completed with a literal, the value sits after the deferred
     - |-
       import { Deferred } from "effect";
       const done = Deferred.fail(deferred, "gone");
-    # Request completed with a number
     - |-
       import { Request } from "effect";
       const done = Request.fail(request, 404);
-    # Fiber sibling
     - |-
       import { Fiber } from "effect";
       const fiber = Fiber.fail("gone");
-    # Take sibling
     - |-
       import { Take } from "effect";
       const take = Take.fail("gone");
-    # Failure replaced through orElseFail
     - |-
       import { Effect } from "effect";
       const checked = Effect.orElseFail(work, () => "gone");
-    # Failure replaced through the data-last orElseFail
     - |-
       import { Effect } from "effect";
       const checked = work.pipe(Effect.orElseFail(() => "gone"));
-    # Failure mapped to a template
     - |-
       import { Effect } from "effect";
       const checked = Effect.mapError(work, (error) => `load failed: ${error.message}`);
-    # Either left mapped to a literal
     - |-
       import { Either } from "effect";
       const checked = Either.mapLeft(decoded, () => "gone");
-    # Option turned into an Either with a literal left
     - |-
       import { Either } from "effect";
       const checked = Either.fromOption(found, () => "gone");
-    # STM failure replaced with an untagged Error
     - |-
       import { STM } from "effect";
       const checked = STM.orElseFail(transaction, () => new Error("gone"));
-    # Stream failure mapped through a function expression with the one return
     - |-
       import { Stream } from "effect";
       const checked = Stream.mapError(stream, function () { return "gone"; });
     - import { Effect as E } from "effect"; E.fail("gone")
     - import * as E from "effect/Effect"; E.mapError(work, () => "gone")
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.fail(null);
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.fail(/gone/);
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.fail("gone" as string);
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.fail("gone" satisfies string);
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.fail(("gone"));
+    - |-
+      import { Effect } from "effect";
+      const checked = work.pipe(Effect.mapError(() => "gone"));
+    - |-
+      import { Effect } from "effect";
+      const checked = Effect.filterOrFail(work, (item) => item.ready, () => "gone");
+    - |-
+      import { Effect } from "effect";
+      const checked = work.pipe(Effect.filterOrFail((item) => item.ready, () => "gone"));

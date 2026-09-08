@@ -5,7 +5,6 @@ severity: error
 rule:
     pattern: _VALUE
     matches: msbuild-path-value
-    # These reserved properties include their separator; user-defined suffixes establish no value contract.
     regex: '\$\(MSBuildThisFileDirectory(NoRoot)?\)[\\/]'
 transform:
     JOINED:

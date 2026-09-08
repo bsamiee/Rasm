@@ -1,30 +1,26 @@
 id: no-fourth-nesting-level
 valid:
-    # Object properties expose their owning function directly without a forwarding module declaration
     - 'import { Effect, Layer } from "effect"; const Services = { create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }, Layer.scoped(Service)) };'
-    # Nested data objects and type wrappers preserve the module initializer boundary
     - 'import { Effect as E } from "effect"; export const Services = ({ nested: { create: (E.fn("create")(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); })) satisfies Factory } } as const);'
-    # Wrappers around the first body argument retain the factory's owner slot.
     - 'import { Effect } from "effect"; const run = Effect.fn(((function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }) satisfies Body));'
-    # Grouping and type-only wrappers retain the module-owned function factory.
     - 'import { Effect } from "effect"; const run = ((Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); })) satisfies Fn);'
     - 'import { Effect } from "effect"; const run = (Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }) as Fn)!;'
-    # Type-only wrappers also retain the same alternate selection.
     - 'const selected = a ? 1 : ((b ? 2 : ((c ? 3 : (d ? 4 : 5)) satisfies number)) as number)!;'
-    # Grouping parentheses preserve alternate selection chains.
     - 'const selected = a ? 1 : (b ? 2 : (c ? 3 : (d ? 4 : 5)));'
-    # Three controls; block and switch arm wrappers add no level.
     - 'function run(a, b, c) { if (a) { for (;;) { switch (b) { case 1: work(c); break; } } } }'
-    # A function resets control depth, even when declared under controls.
     - 'if (a) { while (b) { for (;;) { function run() { if (c) { while (d) { for (;;) work(); } } } } } }'
-    # Alternative chains are one selection, not nested operations.
     - 'function run() { if (a) work(); else if (b) work(); else if (c) work(); else if (d) work(); }'
     - 'const selected = a ? 1 : b ? 2 : c ? 3 : d ? 4 : 5;'
-    # Try arms share their scope; resource cleanup remains attached.
+    - 'if (a) { for (;;) { rows.forEach((row) => { if (row) { while (b) { for (;;) work(); } } }); } }'
+    - 'import * as Effect from "effect/Effect"; const run = Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
+    - 'import { Effect } from "effect"; const run = Effect.fn("run", { captureStackTrace: false })(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
     - 'function run() { try { if (a) { while (b) work(); } } catch (error) { if (c) recover(error); } finally { close(); } }'
-    # Comments do not displace the first function body from its owning factory slot
     - 'import { Effect } from "effect"; const run = Effect.fn(/* trace */ function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
     - 'import { Effect } from "effect"; const run = Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
+    - 'import { Effect } from "effect"; const run = Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }).pipe(Effect.map(render));'
+    - 'import { Effect } from "effect"; export const run = (Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); })).pipe(Effect.orDie);'
+    - 'import { Effect } from "effect"; const run = Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }).pipe(Effect.map(render)).pipe(Effect.orDie);'
+    - 'import { Effect } from "effect"; const Services = { create: Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }).pipe(Effect.orDie) };'
     - 'import { Effect } from "effect"; const run = Effect.fn("run")(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
     - 'import { Effect as E } from "effect"; export const run = E.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
     - 'const three = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => z)));'
@@ -33,33 +29,22 @@ valid:
     - 'const program = Effect.gen(function* () { const one = yield* load(); const two = yield* parse(one); return two; });'
     - 'const make = (a) => (b) => (c) => (d) => combine(a, b, c, d);'
 invalid:
-    # A returned factory captures its enclosing execution scope
+    - 'import { Effect } from "effect"; const build = () => Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }).pipe(Effect.orDie);'
     - 'import { Effect } from "effect"; const build = () => ({ create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }) });'
-    # An object supplied to an executing callback factory is not a module-owned function declaration
     - 'import { Effect } from "effect"; const Services = register({ create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }) });'
-    # Later transforms remain callbacks even in a module object's function factory
     - 'import { Effect } from "effect"; const Services = { create: Effect.fnUntraced(function* () { return 1; }, () => wrap(() => wrap(() => wrap(() => 1)))) };'
-    # Four nested scopes beneath a module object's owning function still exceed the limit
     - 'import { Effect } from "effect"; const Services = { create: Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => wrap(() => 1)))); }) };'
-    # Wrapping a later transform does not move it into the owning body slot.
     - 'import { Effect } from "effect"; const run = Effect.fn(function* () { return 1; }, ((() => wrap(() => wrap(() => wrap(() => 1))))));'
-    # Mixed controls share one depth category, with the fourth level reported once.
     - 'function run() { if (a) { for (;;) { while (b) { switch (c) { case 1: work(); } } } } }'
     - 'function run() { for (const row of rows) { do { try { if (row) work(); } finally { close(); } } while (ready); } }'
     - 'function run() { if (a) { if (b) { if (c) { if (d) { if (e) work(); } } } } }'
-    # Nested consequence expressions add depth, unlike an alternate selection chain.
     - 'const selected = a ? (b ? (c ? (d ? 1 : 2) : 3) : 4) : 5;'
-    # Alternative chains retain the surrounding controls.
     - 'function run() { while (ready) { for (;;) { if (a) work(); else if (b) { if (c) work(); } } } }'
-    # A later factory transform is a callback, not the factory's owning function
     - 'import { Effect } from "effect"; const run = Effect.fn(function* () { return 1; }, () => wrap(() => wrap(() => wrap(() => 1))));'
-    # Other imported factory operations retain their callback scope
     - 'import { Effect } from "effect"; const run = Effect.gen(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
     - 'import { Effect } from "effect"; const run = Effect.map(load())(() => wrap(() => wrap(() => wrap(() => 1))));'
-    # An imported collection namespace does not establish an Effect function factory
     - 'import { Array } from "effect"; const run = Array.fn(() => wrap(() => wrap(() => wrap(() => 1))));'
     - 'import { Array } from "effect"; const run = Array.fn("run")(() => wrap(() => wrap(() => wrap(() => 1))));'
-    # Transparent expression and handler wrappers keep a top-level callback's scope
     - 'run((() => wrap(() => wrap(() => wrap(() => 1)))));'
     - 'run((() => wrap(() => wrap(() => wrap(() => 1)))) as Callback);'
     - 'run((() => wrap(() => wrap(() => wrap(() => 1)))) satisfies Callback);'
@@ -72,10 +57,12 @@ invalid:
     - 'const make = (a) => (b) => (c) => (d) => (e) => combine(a, b, c, d, e);'
     - 'function outer(a) { function middle(b) { function inner(c) { function fourth(d) { function fifth(e) { return e; } } } } }'
     - 'const nested = Effect.gen(function* () { return yield* Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => z))); });'
-    # Deeper chains report their first excess scope once
     - 'const deep = wrap(() => wrap(() => wrap(() => wrap(() => wrap(() => 1)))));'
     - 'run([() => wrap(() => wrap(() => wrap(() => 1)))]);'
     - 'run(flag ? () => wrap(() => wrap(() => wrap(() => 1))) : fallback);'
     - 'run(...[() => wrap(() => wrap(() => wrap(() => 1)))]);'
     - 'import { Effect } from "effect"; const run = Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => wrap(() => 1)))); });'
     - 'import { Effect } from "other"; const run = Effect.fnUntraced(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); });'
+    - 'run({ load() { return wrap(() => wrap(() => wrap(() => 1))); } });'
+    - 'async function run() { for await (const row of rows) { if (row) { while (a) { for (;;) work(); } } } }'
+    - 'function outer() { function middle() { function inner() { function fourth() { class Item { load() { return 1; } } } } } }'

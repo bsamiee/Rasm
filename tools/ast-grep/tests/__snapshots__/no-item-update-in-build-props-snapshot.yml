@@ -15,14 +15,60 @@ snapshots:
       style: secondary
       start: 11
       end: 44
-    - source: <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
+    - source: Remove="Generated/**"
       style: secondary
-      start: 0
-      end: 56
+      start: 20
+      end: 41
     - source: <Compile Remove="Generated/**" />
       style: secondary
       start: 11
       end: 44
+  ? |
+    <ItemGroup><Compile Update="item.cs" Link="Item/item.cs" /></ItemGroup>
+  : labels:
+    - source: <Compile Update="item.cs" Link="Item/item.cs" />
+      style: primary
+      start: 11
+      end: 59
+    - source: Compile
+      style: secondary
+      start: 12
+      end: 19
+    - source: <Compile Update="item.cs" Link="Item/item.cs" />
+      style: secondary
+      start: 11
+      end: 59
+    - source: Update="item.cs"
+      style: secondary
+      start: 20
+      end: 36
+    - source: <Compile Update="item.cs" Link="Item/item.cs" />
+      style: secondary
+      start: 11
+      end: 59
+  ? |
+    <ItemGroup><None Remove="item.txt" /></ItemGroup>
+  : labels:
+    - source: <None Remove="item.txt" />
+      style: primary
+      start: 11
+      end: 37
+    - source: None
+      style: secondary
+      start: 12
+      end: 16
+    - source: <None Remove="item.txt" />
+      style: secondary
+      start: 11
+      end: 37
+    - source: Remove="item.txt"
+      style: secondary
+      start: 17
+      end: 34
+    - source: <None Remove="item.txt" />
+      style: secondary
+      start: 11
+      end: 37
   ? |
     <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
   : labels:
@@ -38,14 +84,60 @@ snapshots:
       style: secondary
       start: 11
       end: 84
-    - source: <ItemGroup><None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
+    - source: Update="appsettings.json"
       style: secondary
-      start: 0
-      end: 96
+      start: 17
+      end: 42
     - source: <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
       style: secondary
       start: 11
       end: 84
+  ? |
+    <Project><ItemDefinitionGroup><Compile Condition="'$(Mode)' == 'link'"><Link>item.cs</Link></Compile></ItemDefinitionGroup><ItemGroup><Compile Remove="item.cs" /></ItemGroup></Project>
+  : labels:
+    - source: <Compile Remove="item.cs" />
+      style: primary
+      start: 134
+      end: 162
+    - source: Compile
+      style: secondary
+      start: 135
+      end: 142
+    - source: <Compile Remove="item.cs" />
+      style: secondary
+      start: 134
+      end: 162
+    - source: Remove="item.cs"
+      style: secondary
+      start: 143
+      end: 159
+    - source: <Compile Remove="item.cs" />
+      style: secondary
+      start: 134
+      end: 162
+  ? |
+    <Project><ItemGroup><Compile Remove="item.cs" /><Compile Include="item.cs" /></ItemGroup></Project>
+  : labels:
+    - source: <Compile Remove="item.cs" />
+      style: primary
+      start: 20
+      end: 48
+    - source: Compile
+      style: secondary
+      start: 21
+      end: 28
+    - source: <Compile Remove="item.cs" />
+      style: secondary
+      start: 20
+      end: 48
+    - source: Remove="item.cs"
+      style: secondary
+      start: 29
+      end: 45
+    - source: <Compile Remove="item.cs" />
+      style: secondary
+      start: 20
+      end: 48
   ? |
     <Project><ItemGroup><None Include="data.txt" /><Compile Remove="data.cs" /></ItemGroup></Project>
   : labels:
@@ -61,13 +153,13 @@ snapshots:
       style: secondary
       start: 47
       end: 75
-    - source: <ItemGroup><None Include="data.txt" /><Compile Remove="data.cs" /></ItemGroup>
+    - source: Remove="data.cs"
       style: secondary
-      start: 9
-      end: 87
-    - source: <None Include="data.txt" /><Compile Remove="data.cs" />
+      start: 56
+      end: 72
+    - source: <Compile Remove="data.cs" />
       style: secondary
-      start: 20
+      start: 47
       end: 75
   ? |
     <Project><ItemGroup><None Update="data.txt" /></ItemGroup></Project>
@@ -84,14 +176,37 @@ snapshots:
       style: secondary
       start: 20
       end: 46
-    - source: <ItemGroup><None Update="data.txt" /></ItemGroup>
+    - source: Update="data.txt"
       style: secondary
-      start: 9
-      end: 58
+      start: 26
+      end: 43
     - source: <None Update="data.txt" />
       style: secondary
       start: 20
       end: 46
+  ? |
+    <Project><ItemGroup><None Update="item.txt" CopyToOutputDirectory="PreserveNewest" /></ItemGroup><ItemGroup><None Include="item.txt" /></ItemGroup></Project>
+  : labels:
+    - source: <None Update="item.txt" CopyToOutputDirectory="PreserveNewest" />
+      style: primary
+      start: 20
+      end: 85
+    - source: None
+      style: secondary
+      start: 21
+      end: 25
+    - source: <None Update="item.txt" CopyToOutputDirectory="PreserveNewest" />
+      style: secondary
+      start: 20
+      end: 85
+    - source: Update="item.txt"
+      style: secondary
+      start: 26
+      end: 43
+    - source: <None Update="item.txt" CopyToOutputDirectory="PreserveNewest" />
+      style: secondary
+      start: 20
+      end: 85
   ? |
     <Project><PropertyGroup><Description>items.props</Description></PropertyGroup><ItemGroup><EmbeddedResource Remove="data.resx" /></ItemGroup></Project>
   : labels:
@@ -107,10 +222,10 @@ snapshots:
       style: secondary
       start: 89
       end: 128
-    - source: <ItemGroup><EmbeddedResource Remove="data.resx" /></ItemGroup>
+    - source: Remove="data.resx"
       style: secondary
-      start: 78
-      end: 140
+      start: 107
+      end: 125
     - source: <EmbeddedResource Remove="data.resx" />
       style: secondary
       start: 89

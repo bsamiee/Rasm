@@ -1,132 +1,132 @@
 {
-    "$schema": "https://json.schemastore.org/claude-code-settings.json",
-    "env": {
-        "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000",
-        "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
-        "SHELL": "bash"
-    },
-    "permissions": {
-        "allow": [
-            "Bash(git status *)",
-            "Bash(git diff *)",
-            "Bash(git log *)",
-            "Bash(git show *)",
-            "Bash(git ls-files *)",
-            "Bash(git rev-parse *)",
-            "Bash(git fetch *)",
-            "Bash(git add *)",
-            "Bash(git commit *)",
-            "Bash(git mv *)",
-            "Bash(git worktree *)",
-            "Bash(git lfs *)",
-            "Bash(mise ls *)",
-            "Bash(mise which *)",
-            "Bash(mise env *)",
-            "Bash(pnpm install *)",
-            "Bash(pnpm why *)",
-            "Bash(pnpm exec nx *)",
-            "Bash(pnpm exec biome *)",
-            "Bash(pnpm exec tsc *)",
-            "Bash(pnpm exec vitest *)",
-            "Bash(uv sync *)",
-            "Bash(uv lock *)",
-            "Bash(uv python *)",
-            "Bash(uv run pytest *)",
-            "Bash(uv run ruff *)",
-            "Bash(dotnet --version)",
-            "Bash(dotnet restore *)",
-            "Bash(dotnet build *)",
-            "Bash(dotnet test *)",
-            "Bash(dotnet format *)",
-            "Bash(dotnet msbuild *)",
-            "Bash(dotnet pack *)",
-            "Bash(dotnet dnx dotnet-outdated-tool *)",
-            "Bash(act *)",
-            "Bash(actionlint *)",
-            "Bash(doppler configure *)",
-            "Bash(doppler secrets *)",
-            "Bash(pulumi preview *)",
-            "Bash(pulumi stack *)",
-            "Bash(ast-grep *)",
-            "Bash(tree-sitter *)",
-            "Bash(buf *)",
-            "Bash(tree *)",
-            "Bash(loc *)",
-            "Bash(fd *)",
-            "Bash(rg *)",
-            "Bash(gh pr view *)",
-            "Bash(gh pr checks *)",
-            "Bash(gh pr list *)",
-            "Bash(gh pr diff *)",
-            "Bash(gh run list *)",
-            "Bash(gh run view *)",
-            "Bash(gh release view *)",
-            "Bash(jq *)",
-            "Bash(yq *)",
-            "Bash(claude plugin *)",
-            "mcp__roslyn-codelens__*",
-            "mcp__binlog__*",
-            "mcp__ast-grep__*",
-            "mcp__context7__*",
-            "mcp__exa__*",
-            "mcp__github__*",
-            "mcp__greptile__*",
-            "mcp__hostinger__*",
-            "mcp__nuget__*",
-            "mcp__openaiDeveloperDocs__*",
-            "mcp__claudeCodeDocs__*",
-            "mcp__playwright__*",
-            "mcp__rhino-mcp-platform__*",
-            "mcp__computer-use__*"
-        ],
-        "defaultMode": "auto"
-    },
-    "enableAllProjectMcpServers": true,
-    "hooks": {
-        "SessionStart": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-                        "timeout": 30,
-                        "statusMessage": "mise-env"
-                    }
-                ]
-            }
-        ],
-        "CwdChanged": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-                        "timeout": 30,
-                        "statusMessage": "mise-env"
-                    }
-                ]
-            }
+  "$schema": "https://json.schemastore.org/claude-code-settings.json",
+  "env": {
+    "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000",
+    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
+    "SHELL": "bash"
+  },
+  "permissions": {
+    "allow": [
+      "Bash(git status *)",
+      "Bash(git diff *)",
+      "Bash(git log *)",
+      "Bash(git show *)",
+      "Bash(git ls-files *)",
+      "Bash(git rev-parse *)",
+      "Bash(git fetch *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git mv *)",
+      "Bash(git worktree *)",
+      "Bash(git lfs *)",
+      "Bash(mise ls *)",
+      "Bash(mise which *)",
+      "Bash(mise env *)",
+      "Bash(pnpm install *)",
+      "Bash(pnpm why *)",
+      "Bash(pnpm exec nx *)",
+      "Bash(pnpm exec biome *)",
+      "Bash(pnpm exec tsc *)",
+      "Bash(pnpm exec vitest *)",
+      "Bash(uv sync *)",
+      "Bash(uv lock *)",
+      "Bash(uv python *)",
+      "Bash(uv run pytest *)",
+      "Bash(uv run ruff *)",
+      "Bash(dotnet --version)",
+      "Bash(dotnet restore *)",
+      "Bash(dotnet build *)",
+      "Bash(dotnet test *)",
+      "Bash(dotnet format *)",
+      "Bash(dotnet msbuild *)",
+      "Bash(dotnet pack *)",
+      "Bash(dotnet dnx dotnet-outdated-tool *)",
+      "Bash(act *)",
+      "Bash(actionlint *)",
+      "Bash(doppler configure *)",
+      "Bash(doppler secrets *)",
+      "Bash(pulumi preview *)",
+      "Bash(pulumi stack *)",
+      "Bash(ast-grep *)",
+      "Bash(tree-sitter *)",
+      "Bash(buf *)",
+      "Bash(tree *)",
+      "Bash(loc *)",
+      "Bash(fd *)",
+      "Bash(rg *)",
+      "Bash(gh pr view *)",
+      "Bash(gh pr checks *)",
+      "Bash(gh pr list *)",
+      "Bash(gh pr diff *)",
+      "Bash(gh run list *)",
+      "Bash(gh run view *)",
+      "Bash(gh release view *)",
+      "Bash(jq *)",
+      "Bash(yq *)",
+      "Bash(claude plugin *)",
+      "mcp__roslyn-codelens__*",
+      "mcp__binlog__*",
+      "mcp__ast-grep__*",
+      "mcp__context7__*",
+      "mcp__exa__*",
+      "mcp__github__*",
+      "mcp__greptile__*",
+      "mcp__hostinger__*",
+      "mcp__nuget__*",
+      "mcp__openaiDeveloperDocs__*",
+      "mcp__claudeCodeDocs__*",
+      "mcp__playwright__*",
+      "mcp__rhino-mcp-platform__*",
+      "mcp__computer-use__*"
+    ],
+    "defaultMode": "auto"
+  },
+  "enableAllProjectMcpServers": true,
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
+            "timeout": 30,
+            "statusMessage": "mise-env"
+          }
         ]
-    },
-    "enabledPlugins": {
-        "function-hooks@rasm": true
-    },
-    "extraKnownMarketplaces": {
-        "rasm": {
-            "source": {
-                "source": "directory",
-                "path": "./.claude/plugins"
-            }
-        }
-    },
-    "outputStyle": "clean-prose",
-    "effortLevel": "high",
-    "skipDangerousModePermissionPrompt": true,
-    "claudeMdExcludes": [
-        "**/.cache/**/CLAUDE.md",
-        "**/node_modules/**/CLAUDE.md",
-        "**/bin/**/CLAUDE.md",
-        "**/obj/**/CLAUDE.md",
-        "**/.artifacts/**/CLAUDE.md"
+      }
+    ],
+    "CwdChanged": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
+            "timeout": 30,
+            "statusMessage": "mise-env"
+          }
+        ]
+      }
     ]
+  },
+  "enabledPlugins": {
+    "function-hooks@rasm": true
+  },
+  "extraKnownMarketplaces": {
+    "rasm": {
+      "source": {
+        "source": "directory",
+        "path": "./.claude/plugins"
+      }
+    }
+  },
+  "outputStyle": "clean-prose",
+  "effortLevel": "high",
+  "skipDangerousModePermissionPrompt": true,
+  "claudeMdExcludes": [
+    "**/.cache/**/CLAUDE.md",
+    "**/node_modules/**/CLAUDE.md",
+    "**/bin/**/CLAUDE.md",
+    "**/obj/**/CLAUDE.md",
+    "**/.artifacts/**/CLAUDE.md"
+  ]
 }

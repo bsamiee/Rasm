@@ -2,10 +2,16 @@ id: github-composite
 language: yaml
 role: item
 symbolType: module
+utils:
+    document-mapping:
+        kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)
+    document-pair:
+        kind: block_mapping_pair, flow_pair
+        inside: {matches: document-mapping}
 rule:
-    kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping) > :is(block_mapping_pair, flow_pair)
-    has: {field: key, pattern: $NAME, regex: '^(runs|"runs"|''runs'')$'}
+    matches: document-pair
     all:
+        - has: {field: key, regex: '^(runs|"runs"|''runs'')$'}
         - has:
             field: value
             has:
@@ -15,6 +21,18 @@ rule:
                     all:
                         - has: {field: key, regex: '^(using|"using"|''using'')$'}
                         - has: {field: value, regex: '^(composite|"composite"|''composite'')$'}
+        - inside:
+            matches: document-mapping
+            pattern: $ACTION
+            has: {matches: document-pair, all: [{has: {field: key, regex: '^(name|"name"|''name'')$'}}, {has: {field: value, pattern: $NAME}}]}
+rewriters:
+    - id: description
+      rule: {matches: document-pair, all: [{has: {field: key, regex: '^(description|"description"|''description'')$'}}, {has: {field: value, pattern: $TEXT}}]}
+      transform:
+        LINE: {replace: {source: $TEXT, replace: '\s*\n\s*', by: ' '}}
+      fix: $LINE
+transform:
+    SIGNATURE: {rewrite: {source: $ACTION, rewriters: [description], joinBy: ', '}}
 name: $NAME
-signature: $NAME
+signature: $SIGNATURE
 isExported: true

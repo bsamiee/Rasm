@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-future-annotations
 language: python
 severity: error
@@ -7,15 +7,14 @@ utils:
 rule:
     kind: future_import_statement
     pattern: $IMPORT
-    has: {matches: annotations-feature} # A direct child, the name field relation reads the first feature alone
+    has: {matches: annotations-feature}
 rewriters:
     - id: kept
       rule: {kind: dotted_name, pattern: $FEATURE, not: {matches: annotations-feature}}
       fix: $FEATURE
 transform:
-    # The other features joined, and the statement leaves when none remains
     KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
     OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
 fix: $OUT
-message: Future annotations use string storage instead of Python 3.15 deferred evaluation
+message: Future annotations use string storage instead of deferred evaluation
 note: Delete the import, and resolve every name a consumer reads through `__annotations__`, because deferred evaluation resolves it

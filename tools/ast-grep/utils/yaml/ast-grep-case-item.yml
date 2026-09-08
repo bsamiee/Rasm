@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: ast-grep-case-item
+language: yaml
+rule:
+    kind: block_sequence_item
+    inside:
+        kind: block_sequence
+        inside:
+            kind: block_node
+            inside:
+                kind: block_mapping_pair
+                has: {field: key, regex: '^(valid|invalid|"(valid|invalid)"|''(valid|invalid)'')$'}
+                inside: {kind: block_mapping, inside: {kind: block_node, inside: {kind: document}}}

@@ -73,6 +73,15 @@ snapshots:
       start: 0
       end: 104
   ? |
+    fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return void 0; } });
+  : fixed: |
+      whenEnabled(options.dispatch, () => _serve(on));
+    labels:
+    - source: 'fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return void 0; } })'
+      style: primary
+      start: 0
+      end: 101
+  ? |
     fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return; } });
   : fixed: |
       whenEnabled(options.dispatch, () => _serve(on));

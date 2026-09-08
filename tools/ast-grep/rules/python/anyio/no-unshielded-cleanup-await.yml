@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unshielded-cleanup-await
+language: python
+severity: error
+utils:
+    shield-call:
+        kind: call
+        has:
+            field: arguments
+            has:
+                kind: keyword_argument
+                all:
+                    - has: {field: name, regex: '^shield$'}
+                    - has: {field: value, regex: '^True$'}
+    shield-name:
+        kind: identifier
+        pattern: $SCOPE
+        inside:
+            kind: function_definition
+            stopBy: {matches: python-function-boundary}
+            has:
+                stopBy: {kind: "function_definition, class_definition, lambda"}
+                kind: assignment
+                all:
+                    - has: {field: left, kind: identifier, pattern: $SCOPE}
+                    - has: {field: right, matches: shield-call}
+    shielded-scope:
+        kind: with_statement
+        has:
+            kind: with_clause
+            has:
+                kind: with_item
+                has:
+                    field: value
+                    any:
+                        - matches: shield-call
+                        - matches: shield-name
+                        - kind: as_pattern
+                          has: {matches: shield-call}
+    cancel-handler:
+        kind: except_clause
+        any:
+            - not: {has: {field: value, pattern: $_}}
+            - has: {field: value, regex: '(^|\W)(BaseException|CancelledError|Cancelled|get_cancelled_exc_class\(\))(\W|$)'}
+rule:
+    kind: block
+    pattern: $BODY
+    all:
+        - inside:
+            any:
+                - kind: finally_clause
+                - matches: cancel-handler
+        - has:
+            stopBy: {any: [{matches: python-function-boundary}, {matches: shielded-scope}]}
+            any:
+                - kind: await
+                - kind: with_statement
+                  has: {regex: '^async$'}
+                - kind: for_statement
+                  has: {regex: '^async$'}
+        - not: {inside: {matches: shielded-scope, stopBy: {matches: python-function-boundary}}}
+fix: |-
+    with anyio.CancelScope(shield=True):
+        $BODY
+message: Awaited cleanup runs under the cancellation the block handles, and the await raises before the release completes
+note: Wrap the cleanup in `with anyio.CancelScope(shield=True):`, or `anyio.move_on_after(<seconds>, shield=True)` to bound it

@@ -25,7 +25,7 @@ function-hooks/
 │   │   └── tools.d.ts        # Input of the served close tool merged into McpToolInputs, and the two ops the generated types omit
 │   ├── policies/             # One table per subject as const satisfies a row type, and the rules over it
 │   │   ├── git.ts            # GIT rows with their refinements, the guard and the paths it tests
-│   │   ├── shell.ts          # SHELL rows over parsed leaves, the shell rule, the timeout, skip-cache, and package manager rewrites
+│   │   ├── shell.ts          # SHELL rows over parsed leaves, the shell rule, the timeout, cache, package manager, sleep, and ast-grep rewrites
 │   │   ├── paths.ts          # PATHS rows over the file tools by path and content, the path rule
 │   │   ├── tools.ts          # TOOLS, FAMILIES, SERVERS, FETCH, and DESCRIBE rows, the tool and describe rules
 │   │   ├── secrets.ts        # Secret pairs from the store, the redaction and restoration rules
@@ -105,7 +105,7 @@ The composition, text, and host modules export the carriers, the text operations
 |  [14]   | `scan/<id>`                | `Scan`     | `tool.call`, a landed edit        | `skill.prompt`, the telemetry block, pruned past the window at start |
 |  [15]   | `roslyn/<session>`         | `Stamp`    | `tool.call`, a landed `.cs` write | `tool.call`, the wait before a read of the server                    |
 
-`Session.env` is the answer of `mise env --json` in the session's working directory, PATH with the mise installs first and the `mise.toml` `[env]` rows, and every `$.process.run` passes it as `init.env`, so a child resolves the same binaries and values as the agent shell does through `CLAUDE_ENV_FILE`. Both channels run `mise` from the PATH `claude` was launched with, and a launch without it fails `session.start` with `$.process.run(mise) failed to start: ENOENT` in the debug file beside the settings hook's `mise: command not found`.
+`Session.env` is the answer of `mise env --json` in the session's working directory, PATH with the mise installs first and the `mise.toml` `[env]` rows, and every `$.process.run` passes it as `init.env`, so a child resolves the same binaries and values as the agent shell does through `CLAUDE_ENV_FILE`. Both channels run `mise` from the PATH `claude` was launched with, and a launch without it fails `session.start` with `$.process.run(mise) failed to start: ENOENT` in the debug file beside the settings hook's `mise: command not found`. The `mise` rows of `SHELL` rewrite a `mise x` or `mise exec` leaf to the command after its tool specs, with the context line naming the form replaced, and refuse a leaf that names no command.
 
 ## [05]-[OPTIONS]
 
@@ -126,7 +126,7 @@ Each policy file holds its tables and the rules over them, and the events table 
 | :-----: | :------------ | :-------------------------------------------------- | :----------------------------------------------------------------------------------- |
 |  [01]   | `git.ts`      | `GIT`                                               | `gitGuard`, `gitPaths`                                                               |
 |  [02]   | `shell.ts`    | `SHELL`, `_TIMEOUT`                                 | `shellRule`, `commandTimeout`, `skipNxCache`, `packageManager`, `shellSkills`        |
-|  [03]   | `paths.ts`    | `PATHS`, `PROBE`                                    | `pathRule`, `pathSkills`, `probeDeny`                                                |
+|  [03]   | `paths.ts`    | `PATHS`                                             | `pathRule`, `pathSkills`, `recordSearches`                                           |
 |  [04]   | `tools.ts`    | `TOOLS`, `FAMILIES`, `SERVERS`, `FETCH`, `DESCRIBE` | `toolRule`, `toolRecords`, `toolSkills`, `describeRule`                              |
 |  [05]   | `secrets.ts`  | The `secrets` rows as `pairs`                       | `redact`, `restore`                                                                  |
 |  [06]   | `agents.ts`   | `AGENTS`, `OFFERS`                                  | `spawnRule`, `spawnLabel`                                                            |
@@ -136,6 +136,10 @@ Each policy file holds its tables and the rules over them, and the events table 
 |  [10]   | `scan.ts`     | `SCAN`                                              | `scanRows`, `needsRuleIds`, `scanHits`, `abort`, `stem`, `TREE`, `stale`, the blocks |
 |  [11]   | `roslyn.ts`   | `SERVER`, `SOLUTION`, `WRONG_DIAGNOSTICS`           | The decoders, the request builders, `replyClass`, `diagnosticLines`                  |
 |  [12]   | `roslyn.ts`   | `ROSLYN_READS`, `WATCHER_SETTLE_MS`                 | `isRoslynRead`, `settleWait`, `settleLine`, `filterEnvelope`, `droppedLines`         |
+
+The dependency row of `PATHS` reads the names an Edit drops from a manifest, the catalog, `Directory.Packages.props`, or `pyproject.toml`, and `recordSearches` builds one `rg` search per name over the sibling records of its language and every `README.md`, run in the hook body before the call. A name another record still holds gets the context line naming its holders, and a name held nowhere is a removal with no line.
+
+The `sleep` rows of `SHELL` drop a top-level `sleep <duration>` leaf with its joining operator before the call runs, one leaf per re-read, and refuse a call of sleep leaves alone, and the context line names `run_in_background: true` with its completion notification and the `until` loop under the Monitor tool as the wait forms. A sleep inside an `if`, `do`, `{`, or `case` compound or beside a pipe stays. The `ast-grep` rows rewrite `scan -r <file>` on a rule under `tools/ast-grep/rules/` or `rewrites/` to `--filter '^<id>$'` with the file stem as the id and `--error=<id>` under `rewrites/`, a bare id after `test` to `--filter '^<id>$'`, and drop `-l` on `scan`, because `scan -r` loads no `utilDirs`, `test` takes no positional, and `scan` reads each rule's `language` field.
 
 ## [07]-[EVENTS]
 
@@ -153,7 +157,7 @@ Each policy file holds its tables and the rules over them, and the events table 
 |  [08]   | `turn.start`       | No row                                                                                                       |
 |  [09]   | `tool.call`        | The rules folded in order and the decision mapped onto the result, then the arms after `next`                |
 |  [10]   | `agent.offer`      | One matched hook per `OFFERS` row, and the table holds none                                                  |
-|  [11]   | `agent.spawn`      | The probe directory line, the brief of the spawned type, and the newest batch's lines appended to the prompt |
+|  [11]   | `agent.spawn`      | The brief of the spawned type and the newest batch's lines appended to the prompt                            |
 |  [12]   | `skill.prompt`     | The stamps of the loaded skill, under `ast-grep` the tree facts and hit telemetry                            |
 |  [13]   | `attribution.text` | No row                                                                                                       |
 |  [14]   | `turn.step`        | No row                                                                                                       |
@@ -166,11 +170,11 @@ Each policy file holds its tables and the rules over them, and the events table 
 
 ## [08]-[CHECKS]
 
-`function-hooks:check` includes typecheck and requires the generated declarations. Unit tests run without them because Vitest erases the type-only `claude-code` imports:
+`function-hooks:check` composes `lint`, `test`, and `typecheck` runs under `harness`, the target that writes the declarations it reads. Unit tests run without them because Vitest erases the type-only `claude-code` imports:
 
 | [INDEX] | [COMMAND]                                               | [CHECK]                                                         |
 | :-----: | :------------------------------------------------------ | :-------------------------------------------------------------- |
-|  [01]   | `pnpm exec nx run function-hooks:check`                 | Read-only lint, typecheck, and test                             |
+|  [01]   | `pnpm exec nx run function-hooks:check`                 | Read-only lint and test                                         |
 |  [02]   | `pnpm exec nx run function-hooks:typecheck`             | Typecheck over `.claude/types/`                                 |
 |  [03]   | `claude plugin validate .claude/plugins/function-hooks` | Lists the registered events and every `$` call the module makes |
 |  [04]   | `nx run rasm:harness`                                   | Brings the declarations and the installed copy up to date       |
@@ -185,13 +189,13 @@ Hooks are proven by a run from the repository root with a transcript and a debug
 claude --plugin-dir .claude/plugins/function-hooks --debug -p '<prompt>' --output-format stream-json --verbose
 ```
 
-The prompt opens with `Run exactly this tool call and report its result verbatim, do not try another route:` and names the call. The transcript's `tool_result` block holds `is_error: true` with `<tool_use_error><reason></tool_use_error>` on a deny, the `context` line on a rewrite, and the output on a pass. `~/.claude/debug/<session id>.txt`, the id from the transcript's `init` event, holds the engine's lines:
+The prompt opens with `Run exactly this tool call and report its result verbatim, do not try another route:` and names the call. The transcript's `tool_result` block holds `is_error: true` with `<tool_use_error><reason></tool_use_error>` on a deny and the output on a pass, and a rewrite's `context` line reaches the model and returns restated in its answer. `~/.claude/debug/<session id>.txt`, the id from the transcript's `init` event, holds the engine's lines:
 
 - `hooks module function-hooks loaded (worker, environment 1); events: ...` — the module loaded with the registered set
 - `tool.call <Tool> <id>: resolved by a hooks module (deny: <reason>)` — the deny came from a hook and not from a permission rule
 - `hooks module function-hooks tool.call settled in <n>ms` — the hook settled, a rewrite's `context` line then sits in the transcript
 - `$.store.set (function-hooks@inline): <key>` — a store write with its key, the first call of a once row and no later one
-- `$.process.run (function-hooks): <argv[0]> with <n> args in <cwd> (pid <pid>)` — the scan child
+- `$.process.run (function-hooks): <argv[0]> with <n> args in <cwd> (pid <pid>)` — the scan child, or the record search of a dropped dependency row
 - `$.mcp.call (function-hooks): mcp__roslyn-codelens__get_diagnostics (project, severity, includeAnalyzers)` — the Roslyn call
 - `... answered in <n>ms: <k> block(s)` — the Roslyn reply
 - `<argv[0]> exited <code> in <n>ms, <out> + <err> chars` — the child's exit, the second line of the pair
@@ -199,7 +203,7 @@ The prompt opens with `Run exactly this tool call and report its result verbatim
 - `hook failed: function-hooks: <error> (<event>; skipped; what is below it ran in its place)` — a failing hook is skipped and never fatal
 - `ui.render key=<component> settled in <n>ms` — one draw-path evaluation per component instance and version, absent while the hook is unregistered
 
-The transcript's `tool_use` block holds the input the model wrote, and a rewrite of a field beside `command` (the Bash `timeout` a GNU prefix becomes) is read from the `context` line alone. Scan children run with the session row's environment, and the `$.process.run` and `$.mcp.call` lines spell the origin without `@inline`.
+The transcript's `tool_use` block holds the input the model wrote, and a rewrite of a field beside `command` (the Bash `timeout` the GNU `timeout` prefixes of a command become, every prefix spliced out by span and the largest duration capped at 600000 ms) is read from the `context` line alone. Scan children run with the session row's environment, and the `$.process.run` and `$.mcp.call` lines spell the origin without `@inline`.
 
 Once-per-session context lines reach every call of one parallel batch, because the calls read the store before any of them stamps its key. Redaction proofs seed `secrets` in the plugin's store file under `~/.claude/plugins/store/`, read the rewrite line in the debug file and the redacted text under `prompt/<session>`, and remove the seed.
 

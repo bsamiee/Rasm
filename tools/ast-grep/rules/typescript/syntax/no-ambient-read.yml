@@ -1,16 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, Clock.currentTimeMillis in place of Date.now() fails with TS2322 Effect<number> is not assignable to number
 id: no-ambient-read
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**'] # The plugin loader refuses the effect import, the Clock and Random services have no place there
+ignores: ['.claude/plugins/**']
 rule:
     any:
-        # The current time as a Date, the constructor without an argument
         - kind: new_expression
           has: {field: constructor, regex: '^(globalThis\.)?Date$', matches: syntax-global-reference}
-          not: {has: {field: arguments, has: {pattern: $_}}}
-        # The clock, the high-resolution clock, the uptime, and the random source, spelled direct or through globalThis
+          not: {has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}}
         - kind: call_expression
           has:
             field: function

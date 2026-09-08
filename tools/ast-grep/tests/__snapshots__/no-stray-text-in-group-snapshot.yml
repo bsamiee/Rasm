@@ -1,6 +1,48 @@
 id: no-stray-text-in-group
 snapshots:
   ? |
+    <Choose><When Condition="true">stale<PropertyGroup /></When></Choose>
+  : fixed: |
+      <Choose><When Condition="true"><PropertyGroup /></When></Choose>
+    labels:
+    - source: stale
+      style: primary
+      start: 31
+      end: 36
+    - source: <When Condition="true">stale<PropertyGroup /></When>
+      style: secondary
+      start: 8
+      end: 60
+    - source: stale<PropertyGroup />
+      style: secondary
+      start: 31
+      end: 53
+  ? |
+    <ItemDefinitionGroup><None>stale<Folder>x</Folder></None></ItemDefinitionGroup>
+  : fixed: |
+      <ItemDefinitionGroup><None><Folder>x</Folder></None></ItemDefinitionGroup>
+    labels:
+    - source: stale
+      style: primary
+      start: 27
+      end: 32
+    - source: <ItemDefinitionGroup><None>stale<Folder>x</Folder></None></ItemDefinitionGroup>
+      style: secondary
+      start: 0
+      end: 79
+    - source: <None>stale<Folder>x</Folder></None>
+      style: secondary
+      start: 21
+      end: 57
+    - source: <None>stale<Folder>x</Folder></None>
+      style: secondary
+      start: 21
+      end: 57
+    - source: stale<Folder>x</Folder>
+      style: secondary
+      start: 27
+      end: 50
+  ? |
     <ItemGroup>
         <_RuntimeInitBinding Include="itext" Companion="itext.bouncy-castle-adapter" />. <!-- iText crypto paths need the adapter -->
     </ItemGroup>
@@ -69,6 +111,23 @@ snapshots:
       start: 56
       end: 95
   ? |
+    <Project>stale<PropertyGroup /></Project>
+  : fixed: |
+      <Project><PropertyGroup /></Project>
+    labels:
+    - source: stale
+      style: primary
+      start: 9
+      end: 14
+    - source: <Project>stale<PropertyGroup /></Project>
+      style: secondary
+      start: 0
+      end: 41
+    - source: stale<PropertyGroup />
+      style: secondary
+      start: 9
+      end: 31
+  ? |
     <PropertyGroup>&amp;<Nullable>enable</Nullable></PropertyGroup>
   : fixed: |
       <PropertyGroup><Nullable>enable</Nullable></PropertyGroup>
@@ -119,6 +178,40 @@ snapshots:
       style: secondary
       start: 32
       end: 71
+  ? |
+    <Target Name="Run">stale<Message Text="x" /></Target>
+  : fixed: |
+      <Target Name="Run"><Message Text="x" /></Target>
+    labels:
+    - source: stale
+      style: primary
+      start: 19
+      end: 24
+    - source: <Target Name="Run">stale<Message Text="x" /></Target>
+      style: secondary
+      start: 0
+      end: 53
+    - source: stale<Message Text="x" />
+      style: secondary
+      start: 19
+      end: 44
+  ? |
+    <configuration><packageSourceMapping>stale<clear /></packageSourceMapping></configuration>
+  : fixed: |
+      <configuration><packageSourceMapping><clear /></packageSourceMapping></configuration>
+    labels:
+    - source: stale
+      style: primary
+      start: 37
+      end: 42
+    - source: <packageSourceMapping>stale<clear /></packageSourceMapping>
+      style: secondary
+      start: 15
+      end: 74
+    - source: stale<clear />
+      style: secondary
+      start: 37
+      end: 51
   ? |
     <packageSources><clear />stale<add key="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>
   : fixed: |

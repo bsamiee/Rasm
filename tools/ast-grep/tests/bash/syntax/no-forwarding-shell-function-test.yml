@@ -1,35 +1,46 @@
 id: no-forwarding-shell-function
 valid:
-    # Argument selection, joining, defaulting, and reordering are adapters.
     - first() { handle "$1"; }
     - joined() { handle "$*"; }
     - defaulted() { handle "${1:-x}"; }
     - reordered() { handle "$2" "$1"; }
     - configured() { handle -q "$@"; }
     - appended() { handle "$@" --end; }
-    # Splitting is a distinct defect owned by ShellCheck.
     - split() { handle $@; }
-    # Deferred reads and callback effects cannot be replaced by a fixed array.
     - cleanup() { rm -rf "$tmp"; }
     - last() { handle "$?"; }
     - stop() { server_stop --now; }
-    # Redirection, process replacement, and a command supplied as data add behavior.
     - quiet() { handle "$@" >/dev/null; }
     - replace() { exec handle "$@"; }
     - run() { "$@"; }
     - dynamic() { "$handler" "$@"; }
-    # More than one command and compound bodies are not forwarding wrappers.
     - run() { handle "$@"; ran=1; }
     - ids() { query "$@" | sort; }
     - guarded() { handle "$@" || exit 1; }
     - forward() { handle "$@" & }
+    - forward() { handle -- "$@"; }
+    - forward() ( handle "$@" )
+    - quiet() { handle "$@"; } >/dev/null
+    - dynamic() { $handler "$@"; }
+    - run() { sudo handle "$@"; }
+    - run() { env handle "$@"; }
+    - run() { time handle "$@"; }
+    - run() { command -v handle "$@"; }
+    - run() { command "$handler" "$@"; }
 invalid:
     - forward() { handle "$@"; }
     - forward() { handle "${@}"; }
     - function forward { handle "$@"; }
-    # Comments do not add an operation.
+    - function forward() { handle "$@"; }
+    - forward() { ./handle "$@"; }
+    - forward() { /usr/bin/handle "$@"; }
+    - forward() { handle.sh "$@"; }
     - |
       forward() {
-          # The complete argument list.
+          # The complete argument list
           handle "$@"
       }
+    - run() { command handle "$@"; }
+    - run() { builtin handle "$@"; }
+    - run() { command -p -- handle "$@"; }
+    - run() { command -- ./handle.sh "$@"; }

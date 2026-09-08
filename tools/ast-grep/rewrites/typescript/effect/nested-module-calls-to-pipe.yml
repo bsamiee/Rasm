@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Enable on demand with ast-grep scan --filter '^nested-module-calls-to-pipe$' --error=nested-module-calls-to-pipe -U <paths>
 id: nested-module-calls-to-pipe
 language: tsx
 severity: off
@@ -10,20 +9,18 @@ utils:
             field: function
             kind: member_expression
             has: {field: object, matches: {effect-module-reference: {module: {kind: identifier}}}}
-    # Module operations with a data-last overload or a unary form, the pipe step each becomes
     step:
-        matches: module-call
         all:
-            - has:
-                field: function
-                has:
-                    field: property
-                    regex: "^(map|flatMap|filter|filterMap|getOrElse|orElse|mapError|flatten|provide|merge|mapOut|filterInput|fromIterable)$"
+            - matches: module-call
+            - matches: effect-pipe-step
             - not: {has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Schema$"}}}}}}
     unary-step:
         matches: step
-        has: {field: function, has: {field: property, regex: "^(flatten|fromIterable)$"}}
-    # A step over a first argument that is itself a step, the data-first arity the unary steps meet with one argument
+        has:
+            field: function
+            has:
+                field: property
+                regex: "^(flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$"
     data-first-step:
         matches: step
         has:
@@ -32,7 +29,6 @@ utils:
         any:
             - matches: unary-step
             - has: {field: arguments, has: {nthChild: 2}}
-    # The file imports pipe from effect, the name the replacement calls
     pipe-import:
         kind: import_statement
         all:
@@ -48,15 +44,14 @@ rule:
                 nthChild: 1
                 matches: data-first-step
                 has: {field: arguments, has: {nthChild: 1, matches: data-first-step}}
-        # The outermost call of a chain rewrites once, the inner calls become its steps
         - not:
             all:
                 - nthChild: 1
                 - inside: {kind: arguments, inside: {matches: data-first-step}}
         - not: {has: {kind: comment, stopBy: end}}
+        - not: {has: {kind: type_arguments, stopBy: end}}
         - inside: {kind: program, stopBy: end, has: {matches: pipe-import}}
 rewriters:
-    # A unary step keeps its function alone, and a step with further arguments keeps them in data-last form
     - id: unary
       rule:
         matches: unary-step
@@ -71,7 +66,6 @@ rewriters:
       transform:
         INNER: rewrite($FIRST, rewriters=[unary, steps, unary-head, head])
       fix: $INNER, $M.$OP($$$REST)
-    # The innermost step opens the pipe with its own first argument as the value
     - id: unary-head
       rule:
         matches: unary-step

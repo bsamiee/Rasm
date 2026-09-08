@@ -11,14 +11,6 @@ snapshots:
       style: primary
       start: 51
       end: 149
-    - source: flatten
-      style: secondary
-      start: 57
-      end: 64
-    - source: flatten
-      style: secondary
-      start: 57
-      end: 64
     - source: Array
       style: secondary
       start: 51
@@ -26,14 +18,6 @@ snapshots:
     - source: Array.flatten
       style: secondary
       start: 51
-      end: 64
-    - source: flatten
-      style: secondary
-      start: 57
-      end: 64
-    - source: flatten
-      style: secondary
-      start: 57
       end: 64
     - source: flatten
       style: secondary
@@ -75,14 +59,6 @@ snapshots:
       style: secondary
       start: 140
       end: 147
-    - source: map
-      style: secondary
-      start: 71
-      end: 74
-    - source: map
-      style: secondary
-      start: 71
-      end: 74
     - source: Array
       style: secondary
       start: 65
@@ -115,14 +91,6 @@ snapshots:
       style: secondary
       start: 133
       end: 137
-    - source: filter
-      style: secondary
-      start: 81
-      end: 87
-    - source: filter
-      style: secondary
-      start: 81
-      end: 87
     - source: Array
       style: secondary
       start: 75
@@ -192,14 +160,6 @@ snapshots:
       style: primary
       start: 51
       end: 131
-    - source: flatten
-      style: secondary
-      start: 57
-      end: 64
-    - source: flatten
-      style: secondary
-      start: 57
-      end: 64
     - source: Array
       style: secondary
       start: 51
@@ -207,14 +167,6 @@ snapshots:
     - source: Array.flatten
       style: secondary
       start: 51
-      end: 64
-    - source: flatten
-      style: secondary
-      start: 57
-      end: 64
-    - source: flatten
-      style: secondary
-      start: 57
       end: 64
     - source: flatten
       style: secondary
@@ -256,14 +208,6 @@ snapshots:
       style: secondary
       start: 122
       end: 129
-    - source: map
-      style: secondary
-      start: 71
-      end: 74
-    - source: map
-      style: secondary
-      start: 71
-      end: 74
     - source: Array
       style: secondary
       start: 65
@@ -296,14 +240,6 @@ snapshots:
       style: secondary
       start: 115
       end: 119
-    - source: filter
-      style: secondary
-      start: 81
-      end: 87
-    - source: filter
-      style: secondary
-      start: 81
-      end: 87
     - source: Array
       style: secondary
       start: 75
@@ -369,7 +305,7 @@ snapshots:
     const run = Effect.merge(Effect.succeed(1), Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(load, () => other), f), g), layer));
   : fixed: |
       import { Effect, pipe } from "effect";
-      const run = Effect.merge(Effect.succeed(1), pipe(load, Effect.orElse(() => other), Effect.map(f), Effect.flatMap(g), Effect.provide(layer)));
+      const run = Effect.merge(Effect.succeed(1), pipe(Effect.orElse(load, () => other), Effect.map(f), Effect.flatMap(g), Effect.provide(layer)));
     labels:
     - source: Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(load, () => other), f), g), layer)
       style: primary
@@ -383,14 +319,6 @@ snapshots:
       style: secondary
       start: 166
       end: 171
-    - source: provide
-      style: secondary
-      start: 90
-      end: 97
-    - source: provide
-      style: secondary
-      start: 90
-      end: 97
     - source: Effect
       style: secondary
       start: 83
@@ -423,14 +351,6 @@ snapshots:
       style: secondary
       start: 162
       end: 163
-    - source: flatMap
-      style: secondary
-      start: 105
-      end: 112
-    - source: flatMap
-      style: secondary
-      start: 105
-      end: 112
     - source: Effect
       style: secondary
       start: 98
@@ -463,14 +383,6 @@ snapshots:
       style: secondary
       start: 158
       end: 159
-    - source: map
-      style: secondary
-      start: 120
-      end: 123
-    - source: map
-      style: secondary
-      start: 120
-      end: 123
     - source: Effect
       style: secondary
       start: 113
@@ -538,7 +450,7 @@ snapshots:
     const run = Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(Effect.succeed(1), () => other), f), g), layer);
   : fixed: |
       import { Effect, pipe } from "effect";
-      const run = pipe(Effect.succeed(1), Effect.orElse(() => other), Effect.map(f), Effect.flatMap(g), Effect.provide(layer));
+      const run = pipe(Effect.orElse(Effect.succeed(1), () => other), Effect.map(f), Effect.flatMap(g), Effect.provide(layer));
     labels:
     - source: Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(Effect.succeed(1), () => other), f), g), layer)
       style: primary
@@ -552,14 +464,6 @@ snapshots:
       style: secondary
       start: 147
       end: 152
-    - source: provide
-      style: secondary
-      start: 58
-      end: 65
-    - source: provide
-      style: secondary
-      start: 58
-      end: 65
     - source: Effect
       style: secondary
       start: 51
@@ -592,14 +496,6 @@ snapshots:
       style: secondary
       start: 143
       end: 144
-    - source: flatMap
-      style: secondary
-      start: 73
-      end: 80
-    - source: flatMap
-      style: secondary
-      start: 73
-      end: 80
     - source: Effect
       style: secondary
       start: 66
@@ -632,14 +528,6 @@ snapshots:
       style: secondary
       start: 139
       end: 140
-    - source: map
-      style: secondary
-      start: 88
-      end: 91
-    - source: map
-      style: secondary
-      start: 88
-      end: 91
     - source: Effect
       style: secondary
       start: 81
@@ -707,7 +595,7 @@ snapshots:
     const run = Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(load, () => other), f), g), layer);
   : fixed: |
       import { Effect, pipe } from "effect";
-      const run = pipe(load, Effect.orElse(() => other), Effect.map(f), Effect.flatMap(g), Effect.provide(layer));
+      const run = pipe(Effect.orElse(load, () => other), Effect.map(f), Effect.flatMap(g), Effect.provide(layer));
     labels:
     - source: Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(load, () => other), f), g), layer)
       style: primary
@@ -721,14 +609,6 @@ snapshots:
       style: secondary
       start: 134
       end: 139
-    - source: provide
-      style: secondary
-      start: 58
-      end: 65
-    - source: provide
-      style: secondary
-      start: 58
-      end: 65
     - source: Effect
       style: secondary
       start: 51
@@ -761,14 +641,6 @@ snapshots:
       style: secondary
       start: 130
       end: 131
-    - source: flatMap
-      style: secondary
-      start: 73
-      end: 80
-    - source: flatMap
-      style: secondary
-      start: 73
-      end: 80
     - source: Effect
       style: secondary
       start: 66
@@ -801,14 +673,6 @@ snapshots:
       style: secondary
       start: 126
       end: 127
-    - source: map
-      style: secondary
-      start: 88
-      end: 91
-    - source: map
-      style: secondary
-      start: 88
-      end: 91
     - source: Effect
       style: secondary
       start: 81
@@ -871,6 +735,145 @@ snapshots:
       style: secondary
       start: 0
       end: 142
+  import { Effect, pipe } from "effect"; const run = Effect.tap(Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g), h);:
+    fixed: import { Effect, pipe } from "effect"; const run = pipe(a, Effect.zipRight(b), Effect.flatMap(f), Effect.map(g), Effect.tap(h));
+    labels:
+    - source: Effect.tap(Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g), h)
+      style: primary
+      start: 51
+      end: 121
+    - source: h
+      style: secondary
+      start: 119
+      end: 120
+    - source: h
+      style: secondary
+      start: 119
+      end: 120
+    - source: Effect
+      style: secondary
+      start: 51
+      end: 57
+    - source: Effect.tap
+      style: secondary
+      start: 51
+      end: 61
+    - source: Effect
+      style: secondary
+      start: 62
+      end: 68
+    - source: Effect.map
+      style: secondary
+      start: 62
+      end: 72
+    - source: Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g)
+      style: secondary
+      start: 62
+      end: 117
+    - source: Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g)
+      style: secondary
+      start: 62
+      end: 117
+    - source: g
+      style: secondary
+      start: 115
+      end: 116
+    - source: g
+      style: secondary
+      start: 115
+      end: 116
+    - source: Effect
+      style: secondary
+      start: 62
+      end: 68
+    - source: Effect.map
+      style: secondary
+      start: 62
+      end: 72
+    - source: Effect
+      style: secondary
+      start: 73
+      end: 79
+    - source: Effect.flatMap
+      style: secondary
+      start: 73
+      end: 87
+    - source: Effect.flatMap(Effect.zipRight(a, b), f)
+      style: secondary
+      start: 73
+      end: 113
+    - source: Effect.flatMap(Effect.zipRight(a, b), f)
+      style: secondary
+      start: 73
+      end: 113
+    - source: f
+      style: secondary
+      start: 111
+      end: 112
+    - source: f
+      style: secondary
+      start: 111
+      end: 112
+    - source: Effect
+      style: secondary
+      start: 73
+      end: 79
+    - source: Effect.flatMap
+      style: secondary
+      start: 73
+      end: 87
+    - source: Effect
+      style: secondary
+      start: 88
+      end: 94
+    - source: Effect.zipRight
+      style: secondary
+      start: 88
+      end: 103
+    - source: Effect.zipRight(a, b)
+      style: secondary
+      start: 88
+      end: 109
+    - source: Effect.zipRight(a, b)
+      style: secondary
+      start: 88
+      end: 109
+    - source: Effect.flatMap(Effect.zipRight(a, b), f)
+      style: secondary
+      start: 73
+      end: 113
+    - source: Effect.flatMap(Effect.zipRight(a, b), f)
+      style: secondary
+      start: 73
+      end: 113
+    - source: Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g)
+      style: secondary
+      start: 62
+      end: 117
+    - source: Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g)
+      style: secondary
+      start: 62
+      end: 117
+    - source: '"effect"'
+      style: secondary
+      start: 29
+      end: 37
+    - source: pipe
+      style: secondary
+      start: 17
+      end: 21
+    - source: pipe
+      style: secondary
+      start: 17
+      end: 21
+    - source: import { Effect, pipe } from "effect";
+      style: secondary
+      start: 0
+      end: 38
+    - source: import { Effect, pipe } from "effect"; const run = Effect.tap(Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g), h);
+      style: secondary
+      start: 0
+      end: 122
   ? |
     import { Option, pipe } from "effect";
     const item = Option.getOrElse(Option.map(Option.flatMap(Option.filter(found, keep), lookup), project), () => fallback);
@@ -890,14 +893,6 @@ snapshots:
       style: secondary
       start: 142
       end: 156
-    - source: getOrElse
-      style: secondary
-      start: 59
-      end: 68
-    - source: getOrElse
-      style: secondary
-      start: 59
-      end: 68
     - source: Option
       style: secondary
       start: 52
@@ -930,14 +925,6 @@ snapshots:
       style: secondary
       start: 132
       end: 139
-    - source: map
-      style: secondary
-      start: 76
-      end: 79
-    - source: map
-      style: secondary
-      start: 76
-      end: 79
     - source: Option
       style: secondary
       start: 69
@@ -970,14 +957,6 @@ snapshots:
       style: secondary
       start: 123
       end: 129
-    - source: flatMap
-      style: secondary
-      start: 87
-      end: 94
-    - source: flatMap
-      style: secondary
-      start: 87
-      end: 94
     - source: Option
       style: secondary
       start: 80

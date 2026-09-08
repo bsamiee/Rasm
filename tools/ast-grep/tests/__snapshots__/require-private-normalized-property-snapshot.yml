@@ -29,6 +29,34 @@ snapshots:
       start: 15
       end: 95
   ? |
+    <PropertyGroup><ToolRoot Condition="'$(ToolRoot)' != ''">$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot Condition="'$(ToolRoot)' != ''">$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 15
+      end: 115
+  ? |
+    <PropertyGroup><ToolRoot>$([MSBuild]::EnsureTrailingSlash('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::EnsureTrailingSlash('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 15
+      end: 84
+  ? |
+    <PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory( '$(ToolRoot)' ))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::NormalizeDirectory( '$(ToolRoot)' ))</ToolRoot>
+      style: primary
+      start: 15
+      end: 85
+  ? |
+    <PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory($(ToolRoot)))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::NormalizeDirectory($(ToolRoot)))</ToolRoot>
+      style: primary
+      start: 15
+      end: 81
+  ? |
     <PropertyGroup><ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot></PropertyGroup>
   : labels:
     - source: <ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot>
@@ -36,9 +64,23 @@ snapshots:
       start: 15
       end: 83
   ? |
+    <PropertyGroup><ToolRoot>$([MSBuild]::NormalizePath('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([MSBuild]::NormalizePath('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 15
+      end: 78
+  ? |
     <PropertyGroup><ToolRoot>$([System.IO.Path]::GetFullPath('$(ToolRoot)'))</ToolRoot></PropertyGroup>
   : labels:
     - source: <ToolRoot>$([System.IO.Path]::GetFullPath('$(ToolRoot)'))</ToolRoot>
       style: primary
       start: 15
       end: 83
+  ? |
+    <PropertyGroup><ToolRoot>$([System.IO.Path]::TrimEndingDirectorySeparator('$(ToolRoot)'))</ToolRoot></PropertyGroup>
+  : labels:
+    - source: <ToolRoot>$([System.IO.Path]::TrimEndingDirectorySeparator('$(ToolRoot)'))</ToolRoot>
+      style: primary
+      start: 15
+      end: 100

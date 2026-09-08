@@ -1,14 +1,63 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-logging-call
 language: python
 severity: error
-# Report-only, the probed fix `logging.getLogger` to `structlog.get_logger` fails, `Undefined name structlog`, a template adds no import
 utils:
-    event-method: {regex: "^(log|debug|info|warning|error|critical|fatal|exception)$"}
+    event-method: {regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
     logger-factory:
         any:
             - matches: {python-module-member: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
             - matches: {python-imported-name: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
+    logger-call:
+        kind: call
+        has:
+            field: function
+            any:
+                - matches: logger-factory
+                - kind: attribute
+                  all:
+                    - has: {field: attribute, regex: "^getChild$"}
+                    - has: {field: object, any: [{matches: logger-call}, {matches: parent-logger}]}
+    parent-logger:
+        kind: identifier
+        pattern: $PARENT
+        inside:
+            kind: module, function_definition
+            stopBy: end
+            has:
+                stopBy: {kind: "function_definition, class_definition, lambda"}
+                kind: expression_statement
+                has:
+                    kind: assignment
+                    all:
+                        - has: {field: left, kind: identifier, pattern: $PARENT}
+                        - has: {field: right, matches: logger-call}
+    logger-assignment:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, kind: identifier, pattern: $LOGGER}
+                - has: {field: right, matches: logger-call}
+    local-binding:
+        any:
+            - has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $LOGGER}}}}}
+            - has:
+                stopBy: {kind: "function_definition, class_definition, lambda"}
+                kind: assignment, augmented_assignment, for_statement, for_in_clause
+                has: {field: left, kind: identifier, pattern: $LOGGER}
+    bound-logger:
+        kind: identifier
+        pattern: $LOGGER
+        any:
+            - inside:
+                kind: function_definition
+                stopBy: {matches: python-function-boundary}
+                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: logger-assignment}
+            - all:
+                - not: {inside: {kind: function_definition, stopBy: end, matches: local-binding}}
+                - not: {inside: {kind: for_statement, stopBy: end, has: {field: left, kind: identifier, pattern: $LOGGER}}}
+                - inside: {kind: module, stopBy: end, has: {matches: logger-assignment}}
 rule:
     pattern: $USE
     any:
@@ -16,7 +65,11 @@ rule:
         - kind: attribute
           all:
             - has: {field: attribute, matches: event-method}
-            - has: {field: object, kind: call, has: {field: function, matches: logger-factory}}
+            - has:
+                field: object
+                any:
+                    - matches: logger-call
+                    - matches: bound-logger
 message: "`$USE` emits an event through the stdlib logging API"
 note: Emit events through `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)` with structlog configured at the composition root
 labels: {USE: {style: primary, message: Event method}}

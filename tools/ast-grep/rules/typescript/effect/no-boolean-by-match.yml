@@ -3,18 +3,20 @@ id: no-boolean-by-match
 language: tsx
 severity: error
 utils:
-    # Both arms ignore a plain parameter and return a boolean without evaluating defaults or destructuring.
     true-arm:
         any:
             - matches: {effect-constant-handler: {answer: {kind: 'true'}}}
-            - pattern: Function.constTrue
-              has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Function$"}}}}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^constTrue$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Function$'}}}}
     false-arm:
         any:
             - matches: {effect-constant-handler: {answer: {kind: 'false'}}}
-            - pattern: Function.constFalse
-              has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Function$"}}}}
-    # Case record with one arm answering true and the other false
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^constFalse$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Function$'}}}}
     boolean-cases:
         kind: object
         all:
@@ -22,7 +24,6 @@ utils:
             - not: {has: {kind: pair, has: {field: key, not: {kind: property_identifier}}}}
             - has: {kind: pair, has: {field: value, matches: true-arm}}
             - has: {kind: pair, has: {field: value, matches: false-arm}}
-    # Pair holding the true arm, the rewriters read its key as the case the predicate names
     true-pair:
         kind: pair
         all:
@@ -41,9 +42,7 @@ rule:
     pattern: $CALL
     all:
         - has: {field: arguments, has: {matches: boolean-cases}}
-        # The data-last boolean match is the identity step of a pipe, no predicate names it
         - not: {pattern: Boolean.match($_)}
-        # Replacing a match must retain comments and explicit generic arguments.
         - not: {has: {field: type_arguments, kind: type_arguments}}
         - not: {has: {kind: comment, stopBy: end}}
 constraints:
@@ -52,12 +51,11 @@ constraints:
             - pattern: Boolean
               matches: {effect-module-reference: {module: {regex: '^(effect/)?Boolean$'}}}
             - not: {pattern: Boolean}
-              matches: {effect-module-reference: {module: {regex: '^(effect/)?(Option|Either|Exit|Effect)$'}}}
+              matches: {effect-module-reference: {module: {regex: '^(effect/)?(Option|Either|Exit|Effect|STM)$'}}}
 rewriters:
     - id: true-key
       rule: {matches: true-pair}
       fix: $KEY
-    # Boolean matched to itself is the boolean, or its negation under the operand rules of the not operator
     - id: flag
       rule:
         pattern: "Boolean.match($V, $_)"
@@ -67,7 +65,6 @@ rewriters:
     - id: flag-not
       rule: {pattern: "Boolean.match($V, $_)"}
       fix: "(!($V))"
-    # Each case key names the corresponding predicate
     - id: carrier-first
       rule: {pattern: "$M.$_($V, $C)"}
       transform:

@@ -9,6 +9,14 @@ snapshots:
       style: primary
       start: 0
       end: 56
+    - source: Command="cp $(StageRoot)manifest.yml $(OutDir)"
+      style: secondary
+      start: 6
+      end: 53
+    - source: <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
+      style: secondary
+      start: 0
+      end: 56
   ? |
     <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
   : fixed: |
@@ -16,6 +24,14 @@ snapshots:
     labels:
     - source: <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
       style: primary
+      start: 0
+      end: 76
+    - source: Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt"
+      style: secondary
+      start: 6
+      end: 73
+    - source: <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
+      style: secondary
       start: 0
       end: 76
   ? |
@@ -27,6 +43,48 @@ snapshots:
       style: primary
       start: 0
       end: 76
+    - source: Command="echo $(Version) &gt;&gt; $(IntermediateOutputPath)log.txt"
+      style: secondary
+      start: 6
+      end: 73
+    - source: <Exec Command="echo $(Version) &gt;&gt; $(IntermediateOutputPath)log.txt" />
+      style: secondary
+      start: 0
+      end: 76
+  ? |
+    <Exec Command="echo $(Version) > $(IntermediateOutputPath)version.txt" />
+  : fixed: |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    labels:
+    - source: <Exec Command="echo $(Version) > $(IntermediateOutputPath)version.txt" />
+      style: primary
+      start: 0
+      end: 73
+    - source: Command="echo $(Version) > $(IntermediateOutputPath)version.txt"
+      style: secondary
+      start: 6
+      end: 70
+    - source: <Exec Command="echo $(Version) > $(IntermediateOutputPath)version.txt" />
+      style: secondary
+      start: 0
+      end: 73
+  ? |
+    <Exec Command="md $(OutDir)logs" />
+  : fixed: |
+      <MakeDir Directories="$(OutDir)logs" />
+    labels:
+    - source: <Exec Command="md $(OutDir)logs" />
+      style: primary
+      start: 0
+      end: 35
+    - source: Command="md $(OutDir)logs"
+      style: secondary
+      start: 6
+      end: 32
+    - source: <Exec Command="md $(OutDir)logs" />
+      style: secondary
+      start: 0
+      end: 35
   ? |
     <Exec Command="mkdir $(OutDir)logs" />
   : fixed: |
@@ -34,6 +92,14 @@ snapshots:
     labels:
     - source: <Exec Command="mkdir $(OutDir)logs" />
       style: primary
+      start: 0
+      end: 38
+    - source: Command="mkdir $(OutDir)logs"
+      style: secondary
+      start: 6
+      end: 35
+    - source: <Exec Command="mkdir $(OutDir)logs" />
+      style: secondary
       start: 0
       end: 38
   ? |
@@ -45,6 +111,14 @@ snapshots:
       style: primary
       start: 0
       end: 85
+    - source: Command="mkdir -p $(OutDir)logs"
+      style: secondary
+      start: 6
+      end: 38
+    - source: <Exec Command="mkdir -p $(OutDir)logs" Condition="'$(Configuration)' == 'Release'" />
+      style: secondary
+      start: 0
+      end: 85
   ? |
     <Exec Command="mkdir a b" />
   : fixed: |
@@ -52,6 +126,14 @@ snapshots:
     labels:
     - source: <Exec Command="mkdir a b" />
       style: primary
+      start: 0
+      end: 28
+    - source: Command="mkdir a b"
+      style: secondary
+      start: 6
+      end: 25
+    - source: <Exec Command="mkdir a b" />
+      style: secondary
       start: 0
       end: 28
   ? |
@@ -63,6 +145,14 @@ snapshots:
       style: primary
       start: 0
       end: 58
+    - source: Command="mkdir logs"
+      style: secondary
+      start: 6
+      end: 26
+    - source: <Exec Command="mkdir logs" WorkingDirectory="$(OutDir)" />
+      style: secondary
+      start: 0
+      end: 58
   ? |
     <Exec Command="rm $(OutDir)stale.txt" />
   : fixed: |
@@ -72,6 +162,31 @@ snapshots:
       style: primary
       start: 0
       end: 40
+    - source: Command="rm $(OutDir)stale.txt"
+      style: secondary
+      start: 6
+      end: 37
+    - source: <Exec Command="rm $(OutDir)stale.txt" />
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    <Exec Command="rm -f $(OutDir)stale.txt" />
+  : fixed: |
+      <Delete Files="$(OutDir)stale.txt" />
+    labels:
+    - source: <Exec Command="rm -f $(OutDir)stale.txt" />
+      style: primary
+      start: 0
+      end: 43
+    - source: Command="rm -f $(OutDir)stale.txt"
+      style: secondary
+      start: 6
+      end: 40
+    - source: <Exec Command="rm -f $(OutDir)stale.txt" />
+      style: secondary
+      start: 0
+      end: 43
   ? |
     <Exec Command="rm -rf $(OutDir)stage" />
   : fixed: |
@@ -81,6 +196,31 @@ snapshots:
       style: primary
       start: 0
       end: 40
+    - source: Command="rm -rf $(OutDir)stage"
+      style: secondary
+      start: 6
+      end: 37
+    - source: <Exec Command="rm -rf $(OutDir)stage" />
+      style: secondary
+      start: 0
+      end: 40
+  ? |
+    <Exec Command="rmdir /s /q $(OutDir)stage" />
+  : fixed: |
+      <Exec Command="rmdir /s /q $(OutDir)stage" />
+    labels:
+    - source: <Exec Command="rmdir /s /q $(OutDir)stage" />
+      style: primary
+      start: 0
+      end: 45
+    - source: Command="rmdir /s /q $(OutDir)stage"
+      style: secondary
+      start: 6
+      end: 42
+    - source: <Exec Command="rmdir /s /q $(OutDir)stage" />
+      style: secondary
+      start: 0
+      end: 45
   ? |
     <Exec Command="touch $(IntermediateOutputPath)stamp" />
   : fixed: |
@@ -90,6 +230,48 @@ snapshots:
       style: primary
       start: 0
       end: 55
+    - source: Command="touch $(IntermediateOutputPath)stamp"
+      style: secondary
+      start: 6
+      end: 52
+    - source: <Exec Command="touch $(IntermediateOutputPath)stamp" />
+      style: secondary
+      start: 0
+      end: 55
+  ? |
+    <Exec Command="xcopy /s src dst" />
+  : fixed: |
+      <Exec Command="xcopy /s src dst" />
+    labels:
+    - source: <Exec Command="xcopy /s src dst" />
+      style: primary
+      start: 0
+      end: 35
+    - source: Command="xcopy /s src dst"
+      style: secondary
+      start: 6
+      end: 32
+    - source: <Exec Command="xcopy /s src dst" />
+      style: secondary
+      start: 0
+      end: 35
+  ? |
+    <Exec Command='echo $(Version) &gt; $(IntermediateOutputPath)version.txt' />
+  : fixed: |
+      <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    labels:
+    - source: <Exec Command='echo $(Version) &gt; $(IntermediateOutputPath)version.txt' />
+      style: primary
+      start: 0
+      end: 76
+    - source: Command='echo $(Version) &gt; $(IntermediateOutputPath)version.txt'
+      style: secondary
+      start: 6
+      end: 73
+    - source: <Exec Command='echo $(Version) &gt; $(IntermediateOutputPath)version.txt' />
+      style: secondary
+      start: 0
+      end: 76
   ? |
     <Exec Command='mkdir $(OutDir)logs' />
   : fixed: |
@@ -97,5 +279,13 @@ snapshots:
     labels:
     - source: <Exec Command='mkdir $(OutDir)logs' />
       style: primary
+      start: 0
+      end: 38
+    - source: Command='mkdir $(OutDir)logs'
+      style: secondary
+      start: 6
+      end: 35
+    - source: <Exec Command='mkdir $(OutDir)logs' />
+      style: secondary
       start: 0
       end: 38

@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# Report only, "${cmd[@]}" in place of eval "$cmd" runs the string as one word, the probe fails with printf %s hi: command not found
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-eval
 language: bash
 severity: error
@@ -8,22 +7,16 @@ rule:
     kind: command
     pattern: $CMD
     any:
-        - has: {field: name, regex: '^(\\|["''])?eval["'']?$'} # The name bare, quoted, or behind a backslash
-        # Only execution options may precede the target; command -v/-V perform lookup.
-        - has:
-            kind: word, string, raw_string
-            regex: '^["'']?eval["'']?$'
-            follows:
-                any:
-                    - kind: command_name
-                      regex: '^(builtin|command)$'
-                    - kind: word
-                      regex: '^-p$'
-                      follows: {kind: command_name, regex: '^command$'}
-                stopBy: {not: {kind: word, regex: '^--$'}}
-        # A shell run over a string built at run time parses it the same way, a literal program after -c is a script
+        - has: {matches: {bash-invoked-name: {name: {regex: '^(\\|["''])?eval["'']?$'}, runner: {regex: '^(builtin|command|time)$'}}}}
         - all:
-            - has: {field: name, regex: '^(bash|sh)$'}
-            - has: {matches: bash-expanding-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$', follows: {kind: command_name, stopBy: {not: {kind: word, regex: '^-[a-zA-Z]+$'}}}}} # -c alone or joined, -ec, -xc, -lc
+            - has: {matches: {bash-invoked-name: {name: {matches: shell-name}, runner: {regex: '^(?:\S+/)?(command|env|exec|sudo|time)$'}}}, pattern: $SHELL}
+            - has: {matches: bash-expanding-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$', follows: {pattern: $SHELL, stopBy: {not: {matches: shell-option}}}}}
+utils:
+    shell-name: {regex: '^(\\|["''])?(?:[^\s"'']+/)?(bash|sh|dash|ksh|zsh)["'']?$'}
+    shell-option:
+        kind: word
+        any:
+            - regex: '^([-+][a-zA-Z]+|--[a-z-]+)$'
+            - follows: {kind: word, regex: '^(-[a-zA-Z]*[oO]|\+O|--(rcfile|init-file))$'}
 message: '`$CMD` parses its arguments as shell code a second time'
 note: Build the command in an array, `cmd=(<word> ...)` then `"${cmd[@]}"`, read a name through `${!name}`, and pass a value to `bash -c` as `$1`

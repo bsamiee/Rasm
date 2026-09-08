@@ -1,20 +1,23 @@
 id: no-using-remove-in-project
 valid:
-    # Project adding a using it needs
     - |
       <ItemGroup><Using Include="Rhino.Geometry" /></ItemGroup>
-    # Central using keyed on the package supplying the namespace
     - |
       <ItemGroup>
         <Using Include="Thinktecture" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Thinktecture.Runtime.Extensions'))' != ''" />
       </ItemGroup>
-    # Remove on another item type
     - |
       <ItemGroup><Compile Remove="Generated/**" /></ItemGroup>
+    - |
+      <ItemGroup><Using Update="Item" Alias="Alias" /></ItemGroup>
+    - |
+      <ItemGroup><Using Include="Item" Static="true" /></ItemGroup>
 invalid:
-    # The instance, three projects removed a central Using of the kernel namespace
     - |
-      <ItemGroup Label="Kernel-Free Usings"><Using Remove="Rasm.Analysis" /></ItemGroup>
-    # The start-tag form
+      <ItemGroup Label="Kernel-Free Usings"><Using Remove="Item.Analysis" /></ItemGroup>
     - |
-      <ItemGroup><Using Remove="Rasm.Domain"></Using></ItemGroup>
+      <ItemGroup><Using Remove="Item.Domain"></Using></ItemGroup>
+    - |
+      <ItemGroup><Using Remove='Item' /></ItemGroup>
+    - |
+      <Target Name="Trim"><ItemGroup><Using Remove="Item" /></ItemGroup></Target>

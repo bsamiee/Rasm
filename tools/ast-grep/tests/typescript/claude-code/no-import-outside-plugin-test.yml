@@ -1,69 +1,41 @@
 id: no-import-outside-plugin
 valid:
-    # The plugin API module, a type import
     - "import type { On } from 'claude-code';"
-    # The plugin API module, a value import in double quotes
     - 'import { fold } from "claude-code";'
-    # Relative .ts path in the same directory
     - "import { fold } from './decision.ts';"
-    # Relative .ts path in a parent directory
     - "import { GIT } from '../policies/git.ts';"
-    # Side-effect import of a relative .ts path
     - "import './side.ts';"
-    # Re-export from a relative .ts path
     - "export { fold } from './decision.ts';"
-    # Export block without a source
     - "export { fold, when };"
-    # Dynamic import of a relative .ts path
     - "const m = await import('./lazy.ts');"
-    # Declaration file path ends in .ts
     - "import type { Row } from './tools.d.ts';"
-    # String outside an import, export, require, or import call
     - "const name = 'effect';"
-    # First argument of a call other than require or import
     - "log('effect');"
-    # Second argument of a call named import is no source
     - "const m = await import('./lazy.ts', 'effect');"
-    # Namespace re-export from a relative .ts path
     - "export * as text from './text/lines.ts';"
-    # Import attribute on a relative .ts path
     - "import { rows } from './rows.ts' with { type: 'json' };"
+    - "const m = await import(`./lazy.ts`);"
+    - "const m = await import(`./${name}.ts`);"
+    - "const m = await import(`${dir}/lazy.ts`);"
 invalid:
-    # a package the loader refuses
+    - "const effect = await import(`effect`);"
+    - "const fold = require(`./decision`);"
     - "import { Effect } from 'effect';"
-    # Node built-in with the node prefix
     - "import { readFile } from 'node:fs';"
-    # Node built-in without the prefix
     - "import fs from 'fs';"
-    # Relative path without the extension
     - "import { fold } from './decision';"
-    # Relative path with the .js extension
     - "import { fold } from './decision.js';"
-    # Relative directory
     - "import type { On } from '../../types';"
-    # Subpath of the plugin API module
     - "import { x } from 'claude-code/x';"
-    # Re-export from a package
     - "export * from 'effect';"
-    # Require of a package
     - "const fs = require('fs');"
-    # Dynamic import of a package
     - "const effect = await import('effect');"
-    # Test runner import outside a spec
     - "import { describe } from 'vitest';"
-    # Import-equals form of require, the source under the import_require_clause
     - "import fs = require('fs');"
-    # Type-only re-export from a package
     - "export type { Effect } from 'effect';"
-    # Relative path with the .mts extension
     - "import { fold } from './decision.mts';"
-    # Relative path to a directory index
     - "import { fold } from './composition/index';"
-    # Relative path with the .tsx extension
     - "import { View } from './view.tsx';"
-    # Absolute path
     - "import { fold } from '/Users/owner/decision.ts';"
-    # JSON file beside the module
     - "import rows from './rows.json' with { type: 'json' };"
-    # Package under a scope
     - "import { Schema } from '@effect/schema';"

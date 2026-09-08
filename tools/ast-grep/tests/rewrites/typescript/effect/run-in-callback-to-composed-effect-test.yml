@@ -1,37 +1,24 @@
 id: run-in-callback-to-composed-effect
 valid:
-    # The run is part of a larger answer
     - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => Effect.runSync(lookup(value)) + 1);'
-    # Another statement beside the return
     - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => { report(value); return Effect.runSync(lookup(value)); });'
-    # An owner outside map, sync, and promise
     - 'import { Effect } from "effect"; const next = Effect.flatMap(load, (value) => Effect.runSync(lookup(value)));'
-    # A run with a second argument
     - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => Effect.runSync(lookup(value), { scheduler }));'
-    # A comment inside the callback
     - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => /* once */ Effect.runSync(lookup(value)));'
-    # An async callback
     - 'import { Effect } from "effect"; const next = Effect.promise(async () => Effect.runPromise(lookup(1)));'
-    # A stream owner, its flatMap takes a stream
     - 'import { Effect, Stream } from "effect"; const next = Stream.map(stream, (value) => Effect.runSync(lookup(value)));'
-    # A forked run answers a fiber
     - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => Effect.runFork(lookup(value)));'
-    # A runtime-bound run
     - 'import { Effect, Runtime } from "effect"; const next = Effect.map(load, (value) => Runtime.runSync(runtime)(lookup(value)));'
-    # Another module
     - 'import { Effect } from "other"; const next = Effect.map(load, (value) => Effect.runSync(lookup(value)));'
+    - 'import { Effect } from "effect"; const next = Effect.map<number>(load, (value) => Effect.runSync(lookup(value)));'
+    - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => Effect.runSync(lookup(value)), extra);'
+    - 'import { Stream } from "effect"; const next = Stream.map(stream, (value) => Stream.runSync(lookup(value)));'
+    - 'import { Effect, Micro } from "effect"; const next = Effect.map(load, (value) => Micro.runSync(lookup(value)));'
 invalid:
-    # The instance, a synchronous run as the map callback's answer
     - 'import { Effect } from "effect"; const next = Effect.map(load, (value) => Effect.runSync(lookup(value)));'
-    # The data-last map with a block body
     - 'import { Effect } from "effect"; const next = load.pipe(Effect.map((value) => { return Effect.runSync(lookup(value)); }));'
-    # A sync constructor around a run suspends the effect
     - 'import { Effect } from "effect"; const next = Effect.sync(() => Effect.runSync(lookup(1)));'
-    # A promise constructor around a promise run
     - 'import { Effect } from "effect"; const next = Effect.promise(() => Effect.runPromise(lookup(1)));'
-    # A function expression
     - 'import { Effect } from "effect"; const next = Effect.map(load, function (value) { return Effect.runSync(lookup(value)); });'
-    # Micro
     - 'import { Micro } from "effect"; const next = Micro.map(load, (value) => Micro.runSync(lookup(value)));'
-    # The owner nested in another callback rewrites alone
     - 'import { Effect } from "effect"; const next = Effect.flatMap(load, (value) => Effect.sync(() => Effect.runSync(lookup(value))));'

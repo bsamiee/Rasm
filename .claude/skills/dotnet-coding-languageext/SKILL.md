@@ -15,7 +15,7 @@ Covers the LanguageExt types and their operations, from the result types and the
 - [02]-[STREAMS](references/streams.md): The stream API from sources to pipes, with the buffer policies and their forking order
 - [03]-[API](references/api.md): Public types and members by scope, with the notes each scope needs
 
-The result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, which binds the constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, the module is named `LanguageExt.List.unfold` in full.
+The result, effect, and collection types come from `LanguageExt.Core`, the runtimes with their `ConsoleIO` and `FileIO` traits from `LanguageExt.Sys`, and `Source`, `Conduit`, and the pipes from `LanguageExt.Streaming`. Examples assume `using static LanguageExt.Prelude`, it binds the constructors and module functions as unqualified names (`Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `Pure`, `guard`, `use`, `atomic`, `memo`), and the static import binds `List` to `Prelude.List`, the module is named `LanguageExt.List.unfold` in full.
 
 ## [01]-[RESULT_TYPES]
 
@@ -31,7 +31,7 @@ The result and effect types and their runtime shapes:
 |  [06]   | `IO<A>`                | abstract record class |
 |  [07]   | `Eff<RT, A>`           | record class          |
 
-Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, while `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`.
+Each type exposes `Match` with one function per case, and `Match` on `IO` and `Eff` returns an effect. `Option<A>` holds a flag and an inner value, exposes the flag as `IsSome` and `IsNone`, ignores the inner value in the `None` state, and is closed, a `Match` over its cases is total, as is a `Match` over `Fin`. The implicit conversion from `A` maps `null` to `None`, `Optional(x)` does the same for nullable input, and `Some(x)` wraps the value as given. `Option<A>` defines `operator true`, `left || right` evaluates the right operand only when the left is `None`, while `left | right` evaluates both. `IfNone(A)` takes a value, `IfNone(Func<A>)` takes a computation that runs only on `None`, and both return `A`. The `Prelude` module forms `match(option, Some, None)`, `ifNone(option, Func<A>)`, and `ifNone(option, A)` compile unqualified and qualified, a value in the `None` slot of `match` is CS0201, and `Fin` has no module form because `match(fin, Succ:, Fail:)` and `ifFail(fin, f)` resolve to the `Eff` overloads (CS0411, CS0029).
 
 Each conversion is a method on the source type named for the target, and converting from `Option` requires the `Error` it lacks:
 
@@ -132,7 +132,7 @@ internal static class Guards {
 
 ## [04]-[EFFECTS]
 
-`IO.lift` reads the return type of its thunk to select an overload: a `Func<A>` defers the value, a `Func<Fin<A>>` converts a `Fail` to an `IO` failure, the type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value, and `IO.lift(Fin<A>)` lifts an evaluated result:
+`IO.lift` reads the return type of its thunk to select an overload: a `Func<A>` defers the value, a `Func<Fin<A>>` converts a `Fail` to an `IO` failure, the type argument in `IO.lift<Fin<A>>` keeps the `Fin` as the value, and `IO.lift(Fin<A>)` lifts an evaluated result, as does `IO.lift(Next)` over a `Fin<A> Next()` method group, `Fin<A>` has no `ToIO` and `IO<A>.Lift(Fin<A>)` fails inference, and a bound `Fin` lifts through `.Bind(IO.lift)`, `.Bind(fin => IO.lift(() => fin))`, or `from x in IO.lift(fin)`, each typed `IO<A>`:
 
 ```csharp
 internal static class Construction {
@@ -263,7 +263,7 @@ Transformers stack one concern over an inner monad `M`, and the wrapped represen
 |  [07]   | `WriterT<W, M, A>`         | `W` beside the value         | Returns the value with `W`    |
 |  [08]   | `RWST<R, W, S, M, A>`      | `ask`, `tell`, `get`, `put`  | Combines the 3 runs           |
 
-`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. The domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, which `StateT` does not, and the wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
+`lift` adds a layer to an evaluated value (`Fin<A>`, `Either<L, A>`, `Validation<Error, A>`, or the inner `K<M, A>`), `liftIO` passes an `IO<A>` through every layer to the `IO` at the bottom, `Run` removes one layer and the host runs the layers from the outside in, and `ValidationT` serves only errors that must accumulate inside an effect. The domain wrapper `record Wrapper<A>(StateT<S, IO, A> Inner) : K<Wrapper, A>` gains the stack's capabilities through `Deriving.Monad<Wrapper, StateT<S, IO>>` and `Deriving.Stateful<Wrapper, StateT<S, IO>, S>` with `Transform` and `CoTransform` alone, `Deriving.MonadIO` needs a stack that implements `MonadIO`, `StateT` does not, and the wrapper lifts an effect through `CoTransform` over `StateT.liftIO`.
 
 ## [06]-[COLLECTIONS]
 
@@ -293,13 +293,16 @@ internal static class Folds {
 }
 ```
 
-`Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs sequences and its projection overload takes a function, `Scan` emits the seed first, the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
+`Choose` maps to `Option` and keeps the `Some` values in one pass, `Partition` splits by a predicate into a deconstructable tuple, `Zip` pairs sequences into tuples named `First` and `Second` and its projection overload takes a function, `Scan` emits the seed first, the result has one more element than the source, `At(index)`, `Head`, and `Last` are `Option<A>`, `Tail` is empty for an empty source, the indexed `Map` passes the item first and the index second, `Rev` reverses, `LanguageExt.List.unfold` runs a state seed until the step returns `None`, and `Cons` resolves as `head.Cons(tail)` because `LanguageExt.Pretty.Cons<A>` is a type.
 
 Forms the compiler rejects:
-- `Zip` names its tuple elements `First` and `Second`, and comparing the result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares the same names
+- Comparing a `Zip` result with a `Seq` of unnamed tuples is ambiguous (CS9342), the expected value declares `First` and `Second`
 - `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists` and a sum is `Fold`
 - `Seq<A>.Empty` in expression context fails (CS0119) because the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
 - `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`
+- `SeqExtensions.Choose<A, B>` takes two type arguments and `Seq<A>` has no instance form, `Choose<int>(Parse)` is CS1061
+- `Choose` takes the indexed `Func<int, A, Option<B>>` with the index first, and a two-parameter `delegate` makes the call ambiguous (CS0121)
+- `Choose(x => x > 0 ? x : None)` is CS1660 because the conditional has no target type, and `Map<Option<int>>(same).Somes()` compiles
 
 ## [07]-[LENSES_AND_SHARED_STATE]
 
@@ -318,7 +321,7 @@ internal static class Lenses {
 }
 ```
 
-`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, which returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, a memoized `IO` is constructed once and runs each time `Value` is read:
+`Atom<A>` manages one value with compare-and-swap, `Swap` returns the new value and reruns its function on conflict, and `SwapMaybe` keeps the state on `None` and returns the current value. `AtomHashMap<K, V>` updates in place, `TryAdd` ignores a present key, `SwapKey(key, Func<V, V>)` updates a present key and `SwapKey(key, Func<Option<V>, Option<V>>)` inserts, updates, and removes, `Find` reads, and `FindOrAdd` adds a missing value or returns the existing one in one atomic step. `Ref<A>` updates run inside `atomic(Func<R>)`, it returns the function result from the transaction, `swap` reads the transactional value, `commute` applies its function inside the transaction and again at the commit point against the last committed value, and `Isolation.Serialisable` sets serializable isolation. `TrackingHashMap<K, V>` records each key change in `Changes` and `Snapshot()` clears the log and keeps the entries. `memo(Func<A, B>)` caches one result per argument, `memo(Func<A>)` returns a `Memo<A>` that runs the thunk once on `Value`, and `memoK` caches the construction of a `K<F, A>` and not its execution, a memoized `IO` is constructed once and runs each time `Value` is read:
 
 ```csharp
 internal static class SharedState {

@@ -1,0 +1,11 @@
+id: markdown-section
+language: markdown
+role: item
+symbolType: namespace
+rule:
+    any:
+        - kind: html_block
+        - kind: paragraph
+          regex: '^<[a-z]+_[a-z_]+>(\n|$)'
+name: section
+isExported: true

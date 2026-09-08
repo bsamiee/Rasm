@@ -249,7 +249,7 @@ workspace = [
     "pillow",                                             # Image IO and WebP decoding
     "psd-tools",                                          # PSD read and pixel authoring
     "psdtags",                                            # Photoshop TIFF image resources and layer source data
-    "pyktx<5",                                            # In-process KTX2 writing, Basis encoding, Zstandard supercompression, and BC7 and ASTC transcoding over Forge libktx, the 5.0 sdist reads LIBKTX_VERSION from the build environment
+    "pyktx<5",                                            # cffi binding of the provisioned libktx 4 release through the LIBKTX variables of the mise environment, 5.0 binds libktx 5
     "pysubs2",                                            # Subtitle parse, convert, retime, and restyle
     "pyvips",                                             # Fused decode, downscale, ICC, and smartcrop over Forge vips with HEVC, HEIF, JXL, and EXR
     "scikit-image",                                       # Image processing, its sdist builds through pythran

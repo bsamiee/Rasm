@@ -35,6 +35,23 @@ snapshots:
       start: 0
       end: 72
   ? |
+    <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="true" />
+  : fixed: |
+      <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="false"/>
+    labels:
+    - source: <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="true" />
+      style: primary
+      start: 0
+      end: 73
+    - source: Include="Eto"
+      style: secondary
+      start: 11
+      end: 24
+    - source: <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="true" />
+      style: secondary
+      start: 0
+      end: 73
+  ? |
     <Reference Include="Eto" HintPath="$(EtoReferencePath)"><Other>false</Other></Reference>
   : fixed: |
       <Reference Include="Eto" HintPath="$(EtoReferencePath)" Private="false"><Other>false</Other></Reference>
@@ -120,6 +137,23 @@ snapshots:
       start: 0
       end: 25
   ? |
+    <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>false</Private><Private Condition="'$(Copy)' == 'true'">true</Private></Reference>
+  : fixed: |
+      <Reference Include="Eto" Private="false"><HintPath>$(EtoReferencePath)</HintPath></Reference>
+    labels:
+    - source: <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>false</Private><Private Condition="'$(Copy)' == 'true'">true</Private></Reference>
+      style: primary
+      start: 0
+      end: 156
+    - source: Include="Eto"
+      style: secondary
+      start: 11
+      end: 24
+    - source: <Reference Include="Eto">
+      style: secondary
+      start: 0
+      end: 25
+  ? |
     <Reference Include="Eto"><HintPath>$(EtoReferencePath)</HintPath><Private>true</Private></Reference>
   : fixed: |
       <Reference Include="Eto" Private="false"><HintPath>$(EtoReferencePath)</HintPath></Reference>
@@ -136,6 +170,74 @@ snapshots:
       style: secondary
       start: 0
       end: 25
+  ? |
+    <Reference Include="Eto.macOS"><HintPath>$(RhinoAssemblyDirectory)Eto.macOS.dll</HintPath></Reference>
+  : fixed: |
+      <Reference Include="Eto.macOS" Private="false"><HintPath>$(RhinoAssemblyDirectory)Eto.macOS.dll</HintPath></Reference>
+    labels:
+    - source: <Reference Include="Eto.macOS"><HintPath>$(RhinoAssemblyDirectory)Eto.macOS.dll</HintPath></Reference>
+      style: primary
+      start: 0
+      end: 102
+    - source: Include="Eto.macOS"
+      style: secondary
+      start: 11
+      end: 30
+    - source: <Reference Include="Eto.macOS">
+      style: secondary
+      start: 0
+      end: 31
+  ? |
+    <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" />
+  : fixed: |
+      <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" Private="false"/>
+    labels:
+    - source: <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" />
+      style: primary
+      start: 0
+      end: 102
+    - source: Include="Grasshopper2;GrasshopperIO"
+      style: secondary
+      start: 11
+      end: 47
+    - source: <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" />
+      style: secondary
+      start: 0
+      end: 102
+  ? |
+    <Reference Include="Grasshopper;GH_IO" HintPath="$(GrasshopperPluginPath)%(Identity).dll" />
+  : fixed: |
+      <Reference Include="Grasshopper;GH_IO" HintPath="$(GrasshopperPluginPath)%(Identity).dll" Private="false"/>
+    labels:
+    - source: <Reference Include="Grasshopper;GH_IO" HintPath="$(GrasshopperPluginPath)%(Identity).dll" />
+      style: primary
+      start: 0
+      end: 92
+    - source: Include="Grasshopper;GH_IO"
+      style: secondary
+      start: 11
+      end: 38
+    - source: <Reference Include="Grasshopper;GH_IO" HintPath="$(GrasshopperPluginPath)%(Identity).dll" />
+      style: secondary
+      start: 0
+      end: 92
+  ? |
+    <Reference Include="Rhino.UI" HintPath="$(RhinoAssemblyDirectory)Rhino.UI.dll" />
+  : fixed: |
+      <Reference Include="Rhino.UI" HintPath="$(RhinoAssemblyDirectory)Rhino.UI.dll" Private="false"/>
+    labels:
+    - source: <Reference Include="Rhino.UI" HintPath="$(RhinoAssemblyDirectory)Rhino.UI.dll" />
+      style: primary
+      start: 0
+      end: 81
+    - source: Include="Rhino.UI"
+      style: secondary
+      start: 11
+      end: 29
+    - source: <Reference Include="Rhino.UI" HintPath="$(RhinoAssemblyDirectory)Rhino.UI.dll" />
+      style: secondary
+      start: 0
+      end: 81
   ? |
     <Reference Include="RhinoCommon" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
   : fixed: |
@@ -187,6 +289,23 @@ snapshots:
       style: secondary
       start: 0
       end: 33
+  ? |
+    <Reference Include="RhinoCommon, Version=8.0.0.0, Culture=neutral" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+  : fixed: |
+      <Reference Include="RhinoCommon, Version=8.0.0.0, Culture=neutral" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" Private="false"/>
+    labels:
+    - source: <Reference Include="RhinoCommon, Version=8.0.0.0, Culture=neutral" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+      style: primary
+      start: 0
+      end: 121
+    - source: Include="RhinoCommon, Version=8.0.0.0, Culture=neutral"
+      style: secondary
+      start: 11
+      end: 66
+    - source: <Reference Include="RhinoCommon, Version=8.0.0.0, Culture=neutral" HintPath="$(RhinoAssemblyDirectory)RhinoCommon.dll" />
+      style: secondary
+      start: 0
+      end: 121
   ? |
     <Reference Include='RhinoCommon' HintPath='$(RhinoAssemblyDirectory)RhinoCommon.dll' />
   : fixed: |

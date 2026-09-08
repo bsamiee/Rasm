@@ -21,11 +21,23 @@ valid:
     - var fetch = client.load; fetch(url);
     - import fetch from "client"; fetch(url);
     - import * as window from "client"; window.fetch(url);
+    - const rows = window["load"](url);
+    - const rows = window.client.fetch(url);
+    - const rows = window[name](url);
+    - import { Effect } from "effect"; const response = Effect.tryPromise(() => fetch(url));
+    - 'import { Effect } from "effect"; const response = Effect.promise((signal) => fetch(url, { signal }));'
+    - 'import { Effect } from "effect"; const response = Effect.tryPromise<Response, LoadError>({ try: () => fetch(url), catch: mapError });'
+    - 'import { Effect } from "effect"; const body = Effect.tryPromise({ try: () => fetch(url), catch: mapError }).pipe(Effect.map(read));'
 invalid:
+    - const response = fetch?.(url);
     - const response = fetch(url);
     - const response = globalThis.fetch(url);
     - const response = window.fetch(url);
     - const response = self.fetch(url);
+    - const response = window["fetch"](url);
+    - "const response = globalThis['fetch'](url);"
+    - const response = globalThis.window.fetch(url);
+    - const response = window.self.fetch(url);
     - import { Effect } from "effect"; const response = Effect.sync(() => fetch(url));
     - 'const response = fetch(url, { method: ''POST'' });'
     - 'import { Effect } from "effect"; Effect.tryPromise({ try: () => load(), catch: () => fetch(url) });'
@@ -33,11 +45,8 @@ invalid:
     - import { fetch as clientFetch } from "client"; fetch(url);
     - 'import { Effect } from "effect"; Effect.tryPromise({ try: load, async catch(cause) { return fetch(url); } });'
     - import { Stream } from "effect"; Stream.fromIterable((async function* () { yield fetch(url); })());
-    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
     - 'import { Micro } from "effect"; Micro.tryMapPromise(work, { try: () => fetch(url), catch: mapError });'
-    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
     - import { Either } from "effect"; Either.tryPromise(() => fetch(url));
     - 'import { Effect } from "effect"; Effect.tryMapPromise(() => fetch(url), { try: load, catch: mapError });'
     - 'import { Effect } from "effect"; Effect.tryMap(work, { try: () => fetch(url), catch: mapError });'
-    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
     - import { Effect } from "effect"; Effect.fromAsyncIterable((async function* () { yield fetch(url); })(), mapError);

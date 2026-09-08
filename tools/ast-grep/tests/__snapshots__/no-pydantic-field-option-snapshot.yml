@@ -59,6 +59,15 @@ snapshots:
       style: primary
       start: 31
       end: 40
+  ? |
+    import pydantic as pd
+    pd.fields.Field(min_items=1)
+  : labels:
+    - source: min_items
+      message: Field option
+      style: primary
+      start: 38
+      end: 47
   pydantic.Field(allow_mutation=0):
     labels:
     - source: allow_mutation

@@ -1,37 +1,35 @@
 id: require-package-version-comment
 valid:
-    # The row form of Directory.Packages.props, the comment after the blanks on the row's line
     - |
       <ItemGroup Label="Testing"><PackageVersion Include="CsCheck" Version="4.8.0"
         />                 <!-- Property-based testing with shrinking, concurrency, and performance checks --></ItemGroup>
-    # Comment directly after the row
     - |
       <ItemGroup Label="Analyzers"><PackageVersion Include="MinVer"
         Version="7.0.0" /><!-- Assembly and package version from the nearest git tag --></ItemGroup>
-    # Global package reference with the same trailing comment
     - |
       <ItemGroup Label="Analyzers"><GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190"
         /> <!-- Roslyn analyzers enforcing C# design, usage, security, and performance rules --></ItemGroup>
+    - |
+      <ItemGroup><PackageVersion Include="Item" Version="1.0.0" /> <!-- one --> <!-- two --></ItemGroup>
+    - |
+      <ItemGroup><PackageVersion Include="Item" Version="1.0.0" Condition="'$(Host)' == 'true'" /> <!-- purpose --></ItemGroup>
 invalid:
-    # Row with no comment
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="HyperJet" Version="0.3.0" /></ItemGroup>
-    # Comment on the next line belongs to the next row, the row itself has none
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="MatFlat" Version="0.8.3" />
           <!-- Automatic differentiation computing gradients and Hessians with SIMD acceleration --></ItemGroup>
-    # Comment spanning lines
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /> <!-- Sparse LU,
           Cholesky, and QR factorization --></ItemGroup>
-    # Global package reference with no comment
     - |
       <ItemGroup Label="Analyzers"><GlobalPackageReference Include="Meziantou.Analyzer" Version="3.0.190" /></ItemGroup>
-    # Comment spanning lines directly after the row
     - |
       <ItemGroup Label="Mathematics"><PackageVersion Include="CSparse" Version="4.4.1" /><!-- Sparse LU,
           Cholesky, and QR factorization --></ItemGroup>
-    # Empty comment gives no purpose
     - '<ItemGroup><PackageVersion Include="Example" Version="1.0.0" /> <!-- --></ItemGroup>'
-    # Adjacent empty comment gives no purpose either
     - '<ItemGroup><PackageVersion Include="Example" Version="1.0.0" /><!-- --></ItemGroup>'
+    - |
+      <ItemGroup><!-- purpose --><PackageVersion Include="Item" Version="1.0.0" /></ItemGroup>
+    - |
+      <ItemGroup><PackageVersion Include="Item" Version="1.0.0" /><PackageVersion Include="Other" Version="1.0.0" /> <!-- purpose --></ItemGroup>

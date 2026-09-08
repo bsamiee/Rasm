@@ -1,60 +1,61 @@
 id: no-central-property-in-project
 valid:
-    # Description and license, values the project holds alone
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><Description>Little CMS shared library staged per runtime identifier</Description>
         <PackageLicenseExpression>MIT</PackageLicenseExpression></PropertyGroup></Project>
-    # The framework and the output type are project values
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework><OutputType>Exe</OutputType>
         </PropertyGroup></Project>
-    # Manifest file name, central package id, and release group, project facts
     - |
       <PropertyGroup><VersionManifestFileName>extensions.json</VersionManifestFileName><CentralPackageId>DuckDB.NET.Data.Full</CentralPackageId>
-        <ReleaseGroup>Rasm.Interop</ReleaseGroup></PropertyGroup>
-    # Language version above the framework default, a project value
+        <ReleaseGroup>Item</ReleaseGroup></PropertyGroup>
     - |
       <PropertyGroup><LangVersion>latest</LangVersion></PropertyGroup>
-    # Restore code suppressed on one reference, metadata
     - |
       <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
+    - |
+      <PropertyGroup><RootNamespace>Item</RootNamespace></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarnExtra>CS1591</NoWarnExtra></PropertyGroup>
 invalid:
-    # The version a packaging project stated before the manifest owned it
     - |
       <PropertyGroup><Version>2.19.1</Version></PropertyGroup>
-    # Informational version stated in a project
     - |
       <PropertyGroup><InformationalVersion>0.1.0-cargo</InformationalVersion></PropertyGroup>
-    # Tag prefix the release group derives in Directory.Build.targets
     - |
       <PropertyGroup><MinVerTagPrefix>v</MinVerTagPrefix></PropertyGroup>
-    # Restore code suppressed per project
     - |
       <PropertyGroup><NoWarn>$(NoWarn);NU5128</NoWarn></PropertyGroup>
-    # Warning severity list left in a project body
     - |
       <PropertyGroup Label="IKVM Compile"><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-    # The artifacts root, NETSDK1199 rejects it in a project
     - |
       <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath></PropertyGroup>
-    # Pack on build in a library
     - |
       <PropertyGroup><GeneratePackageOnBuild>true</GeneratePackageOnBuild></PropertyGroup>
-    # The test classification Directory.Build.targets derives, stated
     - |
       <PropertyGroup><IsTestProject>true</IsTestProject></PropertyGroup>
-    # The test classification negated in a support project
     - |
       <PropertyGroup><IsTestProject>false</IsTestProject></PropertyGroup>
-    # The runner flag a test project set
     - |
       <PropertyGroup><UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner></PropertyGroup>
-    # The platform flag the package sets
     - |
       <PropertyGroup><IsTestingPlatformApplication>true</IsTestingPlatformApplication></PropertyGroup>
-    # The coverage arguments Directory.Build.targets owns
     - |
       <PropertyGroup><TestingPlatformCommandLineArguments>--coverlet</TestingPlatformCommandLineArguments></PropertyGroup>
-    # The VSTest-mode switch the .NET 10 runner rejects
     - |
       <PropertyGroup><TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport></PropertyGroup>
+    - |
+      <PropertyGroup><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
+    - |
+      <PropertyGroup><NuGetAuditMode>all</NuGetAuditMode></PropertyGroup>
+    - |
+      <PropertyGroup><AnalysisLevel>latest-all</AnalysisLevel></PropertyGroup>
+    - |
+      <PropertyGroup><RestoreLockedMode>true</RestoreLockedMode></PropertyGroup>
+    - |
+      <PropertyGroup><EnableMSTestRunner>true</EnableMSTestRunner></PropertyGroup>
+    - |
+      <PropertyGroup>
+        <Version>1.0.0</Version>
+        <Description>Item</Description>
+      </PropertyGroup>

@@ -1,67 +1,47 @@
 id: no-alias-declaration
 valid:
-    # Capturing a mutable binding preserves its current value, replacing the snapshot changes behavior
     - 'let current = 1; export const initial = current; current = 2; console.log(initial, current);'
-    # Imported bindings can be live; this module cannot establish their immutability
     - 'import { current } from "./state"; export const initial = current;'
-    # A mutable alias owns an independently changing binding
     - 'const table = load(); let rows = table; rows = reload();'
-    # A same-name constant in a nested function does not establish the module binding
     - 'const rows = table; function read() { const table = load(); }'
-    # The owner referenced under its own name
     - 'export const rows = load(table);'
-    # Annotation adds a type to the binding
     - 'const TABLE = load(); const rows: Readonly<Record<string, Row>> = TABLE;'
-    # Annotation adds a refinement type
     - 'const isSecrets: (value: unknown) => value is Secrets = isStringRecord;'
-    # Local rebinding inside a function narrows a scope
     - 'const read = (): Row => { const held = row; return held; };'
-    # Local rebinding inside a function declaration
     - 'function read(): Row { const held = row; return held; }'
-    # Infinity as a value under its own name
     - 'const limit = Infinity;'
-    # NaN as a value
     - 'const missing = NaN;'
-    # globalThis as a value
     - 'const host = globalThis;'
-    # Undefined as the value, a literal
     - 'const empty = undefined;'
-    # Member read as the value
     - 'const rows = table.rows;'
-    # Assertion over the name adds a type
     - 'const rows = table as Rows;'
-    # Destructuring, a rename of a member
     - 'const { rows } = table;'
-    # Type alias over a qualified name, the collision between two namespaces
     - 'type Row = Schema.Row;'
-    # Type alias over a generic instance
     - 'type Rows = readonly Row[];'
-    # Type alias over a union
     - 'type Kind = Row | Column;'
-    # Generic alias over its own parameter, the identity type
     - 'type Id<T> = T;'
-    # Assertion over this, no identifier
     - 'const self = this;'
-    # Export under the binding's own name
     - 'export { table };'
-    # Re-export renamed from another module, a collision between two modules
     - "export { Row as SchemaRow } from './schema';"
-    # Default export of a binding, the default names no binding
     - 'export { table as default };'
+    - 'const { rows = table } = load(); const held = table;'
+    - 'function build() { function load() {} } const run = load;'
+    - 'const Base = class Item {}; const run = Item;'
 invalid:
-    # Export specifier renaming a binding of the module
     - 'export { table as rows };'
-    # Renamed specifier beside a plain one
     - 'export { table as rows, other };'
-    # Type export specifier renaming a type of the module
     - 'export type { Row as Item };'
-    # The instance, a module binding over another name
     - 'const MS_PER_HOUR = 3600000; const tick = MS_PER_HOUR;'
-    # Exported alias
     - 'const table = load(); export const rows = table;'
-    # An exported constant has the same stable binding
     - 'export const table = load(); const rows = table;'
-    # Type alias over a bare name
     - 'type Row = Item;'
-    # Exported type alias over a bare name
     - 'export type Row = Item;'
+    - 'export { type Row as Item };'
+    - 'const { table } = load(); const rows = table;'
+    - 'const [table] = load(); const rows = table;'
+    - 'function load() {} const run = load;'
+    - 'export class Item {} const Row = Item;'
+    - 'const { raw: table } = load(); const rows = table;'
+    - 'const { rows: [table] } = load(); const held = table;'
+    - 'const [...table] = load(); const rows = table;'
+    - 'const [table = fallback] = load(); const rows = table;'

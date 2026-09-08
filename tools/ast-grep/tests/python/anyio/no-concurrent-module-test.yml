@@ -1,50 +1,38 @@
 id: no-concurrent-module
 valid:
-    # The corrected form, the thread pool of anyio
     - |
       import anyio.to_thread
 
       async def load(path):
           return await anyio.to_thread.run_sync(path.read_bytes)
-    # The corrected form for a subinterpreter
     - |
       import anyio.to_interpreter
 
       async def load(path):
           return await anyio.to_interpreter.run_sync(parse, path)
-    # Attribute named like the module on another object
     - |
       pool = runtime.futures.ThreadPoolExecutor()
-    # Member named futures of another package
     - |
       from tasks import futures
-    # Package with the namespace as a prefix
     - |
       import concurrent_log_handler
-    # Package metadata does not create a concurrency primitive.
     - 'from concurrent import __name__'
 invalid:
-    # The instance, the executor imported from the module
     - |
       from concurrent.futures import ThreadPoolExecutor
-    # The module imported whole
     - |
       import concurrent.futures
-    # The submodule imported from its package
     - |
       from concurrent import futures
-    # The module imported under an alias
     - |
       import concurrent.futures as futures
-    # The attribute read as spelled
     - |
       pool = concurrent.futures.ProcessPoolExecutor()
-    # Submodule of the futures package
     - |
       from concurrent.futures.thread import ThreadPoolExecutor
-    # The subinterpreters module imported from its package
     - |
       from concurrent import interpreters
-    # Member imported from the subinterpreters module
     - |
       from concurrent.interpreters import create
+    - |
+      from concurrent.futures import as_completed

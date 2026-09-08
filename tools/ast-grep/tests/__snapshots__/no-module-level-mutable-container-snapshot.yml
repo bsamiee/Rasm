@@ -89,6 +89,25 @@ snapshots:
       start: 0
       end: 23
   ? |
+    _ITEMS: Final = []
+  : labels:
+    - source: '_ITEMS: Final = []'
+      style: primary
+      start: 0
+      end: 18
+    - source: _ITEMS
+      style: secondary
+      start: 0
+      end: 6
+    - source: '[]'
+      style: secondary
+      start: 16
+      end: 18
+    - source: '_ITEMS: Final = []'
+      style: secondary
+      start: 0
+      end: 18
+  ? |
     _KEYS = {key for key in raw}
   : labels:
     - source: _KEYS = {key for key in raw}
@@ -249,6 +268,31 @@ snapshots:
       start: 0
       end: 18
   ? |
+    from collections import deque
+
+    _QUEUE = deque()
+  : labels:
+    - source: _QUEUE = deque()
+      style: primary
+      start: 31
+      end: 47
+    - source: _QUEUE
+      style: secondary
+      start: 31
+      end: 37
+    - source: deque
+      style: secondary
+      start: 40
+      end: 45
+    - source: deque()
+      style: secondary
+      start: 40
+      end: 47
+    - source: _QUEUE = deque()
+      style: secondary
+      start: 31
+      end: 47
+  ? |
     if TYPE_CHECKING:
         _CACHE: dict[str, int] = {}
   : labels:
@@ -268,3 +312,25 @@ snapshots:
       style: secondary
       start: 22
       end: 49
+  ? |
+    try:
+        _TABLE = {}
+    except ImportError:
+        pass
+  : labels:
+    - source: _TABLE = {}
+      style: primary
+      start: 9
+      end: 20
+    - source: _TABLE
+      style: secondary
+      start: 9
+      end: 15
+    - source: '{}'
+      style: secondary
+      start: 18
+      end: 20
+    - source: _TABLE = {}
+      style: secondary
+      start: 9
+      end: 20

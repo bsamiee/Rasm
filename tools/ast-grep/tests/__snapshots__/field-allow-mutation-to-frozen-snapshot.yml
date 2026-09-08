@@ -178,6 +178,29 @@ snapshots:
       style: secondary
       start: 15
       end: 29
+  pydantic.Field(allow_mutation=False,):
+    fixed: pydantic.Field(frozen=True,)
+    labels:
+    - source: allow_mutation=False
+      style: primary
+      start: 15
+      end: 35
+    - source: 'False'
+      style: secondary
+      start: 30
+      end: 35
+    - source: pydantic.Field(allow_mutation=False,)
+      style: secondary
+      start: 0
+      end: 37
+    - source: (allow_mutation=False,)
+      style: secondary
+      start: 14
+      end: 37
+    - source: allow_mutation
+      style: secondary
+      start: 15
+      end: 29
   pydantic.fields.Field(allow_mutation=False):
     fixed: pydantic.fields.Field(frozen=True)
     labels:

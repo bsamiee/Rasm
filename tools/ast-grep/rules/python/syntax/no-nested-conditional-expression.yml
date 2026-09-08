@@ -1,14 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-nested-conditional-expression
 language: python
 severity: error
-# Report-only, the probed fix a match statement in the expression's place fails, `invalid-syntax: Expected an expression`
 rule:
     kind: conditional_expression
     all:
-        # Arm or condition that is itself a conditional, through parentheses
         - has: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}
-        # The outermost conditional of a chain reports once, a once-reporting arm the width check proves by one hit per case
         - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}}
 message: Conditional expression contains a nested conditional
 note: Express the dispatch with match cases or the owning result combinator, keeping the operation at its call site

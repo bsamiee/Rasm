@@ -1,15 +1,17 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-socket-module
 language: python
 severity: error
-# Report-only, the probed fix `create_connection` to `await anyio.connect_tcp` fails, `SocketStream has no attribute sendall`
+utils:
+    socket-member:
+        regex: '^(socket|create_connection|create_server|getaddrinfo|getnameinfo|gethostbyname|gethostbyname_ex|gethostbyaddr|getfqdn)$'
 rule:
     kind: call
     pattern: $CALL
     has:
         field: function
         any:
-            - matches: {python-module-member: {module: {regex: '^socket$'}, name: {regex: '^(socket|create_connection|create_server)$'}}}
-            - matches: {python-imported-name: {module: {regex: '^socket$'}, name: {regex: '^(socket|create_connection|create_server)$'}}}
-message: '`$CALL` opens a socket outside anyio'
-note: Connect through `anyio.connect_tcp(<host>, <port>)` or serve through `anyio.create_tcp_listener(local_port=<port>)`
+            - matches: {python-module-member: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
+            - matches: {python-imported-name: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
+message: '`$CALL` opens a socket or resolves a name outside anyio'
+note: Connect through `anyio.connect_tcp`, serve through `anyio.create_tcp_listener`, and resolve through `await anyio.getaddrinfo`

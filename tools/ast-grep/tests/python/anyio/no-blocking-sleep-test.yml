@@ -1,47 +1,36 @@
 id: no-blocking-sleep
 valid:
-    # Process completion is observed directly
     - |
       async def wait(process):
           await process.wait()
-    # An intentional duration cooperatively suspends its task
     - |
       import anyio
       async def wait():
           await anyio.sleep(1)
-    # A computed duration has the same cooperative waiting semantics
     - |
       import anyio
       async def wait(delay):
           await anyio.sleep(delay)
-    # Reading the clock does not suspend the thread
     - |
       import time
       start = time.perf_counter()
-    # The member belongs to a different module
     - |
       import clock as t
       t.sleep(1)
-    # A similarly named object is outside the module contract
     - |
       clock.sleep(1)
 invalid:
-    # Direct member import, even when used as a callback later
     - |
       from time import sleep
-    # Blocking is independent of the chosen delay
     - |
       import time
       def wait(delay):
           time.sleep(delay)
-    # Zero still invokes the thread-blocking API
     - |
       import time
       time.sleep(0)
-    # An alias retains the owning module
     - |
       import time as t
       t.sleep(1)
-    # A later from-import member is located independently of its alias
     - |
       from time import perf_counter, sleep as pause

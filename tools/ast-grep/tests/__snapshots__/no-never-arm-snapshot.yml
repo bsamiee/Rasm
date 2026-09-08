@@ -91,6 +91,15 @@ snapshots:
       start: 40
       end: 76
   ? |
+    const reason = decision.match<string>({ deny: (reason: string, extra: never): string => reason, rewrite: (input) => input.prompt });
+  : fixed: |
+      const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });
+    labels:
+    - source: 'deny: (reason: string, extra: never): string => reason'
+      style: primary
+      start: 40
+      end: 94
+  ? |
     const reason = decision.match<string>({ deny: (value: never): never => value, rewrite: (input) => input.prompt });
   : fixed: |
       const reason = decision.match<string>({ deny: absurd, rewrite: (input) => input.prompt });

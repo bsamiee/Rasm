@@ -44,9 +44,9 @@ async def test_async_stub_is_awaitable_and_records(monkeypatch: pytest.MonkeyPat
 async def test_autojump_backend_collapses_virtual_time() -> None:
     """Hour-long virtual sleeps and a deadline finish within 5 wall-clock seconds under the autojumping clock."""
     start = time.perf_counter()
-    await anyio.sleep(3600)  # ast-grep-ignore: no-fixed-sleep, the virtual clock the sleep advances is the subject
+    await anyio.sleep(3600)
     with anyio.move_on_after(300) as scope:
-        await anyio.sleep(600)  # ast-grep-ignore: no-fixed-sleep, the virtual deadline the sleep crosses is the subject
+        await anyio.sleep(600)
     assert scope.cancelled_caught, "the virtual deadline never fired"
     assert time.perf_counter() - start < 5.0, "virtual-time advancement exceeded the wall-time limit"
 

@@ -33,13 +33,12 @@
         ".gitignore": ".gitattributes",
         "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .shellcheckrc, .yamlfmt.yaml, mise.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, .shellcheckrc, .yamlfmt.yaml, .miserc.toml, mise.unix.toml, mise.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },
 
     // --- [PYTHON] ----------------------------------------------------------------------
-    // Ruff and ty prefer the Python environment by default, mypy requires an explicit override
     "mypy-type-checker.importStrategy": "fromEnvironment",
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
 
@@ -50,7 +49,6 @@
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 
     // --- [MARKDOWN] --------------------------------------------------------------------
-    // SKILL.md and agent files have their own VS Code language ids, the mapping back to markdown restores the formatter
     "files.associations": { "SKILL.md": "markdown", "**/.claude/agents/*.md": "markdown" },
     "[markdown]": { "editor.defaultFormatter": "yzhang.markdown-all-in-one" },
 

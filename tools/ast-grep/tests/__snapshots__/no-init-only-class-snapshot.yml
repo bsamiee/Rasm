@@ -2,12 +2,24 @@ id: no-init-only-class
 snapshots:
   ? |
     class Recorder:
+        __slots__ = ("token",)
+
+        def __init__(self, token):
+            self.token = token
+  : labels:
+    - source: Recorder
+      message: Class with an init that assigns fields alone
+      style: primary
+      start: 6
+      end: 14
+  ? |
+    class Recorder:
         def __init__(self) -> None:
             self.labels: list[str] = []
             self.failures: list[str] = []
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 14
@@ -17,7 +29,18 @@ snapshots:
             self.label = "record"
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
+      style: primary
+      start: 6
+      end: 14
+  ? |
+    class Recorder:
+        def __init__(self, *items, **options):
+            self.items = items
+            self.options = options
+  : labels:
+    - source: Recorder
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 14
@@ -27,7 +50,7 @@ snapshots:
             self.left, self.right = left, right
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 14
@@ -38,7 +61,7 @@ snapshots:
             self.token = token
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 14
@@ -48,7 +71,19 @@ snapshots:
             self.token = token  # The one field
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
+      style: primary
+      start: 6
+      end: 14
+  ? |
+    class Recorder:
+        kinds = ["a", Kind()]
+
+        def __init__(self, token):
+            self.token = token
+  : labels:
+    - source: Recorder
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 14
@@ -60,7 +95,7 @@ snapshots:
             self.token = token
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 14
@@ -76,7 +111,7 @@ snapshots:
             return f"_Opaque({self.token})"
   : labels:
     - source: _Opaque
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
       style: primary
       start: 6
       end: 13
@@ -89,7 +124,7 @@ snapshots:
         return Recorder
   : labels:
     - source: Recorder
-      message: The class with an init that assigns fields alone
+      message: Class with an init that assigns fields alone
       style: primary
       start: 22
       end: 30

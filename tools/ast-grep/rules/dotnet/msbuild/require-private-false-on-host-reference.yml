@@ -8,26 +8,9 @@ rule:
         - matches: {msbuild-element: {name: {regex: '^Reference$'}}}
         - has:
             matches: msbuild-tag
-            has: {matches: {msbuild-attribute: {name: {regex: '^Include$'}, value: {regex: '^["''](RhinoCommon|Eto|@\(_RhinoHostAssembly\))["'']$'}}}}
-        - matches: {msbuild-metadata: {name: {regex: '^HintPath$'}, value: {any: [{kind: AttValue}, {kind: CharData}]}}}
-        - not:
-            any:
-                - all:
-                    - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']\s*false\s*["'']$'}}}}}
-                    - not:
-                        has:
-                            kind: content
-                            has:
-                                matches: {msbuild-element: {name: {regex: '^Private$'}}}
-                                not: {has: {kind: content, regex: '(?i)^\s*false\s*$'}}
-                - has:
-                    kind: content
-                    has:
-                        kind: element
-                        nthChild: {position: 1, reverse: true, ofRule: {matches: {msbuild-element: {name: {regex: '^Private$'}}}}}
-                        all:
-                            - has: {kind: content, regex: '(?i)^\s*false\s*$'}
-                            - not: {has: {kind: STag, has: {kind: Attribute}}}
+            has: {matches: {msbuild-attribute: {name: {regex: '^Include$'}, value: {regex: '(?:^["'']|;)\s*(RhinoCommon|Rhino\.UI|Eto(\.(macOS|Wpf))?|Microsoft\.macOS|Grasshopper2?|GrasshopperIO|GH_IO|@\(_RhinoHostAssembly\))\s*[,;"'']'}}}}
+        - matches: {msbuild-metadata: {name: {regex: '^HintPath$'}, value: {kind: 'AttValue, CharData'}}}
+        - not: {matches: {msbuild-effective-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}}
 transform:
     FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
 fix: $FIXED

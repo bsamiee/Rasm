@@ -14,6 +14,13 @@ snapshots:
       style: primary
       start: 53
       end: 93
+  ? 'import { Option } from "effect"; const result = first == null ? Option.none() : value == null ? Option.none() : Option.some(value);'
+  : fixed: 'import { Option } from "effect"; const result = first == null ? Option.none() : Option.fromNullable(value);'
+    labels:
+    - source: 'value == null ? Option.none() : Option.some(value)'
+      style: primary
+      start: 80
+      end: 130
   'import { Option } from "effect"; const result = null != value ? Option.some(value) : Option.none();':
     fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
     labels:
@@ -28,6 +35,20 @@ snapshots:
       style: primary
       start: 48
       end: 98
+  'import { Option } from "effect"; const result = undefined != value ? Option.some(value) : Option.none();':
+    fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
+    labels:
+    - source: 'undefined != value ? Option.some(value) : Option.none()'
+      style: primary
+      start: 48
+      end: 103
+  'import { Option } from "effect"; const result = undefined == value ? Option.none() : Option.some(value);':
+    fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
+    labels:
+    - source: 'undefined == value ? Option.none() : Option.some(value)'
+      style: primary
+      start: 48
+      end: 103
   'import { Option } from "effect"; const result = value != null ? Option.some(value) : Option.none();':
     fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
     labels:
@@ -35,6 +56,13 @@ snapshots:
       style: primary
       start: 48
       end: 98
+  'import { Option } from "effect"; const result = value != undefined ? Option.some(value) : Option.none();':
+    fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
+    labels:
+    - source: 'value != undefined ? Option.some(value) : Option.none()'
+      style: primary
+      start: 48
+      end: 103
   'import { Option } from "effect"; const result = value == null ? Option.none() : Option.some(value);':
     fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
     labels:
@@ -42,3 +70,10 @@ snapshots:
       style: primary
       start: 48
       end: 98
+  'import { Option } from "effect"; const result = value == undefined ? Option.none() : Option.some(value);':
+    fixed: import { Option } from "effect"; const result = Option.fromNullable(value);
+    labels:
+    - source: 'value == undefined ? Option.none() : Option.some(value)'
+      style: primary
+      start: 48
+      end: 103

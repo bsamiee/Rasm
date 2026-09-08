@@ -3,11 +3,15 @@ valid:
     - "pydantic.TypeAdapter(list[int]).validate_python(values)"
     - "custom.parse_obj_as(list[int], values)"
     - "from pydantic.v1 import parse_obj_as"
-    # Imports in other functions do not establish the module alias
     - |
       def configure():
           import pydantic as pd
       def validate(pd, values):
+          return pd.parse_obj_as(list[int], values)
+    - |
+      import pydantic as pd
+      def validate(values):
+          pd = Custom()
           return pd.parse_obj_as(list[int], values)
 invalid:
     - "pydantic.parse_obj_as(list[int], values)"
@@ -16,3 +20,6 @@ invalid:
     - |
       import pydantic as pd
       pd.parse_obj_as(list[int], values)
+    - "from pydantic import parse_obj_as"
+    - "pydantic.deprecated.tools.parse_obj_as(list[int], values)"
+    - "from pydantic.tools import parse_obj_as"

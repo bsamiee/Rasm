@@ -7,7 +7,6 @@ valid:
           continue
       }
       done
-    # The then branch leaves too
     - |
       if [[ -f $s ]]; then
           exit 2
@@ -22,7 +21,6 @@ valid:
           printf '%s\n' b
       fi
       }
-    # An elif chain selects among cases
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a
@@ -31,14 +29,12 @@ valid:
       else
           exit 1
       fi
-    # The else clause continues
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a
       else
           printf '%s\n' b
       fi
-    # The else clause leaves before its last statement
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a
@@ -46,23 +42,19 @@ valid:
           exit 1
           printf '%s\n' late
       fi
-    # A list of statements as the condition, the guard form needs a group around it
     - |
       if a; b; then
           printf '%s\n' a
       else
           exit 1
       fi
-    # Both branches leave, statements separated by ;
     - if [[ -f $s ]]; then exit 2; else exit 1; fi
-    # A comment on the line of the leaving command in the then branch
     - |
       if [[ -f $s ]]; then
           exit 2 # done
       else
           exit 1
       fi
-    # A comment line after the leaving command in the then branch is no statement
     - |
       if [[ -f $s ]]; then
           exit 2
@@ -70,9 +62,7 @@ valid:
       else
           exit 1
       fi
-    # An unconditional exit leaves even when unreachable statements follow
     - if [[ -f $s ]]; then exit 2; printf '%s\n' late; else exit 1; fi
-    # Dead statements after exit do not make the then branch continue
     - |
       if [[ -f $s ]]; then
           exit 2
@@ -80,8 +70,40 @@ valid:
       else
           exit 1
       fi
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          cat <<TEXT
+              indented
+      TEXT
+          exit 1
+      fi
+    - |
+      if [[ -f $s ]]; then
+          cat <<TEXT
+              indented
+      TEXT
+      else
+          exit 1
+      fi
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+      else
+          message="first
+              second"
+          printf '%s\n' "$message"
+          exit 1
+      fi
+    - |
+      if [[ -f $s ]]; then
+          message="first
+      second"
+      else
+          exit 1
+      fi
 invalid:
-    # A comment line before the leaving command in the else clause
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a
@@ -98,7 +120,6 @@ invalid:
           continue
       fi
       done
-    # A nested block in the then branch and a comment beside a statement, both keep their text
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a # note
@@ -108,21 +129,20 @@ invalid:
       else
           exit 1
       fi
-    # A negated pipeline as the condition binds tighter than the guard's or-list
     - |
       if ! grep -q x "$f" | sort; then
           printf '%s\n' "$f"
       else
           exit 1
       fi
-    # exit alone in the else clause
     - |
       if [[ -f $s ]]; then
           printf '%s\n' a
       else
           exit 1
       fi
-    # break at the end of the else clause inside a loop
+    - if ! grep -q x "$f"; then printf '%s\n' a; else exit 1; fi
+    - if [[ -f $s ]] && [[ -r $s ]]; then printf '%s\n' a; else exit 1; fi
     - |
       for f in "${files[@]}"; do
           if [[ -f $f ]]; then
@@ -140,3 +160,13 @@ invalid:
           # nothing after
       fi
       }
+    - |
+      if [[ -f $s ]]; then
+          printf '%s\n' a
+          if [[ -d $s ]]; then
+              count=1
+          fi
+          printf '%s\n' b
+      else
+          exit 1
+      fi

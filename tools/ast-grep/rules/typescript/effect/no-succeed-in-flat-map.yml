@@ -20,7 +20,6 @@ utils:
                 has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Either$"}}}}
             - pattern: $M.void
               has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM|Channel|Exit|Option)$"}}}}
-    # The callback whose body is the bound module's void, the module test sits in lifted-body
     void-callback:
         kind: arrow_function, function_expression
         has:
@@ -36,9 +35,14 @@ utils:
             field: body
             any:
                 - matches: lifted-body
+                - kind: parenthesized_expression
+                  has: {matches: lifted-body}
                 - kind: statement_block
                   has: {kind: return_statement, has: {matches: lifted-body}}
                   not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    lifted-value:
+        matches: lifted-body
+        not: {pattern: $_.void}
 rule:
     kind: call_expression
     pattern: $CALL
@@ -47,16 +51,31 @@ rule:
         - has:
             field: arguments
             has:
-                matches: lifting-callback
                 nthChild: {position: 1, reverse: true}
+                any:
+                    - matches: lifting-callback
+                    - matches: lifted-value
+                      inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^andThen$'}}}}
 constraints:
     F: {regex: "^(flatMap|andThen)$"}
 rewriters:
-    # The return annotation names the carrier, inference states the mapped value's type
+    - id: as-first
+      rule:
+        any: [{pattern: '$M.andThen($SELF, $H)'}, {pattern: '$M.andThen<$$$_>($SELF, $H)'}]
+        has: {field: arguments, has: {pattern: $H, matches: lifted-value}}
+      transform:
+        VALUE: rewrite($H, rewriters=[unlift-object, unlift])
+      fix: $M.as($SELF, $VALUE)
+    - id: as-last
+      rule:
+        any: [{pattern: $M.andThen($H)}, {pattern: $M.andThen<$$$_>($H)}]
+        has: {field: arguments, has: {pattern: $H, matches: lifted-value}}
+      transform:
+        VALUE: rewrite($H, rewriters=[unlift-object, unlift])
+      fix: $M.as($VALUE)
     - id: return-type
       rule: {kind: type_annotation, inside: {matches: lifting-callback, field: return_type}}
       fix: ''
-    # The outermost constructor of the body goes and a nested one stays in the value, an object literal keeps its parentheses
     - id: unlift-object
       rule:
         matches: lifted-body
@@ -68,34 +87,32 @@ rewriters:
         matches: lifted-body
         any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}]
       fix: $V
-    # A discarded result is asVoid, and a comment in the dropped callback keeps the call as written
     - id: void-first
       rule:
-        pattern: '$M.$_($SELF, $H)'
+        any: [{pattern: '$M.$_($SELF, $H)'}, {pattern: '$M.$_<$$$_>($SELF, $H)'}]
         has: {field: arguments, has: {pattern: $H, matches: void-callback, not: {has: {kind: comment, stopBy: end}}}}
       fix: $M.asVoid($SELF)
     - id: void-last
       rule:
-        pattern: $M.$_($H)
+        any: [{pattern: $M.$_($H)}, {pattern: $M.$_<$$$_>($H)}]
         has: {field: arguments, has: {pattern: $H, matches: void-callback, not: {has: {kind: comment, stopBy: end}}}}
       fix: $M.asVoid
-    # A void callback with a comment reaches neither the void nor the map rewriter, the call stays as written
     - id: map-first
       rule:
-        pattern: '$M.$_($SELF, $H)'
+        any: [{pattern: '$M.$_($SELF, $H)'}, {pattern: '$M.$_<$$$_>($SELF, $H)'}]
         has: {field: arguments, has: {pattern: $H, not: {matches: void-callback}}}
       transform:
         BODY: rewrite($H, rewriters=[return-type, unlift-object, unlift])
       fix: $M.map($SELF, $BODY)
     - id: map-last
       rule:
-        pattern: $M.$_($H)
+        any: [{pattern: $M.$_($H)}, {pattern: $M.$_<$$$_>($H)}]
         has: {field: arguments, has: {pattern: $H, not: {matches: void-callback}}}
       transform:
         BODY: rewrite($H, rewriters=[return-type, unlift-object, unlift])
       fix: $M.map($BODY)
 transform:
-    MAPPED: rewrite($CALL, rewriters=[void-first, void-last, map-first, map-last])
+    MAPPED: rewrite($CALL, rewriters=[as-first, as-last, void-first, void-last, map-first, map-last])
 fix: $MAPPED
 message: The bind callback only lifts its result back into the same carrier
 note: Map the value through the carrier's map, or asVoid for a discarded result, keeping the callback's evaluation time and allocations

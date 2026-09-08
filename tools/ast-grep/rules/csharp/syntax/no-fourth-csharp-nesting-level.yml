@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
-# Report only, the match is the fourth scope and its replacement depends on the three enclosing scopes, no template
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-fourth-csharp-nesting-level
 language: csharp
 severity: error
@@ -42,6 +41,6 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: C# execution exceeds three nested function or control levels
-note: Reduce the operation through guards, pattern matching, queries, and the owning combinator, at most three nested functions or control levels
+note: Reduce the operation through guards, pattern matching, queries, or the owning combinator
 labels:
     SCOPE: {style: primary}

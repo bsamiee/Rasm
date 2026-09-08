@@ -29,6 +29,23 @@ snapshots:
       start: 33
       end: 62
   ? |
+    <PropertyGroup><ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(RepoRoot)artifacts/</ArtifactsPath></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(RepoRoot)artifacts</ArtifactsPath></PropertyGroup>
+    labels:
+    - source: $(RepoRoot)artifacts/
+      style: primary
+      start: 67
+      end: 88
+    - source: <ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(RepoRoot)artifacts/</ArtifactsPath>
+      style: secondary
+      start: 15
+      end: 104
+    - source: $(RepoRoot)artifacts/
+      style: secondary
+      start: 67
+      end: 88
+  ? |
     <PropertyGroup><ArtifactsPath Label="NormalizeDirectory(cache)">$([MSBuild]::NormalizeDirectory('artifacts/NormalizeDirectory(cache)'))</ArtifactsPath></PropertyGroup>
   : fixed: |
       <PropertyGroup><ArtifactsPath Label="NormalizeDirectory(cache)">('artifacts/NormalizeDirectory(cache)'))</ArtifactsPath></PropertyGroup>
@@ -62,6 +79,23 @@ snapshots:
       style: secondary
       start: 30
       end: 59
+  ? |
+    <PropertyGroup><ArtifactsPath>$(RepoRoot)/</ArtifactsPath></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot)</ArtifactsPath></PropertyGroup>
+    labels:
+    - source: $(RepoRoot)/
+      style: primary
+      start: 30
+      end: 42
+    - source: <ArtifactsPath>$(RepoRoot)/</ArtifactsPath>
+      style: secondary
+      start: 15
+      end: 58
+    - source: $(RepoRoot)/
+      style: secondary
+      start: 30
+      end: 42
   ? |
     <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath></PropertyGroup>
   : fixed: |

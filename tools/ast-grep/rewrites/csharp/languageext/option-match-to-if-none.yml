@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: option-match-to-if-none
 language: csharp
 severity: off
@@ -6,6 +6,8 @@ rule:
     any:
         - pattern: {context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, None: $FALLBACK); }", selector: invocation_expression, strictness: cst}
         - pattern: {context: "class C { object F() => $OPTION.Match(None: $FALLBACK, Some: $IDENTITY); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $OPTION.Match($IDENTITY, None: $FALLBACK); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, $FALLBACK); }", selector: invocation_expression, strictness: cst}
         - all:
             - pattern: {context: "class C { object F() => $OPTION.Match($IDENTITY, $FALLBACK); }", selector: invocation_expression, strictness: cst}
             - not:
@@ -15,19 +17,26 @@ rule:
                     has:
                         kind: argument
                         has: {field: name, kind: identifier}
+        - pattern: {context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, None: $FALLBACK); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $CALLEE($INPUT, None: $FALLBACK, Some: $IDENTITY); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, None: $FALLBACK); }", selector: invocation_expression, strictness: cst}
+        - pattern: {context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, $FALLBACK); }", selector: invocation_expression, strictness: cst}
+        - all:
+            - pattern: {context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, $FALLBACK); }", selector: invocation_expression, strictness: cst}
+            - not:
+                has:
+                    field: arguments
+                    kind: argument_list
+                    has:
+                        kind: argument
+                        has: {field: name, kind: identifier}
 constraints:
-    IDENTITY:
-        matches:
-            csharp-unary-callback:
-                parameter: {pattern: $VALUE}
-                body:
-                    any:
-                        - pattern: $VALUE
-                        - pattern:
-                            context: 'class C { object F() => M(x => { return $VALUE; }); }'
-                            selector: block
-                            strictness: cst
-fix: "$OPTION.IfNone($FALLBACK)"
+    CALLEE: {regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
+    IDENTITY: {matches: csharp-identity-callback}
+transform:
+    HEAD: {replace: {source: $OPTION, replace: '(?s)^(.*)$', by: '${1}.IfNone'}}
+    CALL: {replace: {source: $CALLEE, replace: 'match$', by: 'ifNone'}}
+    FIRST: {replace: {source: $INPUT, replace: '(?s)^(.*)$', by: '${1}, '}}
+fix: "$HEAD$CALL($FIRST$FALLBACK)"
 message: Use `IfNone` for an unchanged Some value and a fallback
-note: >-
-    Select LanguageExt Option<A> calls through Roslyn with Match result A. Confirm IfNone selects the A or Func<A> overload with the same fallback evaluation, not the Action overload for an Action payload. Keep wider result conversions with Match.
+note: Write IfNone with the fallback on an Option<A> Match that Roslyn resolves to result A, and keep Match for a wider result or an Action fallback

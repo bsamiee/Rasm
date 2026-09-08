@@ -9,6 +9,14 @@ snapshots:
       style: primary
       start: 0
       end: 71
+    - source: Command="brew install libomp"
+      style: secondary
+      start: 6
+      end: 35
+    - source: <Exec Command="brew install libomp" Condition='$(Feature) == "deps"' />
+      style: secondary
+      start: 0
+      end: 71
   ? |
     <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />
   : fixed: |
@@ -16,6 +24,14 @@ snapshots:
     labels:
     - source: <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />
       style: primary
+      start: 0
+      end: 75
+    - source: Command="chmod +x tool"
+      style: secondary
+      start: 6
+      end: 29
+    - source: <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />
+      style: secondary
       start: 0
       end: 75
   ? |
@@ -27,11 +43,27 @@ snapshots:
       style: primary
       start: 0
       end: 67
+    - source: Command="cmd /c echo stamped"
+      style: secondary
+      start: 6
+      end: 35
+    - source: <Exec Command="cmd /c echo stamped" Condition="'$(Count)' > '0'" />
+      style: secondary
+      start: 0
+      end: 67
   <Exec Condition="true" Command="chmod +x tool" />:
     fixed: <Exec Condition="(true) and !$([MSBuild]::IsOSPlatform('Windows'))" Command="chmod +x tool" />
     labels:
     - source: <Exec Condition="true" Command="chmod +x tool" />
       style: primary
+      start: 0
+      end: 49
+    - source: Command="chmod +x tool"
+      style: secondary
+      start: 23
+      end: 46
+    - source: <Exec Condition="true" Command="chmod +x tool" />
+      style: secondary
       start: 0
       end: 49
   ? |
@@ -43,6 +75,14 @@ snapshots:
       style: primary
       start: 42
       end: 90
+    - source: Command="apt-get install -y libomp-dev"
+      style: secondary
+      start: 48
+      end: 87
+    - source: <Exec Command="apt-get install -y libomp-dev" />
+      style: secondary
+      start: 42
+      end: 90
   ? |
     <Target Name="Deps" BeforeTargets="Build"><Exec Command="brew install libomp" /></Target>
   : fixed: |
@@ -52,6 +92,31 @@ snapshots:
       style: primary
       start: 42
       end: 80
+    - source: Command="brew install libomp"
+      style: secondary
+      start: 48
+      end: 77
+    - source: <Exec Command="brew install libomp" />
+      style: secondary
+      start: 42
+      end: 80
+  ? |
+    <Target Name="Deps"><Exec Command="sudo apt-get install -y libomp-dev" /></Target>
+  : fixed: |
+      <Target Name="Deps"><Exec Condition="$([MSBuild]::IsOSPlatform('Linux'))" Command="sudo apt-get install -y libomp-dev" /></Target>
+    labels:
+    - source: <Exec Command="sudo apt-get install -y libomp-dev" />
+      style: primary
+      start: 20
+      end: 73
+    - source: Command="sudo apt-get install -y libomp-dev"
+      style: secondary
+      start: 26
+      end: 70
+    - source: <Exec Command="sudo apt-get install -y libomp-dev" />
+      style: secondary
+      start: 20
+      end: 73
   ? |
     <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
   : fixed: |
@@ -59,6 +124,14 @@ snapshots:
     labels:
     - source: <Exec Command="chmod +x $(OutDir)mytool" />
       style: primary
+      start: 51
+      end: 94
+    - source: Command="chmod +x $(OutDir)mytool"
+      style: secondary
+      start: 57
+      end: 91
+    - source: <Exec Command="chmod +x $(OutDir)mytool" />
+      style: secondary
       start: 51
       end: 94
   ? |
@@ -70,6 +143,14 @@ snapshots:
       style: primary
       start: 51
       end: 131
+    - source: Command="chmod +x $(OutDir)mytool"
+      style: secondary
+      start: 57
+      end: 91
+    - source: <Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" />
+      style: secondary
+      start: 51
+      end: 131
   ? |
     <Target Name="Perms" AfterTargets="Build"><Exec Command='chmod +x $(OutDir)mytool' /></Target>
   : fixed: |
@@ -79,6 +160,61 @@ snapshots:
       style: primary
       start: 42
       end: 85
+    - source: Command='chmod +x $(OutDir)mytool'
+      style: secondary
+      start: 48
+      end: 82
+    - source: <Exec Command='chmod +x $(OutDir)mytool' />
+      style: secondary
+      start: 42
+      end: 85
+  ? |
+    <Target Name="Perms"><Exec Command="
+      chmod +x $(OutDir)tool
+    " /></Target>
+  : fixed: |
+      <Target Name="Perms"><Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))" Command="
+        chmod +x $(OutDir)tool
+      " /></Target>
+    labels:
+    - source: |-
+        <Exec Command="
+          chmod +x $(OutDir)tool
+        " />
+      style: primary
+      start: 21
+      end: 66
+    - source: |-
+        Command="
+          chmod +x $(OutDir)tool
+        "
+      style: secondary
+      start: 27
+      end: 63
+    - source: |-
+        <Exec Command="
+          chmod +x $(OutDir)tool
+        " />
+      style: secondary
+      start: 21
+      end: 66
+  ? |
+    <Target Name="Perms"><Exec Command="chmod +x $(OutDir)tool &amp;&amp; codesign -s - $(OutDir)tool" /></Target>
+  : fixed: |
+      <Target Name="Perms"><Exec Condition="!$([MSBuild]::IsOSPlatform('Windows'))" Command="chmod +x $(OutDir)tool &amp;&amp; codesign -s - $(OutDir)tool" /></Target>
+    labels:
+    - source: <Exec Command="chmod +x $(OutDir)tool &amp;&amp; codesign -s - $(OutDir)tool" />
+      style: primary
+      start: 21
+      end: 101
+    - source: Command="chmod +x $(OutDir)tool &amp;&amp; codesign -s - $(OutDir)tool"
+      style: secondary
+      start: 27
+      end: 98
+    - source: <Exec Command="chmod +x $(OutDir)tool &amp;&amp; codesign -s - $(OutDir)tool" />
+      style: secondary
+      start: 21
+      end: 101
   ? |
     <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
   : fixed: |
@@ -88,6 +224,31 @@ snapshots:
       style: primary
       start: 41
       end: 108
+    - source: Command="/usr/bin/codesign --force --sign - $(TargetPath)"
+      style: secondary
+      start: 47
+      end: 105
+    - source: <Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" />
+      style: secondary
+      start: 41
+      end: 108
+  ? |
+    <Target Name="Sign"><Exec Command="&quot;/usr/bin/codesign&quot; --force $(TargetPath)" /></Target>
+  : fixed: |
+      <Target Name="Sign"><Exec Condition="$([MSBuild]::IsOSPlatform('OSX'))" Command="&quot;/usr/bin/codesign&quot; --force $(TargetPath)" /></Target>
+    labels:
+    - source: <Exec Command="&quot;/usr/bin/codesign&quot; --force $(TargetPath)" />
+      style: primary
+      start: 20
+      end: 90
+    - source: Command="&quot;/usr/bin/codesign&quot; --force $(TargetPath)"
+      style: secondary
+      start: 26
+      end: 87
+    - source: <Exec Command="&quot;/usr/bin/codesign&quot; --force $(TargetPath)" />
+      style: secondary
+      start: 20
+      end: 90
   ? |
     <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
   : fixed: |
@@ -97,3 +258,45 @@ snapshots:
       style: primary
       start: 42
       end: 80
+    - source: Command="cmd /c echo stamped"
+      style: secondary
+      start: 48
+      end: 77
+    - source: <Exec Command="cmd /c echo stamped" />
+      style: secondary
+      start: 42
+      end: 80
+  ? |
+    <Target Name="Stamp"><Exec Command="cmd.exe /c echo stamped" /></Target>
+  : fixed: |
+      <Target Name="Stamp"><Exec Condition="$([MSBuild]::IsOSPlatform('Windows'))" Command="cmd.exe /c echo stamped" /></Target>
+    labels:
+    - source: <Exec Command="cmd.exe /c echo stamped" />
+      style: primary
+      start: 21
+      end: 63
+    - source: Command="cmd.exe /c echo stamped"
+      style: secondary
+      start: 27
+      end: 60
+    - source: <Exec Command="cmd.exe /c echo stamped" />
+      style: secondary
+      start: 21
+      end: 63
+  ? |
+    <Target Name="Stamp"><Exec Command="powershell -Command Get-Date" /></Target>
+  : fixed: |
+      <Target Name="Stamp"><Exec Condition="$([MSBuild]::IsOSPlatform('Windows'))" Command="powershell -Command Get-Date" /></Target>
+    labels:
+    - source: <Exec Command="powershell -Command Get-Date" />
+      style: primary
+      start: 21
+      end: 68
+    - source: Command="powershell -Command Get-Date"
+      style: secondary
+      start: 27
+      end: 65
+    - source: <Exec Command="powershell -Command Get-Date" />
+      style: secondary
+      start: 21
+      end: 68

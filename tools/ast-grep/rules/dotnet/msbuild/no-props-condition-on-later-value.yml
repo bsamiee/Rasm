@@ -1,21 +1,16 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, the fix moves the group to Directory.Build.targets, the probe read Marker=[] from the .props condition and [yes] from the .targets one
 id: no-props-condition-on-later-value
 language: xml
 severity: error
 files: ['**/Directory.Build.props']
 rule:
-    # Condition or import path, every attribute reading the value before the SDK targets assign it
     kind: Attribute
     all:
         - has: {kind: Name, regex: '^(Condition|Project)$'}
-        # Framework/output inference and workspace classifications belong to later imports
         - has:
             kind: AttValue
-            regex: "\\$\\((TargetFramework|TargetFrameworks|OutputType|TargetFrameworkIdentifier|TargetFrameworkVersion|TargetFrameworkMoniker|OutputPath|IntermediateOutputPath|TargetPath|TargetDir|TargetFileName|IsTestProject|IsTestingPlatformApplication|RhinoHost|PluginHost|ReleaseGroup|HostCommon|HostUi|HostPlatform|HostGrasshopper)\\)"
-        # Empty-default guards, joined by and or or, are the one .props form that reads the names
+            regex: "\\$\\((TargetFramework|TargetFrameworks|OutputType|TargetFrameworkIdentifier|TargetFrameworkVersion|TargetFrameworkMoniker|OutputPath|IntermediateOutputPath|TargetPath|TargetDir|TargetFileName|IsTestProject|IsTestingPlatformApplication|RhinoHost|PluginHost|ReleaseGroup|HostCommon|HostUi|HostPlatform|HostGrasshopper)[.)]"
         - not: {has: {kind: AttValue, regex: "^\"\\s*('\\$\\(\\w+\\)' == ''\\s*((and|or)\\s+)?)+\"$"}}
-        # The condition sits on a property group, a When arm, an Import, or a property, an item and a target read the final value
         - inside:
             matches: msbuild-tag
             inside:
@@ -23,5 +18,5 @@ rule:
                     - matches: {msbuild-element: {name: {regex: '^(PropertyGroup|When|Import)$'}}}
                     - matches: {msbuild-property: {name: {kind: Name}}}
         - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
-message: Directory.Build.props reads a framework, output, or project classification before the owning project body and SDK targets
+message: The .props condition reads a value the project body or the SDK targets assign later, and compares an empty string
 note: Move the group or the import to Directory.Build.targets, or key the condition on $(MSBuildProjectName) or the project directory

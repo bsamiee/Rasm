@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-os-environ
 language: python
 severity: error
-# Report-only, the probed fix `os.environ["HOME"]` to `settings.home` fails, `Undefined name settings`, the settings class is a boundary declaration
 utils:
     mapping:
         any:
@@ -19,7 +18,10 @@ rule:
                 - kind: attribute
                   all:
                     - has: {field: object, matches: mapping}
-                    - has: {field: attribute, regex: '^get$'}
+                    - has: {field: attribute, regex: '^(get|items|keys|values|copy)$'}
+        - kind: comparison_operator
+          regex: '\s(not\s+)?in\s+[\w.]+$'
+          has: {matches: mapping, nthChild: 2}
         - kind: subscript
           has: {field: value, matches: mapping}
           not:
@@ -29,5 +31,5 @@ rule:
                     field: left
                     stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}
                 - inside: {kind: delete_statement}
-message: 'Reading a process environment value bypasses typed settings'
+message: 'Reading the process environment bypasses typed settings'
 note: Declare the field on `BaseSettings`, load it at the application boundary, and pass the validated value to domain functions

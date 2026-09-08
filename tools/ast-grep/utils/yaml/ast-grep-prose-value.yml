@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: ast-grep-prose-value
+language: yaml
+rule:
+    kind: flow_node, block_node
+    inside:
+        kind: block_mapping_pair, flow_pair
+        field: value
+        has: {field: key, regex: '^(message|note|"message"|"note"|''message''|''note'')$'}

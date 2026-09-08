@@ -1,18 +1,30 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: conditional-statement-to-if
 language: python
 severity: off
 rule:
-    all: [{matches: python-block-statement}]
+    all:
+        - matches: python-block-statement
+        - matches: {python-discarded-expression: {value: {kind: conditional_expression}}}
     pattern: $STMT
-    matches: {python-discarded-expression: {value: {kind: conditional_expression}}}
 constraints:
-    STMT: {not: {regex: '\n'}} # Statement on one line, the parenthesized multi-line form re-indents its arm past the if
+    STMT: {not: {regex: '\n'}}
 rewriters:
-    - id: if-statement # The rewriter's template re-indents its body by the conditional's own column, the statement's column
+    - id: if-statement
       rule: {kind: conditional_expression, pattern: $EFFECT if $TEST else None}
       fix: |-
         if $TEST:
+            $EFFECT
+    - id: else-boolean-statement
+      rule: {kind: conditional_expression, pattern: None if $TEST else $EFFECT}
+      constraints: {TEST: {kind: boolean_operator}}
+      fix: |-
+        if not ($TEST):
+            $EFFECT
+    - id: else-statement
+      rule: {kind: conditional_expression, pattern: None if $TEST else $EFFECT}
+      fix: |-
+        if not $TEST:
             $EFFECT
     - id: if-else-statement
       rule: {kind: conditional_expression, pattern: $EFFECT if $TEST else $OTHER}
@@ -22,7 +34,7 @@ rewriters:
         else:
             $OTHER
 transform:
-    OUT: rewrite($STMT, rewriters=[if-statement, if-else-statement], joinBy='') # joinBy drops the parentheses around the expression
+    OUT: rewrite($STMT, rewriters=[if-statement, else-boolean-statement, else-statement, if-else-statement], joinBy='')
 fix: $OUT
 message: Conditional expression as a statement discards its selected value
 note: Write the if statement with one effect per branch, omitting the else branch when its value is None

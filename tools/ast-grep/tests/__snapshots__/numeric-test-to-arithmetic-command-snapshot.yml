@@ -54,6 +54,52 @@ snapshots:
       style: secondary
       start: 3
       end: 16
+  '[[ "${10}" -ge 2 ]]':
+    fixed: (( ${10} >= 2 ))
+    labels:
+    - source: '[[ "${10}" -ge 2 ]]'
+      style: primary
+      start: 0
+      end: 19
+    - source: -ge
+      style: secondary
+      start: 11
+      end: 14
+    - source: '"${10}"'
+      style: secondary
+      start: 3
+      end: 10
+    - source: '2'
+      style: secondary
+      start: 15
+      end: 16
+    - source: '"${10}" -ge 2'
+      style: secondary
+      start: 3
+      end: 16
+  '[[ $1 -eq 1 ]]':
+    fixed: (( $1 == 1 ))
+    labels:
+    - source: '[[ $1 -eq 1 ]]'
+      style: primary
+      start: 0
+      end: 14
+    - source: -eq
+      style: secondary
+      start: 6
+      end: 9
+    - source: $1
+      style: secondary
+      start: 3
+      end: 5
+    - source: '1'
+      style: secondary
+      start: 10
+      end: 11
+    - source: $1 -eq 1
+      style: secondary
+      start: 3
+      end: 11
   '[[ $? -eq 0 ]]':
     fixed: (( $? == 0 ))
     labels:
@@ -81,6 +127,33 @@ snapshots:
       style: secondary
       start: 3
       end: 11
+  '[[ $a -eq -1 ]]':
+    fixed: (( a == -1 ))
+    labels:
+    - source: '[[ $a -eq -1 ]]'
+      style: primary
+      start: 0
+      end: 15
+    - source: -eq
+      style: secondary
+      start: 6
+      end: 9
+    - source: $a
+      style: secondary
+      start: 3
+      end: 5
+    - source: '1'
+      style: secondary
+      start: 11
+      end: 12
+    - source: '-1'
+      style: secondary
+      start: 10
+      end: 12
+    - source: $a -eq -1
+      style: secondary
+      start: 3
+      end: 12
   '[[ $a -eq 3 ]]':
     fixed: (( a == 3 ))
     labels:

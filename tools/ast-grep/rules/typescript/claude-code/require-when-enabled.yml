@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Require the exact case object and synchronous empty arm; an async empty arm changes the returned value.
 id: require-when-enabled
 language: tsx
 severity: error
@@ -7,9 +6,7 @@ files:
     - '**/.claude/plugins/function-hooks/hooks/**'
 utils:
     option-member:
-        any:
-            - {kind: member_expression}
-            - {kind: subscript_expression}
+        kind: member_expression, subscript_expression
         has: {field: object, matches: claude-code-options-object}
     claude-code-options-object:
         kind: identifier
@@ -26,24 +23,47 @@ utils:
                         all:
                             - {has: {field: pattern, kind: identifier, pattern: $OPTIONS}}
                             - {has: {field: type, kind: type_annotation, has: {kind: type_identifier, regex: ^Options$}}}
+    flag-option:
+        kind: call_expression
+        all:
+            - {has: {field: function, regex: ^fromBoolean$}}
+            - has:
+                field: arguments
+                has: {pattern: $FLAG, any: [{matches: option-member}, {has: {stopBy: end, matches: option-member}}]}
+    thunk:
+        kind: arrow_function
+        has: {field: parameters, kind: formal_parameters, not: {has: {pattern: $_}}}
+    nothing:
+        any: [{kind: undefined}, {pattern: void 0}]
+    register-arm:
+        kind: pair
+        all:
+            - {has: {field: key, regex: ^some$}}
+            - {has: {field: value, matches: thunk, pattern: $REGISTER}}
+    empty-arm:
+        kind: pair
+        all:
+            - {has: {field: key, regex: ^none$}}
+            - has:
+                field: value
+                matches: thunk
+                not: {has: {regex: ^async$}}
+                has:
+                    field: body
+                    any:
+                        - matches: nothing
+                        - kind: statement_block
+                          not: {has: {pattern: $_, not: {kind: return_statement, not: {has: {pattern: $_, not: {matches: nothing}}}}}}
 rule:
     kind: call_expression
     pattern: $MATCH
     all:
-        - {not: {has: {stopBy: end, kind: comment}}}
         - has:
             field: function
             kind: member_expression
             all:
-                - has:
-                    field: object
-                    kind: call_expression
-                    all:
-                        - {has: {field: function, regex: ^fromBoolean$}}
-                        - has:
-                            field: arguments
-                            has: {pattern: $FLAG, any: [{matches: option-member}, {has: {stopBy: end, matches: option-member}}]}
                 - {has: {field: property, regex: ^match$}}
+                - {has: {field: object, matches: flag-option}}
         - {has: {field: type_arguments, pattern: {context: match<void>(), selector: type_arguments}}}
         - has:
             field: arguments
@@ -51,34 +71,10 @@ rule:
                 kind: object
                 not: {has: {nthChild: 3}}
                 all:
-                    - has:
-                        kind: pair
-                        all:
-                            - {has: {field: key, regex: ^some$}}
-                            - has:
-                                field: value
-                                kind: arrow_function
-                                pattern: $REGISTER
-                                has: {field: parameters, kind: formal_parameters, not: {has: {pattern: $_}}}
-                    - has:
-                        kind: pair
-                        all:
-                            - {has: {field: key, regex: ^none$}}
-                            - has:
-                                field: value
-                                kind: arrow_function
-                                all:
-                                    - {has: {field: parameters, kind: formal_parameters, not: {has: {pattern: $_}}}}
-                                has:
-                                    field: body
-                                    any:
-                                        - {kind: undefined}
-                                        - {pattern: void 0}
-                                        - kind: statement_block
-                                          not:
-                                            has: {pattern: $_, not: {kind: return_statement, not: {has: {pattern: $_, not: {kind: undefined}}}}}
-                                not: {has: {regex: ^async$}}
+                    - {has: {matches: register-arm}}
+                    - {has: {matches: empty-arm}}
+        - {not: {has: {stopBy: end, kind: comment}}}
 fix: whenEnabled($FLAG, $REGISTER)
-message: The registration under `$FLAG` is gated by a match with an empty none arm, and `whenEnabled` is the gate
+message: The registration under `$FLAG` is gated by a match with an empty none arm
 note: Gate the registration through `whenEnabled(options.<option>, () => register(on))` from host/options.ts
 labels: {MATCH: {style: primary}}

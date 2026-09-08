@@ -1,18 +1,14 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, the decoder needs a schema value the file lacks, the probe fails with TS2693 'Item' only refers to a type
 id: no-double-assertion
 language: tsx
 severity: error
 utils:
-    # Intermediate assertion that can bypass compatibility with the final type, bare or in parentheses, `as any` is Biome noExplicitAny's
     wide-assertion:
         any:
-            # Predefined type sits in the type slot alone, the value slot holds none
             - kind: as_expression
               has: {kind: predefined_type, regex: "^(unknown|never|object)$"}
-            # The empty object type, every value but null and undefined fits it
             - kind: as_expression
-              has: {kind: object_type, not: {has: {pattern: $_}}}
+              has: {kind: object_type, not: {has: {pattern: $_, not: {kind: comment}}}}
             - kind: parenthesized_expression
               has: {matches: wide-assertion}
 rule:

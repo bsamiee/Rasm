@@ -1,12 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, the tagged error needs a class the file lacks, the probe fails with TS2304 Cannot find name 'LoadError'
 id: no-literal-failure
 language: tsx
 severity: error
-# A spec fails with a literal to drive the recovery under test
 ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
-    # Failure value no tag names, a literal in any spelling, a cast over one, or an untagged Error
     untagged-error:
         any:
             - kind: string, number, true, false, null, undefined, regex
@@ -14,13 +11,12 @@ utils:
               regex: '^[+-]'
               has: {field: argument, kind: number}
             - kind: template_string
-            - kind: as_expression
+            - kind: as_expression, satisfies_expression, parenthesized_expression
               has: {matches: untagged-error}
             - kind: new_expression
               has: {field: constructor, matches: syntax-global-reference, regex: '^(globalThis\.)?(Error|TypeError|RangeError|SyntaxError|ReferenceError|EvalError|URIError|AggregateError)$'}
-    # A returned error belongs to this callback; nested callbacks do not supply its result.
     untagged-thunk:
-        any: [{kind: arrow_function}, {kind: function_expression}]
+        kind: arrow_function, function_expression, method_definition
         has:
             field: body
             any:
@@ -30,43 +26,80 @@ utils:
                   has:
                     kind: return_statement
                     has: {matches: untagged-error, pattern: $ERROR}
-                    stopBy: {kind: 'arrow_function, function_expression, generator_function, function_declaration, generator_function_declaration, method_definition'}
+                    stopBy: {matches: syntax-function-boundary}
+    strict-constructor:
+        kind: member_expression
+        any:
+            - all:
+                - has: {field: property, regex: '^fail$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)$'}}}}
+            - all:
+                - has: {field: property, regex: '^left$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
+    lazy-constructor:
+        kind: member_expression
+        any:
+            - all:
+                - has: {field: property, regex: '^failSync$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred)$'}}}}
+            - all:
+                - has: {field: property, regex: '^orElseFail$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}
+            - all:
+                - has: {field: property, regex: '^mapError$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)$'}}}}
+            - all:
+                - has: {field: property, regex: '^(mapLeft|fromOption)$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
+    filter-constructor:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^filterOrFail$'}
+            - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM)$'}}}}
+    record-mapper:
+        kind: member_expression
+        any:
+            - all:
+                - has: {field: property, regex: '^(try|tryPromise|tryMap|tryMapPromise)$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Effect$'}}}}
+            - all:
+                - has: {field: property, regex: '^(try|tryPromise)$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Micro$'}}}}
+            - all:
+                - has: {field: property, regex: '^try$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(STM|Either)$'}}}}
+            - all:
+                - has: {field: property, regex: '^mapBoth$'}
+                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Exit|Stream|Either)$'}}}}
+    failure-member:
+        any:
+            - kind: pair
+              all:
+                - has: {field: key, regex: '^(catch|onFailure|onLeft)$'}
+                - has: {field: value, matches: untagged-thunk}
+            - kind: method_definition
+              has: {field: name, regex: '^(catch|onFailure|onLeft)$'}
+              matches: untagged-thunk
 rule:
     kind: call_expression
     any:
-        # Strict constructors receive the error value; Config.fail receives a message instead.
         - all:
-            - has:
-                field: function
-                kind: member_expression
-                pattern: $FAIL
-                any:
-                    - all:
-                        - has: {field: property, regex: '^fail$'}
-                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)$'}}}}
-                    - all:
-                        - has: {field: property, regex: '^left$'}
-                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
             - has: {field: arguments, has: {matches: untagged-error, pattern: $ERROR}}
-        # Lazy constructors and error mappers receive a callback that returns the error.
+            - has: {field: function, pattern: $FAIL, matches: strict-constructor}
+        - all:
+            - has: {field: arguments, has: {matches: untagged-thunk}}
+            - has: {field: function, pattern: $FAIL, matches: lazy-constructor}
         - all:
             - has:
-                field: function
-                kind: member_expression
-                pattern: $FAIL
-                any:
-                    - all:
-                        - has: {field: property, regex: '^failSync$'}
-                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred)$'}}}}
-                    - all:
-                        - has: {field: property, regex: '^orElseFail$'}
-                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}
-                    - all:
-                        - has: {field: property, regex: '^mapError$'}
-                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)$'}}}}
-                    - all:
-                        - has: {field: property, regex: '^(mapLeft|fromOption)$'}
-                        - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
-            - has: {field: arguments, has: {matches: untagged-thunk}}
+                field: arguments
+                all:
+                    - has: {matches: untagged-thunk, nthChild: {position: 1, reverse: true}}
+                    - any:
+                        - has: {nthChild: 3}
+                        - has: {nthChild: 1, kind: 'arrow_function, function_expression'}
+            - has: {field: function, pattern: $FAIL, matches: filter-constructor}
+        - all:
+            - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
+            - has: {field: function, pattern: $FAIL, matches: record-mapper}
 message: '`$FAIL` fails with `$ERROR`, a value no tag names'
 note: Fail with a tagged error, `Effect.fail(new LoadError({ path }))` over a `Data.TaggedError` class, and recover it by tag with `Effect.catchTag`

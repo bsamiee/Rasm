@@ -1,16 +1,30 @@
 id: no-using-remove-in-project
 snapshots:
   ? |
-    <ItemGroup Label="Kernel-Free Usings"><Using Remove="Rasm.Analysis" /></ItemGroup>
+    <ItemGroup Label="Kernel-Free Usings"><Using Remove="Item.Analysis" /></ItemGroup>
   : labels:
-    - source: <Using Remove="Rasm.Analysis" />
+    - source: <Using Remove="Item.Analysis" />
       style: primary
       start: 38
       end: 70
   ? |
-    <ItemGroup><Using Remove="Rasm.Domain"></Using></ItemGroup>
+    <ItemGroup><Using Remove="Item.Domain"></Using></ItemGroup>
   : labels:
-    - source: <Using Remove="Rasm.Domain"></Using>
+    - source: <Using Remove="Item.Domain"></Using>
       style: primary
       start: 11
       end: 47
+  ? |
+    <ItemGroup><Using Remove='Item' /></ItemGroup>
+  : labels:
+    - source: <Using Remove='Item' />
+      style: primary
+      start: 11
+      end: 34
+  ? |
+    <Target Name="Trim"><ItemGroup><Using Remove="Item" /></ItemGroup></Target>
+  : labels:
+    - source: <Using Remove="Item" />
+      style: primary
+      start: 31
+      end: 54

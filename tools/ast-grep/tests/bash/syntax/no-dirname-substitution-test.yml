@@ -1,15 +1,15 @@
-# Fold only unambiguous literal paths; dynamic paths, separators, quoting, and command positions remain separate contracts.
 id: no-dirname-substitution
 valid:
-    # A command name can concatenate the computed component with literal text
     - $(basename a/i)f true
-    # A literal replacement in command position can become a reserved word
     - $(basename a/if) true
     - out=$(other path/file)
     - out=$(dirname path/file suffix)
     - out=$(dirname path/file; printf other)
     - root=$(dirname -- "$path")
     - stem=$(basename "$path" .yml)
+    - stem=$(basename a/b.yml .yml)
+    - root=$(dirname -z a/b)
+    - stem=$(basename -- a/b.yml .yml)
     - name=$(basename "${paths[$i]}")
     - root=$(dirname "${BASH_SOURCE[0]}")
     - root=$(dirname "$path/x")
@@ -33,3 +33,5 @@ invalid:
     - root=$(dirname 'a/b')
     - name=$(basename "a/b")
     - name=`basename a/b`
+    - root=$(dirname -- a/b)
+    - root="$(dirname a/b)/x"

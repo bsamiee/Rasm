@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, const in place of let fails at the assignment with TS2588 Cannot assign to 'count' because it is a constant
 id: no-module-state
 language: tsx
 severity: error

@@ -1,54 +1,41 @@
 id: nested-module-calls-to-pipe
 valid:
-    # Three nested calls stay under the limit
     - 'import { Array, pipe } from "effect"; const rows = Array.flatten(Array.map(Array.filter(items, keep), project));'
-    # A module call in a later argument makes no data-first level
     - |
       import { Effect, Layer, pipe } from "effect";
       const run = Effect.provide(Effect.flatMap(Effect.provide(load, Layer.succeed(Tag, service)), g), layer);
-    # pipe imported from another package
     - |
       import { Array } from "effect";
       import { pipe } from "other";
       const rows = Array.flatten(Array.map(Array.filter(Array.fromIterable(items), keep), project));
-    # A one-argument step that is no unary operation opens no data-first level
     - 'import { Effect, pipe } from "effect"; const run = Effect.provide(Effect.flatMap(Effect.map(Effect.succeed(1)), g), layer);'
-    # A data-first step in a later argument of the second level
     - |
       import { Effect, pipe } from "effect";
       const run = Effect.provide(Effect.merge(Effect.succeed(1), Effect.map(Effect.succeed(2), f)), layer);
-    # The file imports no pipe, the replacement has no name to call
     - 'import { Array } from "effect"; const rows = Array.flatten(Array.map(Array.filter(Array.fromIterable(items), keep), project));'
-    # pipe imported under another name
     - 'import { Array, pipe as chain } from "effect"; const rows = Array.flatten(Array.map(Array.filter(Array.fromIterable(items), keep), project));'
-    # A comment inside the chain stays with its call
     - |
       import { Array, pipe } from "effect";
       const rows = Array.flatten(Array.map(Array.filter(Array.fromIterable(items), /* keep */ keep), project));
-    # A schema call is no pipe step
     - 'import { Schema, pipe } from "effect"; const item = Schema.filter(Schema.map(Schema.filter(Schema.map(base, f), g), h), i);'
-    # An operation outside the step list
-    - 'import { Effect, pipe } from "effect"; const run = Effect.tap(Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g), h);'
+    - 'import { Effect, pipe } from "effect"; const run = Effect.locally(Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g), ref, value);'
+    - 'import { Array, pipe } from "effect"; const rows = Array.flatten<number>(Array.map(Array.filter(Array.fromIterable(items), keep), project));'
+    - 'import { Array, pipe } from "effect"; const rows = Array.flatten(Array.map<number, number>(Array.filter(Array.fromIterable(items), keep), project));'
 invalid:
-    # Four unary and data-first array steps from a plain value
     - 'import { Array, pipe } from "effect"; const rows = Array.flatten(Array.map(Array.filter(Array.fromIterable(items), keep), project));'
-    # Dual effect operations with further arguments, the innermost opens the pipe with its own value
     - |
       import { Effect, pipe } from "effect";
       const run = Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(load, () => other), f), g), layer);
-    # Option steps with a lazy fallback
     - |
       import { Option, pipe } from "effect";
       const item = Option.getOrElse(Option.map(Option.flatMap(Option.filter(found, keep), lookup), project), () => fallback);
-    # A module call that is no step opens the pipe as the value
     - |
       import { Effect, pipe } from "effect";
       const run = Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(Effect.succeed(1), () => other), f), g), layer);
-    # A chain in a later argument of a step rewrites in place
     - |
       import { Effect, pipe } from "effect";
       const run = Effect.merge(Effect.succeed(1), Effect.provide(Effect.flatMap(Effect.map(Effect.orElse(load, () => other), f), g), layer));
-    # Five levels report once at the outermost call
+    - 'import { Effect, pipe } from "effect"; const run = Effect.tap(Effect.map(Effect.flatMap(Effect.zipRight(a, b), f), g), h);'
     - |
       import { Array, pipe } from "effect";
       const rows = Array.flatten(Array.map(Array.filter(Array.map(Array.fromIterable(items), first), keep), project));

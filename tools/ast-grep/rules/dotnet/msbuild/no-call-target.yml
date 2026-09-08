@@ -7,13 +7,11 @@ rule:
     matches: {msbuild-element: {name: {regex: '^Target$'}}}
     has: {kind: content, has: {matches: {msbuild-element: {name: {regex: '^CallTarget$'}}}}}
 transform:
-    # The first task of the target, a CallTarget with Targets alone, moves its targets into a marker on the start tag, a later call stays
     MOVED:
         replace:
             source: $TARGET
-            replace: '(?s)^<Target\b(?P<attrs>[^<]*?)>(?P<ws>\s*)<CallTarget\s+Targets\s*=\s*"(?P<t>[^"]*)"\s*/>\s*'
+            replace: '(?s)^<Target\b(?P<attrs>[^<]*?)>(?P<ws>\s*)<CallTarget\s+Targets\s*=\s*["''](?P<t>[^"'']*)["'']\s*/>\s*'
             by: '<Target${attrs}@@${t}@@>${ws}'
-    # An existing DependsOnTargets list takes the called targets after its own
     APPENDED:
         replace:
             source: $MOVED

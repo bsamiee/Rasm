@@ -161,6 +161,75 @@ snapshots:
       style: secondary
       start: 11
       end: 29
+  producer | builtin read -r value:
+    fixed: builtin read -r value < <(producer)
+    labels:
+    - source: producer | builtin read -r value
+      style: primary
+      start: 0
+      end: 32
+    - source: read
+      style: secondary
+      start: 19
+      end: 23
+    - source: builtin read -r value
+      style: secondary
+      start: 11
+      end: 32
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: builtin read -r value
+      style: secondary
+      start: 11
+      end: 32
+  producer | command -p -- read -r value:
+    fixed: command -p -- read -r value < <(producer)
+    labels:
+    - source: producer | command -p -- read -r value
+      style: primary
+      start: 0
+      end: 38
+    - source: read
+      style: secondary
+      start: 25
+      end: 29
+    - source: command -p -- read -r value
+      style: secondary
+      start: 11
+      end: 38
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: command -p -- read -r value
+      style: secondary
+      start: 11
+      end: 38
+  producer | command mapfile -t values:
+    fixed: command mapfile -t values < <(producer)
+    labels:
+    - source: producer | command mapfile -t values
+      style: primary
+      start: 0
+      end: 36
+    - source: mapfile
+      style: secondary
+      start: 19
+      end: 26
+    - source: command mapfile -t values
+      style: secondary
+      start: 11
+      end: 36
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: command mapfile -t values
+      style: secondary
+      start: 11
+      end: 36
   producer | mapfile -t values:
     fixed: mapfile -t values < <(producer)
     labels:
@@ -209,6 +278,29 @@ snapshots:
       end: 24
   producer | read -r value 2>/dev/null:
     fixed: read -r value < <(producer) 2>/dev/null
+    labels:
+    - source: producer | read -r value
+      style: primary
+      start: 0
+      end: 24
+    - source: read
+      style: secondary
+      start: 11
+      end: 15
+    - source: read -r value
+      style: secondary
+      start: 11
+      end: 24
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: read -r value
+      style: secondary
+      start: 11
+      end: 24
+  producer | read -r value <&3:
+    fixed: read -r value < <(producer) <&3
     labels:
     - source: producer | read -r value
       style: primary
@@ -291,6 +383,25 @@ snapshots:
       style: secondary
       start: 11
       end: 52
+  producer | while read -r line; do count=1; done > out:
+    fixed: while read -r line; do count=1; done < <(producer) > out
+    labels:
+    - source: producer | while read -r line; do count=1; done
+      style: primary
+      start: 0
+      end: 47
+    - source: while read -r line; do count=1; done
+      style: secondary
+      start: 11
+      end: 47
+    - source: '|'
+      style: secondary
+      start: 9
+      end: 10
+    - source: while read -r line; do count=1; done
+      style: secondary
+      start: 11
+      end: 47
   producer | while true; do read -r line || break; count=1; done:
     fixed: while true; do read -r line || break; count=1; done < <(producer)
     labels:

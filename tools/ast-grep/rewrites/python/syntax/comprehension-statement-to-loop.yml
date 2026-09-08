@@ -1,17 +1,15 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# On demand, nx run rasm:rewrite -- --filter='^comprehension-statement-to-loop$' --error=comprehension-statement-to-loop <path>
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: comprehension-statement-to-loop
 language: python
 severity: off
 rule:
     kind: expression_statement
     pattern: $STATEMENT
-    # One clause with no condition, the loop evaluates the body once per element as the discarded collection did
     has:
         any:
             - pattern: '[$BODY for $X in $XS]'
             - pattern: '{$BODY for $X in $XS}'
-        not: {has: {kind: for_in_clause, regex: '^async\b'}} # The pattern refuses a comment inside the comprehension itself
+        not: {has: {kind: for_in_clause, regex: '^async\b'}}
 fix: |-
     for $X in $XS:
         $BODY

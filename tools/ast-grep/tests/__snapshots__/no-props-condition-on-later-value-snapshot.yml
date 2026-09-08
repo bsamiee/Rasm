@@ -24,6 +24,29 @@ snapshots:
       start: 8
       end: 60
   ? |
+    <Import Project="$(MSBuildThisFileDirectory)$(OutputType).props" />
+  : labels:
+    - source: Project="$(MSBuildThisFileDirectory)$(OutputType).props"
+      style: primary
+      start: 8
+      end: 64
+    - source: Project
+      style: secondary
+      start: 8
+      end: 15
+    - source: '"$(MSBuildThisFileDirectory)$(OutputType).props"'
+      style: secondary
+      start: 16
+      end: 64
+    - source: <Import Project="$(MSBuildThisFileDirectory)$(OutputType).props" />
+      style: secondary
+      start: 0
+      end: 67
+    - source: <Import Project="$(MSBuildThisFileDirectory)$(OutputType).props" />
+      style: secondary
+      start: 0
+      end: 67
+  ? |
     <Import Project="$(MSBuildThisFileDirectory)frameworks/$(TargetFramework).props" />
   : labels:
     - source: Project="$(MSBuildThisFileDirectory)frameworks/$(TargetFramework).props"
@@ -70,6 +93,29 @@ snapshots:
       start: 0
       end: 68
   ? |
+    <PropertyGroup Condition="$(TargetFramework.StartsWith('net'))"><Item>true</Item></PropertyGroup>
+  : labels:
+    - source: Condition="$(TargetFramework.StartsWith('net'))"
+      style: primary
+      start: 15
+      end: 63
+    - source: Condition
+      style: secondary
+      start: 15
+      end: 24
+    - source: '"$(TargetFramework.StartsWith(''net''))"'
+      style: secondary
+      start: 25
+      end: 63
+    - source: <PropertyGroup Condition="$(TargetFramework.StartsWith('net'))"><Item>true</Item></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 97
+    - source: <PropertyGroup Condition="$(TargetFramework.StartsWith('net'))">
+      style: secondary
+      start: 0
+      end: 64
+  ? |
     <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'"><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
   : labels:
     - source: Condition="'$(TargetFramework)' == 'net10.0'"
@@ -92,6 +138,52 @@ snapshots:
       style: secondary
       start: 0
       end: 61
+  ? |
+    <PropertyGroup Condition="'$(TargetFrameworks)' != ''"><Item>true</Item></PropertyGroup>
+  : labels:
+    - source: Condition="'$(TargetFrameworks)' != ''"
+      style: primary
+      start: 15
+      end: 54
+    - source: Condition
+      style: secondary
+      start: 15
+      end: 24
+    - source: '"''$(TargetFrameworks)'' != ''''"'
+      style: secondary
+      start: 25
+      end: 54
+    - source: <PropertyGroup Condition="'$(TargetFrameworks)' != ''"><Item>true</Item></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 88
+    - source: <PropertyGroup Condition="'$(TargetFrameworks)' != ''">
+      style: secondary
+      start: 0
+      end: 55
+  ? |
+    <PropertyGroup Condition='$(OutputType) == Exe'><Item>true</Item></PropertyGroup>
+  : labels:
+    - source: Condition='$(OutputType) == Exe'
+      style: primary
+      start: 15
+      end: 47
+    - source: Condition
+      style: secondary
+      start: 15
+      end: 24
+    - source: '''$(OutputType) == Exe'''
+      style: secondary
+      start: 25
+      end: 47
+    - source: <PropertyGroup Condition='$(OutputType) == Exe'><Item>true</Item></PropertyGroup>
+      style: secondary
+      start: 0
+      end: 81
+    - source: <PropertyGroup Condition='$(OutputType) == Exe'>
+      style: secondary
+      start: 0
+      end: 48
   ? |
     <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'">
       <RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>

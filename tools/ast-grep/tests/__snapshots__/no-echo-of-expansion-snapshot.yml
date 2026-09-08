@@ -1,5 +1,47 @@
 id: no-echo-of-expansion
 snapshots:
+  \echo "$value":
+    labels:
+    - source: \echo "$value"
+      style: primary
+      start: 0
+      end: 14
+    - source: \echo
+      style: secondary
+      start: 0
+      end: 5
+    - source: '"$value"'
+      style: secondary
+      start: 6
+      end: 14
+  builtin echo "$value":
+    labels:
+    - source: builtin echo "$value"
+      style: primary
+      start: 0
+      end: 21
+    - source: echo
+      style: secondary
+      start: 8
+      end: 12
+    - source: '"$value"'
+      style: secondary
+      start: 13
+      end: 21
+  command echo "$value":
+    labels:
+    - source: command echo "$value"
+      style: primary
+      start: 0
+      end: 21
+    - source: echo
+      style: secondary
+      start: 8
+      end: 12
+    - source: '"$value"'
+      style: secondary
+      start: 13
+      end: 21
   echo "$(produce)":
     labels:
     - source: echo "$(produce)"
@@ -28,6 +70,34 @@ snapshots:
       style: secondary
       start: 5
       end: 9
+  echo "$RANDOM$suffix":
+    labels:
+    - source: echo "$RANDOM$suffix"
+      style: primary
+      start: 0
+      end: 21
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$RANDOM$suffix"'
+      style: secondary
+      start: 5
+      end: 21
+  echo "$RANDOMIZER":
+    labels:
+    - source: echo "$RANDOMIZER"
+      style: primary
+      start: 0
+      end: 18
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$RANDOMIZER"'
+      style: secondary
+      start: 5
+      end: 18
   echo "$value" >&2:
     labels:
     - source: echo "$value"
@@ -84,6 +154,20 @@ snapshots:
       style: secondary
       start: 5
       end: 27
+  echo "${RANDOM:-0}":
+    labels:
+    - source: echo "${RANDOM:-0}"
+      style: primary
+      start: 0
+      end: 19
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"${RANDOM:-0}"'
+      style: secondary
+      start: 5
+      end: 19
   echo "${value#$prefix}":
     labels:
     - source: echo "${value#$prefix}"
@@ -154,6 +238,20 @@ snapshots:
       style: secondary
       start: 5
       end: 19
+  echo "${values[RANDOM]}":
+    labels:
+    - source: echo "${values[RANDOM]}"
+      style: primary
+      start: 0
+      end: 24
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"${values[RANDOM]}"'
+      style: secondary
+      start: 5
+      end: 24
   echo "${value}":
     labels:
     - source: echo "${value}"
@@ -238,3 +336,17 @@ snapshots:
       style: secondary
       start: 13
       end: 21
+  time echo "$value":
+    labels:
+    - source: time echo "$value"
+      style: primary
+      start: 0
+      end: 18
+    - source: echo
+      style: secondary
+      start: 5
+      end: 9
+    - source: '"$value"'
+      style: secondary
+      start: 10
+      end: 18

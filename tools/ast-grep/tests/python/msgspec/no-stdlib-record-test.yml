@@ -1,69 +1,59 @@
 id: no-stdlib-record
 valid:
-    # The corrected form, a frozen Struct
     - |
       class Point(msgspec.Struct, frozen=True):
           x: int
           y: int
-    # Another member of collections
     - |
       from collections import Counter
-    # Another member of typing
     - |
       from typing import TypedDict
-    # The base name imported from another package
     - |
       from schema import NamedTuple
-    # Attribute named like the factory on another object
     - |
       Row = registry.namedtuple("Row", "a b")
-    # The introspection members of dataclasses, a check over a record another package declares
     - |
       import dataclasses
 
       names = (field.name for field in dataclasses.fields(value)) if dataclasses.is_dataclass(value) else ()
-    # The pydantic dataclass, validated at runtime
+    - |
+      import dataclasses
+
+      copy = dataclasses.replace(value, x=1)
     - |
       from pydantic.dataclasses import dataclass
-    # Typed dictionary, the shape of a keyword argument list a Struct cannot unpack
     - |
       from typing import TypedDict
 
       class Size(TypedDict):
           min_size: int
 invalid:
-    # The instance, the factory imported from collections
     - |
       from collections import namedtuple
-    # The factory read as an attribute
     - |
       import collections
 
       Point = collections.namedtuple("Point", "x y")
-    # The base imported from typing
     - |
       from typing import NamedTuple
-    # The base imported from typing_extensions
     - |
       from typing_extensions import NamedTuple
-    # The base read through the alias the import binds
     - |
       import typing as t
 
       class Point(t.NamedTuple):
           x: int
-    # The dataclass decorator imported from its module
     - |
       from dataclasses import dataclass
-    # The dataclass decorator read as spelled
     - |
       import dataclasses
 
       @dataclasses.dataclass(frozen=True)
       class Point:
           x: int
-    # The dataclass factory read through the alias the import binds
     - |
       import dataclasses as dc
 
       Point = dc.make_dataclass("Point", ["x"])
+    - |
+      from dataclasses import dataclass as record

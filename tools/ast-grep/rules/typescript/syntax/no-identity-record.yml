@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-identity-record
+language: tsx
+severity: error
+utils:
+    identity-pair:
+        kind: pair
+        all:
+            - has: {field: value, kind: string, has: {kind: string_fragment, pattern: $KEY}}
+            - has:
+                field: key
+                any:
+                    - {kind: property_identifier, pattern: $KEY}
+                    - {kind: string, has: {kind: string_fragment, pattern: $KEY}}
+rule:
+    kind: object
+    all:
+        - inside: {kind: variable_declarator, field: value, stopBy: {not: {matches: syntax-expression-wrapper}}, inside: {matches: syntax-module-constant}}
+        - not: {has: {pattern: $_, not: {any: [{matches: identity-pair}, {kind: comment}]}}}
+        - has: {matches: identity-pair}
+message: Every value of the record repeats its own key, one fact stated twice
+note: Declare the names as a tuple, `['A', 'B'] as const`, and build the record at the consumer through `Record.fromIterableWith`

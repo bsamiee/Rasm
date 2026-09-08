@@ -111,6 +111,19 @@ snapshots:
   ? |
     def owner(names):
         match names:
+            case Result(tag='error', error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text.strip())
+  : labels:
+    - source: names
+      message: Result transformation
+      style: primary
+      start: 28
+      end: 33
+  ? |
+    def owner(names):
+        match names:
             case result.Result(tag="error", error=failure):
                 return Error(failure)
             case result.Result(ok=text):

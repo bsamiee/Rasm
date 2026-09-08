@@ -3,6 +3,21 @@ snapshots:
   ? |
     from pydantic import BaseModel, field_validator
     class Model(BaseModel):
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value):
+            return value
+        value: int
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    \n    value: int\n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 127
+      end: 136
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
         value: int
         @field_validator("value")
         @classmethod
@@ -25,6 +40,66 @@ snapshots:
         def unchanged(cls, value):
             return value
             # No transformation
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value, /):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value, info):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value, info, /):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 142
+      end: 151
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value: int = 0):
+            return value
   : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
     labels:
     - source: unchanged
@@ -66,6 +141,80 @@ snapshots:
     from pydantic import BaseModel, field_validator
     class Model(BaseModel):
         value: int
+        @field_validator("value")
+        @staticmethod
+        def unchanged(value):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 143
+      end: 152
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @staticmethod
+        def unchanged(value, /):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 143
+      end: 152
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @staticmethod
+        def unchanged(value, info):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 143
+      end: 152
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @staticmethod
+        def unchanged(value, info, /):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 143
+      end: 152
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        def unchanged(cls, value):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 125
+      end: 134
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
         @field_validator("value",  # Target field
             mode="after")
         @classmethod
@@ -78,6 +227,53 @@ snapshots:
       style: primary
       start: 180
       end: 189
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Model(BaseModel):
+        value: int
+        other: int
+        @field_validator("value", "other")
+        @classmethod
+        def unchanged(cls, value):
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Model(BaseModel):\n    value: int\n    other: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 166
+      end: 175
+  ? |
+    from pydantic import BaseModel, field_validator
+    class Outer:
+        class Model(BaseModel):
+            value: int
+            @field_validator("value")
+            @classmethod
+            def unchanged(cls, value):
+                return value
+  : fixed: "from pydantic import BaseModel, field_validator\nclass Outer:\n    class Model(BaseModel):\n        value: int\n        \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 175
+      end: 184
+  ? |
+    from pydantic import BaseModel, field_validator, ValidationInfo
+    class Model(BaseModel):
+        value: int
+        @field_validator("value")
+        @classmethod
+        def unchanged(cls, value: int, info: ValidationInfo | None = None) -> int:
+            return value
+  : fixed: "from pydantic import BaseModel, field_validator, ValidationInfo\nclass Model(BaseModel):\n    value: int\n    \n"
+    labels:
+    - source: unchanged
+      message: Identity validator
+      style: primary
+      start: 158
+      end: 167
   ? |
     from pydantic import field_validator
     from pydantic_settings import BaseSettings

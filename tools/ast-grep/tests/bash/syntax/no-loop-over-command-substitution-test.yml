@@ -5,73 +5,58 @@ valid:
       for f in "${files[@]}"; do printf '%s\n' "$f"; done
     - |
       while IFS= read -r -d '' f; do printf '%s\n' "$f"; done < <(fd -0 -e yml .)
-    # Glob under globstar and nullglob
     - |
       for f in "$dir"/**/*.yml; do printf '%s\n' "$f"; done
-    # Loop over an array
     - |
       for f in "${files[@]}"; do printf '%s\n' "$f"; done
-    # Substitution inside the body, the loop words are literal
     - |
       for f in a b; do printf '%s\n' "$(basename "$f")"; done
-    # ls output, shellcheck SC2045
     - |
       for f in $(ls); do printf '%s\n' "$f"; done
-    # find output, shellcheck SC2044
     - |
       for f in $(find . -name '*.yml'); do printf '%s\n' "$f"; done
-    # cat output, shellcheck SC2013
     - |
       for f in $(cat list); do printf '%s\n' "$f"; done
-    # A quoted substitution, one item
     - |
       for f in "$(cmd)"; do printf '%s\n' "$f"; done
-    # A bare array, shellcheck SC2068
     - |
       for f in ${files[@]}; do printf '%s\n' "$f"; done
-    # The bare argument list, shellcheck SC2068
     - |
       for f in $@; do printf '%s\n' "$f"; done
-    # A quoted scalar, one item
     - |
       for f in "$x"; do printf '%s\n' "$f"; done
-    # An array and a quoted substitution
     - |
       for f in "${files[@]}" "$(cmd)"; do printf '%s\n' "$f"; done
-    # A glob joined to a scalar, a concatenation
     - |
       for f in $x/*; do printf '%s\n' "$f"; done
+    - |
+      for f in $*; do printf '%s\n' "$f"; done
 invalid:
-    # A substitution before a quoted word
     - |
       for f in $(cmd) "$x"; do printf '%s\n' "$f"; done
-    # A pipeline with cat as its first stage
     - |
       for f in $(cat list | sort); do printf '%s\n' "$f"; done
-    # The instance, a query result split into words
     - |
       for lib in $(yq -r '.customLanguages[].libraryPath' sgconfig.yml); do ln -s "$PWD/$lib" "$scratch/$lib"; done
-    # A function's output split into words
     - |
       for t in $(test_files); do printf '%s\n' "$t"; done
-    # Backticks
     - |
       for f in `fd -e yml .`; do printf '%s\n' "$f"; done
-    # A pipeline with ls as its first stage, shellcheck SC2012 reports the ls alone
     - |
       for f in $(ls | head -3); do printf '%s\n' "$f"; done
-    # A substitution after a literal word
     - |
       for f in first $(fd -e yml .); do printf '%s\n' "$f"; done
-    # A file read by redirection, the cat form without the cat
     - |
       for f in $(<list); do printf '%s\n' "$f"; done
-    # A scalar holding a list
     - |
       for d in $rule_dirs; do printf '%s\n' "$d"; done
-    # The braced scalar
     - |
       for d in ${rule_dirs}; do printf '%s\n' "$d"; done
-    # A scalar with a default
     - |
       for d in ${rule_dirs:-.}; do printf '%s\n' "$d"; done
+    - |
+      for d in $1; do printf '%s\n' "$d"; done
+    - |
+      for f in "${files[@]}" $x; do printf '%s\n' "$f"; done
+    - |
+      select f in $(cmd); do printf '%s\n' "$f"; done

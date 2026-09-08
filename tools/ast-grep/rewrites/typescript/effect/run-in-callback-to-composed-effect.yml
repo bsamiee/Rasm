@@ -1,11 +1,9 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Enable on demand with ast-grep scan --filter '^run-in-callback-to-composed-effect$' --error=run-in-callback-to-composed-effect -U <paths>
 id: run-in-callback-to-composed-effect
 language: tsx
 severity: off
 utils:
     effect-module: {matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro)$'}}}}
-    # The synchronous or promise run of one effect as the callback's whole answer
     run-call:
         kind: call_expression
         all:
@@ -13,7 +11,7 @@ utils:
                 field: function
                 kind: member_expression
                 all:
-                    - has: {field: object, matches: effect-module}
+                    - has: {field: object, pattern: $M, matches: effect-module}
                     - has: {field: property, regex: '^(runSync|runPromise)$'}
             - has: {field: arguments, has: {pattern: $EFFECT}, not: {has: {nthChild: 2}}}
     run-callback:
@@ -32,10 +30,10 @@ rule:
     not: {has: {kind: comment, stopBy: end}}
     all:
         - has: {field: function, pattern: $M.$OWNER}
+        - not: {has: {field: type_arguments, kind: type_arguments}}
+        - not: {has: {field: arguments, has: {nthChild: 3}}}
         - has: {field: arguments, has: {matches: run-callback, pattern: $CALLBACK}}
 constraints:
-    M: {matches: effect-module}
-    # map composes through flatMap, and a sync or promise constructor around a run suspends the effect it ran
     OWNER: {regex: '^(map|sync|promise)$'}
 rewriters:
     - id: unrun

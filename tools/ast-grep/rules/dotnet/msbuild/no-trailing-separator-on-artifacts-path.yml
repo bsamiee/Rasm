@@ -7,15 +7,12 @@ rule:
     pattern: _VALUE
     inside:
         kind: content
-        # A split value needs XML-aware evaluation before a text edit can preserve it.
         not: {has: {not: {kind: CharData}}}
         inside: {matches: {msbuild-property: {name: {regex: '^ArtifactsPath$'}}}}
     any:
-        # Literal paths and plain property references; function arguments are not path text.
         - regex: '^\s*(?:[^$]|\$\([A-Za-z_][A-Za-z0-9_]*\))*[\\/]\s*$'
         - regex: '^\s*\$\(\[MSBuild\]::(?:NormalizeDirectory|EnsureTrailingSlash)\(\s*''[^'']*''(?:\s*,\s*''[^'']*'')*\s*\)\)\s*$'
         - regex: '^\s*\$\(\[MSBuild\]::NormalizePath\(\s*(?:''[^'']*''\s*,\s*)*''[^'']*[\\/]''\s*\)\)\s*$'
-    # Removing a filesystem root separator changes the path's meaning.
     not: {regex: '^\s*(?:[\\/]+|[A-Za-z]:[\\/]+)\s*$|''(?:[\\/]+|[A-Za-z]:[\\/]+)''\s*\)\)\s*$'}
 transform:
     TRIMMED:

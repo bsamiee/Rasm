@@ -1,5 +1,11 @@
 id: no-fourth-nesting-level
 snapshots:
+  async function run() { for await (const row of rows) { if (row) { while (a) { for (;;) work(); } } } }:
+    labels:
+    - source: for (;;) work();
+      style: primary
+      start: 78
+      end: 94
   ? 'const arms = Effect.map(xs, (x) => Array.map(x, (y) => Option.map(y, (z) => Effect.if(z, { onTrue: () => x, onFalse: fallback }))));'
   : labels:
     - source: () => x
@@ -48,6 +54,12 @@ snapshots:
       style: primary
       start: 32
       end: 41
+  function outer() { function middle() { function inner() { function fourth() { class Item { load() { return 1; } } } } } }:
+    labels:
+    - source: load() { return 1; }
+      style: primary
+      start: 91
+      end: 111
   function outer(a) { function middle(b) { function inner(c) { function fourth(d) { function fifth(e) { return e; } } } } }:
     labels:
     - source: function fifth(e) { return e; }
@@ -114,6 +126,12 @@ snapshots:
       style: primary
       start: 138
       end: 145
+  ? import { Effect } from "effect"; const build = () => Effect.fn(function* () { return yield* wrap(() => wrap(() => wrap(() => 1))); }).pipe(Effect.orDie);
+  : labels:
+    - source: () => 1
+      style: primary
+      start: 119
+      end: 126
   ? import { Effect } from "effect"; const run = Effect.fn(function* () { return 1; }, ((() => wrap(() => wrap(() => wrap(() => 1))))));
   : labels:
     - source: () => 1
@@ -193,6 +211,12 @@ snapshots:
       start: 44
       end: 51
   'run({ callback: () => wrap(() => wrap(() => wrap(() => 1))) });':
+    labels:
+    - source: () => 1
+      style: primary
+      start: 49
+      end: 56
+  run({ load() { return wrap(() => wrap(() => wrap(() => 1))); } });:
     labels:
     - source: () => 1
       style: primary

@@ -1,6 +1,5 @@
 id: no-redundant-input-required
 valid:
-    # Removing an explicit override would expose the merged required value.
     - |
       on: {workflow_dispatch: {inputs: {value: {<<: {required: true}, required: false, description: Value}}}}
     - 'inputs: {value: {required: true}}'
@@ -38,7 +37,16 @@ valid:
       inputs: {value: &shared {required: false, description: Value}}
       runs: {using: composite, steps: []}
       other: *shared
+    - 'on: {workflow_dispatch: {inputs: {value: {required: ''false'', description: Value}}}}'
+    - 'on: {workflow_dispatch: {inputs: {value: {required: "false", description: Value}}}}'
+    - 'on: {workflow_dispatch: {inputs: {value: {required: ~, description: Value}}}}'
+    - 'jobs: {call: {on: {workflow_call: {inputs: {value: {required: false, description: Value}}}}}}'
+    - 'on: {workflow_call: {secrets: {token: {required: false, description: Token}}}}'
 invalid:
+    - 'on: {workflow_dispatch: {inputs: {value: {required: False, description: Value}}}}'
+    - |-
+      inputs: {value: {description: Value, required: FALSE}}
+      runs: {using: composite, steps: []}
     - |-
       inputs: {value: {required: false, description: Value}}
       runs: {using: composite, steps: []}
@@ -53,3 +61,28 @@ invalid:
               description: Value
               required: false
     - 'on: {workflow_dispatch: {inputs: {value: {required: false}}}}'
+    - |-
+      on:
+        workflow_dispatch:
+          inputs:
+            value:
+              required: false
+              description: Value
+    - |-
+      on:
+        workflow_call:
+          inputs:
+            value:
+              description: Value
+              required: false
+              type: string
+    - 'on: {workflow_dispatch: {inputs: {value: {description: Value, required: false,}}}}'
+    - 'on: {workflow_call: {inputs: {value: {"required": FALSE, type: string}}}}'
+    - |-
+      on:
+        workflow_dispatch:
+          inputs:
+            value:
+              description: Value
+              # Optional
+              required: false

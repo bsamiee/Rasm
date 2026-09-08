@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: github-job
+language: yaml
+rule:
+    kind: block_mapping, flow_mapping
+    inside:
+        kind: block_node, flow_node
+        inside:
+            kind: block_mapping_pair, flow_pair
+            inside:
+                kind: block_mapping, flow_mapping
+                inside:
+                    kind: block_node, flow_node
+                    inside:
+                        kind: block_mapping_pair, flow_pair
+                        has: {field: key, regex: '^(jobs|"jobs"|''jobs'')$'}
+                        inside: {matches: yaml-document-mapping}

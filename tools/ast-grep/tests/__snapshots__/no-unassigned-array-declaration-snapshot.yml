@@ -1,0 +1,309 @@
+id: no-unassigned-array-declaration
+snapshots:
+  ? |
+    declare -A m
+    n=${#m[@]}
+  : fixed: |
+      declare -A m=()
+      n=${#m[@]}
+    labels:
+    - source: m
+      style: primary
+      start: 11
+      end: 12
+    - source: -A
+      style: secondary
+      start: 8
+      end: 10
+    - source: '#'
+      style: secondary
+      start: 17
+      end: 18
+    - source: m
+      style: secondary
+      start: 18
+      end: 19
+    - source: '@'
+      style: secondary
+      start: 20
+      end: 21
+    - source: m[@]
+      style: secondary
+      start: 18
+      end: 22
+    - source: ${#m[@]}
+      style: secondary
+      start: 15
+      end: 23
+    - source: |
+        declare -A m
+        n=${#m[@]}
+      style: secondary
+      start: 0
+      end: 24
+    - source: declare -A m
+      style: secondary
+      start: 0
+      end: 12
+  ? |
+    declare -a items
+    c=${#items[*]}
+  : fixed: |
+      declare -a items=()
+      c=${#items[*]}
+    labels:
+    - source: items
+      style: primary
+      start: 11
+      end: 16
+    - source: -a
+      style: secondary
+      start: 8
+      end: 10
+    - source: '#'
+      style: secondary
+      start: 21
+      end: 22
+    - source: items
+      style: secondary
+      start: 22
+      end: 27
+    - source: '*'
+      style: secondary
+      start: 28
+      end: 29
+    - source: items[*]
+      style: secondary
+      start: 22
+      end: 30
+    - source: ${#items[*]}
+      style: secondary
+      start: 19
+      end: 31
+    - source: |
+        declare -a items
+        c=${#items[*]}
+      style: secondary
+      start: 0
+      end: 32
+    - source: declare -a items
+      style: secondary
+      start: 0
+      end: 16
+  ? |
+    declare -ai counts
+    n=${#counts[@]}
+  : fixed: |
+      declare -ai counts=()
+      n=${#counts[@]}
+    labels:
+    - source: counts
+      style: primary
+      start: 12
+      end: 18
+    - source: -ai
+      style: secondary
+      start: 8
+      end: 11
+    - source: '#'
+      style: secondary
+      start: 23
+      end: 24
+    - source: counts
+      style: secondary
+      start: 24
+      end: 30
+    - source: '@'
+      style: secondary
+      start: 31
+      end: 32
+    - source: counts[@]
+      style: secondary
+      start: 24
+      end: 33
+    - source: ${#counts[@]}
+      style: secondary
+      start: 21
+      end: 34
+    - source: |
+        declare -ai counts
+        n=${#counts[@]}
+      style: secondary
+      start: 0
+      end: 35
+    - source: declare -ai counts
+      style: secondary
+      start: 0
+      end: 18
+  ? |
+    declare -gA m
+    f() { printf '%s\n' "${#m[@]}"; }
+  : fixed: |
+      declare -gA m=()
+      f() { printf '%s\n' "${#m[@]}"; }
+    labels:
+    - source: m
+      style: primary
+      start: 12
+      end: 13
+    - source: -gA
+      style: secondary
+      start: 8
+      end: 11
+    - source: '#'
+      style: secondary
+      start: 37
+      end: 38
+    - source: m
+      style: secondary
+      start: 38
+      end: 39
+    - source: '@'
+      style: secondary
+      start: 40
+      end: 41
+    - source: m[@]
+      style: secondary
+      start: 38
+      end: 42
+    - source: ${#m[@]}
+      style: secondary
+      start: 35
+      end: 43
+    - source: |
+        declare -gA m
+        f() { printf '%s\n' "${#m[@]}"; }
+      style: secondary
+      start: 0
+      end: 48
+    - source: declare -gA m
+      style: secondary
+      start: 0
+      end: 13
+  ? |
+    f() { local -A a b=(); printf '%s\n' "${#a[@]}" "${#b[@]}"; }
+  : fixed: |
+      f() { local -A a=() b=(); printf '%s\n' "${#a[@]}" "${#b[@]}"; }
+    labels:
+    - source: a
+      style: primary
+      start: 15
+      end: 16
+    - source: -A
+      style: secondary
+      start: 12
+      end: 14
+    - source: '#'
+      style: secondary
+      start: 40
+      end: 41
+    - source: a
+      style: secondary
+      start: 41
+      end: 42
+    - source: '@'
+      style: secondary
+      start: 43
+      end: 44
+    - source: a[@]
+      style: secondary
+      start: 41
+      end: 45
+    - source: ${#a[@]}
+      style: secondary
+      start: 38
+      end: 46
+    - source: f() { local -A a b=(); printf '%s\n' "${#a[@]}" "${#b[@]}"; }
+      style: secondary
+      start: 0
+      end: 61
+    - source: local -A a b=()
+      style: secondary
+      start: 6
+      end: 21
+  ? |
+    g() { local -a q; q+=(x); printf '%s\n' "${#q[@]}"; }
+  : fixed: |
+      g() { local -a q=(); q+=(x); printf '%s\n' "${#q[@]}"; }
+    labels:
+    - source: q
+      style: primary
+      start: 15
+      end: 16
+    - source: -a
+      style: secondary
+      start: 12
+      end: 14
+    - source: '#'
+      style: secondary
+      start: 43
+      end: 44
+    - source: q
+      style: secondary
+      start: 44
+      end: 45
+    - source: '@'
+      style: secondary
+      start: 46
+      end: 47
+    - source: q[@]
+      style: secondary
+      start: 44
+      end: 48
+    - source: ${#q[@]}
+      style: secondary
+      start: 41
+      end: 49
+    - source: g() { local -a q; q+=(x); printf '%s\n' "${#q[@]}"; }
+      style: secondary
+      start: 0
+      end: 53
+    - source: local -a q
+      style: secondary
+      start: 6
+      end: 16
+  ? |
+    typeset -A m
+    n=${#m[@]}
+  : fixed: |
+      typeset -A m=()
+      n=${#m[@]}
+    labels:
+    - source: m
+      style: primary
+      start: 11
+      end: 12
+    - source: -A
+      style: secondary
+      start: 8
+      end: 10
+    - source: '#'
+      style: secondary
+      start: 17
+      end: 18
+    - source: m
+      style: secondary
+      start: 18
+      end: 19
+    - source: '@'
+      style: secondary
+      start: 20
+      end: 21
+    - source: m[@]
+      style: secondary
+      start: 18
+      end: 22
+    - source: ${#m[@]}
+      style: secondary
+      start: 15
+      end: 23
+    - source: |
+        typeset -A m
+        n=${#m[@]}
+      style: secondary
+      start: 0
+      end: 24
+    - source: typeset -A m
+      style: secondary
+      start: 0
+      end: 12

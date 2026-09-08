@@ -1,51 +1,47 @@
 id: no-props-condition-on-later-value
 valid:
-    # Labels are descriptive text, not evaluation conditions or import paths
     - '<PropertyGroup Label="$(TargetFramework)"><Enabled>true</Enabled></PropertyGroup>'
-    # The default guard on the property itself
     - |
       <PropertyGroup><TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework></PropertyGroup>
-    # The root default guards on both framework forms
     - |
       <PropertyGroup><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework></PropertyGroup>
-    # Classification from the project directory, available at .props time
     - |
       <PropertyGroup><ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(LibsRoot)'))">libs</ProjectRole></PropertyGroup>
-    # Condition on the classification the same file derives
     - |
       <PropertyGroup><IsPackable Condition="'$(ProjectRole)' != 'libs'">false</IsPackable></PropertyGroup>
-    # Item conditions read the final value
     - |
       <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'"><PackageVersion Include="Some.Package" Version="10.0.0" /></ItemGroup>
-    # Target body, evaluated after every property
     - |
       <Target Name="Report"><PropertyGroup Condition="'$(OutputType)' == 'Exe'"><_Host>true</_Host></PropertyGroup></Target>
-    # Pipeline variable, a global property holding its value here
     - |
       <PropertyGroup Condition="'$(CI)' == 'true'"><ContinuousIntegrationBuild>true</ContinuousIntegrationBuild></PropertyGroup>
-    # Configuration may be supplied as a global property by the caller
     - |
       <PropertyGroup Condition="'$(Configuration)' == 'Release'"><Optimize>true</Optimize></PropertyGroup>
+    - |
+      <ItemGroup><None Include="$(TargetFramework)/item.txt" /></ItemGroup>
+    - |
+      <Import Project="item.props" Condition="'$(OutputType)' == ''" />
 invalid:
-    # Group conditioned on the project framework before the project body
     - |
       <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'"><DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants></PropertyGroup>
-    # Property conditioned on the output type
     - |
       <PropertyGroup><SelfContained Condition="'$(OutputType)' == 'Exe'">false</SelfContained></PropertyGroup>
-    # The Rhino bundle group keyed on a body-derived host flag, moved to Directory.Build.targets
     - |
       <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'">
         <RhinoAppPath Condition="'$(RhinoAppPath)' == ''">/Applications/RhinoWIP.app</RhinoAppPath></PropertyGroup>
-    # Test classification the framework package sets in its .props, one import after the .props reader
     - |
       <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'"><IsTestProject>true</IsTestProject></PropertyGroup>
-    # Choose arm reading the same empty value
     - |
       <Choose><When Condition="'$(TargetFramework)' == 'net10.0'"><PropertyGroup><Modern>true</Modern></PropertyGroup></When></Choose>
-    # Import keyed on the output type before the project body
     - |
       <Import Project="host.props" Condition="'$(OutputType)' == 'Exe'" />
-    # Import path reading the project framework before the project body
     - |
       <Import Project="$(MSBuildThisFileDirectory)frameworks/$(TargetFramework).props" />
+    - |
+      <PropertyGroup Condition="$(TargetFramework.StartsWith('net'))"><Item>true</Item></PropertyGroup>
+    - |
+      <PropertyGroup Condition="'$(TargetFrameworks)' != ''"><Item>true</Item></PropertyGroup>
+    - |
+      <PropertyGroup Condition='$(OutputType) == Exe'><Item>true</Item></PropertyGroup>
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)$(OutputType).props" />

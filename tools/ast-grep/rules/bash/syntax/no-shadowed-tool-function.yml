@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# Report only, renaming the function leaves its callers on the command, the probe prints nothing where the original prints mine
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-shadowed-tool-function
 language: bash
 severity: error
@@ -9,8 +8,6 @@ rule:
     has:
         field: name
         pattern: $NAME
-        # The CLI tools of CLAUDE.md, the mise.toml toolchain, the coreutils a script calls, and the builtins, a function of the name
-        # runs before the PATH search and a function of a builtin's name before the builtin
         regex: '^(tree|loc|fd|rg|gh|jq|yq|git|nx|pnpm|node|uv|python|dotnet|pulumi|doppler|act|actionlint|shellcheck|shfmt|ast-grep|tree-sitter|git-lfs|buf|mise|op|cat|ls|rm|cp|mv|mkdir|ln|touch|chmod|sort|head|tail|cut|tr|wc|uniq|tee|diff|comm|date|find|grep|sed|awk|xargs|tar|curl|mktemp|dirname|basename|realpath|readlink|stat|env|sleep|kill|echo|printf|read|cd|pwd|exit|test|set|shift|trap|wait|source|type|command|local|return|exec|eval|true|false|export|unset|shopt|mapfile|readarray|pushd|popd|let|declare|getopts|hash|ulimit|umask)$'
 message: The function `$NAME` shadows the command of that name for every later call in the script
 note: 'Name the function for what it does to what, `copy_tree`, `count_hits`, and call the command through its own name'

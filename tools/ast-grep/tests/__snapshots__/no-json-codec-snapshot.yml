@@ -1,7 +1,21 @@
 id: no-json-codec
 snapshots:
+  from json import dumps, JSONDecodeError:
+    labels:
+    - source: dumps
+      style: primary
+      start: 17
+      end: 22
   from json import loads:
     labels:
+    - source: loads
+      style: primary
+      start: 17
+      end: 22
+  ? |
+    from json import loads as parse
+    parse(raw)
+  : labels:
     - source: loads
       style: primary
       start: 17
@@ -18,6 +32,15 @@ snapshots:
       style: primary
       start: 25
       end: 36
+  ? |
+    import json
+    class Encoder(json.JSONEncoder):
+        pass
+  : labels:
+    - source: json.JSONEncoder
+      style: primary
+      start: 26
+      end: 42
   ? |
     import json as codec
     codec.loads(raw)

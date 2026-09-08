@@ -39,7 +39,10 @@ jobs:
               with:
                 fetch-depth: 0
                 filter: tree:0
+                persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ci.yml
             - uses: ./.github/actions/setup
             - uses: actions/download-artifact@v8
               with:
@@ -67,10 +70,23 @@ jobs:
               with:
                 fetch-depth: 0
                 filter: tree:0
+                persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
-            - uses: ./.github/actions/setup
               with:
-                python: --all-groups
+                workflow-id: ci.yml
+            - uses: ./.github/actions/setup
+            - id: cache
+              uses: ./.github/actions/native-cache
+              with:
+                rid: linux-x64
+            - run: nx run eng:provision
+            - if: always() && steps.cache.outputs.releases-key != ''
+              uses: actions/cache/save@v6
+              with:
+                path: ${{ steps.cache.outputs.releases-path }}
+                key: ${{ steps.cache.outputs.releases-key }}
+            - run: uv sync --locked
+            - run: uv cache prune --ci
             - run: nx affected -t format --exclude='*,!tag:language:python'
             - run: git diff --exit-code
             - run: nx affected -t check --exclude='*,!tag:language:python'
@@ -88,7 +104,10 @@ jobs:
               with:
                 fetch-depth: 0
                 filter: tree:0
+                persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ci.yml
             - uses: ./.github/actions/setup
             - run: nx affected -t format --exclude='*,!tag:language:typescript'
             - run: git diff --exit-code
@@ -98,3 +117,15 @@ jobs:
               with:
                 name: typescript-coverage
                 path: .artifacts/typescript/coverage
+
+    # The one status check the ruleset requires, a skipped or cancelled job fails it
+    required:
+        needs: [native, dotnet, python, typescript]
+        if: always()
+        runs-on: ubuntu-slim
+        timeout-minutes: 5
+        permissions: {}
+        steps:
+            - run: jq -e 'all(.[]; .result == "success")' <<<"$NEEDS"
+              env:
+                NEEDS: ${{ toJSON(needs) }}

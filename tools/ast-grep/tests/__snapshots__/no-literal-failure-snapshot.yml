@@ -6,18 +6,6 @@ snapshots:
       style: primary
       start: 36
       end: 66
-    - source: mapError
-      style: secondary
-      start: 38
-      end: 46
-    - source: E
-      style: secondary
-      start: 36
-      end: 37
-    - source: E.mapError
-      style: secondary
-      start: 36
-      end: 46
     - source: '"gone"'
       style: secondary
       start: 59
@@ -30,6 +18,18 @@ snapshots:
       style: secondary
       start: 53
       end: 65
+    - source: mapError
+      style: secondary
+      start: 38
+      end: 46
+    - source: E
+      style: secondary
+      start: 36
+      end: 37
+    - source: E.mapError
+      style: secondary
+      start: 36
+      end: 46
   ? |-
     import { Cause } from "effect";
     const cause = Cause.fail("gone");
@@ -38,6 +38,14 @@ snapshots:
       style: primary
       start: 46
       end: 64
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
     - source: fail
       style: secondary
       start: 52
@@ -50,14 +58,6 @@ snapshots:
       style: secondary
       start: 46
       end: 56
-    - source: '"gone"'
-      style: secondary
-      start: 57
-      end: 63
-    - source: '"gone"'
-      style: secondary
-      start: 57
-      end: 63
   ? |-
     import { Channel } from "effect";
     const checked = Channel.fail("gone");
@@ -66,6 +66,14 @@ snapshots:
       style: primary
       start: 50
       end: 70
+    - source: '"gone"'
+      style: secondary
+      start: 63
+      end: 69
+    - source: '"gone"'
+      style: secondary
+      start: 63
+      end: 69
     - source: fail
       style: secondary
       start: 58
@@ -78,14 +86,6 @@ snapshots:
       style: secondary
       start: 50
       end: 62
-    - source: '"gone"'
-      style: secondary
-      start: 63
-      end: 69
-    - source: '"gone"'
-      style: secondary
-      start: 63
-      end: 69
   ? |-
     import { Deferred } from "effect";
     Deferred.failSync(deferred, () => "gone")
@@ -94,18 +94,6 @@ snapshots:
       style: primary
       start: 35
       end: 76
-    - source: failSync
-      style: secondary
-      start: 44
-      end: 52
-    - source: Deferred
-      style: secondary
-      start: 35
-      end: 43
-    - source: Deferred.failSync
-      style: secondary
-      start: 35
-      end: 52
     - source: '"gone"'
       style: secondary
       start: 69
@@ -118,6 +106,18 @@ snapshots:
       style: secondary
       start: 63
       end: 75
+    - source: failSync
+      style: secondary
+      start: 44
+      end: 52
+    - source: Deferred
+      style: secondary
+      start: 35
+      end: 43
+    - source: Deferred.failSync
+      style: secondary
+      start: 35
+      end: 52
   ? |-
     import { Deferred } from "effect";
     const done = Deferred.fail(deferred, "gone");
@@ -126,6 +126,14 @@ snapshots:
       style: primary
       start: 48
       end: 79
+    - source: '"gone"'
+      style: secondary
+      start: 72
+      end: 78
+    - source: '"gone"'
+      style: secondary
+      start: 72
+      end: 78
     - source: fail
       style: secondary
       start: 57
@@ -138,20 +146,20 @@ snapshots:
       style: secondary
       start: 48
       end: 61
-    - source: '"gone"'
-      style: secondary
-      start: 72
-      end: 78
-    - source: '"gone"'
-      style: secondary
-      start: 72
-      end: 78
   import { Effect as E } from "effect"; E.fail("gone"):
     labels:
     - source: E.fail("gone")
       style: primary
       start: 38
       end: 52
+    - source: '"gone"'
+      style: secondary
+      start: 45
+      end: 51
+    - source: '"gone"'
+      style: secondary
+      start: 45
+      end: 51
     - source: fail
       style: secondary
       start: 40
@@ -164,14 +172,6 @@ snapshots:
       style: secondary
       start: 38
       end: 44
-    - source: '"gone"'
-      style: secondary
-      start: 45
-      end: 51
-    - source: '"gone"'
-      style: secondary
-      start: 45
-      end: 51
   ? |-
     import { Effect } from "effect";
     Effect.fail(+1)
@@ -180,18 +180,6 @@ snapshots:
       style: primary
       start: 33
       end: 48
-    - source: fail
-      style: secondary
-      start: 40
-      end: 44
-    - source: Effect
-      style: secondary
-      start: 33
-      end: 39
-    - source: Effect.fail
-      style: secondary
-      start: 33
-      end: 44
     - source: '1'
       style: secondary
       start: 46
@@ -204,6 +192,18 @@ snapshots:
       style: secondary
       start: 45
       end: 47
+    - source: fail
+      style: secondary
+      start: 40
+      end: 44
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.fail
+      style: secondary
+      start: 33
+      end: 44
   ? |-
     import { Effect } from "effect";
     Effect.fail(-1)
@@ -212,18 +212,6 @@ snapshots:
       style: primary
       start: 33
       end: 48
-    - source: fail
-      style: secondary
-      start: 40
-      end: 44
-    - source: Effect
-      style: secondary
-      start: 33
-      end: 39
-    - source: Effect.fail
-      style: secondary
-      start: 33
-      end: 44
     - source: '1'
       style: secondary
       start: 46
@@ -236,14 +224,6 @@ snapshots:
       style: secondary
       start: 45
       end: 47
-  ? |-
-    import { Effect } from "effect";
-    Effect.fail(new globalThis.TypeError("gone"))
-  : labels:
-    - source: Effect.fail(new globalThis.TypeError("gone"))
-      style: primary
-      start: 33
-      end: 78
     - source: fail
       style: secondary
       start: 40
@@ -256,6 +236,14 @@ snapshots:
       style: secondary
       start: 33
       end: 44
+  ? |-
+    import { Effect } from "effect";
+    Effect.fail(new globalThis.TypeError("gone"))
+  : labels:
+    - source: Effect.fail(new globalThis.TypeError("gone"))
+      style: primary
+      start: 33
+      end: 78
     - source: globalThis.TypeError
       style: secondary
       start: 49
@@ -268,6 +256,18 @@ snapshots:
       style: secondary
       start: 45
       end: 77
+    - source: fail
+      style: secondary
+      start: 40
+      end: 44
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.fail
+      style: secondary
+      start: 33
+      end: 44
   ? |-
     import { Effect } from "effect";
     Effect.mapError(work, (error) => { if (error.retryable) return "retry"; return new LoadError({ error }); })
@@ -276,18 +276,6 @@ snapshots:
       style: primary
       start: 33
       end: 140
-    - source: mapError
-      style: secondary
-      start: 40
-      end: 48
-    - source: Effect
-      style: secondary
-      start: 33
-      end: 39
-    - source: Effect.mapError
-      style: secondary
-      start: 33
-      end: 48
     - source: '"retry"'
       style: secondary
       start: 96
@@ -308,14 +296,6 @@ snapshots:
       style: secondary
       start: 55
       end: 139
-  ? |-
-    import { Effect } from "effect";
-    Effect.mapError(work, (error) => { report(); return "gone"; })
-  : labels:
-    - source: Effect.mapError(work, (error) => { report(); return "gone"; })
-      style: primary
-      start: 33
-      end: 95
     - source: mapError
       style: secondary
       start: 40
@@ -328,6 +308,14 @@ snapshots:
       style: secondary
       start: 33
       end: 48
+  ? |-
+    import { Effect } from "effect";
+    Effect.mapError(work, (error) => { report(); return "gone"; })
+  : labels:
+    - source: Effect.mapError(work, (error) => { report(); return "gone"; })
+      style: primary
+      start: 33
+      end: 95
     - source: '"gone"'
       style: secondary
       start: 85
@@ -348,6 +336,18 @@ snapshots:
       style: secondary
       start: 55
       end: 94
+    - source: mapError
+      style: secondary
+      start: 40
+      end: 48
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.mapError
+      style: secondary
+      start: 33
+      end: 48
   ? |-
     import { Effect } from "effect";
     const checked = Effect.fail("gone" as const);
@@ -355,6 +355,50 @@ snapshots:
     - source: Effect.fail("gone" as const)
       style: primary
       start: 49
+      end: 77
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
+    - source: '"gone" as const'
+      style: secondary
+      start: 61
+      end: 76
+    - source: '"gone" as const'
+      style: secondary
+      start: 61
+      end: 76
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail("gone" as string);
+  : labels:
+    - source: Effect.fail("gone" as string)
+      style: primary
+      start: 49
+      end: 78
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
+    - source: '"gone" as string'
+      style: secondary
+      start: 61
+      end: 77
+    - source: '"gone" as string'
+      style: secondary
+      start: 61
       end: 77
     - source: fail
       style: secondary
@@ -368,26 +412,26 @@ snapshots:
       style: secondary
       start: 49
       end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail("gone" satisfies string);
+  : labels:
+    - source: Effect.fail("gone" satisfies string)
+      style: primary
+      start: 49
+      end: 85
     - source: '"gone"'
       style: secondary
       start: 61
       end: 67
-    - source: '"gone" as const'
+    - source: '"gone" satisfies string'
       style: secondary
       start: 61
-      end: 76
-    - source: '"gone" as const'
+      end: 84
+    - source: '"gone" satisfies string'
       style: secondary
       start: 61
-      end: 76
-  ? |-
-    import { Effect } from "effect";
-    const checked = Effect.fail("gone");
-  : labels:
-    - source: Effect.fail("gone")
-      style: primary
-      start: 49
-      end: 68
+      end: 84
     - source: fail
       style: secondary
       start: 56
@@ -400,6 +444,14 @@ snapshots:
       style: secondary
       start: 49
       end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail("gone");
+  : labels:
+    - source: Effect.fail("gone")
+      style: primary
+      start: 49
+      end: 68
     - source: '"gone"'
       style: secondary
       start: 61
@@ -408,6 +460,78 @@ snapshots:
       style: secondary
       start: 61
       end: 67
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(("gone"));
+  : labels:
+    - source: Effect.fail(("gone"))
+      style: primary
+      start: 49
+      end: 70
+    - source: '"gone"'
+      style: secondary
+      start: 62
+      end: 68
+    - source: ("gone")
+      style: secondary
+      start: 61
+      end: 69
+    - source: ("gone")
+      style: secondary
+      start: 61
+      end: 69
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(/gone/);
+  : labels:
+    - source: Effect.fail(/gone/)
+      style: primary
+      start: 49
+      end: 68
+    - source: /gone/
+      style: secondary
+      start: 61
+      end: 67
+    - source: /gone/
+      style: secondary
+      start: 61
+      end: 67
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
   ? |-
     import { Effect } from "effect";
     const checked = Effect.fail(404);
@@ -415,6 +539,162 @@ snapshots:
     - source: Effect.fail(404)
       style: primary
       start: 49
+      end: 65
+    - source: '404'
+      style: secondary
+      start: 61
+      end: 64
+    - source: '404'
+      style: secondary
+      start: 61
+      end: 64
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(`${path} is gone`);
+  : labels:
+    - source: Effect.fail(`${path} is gone`)
+      style: primary
+      start: 49
+      end: 79
+    - source: '`${path} is gone`'
+      style: secondary
+      start: 61
+      end: 78
+    - source: '`${path} is gone`'
+      style: secondary
+      start: 61
+      end: 78
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(false);
+  : labels:
+    - source: Effect.fail(false)
+      style: primary
+      start: 49
+      end: 67
+    - source: 'false'
+      style: secondary
+      start: 61
+      end: 66
+    - source: 'false'
+      style: secondary
+      start: 61
+      end: 66
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(new Error("gone"));
+  : labels:
+    - source: Effect.fail(new Error("gone"))
+      style: primary
+      start: 49
+      end: 79
+    - source: Error
+      style: secondary
+      start: 65
+      end: 70
+    - source: new Error("gone")
+      style: secondary
+      start: 61
+      end: 78
+    - source: new Error("gone")
+      style: secondary
+      start: 61
+      end: 78
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(new TypeError("gone"));
+  : labels:
+    - source: Effect.fail(new TypeError("gone"))
+      style: primary
+      start: 49
+      end: 83
+    - source: TypeError
+      style: secondary
+      start: 65
+      end: 74
+    - source: new TypeError("gone")
+      style: secondary
+      start: 61
+      end: 82
+    - source: new TypeError("gone")
+      style: secondary
+      start: 61
+      end: 82
+    - source: fail
+      style: secondary
+      start: 56
+      end: 60
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.fail
+      style: secondary
+      start: 49
+      end: 60
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.fail(null);
+  : labels:
+    - source: Effect.fail(null)
+      style: primary
+      start: 49
+      end: 66
+    - source: 'null'
+      style: secondary
+      start: 61
+      end: 65
+    - source: 'null'
+      style: secondary
+      start: 61
       end: 65
     - source: fail
       style: secondary
@@ -428,134 +708,6 @@ snapshots:
       style: secondary
       start: 49
       end: 60
-    - source: '404'
-      style: secondary
-      start: 61
-      end: 64
-    - source: '404'
-      style: secondary
-      start: 61
-      end: 64
-  ? |-
-    import { Effect } from "effect";
-    const checked = Effect.fail(`${path} is gone`);
-  : labels:
-    - source: Effect.fail(`${path} is gone`)
-      style: primary
-      start: 49
-      end: 79
-    - source: fail
-      style: secondary
-      start: 56
-      end: 60
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.fail
-      style: secondary
-      start: 49
-      end: 60
-    - source: '`${path} is gone`'
-      style: secondary
-      start: 61
-      end: 78
-    - source: '`${path} is gone`'
-      style: secondary
-      start: 61
-      end: 78
-  ? |-
-    import { Effect } from "effect";
-    const checked = Effect.fail(false);
-  : labels:
-    - source: Effect.fail(false)
-      style: primary
-      start: 49
-      end: 67
-    - source: fail
-      style: secondary
-      start: 56
-      end: 60
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.fail
-      style: secondary
-      start: 49
-      end: 60
-    - source: 'false'
-      style: secondary
-      start: 61
-      end: 66
-    - source: 'false'
-      style: secondary
-      start: 61
-      end: 66
-  ? |-
-    import { Effect } from "effect";
-    const checked = Effect.fail(new Error("gone"));
-  : labels:
-    - source: Effect.fail(new Error("gone"))
-      style: primary
-      start: 49
-      end: 79
-    - source: fail
-      style: secondary
-      start: 56
-      end: 60
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.fail
-      style: secondary
-      start: 49
-      end: 60
-    - source: Error
-      style: secondary
-      start: 65
-      end: 70
-    - source: new Error("gone")
-      style: secondary
-      start: 61
-      end: 78
-    - source: new Error("gone")
-      style: secondary
-      start: 61
-      end: 78
-  ? |-
-    import { Effect } from "effect";
-    const checked = Effect.fail(new TypeError("gone"));
-  : labels:
-    - source: Effect.fail(new TypeError("gone"))
-      style: primary
-      start: 49
-      end: 83
-    - source: fail
-      style: secondary
-      start: 56
-      end: 60
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.fail
-      style: secondary
-      start: 49
-      end: 60
-    - source: TypeError
-      style: secondary
-      start: 65
-      end: 74
-    - source: new TypeError("gone")
-      style: secondary
-      start: 61
-      end: 82
-    - source: new TypeError("gone")
-      style: secondary
-      start: 61
-      end: 82
   ? |-
     import { Effect } from "effect";
     const checked = Effect.fail(undefined);
@@ -564,6 +716,14 @@ snapshots:
       style: primary
       start: 49
       end: 71
+    - source: undefined
+      style: secondary
+      start: 61
+      end: 70
+    - source: undefined
+      style: secondary
+      start: 61
+      end: 70
     - source: fail
       style: secondary
       start: 56
@@ -576,14 +736,6 @@ snapshots:
       style: secondary
       start: 49
       end: 60
-    - source: undefined
-      style: secondary
-      start: 61
-      end: 70
-    - source: undefined
-      style: secondary
-      start: 61
-      end: 70
   ? |-
     import { Effect } from "effect";
     const checked = Effect.failSync(() => "gone");
@@ -592,18 +744,6 @@ snapshots:
       style: primary
       start: 49
       end: 78
-    - source: failSync
-      style: secondary
-      start: 56
-      end: 64
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.failSync
-      style: secondary
-      start: 49
-      end: 64
     - source: '"gone"'
       style: secondary
       start: 71
@@ -616,14 +756,6 @@ snapshots:
       style: secondary
       start: 65
       end: 77
-  ? |-
-    import { Effect } from "effect";
-    const checked = Effect.failSync(() => new Error("gone"));
-  : labels:
-    - source: Effect.failSync(() => new Error("gone"))
-      style: primary
-      start: 49
-      end: 89
     - source: failSync
       style: secondary
       start: 56
@@ -636,6 +768,14 @@ snapshots:
       style: secondary
       start: 49
       end: 64
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.failSync(() => new Error("gone"));
+  : labels:
+    - source: Effect.failSync(() => new Error("gone"))
+      style: primary
+      start: 49
+      end: 89
     - source: Error
       style: secondary
       start: 75
@@ -652,6 +792,54 @@ snapshots:
       style: secondary
       start: 65
       end: 88
+    - source: failSync
+      style: secondary
+      start: 56
+      end: 64
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.failSync
+      style: secondary
+      start: 49
+      end: 64
+  ? |-
+    import { Effect } from "effect";
+    const checked = Effect.filterOrFail(work, (item) => item.ready, () => "gone");
+  : labels:
+    - source: Effect.filterOrFail(work, (item) => item.ready, () => "gone")
+      style: primary
+      start: 49
+      end: 110
+    - source: '"gone"'
+      style: secondary
+      start: 103
+      end: 109
+    - source: () => "gone"
+      style: secondary
+      start: 97
+      end: 109
+    - source: () => "gone"
+      style: secondary
+      start: 97
+      end: 109
+    - source: (work, (item) => item.ready, () => "gone")
+      style: secondary
+      start: 68
+      end: 110
+    - source: filterOrFail
+      style: secondary
+      start: 56
+      end: 68
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.filterOrFail
+      style: secondary
+      start: 49
+      end: 68
   ? |-
     import { Effect } from "effect";
     const checked = Effect.mapError(work, (error) => `load failed: ${error.message}`);
@@ -660,18 +848,6 @@ snapshots:
       style: primary
       start: 49
       end: 114
-    - source: mapError
-      style: secondary
-      start: 56
-      end: 64
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.mapError
-      style: secondary
-      start: 49
-      end: 64
     - source: '`load failed: ${error.message}`'
       style: secondary
       start: 82
@@ -684,6 +860,18 @@ snapshots:
       style: secondary
       start: 71
       end: 113
+    - source: mapError
+      style: secondary
+      start: 56
+      end: 64
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.mapError
+      style: secondary
+      start: 49
+      end: 64
   ? |-
     import { Effect } from "effect";
     const checked = Effect.orElseFail(work, () => "gone");
@@ -692,18 +880,6 @@ snapshots:
       style: primary
       start: 49
       end: 86
-    - source: orElseFail
-      style: secondary
-      start: 56
-      end: 66
-    - source: Effect
-      style: secondary
-      start: 49
-      end: 55
-    - source: Effect.orElseFail
-      style: secondary
-      start: 49
-      end: 66
     - source: '"gone"'
       style: secondary
       start: 79
@@ -716,6 +892,86 @@ snapshots:
       style: secondary
       start: 73
       end: 85
+    - source: orElseFail
+      style: secondary
+      start: 56
+      end: 66
+    - source: Effect
+      style: secondary
+      start: 49
+      end: 55
+    - source: Effect.orElseFail
+      style: secondary
+      start: 49
+      end: 66
+  ? |-
+    import { Effect } from "effect";
+    const checked = work.pipe(Effect.filterOrFail((item) => item.ready, () => "gone"));
+  : labels:
+    - source: Effect.filterOrFail((item) => item.ready, () => "gone")
+      style: primary
+      start: 59
+      end: 114
+    - source: '"gone"'
+      style: secondary
+      start: 107
+      end: 113
+    - source: () => "gone"
+      style: secondary
+      start: 101
+      end: 113
+    - source: (item) => item.ready
+      style: secondary
+      start: 79
+      end: 99
+    - source: ((item) => item.ready, () => "gone")
+      style: secondary
+      start: 78
+      end: 114
+    - source: filterOrFail
+      style: secondary
+      start: 66
+      end: 78
+    - source: Effect
+      style: secondary
+      start: 59
+      end: 65
+    - source: Effect.filterOrFail
+      style: secondary
+      start: 59
+      end: 78
+  ? |-
+    import { Effect } from "effect";
+    const checked = work.pipe(Effect.mapError(() => "gone"));
+  : labels:
+    - source: Effect.mapError(() => "gone")
+      style: primary
+      start: 59
+      end: 88
+    - source: '"gone"'
+      style: secondary
+      start: 81
+      end: 87
+    - source: () => "gone"
+      style: secondary
+      start: 75
+      end: 87
+    - source: () => "gone"
+      style: secondary
+      start: 75
+      end: 87
+    - source: mapError
+      style: secondary
+      start: 66
+      end: 74
+    - source: Effect
+      style: secondary
+      start: 59
+      end: 65
+    - source: Effect.mapError
+      style: secondary
+      start: 59
+      end: 74
   ? |-
     import { Effect } from "effect";
     const checked = work.pipe(Effect.orElseFail(() => "gone"));
@@ -724,18 +980,6 @@ snapshots:
       style: primary
       start: 59
       end: 90
-    - source: orElseFail
-      style: secondary
-      start: 66
-      end: 76
-    - source: Effect
-      style: secondary
-      start: 59
-      end: 65
-    - source: Effect.orElseFail
-      style: secondary
-      start: 59
-      end: 76
     - source: '"gone"'
       style: secondary
       start: 83
@@ -748,6 +992,278 @@ snapshots:
       style: secondary
       start: 77
       end: 89
+    - source: orElseFail
+      style: secondary
+      start: 66
+      end: 76
+    - source: Effect
+      style: secondary
+      start: 59
+      end: 65
+    - source: Effect.orElseFail
+      style: secondary
+      start: 59
+      end: 76
+  ? 'import { Effect } from "effect"; Effect.mapBoth(work, { onFailure: (error) => `load failed: ${error.message}`, onSuccess: (value) => value })'
+  : labels:
+    - source: 'Effect.mapBoth(work, { onFailure: (error) => `load failed: ${error.message}`, onSuccess: (value) => value })'
+      style: primary
+      start: 33
+      end: 141
+    - source: onFailure
+      style: secondary
+      start: 56
+      end: 65
+    - source: '`load failed: ${error.message}`'
+      style: secondary
+      start: 78
+      end: 109
+    - source: '(error) => `load failed: ${error.message}`'
+      style: secondary
+      start: 67
+      end: 109
+    - source: 'onFailure: (error) => `load failed: ${error.message}`'
+      style: secondary
+      start: 56
+      end: 109
+    - source: '{ onFailure: (error) => `load failed: ${error.message}`, onSuccess: (value) => value }'
+      style: secondary
+      start: 54
+      end: 140
+    - source: '{ onFailure: (error) => `load failed: ${error.message}`, onSuccess: (value) => value }'
+      style: secondary
+      start: 54
+      end: 140
+    - source: mapBoth
+      style: secondary
+      start: 40
+      end: 47
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.mapBoth
+      style: secondary
+      start: 33
+      end: 47
+  'import { Effect } from "effect"; Effect.try({ try: () => parse(raw), catch() { return "gone"; } })':
+    labels:
+    - source: 'Effect.try({ try: () => parse(raw), catch() { return "gone"; } })'
+      style: primary
+      start: 33
+      end: 98
+    - source: '"gone"'
+      style: secondary
+      start: 86
+      end: 92
+    - source: return "gone";
+      style: secondary
+      start: 79
+      end: 93
+    - source: '{ return "gone"; }'
+      style: secondary
+      start: 77
+      end: 95
+    - source: catch
+      style: secondary
+      start: 69
+      end: 74
+    - source: catch() { return "gone"; }
+      style: secondary
+      start: 69
+      end: 95
+    - source: '{ try: () => parse(raw), catch() { return "gone"; } }'
+      style: secondary
+      start: 44
+      end: 97
+    - source: '{ try: () => parse(raw), catch() { return "gone"; } }'
+      style: secondary
+      start: 44
+      end: 97
+    - source: try
+      style: secondary
+      start: 40
+      end: 43
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.try
+      style: secondary
+      start: 33
+      end: 43
+  'import { Effect } from "effect"; Effect.try({ try: () => parse(raw), catch: () => "gone" })':
+    labels:
+    - source: 'Effect.try({ try: () => parse(raw), catch: () => "gone" })'
+      style: primary
+      start: 33
+      end: 91
+    - source: catch
+      style: secondary
+      start: 69
+      end: 74
+    - source: '"gone"'
+      style: secondary
+      start: 82
+      end: 88
+    - source: () => "gone"
+      style: secondary
+      start: 76
+      end: 88
+    - source: 'catch: () => "gone"'
+      style: secondary
+      start: 69
+      end: 88
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 44
+      end: 90
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 44
+      end: 90
+    - source: try
+      style: secondary
+      start: 40
+      end: 43
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.try
+      style: secondary
+      start: 33
+      end: 43
+  'import { Effect } from "effect"; Effect.tryMapPromise(work, { try: (value) => load(value), catch: () => 404 })':
+    labels:
+    - source: 'Effect.tryMapPromise(work, { try: (value) => load(value), catch: () => 404 })'
+      style: primary
+      start: 33
+      end: 110
+    - source: catch
+      style: secondary
+      start: 91
+      end: 96
+    - source: '404'
+      style: secondary
+      start: 104
+      end: 107
+    - source: () => 404
+      style: secondary
+      start: 98
+      end: 107
+    - source: 'catch: () => 404'
+      style: secondary
+      start: 91
+      end: 107
+    - source: '{ try: (value) => load(value), catch: () => 404 }'
+      style: secondary
+      start: 60
+      end: 109
+    - source: '{ try: (value) => load(value), catch: () => 404 }'
+      style: secondary
+      start: 60
+      end: 109
+    - source: tryMapPromise
+      style: secondary
+      start: 40
+      end: 53
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.tryMapPromise
+      style: secondary
+      start: 33
+      end: 53
+  'import { Effect } from "effect"; Effect.tryPromise({ try: () => load(path), catch: (cause) => new Error("gone") })':
+    labels:
+    - source: 'Effect.tryPromise({ try: () => load(path), catch: (cause) => new Error("gone") })'
+      style: primary
+      start: 33
+      end: 114
+    - source: catch
+      style: secondary
+      start: 76
+      end: 81
+    - source: Error
+      style: secondary
+      start: 98
+      end: 103
+    - source: new Error("gone")
+      style: secondary
+      start: 94
+      end: 111
+    - source: (cause) => new Error("gone")
+      style: secondary
+      start: 83
+      end: 111
+    - source: 'catch: (cause) => new Error("gone")'
+      style: secondary
+      start: 76
+      end: 111
+    - source: '{ try: () => load(path), catch: (cause) => new Error("gone") }'
+      style: secondary
+      start: 51
+      end: 113
+    - source: '{ try: () => load(path), catch: (cause) => new Error("gone") }'
+      style: secondary
+      start: 51
+      end: 113
+    - source: tryPromise
+      style: secondary
+      start: 40
+      end: 50
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect.tryPromise
+      style: secondary
+      start: 33
+      end: 50
+  'import { Effect } from "effect"; work.pipe(Effect.tryMap({ try: (value) => parse(value), catch: () => "gone" }))':
+    labels:
+    - source: 'Effect.tryMap({ try: (value) => parse(value), catch: () => "gone" })'
+      style: primary
+      start: 43
+      end: 111
+    - source: catch
+      style: secondary
+      start: 89
+      end: 94
+    - source: '"gone"'
+      style: secondary
+      start: 102
+      end: 108
+    - source: () => "gone"
+      style: secondary
+      start: 96
+      end: 108
+    - source: 'catch: () => "gone"'
+      style: secondary
+      start: 89
+      end: 108
+    - source: '{ try: (value) => parse(value), catch: () => "gone" }'
+      style: secondary
+      start: 57
+      end: 110
+    - source: '{ try: (value) => parse(value), catch: () => "gone" }'
+      style: secondary
+      start: 57
+      end: 110
+    - source: tryMap
+      style: secondary
+      start: 50
+      end: 56
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+    - source: Effect.tryMap
+      style: secondary
+      start: 43
+      end: 56
   ? |-
     import { Either } from "effect";
     const checked = Either.fromOption(found, () => "gone");
@@ -756,18 +1272,6 @@ snapshots:
       style: primary
       start: 49
       end: 87
-    - source: fromOption
-      style: secondary
-      start: 56
-      end: 66
-    - source: Either
-      style: secondary
-      start: 49
-      end: 55
-    - source: Either.fromOption
-      style: secondary
-      start: 49
-      end: 66
     - source: '"gone"'
       style: secondary
       start: 80
@@ -780,6 +1284,18 @@ snapshots:
       style: secondary
       start: 74
       end: 86
+    - source: fromOption
+      style: secondary
+      start: 56
+      end: 66
+    - source: Either
+      style: secondary
+      start: 49
+      end: 55
+    - source: Either.fromOption
+      style: secondary
+      start: 49
+      end: 66
   ? |-
     import { Either } from "effect";
     const checked = Either.left("gone");
@@ -788,6 +1304,14 @@ snapshots:
       style: primary
       start: 49
       end: 68
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
     - source: left
       style: secondary
       start: 56
@@ -800,14 +1324,6 @@ snapshots:
       style: secondary
       start: 49
       end: 60
-    - source: '"gone"'
-      style: secondary
-      start: 61
-      end: 67
-    - source: '"gone"'
-      style: secondary
-      start: 61
-      end: 67
   ? |-
     import { Either } from "effect";
     const checked = Either.mapLeft(decoded, () => "gone");
@@ -816,18 +1332,6 @@ snapshots:
       style: primary
       start: 49
       end: 86
-    - source: mapLeft
-      style: secondary
-      start: 56
-      end: 63
-    - source: Either
-      style: secondary
-      start: 49
-      end: 55
-    - source: Either.mapLeft
-      style: secondary
-      start: 49
-      end: 63
     - source: '"gone"'
       style: secondary
       start: 79
@@ -840,6 +1344,102 @@ snapshots:
       style: secondary
       start: 73
       end: 85
+    - source: mapLeft
+      style: secondary
+      start: 56
+      end: 63
+    - source: Either
+      style: secondary
+      start: 49
+      end: 55
+    - source: Either.mapLeft
+      style: secondary
+      start: 49
+      end: 63
+  'import { Either } from "effect"; Either.mapBoth(decoded, { onLeft: () => "gone", onRight: (value) => value })':
+    labels:
+    - source: 'Either.mapBoth(decoded, { onLeft: () => "gone", onRight: (value) => value })'
+      style: primary
+      start: 33
+      end: 109
+    - source: onLeft
+      style: secondary
+      start: 59
+      end: 65
+    - source: '"gone"'
+      style: secondary
+      start: 73
+      end: 79
+    - source: () => "gone"
+      style: secondary
+      start: 67
+      end: 79
+    - source: 'onLeft: () => "gone"'
+      style: secondary
+      start: 59
+      end: 79
+    - source: '{ onLeft: () => "gone", onRight: (value) => value }'
+      style: secondary
+      start: 57
+      end: 108
+    - source: '{ onLeft: () => "gone", onRight: (value) => value }'
+      style: secondary
+      start: 57
+      end: 108
+    - source: mapBoth
+      style: secondary
+      start: 40
+      end: 47
+    - source: Either
+      style: secondary
+      start: 33
+      end: 39
+    - source: Either.mapBoth
+      style: secondary
+      start: 33
+      end: 47
+  'import { Either } from "effect"; Either.try({ try: () => parse(raw), catch: () => "gone" })':
+    labels:
+    - source: 'Either.try({ try: () => parse(raw), catch: () => "gone" })'
+      style: primary
+      start: 33
+      end: 91
+    - source: catch
+      style: secondary
+      start: 69
+      end: 74
+    - source: '"gone"'
+      style: secondary
+      start: 82
+      end: 88
+    - source: () => "gone"
+      style: secondary
+      start: 76
+      end: 88
+    - source: 'catch: () => "gone"'
+      style: secondary
+      start: 69
+      end: 88
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 44
+      end: 90
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 44
+      end: 90
+    - source: try
+      style: secondary
+      start: 40
+      end: 43
+    - source: Either
+      style: secondary
+      start: 33
+      end: 39
+    - source: Either.try
+      style: secondary
+      start: 33
+      end: 43
   ? |-
     import { Exit } from "effect";
     const checked = Exit.fail("gone");
@@ -848,6 +1448,14 @@ snapshots:
       style: primary
       start: 47
       end: 64
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
     - source: fail
       style: secondary
       start: 52
@@ -860,14 +1468,48 @@ snapshots:
       style: secondary
       start: 47
       end: 56
+  'import { Exit } from "effect"; Exit.mapBoth(exit, { onFailure: () => "gone", onSuccess: (value) => value })':
+    labels:
+    - source: 'Exit.mapBoth(exit, { onFailure: () => "gone", onSuccess: (value) => value })'
+      style: primary
+      start: 31
+      end: 107
+    - source: onFailure
+      style: secondary
+      start: 52
+      end: 61
     - source: '"gone"'
       style: secondary
-      start: 57
-      end: 63
-    - source: '"gone"'
+      start: 69
+      end: 75
+    - source: () => "gone"
       style: secondary
-      start: 57
-      end: 63
+      start: 63
+      end: 75
+    - source: 'onFailure: () => "gone"'
+      style: secondary
+      start: 52
+      end: 75
+    - source: '{ onFailure: () => "gone", onSuccess: (value) => value }'
+      style: secondary
+      start: 50
+      end: 106
+    - source: '{ onFailure: () => "gone", onSuccess: (value) => value }'
+      style: secondary
+      start: 50
+      end: 106
+    - source: mapBoth
+      style: secondary
+      start: 36
+      end: 43
+    - source: Exit
+      style: secondary
+      start: 31
+      end: 35
+    - source: Exit.mapBoth
+      style: secondary
+      start: 31
+      end: 43
   ? |-
     import { Fiber } from "effect";
     const fiber = Fiber.fail("gone");
@@ -876,6 +1518,14 @@ snapshots:
       style: primary
       start: 46
       end: 64
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
     - source: fail
       style: secondary
       start: 52
@@ -888,14 +1538,6 @@ snapshots:
       style: secondary
       start: 46
       end: 56
-    - source: '"gone"'
-      style: secondary
-      start: 57
-      end: 63
-    - source: '"gone"'
-      style: secondary
-      start: 57
-      end: 63
   ? |-
     import { Layer } from "effect";
     const checked = Layer.fail("gone");
@@ -904,6 +1546,14 @@ snapshots:
       style: primary
       start: 48
       end: 66
+    - source: '"gone"'
+      style: secondary
+      start: 59
+      end: 65
+    - source: '"gone"'
+      style: secondary
+      start: 59
+      end: 65
     - source: fail
       style: secondary
       start: 54
@@ -916,14 +1566,6 @@ snapshots:
       style: secondary
       start: 48
       end: 58
-    - source: '"gone"'
-      style: secondary
-      start: 59
-      end: 65
-    - source: '"gone"'
-      style: secondary
-      start: 59
-      end: 65
   ? |-
     import { Micro } from "effect";
     const checked = Micro.fail("gone");
@@ -932,6 +1574,14 @@ snapshots:
       style: primary
       start: 48
       end: 66
+    - source: '"gone"'
+      style: secondary
+      start: 59
+      end: 65
+    - source: '"gone"'
+      style: secondary
+      start: 59
+      end: 65
     - source: fail
       style: secondary
       start: 54
@@ -944,14 +1594,48 @@ snapshots:
       style: secondary
       start: 48
       end: 58
+  'import { Micro } from "effect"; Micro.try({ try: () => parse(raw), catch: () => "gone" })':
+    labels:
+    - source: 'Micro.try({ try: () => parse(raw), catch: () => "gone" })'
+      style: primary
+      start: 32
+      end: 89
+    - source: catch
+      style: secondary
+      start: 67
+      end: 72
     - source: '"gone"'
       style: secondary
-      start: 59
-      end: 65
-    - source: '"gone"'
+      start: 80
+      end: 86
+    - source: () => "gone"
       style: secondary
-      start: 59
-      end: 65
+      start: 74
+      end: 86
+    - source: 'catch: () => "gone"'
+      style: secondary
+      start: 67
+      end: 86
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 42
+      end: 88
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 42
+      end: 88
+    - source: try
+      style: secondary
+      start: 38
+      end: 41
+    - source: Micro
+      style: secondary
+      start: 32
+      end: 37
+    - source: Micro.try
+      style: secondary
+      start: 32
+      end: 41
   ? |-
     import { Request } from "effect";
     const done = Request.fail(request, 404);
@@ -960,6 +1644,14 @@ snapshots:
       style: primary
       start: 47
       end: 73
+    - source: '404'
+      style: secondary
+      start: 69
+      end: 72
+    - source: '404'
+      style: secondary
+      start: 69
+      end: 72
     - source: fail
       style: secondary
       start: 55
@@ -972,14 +1664,6 @@ snapshots:
       style: secondary
       start: 47
       end: 59
-    - source: '404'
-      style: secondary
-      start: 69
-      end: 72
-    - source: '404'
-      style: secondary
-      start: 69
-      end: 72
   ? |-
     import { STM } from "effect";
     const checked = STM.fail("gone");
@@ -988,6 +1672,14 @@ snapshots:
       style: primary
       start: 46
       end: 62
+    - source: '"gone"'
+      style: secondary
+      start: 55
+      end: 61
+    - source: '"gone"'
+      style: secondary
+      start: 55
+      end: 61
     - source: fail
       style: secondary
       start: 50
@@ -1000,14 +1692,6 @@ snapshots:
       style: secondary
       start: 46
       end: 54
-    - source: '"gone"'
-      style: secondary
-      start: 55
-      end: 61
-    - source: '"gone"'
-      style: secondary
-      start: 55
-      end: 61
   ? |-
     import { STM } from "effect";
     const checked = STM.orElseFail(transaction, () => new Error("gone"));
@@ -1016,18 +1700,6 @@ snapshots:
       style: primary
       start: 46
       end: 98
-    - source: orElseFail
-      style: secondary
-      start: 50
-      end: 60
-    - source: STM
-      style: secondary
-      start: 46
-      end: 49
-    - source: STM.orElseFail
-      style: secondary
-      start: 46
-      end: 60
     - source: Error
       style: secondary
       start: 84
@@ -1044,6 +1716,102 @@ snapshots:
       style: secondary
       start: 74
       end: 97
+    - source: orElseFail
+      style: secondary
+      start: 50
+      end: 60
+    - source: STM
+      style: secondary
+      start: 46
+      end: 49
+    - source: STM.orElseFail
+      style: secondary
+      start: 46
+      end: 60
+  'import { STM } from "effect"; STM.try({ try: () => parse(raw), catch: () => "gone" })':
+    labels:
+    - source: 'STM.try({ try: () => parse(raw), catch: () => "gone" })'
+      style: primary
+      start: 30
+      end: 85
+    - source: catch
+      style: secondary
+      start: 63
+      end: 68
+    - source: '"gone"'
+      style: secondary
+      start: 76
+      end: 82
+    - source: () => "gone"
+      style: secondary
+      start: 70
+      end: 82
+    - source: 'catch: () => "gone"'
+      style: secondary
+      start: 63
+      end: 82
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 38
+      end: 84
+    - source: '{ try: () => parse(raw), catch: () => "gone" }'
+      style: secondary
+      start: 38
+      end: 84
+    - source: try
+      style: secondary
+      start: 34
+      end: 37
+    - source: STM
+      style: secondary
+      start: 30
+      end: 33
+    - source: STM.try
+      style: secondary
+      start: 30
+      end: 37
+  'import { STM } from "effect"; transaction.pipe(STM.mapBoth({ onFailure: () => "gone", onSuccess: (value) => value }))':
+    labels:
+    - source: 'STM.mapBoth({ onFailure: () => "gone", onSuccess: (value) => value })'
+      style: primary
+      start: 47
+      end: 116
+    - source: onFailure
+      style: secondary
+      start: 61
+      end: 70
+    - source: '"gone"'
+      style: secondary
+      start: 78
+      end: 84
+    - source: () => "gone"
+      style: secondary
+      start: 72
+      end: 84
+    - source: 'onFailure: () => "gone"'
+      style: secondary
+      start: 61
+      end: 84
+    - source: '{ onFailure: () => "gone", onSuccess: (value) => value }'
+      style: secondary
+      start: 59
+      end: 115
+    - source: '{ onFailure: () => "gone", onSuccess: (value) => value }'
+      style: secondary
+      start: 59
+      end: 115
+    - source: mapBoth
+      style: secondary
+      start: 51
+      end: 58
+    - source: STM
+      style: secondary
+      start: 47
+      end: 50
+    - source: STM.mapBoth
+      style: secondary
+      start: 47
+      end: 58
   ? |-
     import { Sink } from "effect";
     const checked = Sink.fail("gone");
@@ -1052,6 +1820,14 @@ snapshots:
       style: primary
       start: 47
       end: 64
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
+    - source: '"gone"'
+      style: secondary
+      start: 57
+      end: 63
     - source: fail
       style: secondary
       start: 52
@@ -1064,14 +1840,6 @@ snapshots:
       style: secondary
       start: 47
       end: 56
-    - source: '"gone"'
-      style: secondary
-      start: 57
-      end: 63
-    - source: '"gone"'
-      style: secondary
-      start: 57
-      end: 63
   ? |-
     import { Stream } from "effect";
     const checked = Stream.fail("gone");
@@ -1080,6 +1848,14 @@ snapshots:
       style: primary
       start: 49
       end: 68
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
+    - source: '"gone"'
+      style: secondary
+      start: 61
+      end: 67
     - source: fail
       style: secondary
       start: 56
@@ -1092,14 +1868,6 @@ snapshots:
       style: secondary
       start: 49
       end: 60
-    - source: '"gone"'
-      style: secondary
-      start: 61
-      end: 67
-    - source: '"gone"'
-      style: secondary
-      start: 61
-      end: 67
   ? |-
     import { Stream } from "effect";
     const checked = Stream.mapError(stream, function () { return "gone"; });
@@ -1108,18 +1876,6 @@ snapshots:
       style: primary
       start: 49
       end: 104
-    - source: mapError
-      style: secondary
-      start: 56
-      end: 64
-    - source: Stream
-      style: secondary
-      start: 49
-      end: 55
-    - source: Stream.mapError
-      style: secondary
-      start: 49
-      end: 64
     - source: '"gone"'
       style: secondary
       start: 94
@@ -1140,6 +1896,60 @@ snapshots:
       style: secondary
       start: 73
       end: 103
+    - source: mapError
+      style: secondary
+      start: 56
+      end: 64
+    - source: Stream
+      style: secondary
+      start: 49
+      end: 55
+    - source: Stream.mapError
+      style: secondary
+      start: 49
+      end: 64
+  'import { Stream } from "effect"; Stream.mapBoth(stream, { onFailure: () => "gone", onSuccess: (value) => value })':
+    labels:
+    - source: 'Stream.mapBoth(stream, { onFailure: () => "gone", onSuccess: (value) => value })'
+      style: primary
+      start: 33
+      end: 113
+    - source: onFailure
+      style: secondary
+      start: 58
+      end: 67
+    - source: '"gone"'
+      style: secondary
+      start: 75
+      end: 81
+    - source: () => "gone"
+      style: secondary
+      start: 69
+      end: 81
+    - source: 'onFailure: () => "gone"'
+      style: secondary
+      start: 58
+      end: 81
+    - source: '{ onFailure: () => "gone", onSuccess: (value) => value }'
+      style: secondary
+      start: 56
+      end: 112
+    - source: '{ onFailure: () => "gone", onSuccess: (value) => value }'
+      style: secondary
+      start: 56
+      end: 112
+    - source: mapBoth
+      style: secondary
+      start: 40
+      end: 47
+    - source: Stream
+      style: secondary
+      start: 33
+      end: 39
+    - source: Stream.mapBoth
+      style: secondary
+      start: 33
+      end: 47
   ? |-
     import { Take } from "effect";
     const take = Take.fail("gone");
@@ -1148,6 +1958,14 @@ snapshots:
       style: primary
       start: 44
       end: 61
+    - source: '"gone"'
+      style: secondary
+      start: 54
+      end: 60
+    - source: '"gone"'
+      style: secondary
+      start: 54
+      end: 60
     - source: fail
       style: secondary
       start: 49
@@ -1160,11 +1978,3 @@ snapshots:
       style: secondary
       start: 44
       end: 53
-    - source: '"gone"'
-      style: secondary
-      start: 54
-      end: 60
-    - source: '"gone"'
-      style: secondary
-      start: 54
-      end: 60

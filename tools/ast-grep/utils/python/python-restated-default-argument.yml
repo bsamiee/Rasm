@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Argument that restates the documented default of its callee, one arm per callee and value the installed source states
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-restated-default-argument
 language: python
 utils:
@@ -70,15 +69,12 @@ utils:
                       all:
                         - has: {field: attribute, regex: "^cpu_percent$"}
                         - has: {field: object, matches: process-constructor}
-
 rule:
-    # Expansions can supply this argument too; omission would erase duplicate-argument errors.
     not:
         inside:
             kind: argument_list
             any:
                 - has: {kind: "list_splat, dictionary_splat"}
-                # Positional and keyword spelling of one parameter must retain their binding error.
                 - matches: gzip-open
                   all:
                     - has: {kind: keyword_argument, has: {field: name, regex: '^mode$'}}
@@ -106,7 +102,6 @@ rule:
             - has: {field: name, regex: "^timeout$"}
             - has: {field: value, any: [{kind: float, regex: '^5\.0*$'}, {kind: integer, regex: "^5$"}]}
             - inside: {matches: httpx-call}
-        # follow_redirects=False and verify=True, the defaults every request function and client of httpx/_api.py declares
         - kind: keyword_argument
           all:
             - has: {field: name, regex: "^follow_redirects$"}
@@ -117,7 +112,6 @@ rule:
             - has: {field: name, regex: "^verify$"}
             - has: {field: value, kind: "true"}
             - inside: {matches: httpx-call}
-        # The mode as the second positional argument, a comment sibling not counted, or as the keyword
         - kind: string
           regex: '^("rb"|''rb'')$'
           nthChild: {position: 2, ofRule: {not: {kind: comment}}}
@@ -132,3 +126,13 @@ rule:
             - has: {field: name, regex: "^interval$"}
             - has: {field: value, kind: none}
             - inside: {matches: cpu-percent}
+        - kind: keyword_argument
+          all:
+            - has: {field: name, regex: "^pid$"}
+            - has: {field: value, kind: none}
+            - inside: {kind: argument_list, inside: {matches: process-constructor}}
+        - kind: keyword_argument
+          all:
+            - has: {field: name, regex: "^compresslevel$"}
+            - has: {field: value, kind: integer, regex: "^6$"}
+            - inside: {matches: gzip-open}

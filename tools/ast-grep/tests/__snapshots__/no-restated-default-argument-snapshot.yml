@@ -76,6 +76,13 @@ snapshots:
       start: 19
       end: 23
   ? |
+    gzip.open(archive, "wb", compresslevel=6)
+  : labels:
+    - source: compresslevel=6
+      style: primary
+      start: 25
+      end: 40
+  ? |
     gzip.open(archive, 'rb')
   : labels:
     - source: '''rb'''
@@ -185,6 +192,13 @@ snapshots:
       style: primary
       start: 32
       end: 45
+  ? |
+    psutil.Process(pid=None)
+  : labels:
+    - source: pid=None
+      style: primary
+      start: 15
+      end: 23
   ? |
     psutil.cpu_percent(interval=None)
   : labels:

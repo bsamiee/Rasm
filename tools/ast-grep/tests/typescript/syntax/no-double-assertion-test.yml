@@ -1,39 +1,24 @@
 id: no-double-assertion
 valid:
-    # The decode at the boundary
     - 'const row = Schema.decodeUnknownSync(Row)(value);'
-    # One assertion
     - 'const row = value as Row;'
-    # Assertion to unknown alone
     - 'const held = value as unknown;'
-    # Const assertion
     - "const kind = 'row' as const;"
-    # Double assertion through any, Biome noExplicitAny reports it
     - 'const row = value as any as Row;'
-    # Satisfies over an assertion, no second assertion
     - 'const row = (value as Row) satisfies Row;'
-    # Assertion to a wide type after a narrow one, the wide step is second
     - 'const held = (value as Row) as unknown;'
-    # Object type with a member, a shape the first step claims
     - 'const row = value as { id: string } as Row;'
-    # Assertion to the empty object type alone
     - 'const held = value as {};'
+    - 'const row = value as string as Row;'
 invalid:
-    # Through the empty object type, every value but null and undefined fits it
     - 'const row = value as {} as Row;'
-    # Through object
     - 'const row = value as object as Row;'
-    # Empty object type step in parentheses
     - 'const row = (value as {}) as Row;'
-    # The instance, the assertion through unknown
     - 'const row = value as unknown as Row;'
-    # Through never
     - 'const row = value as never as Row;'
-    # First step in parentheses
     - 'const row = (value as unknown) as Row;'
-    # Object literal asserted through unknown
     - 'const row = {} as unknown as Row;'
-    # Assertion to a generic type
     - 'const rows = value as unknown as readonly Row[];'
-    # Assertion as a call argument
     - 'use(value as unknown as Row);'
+    - 'const row = value as { /* none */ } as Row;'
+    - 'const row = (value as unknown as Row)!;'

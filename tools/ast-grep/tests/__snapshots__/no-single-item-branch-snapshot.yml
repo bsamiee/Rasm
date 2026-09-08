@@ -1,0 +1,315 @@
+id: no-single-item-branch
+snapshots:
+  ? |
+    rewriters:
+        - id: item-name
+          rule:
+              all:
+                  - has: {kind: item}
+          fix: $NAME
+  : labels:
+    - source: |-
+        all:
+                      - has: {kind: item}
+      style: primary
+      start: 53
+      end: 91
+    - source: all
+      style: secondary
+      start: 53
+      end: 56
+    - source: '- has: {kind: item}'
+      style: secondary
+      start: 72
+      end: 91
+    - source: '- has: {kind: item}'
+      style: secondary
+      start: 72
+      end: 91
+  ? |
+    rule:
+        "all":
+            - kind: item
+  : labels:
+    - source: |
+        "all":
+                - kind: item
+      style: primary
+      start: 10
+      end: 38
+    - source: '"all"'
+      style: secondary
+      start: 10
+      end: 15
+    - source: |
+        - kind: item
+      style: secondary
+      start: 25
+      end: 38
+    - source: |
+        - kind: item
+      style: secondary
+      start: 25
+      end: 38
+  ? |
+    rule:
+        all:
+            # The one condition
+            - kind: item
+  : labels:
+    - source: |
+        all:
+                # The one condition
+                - kind: item
+      style: primary
+      start: 10
+      end: 64
+    - source: all
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - kind: item
+      style: secondary
+      start: 51
+      end: 64
+    - source: |
+        - kind: item
+      style: secondary
+      start: 51
+      end: 64
+  ? |
+    rule:
+        all:
+            - any:
+                  - kind: item
+                  - kind: other
+  : labels:
+    - source: |
+        all:
+                - any:
+                      - kind: item
+                      - kind: other
+      style: primary
+      start: 10
+      end: 85
+    - source: all
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - any:
+                      - kind: item
+                      - kind: other
+      style: secondary
+      start: 23
+      end: 85
+    - source: |
+        - any:
+                      - kind: item
+                      - kind: other
+      style: secondary
+      start: 23
+      end: 85
+  ? |
+    rule:
+        all:
+            - kind: item
+            # The one condition
+  : labels:
+    - source: |
+        all:
+                - kind: item
+                # The one condition
+      style: primary
+      start: 10
+      end: 64
+    - source: all
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - kind: item
+                # The one condition
+      style: secondary
+      start: 23
+      end: 64
+    - source: |
+        - kind: item
+                # The one condition
+      style: secondary
+      start: 23
+      end: 64
+  ? |
+    rule:
+        all: [{matches: item-shape}]
+        pattern: $STMT
+  : labels:
+    - source: 'all: [{matches: item-shape}]'
+      style: primary
+      start: 10
+      end: 38
+    - source: all
+      style: secondary
+      start: 10
+      end: 13
+    - source: '[{matches: item-shape}]'
+      style: secondary
+      start: 15
+      end: 38
+    - source: '[{matches: item-shape}]'
+      style: secondary
+      start: 15
+      end: 38
+  ? |
+    rule:
+        any:
+            - {inside: {kind: arguments}}
+  : labels:
+    - source: |
+        any:
+                - {inside: {kind: arguments}}
+      style: primary
+      start: 10
+      end: 53
+    - source: any
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - {inside: {kind: arguments}}
+      style: secondary
+      start: 23
+      end: 53
+    - source: |
+        - {inside: {kind: arguments}}
+      style: secondary
+      start: 23
+      end: 53
+  ? |
+    rule:
+        has: {field: key, regex: '^a$'}
+        all:
+            - has:
+                field: value
+                regex: '^b$'
+  : labels:
+    - source: |
+        all:
+                - has:
+                    field: value
+                    regex: '^b$'
+      style: primary
+      start: 46
+      end: 116
+    - source: all
+      style: secondary
+      start: 46
+      end: 49
+    - source: |
+        - has:
+                    field: value
+                    regex: '^b$'
+      style: secondary
+      start: 59
+      end: 116
+    - source: |
+        - has:
+                    field: value
+                    regex: '^b$'
+      style: secondary
+      start: 59
+      end: 116
+  ? |
+    rule:
+        kind: item
+        all:
+            - has: {field: key, regex: '^a$'}
+  : labels:
+    - source: |
+        all:
+                - has: {field: key, regex: '^a$'}
+      style: primary
+      start: 25
+      end: 72
+    - source: all
+      style: secondary
+      start: 25
+      end: 28
+    - source: |
+        - has: {field: key, regex: '^a$'}
+      style: secondary
+      start: 38
+      end: 72
+    - source: |
+        - has: {field: key, regex: '^a$'}
+      style: secondary
+      start: 38
+      end: 72
+  ? |
+    rule:
+        kind: item
+        all: []
+  : labels:
+    - source: 'all: []'
+      style: primary
+      start: 25
+      end: 32
+    - source: all
+      style: secondary
+      start: 25
+      end: 28
+    - source: '[]'
+      style: secondary
+      start: 30
+      end: 32
+    - source: '[]'
+      style: secondary
+      start: 30
+      end: 32
+  ? |
+    rule:
+        nthChild: {position: 2, ofRule: {any: [{kind: item}]}}
+  : labels:
+    - source: 'any: [{kind: item}]'
+      style: primary
+      start: 43
+      end: 62
+    - source: any
+      style: secondary
+      start: 43
+      end: 46
+    - source: '[{kind: item}]'
+      style: secondary
+      start: 48
+      end: 62
+    - source: '[{kind: item}]'
+      style: secondary
+      start: 48
+      end: 62
+  ? |
+    utils:
+        item-shape:
+            any:
+                - matches: other-shape
+  : labels:
+    - source: |
+        any:
+                    - matches: other-shape
+      style: primary
+      start: 31
+      end: 71
+    - source: any
+      style: secondary
+      start: 31
+      end: 34
+    - source: |
+        - matches: other-shape
+      style: secondary
+      start: 48
+      end: 71
+    - source: |
+        - matches: other-shape
+      style: secondary
+      start: 48
+      end: 71

@@ -1,6 +1,5 @@
 id: no-promise-outside-boundary
 valid:
-    # A typed mutable constructor retains the same Nx instance contract.
     - 'import Base from "@nx/js/src/release/version-actions"; let Resolved: typeof Base = normalize(Base); class Actions extends Resolved { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
     - 'import { Effect } from "effect"; const loaded = Effect.tryPromise({ try: () => load(path), catch: (cause) => new LoadError({ cause }) });'
     - import { Effect } from "effect"; const loaded = Effect.promise(async () => { const raw = await load(path); return decode(raw); });
@@ -27,7 +26,14 @@ valid:
     - 'import { VersionActions as Base } from "nx/release"; class Actions extends Base { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
     - 'import Base from "@nx/js/src/release/version-actions"; class Actions extends Base { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
     - 'import Base from "@nx/js/src/release/version-actions"; const Resolved: typeof Base = normalize(Base); class Actions extends Resolved { override async updateProjectVersion(): Promise<string[]> { return await load(); } }'
+    - import { Effect } from "effect"; const drained = Effect.promise(async () => { for await (const row of source) { use(row); } });
+    - 'import { Effect } from "effect"; const loaded = Effect.tryPromise<Item, LoadError>({ try: async () => await load(path), catch: mapError });'
+    - import { Effect } from "effect"; const loaded = Effect.tryPromise(async (signal) => await load(path, signal));
 invalid:
+    - const raw = await load(path);
+    - async function run() { await using handle = open(path); }
+    - import { Effect } from "effect"; const chained = Effect.andThen(work, async () => await load(path));
+    - 'import { Micro } from "effect"; const loaded = Micro.tryMapPromise(work, { try: async () => await load(path), catch: mapError });'
     - const loaded = async () => { const raw = await load(path); return decode(raw); };
     - const drain = async () => { for await (const row of source) { use(row); } };
     - const rows = Array.map(items, async (item) => await load(item));

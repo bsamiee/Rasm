@@ -1,44 +1,29 @@
 id: option-nullish-ternary-to-from-nullable
 valid:
-    # The constructor keeps falsy values other than null and undefined
     - 'import { Option } from "effect"; const result = Option.fromNullable(value);'
-    # Strict checks exclude only one nullish value
     - 'import { Option } from "effect"; const result = value === null ? Option.none() : Option.some(value);'
     - 'import { Option } from "effect"; const result = value !== undefined ? Option.some(value) : Option.none();'
-    # Truthiness also excludes zero, false, and empty strings
     - 'import { Option } from "effect"; const result = value ? Option.some(value) : Option.none();'
-    # The selected value is a different binding
     - 'import { Option } from "effect"; const result = value == null ? Option.none() : Option.some(other);'
-    # Repeated member reads can observe getters returning different values
     - 'import { Option } from "effect"; const result = record.value == null ? Option.none() : Option.some(record.value);'
-    # Repeated calls have independent results and effects
     - 'import { Option } from "effect"; const result = read() == null ? Option.none() : Option.some(read());'
-    # Explicit generic arguments preserve a chosen wider type
     - 'import { Option } from "effect"; const result = value == null ? Option.none() : Option.some<unknown>(value);'
-    # Source comments must survive a replacement
     - 'import { Option } from "effect"; const result = value == null ? Option.none() : Option.some(/* keep */ value);'
-    # Reversed arm meaning is not nullable construction
     - 'import { Option } from "effect"; const result = value == null ? Option.some(value) : Option.none();'
-    # Unrelated APIs with the same member names are not Effect Option
     - 'import { Option } from "other"; const result = value == null ? Option.none() : Option.some(value);'
-    # A receiver alias must name the Option export, not another Effect module
     - 'import { Either as Option } from "effect"; const result = value == null ? Option.none() : Option.some(value);'
-    # A type import supplies no runtime constructor
     - 'import type { Option } from "effect"; const result = value == null ? Option.none() : Option.some(value);'
-    # Parameters can shadow a real module import
     - 'import { Option } from "effect"; function read(Option: Custom) { return value == null ? Option.none() : Option.some(value); }'
-    # A matching name without an import has no package identity
     - 'const result = value == null ? Option.none() : Option.some(value);'
 invalid:
-    # Both nullish values select None
     - 'import { Option } from "effect"; const result = value == null ? Option.none() : Option.some(value);'
-    # Reversed comparison operands keep the same check
     - 'import { Option } from "effect"; const result = null == value ? Option.none() : Option.some(value);'
-    # Inequality selects Some first
     - 'import { Option } from "effect"; const result = value != null ? Option.some(value) : Option.none();'
-    # Reversed inequality preserves the selected value
     - 'import { Option } from "effect"; const result = null != value ? Option.some(value) : Option.none();'
-    # Named aliases retain their imported receiver
     - 'import { Option as O } from "effect"; const result = value == null ? O.none() : O.some(value);'
-    # Namespace subpaths use the same owning module
     - 'import * as O from "effect/Option"; const result = value != null ? O.some(value) : O.none();'
+    - 'import { Option } from "effect"; const result = value == undefined ? Option.none() : Option.some(value);'
+    - 'import { Option } from "effect"; const result = undefined == value ? Option.none() : Option.some(value);'
+    - 'import { Option } from "effect"; const result = value != undefined ? Option.some(value) : Option.none();'
+    - 'import { Option } from "effect"; const result = undefined != value ? Option.some(value) : Option.none();'
+    - 'import { Option } from "effect"; const result = first == null ? Option.none() : value == null ? Option.none() : Option.some(value);'

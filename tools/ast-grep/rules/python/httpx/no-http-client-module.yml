@@ -1,13 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-http-client-module
 language: python
 severity: error
-# Report-only, the probed fix `requests` to `httpx` fails, `Module httpx has no member Session`, and httpx follows no redirect by default
 rule:
     pattern: $USE
     any:
         - matches: {python-module-use: {module: {regex: '^(http\.client|urllib\.request|urllib3|requests)(\.[\w.]+)?$'}}}
-        # The submodule imported from its package, `from http import client`, the dotted_name pins the from-import arm
         - kind: dotted_name
           matches: {python-module-member: {module: {regex: "^http$"}, name: {regex: "^client$"}}}
         - kind: dotted_name

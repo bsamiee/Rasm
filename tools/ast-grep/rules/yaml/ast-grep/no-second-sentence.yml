@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-second-sentence
+language: yaml
+severity: error
+files: [tools/ast-grep/rules/**, tools/ast-grep/rewrites/**]
+rule:
+    matches: ast-grep-prose-value
+    regex: '[.!?]\s+[A-Z`$"]'
+    inside: {kind: 'block_mapping_pair, flow_pair', has: {field: key, pattern: $KEY}}
+message: '`$KEY` holds a sentence after a period, the value is one sentence'
+note: Fold the fact into the one sentence, or move it to a comment beside the key

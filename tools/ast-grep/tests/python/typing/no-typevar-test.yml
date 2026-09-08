@@ -1,32 +1,28 @@
 id: no-typevar
 valid:
-    # The corrected form, the parameter on the def
     - |
       def first[T](items: list[T]) -> T:
           return items[0]
-    # The type alias statement with its own parameter
     - |
       type Pair[T] = tuple[T, T]
-    # Another member of typing
     - |
       from typing import Protocol
-    # Attribute named like the member on another object
     - |
       T = registry.TypeVar("T")
 invalid:
-    # The instance, the type variable imported from typing
     - |
       from typing import TypeVar
-    # The parameter specification imported from typing_extensions
     - |
       from typing_extensions import ParamSpec
-    # The variadic read as spelled
     - |
       import typing
 
       Ts = typing.TypeVarTuple("Ts")
-    # The attribute read through the alias the import binds
     - |
       import typing as t
 
       T = t.TypeVar("T")
+    - |
+      import typing_extensions as te
+
+      P = te.ParamSpec("P")

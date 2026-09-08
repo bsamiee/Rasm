@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-exit-in-else-clause
 language: bash
 severity: error
@@ -11,30 +11,27 @@ rule:
     kind: if_statement
     pattern: $IF
     all:
-        - not: {has: {kind: elif_clause}} # An elif chain selects among cases and takes case or one guard per arm
-        # One condition node before then, a list of statements as the condition needs a group the guard form does not state
+        - not: {has: {kind: elif_clause}}
         - has: {field: condition, pattern: $COND, precedes: {regex: '^then$', stopBy: {not: {regex: '^;$'}}}}
         - has:
             kind: else_clause
             pattern: $ELSE
-            has: {matches: leaving-command, nthChild: {position: 1, reverse: true}} # A comment after the body sits outside the clause
-        # Any unconditional leaving command makes later then-statements unreachable.
+            has: {matches: leaving-command, nthChild: {position: 1, reverse: true}}
         - not:
             has:
                 matches: leaving-command
                 precedes: {stopBy: end, kind: else_clause}
+        - not: {has: {stopBy: end, kind: 'heredoc_body, string, raw_string', regex: '\n'}}
 rewriters:
-    # The statements and comments between then and the else clause
     - id: then-statement
       rule:
         pattern: $STATEMENT
         inside: {kind: if_statement, pattern: $IF}
-        follows: {regex: '^then$', stopBy: end}
-        not: {kind: else_clause}
+        not: {any: [{nthChild: 1}, {kind: else_clause}]}
       fix: $STATEMENT
 transform:
-    THEN: {rewrite: {source: $IF, rewriters: [then-statement], joinBy: "\n"}}
-    # The else body without its keyword, trailing space, and line indentation, the template indents every line once
+    STATEMENTS: {rewrite: {source: $IF, rewriters: [then-statement], joinBy: "\n"}}
+    THEN: {replace: {source: $STATEMENTS, replace: '\n {4}', by: "\n"}}
     BODY: {replace: {source: $ELSE, replace: '(?s)^else\s*|\s*$', by: ''}}
     LEAVING: {replace: {source: $BODY, replace: '\n[ \t]+', by: "\n"}}
 fix: |-

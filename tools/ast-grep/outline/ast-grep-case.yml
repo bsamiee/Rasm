@@ -1,0 +1,23 @@
+id: ast-grep-case
+language: yaml
+role: member
+parentRuleIds: [ast-grep-test]
+symbolType: string
+utils:
+    cases-pair:
+        kind: block_mapping_pair, flow_pair
+        has: {field: key, regex: '^(valid|invalid|"valid"|"invalid"|''valid''|''invalid'')$'}
+        inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document}}}
+    valid-pair:
+        matches: cases-pair
+        has: {field: key, regex: '^(valid|"valid"|''valid'')$'}
+rule:
+    kind: block_sequence_item
+    pattern: $CASE
+    inside: {kind: block_sequence, inside: {kind: block_node, inside: {matches: cases-pair}}}
+transform:
+    BODY: {replace: {source: $CASE, replace: '^-\s*(?:[|>][-+0-9]*[^\n]*\n)?\s*', by: ''}}
+    LINE: {replace: {source: $BODY, replace: '\n[\s\S]*$', by: ''}}
+name: $LINE
+signature: $LINE
+isPublic: {inside: {kind: block_sequence, inside: {kind: block_node, inside: {matches: valid-pair}}}}

@@ -10,6 +10,69 @@ snapshots:
       start: 28
       end: 69
   ? |
+    <Compile Include="Item.cs" Condition="%(Compile.Role) == host" />
+  : fixed: |
+      <Compile Include="Item.cs" Condition="'%(Compile.Role)' == 'host'" />
+    labels:
+    - source: Condition="%(Compile.Role) == host"
+      style: primary
+      start: 27
+      end: 62
+  ? |
+    <Item Condition="$(Enabled) == true">true</Item>
+  : fixed: |
+      <Item Condition="'$(Enabled)' == 'true'">true</Item>
+    labels:
+    - source: Condition="$(Enabled) == true"
+      style: primary
+      start: 6
+      end: 36
+  ? |
+    <Item Condition="$(Path) == ''">true</Item>
+  : fixed: |
+      <Item Condition="'$(Path)' == ''">true</Item>
+    labels:
+    - source: Condition="$(Path) == ''"
+      style: primary
+      start: 6
+      end: 31
+  ? |
+    <Item Condition="@(Asset) != ''">true</Item>
+  : fixed: |
+      <Item Condition="'@(Asset)' != ''">true</Item>
+    labels:
+    - source: Condition="@(Asset) != ''"
+      style: primary
+      start: 6
+      end: 32
+  ? |
+    <Item Condition='"$(Configuration)" == "Release"'>true</Item>
+  : fixed: |
+      <Item Condition="'$(Configuration)' == 'Release'">true</Item>
+    labels:
+    - source: Condition='"$(Configuration)" == "Release"'
+      style: primary
+      start: 6
+      end: 49
+  ? |
+    <Item Condition='"$(Configuration)" == Release'>true</Item>
+  : fixed: |
+      <Item Condition="'$(Configuration)' == 'Release'">true</Item>
+    labels:
+    - source: Condition='"$(Configuration)" == Release'
+      style: primary
+      start: 6
+      end: 47
+  ? |
+    <Item Condition='$(Configuration) == Release'>true</Item>
+  : fixed: |
+      <Item Condition="'$(Configuration)' == 'Release'">true</Item>
+    labels:
+    - source: Condition='$(Configuration) == Release'
+      style: primary
+      start: 6
+      end: 45
+  ? |
     <Optimize Condition="$(Configuration)==Release">true</Optimize>
   : fixed: |
       <Optimize Condition="'$(Configuration)'=='Release'">true</Optimize>
@@ -28,6 +91,24 @@ snapshots:
       start: 10
       end: 51
   ? |
+    <Optimize Condition="&quot;$(Configuration)&quot; != &quot;Release&quot;">true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' != 'Release'">true</Optimize>
+    labels:
+    - source: Condition="&quot;$(Configuration)&quot; != &quot;Release&quot;"
+      style: primary
+      start: 10
+      end: 73
+  ? |
+    <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition="&quot;$(Configuration)&quot; == Release"
+      style: primary
+      start: 10
+      end: 61
+  ? |
     <Optimize Condition="'$(Configuration) $(Platform)' == Release">true</Optimize>
   : fixed: |
       <Optimize Condition="'$(Configuration) $(Platform)' == 'Release'">true</Optimize>
@@ -36,6 +117,15 @@ snapshots:
       style: primary
       start: 10
       end: 63
+  ? |
+    <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
+  : fixed: |
+      <Optimize Condition="'$(Configuration)' == 'Release'">true</Optimize>
+    labels:
+    - source: Condition='$(Configuration) == "Release"'
+      style: primary
+      start: 10
+      end: 51
   ? |
     <P Condition="'a==b' == value">true</P>
   : fixed: |

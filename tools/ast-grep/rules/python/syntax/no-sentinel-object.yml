@@ -1,15 +1,33 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-sentinel-object
 language: python
 severity: error
-# Report-only, the probed fix `object()` to `None` fails `get({}, "k", None)`, `KeyError: 'k'`, the absent case is a value the signature declares
+utils:
+    empty-class:
+        kind: class_definition
+        all:
+            - has: {field: name, pattern: $CLASS}
+            - not: {has: {field: superclasses, kind: argument_list}}
+            - has:
+                field: body
+                kind: block
+                all:
+                    - has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: "string, ellipsis"}}]}
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 rule:
     kind: assignment
     all:
         - has: {field: left, kind: identifier, pattern: $NAME}
-        - has: {field: right, any: [{pattern: object()}, {pattern: sentinel($$$)}]} # Plain instances and sentinels are an identity alone
-        - inside: # Module or class attribute through any branch, a local instance is a key or a token the scope consumes
+        - has:
+            field: right
+            any:
+                - pattern: object()
+                - pattern: sentinel($$$)
+                - pattern: $CLASS()
+                  has: {field: function, kind: identifier}
+                  inside: {kind: module, stopBy: end, has: {matches: empty-class}}
+        - inside:
             kind: expression_statement
-            inside: {any: [{kind: module}, {kind: class_definition}], stopBy: {matches: python-function-boundary}}
+            inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
 message: '`$NAME` is a sentinel object, a value that stands for absence by identity'
 note: Test presence with `hasattr` or `in`, or represent absence as a case of the value, `T | None` at the boundary

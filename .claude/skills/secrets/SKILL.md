@@ -11,7 +11,7 @@ description: >-
 
 # [SECRETS]
 
-Doppler owns the runtime secrets a process reads under a project and config, and 1Password keeps the credentials a person uses, the IaC tokens and the stack passphrase among them, which the repository's Automation API entry resolves when the ambient variable is absent.
+Doppler owns the runtime secrets a process reads under a project and config, and 1Password keeps the credentials a person uses, the IaC and Pulumi Cloud tokens among them, which the repository's Automation API entry resolves when the ambient variable is absent.
 
 A repository's own resources (its Doppler project, environments, configs, and service tokens, and its GitHub repository settings) are rows in that repository's `infra/` program on the Pulumi Automation API, and the machine's projects and directory scopes stay rows in `Parametric_Forge/services/topology.ts` applied by its `driver.ts`. `doppler` reads and writes secret values against declared configs, `doppler run` and owner-specific downloads inject values at the consuming process, `~/.doppler` holds CLI scope and authentication state, and no repository holds a `.env` or a `doppler.yaml`.
 
@@ -87,7 +87,7 @@ Local storage is `op`: every service, IaC, and MCP token and the SSH key sit in 
 - MCP token: the launcher prelude resolves the ambient personal CLI token, its grants are the enforcement, `--read-only` filters the toolset to GET endpoints
 - MCP provider keys `GH_PROJECTS_TOKEN`, `EXA_API_KEY`, `CONTEXT7_API_KEY`, and `GREPTILE_API_KEY` sit in `agent-runtime/dev`
 - `.mcp.json` reads them as `${VAR}` headers, so an agent session starts as `doppler run --project agent-runtime --config dev -- claude`
-- Repository `infra/` programs resolve their own passphrase, Doppler token, and GitHub token, the route sits in the program's `README.md`
+- Repository `infra/` programs read their Pulumi Cloud, Doppler, and GitHub tokens from the config their `doppler run` target names
 
 ## [06]-[RULES]
 

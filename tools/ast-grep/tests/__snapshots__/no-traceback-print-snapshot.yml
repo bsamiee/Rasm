@@ -1,6 +1,48 @@
 id: no-traceback-print
 snapshots:
   ? |
+    from traceback import TracebackException
+
+    TracebackException.from_exception(error).print()
+  : labels:
+    - source: TracebackException.from_exception(error).print()
+      style: primary
+      start: 42
+      end: 90
+    - source: print
+      style: secondary
+      start: 83
+      end: 88
+    - source: from_exception
+      style: secondary
+      start: 61
+      end: 75
+    - source: TracebackException
+      style: secondary
+      start: 42
+      end: 60
+    - source: TracebackException.from_exception
+      style: secondary
+      start: 42
+      end: 75
+    - source: TracebackException.from_exception(error)
+      style: secondary
+      start: 42
+      end: 82
+    - source: TracebackException.from_exception(error).print
+      style: secondary
+      start: 42
+      end: 88
+  ? |
+    from traceback import print_exc as dump
+
+    dump()
+  : labels:
+    - source: print_exc
+      style: primary
+      start: 22
+      end: 31
+  ? |
     from traceback import print_exception
   : labels:
     - source: print_exception
@@ -10,12 +52,88 @@ snapshots:
   ? |
     import traceback
 
+    traceback.TracebackException(type(error), error, error.__traceback__).print(chain=False)
+  : labels:
+    - source: traceback.TracebackException(type(error), error, error.__traceback__).print(chain=False)
+      style: primary
+      start: 18
+      end: 106
+    - source: print
+      style: secondary
+      start: 88
+      end: 93
+    - source: traceback.TracebackException
+      style: secondary
+      start: 18
+      end: 46
+    - source: traceback.TracebackException(type(error), error, error.__traceback__)
+      style: secondary
+      start: 18
+      end: 87
+    - source: traceback.TracebackException(type(error), error, error.__traceback__).print
+      style: secondary
+      start: 18
+      end: 93
+  ? |
+    import traceback
+
     traceback.print_exc()
   : labels:
     - source: traceback.print_exc
       style: primary
       start: 18
       end: 37
+  ? |
+    import traceback
+
+    traceback.print_last()
+  : labels:
+    - source: traceback.print_last
+      style: primary
+      start: 18
+      end: 38
+  ? |
+    import traceback
+
+    traceback.print_list(entries)
+  : labels:
+    - source: traceback.print_list
+      style: primary
+      start: 18
+      end: 38
+  ? |
+    import traceback as tb
+
+    tb.TracebackException.from_exception(error).print()
+  : labels:
+    - source: tb.TracebackException.from_exception(error).print()
+      style: primary
+      start: 24
+      end: 75
+    - source: print
+      style: secondary
+      start: 68
+      end: 73
+    - source: from_exception
+      style: secondary
+      start: 46
+      end: 60
+    - source: tb.TracebackException
+      style: secondary
+      start: 24
+      end: 45
+    - source: tb.TracebackException.from_exception
+      style: secondary
+      start: 24
+      end: 60
+    - source: tb.TracebackException.from_exception(error)
+      style: secondary
+      start: 24
+      end: 67
+    - source: tb.TracebackException.from_exception(error).print
+      style: secondary
+      start: 24
+      end: 73
   ? |
     import traceback as tb
 

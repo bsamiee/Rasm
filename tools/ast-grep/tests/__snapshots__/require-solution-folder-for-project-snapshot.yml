@@ -8,9 +8,23 @@ snapshots:
       start: 75
       end: 110
   ? |
-    <Solution><Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" /></Solution>
+    <Solution><Project Path="libs/Item/Item.csproj" Type="Classic C#" /></Solution>
   : labels:
-    - source: <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
+    - source: <Project Path="libs/Item/Item.csproj" Type="Classic C#" />
       style: primary
       start: 10
-      end: 82
+      end: 68
+  ? |
+    <Solution><Project Path="libs/Item/Item.csproj"></Project></Solution>
+  : labels:
+    - source: <Project Path="libs/Item/Item.csproj"></Project>
+      style: primary
+      start: 10
+      end: 58
+  ? |
+    <Solution><Project Path="tests/dotnet/Support/Support.csproj" /></Solution>
+  : labels:
+    - source: <Project Path="tests/dotnet/Support/Support.csproj" />
+      style: primary
+      start: 10
+      end: 64

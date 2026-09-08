@@ -19,7 +19,7 @@ Covers the execution phase, from target order to the copy-to-output rules.
 
 ## [01]-[TARGET_ORDERING]
 
-MSBuild runs each target at most once per project instance, in an order that the target attributes decide and never the declaration order. For one requested target the engine runs, in order, its `DependsOnTargets` from left to right, the targets in `BeforeTargets` that name it, the target body, and the targets in `AfterTargets` that name it. `InitialTargets` run before every requested target, `-target:` replaces `DefaultTargets`, and the last definition of a target name wins.
+MSBuild runs each target at most once per project instance, in an order that the target attributes decide and never the declaration order. For one requested target the engine runs, in order, its `DependsOnTargets` from left to right, the targets in `BeforeTargets` that name it, the target body, and the targets in `AfterTargets` that name it. `InitialTargets` run before every requested target, `-target:` replaces `DefaultTargets`, and the last definition of a target name wins, names compared without case (`afterbuild` redefines `AfterBuild`).
 
 | [INDEX] | [ATTRIBUTE]        | [OWNER]              | [USE_WHEN]                                                                 |
 | :-----: | :----------------- | :------------------- | :------------------------------------------------------------------------- |
@@ -30,11 +30,15 @@ MSBuild runs each target at most once per project instance, in an order that the
 - Combine them on one target: `DependsOnTargets` for your own chain and one of `BeforeTargets` or `AfterTargets` for the SDK target
 - MSBuild evaluates a target `Condition` when the target is about to run, after every earlier target updated the properties and items it reads
 - Targets with a false `Condition` skip the body and the `DependsOnTargets` chain, and the `BeforeTargets` and `AfterTargets` that name the skipped target still run
-- Skipped targets count as not run, a later `DependsOnTargets` request runs one when its condition is true at that time, and its `BeforeTargets` and `AfterTargets` do not run again
+- Skipped targets count as not run, and a later `DependsOnTargets` request runs one when its condition is true at that time
+- The `BeforeTargets` and `AfterTargets` of a skipped target do not run again when a later request runs it
 - MSBuild compares `Inputs` and `Outputs` after the dependencies and `BeforeTargets` ran and before the body, and the check never changes the order
 - `BeforeTargets` and `AfterTargets` accept a name no target defines, the target then never runs, and detailed verbosity logs the unmatched name
-- `Returns` names the items a caller receives, `Outputs` names the files of the up-to-date check, and once one target in the project declares `Returns` a target with only `Outputs` returns nothing, which holds in every SDK project because `Build` declares `Returns`
-- MSBuild records the returned items when the target completes, drops duplicate items unless `KeepDuplicateOutputs="true"`, and a target that appends to the item list through `AfterTargets` changes nothing the caller receives
+- `Returns` names the items a caller receives, and `Outputs` names the files of the up-to-date check
+- Once one target in the project declares `Returns`, a target with only `Outputs` returns nothing
+- Every SDK project has a target declaring `Returns`, because `Build` declares it
+- MSBuild records the returned items when the target completes and drops duplicate items unless `KeepDuplicateOutputs="true"`
+- Targets that append to the item list through `AfterTargets` change nothing the caller receives
 - `Label` is an identifier for tooling and never changes execution
 
 ```xml
@@ -78,11 +82,15 @@ Extend the SDK chain from a target that names an SDK target in `BeforeTargets` o
 MSBuild skips a target with every output at least as new as its inputs, and a target without `Outputs` runs on every build. Give every target that writes a file both attributes, and give a target that only registers or verifies something a marker file.
 
 - `Inputs` without `Outputs` fails with `MSB4058`, and an `Inputs` or `Outputs` expression that evaluates to empty skips the target
-- Transforms in `Outputs` map each output to one input, MSBuild then runs the target with only the stale inputs, and a fixed `Outputs` value compares against every input and runs the whole target
+- Transforms in `Outputs` map each output to one input, and MSBuild then runs the target with only the stale inputs
+- Fixed `Outputs` values compare against every input and run the whole target
 - MSBuild compares timestamps only, reads only the input list of the current run, and a file that left the list does not make the target stale
-- Put `$(MSBuildAllProjects)` in `Inputs`, it names the project and every imported file, and a change in `Directory.Build.targets` or the `.targets` file that holds the generator then reruns it
-- Skipped targets still apply their `ItemGroup` and `PropertyGroup` children and infer a task `<Output>` with a `TaskParameter` that is also a task input, and an output the task computes (`CopiedFiles`) stays unset
-- Add every written file to `@(FileWrites)` under `$(OutDir)` or `$(IntermediateOutputPath)`, `IncrementalClean` deletes a file that a prior build wrote and the current build did not, and `Clean` deletes every recorded file
+- Put `$(MSBuildAllProjects)` in `Inputs`, because it names the project and every imported file
+- Changes in `Directory.Build.targets` or the `.targets` file that holds the generator then rerun the target
+- Skipped targets still apply their `ItemGroup` and `PropertyGroup` children
+- Skipped targets infer a task `<Output>` with a `TaskParameter` that is a task input too, and an output the task computes (`CopiedFiles`) stays unset
+- Add every written file to `@(FileWrites)` under `$(OutDir)` or `$(IntermediateOutputPath)`
+- `IncrementalClean` deletes a file that a prior build wrote and the current build did not, and `Clean` deletes every recorded file
 - `@(FileWritesShareable)` records a copy that another project can also write (a copy-local reference), and `IncrementalClean` keeps it when the file is outside the project directory
 - `_CleanRecordFileWrites` runs inside `CoreBuild`, a target after `Build` records nothing, and `Clean` leaves its file
 - `@(IntermediateAssembly)` names the compiled assembly under `$(IntermediateOutputPath)` when a target needs the compile output as an input
@@ -129,20 +137,32 @@ Globs outside a target expand during evaluation and cannot see a file that a tar
 
 - `WriteOnlyWhenDifferent="true"` keeps the timestamp when the content is unchanged, and `CoreCompile` stays up to date after a rerun of the generator
 - `%0A` and `%3B` escape a newline and a semicolon inside `Lines`, because `Lines` is an item list and a plain `;` splits it
-- Roslyn source generator output belongs to `EmitCompilerGeneratedFiles` and `CompilerGeneratedFilesOutputPath`, which defaults to `$(IntermediateOutputPath)generated/`
+- Roslyn source generator output belongs to `EmitCompilerGeneratedFiles` and `CompilerGeneratedFilesOutputPath`
+- `CompilerGeneratedFilesOutputPath` defaults to `$(IntermediateOutputPath)generated/`
 
 ## [05]-[TASKS]
 
 Tasks inside a target run at execution time with the current properties and items, and `ItemGroup` and `PropertyGroup` children are tasks too. Prefer a property function for a value that evaluation can compute, a built-in task for file work, and `Exec` only for an external program.
 
-- `Exec` runs `sh` on macOS and Linux and `cmd.exe` on Windows, a command with shell syntax gets an `IsOSPlatform` condition on the target, `Exec` never skips by itself, and the target that holds it gets `Inputs` and `Outputs`
-- `Exec` fails on a non-zero exit code and on a line in the standard error and warning format, `IgnoreExitCode="true"` keeps the first, `IgnoreStandardErrorWarningFormat="true"` keeps the second, and the target reads `ExitCode` to decide
-- `ConsoleToMSBuild="true"` fills `ConsoleOutput` with every output line, `EchoOff="true"` keeps the expanded command out of the log, `StandardOutputImportance="low"` hides tool output at normal verbosity, and `EnvironmentVariables` and `WorkingDirectory` replace a shell prefix
+- `Exec` runs `sh` on macOS and Linux and `cmd.exe` on Windows, and a command with shell syntax gets an `IsOSPlatform` condition on the target
+- `Exec` never skips by itself, and the target that holds it gets `Inputs` and `Outputs`
+- `Exec` fails on a non-zero exit code and on a line in the standard error and warning format
+- `IgnoreExitCode="true"` ignores the exit code, `IgnoreStandardErrorWarningFormat="true"` ignores the format lines, and the target reads `ExitCode` to decide
+- `ConsoleToMSBuild="true"` fills `ConsoleOutput` with every output line, and `EchoOff="true"` keeps the expanded command out of the log
+- `StandardOutputImportance="low"` hides tool output at normal verbosity, and `EnvironmentVariables` and `WorkingDirectory` replace a shell prefix
 - `Copy` with `SkipUnchangedFiles="true"` compares size and timestamp, `UseHardlinksIfPossible` links instead of copying, and `Retries` hides a file race
-- `Warning` and `Error` take `Code` and `File`, a repository diagnostic gets a code that `MSBuildWarningsAsMessages`, `NoWarn`, and `-warnaserror` can name, and `Message` takes `Importance`
-- `CallTarget` runs the named target in a new scope, a property or item it sets is invisible to the caller, only `TargetOutputs` comes back, and `DependsOnTargets` runs it in the same scope
-- The `MSBuild` task creates a new project instance for every new global property set, `Properties` on a call to a project the build already builds creates a second build of it, and `RemoveProperties` strips a global property the callee never reads
-- `SkipNonexistentProjects="true"` skips a missing project file, `SkipNonexistentTargets="true"` skips a project that lacks the target, `BuildInParallel` follows `$(BuildInParallel)`, and `StopOnFirstFailure` applies only to a serial call
+- Boolean parameters read `true`, `on`, `yes`, `!false`, `!off`, and `!no` as true, and `Overwrite="yes"` on `WriteLinesToFile` is a replacement write
+- Task parameters are attributes alone, and a child element (`<Delete><Files>stage/*.tmp</Files></Delete>`) fails with `MSB4067`
+- `Warning` and `Error` take `Code` and `File`, and `Message` takes `Importance`
+- Repository diagnostics get a code that `MSBuildWarningsAsMessages`, `NoWarn`, and `-warnaserror` can name
+- `CallTarget` runs the named target in a new scope, a property or item it sets is invisible to the caller, and only `TargetOutputs` comes back
+- `DependsOnTargets` runs the named target in the same scope
+- The `MSBuild` task creates a new project instance for every new global property set
+- `Properties` on a call to a project the build already builds creates a second build of it
+- `RemoveProperties` strips a global property the callee never reads
+- Project instances are the project file with its global property set, and `RemoveProperties` on a self-call changes the key as `Properties` does
+- `SkipNonexistentProjects="true"` skips a missing project file, and `SkipNonexistentTargets="true"` skips a project that lacks the target
+- `BuildInParallel` follows `$(BuildInParallel)`, and `StopOnFirstFailure` applies only to a serial call
 - Inline tasks with `RoslynCodeTaskFactory` replace a property function only when the computation loops over files, reads many files, or calls a .NET API outside the property function allowlist
 
 ```xml
@@ -162,17 +182,19 @@ Tasks inside a target run at execution time with the current properties and item
 </MSBuild>
 ```
 
-- `TargetOutputs` holds only the returns of the named targets, never of their dependencies, and each item has `MSBuildSourceProjectFile` and `MSBuildSourceTargetName` metadata
+- `TargetOutputs` holds only the returns of the named targets, never of their dependencies
+- Each `TargetOutputs` item has `MSBuildSourceProjectFile` and `MSBuildSourceTargetName` metadata
 - Use `references/task-parameters.md` for the parameters per task and the inline task form
 
 ## [06]-[BATCHING_IN_TARGETS]
 
 `%(Metadata)` in a task attribute runs the task once per distinct metadata value with the matching items, and `%(Metadata)` in the target `Outputs` runs the whole target once per value. `%()` references in a target `Condition` fail with `MSB4116`.
 
-- Task batching leaves the target running once, a `PropertyGroup` line that batches finishes every batch before the next line reads the property, and the property holds the last batch value
+- Task batching leaves the target running once
+- `PropertyGroup` lines that batch finish every batch before the next line reads the property, and the property holds the last batch value
 - Target batching gives each batch its own copy of the properties and items, and a batched `ItemGroup` runs once per target batch
 - Two item types in one expression batch separately, each batch sees the other type empty, batch on one type, and pass the other as a property
-- The `;`-delimited property with a leading and trailing separator tests set membership through `Contains(';%(Item.Meta);')`, which batches over the item and reads the whole list
+- The `;`-delimited property with a leading and trailing separator tests set membership through `Contains(';%(Item.Meta);')`, the call batches over the item and reads the whole list
 
 ```xml
 <!-- One Include per item that passes the membership test, one Error per item that fails it -->
@@ -197,8 +219,10 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 
 - `OnError ExecuteTargets` runs when a task of the target fails with `ErrorAndStop`, and when a target in its `DependsOnTargets` chain fails
 - `OnError` elements come last in the target or the build fails with `MSB4038`, each has its own `Condition`, and they run in order
-- `-warnaserror` promotes every warning to an error and the target keeps running as if it were a warning, `-warnaserror:CODE` promotes a list, `-warnnotaserror:CODE` exempts a list under `-warnaserror`, and `-warnasmessage:CODE` demotes a list
-- `MSBuildTreatWarningsAsErrors`, `MSBuildWarningsAsErrors`, `MSBuildWarningsNotAsErrors`, and `MSBuildWarningsAsMessages` are the same controls as project properties, `WarningsAsErrors`, `WarningsNotAsErrors`, and `NoWarn` feed the last three, and every one is evaluated per project
+- `-warnaserror` promotes every warning to an error and the target keeps running as if it were a warning
+- `-warnaserror:CODE` promotes a list, `-warnnotaserror:CODE` exempts a list under `-warnaserror`, and `-warnasmessage:CODE` demotes a list
+- `MSBuildTreatWarningsAsErrors`, `MSBuildWarningsAsErrors`, `MSBuildWarningsNotAsErrors`, and `MSBuildWarningsAsMessages` are the same controls as project properties
+- `WarningsAsErrors`, `WarningsNotAsErrors`, and `NoWarn` feed the last three, and MSBuild evaluates every one per project
 - `MSBuildWarningsNotAsErrors` exempts a code from `MSBuildTreatWarningsAsErrors` and from `-warnaserror` in that project
 
 ```xml
@@ -223,8 +247,11 @@ The command line proves what a target returns and controls the whole build:
 |  [07]   | `-graph -isolate`                          | Fails with `MSB4252` on an `MSBuild` call the graph did not predict          |
 |  [08]   | `-isolate -outputResultsCache:file`        | Serializes the built target results, `-inputResultsCaches:file` reuses them  |
 
-- Graph builds predict the targets of every reference through `ProjectReferenceTargets`, `Build` maps to `GetTargetFrameworks`, the default target, `GetNativeManifest`, and `GetCopyToOutputDirectoryItems`, and a custom target that a project calls on its references joins the protocol through an item
-- The results cache holds the results of the targets that were built, the producing build names every protocol target in `-target:`, and the consumer under `-isolate` then builds without evaluating the reference
+- Graph builds predict the targets of every reference through `ProjectReferenceTargets`
+- `Build` maps to `GetTargetFrameworks`, the default target, `GetNativeManifest`, and `GetCopyToOutputDirectoryItems`
+- Custom targets that a project calls on its references join the protocol through an item
+- The results cache holds the results of the targets that were built
+- The producing build names every protocol target in `-target:`, and the consumer under `-isolate` then builds without evaluating the reference
 
 ```xml
 <!-- Build on the project also calls GetSchemaFiles on every ProjectReference, a graph build schedules it and an isolated build finds it in the cache -->
@@ -248,9 +275,11 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 |  [05]   | `CoreBuild` only        | `'$(BuildingProject)' == 'true'`       | `BuildOnlySettings` sets it, false in `GetTargetPath` calls  |
 
 - `IsPublishable=false` turns `Publish` into a no-op
-- `ComputeFilesToPublish` fills `@(ResolvedFileToPublish)` with `RelativePath` and `CopyToPublishDirectory` metadata, `CopyFilesToPublishDirectory` copies each item to `$(PublishDir)%(RelativePath)`, and `PublishItemsOutputGroup` returns the list to a caller
+- `ComputeFilesToPublish` fills `@(ResolvedFileToPublish)` with `RelativePath` and `CopyToPublishDirectory` metadata
+- `CopyFilesToPublishDirectory` copies each item to `$(PublishDir)%(RelativePath)`, and `PublishItemsOutputGroup` returns the list to a caller
 - `dotnet publish` on a multi-targeting project fails with `NETSDK1129` without `-f`, and a publish hook runs in an inner build only
-- `RuntimeIdentifier` appends `_<rid>` to the pivot under the artifacts layout and adds a `<rid>/` directory under the default layout, and `AppendRuntimeIdentifierToOutputPath=false` removes only the default-layout directory
+- `RuntimeIdentifier` appends `_<rid>` to the pivot under the artifacts layout and adds a `<rid>/` directory under the default layout
+- `AppendRuntimeIdentifierToOutputPath=false` removes only the default-layout directory
 - Targets that edit a file in `$(OutDir)` after `CopyFilesToOutputDirectory` run again after `Publish`, because publish copies each `ResolvedFileToPublish` item from its source and never from `$(OutDir)`
 
 ```xml
@@ -277,12 +306,21 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 |  [03]   | `Always`         | `_CopyOutOfDateSourceItemsToOutputDirectoryAlways` | Copies on every build                                          |
 |  [04]   | `Never` or unset | None                                               | Copies nothing                                                 |
 
-- `AssignTargetPaths` computes `TargetPath` from `TargetPath`, then `Link`, then the path relative to the project directory, and the SDK sets `Link` to `%(LinkBase)%(RecursiveDir)%(Filename)%(Extension)` for a file outside the project directory
-- `None` and `Content` copy the same way, `Content` also joins `ContentFilesProjectOutputGroup`, and `DefaultCopyToPublishDirectoryMetadata` copies `CopyToOutputDirectory` into an unset `CopyToPublishDirectory` after `AssignTargetPaths`
+- `AssignTargetPaths` computes `TargetPath` from `TargetPath`, then `Link`, then the path relative to the project directory
+- The SDK sets `Link` to `%(LinkBase)%(RecursiveDir)%(Filename)%(Extension)` for a file outside the project directory
+- `None` and `Content` copy the same way, and `Content` joins `ContentFilesProjectOutputGroup` too
+- `DefaultCopyToPublishDirectoryMetadata` copies `CopyToOutputDirectory` into an unset `CopyToPublishDirectory` after `AssignTargetPaths`
 - `SkipUnchangedFilesOnCopyAlways=true` applies the `IfDifferent` test to every `Always` item
-- `GetCopyToOutputDirectoryItems` returns the project's items and the items of its `ProjectReference` projects transitively, `MSBuildCopyContentTransitively=false` limits that to one level, the referencing project copies them under its own `$(OutDir)%(TargetPath)`, and `Private="false"` on the reference stops that
-- `ResolvePackageAssets` emits `@(RuntimeCopyLocalItems)` for managed assets, `@(NativeCopyLocalItems)` for `runtimes/<rid>/native/` assets, and `@(RuntimeTargetsCopyLocalItems)` for the RID-specific assets of a RID-less build, each with `NuGetPackageId`, `AssetType`, `CopyLocal`, and `DestinationSubDirectory` metadata
-- Items with `CopyLocal=true` join `@(ReferenceCopyLocalPaths)` when `CopyLocalLockFileAssemblies` is `true`, the SDK default for a project with runtime output or `EnableDynamicLoading`, `_CopyFilesMarkedCopyLocal` writes them to `$(OutDir)%(DestinationSubDirectory)%(Filename)%(Extension)`, and publish copies the same assets whatever `CopyLocalLockFileAssemblies` is
+- `GetCopyToOutputDirectoryItems` returns the project's items and the items of its `ProjectReference` projects transitively
+- `MSBuildCopyContentTransitively=false` limits the transitive walk to one level
+- The referencing project copies the reference items under its own `$(OutDir)%(TargetPath)`, and `Private="false"` on the reference stops the copy
+- `ResolvePackageAssets` emits `@(RuntimeCopyLocalItems)` for managed assets and `@(NativeCopyLocalItems)` for `runtimes/<rid>/native/` assets
+- `@(RuntimeTargetsCopyLocalItems)` holds the RID-specific assets of a RID-less build
+- Each copy-local item has `NuGetPackageId`, `AssetType`, `CopyLocal`, and `DestinationSubDirectory` metadata
+- Items with `CopyLocal=true` join `@(ReferenceCopyLocalPaths)` when `CopyLocalLockFileAssemblies` is `true`
+- `CopyLocalLockFileAssemblies` defaults to `true` for a project with runtime output or `EnableDynamicLoading`
+- `_CopyFilesMarkedCopyLocal` writes `@(ReferenceCopyLocalPaths)` to `$(OutDir)%(DestinationSubDirectory)%(Filename)%(Extension)`
+- Publish copies the same assets whatever `CopyLocalLockFileAssemblies` is
 
 ```xml
 <!-- Build and publish copies for a project file, an edited destination, and a tree outside the project -->

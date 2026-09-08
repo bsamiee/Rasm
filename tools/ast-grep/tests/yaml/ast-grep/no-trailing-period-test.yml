@@ -1,0 +1,70 @@
+id: no-trailing-period
+valid:
+    - |
+      # The shape the rule reads
+      message: The item holds no period
+      note: Write the item
+    - |
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      id: <id>
+    - |
+      rule:
+          regex: '\.'
+      fix: '$A.'
+    - |
+      id: <id>
+      valid:
+          # The corrected form
+          - |
+            # Item.
+            item
+    - |
+      message: The item. The other item
+    - |
+      note: The item needs 3.15
+    - |
+      # Run `git add .`
+    - |
+      # The item (the other item.)
+    - |
+      # shellcheck disable=SC2086
+invalid:
+    - |
+      # The shape the rule reads.
+      id: <id>
+    - |
+      message: The item holds a period.
+    - |
+      note: 'Write `Item`.'
+    - |
+      message: "The item holds a period."
+    - |
+      note: |
+        Write the item.
+    - |
+      note: >-
+        Write the item
+        on one line.
+    - |
+      labels: {ITEM: {style: primary, message: 'The item.'}}
+    - |
+      id: <id>
+      valid:
+          # The corrected form
+          - item
+          # A near miss.
+          - other
+    - |
+      "note": Write the item.
+    - |
+      rule: {kind: item} # The one kind.
+    - |
+      message: The item loads...
+    - |
+      note: |-
+        Write the item.
+    - |
+      note: >
+        Write the item.
+    - |
+      message: The item. # The one item

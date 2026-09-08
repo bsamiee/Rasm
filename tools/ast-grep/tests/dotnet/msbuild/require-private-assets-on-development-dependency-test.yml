@@ -1,81 +1,65 @@
 id: require-private-assets-on-development-dependency
 valid:
-    # The analyzer rows of Directory.Build.props
     - |
       <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers" PrivateAssets="all" />
-    # Generator kept private
     - |
       <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
-    # The private assets in the metadata child form
     - |
       <PackageReference Include="Riok.Mapperly"><PrivateAssets>all</PrivateAssets></PackageReference>
-    # The runtime half of a generator pair holds the attributes consumers name
     - |
       <PackageReference Include="Generator.Equals.Runtime" />
-    # Runtime library
     - |
       <PackageReference Include="LanguageExt.Core" />
-    # PackageVersion row naming the version and no assets
     - |
       <PackageVersion Include="Riok.Mapperly" Version="4.2.1" />
-    # Remove naming no dependency to keep private
     - |
       <PackageReference Remove="Riok.Mapperly" />
-    # Single-quoted private assets
     - |
       <PackageReference Include='Riok.Mapperly' PrivateAssets='all' />
-    # Final unconditional metadata overrides an earlier value
     - |
       <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets><PrivateAssets>all</PrivateAssets></PackageReference>
-    # Unrelated metadata does not override the compliant attribute
     - |
       <PackageReference Include="MinVer" PrivateAssets="all"><Other>other</Other></PackageReference>
-    # A redundant conditional value does not weaken the compliant attribute
     - |
       <PackageReference Include="MinVer" PrivateAssets="all"><PrivateAssets Condition="false">all</PrivateAssets></PackageReference>
-    # Other metadata after the final value does not override it
     - |
       <PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets><Other>other</Other></PackageReference>
+    - |
+      <PackageReference Include="Item.Analyzers.Runtime" />
+    - |
+      <GlobalPackageReference Include="Item.Analyzers" Version="1.0.0" />
+    - |
+      <PackageReference Include="Item.Analyzers"><PrivateAssets>All</PrivateAssets></PackageReference>
 invalid:
-    # Single-quoted id, the fix keeps the Include quotes and writes the attribute in double quotes
     - |
       <PackageReference Include='MinVer' />
-    # The instance, four projects added the generator without the private assets
     - |
       <PackageReference Include="Riok.Mapperly" />
-    # Generator id ending in the generator suffix
     - |
       <PackageReference Include="PureHDF.SourceGenerator" />
-    # Analyzer in mixed case
     - |
       <PackageReference Include="xunit.analyzers" />
-    # The version tool
     - |
       <PackageReference Include="MinVer" />
-    # Private assets narrowed to one class flow the compile asset on
     - |
       <PackageReference Include="MinVer"><PrivateAssets>build</PrivateAssets></PackageReference>
-    # IncludeAssets all keeps every asset flowing
     - |
       <PackageReference Include="Riok.Mapperly" IncludeAssets="all" />
-    # Start tag with another metadata child and no private assets, the fix adds the attribute and keeps the child
     - |
       <PackageReference Include="MinVer"><NoWarn>NU1603</NoWarn></PackageReference>
-    # Conditioned private assets child narrowed to one class, the fix replaces it with the attribute
     - |
       <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">build</PrivateAssets></PackageReference>
-    # attribute spacing and quoted metadata lookalike
     - |
       <PackageReference Include = "MinVer" Note=' PrivateAssets="kept" >' PrivateAssets = "build" />
-    # conditional all is not unconditional privacy
     - |
       <PackageReference Include="MinVer"><PrivateAssets Condition="'$(Pin)' == 'true'">all</PrivateAssets></PackageReference>
-    # later metadata overrides compliant attribute
     - |
       <PackageReference Include="MinVer" PrivateAssets="all"><PrivateAssets>build</PrivateAssets></PackageReference>
-    # A later conflicting value overrides an earlier compliant value
     - |
       <PackageReference Include="MinVer"><PrivateAssets>all</PrivateAssets><PrivateAssets>other</PrivateAssets></PackageReference>
-    # Unrelated metadata cannot supply the required value
     - |
       <PackageReference Include="MinVer"><Other>all</Other></PackageReference>
+    - |
+      <PackageReference Include="Item.Generators" />
+    - |
+      <PackageReference Include="Grpc.Tools" Version="1.0.0" />

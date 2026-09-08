@@ -8,10 +8,9 @@ rule:
     matches:
         msbuild-property:
             name:
-                # Severities, analysis, restore, output, version, CI, and test runner settings, a project value copies or overrides the owner
                 regex: "^(NoWarn|(MSBuild)?Warnings(AsErrors|NotAsErrors|AsMessages)|(MSBuild|CodeAnalysis)?TreatWarningsAsErrors|AnalysisLevel|AnalysisMode|RunAnalyzers|EnforceCodeStyleInBuild|NuGetAudit(Mode|Level)?|ArtifactsPath|UseArtifactsOutput|ArtifactsProjectName|Base(Intermediate)?OutputPath|OutputPath|Version|VersionPrefix|VersionSuffix|PackageVersion|InformationalVersion|AssemblyVersion|FileVersion|MinVer[A-Za-z]*|GeneratePackageOnBuild|ContinuousIntegrationBuild|RestorePackagesWithLockFile|RestoreLockedMode|IsTestProject|UseMicrosoftTestingPlatformRunner|IsTestingPlatformApplication|TestingPlatform[A-Za-z]*|Enable(MSTest|NUnit)Runner|GenerateTestingPlatformEntryPoint)$"
 fix:
     template: ""
     expandEnd: {kind: CharData, regex: '^\s*$'}
 message: The project file sets a property another file owns
-note: Delete the property, the tag, the native manifest, .editorconfig, Directory.Build.props, the test package, and Directory.Build.targets hold it
+note: Delete the property, the root files, .editorconfig, the git tag, the native manifest, or the test package hold it

@@ -1,11 +1,9 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-single-method-class
 language: python
 severity: error
-# Report-only, the probed fix the method as a function fails its caller, `NameError: name 'Doubler' is not defined`
 utils:
     init: {kind: function_definition, has: {field: name, regex: '^__init__$'}}
-    # Method under @staticmethod; class methods depend on class identity
     static-method:
         kind: decorated_definition
         has: {kind: decorator, regex: '^@staticmethod$'}
@@ -16,20 +14,17 @@ rule:
         - has: {field: name, pattern: $NAME}
         - not: {inside: {kind: decorated_definition}}
         - not: {has: {kind: identifier, regex: '^__class__$', stopBy: end}}
-        - not: {has: {field: superclasses, kind: argument_list}} # Bases name a protocol, an exception, or a model the class extends
+        - not: {has: {field: superclasses, kind: argument_list}}
         - has:
             field: body
             any:
-                # One plain method besides __init__ and the docstring, a decorated method names a role
                 - all:
                     - has: {kind: function_definition, not: {has: {field: name, regex: '^__.*__$'}}}
-                    # One member beside the docstring, __init__, and comments, a class-level field or another method counts as a second
                     - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-inert-statement}, {matches: init}]}}}}}
-                # Static methods alone, a module of functions spelled as a class
                 - all:
                     - has: {matches: static-method}
                     - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: static-method}]}}}
 message: '`$NAME` holds one instance method or only static methods'
 note: Write the function, a `msgspec.Struct` with the state and the operation, or a dict of the values
 labels:
-    NAME: {style: primary, message: The class with one method}
+    NAME: {style: primary, message: Class with one method}

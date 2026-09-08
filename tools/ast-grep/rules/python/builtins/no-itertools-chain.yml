@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-itertools-chain
 language: python
 severity: error
@@ -9,10 +9,9 @@ rule:
         field: function
         any:
             - matches: python-chain-callee
-            # The class method spelling, from_iterable is the one attribute of chain
             - kind: attribute
               all:
                 - has: {field: object, matches: python-chain-callee}
                 - has: {field: attribute, regex: "^from_iterable$"}
-message: "`$CALL` flattens through itertools.chain"
-note: Flatten with a nested comprehension, or a generator expression for lazy iteration, over a tuple of the chain arguments in their order
+message: "`$CALL` concatenates iterables through a chain object an unpacking comprehension writes in place"
+note: Flatten with `[*part for part in (<a>, <b>)]`, `{*...}` for a set, or `(*...)` for lazy iteration, over the chain arguments in their order

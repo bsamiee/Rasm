@@ -6,6 +6,18 @@ snapshots:
       style: primary
       start: 28
       end: 36
+  const effect = await import(`effect`);:
+    labels:
+    - source: '`effect`'
+      style: primary
+      start: 28
+      end: 36
+  const fold = require(`./decision`);:
+    labels:
+    - source: '`./decision`'
+      style: primary
+      start: 21
+      end: 33
   const fs = require('fs');:
     labels:
     - source: '''fs'''

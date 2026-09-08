@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-typevar
 language: python
 severity: error
-# Report-only, the probed fix deleting `T = TypeVar("T")` fails, `Undefined name T`, the parameter moves into the signature that uses it
 rule:
     matches:
         python-module-member:

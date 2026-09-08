@@ -31,6 +31,15 @@ snapshots:
   ? |
     import typing
 
+    def read() -> typing.Any: ...
+  : labels:
+    - source: typing.Any
+      style: primary
+      start: 29
+      end: 39
+  ? |
+    import typing
+
     value: typing.Any = load()
   : labels:
     - source: typing.Any

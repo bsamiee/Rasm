@@ -98,6 +98,86 @@ snapshots:
       start: 47
       end: 71
   ? |
+    <ItemGroup><PackageReference Include="Item" Version="" /></ItemGroup>
+  : fixed: |
+      <ItemGroup><PackageReference Include="Item"  /></ItemGroup>
+    labels:
+    - source: <PackageReference Include="Item" Version="" />
+      style: primary
+      start: 11
+      end: 57
+    - source: Version
+      style: secondary
+      start: 44
+      end: 51
+    - source: Version=""
+      style: secondary
+      start: 44
+      end: 54
+    - source: <PackageReference Include="Item" Version="" />
+      style: secondary
+      start: 11
+      end: 57
+  ? |
+    <ItemGroup><PackageReference Include="Item"><VersionOverride>1.0.0</VersionOverride></PackageReference></ItemGroup>
+  : fixed: |
+      <ItemGroup><PackageReference Include="Item"></PackageReference></ItemGroup>
+    labels:
+    - source: <PackageReference Include="Item"><VersionOverride>1.0.0</VersionOverride></PackageReference>
+      style: primary
+      start: 11
+      end: 103
+    - source: <VersionOverride>1.0.0</VersionOverride>
+      style: secondary
+      start: 44
+      end: 84
+    - source: <VersionOverride>1.0.0</VersionOverride>
+      style: secondary
+      start: 44
+      end: 84
+  ? |
+    <ItemGroup><PackageReference Include='Item' Version='1.0.0' /></ItemGroup>
+  : fixed: |
+      <ItemGroup><PackageReference Include='Item'  /></ItemGroup>
+    labels:
+    - source: <PackageReference Include='Item' Version='1.0.0' />
+      style: primary
+      start: 11
+      end: 62
+    - source: Version
+      style: secondary
+      start: 44
+      end: 51
+    - source: Version='1.0.0'
+      style: secondary
+      start: 44
+      end: 59
+    - source: <PackageReference Include='Item' Version='1.0.0' />
+      style: secondary
+      start: 11
+      end: 62
+  ? |
+    <ItemGroup><PackageReference Update="Item" Version="1.0.0" /></ItemGroup>
+  : fixed: |
+      <ItemGroup><PackageReference Update="Item"  /></ItemGroup>
+    labels:
+    - source: <PackageReference Update="Item" Version="1.0.0" />
+      style: primary
+      start: 11
+      end: 61
+    - source: Version
+      style: secondary
+      start: 43
+      end: 50
+    - source: Version="1.0.0"
+      style: secondary
+      start: 43
+      end: 58
+    - source: <PackageReference Update="Item" Version="1.0.0" />
+      style: secondary
+      start: 11
+      end: 61
+  ? |
     <PackageReference Include = "CsCheck" Note=' Version="kept" >' Version = "4.8.0" />
   : fixed: |
       <PackageReference Include = "CsCheck" Note=' Version="kept" >'  />

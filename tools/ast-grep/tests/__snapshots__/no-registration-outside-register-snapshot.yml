@@ -90,6 +90,17 @@ snapshots:
       start: 42
       end: 82
   ? |
+    on('session.start', hook);
+    function hook($, e, next) {
+        on('tool.call', ($, e, next) => next(e));
+        return next(e);
+    }
+  : labels:
+    - source: on('tool.call', ($, e, next) => next(e))
+      style: primary
+      start: 59
+      end: 99
+  ? |
     on('tool.call', ($, e, next) => next(e));
     on('session.start', ($, e, next) => next(e));
     on('tool.call', ($, e, next) => next(e));
@@ -123,6 +134,12 @@ snapshots:
       style: primary
       start: 24
       end: 48
+  on('tool.call', first); on(`tool.call`, second);:
+    labels:
+    - source: on(`tool.call`, second);
+      style: primary
+      start: 24
+      end: 48
   ? |
     on('tool.call', { tool: 'Bash' }, ($, e, next) => {
         on('prompt.submit', ($, e, next) => next(e));
@@ -133,3 +150,9 @@ snapshots:
       style: primary
       start: 56
       end: 100
+  on(`tool.call`, first); on(`tool.call`, second);:
+    labels:
+    - source: on(`tool.call`, second);
+      style: primary
+      start: 24
+      end: 48

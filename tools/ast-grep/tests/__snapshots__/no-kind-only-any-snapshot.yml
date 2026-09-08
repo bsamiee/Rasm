@@ -1,0 +1,384 @@
+id: no-kind-only-any
+snapshots:
+  ? |
+    rule:
+        "any":
+            - kind: alpha
+            - "kind": beta
+  : fixed: |-
+      rule:
+          kind: alpha, beta
+    labels:
+    - source: |
+        "any":
+                - kind: alpha
+                - "kind": beta
+      style: primary
+      start: 10
+      end: 62
+    - source: '"any"'
+      style: secondary
+      start: 10
+      end: 15
+    - source: |
+        - kind: alpha
+                - "kind": beta
+      style: secondary
+      start: 25
+      end: 62
+    - source: |
+        - kind: alpha
+                - "kind": beta
+      style: secondary
+      start: 25
+      end: 62
+    - source: |
+        - kind: alpha
+                - "kind": beta
+      style: secondary
+      start: 25
+      end: 62
+  ? |
+    rule:
+        any:
+            - kind: alpha
+            - kind: "beta, gamma"
+  : fixed: |-
+      rule:
+          kind: alpha, beta, gamma
+    labels:
+    - source: |
+        any:
+                - kind: alpha
+                - kind: "beta, gamma"
+      style: primary
+      start: 10
+      end: 67
+    - source: any
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - kind: alpha
+                - kind: "beta, gamma"
+      style: secondary
+      start: 23
+      end: 67
+    - source: |
+        - kind: alpha
+                - kind: "beta, gamma"
+      style: secondary
+      start: 23
+      end: 67
+    - source: |
+        - kind: alpha
+                - kind: "beta, gamma"
+      style: secondary
+      start: 23
+      end: 67
+  ? |
+    rule:
+        any:
+            - kind: alpha
+            - kind: 'beta, gamma'
+  : fixed: |-
+      rule:
+          kind: alpha, beta, gamma
+    labels:
+    - source: |
+        any:
+                - kind: alpha
+                - kind: 'beta, gamma'
+      style: primary
+      start: 10
+      end: 67
+    - source: any
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - kind: alpha
+                - kind: 'beta, gamma'
+      style: secondary
+      start: 23
+      end: 67
+    - source: |
+        - kind: alpha
+                - kind: 'beta, gamma'
+      style: secondary
+      start: 23
+      end: 67
+    - source: |
+        - kind: alpha
+                - kind: 'beta, gamma'
+      style: secondary
+      start: 23
+      end: 67
+  ? |
+    rule:
+        any:
+            - kind: alpha
+            - kind: beta
+  : fixed: |-
+      rule:
+          kind: alpha, beta
+    labels:
+    - source: |
+        any:
+                - kind: alpha
+                - kind: beta
+      style: primary
+      start: 10
+      end: 58
+    - source: any
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - kind: alpha
+                - kind: beta
+      style: secondary
+      start: 23
+      end: 58
+    - source: |
+        - kind: alpha
+                - kind: beta
+      style: secondary
+      start: 23
+      end: 58
+    - source: |
+        - kind: alpha
+                - kind: beta
+      style: secondary
+      start: 23
+      end: 58
+  ? |
+    rule:
+        any:
+            - {kind: alpha}
+            - {kind: beta}
+  : fixed: |-
+      rule:
+          kind: alpha, beta
+    labels:
+    - source: |
+        any:
+                - {kind: alpha}
+                - {kind: beta}
+      style: primary
+      start: 10
+      end: 62
+    - source: any
+      style: secondary
+      start: 10
+      end: 13
+    - source: |
+        - {kind: alpha}
+                - {kind: beta}
+      style: secondary
+      start: 23
+      end: 62
+    - source: |
+        - {kind: alpha}
+                - {kind: beta}
+      style: secondary
+      start: 23
+      end: 62
+    - source: |
+        - {kind: alpha}
+                - {kind: beta}
+      style: secondary
+      start: 23
+      end: 62
+  ? |
+    rule:
+        has:
+            any: [{kind: alpha}, {kind: beta}]
+  : fixed: |
+      rule:
+          has:
+              kind: alpha, beta
+    labels:
+    - source: 'any: [{kind: alpha}, {kind: beta}]'
+      style: primary
+      start: 23
+      end: 57
+    - source: any
+      style: secondary
+      start: 23
+      end: 26
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 28
+      end: 57
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 28
+      end: 57
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 28
+      end: 57
+  ? |
+    rule:
+        has:
+            field: value
+            any:
+                - kind: alpha
+                - kind: beta
+  : fixed: |-
+      rule:
+          has:
+              field: value
+              kind: alpha, beta
+    labels:
+    - source: |
+        any:
+                    - kind: alpha
+                    - kind: beta
+      style: primary
+      start: 44
+      end: 100
+    - source: any
+      style: secondary
+      start: 44
+      end: 47
+    - source: |
+        - kind: alpha
+                    - kind: beta
+      style: secondary
+      start: 61
+      end: 100
+    - source: |
+        - kind: alpha
+                    - kind: beta
+      style: secondary
+      start: 61
+      end: 100
+    - source: |
+        - kind: alpha
+                    - kind: beta
+      style: secondary
+      start: 61
+      end: 100
+  ? |
+    rule:
+        has: {kind: item, stopBy: {any: [{kind: alpha}, {kind: beta}]}}
+  : fixed: |
+      rule:
+          has: {kind: item, stopBy: {kind: 'alpha, beta'}}
+    labels:
+    - source: 'any: [{kind: alpha}, {kind: beta}]'
+      style: primary
+      start: 37
+      end: 71
+    - source: any
+      style: secondary
+      start: 37
+      end: 40
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 42
+      end: 71
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 42
+      end: 71
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 42
+      end: 71
+  ? |
+    rule:
+        inside: {any: [{kind: alpha}, {kind: beta}], stopBy: end}
+  : fixed: |
+      rule:
+          inside: {kind: 'alpha, beta', stopBy: end}
+    labels:
+    - source: 'any: [{kind: alpha}, {kind: beta}]'
+      style: primary
+      start: 19
+      end: 53
+    - source: any
+      style: secondary
+      start: 19
+      end: 22
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 24
+      end: 53
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 24
+      end: 53
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 24
+      end: 53
+  ? |
+    rule:
+        not:
+            any:
+                - kind: alpha
+                - kind: beta
+  : fixed: |-
+      rule:
+          not:
+              kind: alpha, beta
+    labels:
+    - source: |
+        any:
+                    - kind: alpha
+                    - kind: beta
+      style: primary
+      start: 23
+      end: 79
+    - source: any
+      style: secondary
+      start: 23
+      end: 26
+    - source: |
+        - kind: alpha
+                    - kind: beta
+      style: secondary
+      start: 40
+      end: 79
+    - source: |
+        - kind: alpha
+                    - kind: beta
+      style: secondary
+      start: 40
+      end: 79
+    - source: |
+        - kind: alpha
+                    - kind: beta
+      style: secondary
+      start: 40
+      end: 79
+  ? |
+    rule:
+        nthChild: {position: 2, ofRule: {any: [{kind: alpha}, {kind: beta}]}}
+  : fixed: |
+      rule:
+          nthChild: {position: 2, ofRule: {kind: 'alpha, beta'}}
+    labels:
+    - source: 'any: [{kind: alpha}, {kind: beta}]'
+      style: primary
+      start: 43
+      end: 77
+    - source: any
+      style: secondary
+      start: 43
+      end: 46
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 48
+      end: 77
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 48
+      end: 77
+    - source: '[{kind: alpha}, {kind: beta}]'
+      style: secondary
+      start: 48
+      end: 77

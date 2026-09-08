@@ -1,0 +1,96 @@
+id: require-const-assertion
+snapshots:
+  const E = {} satisfies Item;:
+    fixed: const E = {} as const satisfies Item;
+    labels:
+    - source: '{} satisfies Item'
+      style: primary
+      start: 10
+      end: 27
+    - source: const E = {} satisfies Item;
+      style: secondary
+      start: 0
+      end: 28
+    - source: E = {} satisfies Item
+      style: secondary
+      start: 6
+      end: 27
+  'const PERMISSIONS = { allowed: ''selected'', config: { patterns: [''a@*''] } } satisfies Omit<Item, ''repository''>;':
+    fixed: 'const PERMISSIONS = { allowed: ''selected'', config: { patterns: [''a@*''] } } as const satisfies Omit<Item, ''repository''>;'
+    labels:
+    - source: '{ allowed: ''selected'', config: { patterns: [''a@*''] } } satisfies Omit<Item, ''repository''>'
+      style: primary
+      start: 20
+      end: 109
+    - source: 'const PERMISSIONS = { allowed: ''selected'', config: { patterns: [''a@*''] } } satisfies Omit<Item, ''repository''>;'
+      style: secondary
+      start: 0
+      end: 110
+    - source: 'PERMISSIONS = { allowed: ''selected'', config: { patterns: [''a@*''] } } satisfies Omit<Item, ''repository''>'
+      style: secondary
+      start: 6
+      end: 109
+  'const R = ({ a: 1 } satisfies Item);':
+    fixed: 'const R = ({ a: 1 } as const satisfies Item);'
+    labels:
+    - source: '{ a: 1 } satisfies Item'
+      style: primary
+      start: 11
+      end: 34
+    - source: 'const R = ({ a: 1 } satisfies Item);'
+      style: secondary
+      start: 0
+      end: 36
+    - source: 'R = ({ a: 1 } satisfies Item)'
+      style: secondary
+      start: 6
+      end: 35
+  'const R = ({ a: 1 }) satisfies Item;':
+    fixed: 'const R = ({ a: 1 }) as const satisfies Item;'
+    labels:
+    - source: '({ a: 1 }) satisfies Item'
+      style: primary
+      start: 10
+      end: 35
+    - source: 'const R = ({ a: 1 }) satisfies Item;'
+      style: secondary
+      start: 0
+      end: 36
+    - source: 'R = ({ a: 1 }) satisfies Item'
+      style: secondary
+      start: 6
+      end: 35
+    - source: '{ a: 1 }'
+      style: secondary
+      start: 11
+      end: 19
+  'const X = { A: { p: 1 } } satisfies Record<string, Item>;':
+    fixed: 'const X = { A: { p: 1 } } as const satisfies Record<string, Item>;'
+    labels:
+    - source: '{ A: { p: 1 } } satisfies Record<string, Item>'
+      style: primary
+      start: 10
+      end: 56
+    - source: 'const X = { A: { p: 1 } } satisfies Record<string, Item>;'
+      style: secondary
+      start: 0
+      end: 57
+    - source: 'X = { A: { p: 1 } } satisfies Record<string, Item>'
+      style: secondary
+      start: 6
+      end: 56
+  export const Q = ['a'] satisfies readonly string[];:
+    fixed: export const Q = ['a'] as const satisfies readonly string[];
+    labels:
+    - source: '[''a''] satisfies readonly string[]'
+      style: primary
+      start: 17
+      end: 50
+    - source: const Q = ['a'] satisfies readonly string[];
+      style: secondary
+      start: 7
+      end: 51
+    - source: Q = ['a'] satisfies readonly string[]
+      style: secondary
+      start: 13
+      end: 50

@@ -337,6 +337,30 @@ const _VERDICTS: readonly (readonly [string, Verdict, string])[] = [
         'git-guard: the command runs git or a script through a shell or an interpreter, run git directly and a script by its path. Blocked by git-guard: destructive git actions are disabled. Keep all work as-is.',
     ],
     ['sh -c', 'rewrite', ''],
+    ["sh -c 'git status'", 'rewrite', ''],
+    ["bash -lc 'git status'", 'rewrite', ''],
+    ["env FOO=1 sh -c 'git status'", 'rewrite', ''],
+    ["sh -c 'git status && ls'", 'rewrite', ''],
+    [
+        "sh -c 'git status && git reset --hard'",
+        'deny',
+        'git-guard: git reset --hard wipes working-tree or index state. Blocked by git-guard: destructive git actions are disabled. Keep all work as-is.',
+    ],
+    [
+        'bash -c "$(cat x)"',
+        'deny',
+        'git-guard: the command runs git or a script through a shell or an interpreter, run git directly and a script by its path. Blocked by git-guard: destructive git actions are disabled. Keep all work as-is.',
+    ],
+    [
+        'sh -c "$(cat x)"',
+        'deny',
+        'git-guard: the command runs git or a script through a shell or an interpreter, run git directly and a script by its path. Blocked by git-guard: destructive git actions are disabled. Keep all work as-is.',
+    ],
+    [
+        'eval "$(cat x)"',
+        'deny',
+        'git-guard: the command runs git or a script through a shell or an interpreter, run git directly and a script by its path. Blocked by git-guard: destructive git actions are disabled. Keep all work as-is.',
+    ],
     [
         'sh script.sh',
         'deny',

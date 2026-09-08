@@ -1,24 +1,27 @@
 id: no-copy-task-into-output
 valid:
-    # The item form reaches every consumer and the publish directory
     - |
       <ItemGroup><None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" /></ItemGroup>
-    # Copy into the intermediate directory, a generator step
     - |
       <Copy SourceFiles="BuildInfo.cs.in" DestinationFiles="$(IntermediateOutputPath)BuildInfo.g.cs" />
-    # Item holding the destination as metadata, nothing copies
     - |
       <ItemGroup><_Asset Include="settings.ini" DestinationFolder="$(OutDir)assets/" /></ItemGroup>
-    # Copy out of the output directory into the intermediate directory
     - |
       <Copy SourceFiles="$(OutDir)$(TargetFileName)" DestinationFolder="$(IntermediateOutputPath)stage/" />
+    - |
+      <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDirStage)" />
+    - |
+      <Copy SourceFiles="settings.ini" DestinationFolder="$(PublishDir)" />
 invalid:
-    # Copy into the output directory
     - |
       <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
-    # Destination file list under the target directory
     - |
       <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)assets/%(Filename)%(Extension)')" />
-    # Move into the output directory, the same bin
     - |
       <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />
+    - |
+      <Copy SourceFiles='settings.ini' DestinationFolder='$(OutDir)' />
+    - |
+      <Copy SourceFiles="settings.ini" DestinationFolder="$(OutputPath)assets/" />
+    - |
+      <Move SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)%(Filename)%(Extension)')" />

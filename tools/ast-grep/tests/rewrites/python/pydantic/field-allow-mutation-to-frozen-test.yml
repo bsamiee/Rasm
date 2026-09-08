@@ -54,3 +54,4 @@ invalid:
       class Settings(BaseSettings):
           value: int = Field(default=3, allow_mutation=False)
     - "wrap(pydantic.Field(allow_mutation=False), frozen=False)"
+    - "pydantic.Field(allow_mutation=False,)"

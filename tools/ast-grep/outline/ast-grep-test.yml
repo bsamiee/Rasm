@@ -1,0 +1,30 @@
+id: ast-grep-test
+language: yaml
+role: item
+symbolType: module
+utils:
+    document-mapping:
+        kind: block_mapping, flow_mapping
+        inside: {kind: 'block_node, flow_node', inside: {kind: document}}
+    cases-pair:
+        kind: block_mapping_pair, flow_pair
+        has: {field: key, regex: '^(valid|invalid|"valid"|"invalid"|''valid''|''invalid'')$'}
+rule:
+    kind: document
+    pattern: $DOCUMENT
+    has:
+        kind: block_node, flow_node
+        has:
+            matches: document-mapping
+            all:
+                - has: {kind: 'block_mapping_pair, flow_pair', all: [{has: {field: key, regex: '^(id|"id"|''id'')$'}}, {has: {field: value, pattern: $NAME}}]}
+                - has: {matches: cases-pair}
+rewriters:
+    - id: list
+      rule: {matches: cases-pair, has: {field: key, pattern: $KEY}, inside: {matches: document-mapping}}
+      fix: $KEY
+transform:
+    SIGNATURE: {rewrite: {source: $DOCUMENT, rewriters: [list], joinBy: ', '}}
+name: $NAME
+signature: $SIGNATURE
+isExported: true

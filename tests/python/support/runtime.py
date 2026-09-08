@@ -29,9 +29,9 @@ class Settings(BaseSettings):
 
 _settings = Settings()
 HYPOTHESIS_HOME = _settings.hypothesis_storage_directory
-os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))  # ast-grep-ignore: no-os-environ, written before the hypothesis import
+os.environ.setdefault("HYPOTHESIS_STORAGE_DIRECTORY", str(HYPOTHESIS_HOME))
 if _settings.tests_observability:
-    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")  # ast-grep-ignore: no-os-environ, written before the hypothesis import
+    os.environ.setdefault("HYPOTHESIS_EXPERIMENTAL_OBSERVABILITY", "1")
 
 from typing import TYPE_CHECKING
 

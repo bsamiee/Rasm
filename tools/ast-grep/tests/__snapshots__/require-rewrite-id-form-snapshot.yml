@@ -1,0 +1,213 @@
+id: require-rewrite-id-form
+snapshots:
+  ? |
+    "id": no-item
+  : labels:
+    - source: '"id": no-item'
+      style: primary
+      start: 0
+      end: 13
+    - source: '"id"'
+      style: secondary
+      start: 0
+      end: 4
+    - source: no-item
+      style: secondary
+      start: 6
+      end: 13
+    - source: |
+        "id": no-item
+      style: secondary
+      start: 0
+      end: 14
+    - source: |
+        "id": no-item
+      style: secondary
+      start: 0
+      end: 14
+    - source: |
+        "id": no-item
+      style: secondary
+      start: 0
+      end: 14
+  ? |
+    id: "no-item"
+  : labels:
+    - source: 'id: "no-item"'
+      style: primary
+      start: 0
+      end: 13
+    - source: id
+      style: secondary
+      start: 0
+      end: 2
+    - source: '"no-item"'
+      style: secondary
+      start: 4
+      end: 13
+    - source: |
+        id: "no-item"
+      style: secondary
+      start: 0
+      end: 14
+    - source: |
+        id: "no-item"
+      style: secondary
+      start: 0
+      end: 14
+    - source: |
+        id: "no-item"
+      style: secondary
+      start: 0
+      end: 14
+  ? |
+    id: Item-to-Other
+  : labels:
+    - source: 'id: Item-to-Other'
+      style: primary
+      start: 0
+      end: 17
+    - source: id
+      style: secondary
+      start: 0
+      end: 2
+    - source: Item-to-Other
+      style: secondary
+      start: 4
+      end: 17
+    - source: |
+        id: Item-to-Other
+      style: secondary
+      start: 0
+      end: 18
+    - source: |
+        id: Item-to-Other
+      style: secondary
+      start: 0
+      end: 18
+    - source: |
+        id: Item-to-Other
+      style: secondary
+      start: 0
+      end: 18
+  ? |
+    id: item-to
+  : labels:
+    - source: 'id: item-to'
+      style: primary
+      start: 0
+      end: 11
+    - source: id
+      style: secondary
+      start: 0
+      end: 2
+    - source: item-to
+      style: secondary
+      start: 4
+      end: 11
+    - source: |
+        id: item-to
+      style: secondary
+      start: 0
+      end: 12
+    - source: |
+        id: item-to
+      style: secondary
+      start: 0
+      end: 12
+    - source: |
+        id: item-to
+      style: secondary
+      start: 0
+      end: 12
+  ? |
+    id: no-item
+    language: bash
+  : labels:
+    - source: 'id: no-item'
+      style: primary
+      start: 0
+      end: 11
+    - source: id
+      style: secondary
+      start: 0
+      end: 2
+    - source: no-item
+      style: secondary
+      start: 4
+      end: 11
+    - source: |
+        id: no-item
+        language: bash
+      style: secondary
+      start: 0
+      end: 27
+    - source: |
+        id: no-item
+        language: bash
+      style: secondary
+      start: 0
+      end: 27
+    - source: |
+        id: no-item
+        language: bash
+      style: secondary
+      start: 0
+      end: 27
+  ? |
+    id: to-item
+  : labels:
+    - source: 'id: to-item'
+      style: primary
+      start: 0
+      end: 11
+    - source: id
+      style: secondary
+      start: 0
+      end: 2
+    - source: to-item
+      style: secondary
+      start: 4
+      end: 11
+    - source: |
+        id: to-item
+      style: secondary
+      start: 0
+      end: 12
+    - source: |
+        id: to-item
+      style: secondary
+      start: 0
+      end: 12
+    - source: |
+        id: to-item
+      style: secondary
+      start: 0
+      end: 12
+  ? |
+    {id: item, language: bash}
+  : labels:
+    - source: 'id: item'
+      style: primary
+      start: 1
+      end: 9
+    - source: id
+      style: secondary
+      start: 1
+      end: 3
+    - source: item
+      style: secondary
+      start: 5
+      end: 9
+    - source: '{id: item, language: bash}'
+      style: secondary
+      start: 0
+      end: 26
+    - source: '{id: item, language: bash}'
+      style: secondary
+      start: 0
+      end: 26
+    - source: '{id: item, language: bash}'
+      style: secondary
+      start: 0
+      end: 26

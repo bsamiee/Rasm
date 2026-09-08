@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# On demand, ast-grep scan --filter '^restated-default-argument-to-omitted$' --error=restated-default-argument-to-omitted -U <paths>
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: restated-default-argument-to-omitted
 language: python
 severity: off
@@ -7,7 +6,6 @@ rule:
     kind: call
     pattern: $FN($$$ARGS)
     has: {field: arguments, has: {matches: python-restated-default-argument}}
-    # A comment among the arguments has no place in the joined list, and a positional argument after a dropped positional takes its place
     not:
         has:
             field: arguments
@@ -18,7 +16,6 @@ rule:
                     matches: python-restated-default-argument
                     precedes: {pattern: $_, not: {kind: keyword_argument}, stopBy: end}
 rewriters:
-    # Every argument but the restated default survives, the join rebuilds the list, and the level pin keeps a dropped node's children out
     - id: kept
       rule: {pattern: $ARG, inside: {kind: argument_list}, not: {matches: python-restated-default-argument}}
       fix: $ARG
@@ -26,5 +23,4 @@ transform:
     KEPT: {rewrite: {source: $$$ARGS, rewriters: [kept], joinBy: ', '}}
 fix: $FN($KEPT)
 message: '`$FN` is called with an argument its documented default holds'
-note: >-
-    The call keeps every other argument in order and drops the restated default, and a list with a comment or with a positional argument after the dropped one is edited by hand
+note: The call keeps every other argument in order and drops the restated default, a list with a comment or a positional argument after the dropped one is edited by hand

@@ -1,30 +1,27 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
-# Resolve directory and file paths relative to sgconfig.yml, absolute paths load too, the form of a scratch config over one family's real directories
 ruleDirs:
     - rules
-    - rewrites # severity: off rules enable through --error=<id> or test --include-off
+    - rewrites
 utilDirs:
-    - utils # Global utilities load through project configuration, not standalone or inline rules
+    - utils
 testConfigs:
     - testDir: rule-tests
 languageGlobs:
-    <language>: ["<glob>"] # Parser overrides allow compatible languages to share rules
-customLanguages: # Required in every scratch config with a util of the custom language under its utilDirs
+    <language>: ["<glob>"]
+customLanguages:
     <name>:
-        libraryPath: <parser-dylib> # A path or a map from Rust target triples to paths
+        libraryPath: <parser-dylib>
         extensions: ["<ext>"]
-        expandoChar: <char> # Pattern metavariables use the grammar-compatible character; fixes still use $
-        metaVarChar: <char> # Override only when the custom grammar requires a different metavariable prefix
-        languageSymbol: <dylib-symbol> # Omit for tree_sitter_<name>
+        expandoChar: <char>
+        metaVarChar: <char>
+        languageSymbol: <dylib-symbol>
         outlineRules: <outline-rules>.yml
 languageInjections:
     - hostLanguage: <host-language>
       rule:
         kind: <content-kind>
         pattern: $CONTENT
-        inside: {matches: <owner-util>} # The entry's own utils map compiles the owner predicate, injections load no utilDirs
+        inside: {matches: <owner-util>}
       utils:
         <owner-util>: {kind: <owner-kind>}
-      injected: <embedded-language> # Use a language list with a $LANG capture for dynamic selection
-# Prove the executing owner, take the interpreter the project's configuration declares, and capture complete content without host delimiters
-# Raw injections decode no host escape or folding, a quoted or folded scalar and a JSON string with an escape sequence stay outside
+      injected: <embedded-language>

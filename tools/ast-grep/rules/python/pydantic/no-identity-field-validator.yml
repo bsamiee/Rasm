@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-identity-field-validator
 language: python
 severity: error
@@ -36,23 +36,41 @@ utils:
                                             - has: {field: value, kind: string, regex: '^["''](before|after)["'']$'}
                                         - kind: comment
     classmethod: {kind: decorator, regex: '^@classmethod$'}
+    staticmethod: {kind: decorator, regex: '^@staticmethod$'}
+    value-parameter:
+        kind: identifier, typed_parameter, default_parameter, typed_default_parameter
+        matches: {python-parameter: {name: {pattern: $VALUE}}}
+    info-parameter: {kind: 'identifier, typed_parameter, default_parameter, typed_default_parameter'}
+    class-parameters:
+        kind: parameters
+        all:
+            - has: {kind: "identifier, typed_parameter", nthChild: 1}
+            - has: {matches: value-parameter, nthChild: 2}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: positional_separator}}}, not: {matches: info-parameter}}}
+            - not: {has: {nthChild: {position: 4, ofRule: {not: {kind: positional_separator}}}}}
+    static-parameters:
+        kind: parameters
+        all:
+            - has: {matches: value-parameter, nthChild: 1}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: positional_separator}}}, not: {matches: info-parameter}}}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: positional_separator}}}}}
 rule:
     kind: decorated_definition
     all:
         - has: {matches: validator}
-        - has: {matches: classmethod}
-        - not: {has: {kind: decorator, not: {any: [{matches: validator}, {matches: classmethod}]}}}
+        - not: {has: {kind: decorator, not: {any: [{matches: validator}, {matches: classmethod}, {matches: staticmethod}]}}}
+        - any:
+            - all:
+                - has: {matches: staticmethod}
+                - has: {kind: function_definition, has: {field: parameters, matches: static-parameters}}
+            - all:
+                - not: {has: {matches: staticmethod}}
+                - has: {kind: function_definition, has: {field: parameters, matches: class-parameters}}
         - has:
             kind: function_definition
             all:
                 - has: {field: name, pattern: $METHOD}
                 - not: {has: {regex: '^async$'}}
-                - has:
-                    field: parameters
-                    all:
-                        - has: {kind: "identifier, typed_parameter", nthChild: 1}
-                        - has: {kind: "identifier, typed_parameter", nthChild: 2, matches: {python-parameter: {name: {pattern: $VALUE}}}}
-                        - not: {has: {nthChild: 3}}
                 - has:
                     field: body
                     all:
@@ -79,7 +97,6 @@ rule:
                                   has: {field: name, pattern: $METHOD}
                                 - kind: decorated_definition
                                   has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
-        # Another member keeps the class body once the validator leaves, a sole validator over an inherited field is read by hand
         - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 fix: ''
 message: '`$METHOD` returns the field value without validating or changing it'

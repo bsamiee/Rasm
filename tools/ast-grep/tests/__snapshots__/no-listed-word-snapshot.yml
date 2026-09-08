@@ -1,0 +1,243 @@
+id: no-listed-word
+snapshots:
+  ? |
+    "note": The very item
+  : labels:
+    - source: The very item
+      style: primary
+      start: 8
+      end: 21
+  ? |
+    # Also the item holds the value
+  : labels:
+    - source: '# Also the item holds the value'
+      style: primary
+      start: 0
+      end: 31
+  ? |
+    # I hope this helps the item
+  : labels:
+    - source: '# I hope this helps the item'
+      style: primary
+      start: 0
+      end: 28
+  ? |
+    # Leverage the item
+  : labels:
+    - source: '# Leverage the item'
+      style: primary
+      start: 0
+      end: 19
+  ? |
+    # Modern items hold the value
+  : labels:
+    - source: '# Modern items hold the value'
+      style: primary
+      start: 0
+      end: 29
+  ? |
+    # Note that the item holds the value
+  : labels:
+    - source: '# Note that the item holds the value'
+      style: primary
+      start: 0
+      end: 36
+  ? |
+    # Rather than the item, the other is rather large
+  : labels:
+    - source: '# Rather than the item, the other is rather large'
+      style: primary
+      start: 0
+      end: 49
+  ? |
+    # Set up the item
+  : labels:
+    - source: '# Set up the item'
+      style: primary
+      start: 0
+      end: 17
+  ? |
+    # Should the item hold the value
+  : labels:
+    - source: '# Should the item hold the value'
+      style: primary
+      start: 0
+      end: 32
+  ? |
+    # The `Item` call also holds `Other`
+  : labels:
+    - source: '# The `Item` call also holds `Other`'
+      style: primary
+      start: 0
+      end: 36
+  ? |
+    # The `Item` call would hold the value
+  : labels:
+    - source: '# The `Item` call would hold the value'
+      style: primary
+      start: 0
+      end: 38
+  ? |
+    # The crucial item
+  : labels:
+    - source: '# The crucial item'
+      style: primary
+      start: 0
+      end: 18
+  ? |
+    # The item also holds the value
+  : labels:
+    - source: '# The item also holds the value'
+      style: primary
+      start: 0
+      end: 31
+  ? |
+    # The item doesn't hold the value
+  : labels:
+    - source: '# The item doesn''t hold the value'
+      style: primary
+      start: 0
+      end: 33
+  ? |
+    # The item holds several values
+  : labels:
+    - source: '# The item holds several values'
+      style: primary
+      start: 0
+      end: 31
+  ? |
+    # The item holds the value, so the other reads it
+  : labels:
+    - source: '# The item holds the value, so the other reads it'
+      style: primary
+      start: 0
+      end: 49
+  ? |
+    # The item is determining the value
+  : labels:
+    - source: '# The item is determining the value'
+      style: primary
+      start: 0
+      end: 35
+  ? |
+    # The item is rather large
+  : labels:
+    - source: '# The item is rather large'
+      style: primary
+      start: 0
+      end: 26
+  ? |
+    # The item may have held the value, and the other may hold it
+  : labels:
+    - source: '# The item may have held the value, and the other may hold it'
+      style: primary
+      start: 0
+      end: 61
+  ? |
+    # The item may hold the value
+  : labels:
+    - source: '# The item may hold the value'
+      style: primary
+      start: 0
+      end: 29
+  ? |
+    # The item serves as the value
+  : labels:
+    - source: '# The item serves as the value'
+      style: primary
+      start: 0
+      end: 30
+  ? |
+    # The item typically holds the value
+  : labels:
+    - source: '# The item typically holds the value'
+      style: primary
+      start: 0
+      end: 36
+  ? |
+    # The item whose value is read
+  : labels:
+    - source: '# The item whose value is read'
+      style: primary
+      start: 0
+      end: 30
+  ? |
+    # The item would hold the value
+  : labels:
+    - source: '# The item would hold the value'
+      style: primary
+      start: 0
+      end: 31
+  ? |
+    # The item, e.g. the other item
+  : labels:
+    - source: '# The item, e.g. the other item'
+      style: primary
+      start: 0
+      end: 31
+  ? |
+    # The legacy item holds the value
+  : labels:
+    - source: '# The legacy item holds the value'
+      style: primary
+      start: 0
+      end: 33
+  ? |
+    # The roster of items
+  : labels:
+    - source: '# The roster of items'
+      style: primary
+      start: 0
+      end: 21
+  ? |
+    # just holds the `Item`, also the other
+  : labels:
+    - source: '# just holds the `Item`, also the other'
+      style: primary
+      start: 0
+      end: 39
+  ? |
+    labels: {ITEM: {style: primary, message: 'The item simply holds the value'}}
+  : labels:
+    - source: '''The item simply holds the value'''
+      style: primary
+      start: 41
+      end: 74
+  ? |
+    message: The item holds the value, also
+  : labels:
+    - source: The item holds the value, also
+      style: primary
+      start: 9
+      end: 39
+  ? |
+    message: The item just holds the value
+  : labels:
+    - source: The item just holds the value
+      style: primary
+      start: 9
+      end: 38
+  ? |
+    message: The value carries the payload
+  : labels:
+    - source: The value carries the payload
+      style: primary
+      start: 9
+      end: 38
+  ? |
+    note: 'The item should hold the value'
+  : labels:
+    - source: '''The item should hold the value'''
+      style: primary
+      start: 6
+      end: 38
+  ? |
+    note: |
+      Write the item, however the other item stays
+  : labels:
+    - source: |
+        |
+          Write the item, however the other item stays
+      style: primary
+      start: 6
+      end: 55

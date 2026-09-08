@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Decision } from '../composition/decision.ts';
-import { type PathEvent, pathRule, pathSkills } from './paths.ts';
+import { type PathEvent, pathRule, pathSkills, recordSearches, type Searched } from './paths.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,7 +14,12 @@ type Plain<D> =
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _NONE: ReadonlySet<string> = new Set();
-const _FRESH = { seen: _NONE, guidance: ['/repo/docs'], file: '' };
+const _FRESH = { seen: _NONE, guidance: ['/repo/docs'], file: '', searches: [] };
+const _PACKAGING: ReadonlySet<string> = new Set(['dotnet-msbuild-packaging', 'dotnet-msbuild-evaluation', 'dotnet-msbuild-antipatterns']);
+const _CATALOG_ROW = 'catalog:\n    ssh2: 1.17.0\n';
+const _MANIFEST_ROW = '        "ssh2": "catalog:",\n';
+const _VERSION_ROW = '<PackageVersion Include="Thinktecture.Runtime.Extensions" Version="9.0.0" />\n';
+const _KEEP = 'keep the dropped row and add the missing dependency record, or remove it there too';
 const _OVER = 160;
 const _LONG = `- ${'x'.repeat(_OVER)}`;
 // File with a third line an Edit replaces
@@ -42,6 +47,9 @@ const _edit = (path: string, oldString: string, newString: string): PathEvent =>
     ['old_string']: oldString,
     ['new_string']: newString,
 });
+
+// A finished search as rg answers it, exit 0 with the holder paths on stdout and exit 1 with none
+const _search = (name: string, exitCode: number, stdout: string, stderr = ''): Searched => ({ name, argv: [], run: { exitCode, stdout, stderr } });
 
 const _cell = (path: string, source: string): PathEvent => ({
     tool: 'NotebookEdit',
@@ -104,6 +112,10 @@ describe('pathRule', () => {
         expect(_plain(pathRule(_FRESH)(_read('/repo/.env.local')))).toStrictEqual({ kind: 'rewrite', context: ['Load the secrets skill'] });
     });
 
+    it.each(['mise.toml', 'mise.unix.toml', '.miserc.toml', 'nx.json'])('routes the toolchain file %s to the manage-repo skill', (name) => {
+        expect(_plain(pathRule(_FRESH)(_read(`/repo/${name}`)))).toStrictEqual({ kind: 'rewrite', context: ['Load the manage-repo skill'] });
+    });
+
     it('injects each skill line once and stamps the keys', () => {
         const e = _edit('/repo/eng/native/Directory.Build.props', '<Target Name="a" />', '<Target Name="b" />');
         expect(_plain(pathRule(_FRESH)(e))).toStrictEqual({
@@ -116,21 +128,7 @@ describe('pathRule', () => {
             ],
         });
         expect(pathSkills(e)).toStrictEqual(['dotnet-msbuild-evaluation', 'dotnet-msbuild-antipatterns', 'dotnet-msbuild-execution', 'manage-repo']);
-        expect(_plain(pathRule({ seen: new Set(pathSkills(e)), guidance: [], file: '' })(e))).toStrictEqual({ kind: 'rewrite', context: [] });
-    });
-});
-
-describe('pathRule probe directory', () => {
-    it('denies a write under the shared probe directory naming the labelled one, and passes the labelled write and a read', () => {
-        expect(_plain(pathRule(_FRESH)(_write(`${_SCRATCHPAD}/probe/sgconfig.yml`, 'ruleDirs: []')))).toStrictEqual({
-            kind: 'deny',
-            reason: `${_SCRATCHPAD}/probe/sgconfig.yml sits in the probe/ directory every agent of the session shares, write under ${_SCRATCHPAD}/<label>-probe/sgconfig.yml, the label your brief states (main for the main agent)`,
-        });
-        expect(_plain(pathRule(_FRESH)(_write(`${_SCRATCHPAD}/x-probe/sgconfig.yml`, 'ruleDirs: []')))).toStrictEqual({
-            kind: 'rewrite',
-            context: [],
-        });
-        expect(_plain(pathRule(_FRESH)(_read(`${_SCRATCHPAD}/probe/sgconfig.yml`)))).toStrictEqual({ kind: 'rewrite', context: [] });
+        expect(_plain(pathRule({ ..._FRESH, seen: new Set(pathSkills(e)), guidance: [] })(e))).toStrictEqual({ kind: 'rewrite', context: [] });
     });
 });
 
@@ -161,11 +159,7 @@ describe('pathRule per edit', () => {
     it('adds the per-edit lines for a package version, a tool version, and a pin', () => {
         expect(
             _plain(
-                pathRule({
-                    seen: new Set(['dotnet-msbuild-packaging', 'dotnet-msbuild-evaluation', 'dotnet-msbuild-antipatterns']),
-                    guidance: [],
-                    file: '',
-                })(
+                pathRule({ ..._FRESH, seen: _PACKAGING, guidance: [] })(
                     _edit(
                         '/repo/Directory.Packages.props',
                         '<PackageVersion Include="A" Version="1" />',
@@ -175,7 +169,9 @@ describe('pathRule per edit', () => {
             ),
         ).toStrictEqual({ kind: 'rewrite', context: ['Verify the row with mcp__nuget__get_package_context'] });
         expect(
-            _plain(pathRule({ seen: new Set(['manage-repo']), guidance: [], file: '' })(_edit('/repo/mise.toml', 'buf = "latest"', 'buf = "1.2.3"'))),
+            _plain(
+                pathRule({ ..._FRESH, seen: new Set(['manage-repo']), guidance: [] })(_edit('/repo/mise.toml', 'buf = "latest"', 'buf = "1.2.3"')),
+            ),
         ).toStrictEqual({
             kind: 'rewrite',
             context: ['Pinned tool versions take their reason in a comment on the row'],
@@ -191,9 +187,116 @@ describe('pathRule per edit', () => {
             kind: 'rewrite',
             context: ['Record the dependency in the owning README.md dependency list'],
         });
-        expect(_plain(pathRule(_FRESH)(_edit('/repo/pnpm-workspace.yaml', 'catalog:\n  effect: 3.0.0\n', 'catalog:\n')))).toStrictEqual({
+        expect(
+            _plain(
+                pathRule({ ..._FRESH, searches: [_search('effect', 0, 'package.json\n')] })(
+                    _edit('/repo/pnpm-workspace.yaml', 'catalog:\n  effect: 3.0.0\n', 'catalog:\n'),
+                ),
+            ),
+        ).toStrictEqual({ kind: 'rewrite', context: [`effect remains in package.json, ${_KEEP}`] });
+    });
+});
+
+describe('pathRule dependency records', () => {
+    it('reports a catalog-only deletion while the manifest holds the package', () => {
+        expect(
+            _plain(
+                pathRule({ ..._FRESH, searches: [_search('ssh2', 0, 'package.json\n')] })(
+                    _edit('/repo/pnpm-workspace.yaml', _CATALOG_ROW, 'catalog:\n'),
+                ),
+            ),
+        ).toStrictEqual({
             kind: 'rewrite',
-            context: ['Add the missing dependency record to its manifest or README.md dependency list and keep the dropped row'],
+            context: [`ssh2 remains in package.json, ${_KEEP}`],
         });
+    });
+
+    it('reports a manifest-only deletion while the catalog holds the package', () => {
+        expect(
+            _plain(pathRule({ ..._FRESH, searches: [_search('ssh2', 0, 'pnpm-workspace.yaml\n')] })(_edit('/repo/package.json', _MANIFEST_ROW, ''))),
+        ).toStrictEqual({
+            kind: 'rewrite',
+            context: [`ssh2 remains in pnpm-workspace.yaml, ${_KEEP}`],
+        });
+    });
+
+    it('passes the deletion from the last record in either order', () => {
+        expect(_plain(pathRule({ ..._FRESH, searches: [_search('ssh2', 1, '')] })(_edit('/repo/package.json', _MANIFEST_ROW, '')))).toStrictEqual({
+            kind: 'rewrite',
+            context: [],
+        });
+        expect(
+            _plain(pathRule({ ..._FRESH, searches: [_search('ssh2', 1, '')] })(_edit('/repo/pnpm-workspace.yaml', _CATALOG_ROW, 'catalog:\n'))),
+        ).toStrictEqual({
+            kind: 'rewrite',
+            context: [],
+        });
+    });
+
+    it('reports a package version deletion while a project references the package', () => {
+        const holders = 'libs/dotnet/A/A.csproj\ntests/dotnet/B/B.csproj\n';
+        expect(
+            _plain(
+                pathRule({ ..._FRESH, seen: _PACKAGING, searches: [_search('Thinktecture.Runtime.Extensions', 0, holders)] })(
+                    _edit('/repo/Directory.Packages.props', _VERSION_ROW, ''),
+                ),
+            ),
+        ).toStrictEqual({
+            kind: 'rewrite',
+            context: [`Thinktecture.Runtime.Extensions remains in libs/dotnet/A/A.csproj, tests/dotnet/B/B.csproj, ${_KEEP}`],
+        });
+    });
+
+    it('reports a search child that failed', () => {
+        expect(
+            _plain(pathRule({ ..._FRESH, searches: [_search('ssh2', -1, '', 'spawn rg ENOENT')] })(_edit('/repo/package.json', _MANIFEST_ROW, ''))),
+        ).toStrictEqual({
+            kind: 'rewrite',
+            context: ['The record search for ssh2 failed, rg exited -1: spawn rg ENOENT'],
+        });
+    });
+});
+
+describe('recordSearches', () => {
+    it('builds one rg search per dropped row over the sibling records, the edited file excluded last', () => {
+        expect(recordSearches(_edit('/repo/pnpm-workspace.yaml', _CATALOG_ROW, 'catalog:\n'), '/repo')).toStrictEqual([
+            {
+                name: 'ssh2',
+                argv: [
+                    'rg',
+                    '--files-with-matches',
+                    '--ignore-case',
+                    '--hidden',
+                    '--glob',
+                    'package.json',
+                    '--glob',
+                    'pnpm-workspace.yaml',
+                    '--glob',
+                    'README.md',
+                    '--glob',
+                    '!/pnpm-workspace.yaml',
+                    '--regexp',
+                    '^\\s+\'?ssh2\'?:|^\\s*"ssh2":\\s*"|`ssh2`',
+                ],
+            },
+        ]);
+    });
+
+    it('escapes a NuGet id and normalizes a Python name', () => {
+        const dotnet = recordSearches(_edit('/repo/Directory.Packages.props', _VERSION_ROW, ''), '/repo');
+        expect(dotnet.map((search) => search.argv.at(-1))).toStrictEqual([
+            'PackageReference\\s+Include="Thinktecture\\.Runtime\\.Extensions"|`Thinktecture\\.Runtime\\.Extensions`',
+        ]);
+        expect(dotnet.map((search) => search.argv.includes('!/Directory.Packages.props'))).toStrictEqual([true]);
+        expect(
+            recordSearches(_edit('/repo/pyproject.toml', '    "typing-extensions>=4",\n', ''), '/repo').map((search) => search.argv.at(-1)),
+        ).toStrictEqual(['^\\s*"typing[-_.]+extensions[^\\w.-]|^name = "typing[-_.]+extensions"|`typing-extensions`']);
+    });
+
+    it('builds no search for a read, a write, an added row, or a renamed file', () => {
+        expect(recordSearches(_read('/repo/package.json'), '/repo')).toStrictEqual([]);
+        expect(recordSearches(_write('/repo/package.json', _MANIFEST_ROW), '/repo')).toStrictEqual([]);
+        expect(recordSearches(_edit('/repo/package.json', '', _MANIFEST_ROW), '/repo')).toStrictEqual([]);
+        expect(recordSearches(_edit('/repo/deps.yaml', _CATALOG_ROW, 'catalog:\n'), '/repo')).toStrictEqual([]);
     });
 });

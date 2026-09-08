@@ -7,11 +7,18 @@ snapshots:
       from msgspec import json
       json.decode(value)
     labels:
-    - source: json
-      message: Codec module
+    - source: json.Decoder().decode(value)
       style: primary
       start: 25
-      end: 29
+      end: 53
+    - source: decode
+      style: secondary
+      start: 40
+      end: 46
+    - source: decode
+      style: secondary
+      start: 40
+      end: 46
   ? |
     from msgspec import json
     target[json], other = values
@@ -21,11 +28,18 @@ snapshots:
       target[json], other = values
       json.encode(value)
     labels:
-    - source: json
-      message: Codec module
+    - source: json.Encoder().encode(value)
       style: primary
       start: 54
-      end: 58
+      end: 82
+    - source: encode
+      style: secondary
+      start: 69
+      end: 75
+    - source: encode
+      style: secondary
+      start: 69
+      end: 75
   ? |
     from msgspec import msgpack as packed
     packed.Encoder().encode(load())
@@ -33,11 +47,276 @@ snapshots:
       from msgspec import msgpack as packed
       packed.encode(load())
     labels:
-    - source: packed
-      message: Codec module
+    - source: packed.Encoder().encode(load())
       style: primary
       start: 38
-      end: 44
+      end: 69
+    - source: encode
+      style: secondary
+      start: 55
+      end: 61
+    - source: encode
+      style: secondary
+      start: 55
+      end: 61
+  ? |
+    from msgspec.json import Encoder
+    try:
+        from msgspec.json import encode
+    except ImportError:
+        pass
+    Encoder().encode(value)
+  : fixed: |
+      from msgspec.json import Encoder
+      try:
+          from msgspec.json import encode
+      except ImportError:
+          pass
+      encode(value)
+    labels:
+    - source: Encoder().encode(value)
+      style: primary
+      start: 103
+      end: 126
+    - source: msgspec.json
+      style: secondary
+      start: 5
+      end: 17
+    - source: Encoder
+      style: secondary
+      start: 25
+      end: 32
+    - source: from msgspec.json import Encoder
+      style: secondary
+      start: 0
+      end: 32
+    - source: msgspec.json
+      style: secondary
+      start: 47
+      end: 59
+    - source: encode
+      style: secondary
+      start: 67
+      end: 73
+    - source: from msgspec.json import encode
+      style: secondary
+      start: 42
+      end: 73
+    - source: |
+        from msgspec.json import Encoder
+        try:
+            from msgspec.json import encode
+        except ImportError:
+            pass
+        Encoder().encode(value)
+      style: secondary
+      start: 0
+      end: 127
+    - source: Encoder
+      style: secondary
+      start: 103
+      end: 110
+    - source: Encoder()
+      style: secondary
+      start: 103
+      end: 112
+    - source: Encoder()
+      style: secondary
+      start: 103
+      end: 112
+  ? |
+    from msgspec.json import Encoder as JsonEncoder, encode as dump
+    JsonEncoder().encode(value)
+  : fixed: |
+      from msgspec.json import Encoder as JsonEncoder, encode as dump
+      dump(value)
+    labels:
+    - source: JsonEncoder().encode(value)
+      style: primary
+      start: 64
+      end: 91
+    - source: msgspec.json
+      style: secondary
+      start: 5
+      end: 17
+    - source: Encoder
+      style: secondary
+      start: 25
+      end: 32
+    - source: Encoder as JsonEncoder
+      style: secondary
+      start: 25
+      end: 47
+    - source: from msgspec.json import Encoder as JsonEncoder, encode as dump
+      style: secondary
+      start: 0
+      end: 63
+    - source: msgspec.json
+      style: secondary
+      start: 5
+      end: 17
+    - source: encode
+      style: secondary
+      start: 49
+      end: 55
+    - source: dump
+      style: secondary
+      start: 59
+      end: 63
+    - source: encode as dump
+      style: secondary
+      start: 49
+      end: 63
+    - source: from msgspec.json import Encoder as JsonEncoder, encode as dump
+      style: secondary
+      start: 0
+      end: 63
+    - source: |
+        from msgspec.json import Encoder as JsonEncoder, encode as dump
+        JsonEncoder().encode(value)
+      style: secondary
+      start: 0
+      end: 92
+    - source: JsonEncoder
+      style: secondary
+      start: 64
+      end: 75
+    - source: JsonEncoder()
+      style: secondary
+      start: 64
+      end: 77
+    - source: JsonEncoder()
+      style: secondary
+      start: 64
+      end: 77
+  ? |
+    from msgspec.json import Encoder, encode
+    Encoder().encode(value)
+  : fixed: |
+      from msgspec.json import Encoder, encode
+      encode(value)
+    labels:
+    - source: Encoder().encode(value)
+      style: primary
+      start: 41
+      end: 64
+    - source: msgspec.json
+      style: secondary
+      start: 5
+      end: 17
+    - source: Encoder
+      style: secondary
+      start: 25
+      end: 32
+    - source: from msgspec.json import Encoder, encode
+      style: secondary
+      start: 0
+      end: 40
+    - source: msgspec.json
+      style: secondary
+      start: 5
+      end: 17
+    - source: encode
+      style: secondary
+      start: 34
+      end: 40
+    - source: from msgspec.json import Encoder, encode
+      style: secondary
+      start: 0
+      end: 40
+    - source: |
+        from msgspec.json import Encoder, encode
+        Encoder().encode(value)
+      style: secondary
+      start: 0
+      end: 65
+    - source: Encoder
+      style: secondary
+      start: 41
+      end: 48
+    - source: Encoder()
+      style: secondary
+      start: 41
+      end: 50
+    - source: Encoder()
+      style: secondary
+      start: 41
+      end: 50
+  ? |
+    from msgspec.msgpack import Decoder
+    from msgspec.msgpack import decode
+    Decoder().decode(value)
+  : fixed: |
+      from msgspec.msgpack import Decoder
+      from msgspec.msgpack import decode
+      decode(value)
+    labels:
+    - source: Decoder().decode(value)
+      style: primary
+      start: 71
+      end: 94
+    - source: msgspec.msgpack
+      style: secondary
+      start: 5
+      end: 20
+    - source: Decoder
+      style: secondary
+      start: 28
+      end: 35
+    - source: from msgspec.msgpack import Decoder
+      style: secondary
+      start: 0
+      end: 35
+    - source: msgspec.msgpack
+      style: secondary
+      start: 41
+      end: 56
+    - source: decode
+      style: secondary
+      start: 64
+      end: 70
+    - source: from msgspec.msgpack import decode
+      style: secondary
+      start: 36
+      end: 70
+    - source: |
+        from msgspec.msgpack import Decoder
+        from msgspec.msgpack import decode
+        Decoder().decode(value)
+      style: secondary
+      start: 0
+      end: 95
+    - source: Decoder
+      style: secondary
+      start: 71
+      end: 78
+    - source: Decoder()
+      style: secondary
+      start: 71
+      end: 80
+    - source: Decoder()
+      style: secondary
+      start: 71
+      end: 80
+  ? |
+    import msgspec
+    text = msgspec.json.Encoder().encode(value).decode()
+  : fixed: |
+      import msgspec
+      text = msgspec.json.encode(value).decode()
+    labels:
+    - source: msgspec.json.Encoder().encode(value)
+      style: primary
+      start: 22
+      end: 58
+    - source: encode
+      style: secondary
+      start: 45
+      end: 51
+    - source: encode
+      style: secondary
+      start: 45
+      end: 51
   ? |
     import msgspec as codec
     codec.json.Encoder().encode(value)
@@ -45,11 +324,18 @@ snapshots:
       import msgspec as codec
       codec.json.encode(value)
     labels:
-    - source: codec.json
-      message: Codec module
+    - source: codec.json.Encoder().encode(value)
       style: primary
       start: 24
-      end: 34
+      end: 58
+    - source: encode
+      style: secondary
+      start: 45
+      end: 51
+    - source: encode
+      style: secondary
+      start: 45
+      end: 51
   ? |
     import msgspec.json as codec
     codec.Encoder().encode(value)
@@ -57,40 +343,140 @@ snapshots:
       import msgspec.json as codec
       codec.encode(value)
     labels:
-    - source: codec
-      message: Codec module
+    - source: codec.Encoder().encode(value)
       style: primary
       start: 29
-      end: 34
+      end: 58
+    - source: encode
+      style: secondary
+      start: 45
+      end: 51
+    - source: encode
+      style: secondary
+      start: 45
+      end: 51
   msgspec.json.Decoder().decode(value):
     fixed: msgspec.json.decode(value)
     labels:
-    - source: msgspec.json
-      message: Codec module
+    - source: msgspec.json.Decoder().decode(value)
       style: primary
       start: 0
-      end: 12
+      end: 36
+    - source: decode
+      style: secondary
+      start: 23
+      end: 29
+    - source: decode
+      style: secondary
+      start: 23
+      end: 29
   msgspec.json.Encoder().encode(value):
     fixed: msgspec.json.encode(value)
     labels:
-    - source: msgspec.json
-      message: Codec module
+    - source: msgspec.json.Encoder().encode(value)
       style: primary
       start: 0
-      end: 12
+      end: 36
+    - source: encode
+      style: secondary
+      start: 23
+      end: 29
+    - source: encode
+      style: secondary
+      start: 23
+      end: 29
   msgspec.msgpack.Decoder().decode(value):
     fixed: msgspec.msgpack.decode(value)
     labels:
-    - source: msgspec.msgpack
-      message: Codec module
+    - source: msgspec.msgpack.Decoder().decode(value)
       style: primary
       start: 0
-      end: 15
+      end: 39
+    - source: decode
+      style: secondary
+      start: 26
+      end: 32
+    - source: decode
+      style: secondary
+      start: 26
+      end: 32
   msgspec.msgpack.Encoder().encode(value):
     fixed: msgspec.msgpack.encode(value)
     labels:
-    - source: msgspec.msgpack
-      message: Codec module
+    - source: msgspec.msgpack.Encoder().encode(value)
       style: primary
       start: 0
-      end: 15
+      end: 39
+    - source: encode
+      style: secondary
+      start: 26
+      end: 32
+    - source: encode
+      style: secondary
+      start: 26
+      end: 32
+  ? |
+    try:
+        from msgspec.json import Decoder
+    except ImportError:
+        pass
+    from msgspec.json import decode
+    Decoder().decode(value)
+  : fixed: |
+      try:
+          from msgspec.json import Decoder
+      except ImportError:
+          pass
+      from msgspec.json import decode
+      decode(value)
+    labels:
+    - source: Decoder().decode(value)
+      style: primary
+      start: 103
+      end: 126
+    - source: msgspec.json
+      style: secondary
+      start: 14
+      end: 26
+    - source: Decoder
+      style: secondary
+      start: 34
+      end: 41
+    - source: from msgspec.json import Decoder
+      style: secondary
+      start: 9
+      end: 41
+    - source: msgspec.json
+      style: secondary
+      start: 76
+      end: 88
+    - source: decode
+      style: secondary
+      start: 96
+      end: 102
+    - source: from msgspec.json import decode
+      style: secondary
+      start: 71
+      end: 102
+    - source: |
+        try:
+            from msgspec.json import Decoder
+        except ImportError:
+            pass
+        from msgspec.json import decode
+        Decoder().decode(value)
+      style: secondary
+      start: 0
+      end: 127
+    - source: Decoder
+      style: secondary
+      start: 103
+      end: 110
+    - source: Decoder()
+      style: secondary
+      start: 103
+      end: 112
+    - source: Decoder()
+      style: secondary
+      start: 103
+      end: 112

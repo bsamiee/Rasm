@@ -5,28 +5,34 @@ valid:
     - "class C { object F() => values.Map(Parse).Filter(Present); }"
     - "class C { object F() => values.Map<Option<int>>(Parse).Somes(); }"
     - "class C { object F() => values.Map(Parse).Somes(Other); }"
+    - "class C { object F() => values.Map(Parse).Somes<int>(Other); }"
+    - "class C { object F() => values.Map((value, index) => Parse(value + index)).Somes<int>(); }"
     - "class C { object F() => values.Map((value, index) => Parse(value + index)).Somes(); }"
     - "class C { object F() => values.Map(static (value, index) => Parse(value + index)).Somes(); }"
-    # Named indexed selectors still change parameter order under Choose
     - "class C { object F() => values.Map(f: (value, index) => Parse(value + index)).Somes(); }"
     - "class C { object F() => values.Select((value, index) => Parse(value + index)).Somes(); }"
     - "class C { object F() => values.Transform(Parse).Somes(); }"
-    # Explicit delegate casts and parentheses do not change indexed parameter order
     - "class C { object F() => values.Map((Func<int, int, Option<int>>)((value, index) => Parse(value + index))).Somes(); }"
     - "class C { object F() => values.Map(((value, index) => Parse(value + index))).Somes(); }"
+    - "class C { object F() => values.Map(delegate (int value, int index) { return Parse(value + index); }).Somes(); }"
+    - "class C { object F() => values.Map(value => Parse(value)).Somes(/* retain */); }"
 invalid:
     - "class C { object F() => values.Map(Parse).Somes(); }"
     - "class C { object F() => Read().Map(static value => Parse(value)).Somes(); }"
     - "class C { object F() => values.Map(value => { Observe(value); return Parse(value); }).Somes(); }"
     - "class C { object F() => values.Map((value) => Parse(value)).Somes(); }"
-    # Map names its parameter f and Choose names it selector
     - "class C { object F() => values.Map(f: Parse).Somes(); }"
-    # Preserve comments around the parameter name
     - "class C { object F() => values.Map(f /* retain */ : Parse).Somes(); }"
-    # Nested named arguments retain the owning method parameter
     - "class C { object F() => values.Map(value => Parse(f: value)).Somes(); }"
     - "class C { object F() => values.Select(Parse).Somes(); }"
     - "class C { object F() => values.Select(f: Parse).Somes(); }"
-    # Unary wrappers are retained, and an inner callback belongs to Parse
     - "class C { object F() => values.Map((Func<int, Option<int>>)(value => Parse(value))).Somes(); }"
     - "class C { object F() => values.Map(value => Parse((item, index) => item + index, value)).Somes(); }"
+    - "class C { object F() => values.Map(delegate (int value) { return Parse(value); }).Somes(); }"
+    - "class C { object F() => values.Map(f => Parse(f)).Somes(); }"
+    - "class C { object F() => values.Map((int value) => Parse(value)).Somes(); }"
+    - "class C { object F() => values.Map(f: value => Parse(value)).Somes(); }"
+    - "class C { object F() => Read(f: values).Map(Parse).Somes(); }"
+    - "class C { object F() => values.Map(Parse).Somes().Map(Show); }"
+    - "class C { object F() => values.Map(Parse).Somes<int>(); }"
+    - "class C { object F() => values.Select(f: Parse).Somes<int>(); }"

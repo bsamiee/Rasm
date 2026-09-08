@@ -1,65 +1,55 @@
 id: no-set-and-undefine-target-framework
 valid:
-    # Single-targeting reference
     - |
       <ProjectReference Include="../Tool/Tool.csproj" />
-    # Undefine alone, the corrected form
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework"
         ReferenceOutputAssembly="false" />
-    # Custom item holding both names as metadata, SetTargetFramework does nothing outside ProjectReference
     - |
       <ItemGroup><_HostProject Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
         </ItemGroup>
-    # Set alone
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0" />
-    # Undefine of another property beside the set, TargetFrameworks holds the name as a prefix
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
         UndefineProperties="Platform;TargetFrameworks" />
-    # Condition literal equal to the property name beside the set, the name slot keeps it out of the undefine clause
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
         Condition="'$(ReferenceMode)' == 'TargetFramework'" />
-    # Conditioned metadata may be absent at evaluation
     - |
       <ProjectReference Include="Tool.csproj"><SetTargetFramework Condition="'$(Legacy)' != 'true'">TargetFramework=net10.0</SetTargetFramework>
         <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
-    # Mutually exclusive metadata do not set and remove together
     - |
       <ProjectReference Include="a.csproj"><SetTargetFramework Condition="'$(Mode)' == 'one'">TargetFramework=net10.0</SetTargetFramework>
         <UndefineProperties Condition="'$(Mode)' != 'one'">TargetFramework</UndefineProperties></ProjectReference>
-    # Empty metadata sets no global framework property
     - |
       <ProjectReference Include="a.csproj" SetTargetFramework="" UndefineProperties="TargetFramework" />
-    # Conditional removal through the alternative metadata name
     - |
       <ProjectReference Include="a.csproj" SetTargetFramework="TargetFramework=net10.0"><GlobalPropertiesToRemove Condition="'$(Mode)' == 'outer'">TargetFramework</GlobalPropertiesToRemove></ProjectReference>
-    # An assignment-shaped value on unrelated metadata sets no framework
     - |
       <ProjectReference Include="a.csproj" Description="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+    - |
+      <ProjectReference Include="Item.csproj" SetTargetFramework="TargetFrameworks=net10.0" UndefineProperties="TargetFramework" />
 invalid:
-    # GlobalPropertiesToRemove beside the set, the task receives it as RemoveProperties
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" GlobalPropertiesToRemove="TargetFramework" />
-    # Both metadata on one reference
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" SetTargetFramework="TargetFramework=net10.0"
         UndefineProperties="TargetFramework" />
-    # Both metadata in the child-element form
     - |
       <ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework>
         <UndefineProperties>TargetFramework</UndefineProperties></ProjectReference>
-    # TargetFramework inside a longer undefine list, no skip flag
     - |
       <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="Platform;TargetFramework" />
-    # Single-quoted attributes
     - |
       <ProjectReference Include='../Tool/Tool.csproj' SetTargetFramework='TargetFramework=net10.0' UndefineProperties='TargetFramework' />
-    # A label on unconditional metadata does not make the assignment conditional
     - |
       <ProjectReference Include="a.csproj" UndefineProperties="TargetFramework"><SetTargetFramework Label="Framework">TargetFramework=net10.0</SetTargetFramework></ProjectReference>
-    # A condition on unrelated metadata does not guard the conflicting assignments
     - |
       <ProjectReference Include="a.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework"><Private Condition="'$(Mode)' == 'copy'">false</Private></ProjectReference>
+    - |
+      <ProjectReference Include="Item.csproj" SetTargetFramework="Platform=x64;TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+    - |
+      <ProjectReference Update="Item.csproj" SetTargetFramework="TargetFramework=net10.0" UndefineProperties="TargetFramework" />
+    - |
+      <ProjectReference Include="Item.csproj" SetTargetFramework=" TargetFramework = net10.0 " UndefineProperties=" TargetFramework " />

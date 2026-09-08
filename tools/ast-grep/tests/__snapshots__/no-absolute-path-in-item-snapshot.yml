@@ -8,6 +8,27 @@ snapshots:
       start: 0
       end: 48
   ? |
+    <Compile Include="C:/src/item.cs" />
+  : labels:
+    - source: <Compile Include="C:/src/item.cs" />
+      style: primary
+      start: 0
+      end: 36
+  ? |
+    <Copy SourceFiles="~/item.txt" DestinationFolder="$(OutDir)" />
+  : labels:
+    - source: <Copy SourceFiles="~/item.txt" DestinationFolder="$(OutDir)" />
+      style: primary
+      start: 0
+      end: 63
+  ? |
+    <Exec Command="build" WorkingDirectory="/opt/tool" />
+  : labels:
+    - source: <Exec Command="build" WorkingDirectory="/opt/tool" />
+      style: primary
+      start: 0
+      end: 53
+  ? |
     <Import Project="/Users/someone/build/common.props" />
   : labels:
     - source: <Import Project="/Users/someone/build/common.props" />
@@ -22,12 +43,12 @@ snapshots:
       start: 0
       end: 83
   ? |
-    <Project Path="/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
+    <Project Path="/Users/someone/checkout/libs/Item/Item.csproj" />
   : labels:
-    - source: <Project Path="/Volumes/Work/Rasm/libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
+    - source: <Project Path="/Users/someone/checkout/libs/Item/Item.csproj" />
       style: primary
       start: 0
-      end: 90
+      end: 64
   ? |
     <Reference Include="Newtonsoft.Json" HintPath="~/.nuget/packages/newtonsoft.json/13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
   : labels:
@@ -42,6 +63,13 @@ snapshots:
       style: primary
       start: 0
       end: 82
+  ? |
+    <Reference Include="Tool"><HintPath>/usr/lib/tool.dll</HintPath></Reference>
+  : labels:
+    - source: <Reference Include="Tool"><HintPath>/usr/lib/tool.dll</HintPath></Reference>
+      style: primary
+      start: 0
+      end: 76
   ? |
     <Reference Include="Tool"><HintPath>C:\tools\mytool\mytool.dll</HintPath></Reference>
   : labels:

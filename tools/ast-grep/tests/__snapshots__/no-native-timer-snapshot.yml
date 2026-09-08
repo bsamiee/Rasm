@@ -80,6 +80,16 @@ snapshots:
       style: secondary
       start: 15
       end: 34
+  const signal = globalThis.AbortSignal.timeout(1000);:
+    labels:
+    - source: globalThis.AbortSignal.timeout(1000)
+      style: primary
+      start: 15
+      end: 51
+    - source: globalThis.AbortSignal.timeout
+      style: secondary
+      start: 15
+      end: 45
   import * as timers from "node:timers"; timers.setTimeout(tick, 1);:
     labels:
     - source: timers.setTimeout(tick, 1)
@@ -90,6 +100,16 @@ snapshots:
       style: secondary
       start: 39
       end: 56
+  import * as timers from "node:timers/promises"; await timers.setTimeout(1);:
+    labels:
+    - source: timers.setTimeout(1)
+      style: primary
+      start: 54
+      end: 74
+    - source: timers.setTimeout
+      style: secondary
+      start: 54
+      end: 71
   import timers from "node:timers/promises"; await timers.scheduler.wait(1);:
     labels:
     - source: timers.scheduler.wait(1)
@@ -108,6 +128,16 @@ snapshots:
       style: secondary
       start: 49
       end: 70
+  import { nextTick } from "node:process"; nextTick(tick);:
+    labels:
+    - source: nextTick(tick)
+      style: primary
+      start: 41
+      end: 55
+    - source: nextTick
+      style: secondary
+      start: 41
+      end: 49
   import { schedule as custom } from "./custom"; setTimeout(tick, 1);:
     labels:
     - source: setTimeout(tick, 1)
@@ -204,6 +234,16 @@ snapshots:
       style: secondary
       start: 52
       end: 62
+  process.nextTick(tick);:
+    labels:
+    - source: process.nextTick(tick)
+      style: primary
+      start: 0
+      end: 22
+    - source: process.nextTick
+      style: secondary
+      start: 0
+      end: 16
   queueMicrotask(tick);:
     labels:
     - source: queueMicrotask(tick)

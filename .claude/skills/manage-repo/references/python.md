@@ -14,7 +14,7 @@ The root `pyproject.toml` holds every dependency group as unpinned names and `uv
 - Cache paths belong in the `[tool.*]` table of the tool (`cache-dir` for uv and ruff, `cache_dir` for mypy and pytest), under `.cache/<tool>`
 - The import roots are stated once per checker (`src` for ruff, `root` for ty, `pythonpath` for pytest) and hold the same values
 
-`required-environments` requires matching wheels for packages without source distributions. Packages with source distributions can build from source.
+`required-environments` requires matching wheels for packages without source distributions. Packages with source distributions can build from source. Under the 3.15.0rc2 pin, 70 of the 670 lock entries record an sdist and no wheel (3.15.0 final releases 2026-10-01), members of the set build against libraries the sibling repository builds (Arrow C++, ICU, vips, PDAL, OpenEXR), and pyktx is the one member with no Linux wheel in any release.
 
 ## [02]-[PROJECTS]
 
@@ -59,7 +59,10 @@ Provisioning rules:
 - Find the repository root as the nearest ancestor directory holding the root lock file
 - Take every tool a package manager can pin from the manager, and download the rest
 - Create the vcpkg binary cache and downloads directories before the first run, vcpkg reads its cache variables for existing absolute paths alone
-- Link a host tool's version-free path under `.cache/tools/<library>` with a relative link, and the tree restores from a cache on another machine
+- Link the release root (the executable's directory, or its parent when named `bin`) at `.cache/tools/<library>` with a relative link
+- Consumers join the manifest `path` onto the link, and the relative link restores from a cache on another machine
+
+The sdist of pyktx reads `LIBKTX_VERSION` at import and compiles against `ktx.h` and `-lktx` from the `LIBKTX_*` directories the mise environment names (`tooling.md` holds the rows). The PEP 517 build inherits the process environment, uv's cached build survives a changed inherited variable, and `uv cache clean pyktx` then `uv sync` rebuilds it. The Python CI job provisions before `uv sync --locked`, and `github.md` holds the job order.
 
 ## [05]-[STAGING]
 

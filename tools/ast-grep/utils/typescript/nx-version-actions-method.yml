@@ -28,8 +28,6 @@ utils:
             - matches: imported-version-actions
             - kind: identifier
               pattern: $RESOLVED
-              # The module-owned constructor's annotation carries the Nx contract.
-              # A nested scope can shadow it; its own declaration is not shadowing.
               not: {inside: {kind: statement_block, stopBy: end}}
               inside:
                 kind: program

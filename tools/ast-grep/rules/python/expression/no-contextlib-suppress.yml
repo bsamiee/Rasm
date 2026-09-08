@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-contextlib-suppress
 language: python
 severity: error
-# Report-only, the probed fix `suppress` to `nullcontext` fails the run, `KeyError: 'missing'`, the failure becomes a Result value at the boundary
 rule:
     matches: {python-module-member: {module: {regex: '^contextlib$'}, name: {regex: '^suppress$', pattern: $NAME}}}
 message: '`$NAME` hides the failure it catches'

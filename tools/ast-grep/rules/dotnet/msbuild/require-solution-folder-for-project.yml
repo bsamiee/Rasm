@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, a Folder wrapped around the project duplicates an existing one, dotnet sln list failed with Duplicate item '/libs/' of type 'Folder'
 id: require-solution-folder-for-project
 language: xml
 severity: error

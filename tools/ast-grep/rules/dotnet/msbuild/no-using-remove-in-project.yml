@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, deleting the Remove restores the central Using, the probe build failed with CS0246 on the namespace Thinktecture
 id: no-using-remove-in-project
 language: xml
 severity: error

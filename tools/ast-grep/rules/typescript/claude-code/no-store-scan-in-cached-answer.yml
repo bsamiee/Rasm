@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# No fix, the replacement is a summary row the writers maintain, a design change and the one rule without a fix.
 id: no-store-scan-in-cached-answer
 language: tsx
 severity: error
@@ -31,13 +30,15 @@ utils:
     read-per-key:
         matches: {claude-code-engine-call: {noun: {regex: ^store$}}}
         has: {field: function, has: {field: property, regex: ^get$}}
-        inside:
-            matches: syntax-function-boundary
-            stopBy: {matches: syntax-function-boundary}
-            inside:
-                kind: call_expression
+        any:
+            - inside:
+                matches: syntax-function-boundary
                 stopBy: {matches: syntax-function-boundary}
-                has: {field: function, regex: '^Promise\.all$'}
+                inside:
+                    kind: call_expression
+                    stopBy: {matches: syntax-function-boundary}
+                    has: {field: function, regex: '^Promise\.(all|allSettled)$'}
+            - inside: {kind: for_in_statement, field: body, stopBy: {matches: syntax-function-boundary}}
 rule:
     any:
         - {matches: store-keys}
@@ -45,5 +46,5 @@ rule:
     inside: {matches: cached-hook, stopBy: end}
     pattern: $SCAN
 message: The cached-answer hook scans the store keys and reads every row on each evaluation
-note: Read one summary row the writers maintain, and keep the scan in the event that writes the rows
+note: Read one summary row the writers maintain, and keep the scan in the hook of the event that writes the rows
 labels: {SCAN: {style: primary}}

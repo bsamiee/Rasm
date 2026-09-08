@@ -1,21 +1,16 @@
 id: no-fourth-shell-control-level
 valid:
-    # Three heterogeneous control constructs, wrappers counted once.
     - if ready; then for x in a; do while pending; do work; done; done; fi
     - case $mode in a) for ((i=0; i<3; i++)); do if ready; then work; fi; done ;; esac
-    # A function starts its own control scope.
     - if ready; then for x in a; do f() { if ready; then while pending; do work; done; fi; }; done; fi
     - f() { if ready; then while pending; do case $mode in a) work ;; esac; done; fi; }
-    # Sequential guards and elif arms do not add nesting.
     - if a; then work; elif b; then work; elif c; then work; elif d; then work; fi
 invalid:
     - if ready; then for x in a; do while pending; do case $mode in a) work ;; esac; done; done; fi
     - for ((i=0; i<3; i++)); do case $mode in a) until ready; do if pending; then work; fi; done ;; esac; done
-    # Four nested constructs inside a function still exceed the limit.
     - f() { if a; then if b; then if c; then if d; then work; fi; fi; fi; fi; }
-    # Report the outermost fourth construct, not every deeper descendant.
     - if a; then if b; then if c; then if d; then if e; then work; fi; fi; fi; fi; fi
-    # Outer controls do not suppress an independent function's fourth level.
     - if ready; then f() { if a; then if b; then if c; then if d; then work; fi; fi; fi; fi; }; fi
-    # A loop body wrapper does not hide the outer control from the depth boundary.
     - for x in a; do if a; then if b; then if c; then if d; then work; fi; fi; fi; fi; done
+    - if a; then ( if b; then if c; then if d; then work; fi; fi; fi ); fi
+    - if a; then select x in a; do while b; do if d; then work; fi; done; done; fi

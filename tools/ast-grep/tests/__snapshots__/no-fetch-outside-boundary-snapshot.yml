@@ -30,6 +30,16 @@ snapshots:
       style: secondary
       start: 17
       end: 22
+  const response = fetch?.(url);:
+    labels:
+    - source: fetch?.(url)
+      style: primary
+      start: 17
+      end: 29
+    - source: fetch
+      style: secondary
+      start: 17
+      end: 22
   const response = globalThis.fetch(url);:
     labels:
     - source: globalThis.fetch(url)
@@ -48,6 +58,42 @@ snapshots:
       style: secondary
       start: 17
       end: 33
+  const response = globalThis.window.fetch(url);:
+    labels:
+    - source: globalThis.window.fetch(url)
+      style: primary
+      start: 17
+      end: 45
+    - source: globalThis.window
+      style: secondary
+      start: 17
+      end: 34
+    - source: fetch
+      style: secondary
+      start: 35
+      end: 40
+    - source: globalThis.window.fetch
+      style: secondary
+      start: 17
+      end: 40
+  const response = globalThis['fetch'](url);:
+    labels:
+    - source: globalThis['fetch'](url)
+      style: primary
+      start: 17
+      end: 41
+    - source: globalThis
+      style: secondary
+      start: 17
+      end: 27
+    - source: '''fetch'''
+      style: secondary
+      start: 28
+      end: 35
+    - source: globalThis['fetch']
+      style: secondary
+      start: 17
+      end: 36
   const response = self.fetch(url);:
     labels:
     - source: self.fetch(url)
@@ -84,6 +130,42 @@ snapshots:
       style: secondary
       start: 17
       end: 29
+  const response = window.self.fetch(url);:
+    labels:
+    - source: window.self.fetch(url)
+      style: primary
+      start: 17
+      end: 39
+    - source: window.self
+      style: secondary
+      start: 17
+      end: 28
+    - source: fetch
+      style: secondary
+      start: 29
+      end: 34
+    - source: window.self.fetch
+      style: secondary
+      start: 17
+      end: 34
+  const response = window["fetch"](url);:
+    labels:
+    - source: window["fetch"](url)
+      style: primary
+      start: 17
+      end: 37
+    - source: window
+      style: secondary
+      start: 17
+      end: 23
+    - source: '"fetch"'
+      style: secondary
+      start: 24
+      end: 31
+    - source: window["fetch"]
+      style: secondary
+      start: 17
+      end: 32
   import { Effect } from "effect"; Effect.fromAsyncIterable((async function* () { yield fetch(url); })(), mapError);:
     labels:
     - source: fetch(url)

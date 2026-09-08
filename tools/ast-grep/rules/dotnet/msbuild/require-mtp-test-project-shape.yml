@@ -14,14 +14,12 @@ transform:
     SHAPED: rewrite($DOC, rewriters=[exe, group, coverage])
 fix: $SHAPED
 rewriters:
-    # Another output type becomes Exe, the text of the property alone
     - id: exe
       rule:
         kind: CharData
         inside: {kind: content, inside: {matches: {msbuild-property: {name: {regex: '^OutputType$'}}}}}
         not: {regex: '(?i)^\s*Exe\s*$'}
       fix: Exe
-    # A project with no OutputType property opens with a group setting it, the root element's start tag is the position
     - id: group
       rule:
         kind: STag
@@ -29,7 +27,6 @@ rewriters:
         inside: {kind: element, inside: {kind: document}}
         not: {inside: {kind: document, stopBy: end, has: {matches: {msbuild-property: {name: {regex: '^OutputType$'}}}, stopBy: end}}}
       fix: $TAG<PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-    # The coverage collector joins the framework reference when the project lacks it
     - id: coverage
       rule:
         pattern: _REF

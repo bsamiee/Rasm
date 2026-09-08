@@ -38,7 +38,7 @@ Each orchestrator decides every judgment itself, messages `main` alone, and runs
 7. Run the checks the standards name over every file in scope, and fix each hit
 8. Report to `main` under the contract
 
-Forks hold the orchestrator's context, and their briefs name the step and the entry and repeat nothing the context holds. Fork briefs that name no fresh reviewer get a self-review recorded in place of the fresh pass. When the fork type is unavailable, a fresh `general-purpose` agent takes the step with the entry text and the standards pasted in. A follow-up to a returned fork goes to a fresh agent with a self-contained brief, because a resumed fork can read the message as another agent's.
+Forks hold the orchestrator's context, and their briefs name the step and the entry and repeat nothing the context holds. Fork briefs that name no fresh reviewer get a self-review recorded in place of the fresh pass. When the fork type is unavailable, a fresh `general-purpose` agent takes the step with the entry text and the standards pasted in. A follow-up to a returned fork goes to a fresh agent with a self-contained brief, because a resumed fork can read the message as another agent's, and a `SendMessage` to a fresh agent lands at its next tool round as its own task, running or returned.
 
 ## [04]-[TEMPLATES]
 

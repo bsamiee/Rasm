@@ -1,9 +1,10 @@
-# Distinguish runtime text from provably numeric output; option-order permutations belong to the removed automatic fixer.
 id: no-echo-of-expansion
 valid:
     - echo "${#value}"
     - echo "${#@}"
     - printf '%s\n' "$value"
+    - runner echo "$value"
+    - builtin printf '%s\n' "$value"
     - echo plain text
     - echo "quoted literal"
     - echo
@@ -15,12 +16,16 @@ valid:
     - echo "$$"
     - echo "$!"
     - echo "$((1 + 2))"
+    - echo "${#value} lines"
+    - echo "${#first}${#second}"
+    - echo $RANDOM
+    - echo "$SECONDS"
+    - echo "${UID}"
+    - echo "$EUID $PPID $BASHPID $LINENO $SHLVL $OPTIND $HISTCMD $SRANDOM $BASH_SUBSHELL $EPOCHSECONDS $EPOCHREALTIME"
 invalid:
     - echo "${!name}"
     - echo "${value#$prefix}"
-    # Prefix removal uses # after the variable and does not produce a length.
     - echo "${value#prefix}"
-    # Numeric fragments cannot certify a word with additional runtime text.
     - echo "${#values[@]}$suffix"
     - echo "${value}"
     - echo $value
@@ -35,3 +40,11 @@ invalid:
     - echo -- "$value"
     - echo literal "$value"
     - echo "$value" >&2
+    - builtin echo "$value"
+    - command echo "$value"
+    - \echo "$value"
+    - echo "$RANDOM$suffix"
+    - echo "${RANDOM:-0}"
+    - echo "$RANDOMIZER"
+    - echo "${values[RANDOM]}"
+    - time echo "$value"

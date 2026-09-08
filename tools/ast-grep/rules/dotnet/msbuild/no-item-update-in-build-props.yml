@@ -1,29 +1,29 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, a Remove wrapped in a target runs at execution time, -getItem:Compile still listed Generated/G.cs
 id: no-item-update-in-build-props
 language: xml
 severity: error
 files: ['**/Directory.Build.props']
+utils:
+    same-include:
+        kind: element
+        all:
+            - has: {matches: msbuild-tag, has: {kind: Name, pattern: _ITEM}}
+            - matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {kind: AttValue}}}
 rule:
     all:
         - kind: element
           has: {matches: msbuild-tag, has: {kind: Name, pattern: _ITEM, regex: '^(Compile|None|EmbeddedResource)$'}}
-        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^ItemGroup$'}}}}}
+        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^(Update|Remove)$'}, value: {kind: AttValue}}}}}
         - not: {inside: {matches: {msbuild-element: {name: {regex: '^Target$'}}}, stopBy: end}}
-        # Explicit definitions or imports require evaluation; the SDK default glob is no longer the only possible producer.
         - not:
             inside:
                 kind: element
                 stopBy: end
-                has:
-                    kind: content
-                    has:
-                        kind: element
-                        stopBy: end
-                        any:
-                            - matches: {msbuild-element: {name: {regex: '^Import$'}}}
-                            - all:
-                                - has: {matches: msbuild-tag, has: {kind: Name, pattern: _ITEM}}
-                                - matches: {msbuild-metadata: {name: {regex: '^Include$'}, value: {kind: AttValue}}}
+                has: {kind: content, has: {kind: element, stopBy: end, matches: {msbuild-element: {name: {regex: '^(Import|Sdk)$'}}}}}
+        - not: {follows: {stopBy: end, matches: same-include}}
+        - not:
+            inside:
+                kind: content
+                inside: {kind: element, follows: {stopBy: end, kind: element, has: {kind: content, has: {matches: same-include}}}}
 message: Directory.Build.props updates or removes a default SDK item without an explicit item definition
 note: Apply SDK glob changes in the project or Directory.Build.targets, and exclude through DefaultItemExcludes

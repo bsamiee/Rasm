@@ -1,0 +1,44 @@
+id: no-shadowed-nameref-target
+valid:
+    - |
+      hits_of() { local -n found=$1; local -A counts; found[x]=1; }
+      declare -A hits=()
+      hits_of hits
+    - |
+      plain() { local -A hits; hits[a]=1; }
+      plain hits
+    - |
+      other() { local -n out=$1; local total=0; out=$total; }
+      other result
+    - |
+      f() { local -n out=$1; local total; out=1; }
+      g total
+    - |
+      declare -A hits
+      hits_of hits
+    - |
+      f() { local -n out=$1; local hits; out=1; }
+      f "hits"
+invalid:
+    - |
+      hits_of() { local -n found=$1; local -A hits; local root=$2 count; found[x]=1; }
+      declare -A hits=()
+      hits_of hits "$root"
+    - |
+      counted() { declare -n target=$1; declare -a hits; target=1; }
+      counted hits
+    - |
+      total() { local -n out=$1; local count=0; out=$count; }
+      total count
+    - |
+      f() { local -n found=$1; found=1; }
+      f found
+    - |
+      f() { local -n out=$1; local value; out=1; }
+      g() { local value; f value; }
+    - |
+      f() { local -n out=$2; local mode; out=1; }
+      f fast mode
+    - |
+      if ready; then f() { local -n out=$1; local mode; out=1; }; fi
+      f mode

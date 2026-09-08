@@ -54,6 +54,24 @@ snapshots:
       style: secondary
       start: 26
       end: 75
+  if a; then ( if b; then if c; then if d; then work; fi; fi; fi ); fi:
+    labels:
+    - source: if d; then work; fi
+      style: primary
+      start: 35
+      end: 54
+    - source: if a; then ( if b; then if c; then if d; then work; fi; fi; fi ); fi
+      style: secondary
+      start: 0
+      end: 68
+    - source: if b; then if c; then if d; then work; fi; fi; fi
+      style: secondary
+      start: 13
+      end: 62
+    - source: if c; then if d; then work; fi; fi
+      style: secondary
+      start: 24
+      end: 58
   if a; then if b; then if c; then if d; then if e; then work; fi; fi; fi; fi; fi:
     labels:
     - source: if d; then if e; then work; fi; fi
@@ -72,6 +90,24 @@ snapshots:
       style: secondary
       start: 22
       end: 71
+  if a; then select x in a; do while b; do if d; then work; fi; done; done; fi:
+    labels:
+    - source: if d; then work; fi
+      style: primary
+      start: 41
+      end: 60
+    - source: if a; then select x in a; do while b; do if d; then work; fi; done; done; fi
+      style: secondary
+      start: 0
+      end: 76
+    - source: select x in a; do while b; do if d; then work; fi; done; done
+      style: secondary
+      start: 11
+      end: 72
+    - source: while b; do if d; then work; fi; done
+      style: secondary
+      start: 29
+      end: 66
   if ready; then f() { if a; then if b; then if c; then if d; then work; fi; fi; fi; fi; }; fi:
     labels:
     - source: if d; then work; fi

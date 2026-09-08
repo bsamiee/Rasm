@@ -1,24 +1,21 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
-# The root rules target checks fixtures and mutation coverage, project lint targets scan their roots
 ruleDirs:
     - tools/ast-grep/rules
-    - tools/ast-grep/rewrites # severity: off, loaded by --error=<id> on demand and by ast-grep test --include-off
+    - tools/ast-grep/rewrites
 utilDirs:
     - tools/ast-grep/utils
 testConfigs:
     - testDir: tools/ast-grep/tests
 languageGlobs:
-    tsx: ["*.ts", "*.mts", "*.cts"] # Use tsx for shared rules over the repository's TSX-compatible TypeScript syntax
-    xml: ["NuGet.config"] # NuGet.config needs XML parsing despite its .config extension
+    tsx: ["*.ts", "*.mts", "*.cts"]
+    xml: ["NuGet.config"]
 customLanguages:
     xml:
-        libraryPath: .cache/ast-grep/xml.so # Written by the root grammar target, every ast-grep run aborts until it exists
+        libraryPath: .cache/ast-grep/xml.so
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
-        expandoChar: _ # XML tag and attribute names accept _ instead of $ for metavariables
+        expandoChar: _
         outlineRules: tools/ast-grep/outline/msbuild-target.yml
 languageInjections:
-    # The run step of a workflow job or a composite action parses as bash, the one shell the repository's steps declare, and
-    # actionlint resolves the shell of a step in another language itself
     - hostLanguage: yaml
       rule:
         kind: block_mapping_pair, flow_pair
@@ -68,8 +65,8 @@ languageInjections:
                 kind: block_mapping, flow_mapping
                 has:
                     kind: block_mapping_pair, flow_pair
-                    has: {field: key, regex: '^(using|"using"|''using'')$'}
                     all:
+                        - has: {field: key, regex: '^(using|"using"|''using'')$'}
                         - has: {field: value, regex: '^(composite|"composite"|''composite'')$'}
                 inside:
                     kind: block_node, flow_node
@@ -77,7 +74,6 @@ languageInjections:
                         kind: block_mapping_pair, flow_pair
                         has: {field: key, regex: '^(runs|"runs"|''runs'')$'}
                         inside: {matches: document-mapping}
-    # A command string of an Nx target parses as bash, the run-commands executor's shell, and env values and metadata hold no command
     - hostLanguage: json
       rule:
         kind: string_content

@@ -1,11 +1,8 @@
-# Every case is a function, the match sits under a function body, and no-result-match-for-map owns the detection cases
 id: result-match-to-map
 valid:
-    # The corrected form
     - |
       def owner(names):
           return names.map(lambda text: text.strip())
-    # Wildcard ok pattern, the mapper has no parameter name
     - |
       def owner(names, env):
           match names:
@@ -13,7 +10,6 @@ valid:
                   return Error(failure)
               case Result(ok=_):
                   return Ok(env)
-    # Tag-only ok pattern, the mapper has no parameter name
     - |
       def owner(names, env):
           match names:
@@ -21,7 +17,6 @@ valid:
                   return Error(failure)
               case Result(tag="ok"):
                   return Ok(env)
-    # Ok pattern with no capture
     - |
       def owner(names, env):
           match names:
@@ -29,7 +24,6 @@ valid:
                   return Error(failure)
               case Result():
                   return Ok(env)
-    # Operator subject, the member access would bind to the right operand
     - |
       def owner(first, second):
           match first or second:
@@ -37,7 +31,6 @@ valid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok(text.strip())
-    # Guard on the ok arm
     - |
       def owner(names, rid):
           match names:
@@ -45,7 +38,6 @@ valid:
                   return Error(failure)
               case Result(ok=manifest) if rid in manifest.runtimes:
                   return Ok(manifest.runtimes[rid])
-    # Ok arm return holding an await, a lambda has no await
     - |
       async def owner(names, fetch):
           match names:
@@ -53,7 +45,6 @@ valid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok(await fetch(text))
-    # Ok value destructured as a tuple
     - |
       def owner(pair):
           match pair:
@@ -61,7 +52,6 @@ valid:
                   return Error(failure)
               case Result(ok=(repo, ref)):
                   return Ok(f"{repo}@{ref}")
-    # Match followed by a statement
     - |
       def owner(names):
           match names:
@@ -70,7 +60,6 @@ valid:
               case Result(ok=text):
                   return Ok(text)
           return Ok("")
-    # Different qualified Result classes are different dispatch domains
     - |
       def owner(value):
           match value:
@@ -78,7 +67,6 @@ valid:
                   return Error(failure)
               case second.Result(ok=text):
                   return Ok(text.strip())
-    # Ok value compared with a dotted constant
     - |
       def owner(names):
           match names:
@@ -86,7 +74,6 @@ valid:
                   return Error(failure)
               case Result(ok=Mode.Fast):
                   return Ok(True)
-    # Ok pattern with a keyword beside the tag and the ok
     - |
       def owner(names):
           match names:
@@ -94,14 +81,12 @@ valid:
                   return Error(failure)
               case Result(ok=text, error=_):
                   return Ok(text)
-    # Match at module level, a return has no function
     - |
       match names:
           case Result(tag="error", error=failure):
               return Error(failure)
           case Result(ok=text):
               return Ok(text.strip())
-    # Pattern locals remain visible to cleanup outside the callback
     - |
       def owner(value):
           try:
@@ -112,7 +97,6 @@ valid:
                       return Ok(text.strip())
           finally:
               observe(locals())
-    # Comment inside the ok arm, the explanation needs an explicit review
     - |
       def owner(names):
           match names:
@@ -121,7 +105,6 @@ valid:
               case Result(ok=text):
                   # The strip drops the trailing newline
                   return Ok(text.strip())
-    # Third arm
     - |
       def owner(names, rid):
           match names:
@@ -131,7 +114,6 @@ valid:
                   return Ok(Unsupported(rid))
               case Result(ok=manifest):
                   return Ok(manifest.runtimes[rid])
-    # Ok arm with a statement before the return
     - |
       def owner(names):
           match names:
@@ -140,8 +122,22 @@ valid:
               case Result(ok=text):
                   stripped = text.strip()
                   return Ok(stripped)
+    - |
+      def owner(names, path):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(load(path))
+    - |
+      def owner(names, log):
+          match names:
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  log(text)
+                  return Ok(text.strip())
 invalid:
-    # Comment after the match, the match stays the last statement
     - |
       def owner(names):
           match names:
@@ -150,7 +146,6 @@ invalid:
               case Result(ok=text):
                   return Ok(text)
           # Every arm returns
-    # Nested function under a try with cleanup, the nested def owns its match
     - |
       def owner(names):
           try:
@@ -163,7 +158,6 @@ invalid:
               return names.bind(inner)
           finally:
               observe(locals())
-    # The instance, an awaited subject takes parentheses
     - |
       async def owner(path, cwd):
           match await run(["otool", "-L", str(path)], cwd, capture=True):
@@ -171,7 +165,6 @@ invalid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok([line.split()[0] for line in text.splitlines()[1:] if line.strip()])
-    # Arms in the other order
     - |
       def owner(names):
           match names:
@@ -179,7 +172,6 @@ invalid:
                   return Ok(text.strip())
               case Result(tag="error", error=failure):
                   return Error(failure)
-    # Ok arm spelled with the tag
     - |
       def owner(names):
           match names:
@@ -187,7 +179,6 @@ invalid:
                   return Error(failure)
               case Result(tag="ok", ok=text):
                   return Ok(text.strip())
-    # A body of one call over the name, the callee itself is the mapper
     - |
       def owner(names):
           match names:
@@ -195,7 +186,6 @@ invalid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok(parse(text))
-    # A body of one method call over the name
     - |
       def owner(self, names):
           match names:
@@ -203,15 +193,6 @@ invalid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok(self.parse(text))
-    # A call over another value keeps the lambda
-    - |
-      def owner(names, path):
-          match names:
-              case Result(tag="error", error=failure):
-                  return Error(failure)
-              case Result(ok=text):
-                  return Ok(load(path))
-    # A call with a further argument keeps the lambda
     - |
       def owner(names, path):
           match names:
@@ -219,7 +200,6 @@ invalid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok(parse(text, path))
-    # The identity, the mapper returns its parameter
     - |
       def owner(names):
           match names:
@@ -227,7 +207,20 @@ invalid:
                   return Error(failure)
               case Result(ok=text):
                   return Ok(text)
-    # Static method spellings
+    - |
+      async def owner(path):
+          match await run(path):
+              case Result(tag="error", error=failure):
+                  return Error(failure)
+              case Result(ok=text):
+                  return Ok(text)
+    - |
+      def owner(self):
+          match self.names:
+              case Result(error=failure):
+                  return Result.Error(failure)
+              case Result(ok=text):
+                  return Result.Ok(text)
     - |
       def owner(names):
           match names:
@@ -235,7 +228,6 @@ invalid:
                   return Result.Error(failure)
               case Result(ok=text):
                   return Result.Ok(text.strip())
-    # Class pattern spelled through the module
     - |
       def owner(names):
           match names:
@@ -243,7 +235,6 @@ invalid:
                   return Error(failure)
               case result.Result(ok=text):
                   return Ok(text.strip())
-    # Match as the last statement of an if block
     - |
       def owner(names, flag):
           if flag:
@@ -253,7 +244,6 @@ invalid:
                   case Result(ok=text):
                       return Ok(text)
           return Ok("")
-    # Attribute subject
     - |
       def owner(self):
           match self.names:

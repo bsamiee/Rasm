@@ -1,31 +1,52 @@
 id: no-cast
 valid:
-    # The corrected form, a narrowing predicate
     - |
       from typing import TypeIs
 
       def is_integer(value: object) -> TypeIs[int]:
           return isinstance(value, int)
-    # Another member of typing
     - |
       from typing import assert_never
-    # Attribute named like the member on another object
     - |
       column = table.cast("int")
+    - |
+      import typing
+
+      typing.assert_type(value, int)
+    - |
+      import typing as t
+      import schema as t
+
+      value = t.cast(int, raw)
+    - |
+      import typing as t
+      from schema import Any as t
+
+      value = t.cast(int, raw)
+    - |
+      import typing as t
+      from typing import Any as t
+
+      value = t.cast(int, raw)
 invalid:
-    # The instance, the member imported from typing
     - |
       from typing import cast
-    # The member imported from typing_extensions
     - |
       from typing_extensions import cast
-    # The attribute read as spelled
     - |
       import typing
 
       value = typing.cast(int, raw)
-    # The attribute read through the alias the import binds
     - |
       import typing as t
 
       value = t.cast("int", raw)
+    - |
+      from typing import cast as as_type
+
+      value = as_type(int, raw)
+    - |
+      import typing as schema
+      from schema import Field
+
+      value = schema.cast(int, raw)

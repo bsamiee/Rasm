@@ -26,6 +26,7 @@ Rasm/
 │   ├── dotnet/               # Roslyn analyzers for executables and plugin hosts
 │   └── nx/                   # Nx plugin for language tags and packaging projects
 ├── mise.toml                 # Toolchain, its resolution settings, and the process environment
+├── mise.unix.toml            # Process environment on Linux and macOS
 ├── nx.json                   # Task graph, caching, and change detection across the workspace
 ├── NuGet.config              # NuGet sources and package source mapping
 ├── Directory.Build.props     # .NET build defaults every project imports
@@ -48,6 +49,7 @@ Rasm/
 ├── .vscode/                  # Editor settings
 ├── .claude/                  # Plugin marketplace with the skills, agents, and hooks, rules by path glob, local scratch
 ├── .mcp.json                 # MCP servers for the agent harness
+├── .miserc.toml              # mise settings read before config discovery
 ├── .editorconfig             # Editor and analyzer settings per path
 ├── .shellcheckrc             # Shellcheck shell and check set
 ├── .yamlfmt.yaml             # YAML formatting settings

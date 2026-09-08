@@ -1,31 +1,24 @@
 id: no-module-state
 valid:
-    # Immutable module binding
     - const fixed = 1;
-    # Mutable local inside the scope that owns it
     - 'const next = () => { let local = 0; local += 1; return local; };'
-    # Exported immutable binding
     - export const held = 2;
-    # Ambient declarations describe a host binding rather than creating module state
     - 'declare let supplied: number;'
-    # Var declarations belong to Biome noVar
     - var legacy;
-    # Empty and populated literals establish neither writes nor escape
     - 'const empty = []; const populated = [1, 2];'
     - 'const empty = {}; const populated = { lint: "lint" };'
-    # Native and library allocations need ownership analysis before calling them ambient writes
     - const registry = new Map<string, Item>();
     - const counter = MutableRef.make(0);
-    # Module reads can return immutable scalars, despite the owner's Mutable prefix
     - const count = MutableRef.get(counter);
     - const present = MutableHashMap.has(index, key);
-    # Readonly changes static write access; it does not freeze the runtime object
     - 'const rows: readonly string[] = [];'
     - 'const names = [] as const;'
+    - 'for (let index = 0; index < 3; index += 1) work(index);'
+    - '{ let staged = 0; staged += 1; }'
+    - 'namespace Counter { let count = 0; }'
 invalid:
-    # A module counter can be reassigned by every consumer in the module
     - let nextSpanId = 0;
-    # A binding declared for later assignment
     - let pending;
-    # Exporting does not give a mutable binding a local owner
     - export let shared = [];
+    - 'let first = 0, second = 1;'
+    - 'let cache: Item | undefined;'

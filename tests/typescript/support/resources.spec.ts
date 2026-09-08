@@ -1,5 +1,5 @@
 import { HttpRouter, HttpServerResponse } from '@effect/platform';
-import { expect, layer } from '@effect/vitest';
+import { describe, expect, it, layer } from '@effect/vitest';
 import { uuid_ossp as uuidOssp } from '@electric-sql/pglite/contrib/uuid_ossp';
 import { Effect, Option, Schema } from 'effect';
 import { Loopback, LoopbackServers, ObjectStore, ObjectStoreDoubles, TestDatabase, TestDatabases, TestResourceError } from './resources.ts';
@@ -18,8 +18,8 @@ const _Record = Schema.Struct({ key: Schema.String, priority: Schema.Int });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-layer(TestDatabases.pglite(_DDL))('PGlite queries', (it) => {
-    it.effect('seeded DDL round-trips through schema-decoded queries', () =>
+layer(TestDatabases.pglite(_DDL))('PGlite queries', (test) => {
+    test.effect('seeded DDL round-trips through schema-decoded queries', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             yield* database.exec("INSERT INTO records VALUES ('<key-a>', 3), ('<key-b>', 7);");
@@ -31,7 +31,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite queries', (it) => {
         }),
     );
 
-    it.effect('invalid statements return a typed database error', () =>
+    test.effect('invalid statements return a typed database error', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             const error = yield* Effect.flip(database.exec('SELECT FROM nowhere ('));
@@ -40,7 +40,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite queries', (it) => {
         }),
     );
 
-    it.effect('unavailable extensions return a typed database error', () =>
+    test.effect('unavailable extensions return a typed database error', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             const error = yield* Effect.flip(database.exec('CREATE EXTENSION IF NOT EXISTS "uuid-ossp";'));
@@ -50,8 +50,8 @@ layer(TestDatabases.pglite(_DDL))('PGlite queries', (it) => {
     );
 });
 
-layer(TestDatabases.pglite(_DDL))('PGlite notifications', (it) => {
-    it.effect('NOTIFY delivers one payload after the subscription scope opens', () =>
+layer(TestDatabases.pglite(_DDL))('PGlite notifications', (test) => {
+    test.effect('NOTIFY delivers one payload after the subscription scope opens', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
@@ -62,7 +62,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite notifications', (it) => {
         ),
     );
 
-    it.effect('the subscription excludes messages from other channels', () =>
+    test.effect('the subscription excludes messages from other channels', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
@@ -74,7 +74,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite notifications', (it) => {
         ),
     );
 
-    it.effect('control notifications are excluded from the mailbox', () =>
+    test.effect('control notifications are excluded from the mailbox', () =>
         Effect.scoped(
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
@@ -87,8 +87,8 @@ layer(TestDatabases.pglite(_DDL))('PGlite notifications', (it) => {
     );
 });
 
-layer(TestDatabases.pglite(_DDL))('PGlite transactions', (it) => {
-    it.effect('rollback-only transactions retain no database state across tests', () =>
+layer(TestDatabases.pglite(_DDL))('PGlite transactions', (test) => {
+    test.effect('rollback-only transactions retain no database state across tests', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             // The rows read inside the transaction come out of it, the read after it sees the rollback
@@ -103,7 +103,7 @@ layer(TestDatabases.pglite(_DDL))('PGlite transactions', (it) => {
         }),
     );
 
-    it.effect('failed transactions roll back and preserve the original error', () =>
+    test.effect('failed transactions roll back and preserve the original error', () =>
         Effect.gen(function* () {
             const database = yield* TestDatabase;
             const error = yield* Effect.flip(
@@ -119,8 +119,8 @@ layer(TestDatabases.pglite(_DDL))('PGlite transactions', (it) => {
 
 layer(TestDatabases.pglite({ extensions: { uuidOssp }, seed: 'CREATE EXTENSION IF NOT EXISTS "uuid-ossp";' }))(
     'PGlite extension configuration',
-    (it) => {
-        it.effect('configured extensions expose their SQL function', () =>
+    (test) => {
+        test.effect('configured extensions expose their SQL function', () =>
             Effect.gen(function* () {
                 const database = yield* TestDatabase;
                 const rows = yield* database.decoded(Schema.Struct({ id: Schema.UUID }))('SELECT uuid_generate_v4()::text AS id');
@@ -130,7 +130,8 @@ layer(TestDatabases.pglite({ extensions: { uuidOssp }, seed: 'CREATE EXTENSION I
     },
 );
 
-layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
+// Each test provides its own store, the layer helper builds one store for the whole block
+describe('in-memory object store', () => {
     it.effect('put, get, list, and remove implement the object-store contract', () =>
         Effect.gen(function* () {
             const store = yield* ObjectStore;
@@ -140,7 +141,7 @@ layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
             expect(yield* store.list('objects/')).toEqual(['objects/one']);
             yield* store.remove('objects/one');
             expect(yield* store.get('objects/one')).toEqual(Option.none());
-        }),
+        }).pipe(Effect.provide(ObjectStoreDoubles.memory)),
     );
 
     it.effect('listing is lexicographic and matches the S3 ordering contract', () =>
@@ -149,7 +150,7 @@ layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
             yield* store.put('objects/late', _BYTES);
             yield* store.put('objects/early', _BYTES);
             expect(yield* store.list('objects/')).toEqual(['objects/early', 'objects/late']);
-        }),
+        }).pipe(Effect.provide(ObjectStoreDoubles.memory)),
     );
 
     it.effect('listing orders by UTF-8 bytes past the BMP, UTF-16 code units swap the pair', () =>
@@ -158,7 +159,7 @@ layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
             yield* store.put('astral/\u{10000}', _BYTES);
             yield* store.put('astral/！', _BYTES);
             expect(yield* store.list('astral/')).toEqual(['astral/！', 'astral/\u{10000}']);
-        }),
+        }).pipe(Effect.provide(ObjectStoreDoubles.memory)),
     );
 
     it.effect('presigning returns a typed unsupported error for the in-memory store', () =>
@@ -166,12 +167,12 @@ layer(ObjectStoreDoubles.memory)('in-memory object store', (it) => {
             const store = yield* ObjectStore;
             const error = yield* Effect.flip(store.url('objects/one', 60));
             expect(error.reason).toBe('unsupported');
-        }),
+        }).pipe(Effect.provide(ObjectStoreDoubles.memory)),
     );
 });
 
-layer(LoopbackServers.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpServerResponse.text('pong')))))('loopback HTTP server', (it) => {
-    it.effect('the server exposes a live endpoint and configured client', () =>
+layer(LoopbackServers.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpServerResponse.text('pong')))))('loopback HTTP server', (test) => {
+    test.effect('the server exposes a live endpoint and configured client', () =>
         Effect.gen(function* () {
             const loop = yield* Loopback;
             expect(loop.url).toMatch(_LOOPBACK_URL);
@@ -181,7 +182,7 @@ layer(LoopbackServers.serve(HttpRouter.empty.pipe(HttpRouter.get('/ping', HttpSe
         }),
     );
 
-    it.effect('unrouted paths return 404 over the loopback socket', () =>
+    test.effect('unrouted paths return 404 over the loopback socket', () =>
         Effect.gen(function* () {
             const loop = yield* Loopback;
             const reply = yield* Effect.scoped(loop.client.get('/absent'));

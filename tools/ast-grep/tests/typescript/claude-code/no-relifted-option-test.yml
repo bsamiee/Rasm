@@ -1,75 +1,45 @@
 id: no-relifted-option
 valid:
-    # An absent Option beside a raw value is a mixed fold, not flatMap
     - "const result = some(true).match<number | Option<number>>({ some: () => 1, none: () => none<number>() });"
-    # An untyped callback's result cannot be inferred from the none arm
     - "const result = held.match({ some: compute, none });"
-    # The map operation called
     - "const once = map((row: ServerRow): Once => ({ key: row.skill, line: row.line }))(serverRow(tool));"
-    # The flatMap operation called
     - "const row = flatMap((name: ToolName) => fromNullable(TOOLS[name]))(fromPredicate(isToolKey)(tool));"
-    # The getOrElse operation called
     - "const field = getOrElse(() => '')(fromPredicate(isString)(fields[name]));"
-    # The toArray operation called
     - "const rows = values.flatMap((value) => toArray(decodeFinding(value)));"
-    # Two value arms, a fold over the Option
     - "const text = notice.match<string>({ some: (row) => row.text, none: () => '' });"
-    # Some rebuilt beside a none that answers another Option, an orElse
     - "const head = first.match<Option<Head>>({ some: (key) => some({ key, args }), none: () => second });"
-    # One-element arm beside a none that yields a value
     - "const lines = hit.match<readonly string[]>({ some: (line) => [line], none: () => [fallback] });"
-    # Spread arm beside the empty array, the some holds any count of elements
     - "const lines = hit.match<readonly string[]>({ some: (rows) => [...rows], none: () => [] });"
-    # Two-element arm beside the empty array
     - "const lines = hit.match<readonly string[]>({ some: (row) => [row, row], none: () => [] });"
-    # The definitions in option.ts
     - |
       const map =
           <A, B>(f: (value: A) => B): ((option: Option<A>) => Option<B>) =>
           (option: Option<A>): Option<B> =>
               option.match<Option<B>>({ some: (value) => some(f(value)), none });
     - "const getOrElse = <A>(fallback: () => A): ((option: Option<A>) => A) => (option: Option<A>): A => option.match<A>({ some: (value) => value, none: fallback });"
-    # The Decision case record holds no some arm
     - "const result = decision.match<Result>({ rewrite: (input) => next(input), deny: (reason) => ({ deny: reason }), answer: (value) => ({ result: value }) });"
-    # Case record built outside a match call
     - "const cases = { some: (value) => value, none: () => fallback };"
-    # Case record passed to a call that is no match
     - "const held = registry.cases({ some: (value) => value, none: () => fallback });"
-    # Inversion, the some becomes a none and the none a some
     - "const flipped = option.match<Option<Word>>({ some: () => none(), none: () => some(word) });"
     - "function map(f, option) { return option.match({some: (value) => some(f(value)), none}); }"
-    # A scalar constructor does not produce an Option for flatMap
     - 'const mixed = fromBoolean(enabled).match<number | Option<number>>({ some: () => Number("1"), none: () => none<number>() });'
 invalid:
-    # a some arm wrapping its value beside a none thunk
     - "const once = serverRow(tool).match<Option<Once>>({ some: (row) => some({ key: row.skill, line: row.line }), none: () => none() });"
-    # Option-returning arm beside a none thunk, a flatMap
     - "const row = fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: () => none() });"
-    # The none constructor passed itself
     - "const row = fromPredicate(isToolKey)(tool).match<Option<ToolRow>>({ some: (name) => fromNullable(TOOLS[name]), none: none });"
-    # The none constructor as a shorthand
     - "const substitution = fromPredicate(isString)(pair.from).match<Option<Substitution>>({ some: (from) => some({ pattern: pair.to, value: from }), none });"
-    # Match without a type argument
     - "const row = server(tool).match({ some: (name) => fromNullable(SERVERS[name]), none: () => none() });"
-    # Thunk arm over a boolean Option beside a none thunk
     - "const operand = fromBoolean(hit >= 0).match<Option<Word>>({ some: () => find(argv), none: () => none() });"
-    # Identity arm beside a fallback
     - "const field = isString(fields[name]).match<string>({ some: (value) => value, none: () => '' });"
-    # Typed identity arm
     - "const directory = chosen.match<string>({ some: (directory: string) => directory, none: () => derived });"
-    # One-element arm beside the empty array
     - "const rows = values.flatMap((value) => decodeFinding(value).match<readonly Finding[]>({ some: (row) => [row], none: () => [] }));"
-    # Element built from the value beside the empty array, a map into toArray
     - "const keyed = decoded.match<readonly Keyed[]>({ some: (row) => [{ key, row }], none: () => [] });"
-    # Element built without the value beside the empty array
     - "const lines = fromNullable(hit.row.context).match<readonly string[]>({ some: (line) => [line(hit.leaf)], none: () => [] });"
-    # Some arm inside a binding nested in the map definition, the walk stops at the nearest binding
     - |
       const map = (f) => {
           const inner = (option) => option.match({ some: (value) => some(f(value)), none });
           return inner;
       };
-    # One-element arm inside a function declaration nested in the toArray definition
     - |
       const toArray = (option) => {
           function inner(held) {
@@ -77,7 +47,8 @@ invalid:
           }
           return inner(option);
       };
-    # Typed one-element arm beside the empty array
     - "const matches = words.flatMap((word) => found(word).match<readonly Match[]>({ some: (match: Match) => [match], none: () => [] }));"
-    # None constructor called with a type argument beside the some arm, the spelling agent-spawn.ts holds
     - "const batch = held.match<Option<Batch>>({ some: (row) => some(decode(row)), none: () => none<Batch>() });"
+    - "const field = held.match<string>({ some: (value) => { return value; }, none: () => '' });"
+    - "const field = held.match<string>({ some: (value: string) => { return value; }, none: () => '' });"
+    - "const same = held.match<Option<Row>>({ some: some, none: () => none() });"

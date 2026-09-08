@@ -1,57 +1,47 @@
 id: no-trailing-separator-on-artifacts-path
 valid:
-    # An element outside a property group does not declare an MSBuild property
     - '<ProjectExtensions><ArtifactsPath>artifacts/</ArtifactsPath></ProjectExtensions>'
-    # A function-like filename is literal path text
     - '<PropertyGroup><ArtifactsPath>artifacts/NormalizeDirectory(cache)</ArtifactsPath></PropertyGroup>'
-    # Root separators cannot be removed without changing path meaning
     - '<PropertyGroup><ArtifactsPath>/</ArtifactsPath></PropertyGroup>'
     - '<PropertyGroup><ArtifactsPath>C:/</ArtifactsPath></PropertyGroup>'
     - "<PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('/'))</ArtifactsPath></PropertyGroup>"
-    # Comments split the value; a node-local edit must not guess its evaluated text
     - '<PropertyGroup><ArtifactsPath>artifacts/<!-- retain -->cache</ArtifactsPath></PropertyGroup>'
-    # Root form, the last NormalizePath argument ends without a separator
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
-    # The packaging form, a segment appended to a directory property
     - |
       <PropertyGroup><ArtifactsPath>$(NativeArtifactsRoot)msbuild</ArtifactsPath></PropertyGroup>
-    # Directory property taking NormalizeDirectory, the SDK appends nothing to it
     - |
       <PropertyGroup><LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot></PropertyGroup>
-    # Directory property ending with its separator
     - |
       <PropertyGroup><PackageOutputPath>$(ArtifactsPath)/package/</PackageOutputPath></PropertyGroup>
+    - |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts</ArtifactsPath></PropertyGroup>
+    - |
+      <PropertyGroup><ArtifactsPath>$([System.IO.Path]::TrimEndingDirectorySeparator('$(RepoRoot)artifacts/'))</ArtifactsPath></PropertyGroup>
 invalid:
-    # The root value before the normalized form, the SDK composed .artifacts/dotnet//bin/
     - |
       <PropertyGroup><ArtifactsPath>$(RepoRoot).artifacts/dotnet/</ArtifactsPath></PropertyGroup>
-    # NormalizeDirectory appends the separator the SDK appends again
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath></PropertyGroup>
-    # EnsureTrailingSlash appends the same separator
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::EnsureTrailingSlash('$(ArtifactsRoot)'))</ArtifactsPath></PropertyGroup>
-    # NormalizeDirectory with a last argument ending in a separator, the fix trims it before it renames the function
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'artifacts/'))</ArtifactsPath></PropertyGroup>
-    # Backslash at the end of the value
     - |
       <PropertyGroup><ArtifactsPath>$(RepoRoot)artifacts\</ArtifactsPath></PropertyGroup>
-    # NormalizePath with a last argument ending in a separator, the function keeps it
     - |
       <PropertyGroup><ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', 'artifacts/'))</ArtifactsPath></PropertyGroup>
-    # Whitespace-padded value, the message prints the trimmed value on one line
     - |
       <PropertyGroup>
         <ArtifactsPath>
           $(RepoRoot)artifacts/
         </ArtifactsPath>
       </PropertyGroup>
-    # Function spelling inside the path argument and attributes remains literal
     - |
       <PropertyGroup><ArtifactsPath Label="NormalizeDirectory(cache)">$([MSBuild]::NormalizeDirectory('artifacts/NormalizeDirectory(cache)'))</ArtifactsPath></PropertyGroup>
-    # The same text in a literal path keeps its name when only the separator is removed
     - '<PropertyGroup><ArtifactsPath>artifacts/NormalizeDirectory(cache)/</ArtifactsPath></PropertyGroup>'
-    # Remove the complete separator run in one edit
     - '<PropertyGroup><ArtifactsPath>artifacts///</ArtifactsPath></PropertyGroup>'
+    - |
+      <PropertyGroup><ArtifactsPath>$(RepoRoot)/</ArtifactsPath></PropertyGroup>
+    - |
+      <PropertyGroup><ArtifactsPath Condition="'$(ArtifactsPath)' == ''">$(RepoRoot)artifacts/</ArtifactsPath></PropertyGroup>

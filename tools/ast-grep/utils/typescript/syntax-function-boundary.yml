@@ -1,12 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Function kinds that own their body's suspensions, returns, parameters, and run time, the stopper of a walk from a node to its owner
 id: syntax-function-boundary
 language: tsx
 rule:
-    any:
-        - kind: arrow_function
-        - kind: function_expression
-        - kind: function_declaration
-        - kind: generator_function
-        - kind: generator_function_declaration
-        - kind: method_definition
+    kind: arrow_function, function_expression, function_declaration, generator_function, generator_function_declaration, method_definition

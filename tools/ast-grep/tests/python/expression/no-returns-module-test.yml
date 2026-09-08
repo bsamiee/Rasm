@@ -1,27 +1,21 @@
 id: no-returns-module
 valid:
-    # The corrected form, the result type of expression
     - |
       from expression import Error, Ok, Result
-    # Name with the module as a prefix
     - |
       import returns_counter
-    # Attribute named like the module on another object
     - |
       shape = signature.returns.annotation
 invalid:
-    # The instance, the module imported whole
     - |
       import returns
-    # Submodule imported from the package
     - |
       from returns.result import Result
-    # Member imported from the maybe submodule
     - |
       from returns.maybe import Maybe
-    # The module imported under an alias
     - |
       import returns as r
-    # The attribute chain rooted at the module, reported once at its outermost link
     - |
       value = returns.result.Success(1)
+    - |
+      from returns import result

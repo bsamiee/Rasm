@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trailing-period
+language: yaml
+severity: error
+files: [tools/ast-grep/rules/**, tools/ast-grep/utils/**, tools/ast-grep/rewrites/**, tools/ast-grep/tests/**, tools/ast-grep/outline/**]
+ignores: [tools/ast-grep/tests/__snapshots__/**]
+rule:
+    pattern: $TEXT
+    any: [{kind: comment}, {matches: ast-grep-prose-value}]
+    regex: '\.+["'']?\s*$'
+transform:
+    KEPT: {replace: {source: $TEXT, replace: '\.+(["'']?)(\s*)$', by: '${1}${2}'}}
+fix: $KEPT
+message: The text ends with a period, a comment or a diagnostic is one statement
+note: Delete the period

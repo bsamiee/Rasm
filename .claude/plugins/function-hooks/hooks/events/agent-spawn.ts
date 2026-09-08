@@ -7,7 +7,7 @@ import { absurd } from '../composition/decision.ts';
 import { forEach, fromBoolean, fromNullable, getOrElse, map, none, type Option } from '../composition/option.ts';
 import type { Options } from '../host/options.ts';
 import { type Dispatch, decodeDispatch, ids, key } from '../host/store.ts';
-import { type Batch, spawnLabel, spawnRule } from '../policies/agents.ts';
+import { type Batch, spawnRule } from '../policies/agents.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
@@ -23,10 +23,7 @@ const agentSpawn = (on: On, _options: Options): void => {
         const batch = getOrElse<Option<Batch>>(none)(
             await forEach(async (batchId: string) => _batch(batchId, await $.store.get(key('dispatch', batchId))))(_batchId(await $.store.keys())),
         );
-        return spawnRule<typeof e>(
-            batch,
-            spawnLabel(e),
-        )(e).match<Promise<AgentSpawnResult>>({
+        return spawnRule<typeof e>(batch)(e).match<Promise<AgentSpawnResult>>({
             rewrite: (input, context) => {
                 fromBoolean(context.length > 0).match<void>({ some: () => $.ui.notice(e.tool_use_id, context.join(' ')), none: () => undefined });
                 return next(input);

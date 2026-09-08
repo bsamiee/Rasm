@@ -1,25 +1,29 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: boolean-statement-to-if
 language: python
 severity: off
 rule:
-    all: [{matches: python-block-statement}]
+    all:
+        - matches: python-block-statement
+        - matches:
+            python-discarded-expression:
+                value:
+                    kind: boolean_operator
+                    has: {field: right, kind: 'call, await'}
     pattern: $STMT
-    matches:
-        python-discarded-expression:
-            value: # The right operand is the effect, a name or a value on the right is ruff useless-expression
-                kind: boolean_operator
-                has: {field: right, any: [{kind: call}, {kind: await}]}
 constraints:
-    STMT: {not: {regex: '\n'}} # Statement on one line, the parenthesized multi-line form re-indents the effect past the if
+    STMT: {not: {regex: '\n'}}
 rewriters:
-    # The and form runs the effect when the test holds
     - id: and-statement
       rule: {kind: boolean_operator, pattern: $TEST and $EFFECT}
       fix: |-
         if $TEST:
             $EFFECT
-    # The or form runs the effect when the test fails, a boolean test takes parentheses under the negation
+    - id: or-negated-statement
+      rule: {kind: boolean_operator, pattern: not $TEST or $EFFECT}
+      fix: |-
+        if $TEST:
+            $EFFECT
     - id: or-boolean-statement
       rule: {kind: boolean_operator, pattern: $TEST or $EFFECT}
       constraints: {TEST: {kind: boolean_operator}}
@@ -32,7 +36,7 @@ rewriters:
         if not $TEST:
             $EFFECT
 transform:
-    OUT: rewrite($STMT, rewriters=[and-statement, or-boolean-statement, or-statement], joinBy='')
+    OUT: rewrite($STMT, rewriters=[and-statement, or-negated-statement, or-boolean-statement, or-statement], joinBy='')
 fix: $OUT
 message: Boolean operator as a statement runs its right operand for an effect and drops the value
 note: Write the `if` statement, `if <test>:` for `and` and `if not <test>:` for `or`, with the effect in its body

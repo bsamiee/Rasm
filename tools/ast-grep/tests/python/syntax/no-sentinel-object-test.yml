@@ -1,51 +1,99 @@
 id: no-sentinel-object
 valid:
-    # The corrected form, presence tested on the attribute itself
     - |
       if not hasattr(mod, name):
           failures.append(name)
-    # Absence as a case of the value
     - |
       member: object | None = None
-    # Instance of a domain type at module level
     - |
       _ENCODER = Encoder(order="deterministic")
-    # Plain object instance inside a def, a token the scope consumes
     - |
       def run() -> None:
           token = object()
           register(token)
-    # Object call with an argument, no plain instance
     - |
       _ABSENT = object(name)
-    # Plain object instance inside a method
     - |
       class Reader:
           def run(self) -> None:
               token = object()
-    # Instance bound by a walrus inside a call
     - |
       print(absent := object())
+    - |
+      class _Absent(Enum):
+          pass
+
+      _ABSENT = _Absent()
+    - |
+      class Token:
+          pass
+          kind = "token"
+
+      TOKEN = Token()
+    - |
+      class Token:
+          kind: str
+
+      TOKEN = Token()
+    - |
+      class _Absent:
+          pass
+
+      _ABSENT = _Absent(name)
+    - |
+      class _Absent:
+          pass
+
+      def run() -> None:
+          absent = _Absent()
 invalid:
-    # The instance, a typed module-level sentinel
     - |
       _ABSENT: object = object()
-    # Untyped module-level sentinel
+    - |
+      _ABSENT: Final = object()
     - |
       _MISSING = object()
-    # Class attribute sentinel
     - |
       class Reader:
           absent = object()
-    # Module-level sentinel under a branch
     - |
       if TYPE_CHECKING:
           _ABSENT = object()
-    # Sentinel built by the sentinel builtin
     - |
       _ABSENT = sentinel("_ABSENT")
-    # Class attribute of a class nested in a def
     - |
       def make():
           class Reader:
               absent = object()
+    - |
+      class _Absent:
+          pass
+
+      _ABSENT = _Absent()
+    - |
+      class _Missing: ...
+
+      _MISSING = _Missing()
+    - |
+      class _Absent:
+          """Marks an absent value."""
+
+      _ABSENT: _Absent = _Absent()
+    - |
+      class _Absent:
+          pass
+
+      class Reader:
+          absent = _Absent()
+    - |
+      class _Absent:
+          # Marks an absent value
+          pass
+
+      _ABSENT = _Absent()
+    - |
+      class _Absent:
+          pass
+          # Marks an absent value
+
+      _ABSENT = _Absent()

@@ -35,6 +35,21 @@ const _CASES: readonly (readonly [string, readonly (readonly string[])[]])[] = [
     ['echo $(git stash)', [['git', 'stash'], ['echo']]],
     ['echo `git stash`', [['git', 'stash'], ['echo']]],
     [
+        'echo run `git stash` later',
+        [
+            ['git', 'stash'],
+            ['echo', 'run', 'later'],
+        ],
+    ],
+    ["echo 'run `git stash` later'", [['echo', 'run `git stash` later']]],
+    [
+        'echo "run `git stash` later"',
+        [
+            ['git', 'stash'],
+            ['echo', `run ${' '.repeat('`git stash`'.length)} later`],
+        ],
+    ],
+    [
         'echo "$(git stash list)"',
         [
             ['git', 'stash', 'list'],
@@ -56,6 +71,14 @@ const _CASES: readonly (readonly [string, readonly (readonly string[])[]])[] = [
     ['uv run git stash', [['uv', 'run', 'git', 'stash']]],
     ['pnpm exec git stash', [['pnpm', 'exec', 'git', 'stash']]],
     ['timeout 5 git stash', [['timeout', '5', 'git', 'stash']]],
+    [
+        "timeout 5 sh -c 'git stash'",
+        [
+            ['git', 'stash'],
+            ['timeout', '5', 'sh', '-c', 'git stash'],
+        ],
+    ],
+    ['timeout 5', [['timeout', '5']]],
     ['xargs git stash', [['xargs', 'git', 'stash']]],
     ['/usr/bin/git stash', [['/usr/bin/git', 'stash']]],
     [

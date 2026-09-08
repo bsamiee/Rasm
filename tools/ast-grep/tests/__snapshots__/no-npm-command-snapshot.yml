@@ -50,6 +50,16 @@ snapshots:
       style: secondary
       start: 0
       end: 5
+  /usr/bin/env npm install:
+    labels:
+    - source: /usr/bin/env npm install
+      style: primary
+      start: 0
+      end: 24
+    - source: npm
+      style: secondary
+      start: 13
+      end: 16
   /usr/bin/npm install:
     labels:
     - source: /usr/bin/npm install
@@ -60,6 +70,16 @@ snapshots:
       style: secondary
       start: 0
       end: 12
+  NODE_ENV=test npm install:
+    labels:
+    - source: NODE_ENV=test npm install
+      style: primary
+      start: 0
+      end: 25
+    - source: npm
+      style: secondary
+      start: 14
+      end: 17
   cd app && npm ci:
     labels:
     - source: npm ci
@@ -70,16 +90,22 @@ snapshots:
       style: secondary
       start: 10
       end: 13
+  command -p command npm install:
+    labels:
+    - source: command -p command npm install
+      style: primary
+      start: 0
+      end: 30
+    - source: npm
+      style: secondary
+      start: 19
+      end: 22
   command -p npm install:
     labels:
     - source: command -p npm install
       style: primary
       start: 0
       end: 22
-    - source: command
-      style: secondary
-      start: 0
-      end: 7
     - source: npm
       style: secondary
       start: 11
@@ -90,10 +116,6 @@ snapshots:
       style: primary
       start: 0
       end: 19
-    - source: command
-      style: secondary
-      start: 0
-      end: 7
     - source: npm
       style: secondary
       start: 8
@@ -104,38 +126,56 @@ snapshots:
       style: primary
       start: 0
       end: 34
-    - source: env
-      style: secondary
-      start: 0
-      end: 3
     - source: '"/opt/my tools/npm"'
       style: secondary
       start: 7
       end: 26
+  env -i -u NAME npm install:
+    labels:
+    - source: env -i -u NAME npm install
+      style: primary
+      start: 0
+      end: 26
+    - source: npm
+      style: secondary
+      start: 15
+      end: 18
   env -i NODE_ENV=test npm install:
     labels:
     - source: env -i NODE_ENV=test npm install
       style: primary
       start: 0
       end: 32
-    - source: env
-      style: secondary
-      start: 0
-      end: 3
     - source: npm
       style: secondary
       start: 21
       end: 24
+  env -u NAME npm install:
+    labels:
+    - source: env -u NAME npm install
+      style: primary
+      start: 0
+      end: 23
+    - source: npm
+      style: secondary
+      start: 12
+      end: 15
+  env -v npm install:
+    labels:
+    - source: env -v npm install
+      style: primary
+      start: 0
+      end: 18
+    - source: npm
+      style: secondary
+      start: 7
+      end: 10
   env npm install:
     labels:
     - source: env npm install
       style: primary
       start: 0
       end: 15
-    - source: env
-      style: secondary
-      start: 0
-      end: 3
     - source: npm
       style: secondary
       start: 4
@@ -146,14 +186,50 @@ snapshots:
       style: primary
       start: 0
       end: 19
-    - source: exec
-      style: secondary
-      start: 0
-      end: 4
     - source: npx
       style: secondary
       start: 8
       end: 11
+  exec -a name npm install:
+    labels:
+    - source: exec -a name npm install
+      style: primary
+      start: 0
+      end: 24
+    - source: npm
+      style: secondary
+      start: 13
+      end: 16
+  exec -c npm install:
+    labels:
+    - source: exec -c npm install
+      style: primary
+      start: 0
+      end: 19
+    - source: npm
+      style: secondary
+      start: 8
+      end: 11
+  exec -l npm install:
+    labels:
+    - source: exec -l npm install
+      style: primary
+      start: 0
+      end: 19
+    - source: npm
+      style: secondary
+      start: 8
+      end: 11
+  exec npm install:
+    labels:
+    - source: exec npm install
+      style: primary
+      start: 0
+      end: 16
+    - source: npm
+      style: secondary
+      start: 5
+      end: 8
   if true; then npm test; fi:
     labels:
     - source: npm test
@@ -174,6 +250,16 @@ snapshots:
       style: secondary
       start: 0
       end: 3
+  npm.cmd install:
+    labels:
+    - source: npm.cmd install
+      style: primary
+      start: 0
+      end: 15
+    - source: npm.cmd
+      style: secondary
+      start: 0
+      end: 7
   npx nx run rasm:check:
     labels:
     - source: npx nx run rasm:check
@@ -194,3 +280,83 @@ snapshots:
       style: secondary
       start: 0
       end: 7
+  sudo -E -u root npm install:
+    labels:
+    - source: sudo -E -u root npm install
+      style: primary
+      start: 0
+      end: 27
+    - source: npm
+      style: secondary
+      start: 16
+      end: 19
+  sudo -S npm install:
+    labels:
+    - source: sudo -S npm install
+      style: primary
+      start: 0
+      end: 19
+    - source: npm
+      style: secondary
+      start: 8
+      end: 11
+  sudo -u root -E npm install:
+    labels:
+    - source: sudo -u root -E npm install
+      style: primary
+      start: 0
+      end: 27
+    - source: npm
+      style: secondary
+      start: 16
+      end: 19
+  sudo env NODE_ENV=test npm install:
+    labels:
+    - source: sudo env NODE_ENV=test npm install
+      style: primary
+      start: 0
+      end: 34
+    - source: npm
+      style: secondary
+      start: 23
+      end: 26
+  sudo npm install -g tool:
+    labels:
+    - source: sudo npm install -g tool
+      style: primary
+      start: 0
+      end: 24
+    - source: npm
+      style: secondary
+      start: 5
+      end: 8
+  time -p npm install:
+    labels:
+    - source: time -p npm install
+      style: primary
+      start: 0
+      end: 19
+    - source: npm
+      style: secondary
+      start: 8
+      end: 11
+  time NAME=x npm install:
+    labels:
+    - source: time NAME=x npm install
+      style: primary
+      start: 0
+      end: 23
+    - source: npm
+      style: secondary
+      start: 12
+      end: 15
+  time npm install:
+    labels:
+    - source: time npm install
+      style: primary
+      start: 0
+      end: 16
+    - source: npm
+      style: secondary
+      start: 5
+      end: 8

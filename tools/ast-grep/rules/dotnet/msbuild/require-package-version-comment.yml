@@ -1,11 +1,10 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, a placeholder comment evaluates because MSBuild reads no comment, and the purpose is text the file does not hold
 id: require-package-version-comment
 language: xml
 severity: error
 files: ['Directory.Packages.props']
 utils:
-    trailing-comment: # One comment on the row's own line, after nothing or after blanks, and no line break inside it
+    trailing-comment:
         kind: element
         any:
             - precedes: {kind: Comment, regex: '^<!--[^\r\n]*-->$', not: {regex: '^<!--\s*-->$'}}

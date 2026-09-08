@@ -1,17 +1,13 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Report only, Option.none() in place of null fails with TS2322 Type 'Option<never>' is not assignable to type 'number | null'
 id: no-nullable-return
 language: tsx
 severity: error
-# Spec translates the Option into the test host's representation at the assertion boundary, `getOrElse(() => null)` beside `toBe(null)`
 ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
-    # Only the returned type slot establishes an explicit no-value contract.
     no-value-type:
         any:
             - {kind: predefined_type, regex: '^void$'}
             - {kind: literal_type, has: {kind: undefined}}
-    # Value annotations exclude void/undefined and the corresponding Promise or generator return slot.
     value-annotation:
         kind: type_annotation
         not:
@@ -24,7 +20,6 @@ utils:
                         - has:
                             field: type_arguments
                             has: {matches: no-value-type}
-    # Function annotated with a value type, the nearest boundary of a return statement
     value-function:
         matches: syntax-function-boundary
         has: {field: return_type, matches: value-annotation}
@@ -41,13 +36,11 @@ utils:
                             - has:
                                 field: type_arguments
                                 has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: no-value-type}
-    # Every void expression evaluates to undefined, including expressions with effects.
     nothing:
         any:
             - kind: undefined
             - kind: unary_expression
               has: {field: operator, regex: '^void$'}
-    # Expression answering null on one path, the literal, a ternary arm, the right operand of a logical operator, or one in parentheses
     null-answer:
         any:
             - kind: 'null'
@@ -59,7 +52,6 @@ utils:
               all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-answer}}]
             - kind: binary_expression
               all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-answer}}]
-    # The same paths answering undefined
     undefined-answer:
         any:
             - matches: nothing
@@ -71,7 +63,6 @@ utils:
               all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-answer}}]
             - kind: binary_expression
               all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-answer}}]
-    # Thunk passed to getOrElse inside the arguments of a store write, the JSON row of the store holds null for absence at that boundary alone
     store-boundary-thunk:
         kind: arrow_function
         inside:
@@ -81,22 +72,18 @@ utils:
                 has: {field: function, regex: '^getOrElse$'}
                 inside: {kind: arguments, stopBy: {matches: syntax-function-boundary}, inside: {kind: call_expression, has: {field: function, regex: '^\$\.store\.set$'}}}
 rule:
-    # The store boundary thunk itself, or a return in its own body, the walk stops at the nearest function
     not:
         any:
             - matches: store-boundary-thunk
             - inside: {matches: store-boundary-thunk, stopBy: {matches: syntax-function-boundary}}
     any:
-        # Null returned, or answered by an arrow body, null is the spelling of absence alone
         - kind: return_statement
           has: {matches: null-answer}
         - kind: arrow_function
           has: {field: body, matches: null-answer}
-        # Undefined returned under an annotation naming a value type, Biome noUselessUndefined reports the return under no annotation
         - kind: return_statement
           has: {matches: undefined-answer}
           inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
-        # Undefined as the body of an arrow annotated with a value type, the type of an unannotated arrow comes from its site
         - kind: arrow_function
           all:
             - has: {field: body, matches: undefined-answer}

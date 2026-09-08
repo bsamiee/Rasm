@@ -114,7 +114,6 @@ The loader reads `register.ts` and its relative imports at load into an environm
 - The spawning hook composes the prompt through the rule the `agent.spawn` adapter folds, because the plugin's own hooks skip its spawn
 - The prompt holds every fact the agent cannot fetch (rows, batch id, memory directory)
 - `$.agent.spawn` answers no agent id, and `$.tool.call({ tool: 'Agent', ... })` answers `{ agentId }` as `$.agent.list()` names it
-- `$.session.id()` and `$.session.cwd()` inside a subagent's call answer the main session's id and root (a probe's `$.ui.log` line prints one id)
+- `$.session.id()` and `$.session.cwd()` inside a subagent's call answer the main session's id and root
 - `$.agent.list()` names running agents as `{ id, description, type, status }` (`AgentInfo`), no name and no link to a call
-- `agent.spawn` carries `name` (undefined when the caller set none) and its `tool_use_id` (`AgentSpawnInput`), the label of the probe directory
-- The scratchpad `/private/tmp/claude-<uid>/<cwd slug>/<session>/scratchpad` is one directory for every agent (`CLAUDE_CODE_SESSION_ID`)
+- `agent.spawn` carries `name` (undefined when the caller set none) and its `tool_use_id` (`AgentSpawnInput`)

@@ -5,11 +5,11 @@ severity: error
 rule:
     pattern: _VALUE
     matches: msbuild-path-value
-    regex: '[A-Za-z0-9_.):*]\\[A-Za-z0-9_.$*(@%]'
+    regex: '[A-Za-z0-9_.):*]\\([A-Za-z0-9_.$*(@%]|\s*["'']?\s*$)'
 transform:
-    # Each separator between two path characters, a match consumes the character after it and the second stage converts the one it skipped
     SLASHED: {replace: {source: $VALUE, replace: '([A-Za-z0-9_.):*])\\([A-Za-z0-9_.$*(@%])', by: '$1/$2'}}
     SLASHED_AGAIN: {replace: {source: $SLASHED, replace: '([A-Za-z0-9_.):*])\\([A-Za-z0-9_.$*(@%])', by: '$1/$2'}}
-fix: $SLASHED_AGAIN
-message: The path separates segments with a backslash
+    TRAILED: {replace: {source: $SLASHED_AGAIN, replace: '([A-Za-z0-9_.):*])\\(\s*["'']?\s*)$', by: '$1/$2'}}
+fix: $TRAILED
+message: The path holds a backslash separator, sh deletes it in a command and Unix converts it only in a path with an existing first segment
 note: Write / as the separator in every path

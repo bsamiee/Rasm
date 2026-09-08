@@ -19,6 +19,15 @@ snapshots:
       start: 0
       end: 80
   ? |
+    <Target Name="AfterBuild" DependsOnTargets="Stamp"><Message Text="built" /></Target>
+  : fixed: |
+      <Target Name="AfterBuildStep" AfterTargets="Build" DependsOnTargets="Stamp"><Message Text="built" /></Target>
+    labels:
+    - source: <Target Name="AfterBuild" DependsOnTargets="Stamp"><Message Text="built" /></Target>
+      style: primary
+      start: 0
+      end: 84
+  ? |
     <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>
   : fixed: |
       <Target Name="AfterBuildStep" AfterTargets="Build"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>
@@ -54,6 +63,24 @@ snapshots:
       style: primary
       start: 0
       end: 66
+  ? |
+    <Target Name="BeforeResolveReferences"><Message Text="resolving" /></Target>
+  : fixed: |
+      <Target Name="BeforeResolveReferencesStep" BeforeTargets="ResolveReferences"><Message Text="resolving" /></Target>
+    labels:
+    - source: <Target Name="BeforeResolveReferences"><Message Text="resolving" /></Target>
+      style: primary
+      start: 0
+      end: 76
+  ? |
+    <Target Name="afterbuild"><Message Text="built" /></Target>
+  : fixed: |
+      <Target Name="afterbuildStep" AfterTargets="build"><Message Text="built" /></Target>
+    labels:
+    - source: <Target Name="afterbuild"><Message Text="built" /></Target>
+      style: primary
+      start: 0
+      end: 59
   ? |
     <Target Name='AfterBuild'><Message Text="built" /></Target>
   : fixed: |

@@ -1,114 +1,91 @@
 id: require-strict-mode
 valid:
-    # Strict mode at file level
     - |
       #!/usr/bin/env bash
       set -euo pipefail
       printf '%s\n' hello
-    # Split across lines
     - |
       #!/usr/bin/env bash
       set -eu
       set -o pipefail
       printf '%s\n' hello
-    # Long options
     - |
       #!/usr/bin/env bash
       set -o errexit -o nounset -o pipefail
       printf '%s\n' hello
-    # A second statement on the set line, the two parse as top-level siblings
     - |
       #!/usr/bin/env bash
       set -euo pipefail; IFS=$'\n\t'
       printf '%s\n' hello
-    # Errtrace joined to the flags
     - |
       #!/usr/bin/env bash
       set -Eeuo pipefail
       printf '%s\n' hello
-    # Flags after the long option
     - |
       #!/usr/bin/env bash
       set -o pipefail -eu
       printf '%s\n' hello
-    # Option changes do not disprove that explicit setup exists.
     - |
       set -euo pipefail
       (set +e; false)
-    # local - restores shell options when a function returns.
     - |
       set -euo pipefail
       run() { local -; set +u; printf '%s\n' done; }
       run
-    # Quoted literal options are still flags.
     - |
       set '-eu' "-o" 'pipefail'
-    # A combined -o option can precede other short flags.
     - |
       set -oeu pipefail
+    - |
+      set -e; set -u; set -o pipefail
+    - |
+      set -euxo pipefail
 invalid:
-    # An option-name suffix is not a short flag.
     - |
       set -o nonsense-e -u -o pipefail
-    # The nounset spelling also needs a complete option lexeme.
     - |
       set -e -o nonsense-u -o pipefail
-    # A would-be option name starting with - is not another option group.
     - |
       set -o -e -u -o pipefail
-    # Positional arguments after -- cannot enable shell options.
     - |
       set -- -euo pipefail
-    # The first nonoption ends option processing.
     - |
       set data -euo pipefail
-    # Quoted data containing apparent options cannot enable them.
     - |
       set 'data -euo pipefail'
-    # A positional operand after an actual option remains data.
     - |
       set -e data -uo pipefail
-    # A long option name without -o is a positional operand.
     - |
       set errexit nounset -o pipefail
-    # A disabled option is not explicit enabling setup.
     - |
       set +e -uo pipefail
-    # Strict mode inside a branch is no top-level statement
     - |
       #!/usr/bin/env bash
       if true; then set -euo pipefail; fi
       printf '%s\n' hello
-    # Strict mode behind a list operator runs on a condition
     - |
       #!/usr/bin/env bash
       true && set -euo pipefail
       printf '%s\n' hello
-    # No strict mode
     - |
       #!/usr/bin/env bash
       printf '%s\n' hello
-    # Errexit alone
     - |
       #!/usr/bin/env bash
       set -e
       printf '%s\n' hello
-    # Nounset and pipefail without errexit, the instance
     - |
       #!/usr/bin/env bash
       set -uo pipefail
       printf '%s\n' hello
-    # Errexit and pipefail without nounset
     - |
       #!/usr/bin/env bash
       set -eo pipefail
       printf '%s\n' hello
-    # Errexit and nounset without pipefail
     - |
       #!/usr/bin/env bash
       set -eu
       printf '%s\n' hello
-    # A function body does not establish file-level setup at definition time
     - |
       #!/usr/bin/env bash
       run() {

@@ -15,6 +15,21 @@ snapshots:
       style: secondary
       start: 5
       end: 14
+  echo "$*":
+    fixed: printf '%s\n' "$*"
+    labels:
+    - source: echo "$*"
+      style: primary
+      start: 0
+      end: 9
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"$*"'
+      style: secondary
+      start: 5
+      end: 9
   echo "$x":
     fixed: printf '%s\n' "$x"
     labels:
@@ -45,6 +60,36 @@ snapshots:
       style: secondary
       start: 5
       end: 9
+  echo "${values[*]}":
+    fixed: printf '%s\n' "${values[*]}"
+    labels:
+    - source: echo "${values[*]}"
+      style: primary
+      start: 0
+      end: 19
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"${values[*]}"'
+      style: secondary
+      start: 5
+      end: 19
+  echo "user@$host":
+    fixed: printf '%s\n' "user@$host"
+    labels:
+    - source: echo "user@$host"
+      style: primary
+      start: 0
+      end: 17
+    - source: echo
+      style: secondary
+      start: 0
+      end: 4
+    - source: '"user@$host"'
+      style: secondary
+      start: 5
+      end: 17
   'echo "value: ${count}"':
     fixed: 'printf ''%s\n'' "value: ${count}"'
     labels:
@@ -111,3 +156,18 @@ snapshots:
       style: secondary
       start: 20
       end: 24
+  y=$(echo "$x"):
+    fixed: y=$(printf '%s\n' "$x")
+    labels:
+    - source: echo "$x"
+      style: primary
+      start: 4
+      end: 13
+    - source: echo
+      style: secondary
+      start: 4
+      end: 8
+    - source: '"$x"'
+      style: secondary
+      start: 9
+      end: 13

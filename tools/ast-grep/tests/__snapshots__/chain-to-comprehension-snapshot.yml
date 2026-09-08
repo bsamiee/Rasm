@@ -15,7 +15,7 @@ snapshots:
               yield 1
           def __len__(self):
               raise RuntimeError("length must not be requested")
-      flat = [item for iterable in (Rows(),) for item in iterable]
+      flat = [*iterable for iterable in (Rows(),)]
     labels:
     - source: list(chain(Rows()))
       style: primary
@@ -42,7 +42,7 @@ snapshots:
     flat = list(chain(*rows))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in (*rows,) for item in iterable]
+      flat = [*iterable for iterable in (*rows,)]
     labels:
     - source: list(chain(*rows))
       style: primary
@@ -69,7 +69,7 @@ snapshots:
     flat = list(chain(first, second))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in (first, second,) for item in iterable]
+      flat = [*iterable for iterable in (first, second,)]
     labels:
     - source: list(chain(first, second))
       style: primary
@@ -96,7 +96,7 @@ snapshots:
     flat = list(chain(first, second,))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in (first, second,) for item in iterable]
+      flat = [*iterable for iterable in (first, second,)]
     labels:
     - source: list(chain(first, second,))
       style: primary
@@ -123,7 +123,7 @@ snapshots:
     flat = list(chain(read_first(), read_second()))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in (read_first(), read_second(),) for item in iterable]
+      flat = [*iterable for iterable in (read_first(), read_second(),)]
     labels:
     - source: list(chain(read_first(), read_second()))
       style: primary
@@ -150,7 +150,7 @@ snapshots:
     flat = list(chain(row for row in rows))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in ((row for row in rows),) for item in iterable]
+      flat = [*iterable for iterable in ((row for row in rows),)]
     labels:
     - source: list(chain(row for row in rows))
       style: primary
@@ -177,7 +177,7 @@ snapshots:
     flat = list(chain.from_iterable(first if selected else second))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in (first if selected else second) for item in iterable]
+      flat = [*iterable for iterable in (first if selected else second)]
     labels:
     - source: list(chain.from_iterable(first if selected else second))
       style: primary
@@ -188,18 +188,56 @@ snapshots:
     flat = list(chain.from_iterable(rows))
   : fixed: |
       from itertools import chain
-      flat = [item for iterable in (rows) for item in iterable]
+      flat = [*iterable for iterable in (rows)]
     labels:
     - source: list(chain.from_iterable(rows))
       style: primary
       start: 35
       end: 66
   ? |
+    from itertools import chain
+    unique = set(chain(*rows))
+  : fixed: |
+      from itertools import chain
+      unique = {*iterable for iterable in (*rows,)}
+    labels:
+    - source: set(chain(*rows))
+      style: primary
+      start: 37
+      end: 54
+    - source: '*rows'
+      style: secondary
+      start: 47
+      end: 52
+    - source: (*rows)
+      style: secondary
+      start: 46
+      end: 53
+    - source: chain(*rows)
+      style: secondary
+      start: 41
+      end: 53
+    - source: chain(*rows)
+      style: secondary
+      start: 41
+      end: 53
+  ? |
+    from itertools import chain
+    unique = set(chain.from_iterable(rows))
+  : fixed: |
+      from itertools import chain
+      unique = {*iterable for iterable in (rows)}
+    labels:
+    - source: set(chain.from_iterable(rows))
+      style: primary
+      start: 37
+      end: 67
+  ? |
     from itertools import chain as link
     flat = list(link(*rows))
   : fixed: |
       from itertools import chain as link
-      flat = [item for iterable in (*rows,) for item in iterable]
+      flat = [*iterable for iterable in (*rows,)]
     labels:
     - source: list(link(*rows))
       style: primary
@@ -226,7 +264,7 @@ snapshots:
     flat = list(chain(first, *rest))
   : fixed: |
       from itertools import starmap, chain
-      flat = [item for iterable in (first, *rest,) for item in iterable]
+      flat = [*iterable for iterable in (first, *rest,)]
     labels:
     - source: list(chain(first, *rest))
       style: primary
@@ -253,7 +291,7 @@ snapshots:
     flat = list(it.chain.from_iterable(rows))
   : fixed: |
       import itertools as it
-      flat = [item for iterable in (rows) for item in iterable]
+      flat = [*iterable for iterable in (rows)]
     labels:
     - source: list(it.chain.from_iterable(rows))
       style: primary

@@ -1,0 +1,699 @@
+id: no-unshielded-cleanup-await
+snapshots:
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except (ValueError, BaseException) as error:
+            await conn.reset(error)
+            raise
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except (ValueError, BaseException) as error:
+              with anyio.CancelScope(shield=True):
+                  await conn.reset(error)
+                  raise
+    labels:
+    - source: |-
+        await conn.reset(error)
+                raise
+      style: primary
+      start: 132
+      end: 169
+    - source: (ValueError, BaseException) as error
+      style: secondary
+      start: 86
+      end: 122
+    - source: |-
+        except (ValueError, BaseException) as error:
+                await conn.reset(error)
+                raise
+      style: secondary
+      start: 79
+      end: 169
+    - source: await conn.reset(error)
+      style: secondary
+      start: 132
+      end: 155
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except BaseException:
+            await conn.reset()
+            raise
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except BaseException:
+              with anyio.CancelScope(shield=True):
+                  await conn.reset()
+                  raise
+    labels:
+    - source: |-
+        await conn.reset()
+                raise
+      style: primary
+      start: 109
+      end: 141
+    - source: BaseException
+      style: secondary
+      start: 86
+      end: 99
+    - source: |-
+        except BaseException:
+                await conn.reset()
+                raise
+      style: secondary
+      start: 79
+      end: 141
+    - source: await conn.reset()
+      style: secondary
+      start: 109
+      end: 127
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except anyio.get_cancelled_exc_class():
+            await conn.reset()
+            raise
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except anyio.get_cancelled_exc_class():
+              with anyio.CancelScope(shield=True):
+                  await conn.reset()
+                  raise
+    labels:
+    - source: |-
+        await conn.reset()
+                raise
+      style: primary
+      start: 127
+      end: 159
+    - source: anyio.get_cancelled_exc_class()
+      style: secondary
+      start: 86
+      end: 117
+    - source: |-
+        except anyio.get_cancelled_exc_class():
+                await conn.reset()
+                raise
+      style: secondary
+      start: 79
+      end: 159
+    - source: await conn.reset()
+      style: secondary
+      start: 127
+      end: 145
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except* BaseException:
+            await conn.reset()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except* BaseException:
+              with anyio.CancelScope(shield=True):
+                  await conn.reset()
+    labels:
+    - source: await conn.reset()
+      style: primary
+      start: 110
+      end: 128
+    - source: BaseException
+      style: secondary
+      start: 87
+      end: 100
+    - source: |-
+        except* BaseException:
+                await conn.reset()
+      style: secondary
+      start: 79
+      end: 128
+    - source: await conn.reset()
+      style: secondary
+      start: 110
+      end: 128
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except:
+            # The reset
+            await conn.reset()
+            raise
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except:
+              # The reset
+              with anyio.CancelScope(shield=True):
+                  await conn.reset()
+                  raise
+    labels:
+    - source: |-
+        await conn.reset()
+                raise
+      style: primary
+      start: 115
+      end: 147
+    - source: |-
+        except:
+                # The reset
+                await conn.reset()
+                raise
+      style: secondary
+      start: 79
+      end: 147
+    - source: await conn.reset()
+      style: secondary
+      start: 115
+      end: 133
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except:
+            await conn.reset()
+            raise
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except:
+              with anyio.CancelScope(shield=True):
+                  await conn.reset()
+                  raise
+    labels:
+    - source: |-
+        await conn.reset()
+                raise
+      style: primary
+      start: 95
+      end: 127
+    - source: |-
+        except:
+                await conn.reset()
+                raise
+      style: secondary
+      start: 79
+      end: 127
+    - source: await conn.reset()
+      style: secondary
+      start: 95
+      end: 113
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            async for chunk in conn.drain():
+                discard(chunk)
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  async for chunk in conn.drain():
+                      discard(chunk)
+    labels:
+    - source: |-
+        async for chunk in conn.drain():
+                    discard(chunk)
+      style: primary
+      start: 96
+      end: 155
+    - source: |-
+        finally:
+                async for chunk in conn.drain():
+                    discard(chunk)
+      style: secondary
+      start: 79
+      end: 155
+    - source: async
+      style: secondary
+      start: 96
+      end: 101
+    - source: |-
+        async for chunk in conn.drain():
+                    discard(chunk)
+      style: secondary
+      start: 96
+      end: 155
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            async with conn.lock:
+                conn.close()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  async with conn.lock:
+                      conn.close()
+    labels:
+    - source: |-
+        async with conn.lock:
+                    conn.close()
+      style: primary
+      start: 96
+      end: 142
+    - source: |-
+        finally:
+                async with conn.lock:
+                    conn.close()
+      style: secondary
+      start: 79
+      end: 142
+    - source: async
+      style: secondary
+      start: 96
+      end: 101
+    - source: |-
+        async with conn.lock:
+                    conn.close()
+      style: secondary
+      start: 96
+      end: 142
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            conn.close()
+            await conn.wait_closed()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  conn.close()
+                  await conn.wait_closed()
+    labels:
+    - source: |-
+        conn.close()
+                await conn.wait_closed()
+      style: primary
+      start: 96
+      end: 141
+    - source: |-
+        finally:
+                conn.close()
+                await conn.wait_closed()
+      style: secondary
+      start: 79
+      end: 141
+    - source: await conn.wait_closed()
+      style: secondary
+      start: 117
+      end: 141
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            if conn.open:
+                await conn.wait_closed()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  if conn.open:
+                      await conn.wait_closed()
+    labels:
+    - source: |-
+        if conn.open:
+                    await conn.wait_closed()
+      style: primary
+      start: 96
+      end: 146
+    - source: |-
+        finally:
+                if conn.open:
+                    await conn.wait_closed()
+      style: secondary
+      start: 79
+      end: 146
+    - source: await conn.wait_closed()
+      style: secondary
+      start: 122
+      end: 146
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            try:
+                await conn.wait_closed()
+            except OSError:
+                pass
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  try:
+                      await conn.wait_closed()
+                  except OSError:
+                      pass
+    labels:
+    - source: |-
+        try:
+                    await conn.wait_closed()
+                except OSError:
+                    pass
+      style: primary
+      start: 96
+      end: 178
+    - source: |-
+        finally:
+                try:
+                    await conn.wait_closed()
+                except OSError:
+                    pass
+      style: secondary
+      start: 79
+      end: 178
+    - source: await conn.wait_closed()
+      style: secondary
+      start: 113
+      end: 137
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            with anyio.CancelScope(shield=False):
+                await conn.wait_closed()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  with anyio.CancelScope(shield=False):
+                      await conn.wait_closed()
+    labels:
+    - source: |-
+        with anyio.CancelScope(shield=False):
+                    await conn.wait_closed()
+      style: primary
+      start: 96
+      end: 170
+    - source: |-
+        finally:
+                with anyio.CancelScope(shield=False):
+                    await conn.wait_closed()
+      style: secondary
+      start: 79
+      end: 170
+    - source: await conn.wait_closed()
+      style: secondary
+      start: 146
+      end: 170
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            with anyio.move_on_after(5):
+                await conn.wait_closed()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  with anyio.move_on_after(5):
+                      await conn.wait_closed()
+    labels:
+    - source: |-
+        with anyio.move_on_after(5):
+                    await conn.wait_closed()
+      style: primary
+      start: 96
+      end: 161
+    - source: |-
+        finally:
+                with anyio.move_on_after(5):
+                    await conn.wait_closed()
+      style: secondary
+      start: 79
+      end: 161
+    - source: await conn.wait_closed()
+      style: secondary
+      start: 137
+      end: 161
+  ? |
+    import anyio
+
+    async def run(conn):
+        try:
+            with anyio.CancelScope(shield=True):
+                await conn.run("echo")
+        finally:
+            await conn.wait_closed()
+  : fixed: |
+      import anyio
+
+      async def run(conn):
+          try:
+              with anyio.CancelScope(shield=True):
+                  await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  await conn.wait_closed()
+    labels:
+    - source: await conn.wait_closed()
+      style: primary
+      start: 145
+      end: 169
+    - source: |-
+        finally:
+                await conn.wait_closed()
+      style: secondary
+      start: 128
+      end: 169
+    - source: await conn.wait_closed()
+      style: secondary
+      start: 145
+      end: 169
+  ? |
+    import anyio
+
+    async def run(conns):
+        try:
+            await conns[0].run("echo")
+        finally:
+            [await conn.close() for conn in conns]
+  : fixed: |
+      import anyio
+
+      async def run(conns):
+          try:
+              await conns[0].run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  [await conn.close() for conn in conns]
+    labels:
+    - source: '[await conn.close() for conn in conns]'
+      style: primary
+      start: 101
+      end: 139
+    - source: |-
+        finally:
+                [await conn.close() for conn in conns]
+      style: secondary
+      start: 84
+      end: 139
+    - source: await conn.close()
+      style: secondary
+      start: 102
+      end: 120
+  ? |
+    import anyio
+
+    async def run(root):
+        try:
+            outcome = await act(root)
+        finally:
+            cleaned = await clean(root)
+        return outcome.bind(lambda _: cleaned)
+  : fixed: |
+      import anyio
+
+      async def run(root):
+          try:
+              outcome = await act(root)
+          finally:
+              with anyio.CancelScope(shield=True):
+                  cleaned = await clean(root)
+          return outcome.bind(lambda _: cleaned)
+    labels:
+    - source: cleaned = await clean(root)
+      style: primary
+      start: 99
+      end: 126
+    - source: |-
+        finally:
+                cleaned = await clean(root)
+      style: secondary
+      start: 82
+      end: 126
+    - source: await clean(root)
+      style: secondary
+      start: 109
+      end: 126
+  ? |
+    import asyncio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        except asyncio.CancelledError as cancelled:
+            await conn.reset()
+            raise cancelled
+  : fixed: |
+      import asyncio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          except asyncio.CancelledError as cancelled:
+              with anyio.CancelScope(shield=True):
+                  await conn.reset()
+                  raise cancelled
+    labels:
+    - source: |-
+        await conn.reset()
+                raise cancelled
+      style: primary
+      start: 133
+      end: 175
+    - source: asyncio.CancelledError as cancelled
+      style: secondary
+      start: 88
+      end: 123
+    - source: |-
+        except asyncio.CancelledError as cancelled:
+                await conn.reset()
+                raise cancelled
+      style: secondary
+      start: 81
+      end: 175
+    - source: await conn.reset()
+      style: secondary
+      start: 133
+      end: 151
+  ? |
+    import tempfile
+
+    import anyio
+
+    async def run(conn):
+        try:
+            await conn.run("echo")
+        finally:
+            with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as report:
+                await conn.save(report)
+  : fixed: |
+      import tempfile
+
+      import anyio
+
+      async def run(conn):
+          try:
+              await conn.run("echo")
+          finally:
+              with anyio.CancelScope(shield=True):
+                  with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as report:
+                      await conn.save(report)
+    labels:
+    - source: |-
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as report:
+                    await conn.save(report)
+      style: primary
+      start: 113
+      end: 220
+    - source: |-
+        finally:
+                with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as report:
+                    await conn.save(report)
+      style: secondary
+      start: 96
+      end: 220
+    - source: await conn.save(report)
+      style: secondary
+      start: 197
+      end: 220

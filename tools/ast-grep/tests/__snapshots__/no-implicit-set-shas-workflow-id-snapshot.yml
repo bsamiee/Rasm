@@ -1,0 +1,185 @@
+id: no-implicit-set-shas-workflow-id
+snapshots:
+  ? |
+    jobs:
+      build:
+        steps:
+          - "uses": "nrwl/nx-set-shas@v5"
+  : labels:
+    - source: '"nrwl/nx-set-shas@v5"'
+      style: primary
+      start: 42
+      end: 63
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v10
+  : labels:
+    - source: nrwl/nx-set-shas@v10
+      style: primary
+      start: 40
+      end: 60
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v2
+  : labels:
+    - source: nrwl/nx-set-shas@v2
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v4.3.0
+  : labels:
+    - source: nrwl/nx-set-shas@v4.3.0
+      style: primary
+      start: 40
+      end: 63
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            env:
+              workflow-id: ci.yml
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              main-branch-name: trunk
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              use-previous-merge-group-commit: false
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              workflow-id:
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              workflow-id: ""
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              workflow-id: "" # Set on the next run
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              workflow-id: null
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 40
+      end: 59
+  ? |
+    jobs:
+      build:
+        steps:
+          - with: {main-branch-name: trunk}
+            uses: nrwl/nx-set-shas@v5
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 80
+      end: 99
+  ? |
+    jobs: {build: {steps: [{parallel: [{uses: nrwl/nx-set-shas@v5}]}]}}
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 42
+      end: 61
+  ? |
+    jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v2.0}]}}
+  : labels:
+    - source: nrwl/nx-set-shas@v2.0
+      style: primary
+      start: 30
+      end: 51
+  ? |
+    jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5, with: {workflow-id: ~}}]}}
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 30
+      end: 49
+  ? |
+    jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5}]}}
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 30
+      end: 49
+  ? |
+    runs:
+      using: composite
+      steps:
+        - uses: nrwl/nx-set-shas@v5
+  : labels:
+    - source: nrwl/nx-set-shas@v5
+      style: primary
+      start: 46
+      end: 65

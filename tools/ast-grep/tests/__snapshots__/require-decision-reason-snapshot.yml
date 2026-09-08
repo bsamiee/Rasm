@@ -1,5 +1,12 @@
 id: require-decision-reason
 snapshots:
+  'const hook = ($, e, next) => ({ deny: '''' }); on(''tool.call'', hook);':
+    labels:
+    - source: ''''''
+      message: The reason value
+      style: primary
+      start: 38
+      end: 40
   deny('');:
     labels:
     - source: ''''''
@@ -91,3 +98,10 @@ snapshots:
       style: primary
       start: 49
       end: 51
+  'on(''tool.call'', ($, e, next) => { switch (e.tool) { case ''Bash'': return { deny: '''' }; default: return next(e); } });':
+    labels:
+    - source: ''''''
+      message: The reason value
+      style: primary
+      start: 80
+      end: 82

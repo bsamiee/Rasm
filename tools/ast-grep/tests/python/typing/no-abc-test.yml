@@ -1,36 +1,38 @@
 id: no-abc
 valid:
-    # The corrected form, the protocol
     - |
       from typing import Protocol
 
       class Reader(Protocol):
           def read(self, path: Path) -> bytes: ...
-    # The collections abstract base classes, the interfaces the stdlib declares
     - |
       from collections.abc import Mapping
-    # Another member of abc
     - |
       from abc import update_abstractmethods
-    # Attribute named like the member on another object
     - |
       base = registry.ABC
+    - |
+      import abc
+
+      token = abc.get_cache_token()
 invalid:
-    # The instance, the base imported from abc
     - |
       from abc import ABC
-    # The decorator imported from abc
     - |
       from abc import abstractmethod
-    # The metaclass read as spelled
     - |
       import abc
 
       class Reader(metaclass=abc.ABCMeta):
           pass
-    # The attribute read through the alias the import binds
     - |
       import abc as bases
 
       class Reader(bases.ABC):
           pass
+    - |
+      import abc
+
+      class Reader:
+          @abc.abstractmethod
+          def read(self): ...

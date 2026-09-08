@@ -413,8 +413,9 @@ const SCAN = [
                 liftPredicate<readonly string[]>((found) => found.length > 0)([...lines(run.stdout), ...lines(run.stderr)]),
             ),
     },
+    // Paths outside the working directory keep their absolute form and belong to no project, nx refuses an absolute --files value
     {
-        match: (path): boolean => _TASK_GRAPH_NAMES.includes(basename(path)) || under(path, _TASK_GRAPH_DIRECTORY),
+        match: (path): boolean => !path.startsWith('/') && (_TASK_GRAPH_NAMES.includes(basename(path)) || under(path, _TASK_GRAPH_DIRECTORY)),
         argv: (path): readonly string[] => ['pnpm', 'exec', 'nx', 'show', 'projects', '--affected', '--json', `--files=${path}`],
         lines: (run): readonly string[] =>
             getOrElse((): readonly string[] => [`nx show projects exited ${run.exitCode}: ${first(run.stderr)}`])(

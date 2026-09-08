@@ -5,12 +5,9 @@ severity: error
 rule:
     pattern: _PROPERTY
     any:
-        # List in the singular fails the SDK with NETSDK1046, the plural tag is the list form
         - matches: {msbuild-property-value: {name: {regex: "^TargetFramework$"}, text: {regex: ";"}}}
-        # One literal framework in the plural runs an outer build around one inner build
         - matches: {msbuild-property-value: {name: {regex: "^TargetFrameworks$"}, text: {regex: '^\s*[A-Za-z][A-Za-z0-9.-]*\s*$'}}}
           not: {has: {kind: content, regex: ';'}}
-    # BuildCheck BC0107 handles both properties together, a rename would duplicate the retained property
     not:
         inside:
             kind: document
@@ -23,10 +20,10 @@ transform:
 fix: $RENAMED
 rewriters:
     - id: plural
-      rule: {kind: Name, regex: '^TargetFramework$', inside: {any: [{kind: STag}, {kind: ETag}]}}
+      rule: {kind: Name, regex: '^TargetFramework$', inside: {kind: 'STag, ETag'}}
       fix: TargetFrameworks
     - id: singular
-      rule: {kind: Name, inside: {any: [{kind: STag}, {kind: ETag}], inside: {pattern: _PROPERTY}}}
+      rule: {kind: Name, inside: {kind: 'STag, ETag', inside: {pattern: _PROPERTY}}}
       fix: TargetFramework
-message: The property name mismatches its value, a list in TargetFramework fails with NETSDK1046 and one framework in TargetFrameworks adds an outer build
+message: Lists in TargetFramework fail with NETSDK1046, and one framework in TargetFrameworks adds an outer build
 note: Name the property after its value, TargetFramework for one framework and TargetFrameworks for a semicolon list

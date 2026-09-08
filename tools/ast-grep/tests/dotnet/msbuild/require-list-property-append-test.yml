@@ -1,26 +1,18 @@
 id: require-list-property-append
 valid:
-    # Extension data can resemble property groups without assigning MSBuild properties
     - '<Project><ProjectExtensions><PropertyGroup><NoWarn>opaque</NoWarn></PropertyGroup></ProjectExtensions></Project>'
-    # The append form the correction produced
     - |
       <PropertyGroup><MSBuildWarningsNotAsErrors>$(MSBuildWarningsNotAsErrors);IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-    # Restore code appended to NoWarn
     - |
       <PropertyGroup><NoWarn>$(NoWarn);NU1603</NoWarn></PropertyGroup>
-    # Define appended
     - |
       <PropertyGroup><DefineConstants>$(DefineConstants);HOST_MACOS</DefineConstants></PropertyGroup>
-    # Scalar property holding no list
     - |
       <PropertyGroup><TreatWarningsAsErrors>true</TreatWarningsAsErrors></PropertyGroup>
-    # Property function over the list keeping the inherited entries
     - |
       <PropertyGroup><NoWarn>$(NoWarn.Replace('CS1591', ''))</NoWarn></PropertyGroup>
-    # Restore code on one reference, metadata and no list property
     - |
       <ItemGroup><PackageReference Include="EPPlus"><NoWarn>NU1603</NoWarn></PackageReference></ItemGroup>
-    # Every list preserves its own inherited value
     - "<PropertyGroup><NoWarn>$(NoWarn);LOCAL</NoWarn></PropertyGroup>"
     - "<PropertyGroup><WarningsAsErrors>$(WarningsAsErrors);LOCAL</WarningsAsErrors></PropertyGroup>"
     - "<PropertyGroup><WarningsNotAsErrors>$(WarningsNotAsErrors);LOCAL</WarningsNotAsErrors></PropertyGroup>"
@@ -32,38 +24,37 @@ valid:
     - "<PropertyGroup><DefaultItemExcludes>$(DefaultItemExcludes);LOCAL</DefaultItemExcludes></PropertyGroup>"
     - "<PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);LOCAL</InterceptorsNamespaces></PropertyGroup>"
     - "<PropertyGroup><InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>"
+    - |
+      <PropertyGroup><NoWarn>CS1591;$(NoWarn)</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn>$(NoWarn)</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn Condition="'$(NoWarn)' == ''">CS1591</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn Condition="'$(CI)' == '' and '$(NoWarn)' == ''">CS1591</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn>  $(NoWarn);CS1591</NoWarn></PropertyGroup>
 invalid:
-    # Another list property's value does not preserve DefineConstants
     - |
       <PropertyGroup><DefineConstants>$(NoWarn);FEATURE</DefineConstants></PropertyGroup>
-    # The instance, the inherited list was discarded
     - |
       <PropertyGroup><MSBuildWarningsNotAsErrors>IKVM0100;IKVM0101;IKVM0109</MSBuildWarningsNotAsErrors></PropertyGroup>
-    # NoWarn assignment, the SDK default 1701;1702 is lost
     - |
       <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
-    # Define list dropping the SDK's TRACE and DEBUG
     - |
       <PropertyGroup><DefineConstants>MY_FEATURE</DefineConstants></PropertyGroup>
-    # Excludes that drop bin and obj
     - |
       <PropertyGroup><DefaultItemExcludes>Generated/**</DefaultItemExcludes></PropertyGroup>
-    # The interceptor namespaces the generator packages added
     - |
-      <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
-    # Empty assignment dropping every inherited entry
+      <PropertyGroup><InterceptorsNamespaces>Item.Generated</InterceptorsNamespaces></PropertyGroup>
     - |
       <PropertyGroup><NoWarn /></PropertyGroup>
-    # Conditioned assignment, the fix keeps the attribute
     - |
       <PropertyGroup><NoWarn Condition="'$(ContinuousIntegrationBuild)' == 'true'">CS1591</NoWarn></PropertyGroup>
-    # A greater-than comparison remains inside the attribute
     - |
       <PropertyGroup><NoWarn Condition="'$(Level)' > '0'">CS1591</NoWarn></PropertyGroup>
-    # Empty conditioned assignments preserve the attribute
     - |-
       <PropertyGroup><NoWarn Condition="'$(Level)' > '0'" /></PropertyGroup>
-    # Literal assignments and other list references replace inherited entries
     - "<PropertyGroup><NoWarn>LOCAL</NoWarn></PropertyGroup>"
     - "<PropertyGroup><DefineConstants>$(NoWarn);LOCAL</DefineConstants></PropertyGroup>"
     - "<PropertyGroup><WarningsAsErrors>LOCAL</WarningsAsErrors></PropertyGroup>"
@@ -86,3 +77,15 @@ invalid:
     - "<PropertyGroup><DefineConstants>$(InterceptorsNamespaces);LOCAL</DefineConstants></PropertyGroup>"
     - "<PropertyGroup><InterceptorsPreviewNamespaces>LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>"
     - "<PropertyGroup><DefineConstants>$(InterceptorsPreviewNamespaces);LOCAL</DefineConstants></PropertyGroup>"
+    - |
+      <PropertyGroup><NoWarn>$(NoWarnExtra);CS1591</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><WarningsAsErrors Condition='$(Strict) == true'>CS8600</WarningsAsErrors></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn Label="'$(NoWarn)' == ''">CS1591</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn Condition="'$(DefineConstants)' == ''">CS1591</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn Condition="'$(NoWarn)' == '' or '$(CI)' == ''">CS1591</NoWarn></PropertyGroup>
+    - |
+      <PropertyGroup><NoWarn Condition="'$(NoWarn)' != ''">CS1591</NoWarn></PropertyGroup>

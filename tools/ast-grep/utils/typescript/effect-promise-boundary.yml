@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Lexical conversion body; callback invocation and escape require semantic analysis.
 id: effect-promise-boundary
 language: tsx
 utils:
@@ -20,8 +19,8 @@ utils:
                 - has: {field: object, matches: promise-module}
                 - any:
                     - has: {field: property, regex: ^(promise|tryPromise)$}
-                    - has: {field: property, regex: ^tryMapPromise$}
-                      all:
+                    - all:
+                        - has: {field: property, regex: ^tryMapPromise$}
                         - has:
                             field: object
                             matches:

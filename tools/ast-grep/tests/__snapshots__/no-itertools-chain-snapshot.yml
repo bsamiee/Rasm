@@ -1,6 +1,20 @@
 id: no-itertools-chain
 snapshots:
   ? |
+    class Rows:
+        from itertools import chain
+
+        flat = chain(*parts)
+  : labels:
+    - source: chain(*parts)
+      style: primary
+      start: 56
+      end: 69
+    - source: chain
+      style: secondary
+      start: 56
+      end: 61
+  ? |
     def flatten(rows):
         from itertools import chain
 
@@ -61,6 +75,35 @@ snapshots:
       style: secondary
       start: 41
       end: 46
+  ? |
+    from itertools import chain
+    def build(value):
+        match value:
+            case constants.chain:
+                return chain(*rows)
+  : labels:
+    - source: chain(*rows)
+      style: primary
+      start: 112
+      end: 124
+    - source: chain
+      style: secondary
+      start: 112
+      end: 117
+  ? |
+    from itertools import chain
+    from itertools import *
+
+    flat = chain(*rows)
+  : labels:
+    - source: chain(*rows)
+      style: primary
+      start: 60
+      end: 72
+    - source: chain
+      style: secondary
+      start: 60
+      end: 65
   ? |
     from itertools import chain as link
 

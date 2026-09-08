@@ -7,10 +7,6 @@ snapshots:
       style: primary
       start: 6
       end: 33
-    - source: builtin
-      style: secondary
-      start: 6
-      end: 13
     - source: mapfile
       style: secondary
       start: 14
@@ -23,6 +19,44 @@ snapshots:
       style: secondary
       start: 0
       end: 45
+  while command mapfile -tn 2 batch; do :; done:
+    fixed: while command mapfile -tn 2 batch && (( ${#batch[@]} )); do :; done
+    labels:
+    - source: command mapfile -tn 2 batch
+      style: primary
+      start: 6
+      end: 33
+    - source: mapfile
+      style: secondary
+      start: 14
+      end: 21
+    - source: batch
+      style: secondary
+      start: 28
+      end: 33
+    - source: while command mapfile -tn 2 batch; do :; done
+      style: secondary
+      start: 0
+      end: 45
+  while mapfile -t -O 1 rows; do :; done:
+    fixed: while mapfile -t -O 1 rows && (( ${#rows[@]} )); do :; done
+    labels:
+    - source: mapfile -t -O 1 rows
+      style: primary
+      start: 6
+      end: 26
+    - source: mapfile
+      style: secondary
+      start: 6
+      end: 13
+    - source: rows
+      style: secondary
+      start: 22
+      end: 26
+    - source: while mapfile -t -O 1 rows; do :; done
+      style: secondary
+      start: 0
+      end: 38
   while mapfile -t -n 2 batch; do :; done:
     fixed: while mapfile -t -n 2 batch && (( ${#batch[@]} )); do :; done
     labels:
@@ -70,6 +104,25 @@ snapshots:
       style: secondary
       start: 0
       end: 67
+  while mapfile -tn 2 batch; do :; done < file:
+    fixed: while mapfile -tn 2 batch && (( ${#batch[@]} )); do :; done < file
+    labels:
+    - source: mapfile -tn 2 batch
+      style: primary
+      start: 6
+      end: 25
+    - source: mapfile
+      style: secondary
+      start: 6
+      end: 13
+    - source: batch
+      style: secondary
+      start: 20
+      end: 25
+    - source: while mapfile -tn 2 batch; do :; done
+      style: secondary
+      start: 0
+      end: 37
   while readarray -t rows; do :; done:
     fixed: while readarray -t rows && (( ${#rows[@]} )); do :; done
     labels:

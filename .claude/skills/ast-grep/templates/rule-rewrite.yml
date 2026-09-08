@@ -1,20 +1,18 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Applied on demand through the repository rewrite target
-id: <rule-id>
+id: <before>-to-<after>
 language: <language>
 severity: off
 rule:
     all:
         - pattern: <code capturing $$$ITEMS>
         - has: {field: <list-field>, kind: <list-kind>, pattern: $LIST}
-        - not: {pattern: <unsupported variant>} # Rewriters do not narrow findings
+        - not: {pattern: <unsupported variant>}
 rewriters:
-    - id: <rewriter-id> # At each node, the captured root included, the first matching rewriter consumes its subtree, and a root no rewriter matches answers its own text
+    - id: <rewriter-id>
       rule:
-        kind: <kind> # The gate mutates rewriter predicates too, and a predicate no case distinguishes reports as an uncovered arm
-        pattern: '$ITEM' # pattern: $ROOT on the captured root replaces the whole match, and a pattern holding a comma or a transform holding [ is quoted in a flow map
-        # A rewriter pattern reuses an enclosing capture, $F($V) matches the call over the bound $V alone
-        inside: {kind: <list-kind>, pattern: $LIST} # Select members of the captured owner, not nested lists
+        kind: <kind>
+        pattern: '$ITEM'
+        inside: {kind: <list-kind>, pattern: $LIST}
       constraints:
         ITEM: {regex: "<name-pattern>"}
       transform:
@@ -25,11 +23,7 @@ transform:
         rewrite:
             source: $$$ITEMS
             rewriters: [<rewriter-id>]
-            joinBy: "<separator>" # Omit to preserve unmatched source; set to assemble only rewritten nodes
+            joinBy: "<separator>"
 fix: <template referencing $OUT>
 message: <the construct being replaced>
 note: <the required form and its reason>
-# Review prerequisites must be enforceable by the invocation; severity off does not establish equivalence
-# For nested replacements, recurse from a rewriter into a smaller capture
-# For separator removal, use fix: {template: '', expandEnd: {regex: '^,$'}}, with cases for comments and empty containers
-# For user-selected alternatives, use a fix list with title and template; -U takes the first

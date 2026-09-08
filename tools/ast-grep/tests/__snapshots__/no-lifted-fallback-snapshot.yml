@@ -11,6 +11,22 @@ snapshots:
       style: secondary
       start: 36
       end: 44
+    - source: orElse
+      style: secondary
+      start: 38
+      end: 44
+    - source: orElse
+      style: secondary
+      start: 38
+      end: 44
+    - source: E
+      style: secondary
+      start: 36
+      end: 37
+    - source: E
+      style: secondary
+      start: 36
+      end: 37
     - source: () => E.succeed(false)
       style: secondary
       start: 51
@@ -19,6 +35,131 @@ snapshots:
       style: secondary
       start: 51
       end: 73
+  ? |-
+    import { Effect } from "effect";
+    Effect.catchAll(work, () => Effect.fail(error))
+  : fixed: |-
+      import { Effect } from "effect";
+      Effect.orElseFail(work, () => error)
+    labels:
+    - source: Effect.catchAll(work, () => Effect.fail(error))
+      style: primary
+      start: 33
+      end: 80
+    - source: Effect.catchAll
+      style: secondary
+      start: 33
+      end: 48
+    - source: catchAll
+      style: secondary
+      start: 40
+      end: 48
+    - source: catchAll
+      style: secondary
+      start: 40
+      end: 48
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 55
+      end: 79
+    - source: () => Effect.fail(error)
+      style: secondary
+      start: 55
+      end: 79
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+  ? |-
+    import { Effect } from "effect";
+    Effect.catchAll(work, () => Effect.succeed(false))
+  : fixed: |-
+      import { Effect } from "effect";
+      Effect.orElseSucceed(work, () => false)
+    labels:
+    - source: Effect.catchAll(work, () => Effect.succeed(false))
+      style: primary
+      start: 33
+      end: 83
+    - source: Effect.catchAll
+      style: secondary
+      start: 33
+      end: 48
+    - source: catchAll
+      style: secondary
+      start: 40
+      end: 48
+    - source: catchAll
+      style: secondary
+      start: 40
+      end: 48
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: () => Effect.succeed(false)
+      style: secondary
+      start: 55
+      end: 82
+    - source: () => Effect.succeed(false)
+      style: secondary
+      start: 55
+      end: 82
+  ? |-
+    import { Effect } from "effect";
+    Effect.orElse(work, () => Effect.succeed<boolean | number>(false))
+  : fixed: |-
+      import { Effect } from "effect";
+      Effect.orElseSucceed(work, () => false)
+    labels:
+    - source: Effect.orElse(work, () => Effect.succeed<boolean | number>(false))
+      style: primary
+      start: 33
+      end: 99
+    - source: Effect.orElse
+      style: secondary
+      start: 33
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: () => Effect.succeed<boolean | number>(false)
+      style: secondary
+      start: 53
+      end: 98
+    - source: () => Effect.succeed<boolean | number>(false)
+      style: secondary
+      start: 53
+      end: 98
   ? |-
     import { Effect } from "effect";
     Effect.orElse(work, (error) => Effect.succeed(fallback))
@@ -34,6 +175,22 @@ snapshots:
       style: secondary
       start: 33
       end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
     - source: (error) => Effect.succeed(fallback)
       style: secondary
       start: 53
@@ -57,6 +214,22 @@ snapshots:
       style: secondary
       start: 33
       end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
     - source: error => Effect.succeed(fallback)
       style: secondary
       start: 53
@@ -80,6 +253,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: () => Effect.fail(new OtherError({ path }))
       style: secondary
       start: 66
@@ -88,6 +277,14 @@ snapshots:
       style: secondary
       start: 66
       end: 109
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
   ? |-
     import { Effect } from "effect";
     const held = Effect.orElse(work, () => Effect.fail({ recover: () => Effect.succeed(false) }));
@@ -103,6 +300,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: '() => Effect.fail({ recover: () => Effect.succeed(false) })'
       style: secondary
       start: 66
@@ -111,6 +324,14 @@ snapshots:
       style: secondary
       start: 66
       end: 125
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
   ? |-
     import { Effect } from "effect";
     const held = Effect.orElse(work, () => Effect.succeed(false));
@@ -126,6 +347,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: () => Effect.succeed(false)
       style: secondary
       start: 66
@@ -149,6 +386,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: '() => Effect.succeed({ rows: [] })'
       style: secondary
       start: 66
@@ -172,6 +425,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: () => { return Effect.fail(error); }
       style: secondary
       start: 66
@@ -180,6 +449,14 @@ snapshots:
       style: secondary
       start: 66
       end: 102
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
   ? |-
     import { Effect } from "effect";
     const held = Effect.orElse(work, () => { return Effect.succeed(false); });
@@ -195,6 +472,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: () => { return Effect.succeed(false); }
       style: secondary
       start: 66
@@ -218,6 +511,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: (_) => Effect.succeed(false)
       style: secondary
       start: 66
@@ -241,6 +550,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: _error => Effect.succeed(false)
       style: secondary
       start: 66
@@ -264,6 +589,22 @@ snapshots:
       style: secondary
       start: 46
       end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: orElse
+      style: secondary
+      start: 53
+      end: 59
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
+    - source: Effect
+      style: secondary
+      start: 46
+      end: 52
     - source: function () { return Effect.succeed(false); }
       style: secondary
       start: 66
@@ -287,6 +628,22 @@ snapshots:
       style: secondary
       start: 56
       end: 69
+    - source: orElse
+      style: secondary
+      start: 63
+      end: 69
+    - source: orElse
+      style: secondary
+      start: 63
+      end: 69
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
     - source: '() => Effect.fail({ recover: () => Effect.succeed(false) })'
       style: secondary
       start: 70
@@ -295,6 +652,14 @@ snapshots:
       style: secondary
       start: 70
       end: 129
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
   ? |-
     import { Effect } from "effect";
     const held = work.pipe(Effect.orElse(() => Effect.succeed(false)));
@@ -310,6 +675,22 @@ snapshots:
       style: secondary
       start: 56
       end: 69
+    - source: orElse
+      style: secondary
+      start: 63
+      end: 69
+    - source: orElse
+      style: secondary
+      start: 63
+      end: 69
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
     - source: () => Effect.succeed(false)
       style: secondary
       start: 70
@@ -333,6 +714,22 @@ snapshots:
       style: secondary
       start: 56
       end: 69
+    - source: orElse
+      style: secondary
+      start: 63
+      end: 69
+    - source: orElse
+      style: secondary
+      start: 63
+      end: 69
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
+    - source: Effect
+      style: secondary
+      start: 56
+      end: 62
     - source: () => { return Effect.succeed(false); }
       style: secondary
       start: 70
@@ -341,6 +738,267 @@ snapshots:
       style: secondary
       start: 70
       end: 109
+  import { Effect } from "effect"; Effect.orElse(work, () => Effect.fail<LoadError>(error)):
+    fixed: import { Effect } from "effect"; Effect.orElseFail(work, () => error)
+    labels:
+    - source: Effect.orElse(work, () => Effect.fail<LoadError>(error))
+      style: primary
+      start: 33
+      end: 89
+    - source: Effect.orElse
+      style: secondary
+      start: 33
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: () => Effect.fail<LoadError>(error)
+      style: secondary
+      start: 53
+      end: 88
+    - source: () => Effect.fail<LoadError>(error)
+      style: secondary
+      start: 53
+      end: 88
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+  import { Effect } from "effect"; Effect.orElse(work, () => Effect.succeed(`${prefix}-fallback`)):
+    fixed: import { Effect } from "effect"; Effect.orElseSucceed(work, () => `${prefix}-fallback`)
+    labels:
+    - source: Effect.orElse(work, () => Effect.succeed(`${prefix}-fallback`))
+      style: primary
+      start: 33
+      end: 96
+    - source: Effect.orElse
+      style: secondary
+      start: 33
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: () => Effect.succeed(`${prefix}-fallback`)
+      style: secondary
+      start: 53
+      end: 95
+    - source: () => Effect.succeed(`${prefix}-fallback`)
+      style: secondary
+      start: 53
+      end: 95
+  'import { Effect } from "effect"; Effect.orElse(work, () => Effect.succeed<Row>({ rows: [] }))':
+    fixed: 'import { Effect } from "effect"; Effect.orElseSucceed(work, () => ({ rows: [] }))'
+    labels:
+    - source: 'Effect.orElse(work, () => Effect.succeed<Row>({ rows: [] }))'
+      style: primary
+      start: 33
+      end: 93
+    - source: Effect.orElse
+      style: secondary
+      start: 33
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: '() => Effect.succeed<Row>({ rows: [] })'
+      style: secondary
+      start: 53
+      end: 92
+    - source: '() => Effect.succeed<Row>({ rows: [] })'
+      style: secondary
+      start: 53
+      end: 92
+  'import { Effect } from "effect"; Effect.orElse(work, (_error: Error) => Effect.succeed(false))':
+    fixed: import { Effect } from "effect"; Effect.orElseSucceed(work, () => false)
+    labels:
+    - source: 'Effect.orElse(work, (_error: Error) => Effect.succeed(false))'
+      style: primary
+      start: 33
+      end: 94
+    - source: Effect.orElse
+      style: secondary
+      start: 33
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: orElse
+      style: secondary
+      start: 40
+      end: 46
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: Effect
+      style: secondary
+      start: 33
+      end: 39
+    - source: '(_error: Error) => Effect.succeed(false)'
+      style: secondary
+      start: 53
+      end: 93
+    - source: '(_error: Error) => Effect.succeed(false)'
+      style: secondary
+      start: 53
+      end: 93
+  import { Effect } from "effect"; work.pipe(Effect.catchAll(() => Effect.fail<LoadError>(error))):
+    fixed: import { Effect } from "effect"; work.pipe(Effect.orElseFail(() => error))
+    labels:
+    - source: Effect.catchAll(() => Effect.fail<LoadError>(error))
+      style: primary
+      start: 43
+      end: 95
+    - source: Effect.catchAll
+      style: secondary
+      start: 43
+      end: 58
+    - source: catchAll
+      style: secondary
+      start: 50
+      end: 58
+    - source: catchAll
+      style: secondary
+      start: 50
+      end: 58
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+    - source: () => Effect.fail<LoadError>(error)
+      style: secondary
+      start: 59
+      end: 94
+    - source: () => Effect.fail<LoadError>(error)
+      style: secondary
+      start: 59
+      end: 94
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+  import { Effect } from "effect"; work.pipe(Effect.catchAll((_error) => Effect.succeed(fallback))):
+    fixed: import { Effect } from "effect"; work.pipe(Effect.orElseSucceed(() => fallback))
+    labels:
+    - source: Effect.catchAll((_error) => Effect.succeed(fallback))
+      style: primary
+      start: 43
+      end: 96
+    - source: Effect.catchAll
+      style: secondary
+      start: 43
+      end: 58
+    - source: catchAll
+      style: secondary
+      start: 50
+      end: 58
+    - source: catchAll
+      style: secondary
+      start: 50
+      end: 58
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+    - source: Effect
+      style: secondary
+      start: 43
+      end: 49
+    - source: (_error) => Effect.succeed(fallback)
+      style: secondary
+      start: 59
+      end: 95
+    - source: (_error) => Effect.succeed(fallback)
+      style: secondary
+      start: 59
+      end: 95
+  import { Micro } from "effect"; Micro.catchAll(work, () => Micro.succeed(false)):
+    fixed: import { Micro } from "effect"; Micro.orElseSucceed(work, () => false)
+    labels:
+    - source: Micro.catchAll(work, () => Micro.succeed(false))
+      style: primary
+      start: 32
+      end: 80
+    - source: Micro.catchAll
+      style: secondary
+      start: 32
+      end: 46
+    - source: catchAll
+      style: secondary
+      start: 38
+      end: 46
+    - source: catchAll
+      style: secondary
+      start: 38
+      end: 46
+    - source: Micro
+      style: secondary
+      start: 32
+      end: 37
+    - source: Micro
+      style: secondary
+      start: 32
+      end: 37
+    - source: () => Micro.succeed(false)
+      style: secondary
+      start: 53
+      end: 79
+    - source: () => Micro.succeed(false)
+      style: secondary
+      start: 53
+      end: 79
   ? |-
     import { STM } from "effect";
     const held = STM.orElse(transaction, () => STM.succeed(false));
@@ -356,6 +1014,22 @@ snapshots:
       style: secondary
       start: 43
       end: 53
+    - source: orElse
+      style: secondary
+      start: 47
+      end: 53
+    - source: orElse
+      style: secondary
+      start: 47
+      end: 53
+    - source: STM
+      style: secondary
+      start: 43
+      end: 46
+    - source: STM
+      style: secondary
+      start: 43
+      end: 46
     - source: () => STM.succeed(false)
       style: secondary
       start: 67
@@ -379,6 +1053,22 @@ snapshots:
       style: secondary
       start: 60
       end: 70
+    - source: orElse
+      style: secondary
+      start: 64
+      end: 70
+    - source: orElse
+      style: secondary
+      start: 64
+      end: 70
+    - source: STM
+      style: secondary
+      start: 60
+      end: 63
+    - source: STM
+      style: secondary
+      start: 60
+      end: 63
     - source: () => STM.fail(error)
       style: secondary
       start: 71
@@ -387,6 +1077,14 @@ snapshots:
       style: secondary
       start: 71
       end: 92
+    - source: STM
+      style: secondary
+      start: 60
+      end: 63
+    - source: STM
+      style: secondary
+      start: 60
+      end: 63
   ? |-
     import { Stream } from "effect";
     const held = stream.pipe(Stream.orElse(() => Stream.succeed(false)));
@@ -402,6 +1100,22 @@ snapshots:
       style: secondary
       start: 58
       end: 71
+    - source: orElse
+      style: secondary
+      start: 65
+      end: 71
+    - source: orElse
+      style: secondary
+      start: 65
+      end: 71
+    - source: Stream
+      style: secondary
+      start: 58
+      end: 64
+    - source: Stream
+      style: secondary
+      start: 58
+      end: 64
     - source: () => Stream.succeed(false)
       style: secondary
       start: 72
@@ -410,3 +1124,46 @@ snapshots:
       style: secondary
       start: 72
       end: 99
+  import { Stream } from "effect"; Stream.catchAll(stream, () => Stream.fail(error)):
+    fixed: import { Stream } from "effect"; Stream.orElseFail(stream, () => error)
+    labels:
+    - source: Stream.catchAll(stream, () => Stream.fail(error))
+      style: primary
+      start: 33
+      end: 82
+    - source: Stream.catchAll
+      style: secondary
+      start: 33
+      end: 48
+    - source: catchAll
+      style: secondary
+      start: 40
+      end: 48
+    - source: catchAll
+      style: secondary
+      start: 40
+      end: 48
+    - source: Stream
+      style: secondary
+      start: 33
+      end: 39
+    - source: Stream
+      style: secondary
+      start: 33
+      end: 39
+    - source: () => Stream.fail(error)
+      style: secondary
+      start: 57
+      end: 81
+    - source: () => Stream.fail(error)
+      style: secondary
+      start: 57
+      end: 81
+    - source: Stream
+      style: secondary
+      start: 33
+      end: 39
+    - source: Stream
+      style: secondary
+      start: 33
+      end: 39

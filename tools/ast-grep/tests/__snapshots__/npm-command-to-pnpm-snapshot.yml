@@ -51,6 +51,21 @@ snapshots:
       style: secondary
       start: 4
       end: 5
+  npm i -g tool:
+    fixed: pnpm install -g tool
+    labels:
+    - source: npm i -g tool
+      style: primary
+      start: 0
+      end: 13
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: i
+      style: secondary
+      start: 4
+      end: 5
   npm install:
     fixed: pnpm install
     labels:
@@ -73,6 +88,21 @@ snapshots:
       style: primary
       start: 0
       end: 13
+    - source: npm
+      style: secondary
+      start: 0
+      end: 3
+    - source: run
+      style: secondary
+      start: 4
+      end: 7
+  npm run build -- --watch:
+    fixed: pnpm run build -- --watch
+    labels:
+    - source: npm run build -- --watch
+      style: primary
+      start: 0
+      end: 24
     - source: npm
       style: secondary
       start: 0
@@ -111,6 +141,17 @@ snapshots:
       style: secondary
       start: 4
       end: 8
+  npx biome check --write:
+    fixed: pnpm exec biome check --write
+    labels:
+    - source: npx biome check --write
+      style: primary
+      start: 0
+      end: 23
+    - source: npx
+      style: secondary
+      start: 0
+      end: 3
   npx biome check .:
     fixed: pnpm exec biome check .
     labels:

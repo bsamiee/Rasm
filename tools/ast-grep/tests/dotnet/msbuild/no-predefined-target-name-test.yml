@@ -1,36 +1,35 @@
 id: no-predefined-target-name
 valid:
-    # The target owns its name and attaches to the SDK target
     - |
       <Target Name="ReportBuild" AfterTargets="Build"><Message Importance="high" Text="built $(TargetPath)" /></Target>
-    # Predefined target named in BeforeTargets, an attachment
     - |
       <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments"><RemoveDir Directories="$(_TestResultsDirectory)" /></Target>
-    # Item holding the predefined target name as metadata, no target defined
     - |
       <ItemGroup><_Stamp Include="build" Name="AfterBuild" /></ItemGroup>
-    # The predefined target named as the attachment point of a target with its own name
     - |
       <Target Name="Stamp" AfterTargets="AfterBuild"><Message Text="stamped" /></Target>
+    - |
+      <Target Name="AfterBuildStep" AfterTargets="Build"><Message Text="built" /></Target>
+    - |
+      <Target Name="BeforeBuildTool"><Message Text="built" /></Target>
 invalid:
-    # Single-quoted target name
     - |
       <Target Name='AfterBuild'><Message Text="built" /></Target>
-    # The build target
     - |
       <Target Name="AfterBuild"><Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" /></Target>
-    # The compile target
     - |
       <Target Name="BeforeCompile"><Message Text="compiling" /></Target>
-    # The resource generation target
     - |
       <Target Name="AfterResGen"><Message Text="resources" /></Target>
-    # Attachment before the name, the fix renames alone
     - |
       <Target Name="AfterBuild" AfterTargets="Build"><Message Text="built" /></Target>
-    # Attachment after the name, the fix renames alone
     - |
       <Target BeforeTargets="Build" Name="BeforeBuild"><Message Text="building" /></Target>
-    # Condition holding a comparison, the attachment joins the tag
     - |
       <Target Name="AfterPublish" Condition="'$(Count)' > '0'"><Message Text="published" /></Target>
+    - |
+      <Target Name="afterbuild"><Message Text="built" /></Target>
+    - |
+      <Target Name="BeforeResolveReferences"><Message Text="resolving" /></Target>
+    - |
+      <Target Name="AfterBuild" DependsOnTargets="Stamp"><Message Text="built" /></Target>

@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-no-type-check
 language: python
 severity: error
-# Report-only, the probed fix deleting the decorator fails, `Return type does not match returned value: expected str, found int`
 rule:
     matches: {python-module-member: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^no_type_check$', pattern: $NAME}}}
 message: '`$NAME` excludes the def from type checking'

@@ -1,0 +1,36 @@
+id: require-rewrite-id-form
+valid:
+    - |
+      id: item-to-other
+      language: bash
+    - |
+      id: 'item-to-other'
+    - |
+      id: item-a-to-other-b
+    - |
+      id: seq-map-to-to-list
+    - |
+      id: item-to-other
+      rewriters:
+          - id: omit-item
+            rule: {kind: word}
+            fix: ""
+    - |
+      rule:
+          id: item
+invalid:
+    - |
+      id: no-item
+      language: bash
+    - |
+      id: "no-item"
+    - |
+      "id": no-item
+    - |
+      id: Item-to-Other
+    - |
+      id: to-item
+    - |
+      id: item-to
+    - |
+      {id: item, language: bash}

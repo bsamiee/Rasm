@@ -3,7 +3,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { FsEntry, McpContentBlock, McpToolResult, On, ToolCallInput, ToolCallResult } from 'claude-code';
-import { fold, when } from '../composition/decision.ts';
+import { bind, fold, when } from '../composition/decision.ts';
 import {
     flatMap,
     forEach,
@@ -43,7 +43,7 @@ import {
 } from '../host/store.ts';
 import { close, FINDING_VIEWS } from '../policies/findings.ts';
 import { gitGuard, gitPaths } from '../policies/git.ts';
-import { type PathEvent, type PathTool, pathRule, pathSkills } from '../policies/paths.ts';
+import { type PathEvent, type PathTool, pathRule, pathSkills, recordSearches, type Search, type Searched } from '../policies/paths.ts';
 import {
     ancestors,
     diagnosticLines,
@@ -182,7 +182,7 @@ const _isCs = (target: Target): boolean => extension(target.written.file_path) =
 // The by-hand read whose reply the hook filters, the arm's own call skips the hook and keeps its own filter
 const _isDiagnosticsRead = isTool('mcp__roslyn-codelens__get_diagnostics');
 
-// The result of an MCP call as next resolves it, the content blocks alone (probe 47d7c06d), the model's text is joined from them
+// The result of an MCP call as next resolves it, the content blocks alone, the model's text is joined from them
 const _isBlocks = (value: unknown): value is readonly McpContentBlock[] =>
     Array.isArray(value) && value.every((block) => isRecord(block) && typeof block.type === 'string');
 
@@ -261,6 +261,23 @@ const _nxCaches = async (
             ),
         )(
             flatMap((row: Session) => map((bash: Named<'Bash'>) => ({ env: row.env, targets: nxTargets(bash.command) }))(fromPredicate(_isBash)(e)))(
+                facts,
+            ),
+        ),
+    );
+
+// The record searches of a path call's dropped dependency rows, each run under the session environment, none without a session row
+const _searched = async (
+    e: ToolCallInput,
+    cwd: string,
+    facts: Option<Session>,
+    run: (argv: readonly string[], env: Environment) => Promise<Run>,
+): Promise<readonly Searched[]> =>
+    getOrElse((): readonly Searched[] => [])(
+        await forEach((found: { readonly env: Environment; readonly searches: readonly Search[] }) =>
+            Promise.all(found.searches.map(async (search: Search) => ({ ...search, run: await run(search.argv, found.env) }))),
+        )(
+            flatMap((row: Session) => map((path: PathEvent) => ({ env: row.env, searches: recordSearches(path, cwd) }))(fromPredicate(_isPath)(e)))(
                 facts,
             ),
         ),
@@ -418,12 +435,22 @@ const _call = (on: On, options: Options): void => {
         const prompt = getOrElse(() => '')(map((row: Notice) => row.text)(decodeNotice(promptRow)));
         const facts = decodeSession(sessionRow);
         const exists = (path: string): Promise<boolean> => $.fs.exists(path).catch((): false => false);
-        const [existing, file, caches] = await Promise.all([
-            _existing(e, exists),
-            _fileText(e, exists, (path) => $.fs.readFile(path).catch(() => '')),
-            _nxCaches(e, facts, (argv, env) => $.process.run(argv, { env }).catch(abort)),
-        ]);
         const sets = _stamps(all, session);
+        // The shell rewrites run first and the guard and the cache read the command they produce, the timeout pass repeats for a prefix a rewrite exposes
+        const shelled = fold<ToolCallInput, unknown, string>([
+            when(_isBash, restore(pairs(secretsOf(secrets)))),
+            when(_isBash, commandTimeout),
+            when(_isBash, shellRule(sets.seen)),
+            when(_isBash, commandTimeout),
+        ])(e);
+        const rewritten = shelled.match<ToolCallInput>({ rewrite: (input) => input, deny: () => e, answer: () => e });
+        const run = (argv: readonly string[], env: Environment): Promise<Run> => $.process.run(argv, { env }).catch(abort);
+        const [existing, file, caches, searches] = await Promise.all([
+            _existing(rewritten, exists),
+            _fileText(e, exists, (path) => $.fs.readFile(path).catch(() => '')),
+            _nxCaches(rewritten, facts, run),
+            _searched(e, cwd, facts, run),
+        ]);
         const sleep = (ms: number): Promise<void> => $.clock.sleep(ms, { signal: next.signal });
         const io: Io = {
             run: (argv, env, timeoutMs) => $.process.run(argv, { env, timeoutMs }).catch(abort),
@@ -434,16 +461,15 @@ const _call = (on: On, options: Options): void => {
             sleep,
             now: () => $.clock.now(),
         };
-        const decision = fold<ToolCallInput, unknown, string>([
-            when(_isBash, restore(pairs(secretsOf(secrets)))),
-            when(_hasCommand, gitGuard(existing)),
-            when(_isBash, commandTimeout),
-            when(_isBash, skipNxCache(caches)),
-            when(_isBash, shellRule(sets.seen)),
-            when(_isPath, pathRule({ seen: sets.seen, guidance: _guidance(facts), file })),
-            toolRule({ ...sets, prompt, cwd }),
-            when(_isBash, packageManager(options.packageManager)),
-        ])(e);
+        const decision = bind(
+            fold<ToolCallInput, unknown, string>([
+                when(_isBash, skipNxCache(caches)),
+                when(_hasCommand, gitGuard(existing)),
+                when(_isPath, pathRule({ seen: sets.seen, guidance: _guidance(facts), file, searches })),
+                toolRule({ ...sets, prompt, cwd }),
+                when(_isBash, packageManager(options.packageManager)),
+            ]),
+        )(shelled);
         return decision.match<ToolCallResult | Promise<ToolCallResult>>({
             deny: (reason) => ({ deny: reason }),
             answer: (result) => ({ result }),

@@ -1,11 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# Report only, deleting the function leaves its callers, the probe fails with run: command not found
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-forwarding-shell-function
 language: bash
 severity: error
 ignores: ["**/*.json"]
 rule:
     kind: function_definition
+    not: {has: {field: redirect, pattern: $$_REDIRECT}}
     all:
         - has: {field: name, pattern: $NAME}
         - has:
@@ -15,9 +15,10 @@ rule:
             has:
                 kind: command
                 pattern: $CALL
-                all:
-                    - has: {field: name, kind: command_name, regex: '^[A-Za-z_][A-Za-z0-9_-]*$'}
-                    - has: {field: argument, regex: '^"\$(\{@\}|@)"$'}
-                not: {has: {nthChild: 3}}
+                has:
+                    kind: string
+                    regex: '^"\$(\{@\}|@)"$'
+                    nthChild: {position: 1, reverse: true}
+                    follows: {matches: {bash-invoked-name: {name: {regex: '^[A-Za-z0-9_./-]+$'}, runner: {regex: '^(builtin|command)$'}}}}
 message: 'The function `$NAME` forwards every argument unchanged to `$CALL`'
 note: Call the owning command directly, and keep adapters that select, join, reorder, default, or add arguments

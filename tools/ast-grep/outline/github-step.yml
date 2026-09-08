@@ -21,10 +21,10 @@ utils:
                         regex: ^(jobs|"jobs"|'jobs')$
     composite:
         matches: root-pair
-        has:
-            field: key
-            regex: ^(runs|"runs"|'runs')$
         all:
+            - has:
+                field: key
+                regex: ^(runs|"runs"|'runs')$
             - has:
                 field: value
                 has:
@@ -123,6 +123,9 @@ rule:
                     pattern: $NAME
                     regex: ^(wait-all|"wait-all"|'wait-all')$
     matches: step
-name: $NAME
+transform:
+    HEAD: {replace: {source: $NAME, replace: '^[|>][-+0-9]*[^\n]*\n\s*', by: ''}}
+    TITLE: {replace: {source: $HEAD, replace: '\n[\s\S]*$', by: ''}}
+name: $TITLE
 signature: $CALL
 isPublic: true

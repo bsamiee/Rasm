@@ -30,6 +30,12 @@ snapshots:
       style: primary
       start: 95
       end: 125
+  import { Effect } from "effect"; const decoded = load().pipe(Effect.map((config) => Effect.runSync(decode(config))));:
+    labels:
+    - source: Effect.runSync(decode(config))
+      style: primary
+      start: 84
+      end: 114
   import { Effect } from "effect"; const load = Effect.fn("load")(function* (name) { return Effect.runSync(read(name)); });:
     labels:
     - source: Effect.runSync(read(name))
@@ -48,12 +54,24 @@ snapshots:
       style: primary
       start: 79
       end: 100
+  import { Effect } from "effect"; const work = Effect.promise(async () => await Effect.runPromise(other));:
+    labels:
+    - source: Effect.runPromise(other)
+      style: primary
+      start: 79
+      end: 103
   import { Effect } from "effect"; const work = Effect.sync(() => Effect.runSync(callbackEffect)(value));:
     labels:
     - source: Effect.runSync(callbackEffect)
       style: primary
       start: 64
       end: 94
+  ? 'import { Effect } from "effect"; const work = Effect.tryPromise({ async try() { return Effect.runPromise(other); }, catch: (cause) => cause });'
+  : labels:
+    - source: Effect.runPromise(other)
+      style: primary
+      start: 87
+      end: 111
   ? 'import { Effect } from "effect"; const work = Effect.tryPromise({ try: () => Effect.runPromise(other), catch: (cause) => cause });'
   : labels:
     - source: Effect.runPromise(other)

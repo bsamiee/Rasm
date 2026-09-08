@@ -87,6 +87,46 @@ valid:
           def normalize(cls, value):
               return value
     - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, *, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(cls, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value", check_fields=False)
+          @classmethod
+          def unchanged(cls, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator(*names)
+          @classmethod
+          def unchanged(cls, value):
+              return value
+    - |
       from pydantic import field_validator
       import other
       class Model(other.BaseModel):
@@ -198,7 +238,55 @@ valid:
           value: int
           @field_validator("value")
           @classmethod
+          def unchanged(cls, value, info, extra):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(value, info, extra):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
           def unchanged(cls, value, info):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(info, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(*rest, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(value, *info):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value, *info):
               return value
     - |
       from pydantic import BaseModel, field_validator
@@ -261,7 +349,6 @@ valid:
               @classmethod
               def unchanged(cls, value):
                   return value
-    # The sole member over an inherited field, the deletion would empty the class body
     - |
       from pydantic import BaseModel, field_validator
       class Model(BaseModel):
@@ -269,7 +356,6 @@ valid:
           @classmethod
           def unchanged(cls, value):
               return value
-    # The sole member before a comment, a comment keeps no class body
     - |
       from pydantic import BaseModel, field_validator
       class Model(BaseModel):
@@ -349,3 +435,108 @@ invalid:
           def unchanged(cls, value):
               return value
               # No transformation
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(value, /):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          def unchanged(cls, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value, /):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value: int = 0):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          other: int
+          @field_validator("value", "other")
+          @classmethod
+          def unchanged(cls, value):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value):
+              return value
+          value: int
+    - |
+      from pydantic import BaseModel, field_validator
+      class Outer:
+          class Model(BaseModel):
+              value: int
+              @field_validator("value")
+              @classmethod
+              def unchanged(cls, value):
+                  return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value, info):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator, ValidationInfo
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value: int, info: ValidationInfo | None = None) -> int:
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(value, info):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @classmethod
+          def unchanged(cls, value, info, /):
+              return value
+    - |
+      from pydantic import BaseModel, field_validator
+      class Model(BaseModel):
+          value: int
+          @field_validator("value")
+          @staticmethod
+          def unchanged(value, info, /):
+              return value

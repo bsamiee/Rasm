@@ -1,0 +1,56 @@
+id: no-brace-command-substitution
+snapshots:
+  expected=${ yq -N -o=json '.' "${originals[@]}" | jq -Scs "$fixes";}:
+    labels:
+    - source: expected=${ yq -N
+      style: primary
+      start: 0
+      end: 17
+  items+=("${ produce; }"):
+    labels:
+    - source: ${ produce; }
+      style: primary
+      start: 9
+      end: 22
+  local y=${ produce; }:
+    labels:
+    - source: y=${ produce; }
+      style: primary
+      start: 6
+      end: 21
+  out=${ bash -n "$file" 2>&1;} || finding "$out":
+    labels:
+    - source: out=${ bash -n
+      style: primary
+      start: 0
+      end: 14
+  printf '%s\n' ${ produce; }:
+    labels:
+    - source: ${ produce; }
+      style: primary
+      start: 14
+      end: 27
+  run "${ produce; }":
+    labels:
+    - source: ${ produce; }
+      style: primary
+      start: 5
+      end: 18
+  w=$(run "${ produce; }"):
+    labels:
+    - source: ${ produce; }
+      style: primary
+      start: 9
+      end: 22
+  x=${ produce; }:
+    labels:
+    - source: x=${ produce; }
+      style: primary
+      start: 0
+      end: 15
+  z="${ produce; }":
+    labels:
+    - source: z="${ produce; }"
+      style: primary
+      start: 0
+      end: 17

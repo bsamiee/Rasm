@@ -7,6 +7,27 @@ snapshots:
       style: primary
       start: 21
       end: 85
+  'class C { int F() => result.Match(Succ: Prelude.identity, Fail: Recover); }':
+    fixed: class C { int F() => result.IfFail(Recover); }
+    labels:
+    - source: 'result.Match(Succ: Prelude.identity, Fail: Recover)'
+      style: primary
+      start: 21
+      end: 72
+  'class C { int F() => result.Match(Succ: identity, Fail: error => Recover(error)); }':
+    fixed: class C { int F() => result.IfFail(error => Recover(error)); }
+    labels:
+    - source: 'result.Match(Succ: identity, Fail: error => Recover(error))'
+      style: primary
+      start: 21
+      end: 80
+  'class C { int F() => result.Match(Succ: x => x, Fail: Recover); }':
+    fixed: class C { int F() => result.IfFail(Recover); }
+    labels:
+    - source: 'result.Match(Succ: x => x, Fail: Recover)'
+      style: primary
+      start: 21
+      end: 62
   'class C { int F() => result.Match(Succ: x => x, Fail: error => Recover(error)); }':
     fixed: class C { int F() => result.IfFail(error => Recover(error)); }
     labels:
@@ -14,6 +35,27 @@ snapshots:
       style: primary
       start: 21
       end: 78
+  'class C { int F() => result.Match(Succ: x => x, Fail: error => throw new E()); }':
+    fixed: class C { int F() => result.IfFail(error => throw new E()); }
+    labels:
+    - source: 'result.Match(Succ: x => x, Fail: error => throw new E())'
+      style: primary
+      start: 21
+      end: 77
+  'class C { int F() => result.Match(Succ: x => x, error => Recover(error)); }':
+    fixed: class C { int F() => result.IfFail(error => Recover(error)); }
+    labels:
+    - source: 'result.Match(Succ: x => x, error => Recover(error))'
+      style: primary
+      start: 21
+      end: 72
+  class C { int F() => result.Match(identity, Recover); }:
+    fixed: class C { int F() => result.IfFail(Recover); }
+    labels:
+    - source: result.Match(identity, Recover)
+      style: primary
+      start: 21
+      end: 52
   class C { int F() => result.Match(static (x) => x, error => Recover(error)); }:
     fixed: class C { int F() => result.IfFail(error => Recover(error)); }
     labels:
@@ -21,6 +63,13 @@ snapshots:
       style: primary
       start: 21
       end: 75
+  'class C { int F() => result.Match(x => x, Fail: error => Recover(error)); }':
+    fixed: class C { int F() => result.IfFail(error => Recover(error)); }
+    labels:
+    - source: 'result.Match(x => x, Fail: error => Recover(error))'
+      style: primary
+      start: 21
+      end: 72
   class C { int F() => result.Match(x => x, Recover()); }:
     fixed: class C { int F() => result.IfFail(Recover()); }
     labels:
@@ -56,3 +105,10 @@ snapshots:
       style: primary
       start: 21
       end: 89
+  'class C { string F() => result.Match(Succ: x => x, Fail: error => Recover(error)).ToString(); }':
+    fixed: class C { string F() => result.IfFail(error => Recover(error)).ToString(); }
+    labels:
+    - source: 'result.Match(Succ: x => x, Fail: error => Recover(error))'
+      style: primary
+      start: 24
+      end: 81

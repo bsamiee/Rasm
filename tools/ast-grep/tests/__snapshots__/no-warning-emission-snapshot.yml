@@ -29,6 +29,17 @@ snapshots:
       start: 32
       end: 45
   ? |
+    import warnings
+
+    class Old:
+        @warnings.deprecated("gone")
+        def run(self): ...
+  : labels:
+    - source: warnings.deprecated
+      style: primary
+      start: 33
+      end: 52
+  ? |
     import warnings as w
     w.warn("stage failed")
   : labels:

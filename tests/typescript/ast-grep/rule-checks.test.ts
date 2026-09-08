@@ -66,7 +66,7 @@ test('rule checks preserve native platform maps and absolute parser paths', () =
                 customLanguages: { xml: { libraryPath, extensions: ['csproj'] } },
             }),
         );
-        assert.equal(execFileSync('bash', [_script, 'gate', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
+        assert.equal(execFileSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
         assert.equal(readFileSync(join(directory.path, 'rules/xml-name.yml'), 'utf8'), original);
     }
 });
@@ -90,12 +90,13 @@ test('rule checks read every test directory and its configured snapshots', () =>
     );
     const cases = join(directory.path, 'other-tests/xml-second-test.yml');
     execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
-    assert.equal(execFileSync('bash', [_script, 'gate', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
+    assert.equal(execFileSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
     writeFileSync(cases, JSON.stringify({ id: 'xml-second', valid: ['<After/>'], invalid: ['<After/>'] }));
-    const failure = spawnSync('bash', [_script, 'gate', 'csproj'], { cwd: directory.path, encoding: 'utf8' });
+    const failure = spawnSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' });
     assert.equal(failure.status, 1);
     assert.equal(failure.stdout.includes('FAIL xml-second'), true);
-    assert.equal(Array.from(failure.stdout.matchAll(/orphan or missing snapshot key: xml-second/gu)).length, 1);
+    const pairing = spawnSync('bash', [_script, 'pairing'], { cwd: directory.path, encoding: 'utf8' });
+    assert.equal(Array.from(pairing.stdout.matchAll(/orphan or missing snapshot key: xml-second/gu)).length, 1);
 });
 
 test('declaration counts include helpers and exported definitions', () => {
@@ -183,7 +184,7 @@ test('rule checks retain literal ampersands in temporary paths', () => {
                 '--',
                 temporary,
                 _script,
-                'gate',
+                'arms',
                 'csproj',
             ],
             { cwd: directory.path, encoding: 'utf8' },
@@ -208,7 +209,7 @@ test('rule checks retain tabs and newlines in configured directories', () => {
         }),
     );
     execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
-    assert.equal(execFileSync('bash', [_script, 'gate', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
+    assert.equal(execFileSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
     writeFileSync(join(directory.path, 'sgconfig.yml'), '{');
     assert.notEqual(spawnSync('bash', [_script, 'pairing'], { cwd: directory.path, encoding: 'utf8' }).status, 0);
 });
@@ -239,7 +240,7 @@ test('mutation batches retain every caller from a shared fixture file', () => {
     const cases = join(directory.path, 'tests/xml-name-test.yml');
     writeFileSync(cases, `${first}\n---\n${second}\n`);
     execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
-    assert.equal(execFileSync('bash', [_script, 'gate', 'csproj', '^xml-name$'], { cwd: directory.path, encoding: 'utf8' }), '');
+    assert.equal(execFileSync('bash', [_script, 'arms', 'csproj', '^xml-name$'], { cwd: directory.path, encoding: 'utf8' }), '');
     for (const replacement of ['Old', 'Unmatched']) {
         writeFileSync(cases, `${first}\n---\n${second.replace('Older', replacement)}\n`);
         const result = spawnSync('bash', [_script, 'arms', 'csproj', '^xml-name$'], { cwd: directory.path, encoding: 'utf8' });
@@ -279,7 +280,7 @@ test('rule checks synthesize terminal brace extensions without changing rule sco
         });
         writeFileSync(ruleFile, rule);
         execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
-        assert.equal(execFileSync('bash', [_script, 'gate', extension], { cwd: directory.path, encoding: 'utf8' }), '');
+        assert.equal(execFileSync('bash', [_script, 'width', extension], { cwd: directory.path, encoding: 'utf8' }), '');
         assert.equal(readFileSync(ruleFile, 'utf8'), rule);
     }
 });
@@ -418,7 +419,7 @@ test('parameterized utilities retain global scope with one caller', (): void => 
         },
     );
     execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
-    assert.equal(execFileSync('bash', [_script, 'gate', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
+    assert.equal(execFileSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
     const configFile = join(directory.path, 'sgconfig.yml');
     const sourceFiles = ['rules/xml-name.yml', 'utils/xml-matching-name.yml'];
     const original = sourceFiles.map((file) => readFileSync(join(directory.path, file), 'utf8'));
@@ -430,7 +431,7 @@ test('parameterized utilities retain global scope with one caller', (): void => 
             utilDirs: [join(directory.path, 'utils')],
         }),
     );
-    assert.equal(execFileSync('bash', [_script, 'gate', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
+    assert.equal(execFileSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' }), '');
     assert.deepEqual(
         sourceFiles.map((file) => readFileSync(join(directory.path, file), 'utf8')),
         original,
@@ -443,4 +444,49 @@ test('parameterized utilities retain global scope with one caller', (): void => 
     const result = spawnSync('bash', [_script, 'arms', 'csproj'], { cwd: directory.path, encoding: 'utf8' });
     assert.equal(result.status, 1);
     assert.equal(result.stdout, 'one rule calls util: xml-matching-name\n');
+});
+
+test('scoped checks read the language of the filtered ids alone', (): void => {
+    using directory = mkdtempDisposableSync(join(tmpdir(), 'ast-grep-checks-'));
+    _project(
+        directory.path,
+        {},
+        {
+            'rules/json-value.yml': { id: 'json-value', language: 'json', severity: 'error', rule: { kind: 'number' }, message: 'Use a string' },
+            'tests/json-value-test.yml': { id: 'json-value', valid: ['"safe"'], invalid: ['[1]'] },
+            'rules/json-other.yml': { id: 'json-other', language: 'json', severity: 'error', rule: { kind: 'null' }, message: 'Use a value' },
+        },
+    );
+    execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
+    // The json rule mid-edit: a [Wrong] case, an orphan snapshot key, and a sibling rule with no test
+    writeFileSync(join(directory.path, 'tests/json-value-test.yml'), JSON.stringify({ id: 'json-value', valid: ['"safe"'], invalid: ['"text"'] }));
+    for (const args of [
+        ['arms', 'csproj', '^xml-name$'],
+        ['arms', 'csproj'],
+        ['parse', 'csproj'],
+    ]) {
+        assert.equal(execFileSync('bash', [_script, ...args], { cwd: directory.path, encoding: 'utf8' }), '', args.join(' '));
+    }
+    const json = spawnSync('bash', [_script, 'arms', 'json', '^json-value$'], { cwd: directory.path, encoding: 'utf8' });
+    assert.equal(json.status, 1);
+    assert.equal(json.stdout.includes('FAIL json-value'), true, json.stdout);
+    assert.equal(json.stdout.includes('no test: json-other'), false, json.stdout);
+    const pairing = spawnSync('bash', [_script, 'pairing'], { cwd: directory.path, encoding: 'utf8' });
+    assert.equal(pairing.status, 1);
+    assert.equal(pairing.stdout.includes('no test: json-other'), true, pairing.stdout);
+    assert.equal(pairing.stdout.includes('orphan or missing snapshot key: json-value'), true, pairing.stdout);
+});
+
+test('a mutation the loader refuses prints its one line without the loader block', (): void => {
+    using directory = mkdtempDisposableSync(join(tmpdir(), 'ast-grep-checks-'));
+    _project(directory.path, {}, { 'tests/json-two-test.yml': { id: 'json-two', valid: ['[1]', '["new"]'], invalid: ['[2]', '["old"]'] } });
+    // Deleting the arm that binds $N leaves the constraint over an unbound capture, exit 8 at load
+    writeFileSync(
+        join(directory.path, 'rules/json-two.yml'),
+        '{"id": "json-two", "language": "json", "severity": "error", "message": "Use one", "constraints": {"N": {"regex": "^2$"}}, "rule": {"any": [{"kind": "number", "pattern": "$N"}, {"kind": "string", "regex": "^\\"old\\"$"}]}}',
+    );
+    execFileSync('ast-grep', ['test', '-U'], { cwd: directory.path, stdio: 'pipe' });
+    const result = spawnSync('bash', [_script, 'arms', 'json'], { cwd: directory.path, encoding: 'utf8' });
+    assert.equal(result.stdout, 'invalid mutation: json-two delete ["rule","any",0], excluded from coverage\n', result.stdout + result.stderr);
+    assert.equal(result.status, 0);
 });

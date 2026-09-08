@@ -23,6 +23,11 @@ fd -H '^(.*\.(csproj|slnx)|Directory\..*\.(props|targets)|NuGet\.config|\.editor
 - [04]-[TOOLING](references/tooling.md): Shared environment, toolchain, task runner, harness, and editor configuration
 - [05]-[GITHUB](references/github.md): Everything under `.github/`, the workflows, the actions, and the local run
 
+[TEMPLATES]:
+- [01]-[WORKFLOW](templates/workflow.yml): Workflow of one event with its fan-in job
+- [02]-[REUSABLE_WORKFLOW](templates/reusable-workflow.yml): `workflow_call` with typed inputs, a matrix, and the artifact handoff
+- [03]-[ACTION](templates/action.yml): Composite action with inputs and a step output
+
 [AGENTS]:
 - [01]-[DOTNET_MAINTAINER](../../agents/dotnet-maintainer.md): .NET build, restore, test, coverage, and packaging settings
 - [02]-[PYTHON_MAINTAINER](../../agents/python-maintainer.md): Python dependency, checker, test, and coverage settings, and the scripts
@@ -96,9 +101,10 @@ Place additions by their consumer:
 |  [09]   | Repository, service, or environment  | `infra/`, or the application's own program        | Typed row, imported when it exists         |
 |  [10]   | Image or runner definition           | Program row that builds it from a manifest        | No image, snapshot, or exported state file |
 |  [11]   | CI step                              | `.github/`                                        | Maintained action, `run` step for the rest |
-|  [12]   | Editor setting                       | `.vscode/settings.json`                           | Setting keyed by language                  |
-|  [13]   | Cache, download, or checkout         | `.cache/<tool>/`                                  | Relocated through the tool's own setting   |
-|  [14]   | Build output, package, or report     | `.artifacts/<area>/`                              | Declared target output                     |
+|  [12]   | Dependabot, actionlint, zizmor rule  | `.github/`, the file named for the tool           | One file per tool, its schema's fields     |
+|  [13]   | Editor setting                       | `.vscode/settings.json`                           | Setting keyed by language                  |
+|  [14]   | Cache, download, or checkout         | `.cache/<tool>/`                                  | Relocated through the tool's own setting   |
+|  [15]   | Build output, package, or report     | `.artifacts/<area>/`                              | Declared target output                     |
 
 Composition roots belong to `apps/<name>/`, library code to `libs/`, tool configuration to the root manifests, and every binary to the pipeline, which rebuilds it from a pinned manifest. Each language area holds the binding packages that consume `eng/` output through package references, and a new language area takes the same shape.
 
@@ -193,9 +199,10 @@ Every value a process reads has one owner, chosen by who reads it and whether it
 |  [03]   | Value a workflow consumes, not secret  | Actions variable row in the program                  | `vars.<NAME>` on the step               |
 |  [04]   | Tool setting with a manifest field     | Manifest the tool reads by directory walk            | Tool                                    |
 |  [05]   | Process setting with no manifest field | `mise.toml` `[env]`                                  | Targets, scripts, agent shell, CI steps |
-|  [06]   | Value one target reads                 | Target's `env` option beside its command             | That command                            |
-|  [07]   | Path one script or program computes    | Script or program beside its other paths             | Itself                                  |
-|  [08]   | Output of a workflow step              | `env:` on the consuming step from the step outputs   | That step                               |
+|  [06]   | Process setting of one platform        | `mise.unix.toml` `[env]`, loaded by `.miserc.toml`   | The same, on that platform              |
+|  [07]   | Value one target reads                 | Target's `env` option beside its command             | That command                            |
+|  [08]   | Path one script or program computes    | Script or program beside its other paths             | Itself                                  |
+|  [09]   | Output of a workflow step              | `env:` on the consuming step from the step outputs   | That step                               |
 
 ## [08]-[INFRASTRUCTURE]
 
@@ -216,11 +223,25 @@ The repository program declares the store project, its configs, and its tokens, 
 - `up --import` adopts the project, environments, branch configs, and repository, and tokens and secrets are created with no import
 - Read every credential through the default provider of its package from the environment alone, and the program passes no token
 - The repository provider detects the owner from its token
+- Actions variable rows read their values from the environment under the variable's own name through `Config` at the entry boundary
+- Variables enter the config once, `doppler secrets set <NAME>`, and an unset name fails the run naming it
+- Ruleset rows target the default branch (`~DEFAULT_BRANCH`) and the release tags (`refs/tags/*@*`), `excludes: []` required beside `includes`
+- The branch ruleset requires the fan-in status check and names the admin role (`RepositoryRole`, `actorId` 5) as the bypass actor
+- Environment rows hold their deployment branch policy in the same row, one policy naming the branch the jobs deploy from
+- The Actions permissions row selects GitHub-owned actions and the explicit pattern list alone, the allow list in place of digest pins
+- Vulnerability alerts, secret scanning, and push protection are rows, and a public repository takes no `advancedSecurity` block
+- Every table is `as const satisfies` the provider's args type, and a setting under a disabled merge method leaves the row
+- Import ids are `<repository>:<id>` for a ruleset, `<repository>:<environment>` for an environment, `<repository>:<name>` for a variable
+- `@pulumiverse/doppler` 0.9.0 is two years behind upstream, with no GitHub integration, change-request policy, or rotated secret
+- Trusted publishers on nuget.org, PyPI, and npm stay account settings, because neither the GitHub nor the Doppler provider models them
 
 The program's dependencies sit in the root catalog and manifest, the root `tsconfig.json` includes its files for the root `typecheck` target, and the root `up` and `refresh` targets run the program's entry under `doppler run --project <project> --config <config>` with the summary of resource changes as the proof:
-- The entry runs the stack through the Automation API over a file backend under the state directory the XDG specification names
-- Plugins and credentials sit under `.cache/pulumi/`, and the passphrase secrets provider reads `PULUMI_CONFIG_PASSPHRASE` from the environment
-- Each run prints the operation's output and the JSON of its resource changes, and a failed select, `up`, or `refresh` prints the diagnostic
+- The entry runs the stack through the Automation API on Pulumi Cloud with `PULUMI_ACCESS_TOKEN` from the environment and service secrets
+- Plugins sit under `.cache/pulumi/`
+- The infrastructure targets are `up` and `refresh`, and the automation entry holds the same subcommands
+- The inline project has no `Pulumi.yaml`, and the `pulumi` CLI runs through the entry alone
+- Preview, dry-run, plan, and intermediate targets join none of `package.json`, `infra/`, or `eng/`
+- Each run prints the operation's output and the JSON of its resource changes, and a failed select or operation prints the diagnostic
 - Take each provider and each provisioned runtime, image, and service at its newest release, and pin nothing outside the lockfile
 
 Share nothing between application programs by position, and an application consumes another's output through a published package or a declared output. One store, the variable in the environment, and an error naming the unset names replace a second secret route copied from another repository.
@@ -229,8 +250,10 @@ Share nothing between application programs by position, and an application consu
 
 CI runs the task graph through the runner as one job per language, the job of the language with native packages as a matrix over the runtime identifiers after the native workflow, and the pipeline file holds the commands alone:
 - One job per language runs `nx affected` filtered by the language tag, in graph order
+- The job of the language with source builds provisions the native inputs before its dependency sync
 - Each matrix host stages its rid, and one job packs the collected trees
 - Maintained actions perform each step one exists for, and a `run` step holds the rest
+- One fan-in job over every job is the status check the branch ruleset requires, and a skipped or cancelled job fails it
 
 ## [10]-[PROOF]
 

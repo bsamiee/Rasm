@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: msbuild-metadata # Element holding a named value as an attribute or a child element, the attribute form alone shows the value regex its delimiters
+id: msbuild-metadata
 language: xml
 arguments: [name, value]
 rule:

@@ -1,10 +1,8 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Member of a module, a from-import name or an attribute read
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-module-member
 language: python
 arguments: [module, name]
 utils:
-    # Import of the module under an alias, the alias binds first from the attribute's object and the import proves it
     alias-import:
         kind: aliased_import
         inside: {kind: import_statement}
@@ -16,15 +14,12 @@ rule:
         - not: {matches: python-shadowed-name}
         - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {regex: "^$"}}}}
     any:
-        # The from-import naming the member, plain or under an alias
         - kind: dotted_name
           matches: name
           any:
-            # The plain name follows the module name past the import keyword and the commas, the module name follows no name
             - inside: {kind: import_from_statement, has: {field: module_name, matches: module}}
               follows: {kind: dotted_name, stopBy: end}
             - inside: {kind: aliased_import, field: name, inside: {kind: import_from_statement, has: {field: module_name, matches: module}}}
-        # The attribute read, its object the module as spelled or the alias its import binds
         - kind: attribute
           all:
             - has: {field: attribute, kind: identifier, matches: name}

@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-rewrite-id-form
+language: yaml
+severity: error
+files: [tools/ast-grep/rewrites/**]
+rule:
+    kind: block_mapping_pair, flow_pair
+    inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document}}}
+    all:
+        - has: {field: key, regex: '^(id|"id"|''id'')$'}
+        - has:
+            field: value
+            pattern: $ID
+            not:
+                regex: ^([a-z0-9]+(-[a-z0-9]+)*-to-[a-z0-9]+(-[a-z0-9]+)*|"[a-z0-9]+(-[a-z0-9]+)*-to-[a-z0-9]+(-[a-z0-9]+)*"|'[a-z0-9]+(-[a-z0-9]+)*-to-[a-z0-9]+(-[a-z0-9]+)*')$
+message: '`$ID` names no correction, a rewrite id reads `<before>-to-<after>`'
+note: Rename the id, its file, test, and snapshot to `<before>-to-<after>` in the vocabulary of the package it reads

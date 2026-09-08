@@ -1,11 +1,9 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-stdlib-record
 language: python
 severity: error
-# Report-only, the probed fix `@dataclass` to `msgspec.Struct` fails, `TypeError: replace() should be called on dataclass instances`
 rule:
     any:
-        # The factory of collections, the base of typing, and the decorator and factory of dataclasses, each under its own module
         - matches: {python-module-member: {module: {regex: "^collections$"}, name: {regex: "^namedtuple$", pattern: $NAME}}}
         - matches: {python-module-member: {module: {regex: "^(typing|typing_extensions)$"}, name: {regex: "^NamedTuple$", pattern: $NAME}}}
         - matches: {python-module-member: {module: {regex: "^dataclasses$"}, name: {regex: "^(dataclass|make_dataclass)$", pattern: $NAME}}}

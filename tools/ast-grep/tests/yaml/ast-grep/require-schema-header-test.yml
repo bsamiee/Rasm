@@ -1,0 +1,35 @@
+id: require-schema-header
+valid:
+    - |
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      id: no-item
+      language: yaml
+    - |
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      # No fix, a probe over `Item` shows the correction deletes a sibling pair
+      id: no-item
+    - |
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      ---
+      id: no-item
+invalid:
+    - |
+      id: no-item
+      language: yaml
+    - |
+      # No fix, a probe over `Item` shows the correction deletes a sibling pair
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      id: no-item
+    - |
+      # yaml-language-server: $schema="https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json"
+      id: no-item
+    - |
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/yaml_rule.json
+      id: no-item
+    - |
+      #  yaml-language-server:  $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      id: no-item
+    - |
+      ---
+      # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+      id: no-item

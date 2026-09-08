@@ -1,17 +1,16 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/yaml_rule.json
-# No fix, the correction names a variable and adds an env map, a probe over `run: echo ${{ inputs.x }}` shows no text replacement builds both
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-expression-in-run-step
 language: yaml
 severity: error
-files: [".github/**"] # Workflow and composite action steps, .github is hidden and the scan needs --no-ignore hidden
+files: [".github/**"]
 rule:
     kind: block_mapping_pair, flow_pair
     all:
-        - has: {field: key, regex: '^(run|"run"|''run'')$'} # The key bare or quoted
+        - has: {field: key, regex: '^(run|"run"|''run'')$'}
         - inside: {matches: github-step}
-        - has: # The step's shell text, every scalar style, a mapping under run is the defaults shell entry
+        - has:
             field: value
-            regex: '\$\{\{' # The expression delimiter, GitHub substitutes the value into the script before the shell parses it
+            regex: '\$\{\{'
             any:
                 - kind: flow_node
                 - {kind: block_node, has: {kind: block_scalar}}

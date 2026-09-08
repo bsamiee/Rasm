@@ -1,0 +1,19 @@
+id: no-nul-suffix-in-jq-program
+valid:
+    - jq --raw-output0 '.ruleDirs[]' <<<"$config"
+    - jq -r 'split("\u0000")[]' records
+    - jq -j "$program" records
+    - jq -j '"\(.ruleId),\(.file)\n"' records
+    - other -j '.[] + "\u0000"' records
+    - printf '%s\0' "${files[@]}"
+    - command -v jq
+    - printf jq -j '.[] + "\u0000"' records
+invalid:
+    - jq -j '"\(.ruleId),\(.file)\u0000"'
+    - jq -js 'map(.file) | unique[] | . + "\u0000"'
+    - jq -nj --arg lang "$lang" '[inputs] | .[] | tostring + "\u0000"' records
+    - jq -j '(.ruleDirs[], .utilDirs[]) + "\u0000"' <<<"$config"
+    - command jq -j '.[] + "\u0000"' records
+    - /usr/bin/jq -j '.[] + "\u0000"' records
+    - time jq -j '.[] + "\u0000"' records
+    - scan | jq -j '"\(.file)\u0000"' | while IFS= read -r -d '' file; do count "$file"; done

@@ -73,6 +73,7 @@ Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, 
 |  [11]   | `SCAN`                            | `match`, `argv`, and `lines` over the path and the rule-id facts, and `timeoutMs` for a slow command                   |
 
 - New cases are rows, a new condition on a case is its `when`, and a new field on the row type is a change every consumer of the table reads
+- Rows rewrite to the strong form the call's words determine, and deny a call with nothing to run or a drop that inverts it (a dry run made real)
 - `once` keys name the skill or tool a context line routes to, and the adapter stamps `injected/<session>/<key>` before the call
 - `skill.prompt` stamps `loaded/<session>/<skill>`, and a once line with its key stamped under either namespace is not injected again
 - Row reasons and lines are a literal or a template opening with literal text, and the row runner forwards them to `deny`
@@ -88,6 +89,7 @@ Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - The `$.fs.exists` facts the git refinements need are gathered over `gitPaths(command)` as `{ path, found }` records in one `Promise.all`
 - The edited file's text is read in the hook body as `PathFacts.file`, a markdown row numbers an `Edit`'s lines from the file
 - The case record maps `deny` to `{ deny }`, `answer` to `{ result }`, and `rewrite` to `next`, with `$.ui.notice(e.tool_use_id, context.join(' '))`
+- The engine's command checks (`Blocked: sleep`) run beneath `next` over the rewritten command, and a dropped leaf never reaches them
 - Matched hooks narrow through their matcher, `{ interactive: true }` on `session.start` and `{ tool: 'mcp__function-hooks__close' }` on `tool.call`
 - The `ui.render` matcher `{ component: 'AbovePrompt', surface: 'terminal', props: { hasSurvey: false } }` pins the band and yields to a survey
 - Matched hooks register beside the plain one when their option is on, `whenEnabled(options.dispatch, () => register(on))` from the options module
@@ -109,12 +111,13 @@ Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 
 `hooks/text/argv.ts` lexes a shell command into leaves, `hooks/text/path.ts` reads a file path, `hooks/text/lines.ts` reads output lines, and `hooks/text/replace.ts` applies value pairs:
 - `leaves(guarded)(command)` answers `Leaf[]` of `Word { text, start, end }`, split on runs of `;`, `&`, `|`, newlines, and on parentheses
-- The lexer recurses into `$(...)`, backticks, `sh -c`, and interpreter `-c` and `-e` bodies to depth 8
+- The lexer recurses into `$(...)`, backticks outside single quotes, `sh -c`, and interpreter `-c` and `-e` bodies to depth 8
 - Guarded words inside interpreter code are leaves of their own, and a shell with no script runs nothing
 - Leaves stay raw, and `strip(argv)` removes env assignments, wrappers, and runners for the git guard's view
+- Wrapped shells and interpreters (`timeout 30 sh -c '<body>'`) and wrappers with no command (`timeout 30`) keep their raw leaf after the body's
 - `basename(path)`, `extension(path)`, `under(path, directory)`, and `relative(cwd, path)` are the reads the path rows and the scan rows share
 - `lines(text)` reads non-empty output or reply lines and `first(text)` their first line, shared by the scan and roslyn rows
-- Spans let a rewrite splice a word in place, the form `packageManager` uses, and a leaf after `&&` rewrites too
+- Rewrites splice the command bytes by span and never join word texts, a joined form renders `2>&1` as `2 >& 1`, and a leaf after `&&` rewrites too
 - `replace(pairs, direction)(text)` answers `{ text, applied }`, a string pair both ways and a RegExp pair forward
 - Function replacers apply each pair, and a `$` in a replacement value stays literal
 - `notes(replacement)` answers the distinct non-empty notes of the applied pairs, the context lines of a redaction

@@ -1,34 +1,28 @@
 id: no-extra-package-source
 valid:
-    # Attribute order, whitespace, and source metadata preserve the source pair
     - |
       <packageSources>
         <add value = "https://api.nuget.org/v3/index.json" protocolVersion="3" key = "nuget.org" />
         <add value = ".artifacts/nuget" key = "local"></add>
       </packageSources>
-    # Mapping keys and patterns use attribute structure
     - |
       <packageSourceMapping>
         <packageSource key = "local"><package pattern = "Rasm.*"></package></packageSource>
       </packageSourceMapping>
-    # The restore sources
     - |
       <packageSources>
         <clear />
         <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
         <add key="local" value=".artifacts/nuget" />
       </packageSources>
-    # Config entry, no source
     - |
       <config><add key="globalPackagesFolder" value=".cache/nuget/packages" /></config>
-    # The mapping the config holds
     - |
       <packageSourceMapping>
         <clear />
         <packageSource key="nuget.org"><package pattern="*" /></packageSource>
         <packageSource key="local"><package pattern="Rasm.*" /></packageSource>
       </packageSourceMapping>
-    # Single-quoted rows of both sections
     - |
       <configuration>
         <packageSources><clear /><add key='nuget.org' value='https://api.nuget.org/v3/index.json' /><add key='local' value='.artifacts/nuget' />
@@ -36,48 +30,40 @@ valid:
         <packageSourceMapping><clear /><packageSource key='nuget.org'><package pattern='*' /></packageSource><packageSource key='local'>
           <package pattern='Rasm.*' /></packageSource></packageSourceMapping>
       </configuration>
-    # Other sections and child elements are outside source matching
     - '<other><packageSource key="github" /></other>'
     - '<packageSource key="local"><clear /></packageSource>'
     - '<packageSource key="nuget.org"><clear /></packageSource>'
     - '<other key="local"><package pattern="*" /></other>'
     - '<other key="nuget.org"><package pattern="Rasm.*" /></other>'
+    - |
+      <disabledPackageSources><add key="feed" value="true" /></disabledPackageSources>
+    - |
+      <packageSources><clear /><remove key="feed" /></packageSources>
 invalid:
-    # The local feed at the path it held before the artifacts layout
     - |
       <packageSources><clear /><add key="local" value="eng/nuget" /></packageSources>
-    # Third source
     - |
       <packageSources><clear /><add key="github" value="https://nuget.pkg.github.com/rasm/index.json" /></packageSources>
-    # nuget.org under another key
     - |
       <packageSources><clear /><add key="NuGet" value="https://api.nuget.org/v3/index.json" /></packageSources>
-    # Mapping source outside the restore sources
     - |
       <packageSourceMapping><clear /><packageSource key="github"><package pattern="Contoso.*" /></packageSource></packageSourceMapping>
-    # Second prefix pinned to the local feed
     - |
       <packageSourceMapping>
         <clear />
         <packageSource key="local"><package pattern="Rasm.*" /><package pattern="Contoso.*" /></packageSource>
       </packageSourceMapping>
-    # The Rasm.* prefix beside the wildcard under nuget.org, the wildcard row stays alone
     - |
       <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="*" /><package pattern="Rasm.*" /></packageSource></packageSourceMapping>
-    # The Rasm.* prefix mapped to nuget.org
     - |
       <packageSourceMapping><clear /><packageSource key="nuget.org"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>
-    # The wildcard mapped to the local feed
     - |
       <packageSourceMapping><clear /><packageSource key="local"><package pattern="*" /></packageSource></packageSourceMapping>
-    # The nuget.org key over a mirror URL
     - |
       <packageSources><clear /><add key="nuget.org" value="https://mirror.example.com/v3/index.json" /></packageSources>
-    # Source names and locations belong to their declared attributes
     - '<packageSourceMapping><packageSource value="local"><package pattern="Rasm.*" /></packageSource></packageSourceMapping>'
     - '<packageSourceMapping><packageSource value="nuget.org"><package pattern="*" /></packageSource></packageSourceMapping>'
     - '<packageSources><add source="nuget.org" value="https://api.nuget.org/v3/index.json" /></packageSources>'
-    # Source names in another attribute and an address elsewhere leave, the key and value attributes alone name a source
     - '<packageSources><add source="nuget.org" value="https://example.com" /></packageSources>'
     - '<packageSources><add key="other" url="https://api.nuget.org/v3/index.json" /></packageSources>'
     - '<packageSources><add source="local" value="https://example.com" /></packageSources>'
@@ -88,3 +74,7 @@ invalid:
     - '<packageSources><add key="other" value=".artifacts/nuget" /></packageSources>'
     - '<packageSourceMapping><packageSource key="nuget.org"><package key="*" /></packageSource></packageSourceMapping>'
     - '<packageSourceMapping><packageSource key="local"><package key="Rasm.*" /></packageSource></packageSourceMapping>'
+    - |
+      <packageSources><clear /><add key="local" value=".artifacts/nuget/" /></packageSources>
+    - |
+      <packageSources><clear /><add key="local" value="./.artifacts/nuget" /></packageSources>

@@ -93,6 +93,39 @@ snapshots:
   ? |
     import stamina
 
+    async def fetch(value):
+        async for attempt in stamina.retry_context(on=ValueError):
+            with attempt:
+                return await load(value)
+  : fixed: |
+      import stamina
+
+      async def fetch(value):
+          return await load(value)
+    labels:
+    - source: |-
+        async for attempt in stamina.retry_context(on=ValueError):
+                with attempt:
+                    return await load(value)
+      style: primary
+      start: 44
+      end: 161
+  ? |
+    import stamina
+
+    class Loader:
+        @stamina.retry(on=ValueError)
+        def fetch(self, value):
+            return value + 1
+  : fixed: "import stamina\n\nclass Loader:\n    \n    def fetch(self, value):\n        return value + 1\n"
+    labels:
+    - source: '@stamina.retry(on=ValueError)'
+      style: primary
+      start: 34
+      end: 63
+  ? |
+    import stamina
+
     def fetch(value):
         total = 0
         for attempt in stamina.retry_context(on=ValueError, attempts=3):
@@ -117,6 +150,19 @@ snapshots:
       style: primary
       start: 52
       end: 193
+  ? |
+    import stamina
+
+    result = stamina.RetryingCaller(attempts=3)(load, *values, key="value")
+  : fixed: |
+      import stamina
+
+      result = load(*values, key="value")
+    labels:
+    - source: stamina.RetryingCaller(attempts=3)(load, *values, key="value")
+      style: primary
+      start: 25
+      end: 87
   ? |
     import stamina
 

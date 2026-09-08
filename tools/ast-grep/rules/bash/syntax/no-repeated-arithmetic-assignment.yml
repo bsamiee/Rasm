@@ -1,11 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-repeated-arithmetic-assignment
 language: bash
 severity: error
 ignores: ["**/*.json"]
 utils:
     counter:
-        kind: variable_name, word
+        kind: variable_name, word, subscript
         pattern: $V
     operation:
         kind: binary_expression
@@ -22,7 +22,7 @@ rule:
     any:
         - kind: binary_expression
           all:
-            - has: {field: left, kind: variable_name, pattern: $V}
+            - has: {field: left, kind: 'variable_name, subscript', pattern: $V}
             - has: {field: operator, regex: "^=$"}
             - has: {field: right, matches: operation}
         - kind: variable_assignment

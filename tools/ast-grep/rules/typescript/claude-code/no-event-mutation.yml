@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Track binding positions, not reads in default initializers; reassigned parameters no longer prove a frozen receiver.
 id: no-event-mutation
 language: tsx
 severity: error
@@ -7,9 +6,7 @@ files:
     - '**/.claude/plugins/**'
 utils:
     event-member:
-        any:
-            - {kind: member_expression}
-            - {kind: subscript_expression}
+        kind: member_expression, subscript_expression
         has: {field: object, any: [{pattern: $E}, {matches: event-member}]}
     writing-callee:
         regex: ^(Object\.(assign|defineProperty|defineProperties|setPrototypeOf)|Reflect\.(set|defineProperty|deleteProperty|setPrototypeOf))$
@@ -36,30 +33,31 @@ utils:
               has: {field: initializer, has: {kind: variable_declarator, has: {field: name, matches: event-binding}}}
             - kind: statement_block
               has:
-                any:
-                    - {kind: lexical_declaration}
-                    - {kind: variable_declaration}
+                kind: lexical_declaration, variable_declaration
                 has: {kind: variable_declarator, has: {field: name, matches: event-binding}}
     mutating-array-call:
         kind: call_expression
         has:
             field: function
             kind: member_expression
-            all:
-                - {has: {field: property, regex: ^(push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)$}}
+            has: {field: property, regex: ^(push|pop|shift|unshift|splice|sort|reverse|fill|copyWithin)$}
     event-binding:
         any:
-            - {any: [{kind: identifier}, {kind: shorthand_property_identifier_pattern}], pattern: $E}
-            - any:
-                - {kind: object_pattern}
-                - {kind: array_pattern}
-                - {kind: rest_pattern}
+            - {kind: 'identifier, shorthand_property_identifier_pattern', pattern: $E}
+            - kind: object_pattern, array_pattern, rest_pattern
               has: {matches: event-binding}
             - {kind: pair_pattern, has: {field: value, matches: event-binding}}
-            - any:
-                - {kind: assignment_pattern}
-                - {kind: object_assignment_pattern}
+            - kind: assignment_pattern, object_assignment_pattern
               has: {field: left, matches: event-binding}
+    rebinding-statement:
+        kind: expression_statement
+        has:
+            any:
+                - {kind: assignment_expression}
+                - {kind: augmented_assignment_expression, has: {field: operator, regex: '^&&=$'}}
+            has: {field: left, kind: identifier, pattern: $E}
+    rebound-before:
+        follows: {stopBy: end, matches: rebinding-statement}
 rule:
     all:
         - {matches: write}
@@ -67,24 +65,17 @@ rule:
             stopBy: end
             matches: claude-code-hook
             has: {field: parameters, has: {nthChild: 2, has: {pattern: $E}}}
-            not:
-                has:
-                    stopBy: end
-                    any:
-                        - {kind: assignment_expression}
-                        - {kind: augmented_assignment_expression}
-                    has: {field: left, kind: identifier, pattern: $E}
+        - not:
+            any:
+                - {matches: rebound-before}
+                - {inside: {stopBy: {matches: claude-code-hook}, matches: rebound-before}}
         - any:
-            - any:
-                - {kind: assignment_expression}
-                - {kind: augmented_assignment_expression}
+            - kind: assignment_expression, augmented_assignment_expression
               has:
                 field: left
                 any:
                     - {matches: event-member}
-                    - any:
-                        - {kind: array_pattern}
-                        - {kind: object_pattern}
+                    - kind: array_pattern, object_pattern
                       has:
                         stopBy: end
                         matches: event-member
@@ -99,6 +90,6 @@ rule:
             - {kind: for_in_statement, has: {field: left, matches: event-member}}
         - {not: {inside: {stopBy: end, matches: rebinding-scope}}}
     pattern: $MATCH
-message: The hook attempts to mutate the frozen event `$E`
+message: The hook writes to the frozen event `$E`
 note: 'Pass a copy to the chain, `next({ ...e, field: value })`, and read `e` alone'
 labels: {MATCH: {style: primary}}

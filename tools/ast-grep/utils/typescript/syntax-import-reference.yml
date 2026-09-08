@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Resolve a runtime named export, including namespace and default module receivers.
 id: syntax-import-reference
 language: tsx
 arguments: [source, exported]

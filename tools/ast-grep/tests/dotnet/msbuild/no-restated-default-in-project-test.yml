@@ -1,90 +1,76 @@
 id: no-restated-default-in-project
 valid:
-    # Override of the SDK default, tests need an entry point
     - |
       <PropertyGroup><OutputType>Exe</OutputType></PropertyGroup>
-    # Framework differing from the root default
     - |
       <PropertyGroup><TargetFramework>netstandard2.0</TargetFramework></PropertyGroup>
-    # Packaging project switching the default items off
     - |
       <PropertyGroup><EnableDefaultItems>false</EnableDefaultItems></PropertyGroup>
-    # The same name and value outside a PropertyGroup is metadata
     - |
       <ItemGroup><PackageReference Include="EPPlus"><Authors>bsamiee</Authors></PackageReference></ItemGroup>
-    # Symbol format differing from the root value
     - |
       <PropertyGroup><SymbolPackageFormat>symbols.nupkg</SymbolPackageFormat></PropertyGroup>
-    # Assembly named after the output type value
     - |
       <PropertyGroup><AssemblyName>Library</AssemblyName></PropertyGroup>
-    # True value on a switch the SDK defaults to false
     - |
       <PropertyGroup><SelfContained>true</SelfContained></PropertyGroup>
-    # Custom switch spelling its value the same way
     - |
       <PropertyGroup><HostTracing>enable</HostTracing></PropertyGroup>
-    # Package tag equal to the debug type value
     - |
       <PropertyGroup><PackageTags>portable</PackageTags></PropertyGroup>
-    # Custom property naming the framework a host runs
     - |
       <PropertyGroup><HostFramework>net10.0</HostFramework></PropertyGroup>
-    # The neutral language shares the value of the satellite list
     - |
       <PropertyGroup><NeutralLanguage>en</NeutralLanguage></PropertyGroup>
-    # Copyright holder equal to the author value
     - |
       <PropertyGroup><Copyright>bsamiee</Copyright></PropertyGroup>
-    # Custom property naming the version source
     - |
       <PropertyGroup><VersionSource>git</VersionSource></PropertyGroup>
-    # Custom property naming a symbol format
     - |
       <PropertyGroup><NativeSymbolFormat>snupkg</NativeSymbolFormat></PropertyGroup>
-    # Nullable switched off is a project value
     - |
       <PropertyGroup><Nullable>disable</Nullable></PropertyGroup>
-    # Debug type differing from the SDK default
     - |
       <PropertyGroup><DebugType>embedded</DebugType></PropertyGroup>
-    # Satellite list differing from the root value
     - |
       <PropertyGroup><SatelliteResourceLanguages>en;fr</SatelliteResourceLanguages></PropertyGroup>
-    # Author differing from the root value
     - |
       <PropertyGroup><Authors>Contoso</Authors></PropertyGroup>
-    # Repository type differing from the root value
     - |
       <PropertyGroup><RepositoryType>tfvc</RepositoryType></PropertyGroup>
+    - |
+      <PropertyGroup><ImplicitUsings>disable</ImplicitUsings></PropertyGroup>
+    - |
+      <PropertyGroup><OutputType>WinExe</OutputType></PropertyGroup>
 invalid:
-    # The restated framework of the root file
     - |
       <PropertyGroup><TargetFramework>net10.0</TargetFramework></PropertyGroup>
-    # The restated author of the root and the packaging props
     - |
       <PropertyGroup><Authors>bsamiee</Authors></PropertyGroup>
-    # The restated company
     - |
       <PropertyGroup><Company>bsamiee</Company></PropertyGroup>
-    # The SDK default output type
     - |
       <PropertyGroup><OutputType>Library</OutputType></PropertyGroup>
-    # The SDK default determinism, mixed case
     - |
       <PropertyGroup><Deterministic>True</Deterministic></PropertyGroup>
-    # Root value restated with padding
     - |
       <PropertyGroup><Nullable> enable </Nullable></PropertyGroup>
-    # The SDK default debug type
     - |
       <PropertyGroup><DebugType>portable</DebugType></PropertyGroup>
-    # The root satellite language
     - |
       <PropertyGroup><SatelliteResourceLanguages>en</SatelliteResourceLanguages></PropertyGroup>
-    # The root repository type
     - |
       <PropertyGroup><RepositoryType>git</RepositoryType></PropertyGroup>
-    # The root symbol format
     - |
       <PropertyGroup><SymbolPackageFormat>snupkg</SymbolPackageFormat></PropertyGroup>
+    - |
+      <PropertyGroup><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+    - |
+      <PropertyGroup><GenerateDocumentationFile>true</GenerateDocumentationFile></PropertyGroup>
+    - |
+      <PropertyGroup>
+        <Nullable>enable</Nullable>
+        <LangVersion>latest</LangVersion>
+      </PropertyGroup>
+    - |
+      <PropertyGroup><OutputType Condition="'$(Host)' == 'true'">Library</OutputType></PropertyGroup>

@@ -6,6 +6,12 @@ snapshots:
       style: primary
       start: 14
       end: 30
+  const at = new Date(Date.now());:
+    labels:
+    - source: Date.now()
+      style: primary
+      start: 20
+      end: 30
   const bytes = crypto.getRandomValues(new Uint8Array(8));:
     labels:
     - source: crypto.getRandomValues(new Uint8Array(8))
@@ -42,6 +48,12 @@ snapshots:
       style: primary
       start: 12
       end: 34
+  const now = Temporal.Now.zonedDateTimeISO();:
+    labels:
+    - source: Temporal.Now.zonedDateTimeISO()
+      style: primary
+      start: 12
+      end: 43
   const now = globalThis.Date.now();:
     labels:
     - source: globalThis.Date.now()
@@ -54,6 +66,12 @@ snapshots:
       style: primary
       start: 12
       end: 22
+  const now = new Date(/* current */);:
+    labels:
+    - source: new Date(/* current */)
+      style: primary
+      start: 12
+      end: 35
   const now = new Date;:
     labels:
     - source: new Date
@@ -72,6 +90,12 @@ snapshots:
       style: primary
       start: 16
       end: 33
+  const started = process.hrtime();:
+    labels:
+    - source: process.hrtime()
+      style: primary
+      start: 16
+      end: 32
   const started = process.hrtime.bigint();:
     labels:
     - source: process.hrtime.bigint()
@@ -114,6 +138,12 @@ snapshots:
       style: primary
       start: 56
       end: 67
+  import { performance } from "node:perf_hooks"; const started = performance.now();:
+    labels:
+    - source: performance.now()
+      style: primary
+      start: 63
+      end: 80
   import { randomBytes as bytes } from "node:crypto"; bytes(8);:
     labels:
     - source: bytes(8)

@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: msbuild-property-keeps-value
+language: xml
+arguments: [name, reference]
+rule:
+    kind: element
+    all:
+        - matches: {msbuild-property: {name: {matches: name}}}
+        - any:
+            - has: {kind: content, has: {kind: CharData, matches: reference}}
+            - has:
+                matches: msbuild-tag
+                has:
+                    kind: Attribute
+                    all:
+                        - has: {kind: Name, regex: '^Condition$'}
+                        - has:
+                            kind: AttValue
+                            all:
+                                - matches: reference
+                                - regex: "^[\"']\\s*(?:'\\$\\(\\w+\\)'\\s*==\\s*''\\s*(?:and\\s+)?)+[\"']$"

@@ -1,0 +1,198 @@
+id: no-second-sentence
+snapshots:
+  ? |
+    "note": Write the item. Keep the other item
+  : labels:
+    - source: Write the item. Keep the other item
+      style: primary
+      start: 8
+      end: 43
+    - source: '"note"'
+      style: secondary
+      start: 0
+      end: 6
+    - source: '"note": Write the item. Keep the other item'
+      style: secondary
+      start: 0
+      end: 43
+  ? |
+    labels: {ITEM: {style: primary, message: 'The item. The other item'}}
+  : labels:
+    - source: '''The item. The other item'''
+      style: primary
+      start: 41
+      end: 67
+    - source: message
+      style: secondary
+      start: 32
+      end: 39
+    - source: 'message: ''The item. The other item'''
+      style: secondary
+      start: 32
+      end: 67
+  ? |
+    message: "The item holds a period. The other item follows"
+  : labels:
+    - source: '"The item holds a period. The other item follows"'
+      style: primary
+      start: 9
+      end: 58
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: "The item holds a period. The other item follows"'
+      style: secondary
+      start: 0
+      end: 58
+  ? |
+    message: Is the item set? The other item follows
+  : labels:
+    - source: Is the item set? The other item follows
+      style: primary
+      start: 9
+      end: 48
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: Is the item set? The other item follows'
+      style: secondary
+      start: 0
+      end: 48
+  ? |
+    message: The item holds a period. The other item follows
+  : labels:
+    - source: The item holds a period. The other item follows
+      style: primary
+      start: 9
+      end: 56
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: The item holds a period. The other item follows'
+      style: secondary
+      start: 0
+      end: 56
+  ? |
+    message: The item is set! The other item follows
+  : labels:
+    - source: The item is set! The other item follows
+      style: primary
+      start: 9
+      end: 48
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: The item is set! The other item follows'
+      style: secondary
+      start: 0
+      end: 48
+  ? |
+    message: The item is set. "Other" holds the value
+  : labels:
+    - source: The item is set. "Other" holds the value
+      style: primary
+      start: 9
+      end: 49
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: The item is set. "Other" holds the value'
+      style: secondary
+      start: 0
+      end: 49
+  ? |
+    message: The item is set. $NAME holds the value
+  : labels:
+    - source: The item is set. $NAME holds the value
+      style: primary
+      start: 9
+      end: 47
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: The item is set. $NAME holds the value'
+      style: secondary
+      start: 0
+      end: 47
+  ? |
+    message: The item is set. `Other` holds the value
+  : labels:
+    - source: The item is set. `Other` holds the value
+      style: primary
+      start: 9
+      end: 49
+    - source: message
+      style: secondary
+      start: 0
+      end: 7
+    - source: 'message: The item is set. `Other` holds the value'
+      style: secondary
+      start: 0
+      end: 49
+  ? |
+    note: 'Write `Item`. Keep the other item'
+  : labels:
+    - source: '''Write `Item`. Keep the other item'''
+      style: primary
+      start: 6
+      end: 41
+    - source: note
+      style: secondary
+      start: 0
+      end: 4
+    - source: 'note: ''Write `Item`. Keep the other item'''
+      style: secondary
+      start: 0
+      end: 41
+  ? |
+    note: >-
+      Write the item. Keep
+      the other item
+  : labels:
+    - source: |
+        >-
+          Write the item. Keep
+          the other item
+      style: primary
+      start: 6
+      end: 49
+    - source: note
+      style: secondary
+      start: 0
+      end: 4
+    - source: |
+        note: >-
+          Write the item. Keep
+          the other item
+      style: secondary
+      start: 0
+      end: 49
+  ? |
+    note: |
+      Write the item.
+      Keep the other item
+  : labels:
+    - source: |
+        |
+          Write the item.
+          Keep the other item
+      style: primary
+      start: 6
+      end: 48
+    - source: note
+      style: secondary
+      start: 0
+      end: 4
+    - source: |
+        note: |
+          Write the item.
+          Keep the other item
+      style: secondary
+      start: 0
+      end: 48

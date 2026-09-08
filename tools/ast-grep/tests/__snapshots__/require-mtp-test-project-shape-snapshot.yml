@@ -35,6 +35,20 @@ snapshots:
       start: 87
       end: 133
   ? |
+    <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+  : fixed: |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup><PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+    labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><ItemGroup><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
+      style: primary
+      start: 0
+      end: 113
+    - source: <PackageReference Include="xunit.v3.mtp-v2" />
+      style: secondary
+      start: 44
+      end: 90
+  ? |
     <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><AssemblyName>Exe</AssemblyName></PropertyGroup><ItemGroup>
       <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>
   : fixed: |
@@ -119,6 +133,23 @@ snapshots:
       style: secondary
       start: 106
       end: 152
+  ? |
+    <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+      <PackageReference Include="xunit.v3.mtp-v2"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup></Project>
+  : fixed: |
+      <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+        <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup></Project>
+    labels:
+    - source: |
+        <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Exe</OutputType></PropertyGroup><ItemGroup>
+          <PackageReference Include="xunit.v3.mtp-v2"><PrivateAssets>all</PrivateAssets></PackageReference></ItemGroup></Project>
+      style: primary
+      start: 0
+      end: 226
+    - source: <PackageReference Include="xunit.v3.mtp-v2"><PrivateAssets>all</PrivateAssets></PackageReference>
+      style: secondary
+      start: 106
+      end: 203
   ? |
     <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><OutputType>Library</OutputType></PropertyGroup><ItemGroup>
       <PackageReference Include="coverlet.MTP" /><PackageReference Include="xunit.v3.mtp-v2" /></ItemGroup></Project>

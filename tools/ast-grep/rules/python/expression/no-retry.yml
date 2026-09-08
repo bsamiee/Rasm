@@ -1,8 +1,7 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-retry
 language: python
 severity: error
-# A counted loop is no retry, each iteration can consume another candidate or changing state
 rule:
     matches:
         python-module-member:

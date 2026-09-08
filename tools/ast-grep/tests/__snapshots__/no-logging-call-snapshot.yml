@@ -18,6 +18,26 @@ snapshots:
       start: 20
       end: 25
   ? |
+    from logging import getLogger
+    def emit():
+        log = getLogger(__name__)
+        log.error("failed")
+  : labels:
+    - source: log.error
+      message: Event method
+      style: primary
+      start: 76
+      end: 85
+  ? |
+    from logging import getLogger
+    getLogger("a").getChild("b").getChild("c").error("failed")
+  : labels:
+    - source: getLogger("a").getChild("b").getChild("c").error
+      message: Event method
+      style: primary
+      start: 30
+      end: 78
+  ? |
     from logging import getLogger as logger
     logger("worker").error("failed")
   : labels:
@@ -26,6 +46,61 @@ snapshots:
       style: primary
       start: 40
       end: 62
+  ? |
+    import logging
+    if verbose:
+        logger = logging.getLogger(__name__)
+    child = logger.getChild("stage")
+    child.info("event")
+  : labels:
+    - source: child.info
+      message: Event method
+      style: primary
+      start: 101
+      end: 111
+  ? |
+    import logging
+    logger = logging.getLogger(__name__)
+    child = logger.getChild("stage")
+    child.warning("event")
+  : labels:
+    - source: child.warning
+      message: Event method
+      style: primary
+      start: 85
+      end: 98
+  ? |
+    import logging
+    logger = logging.getLogger(__name__)
+    class Worker:
+        def run(self):
+            logger.info("event")
+  : labels:
+    - source: logger.info
+      message: Event method
+      style: primary
+      start: 93
+      end: 104
+  ? |
+    import logging
+    logger = logging.getLogger(__name__)
+    logger.info("event")
+  : labels:
+    - source: logger.info
+      message: Event method
+      style: primary
+      start: 52
+      end: 63
+  ? |
+    import logging
+    logger: logging.Logger = logging.getLogger(__name__)
+    logger.debug("event")
+  : labels:
+    - source: logger.debug
+      message: Event method
+      style: primary
+      start: 68
+      end: 80
   ? |
     import logging as lg
     lg.exception("failed")
@@ -72,6 +147,13 @@ snapshots:
       style: primary
       start: 0
       end: 37
+  logging.getLogger("worker").getChild("stage").info("event"):
+    labels:
+    - source: logging.getLogger("worker").getChild("stage").info
+      message: Event method
+      style: primary
+      start: 0
+      end: 50
   logging.getLogger().info("event"):
     labels:
     - source: logging.getLogger().info
@@ -93,3 +175,10 @@ snapshots:
       style: primary
       start: 0
       end: 11
+  logging.warn("event"):
+    labels:
+    - source: logging.warn
+      message: Event method
+      style: primary
+      start: 0
+      end: 12

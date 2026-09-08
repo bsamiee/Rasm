@@ -1,10 +1,63 @@
 id: no-literal-glob-in-task-source
 snapshots:
+  <Target Name="Clean"><Delete Files="stage/*.tmp" /></Target>:
+    fixed: <Target Name="Clean"><ItemGroup><_DeleteFile Remove="@(_DeleteFile)" /><_DeleteFile Include="stage/*.tmp" /></ItemGroup><Delete Files="@(_DeleteFile)" /></Target>
+    labels:
+    - source: <Delete Files="stage/*.tmp" />
+      style: primary
+      start: 21
+      end: 51
+    - source: Files="stage/*.tmp"
+      style: secondary
+      start: 29
+      end: 48
+    - source: <Delete Files="stage/*.tmp" />
+      style: secondary
+      start: 21
+      end: 51
+  <Target Name="Stage"><Copy SourceFiles="$(StageRoot)**/*.txt" DestinationFolder="$(OutDir)stage/" /></Target>:
+    fixed: <Target Name="Stage"><ItemGroup><_CopySource Remove="@(_CopySource)" /><_CopySource Include="$(StageRoot)**/*.txt" /></ItemGroup><Copy SourceFiles="@(_CopySource)" DestinationFiles="@(_CopySource->'$(OutDir)stage/%(RecursiveDir)%(Filename)%(Extension)')" /></Target>
+    labels:
+    - source: <Copy SourceFiles="$(StageRoot)**/*.txt" DestinationFolder="$(OutDir)stage/" />
+      style: primary
+      start: 21
+      end: 100
+    - source: SourceFiles="$(StageRoot)**/*.txt"
+      style: secondary
+      start: 27
+      end: 61
+    - source: <Copy SourceFiles="$(StageRoot)**/*.txt" DestinationFolder="$(OutDir)stage/" />
+      style: secondary
+      start: 21
+      end: 100
+  <Target Name="Stage"><Copy SourceFiles="item.txt;source/*.txt" DestinationFolder="stage/" /></Target>:
+    fixed: <Target Name="Stage"><ItemGroup><_CopySource Remove="@(_CopySource)" /><_CopySource Include="item.txt;source/*.txt" /></ItemGroup><Copy SourceFiles="@(_CopySource)" DestinationFolder="stage/" /></Target>
+    labels:
+    - source: <Copy SourceFiles="item.txt;source/*.txt" DestinationFolder="stage/" />
+      style: primary
+      start: 21
+      end: 92
+    - source: SourceFiles="item.txt;source/*.txt"
+      style: secondary
+      start: 27
+      end: 62
+    - source: <Copy SourceFiles="item.txt;source/*.txt" DestinationFolder="stage/" />
+      style: secondary
+      start: 21
+      end: 92
   <Target Name="Stage"><Copy SourceFiles="source/**/*.txt" DestinationFiles="@(_Destinations)" /></Target>:
     fixed: <Target Name="Stage"><ItemGroup><_CopySource Remove="@(_CopySource)" /><_CopySource Include="source/**/*.txt" /></ItemGroup><Copy SourceFiles="@(_CopySource)" DestinationFiles="@(_Destinations)" /></Target>
     labels:
     - source: <Copy SourceFiles="source/**/*.txt" DestinationFiles="@(_Destinations)" />
       style: primary
+      start: 21
+      end: 95
+    - source: SourceFiles="source/**/*.txt"
+      style: secondary
+      start: 27
+      end: 56
+    - source: <Copy SourceFiles="source/**/*.txt" DestinationFiles="@(_Destinations)" />
+      style: secondary
       start: 21
       end: 95
   <Target Name="Stage"><Copy SourceFiles="source/**/*.txt" DestinationFolder="stage/" /></Target>:
@@ -14,11 +67,27 @@ snapshots:
       style: primary
       start: 21
       end: 86
+    - source: SourceFiles="source/**/*.txt"
+      style: secondary
+      start: 27
+      end: 56
+    - source: <Copy SourceFiles="source/**/*.txt" DestinationFolder="stage/" />
+      style: secondary
+      start: 21
+      end: 86
   <Target Name="Stage"><Copy SourceFiles="source/*.txt" DestinationFolder="stage/" /></Target>:
     fixed: <Target Name="Stage"><ItemGroup><_CopySource Remove="@(_CopySource)" /><_CopySource Include="source/*.txt" /></ItemGroup><Copy SourceFiles="@(_CopySource)" DestinationFolder="stage/" /></Target>
     labels:
     - source: <Copy SourceFiles="source/*.txt" DestinationFolder="stage/" />
       style: primary
+      start: 21
+      end: 83
+    - source: SourceFiles="source/*.txt"
+      style: secondary
+      start: 27
+      end: 53
+    - source: <Copy SourceFiles="source/*.txt" DestinationFolder="stage/" />
+      style: secondary
       start: 21
       end: 83
   <Target Name="Stage"><Move SourceFiles="source/**/*.txt" DestinationFolder="stage/" /></Target>:
@@ -28,6 +97,14 @@ snapshots:
       style: primary
       start: 21
       end: 86
+    - source: SourceFiles="source/**/*.txt"
+      style: secondary
+      start: 27
+      end: 56
+    - source: <Move SourceFiles="source/**/*.txt" DestinationFolder="stage/" />
+      style: secondary
+      start: 21
+      end: 86
   <Target Name="Stage"><Move SourceFiles="source/file?.txt" DestinationFolder="stage/" /></Target>:
     fixed: <Target Name="Stage"><ItemGroup><_MoveSource Remove="@(_MoveSource)" /><_MoveSource Include="source/file?.txt" /></ItemGroup><Move SourceFiles="@(_MoveSource)" DestinationFolder="stage/" /></Target>
     labels:
@@ -35,10 +112,41 @@ snapshots:
       style: primary
       start: 21
       end: 87
+    - source: SourceFiles="source/file?.txt"
+      style: secondary
+      start: 27
+      end: 57
+    - source: <Move SourceFiles="source/file?.txt" DestinationFolder="stage/" />
+      style: secondary
+      start: 21
+      end: 87
+  <Target Name="Stamp"><Touch Files="stage/**/*.txt" AlwaysCreate="true" /></Target>:
+    fixed: <Target Name="Stamp"><ItemGroup><_TouchFile Remove="@(_TouchFile)" /><_TouchFile Include="stage/**/*.txt" /></ItemGroup><Touch Files="@(_TouchFile)" AlwaysCreate="true" /></Target>
+    labels:
+    - source: <Touch Files="stage/**/*.txt" AlwaysCreate="true" />
+      style: primary
+      start: 21
+      end: 73
+    - source: Files="stage/**/*.txt"
+      style: secondary
+      start: 28
+      end: 50
+    - source: <Touch Files="stage/**/*.txt" AlwaysCreate="true" />
+      style: secondary
+      start: 21
+      end: 73
   <Target Name='Stage'><Copy Condition='$(Stage) == true' SourceFiles='source/**/*.txt' DestinationFolder='stage' /></Target>:
     fixed: <Target Name='Stage'><ItemGroup><_CopySource Remove="@(_CopySource)" /><_CopySource Include="source/**/*.txt" /></ItemGroup><Copy Condition='$(Stage) == true' SourceFiles="@(_CopySource)" DestinationFiles="@(_CopySource->'stage/%(RecursiveDir)%(Filename)%(Extension)')" /></Target>
     labels:
     - source: <Copy Condition='$(Stage) == true' SourceFiles='source/**/*.txt' DestinationFolder='stage' />
       style: primary
+      start: 21
+      end: 114
+    - source: SourceFiles='source/**/*.txt'
+      style: secondary
+      start: 56
+      end: 85
+    - source: <Copy Condition='$(Stage) == true' SourceFiles='source/**/*.txt' DestinationFolder='stage' />
+      style: secondary
       start: 21
       end: 114

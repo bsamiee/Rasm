@@ -1,54 +1,42 @@
 id: no-shadowed-tool-function
 valid:
-    # A verb-noun name
     - |
       copy_tree() { cp -RL "$1" "$2"; }
-    # A name holding a tool name as a part
     - |
       tree_root() { printf '%s\n' "$PWD"; }
-    # A call of the tool
     - |
       tree -D tools
-    # A tool name with a suffix
     - |
       function fdx { printf '%s\n' "$@"; }
-    # A tool name as a prefix, the parenthesized form
     - |
       rgx() { rg -x "$@"; }
+    - |
+      Cat() { printf '%s\n' "$@"; }
 invalid:
-    # A hyphenated toolchain name of two words
     - |
       tree-sitter() { command tree-sitter "$@"; }
-    # The git extension name
     - |
       git-lfs() { :; }
-    # The instance, a function named tree
     - |
       tree() {
           local root=$1
           cp -RL "$PWD/rules" "$root/rules"
       }
-    # The function keyword form
     - |
       function fd { printf '%s\n' "$@"; }
-    # A coreutils name
     - |
       sort() { printf '%s\n' "$@"; }
-    # A builtin name
     - |
       echo() { printf '%s\n' "$*"; }
-    # A wrapper over the command of the same name
     - |
       git() { command git "$@"; }
-    # A hyphenated toolchain name
     - |
       ast-grep() { command ast-grep "$@"; }
-    # A builtin that sets shell options
     - |
       set() { :; }
-    # A package manager name
     - |
       pnpm() { corepack pnpm "$@"; }
-    # The function keyword with parentheses
     - |
       function jq() { command jq "$@"; }
+    - |
+      git () { command git "$@"; }

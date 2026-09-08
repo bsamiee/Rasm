@@ -27,7 +27,18 @@ valid:
     - 'import { Effect } from "effect"; function f(Effect: Other) { return Effect.flatMap(work, x => Effect.succeed(x)); }'
     - import { Effect } from "effect"; Effect.flatMap(work, async x => Effect.succeed(x));
     - import { Stream } from "effect"; Stream.flatMap(work, x => Stream.some(x));
+    - import { Effect, Micro } from "effect"; const next = Effect.flatMap(work, (value) => Micro.succeed(value));
+    - import { Either } from "effect"; const next = Either.flatMap(decoded, () => Either.void);
+    - import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => Effect.succeed(value).pipe(Effect.delay("1 second")));
+    - import { Effect } from "effect"; const next = Effect.flatMap(work, Effect.succeed(1));
+    - import { Effect } from "effect"; const next = Effect.andThen(work, Effect.void);
+    - import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => Effect.succeedSome(value + 1));
 invalid:
+    - import { Effect } from "effect"; const next = pipe(work, Effect.flatMap((value) => Effect.succeed(value + 1)));
+    - import { Effect } from "effect"; const next = Effect.flatMap<number>(work, (value) => Effect.succeed(value + 1));
+    - import { Effect } from "effect"; const next = work.pipe(Effect.flatMap<number>((value) => Effect.succeed(value + 1)));
+    - import { Effect } from "effect"; const next = Effect.flatMap<number>(work, () => Effect.void);
+    - import { Effect } from "effect"; const next = work.pipe(Effect.flatMap<number>(() => Effect.void));
     - import { Effect } from "effect"; const next = Effect.flatMap(work, () => Effect.succeed(Effect.succeed(1)));
     - import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => Effect.succeed(value + 1));
     - import { Effect } from "effect"; const next = work.pipe(Effect.flatMap((value) => Effect.succeed(value + 1)));
@@ -71,13 +82,18 @@ invalid:
     - import { STM } from "effect"; const next = STM.flatMap(transaction, (_value) => STM.void);
     - import { Effect } from "effect"; const next = work.pipe(Effect.flatMap(() => { return Effect.void; }));
     - import { Effect } from "effect"; Effect.flatMap(work, x => { /* explain */ return Effect.succeed(x); });
-    # A comment inside a dropped void callback keeps the call as written, the fix changes nothing
     - import { Effect } from "effect"; const next = Effect.flatMap(work, () => { /* keep */ return Effect.void; });
-    # A comment inside a dropped data-last void callback keeps the call as written too
     - import { Effect } from "effect"; const next = work.pipe(Effect.flatMap(() => { /* keep */ return Effect.void; }));
-    # An object literal under a typed constructor keeps its parentheses
     - import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => Effect.succeed<Item>({ value }));
-    # The constructor's type argument goes with the constructor, inference states the mapped type
     - import { Option } from "effect"; const next = Option.flatMap(found, (value) => Option.some<number>(value + 1));
-    # A nested callback in the value stays inside the mapped expression
     - import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => Effect.succeed(value.map((x) => x + 1)));
+    - import { Effect } from "effect"; const next = Effect.flatMap(work, (value) => (Effect.succeed(value + 1)));
+    - import { Effect } from "effect"; const next = work.pipe(Effect.flatMap((value) => (Effect.succeed({ value }))));
+    - import { Effect } from "effect"; const next = Effect.andThen(work, Effect.succeed(1));
+    - import { Effect } from "effect"; const next = work.pipe(Effect.andThen(Effect.succeed(current)));
+    - import { Effect } from "effect"; const next = Effect.andThen(work, Effect.succeed({ value }));
+    - import { Option } from "effect"; const next = Option.andThen(found, Option.some(1));
+    - import { Effect } from "effect"; const next = Effect.andThen<number>(work, Effect.succeed(1));
+    - import { Effect } from "effect"; const next = work.pipe(Effect.andThen<number>(Effect.succeed(1)));
+    - import { STM } from "effect"; const next = STM.flatMap(transaction, (value) => { return STM.succeed(value + 1); });
+    - import { Exit } from "effect"; const next = exit.pipe(Exit.flatMap((value) => Exit.succeed(value + 1)));

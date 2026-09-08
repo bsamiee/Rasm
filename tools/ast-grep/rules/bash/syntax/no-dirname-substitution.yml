@@ -1,4 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-dirname-substitution
 language: bash
 severity: error
@@ -13,8 +13,9 @@ rule:
         kind: command
         all:
             - has: {field: name, regex: "^(dirname|basename)$", pattern: $CMD}
-            - has: {field: argument, pattern: $PATH, matches: literal-path}
-            - not: {has: {nthChild: 3}}
+            - has: {pattern: $PATH, matches: literal-path, nthChild: {position: 1, reverse: true}}
+            - not: {has: {nthChild: 2, not: {any: [{pattern: $PATH}, {regex: '^--$'}]}}}
+            - not: {has: {nthChild: 4}}
     not:
         any:
             - has: {nthChild: 2}
@@ -40,4 +41,4 @@ transform:
     RESULT: rewrite($PATH, rewriters=[basename, dirname])
 fix: $RESULT
 message: "`$CMD` computes a literal path component at runtime"
-note: Write the literal component directly. Variable paths require their own trailing-slash, root, and slash-free behavior
+note: Write the literal component directly, a variable path keeps the command for its trailing-slash, root, and slash-free behavior

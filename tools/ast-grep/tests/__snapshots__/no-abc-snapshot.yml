@@ -25,6 +25,17 @@ snapshots:
       start: 35
       end: 46
   ? |
+    import abc
+
+    class Reader:
+        @abc.abstractmethod
+        def read(self): ...
+  : labels:
+    - source: abc.abstractmethod
+      style: primary
+      start: 31
+      end: 49
+  ? |
     import abc as bases
 
     class Reader(bases.ABC):

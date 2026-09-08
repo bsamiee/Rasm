@@ -1,0 +1,22 @@
+id: typescript-hook-registration
+language: tsx
+role: member
+parentRuleIds: [tsx-top-level-arrow-function, tsx-export-const]
+symbolType: event
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, kind: identifier, regex: '^on$'}
+        - has: {field: arguments, has: {kind: string, nthChild: 1, has: {kind: string_fragment, pattern: $EVENT}}}
+rewriters:
+    - id: handler
+      rule: {kind: 'arrow_function, function_expression, identifier', inside: {kind: arguments, inside: {pattern: $CALL}}, nthChild: {position: 1, reverse: true}}
+      fix: ''
+transform:
+    WITHOUT_HANDLER: {rewrite: {source: $CALL, rewriters: [handler]}}
+    CLOSED: {replace: {source: $WITHOUT_HANDLER, replace: '(\s*,)+\s*\)\s*$', by: ')'}}
+    SIGNATURE: {replace: {source: $CLOSED, replace: '\s*\n\s*', by: ' '}}
+name: $EVENT
+signature: $SIGNATURE
+isPublic: true

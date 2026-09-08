@@ -1,0 +1,44 @@
+id: typescript-test-case
+language: tsx
+role: member
+parentRuleIds: [typescript-test]
+symbolType: method
+utils:
+    suite-body:
+        kind: statement_block
+        inside:
+            kind: arrow_function, function_expression
+            inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    inside: {kind: expression_statement, inside: {kind: program}}
+                    has:
+                        field: function
+                        any:
+                            - kind: identifier
+                              regex: ^describe$
+                            - kind: member_expression
+                              has: {field: object, kind: identifier, regex: '^describe$'}
+                            - kind: call_expression
+                              has: {field: function, kind: identifier, regex: '^layer$'}
+rule:
+    kind: call_expression
+    inside: {kind: expression_statement, inside: {matches: suite-body}}
+    all:
+        - has:
+            field: function
+            pattern: $CALLEE
+            any:
+                - kind: identifier
+                  regex: ^(test|it)$
+                - kind: member_expression
+                  has: {field: object, kind: identifier, regex: '^(test|it)$'}
+                - kind: call_expression
+                  has: {field: function, kind: member_expression, has: {field: object, kind: identifier, regex: '^(test|it)$'}}
+        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $TITLE}}
+transform:
+    NAME: {replace: {source: $TITLE, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
+name: $NAME
+signature: $CALLEE($TITLE)
+isPublic: true

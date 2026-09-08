@@ -1,26 +1,22 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Keep the fields the rule needs; composed replacements use rule-rewrite.yml
-id: <rule-id> # Unique across ruleDirs, with the same file stem
+id: <rule-id>
 language: <language>
 severity: error
-files: ["<scope-glob>"] # Relative to sgconfig.yml without ./, wildcards take an implied **/ prefix, a hidden scope (.github/**) needs --no-ignore hidden on every scan and test
-ignores: ["<boundary-glob>"] # Exclusions precede files; use ignores instead of negated files globs
+files: ["<scope-glob>"]
+ignores: ["<boundary-glob>"]
 rule:
-    all: # Bind captures before clauses that reuse them, then order independent predicates by cost
+    all:
         - pattern: <code with $VAR and $$$ARGS, or $NODE alone to bind the matched node, the document included, for a transform>
-        - has: {kind: <kind>, field: <role>} # A field read tests the first child of that role alone, and a repeated field (import names) or any child takes kind without field
-        - follows: {kind: <kind>, stopBy: end} # The default neighbor search stops at an unnamed token between siblings
+        - has: {kind: <kind>, field: <role>}
+        - follows: {kind: <kind>, stopBy: end}
         - not: {inside: {kind: <exempting-kind>, stopBy: end}}
-          # A kind list inside a flow map is quoted, {kind: 'block_mapping_pair, flow_pair'}
 constraints:
-    VAR: {regex: "<name-pattern>"} # Post-match filter on a single-node capture; match list elements structurally
+    VAR: {regex: "<name-pattern>"}
 transform:
-    NEW: # Object syntax when the expression holds commas or quotes, Rust regex without backreference or lookaround, an unmatched group substitutes empty
-        # A capture a transform reads sits in the rule or a local util, a global util's capture fails the load
+    NEW:
         replace: {source: $VAR, replace: "<regex>", by: "<replacement, $$ a literal dollar, ${n} a group, \n decoded, no metavariable>"}
-fix: <template referencing $VAR and $NEW> # Omit when a probe shows the replacement needs a value the file lacks, and write the probe's failing form in the header comment
-# Preserve precedence in the parent expression, comments, evaluation count, and binding scope
+fix: <template referencing $VAR and $NEW>
 message: <violation with captured or transformed values>
-note: <the required form and its reason> # Plain text, without metavariable interpolation
+note: <the required form and its reason>
 labels:
     VAR: {style: primary, message: "<reason for highlighting the capture>"}

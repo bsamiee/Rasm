@@ -22,5 +22,5 @@ rewriters:
             - matches: {msbuild-element: {name: {regex: '^(Version|VersionOverride)$'}}}
               inside: {kind: content, inside: {pattern: _REFERENCE}}
       fix: ''
-message: The PackageReference names a version, its PackageVersion row in Directory.Packages.props holds it and VersionOverride is disabled
+message: The PackageReference names a version, the PackageVersion row holds it and VersionOverride is disabled
 note: Name the package id alone on the reference

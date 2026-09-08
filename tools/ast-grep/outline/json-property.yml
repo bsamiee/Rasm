@@ -1,9 +1,0 @@
-id: json-property
-language: json
-role: item
-symbolType: property
-rule:
-    kind: document > object > pair
-    has: {field: key, pattern: $NAME}
-name: $NAME
-signature: $NAME

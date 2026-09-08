@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Object keys count only in returned hook results; ordinary configuration and nested payloads are not decisions.
 id: require-decision-reason
 language: tsx
 severity: error
@@ -15,11 +14,7 @@ utils:
     hook-return:
         any:
             - inside:
-                any:
-                    - {kind: parenthesized_expression}
-                    - {kind: as_expression}
-                    - {kind: satisfies_expression}
-                    - {kind: non_null_expression}
+                kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression
                 matches: hook-return
             - any:
                 - {inside: {kind: ternary_expression, field: consequence, matches: hook-return}}
@@ -40,5 +35,5 @@ rule:
             - {has: {field: function, kind: identifier, regex: ^(deny|drop)$}}
             - {has: {field: arguments, has: {nthChild: 1, pattern: $REASON, matches: unreadable-reason}}}
 message: The decision reason `$REASON` is blank
-note: Provide a nonempty text reason explaining the decision and the corrective action
+note: State the decision and the corrective action in the reason
 labels: {REASON: {style: primary, message: The reason value}}

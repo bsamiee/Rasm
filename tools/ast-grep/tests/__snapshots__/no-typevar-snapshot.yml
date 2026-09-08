@@ -32,3 +32,12 @@ snapshots:
       style: primary
       start: 24
       end: 33
+  ? |
+    import typing_extensions as te
+
+    P = te.ParamSpec("P")
+  : labels:
+    - source: te.ParamSpec
+      style: primary
+      start: 36
+      end: 48

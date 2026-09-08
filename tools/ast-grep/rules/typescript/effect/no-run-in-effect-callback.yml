@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# The rewrite run-in-callback-to-composed-effect fixes a run that is the whole answer of a map, sync, or promise callback
 id: no-run-in-effect-callback
 language: tsx
 severity: error
@@ -16,20 +15,28 @@ utils:
                 field: function
                 kind: member_expression
                 all:
-                    - has: {field: property, regex: "^(map|flatMap|sync|suspend|promise|try|tryPromise|gen|fn|fnUntraced|mapOut)$"}
+                    - has:
+                        field: property
+                        regex: |-
+                            ^(map|flatMap|andThen|tap|tapError|tapBoth|tapErrorCause|tapDefect|sync|suspend|promise|try|tryPromise|tryMap
+                            |tryMapPromise|gen|fn|fnUntraced|mapOut|mapError|mapBoth|catchAll|catchAllCause|catchTag|catchTags|catchSome|catchIf
+                            |match|matchEffect|matchCause|matchCauseEffect|orElse|filterOrFail|filterOrElse|forEach|reduce|zipWith|ensuring
+                            |onExit|onError|acquireRelease|acquireUseRelease|async|whenEffect|iterate|loop|retry|repeat|mapAccum|mapEffect)$
                     - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink)$'}}}}
             - has:
                 field: function
                 kind: member_expression
                 all:
-                    - has: {field: property, regex: "^(update|modify)$"}
-                    - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Ref$'}}}}
+                    - has: {field: property, regex: "^(update|modify|updateAndGet|getAndUpdate|updateSome|modifySome|updateSomeAndGet|getAndUpdateSome|updateEffect|modifyEffect)$"}
+                    - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Ref|SynchronizedRef|SubscriptionRef)$'}}}}
             - has: {field: function, kind: call_expression, matches: effect-owner}
     callback:
         matches: syntax-function-boundary
         any:
             - inside: {kind: arguments, inside: {matches: effect-owner}}
             - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments, inside: {matches: effect-owner}}}}
+            - kind: method_definition
+              inside: {kind: object, inside: {kind: arguments, inside: {matches: effect-owner}}}
 rule:
     kind: call_expression
     pattern: $RUN

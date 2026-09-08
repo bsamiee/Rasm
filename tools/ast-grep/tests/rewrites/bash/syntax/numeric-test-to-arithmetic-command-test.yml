@@ -1,46 +1,29 @@
 id: numeric-test-to-arithmetic-command
 valid:
-    # A string comparison beside a numeric one
     - '[[ $a == b || $c -gt 2 ]]'
-    # A file test beside a numeric one
     - '[[ -n $a && $a -eq 1 ]]'
-    # A single-bracket test has decimal semantics
     - '[ "$a" -eq 1 ]'
-    # A command substitution operand reads empty output as zero in the test alone
     - '[[ $(wc -l < f) -ne 0 ]]'
-    # A joined word operand
     - '[[ "a$x" -eq 1 ]]'
-    # An expansion with an operator can expand to nothing
     - '[[ ${a:-} -eq 1 ]]'
-    # A negated operand, the grammar binds the ! to the left operand and the arithmetic command binds it tighter
     - '[[ ! $a -eq 1 ]]'
-    # A whole-array subscript
     - '[[ ${arr[@]} -eq 1 ]]'
-    # The arithmetic command already
     - (( a == 3 ))
-    # A regex match
     - '[[ $a =~ ^[0-9]+$ ]]'
-    # A file comparison operator over two parameters
     - '[[ $a -nt $b ]]'
 invalid:
-    # The instance, a parameter against a number
     - '[[ $a -eq 3 ]]'
-    # Every operator
     - '[[ $a -ne 3 && $a -lt 4 && $a -le 5 && $a -gt 1 && $a -ge 2 ]]'
-    # A quoted parameter and a braced parameter read by name
     - '[[ "$b" -lt ${c} ]]'
-    # A subscript, a length expansion, a bare name, and a nested arithmetic expansion
     - '[[ ${arr[1]} -ne ${#arr[@]} || count -ge $((x + 1)) ]]'
-    # A special parameter stays as written
     - '[[ $? -eq 0 ]]'
-    # A grouped comparison
+    - '[[ $1 -eq 1 ]]'
+    - '[[ "${10}" -ge 2 ]]'
+    - '[[ $a -eq -1 ]]'
     - '[[ ($a -gt 1) && $b -eq 0 ]]'
-    # A negated group
     - '[[ ! ($a -eq 1) ]]'
-    # The test as an if condition
     - |
       if [[ $i -le 9 ]]; then
           :
       fi
-    # The test as a while condition
     - while [[ $i -lt 3 ]]; do :; done

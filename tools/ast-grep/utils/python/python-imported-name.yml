@@ -1,24 +1,27 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Name a from-import binds, read in a callee or value position
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-imported-name
 language: python
 arguments: [module, name]
+utils:
+    binding-import:
+        kind: import_from_statement
+        all:
+            - has: {field: module_name, matches: module}
+            - any:
+                - has: {kind: dotted_name, matches: name, pattern: $BOUND}
+                - has: {kind: aliased_import, all: [{has: {field: name, matches: name}}, {has: {field: alias, pattern: $BOUND}}]}
 rule:
     not: {matches: python-shadowed-name}
     kind: identifier
     pattern: $BOUND
     all:
         - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {matches: name}}}}
-        # The name binds first from the read and the from-import of the member under that name proves it, from the module or a nested scope
-        - inside:
-            kind: module, function_definition
-            stopBy: end
-            has:
-                stopBy: {kind: "function_definition, class_definition, lambda"}
-                kind: import_from_statement
-                all:
-                    - has: {field: module_name, matches: module}
-                    # The field relation reads the first name field alone, the names are every dotted_name and aliased_import beside the module name
-                    - any:
-                        - has: {kind: dotted_name, matches: name, pattern: $BOUND}
-                        - has: {kind: aliased_import, all: [{has: {field: name, matches: name}}, {has: {field: alias, pattern: $BOUND}}]}
+        - any:
+            - inside:
+                kind: module, function_definition
+                stopBy: end
+                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: binding-import}
+            - inside:
+                kind: class_definition
+                stopBy: {kind: "function_definition, lambda"}
+                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: binding-import}

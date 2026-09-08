@@ -7,7 +7,7 @@ rule:
     has:
         kind: STag, EmptyElemTag
         pattern: _TAG
-        has: {kind: Name, pattern: _NAME, regex: "^(PropertyGroup|ItemGroup)$"}
+        has: {kind: Name, regex: "^(PropertyGroup|ItemGroup)$"}
     inside:
         kind: element
         inside: {kind: document}
@@ -22,6 +22,10 @@ rule:
                       has:
                         kind: STag
                         has: {kind: Name, regex: "^(Choose|When|Otherwise)$"}
+transform:
+    LABELED: {replace: {source: $TAG, replace: '^<(\w+)(?:[\s\S]*\sLabel=["'']([^"'']*)["''])?[\s\S]*$', by: '$1 $2'}}
+    LINE: {replace: {source: $LABELED, replace: '\s*\n\s*', by: ' '}}
+    NAME: {replace: {source: $LINE, replace: '\s+$', by: ''}}
 name: $NAME
 signature: $TAG
 isExported: false

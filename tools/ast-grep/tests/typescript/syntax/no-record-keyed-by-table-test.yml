@@ -1,0 +1,21 @@
+id: no-record-keyed-by-table
+valid:
+    - 'const A = { r: { p: 1, policy: { q: 2 } } } as const;'
+    - 'const AA = { A: { p: 1 } } as const satisfies Record<string, Item>;'
+    - "const A = { a: 1 }; const AB = { S: 'a' } as const satisfies Record<string, keyof typeof A>;"
+    - "import { TABLE } from './table'; const AC = { a: { p: 1 } } satisfies Record<keyof typeof TABLE, Item>;"
+    - 'const A = { a: 1 }; const AD = (row: Record<keyof typeof A, Item>): number => row.a.p;'
+    - 'const A = { a: 1 }; const AE = Record.map(A, (v) => v) satisfies Record<keyof typeof A, string>;'
+    - 'const AF = { a: 1 } satisfies Record<keyof Item, number>;'
+    - 'const A = { a: 1 }; const f = () => { const B: Record<keyof typeof A, Item> = { a: {} }; return B; };'
+    - 'let A = { a: 1 }; const AG = { a: { p: 1 } } satisfies Record<keyof typeof A, Item>;'
+    - "const A = { a: 1 }; const AH = { key: 'a' } as const satisfies Item<keyof typeof A>;"
+invalid:
+    - "const ENVIRONMENTS = { release: { customBranchPolicies: true } } as const; const POLICIES = { release: { branchPattern: 'main' } } as const satisfies Record<keyof typeof ENVIRONMENTS, Item>;"
+    - 'const A = { a: 1 }; const Y: Record<keyof typeof A, Item> = { a: { p: 1 } };'
+    - 'export const A = { a: 1 }; const Z = { a: { p: 1 } } satisfies Partial<Readonly<Record<keyof typeof A, Item>>>;'
+    - 'const A = { a: 1 }; export const W = { a: { p: 1 } } as const satisfies Record<keyof typeof A, Item>;'
+    - 'const A = { a: 1 }; const V = { a: { p: 1 } } as const satisfies Record.ReadonlyRecord<keyof typeof A, Item>;'
+    - 'const Y: Record<keyof typeof A, Item> = { a: { p: 1 } }; const A = { a: 1 };'
+    - 'const A = { a: 1 }; const Z = ({ a: { p: 1 } } satisfies Record<keyof typeof A, Item>);'
+    - 'const A = { a: 1 }; const Y = { a: { p: 1 } } satisfies Record</* rows */ keyof typeof A, Item>;'

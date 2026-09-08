@@ -1,8 +1,10 @@
-# Report only, the HttpClient.get effect in place of fetch fails at the consumer with TS2339 Property 'json' does not exist on 'Effect'
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-fetch-outside-boundary
 language: tsx
 severity: error
 ignores: [.claude/plugins/**, '**/*.config.ts', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+utils:
+    global-receiver: {matches: syntax-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
 rule:
     all:
         - {kind: call_expression}
@@ -12,8 +14,12 @@ rule:
                 - {matches: syntax-global-reference, regex: ^fetch$}
                 - kind: member_expression
                   all:
-                    - has: {field: object, matches: syntax-global-reference, regex: ^(globalThis|window|self)$}
+                    - has: {field: object, matches: global-receiver}
                     - has: {field: property, regex: ^fetch$}
+                - kind: subscript_expression
+                  all:
+                    - has: {field: object, matches: global-receiver}
+                    - has: {field: index, kind: string, regex: '^[''"]fetch[''"]$'}
         - not:
             inside:
                 stopBy: {matches: syntax-function-boundary}

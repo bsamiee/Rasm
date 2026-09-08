@@ -1,13 +1,11 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Recovery handler that reads no error and answers the constant the answer slot names, as an expression body or a block with the one return
 id: effect-constant-handler
 language: tsx
 arguments: [answer]
 rule:
-    any: [{kind: arrow_function}, {kind: function_expression}]
+    kind: arrow_function, function_expression
     all:
         - not: {regex: '^async\b'}
-        # A plain parameter can be removed only when the body never reads it; defaults and destructuring can execute code.
         - not: {has: {field: parameters, has: {pattern: $_, not: {kind: required_parameter, has: {field: pattern, kind: identifier}, not: {has: {field: value, pattern: $_}}}}}}
         - not: {has: {field: parameters, has: {nthChild: 2}}}
         - not:
@@ -22,7 +20,7 @@ rule:
                     has:
                         stopBy: end
                         pattern: $PARAMETER
-                        any: [{kind: identifier}, {kind: shorthand_property_identifier}]
+                        kind: identifier, shorthand_property_identifier
         - not:
             kind: function_expression
             has:
@@ -37,7 +35,7 @@ rule:
                     has:
                         stopBy: end
                         pattern: $FUNCTION
-                        any: [{kind: identifier}, {kind: shorthand_property_identifier}]
+                        kind: identifier, shorthand_property_identifier
         - has:
             field: body
             any:

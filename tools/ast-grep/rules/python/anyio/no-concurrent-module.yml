@@ -1,14 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-concurrent-module
 language: python
 severity: error
-# Report-only, the probed fix `concurrent.futures` to `anyio.to_thread` fails, `Module anyio.to_thread has no member ThreadPoolExecutor`
 rule:
     pattern: $USE
     any:
-        # The pools and the subinterpreters, each with the submodules under it
         - matches: {python-module-use: {module: {regex: '^concurrent\.(futures|interpreters)(\.[\w.]+)?$'}}}
-        # The two concurrency submodules imported from their package.
         - kind: dotted_name
           matches: {python-module-member: {module: {regex: '^concurrent$'}, name: {regex: "^(futures|interpreters)$"}}}
 message: '`$USE` runs work on a concurrent pool or subinterpreter outside structured concurrency'

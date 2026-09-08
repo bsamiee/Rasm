@@ -1,52 +1,41 @@
 id: no-http-client-module
 valid:
-    # The corrected form, the httpx client with owned lifetime
     - |
       import httpx
 
       async def fetch(url):
           async with httpx.AsyncClient() as client:
               return await client.get(url)
-    # Another module of the http package
     - |
       from http import HTTPStatus
-    # Another module of the urllib package
     - |
       from urllib.parse import urlsplit
-    # Attribute named like a client module on another object
     - |
       session = adapter.requests.Session()
-    # Member named client of another package
     - |
       from adapters import client
-    # Member named request of another package
     - |
       from flask import request
-    # Another member of the urllib package
     - |
       from urllib import parse
 invalid:
-    # The instance, the stdlib client module imported whole
     - |
       import http.client
-    # The stdlib client module imported from its package
     - |
       from http import client
-    # The urllib request module imported from its package
     - |
       from urllib import request
-    # Member imported from the urllib request module
     - |
       from urllib.request import urlopen
-    # The requests package imported whole
     - |
       import requests
-    # The urllib3 package under an alias
     - |
       import urllib3 as u3
-    # The attribute read as spelled
     - |
       response = requests.get(url)
-    # The attribute chain rooted at the stdlib client module
     - |
       connection = http.client.HTTPSConnection(host)
+    - |
+      import urllib.request as ur
+    - |
+      import requests.adapters

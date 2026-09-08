@@ -1,69 +1,72 @@
 id: no-unquoted-condition-operand
 valid:
-    # Both operands quoted
     - |
       <Optimize Condition="'$(TargetFramework)' == 'net10.0'">true</Optimize>
-    # The empty-default guard
     - |
       <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
-    # Boolean functions stand alone without an operator
     - |
       <HostUi Condition="$(_HostTokens.Contains(';ui;')) or '$(HostPlatform)' == 'true'">true</HostUi>
-    # Exists and a negated Exists on an item metadata reference
     - |
       <_Missing Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
-    # Comparison inside a message, text
     - |
       <Message Text="expected == $(Expected)" />
-    # General condition syntax is outside the complete simple-comparison fix
     - |
       <IsMac Condition="$([MSBuild]::IsOSPlatform('OSX')) == true">true</IsMac>
-    # General condition syntax is outside the complete simple-comparison fix
     - |
       <IsMac Condition="'$(HostIsMac)' == $([MSBuild]::IsOSPlatform('OSX'))">true</IsMac>
-    # General condition syntax is outside the complete simple-comparison fix
     - |
       <Trim Condition="($(OutputType) == 'Exe') and '$(SelfContained)' == 'true'">true</Trim>
-    # General condition syntax is outside the complete simple-comparison fix
     - |
       <Trim Condition="'$(OutputType)' == 'Exe' and (Exists('bin') or '$(Configuration)' == Release)">true</Trim>
-    # General condition syntax is outside the complete simple-comparison fix
     - |
       <Trim Condition="'$(OutputType)' == 'Exe' and $(SelfContained) != true">true</Trim>
-    # General condition syntax is outside the complete simple-comparison fix
     - |
       <Optimize Condition="`$(Configuration)` == `Release`">true</Optimize>
-    # General condition syntax is outside the complete simple-comparison fix
     - |
-      <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
-    # General condition syntax is outside the complete simple-comparison fix
-    - |
-      <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
-    # General condition syntax is outside the complete simple-comparison fix
+      <Optimize Condition='&apos;$(Configuration)&apos; == &apos;Release&apos;'>true</Optimize>
     - |
       <Trim Condition="$(OutputType) == Exe
         and $(SelfContained) != true">true</Trim>
-    # Operators inside quoted strings are data
     - |
       <P Condition="'a==b' == 'a==b'">true</P>
     - |
       <P Condition="'a!=b' != 'c'">true</P>
+    - |
+      <Item Condition="!$(Enabled)">true</Item>
+    - |
+      <Item Condition="$(Enabled)">true</Item>
+    - |
+      <Item Condition="Exists('$(Path)')">true</Item>
 invalid:
-    # Both operands unquoted, the literal splits at the dot with MSB4092
     - |
       <Optimize Condition="$(TargetFramework) == net10.0">true</Optimize>
-    # Unquoted property on the left of a quoted literal
     - |
       <PropertyGroup Condition="$(OutputType) == 'Exe'"><SelfContained>false</SelfContained></PropertyGroup>
-    # Unquoted literal on the right of an inequality
     - |
       <Compile Include="Extra.cs" Condition="'$(Configuration)' != Release" />
-    # Unquoted operands without whitespace around the operator
     - |
       <Optimize Condition="$(Configuration)==Release">true</Optimize>
-    # Quoted operand holding whitespace beside an unquoted one, the quoted operand stays
     - |
       <Optimize Condition="'$(Configuration) $(Platform)' == Release">true</Optimize>
-    # The fix quotes only the bare operand and preserves the quoted operator
     - |
       <P Condition="'a==b' == value">true</P>
+    - |
+      <Item Condition="$(Path) == ''">true</Item>
+    - |
+      <Compile Include="Item.cs" Condition="%(Compile.Role) == host" />
+    - |
+      <Item Condition="@(Asset) != ''">true</Item>
+    - |
+      <Item Condition="$(Enabled) == true">true</Item>
+    - |
+      <Item Condition='$(Configuration) == Release'>true</Item>
+    - |
+      <Optimize Condition='$(Configuration) == "Release"'>true</Optimize>
+    - |
+      <Item Condition='"$(Configuration)" == Release'>true</Item>
+    - |
+      <Item Condition='"$(Configuration)" == "Release"'>true</Item>
+    - |
+      <Optimize Condition="&quot;$(Configuration)&quot; == Release">true</Optimize>
+    - |
+      <Optimize Condition="&quot;$(Configuration)&quot; != &quot;Release&quot;">true</Optimize>

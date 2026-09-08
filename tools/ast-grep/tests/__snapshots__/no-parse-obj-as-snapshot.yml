@@ -1,5 +1,11 @@
 id: no-parse-obj-as
 snapshots:
+  from pydantic import parse_obj_as:
+    labels:
+    - source: parse_obj_as
+      style: primary
+      start: 21
+      end: 33
   from pydantic import parse_obj_as as parse:
     labels:
     - source: parse_obj_as
@@ -12,6 +18,12 @@ snapshots:
       style: primary
       start: 38
       end: 50
+  from pydantic.tools import parse_obj_as:
+    labels:
+    - source: parse_obj_as
+      style: primary
+      start: 27
+      end: 39
   ? |
     import pydantic as pd
     pd.parse_obj_as(list[int], values)
@@ -20,6 +32,12 @@ snapshots:
       style: primary
       start: 22
       end: 37
+  pydantic.deprecated.tools.parse_obj_as(list[int], values):
+    labels:
+    - source: pydantic.deprecated.tools.parse_obj_as
+      style: primary
+      start: 0
+      end: 38
   pydantic.parse_obj_as(list[int], values):
     labels:
     - source: pydantic.parse_obj_as

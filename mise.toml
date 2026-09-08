@@ -18,18 +18,24 @@ DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"                   # No pyproject.toml table sets it
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data" # nx.json has cacheDirectory alone
-UV_CACHE_DIR = "{{config_root}}/.cache/uv"                               # The shell profile exports a home path over pyproject cache-dir
+UV_CACHE_DIR = "{{config_root}}/.cache/uv"                               # Shell profile exports a home path over pyproject cache-dir
+LIBKTX_VERSION = { value = '{{ exec(command="yq -r .version-string " ~ config_root ~ "/eng/native/ktx/release.json") }}', tools = true } # pyktx setup.py reads the version of the provisioned libktx release
+LIBKTX_INSTALL_DIR = "{{config_root}}/.cache/tools/ktx"                  # The provision link of the ktx release, pyktx derives its Windows directories from it
+# DO NOT REMOVE .miserc.toml until mise 2027.6.0 makes auto_env the default, it loads mise.unix.toml
+# DO NOT REMOVE mise.unix.toml until uv expands ${VAR} in extra-build-variables (astral-sh/uv#10096), pyktx needs LIBKTX_LIB_DIR unset on Windows
 
 # --- [TOOLS] ----------------------------------------------------------------------------
 
 [tools]
-python = "3.15.0rc2" # Latest and the 3.15 prefix resolve development builds under prereleases
+python = "3.15.0rc2"                    # Latest and the 3.15 prefix resolve development builds under prereleases
 node = "latest"
 pnpm = "latest"
 uv = "latest"
 git-lfs = "latest"
 act = "latest"
+docker-cli = "latest"                   # Workflow script removes the act containers and volumes through it
 actionlint = "latest"
+zizmor = "latest"
 shellcheck = "latest"
 shfmt = "latest"
 yamlfmt = "latest"

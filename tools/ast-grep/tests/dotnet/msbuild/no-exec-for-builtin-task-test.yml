@@ -1,54 +1,53 @@
 id: no-exec-for-builtin-task
 valid:
-    # The task form
     - |
       <MakeDir Directories="$(OutDir)logs" />
-    # External program with no built-in task
     - |
       <Exec Command="install_name_tool -change $(_TorchLibompInstallName) @loader_path/libomp.dylib '%(_TorchCpuDylib.FullPath)'" />
-    # Echo that logs, no redirect
     - |
       <Exec Command="echo $(Version)" />
-    # Program name opening with a listed word
     - |
       <Exec Command="cpio -o &lt; list.txt" />
-    # Item holding the command as metadata, nothing runs
     - |
       <ItemGroup><_Step Include="logs" Command="mkdir $(OutDir)logs" /></ItemGroup>
-    # Log pattern parameter naming the shell command, nothing runs
     - |
       <Exec Command="./setup.sh" CustomErrorRegularExpression="mkdir: cannot create" />
+    - |
+      <Exec Command="cat item.txt &gt; other.txt" />
+    - |
+      <Exec Command="mkdir_tool $(OutDir)logs" />
 invalid:
-    # Single-quoted command
     - |
       <Exec Command='mkdir $(OutDir)logs' />
-    # Directory created through the shell
     - |
       <Exec Command="mkdir $(OutDir)logs" />
-    # Copy through the shell
     - |
       <Exec Command="cp $(StageRoot)manifest.yml $(OutDir)" />
-    # File written through a redirect
     - |
       <Exec Command="echo $(Version) &gt; $(IntermediateOutputPath)version.txt" />
-    # Shell delete
     - |
       <Exec Command="rm -rf $(OutDir)stage" />
-    # Directory created with the parent flag, one operand
     - |
       <Exec Command="mkdir -p $(OutDir)logs" Condition="'$(Configuration)' == 'Release'" />
-    # Shell delete of one file
     - |
       <Exec Command="rm $(OutDir)stale.txt" />
-    # Touch through the shell
     - |
       <Exec Command="touch $(IntermediateOutputPath)stamp" />
-    # Append through a redirect, the write keeps the earlier lines
     - |
       <Exec Command="echo $(Version) &gt;&gt; $(IntermediateOutputPath)log.txt" />
-    # Working directory on the task, the fix leaves the Exec because the built-in task resolves from the project directory
     - |
       <Exec Command="mkdir logs" WorkingDirectory="$(OutDir)" />
-    # Two operands, the fix leaves the Exec because Directories takes a semicolon list
     - |
       <Exec Command="mkdir a b" />
+    - |
+      <Exec Command="md $(OutDir)logs" />
+    - |
+      <Exec Command="xcopy /s src dst" />
+    - |
+      <Exec Command="rm -f $(OutDir)stale.txt" />
+    - |
+      <Exec Command="rmdir /s /q $(OutDir)stage" />
+    - |
+      <Exec Command="echo $(Version) > $(IntermediateOutputPath)version.txt" />
+    - |
+      <Exec Command='echo $(Version) &gt; $(IntermediateOutputPath)version.txt' />

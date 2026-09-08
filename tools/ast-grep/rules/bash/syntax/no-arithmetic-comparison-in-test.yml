@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# The rewrite numeric-test-to-arithmetic-command fixes the numeric forms, a mixed test fails as (( -n a && a == 1 )): syntax error
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-arithmetic-comparison-in-test
 language: bash
 severity: error
@@ -12,4 +11,4 @@ rule:
         kind: binary_expression
         has: {field: operator, regex: "^-(eq|ne|lt|le|gt|ge)$"}
 message: The test command compares numbers through a -eq family operator
-note: Express the numeric condition as an arithmetic command, `(( left == right ))`, keeping operand grouping and empty-value handling
+note: Express the numeric condition as an arithmetic command, `(( left == right ))`, and keep operand grouping and empty-value handling

@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-brace-command-substitution
+language: bash
+severity: error
+ignores: ["**/*.json"]
+rule:
+    any:
+        - kind: variable_assignment
+          regex: '^[^=]*="?\$\{\s'
+        - kind: expansion
+          regex: '^\$\{\s'
+          not: {inside: {kind: variable_assignment, stopBy: {not: {kind: string}}}}
+message: The brace command substitution parses as an expansion cut at its first word
+note: 'Write `$(command)`, because tree-sitter-bash ends `${ command; }` at its first word and reads the rest as separate commands'

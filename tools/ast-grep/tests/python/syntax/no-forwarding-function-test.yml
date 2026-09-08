@@ -1,257 +1,204 @@
 id: no-forwarding-function
 valid:
-    # The corrected form, the callee passed with its arguments
     - |
       def start(directory, seconds):
           Thread(target=run, args=(directory, seconds), daemon=True).start()
-    # Partial application in a thunk
     - |
       def start(directory, seconds):
           teardown = partial(memory.rm, directory, recursive=True)
-    # Parameters reordered
     - |
       def swap(a, b):
           return pair(b, a)
-    # Parameter dropped
     - |
       def first(a, b):
           return keep(a)
-    # Parameter repeated
     - |
       def twice(a):
           return pair(a, a)
-    # Extra argument
     - |
       def bounded(a):
           return clamp(a, 1)
-    # Keyword argument
     - |
       def named(a):
           return handle(value=a)
-    # Default parameter
     - |
       def defaulted(a=1):
           return handle(a)
-    # Splat parameter
     - |
       def rest(*a):
           return handle(a)
-    # Keyword-only separator
     - |
       def keyed(a, *, b):
           return pair(a, b)
-    # Async def returning the coroutine, the callee's result is wrapped in a coroutine of its own
     - |
       async def load(path):
           return read(path)
-    # Async def awaiting a call that transforms the argument
     - |
       async def load(path):
           return await read(resolve(path))
-    # Decorated def, the decorator registers it
     - |
       @app.command
       def load(path):
           return read(path)
-    # Second statement
     - |
       def logged(a):
           log(a)
           return handle(a)
-    # Callee that is a call
     - |
       def made(a):
           return make()(a)
-    # Subscript callee
     - |
       def table(a):
           return handlers[key](a)
-    # Nested call transforms the argument
     - |
       def nested(a):
           return outer(inner(a))
-    # Parameter dropped from a call with no argument
     - |
       def dropped(a):
           return load()
-    # Third parameter dropped from a two-argument call
     - |
       def pair(a, b, c):
           return keep(a, b)
-    # Fourth parameter dropped from a three-argument call
     - |
       def triple(a, b, c, d):
           return keep(a, b, c)
-    # Second parameter repeated for the first
     - |
       def doubled(a, b):
           return pair(b, b)
-    # Lambda, ruff unnecessary-lambda reports it
     - |
       run = lambda x: handle(x)
-    # Body of the docstring alone
     - |
       def stub(a):
           """Doc."""
-    # Return of a name
     - |
       def same(a):
           return a
-    # Thunk supplying an argument, the consumer runs the call later
     - |
       def _spawn() -> None:
           _run_profiler(artifact_dir, secs)
-    # Thunk supplying a starred argument to a deferred strategy
     - |
       def _union_build():
           return st.one_of(*starmap(_case_strategy, cases.items()))
-    # Keyword splat dropped from the call
     - |
       def load(*args, **kwargs):
           return read(*args)
-    # Parameter before the splats dropped from the call
     - |
       def load(first, *args, **kwargs):
           return read(*args, **kwargs)
-    # Callee with a call as its object
     - |
       def load(path):
           return make().read(path)
-    # Method forwarding its parameter to a method of self, self stays
     - |
       class Reader:
           def load(self, path):
               return self.read(path)
-    # Keyword-only parameter
     - |
       def load(*, path):
           return read(path)
-    # Positional-only separator
     - |
       def load(path, /):
           return read(path)
-    # Thunk running a call without arguments for its effect
     - |
       def stop():
           server.stop()
-    # Call run for its effect
     - |
       def load(path):
           read(path)
-    # Async thunk awaiting a call without arguments
     - |
       async def stop():
           await server.stop()
-    # Self-recursion names no callee that can replace the function
     - |
       def repeat(value):
           return repeat(value)
-    # The callee is supplied at each invocation and has no outer binding to substitute
     - |
       def apply(operation):
           return operation(operation)
-    # A leading formatted string runs work and is not a docstring
     - |
       def load(path):
           f"{record(path)}"
           return read(path)
-    # The callee receiver is supplied by the invocation
     - |
       def apply(operation):
           return operation.run(operation)
 invalid:
-    # The instance, a thunk around a call without arguments
     - |
       def load():
           return read()
-    # One parameter forwarded
     - |
       def load(path):
           return read(path)
-    # Typed parameter with a return annotation
     - |
       def load(path: Path) -> str:
           return read(path)
-    # Two parameters forwarded
     - |
       def pair(a, b):
           return combine(a, b)
-    # Three parameters forwarded
     - |
       def triple(a, b, c):
           return combine(a, b, c)
-    # Two typed parameters
     - |
       def pair(a: int, b: int) -> int:
           return combine(a, b)
-    # Three typed parameters
     - |
       def triple(a: int, b: int, c: int) -> int:
           return combine(a, b, c)
-    # Attribute callee
     - |
       def load(path):
           return module.read(path)
-    # Attribute chain callee
     - |
       def load(path):
           return package.module.read(path)
-    # Docstring before the call
     - |
       def load(path):
           """Read the file."""
           return read(path)
-    # Method forwarding self and a parameter
     - |
       class Reader:
           def load(self, path):
               return read(self, path)
-    # Trailing comment on the one statement, a comment is no statement
     - |
       def load(path):
           return read(path)  # The one call
-    # Comment on its own line after the docstring
     - |
       def load(path):
           """Read the file."""
           # The one call
           return read(path)
-    # Nested def
     - |
       def outer():
           def load(path):
               return read(path)
 
           return load
-    # Positional splat forwarded
     - |
       def load(*args):
           return read(*args)
-    # Positional and keyword splats forwarded
     - |
       def load(*args, **kwargs):
           return read(*args, **kwargs)
-    # Async def forwarding its parameter to an awaited call, the awaitable of the callee is the one the def returns
     - |
       async def load(path):
           return await read(path)
-    # Four parameters
     - |
       def four(a, b, c, d):
           return combine(a, b, c, d)
-    # Mixed annotations keep untyped positions beside a typed parameter
     - |
       def combine(a: int, b, c):
           return merge(a, b, c)
-    # Typed asynchronous forwarding uses the awaited-call predicate
     - |
       async def load(path: Path):
           return await read(path)
-    # Arbitrary asynchronous arity is compared as one argument sequence
     - |
       async def combine(a, b, c, d):
           return await merge(a, b, c, d)
-    # A standalone ordinary string after the docstring adds no execution behavior
+    - |
+      def load(path):
+          return read(path,)
+    - |
+      def outer(read):
+          def load(path):
+              return read(path)
+          return load
     - |
       def load(path):
           """Read the file."""

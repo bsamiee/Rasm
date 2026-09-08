@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: bash-invoked-name
+language: bash
+arguments: [name, runner]
+utils:
+    option-word: {kind: word, regex: '^(-[A-Za-z0-9]+|--[a-z-]*(=.*)?|[A-Za-z_][A-Za-z0-9_]*=.*)$'}
+    consumed-word:
+        any:
+            - matches: option-word
+            - follows: {matches: value-option}
+    runner-word:
+        any:
+            - matches: consumed-word
+            - kind: word
+              regex: '^(?:\S+/)?(builtin|command|env|exec|sudo|time)$'
+    value-option:
+        kind: word
+        any:
+            - regex: '^-[A-Za-z0-9]*[aCPSu]$'
+              follows: {regex: '^(?:\S+/)?(exec|env)$', stopBy: {not: {matches: consumed-word}}}
+            - regex: '^(-[A-Za-z]*[CDghpRrTtUu]|--(user|group|host|prompt|role|type|chdir|chroot|close-from|command-timeout|other-user))$'
+              follows: {regex: '^(?:\S+/)?sudo$', stopBy: {not: {matches: consumed-word}}}
+    lookup-option:
+        kind: word
+        any:
+            - regex: '^-[A-Za-z]*[vV][A-Za-z]*$'
+              follows: {regex: '^command$', stopBy: {not: {matches: consumed-word}}}
+            - regex: '^-[A-Za-z]*[eKlVv][A-Za-z]*$'
+              follows: {regex: '^(?:\S+/)?sudo$', stopBy: {not: {matches: consumed-word}}}
+rule:
+    any:
+        - kind: command_name
+          matches: name
+        - kind: word, string, raw_string
+          all:
+            - matches: name
+            - not: {follows: {matches: value-option}}
+            - follows: {kind: command_name, matches: runner, stopBy: {not: {all: [{matches: runner-word}, {not: {matches: lookup-option}}]}}}

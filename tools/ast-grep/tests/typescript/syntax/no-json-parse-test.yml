@@ -1,22 +1,15 @@
 id: no-json-parse
 valid:
-    # Local and imported bindings do not identify a native global.
     - 'function decode(JSON: { parse(value: string): unknown }) { return JSON.parse("x"); }'
     - 'import { JSON } from "./codec"; JSON.parse(text);'
-    # The decode through the JSON schema
     - 'const row = yield* Schema.decodeUnknown(Schema.parseJson(Row))(text);'
-    # The encode to text keeps the value typed
     - 'const text = JSON.stringify(row);'
-    # Member named like parse on another object
     - 'const row = Duration.parse(text);'
-    # The parse name as a value, no call
+    - 'const raw = JSON.rawJSON("1");'
     - 'const parse = JSON.parse;'
 invalid:
-    # The instance, the parse over text
     - 'const row = JSON.parse(text);'
-    # The parse with a reviver
     - 'const row = JSON.parse(text, reviver);'
-    # The parse through globalThis
     - 'const row = globalThis.JSON.parse(text);'
-    # The parse as an argument
     - 'use(JSON.parse(text));'
+    - 'const row = JSON.parse(text) as Row;'

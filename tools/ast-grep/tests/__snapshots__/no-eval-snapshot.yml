@@ -20,6 +20,50 @@ snapshots:
       style: secondary
       start: 0
       end: 6
+  /bin/bash -c "$cmd":
+    labels:
+    - source: /bin/bash -c "$cmd"
+      style: primary
+      start: 0
+      end: 19
+    - source: /bin/bash
+      style: secondary
+      start: 0
+      end: 9
+    - source: /bin/bash
+      style: secondary
+      start: 0
+      end: 9
+    - source: -c
+      style: secondary
+      start: 10
+      end: 12
+    - source: '"$cmd"'
+      style: secondary
+      start: 13
+      end: 19
+  /usr/bin/env bash -c "$cmd":
+    labels:
+    - source: /usr/bin/env bash -c "$cmd"
+      style: primary
+      start: 0
+      end: 27
+    - source: bash
+      style: secondary
+      start: 13
+      end: 17
+    - source: bash
+      style: secondary
+      start: 13
+      end: 17
+    - source: -c
+      style: secondary
+      start: 18
+      end: 20
+    - source: '"$cmd"'
+      style: secondary
+      start: 21
+      end: 27
   \eval "$cmd":
     labels:
     - source: \eval "$cmd"
@@ -40,6 +84,50 @@ snapshots:
       style: secondary
       start: 5
       end: 9
+  bash --norc -c "$cmd":
+    labels:
+    - source: bash --norc -c "$cmd"
+      style: primary
+      start: 0
+      end: 21
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: -c
+      style: secondary
+      start: 12
+      end: 14
+    - source: '"$cmd"'
+      style: secondary
+      start: 15
+      end: 21
+  bash -O extglob -c "$cmd":
+    labels:
+    - source: bash -O extglob -c "$cmd"
+      style: primary
+      start: 0
+      end: 25
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: -c
+      style: secondary
+      start: 16
+      end: 18
+    - source: '"$cmd"'
+      style: secondary
+      start: 19
+      end: 25
   bash -c "$cmd":
     labels:
     - source: bash -c "$cmd"
@@ -150,6 +238,28 @@ snapshots:
       style: secondary
       start: 9
       end: 15
+  bash -o errexit -c "$cmd":
+    labels:
+    - source: bash -o errexit -c "$cmd"
+      style: primary
+      start: 0
+      end: 25
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: bash
+      style: secondary
+      start: 0
+      end: 4
+    - source: -c
+      style: secondary
+      start: 16
+      end: 18
+    - source: '"$cmd"'
+      style: secondary
+      start: 19
+      end: 25
   bash -x -c "$arg":
     labels:
     - source: bash -x -c "$arg"
@@ -178,10 +288,6 @@ snapshots:
       style: primary
       start: 0
       end: 24
-    - source: builtin
-      style: secondary
-      start: 0
-      end: 7
     - source: '"eval"'
       style: secondary
       start: 11
@@ -192,10 +298,6 @@ snapshots:
       style: primary
       start: 0
       end: 19
-    - source: builtin
-      style: secondary
-      start: 0
-      end: 7
     - source: eval
       style: secondary
       start: 8
@@ -206,32 +308,26 @@ snapshots:
       style: primary
       start: 0
       end: 27
-    - source: command
-      style: secondary
-      start: 0
-      end: 7
-    - source: -p
-      style: secondary
-      start: 8
-      end: 10
     - source: '''eval'''
       style: secondary
       start: 14
       end: 20
+  command -p command eval "$cmd":
+    labels:
+    - source: command -p command eval "$cmd"
+      style: primary
+      start: 0
+      end: 30
+    - source: eval
+      style: secondary
+      start: 19
+      end: 23
   command -p eval "$cmd":
     labels:
     - source: command -p eval "$cmd"
       style: primary
       start: 0
       end: 22
-    - source: command
-      style: secondary
-      start: 0
-      end: 7
-    - source: -p
-      style: secondary
-      start: 8
-      end: 10
     - source: eval
       style: secondary
       start: 11
@@ -242,14 +338,32 @@ snapshots:
       style: primary
       start: 0
       end: 19
-    - source: command
-      style: secondary
-      start: 0
-      end: 7
     - source: eval
       style: secondary
       start: 8
       end: 12
+  env bash -c "$cmd":
+    labels:
+    - source: env bash -c "$cmd"
+      style: primary
+      start: 0
+      end: 18
+    - source: bash
+      style: secondary
+      start: 4
+      end: 8
+    - source: bash
+      style: secondary
+      start: 4
+      end: 8
+    - source: -c
+      style: secondary
+      start: 9
+      end: 11
+    - source: '"$cmd"'
+      style: secondary
+      start: 12
+      end: 18
   eval "$cmd":
     labels:
     - source: eval "$cmd"
@@ -270,6 +384,38 @@ snapshots:
       style: secondary
       start: 0
       end: 4
+  eval -- "$cmd":
+    labels:
+    - source: eval -- "$cmd"
+      style: primary
+      start: 0
+      end: 14
+    - source: eval
+      style: secondary
+      start: 0
+      end: 4
+  exec bash -c "$cmd":
+    labels:
+    - source: exec bash -c "$cmd"
+      style: primary
+      start: 0
+      end: 19
+    - source: bash
+      style: secondary
+      start: 5
+      end: 9
+    - source: bash
+      style: secondary
+      start: 5
+      end: 9
+    - source: -c
+      style: secondary
+      start: 10
+      end: 12
+    - source: '"$cmd"'
+      style: secondary
+      start: 13
+      end: 19
   ? |
     f() { eval "$1"; }
   : labels:
@@ -278,6 +424,28 @@ snapshots:
       start: 6
       end: 15
     - source: eval
+      style: secondary
+      start: 6
+      end: 10
+  sh -c "$1":
+    labels:
+    - source: sh -c "$1"
+      style: primary
+      start: 0
+      end: 10
+    - source: sh
+      style: secondary
+      start: 0
+      end: 2
+    - source: sh
+      style: secondary
+      start: 0
+      end: 2
+    - source: -c
+      style: secondary
+      start: 3
+      end: 5
+    - source: '"$1"'
       style: secondary
       start: 6
       end: 10
@@ -325,6 +493,38 @@ snapshots:
       style: secondary
       start: 7
       end: 13
+  sudo bash -c "$cmd":
+    labels:
+    - source: sudo bash -c "$cmd"
+      style: primary
+      start: 0
+      end: 19
+    - source: bash
+      style: secondary
+      start: 5
+      end: 9
+    - source: bash
+      style: secondary
+      start: 5
+      end: 9
+    - source: -c
+      style: secondary
+      start: 10
+      end: 12
+    - source: '"$cmd"'
+      style: secondary
+      start: 13
+      end: 19
+  time eval "$cmd":
+    labels:
+    - source: time eval "$cmd"
+      style: primary
+      start: 0
+      end: 16
+    - source: eval
+      style: secondary
+      start: 5
+      end: 9
   x=$(eval "$cmd"):
     labels:
     - source: eval "$cmd"
@@ -335,3 +535,25 @@ snapshots:
       style: secondary
       start: 4
       end: 8
+  zsh -c "$cmd":
+    labels:
+    - source: zsh -c "$cmd"
+      style: primary
+      start: 0
+      end: 13
+    - source: zsh
+      style: secondary
+      start: 0
+      end: 3
+    - source: zsh
+      style: secondary
+      start: 0
+      end: 3
+    - source: -c
+      style: secondary
+      start: 4
+      end: 6
+    - source: '"$cmd"'
+      style: secondary
+      start: 7
+      end: 13

@@ -36,6 +36,13 @@ snapshots:
       start: 7
       end: 14
   ? |
+    import asyncio as aio, anyio
+  : labels:
+    - source: asyncio
+      style: primary
+      start: 7
+      end: 14
+  ? |
     pipe = asyncio.subprocess.PIPE
   : labels:
     - source: asyncio.subprocess.PIPE

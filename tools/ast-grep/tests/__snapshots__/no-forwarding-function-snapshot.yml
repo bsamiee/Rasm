@@ -553,6 +553,20 @@ snapshots:
       start: 20
       end: 53
   ? |
+    def load(path):
+        return read(path,)
+  : labels:
+    - source: |-
+        def load(path):
+            return read(path,)
+      style: primary
+      start: 0
+      end: 38
+    - source: return read(path,)
+      style: secondary
+      start: 20
+      end: 38
+  ? |
     def load(path: Path) -> str:
         return read(path)
   : labels:
@@ -613,6 +627,22 @@ snapshots:
       style: secondary
       start: 41
       end: 58
+  ? |
+    def outer(read):
+        def load(path):
+            return read(path)
+        return load
+  : labels:
+    - source: |-
+        def load(path):
+                return read(path)
+      style: primary
+      start: 21
+      end: 62
+    - source: return read(path)
+      style: secondary
+      start: 45
+      end: 62
   ? |
     def pair(a, b):
         return combine(a, b)

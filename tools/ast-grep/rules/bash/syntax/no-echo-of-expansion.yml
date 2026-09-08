@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/bash_rule.json
-# The rewrite echo-expansion-to-printf fixes one quoted operand, printf '%s\n' $x over an unquoted one prints a line per word
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-echo-of-expansion
 language: bash
 severity: error
@@ -10,6 +9,7 @@ utils:
             - kind: arithmetic_expansion
             - kind: simple_expansion
               regex: '^\$[?#$!]$'
+            - matches: {bash-parameter: {name: {kind: variable_name, regex: '^(RANDOM|SRANDOM|SECONDS|UID|EUID|PPID|BASHPID|LINENO|SHLVL|OPTIND|HISTCMD|BASH_SUBSHELL|EPOCHSECONDS|EPOCHREALTIME)$'}}}
             - kind: expansion
               has:
                 field: operator
@@ -17,11 +17,11 @@ utils:
                 precedes: {kind: 'variable_name, subscript, special_variable_name'}
             - kind: string
               has: {matches: numeric-word}
-              not: {has: {nthChild: 2}}
+              not: {has: {matches: bash-expanding-word, not: {matches: numeric-word}}}
 rule:
     kind: command
     all:
-        - has: {field: name, regex: '^echo$'}
+        - has: {matches: {bash-invoked-name: {name: {regex: '^(\\|["''])?echo["'']?$'}, runner: {regex: '^(builtin|command|time)$'}}}}
         - has: {matches: bash-expanding-word, not: {matches: numeric-word}}
 message: echo interprets expanded data as options or escape sequences
 note: Print expanded data through printf with a literal format, `%s` for text and `%b` for escapes, with the separator chosen explicitly

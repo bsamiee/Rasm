@@ -1,0 +1,83 @@
+id: no-single-item-branch
+valid:
+    - |
+      rule:
+          all:
+              - has: {field: key, regex: '^a$'}
+              - has: {field: value, regex: '^b$'}
+    - |
+      rule:
+          any: [{kind: item}, {kind: other}]
+    - |
+      rule:
+          any:
+              - kind: item
+              # The other form
+              - kind: other
+    - |
+      files: [tools/**]
+      arguments: [slot]
+    - |
+      rule:
+          kind: item
+          has: {field: key, regex: '^a$'}
+invalid:
+    - |
+      rule:
+          kind: item
+          all:
+              - has: {field: key, regex: '^a$'}
+    - |
+      rule:
+          has: {field: key, regex: '^a$'}
+          all:
+              - has:
+                  field: value
+                  regex: '^b$'
+    - |
+      rule:
+          all: [{matches: item-shape}]
+          pattern: $STMT
+    - |
+      rule:
+          any:
+              - {inside: {kind: arguments}}
+    - |
+      rule:
+          nthChild: {position: 2, ofRule: {any: [{kind: item}]}}
+    - |
+      rule:
+          "all":
+              - kind: item
+    - |
+      rule:
+          all:
+              - kind: item
+              # The one condition
+    - |
+      rule:
+          all:
+              - any:
+                    - kind: item
+                    - kind: other
+    - |
+      rewriters:
+          - id: item-name
+            rule:
+                all:
+                    - has: {kind: item}
+            fix: $NAME
+    - |
+      utils:
+          item-shape:
+              any:
+                  - matches: other-shape
+    - |
+      rule:
+          all:
+              # The one condition
+              - kind: item
+    - |
+      rule:
+          kind: item
+          all: []

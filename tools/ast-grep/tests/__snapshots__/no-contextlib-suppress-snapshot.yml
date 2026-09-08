@@ -8,6 +8,23 @@ snapshots:
       start: 23
       end: 31
   ? |
+    from contextlib import suppress
+
+    with suppress(OSError):
+        path.unlink()
+  : labels:
+    - source: suppress
+      style: primary
+      start: 23
+      end: 31
+  ? |
+    from contextlib import suppress as ignore
+  : labels:
+    - source: suppress
+      style: primary
+      start: 23
+      end: 31
+  ? |
     import contextlib
 
     with contextlib.suppress(OSError):

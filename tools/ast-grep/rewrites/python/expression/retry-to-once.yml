@@ -1,5 +1,4 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# On demand, nx run rasm:rewrite -- --filter='^retry-to-once$' --error=retry-to-once <path>
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: retry-to-once
 language: python
 severity: off
@@ -16,7 +15,6 @@ utils:
         any:
             - matches: {python-module-member: {module: {regex: '^stamina$'}, name: {regex: '^(Async)?RetryingCaller$'}}}
             - matches: {python-imported-name: {module: {regex: '^stamina$'}, name: {regex: '^(Async)?RetryingCaller$'}}}
-    # The retry loop with the attempt as its one binding, a body reading the attempt or leaving the loop is edited by hand
     retry-loop:
         kind: for_statement
         all:
@@ -35,20 +33,18 @@ utils:
                             pattern: $BODY
                             not: {has: {stopBy: {kind: 'function_definition, lambda, for_statement, while_statement'}, any: [{kind: identifier, pattern: $A}, {kind: continue_statement}, {kind: break_statement}]}}
             - not: {has: {kind: else_clause}}
+            - not: {has: {kind: comment, stopBy: end}}
 rule:
     any:
-        # The decorator leaves, the def keeps its name and body
         - kind: decorator
           pattern: $NODE
           has: {kind: call, has: {field: function, matches: retry-member}}
-        # The loop and the attempt scope leave, the body keeps its statements at the loop's column
         - matches: retry-loop
           pattern: $NODE
-        # The caller runs the function once with the same arguments, the bound form's on() call is the callee the pattern captures
         - kind: call
-          pattern: $NODE
           all:
             - pattern: $CALLER($$$OPTS)($FN, $$$ARGS)
+            - pattern: $NODE
           has: {field: function, any: [{kind: call, has: {field: function, matches: caller-member}}, {kind: call, has: {field: function, kind: attribute, has: {field: object, kind: call, has: {field: function, matches: caller-member}}}}]}
 rewriters:
     - id: decorator

@@ -11,8 +11,11 @@ Keep shared TypeScript dependencies in the workspace catalog and shared compiler
 - `linkWorkspacePackages: deep` links a workspace package into every dependent in place of a registry copy
 - `overrides` and `peerDependencyRules.allowedVersions` hold one row per conflict, and a row that removes a declared dependency (`'-'`) states why
 - An `overrides` row for a catalog package states `catalog:`, and the version stays in the catalog alone
+- `overrides` rows exist for a catalog entry the consumers' range excludes, the Pulumi providers' `^3` against the `@pulumi/pulumi` alpha
+- Two runtime copies of `@pulumi/pulumi` break every resource registration, the reason the row holds
 - The catalog groups its entries under one comment per responsibility, and the file holds no fetch retry or cooldown setting
-- `allowBuilds` decides per package whether its install script runs, and `false` marks a package the workspace reads as source alone
+- `allowBuilds` holds one row per package with an install script, and `false` marks a package the workspace reads as source alone
+- Packages nothing imports leave the catalog with their `allowBuilds` rows
 - `minimumReleaseAge: 0` takes a release the day it appears, and the store and cache sit under `.cache/pnpm/`
 - pnpm detects CI and turns frozen mode on, and `pnpm install` fails on lock drift
 

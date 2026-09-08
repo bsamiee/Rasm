@@ -1,6 +1,21 @@
 id: no-loop-over-command-substitution
 snapshots:
   ? |
+    for d in $1; do printf '%s\n' "$d"; done
+  : labels:
+    - source: for d in $1; do printf '%s\n' "$d"; done
+      style: primary
+      start: 0
+      end: 40
+    - source: '1'
+      style: secondary
+      start: 10
+      end: 11
+    - source: $1
+      style: secondary
+      start: 9
+      end: 11
+  ? |
     for d in $rule_dirs; do printf '%s\n' "$d"; done
   : labels:
     - source: for d in $rule_dirs; do printf '%s\n' "$d"; done
@@ -45,6 +60,21 @@ snapshots:
       style: secondary
       start: 9
       end: 21
+  ? |
+    for f in "${files[@]}" $x; do printf '%s\n' "$f"; done
+  : labels:
+    - source: for f in "${files[@]}" $x; do printf '%s\n' "$f"; done
+      style: primary
+      start: 0
+      end: 54
+    - source: x
+      style: secondary
+      start: 24
+      end: 25
+    - source: $x
+      style: secondary
+      start: 23
+      end: 25
   ? |
     for f in $(<list); do printf '%s\n' "$f"; done
   : labels:
@@ -133,3 +163,14 @@ snapshots:
       style: secondary
       start: 9
       end: 22
+  ? |
+    select f in $(cmd); do printf '%s\n' "$f"; done
+  : labels:
+    - source: select f in $(cmd); do printf '%s\n' "$f"; done
+      style: primary
+      start: 0
+      end: 47
+    - source: $(cmd)
+      style: secondary
+      start: 12
+      end: 18

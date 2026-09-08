@@ -79,8 +79,8 @@ Identifier and file renames update every reference:
 - BEFORE: `# Root package with the development dependencies and the root Nx targets`
 - AFTER: `# Root package with development dependencies and root Nx targets`
 
-- KEEP: `the root project`, `the one restore of the solution`, `the daemon` (the context identifies one thing)
-- WRONG: `Root project holds restore` (the article went from a noun the context identifies)
+- BEFORE: `# The instance, an effect under a condition with a None arm` (a test case comment)
+- AFTER: `# Instance, an effect under a condition with a None arm` (the opener deleted, the rest as written)
 
 ## [07]-[SENTENCE_INTENT]
 

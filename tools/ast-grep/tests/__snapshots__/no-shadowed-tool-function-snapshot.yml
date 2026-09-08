@@ -45,6 +45,17 @@ snapshots:
       start: 9
       end: 11
   ? |
+    git () { command git "$@"; }
+  : labels:
+    - source: git () { command git "$@"; }
+      style: primary
+      start: 0
+      end: 28
+    - source: git
+      style: secondary
+      start: 0
+      end: 3
+  ? |
     git() { command git "$@"; }
   : labels:
     - source: git() { command git "$@"; }

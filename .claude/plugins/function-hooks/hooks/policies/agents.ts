@@ -2,9 +2,8 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { AgentSpawnInput } from 'claude-code';
 import { type Decision, type Rule, rewrite } from '../composition/decision.ts';
-import { flatMap, fromNullable, fromPredicate, getOrElse, map, type Option, toArray } from '../composition/option.ts';
+import { flatMap, fromNullable, fromPredicate, map, type Option, toArray } from '../composition/option.ts';
 import { type Dispatch, isKindDispatch, isPartDispatch, type KindDispatch, type PartDispatch } from '../host/store.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -25,9 +24,6 @@ interface Spawn {
     readonly subagentType: string;
     readonly prompt: string;
 }
-
-// The fields of AgentSpawnInput a label reads, the name the caller set and the spawn's own call id
-type Labelled = Pick<AgentSpawnInput, 'name' | 'tool_use_id'>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -94,26 +90,19 @@ const _batchLines = (row: AgentRow, batch: Option<Batch>): readonly string[] =>
         ...toArray(map((part: PartDispatch) => `part: ${part.part}`)(fromPredicate(isPartDispatch)(named.dispatch))),
     ]);
 
-// The label of a spawn's probe directory, the name the caller set or the spawn's tool_use_id when it set none
-const spawnLabel = (e: Labelled): string => getOrElse(() => e.tool_use_id)(fromNullable(e.name));
-
-// The line every spawn's prompt opens its appended block with, the deny of a write under probe/ names the same label
-const _identity = (label: string): string =>
-    `Your probe and fixture directory is ${label}-probe/ under the scratchpad directory, the scratchpad is one directory shared by every agent of this session`;
-
-// Appends the probe directory line to every prompt, then the brief of the spawned type and the batch line on a dispatch row
+// Appends the brief of the spawned type and the batch line on a dispatch row, and an unknown type passes unchanged
 const spawnRule =
-    <E extends Spawn>(batch: Option<Batch>, label: string): Rule<E, never, never> =>
+    <E extends Spawn>(batch: Option<Batch>): Rule<E, never, never> =>
     (e: E): Decision<E, never, never> =>
         fromNullable(AGENTS.find((row) => row.subagentType === e.subagentType)).match<Decision<E, never, never>>({
             some: (row) =>
-                rewrite({ ...e, prompt: [e.prompt, '', _identity(label), ...row.brief, ..._batchLines(row, batch)].join('\n') }, [
-                    `Appended the probe directory line and the ${row.subagentType} brief`,
+                rewrite({ ...e, prompt: [e.prompt, '', ...row.brief, ..._batchLines(row, batch)].join('\n') }, [
+                    `Appended the ${row.subagentType} brief`,
                 ]),
-            none: () => rewrite({ ...e, prompt: [e.prompt, '', _identity(label)].join('\n') }, ['Appended the probe directory line']),
+            none: () => rewrite(e, []),
         });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { AgentRow, Batch, Labelled, OfferRow, Spawn };
-export { AGENTS, EDITOR, OFFERS, REVIEWER, spawnLabel, spawnRule };
+export type { AgentRow, Batch, OfferRow, Spawn };
+export { AGENTS, EDITOR, OFFERS, REVIEWER, spawnRule };

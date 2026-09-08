@@ -132,6 +132,23 @@ snapshots:
       start: 19
       end: 23
   ? |
+    gzip.open(archive, "wb", compresslevel=6)
+  : fixed: |
+      gzip.open(archive, "wb")
+    labels:
+    - source: gzip.open(archive, "wb", compresslevel=6)
+      style: primary
+      start: 0
+      end: 41
+    - source: compresslevel=6
+      style: secondary
+      start: 25
+      end: 40
+    - source: compresslevel=6
+      style: secondary
+      start: 25
+      end: 40
+  ? |
     gzip.open(archive, mode="rb")
   : fixed: |
       gzip.open(archive)
@@ -183,6 +200,23 @@ snapshots:
       start: 15
       end: 37
   ? |
+    httpx.get(url, timeout=5.)
+  : fixed: |
+      httpx.get(url)
+    labels:
+    - source: httpx.get(url, timeout=5.)
+      style: primary
+      start: 0
+      end: 26
+    - source: timeout=5.
+      style: secondary
+      start: 15
+      end: 25
+    - source: timeout=5.
+      style: secondary
+      start: 15
+      end: 25
+  ? |
     httpx.get(url, timeout=5.0)
   : fixed: |
       httpx.get(url)
@@ -191,6 +225,57 @@ snapshots:
       style: primary
       start: 0
       end: 27
+    - source: timeout=5.0
+      style: secondary
+      start: 15
+      end: 26
+    - source: timeout=5.0
+      style: secondary
+      start: 15
+      end: 26
+  ? |
+    httpx.get(url, timeout=5.0)  # The default request
+  : fixed: |
+      httpx.get(url)  # The default request
+    labels:
+    - source: httpx.get(url, timeout=5.0)
+      style: primary
+      start: 0
+      end: 27
+    - source: timeout=5.0
+      style: secondary
+      start: 15
+      end: 26
+    - source: timeout=5.0
+      style: secondary
+      start: 15
+      end: 26
+  ? |
+    httpx.get(url, timeout=5.0, verify=True)
+  : fixed: |
+      httpx.get(url)
+    labels:
+    - source: httpx.get(url, timeout=5.0, verify=True)
+      style: primary
+      start: 0
+      end: 40
+    - source: timeout=5.0
+      style: secondary
+      start: 15
+      end: 26
+    - source: timeout=5.0
+      style: secondary
+      start: 15
+      end: 26
+  ? |
+    httpx.get(url, timeout=5.0,)
+  : fixed: |
+      httpx.get(url)
+    labels:
+    - source: httpx.get(url, timeout=5.0,)
+      style: primary
+      start: 0
+      end: 28
     - source: timeout=5.0
       style: secondary
       start: 15
@@ -372,3 +457,20 @@ snapshots:
       style: secondary
       start: 32
       end: 45
+  ? |
+    psutil.Process(pid=None).cpu_percent(interval=0.1)
+  : fixed: |
+      psutil.Process().cpu_percent(interval=0.1)
+    labels:
+    - source: psutil.Process(pid=None)
+      style: primary
+      start: 0
+      end: 24
+    - source: pid=None
+      style: secondary
+      start: 15
+      end: 23
+    - source: pid=None
+      style: secondary
+      start: 15
+      end: 23

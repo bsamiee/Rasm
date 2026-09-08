@@ -1,6 +1,40 @@
 id: require-write-lines-when-different
 snapshots:
   ? |
+    <WriteLinesToFile File="item.txt" Lines="body" Overwrite="true"></WriteLinesToFile>
+  : fixed: |
+      <WriteLinesToFile File="item.txt" Lines="body" Overwrite="true" WriteOnlyWhenDifferent="true"></WriteLinesToFile>
+    labels:
+    - source: <WriteLinesToFile File="item.txt" Lines="body" Overwrite="true">
+      style: primary
+      start: 0
+      end: 64
+    - source: WriteLinesToFile
+      style: secondary
+      start: 1
+      end: 17
+    - source: Overwrite="true"
+      style: secondary
+      start: 47
+      end: 63
+  ? |
+    <WriteLinesToFile File="item.txt" Lines="body" Overwrite="yes" />
+  : fixed: |
+      <WriteLinesToFile File="item.txt" Lines="body" Overwrite="yes"  WriteOnlyWhenDifferent="true"/>
+    labels:
+    - source: <WriteLinesToFile File="item.txt" Lines="body" Overwrite="yes" />
+      style: primary
+      start: 0
+      end: 65
+    - source: WriteLinesToFile
+      style: secondary
+      start: 1
+      end: 17
+    - source: Overwrite="yes"
+      style: secondary
+      start: 47
+      end: 62
+  ? |
     <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite = 'True'/>
   : fixed: |
       <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite = 'True' WriteOnlyWhenDifferent="true"/>
@@ -51,3 +85,20 @@ snapshots:
       style: secondary
       start: 117
       end: 133
+  ? |
+    <WriteLinesToFile Overwrite="true" File="item.txt" Lines="body" />
+  : fixed: |
+      <WriteLinesToFile Overwrite="true" File="item.txt" Lines="body"  WriteOnlyWhenDifferent="true"/>
+    labels:
+    - source: <WriteLinesToFile Overwrite="true" File="item.txt" Lines="body" />
+      style: primary
+      start: 0
+      end: 66
+    - source: WriteLinesToFile
+      style: secondary
+      start: 1
+      end: 17
+    - source: Overwrite="true"
+      style: secondary
+      start: 18
+      end: 34

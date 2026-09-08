@@ -1,17 +1,11 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-control-flow-expression-statement
 language: python
 severity: error
 rule:
     matches:
         python-discarded-expression:
-            value: # The forms that select or iterate, a bare call or await is the effect itself and a name alone is ruff useless-expression
-                any:
-                    - kind: conditional_expression
-                    - kind: boolean_operator
-                    - kind: list_comprehension
-                    - kind: set_comprehension
-                    - kind: dictionary_comprehension
-                    - kind: generator_expression
+            value:
+                kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
 message: Expression statement drops the result of selection or iteration
 note: Select with `if`, iterate with a loop, `boolean-statement-to-if`, `conditional-statement-to-if`, and `comprehension-statement-to-loop` apply

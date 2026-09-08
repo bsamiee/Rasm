@@ -1,6 +1,22 @@
 id: result-match-to-map
 snapshots:
   ? |
+    async def owner(path):
+        match await run(path):
+            case Result(tag="error", error=failure):
+                return Error(failure)
+            case Result(ok=text):
+                return Ok(text)
+  : fixed: |
+      async def owner(path):
+          return await run(path)
+    labels:
+      - source: await run(path)
+        message: Result transformation
+        style: primary
+        start: 33
+        end: 48
+  ? |
     async def owner(path, cwd):
         match await run(["otool", "-L", str(path)], cwd, capture=True):
             case Result(tag="error", error=failure):
@@ -11,11 +27,11 @@ snapshots:
       async def owner(path, cwd):
           return (await run(["otool", "-L", str(path)], cwd, capture=True)).map(lambda text: [line.split()[0] for line in text.splitlines()[1:] if line.strip()])
     labels:
-    - source: await run(["otool", "-L", str(path)], cwd, capture=True)
-      message: Result transformation
-      style: primary
-      start: 38
-      end: 94
+      - source: await run(["otool", "-L", str(path)], cwd, capture=True)
+        message: Result transformation
+        style: primary
+        start: 38
+        end: 94
   ? |
     def owner(names):
         match names:
@@ -27,11 +43,11 @@ snapshots:
       def owner(names):
           return names.map(lambda text: text.strip())
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         match names:
@@ -43,11 +59,11 @@ snapshots:
       def owner(names):
           return names.map(lambda text: text.strip())
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         match names:
@@ -59,11 +75,11 @@ snapshots:
       def owner(names):
           return names.map(parse)
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         match names:
@@ -73,13 +89,13 @@ snapshots:
                 return Ok(text)
   : fixed: |
       def owner(names):
-          return names.map(lambda text: text)
+          return names
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         match names:
@@ -90,14 +106,14 @@ snapshots:
         # Every arm returns
   : fixed: |
       def owner(names):
-          return names.map(lambda text: text)
+          return names
           # Every arm returns
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         match names:
@@ -109,11 +125,11 @@ snapshots:
       def owner(names):
           return names.map(lambda text: text.strip())
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         match names:
@@ -125,11 +141,11 @@ snapshots:
       def owner(names):
           return names.map(lambda text: text.strip())
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 28
-      end: 33
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 28
+        end: 33
   ? |
     def owner(names):
         try:
@@ -151,11 +167,11 @@ snapshots:
           finally:
               observe(locals())
     labels:
-    - source: value
-      message: Result transformation
-      style: primary
-      start: 71
-      end: 76
+      - source: value
+        message: Result transformation
+        style: primary
+        start: 71
+        end: 76
   ? |
     def owner(names, flag):
         if flag:
@@ -168,30 +184,14 @@ snapshots:
   : fixed: |
       def owner(names, flag):
           if flag:
-              return names.map(lambda text: text)
+              return names
           return Ok("")
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 51
-      end: 56
-  ? |
-    def owner(names, path):
-        match names:
-            case Result(tag="error", error=failure):
-                return Error(failure)
-            case Result(ok=text):
-                return Ok(load(path))
-  : fixed: |
-      def owner(names, path):
-          return names.map(lambda text: load(path))
-    labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 34
-      end: 39
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 51
+        end: 56
   ? |
     def owner(names, path):
         match names:
@@ -203,11 +203,27 @@ snapshots:
       def owner(names, path):
           return names.map(lambda text: parse(text, path))
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 34
-      end: 39
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 34
+        end: 39
+  ? |
+    def owner(self):
+        match self.names:
+            case Result(error=failure):
+                return Result.Error(failure)
+            case Result(ok=text):
+                return Result.Ok(text)
+  : fixed: |
+      def owner(self):
+          return self.names
+    labels:
+      - source: self.names
+        message: Result transformation
+        style: primary
+        start: 27
+        end: 37
   ? |
     def owner(self):
         match self.names:
@@ -219,11 +235,11 @@ snapshots:
       def owner(self):
           return self.names.map(lambda text: text.strip())
     labels:
-    - source: self.names
-      message: Result transformation
-      style: primary
-      start: 27
-      end: 37
+      - source: self.names
+        message: Result transformation
+        style: primary
+        start: 27
+        end: 37
   ? |
     def owner(self, names):
         match names:
@@ -235,8 +251,8 @@ snapshots:
       def owner(self, names):
           return names.map(self.parse)
     labels:
-    - source: names
-      message: Result transformation
-      style: primary
-      start: 34
-      end: 39
+      - source: names
+        message: Result transformation
+        style: primary
+        start: 34
+        end: 39

@@ -1,5 +1,12 @@
 id: no-double-assertion
 snapshots:
+  const row = (value as unknown as Row)!;:
+    labels:
+    - source: Row
+      message: The type the assertion claims
+      style: primary
+      start: 33
+      end: 36
   const row = (value as unknown) as Row;:
     labels:
     - source: Row
@@ -35,6 +42,13 @@ snapshots:
       style: primary
       start: 32
       end: 35
+  const row = value as { /* none */ } as Row;:
+    labels:
+    - source: Row
+      message: The type the assertion claims
+      style: primary
+      start: 39
+      end: 42
   const row = value as {} as Row;:
     labels:
     - source: Row

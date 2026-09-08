@@ -9,10 +9,14 @@ rule:
         - pattern: 'null == $X ? $M.none() : $M.some($X)'
         - pattern: '$X != null ? $M.some($X) : $M.none()'
         - pattern: 'null != $X ? $M.some($X) : $M.none()'
+        - pattern: '$X == undefined ? $M.none() : $M.some($X)'
+        - pattern: 'undefined == $X ? $M.none() : $M.some($X)'
+        - pattern: '$X != undefined ? $M.some($X) : $M.none()'
+        - pattern: 'undefined != $X ? $M.some($X) : $M.none()'
     not: {has: {kind: comment, stopBy: end}}
 constraints:
     M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?Option$"}}}}
     X: {kind: identifier}
 fix: $M.fromNullable($X)
 message: The branch constructs an Option by checking the same value for null and undefined
-note: For the Effect Option module, use Option.fromNullable for a complete nullish check of the same binding; keep null-only and undefined-only checks distinct
+note: Construct through `Option.fromNullable` for a check of both nullish values on one binding, and keep a null-only or undefined-only check as written

@@ -1,5 +1,4 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-# Optional and defaulted never parameters remain callable without an argument, and the fix leaves the absurd import to the checker.
 id: no-never-arm
 language: tsx
 severity: error
@@ -20,7 +19,7 @@ rule:
             - {has: {field: key, pattern: $KEY}}
             - has:
                 field: value
-                any: [{kind: arrow_function}, {kind: function_expression}, {kind: generator_function}]
+                kind: arrow_function, function_expression, generator_function
                 matches: never-parameter
         - kind: method_definition
           inside: {kind: object}
@@ -29,6 +28,6 @@ rule:
             - {matches: never-parameter}
     pattern: $MATCH
 fix: '$KEY: absurd'
-message: The arm over `never` is written inline, and `absurd` is the one arm a type rules out
-note: 'Name `absurd` from composition/decision.ts as the arm, `{ deny: absurd, answer: absurd }`'
+message: The arm over `never` is written inline
+note: 'Name `absurd` from composition/decision.ts as the arm a type rules out, `{ deny: absurd, answer: absurd }`'
 labels: {MATCH: {style: primary}}

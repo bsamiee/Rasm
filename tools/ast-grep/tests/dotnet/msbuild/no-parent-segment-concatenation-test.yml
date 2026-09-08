@@ -1,59 +1,49 @@
 id: no-parent-segment-concatenation
 valid:
-    # A custom property can be a filename prefix rather than a directory with a slash
     - '<PropertyGroup><ToolRoot>prefix</ToolRoot><ToolPath>$(ToolRoot)../file</ToolPath></PropertyGroup>'
-    # Display text and shell arguments can quote a path without declaring one
     - '<Message Text="$(MSBuildThisFileDirectory)/../path" />'
     - '<Exec Command="echo $(MSBuildThisFileDirectory)/../path" />'
     - '<PropertyGroup Label="$(MSBuildThisFileDirectory)/../path"><Description>$(MSBuildThisFileDirectory)/../path</Description></PropertyGroup>'
-    # Normalized repository root of eng/native/Directory.Build.props
     - |
       <PropertyGroup><RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..'))</RepositoryRoot></PropertyGroup>
-    # Relative project reference, resolved against the project directory
     - |
-      <ProjectReference Include="../../../../libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
-    # File-above lookup taking the parent form, its result is normalized
+      <ProjectReference Include="../../../../libs/dotnet/interop/Item/Item.csproj" />
     - |
       <PropertyGroup><_OuterPath>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterPath></PropertyGroup>
-invalid:
-    # Staging root a packaging project once composed by hand, the trailing separator selects NormalizeDirectory
     - |
-      <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/lcms2/stage/</StageRoot></PropertyGroup>
-    # Artifacts root before the normalized RepositoryRoot existed, the segment glued to the reference
+      <PropertyGroup><ToolPath>$(ToolRoot)/.hidden/item</ToolPath></PropertyGroup>
+invalid:
+    - |
+      <PropertyGroup><StageRoot>$(MSBuildThisFileDirectory)../../../.artifacts/native/item/stage/</StageRoot></PropertyGroup>
     - |
       <PropertyGroup><ArtifactsPath>$(MSBuildThisFileDirectory)../../.artifacts/native/msbuild</ArtifactsPath></PropertyGroup>
-    # Manifest path appended to the project directory, a file path selects NormalizePath
     - |
-      <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../duckdbextensions/extensions.json</VcpkgManifest></PropertyGroup>
-    # Import path in an attribute, the fix keeps the attribute delimiters around the function
+      <PropertyGroup><VcpkgManifest>$(MSBuildProjectDirectory)/../manifests/extensions.json</VcpkgManifest></PropertyGroup>
     - |
       <Import Project="$(MSBuildThisFileDirectory)../../build/common.props" />
-    # Backslash separators, each becomes an argument boundary
     - |
       <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
-    # Single-quoted import path, the fix writes the composed value in double quotes
     - |
       <Import Project='$(MSBuildThisFileDirectory)../../build/common.props' />
-    # Whitespace-padded property value, the padding stays outside the composed function
     - |
       <PropertyGroup><StageRoot>
         $(MSBuildThisFileDirectory)../.artifacts/native/stage/
       </StageRoot></PropertyGroup>
-    # List of two parent paths, each run composed and the separator kept
     - |
       <PropertyGroup><Roots>$(MSBuildThisFileDirectory)../a;$(MSBuildThisFileDirectory)../b</Roots></PropertyGroup>
-    # Wildcard after the parent segment, the run ends before the glob and NormalizeDirectory supplies its separator
     - |
       <Compile Include="$(MSBuildProjectDirectory)/../shared/**/*.cs" />
-    # Second reference inside the path, the run ends before it
     - |
       <PropertyGroup><ToolPath>$(MSBuildThisFileDirectory)../tools/$(ToolName)/tool.exe</ToolPath></PropertyGroup>
-    # Parent path as a function argument, the composed function nests inside the quoted argument
     - |
       <PropertyGroup><ToolPath>$([System.IO.Path]::Combine('$(MSBuildThisFileDirectory)../tools', 'tool.exe'))</ToolPath></PropertyGroup>
-    # Item transform holding the parent path, the composed function nests inside the transform
     - |
       <None Include="@(Asset->'$(MSBuildThisFileDirectory)../%(Filename)%(Extension)')" />
-    # Eleven segments, the eleventh appends to the composed directory
     - |
       <PropertyGroup><DeepRoot>$(MSBuildThisFileDirectory)../a/b/c/d/e/f/g/h/i/j/k</DeepRoot></PropertyGroup>
+    - |
+      <PropertyGroup><ParentDir>$(MSBuildThisFileDirectory)../</ParentDir></PropertyGroup>
+    - |
+      <Compile Include='$(MSBuildProjectDirectory)/../shared/item.cs' />
+    - |
+      <PropertyGroup><Root>$(MSBuildThisFileDirectoryNoRoot)../item</Root></PropertyGroup>

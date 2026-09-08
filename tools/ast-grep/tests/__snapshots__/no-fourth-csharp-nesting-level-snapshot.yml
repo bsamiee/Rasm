@@ -1,5 +1,23 @@
 id: no-fourth-csharp-nesting-level
 snapshots:
+  class C { C() { if(a) while(b) foreach(var x in xs) if(c) Work(); } }:
+    labels:
+    - source: if(c) Work();
+      style: primary
+      start: 52
+      end: 65
+  class C { Func<int> F = () => { int L() { return A(x => B(y => y)); } return L(); }; }:
+    labels:
+    - source: y => y
+      style: primary
+      start: 58
+      end: 64
+  class C { async Task F() { if(a) while(b) foreach(var x in xs) await foreach(var y in ys) Work(); } }:
+    labels:
+    - source: await foreach(var y in ys) Work();
+      style: primary
+      start: 63
+      end: 97
   'class C { int F() => a ? (b ? (c ? (d ? 1 : 2) : 3) : 4) : 5; }':
     labels:
     - source: 'd ? 1 : 2'
@@ -18,6 +36,18 @@ snapshots:
       style: primary
       start: 63
       end: 90
+  'class C { int P => a ? (b ? (c ? (d ? 1 : 2) : 3) : 4) : 5; }':
+    labels:
+    - source: 'd ? 1 : 2'
+      style: primary
+      start: 34
+      end: 43
+  class C { int P { set { if(a) while(b) foreach(var x in xs) if(c) Work(); } } }:
+    labels:
+    - source: if(c) Work();
+      style: primary
+      start: 60
+      end: 73
   class C { object F() => A(() => { object Local() { return B(delegate { return D(x => x); }); } return Local(); }); }:
     labels:
     - source: x => x
@@ -60,6 +90,12 @@ snapshots:
       style: primary
       start: 84
       end: 97
+  class C { void F() { if(a) while(b) foreach(var x in xs) checked { if(c) Work(); } } }:
+    labels:
+    - source: if(c) Work();
+      style: primary
+      start: 67
+      end: 80
   class C { void F() { if(a) while(b) foreach(var x in xs) do Work(); while(c); } }:
     labels:
     - source: do Work(); while(c);
@@ -120,21 +156,45 @@ snapshots:
       style: primary
       start: 57
       end: 73
+  'class C { void F() { if(a) while(b) foreach(var x in xs) { var o = new O { P = c ? 1 : 0 }; } } }':
+    labels:
+    - source: 'c ? 1 : 0'
+      style: primary
+      start: 79
+      end: 88
   class C { void F() { if(a) while(b) try { Work(); } catch(E e) { if(c) Work(); } } }:
     labels:
     - source: if(c) Work();
       style: primary
       start: 65
       end: 78
+  class C { void F() { if(a) while(b) { if(c) A(); else { if(d) Work(); } } } }:
+    labels:
+    - source: if(d) Work();
+      style: primary
+      start: 56
+      end: 69
   class C { void F() { if(a) { while(b) { foreach(var x in xs) { if(c) { while(d) Work(); } } } } } }:
     labels:
     - source: if(c) { while(d) Work(); }
       style: primary
       start: 63
       end: 89
+  'class C { void F() { switch(x) { case 0: if(a) while(b) foreach(var y in ys) Work(); break; } } }':
+    labels:
+    - source: foreach(var y in ys) Work();
+      style: primary
+      start: 56
+      end: 84
   class C { void F() { void A() { void B() { void D() { void E() { Work(); } } } } } }:
     labels:
     - source: void E() { Work(); }
       style: primary
       start: 54
       end: 74
+  if(a) while(b) foreach(var x in xs) if(c) Work();:
+    labels:
+    - source: if(c) Work();
+      style: primary
+      start: 36
+      end: 49

@@ -1,0 +1,326 @@
+id: no-shadowed-nameref-target
+snapshots:
+  ? |
+    counted() { declare -n target=$1; declare -a hits; target=1; }
+    counted hits
+  : labels:
+    - source: hits
+      style: primary
+      start: 45
+      end: 49
+    - source: counted
+      style: secondary
+      start: 0
+      end: 7
+    - source: -n
+      style: secondary
+      start: 20
+      end: 22
+    - source: declare -n target=$1
+      style: secondary
+      start: 12
+      end: 32
+    - source: counted
+      style: secondary
+      start: 63
+      end: 70
+    - source: hits
+      style: secondary
+      start: 71
+      end: 75
+    - source: counted hits
+      style: secondary
+      start: 63
+      end: 75
+    - source: |
+        counted() { declare -n target=$1; declare -a hits; target=1; }
+        counted hits
+      style: secondary
+      start: 0
+      end: 76
+    - source: counted() { declare -n target=$1; declare -a hits; target=1; }
+      style: secondary
+      start: 0
+      end: 62
+    - source: declare -a hits
+      style: secondary
+      start: 34
+      end: 49
+  ? |
+    f() { local -n found=$1; found=1; }
+    f found
+  : labels:
+    - source: found
+      style: primary
+      start: 15
+      end: 20
+    - source: f
+      style: secondary
+      start: 0
+      end: 1
+    - source: -n
+      style: secondary
+      start: 12
+      end: 14
+    - source: local -n found=$1
+      style: secondary
+      start: 6
+      end: 23
+    - source: f
+      style: secondary
+      start: 36
+      end: 37
+    - source: found
+      style: secondary
+      start: 38
+      end: 43
+    - source: f found
+      style: secondary
+      start: 36
+      end: 43
+    - source: |
+        f() { local -n found=$1; found=1; }
+        f found
+      style: secondary
+      start: 0
+      end: 44
+    - source: f() { local -n found=$1; found=1; }
+      style: secondary
+      start: 0
+      end: 35
+    - source: local -n found=$1
+      style: secondary
+      start: 6
+      end: 23
+  ? |
+    f() { local -n out=$1; local value; out=1; }
+    g() { local value; f value; }
+  : labels:
+    - source: value
+      style: primary
+      start: 29
+      end: 34
+    - source: f
+      style: secondary
+      start: 0
+      end: 1
+    - source: -n
+      style: secondary
+      start: 12
+      end: 14
+    - source: local -n out=$1
+      style: secondary
+      start: 6
+      end: 21
+    - source: f
+      style: secondary
+      start: 64
+      end: 65
+    - source: value
+      style: secondary
+      start: 66
+      end: 71
+    - source: f value
+      style: secondary
+      start: 64
+      end: 71
+    - source: |
+        f() { local -n out=$1; local value; out=1; }
+        g() { local value; f value; }
+      style: secondary
+      start: 0
+      end: 75
+    - source: f() { local -n out=$1; local value; out=1; }
+      style: secondary
+      start: 0
+      end: 44
+    - source: local value
+      style: secondary
+      start: 23
+      end: 34
+  ? |
+    f() { local -n out=$2; local mode; out=1; }
+    f fast mode
+  : labels:
+    - source: mode
+      style: primary
+      start: 29
+      end: 33
+    - source: f
+      style: secondary
+      start: 0
+      end: 1
+    - source: -n
+      style: secondary
+      start: 12
+      end: 14
+    - source: local -n out=$2
+      style: secondary
+      start: 6
+      end: 21
+    - source: f
+      style: secondary
+      start: 44
+      end: 45
+    - source: mode
+      style: secondary
+      start: 51
+      end: 55
+    - source: f fast mode
+      style: secondary
+      start: 44
+      end: 55
+    - source: |
+        f() { local -n out=$2; local mode; out=1; }
+        f fast mode
+      style: secondary
+      start: 0
+      end: 56
+    - source: f() { local -n out=$2; local mode; out=1; }
+      style: secondary
+      start: 0
+      end: 43
+    - source: local mode
+      style: secondary
+      start: 23
+      end: 33
+  ? |
+    hits_of() { local -n found=$1; local -A hits; local root=$2 count; found[x]=1; }
+    declare -A hits=()
+    hits_of hits "$root"
+  : labels:
+    - source: hits
+      style: primary
+      start: 40
+      end: 44
+    - source: hits_of
+      style: secondary
+      start: 0
+      end: 7
+    - source: -n
+      style: secondary
+      start: 18
+      end: 20
+    - source: local -n found=$1
+      style: secondary
+      start: 12
+      end: 29
+    - source: hits_of
+      style: secondary
+      start: 100
+      end: 107
+    - source: hits
+      style: secondary
+      start: 108
+      end: 112
+    - source: hits_of hits "$root"
+      style: secondary
+      start: 100
+      end: 120
+    - source: |
+        hits_of() { local -n found=$1; local -A hits; local root=$2 count; found[x]=1; }
+        declare -A hits=()
+        hits_of hits "$root"
+      style: secondary
+      start: 0
+      end: 121
+    - source: hits_of() { local -n found=$1; local -A hits; local root=$2 count; found[x]=1; }
+      style: secondary
+      start: 0
+      end: 80
+    - source: local -A hits
+      style: secondary
+      start: 31
+      end: 44
+  ? |
+    if ready; then f() { local -n out=$1; local mode; out=1; }; fi
+    f mode
+  : labels:
+    - source: mode
+      style: primary
+      start: 44
+      end: 48
+    - source: f
+      style: secondary
+      start: 15
+      end: 16
+    - source: -n
+      style: secondary
+      start: 27
+      end: 29
+    - source: local -n out=$1
+      style: secondary
+      start: 21
+      end: 36
+    - source: f
+      style: secondary
+      start: 63
+      end: 64
+    - source: mode
+      style: secondary
+      start: 65
+      end: 69
+    - source: f mode
+      style: secondary
+      start: 63
+      end: 69
+    - source: |
+        if ready; then f() { local -n out=$1; local mode; out=1; }; fi
+        f mode
+      style: secondary
+      start: 0
+      end: 70
+    - source: f() { local -n out=$1; local mode; out=1; }
+      style: secondary
+      start: 15
+      end: 58
+    - source: local mode
+      style: secondary
+      start: 38
+      end: 48
+  ? |
+    total() { local -n out=$1; local count=0; out=$count; }
+    total count
+  : labels:
+    - source: count
+      style: primary
+      start: 33
+      end: 38
+    - source: total
+      style: secondary
+      start: 0
+      end: 5
+    - source: -n
+      style: secondary
+      start: 16
+      end: 18
+    - source: local -n out=$1
+      style: secondary
+      start: 10
+      end: 25
+    - source: total
+      style: secondary
+      start: 56
+      end: 61
+    - source: count
+      style: secondary
+      start: 62
+      end: 67
+    - source: total count
+      style: secondary
+      start: 56
+      end: 67
+    - source: |
+        total() { local -n out=$1; local count=0; out=$count; }
+        total count
+      style: secondary
+      start: 0
+      end: 68
+    - source: total() { local -n out=$1; local count=0; out=$count; }
+      style: secondary
+      start: 0
+      end: 55
+    - source: local count=0
+      style: secondary
+      start: 27
+      end: 40

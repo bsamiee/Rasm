@@ -79,7 +79,6 @@ catalog:
     ktx-parse: 2.0.0
     meshoptimizer: 1.2.0
     watlas: 1.0.1
-    ssh2: 1.17.0
     webdav: 5.10.0
     basic-ftp: 6.2.1
     chokidar: 5.0.0
@@ -304,12 +303,14 @@ catalog:
     '@playwright/mcp': 0.0.80
     hostinger-api-mcp: 1.57.0
 overrides:
+    # Providers' ^3 peer range excludes the catalog prerelease, and a second copy of the core fails resource registration
+    '@pulumi/pulumi': 'catalog:'
     axios: 1.20.0
     # cloudevents uses uuid.v4; uuid 14 retains that API
     cloudevents>uuid: 14.0.2
     # @nx/vitest declares a peer on @nx/eslint for its generators, and the peer pulls Jest and glob@7
     '@nx/vitest>@nx/eslint': '-'
-    # The grammar package misspells the optional marker of its tree-sitter peer, and the grammar target reads its C sources alone
+    # Grammar package misspells the optional marker of its tree-sitter peer, and the grammar target reads its C sources alone
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
     jiti: 2.7.0
     minimatch: 10.2.6
@@ -344,11 +345,9 @@ allowBuilds:
     '@tree-sitter-grammars/tree-sitter-xml': false
     better-sqlite3: true
     core-js: true
-    cpu-features: true
     esbuild: true
     msgpackr-extract: true
     nx: true
     protobufjs: true
     sharp: true
-    ssh2: true
     unrs-resolver: true

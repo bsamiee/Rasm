@@ -35,6 +35,13 @@ snapshots:
       style: primary
       start: 71
       end: 148
+  ? import { Effect, Either, Option, pipe } from "effect"; const checked = Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize));
+  : fixed: import { Effect, Either, Option, pipe } from "effect"; const checked = Either.liftPredicate(report, (held) => held.ok, () => left).pipe(Either.map(summarize));
+    labels:
+    - source: Either.right(report).pipe(Either.filterOrLeft((held) => held.ok, () => left), Either.map(summarize))
+      style: primary
+      start: 71
+      end: 171
   ? import { Effect, Either, Option, pipe } from "effect"; const checked = pipe(Effect.succeed(report), Effect.filterOrFail((held) => held.ok, () => error));
   : fixed: import { Effect, Either, Option, pipe } from "effect"; const checked = Effect.liftPredicate(report, (held) => held.ok, () => error);
     labels:
@@ -77,6 +84,13 @@ snapshots:
       style: primary
       start: 69
       end: 125
+  ? import { Effect, Either, Option, pipe } from "effect"; const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim));
+  : fixed: import { Effect, Either, Option, pipe } from "effect"; const named = Option.liftPredicate(name, String.isNonEmpty).pipe(Option.map(String.trim));
+    labels:
+    - source: Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim))
+      style: primary
+      start: 69
+      end: 150
   import { Effect, Either, Option, pipe } from "effect"; const named = pipe(Option.some(name), Option.filter(String.isNonEmpty));:
     fixed: import { Effect, Either, Option, pipe } from "effect"; const named = Option.liftPredicate(name, String.isNonEmpty);
     labels:
@@ -119,6 +133,20 @@ snapshots:
       style: primary
       start: 52
       end: 86
+  ? import { Option } from "effect"; const named = Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim), Option.getOrElse(() => ""));
+  : fixed: import { Option } from "effect"; const named = Option.liftPredicate(name, String.isNonEmpty).pipe(Option.map(String.trim), Option.getOrElse(() => ""));
+    labels:
+    - source: Option.some(name).pipe(Option.filter(String.isNonEmpty), Option.map(String.trim), Option.getOrElse(() => ""))
+      style: primary
+      start: 47
+      end: 156
+  import { Option } from "effect"; const value = Option.some(input).pipe(Option.filter(predicate), factory());:
+    fixed: import { Option } from "effect"; const value = Option.liftPredicate(input, predicate).pipe(factory());
+    labels:
+    - source: Option.some(input).pipe(Option.filter(predicate), factory())
+      style: primary
+      start: 47
+      end: 107
   ? import { Option } from "effect"; import { pipe as flow } from "effect/Function"; const value = flow(Option.some(input), Option.filter(predicate), factory());
   : fixed: import { Option } from "effect"; import { pipe as flow } from "effect/Function"; const value = flow(input, Option.liftPredicate(predicate), factory());
     labels:

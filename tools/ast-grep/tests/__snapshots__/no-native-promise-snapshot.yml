@@ -150,6 +150,16 @@ snapshots:
       style: secondary
       start: 252
       end: 267
+  import { Effect } from "effect"; const value = Effect.sync(() => Promise.resolve(1));:
+    labels:
+    - source: Promise.resolve(1)
+      style: primary
+      start: 65
+      end: 83
+    - source: Promise.resolve
+      style: secondary
+      start: 65
+      end: 80
   'import { Effect } from "effect"; const value = Effect.tryPromise({ try: load, catch: () => Promise.resolve(1) });':
     labels:
     - source: Promise.resolve(1)

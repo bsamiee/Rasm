@@ -2,21 +2,40 @@
 id: no-suspended-generator
 language: tsx
 severity: error
+utils:
+    generator-effect:
+        any:
+            - pattern: $M.gen($BODY)
+              has:
+                field: arguments
+                has: {kind: generator_function, pattern: $BODY, not: {has: {field: name, kind: identifier}}}
+            - kind: call_expression
+              has: {field: function, kind: member_expression, has: {field: object, matches: generator-effect}}
+    thunk-answer:
+        any:
+            - matches: generator-effect
+              pattern: $GENERATOR
+            - kind: parenthesized_expression
+              has: {matches: generator-effect, pattern: $GENERATOR}
+            - kind: statement_block
+              not: {has: {nthChild: 2}}
+              has: {kind: return_statement, has: {matches: generator-effect, pattern: $GENERATOR}}
 rule:
-    pattern: $M.suspend(() => $GENERATOR)
-    not: {has: {stopBy: end, kind: comment}}
-constraints:
-    M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?Effect$"}}}}
-    GENERATOR:
-        pattern: $M.gen($BODY)
-        has:
+    kind: call_expression
+    all:
+        - has: {field: function, pattern: $M.suspend}
+        - not: {has: {field: type_arguments, kind: type_arguments}}
+        - has:
             field: arguments
             has:
-                kind: generator_function
-                pattern: $BODY
-                not: {has: {field: name, kind: identifier}}
+                kind: arrow_function, function_expression
+                not: {any: [{has: {regex: '^async$'}}, {has: {field: parameters, has: {pattern: $_}}}, {has: {field: return_type, kind: type_annotation}}]}
+                has: {field: body, matches: thunk-answer}
+        - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
+constraints:
+    M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM)$"}}}}
 fix: $GENERATOR
-message: Effect.gen already suspends the generator body until execution
-note: Return the generator effect directly, and keep Effect.suspend for a thunk that works or selects an effect before constructing it
+message: '`$M.gen` already suspends the generator body until execution'
+note: Return the generator effect directly, and keep `$M.suspend` for a thunk that works or selects an effect before constructing it
 labels:
     GENERATOR: {style: primary}

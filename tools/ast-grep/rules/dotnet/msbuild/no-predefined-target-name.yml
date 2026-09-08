@@ -2,7 +2,6 @@
 id: no-predefined-target-name
 language: xml
 severity: error
-# Project bodies and .props files import before the SDK targets defining the predefined targets
 files: ['**/*.csproj', '**/*.props']
 rule:
     pattern: _TARGET
@@ -11,19 +10,22 @@ rule:
         - matches:
             msbuild-metadata:
                 name: {regex: '^Name$'}
-                value: {regex: '^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
+                value: {regex: '(?i)^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
 transform:
-    # The predefined name gains a Step suffix, and a marker after it holds the attachment attribute the name implied
-    RENAMED:
+    RENAMED_BEFORE:
         replace:
             source: $TARGET
-            replace: '(?s)^(<Target\b.*?\bName\s*=\s*)(["''])(Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)(["''])'
-            by: '${1}${2}${3}${4}Step${5}@@${3}Targets="${4}"@@'
-    # A tag attached already keeps its own attachment, the marker leaves without a trace
+            replace: '(?si)^(<Target\b.*?\bName\s*=\s*)(["''])(Before)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)(["''])'
+            by: '${1}${2}${3}${4}Step${5}@@BeforeTargets="${4}"@@'
+    RENAMED:
+        replace:
+            source: $RENAMED_BEFORE
+            replace: '(?si)^(<Target\b.*?\bName\s*=\s*)(["''])(After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)(["''])'
+            by: '${1}${2}${3}${4}Step${5}@@AfterTargets="${4}"@@'
     KEPT:
         replace:
             source: $RENAMED
-            replace: '(?s)^(<Target\b.*?\b(?:Before|After)Targets\s*=.*?)@@[^@]*@@|^(<Target\b[^@]*?)@@[^@]*@@([^>]*?\b(?:Before|After)Targets\s*=)'
+            replace: '(?si)^(<Target\b.*?\b(?:Before|After)Targets\s*=.*?)@@[^@]*@@|^(<Target\b[^@]*?)@@[^@]*@@([^>]*?\b(?:Before|After)Targets\s*=)'
             by: '${1}${2}${3}'
     ATTACHED: {replace: {source: $KEPT, replace: '@@([^@]*)@@', by: ' ${1}'}}
 fix: $ATTACHED

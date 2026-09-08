@@ -1,36 +1,33 @@
 id: require-write-lines-when-different
 valid:
-    # Complete replacement policy
     - |
       <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-    # Another task does not have this contract
     - |
       <OtherTask Overwrite="true" />
-    # Absent Overwrite appends by design
     - |
       <WriteLinesToFile File="log.txt" Lines="body" />
-    # Explicit append must retain earlier content
     - |
       <WriteLinesToFile File="log.txt" Lines="body" Overwrite="false" />
-    # Runtime policy cannot be inferred from syntax
     - |
       <WriteLinesToFile File="log.txt" Lines="body" Overwrite="$(Replace)" />
-    # Another true option does not establish replacement semantics
     - |
       <WriteLinesToFile File="log.txt" Lines="body" Other="true" />
-    # Explicit timestamp updates must remain intentional
     - |
       <WriteLinesToFile File="stamp.txt" Lines="stamp" Overwrite="true" WriteOnlyWhenDifferent="false" />
-    # A dynamic difference policy is already supplied
     - |
       <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="$(Compare)" />
+    - |
+      <WriteLinesToFile File="item.txt" Lines="body" Overwrite="true" WriteOnlyWhenDifferent='true' />
 invalid:
-    # Replacement with the default unconditional write
     - |
       <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite="true" />
-    # Single quotes and mixed case remain byte-for-byte intact
     - |
       <WriteLinesToFile File="version.txt" Lines="$(Version)" Overwrite = 'True'/>
-    # Quoted parameter lookalikes and greater-than do not alter the insertion point
     - |
       <WriteLinesToFile File="version.txt" Lines='text WriteOnlyWhenDifferent="false" suffix' Condition="'$(Count)' > '0'" Overwrite="true"></WriteLinesToFile>
+    - |
+      <WriteLinesToFile File="item.txt" Lines="body" Overwrite="true"></WriteLinesToFile>
+    - |
+      <WriteLinesToFile Overwrite="true" File="item.txt" Lines="body" />
+    - |
+      <WriteLinesToFile File="item.txt" Lines="body" Overwrite="yes" />

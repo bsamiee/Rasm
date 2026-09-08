@@ -13,10 +13,11 @@ valid:
     - const Effect = adapter; Effect.try(() => parse(raw));
     - import type { Effect } from "effect"; Effect.try(() => parse(raw));
     - import { Effect } from "effect"; function run(Effect) { return Effect.try(() => parse(raw)); }
-    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
     - import { Micro } from "effect"; Micro.try(() => parse(raw));
-    # Missing member or unsupported overload belongs to the compiler; it establishes no conversion boundary.
     - import { Either } from "effect"; Either.tryPromise(() => load());
+    - import { Effect } from "effect"; const parsed = Effect.try(memo(() => parse(raw)));
+    - 'import { Effect } from "effect"; const parsed = Effect.try({ try: () => parse(raw) });'
+    - 'import { Effect } from "effect"; const parsed = Effect.tryMap(work, { try: (value) => parse(value), catch: (cause) => new ParseError({ cause }) });'
 invalid:
     - import { Effect } from "effect"; const parsed = Effect.try(() => parse(raw));
     - import { Effect } from "effect"; const loaded = Effect.tryPromise(() => load(path));
@@ -27,3 +28,7 @@ invalid:
     - import { Effect as E } from "effect"; E.try(() => parse(raw));
     - import * as E from "effect/Effect"; E.tryPromise(async () => load());
     - import { Effect } from "effect"; Effect.try((() => parse(raw)));
+    - import { Effect } from "effect"; const parsed = Effect.try(async () => parse(raw));
+    - import * as Either from "effect/Either"; const parsed = Either.try(() => parse(raw));
+    - import { Effect } from "effect"; const parsed = Effect.try<number>(() => parse(raw));
+    - import { STM } from "effect/index"; const parsed = STM.try(() => parse(raw));

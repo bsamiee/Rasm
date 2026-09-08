@@ -1,68 +1,49 @@
 id: no-control-flow-expression-statement
 valid:
-    # The corrected form, the if statement with the effect in its body
     - |
       if memory.exists(scoped):
           memory.rm(scoped, recursive=True)
-    # The corrected form of a comprehension, the for statement with the effect in its body
     - |
       for module in modules.values():
           record(module)
-    # The corrected form of a boolean operator, the negated condition over the effect
     - |
       if not filesystem.exists(bucket):
           filesystem.call_s3("create_bucket", Bucket=bucket)
-    # The direct call on the one value
     - |
       record(getattr(item, "module", None))
-    # Conditional expression bound to a name
     - |
       value = load(path) if path else None
-    # Boolean operator bound to a name
     - |
       value = found or load(path)
-    # Comprehension bound to a name
     - |
       names = [record(module) for module in modules.values()]
-    # Conditional expression returned
     - |
       def pick(path):
           return load(path) if path else None
-    # Conditional expression as an argument, the walk stops at the call
     - |
       handle(load(path) if path else None)
-    # Comprehension as an argument, the walk stops at the call
     - |
       consume([record(module) for module in modules.values()])
-    # Conditional expression inside a lambda body under a call
     - |
       run(lambda: load(path) if path else None)
-    # Conditional in parentheses bound by a walrus, tree-sitter parses a walrus without them as the first arm
     - |
       (value := (load(path) if path else None))
-    # Comprehension bound by a walrus in parentheses, the walk stops at the binding
     - |
       (names := [record(module) for module in modules.values()])
-    # Conditional awaited, the walk stops at the await
     - |
       async def run():
           await (load(path) if path else other())
-    # Comprehension awaited, the walk stops at the await
     - |
       async def run():
           await (record(module) for module in modules.values())
-    # Comprehension yielded
     - |
       def run():
           yield [record(module) for module in modules.values()]
-    # Assertion over a boolean operator, the value is tested
     - |
       assert ready and started(item)
 invalid:
-    # The instance, an effect under a condition with a None arm
     - |
       memory.rm(scoped, recursive=True) if memory.exists(scoped) else None
-    # The multi-line conditional in parentheses, the text of the codebase before the rebuild
     - |
       (
           pytest.fail(
@@ -72,49 +53,35 @@ invalid:
           if regressions
           else None
       )
-    # Second arm with an effect
     - |
       start(item) if ready else queue(item)
-    # Double parentheses
     - |
       ((record(item) if ready else None))
-    # Awaited effect in the first arm
     - |
       async def run():
           await load(path) if path else None
-    # Conditional statement in a class body
     - |
       class Reader:
           register(Reader) if ready else None
-    # Boolean or as a statement, the effect runs when the test fails
     - |
       filesystem.exists(bucket) or filesystem.call_s3("create_bucket", Bucket=bucket)
-    # Boolean and as a statement, the effect runs when the test holds
     - |
       ready and start(item)
-    # List comprehension run for its effect
     - |
       [record(module) for module in modules.values()]
-    # Set comprehension
     - |
       {record(module) for module in modules.values()}
-    # Dictionary comprehension
     - |
       {name: record(module) for name, module in modules.items()}
-    # Generator expression, iterated by nothing
     - |
       (record(module) for module in modules.values())
-    # List comprehension in parentheses
     - |
       ([record(module) for module in modules.values()])
-    # Async comprehension
     - |
       async def run():
           [await record(module) async for module in modules()]
-    # Nested comprehension, the outer one reports
     - |
       [[record(item) for item in group] for group in groups]
-    # Comprehension statement inside a def
     - |
       def purge():
           [sys.modules.pop(name, None) for name in names]

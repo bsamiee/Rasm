@@ -1,0 +1,190 @@
+id: no-implicit-set-shas-workflow-id
+valid:
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ci.yml
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                main-branch-name: trunk
+                workflow-id: ci.yml
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ${{ inputs.workflow }}
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5, with: {workflow-id: ci.yml}}]}}
+    - |
+      runs:
+        using: composite
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+            with:
+              workflow-id: ci.yml
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v1
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: actions/checkout@v7
+    - |
+      jobs:
+        native:
+          uses: ./.github/workflows/native.yml
+    - |
+      jobs:
+        build:
+          tasks:
+            - uses: nrwl/nx-set-shas@v5
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: other/nx-set-shas@v5
+    - |
+      jobs:
+        build:
+          steps:
+            - name: nrwl/nx-set-shas@v5
+              run: echo "$NX_BASE"
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                use-previous-merge-group-commit: true
+                workflow-id: ci.yml
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@e5387c083535753fd39fdc8f55d2857d7d0ba293
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@V5}]}}
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5, with: {"workflow-id": ci.yml}}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - with:
+                workflow-id: ci.yml
+              uses: nrwl/nx-set-shas@v5
+    - |
+      jobs:
+        build:
+          env: &inputs {workflow-id: ci.yml}
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with: *inputs
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5.1.2.3}]}}
+invalid:
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                use-previous-merge-group-commit: false
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id:
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v10
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              env:
+                workflow-id: ci.yml
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                main-branch-name: trunk
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ""
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v4.3.0
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v2
+    - |
+      jobs:
+        build:
+          steps:
+            - "uses": "nrwl/nx-set-shas@v5"
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5}]}}
+    - |
+      runs:
+        using: composite
+        steps:
+          - uses: nrwl/nx-set-shas@v5
+    - |
+      jobs: {build: {steps: [{parallel: [{uses: nrwl/nx-set-shas@v5}]}]}}
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v5, with: {workflow-id: ~}}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: null
+    - |
+      jobs: {build: {steps: [{uses: nrwl/nx-set-shas@v2.0}]}}
+    - |
+      jobs:
+        build:
+          steps:
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: "" # Set on the next run
+    - |
+      jobs:
+        build:
+          steps:
+            - with: {main-branch-name: trunk}
+              uses: nrwl/nx-set-shas@v5

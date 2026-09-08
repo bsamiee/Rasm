@@ -3,6 +3,31 @@ snapshots:
   ? |
     try:
         load(path)
+    except (OSError, (ValueError, KeyError)):
+        handle(failure)
+  : fixed: |
+      try:
+          load(path)
+      except OSError, (ValueError, KeyError):
+          handle(failure)
+    labels:
+    - source: (OSError, (ValueError, KeyError))
+      style: primary
+      start: 27
+      end: 60
+    - source: |-
+        except (OSError, (ValueError, KeyError)):
+            handle(failure)
+      style: secondary
+      start: 20
+      end: 81
+    - source: (ValueError, KeyError)
+      style: secondary
+      start: 37
+      end: 59
+  ? |
+    try:
+        load(path)
     except (OSError, ValueError,):
         handle(failure)
   : fixed: |

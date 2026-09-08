@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-shadowed-nameref-target
+language: bash
+severity: error
+ignores: ["**/*.json"]
+rule:
+    kind: variable_name
+    pattern: $LOCAL
+    inside:
+        kind: declaration_command
+        stopBy: {not: {kind: variable_assignment}}
+        inside:
+            kind: function_definition
+            stopBy: end
+            all:
+                - has: {field: name, pattern: $FUNCTION}
+                - has: {stopBy: end, kind: declaration_command, has: {kind: word, regex: '^-[a-zA-Z]*n'}}
+                - inside:
+                    kind: program
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: command
+                        all:
+                            - has: {field: name, pattern: $FUNCTION}
+                            - has: {kind: word, pattern: $LOCAL}
+message: 'The local `$LOCAL` shadows the variable a caller passes to `$FUNCTION` by name'
+note: Name the local apart from every name a caller passes, because the nameref resolves in the function scope and reaches the local instead of the caller's variable

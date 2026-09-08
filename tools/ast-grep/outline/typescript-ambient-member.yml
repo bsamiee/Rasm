@@ -1,0 +1,24 @@
+id: typescript-ambient-member
+language: tsx
+role: member
+parentRuleIds: [tsx-ambient-module, tsx-export-ambient-module]
+symbolType: struct
+utils:
+    module-body:
+        kind: statement_block
+        inside: {kind: module, inside: {kind: ambient_declaration}}
+rule:
+    kind: type_alias_declaration, interface_declaration, function_signature, method_signature
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    any:
+        - inside: {matches: module-body}
+        - inside: {kind: export_statement, inside: {matches: module-body}}
+transform:
+    ASSIGNED: {replace: {source: $DECLARATION, replace: '^(type\s+[\w$]+(?:<[\s\S]*>)?)\s*=[\s\S]*$', by: '$1'}}
+    BODYLESS: {replace: {source: $ASSIGNED, replace: '^(interface\s[^{]*?)\s*\{[\s\S]*$', by: '$1'}}
+    STATEMENT: {replace: {source: $BODYLESS, replace: ';\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $STATEMENT, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {inside: {kind: export_statement}}

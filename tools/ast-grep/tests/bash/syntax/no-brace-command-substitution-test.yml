@@ -1,0 +1,19 @@
+id: no-brace-command-substitution
+valid:
+    - expected=$(yq -N -o=json '.' "${originals[@]}" | jq -Scs '.')
+    - out=$(bash -n "$file" 2>&1) || finding "$out"
+    - x=${name:-default}
+    - printf '%s\n' "${name} value"
+    - '{ printf ''%s\n'' hi; } >"$file"'
+    - note='${ cmd; }'
+    - x=${|REPLY=hi;}
+invalid:
+    - expected=${ yq -N -o=json '.' "${originals[@]}" | jq -Scs "$fixes";}
+    - out=${ bash -n "$file" 2>&1;} || finding "$out"
+    - x=${ produce; }
+    - printf '%s\n' ${ produce; }
+    - local y=${ produce; }
+    - z="${ produce; }"
+    - run "${ produce; }"
+    - items+=("${ produce; }")
+    - w=$(run "${ produce; }")

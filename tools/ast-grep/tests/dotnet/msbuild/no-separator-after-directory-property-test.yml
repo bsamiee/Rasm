@@ -1,61 +1,58 @@
 id: no-separator-after-directory-property
 valid:
-    # Display text and shell arguments can quote a path without declaring one
     - '<Message Text="$(MSBuildThisFileDirectory)/../path" />'
     - '<Exec Command="echo $(MSBuildThisFileDirectory)/../path" />'
     - '<PropertyGroup Label="$(MSBuildThisFileDirectory)/../path"><Description>$(MSBuildThisFileDirectory)/../path</Description></PropertyGroup>'
-    # Direct concatenation after a directory property
     - |
       <PropertyGroup>
         <RhinoResourcesPath>$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
       </PropertyGroup>
-    # The project directory has no trailing separator
     - |
       <Compile Include="@(_StagedSource);$(MSBuildProjectDirectory)/*.cs" />
-    # Output glob
     - |
       <_TorchCpuDylib Include="$(OutDir)runtimes/*/native/libtorch_cpu.dylib" />
-    # The artifacts root ends without a separator, the SDK appends its own segment
     - |
       <PropertyGroup><PackageOutputPath>$(ArtifactsPath)/package/</PackageOutputPath></PropertyGroup>
-    # Reserved directories without a trailing separator
     - |
       <Compile Include="$(MSBuildStartupDirectory)/*.cs;$(MSBuildProjectDirectoryNoRoot)/*.cs" />
-    # Application bundle path ending without a separator
     - |
       <PropertyGroup>
         <RhinoResourcesPath>$(RhinoAppPath)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
       </PropertyGroup>
-    # Project and output directories have no reserved trailing-separator contract
     - |
       <PropertyGroup><Sources>$(MSBuildProjectDirectory)/shared;$(OutDir)/gen</Sources></PropertyGroup>
-    # Custom directory suffix establishes no trailing-separator contract
     - |
       <PropertyGroup>
         <RhinoResourcesPath>$(_RhinoAppDir)/Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoResourcesPath>
       </PropertyGroup>
-    # Manifest glob after a directory property
     - |
       <_YakManifestFile Include="$(YakManifestDirectory)/*" />
-    # The staging root in an attribute
     - |
       <None Include="$(StageRoot)/runtimes/**" Pack="true" PackagePath="runtimes/" />
-    # Output properties can be assigned before SDK normalization
     - |
       <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutputPath)/assets/" />
-    # Intermediate output properties can be assigned before SDK normalization
     - |
       <WriteLinesToFile File="$(IntermediateOutputPath)\version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-    # A separator run still requires proof of the custom property value
     - |
       <PropertyGroup><GeneratedRoot>$(OutDir)//gen</GeneratedRoot></PropertyGroup>
-    # A directory-like name does not guarantee a trailing separator
     - |
       <Project><PropertyGroup><StageRoot>stage</StageRoot><File>$(StageRoot)/one.txt</File></PropertyGroup></Project>
+    - |
+      <Compile Include="$(MSBuildThisFileDirectoryX)/*.cs" />
+    - |
+      <Compile Include="$(MSBuildThisFileDirectory)*.cs" />
+    - |
+      <Copy SourceFiles="@(Asset)" DestinationFolder="$(TargetDir)/assets/" />
+    - |
+      <Import Project="$(NuGetPackageRoot)/item/build/item.props" />
 invalid:
-    # Reserved directory with a trailing separator
     - |
       <Compile Include="$(MSBuildThisFileDirectoryNoRoot)/*.cs" />
-    # Separator run after the reserved reference
     - |
       <Compile Include="$(MSBuildThisFileDirectory)//generated/*.cs" />
+    - |
+      <Import Project="$(MSBuildThisFileDirectory)\common.props" />
+    - |
+      <PropertyGroup><RepoRoot>$(MSBuildThisFileDirectory)/</RepoRoot></PropertyGroup>
+    - |
+      <Import Project='$(MSBuildThisFileDirectory)/common.props' />

@@ -2,21 +2,36 @@
 id: no-lifted-fallback
 language: tsx
 severity: error
+utils:
+    constant-success:
+        matches:
+            effect-constant-handler:
+                answer:
+                    not: {has: {field: arguments, has: {kind: spread_element}}}
+                    any: [{pattern: $M.succeed($_)}, {pattern: $M.succeed<$$$_>($_)}]
+    constant-failure:
+        matches:
+            effect-constant-handler:
+                answer:
+                    not: {has: {field: arguments, has: {kind: spread_element}}}
+                    any: [{pattern: $M.fail($_)}, {pattern: $M.fail<$$$_>($_)}]
 rule:
     kind: call_expression
     pattern: $CALL
     all:
-        - has: {field: function, pattern: $M.orElse}
-        - has:
-            field: arguments
-            has:
-                matches:
-                    effect-constant-handler:
-                        answer:
-                            not: {has: {field: arguments, has: {kind: spread_element}}}
-                            any:
-                                - pattern: $M.succeed($_)
-                                - pattern: $M.fail($_)
+        - has: {field: function, pattern: $M.$RECOVER}
+        - any:
+            - all:
+                - has: {field: function, has: {field: property, regex: '^orElse$'}}
+                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}}
+            - all:
+                - has: {field: function, has: {field: property, regex: '^catchAll$'}}
+                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream)$'}}}}}
+        - any:
+            - has: {field: arguments, has: {matches: constant-success}}
+            - all:
+                - has: {field: arguments, has: {matches: constant-failure}}
+                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}}
     not:
         any:
             - has: {field: type_arguments, kind: type_arguments}
@@ -24,10 +39,8 @@ rule:
             - has:
                 field: arguments
                 has:
-                    any: [{kind: arrow_function}, {kind: function_expression}]
+                    kind: arrow_function, function_expression
                     has: {field: return_type, kind: type_annotation}
-constraints:
-    M: {matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}
 rewriters:
     - id: empty-parameters
       rule: {kind: formal_parameters}
@@ -35,31 +48,29 @@ rewriters:
     - id: empty-parameter
       rule: {kind: identifier, inside: {kind: arrow_function, field: parameter}}
       fix: ()
-    # The constant as the handler's answer, the handler text keeps its block or expression form
-    - id: unlift-object # Object literal as an arrow body takes parentheses, the braces read as a block otherwise
-      rule: {pattern: $_.$_($V), has: {field: arguments, has: {kind: object}}}
+    - id: unlift-object
+      rule: {any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}], has: {field: arguments, has: {kind: object}}}
       fix: ($V)
     - id: unlift
-      rule: {pattern: $_.$_($V)}
+      rule: {any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}]}
       fix: $V
-    # The member the handler's constructor selects, orElseSucceed for succeed and orElseFail for fail, each overload its own rewriter
     - id: succeed-first
-      rule: {pattern: '$M.orElse($SELF, $H)', has: {field: arguments, has: {pattern: $H, matches: {effect-constant-handler: {answer: {pattern: $M.succeed($_)}}}}}}
+      rule: {pattern: '$M.$_($SELF, $H)', has: {field: arguments, has: {pattern: $H, matches: constant-success}}}
       transform:
         FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
       fix: $M.orElseSucceed($SELF, $FALLBACK)
     - id: succeed-last
-      rule: {pattern: $M.orElse($H), has: {field: arguments, has: {pattern: $H, matches: {effect-constant-handler: {answer: {pattern: $M.succeed($_)}}}}}}
+      rule: {pattern: $M.$_($H), has: {field: arguments, has: {pattern: $H, matches: constant-success}}}
       transform:
         FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
       fix: $M.orElseSucceed($FALLBACK)
     - id: fail-first
-      rule: {pattern: '$M.orElse($SELF, $H)'}
+      rule: {pattern: '$M.$_($SELF, $H)'}
       transform:
         FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
       fix: $M.orElseFail($SELF, $FALLBACK)
     - id: fail-last
-      rule: {pattern: $M.orElse($H)}
+      rule: {pattern: $M.$_($H)}
       transform:
         FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
       fix: $M.orElseFail($FALLBACK)

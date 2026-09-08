@@ -4,43 +4,42 @@ language: xml
 severity: error
 utils:
     os-condition:
-        matches: {msbuild-attribute: {name: {regex: "^Condition$"}, value: {regex: '\$\(\[MSBuild\]::IsOSPlatform\(|\$\(OS\)'}}}
+        matches: {msbuild-attribute: {name: {regex: "^Condition$"}, value: {regex: '\$\(\[MSBuild\]::(?i:IsOS(Platform|UnixLike))\(|\$\(OS\)'}}}
 rule:
     pattern: _EXEC
     all:
         - matches: {msbuild-element: {name: {regex: "^Exec$"}}}
-        # Programs one operating system or its package manager supplies, the shell of the other fails on the name
-        - matches:
-            msbuild-metadata:
-                name: {regex: "^Command$"}
-                value:
-                    regex: "^[\"']?\\s*(&quot;)?\\s*([^\\s\"'&]*/)?(chmod|chown|ln|install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew|apt|apt-get|ldconfig|patchelf|powershell|cmd(\\.exe)?|reg|icacls|attrib|choco|winget)\\b"
+        - has:
+            matches: msbuild-tag
+            has:
+                matches:
+                    msbuild-attribute:
+                        name: {regex: "^Command$"}
+                        value:
+                            regex: "^[\"']?\\s*(&quot;)?\\s*(sudo\\s+)?([^\\s\"'&]*/)?(chmod|chown|ln|install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew|apt|apt-get|ldconfig|patchelf|powershell|cmd(\\.exe)?|reg|icacls|attrib|choco|winget)\\b"
         - not: {has: {matches: msbuild-tag, has: {matches: os-condition}}}
-        # The target is the one ancestor that holds a condition
         - not: {inside: {kind: element, stopBy: end, has: {matches: msbuild-tag, has: {matches: os-condition}}}}
 transform:
-    # The program's platform family becomes a marker after the tag name, one stage per family, and the marker holds the condition text
     MAC:
         replace:
             source: $EXEC
-            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew)\b)'
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:sudo\s+)?(?:[^\s"''&]*/)?(?:install_name_tool|codesign|otool|xattr|xcrun|xcodebuild|lipo|dsymutil|hdiutil|brew)\b)'
             by: '<Exec@@$$([MSBuild]::IsOSPlatform(''OSX''))@@${rest}'
     LINUX:
         replace:
             source: $MAC
-            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:apt|apt-get|ldconfig|patchelf)\b)'
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:sudo\s+)?(?:[^\s"''&]*/)?(?:apt|apt-get|ldconfig|patchelf)\b)'
             by: '<Exec@@$$([MSBuild]::IsOSPlatform(''Linux''))@@${rest}'
     WINDOWS:
         replace:
             source: $LINUX
-            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:powershell|cmd(?:\.exe)?|reg|icacls|attrib|choco|winget)\b)'
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:sudo\s+)?(?:[^\s"''&]*/)?(?:powershell|cmd(?:\.exe)?|reg|icacls|attrib|choco|winget)\b)'
             by: '<Exec@@$$([MSBuild]::IsOSPlatform(''Windows''))@@${rest}'
     UNIX:
         replace:
             source: $WINDOWS
-            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:[^\s"''&]*/)?(?:chmod|chown|ln)\b)'
+            replace: '(?s)^<Exec(?P<rest>\b.*?Command\s*=\s*["'']\s*(?:&quot;)?\s*(?:sudo\s+)?(?:[^\s"''&]*/)?(?:chmod|chown|ln)\b)'
             by: '<Exec@@!$$([MSBuild]::IsOSPlatform(''Windows''))@@${rest}'
-    # An existing Condition takes the platform as a conjunct, a single-quoted attribute takes the platform name in backticks
     MERGED:
         replace:
             source: $UNIX

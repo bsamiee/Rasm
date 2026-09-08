@@ -91,7 +91,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
     def _sftp(chan: asyncssh.SSHServerChannel[bytes]) -> asyncssh.SFTPServer:
         return asyncssh.SFTPServer(chan, chroot=os.fsencode(spec.sftp_root) if spec.sftp_root is not None else None)
 
-    async def _serve(sock: socket.socket) -> None:  # ast-grep-ignore: no-socket-module, asyncssh serves the socket pair the test owns
+    async def _serve(sock: socket.socket) -> None:
         await asyncssh.run_server(
             sock, server_factory=_Host, server_host_keys=[key], process_factory=_exec, sftp_factory=_sftp if spec.sftp_root is not None else None
         )

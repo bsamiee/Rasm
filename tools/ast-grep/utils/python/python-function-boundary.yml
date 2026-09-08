@@ -1,8 +1,5 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Function kinds that own their body's parameters, returns, and literals, the stopper of a walk from a node to its owner
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-function-boundary
 language: python
 rule:
-    any:
-        - kind: function_definition
-        - kind: lambda
+    kind: function_definition, lambda

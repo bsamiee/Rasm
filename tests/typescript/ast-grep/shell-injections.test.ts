@@ -17,7 +17,7 @@ test('configured shell injections read the run steps of workflow jobs and compos
         config,
         JSON.stringify({
             ruleDirs: [resolve('tools/ast-grep/rules/bash/tooling'), resolve('tools/ast-grep/rules/yaml')],
-            utilDirs: [resolve('tools/ast-grep/utils/yaml')],
+            utilDirs: [resolve('tools/ast-grep/utils/bash'), resolve('tools/ast-grep/utils/yaml')],
             languageInjections,
         }),
     );
@@ -63,6 +63,7 @@ test('configured JSON injections read the command entries of Nx targets', (): vo
         config,
         JSON.stringify({
             ruleDirs: [resolve('tools/ast-grep/rules/bash/tooling')],
+            utilDirs: [resolve('tools/ast-grep/utils/bash')],
             languageInjections,
         }),
     );
@@ -76,6 +77,9 @@ test('configured JSON injections read the command entries of Nx targets', (): vo
         ['{"targets": {"build": {"executor": "nx:run-commands", "options": {}, "configurations": {"ci": {"command": "npm install"}}}}}', 1],
         ['{"targetDefaults": {"build": [{"executor": "nx:run-commands", "options": {"command": "npm install"}}]}}', 1],
         ['{"targets": {"build": {"executor": "other:task", "options": {"command": "npm install"}}}}', 1],
+        // Target defaults keyed by the executor name, and comments beside a command pair
+        ['{"targetDefaults": {"nx:run-commands": {"options": {"command": "npm install"}}}}', 1],
+        ['{"targets": {"build": {"executor": "nx:run-commands", /* note */ "options": {"command": /* why */ "npm install"}}}}', 1],
         // Env values and metadata hold no command, and a targets key outside the root or the nx field owns no target
         ['{"targets": {"build": {"executor": "nx:run-commands", "options": {"env": {"command": "npm install"}}}}}', 0],
         ['{"targets": {"build": {"metadata": {"command": "npm install"}}}}', 0],

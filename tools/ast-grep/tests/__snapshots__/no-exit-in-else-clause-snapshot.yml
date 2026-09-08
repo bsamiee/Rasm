@@ -191,6 +191,123 @@ snapshots:
       style: secondary
       start: 56
       end: 72
+  if ! grep -q x "$f"; then printf '%s\n' a; else exit 1; fi:
+    fixed: |-
+      ! grep -q x "$f" || {
+          exit 1;
+      }
+      printf '%s\n' a
+    labels:
+    - source: if ! grep -q x "$f"; then printf '%s\n' a; else exit 1; fi
+      style: primary
+      start: 0
+      end: 58
+    - source: then
+      style: secondary
+      start: 21
+      end: 25
+    - source: '! grep -q x "$f"'
+      style: secondary
+      start: 3
+      end: 19
+    - source: exit
+      style: secondary
+      start: 48
+      end: 52
+    - source: exit 1
+      style: secondary
+      start: 48
+      end: 54
+    - source: else exit 1;
+      style: secondary
+      start: 43
+      end: 55
+  if [[ -f $s ]] && [[ -r $s ]]; then printf '%s\n' a; else exit 1; fi:
+    fixed: |-
+      [[ -f $s ]] && [[ -r $s ]] || {
+          exit 1;
+      }
+      printf '%s\n' a
+    labels:
+    - source: if [[ -f $s ]] && [[ -r $s ]]; then printf '%s\n' a; else exit 1; fi
+      style: primary
+      start: 0
+      end: 68
+    - source: then
+      style: secondary
+      start: 31
+      end: 35
+    - source: '[[ -f $s ]] && [[ -r $s ]]'
+      style: secondary
+      start: 3
+      end: 29
+    - source: exit
+      style: secondary
+      start: 58
+      end: 62
+    - source: exit 1
+      style: secondary
+      start: 58
+      end: 64
+    - source: else exit 1;
+      style: secondary
+      start: 53
+      end: 65
+  ? |
+    if [[ -f $s ]]; then
+        printf '%s\n' a
+        if [[ -d $s ]]; then
+            count=1
+        fi
+        printf '%s\n' b
+    else
+        exit 1
+    fi
+  : fixed: |
+      [[ -f $s ]] || {
+          exit 1
+      }
+      printf '%s\n' a
+      if [[ -d $s ]]; then
+          count=1
+      fi
+      printf '%s\n' b
+    labels:
+    - source: |-
+        if [[ -f $s ]]; then
+            printf '%s\n' a
+            if [[ -d $s ]]; then
+                count=1
+            fi
+            printf '%s\n' b
+        else
+            exit 1
+        fi
+      style: primary
+      start: 0
+      end: 127
+    - source: then
+      style: secondary
+      start: 16
+      end: 20
+    - source: '[[ -f $s ]]'
+      style: secondary
+      start: 3
+      end: 14
+    - source: exit
+      style: secondary
+      start: 118
+      end: 122
+    - source: exit 1
+      style: secondary
+      start: 118
+      end: 124
+    - source: |
+        else
+            exit 1
+      style: secondary
+      start: 109
+      end: 125
   ? |
     if [[ -f $s ]]; then
         printf '%s\n' a
@@ -297,8 +414,8 @@ snapshots:
       printf '%s\n' a
       # note
       if [[ -d $s ]]; then
-              count=1
-          fi
+          count=1
+      fi
     labels:
     - source: |-
         if [[ -f $s ]]; then

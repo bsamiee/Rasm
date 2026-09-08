@@ -1,6 +1,6 @@
 # [TASK_PARAMETERS]
 
-Each built-in task a custom target uses lists the parameters that decide correctness and incremental behavior. Every task accepts `Condition` and `ContinueOnError`, and every `ToolTask` (`Exec`, `Csc`) also accepts `EnvironmentVariables`, `EchoOff`, `StandardOutputImportance`, `StandardErrorImportance`, `LogStandardErrorAsError`, `Timeout`, and the `ExitCode` output.
+Each built-in task a custom target uses lists the parameters that decide correctness and incremental behavior. Every task accepts `Condition` and `ContinueOnError`, and every `ToolTask` (`Exec`, `Csc`) accepts `EnvironmentVariables`, `EchoOff`, `StandardOutputImportance`, `StandardErrorImportance`, `LogStandardErrorAsError`, `Timeout`, and the `ExitCode` output.
 
 ## [01]-[FILE_TASKS]
 
@@ -16,6 +16,7 @@ Each built-in task a custom target uses lists the parameters that decide correct
 - `Unzip` (`SourceFiles`, `DestinationFolder`, `SkipUnchangedFiles`, `OverwriteReadOnlyFiles`) — `SkipUnchangedFiles` defaults to `true`
 - `DownloadFile` (`SourceUrl`, `DestinationFolder`, `DestinationFileName`, `SkipUnchangedFiles`, `Retries`, output `DownloadedFile`) — `SkipUnchangedFiles` needs a last-modified header from the server
 - `GetReferenceAssemblyPaths` (`TargetFrameworkMoniker`, `RootPath`, output `ReferenceAssemblyPaths`) — .NET Framework reference assemblies only, and `PrepareForBuild` already runs it
+- `Delete` and `Touch` take items in `Files`, a glob leaves the file untouched and `Touch` warns `MSB3371` on it
 
 ## [02]-[CONTROL_TASKS]
 

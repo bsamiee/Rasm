@@ -1,119 +1,87 @@
 id: require-when-enabled
 valid:
-    # An inferred result can carry a value or Promise that whenEnabled would discard
     - |
       const value = fromBoolean(options.dispatch).match({ some: () => 1, none: () => undefined });
     - |
       await fromBoolean(options.dispatch).match({ some: () => serve(), none: () => undefined });
-    # The Some callback receives the boolean; the replacement callback receives no argument
     - |
       fromBoolean(options.dispatch).match<void>({ some: (enabled) => serve(enabled), none: () => undefined });
-    # Named registration
     - |
       fromBoolean(options.speak).match<void>({ some: register, none: () => undefined });
-    # Without the type argument
     - |
       fromBoolean(options.dispatch).match({ some: () => _serve(on), none: () => undefined });
-    # The correction
     - |
       whenEnabled(options.dispatch, () => _serve(on));
-    # The definition of whenEnabled in host/options.ts, the flag is its parameter
     - |
       const whenEnabled = (enabled: boolean, register: () => void): void => fromBoolean(enabled).match<void>({ some: register, none: () => undefined });
-    # A match over a condition other than an option
     - |
       fromBoolean(context.length > 0).match<void>({ some: () => $.ui.notice(e.tool_use_id, context.join(' ')), none: () => undefined });
-    # A match over an option that answers a value
     - |
       const line = fromBoolean(options.speak).match<string>({ some: () => summary, none: () => '' });
-    # A none arm with work of its own
     - |
       fromBoolean(options.speak).match<void>({ some: () => speak(on), none: () => log(on) });
-    # A match typed as another value
     - |
       const line = fromBoolean(options.speak).match<string>({ some: () => summary, none: () => undefined });
-    # Another constructor over the option
     - |
       fromNullable(options.packageManager).match<void>({ some: () => _rewrite(on), none: () => undefined });
-    # Another method on the boolean Option
     - |
       fromBoolean(options.dispatch).fold<void>({ some: () => _serve(on), none: () => undefined });
-    # The empty arm under another key
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), other: () => undefined });
-    # A match typed as a Promise
     - |
       await fromBoolean(options.classify).match<Promise<void>>({ some: () => classify(), none: () => undefined });
-    # Negation of a condition other than an option
     - |
       fromBoolean(!ready).match<void>({ some: () => _serve(on), none: () => undefined });
-    # Option read off a parameter typed other than Options
     - |
       const gate = (on: On, settings: Raw): void => fromBoolean(settings.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
-    # A none arm returning a value
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => log() });
-    # Some arm reading the option beside a none arm with work
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => _plain(on) });
-    # None arm returning a value under a block
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { log(); } });
-    # None arm returning a value from a block
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return log(); } });
     - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: (x = effect()) => undefined});"
     - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: () => undefined, ...overrides});"
     - "fromBoolean(options.dispatch).match<void>({some: () => serve(), /* retain */ none: () => undefined});"
     - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: /* retain */ () => undefined});"
-    # An async none callback returns a Promise even under match<void>
+    - "fromBoolean(options.dispatch).match<undefined>({ some: () => _serve(on), none: () => undefined });"
+    - "fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none() { return undefined; } });"
+    - "fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: function () {} });"
     - "fromBoolean(options.dispatch).match<void>({some: () => serve(), none: async () => undefined});"
 invalid:
-    # the option match gating a registration
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
-    # Subscript read of the option
     - |
       fromBoolean(options['classify']).match<void>({ some: () => _classify(on), none: () => undefined });
-    # None arm first
     - |
       fromBoolean(options.dispatch).match<void>({ none: () => undefined, some: () => _dispatch(on) });
-    # Negated option, the gate reads the boolean
     - |
       fromBoolean(!options.dispatch).match<void>({ some: () => _plain(on), none: () => undefined });
-    # Option read off a parameter typed Options under another name
     - |
       const gate = (on: On, settings: Options): void => fromBoolean(settings.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
-    # None arm with an empty block body
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => {} });
-    # Option joined with another flag
     - |
       fromBoolean(options.dispatch && interactive).match<void>({ some: () => _serve(on), none: () => undefined });
-    # Some arm with a block body
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => { _serve(on); }, none: () => undefined });
-    # None arm returning void 0
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => void 0 });
-    # Negated option joined with another flag, the option two levels under the argument
     - |
       fromBoolean(!options.dispatch && interactive).match<void>({ some: () => _plain(on), none: () => undefined });
-    # None arm typed void
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: (): void => undefined });
-    # None arm typed undefined
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: (): undefined => undefined });
-    # None arm with a bare return
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return; } });
-    # Option read through an optional chain
     - |
       fromBoolean(options?.dispatch).match<void>({ some: () => _serve(on), none: () => undefined });
-    # Some arm as an async registration
     - |
       fromBoolean(options.dispatch).match<void>({ some: async () => _serve(on), none: () => undefined });
-    # None arm returning undefined from a block
     - |
       fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return undefined; } });
+    - |
+      fromBoolean(options.dispatch).match<void>({ some: () => _serve(on), none: () => { return void 0; } });

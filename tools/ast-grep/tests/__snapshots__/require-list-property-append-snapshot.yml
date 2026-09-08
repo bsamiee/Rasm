@@ -111,6 +111,15 @@ snapshots:
       style: primary
       start: 15
       end: 60
+  ? |
+    <PropertyGroup><InterceptorsNamespaces>Item.Generated</InterceptorsNamespaces></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);Item.Generated</InterceptorsNamespaces></PropertyGroup>
+    labels:
+    - source: <InterceptorsNamespaces>Item.Generated</InterceptorsNamespaces>
+      style: primary
+      start: 15
+      end: 78
   <PropertyGroup><InterceptorsNamespaces>LOCAL</InterceptorsNamespaces></PropertyGroup>:
     fixed: <PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);LOCAL</InterceptorsNamespaces></PropertyGroup>
     labels:
@@ -118,15 +127,6 @@ snapshots:
       style: primary
       start: 15
       end: 69
-  ? |
-    <PropertyGroup><InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
-  : fixed: |
-      <PropertyGroup><InterceptorsNamespaces>$(InterceptorsNamespaces);Rasm.Generated</InterceptorsNamespaces></PropertyGroup>
-    labels:
-    - source: <InterceptorsNamespaces>Rasm.Generated</InterceptorsNamespaces>
-      style: primary
-      start: 15
-      end: 78
   <PropertyGroup><InterceptorsPreviewNamespaces>LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>:
     fixed: <PropertyGroup><InterceptorsPreviewNamespaces>$(InterceptorsPreviewNamespaces);LOCAL</InterceptorsPreviewNamespaces></PropertyGroup>
     labels:
@@ -182,6 +182,15 @@ snapshots:
       style: primary
       start: 15
       end: 92
+  ? |
+    <PropertyGroup><NoWarn Condition="'$(DefineConstants)' == ''">CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn Condition="'$(DefineConstants)' == ''">$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Condition="'$(DefineConstants)' == ''">CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 77
   <PropertyGroup><NoWarn Condition="'$(Level)' > '0'" /></PropertyGroup>:
     fixed: <PropertyGroup><NoWarn Condition="'$(Level)' > '0'">$(NoWarn);</NoWarn></PropertyGroup>
     labels:
@@ -198,6 +207,33 @@ snapshots:
       style: primary
       start: 15
       end: 67
+  ? |
+    <PropertyGroup><NoWarn Condition="'$(NoWarn)' != ''">CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn Condition="'$(NoWarn)' != ''">$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Condition="'$(NoWarn)' != ''">CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 68
+  ? |
+    <PropertyGroup><NoWarn Condition="'$(NoWarn)' == '' or '$(CI)' == ''">CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn Condition="'$(NoWarn)' == '' or '$(CI)' == ''">$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Condition="'$(NoWarn)' == '' or '$(CI)' == ''">CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 85
+  ? |
+    <PropertyGroup><NoWarn Label="'$(NoWarn)' == ''">CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn Label="'$(NoWarn)' == ''">$(NoWarn);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn Label="'$(NoWarn)' == ''">CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 64
   <PropertyGroup><NoWarn>$(DefineConstants);LOCAL</NoWarn></PropertyGroup>:
     fixed: <PropertyGroup><NoWarn>$(NoWarn);$(DefineConstants);LOCAL</NoWarn></PropertyGroup>
     labels:
@@ -205,6 +241,15 @@ snapshots:
       style: primary
       start: 15
       end: 56
+  ? |
+    <PropertyGroup><NoWarn>$(NoWarnExtra);CS1591</NoWarn></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><NoWarn>$(NoWarn);$(NoWarnExtra);CS1591</NoWarn></PropertyGroup>
+    labels:
+    - source: <NoWarn>$(NoWarnExtra);CS1591</NoWarn>
+      style: primary
+      start: 15
+      end: 53
   ? |
     <PropertyGroup><NoWarn>CS1591</NoWarn></PropertyGroup>
   : fixed: |
@@ -221,6 +266,15 @@ snapshots:
       style: primary
       start: 15
       end: 37
+  ? |
+    <PropertyGroup><WarningsAsErrors Condition='$(Strict) == true'>CS8600</WarningsAsErrors></PropertyGroup>
+  : fixed: |
+      <PropertyGroup><WarningsAsErrors Condition='$(Strict) == true'>$(WarningsAsErrors);CS8600</WarningsAsErrors></PropertyGroup>
+    labels:
+    - source: <WarningsAsErrors Condition='$(Strict) == true'>CS8600</WarningsAsErrors>
+      style: primary
+      start: 15
+      end: 88
   <PropertyGroup><WarningsAsErrors>LOCAL</WarningsAsErrors></PropertyGroup>:
     fixed: <PropertyGroup><WarningsAsErrors>$(WarningsAsErrors);LOCAL</WarningsAsErrors></PropertyGroup>
     labels:

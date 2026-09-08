@@ -7,11 +7,57 @@ snapshots:
       style: primary
       start: 0
       end: 105
+    - source: DestinationFiles="@(Asset->'$(TargetDir)assets/%(Filename)%(Extension)')"
+      style: secondary
+      start: 29
+      end: 102
+    - source: <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)assets/%(Filename)%(Extension)')" />
+      style: secondary
+      start: 0
+      end: 105
   ? |
     <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
   : labels:
     - source: <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
       style: primary
+      start: 0
+      end: 65
+    - source: DestinationFolder="$(OutDir)"
+      style: secondary
+      start: 33
+      end: 62
+    - source: <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
+      style: secondary
+      start: 0
+      end: 65
+  ? |
+    <Copy SourceFiles="settings.ini" DestinationFolder="$(OutputPath)assets/" />
+  : labels:
+    - source: <Copy SourceFiles="settings.ini" DestinationFolder="$(OutputPath)assets/" />
+      style: primary
+      start: 0
+      end: 76
+    - source: DestinationFolder="$(OutputPath)assets/"
+      style: secondary
+      start: 33
+      end: 73
+    - source: <Copy SourceFiles="settings.ini" DestinationFolder="$(OutputPath)assets/" />
+      style: secondary
+      start: 0
+      end: 76
+  ? |
+    <Copy SourceFiles='settings.ini' DestinationFolder='$(OutDir)' />
+  : labels:
+    - source: <Copy SourceFiles='settings.ini' DestinationFolder='$(OutDir)' />
+      style: primary
+      start: 0
+      end: 65
+    - source: DestinationFolder='$(OutDir)'
+      style: secondary
+      start: 33
+      end: 62
+    - source: <Copy SourceFiles='settings.ini' DestinationFolder='$(OutDir)' />
+      style: secondary
       start: 0
       end: 65
   ? |
@@ -21,3 +67,26 @@ snapshots:
       style: primary
       start: 0
       end: 91
+    - source: DestinationFolder="$(OutDir)"
+      style: secondary
+      start: 59
+      end: 88
+    - source: <Move SourceFiles="$(IntermediateOutputPath)manifest.json" DestinationFolder="$(OutDir)" />
+      style: secondary
+      start: 0
+      end: 91
+  ? |
+    <Move SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)%(Filename)%(Extension)')" />
+  : labels:
+    - source: <Move SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)%(Filename)%(Extension)')" />
+      style: primary
+      start: 0
+      end: 98
+    - source: DestinationFiles="@(Asset->'$(TargetDir)%(Filename)%(Extension)')"
+      style: secondary
+      start: 29
+      end: 95
+    - source: <Move SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(TargetDir)%(Filename)%(Extension)')" />
+      style: secondary
+      start: 0
+      end: 98

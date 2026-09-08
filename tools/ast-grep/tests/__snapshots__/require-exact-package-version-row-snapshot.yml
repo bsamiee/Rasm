@@ -10,6 +10,15 @@ snapshots:
       start: 0
       end: 69
   ? |
+    <GlobalPackageReference Update="Item" Version="4.8.0" />
+  : fixed: |
+      <GlobalPackageReference Include="Item" Version="4.8.0" />
+    labels:
+    - source: <GlobalPackageReference Update="Item" Version="4.8.0" />
+      style: primary
+      start: 0
+      end: 56
+  ? |
     <PackageVersion Include="" Version="4.8.0" />
   : fixed: |
       <PackageVersion Include="" Version="4.8.0" />
@@ -54,6 +63,33 @@ snapshots:
       style: primary
       start: 0
       end: 56
+  ? |
+    <PackageVersion Include="Item" Version="4.8.0-*" />
+  : fixed: |
+      <PackageVersion Include="Item" Version="4.8.0-*" />
+    labels:
+    - source: <PackageVersion Include="Item" Version="4.8.0-*" />
+      style: primary
+      start: 0
+      end: 51
+  ? |
+    <PackageVersion Include="Item" Version="[4.8.0, )" />
+  : fixed: |
+      <PackageVersion Include="Item" Version="[4.8.0, )" />
+    labels:
+    - source: <PackageVersion Include="Item" Version="[4.8.0, )" />
+      style: primary
+      start: 0
+      end: 53
+  ? |
+    <PackageVersion Include="Item"><Version>4.*</Version></PackageVersion>
+  : fixed: |
+      <PackageVersion Include="Item"><Version>4.*</Version></PackageVersion>
+    labels:
+    - source: <PackageVersion Include="Item"><Version>4.*</Version></PackageVersion>
+      style: primary
+      start: 0
+      end: 70
   ? |
     <PackageVersion Include='CsCheck' Version='4.*' />
   : fixed: |

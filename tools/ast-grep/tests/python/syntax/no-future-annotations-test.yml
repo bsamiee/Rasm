@@ -1,42 +1,31 @@
 id: no-future-annotations
 valid:
-    # The corrected form, the annotation stays and the import is gone
     - |
       def load(path: Path) -> Item:
           return Item(path)
-    # Another future feature, ruff unnecessary-future-import reports it
     - from __future__ import barry_as_FLUFL
-    # Import of a module named for the feature
     - from typing import annotations
 invalid:
-    # The instance, the sole future import at the top of a module
     - |
       from __future__ import annotations
 
       import os
-    # Parenthesized name
     - from __future__ import (annotations)
-    # Trailing comment does not change the annotation mode
     - |
       from __future__ import annotations  # Lazy
 
       import os
-    # Parenthesized name with a trailing comma
     - |
       from __future__ import (
           annotations,
       )
-    # Combined future features retain their independent contract during migration
     - from __future__ import annotations, barry_as_FLUFL
-    # The feature between other features, the statement keeps them in order
     - from __future__ import barry_as_FLUFL, annotations, generator_stop
-    # Parenthesized features on their own lines
     - |
       from __future__ import (
           annotations,
           barry_as_FLUFL,
       )
-    # Reading deferred annotations would resolve this missing name instead of returning its text
     - |
       from __future__ import annotations
       def load(value: Missing):

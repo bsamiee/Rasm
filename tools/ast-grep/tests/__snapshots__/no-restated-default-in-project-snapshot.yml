@@ -1,6 +1,17 @@
 id: no-restated-default-in-project
 snapshots:
   ? |
+    <PropertyGroup>
+      <Nullable>enable</Nullable>
+      <LangVersion>latest</LangVersion>
+    </PropertyGroup>
+  : fixed: "<PropertyGroup>\n  \n  <LangVersion>latest</LangVersion>\n</PropertyGroup>\n"
+    labels:
+    - source: <Nullable>enable</Nullable>
+      style: primary
+      start: 18
+      end: 45
+  ? |
     <PropertyGroup><Authors>bsamiee</Authors></PropertyGroup>
   : fixed: |
       <PropertyGroup></PropertyGroup>
@@ -37,6 +48,24 @@ snapshots:
       start: 15
       end: 50
   ? |
+    <PropertyGroup><GenerateDocumentationFile>true</GenerateDocumentationFile></PropertyGroup>
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
+    - source: <GenerateDocumentationFile>true</GenerateDocumentationFile>
+      style: primary
+      start: 15
+      end: 74
+  ? |
+    <PropertyGroup><ImplicitUsings>enable</ImplicitUsings></PropertyGroup>
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
+    - source: <ImplicitUsings>enable</ImplicitUsings>
+      style: primary
+      start: 15
+      end: 54
+  ? |
     <PropertyGroup><Nullable> enable </Nullable></PropertyGroup>
   : fixed: |
       <PropertyGroup></PropertyGroup>
@@ -45,6 +74,15 @@ snapshots:
       style: primary
       start: 15
       end: 44
+  ? |
+    <PropertyGroup><OutputType Condition="'$(Host)' == 'true'">Library</OutputType></PropertyGroup>
+  : fixed: |
+      <PropertyGroup></PropertyGroup>
+    labels:
+    - source: <OutputType Condition="'$(Host)' == 'true'">Library</OutputType>
+      style: primary
+      start: 15
+      end: 79
   ? |
     <PropertyGroup><OutputType>Library</OutputType></PropertyGroup>
   : fixed: |

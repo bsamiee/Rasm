@@ -1,12 +1,6 @@
 name: Setup
 description: Installs the workspace toolchain and dependencies
 
-inputs:
-    python:
-        description: Space-separated uv dependency-group options
-
-        default: --only-group eng
-
 runs:
     using: composite
     steps:
@@ -29,9 +23,7 @@ runs:
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
         - run: pnpm install
           shell: bash
-        - run: read -ra groups <<<"$PYTHON_GROUPS" && uv sync --locked "${groups[@]}"
+        - run: uv sync --locked --only-group eng
           shell: bash
-          env:
-            PYTHON_GROUPS: ${{ inputs.python }}
         - run: uv cache prune --ci
           shell: bash

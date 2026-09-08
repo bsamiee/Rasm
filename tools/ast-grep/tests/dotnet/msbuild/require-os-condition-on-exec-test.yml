@@ -1,67 +1,65 @@
 id: require-os-condition-on-exec
 valid:
     - '<Exec Command="dotnet build" WorkingDirectory="chmod" />'
-    # The package tool selects its target platform through an argument
     - |
       <Target Name="YakBuild" DependsOnTargets="YakStage" Condition="'$(YakPackageSlug)' != ''"><Exec Command="yak build --platform mac"
         WorkingDirectory="$(YakPackageDirectory)" /></Target>
-    # The toolchain supplies the interpreter across operating systems
     - |
       <Target Name="Generate"><Exec Command="bash generate.sh" /></Target>
-    # PowerShell Core runs across operating systems
     - |
       <Target Name="Generate"><Exec Command="pwsh generate.ps1" /></Target>
-    # The retarget targets of Directory.Build.targets, the condition sits on the target
     - |
       <Target Name="RetargetTorchLibompInstallName" AfterTargets="CopyFilesToOutputDirectory" Condition="$([MSBuild]::IsOSPlatform('OSX'))">
         <Exec Command="install_name_tool -change $(_OldName) @loader_path/libomp.dylib '%(_D.FullPath)' &amp;&amp; codesign -s - '%(_D.FullPath)'" />
       </Target>
-    # The condition on the task itself
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool"
         Condition="!$([MSBuild]::IsOSPlatform('Windows'))" /></Target>
-    # Portable program
     - |
       <Target Name="Version" AfterTargets="Build"><Exec Command="dotnet --version" /></Target>
-    # Condition on the reserved OS property
     - |
       <Target Name="Stamp" AfterTargets="Build" Condition="'$(OS)' == 'Windows_NT'"><Exec Command="cmd /c echo stamped" /></Target>
-    # Item holding the command as metadata, no process starts
     - |
       <Target Name="Perms"><ItemGroup><_Step Include="perm" Command="chmod +x $(OutDir)mytool" /></ItemGroup></Target>
-    # Environment variable naming a shell path, no command
     - |
       <Target Name="Setup" AfterTargets="Build"><Exec Command="./setup.sh" EnvironmentVariables="SHELL=/bin/bash" /></Target>
+    - |
+      <Target Name="Perms" Condition="$([MSBuild]::IsOsUnixLike())"><Exec Command="chmod +x $(OutDir)tool" /></Target>
+    - |
+      <Exec Command="chmod +x tool" Condition="'$(OS)' != 'Windows_NT'" />
 invalid:
-    # Single-quoted command with no condition
     - |
       <Target Name="Perms" AfterTargets="Build"><Exec Command='chmod +x $(OutDir)mytool' /></Target>
-    # chmod with no condition, fails on Windows
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" /></Target>
-    # Windows shell, fails on macOS and Linux
     - |
       <Target Name="Stamp" AfterTargets="Build"><Exec Command="cmd /c echo stamped" /></Target>
-    # macOS package manager
     - |
       <Target Name="Deps" BeforeTargets="Build"><Exec Command="brew install libomp" /></Target>
-    # Program at an absolute path
     - |
       <Target Name="Sign" AfterTargets="Build"><Exec Command="/usr/bin/codesign --force --sign - $(TargetPath)" /></Target>
-    # Environment variable passing the reserved OS property, no condition
     - |
       <Target Name="MakeExecutable" AfterTargets="Build"><Exec Command="chmod +x $(OutDir)mytool" EnvironmentVariables="HOST_OS=$(OS)" /></Target>
-    # Existing condition, the platform joins it as a conjunct
     - '<Exec Condition="true" Command="chmod +x tool" />'
-    # Linux package manager
     - |
       <Target Name="Deps" BeforeTargets="Build"><Exec Command="apt-get install -y libomp-dev" /></Target>
-    # Single-quoted existing condition, the platform name takes backticks
     - |
       <Exec Command="brew install libomp" Condition='$(Feature) == "deps"' />
-    # Condition after the command holding a comparison, the platform joins it
     - |
       <Exec Command="cmd /c echo stamped" Condition="'$(Count)' > '0'" />
-    # Naming an OS function as literal text does not call it
     - |
       <Exec Command="chmod +x tool" Condition="'$(Feature)' == 'IsOSPlatform'" />
+    - |
+      <Target Name="Deps"><Exec Command="sudo apt-get install -y libomp-dev" /></Target>
+    - |
+      <Target Name="Sign"><Exec Command="&quot;/usr/bin/codesign&quot; --force $(TargetPath)" /></Target>
+    - |
+      <Target Name="Perms"><Exec Command="
+        chmod +x $(OutDir)tool
+      " /></Target>
+    - |
+      <Target Name="Perms"><Exec Command="chmod +x $(OutDir)tool &amp;&amp; codesign -s - $(OutDir)tool" /></Target>
+    - |
+      <Target Name="Stamp"><Exec Command="powershell -Command Get-Date" /></Target>
+    - |
+      <Target Name="Stamp"><Exec Command="cmd.exe /c echo stamped" /></Target>

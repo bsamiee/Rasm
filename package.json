@@ -255,7 +255,6 @@
         "rfc6902": "catalog:",
         "rollup-plugin-visualizer": "catalog:",
         "sharp": "catalog:",
-        "ssh2": "catalog:",
         "tailwind-merge": "catalog:",
         "tailwindcss": "catalog:",
         "tailwindcss-react-aria-components": "catalog:",
@@ -348,6 +347,7 @@
                     "commands": [
                         "biome check --error-on-warnings {args}",
                         "actionlint",
+                        "zizmor --offline .github",
                         "git ls-files --cached --others --exclude-standard -z -- '*.sh' | xargs -0 -r shellcheck",
                         "ast-grep scan --no-ignore hidden *.ts *.props *.targets *.slnx NuGet.config nx.json package.json .claude/settings.json .claude/skills/ast-grep/scripts .github infra tools"
                     ],
@@ -362,7 +362,7 @@
                     "{workspaceRoot}/.shellcheckrc",
                     "{workspaceRoot}/**/*.sh",
                     {
-                        "runtime": "actionlint --version && shellcheck --version"
+                        "runtime": "actionlint --version && zizmor --version && shellcheck --version"
                     }
                 ]
             },
@@ -448,7 +448,7 @@
                 }
             },
             "workflow": {
-                "command": "act --workflows .github/workflows/ci.yml --container-architecture linux/amd64 -P ubuntu-24.04=ghcr.io/catthehacker/ubuntu:full-24.04 --action-cache-path .cache/act/actions --cache-server-path .cache/act/cache --artifact-server-path .cache/act/artifacts",
+                "command": "uv run --only-group eng python -m eng.scripts.workflow",
                 "cache": false,
                 "parallelism": false
             },
@@ -484,7 +484,6 @@
                     "{workspaceRoot}/pnpm-lock.yaml",
                     "{workspaceRoot}/sgconfig.yml",
                     "{workspaceRoot}/.claude/skills/ast-grep/templates/**/*",
-                    "{workspaceRoot}/.claude/skills/ast-grep/scripts/rule-checks.sh",
                     "{workspaceRoot}/.claude/plugins/**/*",
                     {
                         "dependentTasksOutputFiles": "**/xml.so"
@@ -496,63 +495,16 @@
                 ],
                 "options": {
                     "commands": [
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate py",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate sh",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate cs",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj",
-                        ".claude/skills/ast-grep/scripts/rule-checks.sh gate json",
-                        "node --test tests/typescript/ast-grep/*.test.ts"
-                    ],
-                    "parallel": false
-                },
-                "configurations": {
-                    "ts": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate ts",
-                            "node --test tests/typescript/ast-grep/*.test.ts"
-                        ]
-                    },
-                    "py": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate py"
-                        ]
-                    },
-                    "sh": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate sh"
-                        ]
-                    },
-                    "yml": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate yml",
-                            "node --test tests/typescript/ast-grep/yaml-*.test.ts tests/typescript/ast-grep/shell-injections.test.ts tests/typescript/ast-grep/outline.test.ts tests/typescript/ast-grep/rule-checks.test.ts"
-                        ]
-                    },
-                    "csproj": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate csproj"
-                        ]
-                    },
-                    "json": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate json",
-                            "node --test tests/typescript/ast-grep/shell-injections.test.ts"
-                        ]
-                    },
-                    "cs": {
-                        "commands": [
-                            ".claude/skills/ast-grep/scripts/rule-checks.sh gate cs"
-                        ]
-                    }
+                        "ast-grep test --include-off",
+                        "node --test tests/typescript/ast-grep/outline.test.ts tests/typescript/ast-grep/yaml-fixes.test.ts tests/typescript/ast-grep/shell-injections.test.ts"
+                    ]
                 },
                 "metadata": {
-                    "description": "Check ast-grep rules and integrations, optionally scoped by language configuration"
+                    "description": "Run the ast-grep test cases and the ast-grep integration tests"
                 }
             },
             "outline": {
-                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/github-job.yml --outline-rules tools/ast-grep/outline/github-composite.yml --outline-rules tools/ast-grep/outline/github-step.yml --outline-rules tools/ast-grep/outline/bash-function.yml --outline-rules tools/ast-grep/outline/json-property.yml --outline-rules tools/ast-grep/outline/json-property-member.yml --outline-rules tools/ast-grep/outline/msbuild-task.yml --outline-rules tools/ast-grep/outline/msbuild-import.yml --outline-rules tools/ast-grep/outline/msbuild-group.yml --outline-rules tools/ast-grep/outline/msbuild-property.yml --outline-rules tools/ast-grep/outline/msbuild-item.yml --outline-rules tools/ast-grep/outline/python-type-alias.yml --outline-rules tools/ast-grep/outline/typescript-object-member.yml --outline-rules tools/ast-grep/outline/typescript-schema-member.yml --outline-rules tools/ast-grep/outline/msbuild-using-task.yml --outline-rules tools/ast-grep/outline/msbuild-task-parameter.yml",
+                "command": "ast-grep outline $(printf -- '--outline-rules %s ' tools/ast-grep/outline/*.yml)",
                 "cache": false,
                 "dependsOn": [
                     "grammar"

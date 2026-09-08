@@ -4,24 +4,21 @@ language: xml
 severity: error
 rule:
     pattern: _PROPERTY
-    # XML names cannot bind a metavariable, each inherited value is paired with its property name
     matches: {msbuild-property: {name: {regex: "^(NoWarn|(MSBuild)?Warnings(AsErrors|NotAsErrors|AsMessages)|DefineConstants|DefaultItemExcludes|InterceptorsNamespaces|InterceptorsPreviewNamespaces)$"}}}
-    # Referencing another list property discards the property's inherited entries
     not:
         any:
-            - matches: {msbuild-property-value: {name: {regex: "^NoWarn$"}, text: {regex: '^\s*\$\(NoWarn[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^WarningsAsErrors$"}, text: {regex: '^\s*\$\(WarningsAsErrors[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^WarningsNotAsErrors$"}, text: {regex: '^\s*\$\(WarningsNotAsErrors[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^WarningsAsMessages$"}, text: {regex: '^\s*\$\(WarningsAsMessages[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^MSBuildWarningsAsErrors$"}, text: {regex: '^\s*\$\(MSBuildWarningsAsErrors[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^MSBuildWarningsNotAsErrors$"}, text: {regex: '^\s*\$\(MSBuildWarningsNotAsErrors[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^MSBuildWarningsAsMessages$"}, text: {regex: '^\s*\$\(MSBuildWarningsAsMessages[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^DefineConstants$"}, text: {regex: '^\s*\$\(DefineConstants[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^DefaultItemExcludes$"}, text: {regex: '^\s*\$\(DefaultItemExcludes[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^InterceptorsNamespaces$"}, text: {regex: '^\s*\$\(InterceptorsNamespaces[).]'}}}
-            - matches: {msbuild-property-value: {name: {regex: "^InterceptorsPreviewNamespaces$"}, text: {regex: '^\s*\$\(InterceptorsPreviewNamespaces[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^NoWarn$"}, reference: {regex: '\$\(NoWarn[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^WarningsAsErrors$"}, reference: {regex: '\$\(WarningsAsErrors[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^WarningsNotAsErrors$"}, reference: {regex: '\$\(WarningsNotAsErrors[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^WarningsAsMessages$"}, reference: {regex: '\$\(WarningsAsMessages[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^MSBuildWarningsAsErrors$"}, reference: {regex: '\$\(MSBuildWarningsAsErrors[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^MSBuildWarningsNotAsErrors$"}, reference: {regex: '\$\(MSBuildWarningsNotAsErrors[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^MSBuildWarningsAsMessages$"}, reference: {regex: '\$\(MSBuildWarningsAsMessages[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^DefineConstants$"}, reference: {regex: '\$\(DefineConstants[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^DefaultItemExcludes$"}, reference: {regex: '\$\(DefaultItemExcludes[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^InterceptorsNamespaces$"}, reference: {regex: '\$\(InterceptorsNamespaces[).]'}}}
+            - matches: {msbuild-property-keeps-value: {name: {regex: "^InterceptorsPreviewNamespaces$"}, reference: {regex: '\$\(InterceptorsPreviewNamespaces[).]'}}}
 transform:
-    # The own value after the start tag and the leading whitespace of the text, the tag name is the second group
     APPENDED: {replace: {source: $PROPERTY, replace: '^(<([A-Za-z]+)(?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|''[^'']*''))*\s*>\s*)', by: "$1$$($2);"}}
     FILLED: {replace: {source: $APPENDED, replace: '^<([A-Za-z]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|''[^'']*''))*)\s*/>$', by: "<$1$2>$$($1);</$1>"}}
 fix: $FILLED

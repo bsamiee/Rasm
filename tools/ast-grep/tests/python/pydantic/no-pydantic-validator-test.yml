@@ -1,47 +1,38 @@
 id: no-pydantic-validator
 valid:
-    # A declared field constraint replaces a validator that restates it.
     - |
       from pydantic import BaseModel, Field
 
       class Settings(BaseModel):
           port: int = Field(gt=0)
-    # Modern decorators retain custom validation that a field constraint does not express.
     - "from pydantic import field_validator"
-    # The model validator
     - |
       from pydantic import model_validator
-    # Attribute named like the decorator on another object
     - |
       check = schema.validator("port")
     - "from pydantic import validate_call"
     - 'pydantic.validate_call(config={"strict": True})(run)'
     - "other.validate_arguments(run)"
-    # Deprecated submodules expose different APIs; do not form a module/member cross product.
     - "pydantic.deprecated.decorator.validator(run)"
     - "pydantic.deprecated.class_validators.validate_arguments(run)"
+    - "from pydantic.v1 import validator"
 invalid:
-    # The instance, the decorator imported from pydantic
     - |
       from pydantic import validator
-    # The root validator imported from pydantic
     - |
       from pydantic import root_validator
-    # The attribute read as spelled
     - |
       import pydantic
 
       @pydantic.validator("port")
       def positive(cls, value):
           return value
-    # The attribute read through the alias the import binds
     - |
       import pydantic as pd
 
       @pd.root_validator
       def whole(cls, values):
           return values
-    # The deprecated namespace exposes the same decorators
     - "from pydantic.deprecated.class_validators import validator"
     - "pydantic.deprecated.class_validators.root_validator(pre=True)"
     - "from pydantic import validate_arguments"
@@ -51,3 +42,6 @@ invalid:
       @pd.validate_arguments
       def run(count: int) -> int:
           return count
+    - "from pydantic import validator as check"
+    - "from pydantic.class_validators import root_validator"
+    - "pydantic.decorator.validate_arguments(run)"

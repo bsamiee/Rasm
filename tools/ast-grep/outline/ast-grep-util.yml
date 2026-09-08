@@ -1,0 +1,22 @@
+id: ast-grep-util
+language: yaml
+role: member
+parentRuleIds: [ast-grep-rule]
+symbolType: function
+rule:
+    kind: block_mapping_pair, flow_pair
+    pattern: $UTIL
+    has: {field: key, pattern: $NAME}
+    inside:
+        kind: block_mapping, flow_mapping
+        inside:
+            kind: block_node, flow_node
+            inside:
+                kind: block_mapping_pair, flow_pair
+                has: {field: key, regex: '^(utils|"utils"|''utils'')$'}
+                inside: {kind: 'block_mapping, flow_mapping', inside: {kind: 'block_node, flow_node', inside: {kind: document}}}
+transform:
+    LINE: {replace: {source: $UTIL, replace: '\n[\s\S]*$', by: ''}}
+name: $NAME
+signature: $LINE
+isPublic: false

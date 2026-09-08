@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: no-redundant-input-required
 language: yaml
 severity: error
@@ -5,12 +6,6 @@ files:
     - .github/workflows/*.{yml,yaml}
     - .github/actions/**/action.{yml,yaml}
 utils:
-    root-map:
-        kind: block_mapping, flow_mapping
-        inside:
-            kind: block_node, flow_node
-            inside:
-                kind: document
     inputs:
         kind: block_mapping_pair, flow_pair
         has:
@@ -18,7 +13,7 @@ utils:
             regex: ^(inputs|"inputs"|'inputs')$
         any:
             - inside:
-                matches: root-map
+                matches: yaml-document-mapping
                 has:
                     kind: block_mapping_pair, flow_pair
                     has:
@@ -43,7 +38,7 @@ utils:
                                         field: key
                                         regex: ^(on|"on"|'on')$
                                     inside:
-                                        matches: root-map
+                                        matches: yaml-document-mapping
 rule:
     kind: block_mapping_pair, flow_pair
     all:
@@ -54,7 +49,7 @@ rule:
             regex: ^(required|"required"|'required')$
         - has:
             field: value
-            regex: ^false$
+            regex: ^(false|False|FALSE)$
         - inside:
             kind: block_mapping, flow_mapping
             inside:

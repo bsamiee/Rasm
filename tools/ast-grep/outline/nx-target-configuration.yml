@@ -1,0 +1,53 @@
+id: nx-target-configuration
+language: json
+role: member
+parentRuleIds: [nx-target]
+symbolType: property
+utils:
+    document-object:
+        kind: document > object
+    targets-pair:
+        kind: pair
+        has: {field: key, regex: '^"(targets|targetDefaults)"$'}
+        any:
+            - inside: {matches: document-object}
+            - inside: {kind: object, inside: {kind: pair, has: {field: key, regex: '^"nx"$'}, inside: {matches: document-object}}}
+    target-pair:
+        kind: pair
+        inside: {kind: object, inside: {matches: targets-pair}}
+    target-object:
+        kind: object
+        any:
+            - inside: {matches: target-pair}
+            - inside: {kind: array, inside: {matches: target-pair}}
+    configurations-pair:
+        kind: pair
+        has: {field: key, regex: '^"configurations"$'}
+        inside: {matches: target-object}
+    configuration-pair:
+        kind: pair
+        inside: {kind: object, inside: {matches: configurations-pair}}
+rule:
+    matches: configuration-pair
+    pattern: $CONFIGURATION
+    all:
+        - has: {field: key, pattern: $KEY}
+        - has: {field: value, kind: object}
+rewriters:
+    - id: command
+      rule:
+        kind: pair
+        all:
+            - has: {field: key, regex: '^"(command|commands)"$'}
+            - has: {field: value, pattern: $VALUE}
+        inside: {kind: object, inside: {matches: configuration-pair}}
+      transform:
+        LINE: {replace: {source: $VALUE, replace: '\s*\n\s*', by: ' '}}
+        TEXT: {replace: {source: $LINE, replace: '^"([^"]*)"$', by: '$1'}}
+      fix: $TEXT
+transform:
+    NAME: {replace: {source: $KEY, replace: '^"([^"]*)"$', by: '$1'}}
+    SIGNATURE: {rewrite: {source: $CONFIGURATION, rewriters: [command], joinBy: ', '}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: true

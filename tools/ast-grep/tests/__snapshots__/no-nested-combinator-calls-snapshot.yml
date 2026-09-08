@@ -60,3 +60,9 @@ snapshots:
       style: primary
       start: 79
       end: 149
+  ? import { Option, Effect } from "effect"; Effect.map(Option.getOrElse(Option.map(Option.some(input), project), fallback), render);
+  : labels:
+    - source: Effect.map(Option.getOrElse(Option.map(Option.some(input), project), fallback), render)
+      style: primary
+      start: 41
+      end: 128

@@ -1,18 +1,15 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/python_rule.json
-# Every use of a module, its import, a from-import, and the outermost attribute chain on it
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: python-module-use
 language: python
 arguments: [module]
 rule:
     any:
-        # The module name under an import, an aliased import, or the from clause of a from-import, a relation reads the first name field alone
         - kind: dotted_name
           matches: module
           any:
             - inside: {kind: import_statement}
             - inside: {kind: aliased_import, field: name, inside: {kind: import_statement}}
             - inside: {kind: import_from_statement, field: module_name}
-        # The attribute chain rooted at the module or its alias, reported once at its outermost link, the inner chain is the module path
         - kind: attribute
           matches: {python-module-member: {module: {matches: module}, name: {kind: identifier}}}
           not: {inside: {kind: attribute, field: object}}

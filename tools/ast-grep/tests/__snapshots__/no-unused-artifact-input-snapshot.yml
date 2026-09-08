@@ -73,6 +73,37 @@ snapshots:
       build:
         steps:
           - uses: actions/upload-artifact@v7
+            with:
+              archive: false
+              path: file
+              # The artifact name
+              name: package
+  : fixed: "jobs:\n  build:\n    steps:\n      - uses: actions/upload-artifact@v7\n        with:\n          archive: false\n          path: file\n          # The artifact name\n          \n"
+    labels:
+    - source: name
+      style: primary
+      start: 167
+      end: 171
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: actions/upload-artifact@v7
+            with:
+              name: package
+              archive: "false"
+              path: file
+  : fixed: "jobs:\n  build:\n    steps:\n      - uses: actions/upload-artifact@v7\n        with:\n          \n          archive: \"false\"\n          path: file\n"
+    labels:
+    - source: name
+      style: primary
+      start: 91
+      end: 95
+  ? |
+    jobs:
+      build:
+        steps:
+          - uses: actions/upload-artifact@v7
             with: {archive: false, compression-level: '9', path: package.tar, overwrite: true, name: package}
   : fixed: |
       jobs:
@@ -190,6 +221,21 @@ snapshots:
   ? |
     jobs:
       build:
+        steps:
+          - with:
+              archive: false
+              name: package
+              path: file
+            uses: actions/upload-artifact@v7
+  : fixed: "jobs:\n  build:\n    steps:\n      - with:\n          archive: false\n          \n          path: file\n        uses: actions/upload-artifact@v7\n"
+    labels:
+    - source: name
+      style: primary
+      start: 75
+      end: 79
+  ? |
+    jobs:
+      build:
         steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: 3, path: package.tar}}]
   : fixed: |
       jobs:
@@ -209,6 +255,24 @@ snapshots:
       style: primary
       start: 93
       end: 97
+  ? |
+    jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, compression-level: "0", path: file}}]}}
+  : fixed: |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, , path: file}}]}}
+    labels:
+    - source: compression-level
+      style: primary
+      start: 81
+      end: 98
+  ? |
+    jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, name: package, overwrite: FALSE, path: file}}]}}
+  : fixed: |
+      jobs: {build: {steps: [{uses: actions/upload-artifact@v7, with: {archive: false, , overwrite: FALSE, path: file}}]}}
+    labels:
+    - source: name
+      style: primary
+      start: 81
+      end: 85
   ? |
     runs: {using: composite, steps: [{uses: actions/upload-artifact@v7, with: {archive: false, name: package, path: package.tar}}]}
   : fixed: |

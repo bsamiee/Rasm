@@ -7,6 +7,27 @@ snapshots:
       style: primary
       start: 6
       end: 17
+  const [...table] = load(); const rows = table;:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 10
+      end: 15
+  const [table = fallback] = load(); const rows = table;:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 7
+      end: 12
+  const [table] = load(); const rows = table;:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 7
+      end: 12
   const table = load(); export const rows = table;:
     labels:
     - source: table
@@ -14,6 +35,34 @@ snapshots:
       style: primary
       start: 6
       end: 11
+  'const { raw: table } = load(); const rows = table;':
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 13
+      end: 18
+  'const { rows: [table] } = load(); const held = table;':
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 15
+      end: 20
+  const { table } = load(); const rows = table;:
+    labels:
+    - source: table
+      message: The name the declaration repeats
+      style: primary
+      start: 8
+      end: 13
+  export class Item {} const Row = Item;:
+    labels:
+    - source: Item
+      message: The name the declaration repeats
+      style: primary
+      start: 13
+      end: 17
   export const table = load(); const rows = table;:
     labels:
     - source: table
@@ -49,6 +98,20 @@ snapshots:
       style: primary
       start: 9
       end: 14
+  export { type Row as Item };:
+    labels:
+    - source: Row
+      message: The name the declaration repeats
+      style: primary
+      start: 14
+      end: 17
+  function load() {} const run = load;:
+    labels:
+    - source: load
+      message: The name the declaration repeats
+      style: primary
+      start: 9
+      end: 13
   type Row = Item;:
     labels:
     - source: Item

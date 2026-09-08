@@ -1,25 +1,28 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/csharp_rule.json
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: lift-fin-bind-to-lift
 language: csharp
 severity: off
 rule:
-    pattern:
-        context: 'class C { object F() => $IO.lift<$FIN>($THUNK).Bind($BIND); }'
-        selector: invocation_expression
-        strictness: cst
+    any:
+        - pattern: {context: 'class C { object F() => $IO.lift<$FIN>($THUNK).Bind($BIND); }', selector: invocation_expression, strictness: cst}
+        - pattern: {context: 'class C { object F() => from $ITEM in $IO.lift<$FIN>($THUNK) from $X in $IO.lift($ITEM) select $X; }', selector: query_expression, strictness: cst}
+        - pattern: {context: 'class C { object F() => from $ITEM in $IO.lift<$FIN>($THUNK) from $X in $IO.lift<$_TYPE>($ITEM) select $X; }', selector: query_expression, strictness: cst}
 constraints:
     IO: {regex: '^(global::)?(LanguageExt\.)?IO$'}
     FIN: {regex: '(?s)^(global::)?(LanguageExt\.)?Fin\s*<.+>$'}
     BIND:
-        matches:
-            csharp-unary-callback:
-                parameter: {pattern: $VALUE}
-                body:
-                    pattern:
-                        context: 'class C { object F() => $IO.lift($VALUE); }'
-                        selector: invocation_expression
-                        strictness: cst
+        any:
+            - kind: argument
+              has: {pattern: $IO.lift}
+            - matches:
+                csharp-unary-callback:
+                    parameter: {pattern: $VALUE}
+                    body:
+                        any:
+                            - pattern: {context: 'class C { object F() => $IO.lift($VALUE); }', selector: invocation_expression, strictness: cst}
+                            - pattern: {context: 'class C { object F() => $IO.lift<$_TYPE>($VALUE); }', selector: invocation_expression, strictness: cst}
+                            - pattern: {context: 'class C { object F() => $IO.lift(() => $VALUE); }', selector: invocation_expression, strictness: cst}
+                            - pattern: {context: 'class C { object F() => $IO.lift<$_TYPE>(() => $VALUE); }', selector: invocation_expression, strictness: cst}
 fix: '$IO.lift($THUNK)'
-message: Let the result-returning lift overload put Fin failure on the IO channel
-note: >-
-    Select LanguageExt.IO and Fin<A> symbols through Roslyn. The argument must be Func<Fin<A>>, and the replacement must resolve to IO<A>. The result-returning lift defers the same thunk, captures its exceptions, and folds Fin failure onto the IO channel without an extra Bind. Keep intentional FinT inputs, other callback overloads, and aliases until their symbols and overloads are resolved.
+message: Use `IO.lift` on the Fin thunk alone to put failure on the IO channel
+note: Write IO.lift with the Func<Fin<A>> thunk alone, Roslyn resolves the IO<A> result, and keep FinT inputs and aliases with Bind

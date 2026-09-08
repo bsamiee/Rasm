@@ -1,57 +1,53 @@
 id: require-target-framework-form
 valid:
-    # Comments can split a framework list into separate text nodes
     - '<PropertyGroup><TargetFrameworks>net10.0<!-- targets -->;netstandard2.0</TargetFrameworks></PropertyGroup>'
-    # One framework
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>netstandard2.0</TargetFramework></PropertyGroup></Project>
-    # List
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
-    # List held by a property, the count is unknown here
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>$(LibraryFrameworks)</TargetFrameworks></PropertyGroup></Project>
-    # The root default guards on both forms and sets the singular alone
     - |
       <Project><PropertyGroup><TargetFramework Condition="'$(TargetFramework)' == '' and '$(TargetFrameworks)' == ''">net10.0</TargetFramework>
         </PropertyGroup></Project>
-    # Reference metadata naming the singular, no property
     - |
       <Project><ItemGroup><ProjectReference Include="../Tool/Tool.csproj"><SetTargetFramework>TargetFramework=net10.0</SetTargetFramework>
         </ProjectReference></ItemGroup></Project>
-    # BuildCheck BC0107 reports both properties in one file
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0</TargetFramework>
         <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
-    # Both properties in one file under a condition, the sibling reports it
     - |
       <Project><PropertyGroup><TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
         <TargetFramework Condition="'$(Legacy)' == 'true'">net48</TargetFramework></PropertyGroup></Project>
-    # Both properties with a list in the singular, the sibling reports the pair and a rename here duplicates the plural
     - |
       <Project><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework>
         <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks></PropertyGroup></Project>
+    - |
+      <PropertyGroup><TargetFramework Condition="'$(Mode)' == 'a;b'">net10.0</TargetFramework></PropertyGroup>
+    - |
+      <PropertyGroup><TargetFrameworks>net10.0;</TargetFrameworks></PropertyGroup>
+    - |
+      <PropertyGroup><TargetFrameworks>$(Primary);$(Secondary)</TargetFrameworks></PropertyGroup>
 invalid:
-    # List in the singular, the fix renames the tag to the plural
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFramework>net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
-    # One framework in the plural, the fix renames the tag to the singular
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>net10.0</TargetFrameworks></PropertyGroup></Project>
-    # Conditioned list in the singular, the fix keeps the attribute
     - |
       <Project><PropertyGroup><TargetFramework Condition="'$(Multi)' == 'true'">net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
-    # Padded framework in the plural, the fix keeps the padding
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks>
         net10.0
       </TargetFrameworks></PropertyGroup></Project>
-    # Comment before the list in the singular, the fix keeps the comment
     - |
       <Project><PropertyGroup><TargetFramework><!-- both --> net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
-    # Comment before one framework in the plural, the fix keeps the comment
     - |
       <Project Sdk="Microsoft.NET.Sdk"><PropertyGroup><TargetFrameworks><!-- one --> net10.0</TargetFrameworks></PropertyGroup></Project>
-    # greater-than in condition and embedded closing tag comment
     - |
       <Project><PropertyGroup><TargetFramework Condition="'$(Count)' > '1'"><!-- </TargetFramework> -->net10.0;netstandard2.0</TargetFramework></PropertyGroup></Project>
+    - |
+      <PropertyGroup><TargetFramework>$(Primary);$(Secondary)</TargetFramework></PropertyGroup>
+    - |
+      <PropertyGroup><TargetFrameworks>net10.0-windows10.0.19041</TargetFrameworks></PropertyGroup>
+    - |
+      <PropertyGroup><TargetFramework>net10.0 ; netstandard2.0</TargetFramework></PropertyGroup>
