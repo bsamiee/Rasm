@@ -15,7 +15,6 @@ fd -H '^(.*\.(csproj|slnx)|Directory\..*\.(props|targets)|NuGet\.config|\.editor
 
 3. Run `tree eng`, `tree tools`, `tree infra`, and `tree .github`
 4. Read each touched file with its consumers
-5. Use `work-execution` for briefs, dependency order, coordinated edits, and independent review of repository-wide work
 
 [REFERENCES]:
 - [01]-[DOTNET](references/dotnet.md): .NET build, packaging, and test configuration

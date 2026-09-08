@@ -2,12 +2,10 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { BuiltinToolName, McpContentBlock, McpToolInputs, ToolCallInput } from 'claude-code';
-import { answer, type Decision, deny, rewrite } from '../composition/decision.ts';
+import type { BuiltinToolName, McpToolInputs, ToolCallInput } from 'claude-code';
+import { type Decision, deny, rewrite } from '../composition/decision.ts';
 import { isRecord, isString, type Namespace } from '../host/store.ts';
-import { basename } from '../text/path.ts';
 import type { OnceLine } from './paths.ts';
-import { SOLUTION } from './roslyn.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,27 +14,18 @@ type ToolName = keyof McpToolInputs | BuiltinToolName;
 // The event of one tool as the declarations narrow it on the tool field, its arguments typed
 type Named<T extends ToolName> = Extract<ToolCallInput, { readonly tool: T }>;
 
-// The event a rewrite row changed with the line naming the change
-interface Rewritten {
-    readonly e: ToolCallInput;
-    readonly context: string;
-}
-
-// The session facts the rows read, the once keys injected, the recorded snapshots and DNS reads, the redacted prompt, and the working directory
+// The session facts the rows read, the once keys injected, the recorded snapshots and DNS reads, and the redacted prompt
 interface Facts {
     readonly seen: ReadonlySet<string>;
     readonly snapshots: ReadonlySet<string>;
     readonly dns: ReadonlySet<string>;
     readonly prompt: string;
-    readonly cwd: string;
 }
 
-// Rows over one tool's event as the declarations type it, an undefined deny, answer, or rewrite passes the call on, and records names the
-// namespace a successful call stamps its target id under
+// Rows over one tool's event as the declarations type it, an undefined deny passes the call on, and records names the namespace a
+// successful call stamps its target id under
 interface Rules<T extends ToolName> {
     readonly deny?: (e: Named<T>) => string | undefined;
-    readonly answer?: (e: Named<T>) => readonly McpContentBlock[] | undefined;
-    readonly rewrite?: (e: Named<T>, facts: Facts) => Rewritten | undefined;
     readonly once?: OnceLine;
     readonly each?: string;
     readonly records?: Namespace;
@@ -62,9 +51,6 @@ interface Recorded {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _SERVER_NAME = /^mcp__(?<server>.+?)__/u;
-const _TSX_LINE = 'Ran with language tsx, sgconfig.yml languageGlobs maps every .ts file to tsx and typescript finds nothing';
-const _FOLDER_LINE = 'Resolved project_folder against the working directory, the server reads an absolute path';
-const _YAML_TYPESCRIPT = /^(?<key>\s*language:\s*)typescript\s*$/mu;
 
 // The route WebFetch names per host, and the fetch tools for every other host
 const FETCH: Readonly<Record<string, string>> = {
@@ -98,14 +84,6 @@ const FAMILIES: readonly Family[] = [
     ),
 ];
 
-// The server trusts every solution on its command line for the session, and .mcp.json names the workspace solution there
-const _TRUST_ANSWER: readonly McpContentBlock[] = [
-    {
-        type: 'text',
-        text: `${SOLUTION} is trusted for the session, the server trusts every solution on its command line, call get_diagnostics with includeAnalyzers: true`,
-    },
-];
-
 // One skill per server, its line injected once per session before the first call
 const SERVERS: Readonly<Partial<Record<string, OnceLine>>> = {
     context7: { key: 'search-context7', line: 'Load the search-context7 skill, it caps each query' },
@@ -120,13 +98,6 @@ const SERVERS: Readonly<Partial<Record<string, OnceLine>>> = {
 const DESCRIBE: Readonly<Partial<Record<ToolName, string>>> = {
     ['WebSearch']: 'WebSearch is refused, mcp__exa__web_search_exa and tvly search replace it',
     ['WebFetch']: 'WebFetch is refused, the docs and github tools, tvly extract, and mcp__exa__web_fetch_exa replace it',
-    'mcp__roslyn-codelens__trust_solution': `The command-line solution ${SOLUTION} is trusted for the session, the plugin answers a call on it without the server, and trust_solution serves another solution alone`,
-    'mcp__ast-grep__dump_syntax_tree': 'format=cst shows the node kinds and field names a rule reads, and format=pattern shows how a pattern parses',
-    'mcp__ast-grep__find_code': 'The plugin rewrites language typescript to tsx and a relative project_folder to an absolute one',
-    'mcp__ast-grep__find_code_by_rule':
-        'The plugin rewrites language typescript to tsx and a relative project_folder to an absolute one, inline rules bind local utils alone, and ast-grep scan -c <config> proves a global util',
-    'mcp__ast-grep__test_match_code_rule':
-        "No match, a rejected rule, and an error diagnostic read as one failure, and printf '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $? separates them by exit code 0, 8, and 1",
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -149,36 +120,18 @@ const _row = <T extends ToolName>(tool: T, rules: Rules<T>): ToolRow => {
         ...rules,
         tool,
         deny: (e): string | undefined => (is(e) ? rules.deny?.(e) : undefined),
-        answer: (e): readonly McpContentBlock[] | undefined => (is(e) ? rules.answer?.(e) : undefined),
-        rewrite: (e, facts): Rewritten | undefined => (is(e) ? rules.rewrite?.(e, facts) : undefined),
     };
 };
 
-// The folder of the two ast-grep search tools resolved against the working directory
-const _absoluteFolder = (e: Named<'mcp__ast-grep__find_code' | 'mcp__ast-grep__find_code_by_rule'>, facts: Facts): Rewritten | undefined =>
-    e.project_folder.startsWith('/') ? undefined : { e: { ...e, ['project_folder']: `${facts.cwd}/${e.project_folder}` }, context: _FOLDER_LINE };
-
-// Rows over the tool names the declarations know, a tool's rewrite rows run in table order and each reads the event the one before produced
+// Rows over the tool names the declarations know
 const TOOLS: readonly ToolRow[] = [
     _row('WebSearch', { deny: (): string => 'WebSearch is refused, search with mcp__exa__web_search_exa or tvly search' }),
     _row('WebFetch', { deny: (e): string => `WebFetch is refused, ${_route(e.url)}` }),
     _row('mcp__playwright__browser_run_code_unsafe', {
         deny: (): string => 'browser_run_code_unsafe runs arbitrary code in the page, use the typed browser tools',
     }),
-    _row('mcp__roslyn-codelens__trust_solution', {
-        answer: (e): readonly McpContentBlock[] | undefined => (basename(e.path) === SOLUTION ? _TRUST_ANSWER : undefined),
-    }),
     _row('mcp__hostinger__VPS_createSnapshotV1', { records: 'snapshot' }),
     _row('mcp__hostinger__DNS_getDNSRecordsV1', { records: 'dns' }),
-    _row('mcp__ast-grep__find_code', {
-        rewrite: (e): Rewritten | undefined => (e.language === 'typescript' ? { e: { ...e, language: 'tsx' }, context: _TSX_LINE } : undefined),
-    }),
-    _row('mcp__ast-grep__find_code', { rewrite: _absoluteFolder }),
-    _row('mcp__ast-grep__find_code_by_rule', {
-        rewrite: (e): Rewritten | undefined =>
-            _YAML_TYPESCRIPT.test(e.yaml) ? { e: { ...e, yaml: e.yaml.replace(_YAML_TYPESCRIPT, '$<key>tsx') }, context: _TSX_LINE } : undefined,
-    }),
-    _row('mcp__ast-grep__find_code_by_rule', { rewrite: _absoluteFolder }),
 ];
 
 const _rows = (e: ToolCallInput): readonly ToolRow[] => TOOLS.filter((row) => row.tool === e.tool);
@@ -186,12 +139,17 @@ const _rows = (e: ToolCallInput): readonly ToolRow[] => TOOLS.filter((row) => ro
 // The billing tool names its targets under items, the other purchases under item_id, the machine and domain tools by their id
 const _id = (e: ToolCallInput): string => {
     const fields: Readonly<Record<string, unknown>> = e;
-    const items = Array.isArray(fields.items) ? fields.items : [];
+    const items = Array.isArray(fields['items']) ? fields['items'] : [];
     const first: unknown = items[0];
-    return String(fields.virtualMachineId ?? fields.domain ?? fields.item_id ?? (isRecord(first) && isString(first.item_id) ? first.item_id : ''));
+    return String(
+        fields['virtualMachineId'] ??
+            fields['domain'] ??
+            fields['item_id'] ??
+            (isRecord(first) && isString(first['item_id']) ? first['item_id'] : ''),
+    );
 };
 
-const _serverOnce = (tool: string): OnceLine | undefined => SERVERS[_SERVER_NAME.exec(tool)?.groups?.server ?? ''];
+const _serverOnce = (tool: string): OnceLine | undefined => SERVERS[_SERVER_NAME.exec(tool)?.groups?.['server'] ?? ''];
 
 // The once lines the call raises, the server's skill line then the tool's own
 const toolOnce = (e: ToolCallInput): readonly OnceLine[] => [_serverOnce(e.tool) ?? [], _rows(e).flatMap((row) => row.once ?? [])].flat();
@@ -201,28 +159,17 @@ const _familyReason = (e: ToolCallInput, facts: Facts): string | undefined => {
     return family !== undefined && !family.holds(facts, _id(e)) ? family.reason : undefined;
 };
 
-// The table answer ends the rule, then the table deny or the family requirement, otherwise the rewrite rows run and their lines join the once and each lines
+// The table deny or the family requirement ends the rule, otherwise the call passes with its once and each lines
 const toolRule =
-    (facts: Facts): ((e: ToolCallInput) => Decision<ToolCallInput, readonly McpContentBlock[]>) =>
-    (e: ToolCallInput): Decision<ToolCallInput, readonly McpContentBlock[]> => {
+    (facts: Facts): ((e: ToolCallInput) => Decision<ToolCallInput>) =>
+    (e: ToolCallInput): Decision<ToolCallInput> => {
         const rows = _rows(e);
-        const answered = rows.map((row) => row.answer?.(e)).find((blocks) => blocks !== undefined);
-        if (answered !== undefined) {
-            return answer(answered);
-        }
         const reason = rows.map((row) => row.deny?.(e)).find((found) => found !== undefined) ?? _familyReason(e, facts);
         if (reason !== undefined) {
             return deny(reason);
         }
-        const applied = rows.reduce<{ readonly e: ToolCallInput; readonly context: readonly string[] }>(
-            (state, row) => {
-                const next = row.rewrite?.(state.e, facts);
-                return next === undefined ? state : { e: next.e, context: [...state.context, next.context] };
-            },
-            { e, context: [] },
-        );
         const once = toolOnce(e).filter((line) => line.key === undefined || !facts.seen.has(line.key));
-        return rewrite(applied.e, [...applied.context, ...once.map((line) => line.line), ...rows.flatMap((row) => row.each ?? [])]);
+        return rewrite(e, [...once.map((line) => line.line), ...rows.flatMap((row) => row.each ?? [])]);
     };
 
 // The fact a successful call records, read by the hostinger families later in the session

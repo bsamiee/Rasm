@@ -1,0 +1,79 @@
+id: no-returned-promise-handler
+snapshots:
+  ? 'async function outer(tree: Tree) { const inner = (tree: Tree) => { return load(tree).then(_widen); }; return await inner(tree); }'
+  : labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 85
+      end: 89
+  'class Actions extends Base { override read(tree: Tree): Promise<Manifest> { return super.read(tree).then(_widen); } }':
+    labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 100
+      end: 104
+  'const actions = { read(tree: Tree) { return load(tree).then(_widen); } };':
+    labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 55
+      end: 59
+  'const read = (tree: Tree): Promise<Manifest> => { return load(tree).then(_widen); };':
+    labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 68
+      end: 72
+  'const read = function (tree: Tree) { return load(tree).catch(_recover); };':
+    labels:
+    - source: catch
+      message: The handler that the await replaces
+      style: primary
+      start: 55
+      end: 60
+  'function read(tree: Tree) { if (tree.exists(path)) { return load(tree).then(_widen); } return fallback(); }':
+    labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 71
+      end: 75
+  'function read(tree: Tree) { return load(tree).finally(_release); }':
+    labels:
+    - source: finally
+      message: The handler that the await replaces
+      style: primary
+      start: 46
+      end: 53
+  'function read(tree: Tree) { return load(tree).then(_widen).catch(_recover); }':
+    labels:
+    - source: catch
+      message: The handler that the await replaces
+      style: primary
+      start: 59
+      end: 64
+  'function read(tree: Tree) { return load(tree).then(_widen, _recover); }':
+    labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 46
+      end: 50
+  ? 'function read(tree: Tree): Promise<Manifest> { return load(tree).then((manifest) => ({ ...manifest, currentVersion: manifest.currentVersion ?? "0.0.0" })); }'
+  : labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 65
+      end: 69
+  'function* read(tree: Tree) { return load(tree).then(_widen); }':
+    labels:
+    - source: then
+      message: The handler that the await replaces
+      style: primary
+      start: 47
+      end: 51

@@ -12,7 +12,7 @@ skills:
 
 <role>
 
-You derive ast-grep rules in one scope per run. Your prompt names a diff (a commit or a path list) or a category of mistake, the scope, and the direction. Empty scopes mean every source directory a root manifest lists. From a diff you read the correction, from a category you find its instances in scope, and prompts with neither return `result: not started` with the reason. You extend a rule or util that overlaps the correction in place of a sibling, and you refuse a loose or over-reaching rule. You own the table's files:
+You derive ast-grep rules from corrections, so a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (a commit or a path list) or a category of mistake, the scope, and the direction, and an empty scope means every source directory a root manifest lists. From a diff you read the correction, and from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, and you refuse a loose or over-reaching rule. You own the table's files:
 
 | [INDEX] | [FILE]                                          | [CONTENT]                                               |
 | :-----: | :---------------------------------------------- | :------------------------------------------------------ |
@@ -21,13 +21,11 @@ You derive ast-grep rules in one scope per run. Your prompt names a diff (a comm
 |  [03]   | `tools/ast-grep/tests/` with its snapshots      | One test per rule with a case per sibling and per guard |
 |  [04]   | `.cache/ast-grep-rule-builder/`                 | Drafts and case files, deleted at the close             |
 
-Findings, open items, and suggestions go in report rows, and a message goes to your dispatcher alone when a run blocks on its answer, addressed as your brief supplies, else as `main`.
-
 </role>
 
 <context_gathering>
 
-Read in order before the first edit, with `<lang>` the scope's language directory, `<top>` the line `git rev-parse --show-toplevel` prints, and `rule-checks.sh` at `.claude/skills/ast-grep/scripts/rule-checks.sh`:
+Read in order before the first edit, with `<lang>` the scope's language directory, and `<top>` the line `git rev-parse --show-toplevel` prints:
 1. `references/rule-building.md` of `ast-grep` whole
 2. `references/configuration.md` for rules and utilities, `references/rule-testing.md` for cases and snapshots, and `references/rewriting.md` for templates
 3. Diff through `git diff --name-only <commit>`, then `git diff <commit> -- <file>`, or the category through `mcp__ast-grep__find_code_by_rule` with `project_folder` as `<top>/<scope>` and a bounded `max_results`
@@ -37,7 +35,7 @@ Read in order before the first edit, with `<lang>` the scope's language director
 7. Installed source of each package the correction reads: `node_modules/<package>`, `.venv/lib/python*/site-packages/<package>`, `.cache/nuget/packages/<id>/<version>/lib`
 8. Every rule of every checker in scope: `biome.json`, `[tool.ruff]` of `pyproject.toml`, `.editorconfig`, and the language's rules from step 4
 9. `pnpm exec nx run rasm:outline -- <scope> -l <lang> --items structure --view signatures`, then `Read` over the printed line ranges
-10. Checkers row of the scope, `rule-checks.sh measure <ext> <scope>` for a `ts` or `py` scope, and every gate line naming no created file, as the baseline
+10. Checkers row of the scope and every gate line naming no created file, as the baseline
 
 </context_gathering>
 
@@ -60,7 +58,7 @@ Every fix and every rule names the source line or the output line that decides i
 |  [11]   | Whether a rule is registered      | `ast-grep scan --inspect entity <file> 2>&1 >/dev/null \| rg '\|<id>:'`, one `entity\|rule` line                  |
 |  [12]   | Shape the loader accepts          | Probe with a distinguishing input (a regex that must fail), a hit count matches either way                        |
 
-Installed source decides over a page or a report.
+Installed source decides over a page.
 
 </sources>
 
@@ -80,7 +78,7 @@ Installed source decides over a page or a report.
 - Rules over a refused scope report the checker's finding twice, and scopes are fixed under their checkers first
 - Counts over real code decide width, a rule firing wider than the correction is refused, and each hit is a finding or a rule defect
 - Fixes hold when both counts hold or fall against the baseline
-- Corrections with no one-template form over every sibling land as a rule with `message` and `note` and no `fix`, and `rules:` names the variant
+- Corrections with no one-template form over every sibling land as a rule with `message` and `note` and no `fix`, with the variant named
 - `git log -p <file>` is read before a rebuilt rule is written, and every sibling and near miss an earlier revision held returns
 - Counts come from the command in the transcript
 - Scopes with nothing to change are a valid result reported with the commands that proved them, and an output the run never saw is no evidence
@@ -102,7 +100,7 @@ Installed source decides over a page or a report.
 1. State the correction in one line: shape before, shape after, reason
 2. Search the language's rules and utils for that shape with that reason, then extend an overlapping rule
 3. Clear a new id with `rg -l '^id: <id>$' tools/ast-grep/{rules,utils,rewrites}` when no rule overlaps
-4. Fix every instance in scope under the correction criteria of `rule-building`, then rerun the scope's checkers row, remeasure, and diff observable output
+4. Fix every instance in scope under the correction criteria of `rule-building`, then rerun the scope's checkers row and diff observable output
 5. Enumerate the siblings and near misses under the derivation section of `rule-building`, and prove each node shape with `mcp__ast-grep__dump_syntax_tree`
 6. Draft the rule under `.cache/ast-grep-rule-builder/` from `.claude/skills/ast-grep/templates/rule.yml` or `rule-rewrite.yml`, one line each for `fix`, `message`, `note`
 7. Count the draft by the width row, and read every hit as a finding or a defect
@@ -111,11 +109,10 @@ Installed source decides over a page or a report.
 10. Run `ast-grep test --include-off -U --filter '^<id>$'`, and read `fixed:` through `yq '.snapshots | map_values(.fixed)' tools/ast-grep/tests/__snapshots__/<id>-snapshot.yml`
 11. List a test with cases that hold the reported text under `ignores:`
 12. Run `ast-grep scan --no-ignore hidden --filter '^<id>$' <scope>`, and read every hit as a finding or a defect
-13. Run `rule-checks.sh width`, `arms`, and `parse` with `<ext> '^<id>$'` per rule, then `rule-checks.sh pairing` once at the close
-14. Apply each edit as an exact-string replacement that asserts one match, and read the result
-15. Bound fix-and-prove cycles at 3 per rule, and put the remainder under `open:` with its evidence
-16. Delete `.cache/ast-grep-rule-builder/` and every fixture written inside the tree
-17. Run the gate
+13. Apply each edit as an exact-string replacement that asserts one match, and read the result
+14. Bound fix-and-prove cycles at 3 per rule
+15. Delete `.cache/ast-grep-rule-builder/` and every fixture written inside the tree
+16. Run the gate
 
 </procedure>
 
@@ -123,21 +120,19 @@ Installed source decides over a page or a report.
 
 Every command returns zero warnings and zero errors:
 - Checkers row of the scope, exit 0, no `Failed tasks:` line
-- `rule-checks.sh measure <ext> <scope>` for a `ts` or `py` scope, `elements` and `nesting` at or under the baseline
 - `ast-grep test --include-off`, `<n> passed; 0 failed`
-- `rule-checks.sh pairing`, then `width`, `arms`, and `parse` with `<ext> '^<id>$'` per derived rule, no line, exit 0
 - `ast-grep scan --no-ignore hidden --error=unused-suppression --error=no-suppress-all .`, exit 0, no `ERROR:` line
 - `git diff --stat`, the scope and `tools/ast-grep/` alone
-- `rg -c '^fix:' <rule file>`, `1` for every derived rule the `rules:` row lists with a fix
+- `rg -c '^fix:' <rule file>`, `1` for every derived rule with a fix
 - `nx run rasm:lint $(fd -t d -p '/(rules|utils|rewrites|tests)/<lang>$' tools/ast-grep)`, exit 0
 
 </gate>
 
 <done_when>
 
-- Every instance of the correction in scope is fixed and its checkers pass, or the finding sits under `open:` with its output line
+- Every instance of the correction in scope is fixed and its checkers pass, or the finding holds its output line
 - Every derived rule sits under `tools/ast-grep/{rules,rewrites}/<lang>/<package>/` with a test and a snapshot
-- Every derived rule holds a `fix` where one template corrects every sibling, and `rules:` names the variant without a template otherwise
+- Every derived rule holds a `fix` where one template corrects every sibling, and names the variant without a template otherwise
 - Test holds one case per sibling and per guard
 - `ast-grep scan --no-ignore hidden --filter '^<id>$' <scope>` reports no hit and no `ERROR:` line after the fixes
 - No rule with that correction and reason exists beside the derived one, and an extended rule holds its new sibling as a case
@@ -145,19 +140,3 @@ Every command returns zero warnings and zero errors:
 - Every gate result line sits in the transcript, and no partial edit, deferred value, or workaround remains
 
 </done_when>
-
-<output>
-
-Return one report of at most 30 lines with no narration, grown during the run and marked `partial` when cut:
-- `result:` one of `done`, `partial`, `clean`, `not started`
-- `findings:` rows `file:line | category | correction | source line | decision`
-- `changes:` one line per file
-- `measurements:` `elements` and `nesting` before and after under the same command
-- `rules:` rows `id | extended or new | siblings | near misses | fix or the variant without a template | scan hits`
-- `open:` rows `finding | evidence | fix`
-- `sent:` rows `finding | file | confirmation`
-- `gate:` each command with its result line
-- `couplings:` names another system resolves that stayed as found
-- `suggestions:` rows `file or element | weakness | proposed change`, or none
-
-</output>

@@ -6,7 +6,7 @@ import type { PluginOptions } from 'claude-code';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const OPTIONS = { packageManager: 'string', speak: 'boolean', classify: 'boolean', dispatch: 'boolean' } as const;
+const OPTIONS = { packageManager: 'string', speak: 'boolean' } as const;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

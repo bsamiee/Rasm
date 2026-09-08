@@ -4,9 +4,8 @@
 
 import { type Decision, deny, rewrite } from '../composition/decision.ts';
 import { type Argv, hasGroup, INTERPRETER, parse, pastAssignments, type Span, strip, type Word } from '../text/argv.ts';
-import { basename, extension, under } from '../text/path.ts';
+import { basename } from '../text/path.ts';
 import { BINLOG_DENY, type OnceLine, OP_LINE } from './paths.ts';
-import { TREE } from './scan.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -40,11 +39,6 @@ interface ShellRow {
 
 interface Splice extends Span {
     readonly text: string;
-}
-
-// A rule file switch of an ast-grep scan, its span from the flag word to the file word and the file it names
-interface RuleFile extends Span {
-    readonly file: string;
 }
 
 // An argv headed by timeout with its duration in milliseconds and the start of the wrapped command, whole when the argv is the command
@@ -101,26 +95,6 @@ const _TIMEOUT_VALUE_OPTIONS: readonly string[] = ['-s', '--signal', '-k', '--ki
 // The GNU duration, a number with an optional unit suffix, and the seconds each unit holds
 const _DURATION = /^(?<number>\d+(?:\.\d*)?|\.\d+)(?<unit>[smhd]?)$/u;
 const _UNIT_SECONDS: Readonly<Record<string, number>> = { '': 1, s: 1, m: 60, h: 3600, d: 86_400 };
-const _UPDATE_ALL: readonly string[] = ['-U', '--update-all'];
-const _INCLUDE_OFF = '--include-off';
-// The subcommands that take --json and -U, and test takes -U alone
-const _SEARCHES: readonly string[] = ['run', 'scan'];
-const _INTERACTIVE: readonly string[] = ['-i', '--interactive'];
-const _JSON = /^--json(?:=.*)?$/u;
-const _LANG: readonly string[] = ['-l', '--lang'];
-const _LANG_ATTACHED = /^(?:-l=?|--lang=)\S+$/u;
-const _LANG_TYPESCRIPT = /^(?:-l=?|--lang=)typescript$/u;
-const _TYPESCRIPT = 'typescript';
-const _CONFIG: readonly string[] = ['-c', '--config'];
-const _RULE_FLAGS: readonly string[] = ['-r', '--rule'];
-const _RULE_ATTACHED = /^--rule=(?<file>.+)$/u;
-const _YAML = /\.ya?ml$/u;
-// A rule id as the tree spells it
-const _RULE_ID = /^[a-z][a-z0-9-]*$/u;
-// The test and filter options that take the next word as their value
-const _TEST_VALUE_OPTIONS: readonly string[] = ['-t', '--test-dir', '--snapshot-dir', '-f', '--filter', '-c', '--config', '--color'];
-const _FILTER: readonly string[] = ['--filter', '-f'];
-const _TEST_DIR: readonly string[] = ['-t', '--test-dir'];
 // The operator after an argv and the operator before a last argv, a pipe feeds a command and a sleep beside a pipe stays
 const _JOIN_AFTER = /^[ \t]*(?:&&|\|\||;|&|\r?\n)\s*/u;
 const _JOIN_BEFORE = /\s*(?:&&|\|\||;|&|\r?\n)\s*$/u;
@@ -295,84 +269,6 @@ const _sleepSplice = (argv: Argv, command: string): Splice | undefined => {
     return before === null ? undefined : { start: before.index ?? 0, end: span.end, text: '' };
 };
 
-// --- [AST_GREP] ------------------------------------------------------------------------
-
-// The words past the runner when the argv runs ast-grep, the empty argv for another command
-const _astGrep = (argv: Argv): Argv => {
-    const words = strip(argv);
-    return basename(_word(words, 0)) === 'ast-grep' ? words : [];
-};
-
-// A move over the ast-grep words of an argv under the subcommand, undefined for another command or subcommand
-const _astGrepMove =
-    <T>(
-        subcommand: (word: string) => boolean,
-        move: (words: Argv, command: string) => T | undefined,
-    ): ((argv: Argv, command: string) => T | undefined) =>
-    (argv: Argv, command: string): T | undefined => {
-        const words = _astGrep(argv);
-        return words.length > 0 && subcommand(_word(words, 1)) ? move(words, command) : undefined;
-    };
-
-const _isTest = (word: string): boolean => word === 'test';
-
-const _isSearch = (word: string): boolean => _SEARCHES.includes(word);
-
-// A first word that is an option runs the implicit run
-const _isRun = (word: string): boolean => word === 'run' || word.startsWith('-');
-
-const _isScan = (word: string): boolean => word === 'scan';
-
-const _hasWord = (words: Argv, list: readonly string[]): boolean => words.some((word) => list.includes(word.text));
-
-const _hasConfig = (words: Argv): boolean => words.some((word) => _CONFIG.includes(word.text) || word.text.startsWith('--config='));
-
-const _hasFilter = (words: Argv): boolean => words.some((word) => _FILTER.includes(word.text) || word.text.startsWith('--filter='));
-
-// The words past the subcommand that are no option and no option value, the ids a bare test form names
-const _bareIds = (words: Argv): readonly Word[] =>
-    words.filter((word, index) => index > 1 && _RULE_ID.test(word.text) && !_TEST_VALUE_OPTIONS.includes(_word(words, index - 1)));
-
-// The typescript value of -l or --lang, the next word or attached with = or nothing between
-const _typescriptWords = (words: Argv): readonly Word[] =>
-    words.filter((word, index) => _LANG_TYPESCRIPT.test(word.text) || (word.text === _TYPESCRIPT && _LANG.includes(_word(words, index - 1))));
-
-// The -l or --lang words with their values, in the split, =, and attached spellings
-const _langWords = (words: Argv): readonly Word[] =>
-    words.filter((word, index) => _LANG.includes(word.text) || _LANG_ATTACHED.test(word.text) || _LANG.includes(_word(words, index - 1)));
-
-// A config of its own or stdin parses .ts as typescript, and a cd leaves the root sgconfig.yml unread
-const _parsesElsewhere = (words: Argv, command: string): boolean =>
-    _texts(words).includes('--stdin') || _hasConfig(words) || _parse(command).some((other) => _head(other) === 'cd');
-
-// The words beside -U that write nothing or prompt, --json on a search and -i on any updater
-const _besideUpdate = (words: Argv): readonly Word[] =>
-    _hasWord(words, _UPDATE_ALL)
-        ? words.filter((word) => _INTERACTIVE.includes(word.text) || (_isSearch(_word(words, 1)) && _JSON.test(word.text)))
-        : [];
-
-// The span from the flag word to the file word of -r <file>, --rule <file>, or --rule=<file>, and the file it names
-const _ruleFile = (words: Argv): RuleFile | undefined =>
-    words.flatMap((word, index): readonly RuleFile[] => {
-        const attached = _group(word.text.match(_RULE_ATTACHED), 'file');
-        const next = words[index + 1];
-        if (attached !== '') {
-            return [{ start: word.start, end: word.end, file: attached }];
-        }
-        return _RULE_FLAGS.includes(word.text) && next !== undefined ? [{ start: word.start, end: next.end, file: next.text }] : [];
-    })[0];
-
-// A rule file of the tree under the root config, a scratch config registers its own set and a draft outside the tree has no id
-const _treeRule = (words: Argv): RuleFile | undefined => {
-    const found = _hasConfig(words) ? undefined : _ruleFile(words);
-    return found !== undefined && _YAML.test(found.file) && (under(found.file, TREE.rules) || under(found.file, TREE.rewrites)) ? found : undefined;
-};
-
-const _ruleId = (file: string): string => basename(file).slice(0, -extension(file).length);
-
-// The filter for the file's id, with --error=<id> under rewrites/ where the severity is off
-const _filterText = (file: string): string => `--filter '^${_ruleId(file)}$'${under(file, TREE.rewrites) ? ` --error=${_ruleId(file)}` : ''}`;
-
 // --- [TIMEOUT] -------------------------------------------------------------------------
 
 // The argv spans the trimmed command, the argvs of a wrapped shell body sit inside it
@@ -496,99 +392,6 @@ const SHELL = [
             const splice = _isSleep(argv) && !_allSleep(command) && !_compound(command) ? _sleepSplice(argv, command) : undefined;
             return splice === undefined ? undefined : { command: _splice(command, [splice]), context: `Dropped ${_text(argv, command)}, ${_WAIT}` };
         },
-    },
-    {
-        head: ['ast-grep'],
-        // A test -U over the shared tree names no rule and no tree of its own
-        deny: _astGrepMove(_isTest, (words): string | undefined =>
-            _hasWord(words, _UPDATE_ALL) && _bareIds(words).length === 0 && !(_hasFilter(words) || _hasConfig(words) || _hasWord(words, _TEST_DIR))
-                ? "ast-grep test -U with no --filter rewrites every changed snapshot in the shared tree, run ast-grep test -U --filter '^<id>$' for the rule whose snapshot changed"
-                : undefined,
-        ),
-    },
-    {
-        head: ['ast-grep'],
-        rewrite: _astGrepMove(_isTest, (words, command): Rewritten | undefined => {
-            const [, test] = words;
-            return test === undefined || _texts(words).includes(_INCLUDE_OFF)
-                ? undefined
-                : {
-                      command: _splice(command, [{ start: test.end, end: test.end, text: ` ${_INCLUDE_OFF}` }]),
-                      context: 'Ran ast-grep test --include-off, the severity: off rewrite rules under rewrites/ run only under that flag',
-                  };
-        }),
-    },
-    {
-        head: ['ast-grep'],
-        rewrite: _astGrepMove(_isScan, (words, command): Rewritten | undefined => {
-            const lang = _langWords(words);
-            return lang.length === 0
-                ? undefined
-                : {
-                      command: _dropped(command, lang),
-                      context: `Dropped ${_texts(lang).join(' ')}, scan takes no language flag and each rule's language field parses its files`,
-                  };
-        }),
-    },
-    {
-        head: ['ast-grep'],
-        rewrite: _astGrepMove(_isRun, (words, command): Rewritten | undefined => {
-            const typescript = _parsesElsewhere(words, command) ? [] : _typescriptWords(words);
-            return typescript.length === 0
-                ? undefined
-                : {
-                      command: _splice(
-                          command,
-                          typescript.map((word) => _replaced(word, `${word.text.slice(0, -_TYPESCRIPT.length)}tsx`)),
-                      ),
-                      context: 'Ran with -l tsx, sgconfig.yml languageGlobs maps every .ts file to tsx and typescript finds nothing',
-                  };
-        }),
-    },
-    {
-        head: ['ast-grep'],
-        rewrite: _astGrepMove(
-            (word) => _isSearch(word) || _isTest(word),
-            (words, command): Rewritten | undefined => {
-                const beside = _besideUpdate(words);
-                return beside.length === 0
-                    ? undefined
-                    : {
-                          command: _dropped(command, beside),
-                          context: `Dropped ${_texts(beside).join(' ')} beside -U, --json with -U writes nothing and -i prompts on a terminal the Bash tool lacks`,
-                      };
-            },
-        ),
-    },
-    {
-        head: ['ast-grep'],
-        rewrite: _astGrepMove(_isScan, (words, command): Rewritten | undefined => {
-            const found = _treeRule(words);
-            return found === undefined
-                ? undefined
-                : {
-                      command: _splice(command, [{ start: found.start, end: found.end, text: _filterText(found.file) }]),
-                      context: `Ran ${_filterText(found.file)} in place of ${command.slice(found.start, found.end)}, scan -r loads no utilDirs and the root sgconfig.yml registers the rule`,
-                  };
-        }),
-    },
-    {
-        head: ['ast-grep'],
-        // The first bare id becomes the filter and the rest leave
-        rewrite: _astGrepMove(_isTest, (words, command): Rewritten | undefined => {
-            const ids = _bareIds(words);
-            if (ids.length === 0) {
-                return undefined;
-            }
-            const filter = `--filter '^${ids.length > 1 ? `(${_texts(ids).join('|')})` : _word(ids, 0)}$'`;
-            return {
-                command: _splice(
-                    command,
-                    ids.map((word, index) => (index === 0 ? _replaced(word, filter) : _removal(word))),
-                ),
-                context: `Ran ast-grep test ${filter}, test takes no positional and --filter selects the cases by rule id`,
-            };
-        }),
     },
     { head: ['grep', 'rg'], lines: _grepLines },
     {

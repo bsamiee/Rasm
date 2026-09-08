@@ -57,7 +57,7 @@ The tools read compiled symbols. Use `dotnet-msbuild-evaluation` for a property,
 |  [20]   | `find_obsolete_usage`        | "What deprecations do we still use?" / "What calls [Obsolete] members?"                               |
 |  [21]   | `get_diagnostics`            | "Are there compiler errors?" / "Show warnings" / "Will this build?"                                   |
 |  [22]   | `get_code_fixes`             | "How do I fix this warning?"                                                                          |
-|  [23]   | `trust_solution`             | "Authorize analyzers for another solution", the plugin denies it on `Workspace.slnx`, session-trusted |
+|  [23]   | `trust_solution`             | "Authorize analyzers for another solution", `Workspace.slnx` is trusted from the server's command line |
 |  [24]   | `list_trusted_paths`         | "Is this solution trusted?"                                                                           |
 |  [25]   | `revoke_trust`               | "Withdraw analyzer trust for this path"                                                               |
 |  [26]   | `get_code_actions`           | "What refactorings are available here?"                                                               |

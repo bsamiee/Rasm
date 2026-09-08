@@ -11,9 +11,6 @@ const extension = (path: string): string => `.${basename(path).split('.').at(-1)
 // Whether the path sits under the directory, relative or absolute
 const under = (path: string, directory: string): boolean => path.includes(`/${directory}/`) || path.startsWith(`${directory}/`);
 
-// The path without the working directory prefix, a path outside it stays as given
-const relative = (cwd: string, path: string): string => (path.startsWith(`${cwd}/`) && path.slice(cwd.length + 1)) || path;
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { basename, extension, relative, under };
+export { basename, extension, under };

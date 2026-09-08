@@ -433,6 +433,8 @@ roslynator_object_creation_parentheses_style = omit                           # 
 
 # --- [IDE_QUALITY_RULES] ----------------------------------------------------
 # IDE rules without a style option key, their default severity can hide them from `dotnet format --severity warn`
+dotnet_diagnostic.IDE0001.severity = error                                    # Hidden by default and IDE-only: simplify qualified names, `dotnet format` rewrites them and the build never reports them
+dotnet_diagnostic.IDE0002.severity = error                                    # Hidden by default and IDE-only: simplify qualified member access, same route as IDE0001
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary casts
 dotnet_diagnostic.IDE0005.severity = error                                    # Remove unnecessary using directives
 dotnet_diagnostic.IDE0035.severity = error                                    # Remove unreachable code

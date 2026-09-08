@@ -3,19 +3,17 @@ import { describe, expect, it } from 'vitest';
 import { describeLine, type Facts, toolOnce, toolRecords, toolRule } from './tools.ts';
 
 const _ID = 'call';
-const _FACTS: Facts = { seen: new Set(), snapshots: new Set(), dns: new Set(), prompt: 'restore the machine', cwd: '/Users/x/Rasm' };
-const _TSX_LINE = 'Ran with language tsx, sgconfig.yml languageGlobs maps every .ts file to tsx and typescript finds nothing';
-const _FOLDER_LINE = 'Resolved project_folder against the working directory, the server reads an absolute path';
+const _FACTS: Facts = { seen: new Set(), snapshots: new Set(), dns: new Set(), prompt: 'restore the machine' };
 
 const _fetch = (url: string): ToolCallInput => ({ tool: 'WebFetch', ['tool_use_id']: _ID, url, prompt: 'read the page' });
 
-const _find = (language: string, folder: string): ToolCallInput => ({
+const _find: ToolCallInput = {
     tool: 'mcp__ast-grep__find_code',
     ['tool_use_id']: _ID,
     pattern: 'const $A = $B',
-    language,
-    ['project_folder']: folder,
-});
+    language: 'tsx',
+    ['project_folder']: '/abs',
+};
 
 const _reason = (e: ToolCallInput, facts = _FACTS): string => {
     const decision = toolRule(facts)(e);
@@ -47,27 +45,10 @@ describe('toolRule', () => {
         expect(_reason(order, { ..._FACTS, prompt: 'buy kvm2' })).toBe('');
     });
 
-    it('answers the trusted solution without the server and passes another', () => {
-        const trust = (path: string): ToolCallInput => ({ tool: 'mcp__roslyn-codelens__trust_solution', ['tool_use_id']: _ID, path });
-        expect(toolRule(_FACTS)(trust('/x/Workspace.slnx')).kind).toBe('answer');
-        expect(toolRule(_FACTS)(trust('/x/Other.slnx')).kind).toBe('rewrite');
-    });
-
-    it('rewrites the ast-grep search language and folder in table order with the once line first unseen', () => {
-        const decision = toolRule(_FACTS)(_find('typescript', 'libs'));
-        const found = decision.kind === 'rewrite' && decision.e.tool === 'mcp__ast-grep__find_code' ? decision.e : undefined;
-        expect([found?.language, found?.project_folder]).toStrictEqual(['tsx', '/Users/x/Rasm/libs']);
-        expect(decision.kind === 'rewrite' ? decision.context : []).toStrictEqual([
-            _TSX_LINE,
-            _FOLDER_LINE,
-            'Load the ast-grep skill for the ast-grep tools',
-        ]);
-        expect(toolOnce(_find('tsx', '/abs')).map((line) => line.key)).toStrictEqual(['ast-grep']);
-        expect(toolRule({ ..._FACTS, seen: new Set(['ast-grep']) })(_find('tsx', '/abs'))).toStrictEqual({
-            kind: 'rewrite',
-            e: _find('tsx', '/abs'),
-            context: [],
-        });
+    it('passes a server tool with its skill line once and none the session has seen', () => {
+        expect(toolRule(_FACTS)(_find)).toStrictEqual({ kind: 'rewrite', e: _find, context: ['Load the ast-grep skill for the ast-grep tools'] });
+        expect(toolOnce(_find).map((line) => line.key)).toStrictEqual(['ast-grep']);
+        expect(toolRule({ ..._FACTS, seen: new Set(['ast-grep']) })(_find)).toStrictEqual({ kind: 'rewrite', e: _find, context: [] });
     });
 });
 

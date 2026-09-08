@@ -21,9 +21,9 @@ valid:
     - |
       const row = { match: (path): boolean => extension(path) === '.cs', deny: () => BINARY };
     - |
-      const rows = 'part' in named.dispatch ? [] : named.dispatch.rows;
+      const rows = 'part' in batch ? [] : batch.rows;
     - |
-      const spawned = $.agent.spawn({ subagentType: ORCHESTRATOR, prompt, background: true });
+      const spawned = $.agent.spawn({ subagentType: WORKER, prompt, background: true });
     - |
       const lifted = Option.match({ onNone: () => 0, onSome: (found) => found });
     - |

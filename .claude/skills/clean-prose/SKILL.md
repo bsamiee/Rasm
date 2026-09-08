@@ -73,7 +73,7 @@ Every word earns its place by deletion: remove it, reread the sentence, keep the
 
 Hedges and frequency words with a measured or real uncertainty stay as "can" or as condition. Real values stay in their original spelling, counts of items a reader can see go. Prose names a package, tool, or API at newest standard without a version, version stays in its manifest or where a fact holds for one version alone.
 
-Facts one run produced are observations, a change record holds them, prose keeps the rule they showed:
+Facts one run produced are observations, and prose keeps the rule they showed:
 
 | [INDEX] | [OBSERVATION]                                           | [KEEP]                                               |
 | :-----: | :------------------------------------------------------ | :--------------------------------------------------- |

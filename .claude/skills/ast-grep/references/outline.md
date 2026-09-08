@@ -27,11 +27,10 @@
 |  [09]   | Find an MSBuild target, group, property, or item | `$(fd -e csproj -e props -e targets .) --items structure --view expanded`         |
 |  [10]   | Find a Python type alias                         | `eng/scripts --items structure --type struct --view signatures`                   |
 |  [11]   | Open one agent section                           | `.claude/agents --items structure --match '<gate>'`                               |
-|  [12]   | List shell functions                             | `.claude/skills/ast-grep/scripts/rule-checks.sh --items structure`                |
-|  [13]   | List a file's dependencies                       | `<file> --items imports`                                                          |
-|  [14]   | Enumerate public entry points                    | `<dir> --items exports --view signatures`                                         |
-|  [15]   | Expand one symbol                                | `<file> --match '^<symbol>$' --view expanded`                                     |
-|  [16]   | Outline piped code                               | `<producer> \| ast-grep outline --stdin -l <lang>`, the CLI alone                 |
+|  [12]   | List a file's dependencies                       | `<file> --items imports`                                                          |
+|  [13]   | Enumerate public entry points                    | `<dir> --items exports --view signatures`                                         |
+|  [14]   | Expand one symbol                                | `<file> --match '^<symbol>$' --view expanded`                                     |
+|  [15]   | Outline piped code                               | `<producer> \| ast-grep outline --stdin -l <lang>`, the CLI alone                 |
 |  [17]   | Post-process entries                             | `<path> --json=stream \| grep '^{' \| jq -c '<filter>'`                           |
 
 For a simplification review, outline module declarations with `--items structure`, expand the owning operations and their imports, and record the declarations each correction removes with their callers and representations in other files. Outlines locate ranges and compute no execution depth.
@@ -109,7 +108,6 @@ Extractors refused:
 - Policy table rows: a row has no identifier, the bundled const item's range locates the table
 - `NuGet.config` and `Workspace.slnx` declarations: read whole, `rg -n 'Path=|key='` prints them
 - Python cyclopts commands: `rg -n '^@_app'` prints them, the bundled function item holds the signature
-- Bash `case` arms of `rule-checks.sh`: the arms name the functions the outline lists
 - `pnpm-workspace.yaml` catalog: `yq '.catalog'` prints it
 - Workflow `env`, `permissions`, `concurrency`, `defaults`: inside the workflow item's file, `rg` prints them
 - Rule document `rule`, `fix`, `message` members: the item range locates them

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BINLOG_DENY, OP_LINE, type PathEvent, pathOnce, pathRule, recordResult, recordWrite } from './paths.ts';
+import { BINLOG_DENY, OP_LINE, type PathEvent, pathOnce, pathRule } from './paths.ts';
 
 const _ID = 'call';
 
@@ -13,8 +13,6 @@ const _edit = (path: string, text: string, old = ''): PathEvent => ({
     ['new_string']: text,
 });
 
-const _write = (path: string, text: string): PathEvent => ({ tool: 'Write', ['tool_use_id']: _ID, ['file_path']: path, content: text });
-
 const _context = (e: PathEvent, seen: readonly string[] = []): readonly string[] => {
     const decision = pathRule(new Set(seen))(e);
     return decision.kind === 'rewrite' ? decision.context : [];
@@ -26,15 +24,6 @@ describe('pathRule', () => {
         expect(_context(_edit('x.md', 'op://a'))).toStrictEqual([OP_LINE]);
         expect(_context(_edit('x.md', 'op://a', 'op://a'))).toStrictEqual([]);
         expect(_context(_edit('.claude/x.md', 'op://a'))).toStrictEqual(['Search the docs with mcp__claudeCodeDocs__search_claude_code_docs']);
-    });
-
-    it('answers a scratch record write through a child and reads the child answer back', () => {
-        const record = recordWrite(_write('.claude/scratch/x/report.md', 'text'));
-        expect(record?.argv.slice(0, 2)).toStrictEqual(['sh', '-c']);
-        expect(record?.stdin).toBe('text');
-        expect(record === undefined ? undefined : recordResult(record.result, 'update\nold').type).toBe('update');
-        expect(record === undefined ? undefined : recordResult(record.result, 'create\n').originalFile).toBeNull();
-        expect(recordWrite(_write('.claude/scratch/x/other.md', 'text'))).toBeUndefined();
     });
 
     it('adds a skill line once per key and none the session has seen', () => {

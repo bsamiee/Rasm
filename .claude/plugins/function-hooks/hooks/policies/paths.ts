@@ -1,9 +1,9 @@
-// Path rows over Read, Edit, Write, and NotebookEdit: a binary deny, a record Write the plugin answers, skill lines once per session, and per-edit lines
+// Path rows over Read, Edit, Write, and NotebookEdit: a binary deny, skill lines once per session, and per-edit lines
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { BuiltinToolResults, ToolCallInput } from 'claude-code';
-import { answer, type Decision, deny, rewrite } from '../composition/decision.ts';
+import type { ToolCallInput } from 'claude-code';
+import { type Decision, deny, rewrite } from '../composition/decision.ts';
 import { basename, extension, under } from '../text/path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -13,19 +13,10 @@ type PathTool = 'Read' | 'Edit' | 'Write' | 'NotebookEdit';
 // The tool variants as the declarations state them, NotebookEdit names its file under notebook_path and its text under new_source
 type PathEvent = Extract<ToolCallInput, { readonly tool: PathTool }>;
 
-type WriteResult = BuiltinToolResults['Write'];
-
 // A context line the session reads once under its key, or on every call without one
 interface OnceLine {
     readonly key?: string;
     readonly line: string;
-}
-
-// An answered Write the adapter runs through a child in the engine's place, the argv with the text on its stdin and the result answered
-interface RecordWrite {
-    readonly argv: readonly string[];
-    readonly stdin: string;
-    readonly result: WriteResult;
 }
 
 // A dependency manifest: the row pattern with its name group, and the sibling records a dropped name can remain in
@@ -38,7 +29,6 @@ interface PathRow {
     readonly tools: readonly PathTool[];
     readonly match: (path: string, text: string, old: string) => boolean;
     readonly deny?: (path: string) => string;
-    readonly write?: true;
     readonly once?: readonly OnceLine[];
     readonly lines?: (path: string, text: string, old: string) => readonly string[];
 }
@@ -50,10 +40,6 @@ const OP_LINE = 'The text names an op:// reference, secrets come from Doppler al
 const _ALL: readonly PathTool[] = ['Read', 'Edit', 'Write'];
 const _WRITES: readonly PathTool[] = ['Edit', 'Write'];
 const _CONTENT_WRITES: readonly PathTool[] = ['Edit', 'Write', 'NotebookEdit'];
-const _SCRATCH = '.claude/scratch';
-const _REPORT_NAMES: readonly string[] = ['report.md', 'summary.md', 'findings.md'];
-const _WRITE = 'if [ -e "$1" ]; then echo update; cat -- "$1"; else echo create; fi && mkdir -p "$(dirname "$1")" && cat > "$1"';
-const _UPDATE = 'update\n';
 const _MSBUILD: readonly string[] = ['.csproj', '.props', '.targets'];
 const _OP = /op:\/\/|\bop\s+(?:read|inject|item|run)\b/gu;
 const _TARGET = /<Target\b/u;
@@ -74,7 +60,7 @@ const _MANIFESTS: Readonly<Partial<Record<string, Manifest>>> = {
 
 const _skill = (name: string): OnceLine => ({ key: name, line: `Load the ${name} skill` });
 
-const _names = (text: string, row: RegExp): ReadonlySet<string> => new Set([...text.matchAll(row)].flatMap((hit) => hit.groups?.name ?? []));
+const _names = (text: string, row: RegExp): ReadonlySet<string> => new Set([...text.matchAll(row)].flatMap((hit) => hit.groups?.['name'] ?? []));
 
 // The distinct names in text and not in other, the added rows as (new, old) and the dropped rows as (old, new)
 const _only = (text: string, other: string, row: RegExp): readonly string[] => {
@@ -101,19 +87,6 @@ const _text = (e: PathEvent): string => {
 const _old = (e: PathEvent): string => (e.tool === 'Edit' ? e.old_string : '');
 
 const _references = (text: string): number => [...text.matchAll(_OP)].length;
-
-// The record answered as a created file with no patch, the fields BuiltinToolResults.Write requires
-const _writeResult = (path: string, text: string): WriteResult => ({
-    type: 'create',
-    filePath: path,
-    content: text,
-    structuredPatch: [],
-    originalFile: null,
-});
-
-// The record as the child wrote it, an update over the previous text after the update line, else the created record as answered
-const recordResult = (result: WriteResult, stdout: string): WriteResult =>
-    stdout.startsWith(_UPDATE) ? { ...result, type: 'update', originalFile: stdout.slice(_UPDATE.length) } : result;
 
 // Added rows take a README record, and dropped rows name the sibling records the name can remain in
 const _manifestLines = (path: string, text: string, old: string): readonly string[] => {
@@ -143,7 +116,6 @@ const PATHS = [
         match: (path, text, old): boolean => _references(text) > _references(old) && !under(path, '.claude'),
         lines: (): readonly string[] => [OP_LINE],
     },
-    { tools: ['Write'], match: (path): boolean => under(path, _SCRATCH) && _REPORT_NAMES.includes(basename(path).toLowerCase()), write: true },
     { tools: _ALL, match: (path): boolean => extension(path) === '.cs', once: [_skill('dotnet-roslyn-codelens'), _skill('dotnet-coding')] },
     {
         tools: _ALL,
@@ -201,26 +173,14 @@ const _hits = (e: PathEvent): readonly PathRow[] =>
 // The once lines the call raises, the adapter stamps their keys as injected once the call ran
 const pathOnce = (e: PathEvent): readonly OnceLine[] => _hits(e).flatMap((row) => row.once ?? []);
 
-// The child of an answered Write, sh with the path as its one argument and the text on stdin, run by the adapter under the session environment
-const recordWrite = (e: PathEvent): RecordWrite | undefined => {
-    if (!_hits(e).some((row) => row.write)) {
-        return undefined;
-    }
-    const result = _writeResult(_path(e), _text(e));
-    return { argv: ['sh', '-c', _WRITE, 'sh', result.filePath], stdin: result.content, result };
-};
-
-// The first deny, else the answered record, else the pass with every unseen once line and every per-edit line
+// The first deny, else the pass with every unseen once line and every per-edit line
 const pathRule =
-    (seen: ReadonlySet<string>): (<E extends PathEvent>(e: E) => Decision<E, WriteResult>) =>
-    <E extends PathEvent>(e: E): Decision<E, WriteResult> => {
+    (seen: ReadonlySet<string>): (<E extends PathEvent>(e: E) => Decision<E>) =>
+    <E extends PathEvent>(e: E): Decision<E> => {
         const hits = _hits(e);
         const [reason] = hits.flatMap((row) => (row.deny === undefined ? [] : [row.deny(_path(e))]));
         if (reason !== undefined) {
             return deny(reason);
-        }
-        if (hits.some((row) => row.write)) {
-            return answer(_writeResult(_path(e), _text(e)));
         }
         const once = pathOnce(e).filter((line) => line.key === undefined || !seen.has(line.key));
         return rewrite(e, [...new Set([...once.map((line) => line.line), ...hits.flatMap((row) => row.lines?.(_path(e), _text(e), _old(e)) ?? [])])]);
@@ -228,5 +188,5 @@ const pathRule =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { OnceLine, PathEvent, PathRow, PathTool, RecordWrite, WriteResult };
-export { BINLOG_DENY, OP_LINE, pathOnce, pathRule, recordResult, recordWrite };
+export type { OnceLine, PathEvent, PathRow, PathTool };
+export { BINLOG_DENY, OP_LINE, pathOnce, pathRule };

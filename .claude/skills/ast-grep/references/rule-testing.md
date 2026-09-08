@@ -18,34 +18,22 @@ Test matching and exclusions, then inspect snapshots for each invalid case's nod
 
 - Exit 0 when every case passes, `Updated` included, exit 4 for a `Missing`, `Noisy`, `Wrong`, or `Error` case
 - Exit 8 for a test or rule file the parser rejects, exit 6 for a missing `testDir`, exit 2 for `--skip-snapshot-tests` beside `-U`
-- `--filter <regex>` selects test ids by Rust regex (`^no-`, `eval`)
+- `--filter <regex>` selects test ids by Rust regex (`^no-`, `eval`), `test` takes no positional id
+- `-U` with no `--filter` rewrites every changed snapshot in the tree
 - `-t` bypasses `testConfigs`
 - `--include-off` runs the rewrite cases, the `severity: off` rules under `rewrites/`
-- Cases scan at a leaf under the config root, `<id>/@N@` per case for a `**` glob or an implied `**/` prefix and `<id>.<ext>` with no extension
-- Arms are the keys a case can fail, a list element with siblings or a map with a rule key left, `field` with `stopBy` alone fails the load
-- Deleting `has` or `inside` drops captures a fix needs, `field` mutants are equivalent, a `regex` arm mutates by blanking
-
-`rule-checks.sh` reads `sgconfig.yml` from the working directory, agents run it with no project target:
-- `pairing` reads the whole tree with no extension
-- `width <ext>`, `arms <ext>`, and `parse <ext>` read one language, a third argument `'^<id>$'` narrows them to one rule
-- `FAIL` callers stay out of a shared util's arms
-- Tests and snapshots naming no rule print under `pairing` alone
-- `measure <ext> <path>...` prints `elements <n> nesting <n>` for a `ts` or `py` scope, another extension exits 1 naming both
 
 Use the matching check when a passing test can hide a defect:
 
 | [INDEX] | [PASSING_CASE]                                                                | [CHECK]                                              |
 | :-----: | :---------------------------------------------------------------------------- | :--------------------------------------------------- |
-|  [01]   | Rule with no test document                                                    | `rule-checks.sh pairing`                             |
-|  [02]   | Test with an id that names no rule, `Configuration not found! <id>`, exit 0   | `rule-checks.sh pairing`                             |
-|  [03]   | Test document with `id` alone, `SKIP`, `-U` writes `snapshots: {}`            | `rule-checks.sh pairing`                             |
-|  [04]   | Unknown keys, malformed sides, repeated ids, duplicate or contradictory cases | `rule-checks.sh pairing`                             |
-|  [05]   | Folded `>` case merging the next `- >` markers into one string                | `rule-checks.sh width <ext>`                         |
-|  [06]   | Empty case, or one the grammar rejects (`const = ` is `ERROR`), Validated     | `rule-checks.sh parse <ext>`                         |
-|  [07]   | `ast-grep new test` scaffold, `"valid code"`, Validated                       | Every placeholder case replaced                      |
-|  [08]   | `severity: off` rule, `Configuration not found!`                              | `--include-off`, then `Configuration not found` line |
-|  [09]   | `files:` or `ignores:` in a case ignored, a suppression comment `Noisy`       | Scoping and suppression proven by `scan` over a path |
-|  [10]   | `--skip-snapshot-tests`, or a snapshot never written, a changed fix passes    | `rule-checks.sh pairing`, then `-U`                  |
+|  [01]   | Test with an id that names no rule, `Configuration not found! <id>`, exit 0   | The `Configuration not found` line of the run        |
+|  [02]   | Test document with `id` alone, `SKIP`, `-U` writes `snapshots: {}`            | The `SKIP` line of the run                           |
+|  [03]   | Empty case, or one the grammar rejects (`const = ` is `ERROR`), Validated     | `ast-grep run -k ERROR -l <lang>` over the case text |
+|  [04]   | `ast-grep new test` scaffold, `"valid code"`, Validated                       | Every placeholder case replaced                      |
+|  [05]   | `severity: off` rule, `Configuration not found!`                              | `--include-off`, then `Configuration not found` line |
+|  [06]   | `files:` or `ignores:` in a case ignored, a suppression comment `Noisy`       | Scoping and suppression proven by `scan` over a path |
+|  [07]   | `--skip-snapshot-tests`, or a snapshot never written, a changed fix passes    | `-U --filter '^<id>$'`, then the run without `-U`    |
 
 ## [02]-[CASES]
 
@@ -66,11 +54,7 @@ Before reading the predicate, derive expected behavior from the correction and p
 |  [11]   | `valid`   | Sibling rule's shape           | Shape a split rule owns                                                                  |
 
 - Keep one intended diagnostic per invalid native case, test independent findings through a real-path count or host assertion
-- Kill behavior-changing mutations through classification, match count, or fixed source, a label-only snapshot change counts nothing
-- Separate loader-rejected mutations from runnable survivors, and missing cases from equivalent predicates
-- Arm deletions leaving a transform or `constraints` capture undefined print `invalid mutation` per arm outside coverage and exit 0
 - Patterns with fixed arity bind positions through their captures, `constraints: {<VAR>: {matches: <util>}}` replaces `nthChild` arms
-- Prove duplicate-match exclusions with `width <ext>` at one match per case, they change the count and not the first match
 - Presence guards state the kind or a value util, `\S` over a quoted attribute value matches the quote and fails no case when blanked
 - Code holding `key: value` goes in a `- |` block scalar, the plain form fails with `invalid type: map, expected a string` and exit 8
 - `|` keeps the trailing newline in the snapshot key and `|-` drops it, a switch between them orphans the entry
@@ -80,11 +64,7 @@ Before reading the predicate, derive expected behavior from the correction and p
 - Names are placeholders (`Item`, `load`, `<key-a>`), literals a rule pins (a package prefix, a `NuGet.config` row) are required text
 - `constraints` regexes over a positional C# capture include the argument's name label, the named form takes its own case and arm
 - Regex arms widening an exemption die to a same-kind sibling outside the exemption placed before the reported one
-- Near misses placed before the intended match kill a guard `arms` reports uncovered
 - Bash rules prove no match on a fixture holding the `ERROR` forms
-- Mutation evidence requires a passing unmodified baseline for every counted caller, callers outside a selected rule filter included
-- Surviving mutations take a supported input with a changed result, or the redundant predicate simplifies once the contract proves equivalence
-- Fixture commands run under the executable's real query, options, and operands, text killing a mutation without running proves no behavior
 - `builtin -p`, `exec eval`, `env eval`, text assigned to `RANDOM`, `SECONDS`, `LINENO`, `OPTIND`, or `UID`, and `((m **= 2))` run nothing in Bash
 - Equal case strings are duplicates, different strings can test one boundary, variations over ownership, comments, arity, and traversal stay
 - Contradictory cases reclassify from the proven contract
@@ -143,6 +123,5 @@ Assume the rule is wrong, write the case showing it, and correct the rule when t
 - `PLW0108` reports a lambda with a body of one call on its parameter
 - `F401` on a fixed text with a dropped member is the unused import `ruff check --fix` removes, the proof allows it alone
 - Templates the formatter rewrites (the parentheses around a walrus condition) prove as the applied fix under the formatter's check
-- Arm mutation deletes one-key local utils whole and prints `uncovered arm`, the key sits beside a `kind`
 - YAML deletion cases include a sole block-mapping entry, removing it can turn the parent into null
 - Action-specific rewrite predicates pin the correction's version contract, an unknown input on an older action makes no other input redundant

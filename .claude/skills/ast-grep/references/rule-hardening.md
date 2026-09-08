@@ -36,7 +36,7 @@ Before widening, prove siblings take the same correction for the same reason:
 6. Read primary sources or maintained rules for unresolved mechanisms and prove each adopted guard against the correction
 7. Keep the widened rule when the count rose by the siblings alone, a match the correction breaks returns to the sameness judgment
 8. Prove the widening with the new sibling case, failing before and passing after
-9. Rerun `ast-grep test --filter '^<id>$'` and `width <ext> '^<id>$'`, added siblings change existing case match counts
+9. Rerun `ast-grep test --include-off --filter '^<id>$'`
 
 Before the rule widens, import ownership resolves member identity, namespace or default access, aliases, and local shadowing, source spelling proves no package binding. Escaped module strings stay excluded until their decoded value is known.
 
@@ -48,9 +48,8 @@ Combine rules with the same correction and reason. Split rules when scope, sever
 3. Keep distinct cases in the survivor, reclassify cases the corrected contract invalidates, and remove duplicates
 4. Delete the superseded rule, test, and snapshot files with each old id in suppression comments (`rg 'ast-grep-ignore.*<id>'`) and filters
 5. Accept snapshots with `ast-grep test --include-off -U --filter '^<survivor>$'` and inspect every original invalid case
-6. Rerun `arms <ext> '^<survivor>$'`
-7. Compare the survivor's findings with the union of the originals by file and range, intended coverage stays
-8. Move the deleted test's cases covering a shared util's arms to a surviving caller
+6. Compare the survivor's findings with the union of the originals by file and range, intended coverage stays
+7. Move the deleted test's cases covering a shared util's guards to a surviving caller
 
 - Ids naming one pattern member take the pattern's name, `no-copy-task-into-output` over `Copy` and `Move` keeps its id
 - Replacement spellings share one rule when they implement the same correction and reason, the selecting condition stays in that rule
@@ -82,7 +81,7 @@ Relations stay where they establish fields, captures, or traversal stops. Shorte
 | [INDEX] | [FAILURE]                                            | [CHECK]                                                                          |
 | :-----: | :--------------------------------------------------- | :------------------------------------------------------------------------------- |
 |  [01]   | Caller repeats its util's established shape          | Keep caller-specific guards and omit kind guards the util infers                 |
-|  [02]   | Zero-argument global util one rule references        | `rule-checks.sh arms <ext>`, local at one caller and deleted at none             |
+|  [02]   | Zero-argument global util one rule references        | Local at its one caller, and deleted when no caller remains                      |
 |  [03]   | Util with no inferable candidate kinds               | Read the load error, supply `kind`, `pattern`, or a util with an inferable kind  |
 |  [04]   | Cycle through `matches`                              | Exit 8 at load naming the cyclic dependency, the recursion moved under `has`     |
 |  [05]   | Global util naming an undefined util                 | Known-match case detects unresolved references loading alone accepts             |

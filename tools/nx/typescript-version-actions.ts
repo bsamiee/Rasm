@@ -19,10 +19,8 @@ const _JsVersionActions: typeof jsRelease = Option.liftPredicate(jsRelease, Pred
 // biome-ignore lint/style/noDefaultExport: Nx loads the class from the default export of the versionActions module
 export default class TypescriptVersionActions extends _JsVersionActions {
     // The source manifest holds no version, and a package without a tag starts its first release from 0.0.0
-    override readCurrentVersionFromSourceManifest(tree: Tree): Promise<{ currentVersion: string; manifestPath: string }> {
-        return super.readCurrentVersionFromSourceManifest(tree).then((manifest) => ({
-            ...manifest,
-            currentVersion: manifest.currentVersion ?? '0.0.0',
-        }));
+    override async readCurrentVersionFromSourceManifest(tree: Tree): Promise<{ currentVersion: string; manifestPath: string }> {
+        const manifest = await super.readCurrentVersionFromSourceManifest(tree);
+        return { ...manifest, currentVersion: manifest.currentVersion ?? '0.0.0' };
     }
 }

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-returned-promise-handler
+language: tsx
+severity: error
+rule:
+    kind: call_expression
+    has:
+        field: function
+        kind: member_expression
+        has: {field: property, pattern: $HANDLER, regex: '^(then|catch|finally)$'}
+    inside:
+        kind: return_statement
+        inside:
+            matches: syntax-function-boundary
+            not: {has: {regex: '^async$'}}
+            stopBy: {matches: syntax-function-boundary}
+message: 'The function returns a promise through `$HANDLER` where an `async` body states the sequence with `await`'
+note: Mark the function `async` and await the promise in its body, the handler callback becomes the statements after the `await`
+labels:
+    HANDLER: {style: primary, message: The handler that the await replaces}

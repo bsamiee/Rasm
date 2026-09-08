@@ -6,17 +6,14 @@ Each hook makes one move on one event, and plugin parts compose moves into one h
 
 | [INDEX] | [MOVE]                   | [EVENT]                                        | [FORM]                                                 |
 | :-----: | :----------------------- | :--------------------------------------------- | :----------------------------------------------------- |
-|  [01]   | Refuse                   | `tool.call`, `prompt.submit`, `agent.spawn`    | Row with `deny`, the reason naming the correct form    |
+|  [01]   | Refuse                   | `tool.call`, `prompt.submit`                   | Row with `deny`, the reason naming the correct form    |
 |  [02]   | Rewrite                  | `tool.call`, `prompt.submit`, `skill.prompt`   | Row with `rewrite` and a `context` line, by span       |
 |  [03]   | Add context              | `tool.call`, `prompt.submit`, `prompt.context` | Row with `context`, `once` per session or `each` call  |
-|  [04]   | Answer for the engine    | `tool.describe`, `prompt.section`              | Rule returning `answer`, a function of the tables      |
+|  [04]   | Answer for the engine    | `tool.describe`, `prompt.section`              | Hook returning the result, a function of the tables    |
 |  [05]   | Draw                     | `ui.render`                                    | Matched hook on one component, `$.ui.resolve(e)`       |
 |  [06]   | Record state             | Any event, after `next`                        | One `$.store.set` per row, decoded by its reader       |
-|  [07]   | Land a record            | `tool.call`                                    | Row with `write`, the child lands the answered text    |
-|  [08]   | Spawn and brief an agent | `session.start`, `agent.spawn`                 | `$.agent.spawn` at start, the brief from `AGENTS`      |
-|  [09]   | Classify                 | `turn.complete`                                | `$.model.classify` the kind, `$.model.fork` the fields |
-|  [10]   | Speak                    | `turn.complete`                                | `$.model.complete` for one line, `$.audio.speak`       |
-|  [11]   | Settle                   | `session.start`                                | Spawn's final text lands the batch and stamps a part   |
+|  [07]   | Classify                 | `turn.complete`                                | `$.model.classify` a label, `$.model.fork` a reply     |
+|  [08]   | Speak                    | `turn.complete`                                | `$.model.complete` for one line, `$.audio.speak`       |
 
 ## [02]-[POTENTIALITIES]
 
@@ -31,7 +28,7 @@ The declarations open moves no row uses yet, each a row or an arm away:
 - `engine.create` withholds a noun from the plugins beneath, and the model's own tools keep their reach
 - `ui.render` on `ToolUse`, `ToolGroup`, or `AssistantMessage` redraws a row from its props, and `ui.resolve` restyles an element
 - `Input` and `Select` elements in the band take typed text and picks through `ui.input` and `ui.select`
-- `$.prompt.submit({ text })` wakes an idle session with a prompt under the plugin's name, a finding turned into a task
+- `$.prompt.submit({ text })` wakes an idle session with a prompt under the plugin's name
 - `$.session.messages()` reads the transcript for a rule over the whole session, a repeated refusal counted
 - `of` on `$.fs.ancestors` walks the instruction chain down to one file, a nested `CLAUDE.md` applied per path
 - `agent.offer` withholds an agent type from the model in a session with no use for it
@@ -43,7 +40,7 @@ The declarations open moves no row uses yet, each a row or an arm away:
 - `$.clock.after(ms, fn)` runs one tick once, a deferred check started in `session.start`
 - `$.session.turnCount()`, `model()`, and `cwd()` answer the session as data for a rule that counts or routes by them
 - Matchers on `prompt.submit` `origin.kind` (`task-notification`, `peer`, `plugin`) read a report or a peer's message before the model does
-- Arms on `tool.call` over `ReportFindings` or an `Agent` result's `content[].text` turn a review or a report into findings
+- Arms on `tool.call` over `ReportFindings` or an `Agent` result's `content[].text` read a review or a report before the model does
 - Matchers on `ui.press` over another plugin's `plugin` and `element` intercept its button
 - The `Link` element draws a URL in the band, and `$.plugin.root` locates a plugin asset
 
@@ -53,8 +50,6 @@ Complex hooks compose parts, one adapter, one fold, and the store as the one sta
 - Store read feeding a fold: the adapter decodes `injected/`, `snapshot/`, and `prompt/` rows into a facts record the rules take as an argument
 - Rewrite feeding a guard: restoration puts secret values back before the git guard reads the command
 - Recording feeding a requirement: a successful snapshot call stamps `snapshot/<session>/<vm>`, and the hostinger family requires the stamp
-- Classifier feeding a spawn: `turn.complete` writes `findings/<id>`, next start batches open rows by kind, or due part, under `dispatch/<batchId>` and spawns the orchestrator
-- Spawn feeding a settle: orchestrator's final message lands the batch's rows with its first line as proof
 - Skill load feeding a stop: `skill.prompt` stamps `loaded/<session>/<skill>`, and the once lines that route to the skill stop
 
 ## [04]-[QUESTIONS]

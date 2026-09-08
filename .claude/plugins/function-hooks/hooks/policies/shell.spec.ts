@@ -4,7 +4,6 @@ import { OP_LINE } from './paths.ts';
 import { type Bash, commandCeiling, commandTimeout, packageManager, shellOnce, shellRule } from './shell.ts';
 
 const _CEILING = 600_000;
-const _SCRATCH = '/private/tmp/claude-501/slug/session/scratchpad';
 
 const _fresh = (command: string): Decision<Bash> => shellRule(new Set())({ command });
 
@@ -19,10 +18,7 @@ const _rewritten = (command: string): readonly [string, readonly string[]] => {
 };
 
 // One case per deny row, the fragments the reason must hold
-const _DENIED: readonly (readonly [string, readonly string[]])[] = [
-    ['head -c 100 x.binlog', ['.binlog files are binary']],
-    ['pnpm exec ast-grep test --update-all --include-off', ['ast-grep test -U with no --filter', "--filter '^<id>$'"]],
-];
+const _DENIED: readonly (readonly [string, readonly string[]])[] = [['head -c 100 x.binlog', ['.binlog files are binary']]];
 
 // One case per rewrite row, the command that runs and a fragment of its line
 const _REWRITTEN: readonly (readonly [string, string, string])[] = [
@@ -33,12 +29,6 @@ const _REWRITTEN: readonly (readonly [string, string, string])[] = [
     ['pnpm add effect@3 @effect/cli', 'pnpm add effect@catalog: @effect/cli', 'pnpm-workspace.yaml'],
     ['dotnet add package Foo --version 1.0', 'dotnet add package Foo', 'Directory.Packages.props'],
     ['sleep 1; ls; sleep 2', 'ls', 'Dropped sleep 1'],
-    ['ast-grep test --filter x', 'ast-grep test --include-off --filter x', 'Ran ast-grep test --include-off'],
-    ['ast-grep scan -l typescript .', 'ast-grep scan .', 'Dropped -l typescript'],
-    ['ast-grep run --lang=typescript -p x .', 'ast-grep run --lang=tsx -p x .', 'Ran with -l tsx'],
-    ['ast-grep scan -U --json -i .', 'ast-grep scan -U .', 'Dropped --json -i beside -U'],
-    ['ast-grep scan --rule=tools/ast-grep/rewrites/a/b/c.yml .', "ast-grep scan --filter '^c$' --error=c .", 'scan -r loads no utilDirs'],
-    ['ast-grep test --include-off no-x no-y', "ast-grep test --include-off --filter '^(no-x|no-y)$'", 'test takes no positional'],
 ];
 
 // One case per line row over a command that runs as written, the fragment its line holds
@@ -58,11 +48,6 @@ const _PASSED: readonly string[] = [
     'uv run pytest -n 4',
     'pnpm add effect@catalog:',
     'ls tools',
-    'echo "ast-grep test -U in prose"',
-    'ast-grep run -l typescript -p x --stdin',
-    `ast-grep run -c ${_SCRATCH}/own-tree/sgconfig.yml -l typescript -p x .`,
-    'cd /tmp/x && ast-grep run -l typescript -p x .',
-    `ast-grep scan -r ${_SCRATCH}/own-tree/draft.yml .`,
     "ast-grep test --include-off --filter '^no-json-parse$'",
     'echo "sleep 60 in prose"',
     'tail -f log | sleep 5',

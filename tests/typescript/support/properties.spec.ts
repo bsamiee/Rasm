@@ -104,10 +104,10 @@ const _scheduledCombination =
     (combine: Combine) =>
     async (schedule: FastCheck.Scheduler): Promise<boolean> => {
         let result = 0;
-        const scheduleValue = (value: number): Promise<void> =>
-            schedule.schedule(Promise.resolve(value), `combine ${value}`).then((scheduledValue) => {
-                result = combine(result, scheduledValue);
-            });
+        const scheduleValue = async (value: number): Promise<void> => {
+            const scheduledValue = await schedule.schedule(Promise.resolve(value), `combine ${value}`);
+            result = combine(result, scheduledValue);
+        };
         const tasks = [scheduleValue(_FIRST), scheduleValue(_SECOND)];
         await schedule.waitAll();
         await Promise.all(tasks);

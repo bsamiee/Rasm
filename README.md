@@ -120,11 +120,10 @@ Hooks enforce behavior observable by engine events, and settings, skills, and pr
 - Skills explain approach, agents execute steps and commands with an acceptance check, and memory records facts no file covers
 - Put path-specific judgment in `.claude/rules/` with a `paths` glob and enforce its mechanical requirements with hooks
 - `.claude/settings.json` holds the allow list with one entry per tool or server, no deny glob, and `mise env` hooks for the agent shell
-- Memory uses one format and one fact per file, the editor creates, narrows, merges, deletes, and indexes records
+- Memory uses one format and one fact per file
 - Skills, agents, and hooks belong to plugins under the `.claude/plugins/` marketplace, new ones join the plugin of their subject
 - Subjects with no owning plugin take a new directory at the marketplace root, a manifest entry, and an `enabledPlugins` line with the `@rasm` suffix
 - Name rule families after the package they read and enforce them at `lint`
-- Automation records weaknesses from every observable source as findings, the editor resolves a batch or a due guidance section
 
 ## [06]-[LIBRARIES]
 

@@ -131,7 +131,7 @@ Integrate a durable rule in sequence:
 
 ## [05]-[EXECUTION]
 
-- Unparsable rule files of any language and duplicate ids fail every load of the root config, `scan`, `test`, and `rule-checks.sh` included
+- Unparsable rule files of any language and duplicate ids fail every load of the root config, `scan` and `test` included
 - Quote scalars holding `: ` or a comma inside a flow map, or use a block scalar, malformed YAML aborts the load
 - `pnpm exec nx run rasm:rules` runs `ast-grep test --include-off`
 - Root `lint` target scans `tools` under the yaml family

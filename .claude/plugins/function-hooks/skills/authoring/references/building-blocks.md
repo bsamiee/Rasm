@@ -10,9 +10,8 @@ Compose policies with the `Decision` union, the language's own absence, and the 
 | :-----: | :----------------------- | :---------------------------------------------------------------------------------------------- |
 |  [01]   | `rewrite(e, context?)`   | The event to run beneath with the context lines, and a pass is `rewrite(e)`                     |
 |  [02]   | `deny(reason)`           | The refusal, the reason naming the correct form                                                 |
-|  [03]   | `answer(result)`         | The event's result without `next`, the record of an answered Write                              |
-|  [04]   | `when(refinement, rule)` | Rule lifted over a narrower input, a non-matching input passes through unchanged                |
-|  [05]   | `fold(rules)`            | Table order, a rewrite feeds the next rule and accumulates context, a deny or an answer ends it |
+|  [03]   | `when(refinement, rule)` | Rule lifted over a narrower input, a non-matching input passes through unchanged                |
+|  [04]   | `fold(rules)`            | Table order, a rewrite feeds the next rule and accumulates context, a deny ends it              |
 
 - Fold order inside one event is the policy: rewrites later rules read run first, guards before rows, a rewrite the model must see last
 - Adapters read the decision through `decision.kind` and map each case onto the event's result union
@@ -35,22 +34,19 @@ Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, 
 
 Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - `Promise.all` and `.catch` sit in the hook body alone, and each arm after `next` has its own `.catch`, a failed call drops the arm alone
-- Each `$.process.run` maps a rejected child through `.catch(abort)` to a `Run` with `exitCode` -1 and the error as stderr
 - The `$.fs.exists` facts the git refinements need are gathered over `gitPaths(command)` after the shell rules ran
-- The `ui.render` matcher `{ component: 'AbovePrompt', surface: 'terminal', props: { hasSurvey: false } }` pins the band and yields to a survey
 - Matched hooks register beside the plain one under an `if` on their option
-- Hooks on a cached answer (`ui.render`, `prompt.context`, `prompt.section`, `tool.describe`) read fixed keys, the `summary` row in place of a scan
+- Hooks on a cached answer (`ui.render`, `prompt.context`, `prompt.section`, `tool.describe`) read the tables or one fixed key
 
 ## [05]-[STORE]
 
 `hooks/host/store.ts` holds the keys and the guards:
 - `key(namespace, ...parts)` builds a key, `keys(namespace, ...parts)(all)` filters a key list, `ids(...)(all)` strips the prefix, and `suffix(...)(key)` reads one id
-- `id(now, random)` builds `<iso>-<rand>` from `$.clock.now()` and `crypto.randomUUID()`, and `stampOf(id)` reads the clock value back
-- `isX` guards read each row type, `findings(entries)` reads the rows of a list with their keys, and `decodeJson` is the one JSON boundary
+- `isX` guards read each row type, and `decodeJson` is the one JSON boundary
 
 ## [06]-[TEXT]
 
-`hooks/text/argv.ts` parses a shell command into argvs, `hooks/text/path.ts` reads a file path, and `hooks/text/lines.ts` reads output lines:
+`hooks/text/argv.ts` parses a shell command into argvs and `hooks/text/path.ts` reads a file path:
 - `parse(guarded)(command)` answers `Argv[]` of `Word { text, start, end }`, split on runs of `;`, `&`, `|`, newlines, and on parentheses
 - The parser recurses into `$(...)`, backticks outside single quotes, `sh -c`, and interpreter `-c` and `-e` bodies to depth 8
 - Guarded words inside interpreter code are argvs of their own, and a shell with no script runs nothing

@@ -67,10 +67,9 @@
 ## [03]-[CACHED_ANSWERS]
 
 `ui.render`, `prompt.section`, `prompt.context`, and `tool.describe` are answered once per input for the session, and `$.ui.invalidate(event)` drops the answer:
-- Renders redraw at most ten times a second, and a redraw follows a store write that changes what the band shows
+- Renders redraw at most ten times a second, and a redraw follows a store write that changes what a render shows
 - Invalidations of `prompt.context` or `prompt.section` take effect on the next turn, and the block is a store snapshot at that moment
 - Describe rows read the tables alone, and the description cache holds with no invalidation
-- Policy files that own rows a cached answer reads list the answers (`FINDING_VIEWS`), and every writer maps `$.ui.invalidate` over the list
 - Cached answers read the tables or a store snapshot alone, an unstable answer spends the model's prompt cache on every call
 - `Date`, `Math.random`, `crypto.randomUUID`, `performance.now`, `$.clock.now`, and the session count stay outside a cached answer
 

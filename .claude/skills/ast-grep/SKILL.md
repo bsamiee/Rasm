@@ -24,9 +24,6 @@ MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_cod
 - [06]-[OUTLINE_ITEM](templates/outline-item.yml): Outline item extractor
 - [07]-[OUTLINE_MEMBER](templates/outline-member.yml): Outline member extractor
 
-[SCRIPTS]:
-- [01]-[RULE_CHECKS](scripts/rule-checks.sh): Rule tree checks, pairing, width, arms, parse, and measure
-
 [AGENTS]:
 - [01]-[RULE_BUILDER](../../agents/ast-grep-rule-builder.md): New rules, utils, and rewrites
 - [02]-[RULE_HARDENER](../../agents/ast-grep-rule-hardener.md): Existing rules widened, collapsed, and fixed
@@ -49,7 +46,7 @@ Corrections weigh the whole operation, module declarations and consumers include
 
 ## [02]-[QUALITY]
 
-Rules under `tools/ast-grep/rules/yaml/ast-grep/` alone lint the rule tree. Single-file checks are rules, cross-file checks stay in `rule-checks.sh`:
+Rules under `tools/ast-grep/rules/yaml/ast-grep/` alone lint the rule tree:
 
 | [INDEX] | [RULE]                    | [READS]                         | [CRITERION]                                                               |
 | :-----: | :------------------------ | :------------------------------ | :------------------------------------------------------------------------ |
@@ -80,7 +77,10 @@ Proof and search fold their outcomes into one failure, the `--stdin` scan exit c
 - Matching snippet first proves the rule parses, a later miss reads as no match
 - `languageGlobs` reach every path the command names, outside the root included
 - Runs from outside the tree parse `.ts` as `typescript`
-- `scan -r <file>` refuses `--filter`, a registered rule proves by `scan --filter '^<id>$' <file>`
+- Inside the tree `.ts` is `tsx`, `-l typescript` and MCP `language: typescript` match no file, and MCP `project_folder` is an absolute path
+- `scan` takes no `-l`, each rule's `language` field parses its files
+- `scan -r <file>` refuses `--filter` and loads no `utilDirs`, a registered rule proves by `scan --filter '^<id>$' <file>`
+- `-U` writes fixes and prints no `--json`, and `-i` prompts on a terminal the Bash tool lacks
 - `--stdin` takes one rule through `-r` or `--inline-rules`, a project config holding more rules exits 3
 - `find_code` returns `No matches found` for an `ERROR` pattern, a missing path, and a `language` no glob maps, `ast-grep run` separates them
 - Empty `run` results read the exit code: 1 no match, 8 a rejected pattern (a lone `$$$VAR`), 0 with a warning an `ERROR` root
@@ -319,13 +319,12 @@ Hosts consume scans through exit codes, output formats, and bindings:
 | :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | CI annotation | `ast-grep scan --format github` prints `::error file=,line=,title=<rule-id>::` per finding above `hint`, no upload      |
 |  [02]   | Code scanning | `ast-grep scan --format sarif > <file>` then `github/codeql-action/upload-sarif`, `--format` excludes `--json`          |
-|  [03]   | Hook          | `ast-grep scan --report-style short <paths>`                                                                            |
-|  [04]   | Changed files | `git diff --name-only -z --diff-filter=ACMR <base>...` as NUL-delimited separate arguments, no scan on an empty list    |
-|  [05]   | Pipeline      | `ast-grep scan --json=stream \| jq -c '<filter>'`, one match per line with its `ruleId`                                 |
-|  [06]   | Baseline      | `ast-grep scan --filter '^<rule-id>$' --json=stream \| wc -l` against a recorded count, one rule's width over the tree  |
-|  [07]   | Parse gate    | `ast-grep run -k ERROR -l <lang> --json=compact <paths>` exits 1 when every file parses                                 |
-|  [08]   | Model text    | `--json=stream` selects the nodes, the model returns one replacement per match, edits splice by `byteOffset`            |
-|  [09]   | Library       | `@ast-grep/napi` or `ast-grep-py` when a replacement is computed, arguments take per-position checks, or files cross    |
+|  [03]   | Changed files | `git diff --name-only -z --diff-filter=ACMR <base>...` as NUL-delimited separate arguments, no scan on an empty list    |
+|  [04]   | Pipeline      | `ast-grep scan --json=stream \| jq -c '<filter>'`, one match per line with its `ruleId`                                 |
+|  [05]   | Baseline      | `ast-grep scan --filter '^<rule-id>$' --json=stream \| wc -l` against a recorded count, one rule's width over the tree  |
+|  [06]   | Parse gate    | `ast-grep run -k ERROR -l <lang> --json=compact <paths>` exits 1 when every file parses                                 |
+|  [07]   | Model text    | `--json=stream` selects the nodes, the model returns one replacement per match, edits splice by `byteOffset`            |
+|  [08]   | Library       | `@ast-grep/napi` or `ast-grep-py` when a replacement is computed, arguments take per-position checks, or files cross    |
 
 - Match objects hold `text`, `range` (`byteOffset`, zero-based `start`/`end`), `replacement`, `replacementOffsets`, and `metaVariables`
 - One directory argument beats a batched file list, its walk parses in parallel with `--globs '!<glob>'` excluding inside it

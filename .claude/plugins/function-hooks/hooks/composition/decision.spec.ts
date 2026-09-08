@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { answer, type Decision, deny, fold, type Rule, rewrite, when } from './decision.ts';
+import { type Decision, deny, fold, type Rule, rewrite, when } from './decision.ts';
 
 interface Call {
     readonly n: number;
@@ -14,9 +14,8 @@ describe('fold', () => {
         expect(fold([_add, _add])({ n: 0 })).toStrictEqual({ kind: 'rewrite', e: { n: 2 }, context: ['added at 0', 'added at 1'] });
     });
 
-    it('ends at the first deny or answer and skips the rules after it', () => {
+    it('ends at the first deny and skips the rules after it', () => {
         expect(fold<Call>([_add, (): Decision<Call> => deny('stop'), _add])({ n: 0 })).toStrictEqual({ kind: 'deny', reason: 'stop' });
-        expect(fold<Call>([(): Decision<Call> => answer('done'), _add])({ n: 0 })).toStrictEqual({ kind: 'answer', result: 'done' });
     });
 
     it('lifts a rule over the events its refinement selects and passes the rest', () => {
