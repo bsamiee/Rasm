@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding
-description: "Use when writing or reviewing C#, covering honest signatures, purity, pattern matching, immutability, Option, Fin, Validation, IO, composition operators, errors, unions, dependencies, and failure policies."
+description: "Use when writing or reviewing C#, covering signatures, purity, pattern matching, immutability, Option, Fin, Validation, IO, and effects."
 ---
 
 # [DOTNET_CODING]
@@ -44,7 +44,7 @@ Function signatures are contracts: the input types describe every value the func
 
 ### [01.1]-[HONEST_SIGNATURES]
 
-Functions honor their signature when each declared input produces a declared output, they return no `null` and throw no exception as an outcome the signature omits. Repair a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
+Functions honor their signature when each declared input produces a declared output, they return no `null` and throw no exception as an outcome the signature omits. Correct a dishonest contract by narrowing the input to a validated type or widening the output to `Option<A>` or `Fin<A>`:
 - `int -> Tier` is incomplete when some integers fail validation, and `Quantity -> Tier` is accurate for every constructible `Quantity`
 - `string -> int` hides the undefined parses, `string -> Option<int>` describes every outcome, and `parseInt` has that signature
 - `Unit` is the one-value type that removes the split `void` makes between `Func` and `Action` and between `Task` and `Task<T>`, and `void` stays on an imperative API that returns nothing
@@ -84,7 +84,7 @@ internal static class Factories {
 }
 ```
 
-Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters so left-to-right application is useful: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<Instant>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
+Currying turns a function of `N` arguments into `N` unary functions (`curry`), and partial application (`par`) fixes a leading group of arguments and returns a function of the rest. Order parameters for useful left-to-right application: dependencies and configuration known at the composition root, then policies that select behavior, then the runtime value. Dependencies are functions that describe the behavior the consumer needs: a clock is `Func<Instant>`, a validator is `T -> Validation<Error, T>`, a lookup is `Guid -> Eff<RT, Option<T>>`, and persistence is `T -> IO<Unit>`. The composition root reads configuration, adapts infrastructure into functions of that shape, partially applies dependencies and policies, and injects only specialized functions into handlers. Top-level entry points compose functions from lower-level components while dependencies point downward, and no rule requires each layer to call only its neighbor, because a low-level I/O call makes every delegating layer impure.
 
 Use specialization when it simplifies call sites, function collections when behaviors share a signature and vary as data, `ForAll` or `Exists` when a short-circuiting boolean suffices, an ordered rule table with an explicit fallback for a first-match decision over values, a returned closure to narrow a noisy API to one operation, and ordinary functions when the helper is larger than the duplication it removes or hides ordering, effects, missing-value behavior, or termination risk.
 
@@ -338,7 +338,7 @@ Keep the failure policies distinct: fallback runs a lower-priority effect after 
 |  [02]   | Independent effects          | `Traverse` under `IO`                   | Overlaps without a bound, fails if one effect fails   |
 |  [03]   | Dependent or ordered effects | `TraverseM`                             | Serial, stops at the first failure                    |
 |  [04]   | Bounded concurrency          | Chunk, then `TraverseM` over the chunks | One chunk at a time, the chunk width sets the bound   |
-|  [05]   | Best effort                  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
+|  [05]   | Every effect, failures kept  | `PartitionFallible`                     | Serial, no short-circuit, returns `Fails` and `Succs` |
 
 Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, and `awaitAll` runs a `Seq<IO<A>>`. Keep state unshared, and when one logical value must be shared, `Atom<A>` replaces it with compare-and-swap, `AtomHashMap<K, V>` holds a registry with `FindOrAdd`, `Ref<A>` under `atomic` commits coordinated updates, a `Conduit` reduced under `Fork` serializes commands as an agent, and every update function stays free of effects because a conflict reruns it. The delivery shape selects the construct:
 - `Source<A>` fits values that arrive over time, logic across events or sources (sequences, transitions, windows), and one-way dataflow, and an expected per-item failure stays a `Fin<A>` value inside the stream

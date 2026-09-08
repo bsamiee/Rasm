@@ -53,7 +53,7 @@ class StaticSite(pulumi.ComponentResource):
         self.register_outputs({"bucket_name": self.bucket_name})
 ```
 
-Every type URN spells `<package>:<module>:<type>` (organization or package name, module usually `index`, PascalCase type): `myorg:index:StaticSite`.
+Every type URN spells `<package>:<module>:<type>` (organization or package name, module `index` by convention, PascalCase type): `myorg:index:StaticSite`.
 
 Missing `registerOutputs()` leaves the component stuck "creating" in the console and its outputs unpersisted, it is the constructor's last line. Child names derive from the component name (`${name}-bucket`), a hardcoded child name collides the moment two instances exist.
 

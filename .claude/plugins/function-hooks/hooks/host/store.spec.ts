@@ -29,7 +29,6 @@ import {
     stamp,
     stampOf,
     suffix,
-    summaryOf,
 } from './store.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -48,7 +47,6 @@ interface DecoderCase {
 
 const _EPOCH = 0;
 const _RANDOM = 'random-uuid-tail';
-const _CONFIDENCE = 0.5;
 const _TS = 1000;
 const _NONE: Plain<unknown> = { kind: 'none' };
 const _KINDS = ['stale', 'wrong', 'narrowing', 'anchoring', 'scattered', 'restated', 'coined', 'missing', 'unread', 'narrative'];
@@ -57,7 +55,7 @@ const _STATUSES = ['open', 'open-question', 'landed', 'closed'];
 const _SECRETS = { tokenA: 'value-a' };
 const _ENVIRONMENT = { path: '/repo/node_modules/.bin:/usr/bin' };
 const _SESSION = { startedAt: _TS, claudeChain: ['/repo'], memoryDir: null, remoteOwner: 'owner', env: _ENVIRONMENT };
-const _NOTICE = { session: 's', text: 'a line' };
+const _NOTICE = { text: 'a line' };
 const _FINDING = {
     session: 's',
     file: 'CLAUDE.md',
@@ -65,7 +63,6 @@ const _FINDING = {
     evidence: 'a:1 b:2',
     change: 'drop the line',
     kind: 'stale',
-    confidence: _CONFIDENCE,
     status: 'open',
     proof: '',
     ts: _TS,
@@ -82,7 +79,7 @@ const _DECODERS: readonly DecoderCase[] = [
     { name: 'decodeSecrets', decode: decodeSecrets, valid: _SECRETS, wrongType: { tokenA: 1 }, missing: { tokenA: null } },
     { name: 'decodeEnvironment', decode: decodeEnvironment, valid: _ENVIRONMENT, wrongType: { path: 1 }, missing: { path: null } },
     { name: 'decodeSession', decode: decodeSession, valid: _SESSION, wrongType: { ..._SESSION, env: { path: 1 } }, missing: { startedAt: _TS } },
-    { name: 'decodeNotice', decode: decodeNotice, valid: _NOTICE, wrongType: { ..._NOTICE, text: 1 }, missing: { session: 's' } },
+    { name: 'decodeNotice', decode: decodeNotice, valid: _NOTICE, wrongType: { text: 1 }, missing: {} },
     { name: 'decodeFinding', decode: decodeFinding, valid: _FINDING, wrongType: { ..._FINDING, ts: 'x' }, missing: { session: 's' } },
     { name: 'decodeDispatch', decode: decodeDispatch, valid: _DISPATCH, wrongType: { ..._DISPATCH, rows: [1] }, missing: { rows: [] } },
     { name: 'decodeSkill', decode: decodeSkill, valid: _SKILL, wrongType: { ..._SKILL, loadedAt: 'x' }, missing: { session: 's' } },
@@ -166,12 +163,10 @@ describe('decoders', () => {
         expect(cleanedOf({ stale: null })).toStrictEqual({});
     });
 
-    it('reads a summary row, and a wrong or missing one as zero open rows with no question', () => {
+    it('reads a summary row and refuses a wrong or missing one', () => {
         expect(_plain(decodeSummary(_SUMMARY))).toStrictEqual({ kind: 'some', value: _SUMMARY });
         expect(_plain(decodeSummary({ ..._SUMMARY, questions: [1] }))).toStrictEqual(_NONE);
-        expect(summaryOf(_SUMMARY)).toStrictEqual(_SUMMARY);
-        expect(summaryOf({ open: '1' })).toStrictEqual({ open: 0, questions: [] });
-        expect(summaryOf(undefined)).toStrictEqual({ open: 0, questions: [] });
+        expect(_plain(decodeSummary(undefined))).toStrictEqual(_NONE);
     });
 
     it('keeps the rows of a list that decode and pairs each with its key', () => {

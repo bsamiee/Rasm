@@ -305,7 +305,10 @@ eng = [
     "pydantic",
     "pydantic-settings",
     "ruamel-yaml",
+    "ruff",                                               # Python checker and writer the quality script runs
+    "sqlfluff",                                           # SQL checker the quality script runs
     "structlog",
+    "yamllint",                                           # YAML checker the quality script runs
 ]
 dev = [
     "annotated-types",                                    # Typed constraint metadata pydantic consumes
@@ -326,11 +329,9 @@ dev = [
     "pytest-socket",
     "pytest-timeout",
     "pytest-xdist",
-    "ruff",
     "s3fs>=2026.7",                                       # S3 filesystem for tests over moto, aiobotocore pins botocore and the resolver otherwise takes the 2020 release 0.4.2
     "scipy-stubs",
     "sniffio",                                            # Asynchronous runtime detection for the test environment fixture
-    "sqlfluff",                                           # SQL lint the root lint target runs
     "trio",                                               # AnyIO Trio backend with the autojumping clock for the test doubles
     "ty",
     "types-geopandas",
@@ -342,7 +343,6 @@ dev = [
     "types-pyphen",
     "types-reportlab",
     "types-shapely",
-    "yamllint",                                           # YAML lint the root lint target runs, .yamllint.yaml holds its rules
 ]
 
 # --- [UV] -------------------------------------------------------------------------------

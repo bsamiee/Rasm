@@ -8,8 +8,6 @@
             "cache": false,
             "parallelism": false
         },
-        "lint": { "inputs": ["...", "{workspaceRoot}/eng/native/**/*"] },
-        "format": {},
         "typecheck": {},
         "check": {}
     }

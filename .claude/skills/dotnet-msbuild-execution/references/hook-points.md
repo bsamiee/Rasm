@@ -12,7 +12,7 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [02]   | `BeforeTargets="_GenerateRestoreProjectSpec"` | Before the project spec joins the graph | `$(RestoreProjectStyle)`                    |
 |  [03]   | `AfterTargets="Restore"`                      | After the assets and `.nuget.g.*` files | `$(ProjectAssetsFile)`                      |
 
-- `_GetRestoreProjectStyle` also runs `CollectPackageReferences` in the build, and a hook there reads `$(MSBuildIsRestoring)` to tell the phases apart
+- `_GetRestoreProjectStyle` runs `CollectPackageReferences` in the build, and a hook there reads `$(MSBuildIsRestoring)` to tell the phases apart
 
 ## [02]-[BUILD]
 

@@ -48,7 +48,7 @@ Updates follow the same order with `docker compose pull` (registry images) or a 
 
 ## [04]-[VERIFY]
 
-Verify from infrastructure to functionality:
+Verify from infrastructure to features:
 1. Container health: `docker compose ps` shows every service `Up` or `healthy`, `docker compose ps --format json | jq '.[] | select(.State != "running")'` catches restart loops
 2. Application logs: `docker compose logs --tail=200 app`, and a grep for `error|fatal|exception` across services
 3. Functional smoke: `curl -sf https://app.example.com/health` from outside, or `curl -sf http://localhost:3000/health` on the server, an application-specific end-to-end probe from the client closes the check

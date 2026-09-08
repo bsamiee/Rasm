@@ -49,9 +49,11 @@ const _allow: Refinement = none;
 // Resets move HEAD off the branch tip unless they name an existing path or an index-only unstage
 const _reset: Refinement = (args, existing) => {
     const targets = args.filter((word) => !_isFlag(word));
-    return liftPredicate<string>(() => !(args.includes('--') || targets.length === 0 || targets.some((target) => existing.has(target))))(
-        `git reset ${targets[0] ?? ''} moves HEAD and drops commits from the branch`,
-    );
+    return flatMap((target: string) =>
+        liftPredicate<string>(() => !(args.includes('--') || targets.some((named) => existing.has(named))))(
+            `git reset ${target} moves HEAD and drops commits from the branch`,
+        ),
+    )(fromNullable(targets[0]));
 };
 
 // Restores touch the working tree unless they are index-only --staged
@@ -192,7 +194,7 @@ const _heads = (command: string): readonly (readonly string[])[] =>
             );
         });
 
-// argv.ts has no unparseable state, the length cap is the one fail-closed arm
+// argv.ts has no unparsed state, the length cap is the one fail-closed arm
 const _refusal =
     (existing: ReadonlySet<string>) =>
     (command: string): Option<string> =>

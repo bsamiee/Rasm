@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { describe, expect, it } from 'vitest';
-import { INTERPRETER, type Leaf, leaves, strip } from './argv.ts';
+import { groups, INTERPRETER, type Leaf, leaves, strip } from './argv.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -192,5 +192,27 @@ describe('leaves', () => {
             ],
         ]);
         expect(word).toBe('sh');
+    });
+});
+
+describe('groups', () => {
+    it('spans each parenthesized group and marks the one whose closing paren feeds a pipe', () => {
+        const piped = "( sleep 10; printf 'a\\n'; sleep 20 ) | script -q /dev/null cmd";
+        expect(groups(piped)).toStrictEqual([{ start: 1, end: piped.indexOf(')'), piped: true }]);
+        const joined = '(cd x && ls) && (echo a || echo b) || true';
+        expect(groups(joined)).toStrictEqual([
+            { start: 1, end: joined.indexOf(')'), piped: false },
+            { start: joined.lastIndexOf('(') + 1, end: joined.lastIndexOf(')'), piped: false },
+        ]);
+    });
+
+    it('reads no group from a substitution, a quoted paren, or a command without parens', () => {
+        expect(groups('echo $(ls) | cat')).toStrictEqual([]);
+        expect(groups("echo '(a)' | cat")).toStrictEqual([]);
+        expect(groups('ls | cat')).toStrictEqual([]);
+    });
+
+    it('runs an unclosed group to the end without a pipe', () => {
+        expect(groups('( sleep 1; echo')).toStrictEqual([{ start: 1, end: '( sleep 1; echo'.length, piped: false }]);
     });
 });

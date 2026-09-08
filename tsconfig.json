@@ -5,7 +5,6 @@
         "*.config.ts",
         "tests/typescript/support/vitest.config.ts",
         "tools/nx/*.ts",
-        "tests/typescript/ast-grep/*.ts",
         "infra/*.ts"
     ]
 }

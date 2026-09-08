@@ -1,6 +1,6 @@
 ---
 name: python-document
-description: "Use when ruff reports a D or DOC violation, or when a public Python module, class, or function needs a Google-style docstring written or converted."
+description: "Use when ruff reports a D or DOC violation, or a public Python module, class, or function needs a Google-style docstring written or converted."
 ---
 
 # [PYTHON_DOCUMENT]
@@ -30,7 +30,7 @@ Existing work:
 ## [02]-[FORMAT]
 
 Formatting rules:
-- Summary line: one sentence in the third person that states what the member does or returns (`Fetches rows`), with no filler, no hedge, and no restatement of the signature (`D402`), on the first physical line after the opening quotes (`D212`), ending with a period (`D415`), within the 300-column `E501` limit because `ruff format` never wraps docstring text, and in one style per file because Google also accepts the imperative and `D401` is off under `google`
+- Summary line: one sentence in the third person that states what the member does or returns (`Fetches rows`), with no filler, no hedge, and no restatement of the signature (`D402`), on the first physical line after the opening quotes (`D212`), ending with a period (`D415`), within the 300-column `E501` limit because `ruff format` never wraps docstring text, and in one style per file because Google accepts the imperative and `D401` is off under `google`
 - Blank lines: one between the summary and the description (`D205`), one before each section (`D411`), one between sections (`D410`), and no empty section (`D414`)
 - Section headers: capitalized (`D405`), ending with a colon (`D416`), and followed by the first entry with no blank line between (`D412`)
 - Indentation: section entries 4 spaces from the header and continuation lines 4 more (8 total), Google accepts 2 or 4 with one width per file, and the docstring body aligns with the opening quotes (`D207`, `D208`)

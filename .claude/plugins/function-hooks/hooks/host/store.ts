@@ -59,7 +59,6 @@ interface Session {
 }
 
 interface Notice {
-    readonly session: string;
     readonly text: string;
 }
 
@@ -76,7 +75,6 @@ interface Finding {
     readonly evidence: string;
     readonly change: string;
     readonly kind: Kind;
-    readonly confidence: number;
     readonly status: Status;
     readonly proof: string;
     readonly ts: number;
@@ -194,7 +192,7 @@ const _isSession: (value: unknown) => value is Session = struct({
     env: _isEnvironment,
 });
 
-const _isNotice: (value: unknown) => value is Notice = struct({ session: isString, text: isString });
+const _isNotice: (value: unknown) => value is Notice = struct({ text: isString });
 
 const _isSummary: (value: unknown) => value is Summary = struct({ open: isNumber, questions: _isStringArray });
 
@@ -207,7 +205,6 @@ const _isFinding: (value: unknown) => value is Finding = struct({
     evidence: isString,
     change: isString,
     kind: isKind,
-    confidence: isNumber,
     status: _isStatus,
     proof: isString,
     ts: isNumber,
@@ -277,12 +274,10 @@ const decodeJson = (text: string): Option<unknown> => {
     }
 };
 
-// Absent or malformed secrets, cleaned, or summary values read as the empty record
+// Absent or malformed secrets or cleaned values read as the empty record, the seed and the first close are outside the plugin's own writes
 const secretsOf = (value: unknown): Secrets => getOrElse((): Secrets => ({}))(decodeSecrets(value));
 
 const cleanedOf = (value: unknown): Cleaned => getOrElse((): Cleaned => ({}))(decodeCleaned(value));
-
-const summaryOf = (value: unknown): Summary => getOrElse((): Summary => ({ open: 0, questions: [] }))(decodeSummary(value));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
@@ -343,5 +338,4 @@ export {
     stamp,
     stampOf,
     suffix,
-    summaryOf,
 };

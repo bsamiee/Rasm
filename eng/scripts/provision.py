@@ -67,7 +67,19 @@ class NoMutants(msgspec.Struct, frozen=True, gc=False):
     report: Path
 
 
-type Failure = CommandFailed | DownloadFailed | PinMismatch | HostUnsupported | FileMissing | NoMutants
+class ChecksFailed(msgspec.Struct, frozen=True, gc=False):
+    """Quality run with commands that exited nonzero, each named by its words without the files."""
+
+    commands: tuple[str, ...]
+
+
+class ScopeUnknown(msgspec.Struct, frozen=True, gc=False):
+    """Scope tokens that name no file kind and no path in the tree."""
+
+    tokens: tuple[str, ...]
+
+
+type Failure = CommandFailed | DownloadFailed | PinMismatch | HostUnsupported | FileMissing | NoMutants | ChecksFailed | ScopeUnknown
 
 
 class Dependency(msgspec.Struct, frozen=True, gc=False):
@@ -482,6 +494,10 @@ def message(failure: Failure) -> str:
             return f"No file matching {name} under {directory}, the step producing it wrote nothing there, read its output and the manifest"
         case NoMutants(language=language, report=report):
             return f"Mutation run of {language} discovered zero mutants, {report} holds none, point the mutate globs of its Stryker configuration at source with tests"
+        case ChecksFailed(commands=commands):
+            return f"Checks failed, {', '.join(commands)} exited nonzero, read their findings and correct the files"
+        case ScopeUnknown(tokens=tokens):
+            return f"Scope {' '.join(tokens)} names no file kind and no path in the tree, pass a kind word or a path"
 
 
 def exit_code[T, E](report: Callable[[T], None], render: Callable[[E], str]) -> Callable[[Result[T, E]], int]:
@@ -559,6 +575,8 @@ __all__ = [
     "HostUnsupported",
     "FileMissing",
     "NoMutants",
+    "ChecksFailed",
+    "ScopeUnknown",
     "PortManifest",
     "ReleaseManifest",
     "ExtensionManifest",

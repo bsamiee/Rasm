@@ -1,10 +1,6 @@
 ---
 name: search-context7
-description: >-
-    Resolves any signature, member, or capability of an imported library through Context7
-    in place of memory or a guessed git tag. Load before the first lookup.
-    Fires on any Context7 mention, doc or API lookup, a new import, "how does <lib> do X",
-    and before coding against an uninstalled member. Un-indexed sources belong to search-tavily.
+description: "Use when resolving a signature, member, or capability of an external dependency through Context7 in place of memory or a guessed git tag."
 ---
 
 # [SEARCH_CONTEXT7]
@@ -45,7 +41,7 @@ mcp__context7__query-docs {"libraryId": "/effect-ts/effect", "query": "Schedule.
 
 ## [02]-[CAPABILITY_RESEARCH]
 
-Discover the package, then map it. Discovery (which package owns the capability): exa `category: "github"` returns best-in-class candidates with the stars, recency, and license the acceptance gate reads, Context7's index-search token-matches unrelated domains and misses here. Depth (map a chosen package): REST search ranks a named library's indexed sources by the signals the MCP strips (`benchmarkScore`, `trustScore`, `totalTokens`, freshness, `verified`), a token-budgeted topical pull routes bulk to disk per capability axis, the typed variant relevance-gates snippets before window entry, each revealed symbol drills through `resolve-library-id`/`query-docs`.
+Discover the package, then map it. Discovery (which package owns the capability): exa `category: "github"` returns candidates with the stars, recency, and license the acceptance gate reads, Context7's index-search token-matches unrelated domains and misses here. Depth (map a chosen package): REST search ranks a named library's indexed sources by the signals the MCP strips (`benchmarkScore`, `trustScore`, `totalTokens`, freshness, `verified`), a token-budgeted topical pull routes bulk to disk per capability axis, the typed variant relevance-gates snippets before window entry, each revealed symbol drills through `resolve-library-id`/`query-docs`.
 
 ```text
 // Discovery: best-in-class candidates with acceptance metadata (stars, recency, license)

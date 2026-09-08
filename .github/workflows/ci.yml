@@ -22,6 +22,32 @@ jobs:
     native:
         uses: ./.github/workflows/native.yml
 
+    check:
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                persist-credentials: false
+            - uses: ./.github/actions/setup
+            - run: nx run rasm:check
+
+    format:
+        needs: native
+        runs-on: ubuntu-24.04
+        timeout-minutes: 30
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                persist-credentials: false
+            - uses: ./.github/actions/setup
+            - uses: actions/download-artifact@v8
+              with:
+                name: nuget-local
+                path: .artifacts/nuget
+            - run: nx run rasm:format
+            - run: git diff --exit-code
+
     dotnet:
         needs: native
         strategy:
@@ -48,9 +74,7 @@ jobs:
               with:
                 name: nuget-local
                 path: .artifacts/nuget
-            - run: nx affected -t format --exclude='*,!tag:language:dotnet'
-            - run: git diff --exit-code
-            - run: nx affected -t build test lint --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
+            - run: nx affected -t build test --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
             - run: nx run rasm:coverage --language dotnet
             - uses: actions/upload-artifact@v7
               with:
@@ -85,10 +109,9 @@ jobs:
               with:
                 path: ${{ steps.cache.outputs.releases-path }}
                 key: ${{ steps.cache.outputs.releases-key }}
+            - run: sudo apt-get install -y --no-install-recommends proj-bin libproj-dev # pyproj builds from source against PROJ
             - run: uv sync --locked
             - run: uv cache prune --ci
-            - run: nx affected -t format --exclude='*,!tag:language:python'
-            - run: git diff --exit-code
             - run: nx affected -t check --exclude='*,!tag:language:python'
             - run: nx run rasm:coverage --language python
             - uses: actions/upload-artifact@v7
@@ -109,9 +132,7 @@ jobs:
               with:
                 workflow-id: ci.yml
             - uses: ./.github/actions/setup
-            - run: nx affected -t format --exclude='*,!tag:language:typescript'
-            - run: git diff --exit-code
-            - run: nx affected -t check --exclude='*,!tag:language:typescript'
+            - run: nx affected -t check --exclude='*,!tag:language:typescript,rasm'
             - run: nx run rasm:coverage --language typescript
             - uses: actions/upload-artifact@v7
               with:
@@ -120,7 +141,7 @@ jobs:
 
     # The one status check the ruleset requires, a skipped or cancelled job fails it
     required:
-        needs: [native, dotnet, python, typescript]
+        needs: [native, check, format, dotnet, python, typescript]
         if: always()
         runs-on: ubuntu-slim
         timeout-minutes: 5

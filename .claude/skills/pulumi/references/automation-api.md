@@ -17,8 +17,8 @@ const upResult = await stack.up({ onOutput: console.log });
 
 ## [01]-[SOURCE_MODEL]
 
-- [LOCAL_SOURCE]: `workDir` points at an existing Pulumi project on disk. Fits separate ownership: a platform team orchestrating application-team programs, independent version control and release cycles.
-- [INLINE_SOURCE]: `program` embeds the Pulumi program as a function in the orchestrator. Fits single-team ownership, tight coupling by design, and compiled-binary distribution with no source files.
+- [LOCAL_SOURCE]: `workDir` points at an existing Pulumi project on disk. Fits separate ownership: a platform team orchestrating application-team programs, independent version control and release cycles
+- [INLINE_SOURCE]: `program` embeds the Pulumi program as a function in the orchestrator. Fits single-team ownership, tight coupling by design, and compiled-binary distribution with no source files
 - [LANGUAGE_INDEPENDENCE]: Orchestrator and orchestrated programs choose languages independently, a Go orchestrator manages TypeScript programs
 
 ```typescript

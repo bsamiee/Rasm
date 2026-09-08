@@ -19,7 +19,7 @@ Observables push notifications to an observer under the protocol `OnNext* (OnCom
 Stream programs have 3 layers, and the separation keeps the dataflow composable and shows where effects run and resources are managed:
 1. Acquire sources by adapting callbacks, tasks, collections, or external producers into observables
 2. Describe the dataflow by transforming and combining streams with operators, with no side effect in the layer
-3. Run effects at the boundary by subscribing only to the final streams, performing output, persistence, and diagnostics in observers, and reducing a `Source<A>` once so the host runs the resulting `IO<S>`
+3. Run effects at the boundary by subscribing only to the final streams, performing output, persistence, and diagnostics in observers, and reducing a `Source<A>` once, and the host runs the resulting `IO<S>`
 
 ## [03]-[CREATION]
 
@@ -96,7 +96,7 @@ internal static class Transitions {
 
 `Skip(1)` shifts the second subscription by one value and `Zip` pairs each value with its successor. The pairing subscribes to the source twice, each subscription observes values from its own subscription time, and the meaning depends on how the source behaves when subscribed more than once.
 
-When one source emits more often than the output requires, reduce it before combining: `Zip` is the choice when each value has one matching partner, and `CombineLatest` when either input invalidates the derived value. When production outpaces consumption, the `Buffer<A>` given to `Conduit.make` states the policy, and the policy reflects whether intermediate values can be dropped, delayed, grouped, or preserved, and Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`:
+When one source emits faster than the output requires, reduce it before combining: `Zip` is the choice when each value has one matching partner, and `CombineLatest` when either input invalidates the derived value. When production outpaces consumption, the `Buffer<A>` given to `Conduit.make` states the policy, and the policy reflects whether intermediate values can be dropped, delayed, grouped, or preserved, and Rx names the time-based and grouping-based counterparts `Sample`, `Throttle`, `Debounce`, `Buffer`, and `Window`:
 
 ```csharp
 internal static class Backpressure {
@@ -105,7 +105,7 @@ internal static class Backpressure {
 }
 ```
 
-`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `Reduce` groups the amounts of each key, `Scan` carries each balance forward with the seed emitted first, and `Zip` against `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative:
+`Scan` is a running fold that emits each accumulated state while `Aggregate` waits for completion, and it detects a state crossing: `Reduce` groups the amounts of each key, `Scan` passes each balance forward with the seed emitted first, and `Zip` against `Tail` pairs each balance with its predecessor, the filter sees only a crossing from nonnegative to negative:
 
 ```csharp
 internal sealed record Entry(Guid Key, decimal Amount);

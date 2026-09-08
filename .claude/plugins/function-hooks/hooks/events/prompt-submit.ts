@@ -21,7 +21,7 @@ const promptSubmit = (on: On, _options: Options): void => {
         const secretPairs = pairs(secretsOf(stored));
         return redact<PromptSubmitInput>(secretPairs)(e).match<Promise<PromptSubmitResult>>({
             rewrite: async (input, context) => {
-                await $.store.set(key('prompt', session), { session, text: input.text });
+                await $.store.set(key('prompt', session), { text: input.text });
                 const result = await next(input);
                 // Proceeded results take the lines, and an empty context leaves the result as next resolved it
                 return fromPredicate((candidate: PromptSubmitResult): candidate is Proceeded => candidate.drop === undefined && context.length > 0)(

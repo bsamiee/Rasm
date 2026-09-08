@@ -39,15 +39,14 @@ const AGENTS = [
             'Never rewrite a whole file in one move: read the file whole, write one scoped change, read the result.',
             'Read the skill the step names and the reference it touches before the first edit, apply each change as an exact-string replacement that asserts one match, and land any defect you meet in the same file in the same step.',
             'Write in clean-prose, the 150 width read with leeway per entry.',
-            'Run the check the task names after the edit.',
-            'Report the lines changed and any fact the task names that you failed to place, in at most 12 lines.',
+            'Report result: done, partial, or not started, changes: with file and line, open: with the evidence, gate: with each check the task names and its result line, and suggestions: on the brief or a preloaded skill, in at most 12 lines.',
         ],
     },
     {
         subagentType: 'general-purpose',
         brief: [
             'Never rewrite a whole file in one move: read, one scoped change, read.',
-            'Correct only what you can justify, and report each correction as file, line, finding, and reason, in at most 20 lines.',
+            'Correct only what you can justify, and report result: done, partial, or not started, changes: with file, line, and reason, open: with the evidence, gate: with each check the task names and its result line, and suggestions: on the brief or a preloaded skill, in at most 20 lines.',
         ],
     },
     {

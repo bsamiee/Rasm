@@ -4,8 +4,19 @@ language: yaml
 severity: error
 files: [tools/ast-grep/tests/**]
 ignores: [tools/ast-grep/tests/__snapshots__/**, tools/ast-grep/tests/yaml/ast-grep/no-machine-path-in-case-test.yml]
+utils:
+    case-item:
+        kind: block_sequence_item
+        inside:
+            kind: block_sequence
+            inside:
+                kind: block_node
+                inside:
+                    kind: block_mapping_pair
+                    has: {field: key, regex: '^(valid|invalid|"(valid|invalid)"|''(valid|invalid)'')$'}
+                    inside: {kind: block_mapping, inside: {kind: block_node, inside: {kind: document}}}
 rule:
-    matches: ast-grep-case-item
+    matches: case-item
     has:
         kind: block_node, flow_node
         has:

@@ -1,12 +1,12 @@
 # [HOSTINGER_HOSTING]
 
-Shared hosting work scoped to a hosting account, from websites to the composite deploy pipeline. REST entries on `/api/hosting/v1` map one-to-one onto the `hostinger` MCP `hosting_*` tools. Account-scoped paths take `{username}` (the account, `u123456789`), and every WordPress operation additionally keys on `{software}`, the installation id from `listWordPressInstallationsV1`. Listings paginate on `page` and `per_page` (default 50).
+Shared hosting work scoped to a hosting account, from websites to the composite deploy pipeline. REST entries on `/api/hosting/v1` map one-to-one onto the `hostinger` MCP `hosting_*` tools. Account-scoped paths take `{username}` (the account, `u123456789`), and every WordPress operation adds `{software}`, the installation id from `listWordPressInstallationsV1`. Listings paginate on `page` and `per_page` (default 50).
 
 Website creation and every WordPress, plugin, theme, core, and Node.js build mutation is asynchronous: a `2xx` means the job is queued, and no response holds a completion field. Confirm completion by re-polling the matching list (`listWebsitesV1`, `listWordPressInstallationsV1`, `listInstalledWordPressPluginsV1`, `listNodeJSBuildsV1`) until the state settles.
 
 ## [01]-[WEBSITES]
 
-Websites bind to a hosting `order_id`, the first site on a plan also picks a `datacenter_code` (`listAvailableDatacentersV1` returns the plan-filtered set), and every later site inherits it. Website domains never start with `www.`. `createWebsiteV1` returns empty `200` before provisioning, poll `listWebsitesV1` until the domain lands.
+Websites bind to a hosting `order_id`, the first site on a plan picks a `datacenter_code` (`listAvailableDatacentersV1` returns the plan-filtered set), and every later site inherits it. Website domains never start with `www.`. `createWebsiteV1` returns empty `200` before provisioning, poll `listWebsitesV1` until the domain lands.
 
 ```bash
 curl -X POST "https://developers.hostinger.com/api/hosting/v1/websites" \
@@ -14,7 +14,7 @@ curl -X POST "https://developers.hostinger.com/api/hosting/v1/websites" \
   -d '{ "domain": "example.com", "order_id": 12345, "datacenter_code": "us-east-1" }'
 ```
 
-Subdomains (`POST .../accounts/{username}/websites/{domain}/subdomains` with `subdomain` and optional `directory`), parked domains, a free `hostingersite.com` subdomain (`generateAFreeSubdomainV1`, no body), and domain-ownership verification (`verifyDomainOwnershipV1`) share the website endpoints. `listWebsitesV1` also returns sites shared into the account by other clients.
+Subdomains (`POST .../accounts/{username}/websites/{domain}/subdomains` with `subdomain` and optional `directory`), parked domains, a free `hostingersite.com` subdomain (`generateAFreeSubdomainV1`, no body), and domain-ownership verification (`verifyDomainOwnershipV1`) share the website endpoints. `listWebsitesV1` returns sites shared into the account by other clients.
 
 ## [02]-[WORDPRESS]
 
@@ -27,7 +27,7 @@ curl -X POST "https://developers.hostinger.com/api/hosting/v1/accounts/{username
         "auto_updates": "minor", "credentials": { "email": "owner@example.com", "login": "admin", "password": "..." } }'
 ```
 
-- [PLUGINS]: `installWordPressPluginsV1` takes `{ "plugins": [...] }` (1-20 slugs from `searchWordPressPluginsV1`), `activate`/`deactivate` take one `plugin`, `uninstall`/`update` take a `plugins` list. `updateHostingerWordPressPluginV1` targets the bundled Hostinger plugins by `slug`.
+- [PLUGINS]: `installWordPressPluginsV1` takes `{ "plugins": [...] }` (1-20 slugs from `searchWordPressPluginsV1`), `activate`/`deactivate` take one `plugin`, `uninstall`/`update` take a `plugins` list. `updateHostingerWordPressPluginV1` targets the bundled Hostinger plugins by `slug`
 - [THEMES]: `installWordPressThemeV1` takes `theme`, only the Hostinger slugs (`hostinger-blog`, `hostinger-affiliate-theme`, `hostinger-ai-theme`) honor `palette`, `layout`, and `font`
 - [CORE]: `updateWordPressCoreV1` takes optional `minor` and `version`, `showWordPressCoreVersionV1` and `listAvailableWordPressCoreUpdatesV1` read state
 - [ACCESS]: `createLoginLinksV1` issues an auto-login URL, `getInstallationJWTTokenV1` returns a one-hour JWT and the install's WordPress `mcp_url` for direct in-site automation
@@ -51,9 +51,9 @@ Node.js builds take a source archive, `createNodeJSBuildFromArchiveV1` with a `.
 
 ## [05]-[CACHE_CRON_PHP]
 
-- [CACHE]: `clearWebsiteCacheV1` and `toggleWebsiteCacheV1` are website-scoped (`{domain}`) and also purge the CDN when enabled, LiteSpeed and Memcached (`purgeLiteSpeedCacheV1`, `toggleMemcachedObjectCacheV1`, with `{ "enabled": ... }`) are WordPress-scoped (`{software}`), different path keys
+- [CACHE]: `clearWebsiteCacheV1` and `toggleWebsiteCacheV1` are website-scoped (`{domain}`) and purge the CDN when enabled, LiteSpeed and Memcached (`purgeLiteSpeedCacheV1`, `toggleMemcachedObjectCacheV1`, with `{ "enabled": ... }`) are WordPress-scoped (`{software}`), different path keys
 - [CRON]: `createAccountCronJobV1` takes a five-field `time` and a `command`, `getCronJobOutputV1` returns the last run's captured output by the job `uid`
-- [PHP]: `getPHPDetailsV1`/`getPHPInfoV1` read, `updatePHPVersionV1`, `updatePHPOptionsV1`, and `updatePHPExtensionsV1` mutate, with `resetPHPExtensionsV1` reverting to defaults. PHP version gates WordPress core-version resolution.
+- [PHP]: `getPHPDetailsV1`/`getPHPInfoV1` read, `updatePHPVersionV1`, `updatePHPOptionsV1`, and `updatePHPExtensionsV1` mutate, with `resetPHPExtensionsV1` reverting to defaults. PHP version gates WordPress core-version resolution
 - [MAINTENANCE]: `toggleMaintenanceModeV1` (`{ "enabled": ... }`) is WordPress-scoped
 
 ## [06]-[HORIZONS]

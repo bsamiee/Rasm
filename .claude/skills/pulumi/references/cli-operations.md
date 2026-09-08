@@ -12,7 +12,7 @@ pulumi do aws:s3:Bucket read my-data
 - `<pkg>` is the provider package (`aws`, `azure-native`, `gcp`, `cloudflare`, `kubernetes`)
 - `<mod>` is the module within the package (`compute`, `storage`, `dns`), optional when the module is `index`, `cloudflare:index/record:Record` invokes as `cloudflare:Record`
 - `<type>` is the resource type (`VirtualMachine`, `Bucket`, `Record`)
-- `<id>` is the cloud provider's identifier for an existing resource, the value `create` prints as `id`. `create` and `list` take no positional argument, `read`, `patch`, and `delete` take exactly one `<id>`.
+- `<id>` is the cloud provider's identifier for an existing resource, the value `create` prints as `id`. `create` and `list` take no positional argument, `read`, `patch`, and `delete` take exactly one `<id>`
 
 There is no Pulumi logical name to choose: the CLI derives an internal name from the type, and existing resources are addressed by cloud id. Non-CRUD forms: `pulumi do <pkg:mod:type> list [flags]` enumerates instances for types that implement listing (native providers broadly, Terraform-bridged `aws`/`azure`/`gcp` with per-type coverage), and `pulumi do <pkg:mod:function> [flags]` invokes a stateless provider function.
 

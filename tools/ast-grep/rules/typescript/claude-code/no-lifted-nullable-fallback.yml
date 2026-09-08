@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-lifted-nullable-fallback
+language: tsx
+severity: error
+files:
+    - '**/.claude/plugins/function-hooks/hooks/**'
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: function, pattern: getOrElse($F)}
+        - has: {field: arguments, has: {pattern: fromNullable($V)}}
+        - not: {has: {kind: comment, stopBy: end}}
+constraints:
+    F:
+        any:
+            - {pattern: () => $X, has: {field: body, not: {kind: statement_block}}}
+            - {kind: identifier}
+rewriters:
+    - id: arrow-body
+      rule: {pattern: () => $X}
+      fix: $X
+    - id: thunk-call
+      rule: {kind: identifier, pattern: $F}
+      fix: $F()
+transform:
+    FALLBACK: rewrite($F, rewriters=[arrow-body, thunk-call])
+fix: ($V ?? $FALLBACK)
+message: The nullable `$V` is lifted into an Option and read back with a fallback
+note: Read a nullable with `??`, `value ?? fallback` short-circuits on null and undefined as `fromNullable` does
+labels: {CALL: {style: primary}}

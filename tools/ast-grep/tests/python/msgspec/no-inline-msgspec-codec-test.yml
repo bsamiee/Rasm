@@ -151,7 +151,22 @@ valid:
       import msgspec.json as codec
       def encode(codec):
           return codec.Encoder().encode(value)
+    - |
+      from msgspec.json import Encoder, decode
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Decoder, encode
+      Decoder().decode(value)
+    - |
+      from msgspec.msgpack import Decoder, encode as load
+      Decoder().decode(value)
 invalid:
+    - |
+      from msgspec.json import Encoder, decode, encode
+      Encoder().encode(value)
+    - |
+      from msgspec.json import Decoder, encode as dump, decode as load
+      Decoder().decode(value)
     - |
       from msgspec import json
       target[json], other = values

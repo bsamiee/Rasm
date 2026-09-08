@@ -1,6 +1,6 @@
 # [EVALUATION_AND_INCREMENTALITY]
 
-Covers evaluation time, projects that evaluate more often than expected, and the work a no-change build still executes.
+Covers evaluation time, projects with repeated evaluations, and the work a no-change build still executes.
 
 ## [01]-[EVALUATION]
 
@@ -9,8 +9,8 @@ MSBuild evaluates a project before it executes targets, once per project instanc
 ### [01.1]-[MEASUREMENT]
 
 ```bash
-dotnet build <project> -tl:off -profileEvaluation:<dir>/evaluation-{}.md   # one row per import, property, item, and target
-dotnet build <project> -tl:off -v:diag | rg 'Property reassignment'
+dotnet build <project> -profileEvaluation:<dir>/evaluation-{}.md   # one row per import, property, item, and target
+dotnet build <project> -v:diag | rg 'Property reassignment'
 ```
 
 - `-profileEvaluation` reports inclusive and exclusive time, grouped into the passes of evaluation, and the glob rows include the directory enumeration cost
@@ -42,7 +42,7 @@ GLOBS:
 </PropertyGroup>
 ```
 
-MULTIPLE EVALUATIONS:
+REPEATED EVALUATIONS:
 - The restore pass, the outer build, and each inner build of a multi-targeting project are expected evaluations
 - Investigate only a difference in the global-property sets that the requested build does not need
 
@@ -57,15 +57,16 @@ Use `dotnet-msbuild-execution` for the `Inputs`, `Outputs`, and `FileWrites` aut
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
 ```bash
-dotnet build Solution.slnx -tl:off -bl:<dir>/establish-{}.binlog   # establishes the outputs
-dotnet build Solution.slnx -tl:off -bl:<dir>/no-change-{}.binlog   # the capture to analyze
+dotnet restore Solution.slnx --artifacts-path <dir>/artifacts
+dotnet build Solution.slnx --no-restore --artifacts-path <dir>/artifacts -bl:<dir>/establish-{}.binlog   # establishes the outputs
+dotnet build Solution.slnx --no-restore --artifacts-path <dir>/artifacts -bl:<dir>/no-change-{}.binlog   # the capture to analyze
 ```
 
 Analyze the second binlog:
-1. Run `binlog_incremental_analysis`, and read `targets` for each row with `skipped: false`, its `reason`, `triggerInputs`, and `staleOutputs`, then `incrementalCleanDeletions` for a file a skipped target had declared
+1. Run `binlog_incremental_analysis`, and read `targets` for each row with `skipped: false`, its `reason`, `triggerInputs`, and `staleOutputs`, then `incrementalCleanDeletions` for a file a skipped target had declared, with `jq -c '.data.targets[] | select(.skipped==false and (.staleOutputs[0]|test("/"))) | {projectLabel, targetName, reason, triggerInputs}' <file>` when the result landed in a file
 2. Run `binlog_project_target_times` for each project the rows name
 3. Keep the rows with a file path in `staleOutputs`, because a `staleOutputs` value that repeats the target name marks a target with no `Outputs`
-4. Run `binlog_search` with `Building target "<name>" completely` for each unresolved target, because the message under it names the stale input or the missing output
+4. Run `binlog_search` with `under($project <name>) $target <target>` and `context` 2 for each unresolved target, because the message under it names the stale input or the missing output, and a phrase with the quoted target name matches nothing
 5. Run `binlog_expensive_targets` to order the rebuilt targets by cost
 6. Run `binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
 
@@ -76,7 +77,8 @@ Analyze the second binlog:
 
 `CoreCompile` declares its sources, references, and analyzers as `Inputs` and the assembly, reference assembly, and documentation file as `Outputs`, and a no-change build skips it.
 - `Deterministic` is `true` by default in the SDK, and identical inputs produce an identical assembly
-- `ProduceReferenceAssembly` is `true` by default, `Csc` writes `obj/<config>/<tfm>/refint/<name>.dll`, and `CopyRefAssembly` updates `ref/<name>.dll` only when the public surface changes. A change inside a method body recompiles the library and leaves every consumer's `CoreCompile` skipped.
+- `ProduceReferenceAssembly` is `true` by default, `Csc` writes `obj/<config>/<tfm>/refint/<name>.dll`, and `CopyRefAssembly` updates `ref/<name>.dll` only when the public surface changes
+- Changes inside a method body recompile the library and leave every consumer's `CoreCompile` skipped
 - New public types rewrite the reference assembly and recompile every consumer, which `binlog_search_targets` on `CoreCompile` shows as `skipped: false` in each dependent
 
 ### [02.3]-[COMMON_DEFECTS]

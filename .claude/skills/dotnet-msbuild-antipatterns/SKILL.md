@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-antipatterns
-description: "Use when reviewing a .csproj, .props, or .targets file for MSBuild evaluation, placement, item, target, path, and build graph smells with severity, corrected form, and proof."
+description: "Use when reviewing a .csproj, .props, or .targets for MSBuild smells, covering evaluation, placement, items, targets, paths, and build graph."
 ---
 
 # [DOTNET_MSBUILD_ANTIPATTERNS]
@@ -14,7 +14,7 @@ Covers the review catalog for project and build files. Each entry names the smel
 - Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
 
 [REFERENCES]:
-- [01]-[WORKED_EXAMPLES](references/worked-examples.md): Corrections that span multiple elements
+- [01]-[WORKED_EXAMPLES](references/worked-examples.md): Corrections that span more than one element
 
 Use the `dotnet-msbuild-diagnostics` BuildCheck workflow for the review baseline. Its `-t:Rebuild` capture reruns build work through MSBuild without manually deleting output directories. `BC0101`, `BC0102`, `BC0107`, and `BC0302` report shared output paths, double writes, both framework properties, and `Exec` builds. No check reports a property override or a misplaced property, read the files for both.
 
@@ -27,7 +27,7 @@ Evaluation smells produce a wrong value before any target runs. Prove each with 
 ### [AP-01]-[ERROR]-[UNQUOTED_CONDITION_OPERANDS]
 
 - SMELL: `Condition="$(Foo) == net10.0"`, either side of a comparison lacks single quotes
-- WHY: MSBuild parses the condition before it expands the property. Unquoted literals with `.`, `,`, or a space fail with `MSB4092`, one with `:` fails with `MSB4090`, and an unclosed quote fails with `MSB4101`. Unquoted properties expand to one token and never fail, two empty properties compare equal, and an empty value fails with `MSB4113` in a condition with no operator and with `MSB4086` in a numeric comparison.
+- WHY: MSBuild parses the condition before it expands the property. Unquoted literals with `.`, `,`, or a space fail with `MSB4092`, one with `:` fails with `MSB4090`, and an unclosed quote fails with `MSB4101`. Unquoted properties expand to one token and never fail, two empty properties compare equal, and an empty value fails with `MSB4113` in a condition with no operator and with `MSB4086` in a numeric comparison
 - RULE: Quote both sides of `==` and `!=`
 
 ```xml
@@ -40,7 +40,7 @@ Evaluation smells produce a wrong value before any target runs. Prove each with 
 ### [AP-02]-[ERROR]-[SIDE_EFFECTS_DURING_PROPERTY_EVALUATION]
 
 - SMELL: Property functions that read or write the file system inside a `PropertyGroup`
-- WHY: MSBuild evaluates a project on every design-time build, `-getProperty` query, and project instance, the read repeats without a build, and a file that a target writes is one build stale when evaluation reads it. MSBuild blocks a write (`WriteAllText`) with `MSB4185`, and `MSBUILDENABLEALLPROPERTYFUNCTIONS=1` enables every function.
+- WHY: MSBuild evaluates a project on every design-time build, `-getProperty` query, and project instance, the read repeats without a build, and a file that a target writes is one build stale when evaluation reads it. MSBuild blocks a write (`WriteAllText`) with `MSB4185`, and `MSBUILDENABLEALLPROPERTYFUNCTIONS=1` enables every function
 - RULE: Read files inside a target, and a read of a file no target writes is STYLE
 
 ```xml
@@ -89,7 +89,7 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 
 - SMELL: `Directory.Build.props` and a `.csproj` both assign one property without a condition, and the last assignment wins with no message
 - WHY: Readers cannot tell which value the build uses without `-getProperty`
-- RULE: The `.props` default has `Condition="'$(Name)' == ''"`, and the project assigns only another value. `OutputPath` and `IntermediateOutputPath` never take a default in that form, an assigned value drops the `Configuration` segment, and `BaseOutputPath` or `ArtifactsPath` sets the root.
+- RULE: The `.props` default has `Condition="'$(Name)' == ''"`, and the project assigns only another value. `OutputPath` and `IntermediateOutputPath` never take a default in that form, an assigned value drops the `Configuration` segment, and `BaseOutputPath` or `ArtifactsPath` sets the root
 
 ```xml
 <!-- BAD: Directory.Build.props, the project assigns false and nothing says which wins -->
@@ -101,7 +101,7 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 ### [AP-06]-[ERROR]-[PROPS_CONDITION_ON_A_LATER_VALUE]
 
 - SMELL: `PropertyGroup` or property conditions in `Directory.Build.props` or any `.props` file on `$(TargetFramework)`, `$(OutputType)`, an SDK-computed path, or a property the project body sets
-- WHY: The project body sets `TargetFramework` and its own properties after the `.props` import, the SDK `.targets` compute `OutputPath`, `IntermediateOutputPath`, `TargetPath`, and `TargetFrameworkMoniker`, and the condition compares an empty string and never matches. Multi-targeting inner builds receive `TargetFramework` as a global property and match, and the outer build leaves it empty.
+- WHY: The project body sets `TargetFramework` and its own properties after the `.props` import, the SDK `.targets` compute `OutputPath`, `IntermediateOutputPath`, `TargetPath`, and `TargetFrameworkMoniker`, and the condition compares an empty string and never matches. Multi-targeting inner builds receive `TargetFramework` as a global property and match, and the outer build leaves it empty
 - RULE: Condition the properties in `Directory.Build.targets` or after the assignment in the project file, key a `.props` condition the SDK needs early on `$(MSBuildProjectName)` or the project directory, and an `ItemGroup`, item, `PackageVersion`, or `Target` condition evaluates after every property and is OK
 
 ```xml
@@ -122,7 +122,7 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 ### [AP-07]-[ERROR]-[ARTIFACTSPATH_IN_A_PROJECT_FILE]
 
 - SMELL: `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`, or `BaseIntermediateOutputPath` in a project file
-- WHY: The SDK reads them before the project body. `ArtifactsPath` and `UseArtifactsOutput` fail with `NETSDK1199`, `BaseIntermediateOutputPath` warns with `MSB3539` after restore used the default, and `ArtifactsProjectName` renames `bin/` alone and leaves `obj/` under the project name. The SDK reads `ArtifactsPivots` and the output name properties after the body, and a project file can set them.
+- WHY: The SDK reads them before the project body. `ArtifactsPath` and `UseArtifactsOutput` fail with `NETSDK1199`, `BaseIntermediateOutputPath` warns with `MSB3539` after restore used the default, and `ArtifactsProjectName` renames `bin/` alone and leaves `obj/` under the project name. The SDK reads `ArtifactsPivots` and the output name properties after the body, and a project file can set them
 - RULE: Set the artifacts properties in `Directory.Build.props` or on the command line
 
 ```xml
@@ -135,7 +135,7 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 ### [AP-08]-[STYLE]-[RESTATING_AN_SDK_DEFAULT_OR_A_ROOT_VALUE]
 
 - SMELL: Properties set to the SDK default (`OutputType=Library`, `EnableDefaultItems=true`, `RootNamespace` equal to the project name, `LangVersion` equal to the framework default), or a project file that repeats a `Directory.Build.props` value (`Nullable`, `ImplicitUsings`, `TreatWarningsAsErrors`, `TargetFramework`)
-- WHY: The copies hide the real overrides and keep the old value after an SDK or root change. `LangVersion` defaults to `14.0` under `net10.0` and `7.3` under `netstandard2.0`, and a pin below the default holds the sources at the older version.
+- WHY: The copies hide the real overrides and keep the old value after an SDK or root change. `LangVersion` defaults to `14.0` under `net10.0` and `7.3` under `netstandard2.0`, and a pin below the default holds the sources at the older version
 - RULE: Project files hold only values that differ from the SDK default and the root file, and `LangVersion` appears only where the framework default is below what the sources need
 
 ```xml
@@ -149,7 +149,7 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 ### [AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
 
 - SMELL: `NoWarn` with a compiler or analyzer code in a project file, or `NoWarn` assigned without `$(NoWarn);`
-- WHY: `.editorconfig` owns the severity of compiler and analyzer diagnostics per path, and `dotnet_diagnostic.CS1591.severity = none` under `[*.cs]` removes the warning without a project edit. `NoWarn` is the only switch for `NU*` and `MSB*` codes, and an assignment without `$(NoWarn);` drops the SDK default `1701;1702`.
+- WHY: `.editorconfig` owns the severity of compiler and analyzer diagnostics per path, and `dotnet_diagnostic.CS1591.severity = none` under `[*.cs]` removes the warning without a project edit. `NoWarn` is the only switch for `NU*` and `MSB*` codes, and an assignment without `$(NoWarn);` drops the SDK default `1701;1702`
 - RULE: Compiler and analyzer codes go to `.editorconfig`, restore and MSBuild codes go to `NoWarn` in `Directory.Build.props`, and every `NoWarn` assignment starts with `$(NoWarn);`
 
 ```xml
@@ -174,12 +174,12 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 
 ## [03]-[ITEMS_AND_REFERENCES]
 
-Item and reference smells produce a missing item, a doubled item, or a copy the output must not carry. Prove each with `dotnet msbuild <project> -getItem:<Type>`.
+Item and reference smells produce a missing item, a doubled item, or a copy the output must not hold. Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 
 ### [AP-11]-[ERROR]-[ITEM_UPDATE_OR_REMOVE_BEFORE_THE_SDK_INCLUDE]
 
 - SMELL: `Update` or `Remove` in `Directory.Build.props`, an `Update` with a pattern that matches no item, or an `Include` for a file the default glob already matches
-- WHY: `Update` and `Remove` act on items that exist at that point, items evaluate in order across imports, the SDK globs import after `Directory.Build.props`, and the element matches nothing and reports nothing. Duplicate `Compile` items fail with `NETSDK1022`, a full-path duplicate passes that check and warns with `CS2002`, and a duplicate `None` copies twice with no message.
+- WHY: `Update` and `Remove` act on items that exist at that point, items evaluate in order across imports, the SDK globs import after `Directory.Build.props`, and the element matches nothing and reports nothing. Duplicate `Compile` items fail with `NETSDK1022`, a full-path duplicate passes that check and warns with `CS2002`, and a duplicate `None` copies twice with no message
 - RULE: `Update` and `Remove` go in the project file or `Directory.Build.targets`, and an exclusion goes to `DefaultItemExcludes` in `.props`
 
 ```xml
@@ -194,7 +194,7 @@ Item and reference smells produce a missing item, a doubled item, or a copy the 
 ### [AP-12]-[ERROR]-[REFERENCE_WITH_HINTPATH_FOR_A_PACKAGE_OR_PROJECT]
 
 - SMELL: `Reference` with a `HintPath` into a `packages/` folder or into another project's `bin/`, or a `Reference` to a host-supplied assembly without `Private="false"`
-- WHY: Nothing restores a `packages/` folder for an SDK project, and the build warns with `MSB3245`. `Reference` to a project output loses the build order, which `BC0104` reports. Host-supplied assemblies without `Private="false"` copy into the output, and the host loads that copy.
+- WHY: Nothing restores a `packages/` folder for an SDK project, and the build warns with `MSB3245`. `Reference` to a project output loses the build order, which `BC0104` reports. Host-supplied assemblies without `Private="false"` copy into the output, and the host loads that copy
 - RULE: Packages are `PackageReference` items, projects are `ProjectReference` items, and a host-supplied assembly is a `Reference` with `HintPath` from a property and `Private="false"`
 
 ```xml
@@ -318,7 +318,7 @@ Target smells run at the wrong time, run every build, or leave a value unseen. P
 ### [AP-20]-[ERROR]-[COPY_TASK_FOR_AN_OUTPUT_ITEM]
 
 - SMELL: `Copy` tasks in a custom target that place a content file in `$(OutDir)`, or a target named `AfterBuild` or `BeforeBuild` in a `.csproj`
-- WHY: The SDK import follows the project body and replaces a same-named target, and `AfterBuild` in a `.csproj` never runs. `Copy` tasks in a custom target reach the project's own output only, and a referencing project and `dotnet publish` never receive the file.
+- WHY: The SDK import follows the project body and replaces a same-named target, and `AfterBuild` in a `.csproj` never runs. `Copy` tasks in a custom target reach the project's own output only, and a referencing project and `dotnet publish` never receive the file
 - RULE: Files that belong in the output are `None` or `Content` items with `CopyToOutputDirectory`, and a custom step extends the chain with `AfterTargets`
 
 ```xml
@@ -376,7 +376,7 @@ Execution and path smells run a process or name a path that works on one machine
 ### [AP-24]-[ERROR]-[BACKSLASHES_IN_PATHS]
 
 - SMELL: Backslash separators in a file that builds on more than one operating system
-- WHY: On Unix the evaluator converts `\` to `/` only when the string looks like a path and its first segment exists on disk. An `Exec` command that starts with a program name gets no conversion, `sh` deletes the backslash, and `cat data\file.txt` reads `datafile.txt`. Backslashes in `Import`, an item glob, or a path that `Copy`, `MakeDir`, or `Delete` consumes convert, and that case is STYLE.
+- WHY: On Unix the evaluator converts `\` to `/` only when the string looks like a path and its first segment exists on disk. `Exec` commands that start with a program name get no conversion, `sh` deletes the backslash, and `cat data\file.txt` reads `datafile.txt`. Backslashes in `Import`, an item glob, or a path that `Copy`, `MakeDir`, or `Delete` consumes convert, and that case is STYLE
 - RULE: Write `/` in every path, the other ERROR cases are in `references/worked-examples.md`
 
 ```xml
@@ -453,7 +453,7 @@ Build graph smells build one project twice. Prove each with `binlog_evaluations`
 ### [AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
 - SMELL: `<MSBuild>` task calls with a `Properties` value that the target project's output path does not contain (`_IsPublishing=true`)
-- WHY: MSBuild creates one instance per project path and global property set, the call creates `(project, {_IsPublishing=true})` beside `(project, {})`, both run every target against one `bin/` and `obj/`, and `CoreCompile` runs twice. `-check` reports `BC0102` for the copies and `BC0202` for the read of `_IsPublishing`, and a parallel build races the writes and reports `MSB3026`.
+- WHY: MSBuild creates one instance per project path and global property set, the call creates `(project, {_IsPublishing=true})` beside `(project, {})`, both run every target against one `bin/` and `obj/`, and `CoreCompile` runs twice. `-check` reports `BC0102` for the copies and `BC0202` for the read of `_IsPublishing`, and a parallel build races the writes and reports `MSB3026`
 - RULE: Run `Publish` in the same instance through `DependsOnTargets`, keep the `_IsPublishing` condition because without it `dotnet publish` fails with `MSB4006`, and leave `_IsPublishing` to the SDK, which moves a plain build to the `PublishRuntimeIdentifier` output path when `true`
 
 ```xml
@@ -468,7 +468,7 @@ Build graph smells build one project twice. Prove each with `binlog_evaluations`
 ### [AP-29]-[ERROR]-[SETTARGETFRAMEWORK_ON_A_SINGLE_TARGETING_PROJECTREFERENCE]
 
 - SMELL: `ProjectReference` with `SetTargetFramework="TargetFramework=net10.0"` to a project that declares `<TargetFramework>net10.0</TargetFramework>`
-- WHY: The metadata passes `TargetFramework` as a global property, which creates `(project, {TargetFramework=net10.0})` beside the `(project, {})` the solution builds, and both resolve to one `bin/Debug/net10.0/` and `obj/Debug/net10.0/`. The `ProjectReference` protocol removes the global property for a single-targeting reference, and the metadata reintroduces it.
+- WHY: The metadata passes `TargetFramework` as a global property, which creates `(project, {TargetFramework=net10.0})` beside the `(project, {})` the solution builds, and both resolve to one `bin/Debug/net10.0/` and `obj/Debug/net10.0/`. The `ProjectReference` protocol removes the global property for a single-targeting reference, and the metadata reintroduces it
 - RULE: Single-targeting references have no `SetTargetFramework`, a multi-targeting reference or a build under another framework takes it, and an incompatible reference takes `SkipGetTargetFrameworkProperties="true"` with `UndefineProperties="TargetFramework"` or `SetTargetFramework`, never both
 
 ```xml

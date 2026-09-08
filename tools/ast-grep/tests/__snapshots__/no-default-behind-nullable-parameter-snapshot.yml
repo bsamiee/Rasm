@@ -1028,6 +1028,66 @@ snapshots:
   ? |
     import operator
 
+    def check(left, right, equal: "Equality | None") -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: "Equality | None"'
+      style: primary
+      start: 40
+      end: 64
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: Equality | None
+      style: secondary
+      start: 48
+      end: 63
+    - source: '"Equality | None"'
+      style: secondary
+      start: 47
+      end: 64
+    - source: '"Equality | None"'
+      style: secondary
+      start: 47
+      end: 64
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 87
+      end: 130
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 87
+      end: 130
+    - source: |-
+        def check(left, right, equal: "Equality | None") -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 144
+    - source: operator
+      style: secondary
+      start: 119
+      end: 127
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: "Equality | None") -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 145
+  ? |
+    import operator
+
     def check(left, right, equal: Equality | None = None) -> None:
         assert (equal if equal is not None else operator.eq)(left, right)
   : labels:
@@ -1080,35 +1140,47 @@ snapshots:
   ? |
     import operator
 
-    def check(left, right, equal: _Equality[T]) -> None:
+    def check(left, right, equal: Equality | Other | None) -> None:
         assert (equal if equal is not None else operator.eq)(left, right)
   : labels:
-    - source: 'equal: _Equality[T]'
+    - source: 'equal: Equality | Other | None'
       style: primary
       start: 40
-      end: 59
+      end: 70
     - source: equal
       style: secondary
       start: 40
       end: 45
+    - source: None
+      style: secondary
+      start: 66
+      end: 70
+    - source: Equality | Other | None
+      style: secondary
+      start: 47
+      end: 70
+    - source: Equality | Other | None
+      style: secondary
+      start: 47
+      end: 70
     - source: equal if equal is not None else operator.eq
       style: secondary
-      start: 82
-      end: 125
+      start: 93
+      end: 136
     - source: equal if equal is not None else operator.eq
       style: secondary
-      start: 82
-      end: 125
+      start: 93
+      end: 136
     - source: |-
-        def check(left, right, equal: _Equality[T]) -> None:
+        def check(left, right, equal: Equality | Other | None) -> None:
             assert (equal if equal is not None else operator.eq)(left, right)
       style: secondary
       start: 17
-      end: 139
+      end: 150
     - source: operator
       style: secondary
-      start: 114
-      end: 122
+      start: 125
+      end: 133
     - source: operator
       style: secondary
       start: 7
@@ -1120,11 +1192,387 @@ snapshots:
     - source: |
         import operator
 
-        def check(left, right, equal: _Equality[T]) -> None:
+        def check(left, right, equal: Equality | Other | None) -> None:
             assert (equal if equal is not None else operator.eq)(left, right)
       style: secondary
       start: 0
-      end: 140
+      end: 151
+  ? |
+    import operator
+
+    def check(left, right, equal: None | Equality | Other) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: None | Equality | Other'
+      style: primary
+      start: 40
+      end: 70
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: None
+      style: secondary
+      start: 47
+      end: 51
+    - source: None | Equality | Other
+      style: secondary
+      start: 47
+      end: 70
+    - source: None | Equality | Other
+      style: secondary
+      start: 47
+      end: 70
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 93
+      end: 136
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 93
+      end: 136
+    - source: |-
+        def check(left, right, equal: None | Equality | Other) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 150
+    - source: operator
+      style: secondary
+      start: 125
+      end: 133
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: None | Equality | Other) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 151
+  ? |
+    import operator
+
+    def check(left, right, equal: None | Equality) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: None | Equality'
+      style: primary
+      start: 40
+      end: 62
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: None
+      style: secondary
+      start: 47
+      end: 51
+    - source: None | Equality
+      style: secondary
+      start: 47
+      end: 62
+    - source: None | Equality
+      style: secondary
+      start: 47
+      end: 62
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 85
+      end: 128
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 85
+      end: 128
+    - source: |-
+        def check(left, right, equal: None | Equality) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 142
+    - source: operator
+      style: secondary
+      start: 117
+      end: 125
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: None | Equality) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 143
+  ? |
+    import operator
+
+    def check(left, right, equal: Optional[Equality]) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: Optional[Equality]'
+      style: primary
+      start: 40
+      end: 65
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: Optional
+      style: secondary
+      start: 47
+      end: 55
+    - source: Optional[Equality]
+      style: secondary
+      start: 47
+      end: 65
+    - source: Optional[Equality]
+      style: secondary
+      start: 47
+      end: 65
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 88
+      end: 131
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 88
+      end: 131
+    - source: |-
+        def check(left, right, equal: Optional[Equality]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 145
+    - source: operator
+      style: secondary
+      start: 120
+      end: 128
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: Optional[Equality]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 146
+  ? |
+    import operator
+
+    def check(left, right, equal: Union[Equality, None]) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: Union[Equality, None]'
+      style: primary
+      start: 40
+      end: 68
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: Union
+      style: secondary
+      start: 47
+      end: 52
+    - source: None
+      style: secondary
+      start: 63
+      end: 67
+    - source: None
+      style: secondary
+      start: 63
+      end: 67
+    - source: '[Equality, None]'
+      style: secondary
+      start: 52
+      end: 68
+    - source: Union[Equality, None]
+      style: secondary
+      start: 47
+      end: 68
+    - source: Union[Equality, None]
+      style: secondary
+      start: 47
+      end: 68
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 91
+      end: 134
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 91
+      end: 134
+    - source: |-
+        def check(left, right, equal: Union[Equality, None]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 148
+    - source: operator
+      style: secondary
+      start: 123
+      end: 131
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: Union[Equality, None]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 149
+  ? |
+    import operator
+
+    def check(left, right, equal: typing.Optional[Equality]) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: typing.Optional[Equality]'
+      style: primary
+      start: 40
+      end: 72
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: typing.Optional
+      style: secondary
+      start: 47
+      end: 62
+    - source: typing.Optional[Equality]
+      style: secondary
+      start: 47
+      end: 72
+    - source: typing.Optional[Equality]
+      style: secondary
+      start: 47
+      end: 72
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 95
+      end: 138
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 95
+      end: 138
+    - source: |-
+        def check(left, right, equal: typing.Optional[Equality]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 152
+    - source: operator
+      style: secondary
+      start: 127
+      end: 135
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: typing.Optional[Equality]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 153
+  ? |
+    import operator
+
+    def check(left, right, equal: typing.Union[Equality, None]) -> None:
+        assert (equal if equal is not None else operator.eq)(left, right)
+  : labels:
+    - source: 'equal: typing.Union[Equality, None]'
+      style: primary
+      start: 40
+      end: 75
+    - source: equal
+      style: secondary
+      start: 40
+      end: 45
+    - source: typing.Union
+      style: secondary
+      start: 47
+      end: 59
+    - source: None
+      style: secondary
+      start: 70
+      end: 74
+    - source: typing.Union[Equality, None]
+      style: secondary
+      start: 47
+      end: 75
+    - source: typing.Union[Equality, None]
+      style: secondary
+      start: 47
+      end: 75
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 98
+      end: 141
+    - source: equal if equal is not None else operator.eq
+      style: secondary
+      start: 98
+      end: 141
+    - source: |-
+        def check(left, right, equal: typing.Union[Equality, None]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 17
+      end: 155
+    - source: operator
+      style: secondary
+      start: 130
+      end: 138
+    - source: operator
+      style: secondary
+      start: 7
+      end: 15
+    - source: import operator
+      style: secondary
+      start: 0
+      end: 15
+    - source: |
+        import operator
+
+        def check(left, right, equal: typing.Union[Equality, None]) -> None:
+            assert (equal if equal is not None else operator.eq)(left, right)
+      style: secondary
+      start: 0
+      end: 156
   ? |
     import settings
 

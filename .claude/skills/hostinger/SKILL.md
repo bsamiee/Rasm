@@ -1,13 +1,6 @@
 ---
 name: hostinger
-description: >-
-    Owns Hostinger account work through `hostinger` MCP tools, REST under `HOSTINGER_API_TOKEN`,
-    or SSH on the server, with safety rules for irreversible acts (snapshot first, firewall sync,
-    async polling, hPanel-only steps). Covers domains, DNS zones, WHOIS, VPS lifecycle, firewalls,
-    SSH keys, recovery, Docker Compose deploy and rollback, shared hosting, WordPress, databases,
-    ecommerce stores, Reach deliverability and segments, and the billing catalog `item_id` every
-    purchase consumes. Use for "deploy to the VPS", "point the domain at", "roll back the deploy",
-    or scripting the Hostinger API.
+description: "Use when a Hostinger domain, DNS zone, VPS, firewall, SSH key, or Docker project changes, covering safety rules, data safety, and API reference."
 ---
 
 # [HOSTINGER]
@@ -123,9 +116,9 @@ Hardening: SSH narrows to known IPs where feasible, database ports stay closed t
 
 ## [06]-[DATA_SAFETY]
 
-- [BACKUPS]: Hostinger-managed periodic captures, `GET .../backups`, `POST .../backups/{id}/restore`. Restores overwrite all VM data.
-- [SNAPSHOTS]: Operator-initiated point-in-time captures, `POST/GET/DELETE .../snapshot`, `POST .../snapshot/restore`. One per VM, a new snapshot overwrites the old.
-- [RECOVERY]: `POST .../recovery` boots a rescue image with the original disk mounted at `/mnt` for filesystem repair, `DELETE .../recovery` exits. Check a VM refusing to start for active recovery mode.
+- [BACKUPS]: Hostinger-managed periodic captures, `GET .../backups`, `POST .../backups/{id}/restore`. Restores overwrite all VM data
+- [SNAPSHOTS]: Point-in-time captures an operator starts, `POST/GET/DELETE .../snapshot`, `POST .../snapshot/restore`. One per VM, a new snapshot overwrites the old
+- [RECOVERY]: `POST .../recovery` boots a rescue image with the original disk mounted at `/mnt` for filesystem repair, `DELETE .../recovery` exits. Check a VM refusing to start for active recovery mode
 - [POST_INSTALL]: Scripts run after VM installation as `/post_install` with output at `/post_install.log`, capped at 48KB, `GET/POST/PUT/DELETE /api/vps/v1/post-install-scripts`
 - [MONARX]: `GET/POST/DELETE .../monarx` manages the malware scanner, production servers run it
 - [PTR]: `POST/DELETE .../ptr/{ipId}` manages reverse-DNS records, required for mail deliverability

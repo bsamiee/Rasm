@@ -2,14 +2,15 @@
 
 import { describe, expect, it } from 'vitest';
 import type { Decision } from '../composition/decision.ts';
-import { type PathEvent, pathRule, pathSkills, recordSearches, type Searched } from './paths.ts';
+import { toArray } from '../composition/option.ts';
+import { landed, landing, type PathEvent, pathRule, pathSkills, recordSearches, type Searched } from './paths.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Plain<D> =
+type Plain<R, D> =
     | { readonly kind: 'rewrite'; readonly context: readonly string[] }
     | { readonly kind: 'deny'; readonly reason: D }
-    | { readonly kind: 'answer' };
+    | { readonly kind: 'answer'; readonly result: R };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -25,14 +26,15 @@ const _LONG = `- ${'x'.repeat(_OVER)}`;
 // File with a third line an Edit replaces
 const _FILE = '# Title\n\n- third line\n- fourth line\n';
 const _SCRATCHPAD = '/private/tmp/claude-501/slug/session/scratchpad';
+const _SCRATCH = '/repo/.claude/scratch/agent-context-gathering/probe';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _plain = <E, R, D>(decision: Decision<E, R, D>): Plain<D> =>
-    decision.match<Plain<D>>({
+const _plain = <E, R, D>(decision: Decision<E, R, D>): Plain<R, D> =>
+    decision.match<Plain<R, D>>({
         rewrite: (_e, context) => ({ kind: 'rewrite', context }),
         deny: (reason) => ({ kind: 'deny', reason }),
-        answer: () => ({ kind: 'answer' }),
+        answer: (result) => ({ kind: 'answer', result }),
     });
 
 // The API's own field names as computed keys, the naming rule then reads them as the declarations spell them
@@ -79,6 +81,48 @@ describe('pathRule', () => {
             kind: 'rewrite',
             context: ['Search the docs with mcp__claudeCodeDocs__search_claude_code_docs'],
         });
+    });
+
+    it.each(['report.md', 'summary.md', 'FINDINGS.md'])('answers a scratch Write of %s as a created file the adapter lands', (name) => {
+        const path = `${_SCRATCH}/${name}`;
+        const e = _write(path, 'probe line');
+        expect(_plain(pathRule(_FRESH)(e))).toStrictEqual({
+            kind: 'answer',
+            result: { type: 'create', filePath: path, content: 'probe line', structuredPatch: [], originalFile: null },
+        });
+        expect(toArray(landing(e))).toStrictEqual([
+            {
+                argv: [
+                    'sh',
+                    '-c',
+                    'if [ -e "$1" ]; then echo update; cat -- "$1"; else echo create; fi && mkdir -p "$(dirname "$1")" && cat > "$1"',
+                    'sh',
+                    path,
+                ],
+                stdin: 'probe line',
+                result: { type: 'create', filePath: path, content: 'probe line', structuredPatch: [], originalFile: null },
+            },
+        ]);
+    });
+
+    it('answers an update over the previous text the child printed and the created record otherwise', () => {
+        const created = { type: 'create' as const, filePath: `${_SCRATCH}/report.md`, content: 'two', structuredPatch: [], originalFile: null };
+        expect(landed(created, 'update\none')).toStrictEqual({ ...created, type: 'update', originalFile: 'one' });
+        expect(landed(created, 'update\n')).toStrictEqual({ ...created, type: 'update', originalFile: '' });
+        expect(landed(created, 'create\n')).toStrictEqual(created);
+    });
+
+    it('passes a scratch Write of another name, a report outside scratch, and a report Edit to the engine', () => {
+        expect(_plain(pathRule(_FRESH)(_write(`${_SCRATCH}/record.md`, 'probe line')))).toStrictEqual({
+            kind: 'rewrite',
+            context: ['Search the docs with mcp__claudeCodeDocs__search_claude_code_docs'],
+        });
+        expect(_plain(pathRule(_FRESH)(_write('/repo/docs/report.md', 'probe line')))).toStrictEqual({ kind: 'rewrite', context: [] });
+        expect(_plain(pathRule(_FRESH)(_edit(`${_SCRATCH}/report.md`, 'probe line', 'probe line edited')))).toStrictEqual({
+            kind: 'rewrite',
+            context: ['Search the docs with mcp__claudeCodeDocs__search_claude_code_docs'],
+        });
+        expect(toArray(landing(_write(`${_SCRATCH}/record.md`, 'probe line')))).toStrictEqual([]);
     });
 
     it('denies an op reference in a notebook cell and passes markdown source outside the guidance directories', () => {

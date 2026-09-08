@@ -1,6 +1,6 @@
 ---
 name: dotnet-document
-description: "Use when adding or reviewing XML doc comments on a C# member, or when a build fails on a compiler or Roslynator doc-comment diagnostic."
+description: "Use when adding or reviewing XML doc comments on a C# member, or a build fails on a compiler or Roslynator doc-comment diagnostic."
 ---
 
 # [DOTNET_DOCUMENT]
@@ -86,7 +86,7 @@ Every documented member has a `<summary>` on one line (`RCS1253` with `roslynato
 
 ## [04]-[MEMBERS]
 
-Each member kind has its own opening phrase and tag set. Parameter, return, and value descriptions are noun phrases that open with an article and omit the data type, a boolean parameter reads "true to ...; otherwise, false", and a boolean return or property value reads "true if ...; otherwise, false".
+Each member kind has its own opening phrase and tag set. Parameter, return, and value descriptions are noun phrases that open with an article and omit the data type, a boolean parameter reads `true to ...; otherwise, false`, and a boolean return or property value reads `true if ...; otherwise, false`.
 
 ### [04.1]-[CLASSES_AND_STRUCTS]
 

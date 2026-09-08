@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-thinktecture
-description: "Use when declaring a Thinktecture value object, smart enum, or union, or a TTRESG diagnostic appears, covering hooks, generated API, Switch, Map, settings, factories, and integrations."
+description: "Use when declaring a Thinktecture value object, smart enum, or union, or a TTRESG diagnostic appears, covering generated API, Switch, and Map."
 ---
 
 # [DOTNET_CODING_THINKTECTURE]
@@ -324,7 +324,7 @@ Simple value objects and keyed smart enums cross every boundary as their key, co
 |  [08]   | Serilog                        | `Serilog`               | `Destructure.UsingThinktectureRuntimeExtensions()`                      |
 
 `Json`, `MessagePack`, `EntityFrameworkCore10`, and `Serilog` are in `Directory.Packages.props`, and `Newtonsoft.Json`, `AspNetCore`, and `Swashbuckle` are not, a project that needs one of them adds it there first.
-- The declaring project references `Json` and receives the `[JsonConverter]` attribute, and only a project that cannot do so registers the converter factory at the host, MVC reads `AddControllers().AddJsonOptions`, minimal APIs read `ConfigureHttpJsonOptions`, and the factory constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based reads
+- The declaring project references `Json` and receives the `[JsonConverter]` attribute, and only a project that cannot reference it registers the converter factory at the host, MVC reads `AddControllers().AddJsonOptions`, minimal APIs read `ConfigureHttpJsonOptions`, and the factory constructor `(bool skipObjectsWithJsonConverterAttribute, Func<Type, bool>? skipSpanBasedDeserialization)` skips attributed types and opts single types out of span-based reads
 - Unknown keys and rejected values on read throw `JsonException` with the validation text, string keys read through a span-based converter that rejects a non-string token, and a regular union needs one `[JsonDerivedType]` on the base per case, Newtonsoft `TypeNameHandling` (a deserialization risk unless the binder restricts the types), or a `[ObjectFactory<string>]` on the base, and MessagePack has no integration for it
 - Minimal APIs bind through `IParsable<T>.TryParse` and answer a failed bind with a plain 400, an application-side `MaybeBound<T, TKey, TValidationError>` wrapper with a `TryParse` that always succeeds and stores the value or the error text lets an endpoint filter answer with the text, MVC runs `Validate`, writes the error into `ModelState`, and `[ApiController]` answers 400 with the text, and the binder provider goes in front of the default providers with `skipBindingFromBody` at its default `true`
 - `AddThinktectureOpenApiFilters` renders a value object as its key or its members and a smart enum as its key with the allowed values, `SmartEnumSchemaFilter` selects `Default`, `OneOf`, `AnyOf`, `AllOf`, or `FromDependencyInjection`, `SmartEnumSchemaExtension` adds `x-enum-varnames`, and `RequiredMemberEvaluator` marks a member that implements `IDisallowDefaultValue` or a non-nullable reference member as required, with `All` and `None` as the overrides

@@ -16,7 +16,7 @@ import {
     struct,
     toArray,
 } from '../composition/option.ts';
-import { decodeJson, decodeScan, type Entry, isNumber, isString, keys, type Scan, stampOf, suffix } from '../host/store.ts';
+import { decodeJson, decodeScan, type Entry, isNullableString, isNumber, isString, keys, type Scan, stampOf, suffix } from '../host/store.ts';
 import { first, lines } from '../text/lines.ts';
 import { basename, extension, under } from '../text/path.ts';
 import { MS_PER_DAY } from './findings.ts';
@@ -171,7 +171,13 @@ const _NO_RULE_FILTER = '^$';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const stem = (path: string): string => basename(path).replace(_TEST_SUFFIX, '').replace(_YML, '');
+// The rule id of a tree file, the test or snapshot suffix stripped under the test tree alone and the extension elsewhere, because a rule id
+// under rules/ or rewrites/ can itself end in -test
+const stem = (path: string): string =>
+    fromBoolean(under(path, TREE.tests)).match<string>({
+        some: () => basename(path).replace(_TEST_SUFFIX, ''),
+        none: () => basename(path).replace(_YML, ''),
+    });
 
 const _isTree = (path: string): boolean => extension(path) === '.yml' && _TREE_DIRECTORIES.some((directory) => under(path, directory));
 
@@ -196,9 +202,9 @@ const _utilFilter = (path: string, facts: ScanFacts): string =>
 
 const dirs = (entries: readonly FsEntry[]): readonly string[] => entries.filter((entry) => entry.kind === 'dir').map((entry) => entry.name);
 
-// The rule ids of a package directory, the stems of its .yml files
-const ymlIds = (entries: readonly FsEntry[]): readonly string[] =>
-    entries.filter((entry) => entry.kind === 'file' && extension(entry.name) === '.yml').map((entry) => stem(entry.name));
+// The rule ids of a package directory, the stems of its .yml files under the directory that decides the suffix
+const ymlIds = (dir: string, entries: readonly FsEntry[]): readonly string[] =>
+    entries.filter((entry) => entry.kind === 'file' && extension(entry.name) === '.yml').map((entry) => stem(`${dir}/${entry.name}`));
 
 // The package directories of one tree root with their ids, through the listing the hook body builds over $.fs.listDir
 const packages = async (root: string, list: (dir: string) => Promise<readonly FsEntry[]>): Promise<readonly Package[]> => {
@@ -207,7 +213,10 @@ const packages = async (root: string, list: (dir: string) => Promise<readonly Fs
         languages.map(async (language) => dirs(await list(`${root}/${language}`)).map((name) => ({ language, package: name }))),
     );
     return Promise.all(
-        pairs.flat().map(async (pair): Promise<Package> => ({ ...pair, ids: ymlIds(await list(`${root}/${pair.language}/${pair.package}`)) })),
+        pairs.flat().map(async (pair): Promise<Package> => {
+            const dir = `${root}/${pair.language}/${pair.package}`;
+            return { ...pair, ids: ymlIds(dir, await list(dir)) };
+        }),
     );
 };
 
@@ -226,7 +235,7 @@ const _isCompactHit: (value: unknown) => value is _CompactHit = struct({
     ruleId: isString,
     file: isString,
     message: isString,
-    note: optional((value): value is string | null => value === null || isString(value)),
+    note: optional(isNullableString),
     range: _isRange,
     replacement: optional(isString),
 });
@@ -235,7 +244,7 @@ const _hit = (compact: _CompactHit): Hit => ({
     ruleId: compact.ruleId,
     file: compact.file,
     line: compact.range.start.line + 1,
-    note: getOrElse(() => compact.message)(fromNullable(compact.note)),
+    note: compact.note ?? compact.message,
     replacement: fromPredicate(isString)(compact.replacement),
 });
 

@@ -12,7 +12,7 @@ Deletion rows remove the word, replacement rows substitute the listed word, and 
 |  [04]   | Decoration       | tapestry, testament, synergy, interplay, intricate, vibrant, nuanced, multifaceted, holistic, meticulous   |
 |  [05]   | Ease             | effortlessly, blazingly, performant, intuitively, conveniently                                             |
 |  [06]   | Time markers     | now, currently, at this point, at this time, going forward                                                 |
-|  [07]   | Sequence markers | additionally, in addition, subsequently, lastly, finally (outside a numbered step)                         |
+|  [07]   | Sequence markers | additionally, in addition, subsequently, lastly, finally (outside a numbered step), as well, too, likewise |
 |  [08]   | Chat phrases     | please, certainly, absolutely, great, oops, let us, feel free, I hope this helps, that being said          |
 |  [09]   | Scope padding    | in terms of, with regard to, as far as, when it comes to, from the perspective of, in the context of       |
 |  [10]   | Rhetoric         | not just X but Y, decorative triplets, studies show, ranging from X to Y without real limits               |
@@ -42,7 +42,7 @@ Deletion rows remove the word, replacement rows substitute the listed word, and 
 |  [16]   | functionality                           | feature, function                  |
 |  [17]   | in order to                             | to                                 |
 |  [18]   | prior to                                | before                             |
-|  [19]   | due to, due to the fact that            | because, from                      |
+|  [19]   | due to, due to the fact that, because   | from, or the condition             |
 |  [20]   | except for                              | except                             |
 |  [21]   | in the event that                       | if                                 |
 |  [22]   | however, nevertheless, that said        | but, or delete                     |

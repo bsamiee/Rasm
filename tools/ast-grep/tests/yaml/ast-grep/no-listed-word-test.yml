@@ -32,6 +32,8 @@ valid:
       # The first child and the second container, one level
     - |
       # The item can justify the alsoran, modernize the value
+    - |
+      # The harness runs the clean tree, and the cleanly split item stays
 invalid:
     - |
       # Also the item holds the value
@@ -102,3 +104,5 @@ invalid:
       "note": The very item
     - |
       # The `Item` call would hold the value
+    - |
+      # The item harnesses the value

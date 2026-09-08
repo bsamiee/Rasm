@@ -17,7 +17,6 @@ const _RANDOM = 'random-uuid-tail';
 const _THRESHOLD = 5;
 const _ONE_DAY = 1;
 const _OLD_DAYS = 31;
-const _CONFIDENCE = 1;
 const _FINDING: Finding = {
     session: 's',
     file: 'CLAUDE.md',
@@ -25,7 +24,6 @@ const _FINDING: Finding = {
     evidence: 'a:1 b:2',
     change: 'drop the line',
     kind: 'stale',
-    confidence: _CONFIDENCE,
     status: 'open',
     proof: '',
     ts: _NOW,
@@ -106,14 +104,10 @@ describe('finding', () => {
             kind: 'stale' as const,
             fields: { file: 'CLAUDE.md', section: '[01]', evidence: 'a:1 b:2', change: 'drop the line' },
         };
-        expect(finding({ ...input, confidence: _CONFIDENCE, now: _NOW, random: _RANDOM })).toStrictEqual({
-            key: `findings/${id(_NOW, _RANDOM)}`,
-            row: _FINDING,
-        });
-        expect(
-            finding({ ...input, fields: { ...input.fields, change: 'keep the row?' }, confidence: _CONFIDENCE, now: _NOW, random: _RANDOM }).row
-                .status,
-        ).toBe('open-question');
+        expect(finding({ ...input, now: _NOW, random: _RANDOM })).toStrictEqual({ key: `findings/${id(_NOW, _RANDOM)}`, row: _FINDING });
+        expect(finding({ ...input, fields: { ...input.fields, change: 'keep the row?' }, now: _NOW, random: _RANDOM }).row.status).toBe(
+            'open-question',
+        );
     });
 });
 

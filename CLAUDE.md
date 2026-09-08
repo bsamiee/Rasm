@@ -3,7 +3,7 @@
 @README.md
 
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
-- Data dependency determines composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
+- Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but the composition rules do not, define a result type when a language lacks one instead of adding another error mechanism
 - Use established, context-appropriate domain terminology in file names, directory names, identifiers, and prose
 
@@ -70,7 +70,7 @@ Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and 
 
 [PURITY]: Domain functions read only their arguments and write only their return value
 - ALWAYS pass the clock, randomness, environment, and configuration as arguments, domain code reads no ambient source
-- ALWAYS pair acquisition and release in one resource scope, release also runs on the error path
+- ALWAYS pair acquisition and release in one resource scope, release runs on the error path
 - ALWAYS pass changing context to the next operation as a returned value, shared mutable state does not coordinate operations
 - ALWAYS confine mutation to a scope that owns it and publishes an immutable value, a buffer that never escapes stays pure
 
@@ -94,7 +94,6 @@ Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and 
 - ALWAYS record each package in both the central package manager and the owning language or package `README.md` dependency list
 - ALWAYS add a missing dependency record to its owning manifest or `README.md` dependency list instead of deleting the corresponding record
 - ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
-- ALWAYS pin a runtime or standalone binary in `mise.toml` at `latest`
 - ALWAYS let a manifest, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 - ALWAYS map every package id to one source in `NuGet.config`, `Rasm.*` to the local `.artifacts/nuget` feed and every other id to nuget.org

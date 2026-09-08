@@ -67,7 +67,7 @@ internal sealed class DateValidator(LocalDate today) {
 }
 ```
 
-Where a consumer reads many capabilities, a runtime record holds them with one `Has<Eff<RT>, T>` trait per capability, the consumer is an `Eff<RT, A>` generic over `RT` that reads the capability through `RT.Ask` and passes the snapshot to the validator, and a test runtime carries a fixed value:
+Where a consumer reads many capabilities, a runtime record holds them with one `Has<Eff<RT>, T>` trait per capability, the consumer is an `Eff<RT, A>` generic over `RT` that reads the capability through `RT.Ask` and passes the snapshot to the validator, and a test runtime holds a fixed value:
 
 ```csharp
 internal sealed record Clock(LocalDate Today);
@@ -208,7 +208,7 @@ internal static class Removals {
 }
 ```
 
-The order of the bracketed effects determines which downstream work each scope surrounds, and adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses, and `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
+The order of the bracketed effects decides which downstream work each scope surrounds, and adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses, and `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
 - Timing outside connection acquisition measures acquisition and database work, and timing inside the connection scope measures only downstream work
 - The transaction scope follows the connection scope because it depends on the connection
 - Operations that must be atomic sit inside the transaction scope, before the commit step

@@ -42,8 +42,9 @@
     <!-- The test framework package sets IsTestingPlatformApplication, and IsTestProject makes the Nx plugin infer the test target -->
     <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <IsTestProject>true</IsTestProject>
+        <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
         <_TestResultsDirectory>$([MSBuild]::NormalizeDirectory('$(ArtifactsPath)', 'coverage', '$(MSBuildProjectName)'))</_TestResultsDirectory>
-        <TestingPlatformCommandLineArguments>--coverlet --coverlet-output-format cobertura --results-directory "$(_TestResultsDirectory)"</TestingPlatformCommandLineArguments>
+        <TestingPlatformCommandLineArguments>--coverlet --coverlet-include "[Rasm.*]*" --coverlet-output-format cobertura --results-directory "$(_TestResultsDirectory)"</TestingPlatformCommandLineArguments>
     </PropertyGroup>
 
     <ItemGroup Label="Project Usings">

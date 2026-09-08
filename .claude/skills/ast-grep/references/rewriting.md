@@ -8,7 +8,7 @@ Templates are unparsed text, and captures substitute anywhere in them without a 
 - Every unfixable variant (guards, discards, exports, valueless members) is a `not:` arm before the template
 - Undefined metavariables fail the rule load under `scan` and substitute empty under `run -r`
 - Declared unmatched metavariables substitute empty in `fix` and as a `rewrite()` source
-- `$VARName` means `$VARN` followed by `ame`, append uppercase text through a `replace` transform
+- `$ITEMName` means `$ITEMN` followed by `ame`, append uppercase text through a `replace` transform
 - Lowercase names after `$` (`$schema`) are no metavariable and stay literal in `fix`
 - Parenthesize replacements and their captures where the surrounding operator, member access, return, or arrow body requires it
 - Statement templates include their `;`, a template without the terminator drops it

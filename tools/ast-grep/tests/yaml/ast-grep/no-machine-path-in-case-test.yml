@@ -57,6 +57,17 @@ valid:
       valid:
           # A root of another name
           - /VolumesBackup/Item
+    - |
+      id: <id>
+      fixtures:
+          # A sequence under a key that names no case set
+          - /Volumes/Work/Rasm/libs/Item/Item.csproj
+    - |
+      id: <id>
+      nested:
+          invalid:
+              # A case set below the document mapping
+              - /Volumes/Work/Rasm/libs/Item/Item.csproj
 invalid:
     - |
       id: <id>
@@ -95,3 +106,13 @@ invalid:
       invalid:
           # Solution project path from one machine
           - "<Project Path=\"/Volumes/Work/Item.csproj\" />"
+    - |
+      id: <id>
+      "invalid":
+          # Import from one machine under a double-quoted key
+          - /Users/someone/Rasm/eng/Item.props
+    - |
+      id: <id>
+      'valid':
+          # Path read by a script under a single-quoted key
+          - /Volumes/Work/Rasm/Item

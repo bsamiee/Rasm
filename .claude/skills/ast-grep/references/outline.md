@@ -4,13 +4,14 @@
 
 ## [01]-[READING]
 
-`NO_COLOR=1 pnpm exec nx run rasm:outline -- <arguments>` runs each table row, and the target loads every extractor under `tools/ast-grep/outline/*.yml` at run time beside the bundled extractors and the XML grammar, a new file needs no registration. `--color` fails the target's schema (`'never' should be a 'boolean'`), `NO_COLOR=1` turns color off.
+`pnpm exec nx run rasm:outline -- <arguments>` runs each table row, and the target loads every extractor under `tools/ast-grep/outline/*.yml` at run time beside the bundled extractors and the XML grammar, a new file needs no registration. `--color` fails the target's schema (`'never' should be a 'boolean'`), a piped run prints no color, and a missing path prints `ERROR: <path>: No such file or directory`, then `nothing found`, under a target that reports success.
 
 - Repository maps pass `--items structure`, and a member needs `--view expanded`
-- `--match` and `--type` reach items alone, and `--json=compact | grep '^\[{' | jq` over the item's `members` array reaches a member
+- `--match` and `--type` reach items alone, `--match` prints `nothing found` per file without a hit, and `--json=compact | grep '^\[{' | jq` over the item's `members` array reaches a member
 - File order varies between runs of one directory, a comparison sorts the file objects by `path`
 - `ast-grep outline <paths> --outline-rules tools/ast-grep/outline/<id>.yml` runs one extractor in isolation and serves a tree outside the repository
-- Resolve target paths from the task, search hits, or `git diff --name-only`, run the row for the task, then `Read` the printed line range alone.
+- `<dir> -l <lang>` walks one language of a directory, and a named dot directory or ignored path needs no `--no-ignore` flag
+- Resolve target paths from the task, search hits, or `git diff --name-only`, run the row for the task, then `Read` the printed line range alone
 
 | [INDEX] | [TASK]                                           | [ARGUMENTS]                                                                       |
 | :-----: | :----------------------------------------------- | :-------------------------------------------------------------------------------- |
@@ -49,20 +50,19 @@ Files under `tools/ast-grep/outline/` hold one extractor each. Items have no par
 |  [07]   | `github-job`                   | yaml       |                                                    |                                      |
 |  [08]   | `github-step`                  | yaml       | `github-job` and `github-composite`                |                                      |
 |  [09]   | `github-workflow`              | yaml       |                                                    |                                      |
-|  [10]   | `markdown-section`             | markdown   |                                                    |                                      |
-|  [11]   | `msbuild-group`                | xml        |                                                    | `isExported: false`                  |
-|  [12]   | `msbuild-item`                 | xml        | `msbuild-group`                                    |                                      |
-|  [13]   | `msbuild-property`             | xml        | `msbuild-group`                                    |                                      |
-|  [14]   | `msbuild-target-group`         | xml        | `msbuild-target`                                   |                                      |
-|  [15]   | `msbuild-target`               | xml        |                                                    |                                      |
-|  [16]   | `msbuild-task`                 | xml        | `msbuild-target`                                   |                                      |
-|  [17]   | `nx-target-configuration`      | json       | `nx-target`                                        |                                      |
-|  [18]   | `nx-target`                    | json       |                                                    |                                      |
-|  [19]   | `python-type-alias`            | Python     |                                                    |                                      |
-|  [20]   | `typescript-ambient-member`    | tsx        | `tsx-ambient-module`, `tsx-export-ambient-module`  | `isPublic` inside `export_statement` |
-|  [21]   | `typescript-hook-registration` | tsx        | `tsx-top-level-arrow-function`, `tsx-export-const` |                                      |
-|  [22]   | `typescript-object-member`     | tsx        | bundled `tsx-*` const and let items                |                                      |
-|  [23]   | `typescript-test-case`         | tsx        | `typescript-test`                                  |                                      |
+|  [10]   | `msbuild-group`                | xml        |                                                    | `isExported: false`                  |
+|  [11]   | `msbuild-item`                 | xml        | `msbuild-group`                                    |                                      |
+|  [12]   | `msbuild-property`             | xml        | `msbuild-group`                                    |                                      |
+|  [13]   | `msbuild-target-group`         | xml        | `msbuild-target`                                   |                                      |
+|  [14]   | `msbuild-target`               | xml        |                                                    |                                      |
+|  [15]   | `msbuild-task`                 | xml        | `msbuild-target`                                   |                                      |
+|  [16]   | `nx-target-configuration`      | json       | `nx-target`                                        |                                      |
+|  [17]   | `nx-target`                    | json       |                                                    |                                      |
+|  [18]   | `python-type-alias`            | Python     |                                                    |                                      |
+|  [19]   | `typescript-ambient-member`    | tsx        | `tsx-ambient-module`, `tsx-export-ambient-module`  | `isPublic` inside `export_statement` |
+|  [20]   | `typescript-hook-registration` | tsx        | `tsx-top-level-arrow-function`, `tsx-export-const` |                                      |
+|  [21]   | `typescript-object-member`     | tsx        | bundled `tsx-*` const and let items                |                                      |
+|  [22]   | `typescript-test-case`         | tsx        | `typescript-test`                                  |                                      |
 |  [24]   | `typescript-test`              | tsx        |                                                    | `isExported: false`                  |
 
 - `isImport` defaults to `false`, `isExported` and `isPublic` to `true`
@@ -72,13 +72,12 @@ Files under `tools/ast-grep/outline/` hold one extractor each. Items have no par
 - `--type` takes a comma list of `symbolType` values
 - `--pub-members` drops the members with `isPublic` false
 - Text view prints the item name in place of an empty signature, and `--json` holds `""` for it
-- JSON entries carry `role`, `symbolType`, `name`, `range` (`byteOffset`, zero-based `start` and `end`), `signature`, and `astKind`
+- JSON entries hold `role`, `symbolType`, `name`, `range` (`byteOffset`, zero-based `start` and `end`), `signature`, and `astKind`
 - Items add `isImport`, `isExported`, and `members` (omitted when empty), and a member adds `isPublic`
 - Injected regions (a `run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
 - Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, and the first match on a node wins
 - `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`, tsx members need the bundled set
-- `markdown-section` takes `any` over `html_block` and a `paragraph` opening with an underscore tag, a CommonMark tag name holds no underscore
 - `nx-target` accepts an `object` or `array` value, because `targetDefaults` of `nx.json` holds an array of objects and `package.json` one object
 - `github-step` and `github-job` strip a block scalar indicator line, `run: |` names the step by its first command and `if: |` signs `if: always()`
 - `msbuild-group` and `msbuild-target` require the `Project` root, `NuGet.config` and `Workspace.slnx` map to no item
@@ -97,7 +96,7 @@ Reuse a bundled extractor that selects the construct. Choose the item boundary b
 - Missing groups leave their separator, and the trim removes it
 - `rewriters` joined by `, ` sign a construct from its children (`ast-grep-rule`, `github-job`, `nx-target`)
 - Rewriters bind their own metavariable name, because a name the item bound through a shared util refuses a second binding
-- Literal `name` values name a construct the grammar leaves anonymous (`markdown-section` names every `html_block` `section`), binding nothing
+- Literal `name` values name a construct the grammar leaves anonymous, binding nothing
 - Signature fallback is the first line, the findable text (`--match '<gate>'`)
 - Sibling pairs name an anonymous mapping (`github-composite` reads the document `name`), because a literal name makes two actions one name
 - `isPublic` takes `not: {has: {kind: <visibility-kind>, regex: '<private-marker>'}}` where the default is public, an absent modifier reads public
@@ -126,5 +125,5 @@ Refusals:
 - Proof runs `--outline-rules <existing>.yml --outline-rules <new>.yml` against the same command without the new file
 - Check the requested views independently, because omitted member signatures in `digest` prove no failed transformation
 - Check a replaced default for lost constructs and duplicate entries
-- Durable tests run through `node --test tests/typescript/ast-grep/outline.test.ts` at `# fail 0`
 - Outline files pass `ast-grep scan --report-style short tools/ast-grep/outline` with no line
+- Maps compare through `difft --display inline <before.json> <after.json>` over `jq 'sort_by(.path)'` output, because file order varies per run

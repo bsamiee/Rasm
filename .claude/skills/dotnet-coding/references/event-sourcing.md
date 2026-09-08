@@ -11,7 +11,7 @@ initial state = Create(first event)
 current state = remaining events.Fold(initial state, Apply)
 ```
 
-Two snapshots show that state changed and not why, while the event with the prior state determines the next state. Keeping every historical snapshot repeats every unchanged value and still needs a comparison to explain a change, and the event history records the transition itself and derives whichever snapshot is needed.
+Two snapshots show that state changed and not why, while the event with the prior state decides the next state. Keeping every historical snapshot repeats every unchanged value and still needs a comparison to explain a change, and the event history records the transition itself and derives whichever snapshot is needed.
 
 ## [02]-[EVENTS]
 

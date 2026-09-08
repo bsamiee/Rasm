@@ -87,7 +87,7 @@ internal static class Generator {
 }
 ```
 
-`Map` changes only the value and keeps the next seed, a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order determines the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, and `State.pure` supplies the empty result without consuming state:
+`Map` changes only the value and keeps the next seed, a `char` generator reduces the integer modulo `char.MaxValue + 1` and casts. `Bind` threads the seed: the second generator always consumes the seed the first returned, and binding order decides the sequence of generator states. Recursive generators choose between an empty result and a generated head followed by another list, and `State.pure` supplies the empty result without consuming state:
 
 ```csharp
 internal static class ListGenerator {

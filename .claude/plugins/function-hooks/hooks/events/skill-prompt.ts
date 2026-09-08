@@ -46,7 +46,10 @@ const _blocks = (on: On): void => {
         const list = (dir: string): Promise<readonly FsEntry[]> => $.fs.listDir(dir);
         const utils = async (): Promise<readonly Utils[]> =>
             Promise.all(
-                dirs(await list(TREE.utils)).map(async (language) => ({ language, count: ymlIds(await list(`${TREE.utils}/${language}`)).length })),
+                dirs(await list(TREE.utils)).map(async (language) => {
+                    const dir = `${TREE.utils}/${language}`;
+                    return { language, count: ymlIds(dir, await list(dir)).length };
+                }),
             );
         const [version, grammar, rulePackages, rewrites, utilLanguages, entries] = await Promise.all([
             forEach((found: Environment) => $.process.run(['ast-grep', '--version'], { env: found }).catch(abort))(env),

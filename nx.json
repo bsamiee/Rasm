@@ -3,6 +3,7 @@
     "defaultBase": "main",
     "cacheDirectory": ".cache/nx/cache",
     "neverConnectToCloud": true,
+    "useDaemonProcess": false,
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
@@ -47,56 +48,6 @@
                 "filter": { "projects": ["tag:language:dotnet"] },
                 "dependsOn": ["^build:release", { "projects": ["rasm"], "target": "restore" }],
                 "inputs": ["...", "dotnet"]
-            }
-        ],
-        "lint": [
-            {
-                "filter": { "projects": ["tag:language:dotnet"] },
-                "executor": "nx:run-commands",
-                "cache": true,
-                "dependsOn": ["build", { "projects": ["rasm"], "target": "grammar" }],
-                "inputs": ["default", "dotnet"],
-                "options": { "command": "ast-grep scan {projectRoot}", "forwardAllArgs": false }
-            },
-            {
-                "filter": { "projects": ["tag:language:python"] },
-                "executor": "nx:run-commands",
-                "cache": true,
-                "dependsOn": [{ "projects": ["rasm"], "target": "grammar" }],
-                "inputs": ["default", "python"],
-                "options": { "commands": ["uv run ruff check {projectRoot}", "ast-grep scan {projectRoot}"], "parallel": false }
-            },
-            {
-                "filter": { "projects": ["tag:language:typescript", "!rasm"] },
-                "executor": "nx:run-commands",
-                "cache": true,
-                "dependsOn": [{ "projects": ["rasm"], "target": "grammar" }],
-                "inputs": ["default", "typescript"],
-                "options": { "commands": ["biome check --error-on-warnings {projectRoot}", "ast-grep scan {projectRoot}"], "parallel": false }
-            }
-        ],
-        "format": [
-            {
-                "filter": { "projects": ["tag:language:dotnet"] },
-                "executor": "nx:run-commands",
-                "cache": false,
-                "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["default", "dotnet"],
-                "options": { "command": "dotnet format --no-restore", "cwd": "{projectRoot}" }
-            },
-            {
-                "filter": { "projects": ["tag:language:python"] },
-                "executor": "nx:run-commands",
-                "cache": false,
-                "inputs": ["default", "python"],
-                "options": { "commands": ["uv run ruff check --fix {projectRoot}", "uv run ruff format {projectRoot}"], "parallel": false }
-            },
-            {
-                "filter": { "projects": ["tag:language:typescript", "!rasm"] },
-                "executor": "nx:run-commands",
-                "cache": false,
-                "inputs": ["default", "typescript"],
-                "options": { "command": "biome check --write --error-on-warnings {projectRoot}" }
             }
         ],
         "typecheck": [
@@ -157,7 +108,7 @@
                 }
             }
         ],
-        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["lint", "typecheck", "test"] }],
+        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }],
         "nx-release-publish": [
             {
                 "filter": { "projects": ["tag:language:dotnet"] },

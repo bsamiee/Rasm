@@ -28,6 +28,7 @@ Test matching and exclusions, then inspect snapshots for each invalid case's nod
 - `pairing` reads the whole tree with no extension
 - `width <ext>`, `arms <ext>`, and `parse <ext>` read one language, and a third argument `'^<id>$'` narrows them to one rule
 - `FAIL` callers stay out of a shared util's arms, and a test or snapshot naming no rule prints under `pairing` alone
+- `measure <ext> <path>...` prints `elements <n> nesting <n>` for a `ts` or `py` scope, and another extension is a usage error at exit 1 naming both
 
 Use the matching check when a passing test can hide a defect:
 
@@ -101,7 +102,7 @@ Snapshots record each invalid case by its exact source text and compare results 
 - `fixed` skips `expandStart` and `expandEnd` (`foo(first, second)` yields `foo(, second)`), and `replacementOffsets` show the consumed comma
 - Applied source is checked for syntax apart from the case, because snapshot text without consumed separators can be invalid while the edit parses
 - `-U` merges and never deletes, and a renamed or re-styled case leaves its old key as an orphan the run never checks
-- Orphan entries leave by deleting the snapshot file before `-U --filter '^<id>$'`, because `yq -i` rewrites the whole file in its own format
+- Orphan entries leave by deleting the snapshot file before `-U --filter '^<id>$'`, the file regenerates byte for byte, and `yq -i` rewrites the whole file in its own format
 - `-U --filter '.'` over many documents can panic after some writes, and `-U` per id writes each
 - New `invalid:` cases without a snapshot report `[Wrong]` as `No <id> baseline found`, and `-U` writes their entries
 - In a `[Wrong]` diff a moved secondary is a changed relational clause, a changed `fixed` a changed template or guard, a moved primary a new target

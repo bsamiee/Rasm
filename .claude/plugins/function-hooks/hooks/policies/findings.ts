@@ -46,7 +46,6 @@ interface FindingInput {
     readonly session: string;
     readonly kind: Kind;
     readonly fields: Fields;
-    readonly confidence: number;
     readonly now: number;
     readonly random: string;
 }
@@ -137,7 +136,6 @@ const finding = (input: FindingInput): KeyedFinding => {
             evidence: input.fields.evidence,
             change: input.fields.change,
             kind: input.kind,
-            confidence: input.confidence,
             // Changes that end in a question mark wait for the user's answer
             status: fromBoolean(input.fields.change.endsWith('?')).match<Status>({ some: () => 'open-question', none: () => 'open' }),
             proof: '',

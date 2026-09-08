@@ -1,6 +1,6 @@
 # [TESTS]
 
-Tests under `tests/` hold the cross-language test policy, reusable test support, and suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid, and repair tests that cannot run in a supported environment.
+Tests under `tests/` hold the cross-language test policy, reusable test support, and suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid, and fix tests that cannot run in a supported environment.
 
 ## [01]-[LAYOUT]
 

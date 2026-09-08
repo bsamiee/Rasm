@@ -14,15 +14,14 @@ The root `pyproject.toml` holds every dependency group as unpinned names and `uv
 - Cache paths belong in the `[tool.*]` table of the tool (`cache-dir` for uv and ruff, `cache_dir` for mypy and pytest), under `.cache/<tool>`
 - The import roots are stated once per checker (`src` for ruff, `root` for ty, `pythonpath` for pytest) and hold the same values
 
-`required-environments` requires matching wheels for packages without source distributions. Packages with source distributions can build from source. Under the 3.15.0rc2 pin, 70 of the 670 lock entries record an sdist and no wheel (3.15.0 final releases 2026-10-01), members of the set build against libraries the sibling repository builds (Arrow C++, ICU, vips, PDAL, OpenEXR), and pyktx is the one member with no Linux wheel in any release.
+`required-environments` requires matching wheels for packages without source distributions. Packages with source distributions can build from source. Under the 3.15.0rc2 pin, members of the lock's sdist-only set build against libraries the sibling repository builds (Arrow C++, ICU, vips, PDAL, OpenEXR), and pyktx is the one member with no Linux wheel in any release.
 
 ## [02]-[PROJECTS]
 
-Python packages carry no manifest, and the local plugin infers a project from a package marker:
+Python packages hold no manifest, and the local plugin infers a project from a package marker:
 
 - `__init__.py` one level under the library root or an application marks the project, and the plugin names it by the last segment of its root
 - Directories the marker glob does not cover (the scripts, the test support) declare their targets in a `project.json` tagged with the language
-- The `format` default runs Ruff fixes and formatting, and `lint` checks without writing
 - Cached targets include the manifests, selected `UV_PYTHON` path, and uv version through the `python` named input
 - `typecheck` runs ty and mypy in order, and `test` runs pytest with `--cov` on the project root
 - Each `test` target sets `COVERAGE_FILE` to a per-project data file beside the root data file, and a `benchmark` configuration passes `-m benchmark`
@@ -33,9 +32,10 @@ Python packages carry no manifest, and the local plugin infers a project from a 
 
 Configure checker integration through the root `[tool.*]` tables:
 
-- `required_plugins` names every pytest plugin a test relies on, and `-p no:<plugin>` of a listed plugin fails at startup
+- `required_plugins` names every pytest plugin a test relies on, and `-p no:<name>` of a listed plugin fails at startup
+- `-p no:<name>` takes the entry-point name (`pytest_cov`) or its suffix (`cov`), and the distribution name (`pytest-cov`) drops nothing
 - `addopts` loads the test support runtime module as a plugin with `-p <module>`, and `-p no:<plugin>` drops one another package registers
-- `conftest.py` at the test root registers the package tree of the library root, and a test directory mirrors the package it tests
+- `conftest.py` at the test root registers the package tree of the library root, and a test directory matches the package it tests
 - `timeout` is a string, the plugin registers the option as one and TOML mode rejects a native integer
 - `[tool.coverage.run]` sets `patch = ["subprocess"]` and `relative_files`, and child processes measure into parallel data files by relative path
 - The report commands (`coverage lcov`, `coverage xml`) combine the parallel data files, and a `coverage combine` step fails on empty input
@@ -62,7 +62,7 @@ Provisioning rules:
 - Link the release root (the executable's directory, or its parent when named `bin`) at `.cache/tools/<library>` with a relative link
 - Consumers join the manifest `path` onto the link, and the relative link restores from a cache on another machine
 
-The sdist of pyktx reads `LIBKTX_VERSION` at import and compiles against `ktx.h` and `-lktx` from the `LIBKTX_*` directories the mise environment names (`tooling.md` holds the rows). The PEP 517 build inherits the process environment, uv's cached build survives a changed inherited variable, and `uv cache clean pyktx` then `uv sync` rebuilds it. The Python CI job provisions before `uv sync --locked`, and `github.md` holds the job order.
+The sdist of pyktx reads `LIBKTX_VERSION` at import and compiles against `ktx.h` and `-lktx` from the `LIBKTX_*` directories the mise environment names. The PEP 517 build inherits the process environment, uv's cached build survives a changed inherited variable, and `uv cache clean pyktx` then `uv sync` rebuilds it.
 
 ## [05]-[STAGING]
 

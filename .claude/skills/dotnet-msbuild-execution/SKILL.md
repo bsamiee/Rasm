@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-execution
-description: "Use when writing an MSBuild target, covering SDK hook points, incremental Inputs and Outputs, generated files, tasks, batching, errors, multi-targeting and publish scope, and copy to output."
+description: "Use when writing or ordering an MSBuild target, covering hook points, Inputs and Outputs, generated files, batching, errors, and copy to output."
 ---
 
 # [DOTNET_MSBUILD_EXECUTION]
@@ -91,7 +91,7 @@ MSBuild skips a target with every output at least as new as its inputs, and a ta
 - Skipped targets infer a task `<Output>` with a `TaskParameter` that is a task input too, and an output the task computes (`CopiedFiles`) stays unset
 - Add every written file to `@(FileWrites)` under `$(OutDir)` or `$(IntermediateOutputPath)`
 - `IncrementalClean` deletes a file that a prior build wrote and the current build did not, and `Clean` deletes every recorded file
-- `@(FileWritesShareable)` records a copy that another project can also write (a copy-local reference), and `IncrementalClean` keeps it when the file is outside the project directory
+- `@(FileWritesShareable)` records a copy that another project can write (a copy-local reference), and `IncrementalClean` keeps it when the file is outside the project directory
 - `_CleanRecordFileWrites` runs inside `CoreBuild`, a target after `Build` records nothing, and `Clean` leaves its file
 - `@(IntermediateAssembly)` names the compiled assembly under `$(IntermediateOutputPath)` when a target needs the compile output as an input
 
@@ -242,7 +242,7 @@ The command line proves what a target returns and controls the whole build:
 |  [02]   | `-getTargetResult:Name`                    | Runs the target and prints `Result` and the returned `Items` as JSON         |
 |  [03]   | `-t:Name -getProperty:` or `-getItem:`     | Prints the value after the target ran instead of after evaluation            |
 |  [04]   | `-restore` with `-restoreProperty:N=V`     | Runs `Restore` first, the property applies to restore and never to the build |
-|  [05]   | `-tl:on`                                   | Terminal logger, `-tl:off -v:n` shows target and task messages               |
+|  [05]   | `-tl:on`                                   | Terminal logger, `-v:n` shows target and task messages on the console logger |
 |  [06]   | `-graph`                                   | Builds a static graph, references build before the projects that use them    |
 |  [07]   | `-graph -isolate`                          | Fails with `MSB4252` on an `MSBuild` call the graph did not predict          |
 |  [08]   | `-isolate -outputResultsCache:file`        | Serializes the built target results, `-inputResultsCaches:file` reuses them  |

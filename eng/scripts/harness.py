@@ -97,6 +97,15 @@ class Report(msgspec.Struct, frozen=True, gc=False):
     checks: tuple[str, ...]
 
 
+class Proof(msgspec.Struct, frozen=True, gc=False):
+    """Reads of one proof session, every tool result, the restated result text, and the engine lines of the debug file."""
+
+    row: str
+    tool_results: tuple[str, ...]
+    result: str
+    engine: tuple[str, ...]
+
+
 class _Servers(msgspec.Struct, frozen=True, gc=False):
     """`mcpServers` table of .mcp.json and of ~/.claude.json, each server definition undecoded."""
 
@@ -126,12 +135,27 @@ class _ServerStatus(msgspec.Struct, frozen=True, gc=False):
     status: str
 
 
+class _Block(msgspec.Struct, frozen=True, gc=False):
+    """Content block of a message, a tool_result block carries the tool's content as text or as text blocks."""
+
+    type: str
+    content: str | list[dict[str, str]] = ""
+
+
+class _Message(msgspec.Struct, frozen=True, gc=False):
+    """Message of a user or assistant event, its content a string or the blocks."""
+
+    content: str | list[_Block] = ""
+
+
 class _Event(msgspec.Struct, frozen=True, gc=False):
-    """Fields of a stream-json event line the harness reads, the init event carries the server statuses and the others carry null."""
+    """Fields of a stream-json event line the harness reads, the init event carries the server statuses, a result event its text."""
 
     type: str
     subtype: str = ""
     servers: list[_ServerStatus] | None = msgspec.field(name="mcp_servers", default=None)
+    message: _Message = msgspec.field(default_factory=_Message)
+    result: str = ""
 
 
 class _Trust(msgspec.Struct, frozen=True, gc=False):
@@ -148,6 +172,9 @@ _PLUGIN_ID = f"{_PLUGIN}@{_MARKETPLACE}"
 _EVENT_BYTES = 1 << 20  # Longest stream-json line read before the init event, the init line itself measures about 34 KB
 _TOOL = re.compile(r"mcp__([\w-]+?)__([\w-]+)")
 _WRITTEN_BY = re.compile(r"// Written by Claude Code (\S+)\.")
+_ENGINE = re.compile(
+    r"loaded \(worker|resolved by a hooks module|tool\.call settled in|hook failed|\$\.(?:store\.set|process\.run|mcp\.call)|prompt\.submit: text rewritten|ui\.render"
+)
 
 _log = structlog.get_logger(__name__)
 _app = cyclopts.App(name="harness")
@@ -177,8 +204,10 @@ async def _init(stdout: BufferedByteReceiveStream, argv: tuple[str, ...], requir
             return Error(ServerPending(tuple(pending)))
 
 
-async def _session(root: Path, types: Path, required: frozenset[str]) -> Result[None, CommandFailed | ServerPending]:
-    """Run the -p session that regenerates the declarations under the blocking connect and fail on a required server the init event reports pending."""
+async def _session(
+    root: Path, prompt: str, required: frozenset[str], extra: tuple[str, ...], transcript: Path
+) -> Result[None, CommandFailed | ServerPending]:
+    """Run one -p session on the prompt under the blocking connect, write the events after init to the transcript, and fail on a pending server."""
     # The session loads .mcp.json alone (--strict-mcp-config), a user-level server in ~/.claude.json is the person's and can never connect
     argv = (
         "claude",
@@ -191,6 +220,7 @@ async def _session(root: Path, types: Path, required: frozenset[str]) -> Result[
         "--output-format",
         "stream-json",
         "--verbose",
+        *extra,
     )
     # MCP_CONNECTION_NONBLOCKING=0 holds startup on the whole server batch before the init event (Agent SDK mcp#connection-timing),
     # and MCP_CONNECT_TIMEOUT_MS bounds that hold at the startup timeout MCP_TIMEOUT documents (30 s), the batch measured at 8.5 s
@@ -208,15 +238,16 @@ async def _session(root: Path, types: Path, required: frozenset[str]) -> Result[
         events = BufferedByteReceiveStream(stdout)
         # The init event follows the first input under --input-format stream-json, so the command goes first and the blocking connect
         # (MCP_CONNECTION_NONBLOCKING=0) still holds the session until every server settled before init reports their statuses
-        await stdin.send(msgspec.json.encode({"type": "user", "message": {"role": "user", "content": f"/plugin-types {types}"}}) + b"\n")
+        await stdin.send(msgspec.json.encode({"type": "user", "message": {"role": "user", "content": prompt}}) + b"\n")
         await stdin.aclose()
         match await _init(events, argv, required):
             case Result(tag="error", error=failure):
                 return Error(failure)
             case Result():
                 pass
-        async for _ in events:  # Drained to EOF so the child never blocks on a full pipe
-            pass
+        async with await anyio.open_file(transcript, "wb") as sink:
+            async for chunk in events:  # Written to EOF so the child never blocks on a full pipe
+                await sink.write(chunk)
         status = await process.wait()
     return Ok(None) if status == 0 else Error(CommandFailed(argv, f"exit status {status}"))
 
@@ -224,7 +255,7 @@ async def _session(root: Path, types: Path, required: frozenset[str]) -> Result[
 async def _declare(root: Path, types: Path, configured: frozenset[str]) -> Result[dict[str, int], Failure]:
     """Regenerate the declarations and return the tool count per server after checking every configured server is declared."""
     started = time.time()
-    match await _session(root, types, configured):
+    match await _session(root, f"/plugin-types {types}", configured, (), Path(os.devnull)):
         case Result(tag="error", error=failure):
             return Error(failure)
         case Result():
@@ -371,6 +402,50 @@ async def _harness(start: Path) -> Result[Report, Failure]:
     )
 
 
+async def _proof(start: Path, row: str, prompt: str, options: dict[str, bool | str]) -> Result[Proof, Failure]:
+    """Run one -p session of the plugin tree on the prompt and return the reads of its transcript and debug file."""
+    match repository_root(start).bind(lambda root: _configured(root).map(lambda servers: (root, servers))):
+        case Result(tag="error", error=root_error):
+            return Error(root_error)
+        case Result(ok=(root, configured)):
+            harness = root / ".artifacts" / "harness"
+    harness.mkdir(parents=True, exist_ok=True)
+    transcript, debug = harness / f"proof-{row}.jsonl", harness / f"proof-{row}.txt"
+    debug.unlink(missing_ok=True)
+    settings = msgspec.json.encode({"pluginConfigs": {_PLUGIN: {"options": options}}}).decode()
+    # Write rows prove against a target under .artifacts/harness, and acceptEdits lets the session write it
+    extra = (
+        "--plugin-dir",
+        str(Path(".claude") / "plugins" / _PLUGIN),
+        "--debug-file",
+        str(debug),
+        "--permission-mode",
+        "acceptEdits",
+        *(("--settings", settings) if options else ()),
+    )
+    match await _session(root, prompt, configured, extra, transcript):
+        case Result(tag="error", error=session_error):
+            return Error(session_error)
+        case Result() if not debug.is_file() or f"hooks module {_PLUGIN} loaded" not in debug.read_text():
+            return Error(HookNotLoaded(debug))
+        case Result():
+            pass
+    try:
+        events = [msgspec.json.decode(line, type=_Event) for line in transcript.read_bytes().splitlines() if line]
+    except msgspec.DecodeError as error:
+        return Error(PinMismatch(f"Transcript {transcript}", f"does not decode, {error}"))
+    tool_results = tuple(
+        block.content if isinstance(block.content, str) else "\n".join(text.get("text", "") for text in block.content)
+        for event in events
+        if event.type == "user" and isinstance(event.message.content, list)
+        for block in event.message.content
+        if block.type == "tool_result"
+    )
+    result = next((event.result for event in events if event.type == "result"), "")
+    engine = tuple(line for line in debug.read_text().splitlines() if _ENGINE.search(line))
+    return Ok(Proof(row, tool_results, result, engine))
+
+
 # --- [CLI] ------------------------------------------------------------------------------
 
 
@@ -390,9 +465,7 @@ def _message(failure: Failure) -> str:
                 "keep one claude binary on PATH and run nx run rasm:harness again"
             )
         case HookNotLoaded(path=path):
-            return (
-                f"The installed plugin did not load under -p, {path} holds no line saying the hooks module loaded, read it for the loader's refusal"
-            )
+            return f"The plugin did not load under -p, {path} holds no line saying the hooks module loaded, read it for the loader's refusal"
         case PluginNotInstalled(plugin=plugin):
             return f"claude plugin list names no project-scope {plugin}, run claude plugin install {plugin} --scope project and read its output"
         case ServerPending(servers=servers):
@@ -408,7 +481,7 @@ def _message(failure: Failure) -> str:
             return message(failure)
 
 
-def _report(report: Report) -> None:
+def _report(report: Report | Proof) -> None:
     _log.info("harness", **msgspec.structs.asdict(report))
 
 
@@ -429,6 +502,21 @@ def main() -> Result[Report, Failure]:
     return anyio.run(_harness, Path(__file__).resolve())
 
 
+@_app.command
+def proof(row: str, prompt: str, *, option: tuple[tuple[str, bool | str], ...] = ()) -> Result[Proof, Failure]:
+    """Prove one hook row by a -p session of the plugin tree into proof-<row>.jsonl and .txt under .artifacts/harness.
+
+    Args:
+        row: Name of the row.
+        prompt: Prompt of the session.
+        option: Plugin option name and value pairs, passed under pluginConfigs through --settings.
+
+    Returns:
+        The tool results, restated result, and engine lines, or the failure of the step that did not hold.
+    """
+    return anyio.run(_proof, Path(__file__).resolve(), row, prompt, dict(option))
+
+
 if __name__ == "__main__":
     _app()
 
@@ -444,5 +532,7 @@ __all__ = [
     "ServerPending",
     "TrustPolicy",
     "Report",
+    "Proof",
     "main",
+    "proof",
 ]

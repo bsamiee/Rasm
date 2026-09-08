@@ -95,8 +95,7 @@
     "overrides": [
         {
             "includes": [
-                "infra/automation.ts",
-                "tests/typescript/ast-grep/*.test.ts"
+                "infra/automation.ts"
             ],
             "linter": {
                 "domains": {
@@ -143,21 +142,6 @@
                     },
                     "security": {
                         "noSecrets": "off"
-                    }
-                }
-            }
-        },
-        {
-            "includes": [
-                "tests/typescript/ast-grep/*.test.ts"
-            ],
-            "linter": {
-                "rules": {
-                    "correctness": {
-                        "noNodejsModules": "off"
-                    },
-                    "suspicious": {
-                        "noTemplateCurlyInString": "off"
                     }
                 }
             }

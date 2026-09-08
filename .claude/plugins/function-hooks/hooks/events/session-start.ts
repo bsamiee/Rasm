@@ -17,6 +17,7 @@ import {
     type Option,
     some,
     toArray,
+    traverse,
 } from '../composition/option.ts';
 import { type Options, whenEnabled } from '../host/options.ts';
 import {
@@ -153,13 +154,13 @@ const _facts = (on: On): void => {
         const env = getOrElse((): Environment => {
             throw new Error(`mise env --json answered exit ${answered.exitCode} in ${e.cwd}: ${answered.stderr.trim()}`);
         })(flatMap(decodeEnvironment)(decodeJson(answered.stdout)));
-        const [session, ancestors, repo, home, ...settings] = await Promise.all([
+        const [session, ancestors, repo, home, settings] = await Promise.all([
             $.session.id(),
             $.fs.ancestors({ names: ['CLAUDE.md'] }),
             $.session.repo(),
             $.process.run(['printenv', 'HOME'], { env }),
-            // A settings file the read rejects, missing or unreadable, holds no setting
-            ..._SETTINGS.map((file) => $.fs.readFile(file).catch(() => '{}')),
+            // The settings files present, the exists gate keeps a missing file off the engine's error log
+            traverse(async (file: string) => forEach(() => $.fs.readFile(file))(fromBoolean(await $.fs.exists(file))))(_SETTINGS),
         ]);
         // The configured autoMemoryDirectory wins over the derived one, and the MEMORY.md gate reads the winner
         const directory = _memoryDirectory(settings, _derived(_home(home), e.cwd));
@@ -235,7 +236,7 @@ const _dispatch = (on: On): void => {
                 background: true,
             });
             const refused = fromNullable(spawned.deny);
-            await forEach((reason: string) => $.store.set(key('notice'), { session, text: `The editor spawn was refused: ${reason}` }))(refused);
+            await forEach((reason: string) => $.store.set(key('notice'), { text: `The editor spawn was refused: ${reason}` }))(refused);
             refused.match<void>({ some: () => $.ui.invalidate('ui.render'), none: () => undefined });
             await forEach((text: string) => settle(named.batchId, text))(fromNullable(spawned.text));
         };

@@ -33,7 +33,7 @@
         ".gitignore": ".gitattributes",
         "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .shellcheckrc, .yamlfmt.yaml, .yamllint.yaml, .miserc.toml, mise.unix.toml, mise.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, .yamllint.yaml, .miserc.toml, mise.unix.toml, mise.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },

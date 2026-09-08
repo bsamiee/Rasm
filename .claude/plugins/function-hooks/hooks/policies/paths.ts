@@ -2,9 +2,9 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { ToolCallInput } from 'claude-code';
-import { type Decision, deny, type Rule, rewrite } from '../composition/decision.ts';
-import { fromNullable, fromPredicate, getOrElse, liftPredicate, map, toArray } from '../composition/option.ts';
+import type { BuiltinToolResults, ToolCallInput } from 'claude-code';
+import { answer, type Decision, deny, fold, type Rule, rewrite } from '../composition/decision.ts';
+import { fromBoolean, fromNullable, fromPredicate, getOrElse, liftPredicate, map, type Option, toArray } from '../composition/option.ts';
 import { isString } from '../host/store.ts';
 import { first, lines } from '../text/lines.ts';
 import { basename, extension, relative, under } from '../text/path.ts';
@@ -18,6 +18,16 @@ type PathTool = 'Read' | 'Edit' | 'Write' | 'NotebookEdit';
 type PathEvent = Extract<ToolCallInput, { readonly tool: PathTool }>;
 
 type Field = 'file_path' | 'notebook_path' | 'content' | 'new_string' | 'new_source' | 'old_string';
+
+// The Write result as the declarations state it, the shape core validates a hook's answer against
+type WriteResult = BuiltinToolResults['Write'];
+
+// An answered Write the adapter lands through a child in the engine's place, the argv with the text on its stdin and the result answered
+interface Landing {
+    readonly argv: readonly string[];
+    readonly stdin: string;
+    readonly result: WriteResult;
+}
 
 // Context lines injected once per session under their key, the skill name or the tool they name
 interface Once {
@@ -48,6 +58,7 @@ interface PathRow {
     readonly match: (path: string, text: string) => boolean;
     readonly tools: readonly PathTool[];
     readonly deny?: (path: string) => string;
+    readonly answer?: (path: string, text: string) => WriteResult;
     readonly once?: readonly Once[];
     readonly each?: (path: string, text: string, old: string, facts: PathFacts) => readonly string[];
     readonly guidance?: true;
@@ -68,6 +79,14 @@ const BINLOG_DENY = '.binlog files are binary, call mcp__binlog__binlog_overview
 const OP_DENY = 'Secrets come from Doppler alone, an op:// reference never lands in a file, use doppler secrets';
 const _ALL: readonly PathTool[] = ['Read', 'Edit', 'Write'];
 const _WRITES: readonly PathTool[] = ['Edit', 'Write'];
+const _WRITE: readonly PathTool[] = ['Write'];
+// The directory subagents write records under, the engine refuses a subagent Write of these names beneath next and passes every other
+const _SCRATCH = '.claude/scratch';
+const _REPORT_NAMES: readonly string[] = ['report.md', 'summary.md', 'findings.md'];
+// The child that lands a record where $.fs.writeFile refuses a .claude path, the previous text printed after the update line, then the
+// directory made and the text read from stdin, one child for the engine's update answer
+const _LAND = 'if [ -e "$1" ]; then echo update; cat -- "$1"; else echo create; fi && mkdir -p "$(dirname "$1")" && cat > "$1"';
+const _UPDATE = 'update\n';
 // Every tool that lands text in a file, the content rows read the text whatever the file
 const _CONTENT_WRITES: readonly PathTool[] = ['Edit', 'Write', 'NotebookEdit'];
 const _OP = /op:\/\/|\bop\s+(?:read|inject|item|run)\b/u;
@@ -108,7 +127,7 @@ const _RECORDS: Readonly<Partial<Record<string, DependencyRecord>>> = {
 
 const _skill = (name: string): Once => ({ key: name, line: `Load the ${name} skill` });
 
-const _names = (text: string, row: RegExp): readonly string[] => [...text.matchAll(row)].map((hit) => hit.groups?.name ?? '');
+const _names = (text: string, row: RegExp): readonly string[] => [...text.matchAll(row)].flatMap((hit) => toArray(fromNullable(hit.groups?.name)));
 
 // The distinct names in text and not in other, the added rows as (new, old) and the dropped rows as (old, new)
 const _only = (text: string, other: string, row: RegExp): readonly string[] => {
@@ -129,6 +148,22 @@ const _path = (e: PathEvent): string => _field(e, 'file_path') || _field(e, 'not
 const _text = (e: PathEvent): string => _field(e, 'content') || _field(e, 'new_string') || _field(e, 'new_source');
 
 const _old = (e: PathEvent): string => _field(e, 'old_string');
+
+// The record answered as a created file with no patch, the fields BuiltinToolResults.Write requires
+const _writeResult = (path: string, text: string): WriteResult => ({
+    type: 'create',
+    filePath: path,
+    content: text,
+    structuredPatch: [],
+    originalFile: null,
+});
+
+// The record as the child landed it, an update over the previous text after the update line, else the created record as answered
+const landed = (result: WriteResult, stdout: string): WriteResult =>
+    fromBoolean(stdout.startsWith(_UPDATE)).match<WriteResult>({
+        some: () => ({ ...result, type: 'update', originalFile: stdout.slice(_UPDATE.length) }),
+        none: () => result,
+    });
 
 // The lines of a dropped name's search: a failed child, or the holders that keep the drop from being a removal
 const _droppedLines = (name: string, searches: readonly Searched[]): readonly string[] =>
@@ -203,6 +238,11 @@ const PATHS = [
         match: (path, text): boolean => _OP.test(text) && !under(path, '.claude/skills'),
         tools: _CONTENT_WRITES,
         deny: (): string => OP_DENY,
+    },
+    {
+        match: (path): boolean => under(path, _SCRATCH) && _REPORT_NAMES.includes(basename(path).toLowerCase()),
+        tools: _WRITE,
+        answer: _writeResult,
     },
     { match: (path): boolean => extension(path) === '.cs', tools: _ALL, once: [_skill('dotnet-roslyn-codelens'), _skill('dotnet-coding')] },
     {
@@ -292,16 +332,37 @@ const _context = (e: PathEvent, facts: PathFacts): readonly string[] => [
     ),
 ];
 
-// The first deny ends the rule, otherwise every once line not yet seen and every each line join the context
-const pathRule =
+// The result of the first row that answers the call, none when no row does
+const _answer = (e: PathEvent): Option<WriteResult> =>
+    map((result: NonNullable<PathRow['answer']>) => result(_path(e), _text(e)))(
+        fromNullable(pathHits(e).find((row) => row.answer !== undefined)?.answer),
+    );
+
+// The child of an answered Write, sh with the path as its one argument and the text on stdin, run by the adapter under the session environment
+const landing = (e: PathEvent): Option<Landing> =>
+    map((result: WriteResult): Landing => ({ argv: ['sh', '-c', _LAND, 'sh', result.filePath], stdin: result.content, result }))(_answer(e));
+
+// The first deny ends the rule
+const _refuse = <E extends PathEvent>(e: E): Decision<E, unknown, string> =>
+    fromNullable(pathHits(e).find((row) => row.deny !== undefined)?.deny).match<Decision<E, unknown, string>>({
+        some: (reason) => deny(reason(_path(e))),
+        none: () => rewrite(e, []),
+    });
+
+// The first answer ends the rule
+const _land = <E extends PathEvent>(e: E): Decision<E, unknown, string> =>
+    _answer(e).match<Decision<E, unknown, string>>({ some: answer, none: () => rewrite(e, []) });
+
+// Every once line not yet seen and every each line join the context
+const _pass =
     <E extends PathEvent>(facts: PathFacts): Rule<E, unknown, string> =>
     (e: E): Decision<E, unknown, string> =>
-        fromNullable(pathHits(e).find((row) => row.deny !== undefined)?.deny).match<Decision<E, unknown, string>>({
-            some: (reason) => deny(reason(_path(e))),
-            none: () => rewrite(e, _context(e, facts)),
-        });
+        rewrite(e, _context(e, facts));
+
+// The deny, then the answer, then the pass
+const pathRule = <E extends PathEvent>(facts: PathFacts): Rule<E, unknown, string> => fold<E, unknown, string>([_refuse, _land, _pass(facts)]);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Once, PathEvent, PathFacts, PathRow, PathTool, Search, Searched };
-export { BINLOG_DENY, OP_DENY, PATHS, pathRule, pathSkills, recordSearches };
+export type { Landing, Once, PathEvent, PathFacts, PathRow, PathTool, Search, Searched, WriteResult };
+export { BINLOG_DENY, landed, landing, OP_DENY, PATHS, pathRule, pathSkills, recordSearches };

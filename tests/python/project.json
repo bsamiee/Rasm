@@ -3,8 +3,6 @@
     "name": "tests-python",
     "tags": ["language:python"],
     "targets": {
-        "lint": {},
-        "format": {},
         "typecheck": {},
         "test": {},
         "check": {}

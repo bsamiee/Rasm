@@ -18,6 +18,7 @@ import {
     scanRows,
     stale,
     telemetryBlock,
+    ymlIds,
 } from './scan.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -183,6 +184,19 @@ describe('scanRows', () => {
         expect(_ROWS[_PAIRING]?.timeoutMs).toBeUndefined();
         expect(_ROWS[_GRAPH]?.argv('nx.json', _NO_IDS)).toStrictEqual([..._GRAPH_PREFIX, '--files=nx.json']);
         expect(_ROWS[_GRAPH]?.argv('libs/typescript/item/package.json', _NO_IDS).at(-1)).toBe('--files=libs/typescript/item/package.json');
+    });
+
+    it('keeps a rule id ending in -test under rules/ and strips the suffix under tests/ alone', () => {
+        const rules = 'tools/ast-grep/rules/bash/syntax';
+        const tests = 'tools/ast-grep/tests/bash/syntax';
+        expect(_ROWS[_TREE]?.argv(`${rules}/no-arithmetic-comparison-in-test.yml`, _NO_IDS).at(-1)).toBe('^no-arithmetic-comparison-in-test$');
+        expect(_ROWS[_TREE]?.argv(`${tests}/no-arithmetic-comparison-in-test-test.yml`, _NO_IDS).at(-1)).toBe('^no-arithmetic-comparison-in-test$');
+        expect(ymlIds(rules, [{ name: 'no-arithmetic-comparison-in-test.yml', kind: 'file', size: 1 }])).toStrictEqual([
+            'no-arithmetic-comparison-in-test',
+        ]);
+        expect(ymlIds(tests, [{ name: 'no-arithmetic-comparison-in-test-test.yml', kind: 'file', size: 1 }])).toStrictEqual([
+            'no-arithmetic-comparison-in-test',
+        ]);
     });
 
     it('filters the util test run to the rule ids of its language, and to a regex no id matches without one', () => {

@@ -43,7 +43,18 @@ import {
 } from '../host/store.ts';
 import { close, FINDING_VIEWS } from '../policies/findings.ts';
 import { gitGuard, gitPaths } from '../policies/git.ts';
-import { type PathEvent, type PathTool, pathRule, pathSkills, recordSearches, type Search, type Searched } from '../policies/paths.ts';
+import {
+    type Landing,
+    landed,
+    landing,
+    type PathEvent,
+    type PathTool,
+    pathRule,
+    pathSkills,
+    recordSearches,
+    type Search,
+    type Searched,
+} from '../policies/paths.ts';
 import {
     ancestors,
     diagnosticLines,
@@ -76,7 +87,17 @@ import {
     TREE,
 } from '../policies/scan.ts';
 import { pairs, restore } from '../policies/secrets.ts';
-import { commandTimeout, type NxCaches, type NxTarget, nxTargets, packageManager, shellRule, shellSkills, skipNxCache } from '../policies/shell.ts';
+import {
+    commandCeiling,
+    commandTimeout,
+    type NxCaches,
+    type NxTarget,
+    nxTargets,
+    packageManager,
+    shellRule,
+    shellSkills,
+    skipNxCache,
+} from '../policies/shell.ts';
 import { isTool, type Named, type Recorded, toolRecords, toolRule, toolSkills } from '../policies/tools.ts';
 import { extension, relative } from '../text/path.ts';
 
@@ -283,6 +304,17 @@ const _searched = async (
         ),
     );
 
+// The child of an answered Write with the session environment it runs under, none for another answer or without a session row
+const _landed = (e: ToolCallInput, facts: Option<Session>): Option<{ readonly env: Environment; readonly record: Landing }> =>
+    flatMap((row: Session) => map((record: Landing) => ({ env: row.env, record }))(flatMap(landing)(fromPredicate(_isPath)(e))))(facts);
+
+// The landing child's answer, the record as landed on exit 0 and the engine's error form with the child's stderr on any other exit
+const _landedResult = (record: Landing, run: Run): ToolCallResult =>
+    fromBoolean(run.exitCode === 0).match<ToolCallResult>({
+        some: () => ({ result: landed(record.result, run.stdout) }),
+        none: () => ({ isError: true, result: run.stderr, text: run.stderr }),
+    });
+
 // The edit the scan rows read after the call, a succeeded Edit or Write under a session row, none otherwise
 const _scanTarget = (e: ToolCallInput, result: ToolCallResult, facts: Option<Session>): Option<Target> =>
     flatMap(() => flatMap((row: Session) => map((written: Written) => ({ facts: row, written }))(fromPredicate(_isWritten)(e)))(facts))(
@@ -319,8 +351,7 @@ const _scan = async (cwd: string, target: Target, runner: Runner): Promise<reado
 };
 
 // The text of the first text block and '' without one, the text the model reads of a reply
-const _firstText = (blocks: readonly McpContentBlock[]): string =>
-    getOrElse(() => '')(fromNullable(blocks.find((block) => block.type === 'text')?.text));
+const _firstText = (blocks: readonly McpContentBlock[]): string => blocks.find((block) => block.type === 'text')?.text ?? '';
 
 // The reply of a call, the text of its first text block
 const _reply = (result: McpToolResult): Reply => ({ isError: result.isError, text: _firstText(result.content) });
@@ -442,9 +473,12 @@ const _call = (on: On, options: Options): void => {
             when(_isBash, commandTimeout),
             when(_isBash, shellRule(sets.seen)),
             when(_isBash, commandTimeout),
+            when(_isBash, commandCeiling),
         ])(e);
         const rewritten = shelled.match<ToolCallInput>({ rewrite: (input) => input, deny: () => e, answer: () => e });
         const run = (argv: readonly string[], env: Environment): Promise<Run> => $.process.run(argv, { env }).catch(abort);
+        // The answered Write's child, the record on its stdin, where $.fs.writeFile refuses a .claude path
+        const land = (record: Landing, env: Environment): Promise<Run> => $.process.run(record.argv, { env, stdin: record.stdin }).catch(abort);
         const [existing, file, caches, searches] = await Promise.all([
             _existing(rewritten, exists),
             _fileText(e, exists, (path) => $.fs.readFile(path).catch(() => '')),
@@ -472,7 +506,13 @@ const _call = (on: On, options: Options): void => {
         )(shelled);
         return decision.match<ToolCallResult | Promise<ToolCallResult>>({
             deny: (reason) => ({ deny: reason }),
-            answer: (result) => ({ result }),
+            // A record Write answers from its child's run, every other answer as the rule decided it
+            answer: async (result) =>
+                getOrElse((): ToolCallResult => ({ result }))(
+                    await forEach(async (found: { readonly env: Environment; readonly record: Landing }) =>
+                        _landedResult(found.record, await land(found.record, found.env)),
+                    )(_landed(e, facts)),
+                ),
             rewrite: async (input, context) => {
                 await Promise.all(_onceKeys(input, sets).map((name) => $.store.set(key('injected', session, name), stamp(session, $.clock.now()))));
                 fromBoolean(context.length > 0).match<void>({ some: () => $.ui.notice(e.tool_use_id, context.join(' ')), none: () => undefined });

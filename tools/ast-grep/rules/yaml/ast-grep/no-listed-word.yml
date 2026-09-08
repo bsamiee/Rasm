@@ -13,7 +13,7 @@ rule:
                 (?ix)^(?:[^`]*`[^`]*`)*[^`]*(?:\b(?:
                     so|therefore|thus|hence|which\ is\ why|consequently|furthermore|moreover|also
                     |simply|just|actually|essentially|basically|really|very|quite|somewhat|easily
-                    |robust|powerful|comprehensive|seamless(?:ly)?|elegant|clean(?:ly)?|modern|lightweight|best
+                    |robust|powerful|comprehensive|seamless(?:ly)?|elegant|modern|lightweight|best
                     |note\ that|it\ is\ worth\ noting|it\ is\ important\ to|in\ other\ words|as\ mentioned|in\ summary
                     |possibly|typically|generally|usually|often|in\ some\ cases|in\ most\ cases|where\ appropriate
                     |a\ number\ of|various|several|multiple|the\ two|the\ three
@@ -35,7 +35,7 @@ rule:
                     |in\ terms\ of|with\ regard\ to|as\ far\ as|when\ it\ comes\ to
                     |from\ the\ perspective\ of|in\ the\ context\ of|is\ designed\ to|aims\ to|is\ intended\ to|genuinely
                     |honestly|frankly|admittedly|straightforward|minimalist
-                    |leverag(?:e[ds]?|ing)|harness(?:e[ds]|ing)?|employ(?:s|ed|ing)?|utiliz(?:e[ds]?|ing)|facilitat(?:e[ds]?|ing)
+                    |leverag(?:e[ds]?|ing)|harness(?:e[ds]|ing)|employ(?:s|ed|ing)?|utiliz(?:e[ds]?|ing)|facilitat(?:e[ds]?|ing)
                     |foster(?:s|ed|ing)?|empower(?:s|ed|ing)?|bolster(?:s|ed|ing)?|enhanc(?:e[ds]?|ing)|elevat(?:e[ds]?|ing)
                     |optimiz(?:e[ds]?|ing)|streamlin(?:e[ds]?|ing)|showcas(?:e[ds]?|ing)|emphasiz(?:e[ds]?|ing)
                     |plethora|myriad|a\ wealth\ of|paradigm|boasts|tackl(?:e[ds]?|ing)|ascertain|determin(?:e[ds]?|ing)
@@ -63,7 +63,7 @@ transform:
                 (?isx)^(?:[^`]*`[^`]*`)*?[^`]*?(\b(?:
                     so|therefore|thus|hence|which\ is\ why|consequently|furthermore|moreover|also
                     |simply|just|actually|essentially|basically|really|very|quite|rather|somewhat|easily
-                    |robust|powerful|comprehensive|seamless(?:ly)?|elegant|clean(?:ly)?|modern|lightweight|best
+                    |robust|powerful|comprehensive|seamless(?:ly)?|elegant|modern|lightweight|best
                     |note\ that|it\ is\ worth\ noting|it\ is\ important\ to|in\ other\ words|as\ mentioned|in\ summary
                     |possibly|typically|generally|usually|often|in\ some\ cases|in\ most\ cases|where\ appropriate
                     |a\ number\ of|various|several|multiple|the\ two|the\ three
@@ -85,7 +85,7 @@ transform:
                     |in\ terms\ of|with\ regard\ to|as\ far\ as|when\ it\ comes\ to
                     |from\ the\ perspective\ of|in\ the\ context\ of|is\ designed\ to|aims\ to|is\ intended\ to|genuinely
                     |honestly|frankly|admittedly|straightforward|minimalist
-                    |leverag(?:e[ds]?|ing)|harness(?:e[ds]|ing)?|employ(?:s|ed|ing)?|utiliz(?:e[ds]?|ing)|facilitat(?:e[ds]?|ing)
+                    |leverag(?:e[ds]?|ing)|harness(?:e[ds]|ing)|employ(?:s|ed|ing)?|utiliz(?:e[ds]?|ing)|facilitat(?:e[ds]?|ing)
                     |foster(?:s|ed|ing)?|empower(?:s|ed|ing)?|bolster(?:s|ed|ing)?|enhanc(?:e[ds]?|ing)|elevat(?:e[ds]?|ing)
                     |optimiz(?:e[ds]?|ing)|streamlin(?:e[ds]?|ing)|showcas(?:e[ds]?|ing)|emphasiz(?:e[ds]?|ing)
                     |plethora|myriad|a\ wealth\ of|paradigm|boasts|tackl(?:e[ds]?|ing)|ascertain|determin(?:e[ds]?|ing)

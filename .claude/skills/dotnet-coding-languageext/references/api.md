@@ -241,7 +241,7 @@
 |  [45]   | `Errors.None`                                     | static   | Empty `ManyErrors` value                |
 |  [46]   | `Errors.ParseError(string)`                       | static   | Parse failure construction              |
 
-- `Error.New(string, Exception)` requires an argument statically typed as `Exception`, derived or generic exceptions convert implicitly to `Error` and make the two-argument call ambiguous with `Error.New(string, Error)`, widen or cast the argument before the call
+- `Error.New(string, Exception)` requires an argument statically typed as `Exception`, derived or generic exceptions convert implicitly to `Error` and make the call ambiguous with `Error.New(string, Error)`, widen or cast the argument before the call
 - `Errors` declares the package failure values as a closed negative-code block, `Error.HasCode` and `Error.Is` separate a cancellation from a timeout, an empty sequence from a validation failure, and a completed source from a closed one, matches on the message text re-classify when the text changes, and the block occupies the `-2000000001`..`-2000000015` span
 
 [MEMBER_SCOPE]: `Fallible<E, F>`, the recovery and partition members shared by every failing type
@@ -321,7 +321,7 @@
 - `IO.lift` rethrows cancellation during execution, a token-aware boundary must capture the cancellation before the lift
 - In the 3-argument `IO.Bracket` form, the `Catch` argument receives the `Error` alone, never the acquired value, and releases that need the resource use the trailing `Fin` argument
 - `IO.lift` overload selection for a `Fin`-returning thunk is silent, not ambiguous, `Func<Fin<A>>` is the more specific candidate, `IO.lift(() => <Fin<T>>)` resolves to the result-typed overload and returns `IO<T>` with the `Fail` folded onto the error channel, never `IO<Fin<T>>`, and the type argument `IO.lift<Fin<T>>(…)` keeps the `Fin` as the value
-- `Prelude.tail` wraps the recursive call as the last bind continuation of a deferred effect, the run loop unwraps it, any `Map`, `Bind`, `Try()`, or `RunSafe()` placed after the recursion fails with `NotSupportedException` ("You can't map a tail call"), and `tail`-recursive effects exit through `Run()` or `RunAsync()` alone
+- `Prelude.tail` wraps the recursive call as the last bind continuation of a deferred effect, the run loop unwraps it, any `Map`, `Bind`, `Try()`, or `RunSafe()` placed after the recursion fails with `NotSupportedException` (`You can't map a tail call`), and `tail`-recursive effects exit through `Run()` or `RunAsync()` alone
 - `IO.Fork` starts one dedicated `TaskCreationOptions.LongRunning` thread per fork, forked effects overlap before the await, the pool imposes no concurrency bound, and unbounded fan-out creates an unbounded thread count
 
 [MEMBER_SCOPE]: `Schedule`, the repeat and retry policy every `IO.Repeat`/`Retry` overload accepts

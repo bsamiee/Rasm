@@ -3,7 +3,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ModelForkReply } from 'claude-code';
-import { flatMap, fromNullable, fromPredicate, getOrElse, liftPredicate, map, type Option, struct } from '../composition/option.ts';
+import { flatMap, fromNullable, fromPredicate, liftPredicate, map, type Option, struct } from '../composition/option.ts';
 import { decodeJson, isNullableString, isString, KIND_NAMES, type Kind } from '../host/store.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -100,9 +100,9 @@ const _isReply: (value: unknown) => value is Reply = struct({
 
 const _fields = (reply: Reply): Fields => ({
     file: reply.file,
-    section: getOrElse(() => '')(fromNullable(reply.section)),
+    section: reply.section ?? '',
     evidence: reply.evidence,
-    change: getOrElse(() => '')(fromNullable(reply.change)),
+    change: reply.change ?? '',
 });
 
 // The fork's text is external input, a parse failure, a missing field, or a null file or evidence maps to none

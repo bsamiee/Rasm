@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-packaging
-description: "Use when a .csproj, Directory.Packages.props, NuGet.config, or .slnx file changes, covering project set, central package management, restore, package authoring, CI build properties, and NU codes."
+description: "Use when a .csproj, Directory.Packages.props, NuGet.config, or .slnx changes, covering central versions, restore, packing, and NU codes."
 ---
 
 # [DOTNET_MSBUILD_PACKAGING]
@@ -291,7 +291,7 @@ Every CI property sits in one `PropertyGroup` in the root `Directory.Build.props
 ```
 
 - `ContinuousIntegrationBuild` turns on `DeterministicSourcePaths`, and `Deterministic` is the SDK default
-- `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks log, and `-warnaserror` on the command line covers both with `-warnnotaserror:<code>` as the exception
+- `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks and BuildCheck log, and `-warnaserror` on the command line covers both with `-warnnotaserror:<code>` as the exception
 - `SatelliteResourceLanguages=en` keeps only the named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`, and both belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, and a Windows target framework then fails with `NETSDK1100` instead of downloading packs
 - `global.json` `rollForward: disable` pins the SDK on the runner, and `DOTNET_ROLL_FORWARD` governs the runtime an application host selects and not the SDK
@@ -299,20 +299,18 @@ Every CI property sits in one `PropertyGroup` in the root `Directory.Build.props
 
 ```bash
 dotnet restore Product.slnx -p:CI=true
-dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -tl:off -nodeReuse:false -bl:.artifacts/logs/build-{}.binlog
+dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -nodeReuse:false -bl:.artifacts/logs/build-{}.binlog
 dotnet test --solution Product.slnx --no-build --report-trx --results-directory .artifacts/test-results
 ```
 
 | [INDEX] | [SWITCH]                        | [EFFECT]                                                                               |
 | :-----: | :------------------------------ | :------------------------------------------------------------------------------------- |
 |  [01]   | `--no-restore`, `--no-build`    | `test --no-build` implies `--no-restore`, restore once and build once per pipeline     |
-|  [02]   | `-tl:off`                       | Console logger output a log file keeps, `auto` picks the terminal logger on a terminal |
-|  [03]   | `-nologo`                       | Passed by `dotnet build`, needed on `dotnet msbuild`                                   |
-|  [04]   | `-clp:Summary;ErrorsOnly`       | Console logger parameters, `-v:m` sets the verbosity                                   |
-|  [05]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                       |
-|  [06]   | `-nodeReuse:false`              | Worker nodes exit with the build, an idle node otherwise lives 15 minutes              |
-|  [07]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise lives 10 minutes after the last build |
-|  [08]   | `-bl:<dir>/build-{}.binlog`            | Binary log per invocation, kept as a failure artifact                                  |
+|  [02]   | `-clp:Summary;ErrorsOnly`       | Console logger parameters, `-v:m` sets the verbosity                                   |
+|  [03]   | `-m`, `-maxCpuCount`            | One node per processor, `dotnet build` passes it                                       |
+|  [04]   | `-nodeReuse:false`              | Worker nodes exit with the build, an idle node otherwise waits 15 minutes              |
+|  [05]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise waits 10 minutes after the last build |
+|  [06]   | `-bl:<dir>/build-{}.binlog`            | Binary log per invocation, kept as a failure artifact                                  |
 
 | [INDEX] | [VARIABLE]                             | [EFFECT]                                                                  |
 | :-----: | :------------------------------------- | :------------------------------------------------------------------------ |
@@ -332,7 +330,7 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 - Extension options (`--report-trx`, `--coverage`, `--crashdump`) fail with exit code `5` in a project without the package that provides them
 - coverlet.MTP names each report by a timestamp under `--results-directory`, and a target before `ComputeRunArguments` empties it
 - MinVer runs one `dotnet` and three `git` processes per project per build and skips restore and design-time builds
-- A role condition on the MinVer `PackageReference` spares the projects that never publish
+- Role conditions on the MinVer `PackageReference` spare the projects that never publish
 
 ## [07]-[ANTIPATTERNS]
 

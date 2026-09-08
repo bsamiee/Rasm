@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-mapperly
-description: "Use when mapping domain types to or from transport, persistence, or read-model contracts with Mapperly, covering placement, conversion allowlist, target ownership, generated types, projections, attributes, and options."
+description: "Use when Mapperly maps domain types to or from contracts, covering boundaries, ownership, projections, attributes, options, and conversions."
 ---
 
 # [DOTNET_CODING_MAPPERLY]
@@ -114,7 +114,7 @@ Nullable analysis and the property-null options do not apply inside a projection
 
 ## [06]-[MAPPING_METHODS]
 
-Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods hold the configuration, and a non-partial method with the matching types implements a member mapping by hand. Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly then uses it in place of an automatic conversion, `Default` marks the pair's one default mapping, and `Ignore` excludes a discovered method. One user mapping carries the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, and another formats with a text pattern:
+Attributes on a `[Mapper] partial class` or `[Mapper] static partial class` and its partial methods hold the configuration, and a non-partial method with the matching types implements a member mapping by hand. Under `AutoUserMappings = false`, a hand-written mapping needs `[UserMapping]` for its type pair, and Mapperly then uses it in place of an automatic conversion, `Default` marks the pair's one default mapping, and `Ignore` excludes a discovered method. One user mapping holds the `ToValue` of a complex value object that declares `[ObjectFactory<string>]` outward, and another formats with a text pattern:
 
 ```csharp
 [Mapper]

@@ -1,6 +1,6 @@
 ---
 name: dotnet-msbuild-diagnostics
-description: "Use when diagnosing a .NET build from its .binlog, covering capture switches, binlog MCP tools, failure triage, BuildCheck codes, shared output paths, and performance captures."
+description: "Use when diagnosing a .NET build from a .binlog, covering capture, MCP tools, failure triage, BuildCheck, shared output paths, and performance."
 ---
 
 # [DOTNET_MSBUILD_DIAGNOSTICS]
@@ -30,20 +30,18 @@ Pass `-bl:<dir>/<purpose>-{}.binlog` on every MSBuild invocation, `<dir>` is an 
 |  [02]   | `-bl`                                                | Writes and overwrites `msbuild.binlog` in the current directory          |
 |  [03]   | `-bl:LogFile=<path>.binlog;ProjectImports=ZipFile`   | Imports go to `<name>.ProjectImports.zip` beside the log                 |
 |  [04]   | `-bl:<path>.binlog;ProjectImports=None`              | No imports, `binlog_files` and `binlog_search_files` then return nothing |
-|  [05]   | `-tl:off`                                            | Console logger with the `BinaryLogger wrote to:` line                    |
-|  [06]   | `-check`                                             | BuildCheck reports as build diagnostics                                  |
-|  [07]   | `--no-restore -graph -isolate`                       | Static graph build, `MSB4252` on an undeclared project instance          |
-|  [08]   | `-p:Name=Value`                                      | Global property for the restore pass and the build pass                  |
-|  [09]   | `-restoreProperty:Name=Value`                        | Global property for the restore pass only, the build pass reads empty    |
-|  [10]   | `-pp:<file>.xml`                                     | Every import expanded in place with file boundaries, no build            |
-|  [11]   | `-getProperty:A,B -getItem:C -getResultOutputFile:f` | Evaluated values as JSON in `f`, no build, one project file per call     |
-|  [12]   | `-t:X -getTargetResult:X`                            | Runs `X` and prints its returned items as JSON                           |
-|  [13]   | `-profileEvaluation:<file>.md`                       | Evaluation time per element, `.md` gives a markdown table                |
-|  [14]   | `-v:diag`                                            | One `Property reassignment:` message per overwritten property            |
-|  [15]   | `MSBuildDebugEngine=1` with `MSBUILDDEBUGPATH=<dir>` | Every MSBuild process writes a binlog under `<dir>/.MSBuild_Logs/`       |
+|  [05]   | `-check`                                             | BuildCheck reports as build diagnostics                                  |
+|  [06]   | `--no-restore -graph -isolate`                       | Static graph build, `MSB4252` on an undeclared project instance          |
+|  [07]   | `-p:Name=Value`                                      | Global property for the restore pass and the build pass                  |
+|  [08]   | `-restoreProperty:Name=Value`                        | Global property for the restore pass only, the build pass reads empty    |
+|  [09]   | `-pp:<file>.xml`                                     | Every import expanded in place with file boundaries, no build            |
+|  [10]   | `-getProperty:A,B -getItem:C -getResultOutputFile:f` | Evaluated values as JSON in `f`, no build, one project file per call     |
+|  [11]   | `-t:X -getTargetResult:X`                            | Runs `X` and prints its returned items as JSON                           |
+|  [12]   | `-profileEvaluation:<file>.md`                       | Evaluation time per element, `.md` gives a markdown table                |
+|  [13]   | `-v:diag`                                            | One `Property reassignment:` message per overwritten property            |
+|  [14]   | `MSBuildDebugEngine=1` with `MSBUILDDEBUGPATH=<dir>` | Every MSBuild process writes a binlog under `<dir>/.MSBuild_Logs/`       |
 
 - `-bl` values without the `.binlog` extension fail before the build with `MSB1029`
-- The terminal logger prints no log path, pass `-tl:off` when the console must show it
 - `-f` and `-p:TargetFramework=` run restore as a separate invocation with its own log, and a fixed name keeps only the last one
 - `--no-restore` needs an assets file, and without one the build fails with `NETSDK1004`
 - Failed builds keep their log and need no re-run for analysis
@@ -53,10 +51,13 @@ Pass `-bl:<dir>/<purpose>-{}.binlog` on every MSBuild invocation, `<dir>` is an 
 - `-check`, `-profileEvaluation`, and `-v:diag` write no binlog of their own, and `-bl` beside them captures the run
 - `dotnet msbuild` prints the `BinaryLogger wrote to:` line only at `-v:n` or higher
 - `git clean -fdx` deletes the logs with every other ignored file, and `-e "*.binlog"` keeps them
+- `-getProperty`, `-getItem`, and `-getTargetResult` take one project or `.props` file, and a solution path fails with `MSB1063`
+- `Directory.Build.props` evaluates the root values without a project
+- `--artifacts-path <dir>` on the restore and on each build of a pair keeps another build into the shared `ArtifactsPath` out of the measured work
 
 ```bash
-dotnet build Solution.slnx -tl:off -bl:artifacts/logs/build-{}.binlog         # One log per invocation, path printed at the end
-dotnet build Solution.slnx -tl:off -check -bl:artifacts/logs/check-{}.binlog  # BuildCheck reports on the console and in the log
+dotnet build Solution.slnx -bl:artifacts/logs/build-{}.binlog         # One log per invocation, path printed at the end
+dotnet build Solution.slnx -check -bl:artifacts/logs/check-{}.binlog  # BuildCheck reports on the console and in the log
 dotnet test --project Item.Tests/Item.Tests.csproj -bl:artifacts/logs/test-{}.binlog
 dotnet msbuild Item/Item.csproj -getProperty:OutputPath -getItem:Compile -getResultOutputFile:artifacts/logs/item.json
 ```
@@ -122,6 +123,13 @@ Run the tools in order: `binlog_overview`, then `binlog_diagnose` on a failed bu
 - `binlog_files` reads the embedded copy of a file, the file as the build saw it, not the file on disk
 - `binlog_properties` can answer from the restore evaluation, which `MSBuildIsRestoring=True` in its output shows, and `binlog_evaluation_properties` on the build-pass evaluation id reads a value that differs between passes
 - Stale server instances hold their binlogs in memory until `stop_instance` on each `isOrphaned` entry of `list_mcp_instances` stops them
+- `binlog_incremental_analysis` writes `{kind, schemaVersion, data}` with `data.summary` counts and one `data.targets[]` row per target, and `jq` reads the file
+- `binlog_task_details` writes `{id, name, projectFile, targetName, durationMs, parameters, outputMessages}`, and `jq -r '.parameters.<Name>'` reads one parameter
+- `binlog_task_details` by names prints nothing when `target_name` is not the target that holds the task
+- `binlog_search` with `$target` names the holding target and the `[id]` the `task_id` form takes
+- `binlog_explain_property` reports a global property as `Set by: evaluation` with the project as `Source`, and `binlog_compare_property` marks each project `global`
+- `binlog_explain_property` names the evaluated project as `Source` for a value an import assigns, and `binlog_search_files` names the declaring file
+- `binlog_diagnose` counts an error with no file and line once across every project that reports it
 
 ### [02.1]-[SEARCH_SYNTAX]
 
@@ -135,14 +143,16 @@ Run the tools in order: `binlog_overview`, then `binlog_diagnose` on a failed bu
 |  [04]   | `$project Item`               | Every project with the text in its name               |
 |  [05]   | `under($project Item) CS1234` | Nodes under that project that contain the text        |
 |  [06]   | `$task $time`                 | Tasks with timing, slowest first                      |
-|  [07]   | `"exact phrase"`              | Literal text, including the messages MSBuild logs     |
+|  [07]   | `"exact phrase"`              | Message text, and a phrase with an inner `"` matches nothing |
 |  [08]   | `name=value`                  | Field match, for example a property assignment        |
+
+- Text matches print the matched line alone, and the `$target` form reaches the reason line under it
 
 ### [02.2]-[LARGE_LOGS]
 
-Start with `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` on the original log. Their streaming index can answer whole-build queries without loading the structured tree. Read each response's scope notice: a query can still use a substituted subtree when the index cannot answer it. An extract supplied as input already limits the scope even when no notice appears.
+Start with `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` on the original log. Their streaming index can answer whole-build queries without loading the structured tree. Read each response's scope notice: a query can still use a substituted subtree when the index cannot answer it. Extracts supplied as input limit the scope even when no notice appears.
 
-The default 200 MB threshold selects automatic subtree extraction for tree queries, not a fixed server memory limit. `BINLOG_MCP_AUTO_EXTRACT_MB` controls the threshold, and available process memory determines whether a load or streaming pass fits.
+The default 200 MB threshold selects automatic subtree extraction for tree queries, not a fixed server memory limit. `BINLOG_MCP_AUTO_EXTRACT_MB` controls the threshold, and available process memory decides whether a load or streaming pass fits.
 
 For a targeted investigation:
 1. Select projects from the original log's diagnostics before extracting
@@ -151,9 +161,9 @@ For a targeted investigation:
 4. Add `include_descendants=true` for referenced projects and `include_ancestors=true` for callers the question needs
 5. Read `skippedUnsupportedRecords` and state the selected scope when interpreting results
 
-The preview token is valid for ten minutes in the same server process. A reported defect in an extract is evidence for its selected projects, while an empty result does not exclude the defect elsewhere. Keep every participant when investigating a cross-project relationship.
+The preview token is valid for ten minutes in the same server process. Reported defects in an extract are evidence for its selected projects, and an empty result excludes no defect elsewhere. Keep every participant when investigating a cross-project relationship.
 
-Use the original log for `binlog_files`, `binlog_search_files`, `binlog_preprocess`, and `binlog_assets`. Extracts omit the embedded source archive, so their missing-file results say nothing about the original capture. If the original query cannot run, report its exact refusal and available evidence rather than substituting an extract's empty result.
+Use the original log for `binlog_files`, `binlog_search_files`, `binlog_preprocess`, and `binlog_assets`. Extracts omit the embedded source archive, and their missing-file results say nothing about the original capture. When the original query cannot run, report its exact refusal and the available evidence in place of an extract's empty result.
 
 ## [03]-[FAILED_BUILD_TRIAGE]
 
@@ -215,7 +225,7 @@ Start at `binlog_diagnose`, then route the error class by the table and fix the 
 - The project scope covers the project file only, and `scope=all` extends `BC0201`, `BC0202`, and `BC0203` to every import
 - `BC0101` and `BC0102` report across nodes, and `-m:1` is not needed
 - `-check` on a replay, `dotnet build <log>.binlog -check`, re-runs the checks over the stored events, writes no file, prints the original `BinaryLogger wrote to:` line, and doubles every count because the stored reports replay with them
-- `binlog_warnings` with `category=BuildCheck` lists the reports of a `-check` capture with the same counts as the console
+- `binlog_warnings` with `category=BuildCheck` lists the reports of a `-check` capture with the same counts as the console, and under `MSBuildTreatWarningsAsErrors` the reports print as `error BC`, fail the build, and land in `binlog_errors` alone
 - `-check` reports on an incremental build, because the checks read declared paths and task inputs, not performed writes
 
 `.editorconfig` configures each code under a section header, and MSBuild ignores a key outside a section:
@@ -234,14 +244,14 @@ build_check.BC0202.AllowUninitializedPropertiesInConditions = false
 
 ### [04.1]-[WORKFLOW]
 
-1. Run `dotnet build <solution> -t:Rebuild -tl:off -check -bl:<dir>/check-{}.binlog`
-2. Read each `BC` line on the console, or run `binlog_warnings` with `category=BuildCheck` on the log
+1. Run `dotnet build <solution> -t:Rebuild -check -bl:<dir>/check-{}.binlog`
+2. Read each `BC` line on the console, or run `binlog_errors`, then `binlog_warnings`, with `category=BuildCheck` on the log
 3. Fix the file the report names, `BC0201` and `BC0202` name `file(line,col)` and `BC0101` and `BC0102` name the path and both projects
 4. Run the same command again and confirm the code is gone from the console and the log
 
 ## [05]-[SHARED_OUTPUT_PATHS]
 
-MSBuild creates one project instance per project path and global-property set. Two instances with one `OutputPath` or `IntermediateOutputPath`, or two projects with one directory, succeed more often than they fail: one project consumes the other's `project.assets.json`, `MSB3026` copy retries and file locks appear in parallel builds, and outputs disappear or come from the wrong instance. The console and `binlog_diagnose` show nothing on a successful build, and the steps detect them:
+MSBuild creates one project instance per project path and global-property set. Two instances with one `OutputPath` or `IntermediateOutputPath`, or two projects with one directory, succeed in most builds and fail in the rest: one project consumes the other's `project.assets.json`, `MSB3026` copy retries and file locks appear in parallel builds, and outputs disappear or come from the wrong instance. The console and `binlog_diagnose` show nothing on a successful build, and the steps detect them:
 
 1. Run the BuildCheck workflow command, then read `BC0101` for each shared directory and `BC0102` for each file two tasks wrote, and `Library.csproj and Library.csproj` names a second instance of one project
 2. Run `binlog_compare_property` on `IntermediateOutputPath`, then `OutputPath`, an absolute value that groups two projects is the shared directory, the relative SDK default groups every project and means nothing, and the tool never reports two instances of one project

@@ -19,7 +19,7 @@ tests/__snapshots__/<rule-id>-snapshot.yml         # Flat, rewrite snapshots bes
 - Missing `ruleDirs` or `utilDirs` directories abort the scan, empty ones hold a `.gitkeep`
 - `sgconfig.yml` accepts unknown keys in silence, and scoping is per-rule `files:` and `ignores:`
 - `files:` globs match a path under the config directory relative to it, never an absolute path, and `scan -r` reads them relative to the rule file
-- Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, and `**/<name>` every file so named
+- Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, and `**/<name>` every file of that name
 - `./` prefixes and `!` globs in `files:` match nothing, exclusion is `ignores:`
 - Dot directories under a scope need `--no-ignore hidden`, the `lint` target passes it for `.github`
 
@@ -40,7 +40,6 @@ Injection entries capture the embedded source as `$CONTENT` and name the parser 
 - Run-commands executor spawns `sh`, Bash rewrites under `rewrites/bash` hold `files:` that keep them out of JSON, and shell rules read both hosts
 - Each injection entry holds its ownership predicates in its own `utils` map beside `rule` and `injected`, injection compilation loads no `utilDirs`
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), because an unquoted second kind reads as a key
-- `tests/typescript/ast-grep/shell-injections.test.ts` proves the selected regions and the excluded data through `no-npm-command` and a Bash rewrite
 - Injected findings use the host path and host-relative ranges, and repeated regions take one rewrite pass each
 
 ## [03]-[RULES]
@@ -122,9 +121,9 @@ Integrate a durable rule in sequence:
 
 ## [05]-[EXECUTION]
 
-- Unparseable rule files of any language and duplicate ids fail every load of the root config, `scan`, `test`, and `rule-checks.sh` included
+- Unparsable rule files of any language and duplicate ids fail every load of the root config, `scan`, `test`, and `rule-checks.sh` included
 - Quote scalars holding `: ` or a comma inside a flow map, or use a block scalar, malformed YAML aborts the load
-- Proofs run `rule-checks.sh width`, `arms`, and `parse` with `<ext> '^<id>$'`, `pnpm exec nx run rasm:rules` runs `ast-grep test --include-off`, rewrite/outline/injection tests
+- Proofs run `rule-checks.sh width`, `arms`, and `parse` with `<ext> '^<id>$'`, `pnpm exec nx run rasm:rules` runs `ast-grep test --include-off`
 - Root `lint` target scans `tools` under the yaml family
 - Omitted `severity` is `hint`, and `--min-severity` drops rules
 - `scan --inspect summary <dir> 2>&1 >/dev/null | rg RuleCount` prints `effectiveRuleCount` and `skippedRuleCount`, the `severity: off` rules skipped

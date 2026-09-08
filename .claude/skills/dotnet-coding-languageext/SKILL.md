@@ -1,6 +1,6 @@
 ---
 name: dotnet-coding-languageext
-description: "Use when calling a LanguageExt member, covering conversions, errors and recovery, IO construction and execution, resources, concurrency, recursion, schedules, runtimes, traits, transformers, collections, shared state, and streams."
+description: "Use when calling a LanguageExt member, covering result types, errors, IO effects, traits, transformers, collections, shared state, and streams."
 ---
 
 # [DOTNET_CODING_LANGUAGEEXT]

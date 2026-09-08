@@ -3,7 +3,7 @@
 import { describe, expect, it } from 'vitest';
 import { type Decision, fold } from '../composition/decision.ts';
 import { gitGuard } from './git.ts';
-import { commandTimeout, type NxCaches, nxTargets, packageManager, shellHits, shellRule, shellSkills, skipNxCache } from './shell.ts';
+import { commandCeiling, commandTimeout, type NxCaches, nxTargets, packageManager, shellHits, shellRule, shellSkills, skipNxCache } from './shell.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -61,7 +61,7 @@ const _DENIED: readonly (readonly [string, readonly string[]])[] = [
     ['mise x -C dir node@20 -- node app.js', ['mise x holds an option before the command']],
     ['mise exec node@20 --command "node -v"', ['mise exec holds an option before the command', '--command as the command']],
     ['mise x -j 4 -- node -v', ['mise x holds an option before the command']],
-    ['eval "$(mise env -s bash)"', ['eval "$(mise env)" names no command after it', 'run the command directly']],
+    ['eval "$(mise env -s bash)"', ['eval "$(mise env)" names no command', 'run the command directly']],
     ['pnpm exec nx release --dry-run', ['Preview flags are refused', 'pnpm exec nx release']],
     ['git push -n', ['Preview flags are refused', 'git push']],
     ['pnpm add effect@3', ['Unpinned: pnpm add effect@catalog:']],
@@ -78,10 +78,32 @@ const _DENIED: readonly (readonly [string, readonly string[]])[] = [
     ['ast-grep test --update-all --include-off', ['ast-grep test -U with no --filter']],
     ['pnpm exec ast-grep test -U', ['ast-grep test -U with no --filter']],
     ['npx ast-grep test -U', ['ast-grep test -U with no --filter']],
+    // Every NX_DAEMON value but false outranks nx.json useDaemonProcess: false, the client's enabled() reads false and unset alone as off
+    ['NX_DAEMON=true nx show projects', ['NX_DAEMON=true starts the Nx daemon', 'useDaemonProcess: false', 'never rotates, run nx show projects']],
+    ['ls && NX_DAEMON=1 NO_COLOR=1 nx run rasm:lint python', ['NX_DAEMON=1 starts the Nx daemon', 'run ls && NO_COLOR=1 nx run rasm:lint python']],
     ['sleep 60', ['sleep 60 waits on nothing', 'run_in_background: true', 'until loop under the Monitor tool']],
     ['sleep', ['sleep waits on nothing']],
     ['sleep 5; sleep 10', ['sleep 5 waits on nothing']],
     ['sleep 2 &&\n  sleep 3', ['sleep 2 waits on nothing']],
+    ['NO_COLOR=1 sleep 60', ['sleep 60 waits on nothing']],
+    // The lint retry loop, do if holds two openers and fi closes one, so sleep 30 sits inside the loop body
+    [
+        'for i in $(seq 1 10); do if pnpm exec nx run function-hooks:lint --skip-nx-cache >/dev/null 2>&1; then echo "lint passed on try $i"; exit 0; fi; sleep 30; done; echo "lint still failing"; exit 1',
+        ['sleep 30 inside a loop body', 'run_in_background: true', 'until loop under the Monitor tool', 'expect -c'],
+    ],
+    // The paced feed into script, the group's closing paren feeds a pipe
+    [
+        "( sleep 10; printf 'a\\n'; sleep 20; printf 'b\\n' ) | script -q /dev/null claude",
+        ['sleep 10 inside a group that feeds a pipe', 'expect -c on a pseudo-terminal', 'run_in_background: true'],
+    ],
+    ['until [ -f x ]; do sleep 2; done; cat x', ['sleep 2 inside a loop body', 'until loop under the Monitor tool']],
+    ['until [ -f x ]; do\n    sleep 2\ndone\ncat x', ['sleep 2 inside a loop body']],
+    ['for i in 1 2; do sleep 1; done', ['sleep 1 inside a loop body']],
+    ['if [ -f x ]; then\n    sleep 1\nfi', ['sleep 1 inside a conditional body']],
+    ['if [ -f x ]; then sleep 1; fi', ['sleep 1 inside a conditional body']],
+    ['while sleep 1; do curl -s x && break; done', ['sleep 1 inside a loop body']],
+    ['{ sleep 1; echo ok; }', ['sleep 1 inside a brace group body']],
+    ['case $x in a) sleep 1;; esac', ['sleep 1 inside a case body']],
 ];
 
 const _PASSED: readonly string[] = [
@@ -115,12 +137,25 @@ const _PASSED: readonly string[] = [
     'echo "ast-grep scan -r tools/ast-grep/rules/a/b/c.yml"',
     "ast-grep test --include-off --filter '^no-json-parse$'",
     `ast-grep test --include-off -t ${_SCRATCHPAD}/own-tree/tests`,
-    'until [ -f x ]; do sleep 2; done; cat x',
-    'until [ -f x ]; do\n    sleep 2\ndone\ncat x',
-    'for i in 1 2; do sleep 1; done',
-    'if [ -f x ]; then\n    sleep 1\nfi',
     'echo "sleep 60 in prose"',
     'sleep 1 | cat',
+    '(cd tools && ls) | cat',
+    'NO_COLOR= rg leaves tools',
+    'export NO_COLOR=1',
+    'FORCE_COLOR=1 pnpm exec nx run function-hooks:test',
+    'rg --color always leaves tools',
+    'git status --no-color',
+    'git blame --no-color README.md',
+    'shellcheck --color never x.sh',
+    'uv run pytest --color never',
+    'dotnet test -tl:off',
+    'nx-cloud status',
+    'nx run rasm:lint python',
+    'nx run rasm:lint README.md tools/nx',
+    'nx run rasm:format libs/dotnet/interop/Rasm.Interop',
+    'dotnet build -bl:.artifacts/binlog/build-{}.binlog',
+    'mise which node',
+    'mise which -t node@22 node',
     'echo ast-grep scan --json -U in prose',
     'git log --json -U',
     'echo "ast-grep scan --json -U"',
@@ -158,14 +193,67 @@ const _miseLine = (rest: string, prefix: string): string =>
 
 const _evalLine = (body: string): string => `Dropped eval "$(${body})", the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE`;
 
+const _WHICH_LINE = 'Ran one mise which per name, which takes one BIN_NAME and refuses a second with unexpected argument';
+
+const _binlogLine = (stamped: string, fixed: string): string =>
+    `Ran ${stamped} in place of ${fixed}, a fixed binlog name overwrites the last capture and collides across sessions, and {} stamps the name with the date, time, process id, and a random suffix`;
+
 // The command, its rewrite, and the context lines, and the rewrite passes unchanged on a second read
 const _REWRITTEN: readonly (readonly [string, string, readonly string[]])[] = [
+    // Env prefixes, proven byte-identical under the Bash tool: NO_COLOR=1 over rg, fd, nx show projects, git log, ast-grep, dotnet build (SAME, esc 0/0),
+    // CLICOLOR=0 over ls and rg (SAME), TERM=dumb over rg, nx, git log, dotnet build (SAME) and the test target (41/41 escapes)
+    ['NO_COLOR=1 rg -n leaves tools', 'rg -n leaves tools', []],
+    // FORCE_COLOR=0 sits in the settings env beside NO_COLOR, the test target prints 0 escapes under both exported against 41 under NO_COLOR alone
+    ['FORCE_COLOR=0 pnpm exec nx run function-hooks:test', 'pnpm exec nx run function-hooks:test', []],
+    ['NO_COLOR=true fd argv .claude/plugins', 'fd argv .claude/plugins', []],
+    ['NO_COLOR=1 TERM=dumb pnpm exec nx show projects', 'pnpm exec nx show projects', []],
+    ['CLICOLOR=0 ls -la tools', 'ls -la tools', []],
+    ['TERM=dumb dotnet build -bl', 'dotnet build -bl', []],
+    ['NX_TUI=false NO_COLOR=1 pnpm exec nx show projects', 'NX_TUI=false pnpm exec nx show projects', []],
+    // NX_DAEMON=false restates nx.json useDaemonProcess: false, the client reads false and unset alone as off
+    ['NX_DAEMON=false pnpm exec nx show projects', 'pnpm exec nx show projects', []],
+    ['ls && NO_COLOR=1 git log -3 --oneline', 'ls && git log -3 --oneline', []],
+    // Color flags, proven byte-identical under the Bash tool per tool and spelling (SAME, esc 0/0): rg, fd, ast-grep run|scan|test and the implicit run,
+    // typos, difft, ruff check, uv tree, uv sync with both spellings, shellcheck --color=never, git log|diff|show|branch|grep --no-color,
+    // dotnet build -tl:off with Time Elapsed filtered, tsc --pretty false over a failing file (exit 1 both)
+    ['rg --color never -n leaves tools', 'rg -n leaves tools', []],
+    ['rg -n --color=never leaves tools', 'rg -n leaves tools', []],
+    ['fd --color never argv .claude/plugins', 'fd argv .claude/plugins', []],
+    ['ast-grep scan --color=never tools/nx', 'ast-grep scan tools/nx', []],
+    ['ast-grep --color=never -p x tools', 'ast-grep -p x tools', []],
+    ['pnpm exec ast-grep run --color never -p x tools', 'pnpm exec ast-grep run -p x tools', []],
+    ['git log -3 --oneline --no-color', 'git log -3 --oneline', []],
+    ['git diff --no-color --stat', 'git diff --stat', []],
+    ['uv tree --color never --depth 1', 'uv tree --depth 1', []],
+    ['uv run ruff check --color=never eng/scripts', 'uv run ruff check eng/scripts', []],
+    ['typos --color never tools/nx', 'typos tools/nx', []],
+    ['shellcheck --color=never x.sh', 'shellcheck x.sh', []],
+    ['difft --color never README.md CLAUDE.md', 'difft README.md CLAUDE.md', []],
+    ['dotnet build Workspace.slnx -tl:off -bl', 'dotnet build Workspace.slnx -bl', []],
+    ['pnpm exec tsc --noEmit --pretty false', 'pnpm exec tsc --noEmit', []],
+    ['NO_COLOR=1 rg --color=never leaves tools', 'rg leaves tools', []],
+    // The {} stamp expanded to 20260908-071941--51905--Uizs3j in a run
+    [
+        'dotnet build Workspace.slnx -bl:.artifacts/build.binlog',
+        'dotnet build Workspace.slnx -bl:.artifacts/build-{}.binlog',
+        [_binlogLine('-bl:.artifacts/build-{}.binlog', '-bl:.artifacts/build.binlog')],
+    ],
+    ['dotnet build -bl:x.binlog', 'dotnet build -bl:x-{}.binlog', [_binlogLine('-bl:x-{}.binlog', '-bl:x.binlog')]],
+    [
+        'dotnet msbuild x.csproj /bl:LogFile=out/x.binlog',
+        'dotnet msbuild x.csproj /bl:LogFile=out/x-{}.binlog',
+        [_binlogLine('/bl:LogFile=out/x-{}.binlog', '/bl:LogFile=out/x.binlog')],
+    ],
+    // mise which node pnpm exits 2 with unexpected argument 'pnpm' found
+    ['mise which node pnpm', 'mise which node; mise which pnpm', [_WHICH_LINE]],
+    ['mise which node pnpm uv | head -1', 'mise which node; mise which pnpm; mise which uv | head -1', [_WHICH_LINE]],
+    ['mise which --plugin node pnpm', 'mise which --plugin node; mise which --plugin pnpm', [_WHICH_LINE]],
     ['eval "$(mise env -s bash)" && zizmor --version', 'zizmor --version', [_evalLine('mise env -s bash')]],
     ['eval "$(mise env)"; node -v', 'node -v', [_evalLine('mise env')]],
     ['eval $(mise env -s bash) && node -v', 'node -v', [_evalLine('mise env -s bash')]],
     ['eval "$(mise env -s bash)"\nnode -v', 'node -v', [_evalLine('mise env -s bash')]],
     ['eval "$(mise env -s bash)" && git push --force', 'git push --force', [_evalLine('mise env -s bash')]],
-    ['eval "$(mise env -s bash)" && mise x -- node -v', 'node -v', [_miseLine('node -v', 'mise x --'), _evalLine('mise env -s bash')]],
+    ['eval "$(mise env -s bash)" && mise x -- node -v', 'node -v', [_evalLine('mise env -s bash'), _miseLine('node -v', 'mise x --')]],
     ['mise x zizmor@latest -- zizmor --version', 'zizmor --version', [_miseLine('zizmor --version', 'mise x zizmor@latest --')]],
     ['mise exec -- zizmor --version', 'zizmor --version', [_miseLine('zizmor --version', 'mise exec --')]],
     ['mise x zizmor@latest -- zizmor --help', 'zizmor --help', [_miseLine('zizmor --help', 'mise x zizmor@latest --')]],
@@ -589,5 +677,93 @@ describe('commandTimeout', () => {
 
     it('leaves the parameter of a command without the prefix', () => {
         expect(_timed('sleep 1', _FIVE_SECONDS)).toStrictEqual({ kind: 'rewrite', command: 'sleep 1', timeout: _FIVE_SECONDS, context: [] });
+    });
+});
+
+// The call with its background flag, read through the ceiling rule into the fields it decides
+interface Ceiling {
+    readonly kind: 'rewrite' | 'deny' | 'answer';
+    readonly timeout?: number;
+    readonly background?: boolean;
+    readonly context: readonly string[];
+}
+
+// The Bash tool's own field name for its background flag
+const _BACKGROUND = 'run_in_background';
+
+const _ceiling = (command: string, timeout?: number, background?: boolean): Ceiling =>
+    commandCeiling({ tool: 'Bash' as const, command, timeout, [_BACKGROUND]: background }).match<Ceiling>({
+        rewrite: (e, context) => ({ kind: 'rewrite', timeout: e.timeout, background: e[_BACKGROUND], context }),
+        deny: () => ({ kind: 'deny', context: [] }),
+        answer: () => ({ kind: 'answer', context: [] }),
+    });
+
+const _BACKGROUND_LINE =
+    'Ran with run_in_background: true, rasm:workflow runs a workflow job past the Bash timeout maximum of 600000 ms, and its completion notification carries the result';
+
+// One leaf per head of the table, each takes the ceiling with no line
+const _SLOW_LEAVES: readonly string[] = [
+    'pnpm exec nx run function-hooks:typecheck',
+    'nx run-many -t typecheck',
+    'NX_TUI=false pnpm exec nx affected -t check --files=README.md',
+    'dotnet build Workspace.slnx -bl',
+    'dotnet test Workspace.slnx --no-build',
+    'ast-grep test --include-off',
+    "claude -p 'reply ok' --output-format stream-json",
+    'act -j lint',
+    'uv sync --locked',
+    'pnpm install --frozen-lockfile',
+    'ls && dotnet build Workspace.slnx 2>&1 | tail -20',
+];
+
+const _QUICK_LEAVES: readonly string[] = [
+    'ls tools',
+    'pnpm exec nx show projects',
+    'dotnet --version',
+    'ast-grep scan tools/nx',
+    'uv tree --depth 1',
+    'pnpm list',
+    'claude plugin validate x',
+    'echo "dotnet build in prose"',
+];
+
+describe('commandCeiling', () => {
+    it.each(_SLOW_LEAVES)('raises %j to the ceiling with no line when the call sets no bound', (command) => {
+        expect(_ceiling(command)).toStrictEqual({ kind: 'rewrite', timeout: _TEN_MINUTES, background: undefined, context: [] });
+    });
+
+    it('raises a smaller bound and keeps the ceiling', () => {
+        expect(_ceiling('dotnet build Workspace.slnx', _TWO_MINUTES)).toMatchObject({ timeout: _TEN_MINUTES, context: [] });
+        expect(_ceiling('dotnet build Workspace.slnx', _TEN_MINUTES)).toMatchObject({ timeout: _TEN_MINUTES, context: [] });
+    });
+
+    it.each(_QUICK_LEAVES)('leaves %j and its bound alone', (command) => {
+        expect(_ceiling(command, _FIVE_SECONDS)).toStrictEqual({ kind: 'rewrite', timeout: _FIVE_SECONDS, background: undefined, context: [] });
+        expect(_ceiling(command)).toStrictEqual({ kind: 'rewrite', timeout: undefined, background: undefined, context: [] });
+    });
+
+    it('passes a call that already runs in the background', () => {
+        expect(_ceiling('dotnet build Workspace.slnx', undefined, true)).toStrictEqual({
+            kind: 'rewrite',
+            timeout: undefined,
+            background: true,
+            context: [],
+        });
+        expect(_ceiling('pnpm exec nx run rasm:workflow -- --job=lint', undefined, true)).toStrictEqual({
+            kind: 'rewrite',
+            timeout: undefined,
+            background: true,
+            context: [],
+        });
+    });
+
+    it('moves the workflow job to the background with its line', () => {
+        expect(_ceiling('pnpm exec nx run rasm:workflow -- --job=lint')).toStrictEqual({
+            kind: 'rewrite',
+            timeout: undefined,
+            background: true,
+            context: [_BACKGROUND_LINE],
+        });
+        expect(_ceiling('nx run rasm:workflow -- --job=dotnet', _TEN_MINUTES)).toMatchObject({ background: true, context: [_BACKGROUND_LINE] });
     });
 });

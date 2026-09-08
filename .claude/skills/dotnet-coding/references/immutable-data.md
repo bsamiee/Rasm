@@ -26,7 +26,7 @@ Locks protect one update, and coordination becomes difficult when one business a
 
 ## [03]-[VALUES_AND_ENTITIES]
 
-For a value object, the value determines identity: changing a date, a number, or a geometric shape produces a different value, framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values instead of altering the receiver. Custom immutable operations follow the same shape, and a struct stays immutable, because a value type is copied between functions and a mutation of the copy propagates down the call stack and never back up:
+For a value object, the value decides identity: changing a date, a number, or a geometric shape produces a different value, framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values instead of altering the receiver. Custom immutable operations follow the same shape, and a struct stays immutable, because a value type is copied between functions and a mutation of the copy propagates down the call stack and never back up:
 
 ```csharp
 internal readonly record struct Point(double X, double Y);
@@ -42,7 +42,7 @@ Entities differ: their identity persists while their state changes, the state is
 
 ## [04]-[DOMAIN_STATE]
 
-The snapshot constructs through factories that establish the initial values, exposes only the transitions the domain permits, and copies a mutable input collection at the boundary so later changes to the caller's list never reach it:
+The snapshot constructs through factories that establish the initial values, exposes only the transitions the domain permits, and copies a mutable input collection at the boundary, and later changes to the caller's list never reach it:
 
 ```csharp
 internal readonly record struct Code(string Value);

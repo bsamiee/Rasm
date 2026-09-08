@@ -2,10 +2,10 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { ModelForkReply, On } from 'claude-code';
+import type { On } from 'claude-code';
 import { flatMap, forEach, fromBoolean, fromPredicate, liftPredicate, map, none, type Option } from '../composition/option.ts';
 import { type Options, whenEnabled } from '../host/options.ts';
-import { isKind, type Kind, key, summaryOf } from '../host/store.ts';
+import { decodeSummary, isKind, type Kind, key, type Summary } from '../host/store.ts';
 import { FINDING_VIEWS, type FindingInput, finding, withFinding } from '../policies/findings.ts';
 import { CLASSIFIER_PROMPT, type Fields, fieldsOf, LABELS } from '../policies/kinds.ts';
 
@@ -15,7 +15,6 @@ import { CLASSIFIER_PROMPT, type Fields, fieldsOf, LABELS } from '../policies/ki
 const _MODEL = 'haiku';
 const _SUMMARY_TOKENS = 60;
 const _SUMMARY_SYSTEM = 'The message is an assistant answer to the person, reply with one spoken sentence summarising it and nothing else.';
-const _CONFIDENCE = 1;
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
@@ -41,28 +40,19 @@ const _classify = (on: On): void => {
             (): Option<string | undefined> => none(),
         );
         const kind = flatMap(fromPredicate(isKind))(label);
-        // The fork reads the session's own transcript, and fieldsOf reads a row from a grounded reply alone
-        const reply = await forEach((named: Kind) => $.model.fork({ prompt: CLASSIFIER_PROMPT(named, e.answer) }))(kind).catch(
-            (): Option<ModelForkReply | null> => none(),
-        );
+        // The fork reads the session's own transcript and answers null in place of a rejection, and fieldsOf reads a row from a grounded reply alone
+        const reply = await forEach((named: Kind) => $.model.fork({ prompt: CLASSIFIER_PROMPT(named, e.answer) }))(kind);
         const session = await $.session.id();
         const input = flatMap((fields: Fields) =>
-            map(
-                (named: Kind): FindingInput => ({
-                    session,
-                    kind: named,
-                    fields,
-                    confidence: _CONFIDENCE,
-                    now: $.clock.now(),
-                    random: crypto.randomUUID(),
-                }),
-            )(kind),
+            map((named: Kind): FindingInput => ({ session, kind: named, fields, now: $.clock.now(), random: crypto.randomUUID() }))(kind),
         )(flatMap(fieldsOf)(reply));
-        // The summary row is read and rewritten beside the findings row, the band and the block read the summary alone
+        // The summary row session.start wrote is rewritten beside the findings row, the band and the block read the summary alone
         await forEach(async (row: FindingInput): Promise<void> => {
             const keyed = finding(row);
-            const summary = summaryOf(await $.store.get(key('summary')));
-            await Promise.all([$.store.set(keyed.key, keyed.row), $.store.set(key('summary'), withFinding(summary, keyed.row))]);
+            const summary = decodeSummary(await $.store.get(key('summary')));
+            await forEach((current: Summary) =>
+                Promise.all([$.store.set(keyed.key, keyed.row), $.store.set(key('summary'), withFinding(current, keyed.row))]),
+            )(summary);
             FINDING_VIEWS.map((view) => $.ui.invalidate(view));
         })(input).catch(() => undefined);
         return result;

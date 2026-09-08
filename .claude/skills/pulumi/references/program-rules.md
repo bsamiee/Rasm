@@ -1,4 +1,4 @@
-# [PULUMI_BEST_PRACTICES]
+# [PULUMI_PROGRAM_RULES]
 
 Program rules for writing, reviewing, and refactoring Pulumi code.
 
@@ -64,7 +64,7 @@ class StaticSite extends pulumi.ComponentResource {
 
 ## [04]-[PARENT_THIS]
 
-Every child inside a component takes `{ parent: this }`, without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting also cascades deletion and provider inheritance.
+Every child inside a component takes `{ parent: this }`, without it children land at the stack root, the console hierarchy collapses, and aliases on the component stop reaching them. Parenting cascades deletion and provider inheritance.
 
 ```typescript
 class MyComponent extends pulumi.ComponentResource {

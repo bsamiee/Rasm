@@ -99,6 +99,13 @@ snapshots:
       start: 0
       end: 33
   ? |
+    # The item harnesses the value
+  : labels:
+    - source: '# The item harnesses the value'
+      style: primary
+      start: 0
+      end: 30
+  ? |
     # The item holds several values
   : labels:
     - source: '# The item holds several values'

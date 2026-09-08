@@ -4,11 +4,11 @@ Covers target execution, project scheduling, and task cost in build duration, an
 
 ## [01]-[COMPARABLE_CAPTURES]
 
-Change only the input or setting under measurement. Hold the command, properties, node count, node reuse, restore state, and build server state constant across the two captures, and keep binary logging on for both, because the logger has its own cost.
+Change only the input or setting under measurement. Hold the command, properties, node count, node reuse, restore state, and build server state constant across both captures, and keep binary logging on for both, because the logger has its own cost.
 
 | [INDEX] | [CAPTURE]     | [COMMANDS]                                                                   | [MEASURES]                               |
 | :-----: | :------------ | :--------------------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | Clean build   | `dotnet build -t:Rebuild -tl:off -bl:<dir>/rebuild-{}.binlog`                | Every target and task from empty outputs |
+|  [01]   | Clean build   | `dotnet build -t:Rebuild -bl:<dir>/rebuild-{}.binlog`                | Every target and task from empty outputs |
 |  [02]   | Changed input | One successful build, one representative edit, the same command with `-bl`   | Work one edit causes                     |
 |  [03]   | No change     | One successful build, then the same command again with `-bl`                 | Targets that run with nothing changed    |
 |  [04]   | Build only    | `dotnet restore -bl:<dir>/restore-{}.binlog`, then `--no-restore` with `-bl` | Execution without restore                |
@@ -16,6 +16,7 @@ Change only the input or setting under measurement. Hold the command, properties
 - `dotnet build-server shutdown` stops the MSBuild server and the compiler server before a capture, and `--disable-build-servers` keeps them out of one capture
 - `-nr:false` stops node reuse, and the next capture starts its worker nodes again
 - Record the chosen state of each with the capture, because a warm server and reused nodes remove process startup from the measured duration
+- Restore and capture both under `--artifacts-path <dir>`, because a build another session runs into the shared `ArtifactsPath` between the captures changes the measured work
 - Use `binlog_compare` for property and package drift between two captures
 - Compare the build against its own captures
 
@@ -54,7 +55,7 @@ After each graph change, capture the same build again and run `binlog_build_grap
 
 ```bash
 dotnet restore Solution.slnx
-dotnet build Solution.slnx --no-restore -tl:off -graph -isolate -bl:<dir>/graph-{}.binlog  # restore breaks isolation and runs first
+dotnet build Solution.slnx --no-restore -graph -isolate -bl:<dir>/graph-{}.binlog  # restore breaks isolation and runs first
 ```
 
 - `<MSBuild Projects="...">` calls add no graph edge, and `ProjectReference` or a `ProjectReferenceTargets` entry declares it
@@ -92,7 +93,7 @@ When `binlog_expensive_tasks` shows `ResolveAssemblyReference` cost:
 `Csc` includes analyzer and source generator work. The .NET SDK sends every compilation to the compiler server, and `UseSharedCompilation=false` runs `csc` as a process per project, which the `CompilerServer:` message under the `Csc` task records as `server processed compilation` or `using command line tool by design`.
 
 ```bash
-dotnet build Solution.slnx -t:Rebuild -tl:off -p:ReportAnalyzer=true -bl:<dir>/analyzers-{}.binlog  # per-analyzer timing in the log
+dotnet build Solution.slnx -t:Rebuild -p:ReportAnalyzer=true -bl:<dir>/analyzers-{}.binlog  # per-analyzer timing in the log
 ```
 
 - Run `binlog_analyzer_summary` on the capture for time and invocation count per analyzer, and rank the outliers

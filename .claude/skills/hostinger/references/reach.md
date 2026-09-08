@@ -44,6 +44,6 @@ Segment audiences read through `listSegmentContactsV1` (`GET .../segments/{segme
 |  [01]   | `GET`             | `/api/reach/v1/profiles[/{uuid}/domains/dns-status]`  | Profiles, sender-domain DNS gate  |
 |  [02]   | `GET/POST/DELETE` | `/api/reach/v1/contacts[/{uuid}]`                     | List, create account-wide, delete |
 |  [03]   | `POST`            | `/api/reach/v1/profiles/{uuid}/contacts`              | Create scoped to a sender profile |
-|  [04]   | `GET`             | `/api/reach/v1/contacts/groups`                       | Legacy contact groups             |
+|  [04]   | `GET`             | `/api/reach/v1/contacts/groups`                       | Contact groups                    |
 |  [05]   | `GET/POST`        | `/api/reach/v1/segmentation/segments[/{uuid}]`        | List, create, read a segment      |
 |  [06]   | `GET`             | `/api/reach/v1/segmentation/segments/{uuid}/contacts` | Segment audience, paginated       |

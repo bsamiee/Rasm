@@ -28,6 +28,23 @@ utils:
               has: {field: name, pattern: $ROOT}
             - kind: class_definition
               has: {field: name, pattern: $ROOT}
+    nullable-type:
+        kind: type
+        any:
+            - has: {kind: binary_operator, has: {kind: none, stopBy: {not: {kind: binary_operator}}}}
+            - has: {kind: generic_type, has: {kind: identifier, regex: '^Optional$'}}
+            - has:
+                kind: generic_type
+                all:
+                    - has: {kind: identifier, regex: '^Union$'}
+                    - has: {kind: type_parameter, has: {kind: type, has: {kind: none}}}
+            - has: {kind: subscript, has: {field: value, regex: '\.Optional$'}}
+            - has:
+                kind: subscript
+                all:
+                    - has: {field: value, regex: '\.Union$'}
+                    - has: {kind: none}
+            - has: {kind: string, has: {kind: string_content, regex: '\bNone\b'}}
     signature-default:
         any:
             - kind: string
@@ -59,7 +76,9 @@ rule:
             - has: {field: name, pattern: $P}
             - has: {field: value, kind: none}
         - kind: typed_parameter
-          has: {kind: identifier, pattern: $P}
+          all:
+            - has: {kind: identifier, pattern: $P}
+            - has: {field: type, matches: nullable-type}
         - kind: default_parameter
           all:
             - has: {field: name, pattern: $P}

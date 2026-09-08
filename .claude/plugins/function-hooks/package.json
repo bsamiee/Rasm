@@ -6,9 +6,6 @@
     "nx": {
         "tags": ["language:typescript"],
         "targets": {
-            "lint": {},
-            "format": {},
-            "check": { "dependsOn": ["lint", "test"] },
             "typecheck": { "cache": false },
             "test": {
                 "cache": false,

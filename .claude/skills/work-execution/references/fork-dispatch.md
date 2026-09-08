@@ -1,81 +1,42 @@
 # [FORK_DISPATCH]
 
-Fork dispatch runs a plan over independent systems in parallel: the main agent sends one fresh orchestrator per system, each orchestrator forks one agent per step in sequence and cleans and checks its own result, and the main agent reviews every touched file whole at the end.
+Fork dispatch runs work over independent branches in parallel: the main agent sends one `system-orchestrator` per branch, each orchestrator forks one agent per step and cleans and checks its own result, and the main agent reviews every touched file whole at the end.
 
 ## [01]-[FIT]
 
-The style fits a plan with the steps numbered per system, the exact change per step written down, and the files of each system disjoint from the others. Shared files or one system leave the orchestrator layer nothing to relay or review.
+The style fits work with the steps stated per branch, in the prompt, in a plan file, or in a document set, and the files of each branch disjoint from the others. Shared files or one branch leave the orchestrator layer nothing to relay or review.
 
 ## [02]-[DISPATCH]
 
-The main agent dispatches every orchestrator in one message, as fresh Fable `general-purpose` agents, and the systems run at the same time from the same starting state. Before the first dispatch it reads the plan whole and lists the files in scope without reading them.
+The main agent dispatches every orchestrator in one message, and the branches run at the same time from the same starting state. Before the first dispatch it reads the steps whole and lists the files in scope without reading them.
 
 Each orchestrator brief holds, in order:
-1. The edit rule in its first lines
-2. The system, the repository root, the starting commit, and the sibling systems it leaves untouched
-3. The steps, each pointing at its plan entry, and the reads before the first fork: the plan whole and every file in scope whole
-4. The sub-briefs pasted in as fill-in templates: the fork brief and the adversarial brief
-5. The standards every brief holds, and the definition of each file kind the work produces
-6. The done-when: every step landed as its entry states, every file reads as its kind, the checks print nothing, nothing partial or loose remains
-7. The report contract, bounded in lines
+1. The scope as paths from the repository root, the steps or the intent with the document line each points at, the starting commit, and the checks
+2. The standards every brief holds by file kind, and the definition of each file kind the work produces
 
-The report contract holds:
-- Steps done
-- The change per file in the plan's measure
-- Each plan correction as the plan text, the replacing fact, and the orchestrator it was messaged to
-- Each unlanded fact with its source and reason
-- Questions
+The main agent keeps every record the session holds from the reports, and no orchestrator reads or writes one.
 
-## [03]-[ORCHESTRATOR_SEQUENCE]
+## [03]-[WORKERS]
 
-Each orchestrator decides every judgment itself, messages `main` alone, and runs:
-1. Read the plan whole, the standards the brief names, then every file in scope whole
-2. Fork one agent (subagent type `fork`) per step in order with the step, its entry, the file, and the edit rule, and read the changed file on return
-3. Spawn `prose-editor` with the Agent tool over every file touched since the last checkpoint
-4. Correct course in the next brief from what the changed file shows
-5. When every step is done, dispatch one fresh Fable `general-purpose` adversarial agent over the whole diff against the starting commit
-6. Read every file in scope whole once more and make the final prose and structure pass with surgical edits
-7. Run the checks the standards name over every file in scope, and fix each hit
-8. Report to `main` under the contract
-
-Forks hold the orchestrator's context, and their briefs name the step and the entry and repeat nothing the context holds. Fork briefs that name no fresh reviewer get a self-review recorded in place of the fresh pass. When the fork type is unavailable, a fresh `general-purpose` agent takes the step with the entry text and the standards pasted in. A follow-up to a returned fork goes to a fresh agent with a self-contained brief, because a resumed fork can read the message as another agent's, and a `SendMessage` to a fresh agent lands at its next tool round as its own task, running or returned.
+Each orchestrator decides every judgment itself. Forks take the steps, because they hold the orchestrator's context, and each fork's brief names the step and the source line and repeats nothing the context holds. Skills the orchestrator loaded before the fork reach it. Fresh `general-purpose` agents take the adversarial pass over the whole diff and every follow-up to a returned worker, because they hold their brief alone and a resumed fork can read the message as another agent's. When the fork type is unavailable, a fresh `general-purpose` agent takes the step with the step text and the standards pasted in. Fork briefs that name no fresh reviewer get a self-review recorded in place of the fresh pass. The `prose-editor` agent runs over the files touched since the last checkpoint, listed in its prompt, because the starting commit on a shared tree covers every branch.
 
 ## [04]-[TEMPLATES]
+
+The `function-hooks` plugin appends its shared lines to every `fork` and `general-purpose` spawn, and each template holds the task alone.
 
 Fork brief:
 
 ```text
-Never rewrite a whole file in one move: read the file, read the entry, write one scoped change, read the result.
-Implement step <N> from entry <id> in <file>. Read the entry and the file section it names before the first edit,
-apply the change as exact-string replacements that assert one match, read the result after each edit, and keep every
-fact the entry lands elsewhere by writing it there in the same step. Report the lines changed and any fact the entry
-names with no place in the file, in at most 12 lines.
+Implement step <N> in <file>: <step as stated>, from <document line> where the prompt points at one. Read the source
+line and the file section it names before the first edit, keep every fact the step lands elsewhere by writing it
+there in the same step, and run <check> after the edit.
 ```
-
-Cleaning pass: Spawn `prose-editor` with the Agent tool over every file touched since the last checkpoint
 
 Adversarial brief:
 
 ```text
-Never rewrite a whole file in one move: read, one scoped change, read. Read the plan and `git diff <commit> -- <files>`,
-with new files whole. Check each fact against the file it came from at <commit>, against the file on disk where it
-names a configuration value, and against the tool's documentation or help where it is about a tool. Correct what you
-can justify: a fact lost between the old file and the new, a fact that is false, a structure that hides a rule,
-and a pattern from one file copied into others to the result's cost. Report each correction as file, line, finding,
-and reason, in at most 20 lines.
+Read the steps as stated and `git diff <commit> -- <scope>`, with new files whole. Check each fact against the file it
+came from at <commit>, against the file on disk where it names a configuration value, and against the tool's
+documentation or help where it is about a tool. Correct a fact lost between the old file and the new, a fact that is
+false, a structure that hides a rule, and a pattern from one file copied into others to the result's cost.
 ```
-
-## [05]-[MESSAGING]
-
-Every agent messages its orchestrator with a finding outside its step, and the orchestrator implements it or messages `main` with the fact and the sibling system it concerns, in the same round. Subagents hold no `ListAgents` and their peer list is the snapshot at their start, so a sibling orchestrator is reachable through `main` alone, and `main` relays the fact to the orchestrator that holds the system. Findings that name a file outside every system (a repository manifest, a setting outside the plan) are the main agent's: it reads the file, makes the change, proves it by a run, and tells the orchestrators what changed, and each orchestrator's next brief holds the changed state.
-
-## [06]-[CLOSE]
-
-When every orchestrator returns, the main agent closes the run:
-1. Fork one review agent that holds the plan and the intent and reads every touched file whole
-2. Dispatch one fresh correction orchestrator with the findings, and it delegates each correction to a fresh agent per scope and reads the result
-3. Send one fresh reviewer over anything built beside the main work against the intent it was built from
-
-The review lists a missed or partial step, a dropped or false fact, a paraphrased criterion, prose that assumes the session, and a pattern spread across files. The review runs as a fork because the intent it checks against sits in the main context, and the correction agents start fresh because a fork of the reviewer holds its reading with its finding.
-
-The run ends when the close checks print nothing over every file in scope and the report to the user states each file changed in the plan's measure, each fact added or corrected, and what the run left as it found it with the reason.

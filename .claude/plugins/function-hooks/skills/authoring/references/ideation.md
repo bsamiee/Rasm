@@ -1,6 +1,6 @@
 # [IDEATION]
 
-Each hook makes one move on one event, the parts of the plugin compose the moves into one hook, and the questions settle a new design before its row is written.
+Each hook makes one move on one event, and plugin parts compose moves into one hook. The questions decide a new design before its row is written.
 
 ## [01]-[CATEGORIES]
 
@@ -26,7 +26,7 @@ The declarations open moves no row uses yet, each a row or an arm away:
 - `tool.describe` rows over more built-ins prepend the routing line the model reads before its first call
 - `$.mcp.call(server, tool, args)` answers a server's tool inside a rule's facts, a NuGet version checked before a manifest edit lands
 - `$.http.fetch(url)` reads a page through the host, a release note compared with a pinned version
-- `attribution.text` with a matcher on `kind` sets the commit trailer or the pull request footer the model writes
+- `attribution.text` with a matcher on `kind` sets the commit trailer or pull request footer the model writes
 - `turn.start` holds the `turnId` and `$.turn.abort` ends a turn that a later hook judges wrong
 - `engine.create` withholds a noun from the plugins beneath, and the model's own tools keep their reach
 - `ui.render` on `ToolUse`, `ToolGroup`, or `AssistantMessage` redraws a row from its props, and `ui.resolve` restyles an element
@@ -37,7 +37,7 @@ The declarations open moves no row uses yet, each a row or an arm away:
 - `agent.offer` withholds an agent type from the model in a session with no use for it
 - `$.ui.toast(text)` shows a line under the prompt for a few seconds, a fact that needs no turn and no band
 - `$.audio.play(clip)` plays a plugin asset, a URL, or bytes beside speech
-- `$.tool.call(input)` runs a tool under the plugin's own id through the permission check, and `$.tool.list()` reads what the model can call
+- `$.tool.call(input)` runs a tool under the plugin's own id through the permission check, and `$.tool.list()` reads what a model can call
 - `$.agent.list()` names every subagent of the session with its status
 - `$.fs.listDir`, `$.fs.stat`, and `$.fs.writeFile` read a neighbor's size or write a file under the working directory
 - `$.clock.after(ms, fn)` runs one tick once, a deferred check started in `session.start`
@@ -49,25 +49,25 @@ The declarations open moves no row uses yet, each a row or an arm away:
 
 ## [03]-[COMPOSITION]
 
-Complex hooks compose the parts, one adapter, one fold, and the store as the one state between events:
+Complex hooks compose parts, one adapter, one fold, and the store as the one state between events:
 - Store read feeding a fold: the adapter decodes `injected/`, `snapshot/`, and `prompt/` rows into a facts record the rules take as an argument
-- Rewrite feeding a guard: restoration puts the secret value back before the git guard reads the command
+- Rewrite feeding a guard: restoration puts secret values back before the git guard reads the command
 - Recording feeding a requirement: a successful snapshot call stamps `snapshot/<session>/<vm>`, and the hostinger family requires the stamp
-- Timer feeding a spawn: the tick batches the open findings by kind, or a due part, under `dispatch/<batchId>` and spawns the editor
-- Spawn feeding a close: the editor's final message is the close input, decoded through `decodeJson` and `decodeClose` into the handler
+- Timer feeding a spawn: a tick batches open findings by kind, or a due part, under `dispatch/<batchId>` and spawns the editor
+- Spawn feeding a close: the editor's final message is the close input, decoded through `decodeJson` and `decodeClose` into its handler
 - Classifier feeding a served tool: `turn.complete` writes `findings/<id>`, `close` lists and lands the rows
 - Skill load feeding a stop: `skill.prompt` stamps `loaded/<session>/<skill>`, and the once lines that route to the skill stop
 - Session fact feeding a measurement: `session.start` writes the guidance directories, and the markdown row measures edits under them
 
 ## [04]-[QUESTIONS]
 
-Settle each before the row is written, in order:
-1. Which event holds the fact at the moment the decision is needed, and whether it fires under `-p`
+Decide each before the row is written, in order:
+1. Which event holds the fact when a decision is needed, and whether it fires under `-p`
 2. What `$` must supply beyond `e`, read in the hook body and handed to the rule as an argument
 3. Whether the move is a deny (the correct form named), a rewrite (the context line), a context line (`once` or `each`), or an answer
-4. Which table holds the row, and whether the row type needs a field every consumer of the table then reads
-5. Which proof shows it: the spec over a literal event, the `--plugin-dir --debug -p` run, and the debug line it must print
+4. Which table holds the row, and whether its row type needs a field every table consumer then reads
+5. Which proof shows it: a spec over a literal event, the `--plugin-dir --debug-file -p` run, and the debug line it must print
 6. Whether the answer is cached, and which writer invalidates it
-7. Whether a person acts on what a surface shows, and which surface: the notice under the call, the band, the status line, or none
-7. Whether the work outlives the dispatch, and then whether it starts in `session.start`
-8. Whether the call reaches the plugin's own hooks, and whether a spawned agent's calls reach a served tool
+7. Whether a person acts on what a surface shows, and which surface: notice under the call, band, status line, or none
+8. Whether the work outlives the dispatch, and then whether it starts in `session.start`
+9. Whether the call reaches the plugin's own hooks, and whether a spawned agent's calls reach a served tool

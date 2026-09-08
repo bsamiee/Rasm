@@ -12,7 +12,7 @@ case ${1-} in
     measure) (($# >= 3)) ;;
     *) false ;;
 esac || {
-    printf '%s\n' 'usage: rule-checks.sh pairing | width <ext> [<id-regex>] | arms <ext> [<id-regex>] | parse <ext> [<id-regex>] | measure <ext> <path>...'
+    printf '%s\n' 'usage: rule-checks.sh pairing | width <ext> [<id-regex>] | arms <ext> [<id-regex>] | parse <ext> [<id-regex>] | measure <ts|py> <path>...'
     exit 1
 }
 command=$1 filter=${3-} ext=${2-} ext=${ext#.}
@@ -168,7 +168,7 @@ hits_of() {
 run_test() {
     local out rc=0 line
     [[ -n $test_filter ]] || return 0
-    out=$(ast-grep test -c "$cases/sgconfig.yml" --include-off --filter "$test_filter" --color never 2>&1) || rc=$?
+    out=$(ast-grep test -c "$cases/sgconfig.yml" --include-off --filter "$test_filter" 2>&1) || rc=$?
     while IFS= read -r line; do
         [[ $line =~ ^FAIL\ ([^[:space:]]+) ]] && failed[${BASH_REMATCH[1]}]=1
         ((rc == 0)) || [[ -z $line || $line == PASS\ * ]] || finding "$line"
@@ -209,7 +209,7 @@ cover_arms() {
     while IFS=$'\t' read -r op p mutation; do
         printf '%s' "$mutation" >"$root/$id.yml" # JSON is YAML the loader reads, no yq run per arm
         rc=0
-        out=$(ast-grep test -c "$root/sgconfig.yml" --include-off --filter "$regex" --skip-snapshot-tests --color never 2>&1) || rc=$?
+        out=$(ast-grep test -c "$root/sgconfig.yml" --include-off --filter "$regex" --skip-snapshot-tests 2>&1) || rc=$?
         case $rc in
             0) ;;
             4) continue ;;
@@ -226,7 +226,7 @@ cover_arms() {
         for caller in "$@"; do [[ ${got[$caller]} == "${hits[$caller]}" ]] || continue 2; done
         if ((${#snapshots[@]})); then
             # -U run writes every caller's snapshot, a cost paid on the arms the cheaper proofs left alone
-            out=$(ast-grep test -c "$root/sgconfig.yml" --include-off --filter "$regex" --update-all --color never 2>&1) || {
+            out=$(ast-grep test -c "$root/sgconfig.yml" --include-off --filter "$regex" --update-all 2>&1) || {
                 finding "mutation fix comparison failed: $id $op $p"$'\n'"$out"
                 continue
             }
@@ -278,6 +278,7 @@ check_parse() {
             inputs+=("${case_path["invalid $id case $c"]}") outputs+=("${case_path["fixed $id case $c"]}")
         done
         if ((${rule["anchored,$id"]})); then
+            mkdir -p "$(dirname "$cases/${rule["target,$id"]}")" # Anchored leaf under a files: directory the case tree never created
             for ((c = 0; c < ${#inputs[@]}; c++)); do
                 cp "${inputs[c]}" "$cases/${rule["target,$id"]}"
                 out=$(ast-grep scan -c "$cases/sgconfig.yml" --filter "^$id\$" --error="$id" --threads 1 --no-ignore hidden -U "$cases/${rule["target,$id"]}" 2>&1) || finding "$out"
@@ -314,6 +315,10 @@ measure() {
         [tsx]=':is(program, export_statement) > :is(lexical_declaration, variable_declaration, function_declaration, generator_function_declaration, type_alias_declaration, interface_declaration, class_declaration, abstract_class_declaration, enum_declaration, ambient_declaration), export_statement > :is(function_expression, arrow_function), program > expression_statement > internal_module'
         [python]='module > :is(function_definition, class_definition, type_alias_statement), module > expression_statement > assignment'
     ) nesting=([tsx]=no-fourth-nesting-level [python]=no-fourth-python-nesting-level)
+    [[ -v elements[$lang] ]] || {
+        printf 'measure reads %s, and sgconfig.yml maps .%s to %s\n' "${!elements[*]}" "$ext" "$lang"
+        exit 1
+    }
     # run exits 1 over no match, a capture under -e ends the script at zero elements, the stream holds one line per match
     { ast-grep run -k "${elements[$lang]}" -l "$lang" --json=stream "$@" || [[ $? == 1 ]]; } | mapfile -t found
     scan_matches --filter "^${nesting[$lang]}\$" "$@" | mapfile -t hits

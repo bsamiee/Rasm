@@ -119,7 +119,44 @@ valid:
 
       def run(value: str | None, settings: Settings):
           return value if value is not None else settings.profile
+    - |
+      def run(name: str) -> str:
+          return name or "stateful"
+    - |
+      import operator
+
+      def check(left, right, equal: _Equality[T]) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      def run(names: list[str | None]) -> list[str]:
+          return names or []
+    - |
+      def run(name: Optional) -> str:
+          return name or "stateful"
+    - |
+      def fallback() -> None:
+          pass
+
+      def run(make: Callable[[], None]) -> None:
+          return (make or fallback)()
+    - |
+      def fallback() -> None:
+          pass
+
+      def run(make: typing.Callable[[], None]) -> None:
+          return (make or fallback)()
+    - |
+      def run(name: "str") -> str:
+          return name or "stateful"
+    - |
+      def run(values: list[str | None] | tuple[str, ...]) -> tuple[str, ...]:
+          return values or ()
 invalid:
+    - |
+      import operator
+
+      def check(left, right, equal: None | Equality | Other) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
     - |
       from runtime import PROFILE_STATEFUL
 
@@ -143,7 +180,37 @@ invalid:
     - |
       import operator
 
-      def check(left, right, equal: _Equality[T]) -> None:
+      def check(left, right, equal: Optional[Equality]) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      import operator
+
+      def check(left, right, equal: typing.Optional[Equality]) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      import operator
+
+      def check(left, right, equal: Union[Equality, None]) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      import operator
+
+      def check(left, right, equal: typing.Union[Equality, None]) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      import operator
+
+      def check(left, right, equal: None | Equality) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      import operator
+
+      def check(left, right, equal: Equality | Other | None) -> None:
+          assert (equal if equal is not None else operator.eq)(left, right)
+    - |
+      import operator
+
+      def check(left, right, equal: "Equality | None") -> None:
           assert (equal if equal is not None else operator.eq)(left, right)
     - |
       LIMIT = 3

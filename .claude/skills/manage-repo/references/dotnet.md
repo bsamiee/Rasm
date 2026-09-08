@@ -20,13 +20,13 @@ The .NET plugin globs every project file and every ancestor `Directory.Build.*` 
 - `PackageReference` edges from a consumer to a packaging project come from the local plugin's `createDependencies`, one static edge per reference
 - `implicitDependencies` from a managed binding to its native package come from the local plugin, which pairs the projects by library name
 
-Each `test` target writes its Cobertura report under `.artifacts/dotnet/coverage/<project>`, and the root `coverage` target merges the reports through `dotnet dnx dotnet-reportgenerator-globaltool` into Cobertura, lcov, and a markdown summary.
+Each `test` target writes its Cobertura report under `.artifacts/dotnet/coverage/<project>`, and the root `coverage` target merges the reports through `dotnet dnx dotnet-reportgenerator-globaltool` into Cobertura, lcov, and a markdown summary. The merged report covers workspace assemblies alone, and a `does not exist (any more)` line naming a referenced package's source path is a collector setting to correct.
 
 ## [02]-[PACKAGING]
 
 Each packaging project derives `Version` from its library's manifest under `eng/native/<library>/`, checked before `GenerateNuspec`:
 - `Version` is the manifest's `version-string`, and `VersionManifestFileName` names a manifest other than `vcpkg.json`
-- An `Error` task fails a pack with no manifest version
+- `Error` tasks fail a pack with no manifest version
 - Projects locked to one central version name it as `CentralPackageId`, and an `Error` task fails a `Version` that differs from its entry
 
 The asset-only package holds `runtimes/`, `contentFiles/any/any/` with `PackageCopyToOutput`, and a `lib/<tfm>/_._` placeholder with `IncludeBuildOutput` false, and a pinned `DeterministicTimestamp` makes the package bytes a function of content and version:
@@ -37,7 +37,7 @@ Give a library with a generated binding a managed packaging project, `Item` besi
 
 The local feed is a folder source in `NuGet.config` under `.artifacts/`, package source mapping pins every workspace id pattern to that source and every other id to the registry, and `globalPackagesFolder` places the one restore folder every client shares under `.cache/`.
 
-Reference the native package beside the binding, and an `Error` task in the root `Directory.Build.targets` fails a project that references one without the other, because the binding package holds no native asset. The same target fails a binding referenced without the companion project that holds its runtime initialization.
+The binding package holds no native asset, a consumer references it beside the native package, and an `Error` task in the root `Directory.Build.targets` fails a project that references one without the other. The same target fails a binding referenced without the companion project that holds its runtime initialization.
 
 Read `NuGetPackOutput` from the same `dotnet pack -getItem:NuGetPackOutput` invocation that creates the package. Use its `FullPath` for publication, with the main `.nupkg` distinguished from symbol packages. Package identity, normalized version, and output path come from the SDK, not filename reconstruction or the newest file in a shared feed.
 
@@ -62,7 +62,7 @@ Take a packaging subtree out of the root `Directory.Build.props` chain when the 
 </Project>
 ```
 
-Pair the stop form with a minimal `Directory.Build.targets` and a `Directory.Packages.props` that sets `ManagePackageVersionsCentrally` to `false`, because MSBuild finds every directory file in the subtree and searches no further up. The native packaging subtree takes the stop form, with its own `ArtifactsPath` and the `PackageOutputPath` set to the local feed. `dotnet msbuild <project> -getProperty:<RootProperty>` proves the choice: the chain returns the root value and the stop returns empty.
+MSBuild finds every directory file in the subtree and searches no further up, and the stop form pairs with a subtree `Directory.Build.targets` and a `Directory.Packages.props` that sets `ManagePackageVersionsCentrally` to `false`. The native packaging subtree takes the stop form, with its own `ArtifactsPath` and the `PackageOutputPath` set to the local feed. `dotnet msbuild <project> -getProperty:<RootProperty>` proves the choice: the chain returns the root value and the stop returns empty.
 
 Exclude packaging projects from the solution and the .NET plugin. The solution lists projects developers build and test, while packaging projects use their own targets inferred by the local plugin.
 

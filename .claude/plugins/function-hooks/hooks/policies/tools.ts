@@ -2,7 +2,7 @@
 
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { BuiltinToolName, McpToolInputs, ToolCallInput, ToolDescribeInput, ToolDescribeResult } from 'claude-code';
+import type { BuiltinToolName, McpContentBlock, McpToolInputs, ToolCallInput, ToolDescribeInput, ToolDescribeResult } from 'claude-code';
 import { absurd, answer, type Decision, deny, type Rule, rewrite, when } from '../composition/decision.ts';
 import {
     flatMap,
@@ -55,8 +55,10 @@ interface Applied {
     readonly context: readonly string[];
 }
 
-// Deny and rewrite rules run over the tool's own event, lifted by _refused and _rewritten, and read its typed fields
+// Answer, deny, and rewrite rules run over the tool's own event, lifted by _answeredWhen, _refused, and _rewritten, and read its typed fields,
+// an answer is the content blocks of an MCP reply as next resolves them, the shape core validates a hook's answer against
 interface ToolRow {
+    readonly answer?: (e: ToolCallInput) => Option<readonly McpContentBlock[]>;
     readonly deny?: Rule<ToolCallInput, never, string>;
     readonly rewrite?: (e: ToolCallInput, facts: Facts) => Option<Rewritten>;
     readonly once?: Once;
@@ -166,6 +168,12 @@ const _refusedWhen = <T extends ToolName>(tool: T, reason: (e: Named<T>) => Opti
     ),
 });
 
+// Answer rows whose result holds under the fields the declarations give the tool, a none passes the call to the server
+const _answeredWhen = <T extends ToolName>(tool: T, result: (e: Named<T>) => Option<readonly McpContentBlock[]>): ToolEntry => ({
+    tool,
+    answer: (e) => flatMap(result)(fromPredicate(isTool(tool))(e)),
+});
+
 // Deny rows with a reason over every call of the tool, WebFetch's url a string
 const _refused = <T extends ToolName>(tool: T, reason: (e: Named<T>) => string): ToolEntry => _refusedWhen(tool, (e) => some(reason(e)));
 
@@ -198,7 +206,12 @@ const _absoluteFolder = (e: Searched, facts: Facts): Option<Rewritten> =>
     });
 
 // The server trusts every solution on its command line for the session, and .mcp.json names the workspace solution there
-const _TRUST_DENY = `trust_solution on ${SOLUTION} is a wasted call, the server trusts every solution on its command line for the session, call get_diagnostics with includeAnalyzers: true directly`;
+const _TRUST_ANSWER: readonly McpContentBlock[] = [
+    {
+        type: 'text',
+        text: `${SOLUTION} is trusted for the session, the server trusts every solution on its command line, call get_diagnostics with includeAnalyzers: true`,
+    },
+];
 
 // Rows over the tool names the declarations know, a tool's rewrite rows run in table order and each reads the event the one before produced
 const TOOLS: readonly ToolEntry[] = [
@@ -208,9 +221,9 @@ const TOOLS: readonly ToolEntry[] = [
         'mcp__playwright__browser_run_code_unsafe',
         (): string => 'browser_run_code_unsafe runs arbitrary code in the page, use the typed browser tools',
     ),
-    _refusedWhen(
+    _answeredWhen(
         'mcp__roslyn-codelens__trust_solution',
-        (e): Option<string> => liftPredicate<string>(() => basename(e.path) === SOLUTION)(_TRUST_DENY),
+        (e): Option<readonly McpContentBlock[]> => liftPredicate<readonly McpContentBlock[]>(() => basename(e.path) === SOLUTION)(_TRUST_ANSWER),
     ),
     { tool: 'mcp__hostinger__VPS_createSnapshotV1', records: 'vm-snapshot' },
     { tool: 'mcp__hostinger__DNS_getDNSRecordsV1', records: 'dns-read' },
@@ -235,7 +248,7 @@ const DESCRIBE = [
     { tool: 'WebFetch', line: 'WebFetch is refused, the docs and github tools, tvly extract, and mcp__exa__web_fetch_exa replace it' },
     {
         tool: 'mcp__roslyn-codelens__trust_solution',
-        line: `The command-line solution ${SOLUTION} is trusted for the session, trust_solution serves another solution alone`,
+        line: `The command-line solution ${SOLUTION} is trusted for the session, the plugin answers a call on it without the server, and trust_solution serves another solution alone`,
     },
     {
         tool: 'mcp__ast-grep__dump_syntax_tree',
@@ -286,7 +299,7 @@ const _serverRow = (tool: string): Option<ServerRow> => flatMap((name: Server) =
 
 const _serverOnce = (tool: string): Option<Once> => map((row: ServerRow): Once => ({ key: row.skill, line: row.line }))(_serverRow(tool));
 
-const _onces = (tool: string): readonly Once[] => [
+const _onceRows = (tool: string): readonly Once[] => [
     ...toArray(_serverOnce(tool)),
     ...toArray(flatMap((row: ToolRow) => fromNullable(row.once))(_row(tool))),
 ];
@@ -306,7 +319,7 @@ const _denyReason = (e: ToolCallInput, facts: Facts): Option<string> =>
     _rowReason(e).match<Option<string>>({ some, none: () => _requirementReason(e, facts) });
 
 const _context = (e: ToolEvent, facts: Facts): readonly string[] => [
-    ..._onces(e.tool)
+    ..._onceRows(e.tool)
         .filter((once) => !facts.seen.has(once.key))
         .map((once) => once.line),
     ...toArray(flatMap((row: ToolRow) => fromNullable(row.each))(_row(e.tool))),
@@ -327,13 +340,22 @@ const _applied = (e: ToolCallInput, facts: Facts): Applied =>
 const _pass = (applied: Applied, facts: Facts): Decision<ToolCallInput, unknown, string> =>
     rewrite(applied.e, [...applied.context, ..._context(applied.e, facts)]);
 
-// The table deny or the family requirement ends the rule, otherwise the rewrite rows run and their lines join the once and each lines
+// The row's answer rule run over the event, the result the plugin serves in the server's place or none
+const _rowAnswer = (e: ToolCallInput): Option<readonly McpContentBlock[]> =>
+    flatMap((rule: NonNullable<ToolRow['answer']>) => rule(e))(flatMap((row: ToolRow) => fromNullable(row.answer))(_row(e.tool)));
+
+// The table answer ends the rule, then the table deny or the family requirement, otherwise the rewrite rows run and their lines join the
+// once and each lines
 const toolRule =
     (facts: Facts): Rule<ToolCallInput, unknown, string> =>
     (e: ToolCallInput): Decision<ToolCallInput, unknown, string> =>
-        _denyReason(e, facts).match<Decision<ToolCallInput, unknown, string>>({
-            some: deny,
-            none: () => _pass(_applied(e, facts), facts),
+        _rowAnswer(e).match<Decision<ToolCallInput, unknown, string>>({
+            some: answer,
+            none: () =>
+                _denyReason(e, facts).match<Decision<ToolCallInput, unknown, string>>({
+                    some: deny,
+                    none: () => _pass(_applied(e, facts), facts),
+                }),
         });
 
 // The fact a successful call records, read by the hostinger families later in the session
@@ -341,7 +363,7 @@ const toolRecords = (e: ToolEvent): Option<Recorded> =>
     flatMap((row: ToolRow) => map((kind: Recording): Recorded => ({ kind, id: _id(e) }))(fromNullable(row.records)))(_row(e.tool));
 
 // The keys the adapter stamps as injected once the call ran
-const toolSkills = (e: ToolEvent): readonly string[] => _onces(e.tool).map((once) => once.key);
+const toolSkills = (e: ToolEvent): readonly string[] => _onceRows(e.tool).map((once) => once.key);
 
 // The owning skill's line, then the tool's own row, one per line, none when the tool has neither
 const _describeLine = (tool: string): Option<string> =>

@@ -1,6 +1,6 @@
 ---
 name: ast-grep
-description: Use when reading, searching, or rewriting code by its syntax tree, or deriving and integrating ast-grep rules from diffs, code, or project principles.
+description: "Use when reading, searching, or rewriting code by syntax tree, or deriving and integrating ast-grep rules from diffs, code, or principles."
 ---
 
 # [AST_GREP]
@@ -70,7 +70,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 Searches follow one sequence:
 1. Query fits one AST node: run `find_code` with the pattern and a bounded `max_results`
 2. Structural query: start from the most specific positive rule, refine relationally, then filter captures
-3. Unknown node kind: run `dump_syntax_tree` with `format=cst` on one top-level node, or `format=pattern` for a mis-parsing pattern
+3. Unknown node kind: run `dump_syntax_tree` with `format=cst` on one top-level node, or `format=pattern` for a misparsed pattern
 4. Multi-statement snippets take `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree prints on stderr before exit 8
 5. Prove with `test_match_code_rule` on the matching snippet, then on the non-matching one, return to the tree on a miss
 6. Failed rule call: inspect `printf '%s' '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`
@@ -310,7 +310,7 @@ Hosts consume scans through exit codes, output formats, and bindings:
 | :-----: | :------------ | :---------------------------------------------------------------------------------------------------------------------- |
 |  [01]   | CI annotation | `ast-grep scan --format github` prints `::error file=,line=,title=<rule-id>::` per finding above `hint`, no upload      |
 |  [02]   | Code scanning | `ast-grep scan --format sarif > <file>` then `github/codeql-action/upload-sarif`, `--format` excludes `--json`          |
-|  [03]   | Hook          | `ast-grep scan --report-style short --color never <paths>`                                                              |
+|  [03]   | Hook          | `ast-grep scan --report-style short <paths>`                                                                            |
 |  [04]   | Changed files | `git diff --name-only -z --diff-filter=ACMR <base>...` as NUL-delimited separate arguments, no scan on an empty list    |
 |  [05]   | Pipeline      | `ast-grep scan --json=stream \| jq -c '<filter>'`, one match per line with its `ruleId`                                 |
 |  [06]   | Baseline      | `ast-grep scan --filter '^<rule-id>$' --json=stream \| wc -l` against a recorded count, one rule's width over the tree  |

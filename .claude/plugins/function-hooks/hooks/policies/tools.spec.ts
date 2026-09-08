@@ -42,8 +42,13 @@ const _RESET: ToolCallInput = { tool: 'mcp__hostinger__DNS_resetDNSRecordsV1', [
 const _RECORDS: ToolCallInput = { tool: 'mcp__hostinger__DNS_getDNSRecordsV1', ['tool_use_id']: 'call', domain: 'example.com' };
 const _RESOLVE: ToolCallInput = { tool: 'mcp__context7__resolve-library-id', ['tool_use_id']: 'call', query: 'effect', libraryName: 'effect' };
 const _RUN_CODE: ToolCallInput = { tool: 'mcp__playwright__browser_run_code_unsafe', ['tool_use_id']: 'call', code: '1' };
-const _TRUST_DENY =
-    'trust_solution on Workspace.slnx is a wasted call, the server trusts every solution on its command line for the session, call get_diagnostics with includeAnalyzers: true directly';
+// The content blocks of an MCP reply as next resolves them, the shape core validates a hook's answer against
+const _TRUST_ANSWER = [
+    {
+        type: 'text',
+        text: 'Workspace.slnx is trusted for the session, the server trusts every solution on its command line, call get_diagnostics with includeAnalyzers: true',
+    },
+];
 // The roslyn skill seen, the trust cases then read the row's own decision without the server's once line
 const _ROSLYN_SEEN: Facts = { ..._FACTS, seen: new Set(['dotnet-roslyn-codelens']) };
 
@@ -108,8 +113,8 @@ describe('toolRule denies', () => {
         });
     });
 
-    it('denies trust_solution on the command-line solution and passes it on another solution', () => {
-        expect(_plain(toolRule(_ROSLYN_SEEN)(_trust('/Users/x/Rasm/Workspace.slnx')))).toStrictEqual({ kind: 'deny', reason: _TRUST_DENY });
+    it('answers trust_solution on the command-line solution without the server and passes it on another solution', () => {
+        expect(_plain(toolRule(_ROSLYN_SEEN)(_trust('/Users/x/Rasm/Workspace.slnx')))).toStrictEqual({ kind: 'answer', result: _TRUST_ANSWER });
         expect(_plain(toolRule(_ROSLYN_SEEN)(_trust('/elsewhere/Other.slnx')))).toStrictEqual({ kind: 'rewrite', context: [] });
     });
 });
@@ -220,7 +225,7 @@ describe('describeRule', () => {
             result: {
                 description: [
                     'Load the dotnet-roslyn-codelens skill before the first call',
-                    'The command-line solution Workspace.slnx is trusted for the session, trust_solution serves another solution alone',
+                    'The command-line solution Workspace.slnx is trusted for the session, the plugin answers a call on it without the server, and trust_solution serves another solution alone',
                     'Marks a solution trusted.',
                 ].join('\n'),
             },

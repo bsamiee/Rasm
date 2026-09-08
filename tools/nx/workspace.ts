@@ -215,7 +215,7 @@ const _languageNode = Effect.fnUntraced(function* (
         root,
         ...(language === 'python' ? { name: path.basename(root) } : {}),
         tags: [`language:${language}`, ...Option.toArray(release)],
-        targets: { lint: {}, format: {}, typecheck: {}, check: {}, ...(Option.isSome(release) ? { 'nx-release-publish': {} } : {}) },
+        targets: { typecheck: {}, check: {}, ...(Option.isSome(release) ? { 'nx-release-publish': {} } : {}) },
     };
     return { projects: { [root]: configuration } };
 });

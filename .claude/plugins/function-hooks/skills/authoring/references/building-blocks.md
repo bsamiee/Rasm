@@ -4,14 +4,14 @@ Compose policies with the local `Option` and `Decision` operations under the loa
 
 ## [01]-[OPTION]
 
-`hooks/composition/option.ts` holds `Option<A>` as `{ match: (cases: { some, none }) => B }`. Callback-taking combinators are data-last, with the function first and the input in the returned call:
+`hooks/composition/option.ts` holds `Option<A>` as `{ match: (cases: { some, none }) => B }`. Callback-taking combinators are data-last, function first and input in the returned call:
 
 | [INDEX] | [OPERATION]                 | [USE]                                                                                            |
 | :-----: | :-------------------------- | :----------------------------------------------------------------------------------------------- |
 |  [01]   | `some(value)`, `none()`     | Construct, `none<T>()` where the arm's type is not inferred                                      |
 |  [02]   | `fromPredicate(refinement)` | The one `if`, a value into the Option of its narrowed type, the form of every decoder            |
 |  [03]   | `fromNullable(value)`       | Optional fields and array indexes (`argv[0]`, `row.deny`, `.find(...)`) into an Option           |
-|  [04]   | `fromBoolean(condition)`    | Booleans into `Option<true>`, the two-way branch, `fromBoolean(c).match<T>({ some, none })`      |
+|  [04]   | `fromBoolean(condition)`    | Booleans into `Option<true>`, a two-way branch,   `fromBoolean(c).match<T>({ some, none })`      |
 |  [05]   | `getOrElse(fallback)(o)`    | The value or a fallback evaluated only for none, the end of a chain (`getOrElse(() => '')(...)`) |
 |  [06]   | `map(f)(o)`                 | Function applied under the some, the none stays                                                  |
 |  [07]   | `flatMap(f)(o)`             | The dependent step, an Option-returning function under the some                                  |
@@ -39,7 +39,7 @@ Compose policies with the local `Option` and `Decision` operations under the loa
 |  [04]   | `when(refinement, rule)` | Rule lifted over a narrower input, a non-matching input passes through unchanged                |
 |  [05]   | `bind(rule)(decision)`   | The rule under a rewrite with the context accumulated, a deny or an answer stays, the fold step |
 |  [06]   | `fold(rules)`            | Table order, a rewrite feeds the next rule and accumulates context, a deny or an answer ends it |
-|  [07]   | `absurd(value)`          | The arm a rule's type rules out, `never` in and `never` out, so a case record stays total       |
+|  [07]   | `absurd(value)`          | The arm a rule's type rules out, `never` in and `never` out, and a case record stays total      |
 
 - Fold order inside one event is the policy: a rewrite later rules read runs first, guards before rows, a rewrite the model must see last
 - Rules that consult the person have no pure form, and a `Decision` arm for them lands with its first consumer
@@ -56,25 +56,12 @@ Branches are refinements and case records, read from the declarations' own union
 
 ## [04]-[TABLES]
 
-Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, and the rules over each compute the hits, then a deny, a rewrite, or the context lines:
-
-| [INDEX] | [TABLE]                           | [ROW]                                                                                                                  |
-| :-----: | :-------------------------------- | :--------------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `SHELL`                           | `word`, `when(leaf, command)`, one of `deny`, `rewrite`, `context` with `once`                                         |
-|  [02]   | `GIT`                             | `why`, `flags`, `starts`, `safe`, `refine(args, existing)` answering the reason as Option                              |
-|  [03]   | `PATHS`                           | `match(path, text)`, `tools`, one of `deny`, `once`, `each`, and `guidance` for markdown                               |
-|  [04]   | `TOOLS`                           | `tool` over declared names, `deny` a rule, `rewrite` Option of changed event over the event, `once`, `each`, `records` |
-|  [05]   | `FETCH`                           | `host` to `route`                                                                                                      |
-|  [06]   | `SERVERS`, `FAMILIES`, `DESCRIBE` | `skill`, `line` per server, `prefix`, `requires` per family, a `ToolName` with its line                                |
-|  [07]   | `AGENTS`, `OFFERS`                | `subagentType`, `brief` lines, `dispatch`, and `agent`, `isOffered`                                                    |
-|  [08]   | `KINDS`                           | `criterion`, `evidence`, `move`, keyed by `Kind` from `KIND_NAMES`                                                     |
-|  [09]   | `OPTIONS`                         | `type` per option, the `Options` type derives from it, the defaults stay in `plugin.json`                              |
-|  [10]   | `NAMESPACES` and the name lists   | `KIND_NAMES`, `STATUS`, `PART_NAMES` beside it, each `as const` with its union and refinement                          |
-|  [11]   | `SCAN`                            | `match`, `argv`, and `lines` over the path and the rule-id facts, and `timeoutMs` for a slow command                   |
-
-- New cases are rows, a new condition on a case is its `when`, and a new field on the row type is a change every consumer of the table reads
-- Rows rewrite to the strong form the call's words determine, and deny a call with nothing to run or a drop that inverts it (a dry run made real)
-- `once` keys name the skill or tool a context line routes to, and the adapter stamps `injected/<session>/<key>` before the call
+Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, each policy file's row type states its fields, and the rules over a table compute hits, then a deny, a rewrite, or context lines:
+- New cases are rows, a new condition on a case is its `when`, and a new field on the row type is a change every table consumer reads
+- `OPTIONS` holds `type` per option, the `Options` type derives from it, and defaults stay in `plugin.json`
+- `NAMESPACES` and the name lists (`KIND_NAMES`, `STATUS`, `PART_NAMES`) are each `as const` with their union and refinement
+- Rows rewrite to the strong form the call's words decide, and deny a call with nothing to run or a drop that inverts it (a dry run made real)
+- `once` keys name the skill or tool a context line routes to, and adapters stamp `injected/<session>/<key>` before the call
 - `skill.prompt` stamps `loaded/<session>/<skill>`, and a once line with its key stamped under either namespace is not injected again
 - Row reasons and lines are a literal or a template opening with literal text, and the row runner forwards them to `deny`
 - The server union `_ServerOf<keyof McpToolInputs>` distributes over the keys and rejects rows for absent servers during typecheck
@@ -83,11 +70,11 @@ Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, 
 
 Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - `Promise.all` and `.catch` sit in the hook body alone, and each background arm has its own `.catch`, a failed call drops the arm alone
-- The post-`next` arms (`toolRecords`, the scan rows, the roslyn read after its watcher wait) run in one `Promise.all`
+- Post-`next` arms (`toolRecords`, scan rows, the roslyn read after its watcher wait) run in one `Promise.all`
 - Each `$.process.run` maps a rejected child through its own `.catch` to an abort `Run`, `exitCode` -1 and the error as the first stderr line
 - The row's own lines then report a child that cannot start
 - The `$.fs.exists` facts the git refinements need are gathered over `gitPaths(command)` as `{ path, found }` records in one `Promise.all`
-- The edited file's text is read in the hook body as `PathFacts.file`, a markdown row numbers an `Edit`'s lines from the file
+- Edited file text is read in the hook body as `PathFacts.file`, and a markdown row numbers an `Edit`'s lines from it
 - The case record maps `deny` to `{ deny }`, `answer` to `{ result }`, and `rewrite` to `next`, with `$.ui.notice(e.tool_use_id, context.join(' '))`
 - The engine's command checks (`Blocked: sleep`) run beneath `next` over the rewritten command, and a dropped leaf never reaches them
 - Matched hooks narrow through their matcher, `{ interactive: true }` on `session.start` and `{ tool: 'mcp__function-hooks__close' }` on `tool.call`
@@ -104,23 +91,23 @@ Facts the adapter shape rests on, with `hooks/events/tool-call.ts` as the model:
 - `suffix(namespace, ...parts)(key)` reads one id, the form the `close` handler matches rows by
 - `id(now, random)` builds `<iso>-<rand>` from `$.clock.now()` and `crypto.randomUUID()`
 - `decodeX: (value: unknown) => Option<X>` is `fromPredicate(_isX)`, and `decodeFindings` and `decodeKeyedFindings` read a list
-- `decodeJson` is the one JSON boundary, every text from the host or the model crosses it, and a throw reads as none
-- `secretsOf` and `cleanedOf` read an absent or malformed value as the empty record, the `getOrElse` form for a record the rules always need
+- `decodeJson` is the one JSON boundary, every text from host or model crosses it, and a throw reads as none
+- `secretsOf` and `cleanedOf` read an absent or malformed value as the empty record, the `getOrElse` form for a record rules always need
+- `summary` reads through `decodeSummary` alone, because `session.start` writes the row and a reader restates no default
 
 ## [07]-[TEXT]
 
-`hooks/text/argv.ts` lexes a shell command into leaves, `hooks/text/path.ts` reads a file path, `hooks/text/lines.ts` reads output lines, and `hooks/text/replace.ts` applies value pairs:
+`hooks/text/argv.ts` lexes a shell command into leaves, `hooks/text/path.ts` reads a file path, and `hooks/text/lines.ts` reads output lines:
 - `leaves(guarded)(command)` answers `Leaf[]` of `Word { text, start, end }`, split on runs of `;`, `&`, `|`, newlines, and on parentheses
 - The lexer recurses into `$(...)`, backticks outside single quotes, `sh -c`, and interpreter `-c` and `-e` bodies to depth 8
 - Guarded words inside interpreter code are leaves of their own, and a shell with no script runs nothing
 - Leaves stay raw, and `strip(argv)` removes env assignments, wrappers, and runners for the git guard's view
 - Wrapped shells and interpreters (`timeout 30 sh -c '<body>'`) and wrappers with no command (`timeout 30`) keep their raw leaf after the body's
-- `basename(path)`, `extension(path)`, `under(path, directory)`, and `relative(cwd, path)` are the reads the path rows and the scan rows share
+- `basename(path)`, `extension(path)`, `under(path, directory)`, and `relative(cwd, path)` are the reads path rows and scan rows share
 - `lines(text)` reads non-empty output or reply lines and `first(text)` their first line, shared by the scan and roslyn rows
 - Rewrites splice the command bytes by span and never join word texts, a joined form renders `2>&1` as `2 >& 1`, and a leaf after `&&` rewrites too
-- `replace(pairs, direction)(text)` answers `{ text, applied }`, a string pair both ways and a RegExp pair forward
-- Function replacers apply each pair, and a `$` in a replacement value stays literal
-- `notes(replacement)` answers the distinct non-empty notes of the applied pairs, the context lines of a redaction
+- `groups(command)` answers each parenthesized group by span with `piped` when one pipe follows its closing paren, the read the sleep rows take
+- Secret pairs live in `policies/secrets.ts`, applied in table order through a function replacer that keeps a `$` in a value literal
 
 ## [08]-[NEW_BLOCK]
 
@@ -128,22 +115,8 @@ Share an operation when consumers need the same transformation, and the shared f
 
 ## [09]-[RULES]
 
-A shape becomes a rule when a block sets it (a call spelling, a table form, a carrier operation) or a fix proved across the code sets it, and the rule keeps the shape at `lint`:
-- The `claude-code` family is named for the package the rules read, `files` scoped to the plugin, the specs ignored by the import rule
-- Utils are named `claude-code-<shape>` (the hook, the engine call, the option member), and tests mirror the rule path
-- Inspect `tools/ast-grep/rules/typescript/claude-code/` with the `syntax` and `effect` families that read the plugin
-
-| [INDEX] | [SHAPE_KEPT]                     | [REPORTS]                                                                                          |
-| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | Loader refusals made static      | `$` as a value, an import outside the plugin, a registration outside `register`, a mutation of `e` |
-|  [02]   | Fail-open forms                  | Empty or non-text `deny` or `drop`, `catch` around `next`, rewrite with no `context`               |
-|  [03]   | Awaited engine reads             | `$` call in a condition slot without `await`, always truthy as a promise                           |
-|  [04]   | Cache discipline                 | Clock, random, or turn read inside a cached answer                                                 |
-|  [05]   | Invalidation discipline          | Literal invalidate in a loop over data or a render body, a map over the owning view list accepted  |
-|  [06]   | Timer discipline                 | Timer outside `session.start`                                                                      |
-|  [07]   | Matchers on data                 | Prose matcher beside a refusal                                                                     |
-|  [08]   | Options as the manifest declares | Option default or type restated with `??`, `\                                                      |
-|  [09]   | Carrier discipline               | Value mapped over `fromBoolean`, re-lifted Option, return by branch, fold by loop                  |
-|  [10]   | One owner per fact               | Forwarding arrow, module state, fourth callback level                                              |
-|  [11]   | `-by-hand` siblings              | Forms without a proven automatic fix, reported for a site-specific correction                      |
-|  [12]   | Cached-answer reads              | `$.store.keys()` or a mapped `$.store.get` inside a cached-answer hook                             |
+Shapes become rules when a block sets them (a call spelling, a table form, a carrier operation) or a fix proved across the code sets them. Rules keep the shape at `lint`:
+- The `claude-code` family is named for the package its rules read, with `files` scoped to the plugin and specs ignored by the import rule
+- Utils are named `claude-code-<shape>` (hook, engine call, option member), and tests mirror the rule path
+- `-by-hand` siblings report forms without a proven automatic fix for a site-specific correction
+- `rg -n '^(id|message):' tools/ast-grep/rules/typescript/claude-code/*.yml` lists the kept shapes, beside the `syntax` and `effect` families

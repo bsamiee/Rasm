@@ -154,7 +154,7 @@ internal sealed class Greeter(string separator) {
 - Factory methods introduce generic type parameters, and fields and properties cannot
 - `fun` gives a lambda its `Func` type at the call site, it is invoked or passed without a declared local
 
-Existing APIs can expose arguments in an order that works poorly for partial application, and an adapter exposes domain-specific types in place of ambiguous primitives, acquires a short-lived resource only when the operation runs, and returns a `Func` so later specialization benefits from delegate inference:
+Existing APIs can expose arguments in an order that works poorly for partial application, and an adapter exposes domain-specific types in place of ambiguous primitives, acquires a short-lived resource only when the operation runs, and returns a `Func`, and later specialization benefits from delegate inference:
 
 ```csharp
 internal sealed record Template(string Text);
@@ -224,7 +224,7 @@ internal static class DataFlow {
 }
 ```
 
-Small general building blocks beat one specific aggregate operation, and a function composes when it is pure, chainable through an instance or extension receiver, general in performing one operation for many uses, structure-preserving in returning the outer structure it accepts where possible, and non-`void` in returning data for the next function, while a terminal operation reduces, materializes, or performs an effect and ends the chain:
+Small general primitives beat one specific aggregate operation, and a function composes when it is pure, chainable through an instance or extension receiver, general in performing one operation for many uses, structure-preserving in returning the outer structure it accepts where possible, and non-`void` in returning data for the next function, while a terminal operation reduces, materializes, or performs an effect and ends the chain:
 
 ```csharp
 internal static class Quartiles {

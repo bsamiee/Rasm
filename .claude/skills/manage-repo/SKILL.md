@@ -1,6 +1,6 @@
 ---
 name: manage-repo
-description: "Use when changing eng/, infra/, tools/, mise.toml, nx.json, or .github/, or orchestrating repository-wide tooling work, covering placement, targets, native packaging, toolchain, environment, infrastructure, CI, and proof."
+description: "Use when changing eng/, infra/, tools/, mise.toml, nx.json, or .github/, covering dispatch, placement, targets, native chain, CI, and proof."
 ---
 
 # [MANAGE_REPO]
@@ -49,11 +49,13 @@ Every infrastructure change is decided from the root `README.md` and the current
 |  [02]   | Adoption       | Maintained actions, plugins, and tools that perform a step are adopted, and custom code extends them           |
 |  [03]   | Cohesion       | Changed facts reach every reader in one change: manifest, lock, target, inputs, cache key, workflow, editor    |
 |  [04]   | Directness     | Lockfiles pin, action tags name a major, and an operation runs once with its own output as the check           |
-|  [05]   | Completion     | Every question resolves against the root `README.md` and the tool documentation, and the change lands proven   |
-|  [06]   | Portability    | One definition of every file runs on every operating system, and the host is detected once as a parameter      |
-|  [07]   | Infrastructure | Every resource, environment, and image is a program row, and each application and library is its own unit      |
-|  [08]   | Terminology    | Every name is the established term of its tool, of CI/CD, or of software engineering, wherever the name exists |
-|  [09]   | Renewal        | Existing approaches are rebuilt in place when a documented capability or integration is objectively better     |
+|  [05]   | Explicitness   | Commands take each setting from an argument or a tracked file, none from discovery, the host, or a daemon      |
+|  [06]   | Verification   | Documentation and source decide tool behavior before a change, and new names match no tool command or keyword  |
+|  [07]   | Completion     | Every question resolves against the root `README.md` and the tool documentation, and the change lands proven   |
+|  [08]   | Portability    | One definition of every file runs on every operating system, and the host is detected once as a parameter      |
+|  [09]   | Infrastructure | Every resource, environment, and image is a program row, and each application and library is its own unit      |
+|  [10]   | Terminology    | Every name is the established term of its tool, of CI/CD, or of software engineering, wherever the name exists |
+|  [11]   | Renewal        | Existing approaches are rebuilt in place when a documented capability or integration is objectively better     |
 
 Research the operation before adding a tool, package, action, or resource:
 - Resolve API and configuration facts through `search-context7`, known pages through `search-tavily`, and repository source through the `github` MCP
@@ -62,7 +64,7 @@ Research the operation before adding a tool, package, action, or resource:
 - Resolve newest releases, including prereleases, through the owning package manager and runtime configuration
 - Add a plugin or rule of the repository's own when no maintained one performs the step and the capability spans tools
 
-A rebuild for code quality, for the integration of a package, or for a capability the tool offers needs no new requirement, and a capability found in one scope reaches every file it touches in the same session. Add a workflow when a repository event or schedule requires it. Add an `eng/`, `tools/`, or `infra/` category when an input, operation, check, or resource has no suitable owner. Unused options and plugin catalogs do not justify additions alone.
+Rebuilds for code quality, for the integration of a package, or for a capability the tool offers need no new requirement, and a capability found in one scope reaches every file it touches in the same session. Add a workflow when a repository event or schedule requires it. Add an `eng/`, `tools/`, or `infra/` category when an input, operation, check, or resource has no suitable owner. Unused options and plugin catalogs do not justify additions alone.
 
 Guards, retries, fallbacks, digest pins, release-age delays, and audit steps add a step with no decision behind it, and the exit code of the operation is the check.
 
@@ -82,6 +84,8 @@ Configuration in any format (JSON, YAML, TOML, MSBuild XML) takes the structure 
 
 Keep entry points and guidance with the configuration that defines them:
 - Expose developer operations as Nx targets, with shared defaults in `nx.json` and root declarations in the manifest
+- Operations over a project (`build`, `typecheck`, `test`) are one command per tag-filtered default, and the graph orders, caches, and affects them
+- Operations over files of a kind (`lint`, `format`) are one root target running `eng/scripts/quality.py`, which maps each file to its tools
 - Select language builds and checks through project filters, and group shared operations in their root target (`rules`, `upgrade`)
 - Use established target and file names, with repository prefixes only where the ecosystem requires them
 - Command and tool guidance has one owner, and every other document states its purpose and points there in one line
@@ -96,15 +100,13 @@ Place additions by their consumer:
 |  [04]   | Native library                       | `eng/native/<library>/` and its packaging project | Manifest pin, `stage` and `pack` targets   |
 |  [05]   | Target shape repeating per directory | `tools/nx/`                                       | Plugin registered by path                  |
 |  [06]   | Check the linter or compiler lacks   | `tools/<linter>/`                                 | Rule file or analyzer project it loads     |
-|  [07]   | Runtime or binary a process runs     | `mise.toml` `[tools]`                             | `latest`                                   |
-|  [08]   | Package a config or editor reads     | Language manager catalog and lock                 | Catalog entry, `upgrade` moves it          |
-|  [09]   | Repository, service, or environment  | `infra/`, or the application's own program        | Typed row, imported when it exists         |
-|  [10]   | Image or runner definition           | Program row that builds it from a manifest        | No image, snapshot, or exported state file |
-|  [11]   | CI step                              | `.github/`                                        | Maintained action, `run` step for the rest |
-|  [12]   | Dependabot, actionlint, zizmor rule  | `.github/`, the file named for the tool           | One file per tool, its schema's fields     |
-|  [13]   | Editor setting                       | `.vscode/settings.json`                           | Setting keyed by language                  |
-|  [14]   | Cache, download, or checkout         | `.cache/<tool>/`                                  | Relocated through the tool's own setting   |
-|  [15]   | Build output, package, or report     | `.artifacts/<area>/`                              | Declared target output                     |
+|  [07]   | Repository, service, or environment  | `infra/`, or the application's own program        | Typed row, imported when it exists         |
+|  [08]   | Image or runner definition           | Program row that builds it from a manifest        | No image, snapshot, or exported state file |
+|  [09]   | CI step                              | `.github/`                                        | Maintained action, `run` step for the rest |
+|  [10]   | Dependabot, actionlint, zizmor rule  | `.github/`, the file named for the tool           | One file per tool, its schema's fields     |
+|  [11]   | Editor setting                       | `.vscode/settings.json`                           | Setting keyed by language                  |
+|  [12]   | Cache, download, or checkout         | `.cache/<tool>/`                                  | Relocated through the tool's own setting   |
+|  [13]   | Build output, package, or report     | `.artifacts/<area>/`                              | Declared target output                     |
 
 Composition roots belong to `apps/<name>/`, library code to `libs/`, tool configuration to the root manifests, and every binary to the pipeline, which rebuilds it from a pinned manifest. Each language area holds the binding packages that consume `eng/` output through package references, and a new language area takes the same shape.
 
@@ -117,7 +119,6 @@ Read shared values from their defining file:
 |  [03]   | Local feed path            | `NuGet.config` local source           | Pack target, from the source value                           |
 |  [04]   | .NET output roots          | Root `Directory.Build.props`          | Target outputs                                               |
 |  [05]   | Script dependency versions | Root `pyproject.toml` and lock        | Scripts under `uv run`                                       |
-|  [06]   | Runtime and binary set     | `mise.toml` `[tools]`                 | mise on a machine, the setup action on CI                    |
 
 ## [04]-[TARGETS]
 
@@ -127,7 +128,7 @@ Nx infers targets from the files a plugin globs, and a `project.json` exists onl
 - Language named inputs hold `{ "runtime": "<command> --version" }` when the runtime comes from the toolchain at `latest`
 - Write a cross-project dependency in the object form, `{ "projects": ["<project>"], "target": "<target>" }`
 - Declare the staged tree through `dependentTasksOutputFiles`, and Nx hashes it from disk even for an uncached dependency
-- Every declared output exists after a run, because Nx drops a missing output silently and still reports a hit
+- Nx drops a missing output silently and still reports a hit, and every declared output exists after a run
 - Name the exact package file as the output, a cache restore rewrites each declared output and a glob over a shared feed writes stale siblings back
 - Set `parallelism: false` on every target that shares a tool root or writes a shared file
 - The runner reads the exit code alone, and a script reports failure by exiting nonzero
@@ -176,19 +177,7 @@ The chain runs in one direction:
 - Every `stage` target depends on `eng:provision`
 - Consumers reach a package through the feed alone
 
-## [06]-[TOOLCHAIN]
-
-Configure runtimes, binary resolution, and the process environment in `mise.toml`. Use `latest` unless the host SDK or interpreter compatibility requires a constrained release. Keep the constraint with its reason in the runtime configuration and the invocation in Nx:
-
-| [INDEX] | [KIND]                                                 | [OWNER]                               | [EXAMPLES]                             |
-| :-----: | :----------------------------------------------------- | :------------------------------------ | :------------------------------------- |
-|  [01]   | Binary a target, script, workflow, or agent shell runs | `[tools]` at `latest`                 | node, pnpm, uv, act, doppler, buf      |
-|  [02]   | Package code, a config, a plugin, or an editor reads   | Package manager and its lock          | `@biomejs/biome`, `typescript`, `ruff` |
-|  [03]   | .NET tool package a target runs                        | `dotnet dnx <tool>` on the command    | dotnet-stryker, dotnet-outdated-tool   |
-|  [04]   | Host SDK a plugin host binds to one version            | `global.json`, `rollForward` disabled | .NET SDK                               |
-|  [05]   | Machine tooling the workspace never invokes            | Machine profile                       | Tools no workspace command consumes    |
-
-## [07]-[ENVIRONMENT]
+## [06]-[ENVIRONMENT]
 
 Every value a process reads has one owner, chosen by who reads it and whether it is secret:
 
@@ -204,7 +193,7 @@ Every value a process reads has one owner, chosen by who reads it and whether it
 |  [08]   | Path one script or program computes    | Script or program beside its other paths             | Itself                                  |
 |  [09]   | Output of a workflow step              | `env:` on the consuming step from the step outputs   | That step                               |
 
-## [08]-[INFRASTRUCTURE]
+## [07]-[INFRASTRUCTURE]
 
 Every resource outside the repository tree is a typed row a program reads by key, one program per application with a stack per environment, and the repository's own program for its settings and its secret store:
 
@@ -216,7 +205,7 @@ Every resource outside the repository tree is a typed row a program reads by key
 
 The repository program declares the store project, its configs, and its tokens, and the repository settings, secrets, and variables:
 - The store holds one project, a config per environment, and a branch config named `<environment>_<suffix>` for repository automation
-- A runtime secret enters the branch config once, from stdin through `doppler secrets set`
+- Runtime secrets enter the branch config once, from stdin through `doppler secrets set`
 - Service token rows name the config and the access level, and an Actions secret row holds a token's key under the name the workflows read
 - The repository row holds the merge, branch, and feature settings, `protect` refuses its deletion, and `archiveOnDestroy` archives it
 - Adopt a resource that exists through import in place of creating it, and the row declares the adoption as its resource option
@@ -232,8 +221,8 @@ The repository program declares the store project, its configs, and its tokens, 
 - Vulnerability alerts, secret scanning, and push protection are rows, and a public repository takes no `advancedSecurity` block
 - Every table is `as const satisfies` the provider's args type, and a setting under a disabled merge method leaves the row
 - Import ids are `<repository>:<id>` for a ruleset, `<repository>:<environment>` for an environment, `<repository>:<name>` for a variable
-- `@pulumiverse/doppler` 0.9.0 is two years behind upstream, with no GitHub integration, change-request policy, or rotated secret
-- Trusted publishers on nuget.org, PyPI, and npm stay account settings, because neither the GitHub nor the Doppler provider models them
+- `@pulumiverse/doppler` lags upstream, with no GitHub integration, change-request policy, or rotated secret
+- Neither the GitHub nor the Doppler provider models trusted publishers, and the nuget.org, PyPI, and npm publishers stay account settings
 
 The program's dependencies sit in the root catalog and manifest, the root `tsconfig.json` includes its files for the `tsc --build` step of the root `check` target, and the root `up` and `refresh` targets run the program's entry under `doppler run --project <project> --config <config>` with the summary of resource changes as the proof:
 - The entry runs the stack through the Automation API on Pulumi Cloud with `PULUMI_ACCESS_TOKEN` from the environment and service secrets
@@ -246,21 +235,21 @@ The program's dependencies sit in the root catalog and manifest, the root `tscon
 
 Share nothing between application programs by position, and an application consumes another's output through a published package or a declared output. One store, the variable in the environment, and an error naming the unset names replace a second secret route copied from another repository.
 
-## [09]-[CI]
+## [08]-[CI]
 
 CI runs the task graph through the runner as one job per language, the job of the language with native packages as a matrix over the runtime identifiers after the native workflow, and the pipeline file holds the commands alone:
-- One job per language runs `nx affected` filtered by the language tag, in graph order
+- Tree jobs run the root `check` and `format` targets, and one job per language runs `nx affected` filtered by the language tag, in graph order
 - The job of the language with source builds provisions the native inputs before its dependency sync
 - Each matrix host stages its rid, and one job packs the collected trees
 - Maintained actions perform each step one exists for, and a `run` step holds the rest
 - One fan-in job over every job is the status check the branch ruleset requires, and a skipped or cancelled job fails it
 
-## [10]-[PROOF]
+## [09]-[PROOF]
 
 Proof of a change is a run traced from the entry point to its last output, against a baseline recorded before the first edit:
 - Run the target, and a cached target proves its inputs by a hit after an unrelated edit and a miss after a related one
 - Run `nx graph --file=<path>` and `nx show projects --affected --files=<manifest>` after an edge changes
-- Every edge in the `nx graph --file` output points from a consumer to a packaging project
+- The `nx graph --file` output holds one static edge from each consumer to the packaging project it references, beside the `ProjectReference` edges
 - The affected listing for a manifest names the packaging project, its binding, and its consumers
 - Run every checker to zero warnings after any change
 - Compare `git diff | shasum` before and after a rewriting target, equal hashes prove it rewrote nothing
@@ -270,7 +259,7 @@ Proof of a change is a run traced from the entry point to its last output, again
 - Restore each criterion, capability, command flag, and purpose statement an earlier revision stated and the rebuild dropped or loosened
 - Delete disposable probe projects and their generated outputs after reading the result
 
-## [11]-[ANTI_PATTERNS]
+## [10]-[ANTI_PATTERNS]
 
 Smells and the form that replaces each:
 

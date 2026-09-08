@@ -35,8 +35,8 @@ const _plain = <E>(decision: Decision<E, never, never>): Plain<E> =>
 describe('pairs', () => {
     it('maps each non-empty value to its id with the one note', () => {
         expect(_PAIRS).toStrictEqual([
-            { from: 'value-a', to: 'tokenA', note: _NOTE },
-            { from: 'value-c', to: 'tokenC', note: _NOTE },
+            { from: 'value-a', to: 'tokenA' },
+            { from: 'value-c', to: 'tokenC' },
         ]);
     });
 });
@@ -52,12 +52,23 @@ describe('redact', () => {
     it('passes a prompt without a value through with no context', () => {
         expect(_plain(redact<Prompt>(_PAIRS)({ text: 'plain' }))).toStrictEqual({ e: { text: 'plain' }, context: [] });
     });
+
+    it('applies the pairs in table order, the second reads the first result', () => {
+        expect(_plain(redact<Prompt>(pairs({ b: 'a', c: 'b' }))({ text: 'a' }))).toStrictEqual({ e: { text: 'c' }, context: [_NOTE] });
+    });
 });
 
 describe('restore', () => {
     it('puts the value back in the command with no context', () => {
         expect(_plain(restore<Call>(_PAIRS)({ command: 'curl -H tokenA' }))).toStrictEqual({
             e: { command: 'curl -H value-a' },
+            context: [],
+        });
+    });
+
+    it('keeps a $ in the value literal', () => {
+        expect(_plain(restore<Call>(pairs({ tokenA: '$&$1' }))({ command: 'curl -H tokenA' }))).toStrictEqual({
+            e: { command: 'curl -H $&$1' },
             context: [],
         });
     });

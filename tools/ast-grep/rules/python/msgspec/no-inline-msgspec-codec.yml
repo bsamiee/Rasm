@@ -20,11 +20,11 @@ utils:
             - has:
                 any:
                     - kind: dotted_name
-                      matches: codec-function
                       pattern: $FUNCTION
+                      has: {kind: identifier, pattern: $OPERATION}
                     - kind: aliased_import
                       all:
-                        - has: {field: name, matches: codec-function}
+                        - has: {field: name, has: {kind: identifier, pattern: $OPERATION}}
                         - has: {field: alias, pattern: $FUNCTION}
     imported-codec:
         inside:
@@ -34,7 +34,6 @@ utils:
                 - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: class-import}
                 - has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: function-import}
     codec-class: {regex: "^(Encoder|Decoder)$"}
-    codec-function: {regex: "^(encode|decode)$"}
     codec-module: {regex: '^msgspec\.(json|msgpack)$'}
     imported-encoder: {kind: call, has: {field: function, matches: {python-imported-name: {module: {matches: codec-module}, name: {regex: "^Encoder$"}}}}}
     imported-decoder: {kind: call, has: {field: function, matches: {python-imported-name: {module: {matches: codec-module}, name: {regex: "^Decoder$"}}}}}
@@ -47,12 +46,13 @@ rule:
                 - pattern: $MODULE.Decoder().decode($VALUE)
             - has: {field: function, has: {field: attribute, pattern: $METHOD}}
         - all:
-            - matches: imported-codec
             - any:
                 - pattern: $ENCODER().encode($VALUE)
                   has: {field: function, has: {field: object, matches: imported-encoder}}
                 - pattern: $DECODER().decode($VALUE)
                   has: {field: function, has: {field: object, matches: imported-decoder}}
+            - has: {field: function, has: {field: attribute, pattern: $OPERATION}}
+            - matches: imported-codec
     not: {has: {kind: comment, stopBy: end}}
 constraints:
     MODULE: {matches: python-msgspec-module}

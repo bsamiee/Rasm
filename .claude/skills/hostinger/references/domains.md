@@ -91,7 +91,7 @@ curl -X GET "https://developers.hostinger.com/api/v2/direct/verifications/active
 
 1. Disable domain lock (`DELETE .../portfolio/{domain}/domain-lock`)
 2. Read domain details for the auth/EPP code context (`GET .../portfolio/{domain}`)
-3. Initiate the transfer at the receiving registrar with the EPP code, outside the Hostinger API
+3. Start the transfer at the receiving registrar with the EPP code, outside the Hostinger API
 4. Approve the transfer when notified, through email or hPanel
 
 ## [07]-[BULK_AUDIT]

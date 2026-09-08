@@ -1,9 +1,6 @@
 ---
 name: search-tavily
-description: >-
-    Owns live-web retrieval through Tavily CLI (`tvly`), search, extract, map, crawl,
-    research, on the cheapest subcommand that answers, with relevance ranked server-side and bulk
-    page content routed to disk. Any current-web question routes here.
+description: "Use when a known site, URL set, or multi-source report needs tvly search, extract, map, crawl, or research on the cheapest subcommand."
 ---
 
 # [SEARCH_TAVILY]
@@ -16,7 +13,7 @@ Relevance resolves server-side: `--include-answer` on `search`, `--query` with `
 
 ## [01]-[USAGE]
 
-Every command runs as `uvx --from tavily-cli tvly <subcommand>` under the ambient `TAVILY_API_KEY`, `search` and `extract` also run key-free under a rate cap. `--json` returns the typed envelope, `-o` writes it to a file, and each subcommand's flags sit behind `--help`. Add `--extract-depth advanced` when `extract` or `crawl` hits a JavaScript-rendered page. Use the one-call command that fits:
+Every command runs as `uvx --from tavily-cli tvly <subcommand>` under the ambient `TAVILY_API_KEY`, `search` and `extract` run key-free under a rate cap. `--json` returns the typed envelope, `-o` writes it to a file, and each subcommand's flags sit behind `--help`. Add `--extract-depth advanced` when `extract` or `crawl` hits a JavaScript-rendered page. Use the one-call command that fits:
 
 ```bash
 uvx --from tavily-cli tvly search "QUERY" --include-answer advanced --max-results 8                                         # Answer inline, no follow-up

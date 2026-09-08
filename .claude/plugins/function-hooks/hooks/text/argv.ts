@@ -70,6 +70,30 @@ interface Grouping {
     readonly argv: readonly Word[];
 }
 
+// A substitution or backtick body with the text its span indexes
+interface Body {
+    readonly span: Span;
+    readonly source: string;
+}
+
+// The text the lexer tokenizes, every body blanked to spaces, and the bodies that parse on their own
+interface Prepared {
+    readonly lexed: string;
+    readonly bodies: readonly Body[];
+}
+
+// A parenthesized group by span, piped when one pipe follows its closing paren
+interface Group {
+    readonly start: number;
+    readonly end: number;
+    readonly piped: boolean;
+}
+
+interface Nesting {
+    readonly open: readonly number[];
+    readonly groups: readonly Group[];
+}
+
 type ScanClass = 'body' | 'single' | 'escaped' | 'escape' | 'double' | 'quote' | 'open' | 'other';
 type SegmentKind = 'space' | 'punctuation' | 'comment' | 'single' | 'singleOpen' | 'double' | 'doubleOpen' | 'escape' | 'plain';
 type TokenKind = 'separator' | 'word';
@@ -91,6 +115,8 @@ const _IFS = /\$\{IFS[^}]*\}|\$IFS/gu;
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _DIGITS = /^\d+$/u;
 const _SEPARATOR = /^(?:\(|\)|[;&|\n\r]+)$/u;
+// One pipe feeds the next command, a double one joins on failure
+const _PIPE = /^\|$/u;
 const _DOUBLE_ESCAPE = /\\(?<escaped>["\\])/gu;
 // The segment classes of the shlex posix lexer
 const _SEGMENT =
@@ -362,8 +388,8 @@ const _grouped = (tokens: readonly Token[], frame: Frame): readonly Leaf[] => {
     return [...grouping.leaves, ..._resolve(grouping.argv, frame)];
 };
 
-// Substitution bodies parse first and the rest splits quote-aware, unquoted heredoc bodies keep their substitutions for the scan
-const _leaves = (text: string, frame: Omit<Frame, 'text'>): readonly Leaf[] => {
+// Quoted heredoc bodies blank first, then backticks and $( bodies, and the lexed text keeps every index of the original
+const _prepare = (text: string): Prepared => {
     const unquoted = text.replace(_HEREDOC, (match: string, quote: string): string =>
         fromBoolean(quote !== '').match<string>({ some: () => ' '.repeat(match.length), none: () => match }),
     );
@@ -383,7 +409,15 @@ const _leaves = (text: string, frame: Omit<Frame, 'text'>): readonly Leaf[] => {
         ),
         _IFS,
     );
-    const bodies = [...backticks.map((span) => ({ span, source: continued })), ...substitutions.map((span) => ({ span, source: flat }))];
+    return {
+        lexed,
+        bodies: [...backticks.map((span): Body => ({ span, source: continued })), ...substitutions.map((span): Body => ({ span, source: flat }))],
+    };
+};
+
+// Substitution bodies parse first and the rest splits quote-aware, unquoted heredoc bodies keep their substitutions for the scan
+const _leaves = (text: string, frame: Omit<Frame, 'text'>): readonly Leaf[] => {
+    const { lexed, bodies } = _prepare(text);
     const inner = fromBoolean(frame.depth < _MAX_DEPTH).match<readonly Leaf[]>({
         some: () =>
             bodies.flatMap(({ span, source }) =>
@@ -394,6 +428,42 @@ const _leaves = (text: string, frame: Omit<Frame, 'text'>): readonly Leaf[] => {
     return [...inner, ..._grouped(_tokens(lexed, frame.offset), { ...frame, text: lexed })];
 };
 
+// --- [GROUPS] --------------------------------------------------------------------------
+
+const _isPipe = (token: Option<Token>): boolean =>
+    token.match<boolean>({ some: (next) => next.separator && _PIPE.test(next.word.text), none: () => false });
+
+const _opened = (nesting: Nesting, token: Token): Nesting => ({ ...nesting, open: [...nesting.open, token.word.end] });
+
+// The innermost open paren closes, and the token after the closer says whether the group feeds a pipe
+const _closed = (nesting: Nesting, token: Token, next: Option<Token>): Nesting =>
+    fromNullable(nesting.open.at(-1)).match<Nesting>({
+        some: (start) => ({
+            open: nesting.open.slice(0, -1),
+            groups: [...nesting.groups, { start, end: token.word.start, piped: _isPipe(next) }],
+        }),
+        none: () => nesting,
+    });
+
+const _NEST: Readonly<Partial<Record<string, (nesting: Nesting, token: Token, next: Option<Token>) => Nesting>>> = {
+    '(': _opened,
+    ')': _closed,
+};
+
+// The parenthesized groups of the command's own text by the span between the parens, an unclosed group runs to the end and feeds nothing
+const groups = (command: string): readonly Group[] => {
+    const tokens = _tokens(_prepare(command).lexed, 0);
+    const nesting = tokens.reduce<Nesting>(
+        (state, token, index) =>
+            fromNullable(_NEST[token.word.text]).match<Nesting>({
+                some: (step) => step(state, token, fromNullable(tokens[index + 1])),
+                none: () => state,
+            }),
+        { open: [], groups: [] },
+    );
+    return [...nesting.groups, ...nesting.open.map((start): Group => ({ start, end: command.length, piped: false }))];
+};
+
 const leaves =
     (guarded: readonly string[]) =>
     (command: string): readonly Leaf[] =>
@@ -401,5 +471,5 @@ const leaves =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Leaf, Word };
-export { INTERPRETER, leaves, pastAssignments, strip };
+export type { Group, Leaf, Word };
+export { groups, INTERPRETER, leaves, pastAssignments, strip };

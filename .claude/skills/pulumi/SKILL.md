@@ -1,13 +1,6 @@
 ---
 name: pulumi
-description: >-
-    Owns Pulumi infrastructure-as-code, creating, inspecting, and destroying cloud and SaaS
-    resources on any Pulumi-registry provider via `pulumi do` one-offs, projects and stacks,
-    ComponentResource design and packaging, Automation API, ESC environments, policy packs, drift
-    schedules. Use when reviewing or refactoring Pulumi code, debugging a failed `up` or `preview`,
-    chasing an unexpected replace or delete in a preview, adopting resources via `pulumi import`,
-    converting Terraform, CloudFormation, CDK, Bicep, or ARM code, and on tasks that name the outcome
-    alone, "deploy this app", "provision a database", "stand up a VPC", "tear down staging".
+description: "Use when provisioning, inspecting, or destroying cloud resources with Pulumi, covering one-shot operations, programs, governance, and debugging."
 ---
 
 # [PULUMI]
@@ -17,7 +10,7 @@ Pulumi creates and manages cloud infrastructure (virtual machines, storage, Kube
 | [INDEX] | [LEVEL] | [SURFACE]                         | [WHEN]                                        |
 | :-----: | :------ | :-------------------------------- | :-------------------------------------------- |
 |  [01]   | L1      | `pulumi do` CLI                   | Single resource or multi-vendor bootstrapping |
-|  [02]   | L2      | Pulumi project in a host language | Multiple related resources                    |
+|  [02]   | L2      | Pulumi project in a host language | Related resources                             |
 |  [03]   | L3      | Pulumi Cloud governance layer     | Governance and hosted runs                    |
 
 Single-bucket requests in a directory with no Pulumi project are L1 tasks, no project scaffolding. VPCs with subnets and a cluster are L2 from the start. Nightly drift detection on an existing stack is L3. Converting Terraform, CloudFormation, CDK, ARM, or Bicep code is `pulumi convert` guided by https://www.pulumi.com/docs/iac/adopting-pulumi/, independent of the level model.
@@ -28,13 +21,13 @@ Uncertain CLI flags, command shapes, or resource properties are looked up: `pulu
 
 [REFERENCES]:
 - [01]-[CLI_OPERATIONS](references/cli-operations.md): Driving one-off resource work from the CLI, and graduating it into a program
-- [02]-[BEST_PRACTICES](references/best-practices.md): Rules every non-trivial program obeys before it runs
+- [02]-[PROGRAM_RULES](references/program-rules.md): Rules every non-trivial program obeys before it runs
 - [03]-[COMPONENTS](references/components.md): Authoring a `ComponentResource` from its anatomy to distribution
 - [04]-[AUTOMATION_API](references/automation-api.md): Embedding Pulumi in a program, multi-stack orchestration, and inline versus local programs
 
 ## [01]-[ONE_SHOT_OPERATIONS]
 
-`pulumi do` runs one-shot, stateless resource operations against any provider: no project files, no `${...}` wiring, no Pulumi state. `mise.toml` supplies the Pulumi CLI; use `mise exec -- pulumi <command>` outside the configured environment. `pulumi version` confirms availability without touching Pulumi Cloud.
+`pulumi do` runs one-shot, stateless resource operations against any provider: no project files, no `${...}` wiring, no Pulumi state. `mise.toml` supplies the Pulumi CLI, and `mise exec -- pulumi <command>` runs it outside the configured environment. `pulumi version` confirms availability without touching Pulumi Cloud.
 
 ```text
 pulumi do <pkg:mod:type> create [flags]
@@ -120,8 +113,8 @@ Every message matters: a provider error has the `error` tag, and a program error
 
 Operations can fail with errors from more than one resource: read all diagnostics first, then trace each error to the resource that raised it (URN and type), its declaration in the program, and the inputs feeding it. Error text names the problem kind, and the kind names where the fix belongs:
 
-- [PROGRAM]: Code is wrong: a bad reference, wrong type, rejected input, or a value used before it resolved. Usual failed-preview cause, the plan never built. Fix by editing the code.
-- [STATE]: Code is correct but stored state and cloud reality disagree. Reconcile drift with `pulumi refresh`, bring an existing external resource under management with `pulumi import` rather than recreating it. Operations that failed partway may have already changed resources, check current state before deciding.
-- [ENVIRONMENT]: Problem sits outside Pulumi: credentials, permissions, OIDC, quota. Fix the role, the ESC environment, or the capacity the provider rejected.
+- [PROGRAM]: Code is wrong: a bad reference, wrong type, rejected input, or a value used before it resolved. Usual failed-preview cause, the plan never built. Fix by editing the code
+- [STATE]: Code is correct but stored state and cloud reality disagree. Reconcile drift with `pulumi refresh`, bring an existing external resource under management with `pulumi import` rather than recreating it. Operations that failed partway may have already changed resources, check current state before deciding
+- [ENVIRONMENT]: Problem sits outside Pulumi: credentials, permissions, OIDC, quota. Fix the role, the ESC environment, or the capacity the provider rejected
 
 Smallest change addressing the root cause wins, confirmation and delivery of the fix follow the active mode's workflow.

@@ -1,11 +1,11 @@
 ---
 name: work-planning
-description: Use in plan mode to define intended behavior, implementation ownership, dependencies, evidence, and completion criteria.
+description: "Use when a request in plan mode must become a plan, covering reads, questions, companion set, plan file, adversarial planner, and close."
 ---
 
 # [WORK_PLANNING]
 
-Plan work so a fresh session can implement it from the recorded intent, repository context, and decisions. Assign disjoint ownership and order steps by their dependencies, including shared-file changes. Use `work-execution` for running the plan.
+Plan work for a fresh session to implement from the recorded intent, repository context, and decisions. Assign disjoint ownership and order steps by their dependencies, including shared-file changes. Use `work-execution` for running the plan.
 
 [REFERENCES]:
 - [ORCHESTRATED_RUN](references/orchestrated-run.md): Ownership and dependencies for coordinated execution

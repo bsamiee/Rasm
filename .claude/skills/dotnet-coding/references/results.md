@@ -211,7 +211,7 @@ internal static class Inputs {
 
 The `Catch` overload with a predicate maps the captured error to the `ReadFailure` case at the boundary, a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
 
-Union cases can carry the union type itself, and a union of that kind models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
+Union cases can hold the union type itself, and a union of that kind models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
 
 ```csharp
 [Union]
