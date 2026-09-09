@@ -54,6 +54,7 @@ difftastic = "latest"                   # Syntax-tree diff over rewrites and sna
 duckdb = "latest"                       # Reads the provisioned extension archives and the data files a proof writes
 typos = "latest"                        # Spelling over source and prose, lint reads and format writes
 "pipx:ast-grep/ast-grep-mcp" = "latest" # Git source with no release, latest resolves the default-branch head to a commit
+"pipx:tavily-cli" = "latest"            # Keyword search, extraction, site crawl, and research reports, the binary is tvly
 
 [tools."pkgx:gnu.org/bash"]
 version = "latest"

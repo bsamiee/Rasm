@@ -9,7 +9,7 @@ import type { Options } from '../host/options.ts';
 
 const _MODEL = 'haiku';
 const _SUMMARY_TOKENS = 60;
-const _SUMMARY_SYSTEM = 'The message is an assistant answer to the person, reply with one spoken sentence summarising it and nothing else.';
+const _SUMMARY_SYSTEM = 'Message is an assistant answer, reply with one spoken sentence that summarizes it and nothing else';
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 

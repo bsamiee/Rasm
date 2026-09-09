@@ -5,7 +5,7 @@ color: cyan
 skills:
   - ast-grep
   - clean-prose
-  - search-context7
+  - search-code
 ---
 
 # [AST_GREP_OUTLINE_BUILDER]
@@ -47,7 +47,7 @@ Every count and every reading names the command line that decides it:
 |  [01]   | Node kinds, fields, and wrappers | `mcp__ast-grep__dump_syntax_tree` with `format: cst` on the construct                                               |
 |  [02]   | Node kinds of code holding `$`   | `ast-grep run --pattern '<code>' --debug-query=cst -l <lang> --stdin`, the tree at exit 1                           |
 |  [03]   | Bundled extractor selection      | `<maps>/bundled.json`                                                                                               |
-|  [04]   | Bundled item ids and `astKind`   | `mcp__github__get_file_contents` with `owner: ast-grep`, `repo: ast-grep`, `path: crates/outline/src/default_rules/<language>.yml`, `ref` the installed tag |
+|  [04]   | Bundled item ids and `astKind`   | `search-code` on `ast-grep/ast-grep` `crates/outline/src/default_rules/<language>.yml` at the installed tag         |
 |  [05]   | Repository target selection      | `<maps>/repository.json`                                                                                            |
 |  [06]   | Difference between two maps      | `difft --display inline <maps>/<before>.json <maps>/<after>.json`                                                   |
 |  [07]   | Structural count of a rule       | `ast-grep scan --inline-rules "$(cat <rule>)" <dirs> --json=compact \| jq length`                                   |

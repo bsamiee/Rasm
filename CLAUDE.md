@@ -9,23 +9,22 @@
 
 ## [01]-[LANGUAGE_STANDARDS]
 
-NEVER use `Grep` or `Glob` to navigate code, languages have specialized skills and MCP servers, and the `ast-grep` skill and MCP serve general usage.
+Navigate code through its language's skill and MCP server, or through the ast-grep skill and MCP for every other language, fallback to project CLI tooling
 
 [TOOL_ROUTING]:
-- ALWAYS use `exa` MCP for open-web search
-- ALWAYS use `search-tavily` skill for known sites, extracts, crawls, and multi-source reports
-- ALWAYS use `search-context7` skill for external dependencies, never use training data, never guess SDK/framework/API capabilities
-- ALWAYS use `github` MCP to explore, read, and search repositories on GitHub and to work their issues, pull requests, and runs
-- ALWAYS use `dotnet-roslyn-codelens` skill for C# files and code
-- ALWAYS use `dotnet-coding` skill for any C# code, in a file or a fence
-- ALWAYS use `dotnet-msbuild-evaluation` skill for `.props`, `.targets`, and `.csproj` declarations
-- ALWAYS use `dotnet-msbuild-antipatterns` skill before changing a `.props`, `.targets`, or `.csproj` file
-- ALWAYS use `dotnet-msbuild-execution` skill for `<Target>` work
-- ALWAYS use `dotnet-msbuild-diagnostics` skill for `.binlog` work and build failures
-- ALWAYS use `dotnet-msbuild-packaging` skill for package references, sources, package projects, and `.slnx`
-- ALWAYS use `manage-repo` skill for Nx targets, the toolchain, `eng/`, `infra/`, `.github/`, CI, and release
-- ALWAYS use `nuget` MCP to validate a NuGet package and find its newest available version
-- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for Claude Code or Codex usage, config, harness work, and understanding
+- ALWAYS use `search-web` skill for a question the open web answers
+- ALWAYS use `search-code` skill for any fact about a dependency
+- ALWAYS use `github` MCP for a known repository's issues, pull requests, and runs
+- ALWAYS use `dotnet-roslyn-codelens` skill for any file in a .NET solution
+- ALWAYS use `dotnet-coding` skill for any C# code
+- ALWAYS use `dotnet-msbuild-evaluation` skill for an MSBuild declaration
+- ALWAYS use `dotnet-msbuild-antipatterns` skill before changing an MSBuild file
+- ALWAYS use `dotnet-msbuild-execution` skill for a `<Target>`
+- ALWAYS use `dotnet-msbuild-diagnostics` skill for diagnosing a .NET build
+- ALWAYS use `dotnet-msbuild-packaging` skill for NuGet and .slnx
+- ALWAYS use `manage-repo` skill for Nx targets, tooling, infrastructure, and CI
+- ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
+- ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 
 Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and rewrite tool calls. Denials name the correct form.
 

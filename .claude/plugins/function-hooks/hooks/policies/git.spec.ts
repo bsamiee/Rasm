@@ -20,8 +20,8 @@ const _DENIED: readonly (readonly [string, string])[] = [
     ['git checkout .', 'git checkout with a pathspec overwrites working-tree files'],
     ['git checkout README.md', 'git checkout README.md names an existing path and would overwrite it'],
     ['git clean -fd', 'git clean deletes untracked files'],
-    ['git config alias.co checkout', 'git config alias.co defines a git alias that can hide a blocked subcommand'],
-    ['git -c alias.x=stash x', 'an inline git alias (-c alias.*) can hide a blocked subcommand'],
+    ['git config alias.co checkout', 'git config alias.co defines a git alias that can hide a refused subcommand'],
+    ['git -c alias.x=stash x', 'inline git alias can hide a refused subcommand'],
     ['git push --force', 'git push --force rewrites or deletes remote history'],
     ['git push origin +main', 'git push +main rewrites or deletes remote history'],
     ['git rebase main', 'git rebase rewrites commits other agents can already hold'],
@@ -32,7 +32,7 @@ const _DENIED: readonly (readonly [string, string])[] = [
     ['git revert HEAD', 'git revert reverses committed history'],
     ['git switch -C main', 'git switch -C discards local changes'],
     ["sh -c 'git stash'", 'git stash hides uncommitted work other agents depend on'],
-    ['sh script.sh', 'the command runs git or a script through a shell or an interpreter, run git directly and a script by its path'],
+    ['sh script.sh', 'run git directly and a script by its path, not through a shell or an interpreter'],
     ['echo ok && git stash', 'git stash hides uncommitted work other agents depend on'],
     ['uv run -- git stash', 'git stash hides uncommitted work other agents depend on'],
 ];
@@ -58,7 +58,7 @@ const _ALLOWED: readonly string[] = [
 
 describe('gitGuard', () => {
     it.each(_DENIED)('refuses %j', (command, reason) => {
-        expect(_reason(command)).toBe(`git-guard: ${reason}. ${ADVICE}`);
+        expect(_reason(command)).toBe(`${reason}, ${ADVICE}`);
     });
 
     it.each(_ALLOWED)('passes %j', (command) => {
@@ -66,8 +66,8 @@ describe('gitGuard', () => {
     });
 
     it('refuses a command past the lexing bound and strips control characters from a reason', () => {
-        expect(_reason('x'.repeat(_MAX_COMMAND_KIB * _KIB + 1))).toContain('too long to lex');
-        expect(_reason('git reset ab')).toBe(`git-guard: git reset a b moves HEAD and drops commits from the branch. ${ADVICE}`);
+        expect(_reason('x'.repeat(_MAX_COMMAND_KIB * _KIB + 1))).toContain('exceeds the 128 KiB check limit');
+        expect(_reason('git reset ab')).toBe(`git reset a b moves HEAD and drops commits from the branch, ${ADVICE}`);
     });
 
     it('names the paths the reset and checkout refinements test', () => {

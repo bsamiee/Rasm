@@ -35,8 +35,8 @@ interface PathRow {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const BINLOG_DENY = '.binlog files are binary, call mcp__binlog__binlog_overview on the file';
-const OP_LINE = 'The text names an op:// reference, secrets come from Doppler alone and doppler secrets reads them';
+const BINLOG_DENY = 'Use mcp__binlog__binlog_overview on the .binlog';
+const OP_LINE = 'Read secrets through doppler secrets, not an op:// reference';
 const _ALL: readonly PathTool[] = ['Read', 'Edit', 'Write'];
 const _WRITES: readonly PathTool[] = ['Edit', 'Write'];
 const _CONTENT_WRITES: readonly PathTool[] = ['Edit', 'Write', 'NotebookEdit'];
@@ -100,7 +100,7 @@ const _manifestLines = (path: string, text: string, old: string): readonly strin
         ...(added.length > 0 ? [`Record ${added.join(', ')} in the owning README.md dependency list`] : []),
         ...(dropped.length > 0
             ? [
-                  `Dropped ${dropped.join(', ')} from ${basename(path)}, a name ${manifest.siblings.join(', ')} or a README.md dependency list still holds keeps its row here, else remove it there too`,
+                  `Dropped ${dropped.join(', ')} from ${basename(path)}, restore a name ${manifest.siblings.join(', ')} or the README.md dependency list still holds, else drop it there too`,
               ]
             : []),
     ];
@@ -144,7 +144,7 @@ const PATHS = [
     {
         tools: _ALL,
         match: (path): boolean => under(path, '.claude'),
-        once: [{ key: 'claudeCodeDocs', line: 'Search the docs with mcp__claudeCodeDocs__search_claude_code_docs' }],
+        once: [{ key: 'claudeCodeDocs', line: 'Use mcp__claudeCodeDocs__search_claude_code_docs for the harness docs' }],
     },
     { tools: _ALL, match: (path): boolean => basename(path).startsWith('.env') || basename(path) === 'doppler.yaml', once: [_skill('secrets')] },
     {
@@ -156,12 +156,12 @@ const PATHS = [
     {
         tools: _WRITES,
         match: (path, text): boolean => basename(path) === 'mise.toml' && _TOOL_VERSION.test(text),
-        lines: (): readonly string[] => ['Pinned tool versions take their reason in a comment on the row'],
+        lines: (): readonly string[] => ['State the reason for the pin in a comment on its row'],
     },
     {
         tools: _WRITES,
         match: (path, text): boolean => ['pyproject.toml', 'package.json'].includes(basename(path)) && _PIN.test(text),
-        lines: (): readonly string[] => ['The lock file alone pins versions, spell the row unpinned'],
+        lines: (): readonly string[] => ['Spell the row unpinned, the lock file alone pins versions'],
     },
 ] as const satisfies readonly PathRow[];
 

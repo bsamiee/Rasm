@@ -46,7 +46,7 @@
         },
         "exa": {
             "type": "http",
-            "url": "https://mcp.exa.ai/mcp",
+            "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa,web_search_advanced_exa,agent_run",
             "headers": {
                 "x-api-key": "${EXA_API_KEY}"
             }
@@ -57,6 +57,10 @@
             "headers": {
                 "Authorization": "Bearer ${CONTEXT7_API_KEY}"
             }
+        },
+        "deepwiki": {
+            "type": "http",
+            "url": "https://mcp.deepwiki.com/mcp"
         },
         "greptile": {
             "type": "http",

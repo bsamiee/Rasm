@@ -6,8 +6,8 @@ skills:
   - ast-grep
   - clean-prose
   - manage-repo
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [TYPESCRIPT_MAINTAINER]
@@ -47,17 +47,17 @@ Every change names the page or source line that decides it:
 
 | [INDEX] | [QUESTION]                            | [SOURCE]                                                                                               |
 | :-----: | :------------------------------------ | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | Nx daemon, targets, release           | `node_modules/nx/dist/src/**`, then `mcp__github__get_file_contents` on `nrwl/nx` with `path`          |
+|  [01]   | Nx daemon, targets, release           | `node_modules/nx/dist/src/**`, then `search-code` on `nrwl/nx` by path                                 |
 |  [02]   | @nx/dotnet inference                  | `node_modules/@nx/dotnet/dist/plugins/create-nodes.js`                                                 |
-|  [03]   | Biome rule, domain, or option         | `pnpm exec biome explain <rule>`, `configuration_schema.json`, `search-context7` on `/biomejs/website` |
+|  [03]   | Biome rule, domain, or option         | `pnpm exec biome explain <rule>`, `configuration_schema.json`, `search-code` on `/biomejs/website`     |
 |  [04]   | Effective Biome rule set              | `pnpm exec biome rage --linter`, the `Enabled rules` list                                              |
 |  [05]   | Effective compiler options and files  | `pnpm exec tsc --showConfig -p <tsconfig>`, JSON out                                                   |
-|  [06]   | Vitest or TypeScript option semantics | `search-context7`                                                                                      |
+|  [06]   | Vitest or TypeScript option semantics | `search-code`                                                                                          |
 |  [07]   | Package that pulls a dependency       | `pnpm why <package>`, the chain to the manifest that declares it                                       |
 |  [08]   | Merged target of a project            | `pnpm exec nx show project <p> --json \| jq '.targets.<t>'`                            |
 |  [09]   | Projects a file affects               | `pnpm exec nx show projects --affected --files=<file> --json`                                          |
 |  [10]   | Static edges of the graph             | `pnpm exec nx graph --file=.artifacts/nx/graph.json`, then `jq '.graph.dependencies'` on it            |
-|  [11]   | Open web or known pages               | `mcp__exa__web_search_exa` for search, `search-tavily` for known pages                                 |
+|  [11]   | Everything else on the web            | `search-web`                                                                                           |
 
 Installed types under `node_modules` decide over a page.
 

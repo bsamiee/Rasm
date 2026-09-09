@@ -82,7 +82,7 @@ Facts one run produced are observations, and prose keeps the rule they showed:
 |  [03]   | Release version, issue number, or defect of one release | Behavior, and retirement condition when one is known |
 |  [04]   | Path, key, or name of one proof, probe, or session      | Placeholder form (`<proof>`, `<session>`)            |
 
-Values a declaration, manifest, or option states (`timeout: 600000`) are facts, they stay with their source named.
+Values a declaration, manifest, or option states (`timeout: 600000`) are facts, they stay with their source named. Size, byte, duration, and count limits stay when a named tool enforces them, every other threshold goes. Examples stay when they are a command, a sequence, or a case of the file's subject, examples with no source on disk or in a tool's documentation go.
 
 ## [03]-[SENTENCES]
 
@@ -136,6 +136,8 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - Lines under a subject state facts about it without naming it: `the repository` in its README, `this file`, and a possessive for it go
 - Pointers to another file or skill are one line, `Use <name> for <purpose>`, a sentence that `<name>` owns a topic takes that form
 - Pointers name the file and its purpose alone, a section, heading, row, line, or category inside it drifts
+- Pointer purposes name one category a reader recognizes a task by, a list stays where no term covers its members
+- `Use <name>` excludes every other source, tail naming one (`in place of memory`) restates the instruction
 - Facts sit where readers need them, a link is the location of a thing readers open
 - External URLs outside a package page, download, or tool document go, the fact they cited is stated
 - Prose states purpose, contents stay in the thing: a file, directory, section, diagram node, reference, or comment line names what it is for
@@ -149,6 +151,12 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - List items share one grammatical form and follow their lead-in colon without a blank line
 - Items under an uppercase label hold the sentences that label needs
 - Labels and sentence position give emphasis, `**`, emoji, and uppercase words outside code and `[LABELS]` go
+
+Snippets show one rule or operation of the package their file owns, the owned type stands alone:
+- Construct is complete with its rule visible, every member serves that rule
+- Every local carries its declared type, prose beside the snippet names each undeclared placeholder member
+- One snippet shows one shape, a construct its source shows in more shapes keeps each shape
+- Names keep one shape within a file
 
 Tables hold values a reader decides by, the sentence that explains them stays in section text:
 - Headers are one or two words, cells hold values, identifiers, or short phrases without an article, period, or semicolon

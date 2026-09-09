@@ -6,8 +6,8 @@ skills:
   - ast-grep
   - clean-prose
   - manage-repo
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [TOOLING_MAINTAINER]
@@ -44,17 +44,17 @@ Every change names the page or source line that decides it:
 
 | [INDEX] | [QUESTION]                                 | [SOURCE]                                                                                         |
 | :-----: | :----------------------------------------- | :----------------------------------------------------------------------------------------------- |
-|  [01]   | mise setting, backend, or template         | `mise <command> --help`, `mise registry \| rg '^<name> '`, then `search-context7` on `/jdx/mise` |
+|  [01]   | mise setting, backend, or template         | `mise <command> --help`, `mise registry \| rg '^<name> '`, then `search-code` on `/jdx/mise`     |
 |  [02]   | Owner of an environment value              | `mise env --json-extended`, the variable's `source` and `tool`                                   |
 |  [03]   | Backend and resolved version of a tool     | `mise doctor`, the `toolset` rows, and `mise ls --current --json` for the `source` per row       |
-|  [04]   | Nx plugin, input, default, daemon, release | `node_modules/nx/dist/src/**`, then `mcp__github__get_file_contents` on `nrwl/nx` with `path`    |
+|  [04]   | Nx plugin, input, default, daemon, release | `node_modules/nx/dist/src/**`, then `search-code` on `nrwl/nx` by path                           |
 |  [05]   | Claude Code settings, hooks, MCP, plugins  | `mcp__claudeCodeDocs__search_claude_code_docs`, then `Skill(function-hooks:authoring)`           |
 |  [06]   | Editor setting                             | Extension's `package.json` contribution under `~/.vscode/extensions/`                            |
 |  [07]   | Shell or YAML checker flag                 | `<tool> --help` for act, actionlint, shellcheck, shfmt, yamlfmt, the binary `mise which` names   |
 |  [08]   | Merged target of a project                 | `pnpm exec nx show project <p> --json \| jq '.targets.<t>'`                                      |
 |  [09]   | Projects an edit affects                   | `pnpm exec nx show projects --affected --files=<file> --json`                                    |
 |  [10]   | Plugin manifest validity                   | `claude plugin validate .claude/plugins/<plugin>`, the `Validation passed` line                  |
-|  [11]   | Everything else on the web                 | `mcp__exa__web_search_exa` for search, `search-tavily` for known pages                           |
+|  [11]   | Everything else on the web                 | `search-web`                                                                                     |
 
 Binary `mise which <tool>` names and the `nx show project` output decide over a page.
 

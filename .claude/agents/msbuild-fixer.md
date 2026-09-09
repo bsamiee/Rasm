@@ -9,8 +9,8 @@ skills:
   - dotnet-msbuild-execution
   - dotnet-msbuild-packaging
   - dotnet-roslyn-codelens
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [MSBUILD_FIXER]
@@ -60,10 +60,10 @@ Every finding names the tool result that decides it:
 |  [12]   | Whether a consumer names a project's types      | `mcp__roslyn-codelens__get_public_api_surface`, then `mcp__roslyn-codelens__find_references` with the qualified name and no `kinds`, its `byProject` |
 |  [13]   | Analyzer diagnostics after an edit              | `mcp__roslyn-codelens__get_diagnostics` with `includeAnalyzers=true` and `severity=error`, no `limit`      |
 |  [14]   | Instances of one project in a build             | `mcp__binlog__binlog_evaluations` with `project=<name>` on the capture, restore and build are 2            |
-|  [15]   | Newest version for a new `PackageVersion`       | `mcp__nuget__get_latest_package_version` with `includePrerelease: true` and `solutionDirectory` the repository root |
+|  [15]   | Newest version for a new `PackageVersion`       | `search-code`, prereleases included                                                                       |
 |  [16]   | File that owns a declaration                    | File placement table of `dotnet-msbuild-evaluation`, then `references/import-chain.md`                    |
 |  [17]   | `NU*` code behind a restore finding             | `references/nuget-codes.md` of `dotnet-msbuild-packaging`                                                 |
-|  [18]   | MSBuild, SDK, or NuGet behavior the skills lack | `search-context7`, then `search-tavily`                                                                   |
+|  [18]   | MSBuild, SDK, or NuGet behavior the skills lack | `search-code`, then `search-web`                                                                          |
 
 File read, the scan, and the `-check` build decide over a page.
 
@@ -102,7 +102,7 @@ File read, the scan, and the `-check` build decide over a page.
 4. Read `AP-13` through the edge and type rows, and `AP-17` through the baseline build's `RASM0001` line
 5. Report each entry an inline rule hit twice for `ast-grep-rule-builder`, with the rule, its instances, its positive case, and the `OK` counterexample
 6. Answer every placement or override question from the troubleshooting section of `dotnet-msbuild-evaluation` and the evaluated value
-7. Run `-getItem:PackageReference` before a `PackageVersion` row is added, and `mcp__nuget__get_latest_package_version` for an id the central file lacks
+7. Run `-getItem:PackageReference` before a `PackageVersion` row is added, and `search-code` for the newest version of an id the central file lacks
 8. Read edges and type references before a redundant project reference row
 9. Classify each finding under the decision rules
 10. Fix in severity order, one catalog entry per edit pass per file, and `STYLE` findings in files the run already edits

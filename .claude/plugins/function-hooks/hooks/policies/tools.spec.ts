@@ -22,10 +22,11 @@ const _reason = (e: ToolCallInput, facts = _FACTS): string => {
 
 describe('toolRule', () => {
     it('refuses the web tools and routes WebFetch by host', () => {
-        expect(_reason({ tool: 'WebSearch', ['tool_use_id']: _ID, query: 'x' })).toContain('mcp__exa__web_search_exa');
+        expect(_reason({ tool: 'WebSearch', ['tool_use_id']: _ID, query: 'x' })).toContain('search-web');
         expect(_reason(_fetch('https://github.com/a/b'))).toContain('mcp__github__get_file_contents');
-        expect(_reason(_fetch('https://example.com'))).toContain('tvly extract');
-        expect(_reason(_fetch('not a url'))).toContain('tvly extract');
+        expect(_reason(_fetch('https://github.com/a/b/wiki/Page'))).toContain('search-code');
+        expect(_reason(_fetch('https://example.com'))).toContain('search-web');
+        expect(_reason(_fetch('not a url'))).toContain('search-web');
     });
 
     it('holds a destructive hostinger family to its recorded fact and a purchase to the prompt', () => {
@@ -46,7 +47,7 @@ describe('toolRule', () => {
     });
 
     it('passes a server tool with its skill line once and none the session has seen', () => {
-        expect(toolRule(_FACTS)(_find)).toStrictEqual({ kind: 'rewrite', e: _find, context: ['Load the ast-grep skill for the ast-grep tools'] });
+        expect(toolRule(_FACTS)(_find)).toStrictEqual({ kind: 'rewrite', e: _find, context: ['Load the ast-grep skill'] });
         expect(toolOnce(_find).map((line) => line.key)).toStrictEqual(['ast-grep']);
         expect(toolRule({ ..._FACTS, seen: new Set(['ast-grep']) })(_find)).toStrictEqual({ kind: 'rewrite', e: _find, context: [] });
     });
@@ -54,8 +55,8 @@ describe('toolRule', () => {
 
 describe('describeLine', () => {
     it('prepends the skill line, then the tool row, and nothing for an unlisted tool', () => {
-        expect(describeLine('mcp__ast-grep__find_code')?.split('\n')[0]).toBe('Load the ast-grep skill before the first call');
-        expect(describeLine('WebSearch')).toContain('WebSearch is refused');
+        expect(describeLine('mcp__ast-grep__find_code')?.split('\n')[0]).toBe('Load the ast-grep skill first');
+        expect(describeLine('WebSearch')).toContain('Refused');
         expect(describeLine('Bash')).toBeUndefined();
     });
 });

@@ -60,44 +60,47 @@ const FETCH: Readonly<Record<string, string>> = {
     'github.com': 'mcp__github__get_file_contents',
     'nuget.org': 'mcp__nuget__get_package_context',
 };
-const _FETCH_FALLBACK = 'tvly extract or mcp__exa__web_fetch_exa';
+const _FETCH_FALLBACK = 'search-web skill';
+// The path of a repository wiki page, /<owner>/<repo>/wiki and anything under it
+const _WIKI = /^\/[^/]+\/[^/]+\/wiki(?:\/|$)/u;
 
 const FAMILIES: readonly Family[] = [
     ...['mcp__hostinger__VPS_recreate', 'mcp__hostinger__VPS_restore', 'mcp__hostinger__VPS_delete'].map(
         (prefix): Family => ({
             prefix,
             holds: (facts, id): boolean => facts.snapshots.has(id),
-            reason: 'Call mcp__hostinger__VPS_createSnapshotV1 on the machine first, then retry',
+            reason: 'Snapshot the machine first with mcp__hostinger__VPS_createSnapshotV1',
         }),
     ),
     {
         prefix: 'mcp__hostinger__DNS_reset',
         holds: (facts, id): boolean => facts.dns.has(id),
-        reason: 'Call mcp__hostinger__DNS_getDNSRecordsV1 on the domain first, then retry',
+        reason: 'Read the zone first with mcp__hostinger__DNS_getDNSRecordsV1',
     },
     ...['mcp__hostinger__domains_purchase', 'mcp__hostinger__billing_createPurchaseOrder', 'mcp__hostinger__VPS_purchase'].map(
         (prefix): Family => ({
             prefix,
             holds: (facts, id): boolean => id !== '' && facts.prompt.includes(id),
-            reason: 'The current prompt names no target, the operator names it before a purchase',
+            reason: 'Prompt names no target for the purchase, ask the operator',
         }),
     ),
 ];
 
 // One skill per server, its line injected once per session before the first call
-const SERVERS: Readonly<Partial<Record<string, OnceLine>>> = {
-    context7: { key: 'search-context7', line: 'Load the search-context7 skill, it caps each query' },
-    'roslyn-codelens': { key: 'dotnet-roslyn-codelens', line: 'Load the dotnet-roslyn-codelens skill' },
-    hostinger: { key: 'hostinger', line: 'Load the hostinger skill' },
-    binlog: { key: 'dotnet-msbuild-diagnostics', line: 'Load the dotnet-msbuild-diagnostics skill for the binlog tools' },
-    nuget: { key: 'dotnet-msbuild-packaging', line: 'Load the dotnet-msbuild-packaging skill for the nuget tools' },
-    'ast-grep': { key: 'ast-grep', line: 'Load the ast-grep skill for the ast-grep tools' },
+const SERVERS: Readonly<Partial<Record<string, string>>> = {
+    context7: 'search-code',
+    deepwiki: 'search-code',
+    nuget: 'search-code',
+    'roslyn-codelens': 'dotnet-roslyn-codelens',
+    hostinger: 'hostinger',
+    binlog: 'dotnet-msbuild-diagnostics',
+    'ast-grep': 'ast-grep',
 };
 
 // One line per tool that a fresh session calls wrong the first time, prepended to the tool's description
 const DESCRIBE: Readonly<Partial<Record<ToolName, string>>> = {
-    ['WebSearch']: 'WebSearch is refused, mcp__exa__web_search_exa and tvly search replace it',
-    ['WebFetch']: 'WebFetch is refused, the docs and github tools, tvly extract, and mcp__exa__web_fetch_exa replace it',
+    ['WebSearch']: 'Refused, use search-web skill',
+    ['WebFetch']: 'Refused, use the docs and github tools for their hosts and search-web skill for other URLs',
 };
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -109,7 +112,12 @@ const isTool =
         e.tool === tool;
 
 const _route = (url: string): string => {
-    const host = URL.canParse(url) ? new URL(url).hostname : '';
+    const parsed = URL.canParse(url) ? new URL(url) : undefined;
+    const host = parsed?.hostname ?? '';
+    // A GitHub wiki is its own repository, the contents API answers Not Found for it
+    if (host.endsWith('github.com') && _WIKI.test(parsed?.pathname ?? '')) {
+        return 'search-code skill';
+    }
     return Object.entries(FETCH).find(([suffix]) => host.endsWith(suffix))?.[1] ?? _FETCH_FALLBACK;
 };
 
@@ -125,11 +133,9 @@ const _row = <T extends ToolName>(tool: T, rules: Rules<T>): ToolRow => {
 
 // Rows over the tool names the declarations know
 const TOOLS: readonly ToolRow[] = [
-    _row('WebSearch', { deny: (): string => 'WebSearch is refused, search with mcp__exa__web_search_exa or tvly search' }),
-    _row('WebFetch', { deny: (e): string => `WebFetch is refused, ${_route(e.url)}` }),
-    _row('mcp__playwright__browser_run_code_unsafe', {
-        deny: (): string => 'browser_run_code_unsafe runs arbitrary code in the page, use the typed browser tools',
-    }),
+    _row('WebSearch', { deny: (): string => 'Use search-web skill' }),
+    _row('WebFetch', { deny: (e): string => `Use ${_route(e.url)}` }),
+    _row('mcp__playwright__browser_run_code_unsafe', { deny: (): string => 'Use the typed browser tools' }),
     _row('mcp__hostinger__VPS_createSnapshotV1', { records: 'snapshot' }),
     _row('mcp__hostinger__DNS_getDNSRecordsV1', { records: 'dns' }),
 ];
@@ -149,7 +155,12 @@ const _id = (e: ToolCallInput): string => {
     );
 };
 
-const _serverOnce = (tool: string): OnceLine | undefined => SERVERS[_SERVER_NAME.exec(tool)?.groups?.['server'] ?? ''];
+const _serverSkill = (tool: string): string | undefined => SERVERS[_SERVER_NAME.exec(tool)?.groups?.['server'] ?? ''];
+
+const _serverOnce = (tool: string): OnceLine | undefined => {
+    const skill = _serverSkill(tool);
+    return skill === undefined ? undefined : { key: skill, line: `Load the ${skill} skill` };
+};
 
 // The once lines the call raises, the server's skill line then the tool's own
 const toolOnce = (e: ToolCallInput): readonly OnceLine[] => [_serverOnce(e.tool) ?? [], _rows(e).flatMap((row) => row.once ?? [])].flat();
@@ -180,11 +191,9 @@ const toolRecords = (e: ToolCallInput): Recorded | undefined => {
 
 // The owning skill's line, then the tool's own row, one per line, undefined when the tool has neither
 const describeLine = (tool: string): string | undefined => {
-    const server = _serverOnce(tool);
+    const skill = _serverSkill(tool);
     const own = DESCRIBE[tool as ToolName];
-    const text = [...(server === undefined ? [] : [`Load the ${server.key} skill before the first call`]), ...(own === undefined ? [] : [own])].join(
-        '\n',
-    );
+    const text = [...(skill === undefined ? [] : [`Load the ${skill} skill first`]), ...(own === undefined ? [] : [own])].join('\n');
     return text === '' ? undefined : text;
 };
 

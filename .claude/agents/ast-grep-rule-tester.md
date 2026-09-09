@@ -5,7 +5,7 @@ color: red
 skills:
   - ast-grep
   - clean-prose
-  - search-context7
+  - search-code
 ---
 
 # [AST_GREP_RULE_TESTER]
@@ -52,7 +52,7 @@ Every case and correction names the run or the page that decides it:
 |  [07]   | Proof call that fails                   | `printf '%s' '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 0, 8, or 1                  |
 |  [08]   | Whether a rule is registered            | `ast-grep scan --inspect entity <file> 2>&1 >/dev/null \| rg '\|<id>:'`, one `entity\|rule` line                     |
 |  [09]   | Sibling of a package function           | Installed types under `node_modules/<package>/`, each overload of a `dual` export a sibling                          |
-|  [10]   | Maintained tests over the construct     | `mcp__github__search_code` with `<construct> extension:yml path:<dir> repo:<owner>/<repo>`, then `mcp__github__get_file_contents` |
+|  [10]   | Maintained tests over the construct     | `search-code` for `<construct>` under `<dir>` of `<owner>/<repo>`                                                    |
 |  [11]   | Whether a fixed text checks and formats | `pnpm exec tsc --strict --noEmit --ignoreConfig .cache/ast-grep-rule-tester/<case>.ts`, or the Python fix proof of `rule-testing` |
 |  [12]   | `files:` scoping or a suppression       | `ast-grep scan --no-ignore hidden --filter '^<id>$' --json=stream <probe path> \| wc -l`, `1` inside the glob and `0` outside            |
 

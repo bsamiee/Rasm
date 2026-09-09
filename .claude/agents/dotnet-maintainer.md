@@ -11,8 +11,8 @@ skills:
   - dotnet-msbuild-packaging
   - dotnet-roslyn-codelens
   - manage-repo
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [DOTNET_MAINTAINER]
@@ -47,17 +47,17 @@ Every change names the page or source line that decides it:
 
 | [INDEX] | [QUESTION]                              | [SOURCE]                                                                                                       |
 | :-----: | :-------------------------------------- | :------------------------------------------------------------------------------------------------------------- |
-|  [01]   | MSBuild, NuGet, or SDK behavior         | `search-context7`, then `mcp__github__get_file_contents` on `dotnet/msbuild` or `NuGet/NuGet.Client` with `path` |
-|  [02]   | BuildCheck default                      | `mcp__github__get_file_contents` on `dotnet/msbuild`, `path: documentation/specs/BuildCheck/Codes.md`          |
+|  [01]   | MSBuild, NuGet, or SDK behavior         | `search-code`, docs first, then `dotnet/msbuild` or `NuGet/NuGet.Client` source by path                        |
+|  [02]   | BuildCheck default                      | `search-code` on `dotnet/msbuild` `documentation/specs/BuildCheck/Codes.md`                                    |
 |  [03]   | Package build files and options         | `<id>/<version>/` under the folder `dotnet nuget locals global-packages -l` names                              |
-|  [04]   | Newest package version                  | `mcp__nuget__get_latest_package_version` with `solutionDirectory: <repo>` and `includePrerelease: true`        |
-|  [05]   | Package readme, rule table, MSBuild options | `mcp__nuget__get_package_context` with `solutionDirectory: <repo>` and the central `packageVersion`        |
+|  [04]   | Newest package version                  | `search-code`, prereleases included                                                                            |
+|  [05]   | Package readme, rule table, MSBuild options | `search-code` at the central version                                                                       |
 |  [06]   | Evaluated property or item              | `dotnet msbuild <project> -getProperty:A,B -getItem:Type`, one call with every switch, JSON out                |
 |  [07]   | Projects that reference a package id    | `fd -e csproj . libs tools tests -x dotnet msbuild {} -getItem:PackageReference`, `jq` on `Identity` and `DefiningProjectFullPath` |
 |  [08]   | Task and analyzer cost of a build       | `mcp__binlog__binlog_expensive_tasks` and `mcp__binlog__binlog_analyzer_summary` on the `-bl` file             |
 |  [09]   | @nx/dotnet inference                    | `node_modules/@nx/dotnet/dist/plugins/create-nodes.js`                                                         |
 |  [10]   | Merged target of a project              | `pnpm exec nx show project <p> --json \| jq '.targets.<t>'`                                                    |
-|  [11]   | Open web or known pages                 | `mcp__exa__web_search_exa` for search, `search-tavily` for known pages                                         |
+|  [11]   | Everything else on the web              | `search-web`                                                                                                   |
 
 Installed SDK, package files, and tool output decide over a page.
 

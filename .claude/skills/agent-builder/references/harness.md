@@ -104,7 +104,7 @@ MCP servers in `.mcp.json` launch through `mise exec --` or connect over HTTP:
 - `"alwaysLoad": true` on a `.mcp.json` entry loads every tool of that server at session start, for a server a role needs each turn
 - `ToolSearch` awaits servers still connecting
 - `ToolSearch` names a failed server in a result finding no tool
-- Hook injects `Load the <skill> skill` at the first call of `roslyn-codelens`, `binlog`, `nuget`, `ast-grep`, `context7`, and `hostinger`
+- Hook injects `Load the <skill> skill` at the first call of `roslyn-codelens`, `binlog`, `nuget`, `ast-grep`, `context7`, `deepwiki`, and `hostinger`
 - Roslyn server trusts `Workspace.slnx` per session, `list_solutions` prints `isActive: true` for it
 - `load_solution` follows a `list_solutions` row without `isActive: true`
 - Results past the limit go to a file the reply names, `jq` over it reads the envelope (`binlog_task_details`)
@@ -146,9 +146,9 @@ MCP servers in `.mcp.json` launch through `mise exec --` or connect over HTTP:
 
 Facts a step depends on:
 - Rewrites run first, refusals and lines read the rewritten command
-- Git refusals open `git-guard: <reason>`, `git show HEAD:<file> > <file>` restores a file
+- Git refusals end `destructive git actions are refused`, `git show HEAD:<file> > <file>` restores a file
 - Classifier denials end `You *may* attempt to accomplish this action using other means`
-- `mise exec` and `eval` lines name `CLAUDE_ENV_FILE`, the file the `SessionStart` hook wrote the mise environment to
+- `mise exec` and `eval` lines state that the shell holds the mise environment, the `SessionStart` hook wrote it to `CLAUDE_ENV_FILE`
 - `timeout` over the whole command keeps the smaller of its duration and the parameter, a partial prefix the larger, 600000 ms caps both
 - Sleep lines name `run_in_background: true` or an `until` loop under `Monitor` as the wait forms
 - Preview flag lines name the command without the flag as the proof

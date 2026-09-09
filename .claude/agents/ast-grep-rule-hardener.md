@@ -5,7 +5,7 @@ color: yellow
 skills:
   - ast-grep
   - clean-prose
-  - search-context7
+  - search-code
 ---
 
 # [AST_GREP_RULE_HARDENER]
@@ -52,8 +52,8 @@ Every change names the run or the page that decides it:
 |  [07]   | Node shape of a sibling or near miss | `mcp__ast-grep__dump_syntax_tree` with `format: cst`, `ast-grep run -l <lang> -p '<code>' --debug-query=cst` past one node |
 |  [08]   | Device on one case                   | `mcp__ast-grep__test_match_code_rule` with severity omitted, the JSON `metaVariables`                            |
 |  [09]   | Proof call that fails                | `printf '%s' '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 0, 8, or 1              |
-|  [10]   | Sibling function of a package module | Installed types under `node_modules/<package>/`, then `search-context7`                                          |
-|  [11]   | Maintained set on the construct      | `mcp__github__search_code` with `<construct> extension:yml path:<dir> repo:<owner>/<repo>`, then `mcp__github__get_file_contents` |
+|  [10]   | Sibling function of a package module | Installed types under `node_modules/<package>/`, then `search-code`                                              |
+|  [11]   | Maintained set on the construct      | `search-code` for `<construct>` under `<dir>` of `<owner>/<repo>`                                                |
 |  [12]   | Binary behavior a rule depends on    | Rule over one file, the command, and the exit code                                                               |
 |  [13]   | Width of a util                      | `ast-grep scan --filter '^<caller>$'` over a rule calling it through `matches: <id>`                             |
 |  [14]   | Cost of a rule over the tree         | `hyperfine -N -r 8 "ast-grep scan --filter '^<id>$' <file>"`, an absent id as the reference                      |

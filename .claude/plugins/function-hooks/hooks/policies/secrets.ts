@@ -6,7 +6,7 @@ import type { StringRecord } from '../host/store.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const REDACTED = 'Secret values were replaced by their ids before you read the prompt';
+const REDACTED = 'Secret values in the prompt appear as their ids';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

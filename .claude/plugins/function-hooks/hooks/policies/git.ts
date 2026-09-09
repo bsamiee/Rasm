@@ -28,12 +28,12 @@ interface Head {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ADVICE = 'Blocked by git-guard: destructive git actions are disabled. Keep all work as-is.';
+const ADVICE = 'destructive git actions are refused, leave the tree as it is';
 const _KIB = 1024;
 const _MAX_COMMAND_KIB = 128;
 const _MAX_COMMAND = _MAX_COMMAND_KIB * _KIB;
-const _TOO_LONG = 'the command is too long to lex within the hook deadline, it cannot be checked safely';
-const _ALIAS = 'an inline git alias (-c alias.*) can hide a blocked subcommand';
+const _TOO_LONG = `command exceeds the ${_MAX_COMMAND_KIB} KiB check limit, split it`;
+const _ALIAS = 'inline git alias can hide a refused subcommand';
 const _CTRL = /\p{Cc}+/gu;
 const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
 const _GIT_VALUE_OPTS: readonly string[] = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'];
@@ -83,13 +83,13 @@ const _checkout: Refinement = (args, existing) => {
 
 const GIT = {
     [INTERPRETER]: {
-        why: 'the command runs git or a script through a shell or an interpreter, run git directly and a script by its path',
+        why: 'run git directly and a script by its path, not through a shell or an interpreter',
         any: true,
     },
     branch: { why: 'deletes or force-moves a branch', flags: ['-d', '-D', '-M', '--delete'], starts: ['--force'] },
     checkout: { why: 'discards local changes', flags: ['-f', '-B', '-p', '--patch', '--ours', '--theirs'], starts: ['--force'], refine: _checkout },
     clean: { why: 'deletes untracked files', any: true },
-    config: { why: 'defines a git alias that can hide a blocked subcommand', starts: ['alias.'] },
+    config: { why: 'defines a git alias that can hide a refused subcommand', starts: ['alias.'] },
     push: { why: 'rewrites or deletes remote history', flags: ['-f', '-d', '--delete', '--mirror', '--prune'], starts: ['--force', '+', ':'] },
     rebase: { why: 'rewrites commits other agents can already hold', any: true },
     'reflog delete': { why: 'erases reflog entries, the last recovery path', any: true },
@@ -173,7 +173,7 @@ const gitGuard =
     (existing: ReadonlySet<string>): (<E extends { readonly command: string }>(e: E) => Decision<E>) =>
     <E extends { readonly command: string }>(e: E): Decision<E> => {
         const reason = e.command.length > _MAX_COMMAND ? _TOO_LONG : _heads(e.command).flatMap((argv) => _reason(argv, existing) ?? [])[0];
-        return reason === undefined ? rewrite(e) : deny(`git-guard: ${reason.replace(_CTRL, ' ')}. ${ADVICE}`);
+        return reason === undefined ? rewrite(e) : deny(`${reason.replace(_CTRL, ' ')}, ${ADVICE}`);
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

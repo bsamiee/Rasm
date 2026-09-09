@@ -69,10 +69,10 @@ const _RECURSIVE_LS = /^-[A-Za-z]*R|^--recursive$/u;
 const _BINLOG = /\.binlog$/u;
 const _BINLOG_SWITCH = /^-bl/u;
 // The skill a grep or rg over a file kind routes to, the tool that reads the kind by its semantics
-const _GREP_SKILLS: readonly (readonly [RegExp, string, string])[] = [
-    [/\.cs$/u, 'dotnet-roslyn-codelens', 'Roslyn reads C# by its semantics and rg reads text'],
-    [/\.(?:csproj|props|targets)$/u, 'dotnet-msbuild-evaluation', 'MSBuild evaluation reads project files and rg reads text'],
-    [/\.(?:ts|py)$/u, 'ast-grep', 'ast-grep reads code by its syntax tree and rg reads text'],
+const _GREP_SKILLS: readonly (readonly [RegExp, string])[] = [
+    [/\.cs$/u, 'dotnet-roslyn-codelens'],
+    [/\.(?:csproj|props|targets)$/u, 'dotnet-msbuild-evaluation'],
+    [/\.(?:ts|py)$/u, 'ast-grep'],
 ];
 // The Bash timeout parameter's maximum, BuiltinToolInputs.Bash in claude-code.d.ts
 const _TIMEOUT_MAX_MS = 600_000;
@@ -117,12 +117,11 @@ const _RESERVED: readonly string[] = [
     '!',
     'time',
 ];
-const _WAIT =
-    'run the command it waits for with run_in_background: true and read its completion notification, or watch the condition with an until loop under the Monitor tool';
+const _WAIT = 'run the awaited command with run_in_background: true or watch the condition with Monitor';
 // Every NX_DAEMON value but false outranks nx.json useDaemonProcess: false and starts the daemon, whose outputs watcher logs every event
 // under .cache/ into a log that never rotates
 const _DAEMON = /^NX_DAEMON=(?!false$)/u;
-const _MISE_LINE = 'the SessionStart hook wrote the mise environment to CLAUDE_ENV_FILE';
+const _MISE_LINE = 'shell holds the mise environment';
 
 // --- [WORDS] ---------------------------------------------------------------------------
 
@@ -184,7 +183,7 @@ const _miseRewrite = (argv: Argv, command: string): Rewritten => {
     const end = _miseCommand(argv)?.start ?? span.end;
     return {
         command: _splice(command, [{ start: span.start, end, text: '' }]),
-        context: `Ran ${command.slice(end, span.end)} in place of ${command.slice(span.start, end).trim()}, ${_MISE_LINE}, and a missing binary is a missing [tools] row in mise.toml followed by mise install`,
+        context: `Ran ${command.slice(end, span.end)} without ${command.slice(span.start, end).trim()}, ${_MISE_LINE}, a missing binary needs a [tools] row in mise.toml and mise install`,
     };
 };
 
@@ -208,7 +207,7 @@ const _miseLine = (argv: Argv, command: string): readonly OnceLine[] => {
         return [
             {
                 key: 'mise',
-                line: `mise ${_word(argv, 1)} names no command or holds an option before it, ${_MISE_LINE}, run the command itself with -C <dir> as cd <dir> && <command> and --command as the command`,
+                line: `Run the command directly, ${_MISE_LINE}, -C <dir> is cd <dir> && <command>`,
             },
         ];
     }
@@ -298,8 +297,8 @@ const _prefix = (argv: Argv, command: string): Prefix | undefined => {
 const _ghWrite = (argv: Argv): string | undefined => _GH_WRITES.find((sub) => _texts(argv).slice(1).join(' ').startsWith(sub));
 
 const _grepLines = (argv: Argv): readonly OnceLine[] => [
-    ...(_head(argv) === 'grep' ? [{ key: 'ast-grep', line: 'Load the ast-grep skill, rg is for literals and comments' }] : []),
-    ..._GREP_SKILLS.flatMap(([pattern, skill, reason]) => (_has(argv, pattern) ? [{ key: skill, line: `Load the ${skill} skill, ${reason}` }] : [])),
+    ...(_head(argv) === 'grep' ? [{ key: 'ast-grep', line: 'Load the ast-grep skill' }] : []),
+    ..._GREP_SKILLS.flatMap(([pattern, skill]) => (_has(argv, pattern) ? [{ key: skill, line: `Load the ${skill} skill` }] : [])),
 ];
 
 // --- [ROWS] ----------------------------------------------------------------------------
@@ -313,7 +312,7 @@ const SHELL = [
                 ? undefined
                 : {
                       command: _dropped(command, words),
-                      context: `Dropped ${_texts(words).join(' ')}, nx.json useDaemonProcess: false keeps the Nx daemon off and its outputs watcher log never rotates`,
+                      context: `Dropped ${_texts(words).join(' ')}, nx.json keeps the Nx daemon off`,
                   };
         },
     },
@@ -324,7 +323,7 @@ const SHELL = [
         lines: (argv: Argv, command: string): readonly OnceLine[] => {
             const flag = _previewFlag(argv);
             return _previewsGit(argv) && flag !== undefined
-                ? [{ key: 'preview', line: `A preview proves nothing, the proof is the target itself: ${_dropped(command, [flag])}` }]
+                ? [{ key: 'preview', line: `Dry run proves nothing, run ${_dropped(command, [flag])}` }]
                 : [];
         },
     },
@@ -354,7 +353,7 @@ const SHELL = [
                           command,
                           pins.map((word) => _replaced(word, `${_group(word.text.match(_PNPM_PIN), 'name')}@catalog:`)),
                       ),
-                      context: 'Ran the packages at @catalog:, pnpm-workspace.yaml holds every version',
+                      context: 'Rewrote the pins to @catalog:, pnpm-workspace.yaml alone holds versions',
                   };
         },
     },
@@ -397,38 +396,25 @@ const SHELL = [
     {
         head: ['ls'],
         lines: (argv: Argv): readonly OnceLine[] =>
-            _has(argv, _RECURSIVE_LS) ? [{ key: 'tree', line: 'Use tree <dir> to list every directory and file, -D for directories alone' }] : [],
+            _has(argv, _RECURSIVE_LS) ? [{ key: 'tree', line: 'Use tree <dir>, -D for directories alone' }] : [],
     },
-    { head: ['find'], lines: (): readonly OnceLine[] => [{ key: 'fd', line: 'Use fd for filesystem queries, fd <pattern> <dir>' }] },
+    { head: ['find'], lines: (): readonly OnceLine[] => [{ key: 'fd', line: 'Use fd <pattern> <dir>' }] },
     {
         head: ['wc'],
-        lines: (argv: Argv): readonly OnceLine[] =>
-            _texts(argv).includes('-l') ? [{ key: 'loc', line: 'Use loc <dir> for the line count with a complexity score per file' }] : [],
+        lines: (argv: Argv): readonly OnceLine[] => (_texts(argv).includes('-l') ? [{ key: 'loc', line: 'Use loc <dir>' }] : []),
     },
     {
         head: ['gh'],
         lines: (argv: Argv): readonly OnceLine[] => {
             const sub = _ghWrite(argv);
-            return sub === undefined
-                ? []
-                : [
-                      {
-                          key: 'github',
-                          line: `Use the github MCP for gh ${sub}, gh serves the local checkout (pull requests from HEAD, checks, checkout, releases, secrets)`,
-                      },
-                  ];
+            return sub === undefined ? [] : [{ key: 'github', line: `Use the github MCP for gh ${sub}` }];
         },
     },
     {
         head: ['dotnet'],
         lines: (argv: Argv): readonly OnceLine[] =>
             _word(argv, 1) === 'build' && !argv.some((word) => _BINLOG_SWITCH.test(word.text) || _BINLOG.test(word.text))
-                ? [
-                      {
-                          key: 'dotnet-msbuild-diagnostics',
-                          line: 'Add -bl to dotnet build and read the .binlog through the dotnet-msbuild-diagnostics skill',
-                      },
-                  ]
+                ? [{ key: 'dotnet-msbuild-diagnostics', line: 'Add -bl and read the .binlog with the dotnet-msbuild-diagnostics skill' }]
                 : [],
     },
 ] as const satisfies readonly ShellRow[];
@@ -523,13 +509,10 @@ const commandTimeout = <E extends Bash>(e: E): Decision<E> => {
         prefixes.map((prefix): Splice => ({ start: prefix.head.start, end: prefix.wrapped, text: '' })),
     );
     return rewrite({ ...e, command, timeout }, [
-        `Ran ${command} under the Bash timeout parameter at ${timeout} ms`,
+        `Ran ${command} with the Bash timeout at ${timeout} ms`,
         ...prefixes
             .filter((prefix) => prefix.ms > _TIMEOUT_MAX_MS)
-            .map(
-                (prefix) =>
-                    `timeout ${prefix.ms} ms exceeds the Bash timeout maximum of ${_TIMEOUT_MAX_MS} ms and ran capped, run_in_background: true runs past it`,
-            ),
+            .map((prefix) => `Capped ${prefix.ms} ms at the Bash maximum of ${_TIMEOUT_MAX_MS} ms, run_in_background: true runs past it`),
     ]);
 };
 
@@ -549,9 +532,7 @@ const commandCeiling = <E extends Bash>(e: E): Decision<E> => {
     }
     const argvs = _parse(e.command);
     if (argvs.some(_runsWorkflow)) {
-        return rewrite({ ...e, ['run_in_background']: true }, [
-            `Ran with run_in_background: true, ${_WORKFLOW} runs a workflow job past the Bash timeout maximum of ${_TIMEOUT_MAX_MS} ms, and its completion notification carries the result`,
-        ]);
+        return rewrite({ ...e, ['run_in_background']: true }, [`Ran ${_WORKFLOW} in the background, its completion notification holds the result`]);
     }
     return argvs.some(_isSlow) && (e.timeout ?? 0) < _TIMEOUT_MAX_MS ? rewrite({ ...e, timeout: _TIMEOUT_MAX_MS }) : rewrite(e);
 };

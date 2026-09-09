@@ -6,8 +6,8 @@ skills:
   - ast-grep
   - clean-prose
   - manage-repo
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [GITHUB_MAINTAINER]
@@ -30,7 +30,7 @@ Read in order before the first edit, with `<owner>/<repo>` the line `gh repo vie
 1. Load `manage-repo`, read `references/github.md` whole and `templates/<kind>.yml` for each kind your direction adds
 2. `pnpm exec nx run rasm:outline -- .github --items structure --view names`, then `--view expanded` over `<scope>`, in one call
 3. `tree .github` and every file under it whole
-4. `mcp__github__get_file_contents` with `owner`, `repo`, `path: action.yml`, and `ref: refs/tags/<tag>` for each maintained action a changed step uses, at the tag the step names
+4. `search-code` on the `action.yml` of each maintained action a changed step uses, at the tag the step names
 5. `fd -e ts . infra` and each hit whole, for the variable, environment, ruleset, and Actions permission rows a workflow names
 6. `act --bug-report; pnpm exec nx run rasm:workflow -- --list` in one call, the machine baseline
 7. `mcp__github__actions_list` with `method: list_workflow_runs`, `resource_id: <workflow file>`, and `perPage: 1`, the newest hosted run with its `conclusion`
@@ -45,17 +45,17 @@ Every change names the page or source line that decides it:
 
 | [INDEX] | [QUESTION]                             | [SOURCE]                                                                                                  |
 | :-----: | :------------------------------------- | :-------------------------------------------------------------------------------------------------------- |
-|  [01]   | Workflow syntax, contexts, permissions | `search-tavily` over docs.github.com, then `mcp__github__github_support_docs_search`                      |
-|  [02]   | Action input, output, or behavior      | `mcp__github__get_file_contents` on the action's `action.yml` and README with `ref: refs/tags/<tag>`      |
-|  [03]   | act flag, default, or machine config   | `act --help`, `act --bug-report`, then `mcp__github__get_file_contents` on `nektos/act` `cmd/`             |
+|  [01]   | Workflow syntax, contexts, permissions | `search-web` over docs.github.com, then `mcp__github__github_support_docs_search`                         |
+|  [02]   | Action input, output, or behavior      | `search-code` on the action's `action.yml` and README at the tag                                          |
+|  [03]   | act flag, default, or machine config   | `act --help`, `act --bug-report`, then `search-code` on `nektos/act` `cmd/`                               |
 |  [04]   | actionlint diagnostic                  | `actionlint -h`, `actionlint -oneline -config-file /dev/null <file>`, then `rhysd/actionlint` `docs/`      |
-|  [05]   | zizmor audit, persona, or policy       | `zizmor --help`, then `mcp__github__get_file_contents` on `zizmorcore/zizmor` `docs/audits.md` at the tag |
-|  [06]   | CodeQL language, build mode, category  | `search-tavily` over docs.github.com code-security/code-scanning                                          |
-|  [07]   | Registry trusted publishing            | `search-tavily` over learn.microsoft.com/nuget, docs.npmjs.com, or docs.pypi.org                          |
+|  [05]   | zizmor audit, persona, or policy       | `zizmor --help`, then `search-code` on `zizmorcore/zizmor` `docs/audits.md` at the tag                    |
+|  [06]   | CodeQL language, build mode, category  | `search-web` over docs.github.com code-security/code-scanning                                             |
+|  [07]   | Registry trusted publishing            | `search-web` over learn.microsoft.com/nuget, docs.npmjs.com, or docs.pypi.org                             |
 |  [08]   | Hosted run, job, and step result       | `mcp__github__actions_list` with `list_workflow_jobs` and the run id, the `conclusion` per step            |
 |  [09]   | Failing step's lines                   | `mcp__github__get_job_logs` with `job_id`, `return_content: true`, and `tail_lines` sized to the step      |
-|  [10]   | Nx release or affected option          | `search-context7` on Nx, then `node_modules/nx/dist/src/command-line/release/**`                          |
-|  [11]   | Everything else on the web             | `mcp__exa__web_search_exa` for search, `search-tavily` for known pages                                    |
+|  [10]   | Nx release or affected option          | `search-code` on Nx, then `node_modules/nx/dist/src/command-line/release/**`                              |
+|  [11]   | Everything else on the web             | `search-web`                                                                                              |
 
 Action's `action.yml` at its tag and the run's own lines decide over a page.
 

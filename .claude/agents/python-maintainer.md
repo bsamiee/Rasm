@@ -6,8 +6,8 @@ skills:
   - ast-grep
   - clean-prose
   - manage-repo
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [PYTHON_MAINTAINER]
@@ -44,15 +44,15 @@ Every change names the page or source line that decides it:
 
 | [INDEX] | [QUESTION]                                   | [SOURCE]                                                                                              |
 | :-----: | :------------------------------------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | uv, ty, mypy, pytest, or coverage option     | `search-context7`, `/websites/astral_sh_uv` and `/websites/astral_sh_ty` for Astral tools             |
+|  [01]   | uv, ty, mypy, pytest, or coverage option     | `search-code`, `/websites/astral_sh_uv` and `/websites/astral_sh_ty` for Astral tools                 |
 |  [02]   | Ruff rule or default                         | `uv run ruff rule <code>`, `uv run ruff config <table.key>`                                           |
 |  [03]   | Resolved version, consumers, group of a package | `uv tree --frozen --package <name>`, `--invert` for the consumers, `--only-group <group>` for the group |
 |  [04]   | Library behavior behind a setting            | Installed source under `.venv/lib/python*/site-packages/<package>/`                                   |
-|  [05]   | Wheel availability per platform              | `mcp__exa__web_fetch_exa` on `https://pypi.org/pypi/<package>/json`, the `releases` map               |
-|  [06]   | Tool source when the docs are silent         | `mcp__github__get_file_contents` on `astral-sh/uv`, `astral-sh/ruff`, or `astral-sh/ty` with `path`   |
+|  [05]   | Wheel availability per platform              | `curl -s https://pypi.org/pypi/<package>/json \| jq '.releases["<version>"][].filename'`               |
+|  [06]   | Tool source when the docs are silent         | `search-code` on `astral-sh/uv`, `astral-sh/ruff`, or `astral-sh/ty` by path                          |
 |  [07]   | Script parameters and usage                  | `uv run --only-group eng python -m eng.scripts.<module> --help`                                       |
 |  [08]   | Merged target of a project                   | `pnpm exec nx show project <p> --json \| jq '.targets.<t>'`                                           |
-|  [09]   | Open web or known pages                      | `mcp__exa__web_search_exa` for search, `search-tavily` for known pages                                |
+|  [09]   | Everything else on the web                   | `search-web`                                                                                          |
 
 Installed source under `.venv` and tool output decide over a page.
 

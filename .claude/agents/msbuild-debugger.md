@@ -9,8 +9,8 @@ skills:
   - dotnet-msbuild-evaluation
   - dotnet-msbuild-packaging
   - dotnet-roslyn-codelens
-  - search-context7
-  - search-tavily
+  - search-code
+  - search-web
 ---
 
 # [MSBUILD_DEBUGGER]

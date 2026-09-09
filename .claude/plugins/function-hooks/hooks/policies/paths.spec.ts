@@ -23,7 +23,7 @@ describe('pathRule', () => {
         expect(pathRule(new Set())(_read('a.binlog'))).toStrictEqual({ kind: 'deny', reason: BINLOG_DENY });
         expect(_context(_edit('x.md', 'op://a'))).toStrictEqual([OP_LINE]);
         expect(_context(_edit('x.md', 'op://a', 'op://a'))).toStrictEqual([]);
-        expect(_context(_edit('.claude/x.md', 'op://a'))).toStrictEqual(['Search the docs with mcp__claudeCodeDocs__search_claude_code_docs']);
+        expect(_context(_edit('.claude/x.md', 'op://a'))).toStrictEqual(['Use mcp__claudeCodeDocs__search_claude_code_docs for the harness docs']);
     });
 
     it('adds a skill line once per key and none the session has seen', () => {
@@ -36,6 +36,6 @@ describe('pathRule', () => {
         const lines = _context(_edit('package.json', '"a": "catalog:"', '"b": "^1.0.0"'));
         expect(lines[0]).toBe('Record a in the owning README.md dependency list');
         expect(lines[1]).toContain('Dropped b from package.json');
-        expect(_context(_edit('package.json', '"a": "^1.0.0"'))).toContain('The lock file alone pins versions, spell the row unpinned');
+        expect(_context(_edit('package.json', '"a": "^1.0.0"'))).toContain('Spell the row unpinned, the lock file alone pins versions');
     });
 });

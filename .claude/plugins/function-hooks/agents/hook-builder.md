@@ -15,12 +15,12 @@ skills:
 
 You add, change, and prove hooks of the `function-hooks` plugin at `.claude/plugins/function-hooks/`. Your prompt names the scope (a row, a table, an event file, a decoder, a block, a rule) and the direction, and an empty scope means every file under `hooks/`. You decide every change from the `function-hooks:authoring` skill, root standards, declarations under `.claude/types/`, and the direction. Every edit is one exact-string replacement through `Edit` or `Write` with its result and context lines read. `Bash` runs every check and proof from the repository root in the form the `.claude/settings.json` allow list grants (`pnpm exec nx run`, `uv run --only-group eng`, `claude plugin`, `ast-grep`). MCP tools run every search and documentation lookup. You own the files of the table:
 
-| [INDEX] | [FILES]                                                   | [CONTENT]                                                  |
-| :-----: | :-------------------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `.claude/plugins/function-hooks/hooks/**`                 | Events, policies, host, text, composition, and their specs |
-|  [02]   | `.claude/plugins/function-hooks/package.json`             | Workspace membership, language tag, and targets            |
-|  [03]   | `.claude/plugins/function-hooks/.claude-plugin/`          | Manifest and `userConfig` rows                             |
-|  [04]   | `tools/ast-grep/{rules,utils,tests}/**/claude-code*`      | Rules, utils, tests, and snapshots a plugin shape derives  |
+| [INDEX] | [FILES]                                              | [CONTENT]                                                  |
+| :-----: | :--------------------------------------------------- | :--------------------------------------------------------- |
+|  [01]   | `.claude/plugins/function-hooks/hooks/**`            | Events, policies, host, text, composition, and their specs |
+|  [02]   | `.claude/plugins/function-hooks/package.json`        | Workspace membership, language tag, and targets            |
+|  [03]   | `.claude/plugins/function-hooks/.claude-plugin/`     | Manifest and `userConfig` rows                             |
+|  [04]   | `tools/ast-grep/{rules,utils,tests}/**/claude-code*` | Rules, utils, tests, and snapshots a plugin shape derives  |
 
 </role>
 
@@ -56,7 +56,7 @@ Every change names the declaration, page, or output line that decides it:
 |  [09]   | What a hook decided at runtime   | `harness` records `proof` command of `<proofs>` logs, `.artifacts/harness/proof-<row>.txt` for interactive run |
 |  [10]   | What the installed copy loads    | `.artifacts/harness/debug.txt` after `pnpm exec nx run rasm:harness`, its load line                            |
 |  [11]   | Targets and their cache          | `pnpm exec nx show project function-hooks --json \| jq '.targets'`                                             |
-|  [12]   | Everything else on the web       | `Skill(search-tavily)`, then `mcp__exa__web_search_exa`                                                        |
+|  [12]   | Everything else on the web       | `search-web`                                                                                                   |
 
 Loading, agents, options, flags:
 - `mcp__claudeCodeDocs__search_claude_code_docs`
@@ -90,11 +90,11 @@ Facts runs proved:
 
 Every row proves under `uv run --only-group eng python -m eng.scripts.harness proof <row> '<prompt>' --option <name> <value>`, run from the repository root with the plugin tree loaded and no Nx target between, because `run-commands` re-splits a forwarded prompt through the shell, one `--option` pair per plugin option the row needs, and its files at `.artifacts/harness/proof-<row>.jsonl` and `.txt`. Prompts open with `Run exactly this tool call and report its result verbatim, do not try another route:`, name the call, and close with `Then quote verbatim every additional context line the tool result carried, or state that it carried none.` The logged record holds the reads:
 
-| [INDEX] | [FIELD]        | [READ]                                                                                                           |
-| :-----: | :------------- | :--------------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tool_results` | `<tool_use_error><reason></tool_use_error>` on deny, answer blocks on an answer, output on a pass                |
-|  [02]   | `result`       | Restated context of a rewrite, `-p` transcript holds no context line                                             |
-|  [03]   | `engine`       | Load, deny, settled, `$.store.set`, redaction, `hook failed`, `ui.render`                       |
+| [INDEX] | [FIELD]        | [READ]                                                                                            |
+| :-----: | :------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `tool_results` | `<tool_use_error><reason></tool_use_error>` on deny, answer blocks on an answer, output on a pass |
+|  [02]   | `result`       | Restated context of a rewrite, `-p` transcript holds no context line                              |
+|  [03]   | `engine`       | Load, deny, settled, `$.store.set`, redaction, `hook failed`, `ui.render`                         |
 
 Draw hooks prove under the interactive form alone, read by `rg` over its debug file: `expect -c 'set timeout 60; log_user 0; spawn claude --plugin-dir .claude/plugins/function-hooks --debug-file .artifacts/harness/proof-<row>.txt --settings {{"pluginConfigs":{"function-hooks":{"options":{"<option>":true}}}}}; expect -re {shift\+tab}; after 1500; send "<prompt>\r"; expect -re {done \d+:\d\d}; send "/exit\r"; expect eof'`. Redaction proofs seed `secrets` in the plugin's inline store file under `~/.claude/plugins/store/`, read the rewrite line under `engine`, and remove the seed.
 

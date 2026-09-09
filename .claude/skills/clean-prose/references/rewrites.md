@@ -198,6 +198,16 @@ Identifier and file renames update every reference:
 - BEFORE: `` In <library>, `<type>` represents absence `` (page already titled after library)
 - AFTER: `` `<type>` represents absence ``
 
+- BEFORE: `` ALWAYS use `<skill>` skill for a fact the open web holds, one page or a cited report ``
+- AFTER: `` ALWAYS use `<skill>` skill for a question the open web answers `` (category covers page, claim, and report)
+- WRONG: `` ALWAYS use `<skill>` skill for facts, pages, and reports from the open web `` (list moved from tail into scope)
+
+- BEFORE: `` ALWAYS use `<skill>` skill for a fact about a dependency, the installed package or its repository answers in place of memory ``
+- AFTER: `` ALWAYS use `<skill>` skill for any fact about a dependency `` (`ALWAYS use` excludes every other source)
+- WRONG: `` ALWAYS use `<skill>` skill for a fact about a dependency, never from training data `` (one source tail swapped for another)
+
+- KEEP: `` ALWAYS use `<server>` MCP for a known repository's issues, pull requests, and runs `` (no term covers the three)
+
 ## [10]-[PARAPHRASED_CODE]
 
 - BEFORE: `` `<script>` reads `<manifest>`, downloads the pinned archive, checks its hash, and extracts it under `.cache/` `` (README line)

@@ -5,7 +5,7 @@ color: green
 skills:
   - ast-grep
   - clean-prose
-  - search-context7
+  - search-code
 ---
 
 # [AST_GREP_RULE_BUILDER]
@@ -45,7 +45,7 @@ Every fix and every rule names the source line or the output line that decides i
 
 | [INDEX] | [QUESTION]                        | [SOURCE]                                                                                                          |
 | :-----: | :-------------------------------- | :---------------------------------------------------------------------------------------------------------------- |
-|  [01]   | Package capability or default     | Installed source of step 7, then `search-context7`                                                                |
+|  [01]   | Package capability or default     | Installed source of step 7, then `search-code`                                                                    |
 |  [02]   | Node kinds and fields             | `mcp__ast-grep__dump_syntax_tree` with `format: cst` on one node, `ast-grep run -l <lang> -p '<code>' --debug-query=cst` on more |
 |  [03]   | Instances of a shape in the scope | `mcp__ast-grep__find_code_by_rule` with `project_folder` `<top>/<scope>`, `output_format: json` when captures feed the next step |
 |  [04]   | Overlapping rule or util          | `matches` names of the map, then the `rg -l` hits of step 5 read whole                                            |
