@@ -132,7 +132,6 @@
         "@perspective-dev/viewer": "catalog:",
         "@perspective-dev/viewer-charts": "catalog:",
         "@perspective-dev/viewer-datagrid": "catalog:",
-        "@playwright/mcp": "catalog:",
         "@pulumi/aws": "catalog:",
         "@pulumi/awsx": "catalog:",
         "@pulumi/cloudflare": "catalog:",
@@ -233,6 +232,7 @@
         "papaparse": "catalog:",
         "parquet-wasm": "catalog:",
         "pg-formatter": "catalog:",
+        "playwright": "catalog:",
         "prosemirror-collab": "catalog:",
         "prosemirror-commands": "catalog:",
         "prosemirror-dropcursor": "catalog:",
@@ -316,6 +316,11 @@
                     "{workspaceRoot}/.artifacts/dotnet/obj/*/project.nuget.cache",
                     "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"
                 ]
+            },
+            "browsers": {
+                "command": "playwright install chromium --no-shell",
+                "cache": false,
+                "parallelism": false
             },
             "grammar": {
                 "command": "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",

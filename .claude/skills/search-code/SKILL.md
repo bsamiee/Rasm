@@ -5,95 +5,157 @@ description: "Use when a task needs a dependency's signature, API shape, usage, 
 
 # [SEARCH_CODE]
 
-A dependency's declarations, usage, source, and releases read from the installed files, Context7, DeepWiki, and its repository. Use `dotnet-roslyn-codelens` for a referenced assembly's members, extension methods, and IL. Use `search-web` for the open web, the issue that explains a symptom, a product release without a repository, and a composition of two packages with no recipe in either's docs. Greptile knowledge bases cover the organization's own repositories, never a dependency.
+A dependency's declarations read from its installed files, its usage from Context7 and DeepWiki, its source and wiki from its repository at the installed tag, and its versions from its registry. Use `dotnet-roslyn-codelens` for an assembly the solution references. Use `dotnet-msbuild-packaging` for a version change in `Directory.Packages.props`. Use `search-web` for the open web, the issue that explains a symptom, and a composition with no recipe in either package's docs.
 
-- Currency: Context7 indexes the default branch and GitHub wiki, DeepWiki its generated wiki, an installed version's fact comes from its file or tag
-- Sources: each Context7 snippet's Source URL names its ref, a version snapshot returns `blob/main` sources beside `blob/<tag>` ones
-- Size: `get_file_contents` returns a whole file and ignores `fields`, `read_wiki_contents` returns the whole wiki, cited lines read through `rg`
-- Ignore: `rg` under `node_modules` or `.venv` takes `--no-ignore`, the repository's `dist/` rule and `.venv/.gitignore` hide the files
-- Caps: the tool descriptions cap `resolve-library-id` and `query-docs` at three calls each per question, a known ID skips the resolve
-- IDs: a package resolves under its repository's name, a binding or repackaging (`Rasm.Native.*`) under its upstream's name
-- IDs: `/org/project` holds recipes with source, `/websites/*` holds concept prose, a version snapshot lists in the resolve result
-- Misses: `search_code` indexes the default branch and files under 384 KB, a file at a tag or over the limit reads through `gh api` raw and `rg`
-- Checks: a snippet whose heading or Source URL names another type or version confirms against the installed declaration, a repeated query repeats
-- Quota: a Context7 error naming the quota ends its use for the session, the installed file and the repository answer, an answer from memory says so
+- Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
+- Path: package metadata names the repository and commit, the Context7 ID is that `/owner/repo` lowercased, the tag list spells the tag
+- Prose: Context7 descriptions and DeepWiki answers are generated, the code is quoted from the Source URL, a named member confirms in the declaration
+- Ignore: a directory search under `node_modules`, `.venv`, or `.cache` takes `--no-ignore`, an explicit file path needs no flag
+- Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
+- Caps: the Context7 tool descriptions cap each tool at three calls per question, an ID from the repository URL skips the resolve
+- Disk: `<dir>` sits under the session scratchpad, the step that ends a chain removes the directory it made
 
-## [01]-[SIGNATURE]
+Numbered lines chain, each consuming the line before, unnumbered lines are alternatives, one per case its comment names.
 
-An installed package states a declaration at the version the manifest pins, one call per member:
+## [01]-[DECLARATION]
+
+One member's signature and doc, a type's members, a module's exports, or a configuration option, read from the installed files at the pinned version:
 
 ```bash
-rg -n -o 'M:<Type>.<Member>(``[0-9]+)?\([^"]*' "$(dotnet nuget locals global-packages -l | cut -d' ' -f2)/<lowercase-id>/<version>/lib/<tfm>/<assembly>.xml"   # Parameter types per overload of a package the solution does not reference, no return type, generic arity after two backticks
-curl -sL "https://api.nuget.org/v3-flatcontainer/<lowercase-id>/<version>/<lowercase-id>.<version>.nupkg" | tar -xf - -C <dir> 'lib/*'   # XML doc and assembly at the central version when the global-packages folder holds another
-dotnet dnx ilspycmd -y -- -l cise <dll>                                                                              # Classes, interfaces, structs, and enums of an assembly with no XML doc, the assembly name differs from the package id
-dotnet dnx ilspycmd -y -- -t <Namespace.Type> <dll> | rg -n 'public .*<Member>\('                                    # Full signature per overload, decompiled
-pnpm why <pkg>                                                                                                       # Consumers per version, a direct dependency under node_modules/<pkg>, a transitive one under node_modules/.pnpm/node_modules/<pkg>
-rg -n --no-ignore -A8 '^export (type|interface|declare (const|function|class)) <Symbol>\b' node_modules/<pkg> --glob '*.d.ts'   # Declaration with its doc comment, --glob '*.d.ts' skips the compiled .js
-jq -c '.["$defs"].<Def>' node_modules/<pkg>/<schema>.json                                                            # Enum values of a configuration schema definition
-uv run --frozen python -c "import inspect, <mod>; print(inspect.signature(<mod>.<fn>))"                             # Signature of a locked dependency, --with <pkg> resolves the newest release of one outside the lock
-rg -n -B1 --no-ignore 'def <fn>\b' .venv/lib/python*/site-packages/<pkg>-stubs/ --glob '*.pyi'                      # Typed overloads a stub package declares, one @overload line per signature
-uv run python -c "import inspect, <mod>; print(inspect.getsourcefile(<mod>.<cls>))"                                  # Source file under .venv for the body
-uv run ruff rule <code>                                                                                              # Rule text with its options at the installed ruff
-rg -n -A3 'Name="<target>"' "$(dotnet msbuild <project>.csproj -getProperty:MSBuildToolsPath)" --glob '*.targets'   # Target with its Inputs and Outputs at the SDK global.json resolves, a package target under its build/ folder
+# [DOTNET] Unreferenced package, <dll> is .cache/nuget/packages/<id>/<version>/lib/<tfm>/<assembly>.dll
+# Assembly and .xml of a version the packages folder lacks, id lowercase
+curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xf - -C <dir> 'lib/*'
+# Types declaring a member across the assembly as .xml doc ids, ``N follows a generic method name, no decompile
+rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib dir>/*.xml
+
+# [DOTNET] Decompiled source
+# 1. Whole assembly as source, silent, one .cs per type name under its namespace directory, doc comments, arities, and nested types in it
+dotnet dnx ilspycmd -y -- -p -o <dir> --nested-directories <dll>
+# 2. File of a type by name, its directory is the namespace
+fd -e cs '<Type>' <dir>
+# 3. Type lines and public members of one file, a type line separates arities
+rg -n '^\s*public ' <dir>/<Namespace path>/<Type>.cs
+# 4. Doc comment, attributes, and signature per overload with line, Read at that line for the body
+rg -nU '(^\s*///.*\n)*(\s*\[.*\]\n)*\s*public .*\b<Member>(<[^>]*>)?\(.*' <dir>/<Namespace path>/<Type>.cs
+# 5. Directory removed when reading ends, an extracted nupkg with it
+rm -rf <dir>
+
+# [TYPESCRIPT] Package under node_modules/<pkg>, package.json types names the entry file
+# 1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
+rg -n '^export ' node_modules/<pkg>/<file>.d.ts
+# 2. Declaration with file and line, overloads continue below, the doc comment above reads through Read at that line
+rg -n --no-ignore -A8 '^export (declare )?(abstract )?(const|function|class|interface|type|enum|namespace) <Symbol>\b' node_modules/<pkg> --glob '*.d.ts'
+
+# [TYPESCRIPT] Type and enum values of one configuration schema definition
+jq -c '(.["$defs"] // .definitions).<Def>' node_modules/<pkg>/<schema>.json
+
+# [PYTHON] Package in uv.lock, --with <pkg> before python resolves one outside the lock
+# 1. Declared API from __all__, public names of dir without one
+uv run --frozen python -c "import <mod>; print(getattr(<mod>, '__all__', None) or [n for n in dir(<mod>) if not n.startswith('_')])"
+# 2. Signature per parameter with module and docstring, a class lists its members
+uv run --frozen python -c "import <mod>; help(<mod>.<Obj>)"
+# 3. Body of a function or class
+uv run --frozen python -c "import inspect, <mod>; print(inspect.getsource(<mod>.<Obj>))"
+
+# [PYTHON] Typed signature per overload from the package's .pyi or its -stubs package where the runtime declares no types
+rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' .venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
+
+# [MSBUILD] Target with Condition, Inputs, and DependsOnTargets across the SDK global.json resolves, package targets under build/ or buildTransitive/
+rg -n -A3 '<Target Name="<target>"' "$(dotnet msbuild <project>.csproj -getProperty:MSBuildToolsPath)"
 ```
 
 ## [02]-[USAGE]
 
-Context7 states how a member composes, one concept per query in a task sentence naming the symbol:
+How a member composes, from the repository's recipes, source, wiki, and README, one concept per query naming the symbol:
 
 ```text
-mcp__context7__resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}   # Title, ID, snippet count, benchmark score, and version snapshots per candidate
-mcp__context7__query-docs {"libraryId": "/<org>/<project>", "query": "<one concept naming the symbol>"}              # Snippets from the repository docs, source, and wiki, a Source URL each
-mcp__context7__query-docs {"libraryId": "/<org>/<project>/<version>", "query": "<one concept>"}                       # Snapshot from the resolve list, an installed version with no snapshot reads its installed declaration
-mcp__deepwiki__ask_question {"repoName": "<owner>/<repo>", "question": "<question>"}                                  # Synthesized lead over the default branch, each member it names confirms through a signature call
+# [CONTEXT7] ID is the repository URL's /owner/repo lowercased, resolve when metadata names no URL
+# Candidates with snippet count, benchmark score, and Versions, a near-name resolves wrong with confidence, a binding resolves under its upstream
+mcp__context7__resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
+# Recipes and source of the default branch with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
+mcp__context7__query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
+# Snapshot from the Versions list, __branch__<name> snapshots an older major, blob/main sources mix in
+mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
+# Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
+mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
+
+# [DEEPWIKI] Generated wiki of the default branch
+# 1. Page index per repository, what its parts are, `Repository not found` routes that repository to its tree and files
+mcp__deepwiki__read_wiki_structure {"repoName": "<owner>/<repo>"}
+# 2. Answer with quoted signatures over repositories step 1 indexed, up to ten per call
+mcp__deepwiki__ask_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
+
+# [DOTNET] README of any NuGet version, `not found in package folder` names a nuspec readme path with a leading separator, the folder read answers
+mcp__nuget__get_package_context {"solutionDirectory": "<repo>", "packageName": "<id>", "packageVersion": "<version>"}
 ```
 
 ```bash
-curl -s "https://context7.com/api/v1/search?query=<name>" -H "Authorization: Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .totalTokens, .lastUpdateDate[:10], .verified, (.versions|join(","))] | @tsv'   # Trust score, token count, and update date the MCP strips
+# [CONTEXT7] Ranking signals the MCP strips, libraryName is the repository name, a mirror shows fewer stars and an older date than the owner's ID
+curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" -H "Authorization: Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
+
+# [DOTNET] Cited README lines of an installed package
+rg -n --no-ignore -A6 '<term>' .cache/nuget/packages/<id>/<version> --glob '*.md'
+
+# [TYPESCRIPT] Cited README lines of an installed package
+rg -n --no-ignore -A6 '<term>' node_modules/<pkg> --glob '*.md'
+
+# [PYTHON] Cited lines of a package's long description at one version, case sensitive
+curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -r '.info.description' | rg -n -A6 '<term>'
 ```
 
 ## [03]-[REPOSITORY]
 
-A repository's docs, specs, source, and wiki read at a tag, search for the path first, size next, then the file:
-
-```text
-mcp__github__search_code {"query": "<term> extension:<ext> path:<dir> repo:<o>/<r>", "perPage": 5, "fields": ["path", "text_matches"]}   # Paths with matching fragments on the default branch
-mcp__github__get_file_contents {"owner": "<o>", "repo": "<r>", "path": "<dir>", "ref": "refs/tags/<tag>", "fields": ["type", "name", "size"]}   # Directory listing with a size per file, type tells a subdirectory from an empty file
-mcp__github__get_file_contents {"owner": "<o>", "repo": "<r>", "path": "<file>", "ref": "refs/tags/<tag>"}          # Whole file at a tag into the window
-mcp__nuget__get_package_context {"solutionDirectory": "<repo>", "packageName": "<id>", "packageVersion": "<version>"}   # README or AGENTS.md of a package, installed or not
-```
+The repository, commit, and tag behind an installed version, then its tree, files, blame, and wiki at that tag:
 
 ```bash
-gh api "repos/<o>/<r>/contents/<path>?ref=<tag>" --jq '.size'                                                         # Size of a known path before a whole-file read
-gh api "repos/<o>/<r>/contents/<path>?ref=<tag>" -H "Accept: application/vnd.github.raw+json" | rg -n -A3 '\b<term>\b'   # Large file at a tag, cited lines alone
-git clone -q --depth 1 https://github.com/<o>/<r>.wiki.git <dir>                                                       # Wiki page names, the wiki is its own repository outside code search and the MCP
-curl -sL "https://raw.githubusercontent.com/wiki/<o>/<r>/<Page>.md" | rg -n -A8 '\b<term>\b'                            # One wiki page by the name a Context7 Source URL ends with
+# 1. Repository URL and build commit from package metadata, one line per ecosystem
+# [DOTNET] projectUrl holds the repository when the repository element carries a commit alone
+rg -o '<(repository|projectUrl)[^<]*' .cache/nuget/packages/<id>/<version>/<id>.nuspec
+# [TYPESCRIPT] Repository URL, package directory in a monorepo, and commit when the publisher recorded one
+pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
+# [PYTHON] Source, documentation, and changelog URLs of the installed version, the versionless URL describes newest stable
+curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -c '.info.project_urls'
+# 2. Tag spelling for a version (v1.5.0, 8.7.0, effect@3.22.1, 4.0.0a6), a nuspec commit matches column one, no filter lists every tag
+git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<version>$'
+# 3. Cited lines of a file at the tag, any size
+gh api "repos/<owner>/<repo>/contents/<path>?ref=<tag>" -H "Accept: application/vnd.github.raw+json" | rg -n -A3 '\b<term>\b'
+
+# [GITHUB] Wiki pages and their lines, a repository without a wiki answers Repository not found
+git clone -q --depth 1 https://github.com/<owner>/<repo>.wiki.git <dir> && rg -n -A8 '\b<term>\b' <dir>; rm -rf <dir>
+```
+
+```text
+# [GITHUB] Reads at the tag
+# 1. Paths with sizes under one directory
+mcp__github__get_repository_tree {"owner": "<owner>", "repo": "<repo>", "tree_sha": "<tag>", "recursive": true, "path_filter": "<dir>/"}
+# 2. Whole file into the window, fields applies to a directory listing alone
+mcp__github__get_file_contents {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>"}
+# 3. Commit, author, and date that last changed each line range
+mcp__github__get_file_blame {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>", "start_line": <n>, "end_line": <n>}
+
+# [GITHUB] Paths and fragments on the default branch in files under 384 KB, the tree call finds the path at a tag
+mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>", "perPage": 5, "fields": ["path", "text_matches"]}
 ```
 
 ## [04]-[RELEASE]
 
-The newest version, its tag spelling, and its notes:
+The newest version and its date come from the registry, the notes come from the release at the tag, an advisory names the patched version:
 
 ```text
-mcp__github__list_releases {"owner": "<o>", "repo": "<r>", "perPage": 3, "fields": ["tag_name", "published_at", "prerelease"]}   # Newest releases with the tag spelling, prerelease flagged
-mcp__github__list_tags {"owner": "<o>", "repo": "<r>", "perPage": 3}                                                    # Repository without releases, order is by name not date
-mcp__nuget__get_latest_package_version {"solutionDirectory": "<repo>", "packageName": "<id>", "includePrerelease": true}           # Newest NuGet version with its publish date
+# [DOTNET] Newest NuGet version with publish date
+mcp__nuget__get_latest_package_version {"solutionDirectory": "<repo>", "packageName": "<id>", "includePrerelease": true}
+
+# [GITHUB] Advisories on the pinned versions with the patched version each, one call across ecosystems, owner and repo name this repository
+mcp__github__check_dependency_vulnerabilities {"owner": "<owner>", "repo": "<repo>", "dependencies": [{"ecosystem": "nuget", "name": "<id>", "version": "<version>"}, {"ecosystem": "npm", "name": "<pkg>", "version": "<version>"}, {"ecosystem": "pip", "name": "<pkg>", "version": "<version>"}]}
 ```
 
 ```bash
-gh api repos/<o>/<r>/releases/latest --jq '.tag_name, .published_at'   # Newest stable release, a repository on prereleases reports an older tag than list_releases
-gh api "repos/<o>/<r>/releases/tags/<tag>" --jq '.body'                # Release notes body alone
+# [TYPESCRIPT] Newest version per dist-tag (latest, next, beta, rc) and publish date of one version
+pnpm view <pkg> dist-tags time --json | jq -c '{tags: .["dist-tags"], published: .time["<version>"][:10]}'
+
+# [PYTHON] `+ <pkg>==<version>` names a newer release, `Would make no changes` says the installed one is newest
+uv pip install --dry-run --python .venv --prerelease=allow --no-deps --upgrade <pkg> 2>&1 | rg '^\s*\+ |no changes'
+
+# [GITHUB] Release notes body alone, Not Found means the tag has no release and the changelog at the tag holds the notes
+gh api "repos/<owner>/<repo>/releases/tags/<tag>" --jq '.body'
 ```
-
-## [05]-[FAILURES]
-
-Each envelope names the next call:
-
-| [INDEX] | [OUTPUT]                                                          | [NEXT]                                                      |
-| :-----: | :---------------------------------------------------------------- | :---------------------------------------------------------- |
-|  [01]   | Title or description from `resolve-library-id` of another product | `resolve-library-id` with the upstream name, installed file |
-|  [02]   | `Library ... not found` on `query-docs`                           | `resolve-library-id` with the repository name               |
-|  [03]   | `Repository not found` from DeepWiki                              | `query-docs` on the repository ID, `search_code`            |
-|  [04]   | `SymbolNotFound` or `is not referenced` from Roslyn               | XML doc or `ilspycmd` under the global-packages folder      |
-|  [05]   | Empty README resource from `get_package_context`                  | `.nuspec` and `lib/` under the global-packages folder       |
-|  [06]   | `total_count: 0` for a symbol on a tag or in a file over 384 KB   | `gh api` raw at the tag, `rg`                               |

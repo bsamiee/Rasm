@@ -25,6 +25,10 @@ Each `[env]` row holds a value with the reason in its comment:
 - `LIBKTX_VERSION` renders `exec` of `yq -r .version-string` over `eng/native/ktx/release.json` under `tools = true`
 - Windows derives the `include`, `lib`, and DLL directories from `LIBKTX_INSTALL_DIR`, the provision link `.cache/tools/ktx`
 - `mise.unix.toml` holds the POSIX-only rows `LIBKTX_INCLUDE_DIR` and `LIBKTX_LIB_DIR`
+- `PLAYWRIGHT_BROWSERS_PATH` overrides the machine profile export, `playwright install` writes and `playwright mcp` launches the build there
+- `PLAYWRIGHT_MCP_USER_DATA_DIR` names the persistent profile under `{{ xdg_state_home }}`, one signed-in browser for every checkout
+- Persistent profile holds one browser at a time, a second server on it fails its first browser call naming `--isolated`
+- First login runs headed once, `playwright open --browser chromium --user-data-dir "$PLAYWRIGHT_MCP_USER_DATA_DIR" <url>`
 - `.miserc.toml` alone holds `auto_env = true`, the early-init setting that loads `mise.unix.toml`
 - `auto_env` under `mise.toml` `[settings]` has no effect
 
@@ -210,6 +214,7 @@ Root project takes the tag of its manifest language.
 |  [13]   | `harness`   | Harness script, `.claude/types` regenerated, the plugin proven by its load line, its cached copy reinstalled    | `false` |
 |  [14]   | `rules`     | `ast-grep test --include-off`                                                                                   | `true`  |
 |  [15]   | `outline`   | `ast-grep outline` with every outline rule under `tools/ast-grep/outline/`                                      | `false` |
+|  [16]   | `browsers`  | `playwright install chromium --no-shell`, the full build the `chromium` channel launches headless               | `false` |
 
 - `lint` depends on `rules`, `format` and publish on `restore`
 - `lint` and `format` take the tree with `.github/` and `.claude/` as inputs beside the script tool versions

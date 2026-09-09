@@ -21,6 +21,8 @@ NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data" # nx.js
 UV_CACHE_DIR = "{{config_root}}/.cache/uv"                               # Shell profile exports a home path over pyproject cache-dir
 LIBKTX_VERSION = { value = '{{ exec(command="yq -r .version-string " ~ config_root ~ "/eng/native/ktx/release.json") }}', tools = true } # pyktx setup.py reads the version of the provisioned libktx release
 LIBKTX_INSTALL_DIR = "{{config_root}}/.cache/tools/ktx"                  # The provision link of the ktx release, pyktx derives its Windows directories from it
+PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.cache/playwright/browsers"  # Chromium build the browsers target installs and the MCP server launches, the shell profile exports a home path
+PLAYWRIGHT_MCP_USER_DATA_DIR = "{{ xdg_state_home }}/playwright-mcp/rasm" # Signed-in browser profile the MCP server and `playwright open` share across every checkout, outside the tree
 # DO NOT REMOVE .miserc.toml until mise 2027.6.0 makes auto_env the default, it loads mise.unix.toml
 # DO NOT REMOVE mise.unix.toml until uv expands ${VAR} in extra-build-variables (astral-sh/uv#10096), pyktx needs LIBKTX_LIB_DIR unset on Windows
 

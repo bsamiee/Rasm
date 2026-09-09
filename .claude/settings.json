@@ -28,6 +28,8 @@
       "Bash(git push *)",
       "Bash(git worktree *)",
       "Bash(git lfs *)",
+      "Bash(git ls-remote *)",
+      "Bash(git clone *)",
       "Bash(gh pr view *)",
       "Bash(gh pr checks *)",
       "Bash(gh pr list *)",
@@ -50,6 +52,7 @@
       "Bash(pnpm why *)",
       "Bash(pnpm list *)",
       "Bash(pnpm outdated *)",
+      "Bash(pnpm view *)",
       "Bash(pnpm exec nx *)",
       "Bash(nx *)",
       "Bash(pnpm exec biome *)",
@@ -65,6 +68,8 @@
       "Bash(uv run ty *)",
       "Bash(uv run mypy *)",
       "Bash(uv run --only-group eng *)",
+      "Bash(uv run --frozen *)",
+      "Bash(uv pip install --dry-run *)",
       "Bash(dotnet --version)",
       "Bash(dotnet --info)",
       "Bash(dotnet restore *)",
@@ -111,6 +116,7 @@
       "Bash(claude plugin *)",
       "Bash(tvly *)",
       "Bash(curl *)",
+      "Bash(tar *)",
       "mcp__roslyn-codelens__*",
       "mcp__binlog__*",
       "mcp__ast-grep__*",
@@ -132,6 +138,7 @@
     "defaultMode": "bypassPermissions"
   },
   "enableAllProjectMcpServers": true,
+  "disabledMcpjsonServers": ["greptile", "hostinger"],
   "hooks": {
     "SessionStart": [
       {

@@ -151,5 +151,4 @@ _tmp/
 .claude/settings.local.json
 .claude/types/
 .claude/worktrees/
-.playwright-mcp/
 docs/research

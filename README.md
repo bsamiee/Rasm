@@ -20,7 +20,7 @@ Rasm/
 ├── eng/                      # Shared automation and native packaging
 │   ├── native/               # Version manifests and packaging projects per native library
 │   └── scripts/              # Python automation that Nx targets invoke
-├── infra/                    # Pulumi program for repository settings and the Doppler project
+├── infra/                    # Pulumi program provisioning resources the repository depends on
 ├── tools/                    # Tools built for checks
 │   ├── ast-grep/             # Structural outlines, rules, rewrites, utilities, and tests per language
 │   ├── dotnet/               # Roslyn analyzers for executables and plugin hosts
@@ -123,6 +123,7 @@ Hooks enforce behavior observable by engine events, settings, and skills, prose 
 - Skills, agents, and hooks belong to plugins under the `.claude/plugins/` marketplace, new ones join the plugin of their subject
 - Subjects with no owning plugin take a new directory at the marketplace root, a manifest entry, and an `enabledPlugins` line with the `@rasm` suffix
 - Name rule families after the package they read and enforce them at `lint`
+- `nx run rasm:browsers` installs the Chromium build the playwright server launches headless from a signed-in profile outside the tree
 
 ## [06]-[LIBRARIES]
 

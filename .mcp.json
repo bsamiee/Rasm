@@ -34,19 +34,31 @@
         "playwright": {
             "type": "stdio",
             "command": "mise",
-            "args": ["exec", "--", "playwright-mcp", "--isolated", "--browser", "chromium", "--caps=vision,pdf,devtools"]
+            "args": [
+                "exec",
+                "--",
+                "playwright",
+                "mcp",
+                "--browser=chromium",
+                "--headless",
+                "--caps=config,network,pdf,storage,testing,vision,devtools",
+                "--output-dir=${CLAUDE_PROJECT_DIR:-.}/.artifacts/playwright",
+                "--output-max-size=536870912"
+            ]
         },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",
             "headers": {
                 "Authorization": "Bearer ${GH_PROJECTS_TOKEN}",
-                "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,github_support_docs_search"
+                "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search",
+                "X-MCP-Exclude-Tools": "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file",
+                "X-MCP-Features": "file_blame,issue_dependencies"
             }
         },
         "exa": {
             "type": "http",
-            "url": "https://mcp.exa.ai/mcp?tools=web_search_exa,web_fetch_exa,web_search_advanced_exa,agent_run",
+            "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run",
             "headers": {
                 "x-api-key": "${EXA_API_KEY}"
             }
