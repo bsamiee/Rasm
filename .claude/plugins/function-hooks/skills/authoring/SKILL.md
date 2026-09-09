@@ -19,6 +19,7 @@ Plugin skills belong at `skills/<name>/SKILL.md`, agents `agents/<name>.md`, loa
 ## [01]-[RUNTIME]
 
 `register(on, options)` in `hooks/register.ts` runs once per load in an environment with no DOM and no Node, `$` is the one way out:
+- `hooks/hooks.json` names `register.ts` as the one module, loaded under `CLAUDE_CODE_ENABLE_FUNCTION_HOOKS=1` in the `env` block of `.claude/settings.json`, with no shell spawned and no stdin JSON or exit code
 - `on(event, hook)` registers the plain hook of an event, `on(event, matcher, hook)` a matched hook, any number per event
 - Hooks are `($, e, next)`, with `e` input frozen to every depth and `next(e)` the hooks beneath, then the engine
 - Returns without `next` answer for the engine, `next({ ...e, field })` rewrites what runs beneath, `await next(e)` reads the result
@@ -43,7 +44,7 @@ Every hook is an adapter over pure rules, the adapter is where `$` call or `next
 
 ## [03]-[FOLDERS]
 
-`hooks/` holds one folder per category of concern with each spec beside its module. Imports point from `events/` through `policies/` down to `host/`, `text/`, `composition/`, and `register.ts` at the root imports event files alone:
+`hooks/` holds one folder per category of concern with each spec beside its module. Imports point from `events/` through `policies/` down to `host/`, `text/`, `composition/`, and `register.ts` at the root imports event files alone, registering them in engine lifecycle order:
 
 [COMPOSITION]: `Decision` union of rewrite and deny, `when` over a refinement, `fold` over a rule table
 - Absence is `T | undefined` narrowed by language, a branch is a ternary, early return, or `find` over a table
@@ -59,7 +60,11 @@ Every hook is an adapter over pure rules, the adapter is where `$` call or `next
 [HOST]: Boundary to the engine, store keys, guards, and options narrowed once
 - Store facts are namespaces with one key per row, key builder with filters over the key list, and one guard per row type
 - Events read every store value through `decode(guard)`, a value outside the guard reads as undefined
+- Stamp rows hold the clock value of their write and read by presence, and `session.start` prunes the session-scoped rows of every other session
+- `secrets` is seeded outside the plugin, the one row with no writer in the module
 - Options derive from a row table that matches the manifest, narrowed once at load with no default restated
+- Option values sit under `pluginConfigs[<plugin key>].options` in user settings, the `--settings` flag, or managed settings, and Claude Code ignores the key in project settings
+- The plugin key is `function-hooks@rasm` for the installed copy and the manifest `name` (or `<name>@inline`) for a `--plugin-dir` load
 - Reuse the namespace and row shape that express a stored fact
 - Add a shape when readers need new data, with namespace, interface, guard, and spec row for the valid, wrong, and missing value
 
@@ -71,7 +76,7 @@ Every hook is an adapter over pure rules, the adapter is where `$` call or `next
 - Add a file for a subject with no table, a moved expression alone earns none
 - Keep table-driven rules with their table and row type, compare every rule's decisions over literal events in its spec
 
-[EVENTS]: One adapter per engine event, the file that turns a pure decision into the engine's result
+[EVENTS]: One adapter per hooked engine event, `<event>.ts` in kebab case, that turns a pure decision into the engine's result, and an event with no hook has no file
 - Hook bodies read the session and store keys their rules need, then gather the `$` facts a rule takes as arguments
 - Bodies fold their subject's rules over `e`, each lifted by its refinement, in the order that is the policy
 - Decisions map by `kind` onto the event's result union, a deny becomes that union's refusal
@@ -87,29 +92,35 @@ Every hook is an adapter over pure rules, the adapter is where `$` call or `next
 
 ## [04]-[OWNERS]
 
-Each addition lands in its owning table or module, the plugin's `README.md` names the file that holds each:
+Each addition lands in its owning table or module:
 
-| [INDEX] | [ADDITION]                    | [OWNER]                                                      |
-| :-----: | :---------------------------- | :----------------------------------------------------------- |
-|  [01]   | Shell or git behavior         | `SHELL` or `GIT`                                             |
-|  [02]   | File path or content behavior | `PATHS`                                                      |
-|  [03]   | Tool routing or description   | `TOOLS`, `SERVERS`, `FETCH`, `FAMILIES`, or `DESCRIBE`       |
-|  [04]   | Stored fact                   | `NAMESPACES` and a store guard                               |
-|  [05]   | Hook on an unhooked event     | New file under `events/` registered in `register.ts`         |
-|  [06]   | User option                   | Manifest `userConfig` and `OPTIONS`                          |
-|  [07]   | Shared text operation         | Its module under `text/`                                     |
-|  [08]   | Recurring structural defect   | Existing or new rule in `claude-code` family                 |
+| [INDEX] | [ADDITION]                      | [OWNER]                                                                                  |
+| :-----: | :------------------------------ | :--------------------------------------------------------------------------------------- |
+|  [01]   | Shell or git behavior           | `SHELL` in `policies/shell.ts` or `GIT` in `policies/git.ts`                             |
+|  [02]   | File path or content behavior   | `PATHS` in `policies/paths.ts`                                                           |
+|  [03]   | Tool routing or description     | `TOOLS`, `SERVERS`, `FETCH`, `FAMILIES`, or `DESCRIBE` in `policies/tools.ts`            |
+|  [04]   | Secret redaction or restoration | `policies/secrets.ts` over the `secrets` row                                             |
+|  [05]   | Stored fact                     | `NAMESPACES` and a guard in `host/store.ts`                                              |
+|  [06]   | Hook on an unhooked event       | New file under `events/` registered in `register.ts`                                     |
+|  [07]   | User option                     | Manifest `userConfig` and `OPTIONS` in `host/options.ts`                                 |
+|  [08]   | Shared text operation           | `text/argv.ts` for a shell command, `text/path.ts` for a path or command word, else new  |
+|  [09]   | Recurring structural defect     | Existing or new rule in `claude-code` family                                             |
 
 ## [05]-[CHECKS]
 
-Static checks run at zero findings before a runtime proof, the plugin's `README.md` holds their commands:
+Static checks run at zero findings before a runtime proof:
+- `pnpm exec nx run function-hooks:test` runs the specs without the declarations, because Vitest erases the type-only `claude-code` imports
 - Specs sit beside their modules and fold rules over literal events
+- `pnpm exec nx run function-hooks:typecheck` reads the generated declarations under `.claude/types/`, gitignored and written by `rasm:harness`
+- `pnpm exec nx run rasm:lint .claude/plugins/function-hooks` runs Biome and the ast-grep families over the tree
+- `claude plugin validate .claude/plugins/function-hooks` lists the registered events and every `$` call the module makes, and its `version` warning is accepted because the version resolves from the source commit
 - Draw hooks are proven in an interactive session, a `-p` run raises `session.start` with no surface
 
 ## [06]-[HARNESS]
 
 `pnpm exec nx run rasm:harness` runs `eng/scripts/harness.py` after a Claude Code update, MCP server change, or plugin edit. It is the route to declarations under `.claude/types/` and the installed copy under `~/.claude/plugins/cache/`:
 - Target depends on plugin's `lint` and `test`
+- `claude --plugin-dir .claude/plugins/function-hooks` loads the tree in place of the installed copy, the load every proof runs
 - Failures name the fix: a configured server absent from `claude-code-mcp.d.ts`, or version line other than `claude --version`
 - Installed copies prove their load in a debug file under `.artifacts/`, a copy that fails to load fails the run
 - `uv run --only-group eng python -m eng.scripts.harness proof <row> '<prompt>'` proves one row on the plugin tree and logs its reads

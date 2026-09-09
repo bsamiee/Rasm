@@ -69,7 +69,7 @@ Installed SDK, package files, and tool output decide over a page.
 - `dotnet --version` printing the `global.json` version is the SDK proof
 - `ArtifactsPath` evaluates with no trailing separator, and a path composed from it takes the separator in the expression
 - `mcp__roslyn-codelens__get_nuget_dependencies` lists the project file's own references at version `*` and none from `Directory.Build.props`
-- `mcp__roslyn-codelens__get_diagnostics` with `includeAnalyzers: true` reports `IDE0055` items the hook drops, and the `-warnaserror` build decides analyzer severity
+- `mcp__roslyn-codelens__get_diagnostics` with `includeAnalyzers: true` reports `IDE0055` items, and the `-warnaserror` build decides analyzer severity
 - Build duration proves nothing, and `Csc` with its execution count in `mcp__binlog__binlog_expensive_tasks` or `stat` on an output assembly newer than the edited source proves the compile
 - `Error` tasks stop a target at the first violation, and one probe project holds one
 - Tool output, the consumer searched, and the owner's file on disk are evidence, and a configuration file, a comment, or a posted reply is none

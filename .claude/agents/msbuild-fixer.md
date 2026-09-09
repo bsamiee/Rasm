@@ -82,7 +82,6 @@ File read, the scan, and the `-check` build decide over a page.
 - `get_project_dependencies` with a project name that prefixes another project's name prints empty edges, and the `.csproj` file name prints them
 - `find_references` tags a member access on a static class as `declaration`, and a `kinds` filter for type uses prints no item
 - `get_nuget_dependencies` prints the project file's own rows with `*` versions, and `-getItem:PackageReference` prints the evaluated set
-- `get_diagnostics` counts `IDE0055` items the hook drops, a `limit` under that count returns no item, and the default limit returns codes
 - `get_diagnostics` reports codes the build accepts, and an edit is clean when no code the baseline lacked appears
 - Transitive references make no direct reference redundant, and a direct reference stays for every project or package with types the consumer names
 - Edge checks read compiler use, build ordering, generated inputs, packaging, and metadata before a row goes

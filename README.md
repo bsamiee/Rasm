@@ -64,36 +64,36 @@ Rasm/
 
 [REQUIRED]: Tools and tasks route configurable caches and outputs under `.cache/` and `.artifacts/`.
 
-Nx runs every developer command as a target configured through `nx.json` and the root `package.json` `nx` field:
+Nx runs every developer command as a target configured through `nx.json` and root `package.json` `nx` field:
 - `nx run rasm:lint <scope>...` and `nx run rasm:format <scope>...` run checkers or writers of every file kind in scope
-- Scope tokens are kind words (`dotnet`, `python`, `typescript`, `shell`, `yaml`, `sql`) or paths, an empty scope is the tree
+- Scope tokens are kind (`dotnet`, `python`, `typescript`, `shell`, `yaml`, `sql`) or paths, empty scope is the tree
 - `nx run-many -t <target> -p tag:language:<language>` runs one target across one language, `nx run <project>:<target>` one project
-- `check` composes `lint` and `typecheck` at the root with `typecheck` and `test` per project through `dependsOn`
-- `format` applies lint fixes and formatting, then reports remaining findings
-- `upgrade` takes a language configuration
-- Targets name the files their commands read as `inputs`, each tool version as a `runtime` input, and the files they write as `outputs`
-- `nx affected -t <target> --files=<path>[,<path>]` runs a target over the files' owning projects and their dependents
+- `check` composes `lint` and `typecheck` at root with `typecheck`, `test` per project through `dependsOn`
+- `format` applies lint fixes and formatting, reports remaining findings
+- `upgrade` takes language configuration
+- Targets name files their commands read as `inputs`, each tool version as `runtime` input, the files they write as `outputs`
+- `nx affected -t <target> --files=<path>[,<path>]` runs a target over files' owning projects and dependents
 - `nx run rasm:rewrite -- --filter='^<id>$' --error=<id> <path>` applies one rewrite rule's fixes across the path
 - Root targets hold operations with no owning project, plugins infer every other target from manifests and packaging projects
-- Repository settings and secrets are infrastructure code under `infra/`, applied through a root target and read from the secret store at run time
+- Repository settings and secrets are infrastructure code under `infra/`, applied through root target and read from the secret store at run time
 
 ## [03]-[TOOLING]
 
-Tools join through the manager of their kind, at the newest release with prereleases:
+Tools join through the manager of their kind, at newest release with prereleases:
 
 | [INDEX] | [KIND]                                                      | [OWNER]                                                              |
 | :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------- |
 |  [01]   | Package code imports, or a Python or Node tool with a table | Language package manager with its lock, catalog, or central versions |
 |  [02]   | Standalone binary a target, script, workflow, or agent runs | `mise.toml` `[tools]` at `latest` under the registry backend         |
-|  [03]   | .NET tool package a target runs                             | `dotnet dnx <id>` on the command                                     |
+|  [03]   | .NET tool package a target runs                             | `dotnet dnx <id>` on command                                         |
 |  [04]   | Native library a binding builds against                     | `eng/native/<library>/` manifest, provisioned and packaged by target |
-|  [05]   | Runtime or SDK a host binds to one version                  | `global.json`, or a `mise.toml` pin with its reason                  |
+|  [05]   | Runtime or SDK a host binds to one version                  | `global.json`, or `mise.toml` pin with reason                        |
 |  [06]   | Tool no target, script, workflow, or agent runs             | Machine profile                                                      |
 
-- Configuration sits in `pyproject.toml` `[tool.*]`, `.editorconfig`, or the shared root file the tool documents
+- Configuration sits in `pyproject.toml` `[tool.*]`, `.editorconfig`, or shared root file the tool documents
 - Settings a tool reads from no central file sit on its command
 - Tools with no command form for their rules keep their own file beside their consumers
-- Checkers join `lint` and writers join `format`
+- Checkers join `lint`, writers join `format`
 - Agents reach capabilities through the MCP server that covers them, the CLI form stays for the target that runs it
 
 ## [04]-[QUALITY]
@@ -110,17 +110,16 @@ Checker configuration is centralized, each language area passes its checks befor
 - Formatting: `dotnet format`, `ruff format`, Biome, shfmt, yamlfmt, pg-formatter, and `typos --write-changes`
 - YAML formatting and lint skip ast-grep snapshots and the pnpm lockfile
 - Coverage and mutation score are reported, no threshold gates a merge
-- Fix a failing check in code, or in an invalid rule, and leave checker severity as configured
+- Fix a failing check in code, or in an invalid rule, leave checker severity as configured
 
 ## [05]-[HARNESS]
 
-Hooks enforce behavior observable by engine events, and settings, skills, and prose govern the rest:
+Hooks enforce behavior observable by engine events, settings, and skills, prose govern the rest:
 
 - Settings hold harness configuration, prose holds judgment
-- Skills explain approach, agents execute steps and commands with an acceptance check, and memory records facts no file covers
-- Put path-specific judgment in `.claude/rules/` with a `paths` glob and enforce its mechanical requirements with hooks
-- `.claude/settings.json` holds the allow list with one entry per tool or server, no deny glob, and `mise env` hooks for the agent shell
-- Memory uses one format and one fact per file
+- Skills explain approach, agents execute steps and commands, memory records facts no file covers
+- Put path-specific judgment in `.claude/rules/` with a `paths` glob
+- `.claude/settings.json` holds the allow list with one entry per tool or server, no deny glob, `mise env` hooks for the agent shell
 - Skills, agents, and hooks belong to plugins under the `.claude/plugins/` marketplace, new ones join the plugin of their subject
 - Subjects with no owning plugin take a new directory at the marketplace root, a manifest entry, and an `enabledPlugins` line with the `@rasm` suffix
 - Name rule families after the package they read and enforce them at `lint`

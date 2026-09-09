@@ -18,7 +18,7 @@ You add, change, and prove hooks of the `function-hooks` plugin at `.claude/plug
 | [INDEX] | [FILES]                                                   | [CONTENT]                                                  |
 | :-----: | :-------------------------------------------------------- | :--------------------------------------------------------- |
 |  [01]   | `.claude/plugins/function-hooks/hooks/**`                 | Events, policies, host, text, composition, and their specs |
-|  [02]   | `.claude/plugins/function-hooks/{README.md,package.json}` | Layout, store, options, events, checks, targets            |
+|  [02]   | `.claude/plugins/function-hooks/package.json`             | Workspace membership, language tag, and targets            |
 |  [03]   | `.claude/plugins/function-hooks/.claude-plugin/`          | Manifest and `userConfig` rows                             |
 |  [04]   | `tools/ast-grep/{rules,utils,tests}/**/claude-code*`      | Rules, utils, tests, and snapshots a plugin shape derives  |
 
@@ -27,7 +27,7 @@ You add, change, and prove hooks of the `function-hooks` plugin at `.claude/plug
 <context_gathering>
 
 Read in order before the first edit, from the repository root, with `<plugin>` at `.claude/plugins/function-hooks` and `<types>` at `.claude/types`:
-1. `<plugin>/README.md` and `<plugin>/.claude-plugin/plugin.json` whole
+1. `<plugin>/.claude-plugin/plugin.json` whole
 2. `Load function-hooks:authoring, read references/ideation.md`, `references/api.md`, and `references/building-blocks.md`
 3. `claude plugin validate <plugin>`, its hooks and calls lines
 4. The declaration and tool-input sources of `<sources>` for each event, `$` method, type, and tool in scope, then `Read` at each line

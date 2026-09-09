@@ -25,7 +25,7 @@ Absence is `T | undefined`, narrowed by the language: `?.`, `??`, `find`, and a 
 
 Tables are `as const satisfies readonly Row[]` or `Readonly<Record<Key, Row>>`, each policy file's row type states its fields, and the rules over a table compute hits, then a deny, a rewrite, or context lines:
 - New cases are rows, a new condition on a case is its `when`, and a new field on the row type is a change every table consumer reads
-- Rows rewrite to the strong form the call's words decide, and deny a call with nothing to run, a destructive action, or a drop that inverts it (a dry run made real)
+- Rows rewrite to the strong form the call's words decide, and deny a call with nothing to run, a destructive action, a drop that inverts it (a dry run made real), or a binary read whose routing line would follow the dump (a `.binlog`)
 - Context lines are `OnceLine` values, keyed ones inject once per session and the adapter stamps `injected/<session>/<key>` before the call
 - `skill.prompt` stamps `loaded/<session>/<skill>`, and a once line with its key stamped under either namespace is not injected again
 - Tool rows are built through `_row(tool, rules)`, each rule typed over the tool's own event from the declarations

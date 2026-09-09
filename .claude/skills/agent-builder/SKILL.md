@@ -166,7 +166,6 @@ Steps name tools in the form the harness runs, one principle per tool category:
 - Searches take bounded text form, count from the header
 - Unfiltered calls come first
 - Exact filters (`project`) answer zero where the unfiltered call lists
-- Steps hold no `trust_solution` call
 
 [CLI_TOOLS]:
 - Commands take the documented form with flags `--help` prints

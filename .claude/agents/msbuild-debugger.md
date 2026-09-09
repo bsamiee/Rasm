@@ -58,7 +58,7 @@ Every cause names the tool result that decides it:
 |  [11]   | Message text across the build       | `mcp__binlog__binlog_search` with the phrase in `"`, the phrase holding no inner `"`                           |
 |  [12]   | Parameters of a task                | `mcp__binlog__binlog_task_details` with `project`, `target_name`, `task_name`, read through `jq '.parameters'` |
 |  [13]   | Compiler error                      | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=false`                     |
-|  [14]   | Analyzer error                      | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=true`, with the hook line under the result |
+|  [14]   | Analyzer error                      | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=true`                      |
 |  [15]   | Task exception with a stack trace   | `mcp__roslyn-codelens__resolve_stack_trace`, the `file`, `line`, and `origin` of each frame                    |
 |  [16]   | Generated file                      | `mcp__roslyn-codelens__get_source_generators` without `project`, then `mcp__roslyn-codelens__get_generated_code` |
 |  [17]   | BuildCheck counts                   | `-check` console, then `mcp__binlog__binlog_errors` and `mcp__binlog__binlog_warnings` with `category=BuildCheck` |
@@ -75,7 +75,6 @@ The `jq` reads are `jq -c '.data.summary' <file>` with `jq -c '.data.targets[] |
 - `Directory.Build.props` evaluates `ArtifactsPath` without a project name, and a solution path answers `MSB1063`
 - `binlog_search_files` finds no declaration for a `-p:` value, and `binlog_compare_property` names it global
 - `binlog_explain_property` with a project name that prefixes another matches `MSBuild` task calls to that project's references, and its `Final set by` line then changes with build order
-- `get_diagnostics` with `includeAnalyzers=true` answers `items: []` beside a nonzero `error` count when the hook line reads `Dropped <N> IDE0055 items`
 - `get_code_fixes` answers `Internal` naming `System.Composition.AttributedModel` under the installed server release, and the diagnostic item is its fix
 - Other sessions write `<logs>` and `<artifacts>` during a run, and you read the log your prompt names or your capture printed
 - Foreign builds into `<artifacts>` between two captures change the work, and measured pairs capture under `<scratch>`
