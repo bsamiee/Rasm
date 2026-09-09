@@ -13,10 +13,6 @@
         <PackageVersion Include="Thinktecture.Runtime.Extensions.Analyzers"               Version="10.5.0" />                <!-- Analyzers validating smart enum, value object, and union declarations -->
     </ItemGroup>
 
-    <ItemGroup Label="Versioning">
-        <PackageVersion Include="MinVer"                                                  Version="7.0.0" />                 <!-- Assembly and package version from the nearest git tag -->
-    </ItemGroup>
-
     <ItemGroup Label="Rhino">
         <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />               <!-- GDI+ based drawing, imaging, and text rendering API -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0-beta1" />          <!-- openNURBS geometry access for reading and writing 3dm files -->
@@ -115,8 +111,6 @@
         <PackageVersion Include="OPTANO.Modeling"                                         Version="3.30.0.683" />            <!-- Algebraic modeling layer for linear and mixed-integer programs with solver adapters -->
         <PackageVersion Include="Pagmo.NET"                                               Version="1.0.0" />                 <!-- Metaheuristic and gradient-based optimization with multithreaded parallel evolution -->
         <PackageVersion Include="Pagmo.NET.Ipopt"                                         Version="1.0.0" />                 <!-- Interior-point nonlinear solver plugin -->
-        <PackageVersion Include="Rasm.Native.Z3"                                          Version="5.0.0" />                 <!-- SMT solver shared library staged per runtime identifier -->
-        <PackageVersion Include="Rasm.Z3"                                                 Version="5.0.0" />                 <!-- SMT solver managed bindings built from pinned sources -->
         <PackageVersion Include="SolveSpace"                                              Version="3.2.1-preview" />         <!-- Parametric 2D and 3D geometric constraint solving over sketch entities -->
     </ItemGroup>
 
@@ -131,8 +125,6 @@
         <PackageVersion Include="MeshLib"                                                 Version="3.1.3.429" />             <!-- 3D mesh processing: booleans, repair, offsetting, simplification, triangulation -->
         <PackageVersion Include="MIConvexHull"                                            Version="1.1.19.1019" />           <!-- Convex hull, Delaunay triangulation, and Voronoi computation in arbitrary dimensions -->
         <PackageVersion Include="PicoGK"                                                  Version="2.3.0" />                 <!-- Voxel-based geometry kernel for computational engineering -->
-        <PackageVersion Include="Rasm.Gmsh"                                               Version="4.15.2" />                <!-- Finite element mesh generator bindings generated from the pinned API definition -->
-        <PackageVersion Include="Rasm.Native.Gmsh"                                        Version="4.15.2" />                <!-- Finite element mesh generator shared library staged per runtime identifier -->
         <PackageVersion Include="RectangleBinPack.CSharp"                                 Version="1.0.4" />                 <!-- Rectangle bin packing with MaxRects, Skyline, Guillotine, and Shelf heuristics -->
         <PackageVersion Include="SharpVoronoiLib"                                         Version="1.2.0" />                 <!-- Fortune's algorithm Voronoi tessellation with border closure and relaxation -->
     </ItemGroup>
@@ -298,7 +290,6 @@
 
     <ItemGroup Label="Color">
         <PackageVersion Include="lcms2-dotnet"                                            Version="2.19.1" />                <!-- ICC color management engine bindings for profiles and transforms -->
-        <PackageVersion Include="Rasm.Native.Lcms2"                                       Version="2.19.1" />                <!-- ICC color management shared library staged per runtime identifier -->
         <PackageVersion Include="Wacton.Unicolour"                                        Version="8.0.0" />                 <!-- Color space conversion, interpolation, and difference metrics -->
         <PackageVersion Include="Wacton.Unicolour.Datasets"                               Version="5.0.0" />                 <!-- Named color sets, colormaps, and reference color data -->
         <PackageVersion Include="Wacton.Unicolour.Experimental"                           Version="3.0.0" />                 <!-- Color wheel harmonies and Kubelka-Munk pigment mixing -->
@@ -310,11 +301,10 @@
         <PackageVersion Include="Emgu.CV.runtime.ubuntu-26.04-x64"                        Version="4.13.0.5924" />           <!-- Ubuntu native binaries for the full OpenCV runtime -->
         <PackageVersion Include="Emgu.CV.runtime.windows"                                 Version="4.13.0.5924" />           <!-- Windows native binaries for the full OpenCV runtime -->
         <PackageVersion Include="Magick.NET-Q16-HDRI-AnyCPU"                              Version="14.16.0" />               <!-- ImageMagick image processing with 16-bit HDRI pixel channels -->
-        <PackageVersion Include="Rasm.Native.EmguCv"                                      Version="4.13.0.5924" />           <!-- OpenCV shared library with contrib modules staged per runtime identifier -->
         <PackageVersion Include="SixLabors.ImageSharp"                                    Version="4.1.1" />                 <!-- Managed image decoding, encoding, and processing -->
-        <PackageVersion Include="TextureCompressor"                                       Version="[0.1.0]" />               <!-- Managed GPU texture codecs: BCn, ETC, ASTC, PVRTC, mipmaps, and container conversion -->
-        <PackageVersion Include="TextureCompressor.FileFormats.Hdr"                       Version="[0.1.0]" />               <!-- Radiance RGBE HDR image decoding and encoding -->
-        <PackageVersion Include="TextureCompressor.FileFormats.Ktx"                       Version="[0.1.0]" />               <!-- KTX and KTX2 texture container reading and writing -->
+        <PackageVersion Include="TextureCompressor"                                       Version="0.1.0" />                 <!-- Managed GPU texture codecs: BCn, ETC, ASTC, PVRTC, mipmaps, and container conversion -->
+        <PackageVersion Include="TextureCompressor.FileFormats.Hdr"                       Version="0.1.0" />                 <!-- Radiance RGBE HDR image decoding and encoding -->
+        <PackageVersion Include="TextureCompressor.FileFormats.Ktx"                       Version="0.1.0" />                 <!-- KTX and KTX2 texture container reading and writing -->
         <PackageVersion Include="TinyEXR.NET"                                             Version="1.1.0" />                 <!-- Managed OpenEXR image loading and saving -->
     </ItemGroup>
 
@@ -382,7 +372,6 @@
         <PackageVersion Include="ObsKit.NET"                                              Version="1.5.7" />                 <!-- libobs wrapper for recording, streaming, and replay capture -->
         <PackageVersion Include="OwnAudioSharp.Basic"                                     Version="4.0.7-preview.2" />       <!-- Native desktop audio engine: playback, recording, mixing, effects, VST3 hosting, network sync -->
         <PackageVersion Include="OwnAudioVst"                                             Version="1.6.8" />                 <!-- VST3 plugin hosting with native plugin editors on every platform -->
-        <PackageVersion Include="Rasm.Native.FFmpeg"                                      Version="9.0.1" />                 <!-- Media codec shared libraries and dependency closure staged per runtime identifier -->
         <PackageVersion Include="z440.atl.core"                                           Version="7.16.0" />                <!-- Audio metadata tag reading and writing across formats -->
     </ItemGroup>
 
@@ -471,7 +460,6 @@
         <PackageVersion Include="PureHDF.SourceGenerator"                                 Version="3.0.0-beta.1" />          <!-- Compile-time typed group and dataset accessors generated from an HDF5 file -->
         <PackageVersion Include="PureHDF.VFD.AmazonS3"                                    Version="3.0.0-beta.1" />          <!-- Amazon S3 virtual file driver for HDF5 reading -->
         <PackageVersion Include="PureHDF.VOL.Hsds"                                        Version="3.0.0-beta.1" />          <!-- HSDS virtual object layer for HDF5 access over REST -->
-        <PackageVersion Include="Rasm.Native.Blosc2"                                      Version="3.3.2" />                 <!-- Blocked compression shared library and codec closure staged per runtime identifier -->
         <PackageVersion Include="SharpCompress"                                           Version="0.50.4" />                <!-- Archive reading and writing across zip, tar, 7z, rar, gzip, bzip2, xz, and zstd -->
         <PackageVersion Include="SwatRecords.NetCDF"                                      Version="1.0.2" />                 <!-- NetCDF classic and NetCDF-4 reading and writing in managed code, requires PureHDF 2.1.1 or later -->
         <PackageVersion Include="ZarrNET"                                                 Version="0.7.0" />                 <!-- Zarr v2 and v3 chunked arrays over local, HTTP, and S3 stores -->
@@ -517,9 +505,9 @@
         <PackageVersion Include="Meilisearch"                                             Version="0.20.0" />                <!-- Typo-tolerant search engine client with faceting and vector hybrid search -->
         <PackageVersion Include="Microsoft.Data.SqlClient"                                Version="7.0.2" />                 <!-- SQL Server and Azure SQL driver with TDS, bulk copy, and Always Encrypted -->
         <PackageVersion Include="Microsoft.Data.Sqlite"                                   Version="11.0.0-preview.7.26381.103" /> <!-- Managed database driver for SQLite -->
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                    Version="10.0.11" />               <!-- Design-time migrations and scaffolding components, held on 10.x while 11 previews target net11.0 only -->
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                    Version="10.0.11" />               <!-- Database provider for SQLite, held on 10.x while 11 previews target net11.0 only -->
-        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite.NetTopologySuite"   Version="10.0.11" />               <!-- SpatiaLite geometry mapping through OGC geometries for the SQLite provider -->
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Design"                    Version="[10.0.11]" />             <!-- Design-time migrations and scaffolding components, held on 10.x while the 11 prereleases target net11.0 alone -->
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite"                    Version="[10.0.11]" />             <!-- Database provider for SQLite, held on 10.x while the 11 prereleases target net11.0 alone -->
+        <PackageVersion Include="Microsoft.EntityFrameworkCore.Sqlite.NetTopologySuite"   Version="[10.0.11]" />             <!-- SpatiaLite geometry mapping through OGC geometries for the SQLite provider, held on 10.x while the 11 prereleases target net11.0 alone -->
         <PackageVersion Include="Microsoft.Extensions.Caching.StackExchangeRedis"         Version="11.0.0-preview.7.26381.103" /> <!-- Distributed cache implementation backed by Redis -->
         <PackageVersion Include="Minio"                                                   Version="7.0.0" />                 <!-- Client for S3-compatible object storage -->
         <PackageVersion Include="MongoDB.Analyzer"                                        Version="2.0.0" />                 <!-- Roslyn analyzer previewing LINQ and builder query translations to MQL -->
@@ -530,9 +518,9 @@
         <PackageVersion Include="NFalkorDB"                                               Version="1.2.0" />                 <!-- Cypher graph commands, indexes, and constraints over the Redis multiplexer -->
         <PackageVersion Include="Npgsql"                                                  Version="10.0.3" />                <!-- PostgreSQL database driver with binary protocol and connection pooling -->
         <PackageVersion Include="Npgsql.DependencyInjection"                              Version="10.0.3" />                <!-- Dependency injection registration for PostgreSQL data sources -->
-        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL"                   Version="10.0.3" />                <!-- Database provider for PostgreSQL, held on 10.x while 11 previews target net11.0 only -->
-        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite"  Version="10.0.3" />                <!-- PostGIS spatial type mapping, held on 10.x while 11 previews target net11.0 only -->
-        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime"          Version="10.0.3" />                <!-- Date and time column mapping, held on 10.x while 11 previews target net11.0 only -->
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL"                   Version="[10.0.3]" />              <!-- Database provider for PostgreSQL, held on 10.x while the 11 prereleases target net11.0 alone -->
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NetTopologySuite"  Version="[10.0.3]" />              <!-- PostGIS spatial type mapping, held on 10.x while the 11 prereleases target net11.0 alone -->
+        <PackageVersion Include="Npgsql.EntityFrameworkCore.PostgreSQL.NodaTime"          Version="[10.0.3]" />              <!-- Date and time column mapping, held on 10.x while the 11 prereleases target net11.0 alone -->
         <PackageVersion Include="Npgsql.NetTopologySuite"                                 Version="10.0.3" />                <!-- PostGIS spatial type mapping through OGC geometries -->
         <PackageVersion Include="Npgsql.NodaTime"                                         Version="10.0.3" />                <!-- Instant, zoned, and local date-time mapping for PostgreSQL columns -->
         <PackageVersion Include="Npgsql.OpenTelemetry"                                    Version="10.0.3" />                <!-- OpenTelemetry tracing and metrics for PostgreSQL commands -->
@@ -543,8 +531,6 @@
         <PackageVersion Include="Pgvector"                                                Version="0.3.2" />                 <!-- Vector similarity types for PostgreSQL -->
         <PackageVersion Include="Pgvector.EntityFrameworkCore"                            Version="0.3.0" />                 <!-- Vector similarity search mapping for EF Core with PostgreSQL -->
         <PackageVersion Include="Qdrant.Client"                                           Version="1.19.0" />                <!-- gRPC client for the vector database -->
-        <PackageVersion Include="Rasm.Native.DuckDBExtensions"                            Version="1.5.5" />                 <!-- Analytical database extension files staged per platform for offline loading -->
-        <PackageVersion Include="Rasm.Native.SqliteVec"                                   Version="0.1.10-alpha.4" />        <!-- SQLite vector search extension staged per runtime identifier -->
         <PackageVersion Include="rocksdb"                                                 Version="11.8.1.4423" />           <!-- Embedded LSM-tree key-value store bindings -->
         <PackageVersion Include="ScyllaDBCSharpDriver"                                    Version="3.22.0.4" />              <!-- Shard-aware CQL driver for Cassandra-compatible clusters -->
         <PackageVersion Include="ScyllaDBCSharpDriver.OpenTelemetry"                      Version="3.22.0.4" />              <!-- OpenTelemetry tracing instrumentation for CQL driver sessions -->
@@ -568,8 +554,8 @@
     </ItemGroup>
 
     <ItemGroup Label="BIM Interchange">
-        <PackageVersion Include="Ara3D.BimOpenSchema"                                     Version="1.0.1" />                 <!-- Columnar BIM schema for Parquet and DuckDB, pinned at 1.0.1 because 1.6.1 is Windows-only -->
-        <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                  Version="1.0.1" />                 <!-- Parquet, DuckDB, and JSON readers and writers for columnar BIM data, pinned with its schema -->
+        <PackageVersion Include="Ara3D.BimOpenSchema"                                     Version="[1.0.1]" />               <!-- Columnar BIM schema for Parquet and DuckDB, held on 1.0.1 with its IO package -->
+        <PackageVersion Include="Ara3D.BimOpenSchema.IO"                                  Version="[1.0.1]" />               <!-- Parquet, DuckDB, and JSON readers and writers for columnar BIM data, held on 1.0.1 while 1.6.1 targets net8.0-windows alone -->
         <PackageVersion Include="BHoM"                                                    Version="9.3.0-alpha.4.0" />       <!-- AEC object model with structural elements, loads, sections, results, and geometry -->
         <PackageVersion Include="BHoM.Engine"                                             Version="9.3.0-alpha.4.0" />       <!-- Algorithms over the AEC object model: section integration, structural queries, and geometry -->
         <PackageVersion Include="BrickSchema.Net"                                         Version="1.3.30" />                <!-- Ontology model of building equipment, points, and locations -->
@@ -899,7 +885,7 @@
         <PackageVersion Include="StructuredFieldValues"                                   Version="0.7.7" />                 <!-- HTTP structured field values parsing per RFC 8941 -->
         <PackageVersion Include="System.ClientModel"                                      Version="1.14.0" />                <!-- Primitives for cloud service client pipelines -->
         <PackageVersion Include="System.CodeDom"                                          Version="11.0.0-preview.7.26381.103" /> <!-- CodeDOM object model for code generation and compilation -->
-        <PackageVersion Include="System.Collections.Immutable"                            Version="10.0.11" />               <!-- Immutable lists, dictionaries, and sets, held on 10.x because the Roslyn host cannot load 11 -->
+        <PackageVersion Include="System.Collections.Immutable"                            Version="[10.0.11]" />             <!-- Immutable lists, dictionaries, and sets, held on 10.x while the Roslyn host of the 10 SDK loads no 11 -->
         <PackageVersion Include="System.ComponentModel.Annotations"                       Version="5.0.0" />                 <!-- Data annotation attributes for validation and metadata -->
         <PackageVersion Include="System.Composition"                                      Version="11.0.0-preview.7.26381.103" /> <!-- MEF composition engine with an attributed programming model -->
         <PackageVersion Include="System.Composition.AttributedModel"                      Version="11.0.0-preview.7.26381.103" /> <!-- MEF export and import attribute model -->

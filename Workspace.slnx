@@ -1,24 +1,5 @@
 <Solution>
-    <Folder Name="/libs/" />
-    <Folder Name="/libs/dotnet/" />
-    <Folder Name="/libs/dotnet/interop/">
-        <Project Path="libs/dotnet/interop/Rasm.Interop/Rasm.Interop.csproj" />
-        <Project Path="libs/dotnet/interop/Rasm.Interop.Excel/Rasm.Interop.Excel.csproj" />
-        <Project Path="libs/dotnet/interop/Rasm.Interop.Gdal/Rasm.Interop.Gdal.csproj" />
-        <Project Path="libs/dotnet/interop/Rasm.Interop.Hdf5/Rasm.Interop.Hdf5.csproj" />
-        <Project Path="libs/dotnet/interop/Rasm.Interop.OpenCv/Rasm.Interop.OpenCv.csproj" />
-        <Project Path="libs/dotnet/interop/Rasm.Interop.Pdf/Rasm.Interop.Pdf.csproj" />
-        <Project Path="libs/dotnet/interop/Rasm.Interop.SqliteVec/Rasm.Interop.SqliteVec.csproj" />
-    </Folder>
-    <Folder Name="/tests/" />
-    <Folder Name="/tests/dotnet/">
+    <Folder Name="/tests/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
-    </Folder>
-    <Folder Name="/tests/dotnet/libs/">
-        <Project Path="tests/dotnet/libs/Rasm.Interop.Tests/Rasm.Interop.Tests.csproj" />
-    </Folder>
-    <Folder Name="/tools/" />
-    <Folder Name="/tools/dotnet/">
-        <Project Path="tools/dotnet/Rasm.Policy.Analyzers/Rasm.Policy.Analyzers.csproj" />
     </Folder>
 </Solution>

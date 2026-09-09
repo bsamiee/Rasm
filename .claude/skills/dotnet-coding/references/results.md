@@ -1,6 +1,6 @@
 # [RESULTS]
 
-Covers the result-type flows, from validators to the laws and their property tests. Use `dotnet-coding` for the type and operator decisions, and `dotnet-coding-languageext` for the behavior of each operation and recovery overload.
+Covers the result-type flows, from validators to the laws and their property tests.
 
 ## [01]-[VALIDATION]
 
@@ -270,7 +270,7 @@ Monad left identity:  Pure(t).Bind(f) == f(t)
 Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 ```
 
-The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks, and their API sits in `dotnet-coding-languageext`.
+The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
 
 Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
 

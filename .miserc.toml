@@ -1,3 +1,0 @@
-# Settings mise reads before config discovery, auto_env loads mise.unix.toml beside mise.toml
-
-auto_env = true

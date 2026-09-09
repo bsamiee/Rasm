@@ -7,11 +7,6 @@ description: "Use when Mapperly maps domain types to or from contracts, covering
 
 Covers mapping at the host boundary with `Riok.Mapperly`, from where the mapper sits to conversion priority and reference handling.
 
-[SKILLS]:
-- `dotnet-coding`: Where the boundary sits and which result type crosses it
-- `dotnet-coding-languageext`: Conversions between result types
-- `dotnet-coding-thinktecture`: Declaring a value object, smart enum, or union
-
 Mapperly generates each mapping at build time as ordinary property assignments, with no reflection, expression compilation, or hidden allocation, and an unmapped member fails the build. It serves performance-critical paths, transport and persistence contracts, read models, message payloads, view models, and AOT compilation, and `EmitCompilerGeneratedFiles` writes the generated mappings under `obj/` as C# source. Mapperly cannot consume another source generator's output from the same compilation, a referenced assembly exposes its generated members as metadata, an automatic conversion can change when a generated type moves between projects, and an explicit mapping declaration keeps project layout from choosing conversions.
 
 ## [01]-[BOUNDARIES]
@@ -37,8 +32,6 @@ Mappings that can reject input are not plain `TSource -> TTarget` functions, val
 ```csharp
 internal static Fin<ItemDto> ToDto(Fin<Item> value) => value.Map(ItemMapper.ToDto);
 ```
-
-- Use `dotnet-coding/references/results.md` for combining independent `From` results before the aggregate is constructed
 
 ## [02]-[MAPPER_CONFIGURATION]
 
@@ -89,7 +82,6 @@ Reference handling materializes an external graph that requires cycles or shared
 ## [04]-[DOMAIN_TYPE_INTEGRATION]
 
 Generated domain types cross the mapper only through their declared conversions, inbound through the `From` factory and outbound through the key member or the `ToValue` of a declared `[ObjectFactory<T>]`, and `ToString()` does not define that representation. `Create`, `Parse`, an accessible constructor, a static conversion method, and an explicit operator turn expected rejection into an exception. Mapperly enum configuration applies only to CLR enums, and independent CLR enum contracts map by case-sensitive name or explicit value pairs.
-- Use `dotnet-coding` for the `From` factory over `Validate`, and `dotnet-coding-thinktecture` for the lookup over `TryGet`
 
 Closed unions use their generated `Switch` as the outer dispatcher, Mapperly maps one known case inside each arm, and case selection stays exhaustive while member translation stays structural. `Map` takes one value per case and receives no mapper call:
 

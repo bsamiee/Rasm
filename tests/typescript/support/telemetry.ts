@@ -104,11 +104,8 @@ const _metricChanges = (
     );
 };
 
-// The ordinal of the span within one capture names it, the tracer of that capture hands it in
 class _CapturedSpan implements Tracer.Span {
     readonly _tag = 'Span' as const;
-    // Tracer.Span declares attributes as a ReadonlyMap, the native Map is the contract
-    // ast-grep-ignore: no-native-collection
     readonly attributes = new Map<string, unknown>();
     readonly context: Context.Context<never>;
     readonly kind: Tracer.SpanKind;

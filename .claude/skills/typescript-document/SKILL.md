@@ -5,20 +5,20 @@ description: "Use when writing or reviewing TSDoc on an exported TypeScript decl
 
 # [TYPESCRIPT_DOCUMENT]
 
-Write TSDoc comments that the TypeScript language service shows on hover and `tsc --build` copies into the `.d.ts` output, in the tag order Effect source uses and `@effect/docgen` parses.
+Covers TSDoc comments the TypeScript language service shows on hover and `tsc --build` copies into the `.d.ts` output, in the tag order Effect source uses and `@effect/docgen` parses.
 
 [REFERENCES]:
 - [01]-[REACT](references/react.md): Props interfaces, the component function, and the `Result` a hook returns
 
 ## [01]-[PRINCIPLES]
 
-- `interface`, `type`, and signatures are the primary documentation, a comment adds the business rule, edge case, side effect, unit, or performance bound the type cannot state
+- `interface`, `type`, and signatures are the primary documentation. A comment adds the business rule, edge case, side effect, unit, or performance bound the type cannot state
 - TSDoc syntax: `@param name - description` with a hyphen and no `{type}`, `@typeParam T - description` for a type parameter, `@remarks` for text longer than the summary
-- Documentation runs change comments alone, with no renames, signature changes, or other refactors, except extracting a named type when an inline object type blocks per-member doc comments
+- A documentation run changes comments alone. The one refactor is extracting a named type when an inline object type blocks per-member doc comments
 
 ## [02]-[SCOPE]
 
-Document exported declarations (types, interfaces, enums, functions, constants) and internals with a contract the code does not show, and skip trivial getters, one-line helpers, test helpers, and anonymous components:
+Exported declarations (types, interfaces, enums, functions, constants) and internals with a contract the code does not show take a comment. Trivial getters, one-line helpers, test helpers, and anonymous components take none:
 
 | [INDEX] | [SITUATION]                                                   | [ACTION]                                                       |
 | :-----: | :------------------------------------------------------------ | :------------------------------------------------------------- |
@@ -29,16 +29,14 @@ Document exported declarations (types, interfaces, enums, functions, constants) 
 |  [05]   | Caller needs copy-paste usage                                 | `@example`                                                     |
 |  [06]   | Inline object type with members that need doc comments        | Named `interface` or `type` with a doc comment per member      |
 
-`no-throw-outside-try` under `tools/ast-grep/rules/typescript/effect/` reports every `throw` in `libs/typescript` outside `Effect.try` and `Effect.tryPromise`, and `no-nullable-return` under `rules/typescript/syntax/` reports `return null`, a `null` arrow body, and `undefined` returned under a value-type annotation, while an unannotated `return undefined` is Biome's `noUselessUndefined`. Domain functions fail through `E` and return absence as `Option`, and `@throws` applies to the boundary code that throws.
+The `no-throw-outside-try` rule reports every `throw` in `libs/typescript` outside `Effect.try` and `Effect.tryPromise`. `no-nullable-return` reports `return null`, a `null` arrow body, and `undefined` returned under a value-type annotation. An unannotated `return undefined` is Biome's `noUselessUndefined`. A domain function fails through `E` and returns absence as `Option`. `@throws` applies to the boundary code that throws.
 
 ## [03]-[STYLE]
 
-- Summary and every description (`@param`, `@returns`, `@remarks`, `@defaultValue`): one sentence in the third person that states what the declaration does or returns ("Runs", "Returns"), a noun phrase for a type, no trailing period, no hedge, and no restatement of the signature
-- `@remarks`: observable behavior with one fact per sentence, and a business rule only when the code cannot show it and the author has its source
+- Summary and every description (`@param`, `@returns`, `@remarks`, `@defaultValue`): one sentence in the third person that states what the declaration does or returns ("Runs", "Returns"), a noun phrase for a type, no trailing period. The signature is the type's statement, the sentence adds to it
+- `@remarks`: observable behavior with one fact per sentence. A business rule appears when the code cannot show it and the author has its source
 
 ## [04]-[STRUCTURE]
-
-Required tags by symbol type:
 
 | [INDEX] | [TAG]            | [REQUIRED_WHEN]                                                                                  |
 | :-----: | :--------------- | :----------------------------------------------------------------------------------------------- |
@@ -48,7 +46,7 @@ Required tags by symbol type:
 |  [04]   | `@returns`       | Non-void return when the summary does not open with "Returns"                                    |
 |  [05]   | `@since`         | Every export `@effect/docgen` parses, `enforceVersion` defaults to true                          |
 
-Order: summary, `@remarks`, `@param` and `@typeParam`, `@returns` and `@throws`, `@example`, then `@category` and `@since` last, the order Effect 3 source uses:
+Order: summary, `@remarks`, `@param` and `@typeParam`, `@returns` and `@throws`, `@example`, then `@category` and `@since` last:
 
 ````ts
 /**
@@ -73,8 +71,7 @@ Order: summary, `@remarks`, `@param` and `@typeParam`, `@returns` and `@throws`,
  */
 ````
 
-- One blank line separates the summary from the tags and encloses each `@remarks` and `@example` block as the house form, TSDoc reads a block up to the next block or modifier tag with or without the blank line
-- Biome 2.5 enforces no doc-comment rule: `noPrivateImports` reads `@public`, `@package`, and `@private`, and `biome.json` sets `domains.project` to `none`
+One blank line separates the summary from the tags and encloses each `@remarks` and `@example` block, TSDoc reads a block up to the next block or modifier tag with or without the blank line. Biome enforces no doc-comment rule, `noPrivateImports` reads `@public`, `@package`, and `@private`.
 
 | [INDEX] | [TAG]                   | [RULE]                                                                                                 |
 | :-----: | :---------------------- | :----------------------------------------------------------------------------------------------------- |
@@ -83,7 +80,7 @@ Order: summary, `@remarks`, `@param` and `@typeParam`, `@returns` and `@throws`,
 |  [03]   | `@example`              | Tag-line text is the title, the fenced `ts` block opens with its `import` lines, docgen type-checks it |
 |  [04]   | `@see`                  | Takes an explicit `{@link}`, plain text after `@see` is not linked                                     |
 |  [05]   | `@deprecated`           | Followed by the replacement in one sentence, applies to every member of the container                  |
-|  [06]   | `{@inheritDoc Target}`  | Copies summary, `@remarks`, `@param`, `@typeParam`, and `@returns` only, and forbids an own summary    |
+|  [06]   | `{@inheritDoc Target}`  | Copies summary, `@remarks`, `@param`, `@typeParam`, and `@returns`, and forbids an own summary          |
 |  [07]   | `@internal`             | Modifier on the last line, docgen omits the export, `tsc` keeps it in `.d.ts` without `stripInternal`  |
 |  [08]   | `@packageDocumentation` | Modifier in the first `/**` comment of the entry file                                                  |
 |  [09]   | `@category`             | Groups the export in docgen output, the default group is `utils`                                       |
@@ -110,21 +107,13 @@ interface RetryOptions {
 ## [06]-[WORKFLOW]
 
 Each documentation run reports:
-1. Scope — the symbols touched
-2. Edits — the exact comment blocks in context
-3. Skipped — the symbols left alone and the reason (trivial, unclear, private)
-4. Open questions — only when missing intent makes the docs wrong
+1. Scope, the symbols touched
+2. Edits, the exact comment blocks in context
+3. Skipped, the symbols left alone and the reason (trivial, unclear, private)
+4. Open questions, when missing intent makes the docs wrong
 
-Document only what the code proves, and when intent is unclear, ask one short question.
-
-## [07]-[AVOID]
-
-Summary forms to avoid, each beside its fix:
+A comment states what the code proves. A summary states the rule the signature cannot:
 
 ```ts
-// BAD: restates the signature
-/** Adds two numbers and returns a number */
-
-// GOOD: the rule the signature cannot state
 /** Adds two amounts in minor currency units (cents) */
 ```

@@ -1,20 +1,15 @@
-// Automation API entry that runs up or refresh on the stack under Pulumi Cloud
-
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { Command, Options, ValidationError } from '@effect/cli';
 import { Path } from '@effect/platform';
 import { NodeContext, NodeRuntime } from '@effect/platform-node';
 import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import { Cause, Config, type ConfigError, Console, Data, Effect, Inspectable, Match, Predicate, Record, Runtime } from 'effect';
-import { ACTIONS_VARIABLES, program } from './program.ts';
+import { Cause, Console, Data, Effect, Inspectable, Match, Predicate, Runtime } from 'effect';
+import { program } from './program.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _PROJECT = 'rasm-infra';
-
-// Each Actions variable value comes from the environment under its own name, and an unset name fails the run naming it
-const _variables = Config.all(Record.fromIterableWith(ACTIONS_VARIABLES, (name) => [name, Config.nonEmptyString(name)]));
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -33,19 +28,14 @@ class StackError extends Data.TaggedError('StackError')<{
 
 // --- [STACK] ---------------------------------------------------------------------------
 
-// Pulumi reads PULUMI_ACCESS_TOKEN and its providers read their tokens from the environment injected by doppler run
-const _operation = (
-    operation: Exclude<StackError['operation'], 'select'>,
-    adopt: boolean,
-): Effect.Effect<void, StackError | ConfigError.ConfigError, Path.Path> =>
+const _operation = (operation: Exclude<StackError['operation'], 'select'>, adopt: boolean): Effect.Effect<void, StackError, Path.Path> =>
     Effect.gen(function* () {
         const path = yield* Path.Path;
         const runtime = yield* Effect.runtime<never>();
-        const variables = yield* _variables;
         const stack = yield* Effect.tryPromise({
             try: () =>
                 LocalWorkspace.createOrSelectStack(
-                    { stackName: 'rasm', projectName: _PROJECT, program: () => Runtime.runPromise(runtime)(program(adopt, variables)) },
+                    { stackName: 'rasm', projectName: _PROJECT, program: () => Runtime.runPromise(runtime)(program(adopt)) },
                     { projectSettings: { name: _PROJECT, runtime: 'nodejs' }, pulumiHome: path.join(import.meta.dirname, '..', '.cache', 'pulumi') },
                 ),
             catch: (cause) => new StackError({ operation: 'select', cause }),
@@ -60,7 +50,7 @@ const _operation = (
 // --- [COMMANDS] ------------------------------------------------------------------------
 
 const _import = Options.boolean('import').pipe(
-    Options.withDescription('Adopt the live Doppler project, environments, branch configs, and repository into the state'),
+    Options.withDescription('Adopt the live Doppler project, environments, branch configs, and repository'),
 );
 
 const _automation = Command.make('automation').pipe(
@@ -72,7 +62,6 @@ const _automation = Command.make('automation').pipe(
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-// The cli prints its own help on a validation error, every other failure prints its message and a defect prints its cause
 NodeRuntime.runMain(
     Command.run(_automation, { name: 'automation', version: '' })(process.argv).pipe(
         Effect.tapError((error) =>

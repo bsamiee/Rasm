@@ -1079,22 +1079,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/65/dc/470ffebac2eb8c54151eb893055024fe81b1606e7c6ff8449a588e9cd17f/cftime-1.6.5.tar.gz", hash = "sha256:8225fed6b9b43fb87683ebab52130450fc1730011150d3092096a90e54d1e81e", size = 326605, upload-time = "2025-10-13T18:56:26.352Z" }
 
 [[package]]
-name = "chardet"
-version = "7.6.0"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/b1/51/cd61c567092a6cec796144510a68aff158ebfc1df82950a45bae65f28413/chardet-7.6.0.tar.gz", hash = "sha256:93d9df6089ded42ed1fe9f57e272c0b74bd0464d45c0c7d50f09f26f31105c3c", size = 914462, upload-time = "2026-08-14T20:36:59.305Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/fe/de/dac4f550cde73c4732b4916e72ec489ae36933fbbd1697e4122d3ae2e9dd/chardet-7.6.0-cp315-cp315-macosx_11_0_arm64.whl", hash = "sha256:7bbc8a9652c7f859c593847f220c1d264f25749369abb1a267b404ee8cceb209", size = 1064688, upload-time = "2026-08-14T21:04:16.806Z" },
-    { url = "https://files.pythonhosted.org/packages/06/45/f4f3f288496797d2cf1d1e9036f920ed2b4c79787b21c42a3314f4a6d532/chardet-7.6.0-cp315-cp315-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:83512a475a2f3886166aa0bca1bbb39343a4eb3186dd5532127d6f2591d09118", size = 1486320, upload-time = "2026-08-14T21:04:18.535Z" },
-    { url = "https://files.pythonhosted.org/packages/c0/81/3ca30c16e6c6015b737fca22d9342957cc617d8a65329d3e963ad754a31b/chardet-7.6.0-cp315-cp315-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:271ab71ec1be61dbbce0436de0848895c03eae051c379e937a39573d9ce403d9", size = 1515374, upload-time = "2026-08-14T21:04:20.724Z" },
-    { url = "https://files.pythonhosted.org/packages/d7/4f/3ad1b1bd27ae7f0d3d13cf711366525cd781a9e067950d8a09aa280916cb/chardet-7.6.0-cp315-cp315-win_amd64.whl", hash = "sha256:b73f277c1ac09c4f8076c4214b816c7aa78a0a2f0cb7156742f4303f856bedc3", size = 1158551, upload-time = "2026-08-14T21:04:24.259Z" },
-    { url = "https://files.pythonhosted.org/packages/29/35/75a90143e4200e197f4f6cf5895d379e22bc785d0c7711120df18fa5347c/chardet-7.6.0-cp315-cp315t-macosx_11_0_arm64.whl", hash = "sha256:f2ec3c78cc6b54bf8e091ec4ee885473078b5d7ef18ab1b01c86ae1e98bf88f7", size = 1092596, upload-time = "2026-08-14T21:04:27.884Z" },
-    { url = "https://files.pythonhosted.org/packages/d1/2c/b6d5f47d878c46e04ae6fcb58e0969467925bc0819b333c682e0c41bbc5c/chardet-7.6.0-cp315-cp315t-manylinux2014_aarch64.manylinux_2_17_aarch64.manylinux_2_28_aarch64.whl", hash = "sha256:167d7ba3ee08b654e36d7b43ebd9a36606c9a12e2fabdb361757a095ca3b7e3d", size = 1516644, upload-time = "2026-08-14T21:04:29.624Z" },
-    { url = "https://files.pythonhosted.org/packages/25/d2/2bc3f1066c6f27bc3fa3a98dfd8a2a9c1e969a9d6bdc1edcd35278791fc4/chardet-7.6.0-cp315-cp315t-manylinux2014_x86_64.manylinux_2_17_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:f14f46ef1977e41ce1f4814ca6984cea7f8b6baf8cbc6626ef7bf3d13cf7ea13", size = 1533221, upload-time = "2026-08-14T21:04:31.39Z" },
-    { url = "https://files.pythonhosted.org/packages/cf/6e/5a0b348fa4cd7847567a28c6e697ccf58391960bfd13a6e7473ee23ca2f2/chardet-7.6.0-py3-none-any.whl", hash = "sha256:4076d795897ce45239825956a1334e134322ecc4bfe84dbb12acd5390de0fbc1", size = 680279, upload-time = "2026-08-14T20:36:57.763Z" },
-]
-
-[[package]]
 name = "charset-normalizer"
 version = "3.5.1"
 source = { registry = "https://pypi.org/simple" }
@@ -1364,18 +1348,15 @@ schemaregistry = [
 
 [[package]]
 name = "connectrpc"
-version = "0.11.1"
-source = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }
+version = "0.12.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "protobuf-py" },
     { name = "pyqwest" },
 ]
-sdist = { hash = "sha256:d84cbbcd76477cdaa4e8c62441e523ebee96fdacfabfb42a5a9cb869865d16e6" }
-
-[package.metadata]
-requires-dist = [
-    { name = "protobuf-py", specifier = ">=0.3.0" },
-    { name = "pyqwest", specifier = ">=0.5.1" },
+sdist = { url = "https://files.pythonhosted.org/packages/b8/43/025430769a6cc82a1e1c76cd9760639f6bf9b05577f90e38a0bb57b41b39/connectrpc-0.12.1.tar.gz", hash = "sha256:da7ca41c6cd8d9ce640ad86ae325a71cd83dfdd1e43748976315cb4b0546fb69", size = 50556, upload-time = "2026-09-04T15:23:31.327Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0e/f8/b244edb73395c5a74bfeab13ace9e6ccda89d31fb5e493ca8a8c96106eae/connectrpc-0.12.1-py3-none-any.whl", hash = "sha256:ba85ff49b5b7e0f1b16d07b35a05e39ce92c1a7116a7ed1a271c76393323cd07", size = 70058, upload-time = "2026-09-04T15:23:28.686Z" },
 ]
 
 [[package]]
@@ -1692,21 +1673,6 @@ dependencies = [
     { name = "zstandard" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/ef/4c/bb789ed55b5266cb02101d6efe52ea48e9fc4a0900690868f297153e3db2/detools-0.53.0.tar.gz", hash = "sha256:95b5bdeaaaf76e73ca4c8015f2d7c0cc98fbe91f5119b0a97faeb991315241db", size = 11069909, upload-time = "2023-03-10T17:55:54.877Z" }
-
-[[package]]
-name = "diff-cover"
-version = "10.5.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "chardet" },
-    { name = "jinja2" },
-    { name = "pluggy" },
-    { name = "pygments" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e6/74/b71a61b2610b5866aa29a9388bc1b58738e49600345dbe0598676b436717/diff_cover-10.5.1.tar.gz", hash = "sha256:f1c9417c62111e40a81c482c692c5cdd131ff93317baa993044cb291912ebba3", size = 113297, upload-time = "2026-08-16T18:09:19.466Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/3d/da/ac0ad341c7377e82f7d6dcb18461029579da224c3923f73ff6537d8591cf/diff_cover-10.5.1-py3-none-any.whl", hash = "sha256:67ce07494e605b5d7d7b04aeec2cf524950ed0c12f026dd176883cf33c74fba0", size = 62924, upload-time = "2026-08-16T18:09:18.387Z" },
-]
 
 [[package]]
 name = "diffrax"
@@ -5597,15 +5563,15 @@ wheels = [
 
 [[package]]
 name = "protoc-gen-connectrpc"
-version = "0.11.1"
-source = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
+version = "0.12.1"
+source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "protobuf-py" },
 ]
-sdist = { hash = "sha256:d84cbbcd76477cdaa4e8c62441e523ebee96fdacfabfb42a5a9cb869865d16e6" }
-
-[package.metadata]
-requires-dist = [{ name = "protobuf-py", specifier = ">=0.3.0" }]
+sdist = { url = "https://files.pythonhosted.org/packages/0b/38/e840ca13f7399288c0b503211afea50d76481e9083deb43e25cae427a431/protoc_gen_connectrpc-0.12.1.tar.gz", hash = "sha256:dde1652e291be825c4e84e71d9398c6ddd3c5c50995f3872a78ea9e4e21464dc", size = 9845, upload-time = "2026-09-04T15:23:32.427Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0d/61/04bbb3244f95c1ca2498a0b2b59e849d537a6a8768654cf1c310d6690e05/protoc_gen_connectrpc-0.12.1-py3-none-any.whl", hash = "sha256:fae558b7d68d27cd5bb3333e8d5969e2031de1fc0263ba1d04c596b26885a878", size = 11018, upload-time = "2026-09-04T15:23:30.096Z" },
+]
 
 [[package]]
 name = "protoc-gen-py"
@@ -6061,15 +6027,6 @@ wheels = [
 crypto = [
     { name = "cryptography" },
 ]
-
-[[package]]
-name = "pyktx"
-version = "4.4.2"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "cffi" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/cd/8c/01c9f5118b8b7bc750823c1c363bfbe56cba0dcb063d22021597726f4ea4/pyktx-4.4.2.tar.gz", hash = "sha256:62cccee290578949ed220e60ee83d45b80b4282e846328d00c403d889ba25dcd", size = 25481, upload-time = "2025-10-04T10:52:38.096Z" }
 
 [[package]]
 name = "pylance"
@@ -7013,6 +6970,7 @@ dev = [
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
+    { name = "ruff" },
     { name = "s3fs" },
     { name = "scipy-stubs" },
     { name = "sniffio" },
@@ -7027,19 +6985,6 @@ dev = [
     { name = "types-pyphen" },
     { name = "types-reportlab" },
     { name = "types-shapely" },
-]
-eng = [
-    { name = "anyio" },
-    { name = "cyclopts" },
-    { name = "expression" },
-    { name = "httpx" },
-    { name = "msgspec" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "ruamel-yaml" },
-    { name = "ruff" },
-    { name = "sqlfluff" },
-    { name = "structlog" },
     { name = "yamllint" },
 ]
 workspace = [
@@ -7049,6 +6994,7 @@ workspace = [
     { name = "adbc-driver-snowflake" },
     { name = "adbc-driver-sqlite" },
     { name = "altair" },
+    { name = "anyio" },
     { name = "apscheduler" },
     { name = "array-api-compat" },
     { name = "array-api-extra" },
@@ -7085,6 +7031,7 @@ workspace = [
     { name = "cryptography" },
     { name = "cubed" },
     { name = "cvxpy" },
+    { name = "cyclopts" },
     { name = "daft" },
     { name = "dask" },
     { name = "dataframely" },
@@ -7100,6 +7047,7 @@ workspace = [
     { name = "duckdb" },
     { name = "epdx", marker = "platform_machine == 'x86_64' or sys_platform != 'linux'" },
     { name = "equinox" },
+    { name = "expression" },
     { name = "ezdxf" },
     { name = "fast-sugiyama" },
     { name = "fastavro" },
@@ -7128,6 +7076,7 @@ workspace = [
     { name = "honeybee-energy-standards" },
     { name = "honeybee-openstudio", marker = "sys_platform != 'win32'" },
     { name = "honeybee-standards" },
+    { name = "httpx" },
     { name = "hvac" },
     { name = "hypercorn" },
     { name = "ibis-framework" },
@@ -7158,6 +7107,7 @@ workspace = [
     { name = "matplotlib" },
     { name = "meshio" },
     { name = "mpmath" },
+    { name = "msgspec" },
     { name = "msoffcrypto-tool" },
     { name = "nanoarrow" },
     { name = "narwhals" },
@@ -7229,13 +7179,13 @@ workspace = [
     { name = "py7zr" },
     { name = "pyarrow" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pydoe3" },
     { name = "pyelk" },
     { name = "pyexiftool" },
     { name = "pyhanko" },
     { name = "pyiceberg" },
     { name = "pyicu" },
-    { name = "pyktx" },
     { name = "pylance" },
     { name = "pymc" },
     { name = "pymupdf" },
@@ -7267,6 +7217,7 @@ workspace = [
     { name = "rhino3dm" },
     { name = "rioxarray" },
     { name = "rtree" },
+    { name = "ruamel-yaml" },
     { name = "rustworkx" },
     { name = "salib" },
     { name = "schemdraw" },
@@ -7286,6 +7237,7 @@ workspace = [
     { name = "stac-geoparquet" },
     { name = "stream-unzip" },
     { name = "stream-zip" },
+    { name = "structlog" },
     { name = "substrait", extra = ["extensions"] },
     { name = "svgelements" },
     { name = "sympy" },
@@ -7329,7 +7281,7 @@ dev = [
     { name = "moto", extras = ["server"] },
     { name = "mypy" },
     { name = "pandas-stubs" },
-    { name = "protoc-gen-connectrpc", url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" },
+    { name = "protoc-gen-connectrpc" },
     { name = "protoc-gen-py" },
     { name = "pyarrow-stubs" },
     { name = "pytest" },
@@ -7339,6 +7291,7 @@ dev = [
     { name = "pytest-socket" },
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
+    { name = "ruff" },
     { name = "s3fs", specifier = ">=2026.7" },
     { name = "scipy-stubs" },
     { name = "sniffio" },
@@ -7353,19 +7306,6 @@ dev = [
     { name = "types-pyphen" },
     { name = "types-reportlab" },
     { name = "types-shapely" },
-]
-eng = [
-    { name = "anyio" },
-    { name = "cyclopts" },
-    { name = "expression" },
-    { name = "httpx", specifier = "<1" },
-    { name = "msgspec" },
-    { name = "pydantic" },
-    { name = "pydantic-settings" },
-    { name = "ruamel-yaml" },
-    { name = "ruff" },
-    { name = "sqlfluff" },
-    { name = "structlog" },
     { name = "yamllint" },
 ]
 workspace = [
@@ -7375,6 +7315,7 @@ workspace = [
     { name = "adbc-driver-snowflake" },
     { name = "adbc-driver-sqlite" },
     { name = "altair" },
+    { name = "anyio" },
     { name = "apscheduler" },
     { name = "array-api-compat" },
     { name = "array-api-extra" },
@@ -7407,10 +7348,11 @@ workspace = [
     { name = "compas-dr" },
     { name = "compas-tna" },
     { name = "confluent-kafka", extras = ["schemaregistry", "avro", "json", "protobuf"] },
-    { name = "connectrpc", url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" },
+    { name = "connectrpc" },
     { name = "cryptography" },
     { name = "cubed" },
     { name = "cvxpy", specifier = "<1.9" },
+    { name = "cyclopts" },
     { name = "daft" },
     { name = "dask" },
     { name = "dataframely" },
@@ -7426,6 +7368,7 @@ workspace = [
     { name = "duckdb" },
     { name = "epdx", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = "<1.0" },
     { name = "equinox" },
+    { name = "expression" },
     { name = "ezdxf" },
     { name = "fast-sugiyama" },
     { name = "fastavro" },
@@ -7454,6 +7397,7 @@ workspace = [
     { name = "honeybee-energy-standards" },
     { name = "honeybee-openstudio", marker = "sys_platform != 'win32'" },
     { name = "honeybee-standards" },
+    { name = "httpx", specifier = "<1" },
     { name = "hvac" },
     { name = "hypercorn" },
     { name = "ibis-framework" },
@@ -7484,6 +7428,7 @@ workspace = [
     { name = "matplotlib" },
     { name = "meshio" },
     { name = "mpmath" },
+    { name = "msgspec" },
     { name = "msoffcrypto-tool" },
     { name = "nanoarrow" },
     { name = "narwhals" },
@@ -7555,13 +7500,13 @@ workspace = [
     { name = "py7zr" },
     { name = "pyarrow", specifier = "<24" },
     { name = "pydantic" },
+    { name = "pydantic-settings" },
     { name = "pydoe3" },
     { name = "pyelk" },
     { name = "pyexiftool" },
     { name = "pyhanko" },
     { name = "pyiceberg" },
     { name = "pyicu" },
-    { name = "pyktx", specifier = "<5" },
     { name = "pylance" },
     { name = "pymc", specifier = "<5.27" },
     { name = "pymupdf" },
@@ -7593,6 +7538,7 @@ workspace = [
     { name = "rhino3dm" },
     { name = "rioxarray" },
     { name = "rtree" },
+    { name = "ruamel-yaml" },
     { name = "rustworkx" },
     { name = "salib" },
     { name = "schemdraw" },
@@ -7612,6 +7558,7 @@ workspace = [
     { name = "stac-geoparquet" },
     { name = "stream-unzip" },
     { name = "stream-zip" },
+    { name = "structlog" },
     { name = "substrait", extras = ["extensions"] },
     { name = "svgelements" },
     { name = "sympy" },
@@ -8212,28 +8159,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/4e/cc/453752fffa759ef41a3ceadb3f167e13dae1a74c1db057d9f6a7affa9240/SPARQLWrapper-2.0.0.tar.gz", hash = "sha256:3fed3ebcc77617a4a74d2644b86fd88e0f32e7f7003ac7b2b334c026201731f1", size = 98429, upload-time = "2022-03-13T23:14:00.671Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/31/89/176e3db96e31e795d7dfd91dd67749d3d1f0316bb30c6931a6140e1a0477/SPARQLWrapper-2.0.0-py3-none-any.whl", hash = "sha256:c99a7204fff676ee28e6acef327dc1ff8451c6f7217dcd8d49e8872f324a8a20", size = 28620, upload-time = "2022-03-13T23:13:58.969Z" },
-]
-
-[[package]]
-name = "sqlfluff"
-version = "4.3.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "chardet" },
-    { name = "click" },
-    { name = "colorama" },
-    { name = "diff-cover" },
-    { name = "jinja2" },
-    { name = "pathspec" },
-    { name = "platformdirs" },
-    { name = "pyyaml" },
-    { name = "regex" },
-    { name = "tblib" },
-    { name = "tqdm" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/c8/06/c675066797f91a77d456bc15375a0a8c9b4765f1e66db639655772a928da/sqlfluff-4.3.0.tar.gz", hash = "sha256:aa647b3721112f1aca581efe8eaa815a332ae214610a0946592f98a19ef1e8cb", size = 1068771, upload-time = "2026-08-07T09:01:19.317Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/79/be/0be38ce154b9d798bb00b5ce65a3ad0e1ae2bc9419fcd8e3c773c2b80c70/sqlfluff-4.3.0-py3-none-any.whl", hash = "sha256:582e12af5101bd1c5bc120cb4a6942dadcfe5e5b1e01406f220dd08f5b3f31dd", size = 1051485, upload-time = "2026-08-07T09:01:17.139Z" },
 ]
 
 [[package]]

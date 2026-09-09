@@ -99,6 +99,6 @@ rule:
                                   has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
         - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 fix: ''
-message: '`$METHOD` returns the field value without validating or changing it'
-note: Delete the validator, the field keeps its type and constraints, and a plain or wrap validator or an override of a base validator stays
+message: '`$METHOD` returns the field value without validating or changing it, the form of the field alone with its type and constraints'
+note: 'The field keeps its type and constraints without the validator, a plain or wrap validator and an override of a base validator change the value or the flow'
 labels: {METHOD: {style: primary, message: Identity validator}}

@@ -7,33 +7,29 @@ description: "Use when writing, rebuilding, or reviewing an agent definition, co
 
 Agent definitions hold one role with procedure, owned files, and proof. Every sentence in one is a sentence its agent acts on during a run.
 
-- [01]-[HARNESS](references/harness.md): Spawn context, tool set, frontmatter fields, MCP loading, and hook rows that change a step
-- [02]-[TOOL_FORMS](references/tool-forms.md): Proven forms and facts per CLI tool, Nx target, and script
+- [01]-[TOOL_FORMS](references/tool-forms.md): Proven forms and facts per CLI tool and Nx target
 
 ## [01]-[DIVIDE]
-
-Content divides by holder:
 
 | [INDEX] | [HOLDER] | [CONTENT]                                                                        |
 | :-----: | :------- | :------------------------------------------------------------------------------- |
 |  [01]   | Skill    | Knowledge of a subject every caller applies: intent, criteria, facts of its tools |
 |  [02]   | Agent    | One role's purpose, scope its prompt supplies, order it works in, proof it gives  |
 
-No fact sits in both skill and agent.
+A fact sits in the skill or the agent, once.
 
 Building an agent on a preloaded skill:
-- Step 1 reads references the role applies as `Load <skill>, read <reference>`, one per branch or scope kind
-- Skills one branch or scope tree applies load as `Skill(<name>)` in the step under that condition
-- Numbered run orders with commands per step move from reference into procedure, reference keeps each step's criterion
+- Step 1 reads the references the role applies as `Load <skill>, read <reference>`, one per branch or scope kind
+- A skill one branch applies loads as `Skill(<name>)` in the step under that condition
+- Numbered run orders with commands per step move from the reference into the procedure, the reference keeps each step's criterion
 - Steps name a reference sequence as `under the <name> sequence of <reference>` with the call or reading it lacks
 
 Fact placement:
-- Facts about run order, proof, or scope go in the agent beside the step they change, stating the tool behavior deciding them
+- Facts about run order, proof, or scope go in the agent beside the step they change
 - Facts about a tool's output format, attribution, or refusal go in the skill documenting the tool
-- Form errors the engine reports before a call runs (arity, flag pair, rejected name) become hook rewrite rows, held in `decision` until the row exists
 - Steps repeated across agents with one reading become a rule family at `lint`, a skill script, or a target each agent names
 
-Agents with no skill of their own preload `clean-prose` and `ast-grep`. Steps read the subject skill's references per branch. Proven criteria sit as `decision` facts. A judgment repeated across runs becomes a criterion of the subject's skill, or of a new skill when none owns the subject.
+Agents with no skill of their own preload `clean-prose` and `ast-grep`. A judgment repeated across runs becomes a criterion of the subject's skill, or of a new skill when none owns the subject.
 
 Skills with no agent hold each sequence as a numbered reference with a criterion per step. Runs that repeat the same discovery steps and gate get an agent.
 
@@ -49,77 +45,62 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 |  [02]   | `description`       | Delegation sentence                                                                           |
 |  [03]   | `skills`            | Skills every run applies                                                                      |
 |  [04]   | `color`             | Transcript color: red, blue, green, yellow, purple, orange, pink, cyan                        |
-|  [05]   | `role`              | Addresses agent as you, states purpose, scope, owned files, and decisions                     |
-|  [06]   | `context_gathering` | Discovery steps in order before first edit                                                    |
+|  [05]   | `role`              | Addresses the agent as you, states purpose, scope, owned files, and decisions                 |
+|  [06]   | `context_gathering` | Discovery steps in order before the first edit                                                |
 |  [07]   | `sources`           | Question-to-source table                                                                      |
 |  [08]   | `decision`          | Proven facts that decide a reading                                                            |
 |  [09]   | `procedure`         | Imperative steps in run order, each judgment naming its criterion                             |
 |  [10]   | `gate`              | Proof commands run at close                                                                   |
 |  [11]   | `done_when`         | Observable conditions of a finished run                                                       |
 
-Other frontmatter fields join when a run shows the need documentation names.
-
 [ROLE]:
 - Role opens with purpose in one paragraph, scope comes from the prompt
 - Runs span every file, row, and pass in scope
-- Defaults derive from the repository at first step (default commit, scoped `check` target)
+- Defaults derive from the repository at the first step (default commit, scoped `check` target)
 - Inputs name no file an agent creates
 - Role acts on every fact the run finds
-- Role extends the domain (action, folder, rule, package) under root `README.md`
-- Sentences that defer a fact to a later run, another owner, or a reviewer go, the fact becomes a rule with proof
-- User choices are reported with options seen when found
-- Work outside a reported choice completes
-- Owned files sit in a `role` table with a content column
-- Files outside the table stay as found
+- User choices are reported with the options seen when found, work outside a reported choice completes
+- Owned files sit in a `role` table with a content column, files outside the table stay as found
 - Prompts to a worker hold scope, steps or intent, commit, checks, and every fact the run cannot retrieve
 - Paths that differ per tree (`<logs>`, `<build>`) name their query and scope input, with every separator written
 - Repository names in an agent's own paths appear as their value (`rasm`)
 
 [CONTEXT_GATHERING]:
 - Discovery skips facts present at spawn
-- Discovery commands name a pattern (an `fd` extension, a diff filter, a graph query, the outline target), no file list
+- Discovery commands name a pattern (an `fd` extension, a diff filter, a graph query, the outline target)
 - Git scopes list files present on disk
-- Discovery loads no schema
-- Discovery reads the effective set a tool evaluates (implied values and files) before the file configuring it
+- Discovery reads the effective set a tool evaluates before the file configuring it
 - Reads of a generated or large file locate a declaration by the literal the code spells, then `Read` that range
-- Steps print no whole tree
 - Under a shared directory, steps select an input by a line the run's own command printed or a path the prompt names
 - Measurements write under a private directory the procedure deletes
 - Build steps derive `<build>` from the solution's project list
 - Discovery over a language with a rule family is one scan of the family over scope
-- Criteria with no rule take a check in rule form
 - Discovery over a mixed scope runs once over one file of each kind
 - Skills every fork needs load through `Skill` before the first fork
 - On a tree other agents edit, runs record `git diff --numstat` over scope before the first spawn
-- Last discovery step runs every gate command naming no file the run creates, in whole-language form, as baseline
-- Artifacts a gate reads come from the last discovery step
-- Procedure starts on the baseline artifact
+- The last discovery step runs every gate command naming no file the run creates, in whole-language form, as baseline
 - Measured duration decides where a command runs: per cycle when seconds, at baseline and gate when minutes
 
 [SOURCES]:
 - Sources rows hold question, source, and exact call
 - Sources per question rank file on disk, then `<tool> --help`, then documentation
-- Sources are what spawn supplies or the run retrieves
 - MCP rows hold the argument value that changes the answer, one row per reading
-- Rows for a result a hook filters or a limit truncates name the form that returns items
+- Rows for a result a limit truncates name the form that returns items
 - Checks with severity raised by a repository setting print in the error list, rows name that list
 - Rows for a call past the result limit name a `jq` path over the file the result names
 - Rows for a failure name a listing locating the failing unit before a log explaining it
-- Tools that answered an error, empty envelope, or value the build contradicts go from the table
-- Sources table ends with the precedence sentence: installed declaration, type, or binary decides over a page or report
+- The table ends with the precedence sentence: installed declaration, type, or binary decides over a page or report
 
 [DECISION]:
 - Decision facts are ones a run got wrong once, each with failure text and the right form
 - Every `decision` holds the evidence sentence: an empty scope is a valid result with the commands that proved it, unseen output is no evidence
-- Hook context lines under a tool result become decision facts beside the tool they change
 
 [PROCEDURE]:
 - Steps write paths from repository root
 - Steps name a tool in call form with a deciding argument
 - Steps spell commands as the `.claude/settings.json` allow list grants them
 - Each edit is one exact-string replacement with its result read
-- Tables one step uses sit under that step
-- Tables more than one step names sit in their own element between `decision` and `procedure`
+- Tables one step uses sit under that step, tables more than one step names sit in their own element between `decision` and `procedure`
 - Procedure bounds its fix-and-prove cycles with a count
 - Under a shared directory, deletions name the path the tool printed
 - Checks that print nothing both on a miss and on a broken form prove their positive case first
@@ -130,16 +111,12 @@ Other frontmatter fields join when a run shows the need documentation names.
 - Gate lines pair command with result line: exit 0 and no output, `N passed; 0 failed`, a named line in the output
 - Formatter gates run the lint target's check form or compare `git diff | shasum` before and after
 - Gate lines proving work happened read the artifact or task record
-- Lines matched as text name their plain form
 - Gates for a scan or check silent on clean hold a coverage count or a line the tool prints when it runs
 - Tools that report a missing input at exit 0 get the missing-input line named beside the exit code
 - Gate commands name their selector and restate no default
-- Gate lines hold over the current tree
-- Gate lines failing over the tree name the run's owned subset
+- Gate lines hold over the current tree, a line failing over the tree names the run's owned subset
 - Gates on a shared tree read scope diff past recorded rows, then its complement
 - Timed gate lines hold a bound three runs agree on and report the maximum
-- Proofs of a `claude` run name `--debug-file <path>` under an ignored directory with the transcript redirected beside it
-- Skill tables a gate proves become a rule family where the language has a grammar
 - Gates over a rule family name `ast-grep scan` over scope
 - Cached targets prove a scope when `inputs` hash it
 
@@ -152,54 +129,42 @@ Agents of one family share the baseline step and evidence sentence.
 
 ## [03]-[INTEGRATION]
 
-Steps name tools in the form the harness runs, one principle per tool category:
+Steps name tools in the form the harness runs:
 
 [CLAUDE_CODE_TOOLS]:
-- Commands with outputs one reading consumes join one `Bash` call
-- Commands with output that decides the next step run alone
-- Steps name a long command alone
+- Commands with outputs one reading consumes join one `Bash` call, commands with output that decides the next step run alone
 - Steps that `TaskStop` a background process name the cleanup the process skipped
 - Spawns appear as `Agent(subagent_type: "<name>")` with the prompt source named
 
 [MCP_SERVERS]:
 - MCP tools appear as `mcp__<server>__<tool>`
 - Searches take bounded text form, count from the header
-- Unfiltered calls come first
-- Exact filters (`project`) answer zero where the unfiltered call lists
+- Unfiltered calls come first, an exact filter (`project`) answers zero where the unfiltered call lists
 
 [CLI_TOOLS]:
 - Commands take the documented form with flags `--help` prints
 - Tools taking one argument get one per call
-- Prefixes and flags around a tool default (`NO_COLOR=1`, `--color never`, `-tl:off`, `-v:q`, `timeout N`, `mise exec`) stay out of steps
-- Repository defaults sit at their source: `mise.toml` `[env]`, the target, the tool's configuration file, or a hook rewrite row
+- Repository defaults sit at their source: `mise.toml` `[env]`, the target, or the tool's configuration file
 - Selections derive from the files that own them
-- One field reads through the printing query
-- Files the run edits or judges line by line read whole, without an outline beside the read
+- Files the run edits or judges line by line read whole
 - Values a run derives come from the declaring file through the evaluating tool
 - Paths a tool resolves outside the shell are absolute
 - Binary paths come from `mise which <name>` or `command -v <name>`
 
 [NX_TARGETS]:
-- Targets run as `pnpm exec nx run <project>:<target> -- <scope>`
+- Targets run as `nx run <project>:<target>`
 - Checkers over a source scope run through `nx affected --files`
 - Fix loops name a per-file command of each kind in scope
-- Tree targets prove the whole at gate
 
 [SCRIPTS]:
-- `--help` through a script's target is the usage source
-- Skill scripts run by path with a subcommand
-- Steps state the domain a skill script accepts
+- Skill scripts run by path with a subcommand, steps state the domain a script accepts
 - Disposable files sit under `.cache/<agent-name>/` as owned files
 - Scoping proofs sit at the path the glob names
-- Use `ast-grep` for rule family layout, tests, and snapshots
-
-[HOOKS]:
-- Steps read no policy source ahead of a call
-- Refusals over a state the run needs become a sources row that returns the state, with no retry
+- Use `ast-grep` for rule family layout
 
 ## [04]-[MISTAKES]
 
-Sections build from mistakes runs showed, each as a positive rule in its section with no anti-pattern table:
+Sections build from mistakes runs showed, each as a positive rule in its section:
 1. List every mistake from transcripts, review findings, and reports, one line with the run that showed it
 2. Cluster lines by category: judgment, ordering, discovery, proof, scope, repetition
 3. Move each judgment mistake to the skill as a criterion
@@ -219,7 +184,7 @@ Sections build from mistakes runs showed, each as a positive rule in its section
 Sentences that state what another file owns go from the agent:
 - Sentences a preloaded skill states
 - `Skill` calls of a skill the `skills` list names
-- Delegation judgment (who forks, who starts fresh, who reviews, why), the call and prompt stay
+- Delegation judgment (who forks, who starts fresh, who reviews), the call and prompt stay
 - Discovery steps that map a file the next step reads whole
 - Sources rows that restate root instructions tool routing
 - Soft bounds, replaced by condition, command, or criterion
@@ -236,18 +201,14 @@ Checks on a finished file:
 - Every path the file names exists, `rg -o '[A-Za-z0-9_./-]+\.(md|sh|yml|ts|py|json)' <agent> | sort -u` against `ls`
 - Every `subagent_type` value the file names exists under an agents directory and in the spawn's agent type list
 - Every MCP tool the file names loads, `rg -o 'mcp__[a-z-]+__[a-z_]+' <agent> | sort -u`, each through `ToolSearch(query: "select:<name>")`
-- Every target the file names exists, `pnpm exec nx show project <project> --json | jq '.targets|keys'` prints it
+- Every target the file names exists, `nx show project <project> --json | jq '.targets|keys'` prints it
 - Every `skills` entry exists as a skill directory
 - Every command a step or gate holds ran from repository root in the writing session, over a real and a missing input, with its result line kept
 - Every cached gate target ran once over a planted defect
-- Every branch ran its first tool on a symptom produced without a repository edit
 - `claude plugin validate <agents dir>` for a project agent, `claude plugin validate <plugin>` for a plugin agent, reports no parse error
 - `git diff <commit> -- <agent>` on a rebuilt file, every command, row, and threshold the earlier revision held stays or the report names it
+- Every fact proven on one case lands after a case of another shape confirms it
 
 ## [07]-[DESCRIPTION]
 
-Description is written last, from a full read of the finished file, its preloaded skills, and root instructions tool routing. Skills and subagents share one form, `Use when <situation>, covering <topics>`. Sentences hold at most 25 words on a `description:` line of at most 160 columns. Frontmatter holds no `when_to_use` field. Descriptions name a tool, language, or file kind a delegating prompt holds. Situation clauses state what the routing line lacks. Covering lists name section subjects, a procedure step named there goes stale with the next edit:
-1. Write 3 candidates, grade each against the form naming its failure
-2. Start a fresh agent on the same prompt and files to write and grade 3 candidates of its own, then grade yours
-3. Implement the candidate both readings rank first
-4. When top picks differ, another fresh agent reads the file with both candidate sets, then picks
+The description is written last, from a full read of the finished file, its preloaded skills, and root instructions tool routing. Skills and subagents share one form, `Use when <situation>, covering <topics>`. Sentences hold at most 25 words on a `description:` line of at most 160 columns. Descriptions name a tool, language, or file kind a delegating prompt holds, situation clauses state what the routing line lacks, covering lists name section subjects.

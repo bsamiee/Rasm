@@ -2,7 +2,7 @@
 id: no-nullable-return
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     no-value-type:
         any:
@@ -63,19 +63,7 @@ utils:
               all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-answer}}]
             - kind: binary_expression
               all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-answer}}]
-    store-boundary-thunk:
-        kind: arrow_function
-        inside:
-            kind: arguments
-            inside:
-                kind: call_expression
-                has: {field: function, regex: '^getOrElse$'}
-                inside: {kind: arguments, stopBy: {matches: syntax-function-boundary}, inside: {kind: call_expression, has: {field: function, regex: '^\$\.store\.set$'}}}
 rule:
-    not:
-        any:
-            - matches: store-boundary-thunk
-            - inside: {matches: store-boundary-thunk, stopBy: {matches: syntax-function-boundary}}
     any:
         - kind: return_statement
           has: {matches: null-answer}
@@ -88,5 +76,5 @@ rule:
           all:
             - has: {field: body, matches: undefined-answer}
             - has: {field: return_type, matches: value-annotation}
-message: The function returns `null` or `undefined` to stand for absence
-note: Represent absence as an Option, `Option.fromNullable(value)` at the boundary and `Option.none()` inside, and read it through `Option.match`
+message: The function returns `null` or `undefined` to stand for absence, the form of an Option, `Option.fromNullable(value)` at the boundary and `Option.none()` inside
+note: '`Option.match` reads both cases'

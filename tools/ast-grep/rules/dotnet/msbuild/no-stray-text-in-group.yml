@@ -37,5 +37,5 @@ rule:
 transform:
     STRIPPED: {replace: {source: $TEXT, replace: '(?s)^.*\S', by: ''}}
 fix: $STRIPPED
-message: Text sits between the elements of a group, MSBuild rejects it with MSB4025 or reads it as a value
-note: Delete the stray characters and keep the whitespace between the elements
+message: 'Text sits between the elements of a group, the form of whitespace alone between the elements'
+note: 'MSBuild rejects the text with MSB4025 or reads it as a value'

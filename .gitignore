@@ -19,7 +19,6 @@ html/
 
 *.tsbuildinfo
 *.js.map
-# Vite config bundle left beside vite.config.ts after a crashed run
 *.timestamp-*.mjs
 
 # --- [PYTHON_ARTIFACTS] -------------------------------------------------------
@@ -44,8 +43,6 @@ env/
 .pytest_cache/
 .ruff_cache/
 .ty_cache/
-# Hypothesis database from runs without the .cache/hypothesis configuration
-.hypothesis/
 .dmypy.json
 *.prof
 *.lprof
@@ -60,7 +57,6 @@ htmlcov/
 .approval_tests_temp/
 .benchmarks/
 
-# Verify
 *.received.*
 *.received/
 
@@ -68,6 +64,7 @@ htmlcov/
 
 .cache/
 **/.artifacts/
+.playwright-cli/
 .nx/*
 .parcel-cache/
 .pulumi/
@@ -84,12 +81,9 @@ diagnostics.sarif
 *.user
 *.suo
 *.lscache
-# Rhino lock and backup files beside opened .3dm files, not relocatable
 *.rhl
 *.3dmbak
-# Grasshopper2.dll extracts embedded resources into the `dotnet build` working directory, the root pattern keeps `apps/grasshopper/` tracked
 /Grasshopper.*
-# EnergyPlus ExpandObjects output in the working directory, not relocatable
 expanded.idf
 
 # --- [SECRETS] ----------------------------------------------------------------

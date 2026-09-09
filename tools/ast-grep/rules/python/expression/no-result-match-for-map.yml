@@ -3,47 +3,120 @@ id: no-result-match-for-map
 language: python
 severity: error
 utils:
-    ok-pattern:
+    result-pattern:
         kind: class_pattern
-        has: {kind: dotted_name, pattern: $RESULT_CLASS}
-        all:
-            - any:
-                - has: {kind: case_pattern, has: {kind: keyword_pattern, has: {kind: dotted_name, regex: '^[A-Za-z_]\w*$'}}}
-                - has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*=\s*_$'}}
-                - not: {has: {kind: case_pattern, has: {kind: keyword_pattern, regex: '^ok\s*='}}}
-            - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']ok["'']$|ok\s*=)'}}}}
-    ok-arm:
+        has: {kind: dotted_name, regex: '^([A-Za-z_]\w*\.)*Result$'}
+    error-keyword:
+        kind: keyword_pattern
+        pattern:
+            context: |
+                match _:
+                    case Result(error=$E): pass
+            selector: keyword_pattern
+    error-arm:
         kind: case_clause
         all:
-            - has: {kind: case_pattern, has: {matches: ok-pattern}}
+            - has:
+                kind: case_pattern
+                has:
+                    matches: result-pattern
+                    all:
+                        - has: {kind: case_pattern, has: {matches: error-keyword}}
+                        - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']error["'']$|error\s*=)'}}}}
             - not: {has: {field: guard, kind: if_clause}}
-            - any:
-                - has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: case_pattern}}}
-                - follows: {matches: python-result-error-arm}
+            - has:
+                field: consequence
+                kind: block
+                all:
+                    - has:
+                        kind: return_statement
+                        has:
+                            kind: call
+                            all:
+                                - has: {field: function, regex: '^(Result\.)?Error$'}
+                                - has: {field: arguments, has: {kind: identifier, pattern: $E}, not: {has: {nthChild: 2}}}
+                    - not: {has: {nthChild: 2}}
+    ok-return:
+        kind: return_statement
+        has:
+            kind: call
+            all:
+                - has: {field: function, regex: '^(Result\.)?Ok$'}
+                - has:
+                    field: arguments
+                    has: {pattern: $_}
+                    not: {has: {nthChild: 2}}
+                - not: {has: {kind: "await, named_expression, yield", stopBy: end}}
+    named-ok-arm:
+        kind: case_clause
+        all:
+            - has:
+                kind: case_pattern
+                has:
+                    kind: class_pattern
+                    has: {kind: dotted_name, pattern: $RESULT_CLASS}
+                    all:
+                        - has: {kind: case_pattern, has: {kind: keyword_pattern, has: {kind: dotted_name, pattern: $V}}}
+                        - not: {has: {kind: case_pattern, not: {has: {kind: keyword_pattern, regex: '^(tag\s*=\s*["'']ok["'']$|ok\s*=)'}}}}
+            - not: {has: {field: guard, kind: if_clause}}
+            - has:
+                field: consequence
+                kind: block
+                not: {has: {nthChild: 2}}
+                has:
+                    matches: ok-return
+                    has:
+                        kind: call
+                        has:
+                            field: arguments
+                            all:
+                                - has: {pattern: $VALUE}
+                                - has: {kind: identifier, pattern: $V, stopBy: end}
 rule:
     kind: match_statement
     all:
-        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
-        - has: {field: subject, pattern: $SUBJECT}
         - inside: {kind: function_definition, stopBy: end}
         - not: {inside: {kind: try_statement, has: {kind: finally_clause}, stopBy: {kind: function_definition}}}
+        - not: {has: {kind: comment, stopBy: end}}
+        - has: {field: subject, pattern: $SUBJECT, kind: "identifier, attribute, call, subscript, parenthesized_expression, await"}
         - has:
             field: body
             kind: block
             all:
-                - has: {matches: python-result-error-arm, has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: dotted_name, pattern: $RESULT_CLASS}}}}
+                - has: {matches: error-arm, has: {kind: case_pattern, has: {kind: class_pattern, has: {kind: dotted_name, pattern: $RESULT_CLASS}}}}
+                - has: {matches: named-ok-arm}
                 - not: {has: {kind: case_clause, nthChild: {position: 3, ofRule: {kind: case_clause}}}}
-        - has:
-            field: body
-            has:
-                matches: ok-arm
-                has:
-                    field: consequence
-                    kind: block
-                    has: {matches: python-result-ok-return}
-                    not: {has: {nthChild: 2}}
-        - not: {has: {kind: comment, stopBy: end}}
+        - nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+        - any:
+            - all:
+                - has:
+                    field: body
+                    has:
+                        matches: named-ok-arm
+                        has:
+                            field: consequence
+                            has: {matches: ok-return, has: {kind: call, has: {field: arguments, has: {kind: identifier, pattern: $V}}}}
+                - has: {field: subject, pattern: $PLAIN}
+            - has: {field: subject, pattern: $MAPPED}
+rewriters:
+    - id: awaited
+      rule: {kind: await, pattern: $AWAITED, inside: {kind: match_statement}}
+      fix: ($AWAITED)
+    - id: identity
+      rule: {kind: identifier, pattern: $V}
+      fix: ''
+    - id: point-free
+      rule: {kind: call, pattern: $F($V), has: {field: function, kind: "identifier, attribute"}}
+      fix: $F
+    - id: mapper
+      rule: {pattern: $BODY}
+      fix: 'lambda $V: $BODY'
+transform:
+    HEAD: rewrite($MAPPED, rewriters=[awaited])
+    MAPPER: rewrite($VALUE, rewriters=[identity, point-free, mapper])
+    TAIL: {replace: {source: $MAPPER, replace: "(?s)^(.+)$", by: ".map($1)"}}
+fix: return $HEAD$PLAIN$TAIL
 labels:
     SUBJECT: {style: primary, message: Result transformation}
-message: Match over `$SUBJECT` repeats error propagation around an Ok transformation
-note: Return `<subject>.map(<transformation>)` for a synchronous Ok value, and keep the match where it narrows the value or maps the error
+message: 'Match over `$SUBJECT` repeats error propagation around an Ok transformation, the form of `<subject>.map(<transformation>)`'
+note: '`map` applies the transformation to the Ok value and passes an Error through unchanged, a match that narrows the value or maps the error is another form'

@@ -31,5 +31,5 @@ transform:
             replace: '^(\s*\$\()\[MSBuild\]::EnsureTrailingSlash\('
             by: '$1[System.IO.Path]::TrimEndingDirectorySeparator('
 fix: $UNSLASHED
-message: ArtifactsPath supplies a trailing separator before the SDK appends its output segments
-note: Write the path without a trailing separator, NormalizePath and TrimEndingDirectorySeparator keep the function's path operation
+message: 'ArtifactsPath ends with a separator before the SDK appends its output segments, the form of the path without a trailing separator'
+note: 'NormalizePath and TrimEndingDirectorySeparator keep the function path operation without the separator'

@@ -57,5 +57,4 @@ transform:
             by: '${1}`${2}`${3}'
     ADDED: {replace: {source: $BACKTICKED, replace: '^<Exec@@([^@]*)@@', by: '<Exec Condition="${1}"'}}
 fix: $ADDED
-message: Exec names an operating-system-specific program without a platform condition
-note: Guard the task or its target with $([MSBuild]::IsOSPlatform('<OS>'))
+message: 'Exec names an operating-system-specific program without a platform condition, the form of $([MSBuild]::IsOSPlatform(<OS>)) on the task or its target'

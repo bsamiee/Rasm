@@ -3,8 +3,7 @@
     "vcs": {
         "enabled": true,
         "clientKind": "git",
-        "useIgnoreFile": true,
-        "defaultBranch": "main"
+        "useIgnoreFile": true
     },
     "files": {
         "ignoreUnknown": true,
@@ -181,7 +180,6 @@
         },
         {
             "includes": [
-                "vite.config.ts",
                 "**/vitest.config.ts"
             ],
             "linter": {
@@ -233,36 +231,6 @@
                                             "camelCase",
                                             "snake_case",
                                             "CONSTANT_CASE"
-                                        ]
-                                    }
-                                ]
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        {
-            "includes": [
-                "**/vite.config.ts"
-            ],
-            "linter": {
-                "domains": {
-                    "types": "none"
-                },
-                "rules": {
-                    "style": {
-                        "useNamingConvention": {
-                            "level": "error",
-                            "options": {
-                                "conventions": [
-                                    {
-                                        "selector": {
-                                            "kind": "objectLiteralProperty"
-                                        },
-                                        "formats": [
-                                            "camelCase",
-                                            "snake_case"
                                         ]
                                     }
                                 ]

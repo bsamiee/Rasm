@@ -2,21 +2,10 @@
 id: <rule-id>
 language: <language>
 severity: error
-files: ["<scope-glob>"]
-ignores: ["<boundary-glob>"]
 rule:
     all:
         - pattern: <code with $VAR and $$$ARGS, or $NODE alone binding the matched node, document included, for a transform>
         - has: {kind: <kind>, field: <role>}
-        - follows: {kind: <kind>, stopBy: end}
         - not: {inside: {kind: <exempting-kind>, stopBy: end}}
-constraints:
-    VAR: {regex: "<name-pattern>"}
-transform:
-    NEW:
-        replace: {source: $VAR, replace: "<regex>", by: "<replacement, $$ a literal dollar, ${n} a group, \n decoded, no metavariable>"}
-fix: <template referencing $VAR and $NEW>
 message: <violation with captured or transformed values>
 note: <required form and its reason>
-labels:
-    VAR: {style: primary, message: "<reason the capture is highlighted>"}

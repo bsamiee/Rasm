@@ -1,10 +1,10 @@
 # [HOOK_POINTS]
 
-Every row names an SDK target that a custom target attaches to with `BeforeTargets` or `AfterTargets`, the phase it runs in, and the items and properties that exist at that point. The .NET SDK 10 chains read, in execution order: `Restore`, then `Build` = `BeforeBuild`, `CoreBuild`, `AfterBuild`, and `CoreBuild` = `BuildOnlySettings`, `PrepareForBuild`, `PreBuildEvent`, `ResolveReferences`, `PrepareResources`, `ResolveKeySource`, `Compile`, `ExportWindowsMDFile`, `UnmanagedUnregistration`, `GenerateSerializationAssemblies`, `CreateSatelliteAssemblies`, `GenerateManifests`, `GetTargetPath`, `PrepareForRun`, `UnmanagedRegistration`, `IncrementalClean`, `PostBuildEvent`, then `Publish` and `Pack` on top of `Build`.
+Every row names an SDK target a custom target attaches to with `BeforeTargets` or `AfterTargets`, the phase it runs in, and the items and properties present there. The .NET SDK 10 chains in execution order: `Restore`, then `Build` = `BeforeBuild`, `CoreBuild`, `AfterBuild`, and `CoreBuild` = `BuildOnlySettings`, `PrepareForBuild`, `PreBuildEvent`, `ResolveReferences`, `PrepareResources`, `ResolveKeySource`, `Compile`, `ExportWindowsMDFile`, `UnmanagedUnregistration`, `GenerateSerializationAssemblies`, `CreateSatelliteAssemblies`, `GenerateManifests`, `GetTargetPath`, `PrepareForRun`, `UnmanagedRegistration`, `IncrementalClean`, `PostBuildEvent`, then `Publish` and `Pack` on top of `Build`.
 
 ## [01]-[RESTORE]
 
-Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestoring=true` and `ExcludeRestorePackageImports=true` as global properties, and package `build/` imports are absent there.
+Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestoring=true` and `ExcludeRestorePackageImports=true` as global properties, package `build/` imports are absent there.
 
 | [INDEX] | [HOOK]                                        | [RUNS]                                  | [AVAILABLE]                                 |
 | :-----: | :-------------------------------------------- | :-------------------------------------- | :------------------------------------------ |
@@ -12,7 +12,7 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [02]   | `BeforeTargets="_GenerateRestoreProjectSpec"` | Before the project spec joins the graph | `$(RestoreProjectStyle)`                    |
 |  [03]   | `AfterTargets="Restore"`                      | After the assets and `.nuget.g.*` files | `$(ProjectAssetsFile)`                      |
 
-- `_GetRestoreProjectStyle` runs `CollectPackageReferences` in the build, and a hook there reads `$(MSBuildIsRestoring)` to tell the phases apart
+- `_GetRestoreProjectStyle` runs `CollectPackageReferences` in the build, a hook there reads `$(MSBuildIsRestoring)` to tell the phases apart
 
 ## [02]-[BUILD]
 
@@ -35,8 +35,8 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [15]   | `AfterTargets="Build"`                        | After `AfterBuild`                     | `$(TargetPath)`, `@(InnerOutput)` outer     |
 |  [16]   | `BeforeTargets="CoreClean"`                   | `Clean` and `Rebuild`, before deletion | `@(FileWrites)` of the prior build          |
 
-- `GetTargetPath`, `GetTargetFrameworks`, `GetNativeManifest`, and `GetCopyToOutputDirectoryItems` are the `ProjectReference` protocol targets a referencing project calls, and they run without `Build`
-- Design-time builds run `ResolveAssemblyReferences`, `CoreCompile`, and the protocol targets with `DesignTimeBuild=true`
+- `GetTargetPath`, `GetTargetFrameworks`, `GetNativeManifest`, and `GetCopyToOutputDirectoryItems` are the `ProjectReference` protocol targets a referencing project calls, they run without `Build`
+- A design-time build runs `ResolveAssemblyReferences`, `CoreCompile`, and the protocol targets with `DesignTimeBuild=true`
 
 ## [03]-[PUBLISH]
 
@@ -50,7 +50,7 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [04]   | `AfterTargets="CopyFilesToPublishDirectory"`        | After every copy to `$(PublishDir)` | Publish directory                          |
 |  [05]   | `AfterTargets="Publish"`                            | After `PublishItemsOutputGroup`     | `@(PublishItemsOutputGroupOutputs)`        |
 
-- `_ResolveCopyLocalAssetsForPublish` fills `_ResolvedCopyLocalPublishAssets` from `@(_ResolvedCopyLocalBuildAssets)` with `CopyToPublishDirectory` not `false`, and a native item added to `@(NativeCopyLocalItems)` publishes without a second hook
+- `_ResolveCopyLocalAssetsForPublish` fills `_ResolvedCopyLocalPublishAssets` from `@(_ResolvedCopyLocalBuildAssets)` with `CopyToPublishDirectory` not `false`, a native item added to `@(NativeCopyLocalItems)` publishes without a second hook
 
 ## [04]-[PACK]
 
@@ -62,4 +62,3 @@ Restore is a separate MSBuild invocation under `-restore`, with `MSBuildIsRestor
 |  [02]   | `AfterTargets="Pack"`            | After the `.nupkg` exists                          | `@(NuGetPackOutput)`, `$(PackageOutputPath)` |
 
 - `GenerateNuspec` runs once in the outer build of a multi-targeting project and calls the inner builds through the `MSBuild` task with `TargetFramework` as `AdditionalProperties`
-- Use `dotnet-msbuild-packaging` for the package layout

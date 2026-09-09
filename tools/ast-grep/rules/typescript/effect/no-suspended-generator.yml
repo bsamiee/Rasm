@@ -35,7 +35,7 @@ rule:
 constraints:
     M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM)$"}}}}
 fix: $GENERATOR
-message: '`$M.gen` already suspends the generator body until execution'
-note: Return the generator effect directly, and keep `$M.suspend` for a thunk that works or selects an effect before constructing it
+message: '`$M.suspend` wraps a `$M.gen` that already suspends its generator body until execution, the form of the generator effect alone'
+note: '`$M.suspend` defers a thunk that works or selects an effect before constructing it'
 labels:
     GENERATOR: {style: primary}

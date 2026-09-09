@@ -1,6 +1,6 @@
 # [FUNCTIONS]
 
-Covers functions as values, from the combinators to the flow from a request to its effects. Use `dotnet-coding` for the delegate, argument order, and dependency shape decisions.
+Covers functions as values, from the combinators to the flow from a request to its effects.
 
 ## [01]-[COMBINATORS]
 
@@ -31,7 +31,6 @@ internal static class Forks {
 ```
 
 `flip` from the Prelude swaps the parameters of a `Func<A, B, R>`, `flip(Subtract)` receives the right operand first, and an adapter of that kind returns a new function with a different signature while delegating to the original.
-- Use `dotnet-coding-languageext` for the observing and guarding steps (`Do`, `when`, `unless`) between transformations
 
 ## [02]-[FUNCTIONS_AS_DATA]
 

@@ -117,7 +117,6 @@ class PropertyError extends Data.Error<{
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const Property: Property = {
-    // Predicates that fail on the counterexample reject it, and predicates that hold on it are the defect the property must expose
     verifyCounterexample: (definition) =>
         definition.predicate(definition.counterexample.implementation, definition.counterexample.args).pipe(
             Effect.orElseSucceed(() => false),

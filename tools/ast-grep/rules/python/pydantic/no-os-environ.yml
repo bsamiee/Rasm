@@ -31,5 +31,4 @@ rule:
                     field: left
                     stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}
                 - inside: {kind: delete_statement}
-message: 'Reading the process environment bypasses typed settings'
-note: Declare the field on `BaseSettings`, load it at the application boundary, and pass the validated value to domain functions
+message: 'The read of the process environment bypasses typed settings, the form of a field on `BaseSettings` loaded at the application boundary and passed as a validated value'

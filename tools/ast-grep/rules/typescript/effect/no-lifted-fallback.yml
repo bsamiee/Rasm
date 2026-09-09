@@ -77,5 +77,5 @@ rewriters:
 transform:
     RECOVERED: rewrite($CALL, rewriters=[succeed-first, succeed-last, fail-first, fail-last])
 fix: $RECOVERED
-message: The alternative only lifts the value returned by its fallback
-note: State the fallback in one member, `Effect.orElseSucceed(effect, () => value)` or `Effect.orElseFail(effect, () => error)`, kept lazy
+message: 'The alternative only lifts the value its fallback returns, the form of `orElseSucceed(effect, () => value)` or `orElseFail(effect, () => error)`'
+note: 'Both members take the thunk and keep the fallback lazy'

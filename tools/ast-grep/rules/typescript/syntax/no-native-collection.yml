@@ -2,7 +2,6 @@
 id: no-native-collection
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**']
 rule:
     any:
         - kind: new_expression
@@ -23,5 +22,5 @@ rule:
                         has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$', matches: syntax-global-reference}
-message: 'The collection is built through the native `$NAME`'
-note: Build the collection through HashMap, HashSet, or Array.groupBy, or MutableHashMap and MutableHashSet where one scope owns the writes
+message: 'The collection is built through the native `$NAME`, the form of `HashMap`, `HashSet`, or `Array.groupBy`'
+note: '`MutableHashMap` and `MutableHashSet` serve a scope that owns every write'

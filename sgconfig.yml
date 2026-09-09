@@ -1,11 +1,8 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/project.json
 ruleDirs:
     - tools/ast-grep/rules
-    - tools/ast-grep/rewrites
 utilDirs:
     - tools/ast-grep/utils
-testConfigs:
-    - testDir: tools/ast-grep/tests
 languageGlobs:
     tsx: ["*.ts", "*.mts", "*.cts"]
     xml: ["NuGet.config"]
@@ -14,93 +11,3 @@ customLanguages:
         libraryPath: .cache/ast-grep/xml.so
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
         expandoChar: _
-        outlineRules: tools/ast-grep/outline/msbuild-target.yml
-languageInjections:
-    - hostLanguage: yaml
-      rule:
-        kind: block_mapping_pair, flow_pair
-        all:
-            - has: {field: key, regex: '^(run|"run"|''run'')$'}
-            - inside: {kind: 'block_sequence, flow_sequence', stopBy: {kind: 'block_mapping_pair, flow_pair'}}
-            - any:
-                - inside:
-                    matches: steps-of-job
-                    stopBy:
-                        not:
-                            any:
-                                - kind: block_mapping, flow_mapping, block_node, flow_node, block_sequence, flow_sequence, block_sequence_item
-                                - kind: block_mapping_pair, flow_pair
-                                  has: {field: key, regex: '^(parallel|"parallel"|''parallel'')$'}
-                - inside: {matches: steps-of-composite, stopBy: {kind: 'block_mapping_pair, flow_pair'}}
-            - has:
-                field: value
-                any:
-                    - {kind: flow_node, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]'}}}
-                    - {kind: block_node, has: {kind: block_scalar, pattern: $CONTENT, regex: '^\|'}}
-      injected: bash
-      utils:
-        document-mapping:
-            kind: document > :is(block_node, flow_node) > :is(block_mapping, flow_mapping)
-        steps-of-job:
-            kind: block_mapping_pair, flow_pair
-            has: {field: key, regex: '^(steps|"steps"|''steps'')$'}
-            inside:
-                kind: block_mapping, flow_mapping
-                inside:
-                    kind: block_node, flow_node
-                    inside:
-                        kind: block_mapping_pair, flow_pair
-                        inside:
-                            kind: block_mapping, flow_mapping
-                            inside:
-                                kind: block_node, flow_node
-                                inside:
-                                    kind: block_mapping_pair, flow_pair
-                                    has: {field: key, regex: '^(jobs|"jobs"|''jobs'')$'}
-                                    inside: {matches: document-mapping}
-        steps-of-composite:
-            kind: block_mapping_pair, flow_pair
-            has: {field: key, regex: '^(steps|"steps"|''steps'')$'}
-            inside:
-                kind: block_mapping, flow_mapping
-                has:
-                    kind: block_mapping_pair, flow_pair
-                    all:
-                        - has: {field: key, regex: '^(using|"using"|''using'')$'}
-                        - has: {field: value, regex: '^(composite|"composite"|''composite'')$'}
-                inside:
-                    kind: block_node, flow_node
-                    inside:
-                        kind: block_mapping_pair, flow_pair
-                        has: {field: key, regex: '^(runs|"runs"|''runs'')$'}
-                        inside: {matches: document-mapping}
-    - hostLanguage: json
-      rule:
-        kind: string_content
-        pattern: $CONTENT
-        inside:
-            kind: string
-            not: {has: {kind: escape_sequence}}
-            any:
-                - inside: {kind: pair, field: value, has: {field: key, regex: '^"command"$'}}
-                - inside: {kind: array, inside: {kind: pair, has: {field: key, regex: '^"commands"$'}}}
-            all:
-                - inside: {matches: nx-target-map, stopBy: end}
-                - not: {inside: {kind: pair, has: {field: key, regex: '^"(env|metadata)"$'}, stopBy: end}}
-      injected: bash
-      utils:
-        document-object:
-            kind: document > object
-        nx-target-map:
-            kind: object
-            inside:
-                kind: pair
-                has: {field: key, regex: '^"(targets|targetDefaults)"$'}
-                inside:
-                    any:
-                        - matches: document-object
-                        - kind: object
-                          inside:
-                            kind: pair
-                            has: {field: key, regex: '^"nx"$'}
-                            inside: {matches: document-object}

@@ -80,5 +80,4 @@ rewriters:
 transform:
     PREDICATE: rewrite($CALL, rewriters=[flag, flag-not, carrier-first, carrier-last])
 fix: $PREDICATE
-message: The match returns the result of an existing case predicate
-note: Read the case through the module's predicate, `Option.isSome` or `Effect.isSuccess`, and a boolean matched to itself is the boolean
+message: 'The match returns the result of an existing case predicate, the form of `Option.isSome`, `Effect.isSuccess`, or the boolean itself'

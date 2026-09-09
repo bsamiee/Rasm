@@ -4,5 +4,4 @@ language: python
 severity: error
 rule:
     matches: {python-module-member: {module: {regex: '^contextlib$'}, name: {regex: '^suppress$', pattern: $NAME}}}
-message: '`$NAME` hides the failure it catches'
-note: Return a `Result` from the call, or catch the exception in a boundary adapter that maps it to `Error(<failure>)`
+message: '`$NAME` hides the failure it catches, the form of a `Result` returned from the call or an `Error(<failure>)` mapped in a boundary adapter'

@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>Z3 theorem prover shared library staged per runtime identifier</Description>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    </PropertyGroup>
-</Project>

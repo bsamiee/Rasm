@@ -1,17 +1,13 @@
-// The git guard table over parsed argvs with the filesystem facts passed in, the one refusal of destructive actions
-
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { type Decision, deny, rewrite } from '../composition/decision.ts';
-import { INTERPRETER, parse, strip } from '../text/argv.ts';
+import { type Argv, type Command, INTERPRETER, strip } from '../text/argv.ts';
 import { basename } from '../text/path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-// The reason the arguments are destructive, undefined when they can run
-type Refinement = (args: readonly string[], existing: ReadonlySet<string>) => string | undefined;
+type Refinement = (args: Argv, existing: readonly string[]) => readonly string[];
 
-// A subcommand's row: any refuses every argument list, flags and starts the arguments they name, safe first arguments pass, and the refinement decides the rest
 interface GitRow {
     readonly why: string;
     readonly any?: true;
@@ -23,16 +19,12 @@ interface GitRow {
 
 interface Head {
     readonly key: Key;
-    readonly args: readonly string[];
+    readonly args: Argv;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const ADVICE = 'destructive git actions are refused, leave the tree as it is';
-const _KIB = 1024;
-const _MAX_COMMAND_KIB = 128;
-const _MAX_COMMAND = _MAX_COMMAND_KIB * _KIB;
-const _TOO_LONG = `command exceeds the ${_MAX_COMMAND_KIB} KiB check limit, split it`;
+const _ADVICE = 'destructive git actions are refused, leave the tree as it is';
 const _ALIAS = 'inline git alias can hide a refused subcommand';
 const _CTRL = /\p{Cc}+/gu;
 const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
@@ -43,40 +35,34 @@ const _REFINED: readonly string[] = ['reset', 'checkout'];
 
 const _isFlag = (word: string): boolean => word.startsWith('-');
 
-// Clustered short flags holding the letter, as -SW holds both
 const _short = (word: string, letter: string): boolean => word.startsWith('-') && !word.startsWith('--') && word.includes(letter);
 
-// Resets move HEAD off the branch tip unless they name an existing path or an index-only unstage
 const _reset: Refinement = (args, existing) => {
     const targets = args.filter((word) => !_isFlag(word));
     const [target] = targets;
-    if (target === undefined || args.includes('--') || targets.some((named) => existing.has(named))) {
-        return;
-    }
-    return `git reset ${target} moves HEAD and drops commits from the branch`;
+    return target === undefined || args.includes('--') || targets.some((named) => existing.includes(named))
+        ? []
+        : [`git reset ${target} moves HEAD and drops commits from the branch`];
 };
 
-// Restores touch the working tree unless they are index-only --staged
 const _restore: Refinement = (args) => {
     const staged = args.some((word) => word === '-S' || word === '--staged' || _short(word, 'S'));
     const worktree = args.some((word) => word === '-W' || word === '--worktree' || _short(word, 'W'));
-    return staged && !worktree ? undefined : 'git restore overwrites working-tree files';
+    return staged && !worktree ? [] : ['git restore overwrites working-tree files'];
 };
 
-// Checkouts overwrite working-tree files unless they only move a ref or create a branch
 const _checkout: Refinement = (args, existing) => {
     const targets = args.filter((word) => word === '-' || !_isFlag(word));
     const first = targets[0] ?? '';
     if (!args.includes('--') && args.some((word) => _CHECKOUT_CREATE.includes(word))) {
-        return;
+        return [];
     }
     if (args.includes('--') || targets.length > 1 || first === '.' || (targets.length > 0 && first.startsWith(':'))) {
-        return 'git checkout with a pathspec overwrites working-tree files';
+        return ['git checkout with a pathspec overwrites working-tree files'];
     }
-    if (targets.length === 0 || (targets.length === 1 && first === '-')) {
-        return;
-    }
-    return existing.has(first) ? `git checkout ${first} names an existing path and would overwrite it` : undefined;
+    return targets.length === 1 && first !== '-' && existing.includes(first)
+        ? [`git checkout ${first} names an existing path and would overwrite it`]
+        : [];
 };
 
 // --- [POLICY] --------------------------------------------------------------------------
@@ -110,73 +96,61 @@ const _rows: Readonly<Record<Key, GitRow>> = GIT;
 
 const _isKey = (candidate: string): candidate is Key => Object.hasOwn(GIT, candidate);
 
-// The index past the global options, consuming the operand of each value-taking one
-const _skip = (argv: readonly string[], index: number): number => {
+const _skip = (argv: Argv, index: number): number => {
     const word = argv[index];
     return word !== undefined && _isFlag(word) ? _skip(argv, index + (_GIT_VALUE_OPTS.includes(word) ? 2 : 1)) : index;
 };
 
-// The two-word key first, then the one-word key
-const _lookup = (words: readonly string[]): Head | undefined => {
-    const pair = words.slice(0, 2).join(' ');
-    const single = words[0] ?? '';
-    if (_isKey(pair)) {
-        return { key: pair, args: words.slice(2) };
-    }
-    return _isKey(single) ? { key: single, args: words.slice(1) } : undefined;
-};
+const _heads = (words: Argv): readonly Head[] =>
+    [words.slice(0, 2).join(' '), words[0] ?? '']
+        .filter(_isKey)
+        .slice(0, 1)
+        .map((key): Head => ({ key, args: words.slice(key.split(' ').length) }));
 
-// The first flag or prefix hit among the arguments, '' for a row that refuses any argument list
-const _hit = (row: GitRow, args: readonly string[]): string | undefined =>
-    row.any === true ? '' : args.find((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true);
+const _hits = (row: GitRow, args: Argv): readonly string[] =>
+    args.filter((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true).slice(0, 1);
 
-// Safe first arguments allow, a flag or prefix hit refuses with the row's why, and the refinement decides the rest
-const _verdict = (head: Head, existing: ReadonlySet<string>): string | undefined => {
+const _verdict = (head: Head, existing: readonly string[]): readonly string[] => {
     const row = _rows[head.key];
     if (row.safe?.includes(head.args[0] ?? '') === true) {
-        return undefined;
+        return [];
     }
-    const hit = _hit(row, head.args);
-    if (hit === undefined) {
-        return row.refine?.(head.args, existing);
+    if (row.any === true) {
+        return [head.key === INTERPRETER ? row.why : `git ${head.key} ${row.why}`];
     }
-    return head.key === INTERPRETER ? row.why : ['git', head.key, hit, row.why].filter((word) => word !== '').join(' ');
+    const hits = _hits(row, head.args);
+    return hits.length > 0 ? hits.map((hit) => `git ${head.key} ${hit} ${row.why}`) : (row.refine?.(head.args, existing) ?? []);
 };
 
-// The reason a git argv is destructive under the table, undefined when it can run
-const _reason = (argv: readonly string[], existing: ReadonlySet<string>): string | undefined => {
+const _reason = (argv: Argv, existing: readonly string[]): readonly string[] => {
     const index = _skip(argv, 1);
-    if (argv.slice(1, index).some((word) => word.startsWith('alias.'))) {
-        return _ALIAS;
-    }
-    const head = _lookup(argv.slice(index));
-    return head === undefined ? undefined : _verdict(head, existing);
+    return argv.slice(1, index).some((word) => word.startsWith('alias.'))
+        ? [_ALIAS]
+        : _heads(argv.slice(index)).flatMap((head) => _verdict(head, existing));
 };
 
-// Every git argv of a command, from an argv's first word or the word after a -- with basename git
-const _heads = (command: string): readonly (readonly string[])[] =>
-    parse(['git'])(command)
-        .map((argv) => strip(argv).map((word) => word.text))
+const _gits = (commands: readonly Command[]): readonly Argv[] =>
+    commands
+        .map((command) => strip(command.words))
         .flatMap((words) =>
             words.flatMap((word, index) => ((index === 0 || words[index - 1] === '--') && basename(word) === 'git' ? [words.slice(index)] : [])),
         );
 
-// The paths the reset and checkout refinements can test, for the hook body's $.fs.exists calls
-const gitPaths = (command: string): readonly string[] =>
-    _heads(command).flatMap((argv) => {
-        const head = _lookup(argv.slice(_skip(argv, 1)));
-        return head !== undefined && _REFINED.includes(head.key) ? head.args.filter((word) => !_isFlag(word)) : [];
-    });
+const gitPaths = (commands: readonly Command[]): readonly string[] =>
+    _gits(commands).flatMap((argv) =>
+        _heads(argv.slice(_skip(argv, 1))).flatMap((head) => (_REFINED.includes(head.key) ? head.args.filter((word) => !_isFlag(word)) : [])),
+    );
 
-// argv.ts has no unparsed state, the length cap is the one fail-closed arm
 const gitGuard =
-    (existing: ReadonlySet<string>): (<E extends { readonly command: string }>(e: E) => Decision<E>) =>
-    <E extends { readonly command: string }>(e: E): Decision<E> => {
-        const reason = e.command.length > _MAX_COMMAND ? _TOO_LONG : _heads(e.command).flatMap((argv) => _reason(argv, existing) ?? [])[0];
-        return reason === undefined ? rewrite(e) : deny(`${reason.replace(_CTRL, ' ')}, ${ADVICE}`);
+    (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) =>
+    <E>(e: E): Decision<E> => {
+        const reasons = _gits(commands)
+            .flatMap((argv) => _reason(argv, existing))
+            .map((reason) => reason.replace(_CTRL, ' '));
+        const distinct = reasons.filter((reason, index) => reasons.indexOf(reason) === index);
+        return distinct.length === 0 ? rewrite(e) : deny(`${distinct.join(', ')}, ${_ADVICE}`);
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { GitRow, Refinement };
-export { ADVICE, gitGuard, gitPaths };
+export { gitGuard, gitPaths };

@@ -19,5 +19,5 @@ transform:
             by: '${1}${2};${4}${3}'
     ATTACHED: {replace: {source: $APPENDED, replace: '@@([^@]*)@@', by: ' DependsOnTargets="${1}"'}}
 fix: $ATTACHED
-message: CallTarget runs the target in a new scope, its properties and items reach the caller after the calling target finishes
-note: Name the dependency in DependsOnTargets
+message: 'CallTarget runs the target in a new scope, the form of the dependency named in DependsOnTargets'
+note: 'Properties and items of the called target reach the caller after the calling target finishes'

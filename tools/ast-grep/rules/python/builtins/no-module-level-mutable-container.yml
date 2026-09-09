@@ -24,5 +24,4 @@ rule:
         - inside: {kind: expression_statement, not: {inside: {stopBy: end, any: [{matches: python-function-boundary}, {kind: class_definition}]}}}
 constraints:
     NAME: {not: {regex: '^__all__$'}}
-message: 'Module-level `$NAME` holds a mutable container, ambient state every function of the module can write'
-note: Bind an immutable value, `frozendict`, a tuple, or `frozenset`, and hold changing state in a local, a `pytest.StashKey`, or an argument
+message: 'Module-level `$NAME` holds a mutable container every function of the module can write, the form of an immutable value, a tuple, `frozenset`, or `frozendict`, with changing state in a local, an argument, or a `pytest.StashKey`'

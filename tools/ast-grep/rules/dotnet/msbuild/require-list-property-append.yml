@@ -22,5 +22,4 @@ transform:
     APPENDED: {replace: {source: $PROPERTY, replace: '^(<([A-Za-z]+)(?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|''[^'']*''))*\s*>\s*)', by: "$1$$($2);"}}
     FILLED: {replace: {source: $APPENDED, replace: '^<([A-Za-z]+)((?:\s+[^\s=/>]+\s*=\s*(?:"[^"]*"|''[^'']*''))*)\s*/>$', by: "<$1$2>$$($1);</$1>"}}
 fix: $FILLED
-message: The list property replaces earlier entries instead of appending to its value
-note: Start the value with $(Name); and keep the entries after it
+message: 'The list property replaces earlier entries, the form of $(Name); at the start of the value'

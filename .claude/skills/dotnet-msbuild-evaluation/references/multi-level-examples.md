@@ -1,6 +1,6 @@
 # [MULTI_LEVEL_EXAMPLES]-[SHARED_BUILD_FILES]
 
-The files serve a repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, and each project file keeps only what differs.
+A repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, each project file keeping what differs.
 
 ## [01]-[LAYOUT]
 
@@ -20,7 +20,6 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
 
 ```xml
 <Project>
-
   <PropertyGroup>
     <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
     <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts'))</ArtifactsPath>
@@ -32,17 +31,16 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
-
 </Project>
 ```
 
 ## [03]-[NESTED_DIRECTORY_BUILD_PROPS]
 
-`tests/Directory.Build.props`:
+The private property keeps nested quotes out of the condition.
 
 ```xml
+<!-- tests/Directory.Build.props -->
 <Project>
-
   <PropertyGroup>
     <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
   </PropertyGroup>
@@ -53,7 +51,6 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
     <IsPackable>false</IsPackable>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
-
 </Project>
 ```
 
@@ -63,7 +60,6 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
 
 ```xml
 <Project>
-
   <PropertyGroup Condition="'$(OutputType)' == 'Exe'">
     <SelfContained>false</SelfContained>
   </PropertyGroup>
@@ -72,7 +68,6 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
     <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != ''" />
     <Compile Update="Generated/*.cs" AutoGen="true" />
   </ItemGroup>
-
 </Project>
 ```
 
@@ -83,24 +78,20 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
 ```xml
 <!-- libs/Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
     <Using Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
-
 </Project>
 
 <!-- tests/Library.Tests/Library.Tests.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>enable</Nullable>
@@ -109,34 +100,26 @@ The files serve a repository with a root `Directory.Build.props`, a nested `test
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
-
 </Project>
 ```
 
-[AFTER]: the root files hold the shared settings, `Directory.Packages.props` holds the version, and each project keeps only what differs
+[AFTER]: the root files hold the shared settings, `Directory.Packages.props` holds the version
 
 ```xml
 <!-- libs/Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
-
   <ItemGroup>
     <PackageReference Include="Microsoft.Extensions.Logging" />
   </ItemGroup>
-
 </Project>
 
 <!-- tests/Library.Tests/Library.Tests.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
   </PropertyGroup>
-
 </Project>
 ```
-
-Use `dotnet-msbuild-packaging` for `Directory.Packages.props` and the nested package file rule.

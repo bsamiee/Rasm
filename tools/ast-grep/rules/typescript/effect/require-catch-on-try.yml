@@ -17,5 +17,5 @@ rule:
     all:
         - has: {field: arguments, has: {stopBy: {not: {kind: parenthesized_expression}}, kind: 'arrow_function, function_expression'}}
         - has: {field: function, pattern: $TRY, matches: thunk-overload}
-message: '`$TRY` runs without an explicit error mapping'
-note: 'Pass the options object, `Effect.try({ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) })`, with a matchable error'
+message: '`$TRY` runs without an error mapping, the form of the options object `{ try: () => parse(raw), catch: (cause) => new ParseError({ cause }) }`'
+note: 'The thunk overload fails with `UnknownException`, the `catch` member names a matchable error'

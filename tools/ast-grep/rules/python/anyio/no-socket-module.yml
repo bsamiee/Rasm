@@ -13,5 +13,4 @@ rule:
         any:
             - matches: {python-module-member: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
             - matches: {python-imported-name: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
-message: '`$CALL` opens a socket or resolves a name outside anyio'
-note: Connect through `anyio.connect_tcp`, serve through `anyio.create_tcp_listener`, and resolve through `await anyio.getaddrinfo`
+message: '`$CALL` opens a socket or resolves a name outside anyio, the form of `anyio.connect_tcp`, `anyio.create_tcp_listener`, or `await anyio.getaddrinfo`'

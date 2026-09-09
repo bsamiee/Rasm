@@ -5,18 +5,19 @@ description: "Use when a task needs live web retrieval, discovery, page reading,
 
 # [SEARCH_WEB]
 
-Exa ranks by meaning, one sentence describing the ideal page returns the owning issue, spec section, vendor page, or changelog entry first. `tvly search` ranks keywords with a score per hit, `tvly extract` reranks chunks to a question over up to twenty URLs, `tvly crawl` reads the pages a root links, `tvly research` and `agent_run` write a cited report. Use `search-code` for a dependency's API shape, usage, repository, and releases. Use the `github` MCP for a known repository's issues, pull requests, and runs.
+Exa ranks by meaning, one sentence describing the ideal page returns the owning issue, spec section, vendor page, or changelog entry first. `tvly search` ranks keywords with a score per hit, `tvly extract` reranks chunks to a question over up to twenty URLs, `tvly crawl` reads the pages a root links, `agent_run` writes a cited report.
 
 - Proof: a claim holds when a vendor page, changelog, spec, or repository states it in returned text, a score, answer, summary, or report is a lead
 - Output: every `tvly` call takes `--json`, stdout holds the response alone, `-o <file>` and `--output-dir <dir>` write to disk with one stderr notice
-- Disk: `-o` files and `<dir>` sit under the session scratchpad, the step that ends a chain removes the directory it made
+- Disk: `<dir>` is one directory under the session scratchpad holding every file a line writes, removed when the reading ends
 - Exit: a failing `tvly` call under `--json` prints `{"error": "<cause>"}` on stdout, exits nonzero, and writes no file
 - Cache: a repeated `tvly` query text returns the cached response with `response_time` 0, a comparison takes two query texts
 - Size: `highlightsMaxCharacters` bounds the highlights per result, `textMaxCharacters: 1` withholds the page text a highlight already quotes
 - Size: `maxCharacters` per URL bounds `web_fetch_exa`, a batch multiplies it
 - Versions: every domain filter matches subdomains, a versioned docs site returns each version host and the URL names it
-- Freshness: Exa serves cached text, `maxAgeHours: 0` reads the live page within `livecrawlTimeout` milliseconds
+- Freshness: Exa search, `web_fetch_exa`, and `tvly extract` serve cached text, `maxAgeHours: 0` reads live in search, `curl` reads the live page
 - Code: `web_fetch_exa` and a page's `.md` URL keep code block contents, `tvly` raw content and chunks duplicate or drop them on some sites
+- PDF: `web_fetch_exa` reads from the cover under `maxCharacters`, `--chunks-per-source` bounds `tvly extract` on some documents alone
 
 Numbered lines chain, each consuming the line before, unnumbered lines are alternatives, one per case its comment names.
 
@@ -28,38 +29,55 @@ One query shape per question shape, an Exa sentence names the page the answer si
 # [EXA] Meaning ranked, one call per question shape
 # Symptom with no known cause, vendor error page or owning issue ranks first
 mcp__exa__web_search_advanced_exa {"query": "explanation of why <symptom> happens and how to <fix>", "enableHighlights": true, "highlightsMaxCharacters": 600, "textMaxCharacters": 1, "numResults": 5}
+
 # Recency in the sentence, vendor release post ranks first
 mcp__exa__web_search_advanced_exa {"query": "<product> release notes for a version released in the last month", "enableHighlights": true, "highlightsMaxCharacters": 600, "textMaxCharacters": 1, "numResults": 5}
+
 # Site named in the sentence, vendor page ranks first, query strings duplicate a page
 mcp__exa__web_search_advanced_exa {"query": "<vendor site> page on <topic>", "enableHighlights": true, "highlightsMaxCharacters": 600, "textMaxCharacters": 1, "numResults": 5}
+
 # Docs of one package rank first, no result using both means no recipe exists
 mcp__exa__web_search_advanced_exa {"query": "<language> example composing <package> with <package> through <member>", "enableHighlights": true, "highlightsMaxCharacters": 800, "textMaxCharacters": 1, "numResults": 5}
+
 # Advisory text with affected and patched versions, the package manager's audit decides whether one applies
 mcp__exa__web_search_advanced_exa {"query": "GitHub security advisory for <package> stating affected and patched versions", "enableHighlights": true, "highlightsMaxCharacters": 600, "textMaxCharacters": 1, "numResults": 3}
-# Claim check over pages holding the literal, the highlight states the claim or the claim falls
-mcp__exa__web_search_advanced_exa {"query": "<vendor> page stating that <claim>", "includeText": ["<literal>"], "enableHighlights": true, "highlightsMaxCharacters": 800, "textMaxCharacters": 1, "numResults": 3}
+
+# Claim check, candidate pages by sentence, the literal on page text proves the claim
+mcp__exa__web_search_advanced_exa {"query": "<vendor> page stating that <claim>", "enableHighlights": true, "highlightsMaxCharacters": 800, "textMaxCharacters": 1, "numResults": 3}
+
+# Spec or paper by cover title, PDF URLs rank first with mirror hosts among them, highlightsQuery quotes the contents line with its printed page
+mcp__exa__web_search_advanced_exa {"query": "<cover title>", "category": "pdf", "enableHighlights": true, "highlightsQuery": "<section or table title>", "highlightsMaxCharacters": 600, "textMaxCharacters": 1, "numResults": 5}
+
 # What one site published in a window, publishedDate per result
 mcp__exa__web_search_advanced_exa {"query": "<topic>", "includeDomains": ["<domain>"], "excludeDomains": ["<version host>"], "startPublishedDate": "<YYYY-MM-DD>", "endPublishedDate": "<YYYY-MM-DD>", "enableHighlights": true, "highlightsMaxCharacters": 1500, "textMaxCharacters": 1, "numResults": 5}
+
 # Dated press coverage of a release, publishedDate and author per result, the vendor post is the proof
 mcp__exa__web_search_advanced_exa {"query": "<product> release", "category": "news", "startPublishedDate": "<YYYY-MM-DD>", "textMaxCharacters": 300, "numResults": 5}
+
 # Repository candidates, a repository URL's text holds stars, license, and created date, issue and tree URLs mix in
 mcp__exa__web_search_advanced_exa {"query": "<capability> library, compared against <incumbent>", "category": "github", "textMaxCharacters": 300, "numResults": 6}
+
+# [CLAIM] Page answering curl with a 403 (crates.io), literal in the reader's markdown, a page serving every reader a shell answers through its API
+mcp__exa__web_fetch_exa {"urls": ["<url>"], "maxCharacters": 20000}
 ```
 
 ```bash
 # [TAVILY] Keyword ranked, one call per question shape
 # Scored hits for a symptom, scores sit close and the URL set decides
 tvly search "<keywords>" --depth advanced --max-results 8 --json | jq -r '.results[] | "\(.score) \(.url)"'
-# Domain allow list with version hosts removed
+# Domain allow list with version hosts removed, the hit set differs from Exa's includeDomains
 tvly search "<keywords>" --include-domains <domain> --exclude-domains <version host> --max-results 5 --json | jq -r '.results[].url'
 # URL union of both engines without repeats, chunks reranked to the question in one call, FAILED names a URL web_fetch_exa reads
 tvly extract $({ printf '%s\n' <exa-url> <exa-url>; tvly search "<keywords>" --max-results 5 --json | jq -r '.results[].url'; } | sort -u) --query "<question>" --chunks-per-source 2 --json | jq -r '(.results[] | "\(.url)\n\(.raw_content)"), (.failed_results[] | "FAILED \(.url)")'
 
 # [TAVILY] Whole pages on disk
 # 1. Hits with whole pages on disk, hit URLs into the window
-tvly search "<keywords>" --include-raw-content markdown --max-results 3 --json -o hits.json; jq -r '.results[].url' hits.json
+tvly search "<keywords>" --include-raw-content markdown --max-results 3 --json -o <dir>/hits.json; jq -r '.results[].url' <dir>/hits.json
 # 2. Cited lines of one hit into the window
-jq -r '.results[] | select(.url == "<url>") | .raw_content' hits.json | rg -n -C2 '<literal>'
+jq -r '.results[] | select(.url == "<url>") | .raw_content' <dir>/hits.json | rg -n -C2 '<literal>'
+
+# [CLAIM] Cited lines holding the literal on the live page, last line is HTTP status and bytes, a 403 or script shell shows there
+curl -sL -w '\n%{http_code} %{size_download}\n' <url> | rg -n -C2 '<literal>|^[0-9]{3} [0-9]+$'
 ```
 
 ## [02]-[READING]
@@ -68,8 +86,11 @@ From known URLs or a site root to the text a claim needs, a site section through
 
 ```text
 # [EXA] Whole pages as markdown, code fences intact, a GitHub issue with state and labels
-# Read when a chunk stops short, CRAWL_LIVECRAWL_TIMEOUT on one URL of a batch clears on a repeat
+# Read when a chunk stops short
 mcp__exa__web_fetch_exa {"urls": ["<url>", "<url>"], "maxCharacters": 20000}
+
+# [PDF] Rendered pages of a document on disk, tables, figures, and scanned pages as printed, up to twenty pages per call
+Read {"file_path": "<dir>/<doc>.pdf", "pages": "<page>-<page>"}
 ```
 
 ```bash
@@ -77,68 +98,98 @@ mcp__exa__web_fetch_exa {"urls": ["<url>", "<url>"], "maxCharacters": 20000}
 # Chunks reranked to a question, [...] between chunks, FAILED names a URL web_fetch_exa reads
 tvly extract <url> <url> --query "<question>" --chunks-per-source 3 --json | jq -r '(.results[] | "\(.url)\n\(.raw_content)"), (.failed_results[] | "FAILED \(.url)")'
 # Whole page on disk, cited lines into the window, FAILED names a failed fetch
-tvly extract <url> --json -o page.json; jq -r '.results[0].raw_content // "FAILED \(.failed_results[0].url)"' page.json | rg -n -C2 '<literal>|^FAILED'
+tvly extract <url> --json -o <dir>/page.json; jq -r '.results[0].raw_content // "FAILED \(.failed_results[0].url)"' <dir>/page.json | rg -n -C2 '<literal>|^FAILED'
 
-# [SECTION] Docs root serving llms.txt, the root sits below the host on some sites (docs.astral.sh/uv)
-# 1. Page URLs of a section from the llms.txt links, a .md URL is the page's markdown with code intact
-curl -sf <docs-root>/llms.txt | rg -o '\((https?://[^)]*<section>[^)]*)\)' -r '$1'
-# 2. Section on disk in one call, the brace list holds the page names step 1 listed, cited lines through rg
-curl -sfZ --create-dirs --output-dir <dir> -o '#1.md' '<docs-root>/<section>/{<page>,<page>}/index.md'; rg -n -C2 '<literal>' <dir>
-# 3. Section removed when reading ends
+# [PDF] Document on disk once, the PDF page a heading or table sits on, Read at that page
+# 1. Document on disk from any host, a release asset served as application/octet-stream included
+curl -sfL -o <dir>/<doc>.pdf <pdf-url>
+# 2. PDF pages holding a heading, table title, or sentence, the contents page first, an empty result names a scanned document
+uv run --frozen python -c "import sys, pymupdf; print(*(i + 1 for i, p in enumerate(pymupdf.open(sys.argv[1])) if sys.argv[2] in p.get_text()))" <dir>/<doc>.pdf '<literal>'
+# 3. Rows of one page's tables as text with cells separated by |, Read at the page shows the printed table
+PYMUPDF_SUGGEST_LAYOUT_ANALYZER=0 uv run --frozen python -c "import sys, pymupdf; [print(' | '.join(map(str, r))) for t in pymupdf.open(sys.argv[1])[int(sys.argv[2]) - 1].find_tables().tables for r in t.extract()]" <dir>/<doc>.pdf <page>
+# 4. Document removed when reading ends
 rm -rf <dir>
 
-# [SECTION] Root without llms.txt, external links stay out, pages matching the goal, length 0 on every page means relative links resolved wrong
-tvly crawl <root> --max-depth 1 --limit 20 --no-external --instructions "<goal>" --chunks-per-source 2 --json | jq -r '.results[] | "\(.url) \(.raw_content | length)\n\(.raw_content)"'
+# [PDF] Outline entries of a document on disk with their PDF page, printed page numbers differ from PDF pages
+uv run --frozen python -c "import sys, pymupdf; print(*(f'{p} {t}' for _, t, p in pymupdf.open(sys.argv[1]).get_toc()), sep='\n')" <dir>/<doc>.pdf | rg '<heading>'
 
-# [SECTION] Root without llms.txt, section read more than once
-# 1. One .md per page on disk, cited lines through rg
-tvly crawl <root> --max-depth 1 --limit 20 --no-external --select-paths "<path regex>" --output-dir <dir> --json; rg -n -C2 '<literal>' <dir>
+# [SECTION] Docs root serving llms.txt with .md links, the root sits below the host on some sites (docs.astral.sh/uv)
+# 1. Section on disk from the llms.txt links, one file per page under its URL path, `no URL specified` means zero links matched
+curl -sf <docs-root>/llms.txt | rg -o '\((https?://[^)]*<section>[^)]*\.md)\)' -r '$1' | sd '^(https?://(.*))$' 'url = "$1"\noutput = "$2"' | curl -sfZ --create-dirs --output-dir <dir> -K -; rg -n -C2 '<literal>' <dir>
+# 2. Section removed when reading ends
+rm -rf <dir>
+
+# [SECTION] Docs root serving llms.txt with .html links (mise.jdx.dev), section read more than once
+# 1. Section pages from the llms.txt links, one JSON on disk from up to twenty URLs, cited lines through rg
+tvly extract $(curl -sf <docs-root>/llms.txt | rg -o '\((https?://[^)]*<section>[^)]*)\)' -r '$1') --json -o <dir>/section.json; jq -r '.results[] | "\(.url)\n\(.raw_content)"' <dir>/section.json | rg -n -C2 '<literal>'
+# 2. Section removed when reading ends
+rm -rf <dir>
+
+# [SECTION] Root at the host without llms.txt, external links stay out, pages matching the goal two links deep
+tvly crawl <root> --max-depth 2 --limit 20 --no-external --instructions "<goal>" --chunks-per-source 2 --json | jq -r '.results[] | "\(.url)\n\(.raw_content)"'
+
+# [SECTION] Root at the host without llms.txt, section read more than once
+# 1. Section pages two links deep through map, one JSON on disk from up to twenty URLs, cited lines through rg
+tvly extract $(tvly map <root> --max-depth 2 --limit 60 --no-external --json | jq -r '.results[]' | rg '<section>') --json -o <dir>/section.json; jq -r '.results[] | "\(.url)\n\(.raw_content)"' <dir>/section.json | rg -n -C2 '<literal>'
 # 2. Section removed when reading ends
 rm -rf <dir>
 ```
 
 ## [03]-[RESEARCH]
 
-A question spanning products or months takes a report, a question one search answers takes none. One program in one session, from a written question to a brief the next agents act on without repeating the reading:
+Questions naming more than one product, a span longer than one release cycle, or a state held across repositories take a report, a question one page answers takes one read. One program over any topic, from a written scope to a brief the next agent acts on without repeating the reading:
 
-1. Scope: write the question, the known facts, the decision the brief serves, and the output form, dates absolute
-2. Start: run the report detached, the id returns at once and the run continues on the server
-3. Read: discovery over each facet and one extract over the URL union while the report runs, a facet one vendor's docs answer reads as a site section
-4. Collect: read the report when the reading ends, status without holding the call, poll holding it
-5. Verify: a claim enters the brief after the claim check finds its literal on a vendor page, an API member confirms through `search-code`
-6. Brief: question, decision with reasons, facts one per line with a source URL, gaps and where they were sought
+1. Scope: question, known facts with dates, decision, and output form into `<dir>/scope.md`, the Exa run starts detached at `high` on it
+2. Understand: one Exa sentence per unknown (what it is, owner, primary sources, last change, open questions), a result's wording phrases the next
+3. Deepen: `tvly extract --query` over the URL union names the page, `web_fetch_exa` reads it whole, `github` MCP lists issues and pull requests
+4. Prove: `[PROVE]` prints each run row beside its registry, release, issue, or live page value, a row with no source value is a gap
+5. Brief: question, decision with reasons, dated facts one per line with the primary source URL, gaps with where sought, then `<dir>` removed
 
-`tvly research` returns `content` with numbered citations and `sources[]`. `agent_run` takes `query` or `runId`, never both, and returns `output.text` with inline links, `output.structured` under a schema, and `output.grounding` with citations per field:
+Versions prove at their registry, releases in the body at the tag, defects in their issue thread, counts or defaults on the live page, specs in their PDF. The run collects when the reading ends, its text names facets the reading missed, each one more read.
+
+`agent_run` takes `query` or `runId`, never both, and returns `output.text` with inline links, `output.structured` under a schema, `output.grounding` with citations and a confidence per field, and `costDollars`. A report row holds `pkg`, `registry`, `version`, or `repo`, `number`, `state`, or `repo`, `tag`, `date`, or `url`, `literal`, text and confidence are leads:
 
 ```bash
-# [TAVILY] Report on the server, request_id ties the calls
-# 1. Detached start, request_id at once
-tvly research run "<goal, known facts, output form>" --model mini --no-wait --json | jq -r .request_id
-# 2. in_progress while running, the whole report once complete, no wait
-tvly research status <request_id> --json
-# 3. Holds until complete, report on disk
-tvly research poll <request_id> --json -o report.json
+# [EXA] Run on the server, id ties its calls, a fixed effort fixes the price
+# 1. Detached start while the facets read, run.json holds query, effort, systemPrompt, input, and outputSchema
+curl -s https://api.exa.ai/agent/runs -H "Authorization: Bearer $EXA_API_KEY" -H "content-type: application/json" -d @<dir>/run.json | jq -r .id
+# 2. Status without holding a call into run-out.json, text, structured, grounding, and cost once completed
+curl -s https://api.exa.ai/agent/runs/<id> -H "Authorization: Bearer $EXA_API_KEY" -o <dir>/run-out.json; jq '{status, text: .output.text, structured: .output.structured, grounding: .output.grounding, cost: .costDollars.total}' <dir>/run-out.json
+# REST search type adds deep-lite, deep, and deep-reasoning with systemPrompt, the MCP search type enum is auto, fast, and instant
 
-# [TAVILY] Structured report, schema.json is {"required": [...], "properties": {...}} with a description per property, content holds the object
-tvly research run "<goal>" --model mini --output-schema <schema.json> --json | jq .content
+# [GITHUB] Release holding a merged pull request, its number in the body of a tag dated after the merge, tags from `git ls-remote --tags`
+gh api repos/<owner>/<repo>/releases/tags/<tag> --jq '"\(.published_at) \(.body | test("<pr>"))"'
 
-# [EXA] Run on the server, id ties the calls, REST default effort is auto
-# 1. Detached start, run.json holds query, effort, systemPrompt, input.data, and outputSchema
-curl -s https://api.exa.ai/agent/runs -H "Authorization: Bearer $EXA_API_KEY" -H "content-type: application/json" -d @<run.json> | jq -r .id
-# 2. Poll without holding a call, running or completed in the envelope agent_run returns
-curl -s https://api.exa.ai/agent/runs/<id> -H "Authorization: Bearer $EXA_API_KEY" | jq '.status, .output.structured, .output.grounding'
+# [PROVE] Rows of run-out.json beside their owning source, one line per row as row, run value, source value
+# [TYPESCRIPT] Version rows at npm
+jq -r '.output.structured.rows[] | select(.registry == "npm") | "\(.pkg) \(.version)"' <dir>/run-out.json | while read -r p v; do echo "$p $v $(pnpm view "$p" version)"; done
+# [PYTHON] Version rows at PyPI
+jq -r '.output.structured.rows[] | select(.registry == "pypi") | "\(.pkg) \(.version)"' <dir>/run-out.json | while read -r p v; do echo "$p $v $(curl -s "https://pypi.org/pypi/$p/json" | jq -r .info.version)"; done
+# [DOTNET] Version rows at NuGet, the flat container index ends at the newest version, id lowercase
+jq -r '.output.structured.rows[] | select(.registry == "nuget") | "\(.pkg | ascii_downcase) \(.version)"' <dir>/run-out.json | while read -r p v; do echo "$p $v $(curl -s "https://api.nuget.org/v3-flatcontainer/$p/index.json" | jq -r '.versions[-1]')"; done
+# [RUST] Version rows at crates.io, the API takes a User-Agent
+jq -r '.output.structured.rows[] | select(.registry == "crates") | "\(.pkg) \(.version)"' <dir>/run-out.json | while read -r p v; do echo "$p $v $(curl -s -A '<agent>' "https://crates.io/api/v1/crates/$p" | jq -r .crate.max_version)"; done
+# Count or default rows on the live page, each literal as its page spells it, then status and bytes
+jq -r '.output.structured.rows[] | select(.literal) | "\(.url) \(.literal)"' <dir>/run-out.json | while read -r u l; do t=$(curl -sL -w '\n%{http_code} %{size_download}\n' "$u"); echo "$u $l | $(printf '%s' "$t" | rg -oF -e "$l" | head -1) $(printf '%s' "$t" | tail -1)"; done
+# Issue and pull request rows through gh api, state with the closing or last update date
+jq -r '.output.structured.rows[] | select(.number) | "\(.repo) \(.number) \(.state)"' <dir>/run-out.json | while read -r r n s; do echo "$r#$n $s $(gh api "repos/$r/issues/$n" --jq '"\(.state) \(.closed_at // .updated_at | .[:10])"')"; done
+# Release rows through gh api, the publish date at the tag
+jq -r '.output.structured.rows[] | select(.tag) | "\(.repo) \(.tag) \(.date)"' <dir>/run-out.json | while read -r r t d; do echo "$r@$t $d $(gh api "repos/$r/releases/tags/$t" --jq '.published_at[:10]')"; done
 ```
 
 ```text
-# [EXA] One call per run shape, MCP default effort is low
-# Cross-product report held in the call, a run past the call window returns status running and its id
-mcp__exa__agent_run {"query": "<goal, known facts, output form>", "systemPrompt": "Prefer official release notes and changelogs, one line per change with version and date"}
-# Row enrichment, known rows in input.data, bounded list, nullable fields outside required, output.structured.rows with grounding per field
-mcp__exa__agent_run {"query": "<fields to add per row, sources to prefer>", "input": {"data": [{"<key>": "<value>"}]}, "outputSchema": {"type": "object", "required": ["rows"], "properties": {"rows": {"type": "array", "maxItems": 20, "items": {"type": "object", "required": ["<key>", "verdict"], "properties": {"<key>": {"type": "string"}, "verdict": {"type": "string", "enum": ["<case>", "cannot_verify"]}, "evidence_url": {"type": ["string", "null"], "format": "uri"}}}}}}}
-# New run over a finished run's rows, a date or version the prior run got wrong repeats or shifts, verify before the brief
-mcp__exa__agent_run {"query": "<follow-up>", "previousRunId": "<id>", "outputSchema": {"type": "object", "required": ["rows"], "properties": {"rows": {"type": "array", "items": {"type": "object", "properties": {"<key>": {"type": "string"}}}}}}}
+# [EXA] One call per run shape, effort passed on every call, the MCP default differs
+# Cross-facet report held in the call with one row per fact, a run past the call window returns status running and its id
+mcp__exa__agent_run {"query": "<scope>", "effort": "high", "systemPrompt": "Prefer registry pages, releases, changelogs, specs, and issues, state every version with its date, say unknown when no page states a fact, one row per fact, a literal quoted as the page spells it", "outputSchema": {"type": "object", "required": ["rows"], "properties": {"rows": {"type": "array", "maxItems": 30, "items": {"type": "object", "properties": {"pkg": {"type": ["string", "null"]}, "registry": {"type": ["string", "null"], "enum": ["npm", "pypi", "nuget", "crates", null]}, "version": {"type": ["string", "null"]}, "repo": {"type": ["string", "null"]}, "number": {"type": ["integer", "null"]}, "state": {"type": ["string", "null"], "enum": ["open", "closed", null]}, "tag": {"type": ["string", "null"]}, "date": {"type": ["string", "null"]}, "url": {"type": ["string", "null"]}, "literal": {"type": ["string", "null"]}}}}}}}
+
+# Row enrichment, known rows in input.data, nullable fields outside required, output.structured.rows with grounding per field
+mcp__exa__agent_run {"query": "<fields to add per row, sources to prefer>", "effort": "high", "input": {"data": [{"<key>": "<value>"}]}, "outputSchema": {"type": "object", "required": ["rows"], "properties": {"rows": {"type": "array", "maxItems": 20, "items": {"type": "object", "required": ["<key>", "verdict"], "properties": {"<key>": {"type": "string"}, "verdict": {"type": "string", "enum": ["found", "cannot_verify"]}, "evidence_url": {"type": ["string", "null"], "format": "uri"}}}}}}}
+
+# Further rows over a finished run, rows in input.exclusion stay out, every version verifies before the brief
+mcp__exa__agent_run {"query": "<follow-up>", "previousRunId": "<id>", "effort": "high", "input": {"exclusion": [{"<key>": "<value>"}]}, "outputSchema": {"type": "object", "required": ["rows"], "properties": {"rows": {"type": "array", "maxItems": 10, "items": {"type": "object", "required": ["<key>", "source_url"], "properties": {"<key>": {"type": "string"}, "source_url": {"type": "string", "format": "uri"}}}}}}}
+
 # Collect a run started here or by curl
 mcp__exa__agent_run {"runId": "<id>"}
 ```
 
-Effort `minimal` costs 0.012 dollars, `low` 0.025, `medium` 0.10, `high` 0.50, `xhigh` 1.00, `auto` is metered to a 5 dollar cap, `max` is metered to a 20 dollar cap over REST alone. `low` fills a row schema and can hold a stale version string, `medium` matched the registry on every row.
+Effort `high` costs 0.50 dollars and 60 searches per run in `costDollars` and `usage`. A question of one run, three to five Exa sentences at 0.007 dollars each, and one `tvly extract` over eight to eleven URLs costs 0.52 to 0.54 dollars and 2 to 3 credits at one credit per five extracted URLs.

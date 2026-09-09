@@ -8,24 +8,50 @@ utils:
         has:
             field: function
             kind: member_expression
-            has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?[A-Z]\w*$'}}}}
+            has: {field: object, matches: {effect-module-reference: {module: {kind: identifier}}}}
+    pipe-step:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            has:
+                field: property
+                regex: |-
+                    ^(map|flatMap|andThen|tap|tapError|tapBoth|filter|filterMap|filterOrFail|filterOrElse|forEach|reduce|getOrElse|orElse
+                    |orElseSucceed|orElseFail|catchAll|catchAllCause|catchTag|catchTags|catchSome|mapError|mapBoth|match|matchEffect|zip
+                    |zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext|mapInput|partition|partitionMap|take
+                    |takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll|retry|repeat|timeout|delay|when
+                    |race|merge|mapOut|filterInput|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast|chunksOf
+                    |intersperse|union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|sortBy|groupBy
+                    |flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible|uninterruptible
+                    |ignore|compact|reverse|dedupe|sandbox)$
     step:
         all:
             - matches: module-call
-            - matches: effect-pipe-step
+            - matches: pipe-step
             - not: {has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Schema$"}}}}}}
+    unary-step:
+        matches: step
+        has:
+            field: function
+            has:
+                field: property
+                regex: |-
+                    (?x)^(flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible
+                    |uninterruptible|ignore|compact|reverse|dedupe|sandbox)$
     data-first-step:
         matches: step
         has:
             field: arguments
-            has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: module-call}
+            has: {nthChild: 1, matches: module-call}
         any:
-            - has:
-                field: function
-                has:
-                    field: property
-                    regex: "^(flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$"
-            - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - matches: unary-step
+            - has: {field: arguments, has: {nthChild: 2}}
+    pipe-import:
+        kind: import_statement
+        all:
+            - has: {field: source, regex: '^["'']effect["'']$'}
+            - has: {kind: import_specifier, has: {field: name, regex: '^pipe$'}, not: {has: {field: alias, pattern: $_}}, stopBy: end}
 rule:
     pattern: $CALL
     all:
@@ -33,14 +59,45 @@ rule:
         - has:
             field: arguments
             has:
-                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                nthChild: 1
                 matches: data-first-step
-                has: {field: arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: data-first-step}}
+                has: {field: arguments, has: {nthChild: 1, matches: data-first-step}}
         - not:
             all:
-                - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                - nthChild: 1
                 - inside: {kind: arguments, inside: {matches: data-first-step}}
-message: Module calls nest four deep as data-first arguments and read from the inside out
-note: Keep at most three nested data-first calls and pipe deeper compositions in evaluation order, `pipe(value, Array.map(project), Array.flatten)`
+        - not: {has: {kind: comment, stopBy: end}}
+        - not: {has: {kind: type_arguments, stopBy: end}}
+        - inside: {kind: program, stopBy: end, has: {matches: pipe-import}}
+rewriters:
+    - id: unary
+      rule:
+        matches: unary-step
+        pattern: $M.$OP($FIRST)
+      transform:
+        INNER: rewrite($FIRST, rewriters=[unary, steps, unary-head, head])
+      fix: $INNER, $M.$OP
+    - id: steps
+      rule:
+        matches: data-first-step
+        pattern: '$M.$OP($FIRST, $$$REST)'
+      transform:
+        INNER: rewrite($FIRST, rewriters=[unary, steps, unary-head, head])
+      fix: $INNER, $M.$OP($$$REST)
+    - id: unary-head
+      rule:
+        matches: unary-step
+        pattern: $M.$OP($FIRST)
+      fix: $FIRST, $M.$OP
+    - id: head
+      rule:
+        matches: step
+        pattern: '$M.$OP($FIRST, $$$REST)'
+      fix: $FIRST, $M.$OP($$$REST)
+transform:
+    STEPS: rewrite($CALL, rewriters=[unary, steps, unary-head, head])
+fix: pipe($STEPS)
+message: 'Module calls nest four deep as data-first arguments and read from the inside out, the form of `pipe(value, ...)` in evaluation order'
+note: 'Three nested data-first calls read in place, `pipe(value, Array.map(project), Array.flatten)` states a deeper composition'
 labels:
     CALL: {style: primary}

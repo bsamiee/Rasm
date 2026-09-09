@@ -1,7 +1,6 @@
 # [STREAMS]
 
 Covers values that arrive over time and the process that owns a shared value, from the observable model to the entity registry.
-- Use `dotnet-coding-languageext` for the `Source`, `Sink`, `Conduit`, `Buffer`, and pipe API
 
 ## [01]-[MODEL]
 

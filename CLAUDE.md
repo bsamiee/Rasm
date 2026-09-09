@@ -6,6 +6,17 @@
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but the composition rules do not, define a result type when a language lacks one instead of adding another error mechanism
 - Use established, context-appropriate domain terminology in file names, directory names, identifiers, and prose
+- IMPORTANT: Fix a defect at its cause after reading the tool's current documentation, a wrapper, fallback, guard, or retry around it is the defect
+- `tests/` holds the shared test support every suite builds on, a test file is written when the user asks for that test
+- Checks run over the files a change touched, never the full tree
+- A check, rule, or test is read-only during a code change, editing one is its own task the user asks for
+- A removal deletes every mention and adjusts each consumer to the absence, nothing stands in for the removed content
+- A refactor's before form becomes an ast-grep rule with the after form as its fix, once a second instance exists and no checker reports it
+- Skills, memories, and docs hold the principle that decides a case, the state of the project lives in the files that are that state
+- Every tool, package, and server in the tree is a capability read from its docs before a solution is written, the docs decide the form
+- No audit, security scan, supply-chain pin, or approval gate joins a manifest, target, workflow, or program
+- Every resource and repository setting is a row of the typed program under `infra/`, a workflow holds commands alone
+- Nx runs with the daemon off and without `.nxignore`, one file owns each concern, a second file beside an owner is wrong structure to correct
 
 ## [01]-[LANGUAGE_STANDARDS]
 
@@ -25,8 +36,10 @@ Navigate code through its language's skill and MCP server, or through the ast-gr
 - ALWAYS use `manage-repo` skill for Nx targets, tooling, infrastructure, and CI
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
+- ALWAYS use `playwright:playwright-cli` skill for a browser, `playwright` MCP when each step depends on the snapshot before it
+- ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
 
-Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and rewrite tool calls. Denials name the correct form.
+The `function-hooks` plugin refuses destructive git commands, shell waits, and a second config file beside its owner.
 
 [CLI_TOOLING]:
 
@@ -90,8 +103,8 @@ Policy tables under `.claude/plugins/function-hooks/hooks/policies/` refuse and 
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
 - ALWAYS keep .NET MSBuild and NuGet manifests grouped by responsibility, order entries consistently within each group, and limit maintenance notes to one line
-- ALWAYS record each package in both the central package manager and the owning language or package `README.md` dependency list
-- ALWAYS add a missing dependency record to its owning manifest or `README.md` dependency list instead of deleting the corresponding record
+- ALWAYS record each package as one row of its central manifest with a one-line purpose comment
+- ALWAYS add a missing dependency record to its owning manifest instead of deleting the corresponding record
 - ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
 - ALWAYS let a manifest, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer

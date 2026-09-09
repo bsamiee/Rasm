@@ -3,11 +3,26 @@ id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
+    effect-module: {matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro)$'}}}}
     runtime-member:
         kind: member_expression
         all:
             - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|Runtime)$'}}}}
             - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
+    run-invocation:
+        kind: call_expression
+        any:
+            - has: {field: function, matches: runtime-member}
+              any:
+                - has: {field: function, has: {field: object, matches: effect-module}}
+                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - has:
+                field: function
+                kind: call_expression
+                has:
+                    field: function
+                    matches: runtime-member
+                    has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Runtime$'}}}}
     effect-owner:
         kind: call_expression
         any:
@@ -33,28 +48,78 @@ utils:
     callback:
         matches: syntax-function-boundary
         any:
-            - inside: {kind: arguments, inside: {matches: effect-owner}}
-            - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments, inside: {matches: effect-owner}}}}
+            - inside: {kind: arguments}
+            - inside: {kind: pair, field: value, inside: {kind: object, inside: {kind: arguments}}}
             - kind: method_definition
-              inside: {kind: object, inside: {kind: arguments, inside: {matches: effect-owner}}}
-rule:
-    kind: call_expression
-    pattern: $RUN
-    all:
-        - any:
-            - has: {field: function, matches: runtime-member}
-              any:
-                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro)$'}}}}}
-                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+              inside: {kind: object, inside: {kind: arguments}}
+    run-call:
+        kind: call_expression
+        all:
             - has:
                 field: function
-                kind: call_expression
-                has:
-                    field: function
-                    matches: runtime-member
-                    has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Runtime$'}}}}
-        - inside: {matches: callback, stopBy: {matches: syntax-function-boundary}}
-message: An Effect callback starts a separate runtime instead of composing its computation
-note: Return the effect through the callback's combinator or yield it inside Effect.gen, and run effects at the host boundary alone
+                kind: member_expression
+                all:
+                    - has: {field: object, pattern: $M, matches: effect-module}
+                    - has: {field: property, regex: '^(runSync|runPromise)$'}
+            - has: {field: arguments, has: {pattern: $EFFECT}, not: {has: {nthChild: 2}}}
+    run-callback:
+        kind: arrow_function, function_expression
+        not: {has: {regex: '^async$'}}
+        has:
+            field: body
+            any:
+                - matches: run-call
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: run-call}}
+                  not: {has: {nthChild: 2}}
+    lifting-owner:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, has: {field: object, matches: effect-module}}
+            - not: {has: {field: type_arguments, kind: type_arguments}}
+            - not: {has: {field: arguments, has: {nthChild: 3}}}
+            - not: {has: {kind: comment, stopBy: end}}
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - matches: effect-owner
+        - has:
+            field: arguments
+            has:
+                stopBy: {not: {kind: 'object, pair'}}
+                matches: callback
+                has: {stopBy: {matches: syntax-function-boundary}, matches: run-invocation, pattern: $RUN}
+rewriters:
+    - id: unrun
+      rule: {matches: run-call}
+      fix: $EFFECT
+    - id: map-first
+      rule:
+        pattern: '$M.map($SELF, $H)'
+        matches: lifting-owner
+        has: {field: arguments, has: {nthChild: 2, matches: run-callback}}
+      transform: {BODY: 'rewrite($H, rewriters=[unrun])'}
+      fix: $M.flatMap($SELF, $BODY)
+    - id: map-last
+      rule:
+        pattern: $M.map($H)
+        matches: lifting-owner
+        has: {field: arguments, has: {nthChild: 1, matches: run-callback}}
+      transform: {BODY: 'rewrite($H, rewriters=[unrun])'}
+      fix: $M.flatMap($BODY)
+    - id: suspend
+      rule:
+        pattern: $M.$OWNER($H)
+        matches: lifting-owner
+        has: {field: arguments, has: {nthChild: 1, matches: run-callback}}
+      constraints: {OWNER: {regex: '^(sync|promise)$'}}
+      transform: {BODY: 'rewrite($H, rewriters=[unrun])'}
+      fix: $M.suspend($BODY)
+transform:
+    COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
+fix: $COMPOSED
+message: '`$RUN` runs an effect through a separate runtime inside a callback that composes effects, the form of the effect returned through `flatMap`, `suspend`, or `yield*`'
+note: A callback that returns the effect composes it in the enclosing runtime with its interruption and context
 labels:
     RUN: {style: primary}

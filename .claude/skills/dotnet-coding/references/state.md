@@ -160,7 +160,6 @@ internal static class Trampolined {
 ```
 
 `FirstZero` handles exhaustion: `At` returns `None` past the end and the result is `None`, and an unreachable base case loops indefinitely. `Bind` chains a second `Trampoline` onto the final state with the stack still constant, `next` must produce a state satisfying `stop`, and a `next` that performs I/O or mutation keeps the expression impure. When the transition is an effect, `Monad.recur` returns only the terminal state, the state must contain everything both delegates need, a termination that depends on the last action or the latest random outcome belongs in the returned state, and the host runs the result with `RunSafe` and receives the final state as `Fin<S>`.
-- Use `dotnet-coding-languageext` for the effectful loop forms (`Monad.recur`, `tail` recursion in `IO`, `RepeatUntil`, `RepeatWhile`)
 
 When the intermediate states are meaningful, `LanguageExt.List.unfold` produces them lazily from an initial state and a step that returns `Some((emitted, next))` or `None` at the terminal state, and `toSeq` wraps the result as a `Seq` that reads each state on demand and keeps it:
 

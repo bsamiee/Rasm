@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>DuckDB extension files staged per platform for offline LOAD from a package-delivered extension directory</Description>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <!-- Signed release files pinned in extensions.json replace a vcpkg port, the extension set is locked to the engine version -->
-        <VersionManifestFileName>extensions.json</VersionManifestFileName>
-        <CentralPackageId>DuckDB.NET.Data.Full</CentralPackageId>
-    </PropertyGroup>
-</Project>

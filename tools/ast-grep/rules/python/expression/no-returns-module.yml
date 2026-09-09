@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-returns-module
-language: python
-severity: error
-rule:
-    pattern: $USE
-    matches: {python-module-use: {module: {regex: '^returns(\.[\w.]+)?$'}}}
-message: '`$USE` names the returns package, a second result library beside `expression`'
-note: Compose with `expression.Result` and `expression.Option`

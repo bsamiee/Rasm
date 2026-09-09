@@ -2,9 +2,8 @@
 id: no-json-parse
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**']
 rule:
     kind: call_expression
     has: {field: function, regex: '^(globalThis\.)?JSON\.parse$', matches: syntax-global-reference}
-message: '`JSON.parse` answers an unvalidated value'
-note: Decode the text through `Schema.decodeUnknown(Schema.parseJson(schema))` for a typed value or a ParseError
+message: '`JSON.parse` answers an unvalidated value, the form of `Schema.decodeUnknown(Schema.parseJson(schema))`'
+note: 'The decoder answers a typed value or a `ParseError`'

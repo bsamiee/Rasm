@@ -2,16 +2,13 @@
 id: no-native-promise
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts', '**/*.config.ts']
+ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts', '**/*.config.ts']
 rule:
-    not:
-        any:
-            - inside: {matches: effect-promise-boundary, stopBy: {matches: syntax-function-boundary}}
-            - inside: {matches: nx-version-actions-method, stopBy: {matches: syntax-function-boundary}}
+    not: {inside: {matches: effect-promise-boundary, stopBy: {matches: syntax-function-boundary}}}
     any:
         - kind: new_expression
           has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?Promise$', matches: syntax-global-reference}
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?Promise\.(all|allSettled|any|race|resolve|reject|withResolvers|try)$', matches: syntax-global-reference}
-message: '`$NAME` builds a promise where the effect is the composed value'
-note: Compose effects and adapt the promise at the host boundary, keeping settlement order, rejection identity, concurrency, and cancellation
+message: '`$NAME` builds a promise where the effect is the composed value, the form of composed effects adapted to a promise at the host boundary'
+note: 'The effect keeps settlement order, rejection identity, concurrency, and cancellation'

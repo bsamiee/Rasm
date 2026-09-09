@@ -10,5 +10,5 @@ rule:
             kind: function_definition
             stopBy: {matches: python-function-boundary}
             has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}}}
-message: The body discards parameter `$P`
-note: Name an unused parameter with a leading underscore and update its keyword callers, or keep the name an external callable contract requires
+message: 'The body discards parameter `$P` with an underscore assignment, the form of a leading underscore on the parameter name'
+note: 'A keyword caller passes the renamed parameter under its new name, and a name an external callable contract requires is another form'

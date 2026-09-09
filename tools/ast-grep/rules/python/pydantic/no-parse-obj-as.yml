@@ -4,5 +4,4 @@ language: python
 severity: error
 rule:
     matches: {python-module-member: {module: {regex: '^pydantic((\.deprecated)?\.tools)?$'}, name: {regex: "^parse_obj_as$", pattern: $NAME}}}
-message: "`$NAME` validates through a deprecated TypeAdapter wrapper"
-note: Validate with `TypeAdapter(<type>).validate_python(<value>)` and reuse the adapter, the rewrite `parse-obj-as-to-type-adapter` applies it
+message: '`$NAME` validates through a deprecated TypeAdapter wrapper, the form of `TypeAdapter(<type>).validate_python(<value>)` with the adapter built once'

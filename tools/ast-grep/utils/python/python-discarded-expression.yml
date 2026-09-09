@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: python-discarded-expression
-language: python
-arguments: [value]
-rule:
-    kind: expression_statement
-    has:
-        matches: value
-        stopBy: {not: {kind: parenthesized_expression}}

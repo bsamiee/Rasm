@@ -70,6 +70,6 @@ rule:
                 any:
                     - matches: logger-call
                     - matches: bound-logger
-message: "`$USE` emits an event through the stdlib logging API"
-note: Emit events through `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)` with structlog configured at the composition root
+message: '`$USE` emits an event through the stdlib logging API, the form of `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`'
+note: 'structlog reads its configuration once per process at the composition root'
 labels: {USE: {style: primary, message: Event method}}

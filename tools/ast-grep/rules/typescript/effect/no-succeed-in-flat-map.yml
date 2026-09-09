@@ -114,6 +114,6 @@ rewriters:
 transform:
     MAPPED: rewrite($CALL, rewriters=[as-first, as-last, void-first, void-last, map-first, map-last])
 fix: $MAPPED
-message: The bind callback only lifts its result back into the same carrier
-note: Map the value through the carrier's map, or asVoid for a discarded result, keeping the callback's evaluation time and allocations
+message: 'The bind callback only lifts its result back into the same carrier, the form of `map`, or `as` and `asVoid` for a constant result'
+note: '`map` keeps the callback evaluation time and allocates no inner carrier'
 labels: {CALL: {style: primary}}

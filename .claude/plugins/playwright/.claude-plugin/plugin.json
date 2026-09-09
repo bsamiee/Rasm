@@ -1,0 +1,7 @@
+{
+    "name": "playwright",
+    "description": "Playwright CLI and trace skills copied from the installed playwright package by the skills target, with its test planner, generator, and healer agents rebuilt for Claude Code",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}

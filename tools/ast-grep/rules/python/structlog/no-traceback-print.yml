@@ -28,5 +28,5 @@ rule:
                               all:
                                 - has: {field: attribute, regex: "^from_exception$"}
                                 - has: {field: object, matches: exception-class}
-message: "`$USE` writes the traceback to stderr, outside the structured pipeline"
-note: Log the active exception with `logger.exception(<event>)`, `exc_info=<exception>` outside its handler, or the stack with `stack_info=True`
+message: '`$USE` writes the traceback to stderr outside the structured pipeline, the form of `logger.exception(<event>)` inside the handler or `exc_info=<exception>` outside it'
+note: '`stack_info=True` attaches the current stack to an event'

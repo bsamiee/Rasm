@@ -2,16 +2,49 @@
 id: no-itertools-chain
 language: python
 severity: error
+utils:
+    chain-callee:
+        any:
+            - matches: {python-imported-name: {module: {regex: "^itertools$"}, name: {regex: "^chain$"}}}
+            - matches: {python-module-member: {module: {regex: "^itertools$"}, name: {regex: "^chain$"}}}
 rule:
     kind: call
     pattern: $CALL
-    has:
-        field: function
+    not:
         any:
-            - matches: python-chain-callee
-            - kind: attribute
-              all:
-                - has: {field: object, matches: python-chain-callee}
-                - has: {field: attribute, regex: "^from_iterable$"}
-message: "`$CALL` concatenates iterables through a chain object an unpacking comprehension writes in place"
-note: Flatten with `[*part for part in (<a>, <b>)]`, `{*...}` for a set, or `(*...)` for lazy iteration, over the chain arguments in their order
+            - matches: python-shadowed-name
+            - has: {kind: comment, stopBy: end}
+    any:
+        - pattern: $COLLECT($INNER)
+          has:
+            field: arguments
+            has:
+                kind: call
+                all:
+                    - has: {field: function, pattern: $F}
+                    - has: {field: arguments, kind: generator_expression, pattern: $GENERATOR}
+        - pattern: $COLLECT($F.from_iterable($ITERABLES))
+        - pattern: $COLLECT($F($$$ARGS))
+          has:
+            field: arguments
+            has:
+                kind: call
+                has:
+                    field: arguments
+                    all:
+                        - has: {pattern: $_}
+                        - not: {has: {kind: 'keyword_argument, dictionary_splat'}}
+constraints:
+    F: {matches: chain-callee}
+    COLLECT: {kind: identifier, regex: "^(list|set)$"}
+transform:
+    ITER: {replace: {source: $ITERABLES, replace: "(?s)^(.+)$", by: "($1)"}}
+    GROUP: {replace: {source: $$$ARGS, replace: '(?s)^(.+?)(?:,\s*)?$', by: "($1,)"}}
+    GENERATOR_GROUP: {replace: {source: $GENERATOR, replace: "(?s)^(.+)$", by: "($1,)"}}
+    SET_OPEN: {replace: {source: $COLLECT, replace: "^set$", by: "{"}}
+    OPEN: {replace: {source: $SET_OPEN, replace: "^list$", by: "["}}
+    SET_CLOSE: {replace: {source: $COLLECT, replace: "^set$", by: "}"}}
+    CLOSE: {replace: {source: $SET_CLOSE, replace: "^list$", by: "]"}}
+fix: "$OPEN*iterable for iterable in $ITER$GROUP$GENERATOR_GROUP$CLOSE"
+message: '`$CALL` concatenates iterables through a chain object, the form of the unpacking comprehension `[*part for part in (<a>, <b>)]`'
+note: 'PEP 798 admits `*` in a comprehension body, `{*...}` builds a set and `(*...)` a lazy generator'

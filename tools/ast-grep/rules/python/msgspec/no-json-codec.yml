@@ -7,5 +7,5 @@ rule:
         - matches: {python-module-member: {module: {regex: '^json$'}, name: {regex: '^(dumps?|loads?|JSONEncoder|JSONDecoder)$', pattern: $NAME}}}
         - matches: {python-module-member: {module: {regex: '^json\.encoder$'}, name: {regex: '^JSONEncoder$', pattern: $NAME}}}
         - matches: {python-module-member: {module: {regex: '^json\.decoder$'}, name: {regex: '^JSONDecoder$', pattern: $NAME}}}
-message: '`$NAME` uses the standard library JSON codec in place of msgspec'
-note: Use `msgspec.json.encode` and `msgspec.json.decode(<text>, type=<Type>)`, and keep `json.JSONDecodeError` where an external API raises it
+message: '`$NAME` uses the standard library JSON codec, the form of `msgspec.json.encode` and `msgspec.json.decode(<text>, type=<Type>)`'
+note: '`json.JSONDecodeError` stays where an external API raises it'

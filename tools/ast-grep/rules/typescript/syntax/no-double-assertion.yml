@@ -15,7 +15,6 @@ rule:
     pattern: $VALUE as $TYPE
 constraints:
     VALUE: {matches: wide-assertion}
-message: "The intermediate assertion bypasses compatibility with `$TYPE` without validating the value"
-note: Decode the value at the boundary through a schema, `Schema.decodeUnknownSync(schema)(value)`, or build it through the typed constructor
+message: 'The intermediate assertion bypasses compatibility with `$TYPE` without validating the value, the form of `Schema.decodeUnknownSync(schema)(value)` at the boundary or the typed constructor'
 labels:
     TYPE: {style: primary, message: The type the assertion claims}

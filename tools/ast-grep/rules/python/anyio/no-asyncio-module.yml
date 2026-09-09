@@ -5,5 +5,5 @@ severity: error
 rule:
     pattern: $USE
     matches: {python-module-use: {module: {regex: '^asyncio(\.[\w.]+)?$'}}}
-message: '`$USE` uses asyncio, the backend anyio runs on'
-note: Call the anyio member, `anyio.run`, `anyio.sleep`, `anyio.create_task_group`, `anyio.Lock`, or `anyio.create_memory_object_stream`
+message: '`$USE` calls asyncio directly, the form of the anyio member such as `anyio.run`, `anyio.sleep`, `anyio.create_task_group`, or `anyio.Lock`'
+note: 'anyio runs on asyncio or trio and its members honour the cancel scope on both backends'

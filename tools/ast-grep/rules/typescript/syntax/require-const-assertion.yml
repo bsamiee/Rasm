@@ -15,5 +15,5 @@ rule:
 constraints:
     VALUE: {matches: literal-value}
 fix: $VALUE as const satisfies $TYPE
-message: The `satisfies` clause alone widens every literal type and array of the module constant
-note: Write `as const satisfies <type>`, the assertion keeps the literal types and the clause keeps the check
+message: 'The `satisfies` clause alone widens every literal type and array of the module constant, the form of `as const satisfies <type>`'
+note: 'The assertion keeps the literal types and the clause keeps the check'

@@ -2,13 +2,55 @@
 id: require-private-assets-on-development-dependency
 language: xml
 severity: error
+utils:
+    development-reference:
+        kind: element
+        has:
+            matches: msbuild-tag
+            all:
+                - has: {kind: Name, regex: '^PackageReference$'}
+                - has:
+                    kind: Attribute
+                    all:
+                        - has: {kind: Name, regex: '^Include$'}
+                        - has:
+                            kind: AttValue
+                            regex: |-
+                                (?xi)^["']([A-Za-z0-9.]+\.(Analyzers?|SourceGenerators?|Generators?)|Riok\.Mapperly|Grpc\.Tools|MessagePackAnalyzer
+                                |Microsoft\.CodeAnalysis\.CSharp|Microsoft\.CodeAnalysis\.Analyzers|MinVer|Generator\.Equals)["']$
+    private-assets-all:
+        kind: element
+        any:
+            - all:
+                - has:
+                    matches: msbuild-tag
+                    has:
+                        kind: Attribute
+                        all:
+                            - has: {kind: Name, regex: '^PrivateAssets$'}
+                            - has: {kind: AttValue, regex: '(?i)^["'']?\s*all\s*["'']?$'}
+                - not:
+                    has:
+                        kind: content
+                        has:
+                            kind: element
+                            has: {matches: msbuild-tag, has: {kind: Name, regex: '^PrivateAssets$'}}
+                            not: {has: {kind: content, regex: '(?i)^["'']?\s*all\s*["'']?$'}}
+            - has:
+                kind: content
+                has:
+                    kind: element
+                    nthChild:
+                        position: 1
+                        reverse: true
+                        ofRule: {kind: element, has: {matches: msbuild-tag, has: {kind: Name, regex: '^PrivateAssets$'}}}
+                    all:
+                        - has: {kind: content, regex: '(?i)^["'']?\s*all\s*["'']?$'}
+                        - not: {has: {kind: STag, has: {kind: Attribute}}}
 rule:
     pattern: _REFERENCE
-    matches:
-        msbuild-package-reference:
-            id:
-                regex: "(?i)^[\"']([A-Za-z0-9.]+\\.(Analyzers?|SourceGenerators?|Generators?)|Riok\\.Mapperly|Grpc\\.Tools|MessagePackAnalyzer|Microsoft\\.CodeAnalysis\\.CSharp|Microsoft\\.CodeAnalysis\\.Analyzers|MinVer|Generator\\.Equals)[\"']$"
-    not: {matches: {msbuild-effective-metadata: {name: {regex: '^PrivateAssets$'}, value: {regex: '(?i)^["'']?\s*all\s*["'']?$'}}}}
+    matches: development-reference
+    not: {matches: private-assets-all}
 transform:
     FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
 fix: $FIXED
@@ -35,5 +77,5 @@ rewriters:
                 replace: '\s*(/?>)$'
                 by: ' PrivateAssets="all"$1'
       fix: $FIXED
-message: The analyzer, generator, or build tool is a development dependency and flows to every consumer without PrivateAssets
-note: Add PrivateAssets="all", the package stays in the compiling project
+message: 'The analyzer, generator, or build tool flows to every consumer without PrivateAssets, the form of PrivateAssets="all" on the reference'
+note: 'The package stays in the compiling project'

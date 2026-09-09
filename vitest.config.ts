@@ -25,7 +25,6 @@ const _ci = Config.withDefault(Config.boolean('CI'), false);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-// Every vitest.config.ts is its own root and @nx/vitest infers one test target per file
 const _project = (directory: string): Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.Path> =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
@@ -76,7 +75,6 @@ const _project = (directory: string): Effect.Effect<ViteUserConfig, never, FileS
         } satisfies ViteUserConfig;
     }).pipe(Effect.orDie);
 
-// The root configuration lists every project, and the mutation runner and --merge-reports run from it
 const _root: Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const ci = yield* _ci;
@@ -86,9 +84,7 @@ const _root: Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.P
         ...project,
         test: {
             ...project.test,
-            // Per-project report directories sit under the merged report directory
             coverage: { ...project.test?.coverage, clean: false, reporter: ['lcovonly', 'json'], reportsDirectory: `${_ARTIFACTS}/coverage` },
-            // Every glob in the pnpm workspace names a project through the vitest.config.ts beside its manifest
             projects: Array.map(workspace.packages, (glob) => `${glob}/vitest.config.ts`),
             reporters: Array.filter(
                 Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci }),

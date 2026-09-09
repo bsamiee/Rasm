@@ -4,7 +4,7 @@
     "indentRainbow.colorOnWhiteSpaceOnly": true,
 
     // --- [EXPLORER_VISIBILITY] ---------------------------------------------------------
-    "explorer.compactFolders": false, // Single-child folder chains render as their own rows
+    "explorer.compactFolders": false,
     "files.exclude": {
         "**/node_modules": true,
         "**/__pycache__": true,
@@ -23,7 +23,7 @@
     "explorer.fileNesting.patterns": {
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "README.md": "LICENSE",
-        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, stryker-config.json, Workspace.slnx",
+        "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
         "*.cs": "${capture}.Tests.cs",
         "*.cts": "${capture}.spec.cts, ${capture}.test.cts",
         "*.mts": "${capture}.spec.mts, ${capture}.test.mts",
@@ -33,8 +33,8 @@
         ".gitignore": ".gitattributes",
         "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .yamllint.yaml, .miserc.toml, mise.unix.toml, mise.toml, sgconfig.yml",
-        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, stryker.config.json, tsconfig.json, vite.config.ts, vitest.config.ts",
+        "nx.json": ".editorconfig, .yamllint.yaml, mise.toml, sgconfig.yml",
+        "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },
 
@@ -43,7 +43,6 @@
     "[python]": { "editor.defaultFormatter": "charliermarsh.ruff" },
 
     // --- [TYPESCRIPT] ------------------------------------------------------------------
-    // TypeScript 7 prompts for workspace SDK selection, Biome resolves the workspace package before global installations
     "js/ts.experimental.useTsgo": true,
     "js/ts.tsdk.path": "./node_modules/typescript",
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },

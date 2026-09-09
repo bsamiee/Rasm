@@ -34,17 +34,12 @@
         "playwright": {
             "type": "stdio",
             "command": "mise",
-            "args": [
-                "exec",
-                "--",
-                "playwright",
-                "mcp",
-                "--browser=chromium",
-                "--headless",
-                "--caps=config,network,pdf,storage,testing,vision,devtools",
-                "--output-dir=${CLAUDE_PROJECT_DIR:-.}/.artifacts/playwright",
-                "--output-max-size=536870912"
-            ]
+            "args": ["exec", "--", "playwright", "mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
+        },
+        "playwright-test": {
+            "type": "stdio",
+            "command": "mise",
+            "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
         },
         "github": {
             "type": "http",

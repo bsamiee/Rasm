@@ -1,45 +1,29 @@
-# Runtimes and standalone binaries at latest, the .NET SDK version comes from global.json
-
-# --- [SETTINGS] -------------------------------------------------------------------------
-
 [settings]
-experimental = true            # pkgx backend supplies Bash 5.3 on Linux and macOS
 prereleases = true
-minimum_release_age = "0s"     # mise delays new releases 24h by default
+minimum_release_age = "0s"
 idiomatic_version_file_enable_tools = ["dotnet"]
-python.uv_venv_auto = "source" # .venv/bin joins PATH so the uv-locked checkers resolve by name
-
-# --- [ENV] ------------------------------------------------------------------------------
+python.uv_venv_auto = "source"
 
 [env]
 _.path = "./node_modules/.bin"
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
-PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"                   # No pyproject.toml table sets it
-NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data" # nx.json has cacheDirectory alone
-UV_CACHE_DIR = "{{config_root}}/.cache/uv"                               # Shell profile exports a home path over pyproject cache-dir
-LIBKTX_VERSION = { value = '{{ exec(command="yq -r .version-string " ~ config_root ~ "/eng/native/ktx/release.json") }}', tools = true } # pyktx setup.py reads the version of the provisioned libktx release
-LIBKTX_INSTALL_DIR = "{{config_root}}/.cache/tools/ktx"                  # The provision link of the ktx release, pyktx derives its Windows directories from it
-PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.cache/playwright/browsers"  # Chromium build the browsers target installs and the MCP server launches, the shell profile exports a home path
-PLAYWRIGHT_MCP_USER_DATA_DIR = "{{ xdg_state_home }}/playwright-mcp/rasm" # Signed-in browser profile the MCP server and `playwright open` share across every checkout, outside the tree
-# DO NOT REMOVE .miserc.toml until mise 2027.6.0 makes auto_env the default, it loads mise.unix.toml
-# DO NOT REMOVE mise.unix.toml until uv expands ${VAR} in extra-build-variables (astral-sh/uv#10096), pyktx needs LIBKTX_LIB_DIR unset on Windows
-
-# --- [TOOLS] ----------------------------------------------------------------------------
+PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"
+NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"
+PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.cache/playwright/browsers"
+PLAYWRIGHT_MCP_USER_DATA_DIR = "{{ xdg_state_home }}/playwright-mcp/rasm"
+PLAYWRIGHT_MCP_BROWSER = "chromium"
+PLAYWRIGHT_MCP_OUTPUT_DIR = "{{config_root}}/.artifacts/playwright"
+PLAYWRIGHT_MCP_OUTPUT_MAX_SIZE = "268435456"
 
 [tools]
-python = "3.15.0rc2"                    # Latest and the 3.15 prefix resolve development builds under prereleases
+python = "3.15.0rc2"
 node = "latest"
 pnpm = "latest"
 uv = "latest"
 git-lfs = "latest"
-act = "latest"
-docker-cli = "latest"                   # Workflow script removes the act containers and volumes through it
 actionlint = "latest"
-zizmor = "latest"
-shellcheck = "latest"
-shfmt = "latest"
 yamlfmt = "latest"
 ripgrep = "latest"
 fd = "latest"
@@ -49,17 +33,10 @@ doppler = "latest"
 pulumi = "latest"
 ast-grep = "latest"
 tree-sitter = "latest"
-buf = "latest"
-sd = "latest"                           # Literal find and replace an agent runs over a scope
-difftastic = "latest"                   # Syntax-tree diff over rewrites and snapshots, the binary is difft
-"ubi:sharkdp/hyperfine" = "latest"     # Rule and command timing under the same controls
-duckdb = "latest"                       # Reads the provisioned extension archives and the data files a proof writes
-typos = "latest"                        # Spelling over source and prose, lint reads and format writes
-"pipx:ast-grep/ast-grep-mcp" = "latest" # Git source with no release, latest resolves the default-branch head to a commit
-"pipx:tavily-cli" = "latest"            # Keyword search, extraction, site crawl, and research reports, the binary is tvly
-
-[tools."pkgx:gnu.org/bash"]
-version = "latest"
-os = ["linux", "macos"]
-# pkgx generates a Bash launcher that invokes itself through env, its exports and exec use POSIX shell syntax
-postinstall = "sed -i.bak '1s|.*|#!/bin/sh|' \"$MISE_TOOL_INSTALL_PATH/bin/bash\" && rm \"$MISE_TOOL_INSTALL_PATH/bin/bash.bak\""
+sd = "latest"
+difftastic = "latest"
+"ubi:sharkdp/hyperfine" = "latest"
+duckdb = "latest"
+typos = "latest"
+"pipx:ast-grep/ast-grep-mcp" = "latest"
+"pipx:tavily-cli" = "latest"

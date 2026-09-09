@@ -101,5 +101,5 @@ rule:
                         - not: {has: {kind: "else_clause, elif_clause"}}
 constraints:
     D: {matches: signature-default}
-message: Parameter `$P` accepts None and the body resolves None to `$D`
-note: Move the default into the signature and update callers that pass None, and keep a body default that reads a changing module value
+message: 'Parameter `$P` accepts None and the body resolves None to `$D`, the form of `$D` as the signature default'
+note: 'A caller that passes None explicitly receives None under a signature default, and a body default that reads a changing module value at call time is another form'

@@ -5,33 +5,25 @@ description: "Use when reviewing a .csproj, .props, or .targets for MSBuild smel
 
 # [DOTNET_MSBUILD_ANTIPATTERNS]
 
-Covers the review catalog for project and build files. Each entry names the smell, the effect, the rule, and a `BAD` form beside its `GOOD` form, and `OK` marks a form to leave alone. Each heading has a severity: `ERROR` names a build failure, a wrong value, or a wrong output, and `STYLE` names a form that builds and costs maintenance or time.
+Review catalog for project and build files. Each entry names the smell, the failure, the rule, and a `BAD` form beside its `GOOD` form. `OK` marks a form to leave. `ERROR` names a build failure, a wrong value, or a wrong output. `STYLE` names a form that builds and costs maintenance or time.
 
-- Use `dotnet-msbuild-evaluation` for import order, conditions, properties, items, and file placement
-- Use `dotnet-msbuild-execution` for targets, `DependsOnTargets`, `Inputs` and `Outputs`, `FileWrites`, and copy modes
-- Use `dotnet-msbuild-diagnostics` for binlog capture and query, the `-check` workflow, and shared output paths
-- Use `dotnet-msbuild-packaging` for NuGet package authoring, central package management, solution files, and CI properties
-- Use `manage-repo` for the `eng/` directory, task runner targets, native packaging projects, and provisioning
+Baseline a review with `dotnet build <solution> -t:Rebuild -check -bl:<dir>/check-{}.binlog`. `BC0101`, `BC0102`, `BC0107`, and `BC0302` report shared output paths, double writes, both framework properties, and `Exec` builds. Property overrides and misplaced properties come from reading the files.
 
 [REFERENCES]:
 - [01]-[WORKED_EXAMPLES](references/worked-examples.md): Corrections that span more than one element
 
-Use the `dotnet-msbuild-diagnostics` BuildCheck workflow for the review baseline. Its `-t:Rebuild` capture reruns build work through MSBuild without manually deleting output directories. `BC0101`, `BC0102`, `BC0107`, and `BC0302` report shared output paths, double writes, both framework properties, and `Exec` builds. No check reports a property override or a misplaced property, read the files for both.
-
-[AGENTS]: Use `msbuild-fixer` when the scope exceeds the context window, it reviews one scope and returns fixes with proof.
-
 ## [01]-[EVALUATION]
 
-Evaluation smells produce a wrong value before any target runs. Prove each with `dotnet msbuild <project> -getProperty:<Name>`.
+Prove each with `dotnet msbuild <project> -getProperty:<Name>`.
 
 ### [AP-01]-[ERROR]-[UNQUOTED_CONDITION_OPERANDS]
 
-- SMELL: `Condition="$(Foo) == net10.0"`, either side of a comparison lacks single quotes
-- WHY: MSBuild parses the condition before it expands the property. Unquoted literals with `.`, `,`, or a space fail with `MSB4092`, one with `:` fails with `MSB4090`, and an unclosed quote fails with `MSB4101`. Unquoted properties expand to one token and never fail, two empty properties compare equal, and an empty value fails with `MSB4113` in a condition with no operator and with `MSB4086` in a numeric comparison
+- SMELL: `Condition="$(Foo) == net10.0"`, a comparison side without single quotes
+- WHY: `MSB4092` on a literal with `.`, `,`, or a space, `MSB4090` on `:`, `MSB4101` on an unclosed quote, two unquoted empty properties compare equal. An unquoted property expands to one token and never fails, an empty value fails `MSB4113` in a condition with no operator and `MSB4086` in a numeric comparison
 - RULE: Quote both sides of `==` and `!=`
 
 ```xml
-<!-- BAD: MSB4092, the literal splits at the dot -->
+<!-- BAD -->
 <Optimize Condition="$(TargetFramework) == net10.0">true</Optimize>
 <!-- GOOD -->
 <Optimize Condition="'$(TargetFramework)' == 'net10.0'">true</Optimize>
@@ -40,13 +32,13 @@ Evaluation smells produce a wrong value before any target runs. Prove each with 
 ### [AP-02]-[ERROR]-[SIDE_EFFECTS_DURING_PROPERTY_EVALUATION]
 
 - SMELL: Property functions that read or write the file system inside a `PropertyGroup`
-- WHY: MSBuild evaluates a project on every design-time build, `-getProperty` query, and project instance, the read repeats without a build, and a file that a target writes is one build stale when evaluation reads it. MSBuild blocks a write (`WriteAllText`) with `MSB4185`, and `MSBUILDENABLEALLPROPERTYFUNCTIONS=1` enables every function
-- RULE: Read files inside a target, and a read of a file no target writes is STYLE
+- WHY: Evaluation repeats on every design-time build and `-getProperty` query, a file a target writes is one build stale at evaluation, a write fails `MSB4185`. `MSBUILDENABLEALLPROPERTYFUNCTIONS=1` enables every property function
+- RULE: Read files inside a target, a read of a file no target writes is STYLE
 
 ```xml
-<!-- BAD: read on every evaluation -->
+<!-- BAD -->
 <GitHead>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory).git/HEAD'))</GitHead>
-<!-- GOOD: read when the consumer runs -->
+<!-- GOOD -->
 <Target Name="ReadGitHead" BeforeTargets="CoreCompile">
   <ReadLinesFromFile File="$(MSBuildThisFileDirectory).git/HEAD">
     <Output TaskParameter="Lines" PropertyName="GitHead" />
@@ -56,12 +48,12 @@ Evaluation smells produce a wrong value before any target runs. Prove each with 
 
 ### [AP-03]-[ERROR]-[GLOBAL_PROPERTY_REASSIGNED_IN_PROJECT_XML]
 
-- SMELL: Project XML assigns a property that the command line, a `-p:` switch in `Directory.Build.rsp`, or an `<MSBuild>` task can supply, for example to add a trailing slash
-- WHY: Global properties are read-only during evaluation, the assignment applies when nothing supplies the property and is skipped when something does, and `-p:ToolRoot=/usr/tool` leaves `$(ToolRoot)bin/` as `/usr/toolbin/`
-- RULE: Derive the normalized value into a `_` prefixed property and read that, or declare `TreatAsLocalProperty` on the `Project` element when the file must win over the command line
+- SMELL: Project XML assigns a property the command line, `Directory.Build.rsp`, or an `<MSBuild>` task can supply
+- WHY: A global property is read-only in evaluation, the assignment is skipped under `-p:`, `$(ToolRoot)bin/` reads `/usr/toolbin/` under `-p:ToolRoot=/usr/tool`
+- RULE: Derive the normalized value into a `_` property, or declare `TreatAsLocalProperty` on `Project` when the file wins over the command line
 
 ```xml
-<!-- BAD: skipped under -p:ToolRoot=/usr/tool -->
+<!-- BAD -->
 <ToolRoot>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</ToolRoot>
 <!-- GOOD -->
 <_ToolDir>$([MSBuild]::NormalizeDirectory('$(ToolRoot)'))</_ToolDir>
@@ -70,16 +62,16 @@ Evaluation smells produce a wrong value before any target runs. Prove each with 
 
 ## [02]-[PLACEMENT]
 
-Placement smells put a setting in a file that reads it too early, too late, or twice. Prove each with `-getProperty` from one project, and with `-pp:` when the assignment source is in question.
+Prove each with `-getProperty` from one project, and with `-pp:` when the assignment source is in question.
 
 ### [AP-04]-[ERROR]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
-- SMELL: Only a `.targets` file sets a default that a `.props` file or the project body reads
-- WHY: `.targets` files import after the project body, and every earlier reader sees an empty value
+- SMELL: A `.targets` file alone sets a default a `.props` file or the project body reads
+- WHY: `.targets` imports after the project body, every earlier reader sees an empty value
 - RULE: `.props` owns overridable defaults, `.targets` owns targets and values derived from properties the SDK sets later
 
 ```xml
-<!-- BAD: custom.targets, $(ToolVersion) is empty in every .props reader -->
+<!-- BAD: custom.targets -->
 <ToolVersion>2.0</ToolVersion>
 <!-- GOOD: custom.props -->
 <ToolVersion Condition="'$(ToolVersion)' == ''">2.0</ToolVersion>
@@ -87,12 +79,11 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 
 ### [AP-05]-[STYLE]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
 
-- SMELL: `Directory.Build.props` and a `.csproj` both assign one property without a condition, and the last assignment wins with no message
-- WHY: Readers cannot tell which value the build uses without `-getProperty`
-- RULE: The `.props` default has `Condition="'$(Name)' == ''"`, and the project assigns only another value. `OutputPath` and `IntermediateOutputPath` never take a default in that form, an assigned value drops the `Configuration` segment, and `BaseOutputPath` or `ArtifactsPath` sets the root
+- SMELL: `Directory.Build.props` and a `.csproj` assign one property without a condition, the last assignment wins silently
+- RULE: The `.props` default takes `Condition="'$(Name)' == ''"`, the project assigns another value. `OutputPath` and `IntermediateOutputPath` take no default in that form, an assigned value drops the `Configuration` segment, `BaseOutputPath` or `ArtifactsPath` sets the root
 
 ```xml
-<!-- BAD: Directory.Build.props, the project assigns false and nothing says which wins -->
+<!-- BAD: Directory.Build.props -->
 <GenerateDocumentationFile>true</GenerateDocumentationFile>
 <!-- GOOD: Directory.Build.props -->
 <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">true</GenerateDocumentationFile>
@@ -100,20 +91,20 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 
 ### [AP-06]-[ERROR]-[PROPS_CONDITION_ON_A_LATER_VALUE]
 
-- SMELL: `PropertyGroup` or property conditions in `Directory.Build.props` or any `.props` file on `$(TargetFramework)`, `$(OutputType)`, an SDK-computed path, or a property the project body sets
-- WHY: The project body sets `TargetFramework` and its own properties after the `.props` import, the SDK `.targets` compute `OutputPath`, `IntermediateOutputPath`, `TargetPath`, and `TargetFrameworkMoniker`, and the condition compares an empty string and never matches. Multi-targeting inner builds receive `TargetFramework` as a global property and match, and the outer build leaves it empty
-- RULE: Condition the properties in `Directory.Build.targets` or after the assignment in the project file, key a `.props` condition the SDK needs early on `$(MSBuildProjectName)` or the project directory, and an `ItemGroup`, item, `PackageVersion`, or `Target` condition evaluates after every property and is OK
+- SMELL: A `.props` condition on `$(TargetFramework)`, `$(OutputType)`, an SDK-computed path, or a property the project body sets
+- WHY: The body sets `TargetFramework`, the SDK `.targets` compute `OutputPath`, `IntermediateOutputPath`, `TargetPath`, and `TargetFrameworkMoniker`, the condition compares an empty string. A multi-targeting inner build receives `TargetFramework` as a global property and matches, the outer build leaves it empty
+- RULE: Condition in `Directory.Build.targets` or after the assignment in the project, key an early `.props` condition on `$(MSBuildProjectName)` or the project directory. An item, `PackageVersion`, or `Target` condition reads the final value and is OK
 
 ```xml
-<!-- BAD: Directory.Build.props, $(TargetFramework) is empty here -->
+<!-- BAD: Directory.Build.props -->
 <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
   <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
 </PropertyGroup>
-<!-- GOOD: Directory.Build.targets, the body already ran -->
+<!-- GOOD: Directory.Build.targets -->
 <PropertyGroup Condition="'$(TargetFramework)' == 'net10.0'">
   <DefineConstants>$(DefineConstants);MY_FEATURE</DefineConstants>
 </PropertyGroup>
-<!-- OK: Directory.Packages.props, items read the final value -->
+<!-- OK: Directory.Packages.props -->
 <ItemGroup Condition="'$(TargetFramework)' == 'net10.0'">
   <PackageVersion Include="Some.Package" Version="10.0.0" />
 </ItemGroup>
@@ -122,95 +113,96 @@ Placement smells put a setting in a file that reads it too early, too late, or t
 ### [AP-07]-[ERROR]-[ARTIFACTSPATH_IN_A_PROJECT_FILE]
 
 - SMELL: `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`, or `BaseIntermediateOutputPath` in a project file
-- WHY: The SDK reads them before the project body. `ArtifactsPath` and `UseArtifactsOutput` fail with `NETSDK1199`, `BaseIntermediateOutputPath` warns with `MSB3539` after restore used the default, and `ArtifactsProjectName` renames `bin/` alone and leaves `obj/` under the project name. The SDK reads `ArtifactsPivots` and the output name properties after the body, and a project file can set them
-- RULE: Set the artifacts properties in `Directory.Build.props` or on the command line
+- WHY: The SDK reads them before the project body. `ArtifactsPath` and `UseArtifactsOutput` fail `NETSDK1199`, `BaseIntermediateOutputPath` warns `MSB3539` after restore used the default, `ArtifactsProjectName` renames `bin/` alone
+- RULE: Set the artifacts properties in `Directory.Build.props` or on the command line, `ArtifactsPivots` and the output name properties stay project-level. `NormalizePath` leaves no trailing slash, the SDK appends the segment and `NormalizeDirectory` adds one
 
 ```xml
-<!-- BAD: MyProject.csproj, NETSDK1199 -->
+<!-- BAD: MyProject.csproj -->
 <ArtifactsPath>$(MSBuildThisFileDirectory)artifacts</ArtifactsPath>
-<!-- GOOD: Directory.Build.props, no trailing slash because the SDK appends the segment -->
+<!-- GOOD: Directory.Build.props -->
 <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'artifacts'))</ArtifactsPath>
 ```
 
 ### [AP-08]-[STYLE]-[RESTATING_AN_SDK_DEFAULT_OR_A_ROOT_VALUE]
 
-- SMELL: Properties set to the SDK default (`OutputType=Library`, `EnableDefaultItems=true`, `RootNamespace` equal to the project name, `LangVersion` equal to the framework default), or a project file that repeats a `Directory.Build.props` value (`Nullable`, `ImplicitUsings`, `TreatWarningsAsErrors`, `TargetFramework`)
-- WHY: The copies hide the real overrides and keep the old value after an SDK or root change. `LangVersion` defaults to `14.0` under `net10.0` and `7.3` under `netstandard2.0`, and a pin below the default holds the sources at the older version
-- RULE: Project files hold only values that differ from the SDK default and the root file, and `LangVersion` appears only where the framework default is below what the sources need
+- SMELL: An SDK default in a project (`OutputType=Library`, `EnableDefaultItems=true`, `RootNamespace` equal to the project name, `LangVersion` at the framework default), or a `Directory.Build.props` value repeated in a project
+- WHY: The copy hides the real override and keeps the old value after an SDK or root change. `LangVersion` defaults to `14.0` under `net10.0` and `7.3` under `netstandard2.0`
+- RULE: A project holds values that differ from the SDK default and the root file, `LangVersion` appears where the framework default is below what the sources need
 
 ```xml
-<!-- BAD: MyProject.csproj restates the default and the root file -->
+<!-- BAD: MyProject.csproj -->
 <OutputType>Library</OutputType>
 <Nullable>enable</Nullable>
-<!-- GOOD: netstandard2.0 analyzer project, the default is 7.3 -->
+<!-- GOOD: netstandard2.0 analyzer project -->
 <LangVersion>latest</LangVersion>
 ```
 
 ### [AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
 
-- SMELL: `NoWarn` with a compiler or analyzer code in a project file, or `NoWarn` assigned without `$(NoWarn);`
-- WHY: `.editorconfig` owns the severity of compiler and analyzer diagnostics per path, and `dotnet_diagnostic.CS1591.severity = none` under `[*.cs]` removes the warning without a project edit. `NoWarn` is the only switch for `NU*` and `MSB*` codes, and an assignment without `$(NoWarn);` drops the SDK default `1701;1702`
-- RULE: Compiler and analyzer codes go to `.editorconfig`, restore and MSBuild codes go to `NoWarn` in `Directory.Build.props`, and every `NoWarn` assignment starts with `$(NoWarn);`
+- SMELL: `NoWarn` with a compiler or analyzer code in a project, or `NoWarn` assigned without `$(NoWarn);`
+- WHY: `.editorconfig` owns compiler and analyzer severity per path, the `.editorconfig` form is `dotnet_diagnostic.CS1591.severity = none` under `[*.cs]`. `NoWarn` is the one switch for `NU*` and `MSB*` codes, an assignment without `$(NoWarn);` drops the SDK default `1701;1702`
+- RULE: Compiler and analyzer codes go to `.editorconfig`, restore and MSBuild codes go to `NoWarn` in `Directory.Build.props`, every `NoWarn` assignment starts with `$(NoWarn);`
 
 ```xml
 <!-- BAD: MyProject.csproj -->
 <NoWarn>CS1591</NoWarn>
-<!-- GOOD: Directory.Build.props, restore code only -->
+<!-- GOOD: Directory.Build.props -->
 <NoWarn>$(NoWarn);NU1603</NoWarn>
 ```
 
 ### [AP-10]-[ERROR]-[RSP_OR_SOLUTION_PROPS_FOR_A_PROJECT_SETTING]
 
-- SMELL: `-p:Name=Value` in `Directory.Build.rsp`, or a property in `Directory.Solution.props` that a project reads
-- WHY: `-p:` switches in the response file are global properties that no project can override, and `Directory.Solution.props` imports into the solution project alone, and its properties reach no project under any entry point
-- RULE: Project settings belong in `Directory.Build.props`, `Directory.Build.rsp` holds command-line switches only, and `Directory.Solution.props` holds solution project settings only
+- SMELL: `-p:Name=Value` in `Directory.Build.rsp`, or a project value in `Directory.Solution.props`
+- WHY: A `-p:` switch in the response file is a global property no project overrides, `Directory.Solution.props` imports into the solution project alone, its properties reach no project under any entry point
+- RULE: Project settings go in `Directory.Build.props`, `Directory.Build.rsp` holds command-line switches, `Directory.Solution.props` holds solution project settings
 
 ```xml
-<!-- BAD: Directory.Build.rsp turns Configuration into a global property -->
+<!-- BAD: Directory.Build.rsp -->
 -p:Configuration=Release
-<!-- GOOD: Directory.Build.props, a default the command line still overrides -->
+<!-- GOOD: Directory.Build.props -->
 <Configuration Condition="'$(Configuration)' == ''">Release</Configuration>
 ```
 
 ## [03]-[ITEMS_AND_REFERENCES]
 
-Item and reference smells produce a missing item, a doubled item, or a copy the output must not hold. Prove each with `dotnet msbuild <project> -getItem:<Type>`.
+Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 
 ### [AP-11]-[ERROR]-[ITEM_UPDATE_OR_REMOVE_BEFORE_THE_SDK_INCLUDE]
 
-- SMELL: `Update` or `Remove` in `Directory.Build.props`, an `Update` with a pattern that matches no item, or an `Include` for a file the default glob already matches
-- WHY: `Update` and `Remove` act on items that exist at that point, items evaluate in order across imports, the SDK globs import after `Directory.Build.props`, and the element matches nothing and reports nothing. Duplicate `Compile` items fail with `NETSDK1022`, a full-path duplicate passes that check and warns with `CS2002`, and a duplicate `None` copies twice with no message
-- RULE: `Update` and `Remove` go in the project file or `Directory.Build.targets`, and an exclusion goes to `DefaultItemExcludes` in `.props`
+- SMELL: `Update` or `Remove` in `Directory.Build.props`, an `Update` matching no item, or an `Include` of a file the default glob matches
+- WHY: `Update` and `Remove` act on items that exist at that point, the SDK globs import after `Directory.Build.props`, the element matches nothing and reports nothing. A duplicate `Compile` fails `NETSDK1022`, a full-path duplicate warns `CS2002`, a duplicate `None` copies twice silently
+- RULE: `Update` and `Remove` go in the project or `Directory.Build.targets`, an exclusion goes to `DefaultItemExcludes` in `.props`
 
 ```xml
-<!-- BAD: Directory.Build.props, no None item exists yet -->
+<!-- BAD: Directory.Build.props -->
 <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
 <Compile Remove="Generated/**" />
-<!-- GOOD: Directory.Build.props excludes, Directory.Build.targets updates -->
+<!-- GOOD: Directory.Build.props -->
 <DefaultItemExcludes>$(DefaultItemExcludes);Generated/**</DefaultItemExcludes>
+<!-- GOOD: Directory.Build.targets -->
 <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
 ```
 
 ### [AP-12]-[ERROR]-[REFERENCE_WITH_HINTPATH_FOR_A_PACKAGE_OR_PROJECT]
 
-- SMELL: `Reference` with a `HintPath` into a `packages/` folder or into another project's `bin/`, or a `Reference` to a host-supplied assembly without `Private="false"`
-- WHY: Nothing restores a `packages/` folder for an SDK project, and the build warns with `MSB3245`. `Reference` to a project output loses the build order, which `BC0104` reports. Host-supplied assemblies without `Private="false"` copy into the output, and the host loads that copy
-- RULE: Packages are `PackageReference` items, projects are `ProjectReference` items, and a host-supplied assembly is a `Reference` with `HintPath` from a property and `Private="false"`
+- SMELL: `Reference` with a `HintPath` into `packages/` or another project's `bin/`, or a host-supplied assembly without `Private="false"`
+- WHY: Nothing restores `packages/` for an SDK project, `MSB3245`. A `Reference` to a project output loses the build order, `BC0104`. A host assembly without `Private="false"` copies into the output and the host loads that copy
+- RULE: Packages are `PackageReference`, projects are `ProjectReference`, a host assembly is a `Reference` with `HintPath` from a property and `Private="false"`
 
 ```xml
 <!-- BAD -->
 <Reference Include="Newtonsoft.Json" HintPath="../packages/Newtonsoft.Json.13.0.3/lib/netstandard2.0/Newtonsoft.Json.dll" />
-<!-- GOOD: Directory.Packages.props owns the version -->
+<!-- GOOD -->
 <PackageReference Include="Newtonsoft.Json" />
-<!-- OK: the host loads the assembly, the output never holds it -->
+<!-- OK -->
 <Reference Include="HostCore" HintPath="$(HostAssemblyDir)HostCore.dll" Private="false" />
 ```
 
 ### [AP-13]-[STYLE]-[REDUNDANT_PROJECTREFERENCE_TO_A_TRANSITIVE_DEPENDENCY]
 
-- SMELL: `Core` references `Utils`, the project references both, and the project uses no `Utils` type
-- WHY: The SDK makes project references transitive through `project.assets.json` unless `DisableTransitiveProjectReferences` is `true`, and the extra edge adds coupling and hides the graph
-- RULE: Reference only the projects with types the sources name
+- SMELL: `Core` references `Utils`, the project references both and names no `Utils` type
+- WHY: Project references are transitive through `project.assets.json` unless `DisableTransitiveProjectReferences` is `true`
+- RULE: Reference the projects with types the sources name
 
 ```xml
 <!-- BAD -->
@@ -222,39 +214,39 @@ Item and reference smells produce a missing item, a doubled item, or a copy the 
 
 ### [AP-14]-[ERROR]-[IMPORT_WITHOUT_EXISTS_GUARD]
 
-- SMELL: `<Import Project="...">` for an optional file without `Condition="Exists('...')"`
-- WHY: Missing files fail with `MSB4019`, required imports stay unguarded and a missing one then fails at once, and an unguarded import inside a package `build/` or `buildTransitive/` folder is the package contract, which the package layout resolves
-- RULE: Guard optional imports only
+- SMELL: `<Import Project="...">` of an optional file without `Condition="Exists('...')"`
+- WHY: A missing file fails `MSB4019`. An unguarded import inside a package `build/` or `buildTransitive/` folder is the package contract
+- RULE: Guard optional imports, a required import stays unguarded
 
 ```xml
 <!-- BAD -->
 <Import Project="$(MSBuildThisFileDirectory)eng/custom.props" />
 <!-- GOOD -->
 <Import Project="$(MSBuildThisFileDirectory)eng/custom.props" Condition="Exists('$(MSBuildThisFileDirectory)eng/custom.props')" />
-<!-- OK: the SDK import is required -->
+<!-- OK -->
 <Project Sdk="Microsoft.NET.Sdk">
 ```
 
 ### [AP-15]-[ERROR]-[ASSEMBLYINFO_WITH_GENERATEASSEMBLYINFO]
 
-- SMELL: `AssemblyInfo.cs` with `AssemblyTitle`, `AssemblyVersion`, or another attribute the SDK generates, while `GenerateAssemblyInfo` keeps its default of `true`
-- WHY: The compiler sees the attribute twice and fails with `CS0579`
-- RULE: Delete the file, set the values as properties, and add an attribute the SDK lacks as an `AssemblyAttribute` item
+- SMELL: `AssemblyInfo.cs` with an attribute the SDK generates while `GenerateAssemblyInfo` is `true`
+- WHY: The compiler sees the attribute twice, `CS0579`
+- RULE: Delete the file, set the values as properties, add an attribute the SDK lacks as an `AssemblyAttribute` item
 
 ```xml
 <!-- BAD: Properties/AssemblyInfo.cs holds [assembly: AssemblyTitle("Library")] -->
-<!-- GOOD: the project file -->
+<!-- GOOD -->
 <AssemblyTitle>Library</AssemblyTitle>
 ```
 
 ### [AP-16]-[ERROR]-[TARGETFRAMEWORK_PLURAL_SINGULAR_CONFUSION]
 
-- SMELL: `TargetFramework` with a semicolon list, both `TargetFramework` and `TargetFrameworks` in one project, or `TargetFrameworks` with one value
-- WHY: Lists in `TargetFramework` fail with `NETSDK1046`, both properties together take the singular and `-check` reports `BC0107`, and one value in `TargetFrameworks` runs an outer build plus an inner build and adds `_net10.0` to the artifacts pivot, which is STYLE
-- RULE: One framework goes in `TargetFramework`, a list goes in `TargetFrameworks`, and the project sets one of them
+- SMELL: A list in `TargetFramework`, both properties in one project, or one value in `TargetFrameworks`
+- WHY: A list in `TargetFramework` fails `NETSDK1046`, both together take the singular and report `BC0107`, one value in `TargetFrameworks` runs an outer and an inner build and adds `_net10.0` to the pivot, STYLE
+- RULE: One framework goes in `TargetFramework`, a list in `TargetFrameworks`, the project sets one
 
 ```xml
-<!-- BAD: NETSDK1046 -->
+<!-- BAD -->
 <TargetFramework>net10.0;netstandard2.0</TargetFramework>
 <!-- GOOD -->
 <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
@@ -262,33 +254,33 @@ Item and reference smells produce a missing item, a doubled item, or a copy the 
 
 ### [AP-17]-[ERROR]-[PROJECTREFERENCE_CYCLE_OR_UPWARD_EDGE]
 
-- SMELL: Two projects that reference each other, or a `ProjectReference` from a library to an application, a tool, or a test project
-- WHY: Cycles fail restore with `MSB4006` naming `_GenerateRestoreProjectPathWalk`, and an upward edge builds with no MSBuild check and is STYLE until a validation target makes it an error
-- RULE: Every edge points to a lower layer, and a target before `PrepareForBuild` compares `@(ProjectReference->'%(FullPath)')` with the layer root and errors on a match outside it
+- SMELL: Two projects referencing each other, or a library referencing an application, tool, or test project
+- WHY: A cycle fails restore with `MSB4006` naming `_GenerateRestoreProjectPathWalk`. An upward edge builds with no MSBuild check, STYLE until a validation target errors on it
+- RULE: Every edge points to a lower layer, a target before `PrepareForBuild` compares `@(ProjectReference->'%(FullPath)')` with the layer root and errors on a match outside it
 
 ```xml
 <!-- BAD: libs/Library/Library.csproj -->
 <ProjectReference Include="../../apps/Application/Application.csproj" />
-<!-- GOOD: Directory.Build.targets, the full target is in references/worked-examples.md -->
+<!-- GOOD: Directory.Build.targets -->
 <Error Condition="'@(_UpwardReference)' != ''" Text="Library '$(MSBuildProjectName)' references outside libs/: @(_UpwardReference, ', ')" />
 ```
 
 ## [04]-[TARGETS]
 
-Target smells run at the wrong time, run every build, or leave a value unseen. Prove each with a build at `-v:n` and a repeated build for the incremental case.
+Prove each with a build at `-v:n`, and a repeated build for the incremental case.
 
 ### [AP-18]-[STYLE]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
-- SMELL: Targets that write files without `Inputs` and `Outputs`, or a `Target` of 50 or more lines that combines unrelated work
-- WHY: MSBuild skips a target as a whole and only when every output is at least as new as every input, a target without both attributes runs on every build, and one stale input reruns every unrelated step in a large target
-- RULE: Group outputs that share a dependency and regeneration step in one target, `Inputs` lists every file that drives them, `Outputs` lists every file written, and the written file joins `@(FileWrites)` from an `ItemGroup` inside the target
+- SMELL: A target writing files without `Inputs` and `Outputs`, or a target of 50 or more lines combining unrelated work
+- WHY: A target without both attributes runs on every build, one stale input reruns every step of a large target
+- RULE: Group outputs sharing a dependency and regeneration step, `Inputs` lists every driving file, `Outputs` lists every written file, the written file joins `@(FileWrites)` inside the target
 
 ```xml
-<!-- BAD: runs every build -->
+<!-- BAD -->
 <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile">
   <Copy SourceFiles="BuildInfo.cs.in" DestinationFiles="$(IntermediateOutputPath)BuildInfo.g.cs" />
 </Target>
-<!-- GOOD: skipped when up to date -->
+<!-- GOOD -->
 <Target Name="GenerateBuildInfo" BeforeTargets="CoreCompile" Inputs="BuildInfo.cs.in" Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
   <Copy SourceFiles="BuildInfo.cs.in" DestinationFiles="$(IntermediateOutputPath)BuildInfo.g.cs" />
   <ItemGroup>
@@ -299,12 +291,12 @@ Target smells run at the wrong time, run every build, or leave a value unseen. P
 
 ### [AP-19]-[ERROR]-[CALLTARGET_FOR_A_DEPENDENCY]
 
-- SMELL: `<CallTarget Targets="Compute" />` followed by a task that reads a property or item the called target sets
-- WHY: Properties and items that a `CallTarget` target creates reach the calling target only after it finishes, and the following task reads an empty value
+- SMELL: `<CallTarget Targets="Compute" />` followed by a task reading a value the called target sets
+- WHY: Values a `CallTarget` target creates reach the caller after it finishes, the next task reads empty
 - RULE: Name the dependency in `DependsOnTargets`
 
 ```xml
-<!-- BAD: $(Computed) is empty in the Message -->
+<!-- BAD -->
 <Target Name="Report">
   <CallTarget Targets="Compute" />
   <Message Text="$(Computed)" />
@@ -317,27 +309,27 @@ Target smells run at the wrong time, run every build, or leave a value unseen. P
 
 ### [AP-20]-[ERROR]-[COPY_TASK_FOR_AN_OUTPUT_ITEM]
 
-- SMELL: `Copy` tasks in a custom target that place a content file in `$(OutDir)`, or a target named `AfterBuild` or `BeforeBuild` in a `.csproj`
-- WHY: The SDK import follows the project body and replaces a same-named target, and `AfterBuild` in a `.csproj` never runs. `Copy` tasks in a custom target reach the project's own output only, and a referencing project and `dotnet publish` never receive the file
-- RULE: Files that belong in the output are `None` or `Content` items with `CopyToOutputDirectory`, and a custom step extends the chain with `AfterTargets`
+- SMELL: `Copy` placing a content file in `$(OutDir)`, or a target named `AfterBuild` or `BeforeBuild` in a `.csproj`
+- WHY: The SDK import follows the project body and replaces a same-named target, `AfterBuild` in a `.csproj` never runs. A `Copy` in a custom target reaches the project's own output, a referencing project and `dotnet publish` receive nothing
+- RULE: Output files are `None` or `Content` items with `CopyToOutputDirectory`, a custom step attaches with `AfterTargets`
 
 ```xml
-<!-- BAD: never runs in an SDK project -->
+<!-- BAD -->
 <Target Name="AfterBuild">
   <Copy SourceFiles="settings.ini" DestinationFolder="$(OutDir)" />
 </Target>
-<!-- GOOD: reaches every referencing project and the publish directory -->
+<!-- GOOD -->
 <None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
 ```
 
 ### [AP-21]-[ERROR]-[WRITELINESTOFILE_WITHOUT_OVERWRITE]
 
 - SMELL: `WriteLinesToFile` without `Overwrite="true"`
-- WHY: The task appends by default, and the file grows by one copy of `Lines` on every build
-- RULE: Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`, which keeps the timestamp for the next incremental check
+- WHY: The task appends, the file grows by one copy of `Lines` per build
+- RULE: Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`, the timestamp then holds for the next incremental check
 
 ```xml
-<!-- BAD: two lines after two builds -->
+<!-- BAD -->
 <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" />
 <!-- GOOD -->
 <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
@@ -346,11 +338,11 @@ Target smells run at the wrong time, run every build, or leave a value unseen. P
 ### [AP-22]-[ERROR]-[DESTINATIONFOLDER_FLATTENS_A_TREE]
 
 - SMELL: `Copy` with `DestinationFolder` over a recursive glob
-- WHY: `DestinationFolder` writes every file under one directory, two files with one name overwrite each other, and the tree is lost
+- WHY: Every file lands in one directory, two files with one name overwrite each other
 - RULE: Transform the items with `%(RecursiveDir)` into `DestinationFiles`
 
 ```xml
-<!-- BAD: assets/a/b/two.txt lands beside one.txt -->
+<!-- BAD -->
 <Copy SourceFiles="@(Asset)" DestinationFolder="$(OutDir)assets/" />
 <!-- GOOD -->
 <Copy SourceFiles="@(Asset)" DestinationFiles="@(Asset->'$(OutDir)assets/%(RecursiveDir)%(Filename)%(Extension)')" />
@@ -358,12 +350,12 @@ Target smells run at the wrong time, run every build, or leave a value unseen. P
 
 ## [05]-[EXECUTION_AND_PATHS]
 
-Execution and path smells run a process or name a path that works on one machine only. Prove each with a build on the current host and read the `Exec` command line at `-v:n`.
+Prove each with a build on the current host, the `Exec` command line reads at `-v:n`.
 
 ### [AP-23]-[STYLE]-[HARDCODED_ABSOLUTE_PATHS]
 
 - SMELL: `C:\tools\`, `D:\packages\`, or `/usr/local/bin/` in a project file
-- WHY: The path exists on one machine, and a missing import or reference then fails with `MSB4019` or `MSB3245`
+- WHY: The path exists on one machine, a missing import or reference fails `MSB4019` or `MSB3245`
 - RULE: Compose every path from `$(MSBuildThisFileDirectory)` or `$(MSBuildProjectDirectory)` with `NormalizeDirectory` or `NormalizePath`
 
 ```xml
@@ -376,23 +368,23 @@ Execution and path smells run a process or name a path that works on one machine
 ### [AP-24]-[ERROR]-[BACKSLASHES_IN_PATHS]
 
 - SMELL: Backslash separators in a file that builds on more than one operating system
-- WHY: On Unix the evaluator converts `\` to `/` only when the string looks like a path and its first segment exists on disk. `Exec` commands that start with a program name get no conversion, `sh` deletes the backslash, and `cat data\file.txt` reads `datafile.txt`. Backslashes in `Import`, an item glob, or a path that `Copy`, `MakeDir`, or `Delete` consumes convert, and that case is STYLE
-- RULE: Write `/` in every path, the other ERROR cases are in `references/worked-examples.md`
+- WHY: On Unix the evaluator converts `\` to `/` when the string looks like a path and its first segment exists. An `Exec` command starting with a program name gets no conversion, `sh` deletes the backslash, `cat data\file.txt` reads `datafile.txt`. A backslash in `Import`, an item glob, or a `Copy`, `MakeDir`, or `Delete` path converts, STYLE
+- RULE: Write `/` in every path, the other ERROR cases sit in `references/worked-examples.md`
 
 ```xml
-<!-- BAD: sh deletes the backslash -->
+<!-- BAD -->
 <Exec Command="cat data\file.txt" />
 <!-- GOOD -->
 <Exec Command="cat data/file.txt" />
-<!-- OK: STYLE, the import converts on Unix -->
+<!-- OK -->
 <Import Project="$(MSBuildThisFileDirectory)..\..\build\common.props" />
 ```
 
 ### [AP-25]-[STYLE]-[EXEC_FOR_A_BUILTIN_TASK_OR_A_PROPERTY_FUNCTION]
 
 - SMELL: `Exec` running `mkdir`, `copy`, `del`, `xcopy`, `touch`, or `echo text > file`, or `Exec` with `ConsoleToMSBuild` running `sed` or `powershell -c` for a string or path value
-- WHY: `Exec` runs `cmd.exe` on Windows and `sh` elsewhere, a built-in task runs on every operating system, logs each file, and reports errors in one format, and a property function computes a string or path value at evaluation without a process
-- RULE: Replace the command with its task, a string operation with a string property function, and a path operation with a path property function that takes `$(MSBuildThisFileDirectory)` as its first argument, because a relative argument resolves against the working directory of the build process
+- WHY: `Exec` runs `cmd.exe` on Windows and `sh` elsewhere, a built-in task runs everywhere, logs each file, and reports errors in one format, a property function computes a value at evaluation without a process
+- RULE: Replace the command with its task, a string operation with a string function, a path operation with a path function taking `$(MSBuildThisFileDirectory)` first, a relative argument resolves against the working directory of the build process
 
 | [INDEX] | [COMMAND]             | [TASK]             |
 | :-----: | :-------------------- | :----------------- |
@@ -421,7 +413,7 @@ Execution and path smells run a process or name a path that works on one machine
 - RULE: Guard the target with `$([MSBuild]::IsOSPlatform('...'))`
 
 ```xml
-<!-- BAD: fails on Windows -->
+<!-- BAD -->
 <Target Name="MakeExecutable" AfterTargets="Build">
   <Exec Command="chmod +x $(OutDir)mytool" />
 </Target>
@@ -434,11 +426,11 @@ Execution and path smells run a process or name a path that works on one machine
 ### [AP-27]-[ERROR]-[EXEC_BUILDS_A_PROJECT]
 
 - SMELL: `<Exec Command="dotnet build ..." />`, `dotnet pack`, `dotnet publish`, or `msbuild` inside a target
-- WHY: The command starts a separate build process that the engine cannot schedule or log, global properties reach it only by hand, and `-check` reports `BC0302`
-- RULE: Order a project through `ProjectReference` with `ReferenceOutputAssembly="false"`, and call a specific target through the `MSBuild` task
+- WHY: The command starts a build process the engine cannot schedule or log, global properties reach it by hand, `-check` reports `BC0302`
+- RULE: Order a project through `ProjectReference` with `ReferenceOutputAssembly="false"`, call a target through the `MSBuild` task
 
 ```xml
-<!-- BAD: BC0302 -->
+<!-- BAD -->
 <Target Name="BuildTool" BeforeTargets="Build">
   <Exec Command="dotnet build ../Tool/Tool.csproj -c $(Configuration)" />
 </Target>
@@ -448,45 +440,34 @@ Execution and path smells run a process or name a path that works on one machine
 
 ## [06]-[BUILD_GRAPH]
 
-Build graph smells build one project twice. Prove each with `binlog_evaluations` on a `-bl:{}.binlog` build, two evaluations of one project outside restore share the output paths.
+Prove each with `binlog_evaluations` on a `-bl:{}.binlog` build, two evaluations of one project outside restore share the output paths.
 
 ### [AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
-- SMELL: `<MSBuild>` task calls with a `Properties` value that the target project's output path does not contain (`_IsPublishing=true`)
-- WHY: MSBuild creates one instance per project path and global property set, the call creates `(project, {_IsPublishing=true})` beside `(project, {})`, both run every target against one `bin/` and `obj/`, and `CoreCompile` runs twice. `-check` reports `BC0102` for the copies and `BC0202` for the read of `_IsPublishing`, and a parallel build races the writes and reports `MSB3026`
-- RULE: Run `Publish` in the same instance through `DependsOnTargets`, keep the `_IsPublishing` condition because without it `dotnet publish` fails with `MSB4006`, and leave `_IsPublishing` to the SDK, which moves a plain build to the `PublishRuntimeIdentifier` output path when `true`
+- SMELL: An `<MSBuild>` call with a `Properties` value the target project's output path lacks (`_IsPublishing=true`)
+- WHY: One instance exists per project path and global property set, the call creates `(project, {_IsPublishing=true})` beside `(project, {})`, both run every target against one `bin/` and `obj/`, `CoreCompile` runs twice. `-check` reports `BC0102` for the copies and `BC0202` for the `_IsPublishing` read, a parallel build reports `MSB3026`
+- RULE: Run `Publish` in the same instance through `DependsOnTargets`, keep the `_IsPublishing` condition, `dotnet publish` fails `MSB4006` without it. Leave `_IsPublishing` to the SDK, a plain build under `_IsPublishing=true` moves to the `PublishRuntimeIdentifier` output path
 
 ```xml
-<!-- BAD: another instance shares bin/ and obj/ -->
+<!-- BAD -->
 <Target Name="PublishOnBuild" AfterTargets="Build" Condition="'$(_IsPublishing)' != 'true'">
   <MSBuild Projects="$(MSBuildProjectFullPath)" Targets="Publish" Properties="_IsPublishing=true" />
 </Target>
-<!-- GOOD: one instance, the consumer form and the BC0201 setting are in references/worked-examples.md -->
+<!-- GOOD -->
 <Target Name="PublishOnBuild" AfterTargets="Build" DependsOnTargets="Publish" Condition="'$(_IsPublishing)' != 'true'" />
 ```
 
 ### [AP-29]-[ERROR]-[SETTARGETFRAMEWORK_ON_A_SINGLE_TARGETING_PROJECTREFERENCE]
 
-- SMELL: `ProjectReference` with `SetTargetFramework="TargetFramework=net10.0"` to a project that declares `<TargetFramework>net10.0</TargetFramework>`
-- WHY: The metadata passes `TargetFramework` as a global property, which creates `(project, {TargetFramework=net10.0})` beside the `(project, {})` the solution builds, and both resolve to one `bin/Debug/net10.0/` and `obj/Debug/net10.0/`. The `ProjectReference` protocol removes the global property for a single-targeting reference, and the metadata reintroduces it
-- RULE: Single-targeting references have no `SetTargetFramework`, a multi-targeting reference or a build under another framework takes it, and an incompatible reference takes `SkipGetTargetFrameworkProperties="true"` with `UndefineProperties="TargetFramework"` or `SetTargetFramework`, never both
+- SMELL: `ProjectReference` with `SetTargetFramework="TargetFramework=net10.0"` to a project declaring `<TargetFramework>net10.0</TargetFramework>`
+- WHY: The metadata passes `TargetFramework` as a global property, `(project, {TargetFramework=net10.0})` sits beside the `(project, {})` the solution builds, both resolve to one `bin/Debug/net10.0/` and `obj/Debug/net10.0/`. The `ProjectReference` protocol removes the global property for a single-targeting reference, the metadata reintroduces it
+- RULE: A single-targeting reference takes no `SetTargetFramework`. A multi-targeting reference or a build under another framework takes it. An incompatible reference takes `SkipGetTargetFrameworkProperties="true"` with `UndefineProperties="TargetFramework"` or `SetTargetFramework`, one of the two
 
 ```xml
-<!-- BAD: Tool.csproj already targets net10.0 -->
+<!-- BAD -->
 <ProjectReference Include="../Tool/Tool.csproj" SetTargetFramework="TargetFramework=net10.0" />
 <!-- GOOD -->
 <ProjectReference Include="../Tool/Tool.csproj" />
-<!-- OK: incompatible frameworks, the consumer's TargetFramework never reaches the tool -->
+<!-- OK -->
 <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" ReferenceOutputAssembly="false" />
 ```
-
-## [07]-[PACKAGING_SMELLS]
-
-Use `dotnet-msbuild-packaging` for the rule and the fix of the packaging smells:
-- `.nuspec` beside an SDK project
-- `GeneratePackageOnBuild` in a library
-- `Version` or `PackageVersion` set per project
-- `PackageReference` with `Version` under central package management
-- Nested `Directory.Packages.props` without the root import
-- NuGet lock file or lock-file restore setting in any file
-- `ContinuousIntegrationBuild` and other CI properties per project

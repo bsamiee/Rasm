@@ -3,6 +3,23 @@ id: no-inline-msgspec-codec
 language: python
 severity: error
 utils:
+    msgspec-module:
+        all:
+            - any:
+                - matches: {python-module-member: {module: {regex: "^msgspec$"}, name: {regex: "^(json|msgpack)$"}}}
+                - matches: {python-imported-name: {module: {regex: "^msgspec$"}, name: {regex: "^(json|msgpack)$"}}}
+                - kind: identifier
+                  pattern: $CODEC
+                  not: {matches: {python-conflicting-import: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^$'}}}}
+                  inside:
+                    kind: module, function_definition
+                    stopBy: end
+                    has:
+                        stopBy: {kind: "function_definition, class_definition, lambda"}
+                        kind: aliased_import
+                        inside: {kind: import_statement}
+                        has: {field: alias, pattern: $CODEC}
+            - not: {matches: python-shadowed-name}
     class-import:
         kind: import_from_statement
         all:
@@ -55,12 +72,12 @@ rule:
             - matches: imported-codec
     not: {has: {kind: comment, stopBy: end}}
 constraints:
-    MODULE: {matches: python-msgspec-module}
+    MODULE: {matches: msgspec-module}
     VALUE: {not: {kind: "keyword_argument, list_splat, dictionary_splat"}}
 transform:
     HEAD: {replace: {source: $MODULE, replace: "(?s)^(.+)$", by: "$1."}}
     METHOD_NAME: {replace: {source: $METHOD, replace: "^(.+)$", by: "$1"}}
     FUNCTION_NAME: {replace: {source: $FUNCTION, replace: "^(.+)$", by: "$1"}}
 fix: "$HEAD$METHOD_NAME$FUNCTION_NAME($VALUE)"
-message: "Inline msgspec codec construction discards the codec after one operation"
-note: Call the module's `encode` or `decode` for the default configuration, and keep one `Encoder` or `Decoder` instance for repeated use
+message: The inline codec instance serves one operation and is discarded, the form of the module `encode` or `decode` function
+note: The module functions use the default configuration, one `Encoder` or `Decoder` instance serves repeated operations with one configuration

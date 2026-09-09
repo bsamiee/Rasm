@@ -3,9 +3,11 @@ id: no-fourth-nesting-level
 language: tsx
 severity: error
 utils:
+    expression-wrapper:
+        kind: parenthesized_expression, as_expression, satisfies_expression, non_null_expression
     callback-wrapper:
         any:
-            - matches: syntax-expression-wrapper
+            - matches: expression-wrapper
             - kind: pair
             - kind: object
             - kind: array
@@ -20,7 +22,7 @@ utils:
                 stopBy:
                     not:
                         any:
-                            - matches: syntax-expression-wrapper
+                            - matches: expression-wrapper
                             - kind: object, pair
                 inside:
                     kind: lexical_declaration
@@ -30,7 +32,7 @@ utils:
             - inside:
                 kind: member_expression
                 field: object
-                stopBy: {not: {matches: syntax-expression-wrapper}}
+                stopBy: {not: {matches: expression-wrapper}}
                 inside: {kind: call_expression, field: function, matches: module-value}
     effect-function-factory:
         kind: call_expression
@@ -53,13 +55,13 @@ utils:
         pattern: $BODY
         inside:
             kind: arguments
-            stopBy: {not: {matches: syntax-expression-wrapper}}
+            stopBy: {not: {matches: expression-wrapper}}
             has:
                 nthChild: {position: 1, ofRule: {not: {kind: comment}}}
                 any:
                     - pattern: $BODY
-                    - matches: syntax-expression-wrapper
-                      has: {pattern: $BODY, stopBy: {not: {matches: syntax-expression-wrapper}}}
+                    - matches: expression-wrapper
+                      has: {pattern: $BODY, stopBy: {not: {matches: expression-wrapper}}}
             inside:
                 all:
                     - matches: effect-function-factory
@@ -85,7 +87,7 @@ utils:
             - kind: if_statement
               not: {inside: {kind: else_clause}}
             - kind: ternary_expression
-              not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: syntax-expression-wrapper}}}}
+              not: {inside: {kind: ternary_expression, field: alternative, stopBy: {not: {matches: expression-wrapper}}}}
     control-boundary:
         any: [{matches: control}, {matches: syntax-function-boundary}]
 rule:
@@ -104,7 +106,6 @@ rule:
                     matches: control
                     stopBy: {matches: control-boundary}
                     not: {inside: {matches: control, stopBy: {matches: syntax-function-boundary}}}
-message: The operation exceeds three nested function or control levels
-note: Compose dependent operations in a flat pipe or Effect.gen and independent ones with the owning combinator
+message: The operation exceeds three nested function or control levels, the form of a `pipe` step, an `Effect.gen` statement, or a combinator of the owning module at the fourth level
 labels:
     SCOPE: {style: primary}

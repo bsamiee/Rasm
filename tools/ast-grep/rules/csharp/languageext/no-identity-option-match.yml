@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-identity-option-match
+language: csharp
+severity: error
+utils:
+    unnamed-arguments:
+        not:
+            has:
+                field: arguments
+                kind: argument_list
+                has:
+                    kind: argument
+                    has: {field: name, kind: identifier}
+rule:
+    any:
+        - pattern:
+            context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, None: $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $OPTION.Match(None: $FALLBACK, Some: $IDENTITY); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $OPTION.Match($IDENTITY, None: $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - all:
+            - pattern:
+                context: "class C { object F() => $OPTION.Match($IDENTITY, $FALLBACK); }"
+                selector: invocation_expression
+                strictness: cst
+            - matches: unnamed-arguments
+        - pattern:
+            context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, None: $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $CALLEE($INPUT, None: $FALLBACK, Some: $IDENTITY); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, None: $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - all:
+            - pattern:
+                context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, $FALLBACK); }"
+                selector: invocation_expression
+                strictness: cst
+            - matches: unnamed-arguments
+constraints:
+    CALLEE: {regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
+    IDENTITY: {matches: csharp-identity-callback}
+transform:
+    HEAD: {replace: {source: $OPTION, replace: '(?s)^(.*)$', by: '${1}.IfNone'}}
+    CALL: {replace: {source: $CALLEE, replace: 'match$', by: 'ifNone'}}
+    FIRST: {replace: {source: $INPUT, replace: '(?s)^(.*)$', by: '${1}, '}}
+fix: "$HEAD$CALL($FIRST$FALLBACK)"
+message: "`Match` returns the Some value unchanged and supplies a fallback for None, the form of `IfNone`"
+note: IfNone with the fallback on an Option<A> Match whose result is A, a wider result or an Action fallback keeps Match

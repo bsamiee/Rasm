@@ -29,5 +29,5 @@ transform:
             by: '${1}${2}${3}'
     ATTACHED: {replace: {source: $KEPT, replace: '@@([^@]*)@@', by: ' ${1}'}}
 fix: $ATTACHED
-message: The target takes a predefined name, the SDK import after the project body redefines it and the target never runs
-note: Give the target its own name and attach it with AfterTargets or BeforeTargets
+message: 'The target takes a predefined name, the form of an own name attached with AfterTargets or BeforeTargets'
+note: 'The SDK import after the project body redefines the predefined target and it never runs'

@@ -19,21 +19,23 @@ defaults:
         shell: bash
 
 jobs:
-    native:
-        uses: ./.github/workflows/native.yml
-
     check:
         runs-on: ubuntu-24.04
-        timeout-minutes: 30
+        timeout-minutes: 60
         steps:
             - uses: actions/checkout@v7
               with:
+                fetch-depth: 0
+                filter: tree:0
                 persist-credentials: false
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ci.yml
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
+            - run: nx affected -t check
 
     format:
-        needs: native
         runs-on: ubuntu-24.04
         timeout-minutes: 30
         steps:
@@ -41,107 +43,11 @@ jobs:
               with:
                 persist-credentials: false
             - uses: ./.github/actions/setup
-            - uses: actions/download-artifact@v8
-              with:
-                name: nuget-local
-                path: .artifacts/nuget
             - run: nx run rasm:format
             - run: git diff --exit-code
 
-    dotnet:
-        needs: native
-        strategy:
-            fail-fast: false
-            matrix:
-                include:
-                    - {rid: osx-arm64, runner: macos-26}
-                    - {rid: linux-x64, runner: ubuntu-24.04}
-                    - {rid: linux-arm64, runner: ubuntu-24.04-arm}
-                    - {rid: win-x64, runner: windows-2025}
-        runs-on: ${{ matrix.runner }}
-        timeout-minutes: 90
-        steps:
-            - uses: actions/checkout@v7
-              with:
-                fetch-depth: 0
-                filter: tree:0
-                persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
-              with:
-                workflow-id: ci.yml
-            - uses: ./.github/actions/setup
-            - uses: actions/download-artifact@v8
-              with:
-                name: nuget-local
-                path: .artifacts/nuget
-            - run: nx affected -t build test --exclude='*,!tag:language:dotnet' -- -bl:"$GITHUB_WORKSPACE/.artifacts/dotnet/binlog/build-{}.binlog"
-            - run: nx run rasm:coverage --language dotnet
-            - uses: actions/upload-artifact@v7
-              with:
-                name: dotnet-coverage-${{ matrix.rid }}
-                path: .artifacts/dotnet/coverage
-            - if: failure()
-              uses: actions/upload-artifact@v7
-              with:
-                name: dotnet-binlogs-${{ matrix.rid }}
-                path: .artifacts/dotnet/binlog
-
-    python:
-        runs-on: ubuntu-24.04
-        timeout-minutes: 60
-        steps:
-            - uses: actions/checkout@v7
-              with:
-                fetch-depth: 0
-                filter: tree:0
-                persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
-              with:
-                workflow-id: ci.yml
-            - uses: ./.github/actions/setup
-            - id: cache
-              uses: ./.github/actions/native-cache
-              with:
-                rid: linux-x64
-            - run: nx run eng:provision
-            - if: always() && steps.cache.outputs.releases-key != ''
-              uses: actions/cache/save@v6
-              with:
-                path: ${{ steps.cache.outputs.releases-path }}
-                key: ${{ steps.cache.outputs.releases-key }}
-            - run: sudo apt-get install -y --no-install-recommends proj-bin libproj-dev # pyproj builds from source against PROJ
-            - run: uv sync --locked
-            - run: uv cache prune --ci
-            - run: nx affected -t check --exclude='*,!tag:language:python'
-            - run: nx run rasm:coverage --language python
-            - uses: actions/upload-artifact@v7
-              with:
-                name: python-coverage
-                path: .artifacts/python/coverage
-
-    typescript:
-        runs-on: ubuntu-24.04
-        timeout-minutes: 60
-        steps:
-            - uses: actions/checkout@v7
-              with:
-                fetch-depth: 0
-                filter: tree:0
-                persist-credentials: false
-            - uses: nrwl/nx-set-shas@v5
-              with:
-                workflow-id: ci.yml
-            - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='*,!tag:language:typescript,rasm'
-            - run: nx run rasm:coverage --language typescript
-            - uses: actions/upload-artifact@v7
-              with:
-                name: typescript-coverage
-                path: .artifacts/typescript/coverage
-
-    # The one status check the ruleset requires, a skipped or cancelled job fails it
     required:
-        needs: [native, check, format, dotnet, python, typescript]
+        needs: [check, format]
         if: always()
         runs-on: ubuntu-slim
         timeout-minutes: 5

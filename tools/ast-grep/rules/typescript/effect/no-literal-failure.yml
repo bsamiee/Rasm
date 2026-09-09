@@ -101,5 +101,5 @@ rule:
         - all:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: record-mapper}
-message: '`$FAIL` fails with `$ERROR`, a value no tag names'
-note: Fail with a tagged error, `Effect.fail(new LoadError({ path }))` over a `Data.TaggedError` class, and recover it by tag with `Effect.catchTag`
+message: '`$FAIL` fails with `$ERROR`, a value no tag names, the form of a `Data.TaggedError` instance such as `new LoadError({ path })`'
+note: '`Effect.catchTag` recovers a tagged error by its tag'

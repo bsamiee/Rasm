@@ -15,5 +15,5 @@ rule:
             has:
                 matches: msbuild-tag
                 has: {matches: {msbuild-attribute: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}}
-message: The public property normalizes itself, and a global property from -p or an MSBuild task skips the assignment
-note: Derive the normalized value into a _ prefixed private property and read that
+message: 'The public property normalizes itself, the form of a _ prefixed private property holding the normalized value'
+note: 'A global property from -p or an MSBuild task skips the assignment'

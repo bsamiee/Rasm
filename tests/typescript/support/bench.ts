@@ -106,13 +106,11 @@ const _readHistory: Effect.Effect<readonly BenchmarkResult[], BenchmarkError, Be
     const raw = yield* Effect.orElseSucceed(fs.readFileString(path.join(directory, _FILES.history)), () => '');
     const lines = Array.filter(String.split(raw, '\n'), String.isNonEmpty);
     return yield* Effect.mapError(
-        // Effect.forEach passes the index into the optional parse options of Schema.decodeUnknown
         Effect.forEach(lines, (line) => _decodeResult(line)),
         _fileError('malformed'),
     );
 });
 
-// The rows of one Vitest output file append to the history once, a rerun over the same file adds nothing
 const _importLatestResults: Effect.Effect<readonly BenchmarkResult[], BenchmarkError, BenchmarkFiles> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
@@ -137,7 +135,6 @@ const _importLatestResults: Effect.Effect<readonly BenchmarkResult[], BenchmarkE
             ),
         ),
     );
-    // Array.map passes the index into the optional replacer of JSON.stringify
     const lines = Array.map(rows, (row) => JSON.stringify(row));
     yield* Effect.mapError(
         fs.writeFileString(path.join(directory, _FILES.history), `${lines.join('\n')}\n`, { flag: 'a' }),

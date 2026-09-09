@@ -189,6 +189,7 @@ Comments state intent or constraint code cannot show, in one line and statement 
 - Python docstrings keep the first-line period, each public module, class, or function keeps its docstring
 - Messages (log, error, exception, diagnostic) state what happened, its cause when known, then the action, each in one sentence with no period
 - Commit subjects are imperative, commit and pull request bodies state past facts
+- Comments naming a wrong result a call can return are guards, the call takes the parameter or form returning the right result, or the line goes
 
 ## [06]-[PROCESS]
 

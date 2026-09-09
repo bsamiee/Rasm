@@ -4,6 +4,5 @@
         "outDir": "../../../.cache/typescript/out/tests/typescript/support",
         "types": ["node", "vite/client"]
     },
-    "include": ["**/*.ts"],
     "exclude": ["vitest.config.ts"]
 }

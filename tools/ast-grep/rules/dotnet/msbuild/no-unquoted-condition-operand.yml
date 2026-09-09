@@ -36,5 +36,5 @@ transform:
             replace: "^(Condition\\s*=\\s*)'(\\s*)([$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)(\\s*(?:==|!=)\\s*)([$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)(\\s*)'$"
             by: "$1\"$2'$3'$4'$5'$6\""
 fix: $SINGLE
-message: The simple condition compares an operand outside single quotes, a literal with a dot fails with MSB4092 and a double quote with MSB4090
-note: Quote both operands with ' inside a double-quoted Condition attribute, and leave literals, function arguments, and boolean grouping as written
+message: 'The simple condition compares an operand outside single quotes, the form of both operands in single quotes inside a double-quoted Condition'
+note: 'A literal with a dot fails with MSB4092 and a double quote with MSB4090, function arguments and boolean grouping parse as written'

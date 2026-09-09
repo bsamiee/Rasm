@@ -1,8 +1,0 @@
-{
-    "stryker-config": {
-        "test-runner": "mtp",
-        "solution": "Workspace.slnx",
-        "mutate": ["**/libs/dotnet/**/*.cs", "**/tools/**/*.cs"],
-        "reporters": ["json", "html", "progress"]
-    }
-}

@@ -24,7 +24,6 @@ rule:
                 - all:
                     - has: {matches: static-method}
                     - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: static-method}]}}}
-message: '`$NAME` holds one instance method or only static methods'
-note: Write the function, a `msgspec.Struct` with the state and the operation, or a dict of the values
+message: '`$NAME` holds one instance method or only static methods, the form of a function, a `msgspec.Struct` holding the state with the operation as its method, or a dict of the values'
 labels:
     NAME: {style: primary, message: Class with one method}

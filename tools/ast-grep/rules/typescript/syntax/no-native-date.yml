@@ -2,7 +2,6 @@
 id: no-native-date
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**']
 rule:
     any:
         - kind: new_expression
@@ -11,5 +10,5 @@ rule:
             - has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}
         - kind: call_expression
           has: {field: function, regex: '^(globalThis\.)?Date\.(parse|UTC)$', matches: syntax-global-reference}
-message: The time value is built through the native Date
-note: Construct DateTime values with DateTime.make at the boundary, and DateTime.unsafeMake for an input with established validity
+message: 'The time value is built through the native Date, the form of `DateTime.make` at the boundary'
+note: '`DateTime.unsafeMake` takes an input with established validity'

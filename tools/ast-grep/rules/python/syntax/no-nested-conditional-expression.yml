@@ -7,5 +7,4 @@ rule:
     all:
         - has: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}
         - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}}
-message: Conditional expression contains a nested conditional
-note: Express the dispatch with match cases or the owning result combinator, keeping the operation at its call site
+message: 'The conditional expression nests a conditional, the form of `match` cases or the owning result combinator at the call site'

@@ -2,9 +2,6 @@
     "name": "rasm",
     "private": true,
     "type": "module",
-    "browserslist": [
-        "baseline widely available"
-    ],
     "devDependencies": {
         "@aws-sdk/client-s3": "catalog:",
         "@aws-sdk/lib-storage": "catalog:",
@@ -197,7 +194,6 @@
         "avsc": "catalog:",
         "babel-plugin-react-compiler": "catalog:",
         "basic-ftp": "catalog:",
-        "browserslist": "catalog:",
         "chevrotain": "catalog:",
         "chokidar": "catalog:",
         "class-variance-authority": "catalog:",
@@ -225,6 +221,7 @@
         "motion": "catalog:",
         "mqtt": "catalog:",
         "nodemailer": "catalog:",
+        "npm-check-updates": "catalog:",
         "nuqs": "catalog:",
         "nx": "catalog:",
         "openid-client": "catalog:",
@@ -294,8 +291,7 @@
                 "sharedGlobals",
                 "typescript",
                 "{workspaceRoot}/*",
-                "{workspaceRoot}/{.vscode,infra,tools}/**/*",
-                "{workspaceRoot}/.claude/skills/ast-grep/scripts/**/*"
+                "{workspaceRoot}/infra/*.ts"
             ]
         },
         "targets": {
@@ -305,11 +301,7 @@
                 "inputs": [
                     "{workspaceRoot}/Workspace.slnx",
                     "{workspaceRoot}/{apps,libs,tests,tools}/**/*.csproj",
-                    "{workspaceRoot}/{apps,libs,tests,tools}/**/Directory.{Build,Packages}.{props,targets}",
-                    "dotnet",
-                    {
-                        "runtime": "dotnet --version"
-                    }
+                    "dotnet"
                 ],
                 "outputs": [
                     "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json",
@@ -339,41 +331,6 @@
                     "{workspaceRoot}/.cache/ast-grep/xml.so"
                 ]
             },
-            "lint": {
-                "command": "uv run --only-group eng python -m eng.scripts.quality lint {args}",
-                "cache": true,
-                "dependsOn": [
-                    "grammar",
-                    "rules"
-                ],
-                "inputs": [
-                    "{workspaceRoot}/**/*",
-                    "{workspaceRoot}/{.github,.claude}/**/*",
-                    {
-                        "runtime": "typos --version && ast-grep --version && ruff --version && biome --version && shellcheck --version && yamllint --version && actionlint --version && zizmor --version && sqlfluff --version"
-                    }
-                ],
-                "options": {
-                    "forwardAllArgs": false
-                }
-            },
-            "format": {
-                "command": "uv run --only-group eng python -m eng.scripts.quality format {args}",
-                "cache": false,
-                "dependsOn": [
-                    "restore"
-                ],
-                "inputs": [
-                    "{workspaceRoot}/**/*",
-                    "{workspaceRoot}/{.github,.claude}/**/*",
-                    {
-                        "runtime": "typos --version && dotnet --version && ruff --version && biome --version && shfmt --version && yamlfmt --version && pg-formatter --version"
-                    }
-                ],
-                "options": {
-                    "forwardAllArgs": false
-                }
-            },
             "rewrite": {
                 "command": "ast-grep scan -U",
                 "cache": false,
@@ -381,6 +338,58 @@
                 "dependsOn": [
                     "grammar"
                 ]
+            },
+            "outline": {
+                "command": "ast-grep outline $(printf -- '--outline-rules %s ' tools/ast-grep/outline/*.yml)",
+                "cache": false,
+                "dependsOn": [
+                    "grammar"
+                ]
+            },
+            "lint": {
+                "executor": "nx:run-commands",
+                "cache": true,
+                "dependsOn": [
+                    "grammar"
+                ],
+                "inputs": [
+                    "{workspaceRoot}/**/*",
+                    {
+                        "dependentTasksOutputFiles": "**/xml.so"
+                    },
+                    {
+                        "runtime": "typos --version && ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version"
+                    }
+                ],
+                "options": {
+                    "commands": [
+                        "typos",
+                        "ast-grep scan --no-ignore hidden",
+                        "biome check --error-on-warnings",
+                        "ruff check",
+                        "yamllint .",
+                        "actionlint"
+                    ],
+                    "parallel": true
+                }
+            },
+            "format": {
+                "executor": "nx:run-commands",
+                "cache": false,
+                "dependsOn": [
+                    "restore"
+                ],
+                "options": {
+                    "commands": [
+                        "typos --write-changes",
+                        "biome check --write --error-on-warnings",
+                        "ruff check --fix",
+                        "ruff format",
+                        "yamlfmt -no_global_conf -formatter indent=4,retain_line_breaks=true .",
+                        "dotnet format Workspace.slnx --no-restore"
+                    ],
+                    "parallel": false
+                }
             },
             "typecheck": {
                 "inputs": [
@@ -398,10 +407,7 @@
             "check": {
                 "executor": "nx:noop",
                 "dependsOn": [
-                    {
-                        "target": "lint",
-                        "params": "forward"
-                    },
+                    "lint",
                     "typecheck"
                 ]
             },
@@ -415,14 +421,6 @@
                 "cache": false,
                 "parallelism": false
             },
-            "coverage": {
-                "command": "uv run --only-group eng python -m eng.scripts.coverage",
-                "cache": false
-            },
-            "mutation": {
-                "command": "uv run --only-group eng python -m eng.scripts.mutation",
-                "cache": false
-            },
             "upgrade": {
                 "executor": "nx:run-commands",
                 "cache": false,
@@ -430,8 +428,10 @@
                 "options": {
                     "commands": [
                         "uv lock --upgrade",
-                        "pnpm update --latest --recursive",
-                        "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore Workspace.slnx"
+                        "ncu --workspaces --root --packageManager pnpm -u --target newest",
+                        "pnpm install",
+                        "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj",
+                        "mise upgrade"
                     ],
                     "parallel": false
                 },
@@ -443,66 +443,21 @@
                     },
                     "typescript": {
                         "commands": [
-                            "pnpm update --latest --recursive"
+                            "ncu --workspaces --root --packageManager pnpm -u --target newest",
+                            "pnpm install"
                         ]
                     },
                     "dotnet": {
                         "commands": [
-                            "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore Workspace.slnx"
+                            "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj"
+                        ]
+                    },
+                    "tools": {
+                        "commands": [
+                            "mise upgrade"
                         ]
                     }
                 }
-            },
-            "workflow": {
-                "command": "uv run --only-group eng python -m eng.scripts.workflow",
-                "cache": false,
-                "parallelism": false
-            },
-            "harness": {
-                "command": "uv run --only-group eng python -m eng.scripts.harness",
-                "cache": false,
-                "parallelism": false,
-                "dependsOn": [
-                    {
-                        "projects": [
-                            "function-hooks"
-                        ],
-                        "target": "test"
-                    }
-                ]
-            },
-            "rules": {
-                "executor": "nx:run-commands",
-                "cache": true,
-                "dependsOn": [
-                    "grammar"
-                ],
-                "inputs": [
-                    "{workspaceRoot}/tools/ast-grep/**/*",
-                    "{workspaceRoot}/package.json",
-                    "{workspaceRoot}/pnpm-workspace.yaml",
-                    "{workspaceRoot}/pnpm-lock.yaml",
-                    "{workspaceRoot}/sgconfig.yml",
-                    {
-                        "dependentTasksOutputFiles": "**/xml.so"
-                    },
-                    {
-                        "runtime": "ast-grep --version"
-                    }
-                ],
-                "options": {
-                    "command": "ast-grep test --include-off"
-                },
-                "metadata": {
-                    "description": "Run the ast-grep test cases"
-                }
-            },
-            "outline": {
-                "command": "ast-grep outline $(printf -- '--outline-rules %s ' tools/ast-grep/outline/*.yml)",
-                "cache": false,
-                "dependsOn": [
-                    "grammar"
-                ]
             }
         }
     }

@@ -54,7 +54,7 @@ rule:
                         all:
                             - has: {matches: self-assignment}
                             - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: self-assignment}]}}}
-message: '`__init__` of `$NAME` assigns attributes of self alone, a record spelled as a class'
-note: Declare the fields on a `msgspec.Struct`, `frozen=True` where the value never changes, and drop `__init__`
+message: '`__init__` of `$NAME` assigns attributes of self alone, the form of fields declared on a `msgspec.Struct` without `__init__`'
+note: '`frozen=True` on the Struct makes the value immutable'
 labels:
     NAME: {style: primary, message: Class with an init that assigns fields alone}

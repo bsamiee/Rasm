@@ -2,10 +2,102 @@
 id: no-control-flow-expression-statement
 language: python
 severity: error
+utils:
+    block-statement:
+        kind: expression_statement
+        all:
+            - not: {follows: {regex: '^;$'}}
+            - not: {precedes: {regex: '^;$'}}
+            - any:
+                - inside: {kind: module}
+                - inside:
+                    kind: block
+                    inside: {regex: '^[^\n]*:[ \t]*(#[^\n]*)?\n'}
+    fixable:
+        not: {regex: '\n'}
+        inside: {matches: block-statement}
+    effect-operand:
+        kind: boolean_operator
+        has: {field: right, kind: 'call, await'}
+        matches: fixable
+    synchronous-loop:
+        kind: list_comprehension, set_comprehension, generator_expression
+        not: {has: {kind: for_in_clause, regex: '^async\b'}}
+        matches: fixable
 rule:
-    matches:
-        python-discarded-expression:
-            value:
-                kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
-message: Expression statement drops the result of selection or iteration
-note: Select with `if`, iterate with a loop, `boolean-statement-to-if`, `conditional-statement-to-if`, and `comprehension-statement-to-loop` apply
+    kind: expression_statement
+    pattern: $STMT
+    has:
+        stopBy: {not: {kind: parenthesized_expression}}
+        kind: conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+rewriters:
+    - id: and-statement
+      rule: {pattern: $TEST and $EFFECT, matches: effect-operand}
+      fix: |-
+        if $TEST:
+            $EFFECT
+    - id: or-negated-statement
+      rule: {pattern: not $TEST or $EFFECT, matches: effect-operand}
+      fix: |-
+        if $TEST:
+            $EFFECT
+    - id: or-boolean-statement
+      rule: {pattern: $TEST or $EFFECT, matches: effect-operand}
+      constraints: {TEST: {kind: boolean_operator}}
+      fix: |-
+        if not ($TEST):
+            $EFFECT
+    - id: or-statement
+      rule: {pattern: $TEST or $EFFECT, matches: effect-operand}
+      fix: |-
+        if not $TEST:
+            $EFFECT
+    - id: if-statement
+      rule: {kind: conditional_expression, pattern: $EFFECT if $TEST else None, matches: fixable}
+      fix: |-
+        if $TEST:
+            $EFFECT
+    - id: else-boolean-statement
+      rule: {kind: conditional_expression, pattern: None if $TEST else $EFFECT, matches: fixable}
+      constraints: {TEST: {kind: boolean_operator}}
+      fix: |-
+        if not ($TEST):
+            $EFFECT
+    - id: else-statement
+      rule: {kind: conditional_expression, pattern: None if $TEST else $EFFECT, matches: fixable}
+      fix: |-
+        if not $TEST:
+            $EFFECT
+    - id: if-else-statement
+      rule: {kind: conditional_expression, pattern: $EFFECT if $TEST else $OTHER, matches: fixable}
+      fix: |-
+        if $TEST:
+            $EFFECT
+        else:
+            $OTHER
+    - id: filtered-loop
+      rule:
+        matches: synchronous-loop
+        any:
+            - pattern: '[$BODY for $X in $XS if $COND]'
+            - pattern: '{$BODY for $X in $XS if $COND}'
+            - pattern: '($BODY for $X in $XS if $COND)'
+      fix: |-
+        for $X in $XS:
+            if $COND:
+                $BODY
+    - id: loop
+      rule:
+        matches: synchronous-loop
+        any:
+            - pattern: '[$BODY for $X in $XS]'
+            - pattern: '{$BODY for $X in $XS}'
+            - pattern: '($BODY for $X in $XS)'
+      fix: |-
+        for $X in $XS:
+            $BODY
+transform:
+    OUT: rewrite($STMT, rewriters=[and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop])
+fix: $OUT
+message: The expression statement drops the value of a selection or iteration, the form of an `if` statement for the selection and a `for` loop for the iteration
+note: The `if` body holds the effect of the selected branch, and the loop body runs once per element and builds no collection

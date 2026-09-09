@@ -2,21 +2,10 @@
     "name": "function-hooks",
     "private": true,
     "type": "module",
-    "devDependencies": { "vitest": "catalog:" },
     "nx": {
         "tags": ["language:typescript"],
         "targets": {
-            "typecheck": { "cache": false },
-            "test": {
-                "cache": false,
-                "inputs": [
-                    "...",
-                    "{workspaceRoot}/CLAUDE.md",
-                    "{workspaceRoot}/README.md",
-                    "{workspaceRoot}/.claude/**/*.md",
-                    "{workspaceRoot}/.claude/settings*.json"
-                ]
-            }
+            "typecheck": { "cache": false }
         }
     }
 }

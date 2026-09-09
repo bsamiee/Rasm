@@ -7,9 +7,6 @@ description: "Use when calling a LanguageExt member, covering result types, erro
 
 Covers the LanguageExt types and their operations, from the result types and their conversions to streams.
 
-[SKILLS]:
-- `dotnet-coding`: Which type a function returns, where the boundary sits, and which operator joins the steps
-
 [REFERENCES]:
 - [01]-[TRAITS_AND_TRANSFORMERS](references/traits-and-transformers.md): Trait encoding, transformer stacks, and the domain monads over them
 - [02]-[STREAMS](references/streams.md): The stream API from sources to pipes, with the buffer policies and their forking order
@@ -338,4 +335,3 @@ internal static class SharedState {
 ## [08]-[STREAMS]
 
 `Source<A>` is the stream type, `Sink<A>` its consumer end, `Conduit.make(Buffer<A>)` builds a joined pair under a buffer policy, `Event.from(ref Action<A>)` adapts a callback-based producer into a `Source<A>`, and `ProducerT`, `PipeT`, and `ConsumerT` are the roles that `|` fuses into an `EffectT`. `Reduce(seed, f)` is the fold that yields a value as `IO<S>`, and `Fold` on a lifted finite sequence emits nothing.
-- Use `references/streams.md` for the stream API from sources to pipes

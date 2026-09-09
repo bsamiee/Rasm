@@ -1,11 +1,7 @@
-# Text normalizes to LF and binaries auto-detect, Verify snapshots need exact LF bytes
 * text=auto eol=lf
-
-# Binary design assets commit as Git LFS pointers
 
 # --- [RHINO] ------------------------------------------------------------------
 *.3dm filter=lfs diff=lfs merge=lfs -text
-*.3dmbak filter=lfs diff=lfs merge=lfs -text
 
 # --- [GRASSHOPPER] ------------------------------------------------------------
 *.gh filter=lfs diff=lfs merge=lfs -text

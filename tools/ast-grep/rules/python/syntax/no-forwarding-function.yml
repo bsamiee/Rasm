@@ -80,5 +80,4 @@ rule:
         - not: {has: {field: name, pattern: $F}}
 constraints:
     F: {matches: named-callee}
-message: The def forwards its parameters unchanged to one call of `$F` and adds a name for the callee
-note: Pass the callee itself where the def was passed or called
+message: 'The def forwards its parameters unchanged to one call of `$F` and adds a name for the callee, the form of `$F` itself where the def is passed or called'

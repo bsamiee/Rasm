@@ -5,12 +5,7 @@ description: "Use when writing or reviewing C#, covering signatures, purity, pat
 
 # [DOTNET_CODING]
 
-Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY), from the shape of a signature to the host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary, and each package has its own skill:
-
-[SKILLS]:
-- `dotnet-coding-languageext`: The library's types and their operations, from conversions and recovery to `IO` execution and streams
-- `dotnet-coding-thinktecture`: Declaring value objects, smart enums, and unions, with their generated API and integrations
-- `dotnet-coding-mapperly`: Mapping between domain types and host contracts
+Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW, INDEPENDENCE, PURITY, BOUNDARY), from the shape of a signature to the host boundary. LanguageExt, Thinktecture, and Mapperly are part of the language, every example uses their types as vocabulary.
 
 [REFERENCES]:
 - [01]-[FUNCTIONS](references/functions.md): Worked flows for functions as values, from combinators to the composition root and a request's effects

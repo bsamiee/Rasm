@@ -1,21 +1,7 @@
 {
     "name": "function-hooks",
-    "description": "Function hooks for the Rasm workspace that refuse and rewrite tool calls from policy tables, redact secrets, and add skill routing context, with spoken summaries under an option",
+    "description": "Refuses destructive git commands, shell waits, and a second config file beside its owner",
     "author": {
         "name": "Bardia Samiee"
-    },
-    "userConfig": {
-        "packageManager": {
-            "type": "string",
-            "title": "Package manager",
-            "description": "Replaces npm in Bash calls with this command",
-            "default": "pnpm"
-        },
-        "speak": {
-            "type": "boolean",
-            "title": "Speak turn summaries",
-            "description": "Speaks a one-sentence summary of each answer through the system voice",
-            "default": false
-        }
     }
 }

@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-lifted-fin-bind
+language: csharp
+severity: error
+rule:
+    any:
+        - pattern:
+            context: 'class C { object F() => $IO.lift<$FIN>($THUNK).Bind($BIND); }'
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: 'class C { object F() => from $ITEM in $IO.lift<$FIN>($THUNK) from $X in $IO.lift($ITEM) select $X; }'
+            selector: query_expression
+            strictness: cst
+        - pattern:
+            context: 'class C { object F() => from $ITEM in $IO.lift<$FIN>($THUNK) from $X in $IO.lift<$_TYPE>($ITEM) select $X; }'
+            selector: query_expression
+            strictness: cst
+constraints:
+    IO: {regex: '^(global::)?(LanguageExt\.)?IO$'}
+    FIN: {regex: '(?s)^(global::)?(LanguageExt\.)?Fin\s*<.+>$'}
+    BIND:
+        any:
+            - kind: argument
+              has: {pattern: $IO.lift}
+            - matches:
+                csharp-unary-callback:
+                    parameter: {pattern: $VALUE}
+                    body:
+                        any:
+                            - pattern:
+                                context: 'class C { object F() => $IO.lift($VALUE); }'
+                                selector: invocation_expression
+                                strictness: cst
+                            - pattern:
+                                context: 'class C { object F() => $IO.lift<$_TYPE>($VALUE); }'
+                                selector: invocation_expression
+                                strictness: cst
+                            - pattern:
+                                context: 'class C { object F() => $IO.lift(() => $VALUE); }'
+                                selector: invocation_expression
+                                strictness: cst
+                            - pattern:
+                                context: 'class C { object F() => $IO.lift<$_TYPE>(() => $VALUE); }'
+                                selector: invocation_expression
+                                strictness: cst
+fix: '$IO.lift($THUNK)'
+message: "`$IO.lift` over a Fin thunk binds a second lift of the Fin value, the form of one `IO.lift` over the thunk"
+note: IO.lift with the Func<Fin<A>> thunk alone yields IO<A> with the failure on the IO channel, a FinT input or an alias keeps Bind

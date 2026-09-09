@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>Gmsh finite element mesh generator shared library staged per runtime identifier</Description>
-        <PackageLicenseExpression>GPL-2.0-or-later</PackageLicenseExpression>
-    </PropertyGroup>
-</Project>

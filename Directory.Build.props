@@ -6,6 +6,7 @@
         <ToolsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tools'))</ToolsRoot>
         <TestsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tests'))</TestsRoot>
         <AppsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'apps'))</AppsRoot>
+        <CatalogRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'eng', 'dotnet'))</CatalogRoot>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
@@ -13,18 +14,12 @@
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(ToolsRoot)'))">tools</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
+        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(CatalogRoot)'))">catalog</ProjectRole>
     </PropertyGroup>
 
-    <PropertyGroup Label="Package Metadata">
-        <Authors>bsamiee</Authors>
-        <Company>bsamiee</Company>
-        <Copyright>Copyright © 2025 bsamiee</Copyright>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
-        <RepositoryType>git</RepositoryType>
-        <PublishRepositoryUrl>true</PublishRepositoryUrl>
-        <IncludeSymbols>true</IncludeSymbols>
-        <SymbolPackageFormat>snupkg</SymbolPackageFormat>
-        <IsPackable Condition="'$(ProjectRole)' != 'libs'">false</IsPackable>
+    <PropertyGroup Label="Package Catalog" Condition="'$(ProjectRole)' == 'catalog'">
+        <RestoreEnablePackagePruning>false</RestoreEnablePackagePruning>
+        <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
@@ -39,9 +34,9 @@
         <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>
+        <IsPackable>false</IsPackable>
     </PropertyGroup>
 
-    <!-- Every hosted runner exports CI=true -->
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">
         <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     </PropertyGroup>
@@ -52,10 +47,5 @@
         <PackageReference Include="Microsoft.VisualStudio.Threading.Analyzers" PrivateAssets="all" />
         <PackageReference Include="Roslynator.Analyzers"                       PrivateAssets="all" />
         <PackageReference Include="Thinktecture.Runtime.Extensions.Analyzers"  PrivateAssets="all" />
-    </ItemGroup>
-
-    <!-- Tests and tools never publish, and every MinVer run costs one dotnet and three git processes per project -->
-    <ItemGroup Label="Release Version" Condition="'$(ProjectRole)' == 'libs' or '$(ProjectRole)' == 'apps'">
-        <PackageReference Include="MinVer" PrivateAssets="all" />
     </ItemGroup>
 </Project>

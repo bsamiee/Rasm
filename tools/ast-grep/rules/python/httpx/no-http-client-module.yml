@@ -10,5 +10,4 @@ rule:
           matches: {python-module-member: {module: {regex: "^http$"}, name: {regex: "^client$"}}}
         - kind: dotted_name
           matches: {python-module-member: {module: {regex: "^urllib$"}, name: {regex: "^request$"}}}
-message: "`$USE` uses an HTTP client outside httpx"
-note: Send requests through `httpx.Client` or `httpx.AsyncClient`
+message: '`$USE` sends HTTP through a client outside httpx, the form of `httpx.Client` or `httpx.AsyncClient`'

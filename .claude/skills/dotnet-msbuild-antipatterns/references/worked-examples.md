@@ -1,64 +1,65 @@
 # [WORKED_EXAMPLES]
 
-Full files for the catalog entries with a fix that spans more than one element.
+Full files for the catalog entries with a fix spanning more than one element.
 
 ## [01]-[DUPLICATE_PUBLISH_INSTANCE]
 
-The `DependsOnTargets="Publish"` target reads `_IsPublishing`, which nothing sets in a plain build, and `-check` reports `BC0201` for that read. Set `build_check.BC0201.severity = none` under a `[*.csproj]` section in `.editorconfig`. BuildCheck ignores a key outside a section, and `AllowUninitializedPropertiesInConditions` does not cover the read.
+The `DependsOnTargets="Publish"` target reads `_IsPublishing`, which nothing sets in a plain build, and `-check` reports `BC0201` for that read. Set `build_check.BC0201.severity = none` under a `[*.csproj]` section in `.editorconfig`. BuildCheck ignores a key outside a section. `AllowUninitializedPropertiesInConditions` covers no read outside a condition.
 
-The consumer form calls `Publish` on a tool project from another project:
+A consumer calling `Publish` on a tool project:
 
 ```xml
-<!-- BAD: the consumer creates a publish instance of the tool that races the tool's own build in the graph -->
+<!-- BAD -->
 <Target Name="PublishTool" BeforeTargets="Build">
   <MSBuild Projects="../Tool/Tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
 </Target>
 
-<!-- GOOD: the tool publishes its own build through its DependsOnTargets="Publish" target, the consumer orders the build -->
+<!-- GOOD -->
 <ItemGroup>
   <ProjectReference Include="../Tool/Tool.csproj" ReferenceOutputAssembly="false" UndefineProperties="_IsPublishing" />
 </ItemGroup>
 ```
 
-- `UndefineProperties="_IsPublishing"` is required because `dotnet publish` on the consumer passes `_IsPublishing=true` into the referenced build, and it satisfies the tool's condition and the tool publishes nothing
+- The tool publishes its own build through its `DependsOnTargets="Publish"` target, the consumer orders the build
+- `dotnet publish` on the consumer passes `_IsPublishing=true` into the referenced build, `UndefineProperties="_IsPublishing"` keeps the tool's condition false
 - The consumer derives the tool publish directory from `$(Configuration)` and the tool's `PublishDir` convention
-- Extra global properties are safe only when the effective `OutputPath` and `IntermediateOutputPath` contain their values, `Platform` is never a pivot under the artifacts layout, and a build that needs a property outside the path gets its own `BaseIntermediateOutputPath` and output path
+- An extra global property is safe when the effective `OutputPath` and `IntermediateOutputPath` contain its value, `Platform` is no pivot under the artifacts layout
+- A build that needs a property outside the path takes its own `BaseIntermediateOutputPath` and output path
 
 ## [02]-[SETTARGETFRAMEWORK_FORMS]
 
-The multi-targeting form and the other-framework form are correct only when the effective output paths contain the framework. Incompatible frameworks, for example `.NETFramework` and `.NETCoreApp`, need `SkipGetTargetFrameworkProperties="true"` because the framework negotiation fails for them, and `ReferenceOutputAssembly="false"` because the consumer cannot load the assembly:
+The multi-targeting form and the other-framework form hold when the effective output paths contain the framework. Incompatible frameworks, `.NETFramework` against `.NETCoreApp`, take `SkipGetTargetFrameworkProperties="true"` for the framework negotiation that fails across the reference and `ReferenceOutputAssembly="false"` for the assembly the consumer cannot load:
 
 ```xml
-<!-- OK: a .NETFramework project builds a .NETCoreApp tool without a reference to its assembly -->
+<!-- OK -->
 <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" ReferenceOutputAssembly="false" />
 ```
 
-`SkipGetTargetFrameworkProperties="true"` skips the step that removes the inherited `TargetFramework`. Every multi-targeting inner build of the consumer then passes its `TargetFramework` into the referenced project, which builds once per consumer framework and fails with `NETSDK1005` naming an assets file with no target for that framework. Guard with one of:
-- `SetTargetFramework="TargetFramework=<tfm>"` pins the referenced build, which a multi-targeting reference requires
-- `UndefineProperties="TargetFramework"` removes the inherited global property, and a single-targeting project then builds as declared
+`SkipGetTargetFrameworkProperties="true"` skips the step that removes the inherited `TargetFramework`. Every inner build of a multi-targeting consumer then passes its `TargetFramework` into the referenced project, which fails `NETSDK1005`. One guard applies:
+- `SetTargetFramework="TargetFramework=<tfm>"` pins the referenced build, the form a multi-targeting reference takes
+- `UndefineProperties="TargetFramework"` removes the inherited global property, a single-targeting project builds as declared
 
 ```xml
-<!-- OK: the multi-targeting consumer's TargetFramework never reaches the single-targeting tool -->
+<!-- OK -->
 <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" UndefineProperties="TargetFramework" ReferenceOutputAssembly="false" />
 ```
 
-`UndefineProperties` removes the property that `SetTargetFramework` sets, and a reference with both loses its pin with no message.
+`UndefineProperties` removes the property `SetTargetFramework` sets, a reference with both loses its pin silently.
 
 ## [03]-[HOST_SUPPLIED_REFERENCE]
 
-The path comes from a property with a default, the `Reference` items derive from one item list, and a target before `ResolveAssemblyReferences` turns a missing installation into one error in place of a warning per missing assembly.
+The path comes from a property with a default, the `Reference` items derive from one item list, and a target before `ResolveAssemblyReferences` turns a missing installation into one error.
 
 ```xml
-<!-- Directory.Build.props: the host location, a global property or an environment variable overrides the default -->
+<!-- Directory.Build.props -->
 <PropertyGroup>
   <HostAppPath Condition="'$(HostAppPath)' == '' and '$(HOST_APP_PATH)' != ''">$(HOST_APP_PATH)</HostAppPath>
   <HostAppPath Condition="'$(HostAppPath)' == ''">/Applications/Host.app</HostAppPath>
-  <!-- Derived and never assigned back, a -p:HostAppPath global property cannot be rewritten -->
   <_HostAppDir>$([MSBuild]::NormalizeDirectory('$(HostAppPath)'))</_HostAppDir>
   <HostAssemblyDir>$(_HostAppDir)Contents/Resources/</HostAssemblyDir>
 </PropertyGroup>
 
-<!-- Directory.Build.targets: HostRole is a project-body property, and the items derive here -->
+<!-- Directory.Build.targets -->
 <ItemGroup Condition="'$(HostRole)' != ''">
   <_HostAssembly Include="HostCore" />
   <_HostAssembly Include="HostUi" Condition="'$(HostRole)' == 'ui'" />
@@ -73,9 +74,11 @@ The path comes from a property with a default, the `Reference` items derive from
 </Target>
 ```
 
+`HostRole` is a project-body property, the items derive in `Directory.Build.targets`. `_HostAppDir` is derived and never assigned back, a `-p:HostAppPath` global property cannot be rewritten.
+
 ## [04]-[LAYER_VALIDATION_TARGET]
 
-The role derives from the project directory in `Directory.Build.props`, and `$(MSBuildProjectDirectory)` is set there.
+The role derives from the project directory in `Directory.Build.props`.
 
 ```xml
 <!-- Directory.Build.props -->
@@ -93,14 +96,14 @@ The role derives from the project directory in `Directory.Build.props`, and `$(M
 </Target>
 ```
 
-`ProjectReference` items with `ReferenceOutputAssembly="false"` only order the build, and an analyzer project reached that way with `OutputItemType="Analyzer"` stays exempt through `Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'"` on the `_UpwardReference` item.
+A `ProjectReference` with `ReferenceOutputAssembly="false"` orders the build alone, `Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'"` on the `_UpwardReference` item exempts an analyzer project reached with `OutputItemType="Analyzer"`.
 
 ## [05]-[BACKSLASH_CASES]
 
 ERROR, no conversion or a conversion the consumer must not get:
-- `Exec` commands that start with a program name (`cat`, `git`, `dotnet`)
+- `Exec` commands starting with a program name (`cat`, `git`, `dotnet`)
 - Backslashes outside a path, `<Exec Command="echo a\b\c" />` prints `abc`
-- Backslashes the consumer must keep, `Lines` on `<WriteLinesToFile>` is an item list, every item converts, and the file receives `a/b` where it needs `a\b`
-- Paths that a custom task passes to file APIs without the MSBuild path utilities
+- Backslashes the consumer keeps, `Lines` on `<WriteLinesToFile>` is an item list, every item converts, the file receives `a/b` where it needs `a\b`
+- Paths a custom task passes to file APIs without the MSBuild path utilities
 
-STYLE, `$(MSBuildThisFileDirectory)` ends with the separator of the current operating system, and `$(MSBuildThisFileDirectory)tools/mytool` works on every one.
+STYLE, `$(MSBuildThisFileDirectory)` ends with the separator of the current operating system, `$(MSBuildThisFileDirectory)tools/mytool` works on every one.

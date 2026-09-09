@@ -10,5 +10,5 @@ rule:
             all:
                 - has: {matches: {msbuild-attribute: {name: {regex: '^Projects$'}, value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile)\)'}}}}
                 - has: {matches: {msbuild-attribute: {name: {regex: '^(Properties|RemoveProperties)$'}, value: {regex: '[^"''\s]'}}}}
-message: The MSBuild task calls its own project under another global property set, a second instance runs every target again over the same bin and obj
-note: Run the target in the same instance through DependsOnTargets
+message: 'The MSBuild task calls its own project under another global property set, the form of the target run in the same instance through DependsOnTargets'
+note: 'A second instance runs every target again over the same bin and obj'

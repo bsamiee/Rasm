@@ -84,7 +84,6 @@ internal static class Queues {
 ```
 
 Conduits reduced under `Fork()` while a client posts are message queues, and a second conduit delivers a reply that `Source.Take(1).Last()` reads.
-- Use `dotnet-coding/references/streams.md` for the agent and entity processes built on conduits
 
 ## [04]-[PIPES]
 

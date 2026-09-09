@@ -1,5 +1,5 @@
 name: Setup
-description: Installs the workspace toolchain and dependencies
+description: Installs the toolchain and dependencies
 
 runs:
     using: composite
@@ -23,7 +23,5 @@ runs:
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
         - run: pnpm install
           shell: bash
-        - run: uv sync --locked --only-group eng
-          shell: bash
-        - run: uv cache prune --ci
+        - run: uv sync --locked --only-group dev
           shell: bash

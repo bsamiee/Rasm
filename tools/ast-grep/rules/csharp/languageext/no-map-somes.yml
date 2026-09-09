@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-map-somes
+language: csharp
+severity: error
+rule:
+    any:
+        - pattern:
+            context: "class C { object F() => $SOURCE.$MAP($SELECTOR).Somes(); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $SOURCE.$MAP($SELECTOR).Somes<$_TYPE>(); }"
+            selector: invocation_expression
+            strictness: cst
+constraints:
+    MAP: {regex: "^(Map|Select)$"}
+    SELECTOR:
+        not:
+            has:
+                kind: lambda_expression, anonymous_method_expression
+                stopBy: {not: {kind: "argument, cast_expression, parenthesized_expression"}}
+                has:
+                    field: parameters
+                    kind: parameter_list
+                    has: {kind: parameter, nthChild: 2}
+rewriters:
+    - id: rename-selector-parameter
+      rule:
+        kind: identifier
+        inside: {kind: argument, field: name, pattern: $SELECTOR}
+      fix: selector
+transform:
+    ARGUMENT: rewrite($SELECTOR, rewriters=[rename-selector-parameter])
+fix: "$SOURCE.Choose($ARGUMENT)"
+message: "`$MAP` followed by `Somes` maps the sequence and keeps the Some values, the form of `Choose`"
+note: Choose with the unary Func<A, Option<B>> selector on a Seq<A>, an indexed selector keeps Map

@@ -16,5 +16,5 @@ transform:
     KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
     OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
 fix: $OUT
-message: Future annotations use string storage instead of deferred evaluation
-note: Delete the import, and resolve every name a consumer reads through `__annotations__`, because deferred evaluation resolves it
+message: 'The future import stores annotations as strings in place of deferred evaluation, the form of the module without the import'
+note: 'Python 3.14 evaluates annotations lazily, and a consumer reading `__annotations__` resolves each name at read time'

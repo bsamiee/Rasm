@@ -116,8 +116,6 @@ internal static class Laws {
 }
 ```
 
-- Use `dotnet-coding/references/results.md` for the law equations and their property-based tests
-
 ## [08]-[TRANSFORMERS]
 
 `Bind` continues only in the same higher-kinded type, `Option<A>` computations cannot bind `IO<B>`, and a nested `IO<Option<A>>` compiles while the caller inspects the inner `Option` by hand and reproduces its branching inside `IO`. Transformers package that nested behavior under the contract `MonadT<T, M> : Monad<T>` with `Lift<A>(K<M, A>) : K<T, A>`, and `T` is itself a monad that stacks inside another transformer, and `OptionT` lifts an `IO` continuation through its LINQ `Bind` and `SelectMany` extensions without an explicit lift:

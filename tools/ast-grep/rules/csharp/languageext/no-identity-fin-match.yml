@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-identity-fin-match
+language: csharp
+severity: error
+rule:
+    any:
+        - pattern:
+            context: "class C { object F() => $RESULT.Match(Succ: $IDENTITY, Fail: $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $RESULT.Match(Fail: $FALLBACK, Succ: $IDENTITY); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $RESULT.Match($IDENTITY, Fail: $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - pattern:
+            context: "class C { object F() => $RESULT.Match(Succ: $IDENTITY, $FALLBACK); }"
+            selector: invocation_expression
+            strictness: cst
+        - all:
+            - pattern:
+                context: "class C { object F() => $RESULT.Match($IDENTITY, $FALLBACK); }"
+                selector: invocation_expression
+                strictness: cst
+            - not:
+                has:
+                    field: arguments
+                    kind: argument_list
+                    has:
+                        kind: argument
+                        has: {field: name, kind: identifier}
+constraints:
+    IDENTITY: {matches: csharp-identity-callback}
+fix: "$RESULT.IfFail($FALLBACK)"
+message: "`Match` on `$RESULT` returns the success value unchanged and handles the failure, the form of `IfFail`"
+note: IfFail with the failure handler on a Fin<A> Match whose result is A, a wider result keeps Match

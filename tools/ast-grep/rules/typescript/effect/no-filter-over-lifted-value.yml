@@ -69,5 +69,5 @@ transform:
     LIFT: rewrite($CALL, rewriters=[direct, pipe, functional-steps, method-steps])
 labels: {CALL: {style: primary}}
 fix: $LIFT
-message: The predicate filters a value the call lifted into the carrier
-note: Call the module's `liftPredicate(value, predicate)` with the error callback for Effect or Either, keeping later pipe steps outside the call
+message: 'The predicate filters a value the call lifted into the carrier, the form of the module `liftPredicate(value, predicate)`'
+note: 'Effect and Either take the error callback as the third argument, later pipe steps stay outside the call'

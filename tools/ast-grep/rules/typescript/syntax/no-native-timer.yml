@@ -2,7 +2,6 @@
 id: no-native-timer
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**']
 rule:
     kind: call_expression
     has:
@@ -28,5 +27,5 @@ rule:
                         syntax-import-reference:
                             source: {regex: '^(node:)?timers/promises$'}
                             exported: {regex: '^scheduler$'}
-message: '`$NAME` schedules work through the host timer outside the effect runtime'
-note: Schedule delays, repetition, yielding, and cancellation through the runtime, keeping the ordering the host timer gave
+message: '`$NAME` schedules work through the host timer outside the effect runtime, the form of `Effect.sleep` for a delay, a `Schedule` for repetition, and `Effect.yieldNow` for yielding'
+note: 'Cancellation is an interruption of the runtime'

@@ -6,12 +6,15 @@ requires-python = ">=3.15"
 [dependency-groups]
 workspace = [
     # --- [GENERAL]
+    "anyio",                                              # Structured concurrency over asyncio and trio
     "apscheduler",                                        # Cron, interval, and date triggers
     "azure-identity",                                     # DefaultAzureCredential chain for Azure Key Vault secrets
     "azure-keyvault-secrets",                             # Azure Key Vault secret store
     "beartype",
     "cloudpickle",                                        # Kernel and closure transfer across process and subinterpreter boundaries
     "cryptography",                                       # AES-GCM envelope and key-wrap primitives for per-subject crypto-shredding
+    "cyclopts",                                           # CLI parser from typed signatures
+    "expression",                                         # Result and Option types with railway composition
     "google-cloud-secret-manager",                        # Google Cloud Secret Manager secret store
     "google-crc32c",                                      # CRC32C integrity check for Google Cloud secret payloads, no cp315 wheel, the sdist builds the pure implementation
     "hvac",                                               # HashiCorp Vault secret store
@@ -20,6 +23,7 @@ workspace = [
     "lark",                                               # Parser generator for the CESQL filter, IDS, and selector grammars
     "loky",                                               # Reusable process pool with worker restart across process and subinterpreter boundaries
     "lxml",                                               # XML processing
+    "msgspec",                                            # Struct types with JSON, MessagePack, TOML, and YAML codecs
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-grpc",             # OTLP gRPC exporter beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
@@ -39,8 +43,11 @@ workspace = [
     "pebble",                                             # Worker kill at a terminal deadline and per-worker task recycling
     "psutil",
     "pydantic",
+    "pydantic-settings",                                  # Settings models read from the environment and files
     "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
     "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
+    "ruamel-yaml",                                        # Round-trip YAML with comments and layout kept
+    "structlog",                                          # Structured logging with processors and typed events
     "tblib",                                              # Cross-process traceback fidelity for worker exceptions
     "tomlkit",
     "wasmtime",                                           # In-process WASM guest sandbox for sandboxed workers
@@ -56,6 +63,7 @@ workspace = [
     "fastavro",                                           # Avro codec for Schema Registry serialization and .avsc validation
     "fsspec",                                             # Filesystem resolution shared with UPath and blocking-read offload
     "hishel[httpx]",                                      # RFC 9111 HTTP cache over httpx transports with a persistent sqlite store
+    "httpx<1",                                            # HTTP client, the 1.0 dev builds drop py.typed
     "hypercorn",                                          # ASGI server with HTTP/2 and h2c for Connect gRPC and bidirectional streams, TCP and UNIX-socket binds
     "jsonschema",                                         # Validation of a document against a fetched JSON Schema
     "lz4",                                                # Compression
@@ -102,13 +110,13 @@ workspace = [
     "sympy",                                              # Symbolic expressions beside the python-flint and mpmath ground domains
     "uncertainties",                                      # First-order error propagation with correlated values
     # --- [STATISTICS_ML]
-    "arviz<1",                                            # Bayesian diagnostics, pymc 5 caps arviz<1 and pymc 6 requires pytensor 3
+    "arviz<1",                                            # Bayesian diagnostics, pymc 5.28 declares arviz<1.0 and the locked 5.26 predates the cap, pymc 6 requires pytensor 3
     "blackjax",                                           # JAX NUTS/HMC samplers
     "numpyro",                                            # JAX NUTS sampler
     "nutpie",                                             # Rust NUTS sampler for PyMC
     "onnx",                                               # Model graph IR
     "pyDOE3",                                             # Classical DOE design matrices (factorial, Box-Behnken, central-composite, Plackett-Burman, GSD) beside SALib and scipy.qmc
-    "pymc<5.27",                                          # Probabilistic programming, 5.27 moves pytensor past 2.35.1, which requires numba and caps numpy below the cp315 wheels
+    "pymc<5.27",                                          # Probabilistic programming, 5.27 requires pytensor 2.36, which requires numba, whose 0.63 prerelease and llvmlite publish no cp315 wheel
     "salib",                                              # Global sensitivity analysis
     "scikit-learn",                                       # Classical ML and ONNX export
     "skl2onnx",                                           # sklearn-to-ONNX converter
@@ -157,7 +165,7 @@ workspace = [
     "geoarrow-pyarrow",                                   # GeoArrow ExtensionType registration for pyarrow and geopandas ExtensionDtype interop
     "geoarrow-rust-compute",                              # GeoRust operations on GeoArrow memory
     "geoarrow-rust-core",                                 # GeoArrow geometry array memory model under the GeoRust compute kernels
-    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow FlatGeobuf, GeoParquet, shapefile, and GeoJSON IO without GDAL, the abi3 wheels skip linux aarch64
+    "geoarrow-rust-io; sys_platform != 'linux' or platform_machine != 'aarch64'", # GeoArrow FlatGeobuf, GeoParquet, shapefile, and GeoJSON IO without GDAL, the 0.3 abi3 wheels skip linux aarch64 and 0.4 onward publish per-interpreter wheels without cp315
     "geopandas",                                          # Geospatial frames
     "h3ronpy",                                            # Arrow-native H3 cell operations on polars frames
     "laspy",                                              # LAS and LAZ point-cloud IO
@@ -197,8 +205,8 @@ workspace = [
     "ladybug-comfort",                                    # Comfort-model calculations
     "ladybug-core",                                       # Ladybug weather, units, analysis-period, and location primitives
     "ladybug-geometry",                                   # Ladybug planar and solid geometry primitives
-    "lbt-recipes<0.26.18",                                # Ladybug Tools recipe wrappers and simulation workflows, 0.27 pins pollination-handlers 0.10.17
-    "pollination-handlers<0.10.11",                       # Pollination job handler and recipe execution adapters, 0.10.17 pins lbt-dragonfly 0.11.682, whose honeybee-radiance-postprocess holds numpy below 2
+    "lbt-recipes<0.26.18",                                # Ladybug Tools recipe wrappers and simulation workflows, 0.26.18 pins pollination-handlers 0.10.11
+    "pollination-handlers<0.10.11",                       # Pollination job handler and recipe execution adapters, 0.10.11 requires lbt-dragonfly 0.11.682, whose honeybee-radiance-postprocess pins numpy below the cp315 wheels
     "pvlib",                                              # Solar position and irradiance calculations
     "queenbee",                                           # Recipe and workflow schema contract models
     # --- [LCA]
@@ -249,7 +257,6 @@ workspace = [
     "pillow",                                             # Image IO and WebP decoding
     "psd-tools",                                          # PSD read and pixel authoring
     "psdtags",                                            # Photoshop TIFF image resources and layer source data
-    "pyktx<5",                                            # cffi binding of the provisioned libktx 4 release through the LIBKTX variables of the mise environment, 5.0 binds libktx 5
     "pysubs2",                                            # Subtitle parse, convert, retime, and restyle
     "pyvips",                                             # Fused decode, downscale, ICC, and smartcrop over Forge vips with HEVC, HEIF, JXL, and EXR
     "scikit-image",                                       # Image processing, its sdist builds through pythran
@@ -296,20 +303,6 @@ workspace = [
     "segno",                                              # QR and Micro-QR vector codes
     "zxing-cpp",                                          # 2D matrix codes encode and decode
 ]
-eng = [
-    "anyio",
-    "cyclopts",
-    "expression",
-    "httpx<1",                                            # HTTP client for typed adapters, the 1.0 dev builds drop py.typed
-    "msgspec",
-    "pydantic",
-    "pydantic-settings",
-    "ruamel-yaml",
-    "ruff",                                               # Python checker and writer the quality script runs
-    "sqlfluff",                                           # SQL checker the quality script runs
-    "structlog",
-    "yamllint",                                           # YAML checker the quality script runs
-]
 dev = [
     "annotated-types",                                    # Typed constraint metadata pydantic consumes
     "brotli-stubs",
@@ -318,6 +311,8 @@ dev = [
     "hypothesis",
     "moto[server]",
     "mypy",
+    "ruff",
+    "yamllint",
     "pandas-stubs",
     "protoc-gen-connectrpc",                              # Connect-Python stub generator that buf runs from .venv/bin
     "protoc-gen-py",                                      # protobuf-py generator that buf runs from .venv/bin
@@ -347,11 +342,7 @@ dev = [
 
 # --- [UV] -------------------------------------------------------------------------------
 
-[tool.uv.sources]
-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz" }  # Published Connect pins protobuf-py 0.1.1, the upstream archive holds the runtime and generator pair on protobuf-py 0.3
-protoc-gen-connectrpc = { url = "https://github.com/connectrpc/connect-py/archive/be6c9335e7dbcd1ccdda66e4d19d33a87210dd0d.tar.gz", subdirectory = "protoc-gen-connectrpc" }
-
-[tool.uv] # Resolve the supported platforms and require wheels for packages without source distributions
+[tool.uv]
 default-groups = "all"
 environments = [
     "sys_platform == 'darwin' and platform_machine == 'arm64'",
@@ -369,19 +360,19 @@ prerelease = "allow"
 cache-dir = ".cache/uv"
 python-preference = "only-system"
 
-[tool.uv.extra-build-variables] # opencolorio reads CMAKE_ARGS from the environment, OCIO_BUILD_APPS=OFF skips app helpers broken under the macOS 26 SDK
+[tool.uv.extra-build-variables]
 opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
 
-[tool.uv.extra-build-dependencies] # rhino3dm publishes no wheel and its setup.py needs a cmake executable in the build environment
+[tool.uv.extra-build-dependencies]
 rhino3dm = ["cmake"]
 
-[[tool.uv.dependency-metadata]] # colour-cxf 0.1.1 declares Requires-Python <3.14, corrected metadata removes the bound and keeps the runtime dependencies
+[[tool.uv.dependency-metadata]]
 name = "colour-cxf"
 version = "0.1.1"
 requires-python = ">=3.10"
 requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"]
 
-[[tool.uv.dependency-metadata]] # colour-science 0.4.7 declares Requires-Python <3.15, corrected metadata removes the bound and keeps the dependency set
+[[tool.uv.dependency-metadata]]
 name = "colour-science"
 version = "0.4.7"
 requires-python = ">=3.11"
@@ -406,7 +397,7 @@ requires-dist = [
 ]
 provides-extras = ["docs", "meshing", "optional"]
 
-[[tool.uv.dependency-metadata]] # pytensor 2.35.1 predates the numba requirement, corrected metadata removes its Requires-Python <3.14 bound
+[[tool.uv.dependency-metadata]]
 name = "pytensor"
 version = "2.35.1"
 requires-python = ">=3.11"
@@ -426,7 +417,7 @@ requires-dist = [
 ]
 provides-extras = ["jax", "numba"]
 
-[[tool.uv.dependency-metadata]] # Substrait 0.31.0 declares Requires-Python <3.15 on a pure-Python wheel, corrected metadata removes it
+[[tool.uv.dependency-metadata]]
 name = "substrait"
 version = "0.31.0"
 requires-python = ">=3.10"
@@ -447,7 +438,7 @@ provides-extras = ["extensions", "sql"]
 cache-dir = ".cache/ruff"
 preview = true
 line-length = 150
-src = [".", "libs/python"]  # Import roots, a package under libs/python imports by its directory name
+src = [".", "libs/python"]
 
 [tool.ruff.format]
 line-ending = "lf"
@@ -457,37 +448,37 @@ skip-magic-trailing-comma = true
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
-    # --- [FORMATTER]
-    "missing-trailing-comma",                     # ruff format sets trailing commas
-    "single-line-implicit-string-concatenation",  # ruff format joins implicit string concatenation
-    # --- [DENSITY]
-    "too-many-return-statements",                 # Exhaustive matches over closed tagged unions return from each case
-    "too-many-branches",                          # Exhaustive dispatch needs one branch per case
-    "too-many-locals",                            # Dispatch functions hold many local values
-    "too-many-statements",                        # Exhaustive dispatch exceeds the statement limit
-    # --- [ERROR_RAISING]
-    "raw-string-in-exception",                    # Exception constructors receive literal messages directly
-    "f-string-in-exception",                      # Exception constructors receive formatted context directly
-    "raise-vanilla-args",                         # Exception constructors include descriptive messages
-    "raise-within-try",                           # `@safe` boundary adapters raise inside the guarded call
-    "error-instead-of-exception",                 # Structlog `.error()` is valid outside exception handlers
-    # --- [TYPE_RESOLUTION]
+
+    "missing-trailing-comma",
+    "single-line-implicit-string-concatenation",
+
+    "too-many-return-statements",
+    "too-many-branches",
+    "too-many-locals",
+    "too-many-statements",
+
+    "raw-string-in-exception",
+    "f-string-in-exception",
+    "raise-vanilla-args",
+    "raise-within-try",
+    "error-instead-of-exception",
+
     "typing-only-first-party-import",
     "typing-only-third-party-import",
     "typing-only-standard-library-import",
-    # --- [DOCSTRINGS]
-    "docstring-extraneous-exception",             # Raises sections document propagated helper exceptions, DOC501 still requires direct raises
-    # --- [SEMANTIC_ORDER]
-    "unsorted-dunder-all",                        # Public API order follows domain semantics
-    "unsorted-dunder-slots",                      # Slot order follows domain semantics
-    # --- [WORKFLOW]
-    "suspicious-subprocess-import",               # subprocess.PIPE is the native process-stream selector
-    "missing-todo-link",                          # TODO notes need no link
-    "line-contains-todo",                         # TODO comments are accepted source markers
-    "implicit-namespace-package",                 # Monorepo packages are implicit namespaces
-    "missing-copyright-notice",                   # The root LICENSE holds the copyright notice
-    # --- [SECTION_DIVIDERS]
-    "commented-out-code",                         # `# --- [LABEL]` subsection dividers mark source sections
+
+    "docstring-extraneous-exception",
+
+    "unsorted-dunder-all",
+    "unsorted-dunder-slots",
+
+    "suspicious-subprocess-import",
+    "missing-todo-link",
+    "line-contains-todo",
+    "implicit-namespace-package",
+    "missing-copyright-notice",
+
+    "commented-out-code",
 ]
 
 [tool.ruff.lint.per-file-ignores]
@@ -503,9 +494,9 @@ ignore = [
     "undocumented-public-function",
     "private-member-access",
     "import-private-name",
-]  # Tests import private names of the support package
+]
 "**/conftest.py" = ["module-import-not-at-top-of-file"]
-"tests/python/support/runtime.py" = ["module-import-not-at-top-of-file"]  # Hypothesis environment configuration must precede imports
+"tests/python/support/runtime.py" = ["module-import-not-at-top-of-file"]
 
 [tool.ruff.lint.flake8-annotations]
 mypy-init-return = true
@@ -534,7 +525,7 @@ ignorelist = [
     "list",
     "quit",
     "type",
-]  # A handler's name is the CLI subcommand the registry dispatches on
+]
 
 [tool.ruff.lint.flake8-import-conventions.extend-aliases]
 "dask.array" = "da"
@@ -552,7 +543,7 @@ extend-ignore-names = ["_validate", "_disc", "_check", "_value_"]
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
-require-lazy = [ # Modules loaded through lazy-import proxies, TID254 rejects their eager imports, and license-isolation bans stay in banned-api
+require-lazy = [
     "adbc_driver_flightsql",
     "adbc_driver_snowflake",
     "daft",
@@ -592,7 +583,7 @@ combine-as-imports = true
 force-sort-within-sections = true
 known-first-party = ["rasm"]
 order-by-type = false
-split-on-trailing-comma = false  # Matches skip-magic-trailing-comma in ruff format
+split-on-trailing-comma = false
 
 [tool.ruff.lint.mccabe]
 max-complexity = 20
@@ -602,7 +593,7 @@ classmethod-decorators = ["pydantic.field_validator", "pydantic.model_validator"
 
 [tool.ruff.lint.pycodestyle]
 ignore-overlong-task-comments = true
-max-line-length = 300  # E501 ceiling for prose lines, the formatter wraps code at `line-length`
+max-line-length = 300
 
 [tool.ruff.lint.pydocstyle]
 ignore-var-parameters = true
@@ -611,7 +602,7 @@ ignore-decorators = ["typing.overload", "typing.override"]
 property-decorators = ["pydantic.computed_field"]
 
 [tool.ruff.lint.pydoclint]
-ignore-one-line-docstrings = true  # Private helpers keep one-line docstrings without Returns or Raises sections, pydoclint has no visibility filter
+ignore-one-line-docstrings = true
 
 [tool.ruff.lint.pylint]
 allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_json_schema__"]
@@ -624,12 +615,12 @@ max-public-methods = 10
 
 [tool.ty.environment]
 python-platform = "all"
-root = [".", "libs/python"]  # Import roots, the pythonpath rows of the pytest table
+root = [".", "libs/python"]
 
 [tool.ty.analysis]
-respect-type-ignore-comments = false  # mypy keeps `type: ignore`, ty reads `ty: ignore` alone
+respect-type-ignore-comments = false
 
-[tool.ty.rules] # Every rule is an error, the three ignored rules reject `Any` and `Unknown` that the expression and Hypothesis signatures produce
+[tool.ty.rules]
 all = "error"
 dynamic-function-decorator-return = "ignore"
 unsound-assignment = "ignore"
@@ -638,7 +629,7 @@ unsound-return-statement = "ignore"
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-files = ["eng", "tests"]
+files = ["tests"]
 mypy_path = ["libs/python"]
 cache_dir = ".cache/mypy"
 strict = true
@@ -658,14 +649,14 @@ enable_error_code = [
     "truthy-iterable",
     "unused-awaitable",
 ]
-disable_error_code = ["prop-decorator"]  # mypy cannot model pydantic computed_field over @property, ty checks the same construct
+disable_error_code = ["prop-decorator"]
 
-[tool.pydantic-mypy] # The generated pydantic __init__ holds Any unless both init options are set, which disallow_any_explicit then rejects
+[tool.pydantic-mypy]
 init_typed = true
 init_forbid_extra = true
 warn_required_dynamic_aliases = true
 
-[[tool.mypy.overrides]] # tests/** passes under ty, the overrides isolate mypy limitations around TypeForm, sentinels, Callable, match, and constructor narrowing
+[[tool.mypy.overrides]]
 module = "tests.*"
 disallow_any_explicit = false
 disallow_any_unimported = false
@@ -673,25 +664,25 @@ warn_unreachable = false
 disable_error_code = ["func-returns-value", "attr-defined", "type-arg", "override", "arg-type"]
 
 [[tool.mypy.overrides]]
-module = ["fsspec", "fsspec.*", "honeybee_energy.*", "s3fs"]  # fsspec, honeybee-energy, and s3fs have no py.typed and no stub package
+module = ["fsspec", "fsspec.*", "honeybee_energy.*", "s3fs"]
 ignore_missing_imports = true
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
-[tool.pytest] # pytest-benchmark disables itself under pytest-xdist, -n stays out of addopts and the benchmark configuration passes -m benchmark
+[tool.pytest]
 strict = true
 cache_dir = ".cache/pytest"
 testpaths = ["tests"]
-pythonpath = [".", "libs/python"]  # Repository modules resolve from the root, a package under libs/python imports by its directory name
+pythonpath = [".", "libs/python"]
 python_files = ["test_*.py", "*_test.py", "bench_*.py"]
 python_functions = ["test_*", "bench_*"]
 collect_imported_tests = false
 empty_parameter_set_mark = "fail_at_collect"
 addopts = [
     "-p",
-    "tests.python.support.runtime",  # Test-support plugin for Hypothesis profiles, OpenTelemetry fixtures, and automatic markers
+    "tests.python.support.runtime",
     "-p",
-    "no:zarr",                       # zarr and pointblank register pytest plugins for their own suites, loading them imports both at startup
+    "no:zarr",
     "-p",
     "no:pointblank",
     "-x",
@@ -702,13 +693,13 @@ addopts = [
     "--disable-socket",
     "--allow-unix-socket",
     "--benchmark-storage=file://.artifacts/python/benchmarks",
-    "--benchmark-autosave",          # Saves benchmark history only when benchmarks run
+    "--benchmark-autosave",
 ]
 filterwarnings = [
     "error",
-    "ignore:Not saving anything:pytest_benchmark.logger.PytestBenchmarkWarning",  # Autosave no-op in sessions with deselected benchmarks
+    "ignore:Not saving anything:pytest_benchmark.logger.PytestBenchmarkWarning",
 ]
-timeout = "30"  # pytest-timeout registers the option as a string, pytest 9 TOML mode rejects a native int
+timeout = "30"
 required_plugins = [
     "anyio",
     "hypothesis",
@@ -730,10 +721,10 @@ markers = [
 
 [tool.coverage.run]
 branch = true
-relative_files = true  # Subprocess coverage combines through relative repository paths
-data_file = ".artifacts/python/coverage/data/.coverage"  # The root coverage target combines the per-project files beside it
-source = ["eng/scripts", "libs/python", "tests/python/support"]  # --cov without a value measures these trees
-patch = ["subprocess"]  # Child processes measure themselves into parallel data files the reporting commands combine
+relative_files = true
+data_file = ".artifacts/python/coverage/data/.coverage"
+source = ["libs/python", "tests/python/support"]
+patch = ["subprocess"]
 
 [tool.coverage.report]
 show_missing = true
@@ -746,23 +737,13 @@ output = ".artifacts/python/coverage/coverage.xml"
 [tool.coverage.lcov]
 output = ".artifacts/python/coverage/coverage.lcov"
 
-# --- [SQLFLUFF] -------------------------------------------------------------------------
-
-[tool.sqlfluff.core]
-dialect = "postgres"
-exclude_rules = "layout"  # pg-formatter owns the layout under the root format target
-
 # --- [TYPOS] ----------------------------------------------------------------------------
 
-[tool.typos.files]
-extend-exclude = ["tools/ast-grep/rules/yaml/ast-grep/no-listed-word.yml"]  # Regex holds word stems
-
 [tool.typos.default.extend-identifiers]
-BACnet = "BACnet"                                                    # Package
-_KnownRuntimeIdentiferPlatforms = "_KnownRuntimeIdentiferPlatforms"  # SDK property
+BACnet = "BACnet"
 
 [tool.typos.default.extend-words]
-Eto = "Eto"                  # Eto.Forms package
-Somes = "Somes"              # LanguageExt member
-somes = "somes"              # Effect Record.getSomes
+Eto = "Eto"
+Somes = "Somes"
+somes = "somes"
 enumerables = "enumerables"

@@ -28,5 +28,5 @@ transform:
             replace: '(?s)^(<ItemGroup>.*?Include="[^"]*\*\*[^"]*".*?<(Copy|Move)\b[^<]*?)\bDestinationFolder\s*=\s*["''](?P<d>[^"'']*?)/?["'']'
             by: '${1}DestinationFiles="@(_${2}Source->''${d}/%(RecursiveDir)%(Filename)%(Extension)'')"'
 fix: $TREED
-message: The task reads a literal glob in its file list as a file name and finds no file, wildcards expand in an item Include alone
-note: Expand the glob in an item Include and pass the item list, with a RecursiveDir transform in DestinationFiles to keep a copied tree
+message: 'The task reads a literal glob in its file list as a file name, the form of the glob expanded in an item Include and the item passed'
+note: 'Wildcards expand in an item Include alone, a RecursiveDir transform in DestinationFiles keeps a copied tree'

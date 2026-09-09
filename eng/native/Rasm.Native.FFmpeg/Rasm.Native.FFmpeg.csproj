@@ -1,6 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>FFmpeg shared libraries and their dependency closure staged per runtime identifier</Description>
-        <PackageLicenseExpression>GPL-2.0-or-later</PackageLicenseExpression>
-    </PropertyGroup>
-</Project>

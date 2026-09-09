@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <!-- Every central row restores here, dotnet-outdated under upgrade reads the rows no other project references -->
+    <ItemGroup>
+        <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" />
+    </ItemGroup>
+</Project>

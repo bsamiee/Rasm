@@ -2,10 +2,21 @@
 id: no-pydantic-field-option
 language: python
 severity: error
+utils:
+    field-function:
+        any:
+            - matches: {python-module-member: {module: {regex: '^pydantic(\.fields)?$'}, name: {regex: "^Field$"}}}
+            - matches: {python-imported-name: {module: {regex: '^pydantic(\.fields)?$'}, name: {regex: "^Field$"}}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: "^Field$"}
+                - has: {field: object, matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: "^fields$"}}}}
+    field-call:
+        kind: call
+        has: {field: function, matches: field-function}
 rule:
     kind: keyword_argument
     has: {field: name, regex: "^((min|max)_items|allow_mutation)$", pattern: $NAME}
-    inside: {kind: argument_list, inside: {matches: python-pydantic-field-call}}
-message: "`$NAME` uses a deprecated Pydantic field option"
-note: Write `min_length`, `max_length`, and `frozen=True`, the rewrites `field-items-to-length` and `field-allow-mutation-to-frozen` apply them
+    inside: {kind: argument_list, inside: {matches: field-call}}
+message: '`$NAME` is a deprecated Pydantic field option, the form of `min_length`, `max_length`, or `frozen=True`'
 labels: {NAME: {style: primary, message: Field option}}

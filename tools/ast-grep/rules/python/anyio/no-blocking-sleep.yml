@@ -5,5 +5,4 @@ severity: error
 rule:
     pattern: $USE
     matches: {python-module-member: {module: {regex: '^time$'}, name: {regex: '^sleep$'}}}
-message: '`$USE` blocks the current thread while waiting'
-note: Await the condition that completes the work, or `await anyio.sleep(<delay>)` when elapsed time is the condition
+message: '`$USE` blocks the thread while waiting, the form of `await anyio.sleep(<delay>)` or an await on the condition that completes the work'

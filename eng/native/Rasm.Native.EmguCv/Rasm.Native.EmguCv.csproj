@@ -1,9 +1,0 @@
-<Project Sdk="Microsoft.NET.Sdk">
-    <PropertyGroup>
-        <Description>Emgu CV full OpenCV native library with contrib modules staged per runtime identifier</Description>
-        <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
-        <!-- Pinned git checkout in source.json replaces a vcpkg port, the native library is locked to the wrapper version -->
-        <VersionManifestFileName>source.json</VersionManifestFileName>
-        <CentralPackageId>Emgu.CV</CentralPackageId>
-    </PropertyGroup>
-</Project>

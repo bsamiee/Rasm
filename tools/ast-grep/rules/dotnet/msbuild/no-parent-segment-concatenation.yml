@@ -18,5 +18,4 @@ transform:
     TRIMMED: {replace: {source: $PATH, replace: "(, '')+\\)", by: ')'}}
     DOUBLE_QUOTED: {replace: {source: $TRIMMED, replace: '(?s)^''(.*''.*)''$', by: '"$1"'}}
 fix: $DOUBLE_QUOTED
-message: The path appends a parent segment to a directory property as text
-note: Compose each path with NormalizeDirectory or NormalizePath over the property and its segments
+message: 'The path appends a parent segment to a directory property as text, the form of NormalizeDirectory or NormalizePath over the property and its segments'

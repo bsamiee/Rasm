@@ -10,5 +10,4 @@ rule:
             - kind: program
             - kind: export_statement
               inside: {kind: program}
-message: The module-level let binding permits shared reassignment
-note: Declare module values with const and keep a changing binding in the scope that owns its updates
+message: 'The module-level `let` permits shared reassignment, the form of `const` with a changing binding in the scope that owns its updates'

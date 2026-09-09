@@ -1,5 +1,0 @@
-# libktx directories pyktx builds against, Windows derives them from LIBKTX_INSTALL_DIR
-
-[env]
-LIBKTX_INCLUDE_DIR = "{{env.LIBKTX_INSTALL_DIR}}/include"
-LIBKTX_LIB_DIR = "{{env.LIBKTX_INSTALL_DIR}}/lib"

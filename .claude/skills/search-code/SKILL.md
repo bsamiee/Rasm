@@ -5,13 +5,14 @@ description: "Use when a task needs a dependency's signature, API shape, usage, 
 
 # [SEARCH_CODE]
 
-A dependency's declarations read from its installed files, its usage from Context7 and DeepWiki, its source and wiki from its repository at the installed tag, and its versions from its registry. Use `dotnet-roslyn-codelens` for an assembly the solution references. Use `dotnet-msbuild-packaging` for a version change in `Directory.Packages.props`. Use `search-web` for the open web, the issue that explains a symptom, and a composition with no recipe in either package's docs.
+Dependency declarations read from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at the installed tag, versions from the registry.
 
 - Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
 - Path: package metadata names the repository and commit, the Context7 ID is that `/owner/repo` lowercased, the tag list spells the tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, the code is quoted from the Source URL, a named member confirms in the declaration
-- Ignore: a directory search under `node_modules`, `.venv`, or `.cache` takes `--no-ignore`, an explicit file path needs no flag
+- Ignore: a directory search under `node_modules`, `.venv`, or `.cache` takes `--no-ignore`, an explicit file path or shell glob needs no flag
 - Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
+- Index: `search_code` reads default branches in files under 384 KB, the tree call finds a path at a tag
 - Caps: the Context7 tool descriptions cap each tool at three calls per question, an ID from the repository URL skips the resolve
 - Disk: `<dir>` sits under the session scratchpad, the step that ends a chain removes the directory it made
 
@@ -22,6 +23,14 @@ Numbered lines chain, each consuming the line before, unnumbered lines are alter
 One member's signature and doc, a type's members, a module's exports, or a configuration option, read from the installed files at the pinned version:
 
 ```bash
+# [VERSION] Installed version of a direct or transitive package and the package that pulls it in, one line per ecosystem
+# [DOTNET] Resolved version at each node of the graph from a restored project
+dotnet nuget why <project>.csproj <id>
+# [TYPESCRIPT] Version per puller, a transitive package's directory is node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>, scope / spelled +
+pnpm why <pkg> --depth 1
+# [PYTHON] Version with every direct puller from uv.lock, an extra or group in parentheses
+uv tree --frozen --invert --package <pkg> --depth 1
+
 # [DOTNET] Unreferenced package, <dll> is .cache/nuget/packages/<id>/<version>/lib/<tfm>/<assembly>.dll
 # Assembly and .xml of a version the packages folder lacks, id lowercase
 curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xf - -C <dir> 'lib/*'
@@ -36,7 +45,7 @@ fd -e cs '<Type>' <dir>
 # 3. Type lines and public members of one file, a type line separates arities
 rg -n '^\s*public ' <dir>/<Namespace path>/<Type>.cs
 # 4. Doc comment, attributes, and signature per overload with line, Read at that line for the body
-rg -nU '(^\s*///.*\n)*(\s*\[.*\]\n)*\s*public .*\b<Member>(<[^>]*>)?\(.*' <dir>/<Namespace path>/<Type>.cs
+rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*' <dir>/<Namespace path>/<Type>.cs
 # 5. Directory removed when reading ends, an extracted nupkg with it
 rm -rf <dir>
 
@@ -66,7 +75,7 @@ rg -n -A3 '<Target Name="<target>"' "$(dotnet msbuild <project>.csproj -getPrope
 
 ## [02]-[USAGE]
 
-How a member composes, from the repository's recipes, source, wiki, and README, one concept per query naming the symbol:
+How a member composes, from the repository's recipes, source, wiki, and README and from public code, one concept per query naming the symbol:
 
 ```text
 # [CONTEXT7] ID is the repository URL's /owner/repo lowercased, resolve when metadata names no URL
@@ -84,6 +93,9 @@ mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one conce
 mcp__deepwiki__read_wiki_structure {"repoName": "<owner>/<repo>"}
 # 2. Answer with quoted signatures over repositories step 1 indexed, up to ten per call
 mcp__deepwiki__ask_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
+
+# [GITHUB] Public code composing two members, repository and commit per fragment
+mcp__github__search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
 
 # [DOTNET] README of any NuGet version, `not found in package folder` names a nuspec readme path with a leading separator, the folder read answers
 mcp__nuget__get_package_context {"solutionDirectory": "<repo>", "packageName": "<id>", "packageVersion": "<version>"}
@@ -133,7 +145,7 @@ mcp__github__get_file_contents {"owner": "<owner>", "repo": "<repo>", "path": "<
 # 3. Commit, author, and date that last changed each line range
 mcp__github__get_file_blame {"owner": "<owner>", "repo": "<repo>", "path": "<file>", "ref": "<tag>", "start_line": <n>, "end_line": <n>}
 
-# [GITHUB] Paths and fragments on the default branch in files under 384 KB, the tree call finds the path at a tag
+# [GITHUB] Paths and fragments in one repository
 mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>", "perPage": 5, "fields": ["path", "text_matches"]}
 ```
 
@@ -142,7 +154,7 @@ mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>"
 The newest version and its date come from the registry, the notes come from the release at the tag, an advisory names the patched version:
 
 ```text
-# [DOTNET] Newest NuGet version with publish date
+# [DOTNET] Newest NuGet version with date, the nuget tools that evaluate a project answer status Error, their bundled NuGet.Frameworks binds first
 mcp__nuget__get_latest_package_version {"solutionDirectory": "<repo>", "packageName": "<id>", "includePrerelease": true}
 
 # [GITHUB] Advisories on the pinned versions with the patched version each, one call across ecosystems, owner and repo name this repository
@@ -153,8 +165,10 @@ mcp__github__check_dependency_vulnerabilities {"owner": "<owner>", "repo": "<rep
 # [TYPESCRIPT] Newest version per dist-tag (latest, next, beta, rc) and publish date of one version
 pnpm view <pkg> dist-tags time --json | jq -c '{tags: .["dist-tags"], published: .time["<version>"][:10]}'
 
-# [PYTHON] `+ <pkg>==<version>` names a newer release, `Would make no changes` says the installed one is newest
-uv pip install --dry-run --python .venv --prerelease=allow --no-deps --upgrade <pkg> 2>&1 | rg '^\s*\+ |no changes'
+# [PYTHON] Lock version beside the newest, prereleases per pyproject
+uv tree --frozen --outdated --package <pkg> --depth 0
+# [PYTHON] Newest stable version, its upload time, and its requirements from the registry, the versionless URL describes newest stable
+curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]'
 
 # [GITHUB] Release notes body alone, Not Found means the tag has no release and the changelog at the tag holds the notes
 gh api "repos/<owner>/<repo>/releases/tags/<tag>" --jq '.body'

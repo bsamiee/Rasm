@@ -8,5 +8,4 @@ rule:
         - matches: {python-module-use: {module: {regex: '^concurrent\.(futures|interpreters)(\.[\w.]+)?$'}}}
         - kind: dotted_name
           matches: {python-module-member: {module: {regex: '^concurrent$'}, name: {regex: "^(futures|interpreters)$"}}}
-message: '`$USE` runs work on a concurrent pool or subinterpreter outside structured concurrency'
-note: Run blocking work through `anyio.to_thread.run_sync`, a process through `anyio.to_process`, a subinterpreter through `anyio.to_interpreter`
+message: '`$USE` runs work on a pool or subinterpreter outside structured concurrency, the form of `anyio.to_thread.run_sync`, `anyio.to_process.run_sync`, or `anyio.to_interpreter.run_sync`'

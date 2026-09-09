@@ -7,37 +7,34 @@ description: "Use when ruff reports a D or DOC violation, or a public Python mod
 
 Covers Google-style docstrings on Python modules, classes, functions, and methods, from which symbols get one to the example layout.
 
-- `ruff check` enforces `convention = "google"` with `preview = true`: every `D` rule the convention keeps, `D420`, `D421`, and every `DOC` rule except the ignored `DOC502` fire, and section headers are `Name:` lines with no underline (`D416`)
+`ruff check` enforces `convention = "google"` with `preview = true`: every `D` rule the convention keeps, `D420`, `D421`, and every `DOC` rule except the ignored `DOC502` fire, section headers are `Name:` lines with no underline (`D416`).
 
 ## [01]-[SCOPE]
 
 What gets a docstring:
-- Every public module, package, class, nested class, method, and function (`D100` to `D104`, `D106`), files under `tests/**` skip `D101` to `D103` through per-file ignores and still need the module docstring
+- Every public module, package, class, nested class, method, and function (`D100` to `D104`, `D106`), files under `tests/**` skip `D101` to `D103` through per-file ignores and need the module docstring
 - `__init__` (`D107`), with the constructor parameters under `Args:`
-- Magic methods (`__repr__`, `__eq__`), as a one-liner, `D105` fires on every undocumented one
+- Magic methods (`__repr__`, `__eq__`) as a one-liner, `D105` fires on every undocumented one
 - Private functions and methods (`_name`) with logic the name does not state, as a one-liner the `DOC` rules skip (`ignore-one-line-docstrings = true`), a multi-line private docstring has `Returns:`, `Yields:`, and `Raises:` because the `DOC` rules have no visibility filter
 - Module docstrings at the top of the file, one sentence on the module contents
 
 Exemptions:
 - Methods decorated with `typing.override` unless the override changes the base contract, `D102` exempts them and `ignore-decorators` lists the decorator
 - `self`, `cls`, `*args`, and `**kwargs` under `Args:`, `ignore-var-parameters = true` exempts `*args` and `**kwargs` from `D417`
-- Summaries that repeat the name (`"""Runs the job."""` on `run_job()`), the summary states the effect, return, or side effect the name and signature leave out
+- A summary that repeats the name, the summary states the effect, return, or side effect the name and signature leave out
 
-Existing work:
-- Leave an accurate existing docstring alone, or improve its wording without changing meaning
-- Convert a docstring in another convention (Sphinx `:param:` fields, NumPy underlines) to Google sections and preserve its content
+An accurate existing docstring stays. A docstring in another convention (Sphinx `:param:` fields, NumPy underlines) converts to Google sections with its content preserved.
 
 ## [02]-[FORMAT]
 
-Formatting rules:
-- Summary line: one sentence in the third person that states what the member does or returns (`Fetches rows`), with no filler, no hedge, and no restatement of the signature (`D402`), on the first physical line after the opening quotes (`D212`), ending with a period (`D415`), within the 300-column `E501` limit because `ruff format` never wraps docstring text, and in one style per file because Google accepts the imperative and `D401` is off under `google`
-- Blank lines: one between the summary and the description (`D205`), one before each section (`D411`), one between sections (`D410`), and no empty section (`D414`)
-- Section headers: capitalized (`D405`), ending with a colon (`D416`), and followed by the first entry with no blank line between (`D412`)
-- Indentation: section entries 4 spaces from the header and continuation lines 4 more (8 total), Google accepts 2 or 4 with one width per file, and the docstring body aligns with the opening quotes (`D207`, `D208`)
+- Summary line: one sentence in the third person that states what the member does or returns (`Fetches rows`), on the first physical line after the opening quotes (`D212`), ending with a period (`D415`). `D402` rejects a signature restated in the summary. `ruff format` never wraps docstring text, so the line stays within the 300-column `E501` limit. Google accepts the imperative and `D401` is off under `google`, so a file keeps one style
+- Blank lines: one between the summary and the description (`D205`), one before each section (`D411`), one between sections (`D410`), no empty section (`D414`)
+- Section headers: capitalized (`D405`), ending with a colon (`D416`), followed by the first entry with no blank line between (`D412`)
+- Indentation: section entries 4 spaces from the header and continuation lines 4 more, one width per file, the docstring body aligns with the opening quotes (`D207`, `D208`)
 
 ### [02.1]-[SECTIONS]
 
-Use the sections that apply, `D420` orders `Args:`, then `Returns:` or `Yields:`, then `Raises:` and leaves the other sections unordered:
+`D420` orders `Args:`, then `Returns:` or `Yields:`, then `Raises:`, and leaves the other sections unordered:
 
 | [INDEX] | [SECTION]                 | [WHEN_TO_USE]                                                                                              |
 | :-----: | :------------------------ | :--------------------------------------------------------------------------------------------------------- |
@@ -51,18 +48,18 @@ Use the sections that apply, `D420` orders `Args:`, then `Returns:` or `Yields:`
 
 ### [02.2]-[ONE_LINERS]
 
-When the docstring needs no section, use a one-liner: opening and closing quotes on one line (`D200`), no blank line before it (`D201`) or after it (`D202`), and the `DOC` rules skip it (`ignore-one-line-docstrings = true`):
+A docstring that needs no section is a one-liner: opening and closing quotes on one line (`D200`), no blank line before it (`D201`) or after it (`D202`), the `DOC` rules skip it (`ignore-one-line-docstrings = true`):
 
 ```python
 def is_valid(self) -> bool:
     """Checks whether the configuration passes every validation rule."""
 ```
 
-Docstrings that need a section or a description are multi-line, with the closing quotes on their own line (`D209`).
+A docstring that needs a section or a description is multi-line, with the closing quotes on their own line (`D209`).
 
 ## [03]-[TYPE_ANNOTATIONS]
 
-Type hints state the types, the docstring adds the meaning a hint cannot: no `(str)` after an argument name, no type before the `Returns:` text, and no signature in prose (`D402`):
+Type hints state the types, the docstring adds the meaning a hint cannot: no `(str)` after an argument name, no type before the `Returns:` text, no signature in prose (`D402`):
 
 ```python
 def connect(host: str, port: int, timeout: float = 30.0) -> Connection:
@@ -102,7 +99,7 @@ def load_config(path: Path, *, strict: bool = False) -> Config:
 
 ### [04.1]-[RETURNS]
 
-Describe the shape of tuple and dict returns, and state when the function returns `None`:
+A tuple or dict return describes its shape, a function that can return `None` states when:
 
 ```text
 Returns:
@@ -115,13 +112,11 @@ Returns:
     The parsed configuration, or None when the file does not exist.
 ```
 
-Functions returning `expression.Result` describe the `Ok` value and each `Error` variant under `Returns:`.
+A function returning `expression.Result` describes the `Ok` value and each `Error` variant under `Returns:`.
 
 ### [04.2]-[RAISES]
 
-- List every exception the body raises with `raise` (`DOC501`, `NotImplementedError` excluded) and the propagated exceptions a caller handles, `DOC502` is ignored and a listed exception the body does not raise passes
-
-Raises format:
+Every exception the body raises with `raise` is listed (`DOC501`, `NotImplementedError` excluded) with the propagated exceptions a caller handles, `DOC502` is ignored and a listed exception the body does not raise passes:
 
 ```text
 Raises:
@@ -131,9 +126,7 @@ Raises:
 
 ### [04.3]-[GENERATORS]
 
-- `Yields:` replaces `Returns:` (`DOC402` on a missing one) and describes the item `next()` returns
-
-The generator docstring:
+`Yields:` replaces `Returns:` (`DOC402` on a missing one) and describes the item `next()` returns:
 
 ```python
 def read_chunks(path: Path, size: int = 8192) -> Iterator[bytes]:
@@ -146,13 +139,11 @@ def read_chunks(path: Path, size: int = 8192) -> Iterator[bytes]:
 
 ### [04.4]-[ASYNC]
 
-- Async functions follow the same rules, the docstring does not repeat the `async` keyword
+An async function follows the same rules, the docstring does not repeat the `async` keyword.
 
 ### [04.5]-[OVERLOADS]
 
-- `@overload` signatures have no docstring and the implementation has one that covers every signature, `ignore-decorators` lists `typing.overload`, the `D` rules skip the overloads (`D418` never fires) and check the implementation alone
-
-The docstring on the implementation:
+`@overload` signatures have no docstring, the implementation has one that covers every signature, `ignore-decorators` lists `typing.overload`, the `D` rules check the implementation alone:
 
 ```python
 @overload
@@ -176,14 +167,11 @@ def parse(data: str | bytes) -> dict[str, object]:
 
 ### [04.6]-[DECORATORS]
 
-- Document the effect of the decorator on the wrapped function
-- In a decorator that replaces the function, copy `__doc__` with `functools.wraps`, autodoc reads `__doc__` from the imported object and a wrapper without it hides the docstring
+A decorator documents its effect on the wrapped function. A decorator that replaces the function copies `__doc__` with `functools.wraps`, autodoc reads `__doc__` from the imported object.
 
 ## [05]-[CLASSES]
 
-Class docstrings open with what an instance represents (`"""The address of a shop."""`), and an exception class states what the error represents.
-
-Regular class with `Attributes:` and an `__init__` docstring:
+A class docstring opens with what an instance represents (`"""The address of a shop."""`), an exception class states what the error represents:
 
 ```python
 class HTTPClient:
@@ -213,9 +201,7 @@ class HTTPClient:
 
 Dataclasses, Pydantic models, TypedDicts, and NamedTuples:
 - Each field gets a string literal on the line after the field, autodoc reads that literal (or a `#:` comment before the field) as the attribute docstring
-- The class docstring has no `Attributes:` entry for the fields, one field is documented in one place
-
-Inline attribute docstrings on a dataclass:
+- The class docstring has no `Attributes:` entry for the fields
 
 ```python
 @dataclass
@@ -237,11 +223,11 @@ class SearchResult:
 
 ### [05.2]-[ABSTRACT_BASE_CLASSES]
 
-- Abstract methods document the interface contract, the `DOC` rules skip abstract methods and stub functions (`pass`, `...`, `raise NotImplementedError`), their `Returns:` and `Raises:` sections state the contract with no body to check
+An abstract method documents the interface contract, the `DOC` rules skip abstract methods and stub functions (`pass`, `...`, `raise NotImplementedError`), their `Returns:` and `Raises:` sections state the contract.
 
 ### [05.3]-[PROPERTIES]
 
-Document properties like attributes: a noun phrase for the value with no leading verb (`D421`), no `Args:`, and no `Returns:` (`DOC201` exempts properties, and `property-decorators` adds `pydantic.computed_field` to `@property` and `functools.cached_property`), a setter documents like a method:
+A property documents like an attribute: a noun phrase for the value with no leading verb (`D421`), no `Args:`, no `Returns:` (`DOC201` exempts properties, `property-decorators` adds `pydantic.computed_field` to `@property` and `functools.cached_property`), a setter documents like a method:
 
 ```python
 @property
@@ -259,13 +245,10 @@ def name(self, value: str) -> None:
 
 ## [06]-[EXAMPLES]
 
-Rules:
-- Code blocks indent 4 spaces within the section, and a blank line separates a block from the label before it and the entry after it
+- A code block indents 4 spaces within the section, a blank line separates a block from the label before it and the entry after it
 - Each example gets a label when the section holds more than one
 - `ruff format` reformats `>>>` doctest lines, Markdown fences, and rST `::` blocks under `docstring-code-format = true` and skips a block that does not parse, an indented plain block stays as written
-- Examples are indented plain blocks, `addopts` has no `--doctest-modules` and `testpaths` is `tests`, nothing runs a doctest and no check detects a stale one
-
-The docstring with labeled examples:
+- Examples are indented plain blocks, `addopts` has no `--doctest-modules`, nothing runs a doctest
 
 ```python
 def retry[**P, R](max_attempts: int = 3, backoff: float = 1.0) -> Callable[[Callable[P, R]], Callable[P, R]]:

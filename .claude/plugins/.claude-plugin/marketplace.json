@@ -7,7 +7,12 @@
         {
             "name": "function-hooks",
             "source": "./function-hooks",
-            "description": "Function hooks for the Rasm workspace"
+            "description": "Refuses destructive git commands, shell waits, and a second config file beside its owner"
+        },
+        {
+            "name": "playwright",
+            "source": "./playwright",
+            "description": "Playwright CLI and trace skills from the playwright package, with the test planner, generator, and healer agents"
         }
     ]
 }

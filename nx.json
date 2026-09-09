@@ -7,30 +7,22 @@
     "namedInputs": {
         "default": ["{projectRoot}/**/*", "sharedGlobals"],
         "production": ["default", "!{projectRoot}/**/*.{spec,test,bench}.{ts,tsx,mts,cts}"],
-        "sharedGlobals": [
-            "{workspaceRoot}/nx.json",
-            "{workspaceRoot}/mise.toml",
-            "{workspaceRoot}/mise.unix.toml",
-            "{workspaceRoot}/.miserc.toml",
-            "{workspaceRoot}/tools/nx/*.ts",
-            "{workspaceRoot}/sgconfig.yml",
-            "{workspaceRoot}/tools/ast-grep/**/*",
-            { "runtime": "ast-grep --version" }
-        ],
+        "sharedGlobals": ["{workspaceRoot}/nx.json", "{workspaceRoot}/mise.toml", "{workspaceRoot}/tools/nx/*.ts"],
         "dotnet": [
             "{workspaceRoot}/global.json",
             "{workspaceRoot}/NuGet.config",
             "{workspaceRoot}/Directory.{Build.props,Build.targets,Packages.props}",
-            "{workspaceRoot}/.editorconfig"
+            "{workspaceRoot}/.editorconfig",
+            { "runtime": "dotnet --version" }
         ],
-        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "env": "UV_PYTHON" }, { "runtime": "uv --version" }],
+        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }],
         "typescript": [
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/tsconfig.base.json",
             "{workspaceRoot}/package.json",
             "{workspaceRoot}/pnpm-workspace.yaml",
             "{workspaceRoot}/pnpm-lock.yaml",
-            "{workspaceRoot}/{vite,vitest}.config.ts",
+            "{workspaceRoot}/vitest.config.ts",
             { "runtime": "node --version" }
         ]
     },
@@ -43,13 +35,6 @@
                 "inputs": ["...", "dotnet"]
             }
         ],
-        "build:release": [
-            {
-                "filter": { "projects": ["tag:language:dotnet"] },
-                "dependsOn": ["^build:release", { "projects": ["rasm"], "target": "restore" }],
-                "inputs": ["...", "dotnet"]
-            }
-        ],
         "typecheck": [
             { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
             {
@@ -57,7 +42,7 @@
                 "executor": "nx:run-commands",
                 "cache": true,
                 "inputs": ["default", "python"],
-                "options": { "commands": ["uv run ty check {projectRoot}", "uv run mypy {projectRoot}"], "parallel": false }
+                "options": { "commands": ["ty check {projectRoot}", "mypy {projectRoot}"], "parallel": false }
             },
             {
                 "filter": { "projects": ["tag:language:typescript"] },
@@ -80,96 +65,30 @@
                 "filter": { "projects": ["tag:language:python"] },
                 "executor": "nx:run-commands",
                 "inputs": ["default", "python"],
-                "outputs": [
-                    "{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}",
-                    "{workspaceRoot}/.artifacts/python/benchmarks"
-                ],
+                "outputs": ["{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}"],
                 "options": {
-                    "command": "uv run pytest {projectRoot} --cov",
+                    "command": "pytest {projectRoot} --cov",
                     "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" }
-                },
-                "configurations": { "benchmark": { "command": "uv run pytest -m benchmark {projectRoot}" } }
+                }
             },
             {
-                "filter": { "projects": ["tag:language:typescript"] },
-                "inputs": ["...", "typescript", "{workspaceRoot}/tests/typescript/support/**/*"],
+                "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" },
+                "inputs": ["...", "typescript", "{workspaceRoot}/tests/typescript/support/setup.ts"],
                 "outputs": [
                     "{workspaceRoot}/.artifacts/typescript/test-results/{projectName}",
-                    "{workspaceRoot}/.artifacts/typescript/test-results/.vitest-reports/{projectName}.json",
-                    "{workspaceRoot}/.artifacts/typescript/bench/{projectName}.json",
                     "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"
-                ],
-                "configurations": {
-                    "benchmark": {
-                        "command": "vitest bench --run --reporter=json --outputFile=\"$PWD/.artifacts/typescript/bench/{projectName}.json\"",
-                        "cwd": "{workspaceRoot}",
-                        "config": "{projectRoot}/vitest.config.ts"
-                    }
-                }
+                ]
             }
         ],
-        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }],
-        "nx-release-publish": [
-            {
-                "filter": { "projects": ["tag:language:dotnet"] },
-                "executor": "nx:run-commands",
-                "cache": false,
-                "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
-                "options": { "command": "uv run --only-group eng python -m eng.scripts.publish nuget {projectRoot}", "forwardAllArgs": false }
-            },
-            {
-                "filter": { "projects": ["tag:language:python"] },
-                "executor": "nx:run-commands",
-                "cache": false,
-                "options": { "command": "uv run --only-group eng python -m eng.scripts.publish pypi {projectRoot}", "forwardAllArgs": false }
-            },
-            { "filter": { "projects": ["tag:release:typescript"] }, "options": { "packageRoot": "{projectRoot}/dist" } }
-        ]
-    },
-    "release": {
-        "projectsRelationship": "independent",
-        "releaseTag": { "pattern": "{projectName}@{version}" },
-        "version": {
-            "conventionalCommits": true,
-            "fallbackCurrentVersionResolver": "disk",
-            "updateDependents": "never",
-            "logUnchangedProjects": false,
-            "versionActions": "tools/nx/version-actions.ts"
-        },
-        "changelog": { "automaticFromRef": true, "workspaceChangelog": false, "projectChangelogs": { "file": false, "createRelease": "github" } },
-        "git": { "commit": false, "tag": true, "push": true },
-        "groups": {
-            "dotnet": { "projects": ["tag:release:dotnet"] },
-            "Rasm.Interop": {
-                "projects": ["tag:release:Rasm.Interop"],
-                "projectsRelationship": "fixed",
-                "releaseTag": { "pattern": "{releaseGroupName}@{version}" }
-            },
-            "python": { "projects": ["tag:release:python"] },
-            "typescript": {
-                "projects": ["tag:release:typescript"],
-                "version": {
-                    "versionActions": "tools/nx/typescript-version-actions.ts",
-                    "manifestRootsToUpdate": ["{projectRoot}/dist"],
-                    "groupPreVersionCommand": "pnpm exec nx run-many -t build --projects=tag:release:typescript"
-                }
-            }
-        }
+        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }]
     },
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false } },
     "plugins": [
-        { "plugin": "@nx/vite/plugin", "exclude": ["vite.config.ts"] },
-        { "plugin": "@nx/vitest", "exclude": ["vite.config.ts", "vitest.config.ts"], "options": { "testMode": "run" } },
+        { "plugin": "@nx/vitest", "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } },
         {
             "plugin": "@nx/dotnet",
-            "exclude": ["eng/native/**"],
-            "options": {
-                "clean": false,
-                "pack": false,
-                "publish": false,
-                "restore": false,
-                "watch": { "dependsOn": [{ "projects": ["rasm"], "target": "restore" }] }
-            }
+            "exclude": ["eng/**"],
+            "options": { "clean": false, "pack": false, "publish": false, "restore": false }
         },
         { "plugin": "./tools/nx/workspace.ts" }
     ]

@@ -47,5 +47,5 @@ transform:
 fix:
     template: $OUT
     expandStart: {kind: expression_statement}
-message: The statement before the `if` binds `$N` and the condition evaluates it first
-note: Bind the value at its first evaluation with `:=`, preserving later reads and short-circuit evaluation
+message: 'The statement before the `if` binds `$N` and the condition evaluates it first, the form of `($N := <value>)` at the first evaluation'
+note: 'The walrus keeps later reads and short-circuit evaluation'
