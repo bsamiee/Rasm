@@ -4,11 +4,11 @@ Component and hook documentation: props interfaces, the component function, and 
 
 ## [01]-[PROPS_INTERFACES]
 
-Each member declared on the props interface takes a one-line doc comment. An inherited member stays documented on the base interface. A member redeclared to narrow its type takes its own comment for the narrowed shape.
+Each member declared on the props interface takes a one-line doc comment. Inherited members stay documented on the base interface. Members redeclared to narrow their type take their own comment for the narrowed shape.
 
 ## [02]-[COMPONENT_FUNCTION]
 
-The component is documented apart from its props interface, the `@param` names the interface:
+Components are documented apart from their props interface, `@param` names the interface:
 
 ```ts
 /**
@@ -22,11 +22,11 @@ The component is documented apart from its props interface, the `@param` names t
  */
 ```
 
-The component takes no `@typeParam`, the props interface declares the generic.
+Components take no `@typeParam`, the props interface declares the generic.
 
 ## [03]-[HOOKS]
 
-Hooks from `@effect-atom/atom-react` (`useAtomValue`, `useAtom`) return the atom value. An atom made from an `Effect` holds `Result.Result<A, E>` from `@effect-atom/atom`: a union of `Initial`, `Success` (`value`), and `Failure` (`cause: Cause<E>`, `previousSuccess`) tagged by `_tag`, with a `waiting` flag on every case. `@returns` names the `A` and each `E`:
+Hooks from `@effect-atom/atom-react` (`useAtomValue`, `useAtom`) return the atom value. Atoms made from an `Effect` hold `Result.Result<A, E>` from `@effect-atom/atom`: a union of `Initial`, `Success` (`value`), and `Failure` (`cause: Cause<E>`, `previousSuccess`) tagged by `_tag`, with a `waiting` flag on every case. `@returns` names the `A` and each `E`:
 
 ```ts
 /**

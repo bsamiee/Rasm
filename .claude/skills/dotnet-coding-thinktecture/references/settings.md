@@ -11,15 +11,15 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 |  [03]   | `UnsafeConversionToKeyMemberType`          | `Explicit`    | Class to value-type key, throws on `null`                     |
 |  [04]   | `EqualityComparisonOperators`              | `Default`     | `None` or `DefaultWithKeyTypeOverloads`                       |
 |  [05]   | `ComparisonOperators`                      | `Default`     | Same values, must match the equality setting (105)            |
-|  [06]   | The 4 arithmetic operator settings         | `Default`     | Present when the key supports it, results go through `Create` |
-|  [07]   | `SkipToString` and the 4 `SkipI*` settings | `false`       | Remove the member, `SkipIParsable` skips `ISpanParsable` too  |
+|  [06]   | Arithmetic operator settings               | `Default`     | Present when the key supports it, results go through `Create` |
+|  [07]   | `SkipToString` and the `SkipI*` settings   | `false`       | Remove the member, `SkipIParsable` includes `ISpanParsable`   |
 |  [08]   | `SkipEqualityComparison`                   | `false`       | Removes equality members and both operator settings           |
 |  [09]   | `SkipFactoryMethods`                       | `false`       | No factories, converters, parsing, key conversion, arithmetic |
 |  [10]   | `ConstructorAccessModifier`                | `Private`     | Constructor accessibility                                     |
 |  [11]   | `CreateFactoryMethodName`                  | `Create`      | Factory name, `CreateCore` follows the rename                 |
 |  [12]   | `TryCreateFactoryMethodName`               | `TryCreate`   | Factory name                                                  |
 |  [13]   | `NullInFactoryMethodsYieldsNull`           | `false`       | Class factories return `null` for `null` input                |
-|  [14]   | `EmptyStringInFactoryMethodsYieldsNull`    | `false`       | Extends that to blank strings and implies row 13              |
+|  [14]   | `EmptyStringInFactoryMethodsYieldsNull`    | `false`       | Blank `string` keys and `null` yield `null`, 109 on a struct  |
 |  [15]   | `AllowDefaultStructs`                      | `false`       | Accepts `default` and emits `public static readonly T Empty`  |
 |  [16]   | `DefaultInstancePropertyName`              | `Empty`       | Name of that default instance                                 |
 |  [17]   | `KeyMember*` settings                      | Private field | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind`   |
@@ -81,7 +81,9 @@ Project-level MSBuild properties have the prefix `ThinktectureRuntimeExtensions_
 |  [06]   | `Counter`                      | `enable`, `enabled`, `true`, or `1` turn it on, case-insensitive              | Off       |
 
 - `LogFilePath` gates the other logging properties, must name a folder that exists before the build, and blank disables file logging
-- `LogLevel` at `Information` shows the generator run and which serialization generators participate, and only `Information`, `Warning`, and `Error` create a file logger
-- `LogFilePathMustBeUnique` at `false` collects every compiler process in one file, and the default `true` names a new file per process with a UTC timestamp and a guid
-- The generator skips the annotation file when `JetBrains.Annotations.dll` is referenced, `GenerateJetBrainsAnnotations` needs no value
-- `Counter` serves only to detect regeneration (every emitted file starts with `// COUNTER: <n>`), and it is off before generated files are compared or committed
+- `LogLevel` at `Information` shows the generator run and which serialization generators participate
+- `Information`, `Warning`, and `Error` alone create a file logger
+- `LogFilePathMustBeUnique` at `false` collects every compiler process in one file, `true` names a file per process with a UTC timestamp and a guid
+- Generator skips the annotation file when `JetBrains.Annotations.dll` is referenced, `GenerateJetBrainsAnnotations` needs no value
+- Generated `Switch` and `Map` delegate parameters carry `[JetBrains.Annotations.InstantHandle]` whichever source supplies the attribute
+- `Counter` detects regeneration, every emitted file starts with `// COUNTER: <n>`, and it is off before generated files are compared or committed

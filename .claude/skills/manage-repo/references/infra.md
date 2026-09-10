@@ -1,36 +1,26 @@
 # [INFRA]
 
+Pulumi's Automation API runs the typed program in process, GitHub Actions runs workflows of commands.
+
 ## [01]-[PROGRAM]
 
-- Every resource outside the tree and every repository setting is a typed row of one program
-- Program reads credentials from the environment the secret store injects around the command
 - Rows are `as const satisfies` their provider's argument type
-- Row table is the whole declaration
-- Existing resources are adopted through import on first run
-- Missing resources are created
-- Loose YAML, JSON, or shell files defining a resource are rows placed outside the program, move them into the program
+- `LocalWorkspace.createOrSelectStack` takes an inline program, `up` and `refresh` results carry `summary.resourceChanges`
+- `import: <id>` in resource options adopts an existing resource on one run and comes out of the options after it, `protect: true` refuses deletion
+- Use `secrets` for a token or variable a program or workflow reads
 
 ## [02]-[WORKFLOWS]
 
-- Workflows hold their trigger, permissions, and jobs
-- Each job runs the setup step and task graph commands
-- Setup step installs the tool manager, restores package caches, and installs dependencies
-- CI runs target `check` on the root and the affected projects
-- Format job proves the writers changed nothing
-- One fan-in job with `needs` over every job and `if: always()` is the status check the merge rule names
-- Skipped jobs report success to a required check, the fan-in fails on a `needs.<job>.result` of `skipped` or `failure`
-- Reusable workflows, matrices, and composite actions arrive with the second job that needs them
-- Hosted runs prove workflows
-- Local runners with their images and daemon are second hosts, delete them
+| [INDEX] | [DECISION]   | [FORM]                                                                                                            |
+| :-----: | :----------- | :---------------------------------------------------------------------------------------------------------------- |
+|  [01]   | Event        | Repository event or schedule that requires the work, `workflow_dispatch` with typed `inputs`                      |
+|  [02]   | Permissions  | `permissions` names the keys jobs call, every unnamed key is `none`, `permissions: {}` for none                   |
+|  [03]   | Concurrency  | `group` by workflow and ref, `cancel-in-progress` as an expression, `queue: max` excludes `cancel-in-progress`    |
+|  [04]   | Checkout     | `persist-credentials: false` unless the job pushes, `fetch-depth: 0` for `nx-set-shas` and `nx affected`          |
+|  [05]   | Cache        | `actions/cache` keyed by `hashFiles` over the files that decide the contents, no `restore-keys`                   |
+|  [06]   | Shell        | `defaults.run.shell` covers workflow `run` steps, each composite `run` step declares `shell`                       |
+|  [07]   | Expressions  | `${{ }}` values reach a script through the step `env` map                                                         |
+|  [08]   | Status check | Fan-in job with `needs` over every job and `if: always()`, failing on a `needs.<job>.result` other than `success` |
 
-## [03]-[SECRETS]
-
-- Secrets reach a workflow through the runner environment
-- Store token is the one repository secret
-- Non-secret values a workflow reads are variable rows of the program
-- Secrets in a file, checked-in tokens, and hooks restoring secret text are leaks, remove them
-
-## [04]-[TIMING]
-
-- Release environments, deployment policies, tag rulesets, registry logins, and attestations join with the first library release
-- Preview, plan, and dry-run variants of the apply target are duplicates, delete them, the apply target prints its own change summary
+- Caches restore an exact `key` match and save under it when the job succeeds, a key over a manifest with `latest` rows restores the first save
+- Jobs skipped by a conditional or a failed dependency pass as a required status check and read `skipped` in `needs.<job>.result`

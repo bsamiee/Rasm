@@ -8,7 +8,6 @@
         "@aws-sdk/s3-request-presigner": "catalog:",
         "@biomejs/biome": "catalog:",
         "@bufbuild/protobuf": "catalog:",
-        "@bufbuild/protoc-gen-es": "catalog:",
         "@bufbuild/protovalidate": "catalog:",
         "@connectrpc/connect": "catalog:",
         "@connectrpc/connect-node": "catalog:",
@@ -228,7 +227,6 @@
         "otplib": "catalog:",
         "papaparse": "catalog:",
         "parquet-wasm": "catalog:",
-        "pg-formatter": "catalog:",
         "playwright": "catalog:",
         "prosemirror-collab": "catalog:",
         "prosemirror-commands": "catalog:",
@@ -358,12 +356,11 @@
                         "dependentTasksOutputFiles": "**/xml.so"
                     },
                     {
-                        "runtime": "typos --version && ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version"
+                        "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version"
                     }
                 ],
                 "options": {
                     "commands": [
-                        "typos",
                         "ast-grep scan --no-ignore hidden",
                         "biome check --error-on-warnings",
                         "ruff check",
@@ -381,11 +378,10 @@
                 ],
                 "options": {
                     "commands": [
-                        "typos --write-changes",
                         "biome check --write --error-on-warnings",
                         "ruff check --fix",
                         "ruff format",
-                        "yamlfmt -no_global_conf -formatter indent=4,retain_line_breaks=true .",
+                        "yamlfmt .",
                         "dotnet format Workspace.slnx --no-restore"
                     ],
                     "parallel": false
@@ -430,7 +426,7 @@
                         "uv lock --upgrade",
                         "ncu --workspaces --root --packageManager pnpm -u --target newest",
                         "pnpm install",
-                        "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj",
+                        "dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj",
                         "mise upgrade"
                     ],
                     "parallel": false
@@ -449,7 +445,7 @@
                     },
                     "dotnet": {
                         "commands": [
-                            "dotnet dnx dotnet-outdated-tool --yes -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj"
+                            "dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj"
                         ]
                     },
                     "tools": {

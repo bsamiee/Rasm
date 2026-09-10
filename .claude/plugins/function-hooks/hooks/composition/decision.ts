@@ -1,14 +1,12 @@
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Decision<E> =
-    | { readonly kind: 'rewrite'; readonly e: E; readonly context: readonly string[] }
-    | { readonly kind: 'deny'; readonly reason: string };
+type Decision<E> = { readonly kind: 'pass'; readonly e: E } | { readonly kind: 'deny'; readonly reason: string };
 
 type Rule<E> = (e: E) => Decision<E>;
 
 // --- [CONSTRUCTORS] --------------------------------------------------------------------
 
-const rewrite = <E>(e: E, context: readonly string[] = []): Decision<E> => ({ kind: 'rewrite', e, context });
+const pass = <E>(e: E): Decision<E> => ({ kind: 'pass', e });
 
 const deny = <E>(reason: string): Decision<E> => ({ kind: 'deny', reason });
 
@@ -17,20 +15,14 @@ const deny = <E>(reason: string): Decision<E> => ({ kind: 'deny', reason });
 const when =
     <E, N extends E>(refine: (e: E) => e is N, rule: Rule<N>): Rule<E> =>
     (e: E): Decision<E> =>
-        refine(e) ? rule(e) : rewrite(e);
+        refine(e) ? rule(e) : pass(e);
 
 const fold =
     <E>(rules: readonly Rule<E>[]): Rule<E> =>
     (e: E): Decision<E> =>
-        rules.reduce<Decision<E>>((decision, rule) => {
-            if (decision.kind !== 'rewrite') {
-                return decision;
-            }
-            const next = rule(decision.e);
-            return next.kind === 'rewrite' ? rewrite(next.e, [...decision.context, ...next.context]) : next;
-        }, rewrite(e));
+        rules.reduce<Decision<E>>((decision, rule) => (decision.kind === 'pass' ? rule(decision.e) : decision), pass(e));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Decision, Rule };
-export { deny, fold, rewrite, when };
+export { deny, fold, pass, when };

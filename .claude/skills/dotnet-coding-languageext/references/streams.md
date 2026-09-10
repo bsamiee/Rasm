@@ -1,5 +1,7 @@
 # [STREAMS]
 
+`LanguageExt.Streaming` API from sources to pipes, with the buffer policies and their forking order.
+
 ## [01]-[SOURCES]
 
 `Source.lift` accepts an `IObservable<A>` or an `IEnumerable<A>`, and an observable enters by implementing `Subscribe`, which receives the `IObserver<A>` the source supplies once, delivers `OnNext` per value, ends with `OnCompleted`, and returns the `IDisposable` that owns the subscription lifetime:
@@ -37,7 +39,7 @@ Lifted single values emit and complete at once, lifted enumerables emit their el
 
 ## [02]-[REDUCTION]
 
-`Reduce(seed, f)` folds every value into one `IO<S>`, and `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`:
+`Reduce(seed, f)` folds every value into one `IO<S>`, `ReduceIO` lets the reducer stop with `Reduced.DoneIO` or continue with `Reduced.ContinueIO`, and `Fold(f, seed)` is a `Source<S>` over a `foldWhile` transducer with a predicate that never fails, no state reaches downstream, `FoldWhile` and `FoldUntil` yield it when their predicate turns:
 
 ```csharp
 internal static class Reductions {
@@ -49,7 +51,7 @@ internal static class Reductions {
 
 ## [03]-[CONDUITS]
 
-`Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, `Complete()` closes it and a later `Post` fails, and the buffer policy decides what happens when production outpaces consumption, because the consumer cannot slow the producer by requesting the next item:
+`Conduit.make(Buffer<A>)` builds a `Sink<A>` and `Source<A>` pair, `Post` writes to the sink, `Comap` adapts the sink's input type, `Complete()` closes it and a later `Post` fails, and the buffer policy decides what happens when production outpaces consumption, the consumer cannot slow the producer by requesting the next item:
 
 | [INDEX] | [BUFFER]               | [BEHAVIOR]                                          |
 | :-----: | :--------------------- | :-------------------------------------------------- |

@@ -11,14 +11,16 @@ stateless: Input -> Value
 stateful:  Input -> State -> (Value, NewState)
 ```
 
-The caller passes the returned state into the next operation, earlier state values stay unchanged, and the program remains stateful because each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, the operations capture that protocol:
+Callers pass the returned state into the next operation, earlier state values stay unchanged, and each new state affects later behavior. The shape `S -> (A, S)` characterizes the function, not the architecture around it, and `State<S, A>` wraps a `Func<S, (A Value, S State)>` while `StateT<S, M, A>` wraps a `Func<S, K<M, (A Value, S State)>>` for a transition with an effect in `M`. Explicit state passing suits an isolated transition, and once transitions are sequenced, extracting and forwarding the state by hand repeats itself, the operations capture that protocol:
 - `Map` transforms the produced value and preserves the returned state
 - `Bind` runs the first computation, uses its value to choose the next computation, then runs that computation with the returned state
-- `State.pure` lifts a value into a computation that returns the state unchanged, `State.gets` reads a projection, `State.put` replaces the state, and `State.modify` replaces it with a function of it, and `put` and `modify` produce `Unit`
-- `Select` and `SelectMany` expose the operations to LINQ query syntax, which hides the extraction and forwarding and preserves the dependency and its order
-- `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`, and `Stateful.local` restores the prior state after the nested computation
+- `State.pure` lifts a value into a computation that returns the state unchanged
+- `State.gets` reads a projection, `State.put` replaces the state, `State.modify` replaces it with a function of it, `put` and `modify` produce `Unit`
+- `Select` and `SelectMany` expose the operations to query syntax, which hides the forwarding and preserves the dependency order
+- `Stateful.state` and `Stateful.local` are the trait forms for a domain wrapper over `State` or `StateT`
+- `Stateful.local` restores the prior state after the nested computation
 
-The produced value can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation hold behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.
+Produced values can be an `Option<A>` that the consumer matches at the boundary, or a function, which lets a stateful computation hold behavior beside data. Keep explicit tuple passing for a short state flow, use composition when many dependent transitions otherwise repeat the forwarding, and treat sequencing as semantic: each computation receives the state its predecessor produced.
 
 ## [02]-[CACHE]
 
@@ -44,7 +46,7 @@ remote lookup: string -> decimal
 cached lookup: string -> HashMap<string, decimal> -> (decimal, HashMap<string, decimal>)
 ```
 
-The application starts with an empty map, dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. Removing mutation does not remove the network effect, and passing the fetch as a `Func<string, decimal>` makes it explicit and testable with a deterministic function. The effect and its failure belong in the type, the fetch becomes `string -> IO<decimal>` and the cache becomes `StateT<HashMap<string, decimal>, IO, decimal>`:
+Application state starts as an empty map, dependent lookups bind in one query, and the host supplies the start state through `Run(state)`, which returns the value with the final state. Removing mutation does not remove the network effect, and passing the fetch as a `Func<string, decimal>` makes it explicit and testable with a deterministic function. The effect and its failure belong in the type, the fetch becomes `string -> IO<decimal>` and the cache becomes `StateT<HashMap<string, decimal>, IO, decimal>`:
 
 ```csharp
 internal static class EffectfulQuoteCache {
@@ -103,11 +105,11 @@ internal static class ListGenerator {
 }
 ```
 
-The policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
+Policy yields an empty list half the time, one element a quarter of the time, and longer lists with halving probability, long lists are unlikely. For another distribution, generate a bounded length first and then that many values, and for a string, generate a character sequence and construct the string.
 
 ## [04]-[GENERALIZATION]
 
-`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned. The tree is a generic `[Union]` with 2 cases, and the numbering sits on an abstract member because it needs no dependency:
+`State<int, A>` specializes `State<S, A>` with an integer seed, and other state types use the same `Map`, `Bind`, and `State.pure`. Numbering the leaves of a tree in traversal order uses an integer counter as the state: a leaf pairs its value with the current count and returns the incremented count, and a branch numbers its left subtree, then its right subtree with the state the left returned. The tree is a generic `[Union]`, the numbering needs no dependency and sits on an abstract member:
 
 ```csharp
 internal static class Numbering {
@@ -132,7 +134,7 @@ internal abstract partial record Tree<T> {
 }
 ```
 
-The numbering function returns a computation, supplying the initial counter runs it, `Run(0)` returns the numbered tree with the next counter, and `.Value` selects the tree. LINQ sequences the recursive transitions in a branch, and for a simpler case explicit state passing is clearer. Simulations and parsers use the same shape: a functional parser treats the input text as state and returns the parsed value with the unconsumed remainder, which is the model of `LanguageExt.Parsec`, where `Parser<T>` maps a `PString` to a `ParserResult<T>` carrying the unconsumed input.
+Numbering returns a computation, supplying the initial counter runs it, `Run(0)` returns the numbered tree with the next counter, and `.Value` selects the tree. LINQ sequences the recursive transitions in a branch, and for a simpler case explicit state passing is clearer. Simulations and parsers use the same shape: a functional parser treats the input text as state and returns the parsed value with the unconsumed remainder, which is the model of `LanguageExt.Parsec`, where `Parser<T>` maps a `PString` to a `ParserResult<T>` carrying the unconsumed input.
 
 ## [05]-[LOOPS]
 
@@ -142,7 +144,7 @@ Indefinite loops advance a state until a runtime condition holds, and their leng
 - Execution: apply the transition until termination
 - Consumption: retain only the final state, or every intermediate state
 
-The library keeps the mutable loop variable inside the execution mechanism and leaves the transition and stopping rule explicit. Tail-recursive functions return the final value or make their recursive call last, and each call can add a stack frame because C# provides no tail-call optimization, a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
+Loop execution keeps the mutable loop variable inside its mechanism and leaves the transition and stopping rule explicit. Tail-recursive functions return the final value or make their recursive call last, C# provides no tail-call optimization and each call adds a stack frame, a condition that takes many iterations can overflow the stack, and a small but unbounded iteration count does not remove the risk. `Trampoline.More` returns the recursive call as a deferred value and `Run()` evaluates the calls in a loop, and a reusable trampolined loop checks the stopping predicate before each transition:
 
 ```csharp
 internal static class Trampolined {
@@ -178,7 +180,7 @@ internal static class Traces {
 `Step` returns `Some` for the transition that first produces the terminal state and `None` on the following call, the sequence yields each state after a transition and not the initial state, and an already-terminal initial state yields an empty `Seq`, decide whether enumeration is empty, emits the initial state, or advances once when the initial state can be terminal. Constructing the sequence does not run the loop, reading it does:
 - `Last` reads until the sequence ends and returns the terminal state as an `Option`, `None` for an empty sequence
 - `Map` defines a lazy transformation of every yielded state, and `Fold` retains accumulated output beside the latest state
-- `Head`, `Take`, and similar operators stop enumeration before the loop's own condition, they serve only intentional early termination (limiting a participant to a fixed number of actions)
+- `Head` and `Take` stop enumeration before the loop's own condition, they serve intentional early termination alone
 - `foreach` is a consumer, and mutating an outer variable inside it reintroduces imperative state at the call site
 
 One `Seq` keeps every state it read, and a second pass does not rerun `advance`, while each `unfold` call constructs a new producer that reruns the whole process, when `advance` reads input or randomness, build the `Seq` once and read every required result from it.

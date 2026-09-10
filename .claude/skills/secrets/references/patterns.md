@@ -1,50 +1,29 @@
 # [PATTERNS]
 
-Consumption patterns for secret material that is not process-env shaped.
+Templates and mounts for secret material a process reads from a file.
 
 ## [01]-[TEMPLATES]
 
-`doppler secrets substitute <template>` renders Go `text/template` against the scoped config and writes stdout, `--output <file>` binds where the target owner requires a durable file.
-
-- `{{.KEY}}` interpolates a value, `{{if .OPTIONAL_KEY}}...{{end}}` guards a key a config holds conditionally
-- `{{tojson .KEY}}` stringifies multiline material (private keys, certificates) into valid JSON and YAML scalars
-- `{{fromjson .KEY}}` expands a structured secret value into template-addressable fields
+`doppler secrets substitute <template> --project <p> --config <c>` renders Go `text/template` against the config to stdout:
+- `--output <file>` writes the render to a file where the target owner requires one
+- `--use-env true` adds environment variables to the template values
+- `{{.KEY}}` interpolates a value, `{{if .OPTIONAL_KEY}}...{{end}}` renders a block when the config holds the key
+- `{{tojson .KEY}}` stringifies multiline material (private keys, certificates) into a JSON or YAML scalar
+- `{{fromjson .KEY}}` expands a JSON secret value into template-addressable fields
 
 ```text
 host: {{.API_HOST}}
 key: {{tojson .PRIVATE_KEY}}
 ```
 
+`op inject` renders `{{ op://<vault>/<item>/<field> }}` references in a template, `$<VAR>` inside a reference takes that environment variable's value.
+
 ## [02]-[MOUNTS]
 
-`doppler run --project <p> --config <c> --mount <path> [--mount-template <template>] [--mount-max-reads <n>] -- <cmd>` writes secrets to an ephemeral file and exposes its path as `DOPPLER_CLI_SECRETS_PATH`, nothing enters the process environment.
-
-- Fit: tools that demand a config-file path, server launchers, file-only CLIs
-- `--mount-template` renders through the template engine before mounting
-- `--mount-max-reads <n>` caps file reads, `0` is unlimited
-
-## [03]-[MULTI_COMMAND]
-
-Shell operators require the quoted `--command` form:
-
-```bash
-doppler run --project <p> --config <c> --command='<preflight> && exec <process>; <cleanup>'
-```
-
-Command chains are generated inside owned wrappers (Nix modules, driver code).
-
-## [04]-[MCP]
-
-One Doppler MCP server runs under the ambient personal CLI token, resolved in the launcher prelude, every tool addresses project and config per call.
-
-```text
-export DOPPLER_TOKEN="${DOPPLER_TOKEN:-$(doppler configure get token --plain --scope /)}"
-exec doppler-mcp --read-only
-```
-
-- `--read-only` filters the exposed toolset to GET endpoints, the token's grants are the enforcement
-- A write-capable MCP binds in an explicit operator session with a short-lived scoped token
-
-## [05]-[PLANS]
-
-`RBAC` and `Integration Access Scoping` bind Team and Enterprise, `Custom Roles` binds Enterprise or the Team add-on, live entitlement proof gates each.
+`doppler run --project <p> --config <c> --mount <path> -- <cmd>` mounts secrets as a named pipe at `<path>` and injects none into the environment:
+- `DOPPLER_CLI_SECRETS_PATH` names the pipe inside the command
+- `--format` names `env`, `json`, `dotnet-json`, `docker`, `env-no-quotes`, or `template` when the mount name's extension names none
+- `--mount-template <template>` renders the template before mounting
+- `--mount-max-reads <n>` caps reads of the pipe, `0` is unlimited
+- Pipe disappears when the Doppler process exits
+- Mount under an iCloud Drive directory fails on macOS

@@ -4,8 +4,6 @@ Full files for the catalog entries with a fix spanning more than one element.
 
 ## [01]-[DUPLICATE_PUBLISH_INSTANCE]
 
-The `DependsOnTargets="Publish"` target reads `_IsPublishing`, which nothing sets in a plain build, and `-check` reports `BC0201` for that read. Set `build_check.BC0201.severity = none` under a `[*.csproj]` section in `.editorconfig`. BuildCheck ignores a key outside a section. `AllowUninitializedPropertiesInConditions` covers no read outside a condition.
-
 A consumer calling `Publish` on a tool project:
 
 ```xml
@@ -21,21 +19,22 @@ A consumer calling `Publish` on a tool project:
 ```
 
 - The tool publishes its own build through its `DependsOnTargets="Publish"` target, the consumer orders the build
-- `dotnet publish` on the consumer passes `_IsPublishing=true` into the referenced build, `UndefineProperties="_IsPublishing"` keeps the tool's condition false
+- `dotnet publish` on the consumer passes `_IsPublishing=true` into the referenced build, `UndefineProperties` keeps the tool's publish target running
 - The consumer derives the tool publish directory from `$(Configuration)` and the tool's `PublishDir` convention
-- An extra global property is safe when the effective `OutputPath` and `IntermediateOutputPath` contain its value, `Platform` is no pivot under the artifacts layout
+- An extra global property is safe when the effective `OutputPath` and `IntermediateOutputPath` contain its value
+- `Platform` is no pivot under the artifacts layout
 - A build that needs a property outside the path takes its own `BaseIntermediateOutputPath` and output path
 
 ## [02]-[SETTARGETFRAMEWORK_FORMS]
 
-The multi-targeting form and the other-framework form hold when the effective output paths contain the framework. Incompatible frameworks, `.NETFramework` against `.NETCoreApp`, take `SkipGetTargetFrameworkProperties="true"` for the framework negotiation that fails across the reference and `ReferenceOutputAssembly="false"` for the assembly the consumer cannot load:
+Framework negotiation fails between `.NETFramework` and `.NETCoreApp`, `SkipGetTargetFrameworkProperties="true"` skips it and `ReferenceOutputAssembly="false"` drops the assembly the consumer cannot load:
 
 ```xml
 <!-- OK -->
 <ProjectReference Include="../Tool/Tool.csproj" SkipGetTargetFrameworkProperties="true" ReferenceOutputAssembly="false" />
 ```
 
-`SkipGetTargetFrameworkProperties="true"` skips the step that removes the inherited `TargetFramework`. Every inner build of a multi-targeting consumer then passes its `TargetFramework` into the referenced project, which fails `NETSDK1005`. One guard applies:
+`SkipGetTargetFrameworkProperties="true"` skips the step that removes the inherited `TargetFramework`, every inner build of a multi-targeting consumer then passes its `TargetFramework` into the referenced project and fails `NETSDK1005`. One guard applies:
 - `SetTargetFramework="TargetFramework=<tfm>"` pins the referenced build, the form a multi-targeting reference takes
 - `UndefineProperties="TargetFramework"` removes the inherited global property, a single-targeting project builds as declared
 
@@ -78,32 +77,22 @@ The path comes from a property with a default, the `Reference` items derive from
 
 ## [04]-[LAYER_VALIDATION_TARGET]
 
-The role derives from the project directory in `Directory.Build.props`.
+Layer membership derives from the project directory in `Directory.Build.props`.
 
 ```xml
 <!-- Directory.Build.props -->
 <PropertyGroup>
-  <LibrariesRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', 'libs'))</LibrariesRoot>
-  <IsLibraryProject Condition="$(MSBuildProjectDirectory.StartsWith('$(LibrariesRoot)'))">true</IsLibraryProject>
+  <LayerRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '<layer>'))</LayerRoot>
+  <InLayer Condition="$(MSBuildProjectDirectory.StartsWith('$(LayerRoot)'))">true</InLayer>
 </PropertyGroup>
 
 <!-- Directory.Build.targets -->
-<Target Name="ValidateReferenceLayer" BeforeTargets="PrepareForBuild" Condition="'$(IsLibraryProject)' == 'true'">
+<Target Name="ValidateReferenceLayer" BeforeTargets="PrepareForBuild" Condition="'$(InLayer)' == 'true'">
   <ItemGroup>
-    <_UpwardReference Include="@(ProjectReference->'%(FullPath)')" Condition="!$([System.String]::Copy('%(FullPath)').StartsWith('$(LibrariesRoot)'))" />
+    <_UpwardReference Include="@(ProjectReference->'%(FullPath)')" Condition="!$([System.String]::Copy('%(FullPath)').StartsWith('$(LayerRoot)'))" />
   </ItemGroup>
-  <Error Condition="'@(_UpwardReference)' != ''" Text="Library '$(MSBuildProjectName)' references outside libs/: @(_UpwardReference, ', ')" />
+  <Error Condition="'@(_UpwardReference)' != ''" Text="Project '$(MSBuildProjectName)' references outside its layer: @(_UpwardReference, ', ')" />
 </Target>
 ```
 
-A `ProjectReference` with `ReferenceOutputAssembly="false"` orders the build alone, `Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'"` on the `_UpwardReference` item exempts an analyzer project reached with `OutputItemType="Analyzer"`.
-
-## [05]-[BACKSLASH_CASES]
-
-ERROR, no conversion or a conversion the consumer must not get:
-- `Exec` commands starting with a program name (`cat`, `git`, `dotnet`)
-- Backslashes outside a path, `<Exec Command="echo a\b\c" />` prints `abc`
-- Backslashes the consumer keeps, `Lines` on `<WriteLinesToFile>` is an item list, every item converts, the file receives `a/b` where it needs `a\b`
-- Paths a custom task passes to file APIs without the MSBuild path utilities
-
-STYLE, `$(MSBuildThisFileDirectory)` ends with the separator of the current operating system, `$(MSBuildThisFileDirectory)tools/mytool` works on every one.
+A `ProjectReference` with `ReferenceOutputAssembly="false"` orders the build alone. `Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'"` on the `_UpwardReference` item exempts an analyzer project reached with `OutputItemType="Analyzer"`.

@@ -275,7 +275,6 @@ catalog:
     '@nx/vitest': 23.2.0
     '@biomejs/biome': 2.5.12
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
-    '@bufbuild/protoc-gen-es': 2.14.1
     '@swc/core': 1.16.2
     '@swc-node/register': 1.12.1
     tsx: 4.23.13
@@ -298,26 +297,17 @@ catalog:
     '@octokit/rest': 22.0.1
     playwright: "1.64.0-alpha-2026-09-09"
     hostinger-api-mcp: 1.57.0
-    pg-formatter: 2.0.8
     npm-check-updates: 23.1.0
 overrides:
     # Providers' ^3 peer range excludes the catalog prerelease, and a second copy of the core fails resource registration
     '@pulumi/pulumi': 'catalog:'
-    axios: 1.20.0
-    # cloudevents uses uuid.v4; uuid 14 retains that API
+    # cloudevents calls uuid.v4, an API uuid 14 keeps
     cloudevents>uuid: 14.0.2
-    # @nx/vitest declares a peer on @nx/eslint for its generators, and the peer pulls Jest and glob@7
-    '@nx/vitest>@nx/eslint': '-'
     # Grammar package misspells the optional marker of its tree-sitter peer, and the grammar target reads its C sources alone
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
-    jiti: 2.7.0
-    minimatch: 10.2.6
-    rollup: 4.63.1
-    sharp: 'catalog:'
-    svgo: 4.1.0
-    tar: 7.5.22
-    '@geoarrow/deck.gl-geoarrow>@deck.gl/aggregation-layers': 9.4.0
+    # Plugin peer range spans 7 and 8, auto-install takes the 7 release beside @babel/core 8 and its peer on core 7 goes unmet
     '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
+    # vite-plugin-inspect takes kit 0.4 with devframe 0.8, and json-render's peer on @devframes/hub 0.9 goes unmet
     vite-plugin-inspect>@vitejs/devtools-kit: 0.5.2
     # Peer ranges the catalog crosses on purpose, one row per consumer so no other package's regular dependency moves
     '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
@@ -344,7 +334,5 @@ allowBuilds:
     esbuild: true
     msgpackr-extract: true
     nx: true
-    pg-formatter: true
     protobufjs: true
     sharp: true
-    unrs-resolver: true

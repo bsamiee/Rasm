@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Decision, deny, rewrite } from '../composition/decision.ts';
-import { type Argv, type Command, INTERPRETER, strip } from '../text/argv.ts';
+import { type Decision, deny, pass } from '../composition/decision.ts';
+import { type Argv, type Command, strip } from '../text/argv.ts';
 import { basename } from '../text/path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -24,9 +24,8 @@ interface Head {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ADVICE = 'destructive git actions are refused, leave the tree as it is';
+const _ADVICE = 'leave the tree and its history as they are';
 const _ALIAS = 'inline git alias can hide a refused subcommand';
-const _CTRL = /\p{Cc}+/gu;
 const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
 const _GIT_VALUE_OPTS: readonly string[] = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'];
 const _REFINED: readonly string[] = ['reset', 'checkout'];
@@ -51,6 +50,13 @@ const _restore: Refinement = (args) => {
     return staged && !worktree ? [] : ['git restore overwrites working-tree files'];
 };
 
+const _config: Refinement = (args) => {
+    const alias = args.find((word) => word.startsWith('alias.'));
+    return alias !== undefined && args.slice(args.indexOf(alias) + 1).some((word) => !_isFlag(word))
+        ? [`git config ${alias} defines a git alias that can hide a refused subcommand`]
+        : [];
+};
+
 const _checkout: Refinement = (args, existing) => {
     const targets = args.filter((word) => word === '-' || !_isFlag(word));
     const first = targets[0] ?? '';
@@ -68,14 +74,10 @@ const _checkout: Refinement = (args, existing) => {
 // --- [POLICY] --------------------------------------------------------------------------
 
 const GIT = {
-    [INTERPRETER]: {
-        why: 'run git directly and a script by its path, not through a shell or an interpreter',
-        any: true,
-    },
     branch: { why: 'deletes or force-moves a branch', flags: ['-d', '-D', '-M', '--delete'], starts: ['--force'] },
     checkout: { why: 'discards local changes', flags: ['-f', '-B', '-p', '--patch', '--ours', '--theirs'], starts: ['--force'], refine: _checkout },
     clean: { why: 'deletes untracked files', any: true },
-    config: { why: 'defines a git alias that can hide a refused subcommand', starts: ['alias.'] },
+    config: { why: 'defines a git alias that can hide a refused subcommand', refine: _config },
     push: { why: 'rewrites or deletes remote history', flags: ['-f', '-d', '--delete', '--mirror', '--prune'], starts: ['--force', '+', ':'] },
     rebase: { why: 'rewrites commits other agents can already hold', any: true },
     'reflog delete': { why: 'erases reflog entries, the last recovery path', any: true },
@@ -116,7 +118,7 @@ const _verdict = (head: Head, existing: readonly string[]): readonly string[] =>
         return [];
     }
     if (row.any === true) {
-        return [head.key === INTERPRETER ? row.why : `git ${head.key} ${row.why}`];
+        return [`git ${head.key} ${row.why}`];
     }
     const hits = _hits(row, head.args);
     return hits.length > 0 ? hits.map((hit) => `git ${head.key} ${hit} ${row.why}`) : (row.refine?.(head.args, existing) ?? []);
@@ -144,11 +146,9 @@ const gitPaths = (commands: readonly Command[]): readonly string[] =>
 const gitGuard =
     (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) =>
     <E>(e: E): Decision<E> => {
-        const reasons = _gits(commands)
-            .flatMap((argv) => _reason(argv, existing))
-            .map((reason) => reason.replace(_CTRL, ' '));
+        const reasons = _gits(commands).flatMap((argv) => _reason(argv, existing));
         const distinct = reasons.filter((reason, index) => reasons.indexOf(reason) === index);
-        return distinct.length === 0 ? rewrite(e) : deny(`${distinct.join(', ')}, ${_ADVICE}`);
+        return distinct.length === 0 ? pass(e) : deny(`${distinct.join(', ')}, ${_ADVICE}`);
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

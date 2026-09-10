@@ -41,5 +41,6 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Function or control nesting reaches a fourth level
+note: Flatten the fourth level into a guard clause or a named method
 labels:
     SCOPE: {style: primary}

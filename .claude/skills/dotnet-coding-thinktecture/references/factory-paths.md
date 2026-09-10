@@ -52,7 +52,7 @@ internal sealed partial class Location {
 }
 ```
 
-The `string` `Validate` splits the text and delegates to the generated member `Validate`, the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. The `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
+`string` `Validate` splits the text and delegates to the generated member `Validate`, the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
 
 | [INDEX] | [SETTING]                             | [DEFAULT]                               | [EFFECT]                                           |
 | :-----: | :------------------------------------ | :-------------------------------------- | :------------------------------------------------- |
@@ -68,7 +68,7 @@ Configuration fixedWidth = new() { SmartEnums = new SmartEnumConfiguration { Max
 
 ## [03]-[MULTIPLE_FACTORIES]
 
-Factories with distinct `T` coexist on one type with one `Validate` and one `ToValue` per `T`, the second `ToValue` is an explicit interface member (`char IConvertible<char>.ToValue()`) because 2 parameterless methods cannot share a name, each integration point belongs to at most one factory (068 for `UseWithEntityFramework`, 069 for `UseForModelBinding`, 070 for overlapping `UseForSerialization` flags, naming the shared framework), and attribute order selects nothing:
+Factories with distinct `T` coexist on one type with one `Validate` and one `ToValue` per `T`, the second `ToValue` is an explicit interface member (`char IConvertible<char>.ToValue()`), parameterless methods cannot share a name, each integration point belongs to at most one factory (068 for `UseWithEntityFramework`, 069 for `UseForModelBinding`, 070 for overlapping `UseForSerialization` flags, naming the shared framework), and attribute order selects nothing:
 
 ```csharp
 [SmartEnum<int>]
@@ -106,11 +106,11 @@ internal sealed partial class Level {
 }
 ```
 
-Both JSON serializers write `"high"`, MessagePack converts through the `char` factory and encodes `'2'` as the code unit 50, and the `char` `Validate` takes `char value` without a nullable annotation because `T?` becomes `T` for a value type.
+Both JSON serializers write `"high"`, MessagePack converts through the `char` factory and encodes `'2'` as the code unit 50, and the `char` `Validate` takes `char value` without a nullable annotation, `T?` is `T` for a value type.
 
 ## [04]-[SPAN_BASED_JSON]
 
-`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span through the generated `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`: the reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters, rents longer values from `ArrayPool<char>.Shared`, unescapes an escaped value through `CopyString` first, and rejects a token other than a string or a property name with `JsonException`, a span matched against string constants creates no `string` for a known value:
+`ReadOnlySpan<char>` factories flagged `SystemTextJson` receive the JSON string as a span through the generated `ThinktectureSpanParsableJsonConverterFactory<TSelf, ValidationError>`: the reader transcodes a value of at most 128 UTF-8 bytes into a `stackalloc` buffer of 128 characters, rents longer values from `ArrayPool<char>.Shared`, unescapes an escaped value first, and rejects a token other than a string or a property name with `JsonException`, a span matched against string constants creates no `string` for a known value:
 
 ```csharp
 [ValueObject<string>]
@@ -129,10 +129,15 @@ internal readonly partial struct Region {
 }
 ```
 
-- The span `Validate` delegates to the generated `string` `Validate`, the unknown branch allocates one `string`, `ToValue` returns the generated key field, and JSON `null` raises `JsonException` because a struct value object disallows its default
-- `ReadOnlySpan<char>` with `SystemTextJson` is the one supported ref-struct combination, 078 reports a ref-struct factory with `UseWithEntityFramework` or `UseForModelBinding` because neither accepts a ref struct as a generic argument, 108 warns when a ref-struct factory is flagged for a framework that ignores it and lists them, and the generator binds the key member in the attributes it emits for them
-- `string` and `ReadOnlySpan<char>` factories on one type share no `SystemTextJson` flag (070), `Region` implements `ISpanParsable<Region>` because its `string` key is parsable and `Region.Parse("eu".AsSpan(), provider: null)` reaches the span `Validate`, and a plain class with a span factory and no `string` factory implements neither `IParsable` nor `ISpanParsable`
-- String-keyed smart enums read through the span converter without a factory, and `DisableSpanBasedJsonConversion = true` on `[SmartEnum<string>]` returns to the string converter
+- Span `Validate` delegates to the generated `string` `Validate`, the unknown branch allocates one `string`, `ToValue` returns the key field
+- JSON `null` raises `JsonException` on a struct value object that disallows its default
+- `ReadOnlySpan<char>` with `SystemTextJson` is the one supported ref-struct combination
+- 078 reports a ref-struct factory with `UseWithEntityFramework` or `UseForModelBinding`, neither accepts a ref struct as a generic argument
+- 108 warns when a ref-struct factory is flagged for a framework that ignores it, the generator binds the key member in the attributes for them
+- `string` and `ReadOnlySpan<char>` factories on one type share no `SystemTextJson` flag (070)
+- `Region` implements `ISpanParsable<Region>` through its parsable `string` key, `Region.Parse("eu".AsSpan(), null)` reaches the span `Validate`
+- Plain classes with a span factory and no `string` factory implement neither `IParsable` nor `ISpanParsable`
+- String-keyed smart enums read through the span converter without a factory, `DisableSpanBasedJsonConversion = true` returns to the string converter
 
 ## [05]-[POLYMORPHIC_DISCRIMINATOR]
 

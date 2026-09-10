@@ -1,6 +1,6 @@
 # [SEQUENCES]
 
-Covers the sequence flows behind the expression rules of `dotnet-coding`, from deferral to the pipeline that turns one text into one report.
+Covers the sequence flows behind the expression rules, from deferral to the pipeline that turns one text into one report.
 
 ## [01]-[DEFERRAL]
 
@@ -19,7 +19,7 @@ internal static class Stages {
 }
 ```
 
-Until enumeration every transformation stays pending, and during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, no intermediate collection exists after each stage. `ToSeq()` forces enumeration and stores the result. Materializing after every stage changes the evaluation order and the storage, because each stage completes before the next and stores a collection. Delaying materialization avoids work that is never demanded, and materializing is right when execution must happen at that point or when the sequence is read more than once, because enumerating the same lazy query repeatedly repeats all of its work. Long deferred or recursive compositions have memory and performance costs.
+Until enumeration every transformation stays pending, during enumeration each input passes through `First`, `Second`, and `Third` before the next input begins, and no intermediate collection exists after a stage. `ToSeq()` forces enumeration and stores the result. Materializing after every stage completes each stage before the next and stores a collection per stage. Delaying materialization avoids work that is never demanded. Enumerating the same lazy query repeatedly repeats all of its work, materialize when execution must happen at that point or when the sequence is read more than once. Long deferred or recursive compositions have memory and performance costs.
 
 ## [02]-[STAGES]
 
@@ -79,11 +79,11 @@ Fold     = f(f(f(seed, item0), item1), item2)
 FoldBack = f(f(f(seed, item2), item1), item0)
 ```
 
-Sequences have 2 constructors, the empty sequence and `Cons`, and `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor with each recursive position receiving an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
+Sequence constructors are the empty sequence and `Cons`, `FoldBack` replaces both: the seed replaces the empty sequence and the step replaces each `Cons`. The same derivation produces a fold for any recursive type, one replacement per constructor with each recursive position receiving an already-folded result, and `Fold` can express `Map`, `Filter`, and `Bind`.
 
 ## [04]-[REPLACEMENT]
 
-The indexed `Map` replaces one item and derives the replacement from the old item at that position, and the source stays unchanged:
+Indexed `Map` replaces one item and derives the replacement from the old item at that position, and the source stays unchanged:
 
 ```csharp
 internal static class Replacement {
@@ -115,7 +115,7 @@ Report pipelines read one text, split it into records, parse typed values, group
 single text -> records -> typed values -> groups -> totals -> lines -> single report
 ```
 
-The text enters as a `string` argument, `At` reads each field as an `Option`, `parseInt` parses the numbers, `Traverse` turns the records into `Option<Seq<Record>>`, one failed parse makes the whole input `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
+Text enters as a `string` argument, `At` reads each field as an `Option`, `parseInt` parses the numbers, `Traverse` turns the records into `Option<Seq<Record>>`, one failed parse makes the whole input `None`, and `Fold` into a `Map<int, ...>` groups the records with `AddOrUpdate` adding each to its group total:
 
 ```csharp
 internal sealed record Record(int Group, string Name, int Count, int Missing);

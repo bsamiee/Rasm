@@ -127,7 +127,7 @@ def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]
     """
     match schema:
         case msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
-            # The first bound set wins, an exclusive integer bound folds inward by one
+            # First bound set wins, an exclusive integer bound folds inward by one
             lo = next(bound for bound in (ge, gt, -_NUM_CEILING) if bound is not None) + (ge is None and gt is not None)
             hi = next(bound for bound in (le, lt, _NUM_CEILING) if bound is not None) - (le is None and lt is not None)
             step = schema.multiple_of

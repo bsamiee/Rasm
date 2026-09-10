@@ -100,7 +100,7 @@ public static class Generators {
             .Select(Gen.Int[0, dimension - 1], Gen.Int[-8, 8],
                 static (p, axis, steps) => (p.A, p.B, C: (double[])[.. p.C.Select((x, i) => i == axis ? UlpNudge(x, steps) : x)]));
     }
-    // A product of Householder reflections, the flip of one row covers both determinant signs
+    // Product of Householder reflections, flipping one row covers both determinant signs
     public static Gen<double[][]> OrthogonalMatrix(int dimension) {
         ArgumentOutOfRangeException.ThrowIfLessThan(dimension, 1);
         return UnitVector(dimension).Array[dimension].Select(Gen.Bool, static (reflectors, flip) => {
@@ -108,7 +108,7 @@ public static class Generators {
             return flip ? [.. q.Select(static (row, i) => i == 0 ? [.. row.Select(static x => -x)] : row)] : q;
         });
     }
-    // Eigenvalues descend geometrically from 1 to the reciprocal of the condition number, and a 1x1 matrix has condition number 1 whatever the argument
+    // Eigenvalues descend geometrically from 1 to the reciprocal of the condition number, a 1x1 matrix has condition number 1 whatever the argument
     public static Gen<double[][]> SymmetricPositiveDefiniteMatrix(int dimension, double conditionNumber) {
         ArgumentOutOfRangeException.ThrowIfLessThan(dimension, 1);
         ArgumentOutOfRangeException.ThrowIfLessThan(conditionNumber, 1.0);

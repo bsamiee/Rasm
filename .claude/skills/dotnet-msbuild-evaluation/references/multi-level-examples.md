@@ -1,6 +1,6 @@
-# [MULTI_LEVEL_EXAMPLES]-[SHARED_BUILD_FILES]
+# [MULTI_LEVEL_EXAMPLES]
 
-A repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, each project file keeping what differs.
+Repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.props`, and a `Directory.Build.targets`, each project file keeping what differs.
 
 ## [01]-[LAYOUT]
 
@@ -36,7 +36,7 @@ A repository with a root `Directory.Build.props`, a nested `tests/Directory.Buil
 
 ## [03]-[NESTED_DIRECTORY_BUILD_PROPS]
 
-The private property keeps nested quotes out of the condition.
+Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the import condition.
 
 ```xml
 <!-- tests/Directory.Build.props -->
@@ -48,8 +48,6 @@ The private property keeps nested quotes out of the condition.
 
   <PropertyGroup>
     <IsTestProject>true</IsTestProject>
-    <IsPackable>false</IsPackable>
-    <NoWarn>$(NoWarn);CS1591</NoWarn>
   </PropertyGroup>
 </Project>
 ```
@@ -73,7 +71,8 @@ The private property keeps nested quotes out of the condition.
 
 ## [05]-[CENTRALIZED_SETTINGS]
 
-[BEFORE]: the same settings in every project file
+[BEFORE]:
+- Same settings in every project file
 
 ```xml
 <!-- libs/Library/Library.csproj -->
@@ -103,7 +102,8 @@ The private property keeps nested quotes out of the condition.
 </Project>
 ```
 
-[AFTER]: the root files hold the shared settings, `Directory.Packages.props` holds the version
+[AFTER]:
+- Root files hold the shared settings, `Directory.Packages.props` holds the version
 
 ```xml
 <!-- libs/Library/Library.csproj -->

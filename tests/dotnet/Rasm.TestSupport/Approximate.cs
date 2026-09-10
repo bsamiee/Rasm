@@ -13,7 +13,7 @@ public readonly record struct Tolerance(double AbsoluteError, double RelativeErr
     public static Tolerance WithinUlps(long units) => new(AbsoluteError: 0.0, RelativeError: 0.0, units);
     public static Tolerance Default { get; } = Combined(absolute: 1.0e-12, relative: 1.0e-9);
 
-    // Equals covers NaN against NaN and an infinity against itself, and the bounds apply to finite values only because an infinite magnitude makes the relative bound infinite
+    // Equals covers NaN against NaN and an infinity against itself, the bounds apply to finite values, an infinite magnitude makes the relative bound infinite
     public bool Matches(double left, double right) =>
         left.Equals(right)
         || (double.IsFinite(left) && double.IsFinite(right)

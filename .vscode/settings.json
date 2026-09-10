@@ -14,8 +14,6 @@
         "**/.venv": true,
         "**/dist": true
     },
-    "search.exclude": { "**/.claude/types": true },
-    "files.watcherExclude": { "**/.claude/types/**": true },
 
     // --- [FILE_NESTING] ----------------------------------------------------------------
     "explorer.fileNesting.enabled": true,
@@ -24,16 +22,13 @@
         "CLAUDE.md": ".mcp.json, AGENTS.md",
         "README.md": "LICENSE",
         "Directory.Build.props": "Directory.Build.targets, Directory.Packages.props, global.json, NuGet.config, Workspace.slnx",
-        "*.cs": "${capture}.Tests.cs",
         "*.cts": "${capture}.spec.cts, ${capture}.test.cts",
         "*.mts": "${capture}.spec.mts, ${capture}.test.mts",
-        "*.py": "test_${capture}.py, ${capture}_test.py",
         "*.ts": "${capture}.spec.ts, ${capture}.test.ts",
         "*.tsx": "${capture}.spec.tsx, ${capture}.test.tsx",
         ".gitignore": ".gitattributes",
-        "buf.gen.yaml": "buf.yaml, buf.lock",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .yamllint.yaml, mise.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, .yamlfmt, .yamllint.yaml, mise.toml, sgconfig.yml",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },
@@ -46,8 +41,6 @@
     "js/ts.experimental.useTsgo": true,
     "js/ts.tsdk.path": "./node_modules/typescript",
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
-
-    "files.associations": { "SKILL.md": "markdown", "**/.claude/agents/*.md": "markdown" },
 
     // --- [DOTNET] ----------------------------------------------------------------------
     "csharp.suppressBuildAssetsNotification": true

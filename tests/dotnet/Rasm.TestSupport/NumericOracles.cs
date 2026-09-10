@@ -19,15 +19,15 @@ public sealed partial class MatrixNorm {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// A shape the oracle cannot evaluate is a defect in the test and throws, a NaN result fails the assertion under another name
+// Shapes the oracle cannot evaluate are test defects and throw, a NaN result fails the assertion under another name
 public static class NumericOracles {
     // --- [SCALAR_OPERATIONS] -----------------------------------------------------------
-    // Seq<double> reaches both the LanguageExt and the LINQ Sum, and a call to either is ambiguous
+    // Seq<double>.Sum() is ambiguous between the LanguageExt and LINQ extensions
     public static double Sum(Seq<double> values) => values.Fold(0.0, static (sum, value) => sum + value);
     public static double Dot(int count, Func<int, double> left, Func<int, double> right) => Enumerable.Range(0, count).Sum(i => left(i) * right(i));
     public static Complex DotComplex(int count, Func<int, Complex> left, Func<int, Complex> right) =>
         Enumerable.Range(0, count).Aggregate(Complex.Zero, (sum, i) => sum + (Complex.Conjugate(left(i)) * right(i)));
-    // A zero error has no order, and NaN is the IEEE value of the quotient
+    // Zero errors have no order, NaN is the IEEE value of their quotient
     public static double ConvergenceOrder(double coarseError, double fineError, double stepRatio = 2.0) {
         ArgumentOutOfRangeException.ThrowIfLessThanOrEqual(stepRatio, 1.0);
         return coarseError <= 0.0 || fineError <= 0.0 ? double.NaN : Math.Log(coarseError / fineError) / Math.Log(stepRatio);
@@ -172,7 +172,7 @@ public static class NumericOracles {
     private static void Shape(bool valid, string message, string paramName) {
         if (!valid) throw new ArgumentException(message, paramName);
     }
-    // Unit masses leave the centroid unchanged, because it divides by the total, and make the scatter matrix the unnormalized sum its name states
+    // Unit masses divide out of the centroid and make the scatter matrix the unnormalized sum its name states
     private static double[] Uniform(int count) => [.. Enumerable.Repeat(1.0, count)];
     private static (BigInteger Mantissa, int Exponent) Decompose(double value) {
         long bits = BitConverter.DoubleToInt64Bits(value);

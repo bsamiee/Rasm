@@ -10,11 +10,11 @@ Dependency declarations read from installed files, usage from Context7, DeepWiki
 - Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
 - Path: package metadata names the repository and commit, the Context7 ID is that `/owner/repo` lowercased, the tag list spells the tag
 - Prose: Context7 descriptions and DeepWiki answers are generated, the code is quoted from the Source URL, a named member confirms in the declaration
-- Ignore: a directory search under `node_modules`, `.venv`, or `.cache` takes `--no-ignore`, an explicit file path or shell glob needs no flag
+- Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
 - Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
 - Index: `search_code` reads default branches in files under 384 KB, the tree call finds a path at a tag
-- Caps: the Context7 tool descriptions cap each tool at three calls per question, an ID from the repository URL skips the resolve
-- Disk: `<dir>` sits under the session scratchpad, the step that ends a chain removes the directory it made
+- Caps: Context7 tool descriptions cap each tool at three calls per question, an ID from the repository URL skips the resolve
+- Disk: `<dir>` is one directory under the session scratchpad holding every file a line writes, removed when the reading ends
 
 Numbered lines chain, each consuming the line before, unnumbered lines are alternatives, one per case its comment names.
 
@@ -79,11 +79,11 @@ How a member composes, from the repository's recipes, source, wiki, and README a
 
 ```text
 # [CONTEXT7] ID is the repository URL's /owner/repo lowercased, resolve when metadata names no URL
-# Candidates with snippet count, benchmark score, and Versions, a near-name resolves wrong with confidence, a binding resolves under its upstream
+# Candidates with snippet count, reputation, benchmark score, and Versions
 mcp__context7__resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
 # Recipes and source of the default branch with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
-# Snapshot from the Versions list, __branch__<name> snapshots an older major, blob/main sources mix in
+# Snapshot from the Versions list, __branch__<name> snapshots an older major
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
 # Rendered docs site with API reference pages, Source URL names the docs version, a code fence can lose line breaks
 mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one concept>"}
@@ -97,12 +97,12 @@ mcp__deepwiki__ask_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "
 # [GITHUB] Public code composing two members, repository and commit per fragment
 mcp__github__search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
 
-# [DOTNET] README of any NuGet version, `not found in package folder` names a nuspec readme path with a leading separator, the folder read answers
+# [DOTNET] AGENTS.md of an installed NuGet package, its README otherwise, from the packages folder or the source
 mcp__nuget__get_package_context {"solutionDirectory": "<repo>", "packageName": "<id>", "packageVersion": "<version>"}
 ```
 
 ```bash
-# [CONTEXT7] Ranking signals the MCP strips, libraryName is the repository name, a mirror shows fewer stars and an older date than the owner's ID
+# [CONTEXT7] Stars, trust score, and last update per candidate, the MCP result omits them, libraryName is the repository name
 curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" -H "Authorization: Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
 
 # [DOTNET] Cited README lines of an installed package
@@ -117,7 +117,7 @@ curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -r '.info.description'
 
 ## [03]-[REPOSITORY]
 
-The repository, commit, and tag behind an installed version, then its tree, files, blame, and wiki at that tag:
+Repository, commit, and tag behind an installed version, then its tree, files, blame, and wiki at that tag:
 
 ```bash
 # 1. Repository URL and build commit from package metadata, one line per ecosystem
@@ -125,7 +125,7 @@ The repository, commit, and tag behind an installed version, then its tree, file
 rg -o '<(repository|projectUrl)[^<]*' .cache/nuget/packages/<id>/<version>/<id>.nuspec
 # [TYPESCRIPT] Repository URL, package directory in a monorepo, and commit when the publisher recorded one
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json
-# [PYTHON] Source, documentation, and changelog URLs of the installed version, the versionless URL describes newest stable
+# [PYTHON] Source, documentation, and changelog URLs of the installed version
 curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -c '.info.project_urls'
 # 2. Tag spelling for a version (v1.5.0, 8.7.0, effect@3.22.1, 4.0.0a6), a nuspec commit matches column one, no filter lists every tag
 git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<version>$'
@@ -151,10 +151,10 @@ mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>"
 
 ## [04]-[RELEASE]
 
-The newest version and its date come from the registry, the notes come from the release at the tag, an advisory names the patched version:
+Newest version and its date come from the registry, notes come from the release at the tag, an advisory names the patched version:
 
 ```text
-# [DOTNET] Newest NuGet version with date, the nuget tools that evaluate a project answer status Error, their bundled NuGet.Frameworks binds first
+# [DOTNET] Newest NuGet version with its publish date
 mcp__nuget__get_latest_package_version {"solutionDirectory": "<repo>", "packageName": "<id>", "includePrerelease": true}
 
 # [GITHUB] Advisories on the pinned versions with the patched version each, one call across ecosystems, owner and repo name this repository
@@ -168,7 +168,7 @@ pnpm view <pkg> dist-tags time --json | jq -c '{tags: .["dist-tags"], published:
 # [PYTHON] Lock version beside the newest, prereleases per pyproject
 uv tree --frozen --outdated --package <pkg> --depth 0
 # [PYTHON] Newest stable version, its upload time, and its requirements from the registry, the versionless URL describes newest stable
-curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]'
+curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]?'
 
 # [GITHUB] Release notes body alone, Not Found means the tag has no release and the changelog at the tag holds the notes
 gh api "repos/<owner>/<repo>/releases/tags/<tag>" --jq '.body'

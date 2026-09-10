@@ -4,7 +4,7 @@ Covers keeping effects at the boundary, from isolating I/O around a pure core to
 
 ## [01]-[ISOLATION]
 
-Useful programs require I/O, the goal is a small impure boundary rather than universal purity, and each kind of effect gets its own treatment: I/O is isolated, argument mutation is replaced by returned data, errors are results, and non-local state is designed away. List every non-local value a function reads and every externally visible change it makes, then extract the deterministic computation. The effectful function describes the reads and writes as an `Eff<RT, Unit>` that the host performs at `Run(rt)`, and the deterministic logic sits in a pure function it calls:
+Programs require I/O, the goal is a small impure boundary, and each kind of effect gets its own treatment: I/O is isolated, argument mutation is replaced by returned data, errors are results, and non-local state is designed away. List every non-local value a function reads and every externally visible change it makes, then extract the deterministic computation. The effectful function describes the reads and writes as an `Eff<RT, Unit>` that the host performs at `Run(rt)`, and the deterministic logic sits in a pure function it calls:
 
 ```csharp
 internal static class Prompting {
@@ -33,7 +33,7 @@ internal static class Totals {
 }
 ```
 
-Concurrency does not guarantee evaluation order, shared mutable state turns a read-modify-write into a race: a formatter that numbers items through an instance counter loses increments under parallel `Map`, because `++` is not atomic. Locks or atomic operations protect the counter, and a design without shared state removes the race by generating the indices as values and combining the independent sequences:
+Concurrency does not guarantee evaluation order, shared mutable state turns a read-modify-write into a race: `++` is not atomic, a formatter that numbers items through an instance counter loses increments under parallel `Map`. Locks or atomic operations protect the counter, and a design without shared state removes the race by generating the indices as values and combining the independent sequences:
 
 ```csharp
 internal static class Formatting {
@@ -44,16 +44,14 @@ internal static class Formatting {
 }
 ```
 
-`Range(1, items.Count)` generates the indices, `Zip` pairs each item with one, and state is input data rather than shared mutable state, parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, and multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, its function stays pure, parallel execution is requested explicitly because the compiler cannot infer purity, and its overhead is justified only by sufficient work and input size.
+`Range(1, items.Count)` generates the indices, `Zip` pairs each item with one, state is input data, and parallel evaluation preserves behavior. Asynchronous code begins another task before an outstanding operation completes, parallel code runs work across cores, multithreading schedules threads the hardware cannot all run at once, and each makes a hidden dependency on mutable state harder to control. `Map` accepts an impure delegate, its function stays pure. The compiler cannot infer purity, parallel execution is requested explicitly, and its overhead is justified only by sufficient work and input size.
 
-Unit tests for a pure function supply inputs and assert the output, and an impure function has hidden inputs (the current time, database contents, the environment), hidden outputs (emails sent, files written, fields changed), or both, it behaves like a larger pure transformation:
+Impure functions have hidden inputs (the current time, database contents, the environment), hidden outputs (emails sent, files written, fields changed), or both, and behave like a larger pure transformation:
 
 ```text
 (arguments, current program state, current world state)
     -> (return value, new program state, new world state)
 ```
-
-Arrange must construct substitute external and program state, assert must inspect both the explicit result and the externally visible changes, mocks model the external state, and assertions over internal mutation are brittle and break encapsulation. Parameterized tests make inputs and expected outputs explicit across boundary cases.
 
 ## [02]-[INJECTION]
 
@@ -82,7 +80,7 @@ internal static class Capabilities {
 }
 ```
 
-Validators that need a list of valid codes receive the codes as a `Seq<string>` that the caller loads as an effect, production composition supplies the `IO<Seq<string>>` that queries them, tests supply `IO.pure`, and the query runs only when the check runs because the `IO` defers it until the bind:
+Validators that need a list of valid codes receive the codes as a `Seq<string>` that the caller loads as an effect, production composition supplies the `IO<Seq<string>>` that queries them, a test supplies `IO.pure`, and the `IO` defers the query until the bind, it runs only when the check runs:
 
 ```csharp
 internal sealed class CodeValidator(Seq<string> validCodes) {
@@ -96,7 +94,7 @@ internal static class Checks {
 }
 ```
 
-The validator stays pure and the effect is explicit and replaceable, the host runs `CodeExists` with `RunSafe()` and matches the `Fin<bool>`, and because a function signature is a narrow interface, injecting an effect value replaces a one-method interface, its implementation, constructor wiring, dependency-injection registration, and test fake. Interfaces remain appropriate as a common contract for distinct implementations, and one-method interfaces for every effect add infrastructure without benefit.
+Validator stays pure and the effect is explicit and replaceable, the host runs `CodeExists` with `RunSafe()` and matches the `Fin<bool>`. A function signature is a narrow interface, injecting an effect value replaces a one-method interface, its implementation, constructor parameter, dependency-injection registration, and test fake. Interfaces remain a common contract for distinct implementations, one-method interfaces for every effect add infrastructure without benefit.
 
 ## [03]-[DEFERRAL]
 
@@ -126,7 +124,7 @@ internal static class Quotes {
 }
 ```
 
-Failed sources skip the transformation, and the returned effect holds the error. `await` extracts a task's value and an `async` method wraps its return in a task, and the query pattern gives an effect the same composition for any monad through `Monad<M>`, the workflow remains inside `IO` and the host runs it once at the boundary, because extracting a value earlier waits for the task to complete.
+Failed sources skip the transformation, and the returned effect holds the error. `await` extracts a task's value and an `async` method wraps its return in a task, and the query pattern gives an effect the same composition for any monad through `Monad<M>`. Extracting a value earlier waits for the task to complete, the workflow remains inside `IO` and the host runs it once at the boundary.
 
 Repeated `try/catch` blocks obscure a computation, exception-prone lazy work is a `Try<A>` that wraps a `Func<Fin<A>>`: `Try.lift(Func<A>)` captures a thrown exception as an `Error` with `IsExceptional` true, `Run()` returns `Fin<A>`, and `Try.lift(() => new Uri(value)).Run()` captures and runs one-off work in one expression. The operations compose in query syntax, the `Try<B>` that `Bind` returns stays deferred, and when run it runs the first stage, propagates its error unchanged, or runs the dependent stage with the successful value, and `Run()` captures a property lookup that throws inside the `let` clause:
 
@@ -208,14 +206,14 @@ internal static class Removals {
 }
 ```
 
-The order of the bracketed effects decides which downstream work each scope surrounds, and adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses, and `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
+Order of the bracketed effects decides which downstream work each scope surrounds, adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses. `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
 - Timing outside connection acquisition measures acquisition and database work, and timing inside the connection scope measures only downstream work
-- The transaction scope follows the connection scope because it depends on the connection
+- The transaction scope depends on the connection and follows the connection scope
 - Operations that must be atomic sit inside the transaction scope, before the commit step
 
 ## [06]-[EXECUTION]
 
-Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns. `Bind` is sequential because the next step needs the first effect's value before it can create the second effect, and independent operations use the tuple `Apply` over already-created effects, which both start before either is awaited, completion time follows the slower call rather than their sum, or `Fork` and `Await` for explicit control, and `awaitAll` for a `Seq<IO<A>>`:
+Each retry waits for the next delay of the schedule and invokes the effect again, when the schedule expires the last error remains observable, and recovery happens on the `Fin<A>` that `RunSafe()` returns. The next step needs the first effect's value before it can create the second effect, `Bind` is sequential. Independent operations use the tuple `Apply` over already-created effects, both start before either is awaited and completion time follows the slower call, or `Fork` and `Await` for explicit control, and `awaitAll` for a `Seq<IO<A>>`:
 
 ```csharp
 internal static class Independence {
@@ -257,7 +255,7 @@ internal static class Layers {
 }
 ```
 
-Nested effects cannot compose directly because each `Bind` understands only its outer effect, a lookup that can return no value stays inside `OptionT<IO, A>` while it consumes an `IO<A>` through `OptionT.liftIO`, an operation that returns a non-generic `Task` adapts through an `async` lambda that returns `unit`, and an `Eff<RT, A>` exits asynchronously through `RunAsync(rt)`, which returns `Task<Fin<A>>`:
+Each `Bind` understands only its outer effect, nested effects do not compose directly. A lookup that can return no value stays inside `OptionT<IO, A>` while it consumes an `IO<A>` through `OptionT.liftIO`, an operation that returns a non-generic `Task` adapts through an `async` lambda that returns `unit`, and an `Eff<RT, A>` exits asynchronously through `RunAsync(rt)`, which returns `Task<Fin<A>>`:
 
 ```csharp
 internal static class Stacks {
@@ -274,4 +272,4 @@ internal static class Stacks {
 }
 ```
 
-Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `OptionT<IO, A>` read leaves the stack through `Run()` and `ToFin` with a typed `Expected`, as the repository flow in `references/functions.md` shows.
+Reduce unnecessary effects before building the workflow, and adapt every operation to `IO` at its boundary: a `Validation` from the validation boundary enters through `ToFin` and `IO.lift`, a `Fin` from a pure transition enters through `IO.lift`, and an `OptionT<IO, A>` read leaves the stack through `Run()` and `ToFin` with a typed `Expected`.

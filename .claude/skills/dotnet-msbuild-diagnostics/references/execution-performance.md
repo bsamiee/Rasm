@@ -13,10 +13,10 @@ Change the input or setting under measurement alone. Hold the command, propertie
 |  [03]   | No change     | One successful build, then the same command again with `-bl`                 | Targets that run with nothing changed    |
 |  [04]   | Build only    | `dotnet restore -bl:<dir>/restore-{}.binlog`, then `--no-restore` with `-bl` | Execution without restore                |
 
-- `dotnet build-server shutdown` stops the MSBuild server and the compiler server before a capture, `--disable-build-servers` keeps them out of one capture
+- `dotnet build-server shutdown` stops the MSBuild and compiler servers before a capture, `--disable-build-servers` keeps them out of one capture
 - `-nr:false` stops node reuse, the next capture starts its worker nodes again
 - Record the chosen state of each with the capture, a warm server and reused nodes remove process startup from the measured duration
-- Restore and capture both under `--artifacts-path <dir>`, a build another session runs into the shared `ArtifactsPath` between the captures changes the measured work
+- Restore and capture both under `--artifacts-path <dir>`, a build another session runs into the shared `ArtifactsPath` changes the measured work
 - `binlog_compare` shows property and package drift between two captures
 - Compare the build against its own captures
 
@@ -35,7 +35,8 @@ The critical path is the duration-weighted chain of project dependencies setting
 
 - `dotnet build` passes `-maxcpucount`, the `MSBuildNodeCount` property in the binlog records the node count
 - Each node builds one project at a time, targets inside a project run one after another
-- `ResolveProjectReferences` and `_GetProjectReferenceTargetFrameworkProperties` include the referenced builds in their inclusive duration, their exclusive duration is the project's own cost
+- `ResolveProjectReferences` and `_GetProjectReferenceTargetFrameworkProperties` include the referenced builds in their inclusive duration
+- Exclusive duration of those targets is the project's own cost
 - `-clp:PerformanceSummary` prints target and task totals on the console, `-ds` prints how projects were scheduled to nodes
 
 ## [04]-[PROJECT_GRAPH]
@@ -73,7 +74,7 @@ The `<MSBuild>` task submits the whole project list to the engine at once when o
 ```
 
 - A task batched with `%(IndependentProjects.Identity)` makes one call per project, each call finishes before the next starts
-- `BuildInParallel` defaults to `true` in `Microsoft.Common.CurrentVersion.targets`, an explicit `false` on a call is the cause when referenced projects build one after another
+- `BuildInParallel` defaults to `true` in `Microsoft.Common.CurrentVersion.targets`, an explicit `false` on a call serializes the referenced projects
 
 ## [07]-[MULTITHREADED_MODE]
 
@@ -111,7 +112,6 @@ Then the fix the evidence selects:
 - Combine independent files in one `Copy` task
 - `SkipUnchangedFiles="true"` when a size and timestamp comparison is valid for the files
 - Remove a copy when nothing downstream reads the destination file
-- `CopyToOutputDirectory="Always"` copies on every build, `BC0106` reports it
 
 ## [11]-[RESTORE]
 

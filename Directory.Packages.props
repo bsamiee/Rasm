@@ -14,8 +14,10 @@
     </ItemGroup>
 
     <ItemGroup Label="Rhino">
-        <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />               <!-- GDI+ based drawing, imaging, and text rendering API -->
+        <PackageVersion Include="Grasshopper2"                                            Version="9.0.26251.12303-beta" />  <!-- Grasshopper 2 reference assemblies Grasshopper2 and GrasshopperIO for plugin compilation -->
         <PackageVersion Include="Rhino3dm"                                                Version="8.35.0-beta1" />          <!-- openNURBS geometry access for reading and writing 3dm files -->
+        <PackageVersion Include="RhinoCommon"                                             Version="9.0.26251.12303-beta" />  <!-- Rhino plugin SDK assemblies RhinoCommon, Rhino.UI, and Eto with copy-local removal targets -->
+        <PackageVersion Include="System.Drawing.Common"                                   Version="10.0.11" />               <!-- GDI+ based drawing, imaging, and text rendering API -->
     </ItemGroup>
 
     <ItemGroup Label="Core">
@@ -764,7 +766,9 @@
         <PackageVersion Include="NodaTime.Testing"                                        Version="3.3.3" />                 <!-- Fake clocks and time zone providers for date-time tests -->
         <PackageVersion Include="ReactiveUI.Testing.Reactive"                             Version="24.1.0" />                <!-- Test scheduler for reactive view model code -->
         <PackageVersion Include="xunit.analyzers"                                         Version="2.0.0" />                 <!-- Roslyn analyzers for test correctness and style -->
-        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.0" />                 <!-- Developer test framework packaged for Microsoft Testing Platform v2, the one xunit id a project references -->
+        <PackageVersion Include="xunit.v3.assert"                                         Version="4.0.0" />                 <!-- Assertion library a shared test support library references without the runner -->
+        <PackageVersion Include="xunit.v3.extensibility.core"                             Version="4.0.0" />                 <!-- Core attributes and TestContext for a shared test support library, no entry point or runner -->
+        <PackageVersion Include="xunit.v3.mtp-v2"                                         Version="4.0.0" />                 <!-- Developer test framework packaged for Microsoft Testing Platform v2, the one xunit id a test project references -->
     </ItemGroup>
 
     <ItemGroup Label="Transitive Pinning">

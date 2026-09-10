@@ -1,79 +1,51 @@
 # [TESTS]
 
-Tests under `tests/` hold the cross-language test policy, reusable test support, and suites that do not colocate with production source. Tests specify supported behavior and fail when it regresses. Delete a test only when the behavior is retired or its oracle is invalid.
+Shared test support per language and suites that do not sit beside their source.
 
 ## [01]-[LAYOUT]
 
 ```text
 tests/
 ├── dotnet/
-│   ├── Rasm.TestSupport/   # Reusable .NET test support
-│   └── libs/               # Suites mirroring libs/dotnet, one per package
+│   └── Rasm.TestSupport/   # Reusable .NET test support
 ├── python/
-│   ├── support/            # Reusable Python test support
-│   └── libs/               # Per-package suites mirroring libs/python
+│   ├── conftest.py         # Package registration for public-API coverage
+│   └── support/            # Reusable Python test support and the pytest runtime plugin
 └── typescript/
-    ├── support/            # Reusable TypeScript test support
-    ├── browser/            # Playwright suites over a served page
-    └── libs/               # Suites that span more than one package
+    └── support/            # Reusable TypeScript test support and the Vitest setup file
 ```
 
-[CASING]:
-- Language and grouping directories are lowercase, and the Python and TypeScript support directories are `support/`
-- PascalCase begins at a C# project directory and continues inside it
-- Python test modules are `test_<module>.py`, TypeScript `<module>.spec.ts`, and C# `<Subject>.Tests.cs`
+[PLACEMENT]:
+- Each language area holds its reusable fixtures, generators, assertions, and doubles in one support project or directory, `libs/` holds none
+- .NET and Python suites mirror `libs/<language>/` under `tests/<language>/libs/<package>/`
+- TypeScript tests sit beside their source, a suite outside `libs/typescript` is a package under `tests/typescript/`
+- Test files are `test_<module>.py`, `<module>.spec.ts`, and `<Subject>.Tests.cs`, PascalCase begins at a C# project directory
 
-[SHARED_TEST_CODE]:
-- Each language area centralizes reusable fixtures, generators, assertions, and harness code in one support project or directory
-- Production packages under `libs/` contain no shared test support
-
-## [02]-[TEST_CLASSIFICATION]
+## [02]-[CLASSIFICATION]
 
 Classify each test by scope, technique, and execution mode, and apply every classification that fits.
 
 | [INDEX] | [AXIS]    | [VALUE]        | [DEFINITION]                                | [ROUTE]                                                     |
 | :-----: | :-------- | :------------- | :------------------------------------------ | :---------------------------------------------------------- |
 |  [01]   | Scope     | Unit           | Isolated behavior, controlled collaborators | Default `test` run per language                             |
-|  [02]   | Scope     | Integration    | Real components or an external boundary     | Python `network` and `subprocess` markers                   |
+|  [02]   | Scope     | Integration    | Real components or an external boundary     | Python `network` marker                                     |
 |  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.ForAll`, `@property_test`, `it.effect.prop` |
-|  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` marker, Vitest bench glob                       |
+|  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` fixture, Vitest `*.bench.ts` file               |
 
-## [03]-[TEST_ORACLES]
+## [03]-[ORACLES]
 
-Every test asserts observable behavior against an oracle independent of the implementation under test. Valid oracles include closed-form calculations, invariants, metamorphic relations, reference models, fixed fixtures, runtime observations, and documented external contracts.
+Every test asserts observable behavior against an oracle independent of the implementation under test: closed-form calculations, invariants, metamorphic relations, reference models, fixtures, runtime observations, and documented external contracts.
 
-Structural assertions on values the test constructs prove nothing, pair them with an independent behavioral assertion or delete them.
-
-[TEST_REQUIREMENTS]:
+[REQUIREMENTS]:
 - Compilers, import checks, and type checkers verify symbols exist, runtime tests assert behavior
 - Expected values come from an independent oracle
-- Boundary tests supply invalid raw input through supported entry points, and tests inside the boundary build every state through construction
+- Structural assertions on values the test constructs prove nothing, pair them with a behavioral assertion or delete them
+- Boundary tests supply invalid raw input through supported entry points, tests inside the boundary build every state through construction
 - Parameterized and property-based tests cover input classes and invariants
+- Properties defined from a predicate name a counterexample they must reject, a law that compares two evaluations needs none
 
-Treat a failing test as evidence until triage identifies a production defect, an obsolete requirement, or an invalid oracle.
+Treat a failing test as evidence until triage identifies a production defect, an obsolete requirement, or an invalid oracle. Fix a production defect in its code, retire the test of a retired requirement or invalid oracle.
 
-## [04]-[GENERATED_OUTPUTS]
+## [04]-[OWNERS]
 
-Every test tool writes its reports under `.artifacts/<language>/` and its relocatable state under `.cache/<tool>/`, configured in the tool's own config file or on its command. After a tool runs, `git status --short` shows no new entry.
-
-## [05]-[SUITE_PLACEMENT]
-
-| [INDEX] | [ADDITION]                   | [HOME]                                  |
-| :-----: | :--------------------------- | :-------------------------------------- |
-|  [01]   | .NET reusable test support   | `tests/dotnet/Rasm.TestSupport`         |
-|  [02]   | .NET package suite           | `tests/dotnet/libs/<package>/`          |
-|  [03]   | Python reusable test support | `tests/python/support`                  |
-|  [04]   | Python package suite         | `tests/python/libs/<package>/`          |
-|  [05]   | TypeScript unit test         | Beside its source in `libs/typescript`  |
-|  [06]   | TypeScript reusable support  | `tests/typescript/support`              |
-|  [07]   | Browser end-to-end test      | `tests/typescript/browser`              |
-
-## [06]-[CONFIGURATION_OWNERS]
-
-| [INDEX] | [CONFIGURATION]                                    | [RESPONSIBILITY]                                                   |
-| :-----: | :------------------------------------------------- | :----------------------------------------------------------------- |
-|  [01]   | `Directory.Packages.props`                         | .NET test dependency versions                                      |
-|  [02]   | Each test `.csproj` with `Directory.Build.targets` | MTP runner and package references, global xUnit and CsCheck usings |
-|  [03]   | `pyproject.toml`                                   | Python test dependencies, pytest and coverage policy               |
-|  [04]   | `pnpm-workspace.yaml`                              | TypeScript test versions, peer resolutions, package globs          |
-|  [05]   | `vitest.config.ts`                                 | TypeScript runner defaults and outputs                             |
+Use README.md for the owner of every test dependency version, target, tool configuration, and output location.

@@ -3,7 +3,6 @@
     "compilerOptions": { "outDir": ".cache/typescript/out/root", "types": ["node"] },
     "include": [
         "*.config.ts",
-        "tests/typescript/support/vitest.config.ts",
         "tools/nx/*.ts",
         "infra/*.ts"
     ]

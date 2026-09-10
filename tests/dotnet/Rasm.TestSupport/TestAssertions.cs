@@ -10,7 +10,6 @@ public delegate bool TryCreate<TIn, TOut>(TIn value, out TOut obj);
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record MetamorphicRelation<T, TResult>(string Name, Func<T, T> Transform, Func<T, TResult, TResult, bool> Relate);
 
-// A predicate carries the counterexample it must reject, and a law compares two evaluations and needs none
 public sealed record PropertyDefinition<T>(string Name, Gen<T> Generator, Action<T> Property, Option<T> Counterexample);
 
 public static class Properties {
@@ -53,14 +52,14 @@ public static class Properties {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static partial class TestAssertions {
-    // CsCheck samples on pool threads that carry no ambient test context, and the token read here on the calling thread reaches every worker
+    // CsCheck samples on pool threads without ambient test context, the token read on the calling thread reaches every worker
     public static void ForAll<T>(Gen<T> gen, Action<T> property, string? seed = null, long? iter = null, int? time = null, int? threads = null) {
         ArgumentNullException.ThrowIfNull(gen);
         ArgumentNullException.ThrowIfNull(property);
         CancellationToken cancellation = TestContext.Current.CancellationToken;
         gen.Sample(value => { cancellation.ThrowIfCancellationRequested(); property(value); }, seed: seed, iter: iter ?? -1L, time: time ?? -1, threads: threads ?? -1);
     }
-    // Only an assertion failure rejects the counterexample, and any other exception is a defect in the property that propagates
+    // Only an assertion failure rejects the counterexample, any other exception is a property defect and propagates
     public static void RejectsCounterexample<T>(T counterexample, Action<T> property, string? name = null) {
         ArgumentNullException.ThrowIfNull(property);
         try {
@@ -147,7 +146,7 @@ public static partial class TestAssertions {
         _ = result.Match(Some: static value => throw new XunitException($"Expected None, got Some: {value}"), None: static () => unit);
 
     // --- [DISTRIBUTION] ----------------------------------------------------------------
-    // Twelve sigma draws a spurious failure once in 44,000 runs where the CsCheck default of six draws one in 483, and a shifted distribution exceeds it by orders of magnitude
+    // Sigma 12 over the CsCheck default of 6 keeps sampling noise below failure, a shifted distribution exceeds it by orders of magnitude
     public static void ChiSquared<T>(Gen<T> gen, Func<T, int> bucket, params int[] expected) {
         ArgumentNullException.ThrowIfNull(bucket);
         ArgumentNullException.ThrowIfNull(expected);
@@ -168,7 +167,7 @@ public static partial class TestAssertions {
     }
 
     // --- [CASE_TABLES] -----------------------------------------------------------------
-    // Set equality keeps the comparison ordinal for string keys, which the default order comparer makes culture-sensitive, and the BCL set is qualified because LanguageExt declares a HashSet too
+    // Set equality compares string keys ordinally where the default order comparer is culture-sensitive, the BCL set is qualified against the LanguageExt HashSet
     public static void KeySet<T, TKey>(IReadOnlyList<T> items, IReadOnlyList<TKey> expectedKeys, Func<T, TKey> key, Action<T>? assertion = null) where TKey : notnull {
         ArgumentNullException.ThrowIfNull(items);
         ArgumentNullException.ThrowIfNull(expectedKeys);

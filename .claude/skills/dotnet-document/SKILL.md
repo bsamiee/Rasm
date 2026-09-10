@@ -5,17 +5,17 @@ description: "Use when adding or reviewing XML doc comments on a C# member, or a
 
 # [DOTNET_DOCUMENT]
 
-Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` is on in every project, member documentation is optional (`CS1591`, `RCS1140`, `RCS1141`, `RCS1142`, and `RCS1181` are off), every member that has a doc comment follows the patterns.
+Covers XML documentation comments (`///`) on C# members, from the tag syntax to the diagnostics the build raises on them. `GenerateDocumentationFile` writes every doc comment to the XML file, member documentation is optional (`.editorconfig` sets `CS1591`, `RCS1140`, `RCS1141`, `RCS1142`, and `RCS1181` to `none`).
 
 [REFERENCES]:
-- [01]-[REVIEW](references/review.md): The review of existing doc comments against their source, with severity classes and the closing report
+- [01]-[REVIEW](references/review.md): Review of existing doc comments against their source, with severity classes and the closing report
 
 ## [01]-[PRINCIPLES]
 
-- A doc comment sits on a member a caller uses without opening the source
+- Doc comments sit on members a caller uses without opening the source
 - Types and members are named with `<see cref="..."/>` and parameters with `<paramref name="..."/>`, the compiler does not resolve a plain-text name
-- The text states what the member does, a sentence that names a private field, a loop, or a called helper describes the implementation
-- The reason for a marshaling choice or a platform branch sits in `<remarks>`
+- Text states what the member does, a sentence naming a private field, a loop, or a called helper describes the implementation
+- Reasons for a marshaling choice or a platform branch sit in `<remarks>`
 - Every `DllImport` or `LibraryImport` method documents the C function it calls and its marshaling behavior
 
 ## [02]-[SYNTAX]
@@ -24,29 +24,31 @@ Covers XML documentation comments (`///`) on C# members, from the tag syntax to 
 
 Each tag has one use, `RCS1228` fails the build on an empty element:
 
-| [INDEX] | [TAG]                      | [USAGE]                                                                                             |
-| :-----: | :------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | `<summary>`                | One-sentence description, required on every documented member                                       |
-|  [02]   | `<param name="x">`         | Parameter description, every parameter or none (`CS1573`), in declaration order (`RCS1232`)         |
-|  [03]   | `<typeparam name="T">`     | Type parameter description, every type parameter or none (`CS1712`)                                 |
-|  [04]   | `<returns>`                | Return value description                                                                            |
-|  [05]   | `<value>`                  | Property value description                                                                          |
-|  [06]   | `<remarks>`                | Usage facts the other tags do not state, one `<para>` per topic                                     |
-|  [07]   | `<para>`                   | Paragraph inside `<summary>`, `<remarks>`, or `<returns>`, required past one paragraph (`RCS1226`)  |
-|  [08]   | `<list type="bullet">`     | List inside `<remarks>`, one `<item>` per entry, `type` is `bullet`, `number`, or `table`           |
-|  [09]   | `<c language="csharp">`    | Inline code, `<code>` for more than one line (`RCS1247`), `language` required unless one keyword    |
-|  [10]   | `<code language="csharp">` | Preformatted block on its own lines inside `<example>`, `language` required (`MA0219`, `MA0218`)    |
-|  [11]   | `<example>`                | Usage example, one sentence and one `<code>` block                                                  |
-|  [12]   | `<exception cref="...">`   | Exception the member throws, the text states the condition                                          |
-|  [13]   | `<inheritdoc/>`            | Copies the base or interface documentation into the XML file, tags on the member stay               |
+| [INDEX] | [TAG]                      | [USAGE]                                                                                            |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | `<summary>`                | One-sentence description, required on every documented member                                      |
+|  [02]   | `<param name="x">`         | Parameter description, every parameter or none (`CS1573`), in declaration order (`RCS1232`)        |
+|  [03]   | `<typeparam name="T">`     | Type parameter description, every type parameter or none (`CS1712`)                                |
+|  [04]   | `<returns>`                | Return value description                                                                           |
+|  [05]   | `<value>`                  | Property value description                                                                         |
+|  [06]   | `<remarks>`                | Usage facts the other tags do not state, one `<para>` per topic                                    |
+|  [07]   | `<para>`                   | Paragraph inside `<summary>`, `<remarks>`, or `<returns>`, required past one paragraph (`RCS1226`) |
+|  [08]   | `<list type="bullet">`     | List inside `<remarks>`, one `<item>` per entry, `type` is `bullet`, `number`, or `table`          |
+|  [09]   | `<c language="csharp">`    | Inline code, `<code>` for more than one line (`RCS1247`), `language` required unless one keyword   |
+|  [10]   | `<code language="csharp">` | Preformatted block on its own lines inside `<example>`, `language` required (`MA0219`, `MA0218`)   |
+|  [11]   | `<example>`                | Usage example, one sentence and one `<code>` block                                                 |
+|  [12]   | `<exception cref="...">`   | Exception the member throws, the text states the condition                                         |
+|  [13]   | `<inheritdoc/>`            | Inherits the base or interface documentation, tags on the member stay                              |
 
 `<inheritdoc cref="..."/>` copies from the named member, `path` filters the copied tags with an XPath expression. Visual Studio inherits documentation for an override or implementation in the IDE alone, the XML file the compiler writes holds nothing without the tag.
 
 ### [02.2]-[CROSS_REFERENCES]
 
-- `cref` names a type or member, the compiler resolves it through the `using` directives (`CS1574` when unresolved, `CS1584` when the syntax is wrong, `CS1580` when it names a type parameter), a generic target takes the form `List{T}`, link text sits between `<see cref="...">` and `</see>`
+- `cref` names a type or member the compiler resolves through the `using` directives, a generic target takes the form `List{T}`
+- `cref` diagnostics: `CS1574` for an unresolved name, `CS1584` for wrong syntax, `CS1723` for a type parameter
+- Link text sits between `<see cref="...">` and `</see>`
 - `<see href="...">` names a URL
-- `<see langword="...">` names a keyword (`true`, `false`, `null`), `<c>true</c>` and backticks fail `MA0154`
+- `<see langword="...">` names a keyword (`true`, `false`, `null`), `<c>true</c>` and `<code>true</code>` fail `MA0154`
 - `<paramref name="..."/>` names a parameter, `<typeparamref name="T"/>` a type parameter
 - `<seealso cref="..."/>` lists a related member and cannot sit inside `<summary>`
 
@@ -62,7 +64,7 @@ Each tag has one use, `RCS1228` fails the build on an empty element:
 
 ### [02.3]-[ESCAPING]
 
-An unescaped character inside documentation text fails `CS1570`:
+Unescaped characters inside documentation text fail `CS1570`:
 
 | [INDEX] | [CHARACTER] | [ESCAPE] |
 | :-----: | :---------- | :------- |
@@ -73,7 +75,7 @@ An unescaped character inside documentation text fails `CS1570`:
 ## [03]-[SUMMARIES]
 
 Every documented member has a `<summary>` on one line (`RCS1253` with `roslynator_doc_comment_summary_style = single_line`), one sentence in the third person that states what the member does, returns, or represents, with no trailing period:
-- Open with a present-tense verb, except the exception class ("The exception that is thrown when"), the enum member (a noun phrase), and the abstract or virtual member ("When overridden in a derived class,")
+- Open with a present-tense verb, a member kind with its own opening phrase (exception class, enum member, abstract member) keeps the phrase
 - Name the behavior, `String.Format` reads "Replaces each format item in a specified string with the string representation of a specified object"
 - Restate no part of the signature, except the type name in a constructor or `Dispose` summary
 - Overloads take one general summary broad enough for every overload, each overload a summary that names what its parameters add
@@ -84,10 +86,16 @@ Each member kind has its own opening phrase and tag set. Parameter, return, and 
 
 ### [04.1]-[CLASSES_AND_STRUCTS]
 
-- A class or struct summary states what the type holds, does, or represents, an interface opens with "Defines", "Provides", or "Exposes", an abstract base class reads "Defines the core behavior of X and provides a base for Y", an exception class reads "The exception that is thrown when ..."
-- `<remarks>` on a type holds usage facts the summary does not state, one `<para>` per topic
+Type kind decides the summary:
 
-A type that owns a native resource states in `<remarks>` how to create an instance and that the caller disposes it, with the `using` form in an `<example>`:
+| [INDEX] | [KIND]              | [SUMMARY]                                                  |
+| :-----: | :------------------ | :--------------------------------------------------------- |
+|  [01]   | Class or struct     | What the type holds, does, or represents                   |
+|  [02]   | Interface           | Opens with "Defines", "Provides", or "Exposes"             |
+|  [03]   | Abstract base class | "Defines the core behavior of X and provides a base for Y" |
+|  [04]   | Exception class     | "The exception that is thrown when ..."                    |
+
+Types that own an unmanaged resource state in `<remarks>` how to create an instance and that the caller disposes it, with the `using` form in an `<example>`:
 
 ```xml
 <summary>Holds the style and color information about how to draw geometries, text and bitmaps</summary>
@@ -103,7 +111,7 @@ canvas.DrawRect(rect, paint);
 
 ### [04.2]-[CONSTRUCTORS]
 
-The summary opens with the exact .NET phrase "Initializes a new instance of the `<see cref>` class", "struct" for a value type, and "Called from constructors in derived classes to initialize the `<see cref>` class" for an abstract class. The overload text follows "class" or "struct":
+Constructor summaries open with the exact .NET phrase "Initializes a new instance of the `<see cref>` class", "struct" for a value type, and "Called from constructors in derived classes to initialize the `<see cref>` class" for an abstract class. Overload text follows "class" or "struct":
 
 ```xml
 <summary>Initializes a new instance of the <see cref="Drawing.Paint" /> class</summary>
@@ -119,13 +127,13 @@ The summary opens with the exact .NET phrase "Initializes a new instance of the 
 
 ### [04.3]-[PROPERTIES]
 
-The accessor list decides the opening verb:
+Accessor list decides the opening verb:
 - `{ get; set; }` opens with "Gets or sets", `{ get; }` with "Gets", `{ get; init; }` with "Gets or initializes"
-- A boolean property opens with "Gets a value that indicates whether" or "Gets or sets a value that indicates whether"
-- A struct property with a `set` accessor is settable
-- `<value>` names the value with its unit ("The width, in pixels"), a default is a second sentence "The default is X" when the source shows the initializer
+- Boolean properties open with "Gets a value that indicates whether" or "Gets or sets a value that indicates whether"
+- `<value>` names the value with its unit ("The width, in pixels")
+- When the source shows an initializer, `<value>` adds a second sentence "The default is X"
 
-The summary and value of `public Color Color { get; set; }`, `public int Width { get; }`, `public bool Antialias { get; set; } = true;`, and a read-only boolean:
+Summary and value of `public Color Color { get; set; }`, `public int Width { get; }`, `public bool Antialias { get; set; } = true;`, and a read-only boolean:
 
 ```xml
 <summary>Gets or sets the color</summary>
@@ -143,7 +151,7 @@ The summary and value of `public Color Color { get; set; }`, `public int Width {
 
 ### [04.4]-[METHODS]
 
-A general method, a task-returning method, a factory, a try pattern, an abstract member, `Dispose()`, and `Dispose(bool)`:
+General method, task-returning method, factory, try pattern, abstract member, `Dispose()`, and `Dispose(bool)`:
 
 ```xml
 <summary>Draws a rectangle using the specified paint</summary>
@@ -159,7 +167,7 @@ A general method, a task-returning method, a factory, a try pattern, an abstract
 
 <summary>Attempts to parse the color from a string</summary>
 <param name="value">The string to parse</param>
-<param name="color">When this method returns, contains the parsed color if the parsing succeeded. This parameter is treated as uninitialized</param>
+<param name="color">When this method returns, contains the parsed color if the parsing succeeded. This parameter is passed uninitialized</param>
 <returns><see langword="true" /> if the parsing succeeded; otherwise, <see langword="false" /></returns>
 
 <summary>When overridden in a derived class, reads the next byte from the stream</summary>
@@ -172,7 +180,7 @@ A general method, a task-returning method, a factory, a try pattern, an abstract
 
 ### [04.5]-[EVENTS]
 
-An event summary opens with "Occurs when", the `On` method that raises the event reads "Raises the `<see cref>` event", an `EventArgs` class reads "Provides data for the `<see cref>` event":
+Event summaries open with "Occurs when", the `On` method raising the event reads "Raises the `<see cref>` event", an `EventArgs` class reads "Provides data for the `<see cref>` event":
 
 ```xml
 <summary>Occurs when the surface needs to be repainted</summary>
@@ -182,7 +190,7 @@ An event summary opens with "Occurs when", the `On` method that raises the event
 
 ### [04.6]-[ENUMS]
 
-The type summary opens with "Specifies" or "Describes", a member summary is a noun phrase or a sentence with no opening verb, a mask member reads "A mask used to retrieve X", a `[Flags]` enum states which members combine and which stand alone:
+Type summary opens with "Specifies" or "Describes", a member summary is a noun phrase or a sentence with no opening verb, a mask member reads "A mask used to retrieve X", a `[Flags]` enum states which members combine and which stand alone:
 
 ```xml
 <summary>Specifies the blend mode for drawing operations</summary>
@@ -194,9 +202,15 @@ The type summary opens with "Specifies" or "Describes", a member summary is a no
 ### [04.7]-[PARAMETERS]
 
 - Every parameter or none (`CS1573`), in declaration order (`RCS1232`)
-- The description opens with an article and states the unit, the valid range, and the default, `<see langword="null" />` for a nullable parameter
-- An enum parameter reads "One of the enumeration values that specifies ...", a `[Flags]` parameter "A bitwise combination of the enumeration values that specifies ..."
-- An `out` parameter reads "When this method returns, contains ... This parameter is treated as uninitialized", a `ref` parameter ends with ", passed by reference", an indexer integer reads "The zero-based index of ..."
+- Descriptions open with an article and state the unit, the valid range, and the default, `<see langword="null" />` for a nullable parameter
+
+| [INDEX] | [PARAMETER]     | [DESCRIPTION]                                                                   |
+| :-----: | :-------------- | :------------------------------------------------------------------------------ |
+|  [01]   | Enum            | "One of the enumeration values that specifies ..."                              |
+|  [02]   | `[Flags]` enum  | "A bitwise combination of the enumeration values that specifies ..."            |
+|  [03]   | `out`           | "When this method returns, contains ... This parameter is passed uninitialized" |
+|  [04]   | `ref`           | Ends with ", passed by reference"                                               |
+|  [05]   | Indexer integer | "The zero-based index of ..."                                                   |
 
 ```xml
 <param name="rect">The rectangle to draw</param>
@@ -204,13 +218,22 @@ The type summary opens with "Specifies" or "Describes", a member summary is a no
 <param name="antialias"><see langword="true" /> to enable anti-aliasing; otherwise, <see langword="false" /></param>
 <param name="blendMode">One of the enumeration values that specifies the blend mode</param>
 <param name="flags">A bitwise combination of the enumeration values that specifies the options</param>
-<param name="result">When this method returns, contains the parsed value if the parsing succeeded. This parameter is treated as uninitialized</param>
+<param name="result">When this method returns, contains the parsed value if the parsing succeeded. This parameter is passed uninitialized</param>
 ```
 
 ### [04.8]-[RETURN_VALUES]
 
-- A LanguageExt return names the success value and each failure case: `Option<A>` reads "The X, or none when ...", `Fin<A>` reads "The X, or a `<see cref>` error when ...", `Validation<Error, A>` reads "The X, or every error from ...", `Either<L, R>` reads "The L when ..., or the R when ..."
-- `Task` and `ValueTask` returns read "A task object that, when awaited, produces ...", an enum "One of the enumeration values that indicates ...", a `[Flags]` enum "A bitwise combination of the enumeration values that ..."
+Return type decides the description, a LanguageExt return names the success value and each failure case:
+
+| [INDEX] | [RETURN]               | [DESCRIPTION]                                              |
+| :-----: | :--------------------- | :--------------------------------------------------------- |
+|  [01]   | `Option<A>`            | "The X, or none when ..."                                  |
+|  [02]   | `Fin<A>`               | "The X, or a `<see cref>` error when ..."                  |
+|  [03]   | `Validation<Error, A>` | "The X, or every error from ..."                           |
+|  [04]   | `Either<L, R>`         | "The L when ..., or the R when ..."                        |
+|  [05]   | `Task`, `ValueTask`    | "A task object that, when awaited, produces ..."           |
+|  [06]   | Enum                   | "One of the enumeration values that indicates ..."         |
+|  [07]   | `[Flags]` enum         | "A bitwise combination of the enumeration values that ..." |
 
 ```xml
 <returns>A new image</returns>
@@ -225,8 +248,11 @@ The type summary opens with "Specifies" or "Describes", a member summary is a no
 ### [04.9]-[EXCEPTIONS]
 
 - Each exception the member throws takes `<exception cref>`, a failure returned as data belongs in `<returns>`
-- The condition reads as if "if" preceded it, in the present tense, with `<paramref>` for the parameter, separate conditions of one exception with "-or-", a condition of an exception stored in the returned task ends with "This exception is stored into the returned task"
-- `InvalidOperationException` takes the instance state that rejects the call as the condition ("The path is empty"), a call after `Dispose` takes `ObjectDisposedException`
+- Conditions read as if "if" preceded them, in the present tense, with `<paramref>` for the parameter
+- Conditions of one exception separate with "-or-"
+- Conditions of an exception stored in the returned task end with "This exception is stored into the returned task"
+- `InvalidOperationException` takes the instance state that rejects the call as the condition ("The path is empty")
+- Calls after `Dispose` take `ObjectDisposedException`
 
 ```xml
 <exception cref="System.ArgumentNullException"><paramref name="paint" /> is <see langword="null" /></exception>
@@ -237,4 +263,4 @@ The type summary opens with "Specifies" or "Describes", a member summary is a no
 
 ## [05]-[THREADING]
 
-A thread constraint sits in `<remarks>` and names the thread, lock, or monitor: the thread a member must run on and whether an awaited continuation resumes on it, any `lock()` or `Monitor.TryEnter` requirement the caller satisfies.
+Thread constraints sit in `<remarks>` and name the thread, lock, or monitor: the thread a member must run on and whether an awaited continuation resumes on it, any `lock()` or `Monitor.TryEnter` requirement the caller satisfies.

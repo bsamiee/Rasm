@@ -9,7 +9,7 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 | [INDEX] | [WEAKNESS]                                                        | [GENERAL_FORM]                                                       |
 | :-----: | :---------------------------------------------------------------- | :------------------------------------------------------------------- |
 |  [01]   | One literal callee where the module's siblings share a contract   | `field: property` with a `regex` over the family, module pinned      |
-|  [02]   | One overload of a `dual` export (data-first and data-last)        | `any:` arm per overload, the shape in a util                         |
+|  [02]   | One overload of a data-first and data-last pair                   | `any:` arm per overload, the shape in a util                         |
 |  [03]   | One container where the correction reads the same over another    | Util per container, one `any:` over them                             |
 |  [04]   | One position where the shape is produced before its consumption   | Match where the shape is produced, no position guard                 |
 |  [05]   | Name where the rule means every node of a kind                    | `kind` with `field` and `nthChild`, `regex` on the name              |
@@ -29,9 +29,9 @@ Before widening, prove siblings take the same correction for the same reason:
 1. State the correction as a category in one line, shape before, shape after, and reason, with no instance name
 2. Enumerate package siblings with the same contract
 3. Apply the correction to each sibling and compare its action and reason, keeping equivalent replacement spellings together
-4. Write one file holding every sibling and near miss and count the widened rule over it
+4. Prove the widened rule on every sibling and near miss, over the tree or a snippet
 5. Widen the registered rule and count with `--filter` under the root configuration that loads its utilities
-6. Read primary sources or maintained rules for unresolved mechanisms and prove each adopted guard against the correction
+6. Read the package source and the grammar for unresolved mechanisms and prove each adopted guard against the correction
 7. Keep the widened rule when the count rose by the siblings alone, a match the correction breaks returns to the sameness judgment
 
 Before the rule widens, import ownership resolves member identity, namespace or default access, aliases, and local shadowing.
@@ -42,7 +42,7 @@ Escaped module strings stay excluded until their decoded value is known.
 Combine rules with the same correction and reason. Split rules when scope, severity, or required action differs, sharing the common predicate alone:
 1. Name the survivor `no-<pattern>` for the pattern the `message` states, an existing id stating it stays
 2. Move the shape distinct callers share into a global util, a fixed one-caller shape stays local
-3. Delete the superseded rule files with each old id in suppression comments (`rg 'ast-grep-ignore.*<id>'`) and filters
+3. Delete the superseded rule files and each old id in suppression comments and filters
 4. Compare the survivor's findings with the union of the originals by file and range, intended coverage stays
 
 - Replacement spellings share one rule when they implement the same correction and reason, the selecting condition stays in that rule
@@ -67,7 +67,6 @@ Duplication stays when parameter forwarding loses captures or document-local rew
 |  [11]   | Fix that selects the member by the arm's shape             | Rewriter per shape emitting the name, one transform joins them           |
 |  [12]   | Walk to an owner from every node of a kind, a slow rule    | Capture-free prefilter under `all:` ahead of the relational keys         |
 |  [13]   | Fix text that differs by the matched node's style          | Capture and transform per exclusive `any:` arm, unbound ones empty       |
-|  [14]   | Runner option words told apart by runnable input           | One walk, the runner name as the caller's slot, no per-runner branch     |
 
 Mechanisms changing no result go.
 

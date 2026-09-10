@@ -9,6 +9,7 @@ import {
     type CreateNodesResultArray,
     createNodesFromFiles,
     type ProjectConfiguration,
+    type TargetConfiguration,
 } from '@nx/devkit';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -37,9 +38,12 @@ const _pythonName = (file: string, context: CreateNodesContext): string => {
     return name;
 };
 
+const _pythonTargets = (file: string): Record<string, TargetConfiguration> =>
+    file.startsWith('tests/python/libs/') ? { typecheck: {}, test: {}, check: {} } : { typecheck: {}, check: {} };
+
 const _configuration = (file: string, language: Language, context: CreateNodesContext): ProjectConfiguration =>
     language === 'python'
-        ? { root: dirname(file), name: _pythonName(file, context), tags: ['language:python'], targets: { typecheck: {}, test: {}, check: {} } }
+        ? { root: dirname(file), name: _pythonName(file, context), tags: ['language:python'], targets: _pythonTargets(file) }
         : { root: dirname(file), tags: [`language:${language}`], targets: { typecheck: {}, check: {} } };
 
 const _project = (file: string, _options: unknown, context: CreateNodesContext): CreateNodesResult => {
@@ -50,7 +54,7 @@ const _project = (file: string, _options: unknown, context: CreateNodesContext):
 // --- [REGISTRATION] --------------------------------------------------------------------
 
 const createNodes: CreateNodes = [
-    '{{apps,libs,tests,tools}/**/*.csproj,{apps,libs,tests}/**/tsconfig.json,.claude/plugins/*/tsconfig.json,{libs/python,apps/*}/*/pyproject.toml}',
+    '{{apps,libs,tests,tools}/**/*.csproj,{apps,libs,tests}/**/tsconfig.json,.claude/plugins/*/tsconfig.json,{libs/python,apps/*,tests/python,tests/python/libs}/*/pyproject.toml}',
     (files, options, context): Promise<CreateNodesResultArray> => createNodesFromFiles(_project, files, options, context),
 ];
 

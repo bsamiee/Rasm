@@ -4,7 +4,9 @@
     "type": "module",
     "nx": {
         "targets": {
-            "typecheck": { "cache": false }
+            "typecheck": {
+                "inputs": ["default", "typescript", { "externalDependencies": ["typescript"] }, { "runtime": "claude --version" }]
+            }
         }
     }
 }

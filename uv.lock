@@ -24,6 +24,10 @@ required-markers = [
 prerelease-mode = "allow"
 
 [manifest]
+members = [
+    "rasm",
+    "rasm-test-support",
+]
 
 [[manifest.dependency-metadata]]
 name = "colour-cxf"
@@ -5562,30 +5566,6 @@ wheels = [
 ]
 
 [[package]]
-name = "protoc-gen-connectrpc"
-version = "0.12.1"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "protobuf-py" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/0b/38/e840ca13f7399288c0b503211afea50d76481e9083deb43e25cae427a431/protoc_gen_connectrpc-0.12.1.tar.gz", hash = "sha256:dde1652e291be825c4e84e71d9398c6ddd3c5c50995f3872a78ea9e4e21464dc", size = 9845, upload-time = "2026-09-04T15:23:32.427Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/0d/61/04bbb3244f95c1ca2498a0b2b59e849d537a6a8768654cf1c310d6690e05/protoc_gen_connectrpc-0.12.1-py3-none-any.whl", hash = "sha256:fae558b7d68d27cd5bb3333e8d5969e2031de1fc0263ba1d04c596b26885a878", size = 11018, upload-time = "2026-09-04T15:23:30.096Z" },
-]
-
-[[package]]
-name = "protoc-gen-py"
-version = "0.4.0"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "protobuf-py" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/e3/0e/ba2fc6787a847719a5c405bfd87f8a94af5047e5aad896cd7c77022eba62/protoc_gen_py-0.4.0.tar.gz", hash = "sha256:2077328bfe1247505bad32570cc4c3f637201e34a495f6c1cf27998c11659a83", size = 10995, upload-time = "2026-09-02T04:47:37.932Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/43/32/569f606734af1aa2526e5f6c46057c68456e6287cb0740c330306a62b0ad/protoc_gen_py-0.4.0-py3-none-any.whl", hash = "sha256:461ad53c4f5094fdbb222a40a685028b8614cb848336150df6d1ed7bd390edd3", size = 12436, upload-time = "2026-09-02T04:47:34.899Z" },
-]
-
-[[package]]
 name = "protovalidate"
 version = "2.0.0"
 source = { registry = "https://pypi.org/simple" }
@@ -5738,21 +5718,9 @@ wheels = [
 
 [[package]]
 name = "pyarrow"
-version = "23.0.1"
+version = "24.0.0"
 source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/88/22/134986a4cc224d593c1afde5494d18ff629393d74cc2eddb176669f234a4/pyarrow-23.0.1.tar.gz", hash = "sha256:b8c5873e33440b2bc2f4a79d2b47017a89c5a24116c055625e6f2ee50523f019", size = 1167336, upload-time = "2026-02-16T10:14:12.39Z" }
-
-[[package]]
-name = "pyarrow-stubs"
-version = "20.0.0.20260819"
-source = { registry = "https://pypi.org/simple" }
-dependencies = [
-    { name = "pyarrow" },
-]
-sdist = { url = "https://files.pythonhosted.org/packages/12/a7/8a2ca91ffe4c6576207f932de655d7d8a36485c520dccce70ce7d492b256/pyarrow_stubs-20.0.0.20260819.tar.gz", hash = "sha256:150710a72248bc834bf048d3092713f070904a4af76d40289c43afb3ee189823", size = 238222, upload-time = "2026-08-19T05:52:53.618Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/65/6c/eea1d03e475217aea95b1d52aee09c97575d05bbc592c39c085b71dab89f/pyarrow_stubs-20.0.0.20260819-py3-none-any.whl", hash = "sha256:297e60b6e5314739c082b4757d090d8be6047465510eb0684ca954ef7ea58be3", size = 235949, upload-time = "2026-08-19T05:52:54.711Z" },
-]
+sdist = { url = "https://files.pythonhosted.org/packages/91/13/13e1069b351bdc3881266e11147ffccf687505dbb0ea74036237f5d454a5/pyarrow-24.0.0.tar.gz", hash = "sha256:85fe721a14dd823aca09127acbb06c3ca723efbd436c004f16bca601b04dcc83", size = 1180261, upload-time = "2026-04-21T10:51:25.837Z" }
 
 [[package]]
 name = "pyasn1"
@@ -6148,12 +6116,26 @@ sdist = { url = "https://files.pythonhosted.org/packages/81/d7/803232913cab9163a
 
 [[package]]
 name = "pyproj"
-version = "3.7.2"
+version = "3.8.0"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
     { name = "certifi" },
 ]
-sdist = { url = "https://files.pythonhosted.org/packages/04/90/67bd7260b4ea9b8b20b4f58afef6c223ecb3abf368eb4ec5bc2cdef81b49/pyproj-3.7.2.tar.gz", hash = "sha256:39a0cf1ecc7e282d1d30f36594ebd55c9fae1fda8a2622cee5d100430628f88c", size = 226279, upload-time = "2025-08-14T12:05:42.18Z" }
+sdist = { url = "https://files.pythonhosted.org/packages/c8/29/6598570c90cbfc84ddefc3ccac4aa412bf51a527d72c74cc4fe64a5e6f24/pyproj-3.8.0.tar.gz", hash = "sha256:efa59725bba68bf97fa808b61302df32934acdceb6a5c92a8dd0e71dc266a876", size = 242018, upload-time = "2026-09-05T20:05:09.353Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/51/00/2c47781ba80bfbeec612815eee45f7b08c4727d4da4d7853981338ff38d1/pyproj-3.8.0-cp315-cp315-macosx_14_0_arm64.whl", hash = "sha256:54750d95c7aa1cbe78ec7be522ceef9b82b8f6f185d26ca413995a953bf8f1e8", size = 4990032, upload-time = "2026-09-05T20:04:30.104Z" },
+    { url = "https://files.pythonhosted.org/packages/a2/24/0a5d3900c001f23d220ae4babd375f17667a505981be573c270c9952bb8f/pyproj-3.8.0-cp315-cp315-manylinux_2_28_aarch64.whl", hash = "sha256:f6e7aa6b2da0c7ae6b6185cb9769bf2f941c5f9cd0c246e98e04fc6751621eac", size = 10052422, upload-time = "2026-09-05T20:04:34.365Z" },
+    { url = "https://files.pythonhosted.org/packages/81/68/3cdb0bc8eb5e30e21e2fadbf090c2a92cb92b92175fe9b76d2c74351cc6f/pyproj-3.8.0-cp315-cp315-manylinux_2_28_x86_64.whl", hash = "sha256:0fb11c0d6a7caa396275012a9bda461ddf2d209cf6edfe53c477fb9c71778672", size = 9950482, upload-time = "2026-09-05T20:04:36.814Z" },
+    { url = "https://files.pythonhosted.org/packages/b1/b7/d08c09c7d10aacd7705ef71b8fa8e0aed5b625b3f410038d7a198a81fd48/pyproj-3.8.0-cp315-cp315-musllinux_1_2_aarch64.whl", hash = "sha256:ea85d85e71d03d9b26d3bab78384226ebcfa71ac61bc25fcca5f50a144003575", size = 11443699, upload-time = "2026-09-05T20:04:39.324Z" },
+    { url = "https://files.pythonhosted.org/packages/84/12/c24538a68b5d8ec33e1a2fe4d1dc309108bcfbd9991e976e1a8933063500/pyproj-3.8.0-cp315-cp315-musllinux_1_2_x86_64.whl", hash = "sha256:ba88a9b5bfb39a141361e6ccc2a06136383ea2757fbfe3e6df2dd1133ad55304", size = 11410580, upload-time = "2026-09-05T20:04:41.739Z" },
+    { url = "https://files.pythonhosted.org/packages/de/f3/93daa94374eae77a188558cb20b159645eae4fb812fcadd066fc4935d018/pyproj-3.8.0-cp315-cp315-win_amd64.whl", hash = "sha256:d752eaaae639719abdb4d357008b4311c0931977f4ea0f019e79e4176ab243a7", size = 6856131, upload-time = "2026-09-05T20:04:45.619Z" },
+    { url = "https://files.pythonhosted.org/packages/c2/f7/8efd72b1c73377fa41bd161b20a257b33a8497a0fcc1d2073c743622717c/pyproj-3.8.0-cp315-cp315t-macosx_14_0_arm64.whl", hash = "sha256:d31e9ddbd0ffcb65fcd902ab726b26741c9a8e8b90b60844596fd5b67030b39c", size = 5028580, upload-time = "2026-09-05T20:04:49.337Z" },
+    { url = "https://files.pythonhosted.org/packages/eb/d2/ecfbd0c96dbf1370c4f8931dcee451620e08eb77c1f288b262ee2d962217/pyproj-3.8.0-cp315-cp315t-manylinux_2_28_aarch64.whl", hash = "sha256:f0540dea10339be8bb9f90c95685607b262547c53fa7645eef010965b80c4a90", size = 10316986, upload-time = "2026-09-05T20:04:53.498Z" },
+    { url = "https://files.pythonhosted.org/packages/f5/c8/6783f31b178506a8faf55eb4e2f0007c281251a0303d59aa0c9ce9a85a80/pyproj-3.8.0-cp315-cp315t-manylinux_2_28_x86_64.whl", hash = "sha256:1074ab4aac836cb0e211fcf0e36dda7d51126c7ce15062ed9007164c6ae93183", size = 10128479, upload-time = "2026-09-05T20:04:56.441Z" },
+    { url = "https://files.pythonhosted.org/packages/fc/03/212cb8445d84d20bca10b9c02516e99793a9b3d645e30892ca343499e9be/pyproj-3.8.0-cp315-cp315t-musllinux_1_2_aarch64.whl", hash = "sha256:c6da4fedc9b86970cca828b871b3fcbf8f9ad2da353b0669445fd8c03c89a9f7", size = 11641773, upload-time = "2026-09-05T20:04:59.129Z" },
+    { url = "https://files.pythonhosted.org/packages/5c/fe/7a390eeb54cf3294d23dd6b03435485b4b28e1e6ca9217ce1e0c1941fe1e/pyproj-3.8.0-cp315-cp315t-musllinux_1_2_x86_64.whl", hash = "sha256:79e222f6f8486d0af3ebc5544edecebf396492e38f46500f668c6c389a20e4df", size = 11562250, upload-time = "2026-09-05T20:05:01.817Z" },
+    { url = "https://files.pythonhosted.org/packages/cf/a8/5ed4f4042031e13a0fede12e81af1e4143102221c373f966a24f38b0d284/pyproj-3.8.0-cp315-cp315t-win_amd64.whl", hash = "sha256:d5a408b215ef98c9ae19e58ec512360b8ad9b25f8792138f983a58d159ac7157", size = 6940114, upload-time = "2026-09-05T20:05:05.737Z" },
+]
 
 [[package]]
 name = "pyqwest"
@@ -6960,9 +6942,6 @@ dev = [
     { name = "moto", extra = ["server"] },
     { name = "mypy" },
     { name = "pandas-stubs" },
-    { name = "protoc-gen-connectrpc" },
-    { name = "protoc-gen-py" },
-    { name = "pyarrow-stubs" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
@@ -7281,9 +7260,6 @@ dev = [
     { name = "moto", extras = ["server"] },
     { name = "mypy" },
     { name = "pandas-stubs" },
-    { name = "protoc-gen-connectrpc" },
-    { name = "protoc-gen-py" },
-    { name = "pyarrow-stubs" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "pytest-cov" },
@@ -7498,7 +7474,7 @@ workspace = [
     { name = "puremagic" },
     { name = "pvlib" },
     { name = "py7zr" },
-    { name = "pyarrow", specifier = "<24" },
+    { name = "pyarrow", specifier = "<25" },
     { name = "pydantic" },
     { name = "pydantic-settings" },
     { name = "pydoe3" },
@@ -7588,6 +7564,55 @@ workspace = [
     { name = "zlib-ng" },
     { name = "zstandard" },
     { name = "zxing-cpp" },
+]
+
+[[package]]
+name = "rasm-test-support"
+version = "0.0.0"
+source = { virtual = "tests/python/support" }
+dependencies = [
+    { name = "anyio" },
+    { name = "asyncssh" },
+    { name = "expression" },
+    { name = "fsspec" },
+    { name = "httpx" },
+    { name = "hypothesis" },
+    { name = "moto", extra = ["server"] },
+    { name = "msgspec" },
+    { name = "numpy" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pytest" },
+    { name = "pytest-benchmark" },
+    { name = "s3fs" },
+    { name = "sniffio" },
+    { name = "structlog" },
+    { name = "trio" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anyio" },
+    { name = "asyncssh" },
+    { name = "expression" },
+    { name = "fsspec" },
+    { name = "httpx" },
+    { name = "hypothesis" },
+    { name = "moto", extras = ["server"] },
+    { name = "msgspec" },
+    { name = "numpy" },
+    { name = "opentelemetry-api" },
+    { name = "opentelemetry-sdk" },
+    { name = "psutil" },
+    { name = "pydantic" },
+    { name = "pytest" },
+    { name = "pytest-benchmark" },
+    { name = "s3fs" },
+    { name = "sniffio" },
+    { name = "structlog" },
+    { name = "trio" },
 ]
 
 [[package]]

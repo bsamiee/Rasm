@@ -1,29 +1,24 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import type { ProcessRunResult } from 'claude-code';
 import { basename } from './path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Argv = readonly string[];
 
-interface Exit {
-    readonly exitCode: number;
-    readonly stdout: string;
-    readonly stderr: string;
-}
-
-type Scanner = (text: string) => Promise<Exit>;
+type Scanner = (text: string) => Promise<ProcessRunResult>;
 
 interface Command {
     readonly words: Argv;
-    readonly looped: boolean;
+    readonly condition: boolean;
 }
 
 type Parse = { readonly kind: 'parsed'; readonly commands: readonly Command[] } | { readonly kind: 'unparsed'; readonly reason: string };
 
 interface Body {
     readonly text: string;
-    readonly looped: boolean;
+    readonly condition: boolean;
 }
 
 interface Resolved {
@@ -33,20 +28,20 @@ interface Resolved {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const INTERPRETER = '<inline-interpreter>';
 const _MAX_DEPTH = 8;
 const _SEPARATOR = '\u001f';
-const _LOOP = '{stopBy: end, any: [{kind: while_statement}, {kind: for_statement}, {kind: c_style_for_statement}]}';
+const _CONDITION =
+    '{any: [{inside: {kind: while_statement, field: condition}}, {inside: {stopBy: end, inside: {kind: while_statement, field: condition}}}]}';
 const _rule = (id: string, relation: string): string => `id: ${id}
 language: bash
-rule: {kind: command, any: [{pattern: $CMD $$$ARGS}, {pattern: $CMD}], ${relation}}
+rule: {kind: command, all: [{any: [{pattern: $CMD $$$ARGS}, {pattern: $CMD}]}, ${relation}]}
 rewriters: [{id: word, rule: {pattern: $W}, fix: $W}]
 transform:
     ARGV: {rewrite: {source: $$$ARGS, rewriters: [word], joinBy: "\\u001f"}}
     NAME: {replace: {source: $CMD, replace: '\\n', by: ' '}}
     LINE: {replace: {source: $ARGV, replace: '\\n', by: ' '}}
 message: "$NAME\\u001f$LINE"`;
-const _RULES = [_rule('command', `not: {inside: ${_LOOP}}`), _rule('looped', `inside: ${_LOOP}`)].join('\n---\n');
+const _RULES = [_rule('command', `{not: ${_CONDITION}}`), _rule('condition', _CONDITION)].join('\n---\n');
 const SCAN: readonly string[] = [
     'mise',
     'exec',
@@ -63,15 +58,12 @@ const SCAN: readonly string[] = [
     '--report-style',
     'short',
 ];
-const _REPORT = /^STDIN:\d+:\d+: \w+\[(?<rule>command|looped)\]: (?<line>.*)$/gmu;
-const _QUOTED = /'(?<single>[^']*)'|"(?<double>(?:[^"\\]|\\.)*)"/gu;
+const _REPORT = /^STDIN:\d+:\d+: \w+\[(?<rule>command|condition)\]: (?<line>.*)$/gmu;
+const _QUOTED = /\$?'(?<single>[^']*)'|\$?"(?<double>(?:[^"\\]|\\.)*)"|\\(?<bare>[\s\S])/gu;
 const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
-const _PROCESS_CALL = /subprocess|child_process|os\.(?:system|exec|spawn|popen)|\b(?:system|exec|spawn|popen|qx|Open3)\b|`|%x/u;
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _DIGITS = /^\d+$/u;
-const _INLINE_FLAGS: readonly string[] = ['--eval', '--command', '--print', '--execute'];
-const _INTERPRETERS: readonly string[] = ['python', 'node', 'ruby', 'perl'];
-const _SHELLS: readonly string[] = ['sh', 'bash', 'zsh', 'dash', 'ksh', 'eval'];
+const _SHELLS: readonly string[] = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
 const _SUBCOMMANDS: readonly string[] = ['run', 'exec', 'tool', 'x'];
 const _VALUE_OPTS: readonly string[] = ['-u', '-I', '-n', '-g', '--user', '--replace'];
 const _WRAPPERS: readonly string[] = [
@@ -79,6 +71,7 @@ const _WRAPPERS: readonly string[] = [
     'doas',
     'env',
     'command',
+    'exec',
     'nice',
     'nohup',
     'stdbuf',
@@ -99,7 +92,11 @@ const _WRAPPERS: readonly string[] = [
 // --- [WORDS] ---------------------------------------------------------------------------
 
 const _unquote = (word: string): string =>
-    word.replace(_QUOTED, (_match: string, single?: string, double?: string): string => single ?? (double ?? '').replace(_ESCAPED, '$<char>'));
+    word.replace(
+        _QUOTED,
+        (_match: string, single?: string, double?: string, bare?: string): string =>
+            single ?? (double === undefined ? (bare ?? '') : double.replace(_ESCAPED, '$<char>')),
+    );
 
 const _stripOptions = (argv: Argv): Argv => {
     const [head] = argv;
@@ -119,8 +116,8 @@ const strip = (argv: Argv): Argv => {
     return head !== undefined && (_ENV_ASSIGN.test(head) || _WRAPPERS.includes(head)) ? strip(_stripOptions(argv.slice(1))) : argv;
 };
 
-const _operand = (argv: Argv, letter: string): readonly string[] => {
-    const hit = argv.findIndex((word) => _INLINE_FLAGS.includes(word) || (word.startsWith('-') && !word.startsWith('--') && word.endsWith(letter)));
+const _inline = (argv: Argv): readonly string[] => {
+    const hit = argv.findIndex((word) => word.startsWith('-') && !word.startsWith('--') && word.endsWith('c'));
     return hit < 0
         ? []
         : argv
@@ -131,52 +128,37 @@ const _operand = (argv: Argv, letter: string): readonly string[] => {
 
 // --- [RESOLUTION] ----------------------------------------------------------------------
 
-const _sentinel = (looped: boolean): Command => ({ words: ['git', INTERPRETER], looped });
-
-const _shell = (argv: Argv, command: Command, depth: number): Resolved => {
-    const bodies = _operand(argv, 'c').map((text): Body => ({ text, looped: command.looped }));
-    if (bodies.length > 0 && depth < _MAX_DEPTH) {
-        return { commands: [command], bodies };
+const _texts = (name: string, argv: Argv): readonly string[] => {
+    if (name === 'eval') {
+        return [argv.slice(1).join(' ')];
     }
-    const opaque = argv.slice(1).some((word) => word === '-s' || !word.startsWith('-'));
-    return { commands: opaque ? [command, _sentinel(command.looped)] : [command], bodies: [] };
+    return _SHELLS.includes(name) ? _inline(argv) : [];
 };
-
-const _interpreter = (body: readonly string[], command: Command): Resolved => ({
-    commands: body.some((text) => _PROCESS_CALL.test(text)) ? [command, _sentinel(command.looped)] : [command],
-    bodies: [],
-});
 
 const _resolve = (command: Command, depth: number): Resolved => {
     const argv = strip(command.words);
-    const name = basename(argv[0] ?? '');
-    if (_SHELLS.includes(name)) {
-        return _shell(argv, command, depth);
-    }
-    const body = [..._operand(argv, 'c'), ..._operand(argv, 'e')].slice(0, 1);
-    return body.length > 0 && _INTERPRETERS.some((prefix) => name.startsWith(prefix))
-        ? _interpreter(body, command)
-        : { commands: [command], bodies: [] };
+    const texts = depth < _MAX_DEPTH ? _texts(basename(argv[0] ?? ''), argv) : [];
+    return { commands: [command], bodies: texts.filter((text) => text !== '').map((text): Body => ({ text, condition: command.condition })) };
 };
 
 // --- [REPORT] --------------------------------------------------------------------------
 
-const _commands = (report: string, looped: boolean): readonly Command[] =>
+const _commands = (report: string, condition: boolean): readonly Command[] =>
     [...report.matchAll(_REPORT)].map(
         (match): Command => ({
             words: (match.groups?.['line'] ?? '')
                 .split(_SEPARATOR)
                 .filter((word) => word !== '')
                 .map(_unquote),
-            looped: looped || match.groups?.['rule'] === 'looped',
+            condition: condition || match.groups?.['rule'] === 'condition',
         }),
     );
 
-const _run = (scan: Scanner, text: string, looped: boolean): Promise<Parse> =>
+const _run = (scan: Scanner, text: string, condition: boolean): Promise<Parse> =>
     scan(text).then(
         ({ exitCode, stdout, stderr }): Parse =>
             exitCode === 0 && (stdout === '' || stdout.endsWith('\n'))
-                ? { kind: 'parsed', commands: _commands(stdout, looped) }
+                ? { kind: 'parsed', commands: _commands(stdout, condition) }
                 : { kind: 'unparsed', reason: `ast-grep exited ${exitCode} over the command, ${stderr.trim()}` },
         (cause: unknown): Parse => ({ kind: 'unparsed', reason: `ast-grep did not run over the command, ${String(cause)}` }),
     );
@@ -197,7 +179,7 @@ const _bodies = (parsed: Parse, depth: number): readonly Body[] =>
 const _nested =
     (scan: Scanner, body: Body, depth: number) =>
     (left: Parse): Promise<Parse> =>
-        _parse(scan, body.text, depth + 1, body.looped).then((right) => _join(left, right));
+        _parse(scan, body.text, depth + 1, body.condition).then((right) => _join(left, right));
 
 const _chain = (scan: Scanner, own: Promise<Parse>, bodies: readonly Body[], depth: number): Promise<Parse> =>
     bodies.reduce((chain, body) => chain.then(_nested(scan, body, depth)), own);
@@ -213,11 +195,11 @@ const _expand = (scan: Scanner, run: Promise<Parse>, depth: number): Promise<Par
         depth,
     );
 
-const _parse = (scan: Scanner, text: string, depth: number, looped: boolean): Promise<Parse> => _expand(scan, _run(scan, text, looped), depth);
+const _parse = (scan: Scanner, text: string, depth: number, condition: boolean): Promise<Parse> => _expand(scan, _run(scan, text, condition), depth);
 
 const parse = (scan: Scanner, command: string): Promise<Parse> => _parse(scan, command, 0, false);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Argv, Command, Parse, Scanner };
-export { INTERPRETER, parse, pastAssignments, SCAN, strip };
+export { parse, pastAssignments, SCAN, strip };

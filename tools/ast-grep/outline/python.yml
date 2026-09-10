@@ -1,5 +1,5 @@
 id: python-type-alias
-language: Python
+language: python
 role: item
 symbolType: struct
 rule:

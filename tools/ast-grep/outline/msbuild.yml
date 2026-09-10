@@ -78,8 +78,10 @@ rule:
             has:
                 kind: STag
                 has: {kind: Name, regex: "^ItemGroup$"}
+transform:
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: "$NAME $VALUE"
-signature: $TAG
+signature: $LINE
 isPublic: true
 
 ---
@@ -107,8 +109,9 @@ rule:
             has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
 transform:
     NAME: substring($VALUE, startChar=1, endChar=-1)
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $TAG
+signature: $LINE
 isExported: true
 
 ---
@@ -141,8 +144,10 @@ rule:
                         kind: element
                         inside: {kind: document}
                         has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+transform:
+    LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $TAG
+signature: $LINE
 isPublic: true
 
 ---

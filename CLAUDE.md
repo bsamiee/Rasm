@@ -6,17 +6,15 @@
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but the composition rules do not, define a result type when a language lacks one instead of adding another error mechanism
 - Use established, context-appropriate domain terminology in file names, directory names, identifiers, and prose
-- IMPORTANT: Fix a defect at its cause after reading the tool's current documentation, a wrapper, fallback, guard, or retry around it is the defect
-- `tests/` holds the shared test support every suite builds on, a test file is written when the user asks for that test
+- Fix a defect at its cause, a wrapper, fallback, guard, or retry around it is the defect
+- Test files exist when the user asks for a test
+- Checks, rules, and tests stay read-only during a code change, editing one is its own task the user asks for
 - Checks run over the files a change touched, never the full tree
-- A check, rule, or test is read-only during a code change, editing one is its own task the user asks for
-- A removal deletes every mention and adjusts each consumer to the absence, nothing stands in for the removed content
-- A refactor's before form becomes an ast-grep rule with the after form as its fix, once a second instance exists and no checker reports it
-- Skills, memories, and docs hold the principle that decides a case, the state of the project lives in the files that are that state
-- Every tool, package, and server in the tree is a capability read from its docs before a solution is written, the docs decide the form
-- No audit, security scan, supply-chain pin, or approval gate joins a manifest, target, workflow, or program
-- Every resource and repository setting is a row of the typed program under `infra/`, a workflow holds commands alone
-- Nx runs with the daemon off and without `.nxignore`, one file owns each concern, a second file beside an owner is wrong structure to correct
+- Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
+- Refactors become ast-grep rules, before form as pattern and after form as fix, once a second instance exists and no checker reports it
+- Skills, memories, and docs hold the principle that decides a case, a project's state is its files
+- Every tool, package, and server in the tree is a capability, its current docs decide a solution's form before one is written
+- Audits, security scans, supply-chain pins, and approval gates join a manifest, target, workflow, or program at the user's request alone
 
 ## [01]-[LANGUAGE_STANDARDS]
 
@@ -36,10 +34,8 @@ Navigate code through its language's skill and MCP server, or through the ast-gr
 - ALWAYS use `manage-repo` skill for Nx targets, tooling, infrastructure, and CI
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
-- ALWAYS use `playwright:playwright-cli` skill for a browser, `playwright` MCP when each step depends on the snapshot before it
+- ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
 - ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
-
-The `function-hooks` plugin refuses destructive git commands, shell waits, and a second config file beside its owner.
 
 [CLI_TOOLING]:
 
@@ -68,9 +64,9 @@ The `function-hooks` plugin refuses destructive git commands, shell waits, and a
 
 [FLOW]: Dependent operations use one result type that short-circuits on the first error
 - ALWAYS bind an operation that consumes the previous operation's value, the error case skips the remaining operations
-- ALWAYS implement recovery as a function from an error to the same result type, the declaring package owns classification and the consumer with the alternative owns recovery
+- ALWAYS recover through a function from an error to the same result type, the raising package classifies, the consumer with the alternative recovers
 - ALWAYS choose the result type at the input boundary, preserve it through domain logic, and translate it only at the host boundary
-- ALWAYS select control flow by pattern matching the result cases, status flags, out parameters, and nullable fields paired with a flag do not select the path
+- ALWAYS select control flow by pattern matching result cases, no status flag, out parameter, or nullable field paired with a flag selects the path
 - ALWAYS use one result type per expression, adapt a call returning a different result type at the call site
 - ALWAYS compose asynchrony with the result type, the same bind chains asynchronous and synchronous operations
 
@@ -78,7 +74,7 @@ The `function-hooks` plugin refuses destructive git commands, shell waits, and a
 - ALWAYS define a non-empty error type with associative combination, independent errors accumulate deterministically
 - ALWAYS combine independent results applicatively, the result holds every error instead of only the first one encountered
 - ALWAYS traverse a collection with one result-returning function and accumulate errors when the elements are independent
-- ALWAYS derive concurrency from independence: operands that do not consume each other can evaluate concurrently while result ordering remains deterministic
+- ALWAYS derive concurrency from independence, operands that do not consume each other can evaluate concurrently, result order stays deterministic
 
 [PURITY]: Domain functions read only their arguments and write only their return value
 - ALWAYS pass the clock, randomness, environment, and configuration as arguments, domain code reads no ambient source
@@ -102,10 +98,17 @@ The `function-hooks` plugin refuses destructive git commands, shell waits, and a
 ## [03]-[DEPENDENCY_POLICY]
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
-- ALWAYS keep .NET MSBuild and NuGet manifests grouped by responsibility, order entries consistently within each group, and limit maintenance notes to one line
+- ALWAYS group .NET MSBuild and NuGet manifest entries by responsibility, order each group consistently, and keep maintenance notes to one line
 - ALWAYS record each package as one row of its central manifest with a one-line purpose comment
 - ALWAYS add a missing dependency record to its owning manifest instead of deleting the corresponding record
 - ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
 - ALWAYS let a manifest, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
-- ALWAYS map every package id to one source in `NuGet.config`, `Rasm.*` to the local `.artifacts/nuget` feed and every other id to nuget.org
+- ALWAYS map every package id to one source in `NuGet.config`
+
+## [04]-[FUNCTION_HOOKS]
+
+[TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny` or `next`
+- ALWAYS use `plugin-authoring` skill for writing or changing a function hook
+- ALWAYS write a policy as a pure function from the parsed call to a decision, the registered hook alone reads `$` and answers `deny` or `next`
+- ALWAYS fold every policy under the one `tool.call` registration, the first refusal is the call's answer

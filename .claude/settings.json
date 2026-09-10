@@ -6,34 +6,14 @@
     "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
     "CLAUDE_CODE_THRIFTY_SONIC": "0",
     "BASH_DEFAULT_TIMEOUT_MS": "600000",
+    "CLAUDE_CODE_SHELL": "bash",
     "NO_COLOR": "1",
     "FORCE_COLOR": "0"
   },
   "permissions": {
     "allow": [
-      "Bash(git status *)",
-      "Bash(git diff *)",
-      "Bash(git log *)",
-      "Bash(git show *)",
-      "Bash(git ls-files *)",
-      "Bash(git rev-parse *)",
-      "Bash(git fetch *)",
-      "Bash(git add *)",
-      "Bash(git commit *)",
-      "Bash(git mv *)",
-      "Bash(git rm *)",
-      "Bash(git branch *)",
-      "Bash(git switch *)",
-      "Bash(git tag *)",
-      "Bash(git push *)",
-      "Bash(git worktree *)",
-      "Bash(git lfs *)",
-      "Bash(git ls-remote *)",
-      "Bash(git clone *)",
-      "Bash(gh pr *)",
-      "Bash(gh run *)",
-      "Bash(gh release *)",
-      "Bash(gh api *)",
+      "Bash(git *)",
+      "Bash(gh *)",
       "Bash(mise *)",
       "Bash(pnpm *)",
       "Bash(nx *)",
@@ -60,15 +40,12 @@
       "Bash(duckdb *)",
       "Bash(jq *)",
       "Bash(yq *)",
-      "Bash(typos *)",
       "Bash(yamllint *)",
       "Bash(yamlfmt *)",
       "Bash(actionlint *)",
-      "Bash(doppler configure *)",
-      "Bash(doppler secrets *)",
-      "Bash(pulumi preview *)",
-      "Bash(pulumi stack *)",
-      "Bash(claude plugin *)",
+      "Bash(doppler *)",
+      "Bash(pulumi *)",
+      "Bash(claude *)",
       "Bash(tvly *)",
       "Bash(curl *)",
       "Bash(tar *)",
@@ -91,7 +68,10 @@
     "defaultMode": "bypassPermissions"
   },
   "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": ["greptile", "hostinger"],
+  "disabledMcpjsonServers": [
+    "greptile",
+    "hostinger"
+  ],
   "hooks": {
     "SessionStart": [
       {
@@ -144,7 +124,6 @@
     }
   },
   "effortLevel": "high",
-  "skipDangerousModePermissionPrompt": true,
   "claudeMdExcludes": [
     "**/.cache/**/CLAUDE.md",
     "**/node_modules/**/CLAUDE.md",

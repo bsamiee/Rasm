@@ -1,0 +1,25 @@
+[project]
+name = "rasm-test-support"
+version = "0.0.0"
+requires-python = ">=3.15"
+dependencies = [
+    "anyio",
+    "asyncssh",
+    "expression",
+    "fsspec",
+    "httpx",
+    "hypothesis",
+    "moto[server]",
+    "msgspec",
+    "numpy",
+    "opentelemetry-api",
+    "opentelemetry-sdk",
+    "psutil",
+    "pydantic",
+    "pytest",
+    "pytest-benchmark",
+    "s3fs",
+    "sniffio",
+    "structlog",
+    "trio",
+]

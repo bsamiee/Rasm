@@ -1,6 +1,6 @@
 # [EVENT_SOURCING]
 
-Functional design applies to persisted data as well as in-memory values, because overwriting rows is shared mutable state even when the server process is stateless. Event sourcing stores the transitions of an entity as an ordered history and derives every snapshot from it.
+Overwritten rows are shared mutable state even under a stateless server process, functional design applies to persisted data as to in-memory values. Event sourcing stores the transitions of an entity as an ordered history and derives every snapshot from it.
 
 ## [01]-[STORAGE]
 
@@ -41,7 +41,7 @@ Event types have different payload shapes, the storage options from most to leas
 
 ## [03]-[STATE]
 
-State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, because each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in the snapshot methods:
+State is an immutable snapshot derived for one purpose, and it is not the persisted source of truth. The command side needs only enough state to decide whether a command is allowed (status, code, balance, limit, not the full transaction list), the query side needs read models shaped for each view, and analytics use other projections, each answers an independent question. The snapshot exposes read-only values and transformation methods that return new instances, and business rules belong in command validation rather than in the snapshot methods:
 
 ```csharp
 internal enum Status { Requested = 0, Active = 1, Frozen = 2 }
@@ -55,7 +55,7 @@ internal sealed record Snapshot(Status Status, string Code, decimal Balance, dec
 
 ## [04]-[TRANSITIONS]
 
-Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial domain values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, because a duplicate implementation risks a live state that history cannot reconstruct. Replayed creation events leave an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
+Transitions after creation are pure functions `Snapshot -> Event -> Snapshot`, and creation is the special case `Created -> Snapshot` with no prior state that can establish initial domain values (a new entry starts active). The transition selects the event case through `Switch` and returns a new snapshot, and one transition function serves both the live occurrence and the replay, a duplicate implementation risks a live state that history cannot reconstruct. Replayed creation events leave an existing snapshot unchanged, and a new case fails every `Switch` to compile until it gains an arm:
 
 ```csharp
 internal static partial class Entry {
@@ -83,7 +83,7 @@ internal static partial class Entry {
 }
 ```
 
-The snapshot at a past time comes from the same computation after excluding later events, with each event's time value as the boundary.
+Snapshots at a past time come from the same computation after excluding later events, with each event's time value as the boundary.
 
 ## [06]-[COMMANDS]
 
@@ -130,7 +130,7 @@ internal static class Commands {
 }
 ```
 
-Accepted events can trigger subscribers (external transfers, derived calculations, notifications, projection updates), and persisting the event and publishing it to them must behave atomically, because saving and then crashing before subscribers see it leaves the system inconsistent. The guarantee depends on the storage and messaging infrastructure, durable subscriptions can use the event store as the event stream with at-least-once delivery, and the handler then only saves the event. Prefer one resulting event per command, and let downstream handlers translate it into further events for the same or other entities. Command-side handlers perform follow-up actions and can emit further events, and query-side handlers update read models. Rules that depend on the snapshot observed before the event is created need one process per entity that serializes its commands, with persistence inside that process.
+Accepted events can trigger subscribers (external transfers, derived calculations, notifications, projection updates), and persisting the event and publishing it to them must behave atomically, saving and then crashing before subscribers see it leaves the system inconsistent. The guarantee depends on the storage and messaging infrastructure, durable subscriptions can use the event store as the event stream with at-least-once delivery, and the handler then only saves the event. Prefer one resulting event per command, and let downstream handlers translate it into further events for the same or other entities. Command-side handlers perform follow-up actions and can emit further events, and query-side handlers update read models. Rules that depend on the snapshot observed before the event is created need one process per entity that serializes its commands, with persistence inside that process.
 
 ## [07]-[QUERIES]
 
@@ -154,4 +154,4 @@ As history grows, replaying it for every query becomes expensive, the query side
 
 ## [08]-[FIT]
 
-The domain decides between event sourcing and valid-time storage. Choose event sourcing when domain events are meaningful business occurrences rather than renamed CRUD operations, events drive more than one consequence, commands and the views users consume have different shapes, and reconstructing how and why an entity evolved is central (an auction, where bids and closure are occurrences and clients submit single actions while consuming item details, bid histories, and purchase lists). Prefer valid-time storage when attributes and their validity intervals are the principal domain concepts (product administration that records creation, retirement, and modification and needs a temporal history of facts).
+Domains decide between event sourcing and valid-time storage. Choose event sourcing when domain events are meaningful business occurrences rather than renamed CRUD operations, events drive more than one consequence, commands and the views users consume have different shapes, and reconstructing how and why an entity evolved is central (an auction, where bids and closure are occurrences and clients submit single actions while consuming item details, bid histories, and purchase lists). Prefer valid-time storage when attributes and their validity intervals are the principal domain concepts (product administration that records creation, retirement, and modification and needs a temporal history of facts).

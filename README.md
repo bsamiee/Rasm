@@ -23,7 +23,7 @@ Rasm/
 ├── pyproject.toml            # Python dependency groups and every Python tool table
 ├── Directory.Packages.props  # .NET central package versions
 ├── Directory.Build.props     # .NET build defaults and project classification by tree position
-├── Directory.Build.targets   # .NET items, host references, and policy targets
+├── Directory.Build.targets   # .NET items, host package references, and policy targets
 ├── NuGet.config              # NuGet source and package folder
 ├── Workspace.slnx            # .NET solution
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
@@ -32,7 +32,7 @@ Rasm/
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── sgconfig.yml              # ast-grep rules, parsers, and embedded languages
 ├── .editorconfig             # Editor settings and .NET analyzer severity
-├── .yamllint.yaml            # YAML lint beside yamlfmt
+├── .yamllint.yaml, .yamlfmt  # YAML lint and format
 ├── .github/                  # ci.yml, codeql.yml, dependabot.yml, and setup action
 ├── .claude/                  # Skills, agents, settings, and plugin marketplace
 ├── .mcp.json                 # Agent harness MCP servers
@@ -82,9 +82,10 @@ flowchart LR
 - Targets call one tool, arguments on the command, configuration in the tool's own file
 - `nx run rasm:lint` runs every checker, `nx run rasm:format` every writer, `nx run rasm:check` lint and root typecheck
 - `nx run-many -t check` runs every project, `nx run <project>:<target>` one, `nx affected -t check` the changed ones
-- `nx run rasm:upgrade` moves every catalog to its newest release, `--configuration <language>` one catalog
+- `nx run rasm:upgrade` moves every catalog and tool binary to its newest release, `--configuration <language>` one catalog, `tools` the binaries
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
-- Workspace plugin names each project's language tag and empty `typecheck` and `check` targets from its manifest, `test` for Python
+- `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
+- Workspace plugin names each project's language tag and empty `typecheck` and `check` targets, `test` for a Python suite under `tests/`
 - `targetDefaults` filtered by `tag:language:*` hold the per-language body of each named target, `@nx/dotnet` and `@nx/vitest` infer their own
 - Root targets hold operations with no owning project
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
@@ -107,7 +108,8 @@ flowchart LR
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:up`                  |
 |  [10]   | Tool no target runs            | Machine profile                                                                       |
 
-- Package rows hold a one-line purpose comment, every other file holds section dividers alone
+- Package rows and `.editorconfig` rows hold a one-line purpose comment, every other file holds section dividers alone
+- Tool rows name a release candidate where `latest` resolves a development build
 - Facts sit once in their owning file, other files name the owner
 
 ## [05]-[QUALITY]
@@ -115,8 +117,8 @@ flowchart LR
 - .NET: Roslyn analyzers at `latest-all`, warnings as errors, code style enforced in build, severity in `.editorconfig`
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
-- Tree: `typos`, `yamllint`, `actionlint`, and ast-grep rule families
-- Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `typos --write-changes`
+- Tree: `yamllint`, `actionlint`, and ast-grep rule families
+- Writers: `dotnet format`, `ruff format`, Biome, yamlfmt
 - Failing checks are fixed in the code or the rule, severity stays as configured
 
 ## [06]-[HARNESS]
@@ -131,7 +133,7 @@ flowchart LR
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
 - Each `apps/<name>/` is one product with its own host, spanning as many languages and projects as the host requires
-- Rhino 9 and Grasshopper 2 on macOS are the hosts, `Directory.Build.*` classify projects and bind host assemblies
+- Rhino 9 and Grasshopper 2 are the hosts, `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
 - Manifests at the project root define projects: `.csproj` listed in `Workspace.slnx`, `package.json` beside `tsconfig.json`, `pyproject.toml`
 - Project files sit at the project root, with no `src/` directory at any depth and no directory adding a level of nesting alone
 - Each language area builds and runs without another present

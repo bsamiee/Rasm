@@ -1,6 +1,5 @@
 version: 2
 updates:
-    # Package ecosystems stay out, the upgrade target moves them to the newest prerelease
     - package-ecosystem: github-actions
       directories: [/.github/workflows, /.github/actions/*]
       schedule:

@@ -103,7 +103,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
         async with anyio.create_task_group() as task_group:
             _ = task_group.start_soon(_serve, server_sock)
             return await asyncssh.connect("127.0.0.1", 22, sock=client_sock, username=spec.user, known_hosts=None)
-        pytest.fail("the SSH task group exited without a connection")  # The checkers read the task group exit as able to suppress the error
+        pytest.fail("SSH task group absorbed a cancellation before the client connected")  # TaskGroup.__aexit__ returns bool
 
     return Provisioned(url=f"ssh://{spec.user}@127.0.0.1:0", client_factory=_connect, teardown=lambda: None)
 

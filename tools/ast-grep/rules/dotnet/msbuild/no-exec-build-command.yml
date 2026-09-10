@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exec-build-command
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Exec$'}}}
+        - has:
+            matches: msbuild-tag
+            has:
+                matches:
+                    msbuild-attribute:
+                        name: {regex: '^Command$'}
+                        value:
+                            regex: '(^["'']?\s*(&quot;)?\s*|(&amp;|;|\|)\s*)(dotnet\s+(build|clean|msbuild|restore|publish|pack|vstest|test|run)|nuget\s+restore|msbuild)\b'
+message: '`Exec` starts a build process the engine cannot schedule or log'
+note: 'Order the project through `ProjectReference` with `ReferenceOutputAssembly="false"`, call a target through the `MSBuild` task'

@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-reference-to-package-or-project-output
+language: xml
+severity: error
+rule:
+    all:
+        - matches: {msbuild-element: {name: {regex: '^Reference$'}}}
+        - matches:
+            msbuild-metadata:
+                name: {regex: '^HintPath$'}
+                value: {regex: '(^["'']?|[\\/])packages[\\/]|[\\/](bin|obj)[\\/](Debug|Release|\$\()'}
+message: '`Reference` resolves an assembly from a package folder or a project output that no restore or build order produces'
+note: Reference a package through `PackageReference` and a project through `ProjectReference`

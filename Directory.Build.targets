@@ -2,25 +2,7 @@
     <PropertyGroup Label="Host Classification">
         <_HostTokens>;$(RhinoHost);</_HostTokens>
         <HostGrasshopper Condition="$(_HostTokens.Contains(';grasshopper;'))">true</HostGrasshopper>
-        <HostPlatform Condition="$(_HostTokens.Contains(';platform;'))">true</HostPlatform>
-        <HostUi Condition="$(_HostTokens.Contains(';ui;')) or '$(HostPlatform)' == 'true' or '$(HostGrasshopper)' == 'true'">true</HostUi>
-        <HostCommon Condition="$(_HostTokens.Contains(';common;')) or '$(HostUi)' == 'true'">true</HostCommon>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Rhino Host Bundle" Condition="'$(HostCommon)' == 'true'">
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and '$(RHINO_APP_PATH)' != ''">$(RHINO_APP_PATH)</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and $([MSBuild]::IsOSPlatform('OSX')) and Exists('/Applications/Rhino 9.app')">/Applications/Rhino 9.app</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and $([MSBuild]::IsOSPlatform('OSX')) and Exists('/Applications/RhinoBETA.app')">/Applications/RhinoBETA.app</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">/Applications/RhinoWIP.app</RhinoAppPath>
-        <_RhinoProgramFiles Condition="$([MSBuild]::IsOSPlatform('Windows'))">$([System.Environment]::GetFolderPath(SpecialFolder.ProgramFiles))</_RhinoProgramFiles>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and '$(_RhinoProgramFiles)' != '' and Exists('$(_RhinoProgramFiles)/Rhino 9')">$(_RhinoProgramFiles)/Rhino 9</RhinoAppPath>
-        <RhinoAppPath Condition="'$(RhinoAppPath)' == '' and '$(_RhinoProgramFiles)' != ''">$(_RhinoProgramFiles)/Rhino 9 WIP</RhinoAppPath>
-        <_RhinoAppDir Condition="'$(RhinoAppPath)' != ''">$([MSBuild]::NormalizeDirectory('$(RhinoAppPath)'))</_RhinoAppDir>
-        <RhinoAssemblyDirectory Condition="'$(RhinoAssemblyDirectory)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(_RhinoAppDir)Contents/Frameworks/RhCore.framework/Versions/Current/Resources/</RhinoAssemblyDirectory>
-        <RhinoAssemblyDirectory Condition="'$(RhinoAssemblyDirectory)' == '' and Exists('$(_RhinoAppDir)System/netcore/')">$(_RhinoAppDir)System/netcore/</RhinoAssemblyDirectory>
-        <RhinoAssemblyDirectory Condition="'$(RhinoAssemblyDirectory)' == ''">$(_RhinoAppDir)System/</RhinoAssemblyDirectory>
-        <Grasshopper2PluginPath Condition="'$(Grasshopper2PluginPath)' == '' and $([MSBuild]::IsOSPlatform('OSX'))">$(RhinoAssemblyDirectory)ManagedPlugIns/Grasshopper2Plugin.rhp/</Grasshopper2PluginPath>
-        <Grasshopper2PluginPath Condition="'$(Grasshopper2PluginPath)' == ''">$(_RhinoAppDir)Plug-ins/Grasshopper2/net48/</Grasshopper2PluginPath>
+        <HostCommon Condition="$(_HostTokens.Contains(';common;')) or '$(HostGrasshopper)' == 'true'">true</HostCommon>
     </PropertyGroup>
 
     <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'">
@@ -44,18 +26,11 @@
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
     </ItemGroup>
 
-    <ItemGroup Label="Rhino Host Assemblies" Condition="'$(HostCommon)' == 'true'">
-        <_RhinoHostAssembly Include="RhinoCommon" />
-        <_RhinoHostAssembly Include="Eto" Condition="'$(HostUi)' == 'true'" />
-        <_RhinoHostAssembly Include="Eto.macOS;Microsoft.macOS;Rhino.UI" Condition="'$(HostPlatform)' == 'true'" />
-        <Reference Include="@(_RhinoHostAssembly)" HintPath="$(RhinoAssemblyDirectory)%(Identity).dll" Private="false" />
-        <Reference Include="Grasshopper2;GrasshopperIO" HintPath="$(Grasshopper2PluginPath)%(Identity).dll" Private="false" Condition="'$(HostGrasshopper)' == 'true'" />
-        <PackageReference Include="System.Drawing.Common" ExcludeAssets="runtime" Condition="'$(HostUi)' == 'true'" />
+    <ItemGroup Label="Rhino Host Packages" Condition="'$(HostCommon)' == 'true'">
+        <PackageReference Include="RhinoCommon" ExcludeAssets="runtime" />
+        <PackageReference Include="Grasshopper2" ExcludeAssets="runtime" Condition="'$(HostGrasshopper)' == 'true'" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(HostGrasshopper)' == 'true'" />
-        <AssemblyAttribute Include="System.Runtime.Versioning.SupportedOSPlatformAttribute" Condition="'$(HostPlatform)' == 'true'">
-            <_Parameter1>macos</_Parameter1>
-        </AssemblyAttribute>
     </ItemGroup>
 
     <ItemGroup Label="Workspace Policy">
@@ -64,14 +39,6 @@
 
     <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <RemoveDir Directories="$(_TestResultsDirectory)" />
-    </Target>
-
-    <Target Name="VerifyRhinoHostBundle" BeforeTargets="ResolveAssemblyReferences" Condition="'$(HostCommon)' == 'true'">
-        <ItemGroup>
-            <_MissingRhinoHostFile Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
-        </ItemGroup>
-        <Error Code="RASM0003" Condition="'@(_MissingRhinoHostFile)' != ''"
-               Text="Rhino installation '$(RhinoAppPath)' lacks @(_MissingRhinoHostFile->'%(Filename)%(Extension)', ', '), set RHINO_APP_PATH to a Rhino 9 installation" />
     </Target>
 
     <Target Name="ValidateProjectPolicy" BeforeTargets="PrepareForBuild" Condition="'$(DesignTimeBuild)' != 'true'">

@@ -16,13 +16,7 @@ from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_s
 import msgspec
 import pytest
 
-from tests.python.support.runtime import REPO_ROOT
 lazy from tests.python.support.strategies import strategy_for
-
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-_TEST_FILE_GLOBS: tuple[str, ...] = ("test_*.py", "*_test.py")
-_IMPORT_ROOTS: frozenset[Path] = frozenset({REPO_ROOT, REPO_ROOT / "libs" / "python"})  # The pythonpath rows of the root pyproject.toml
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -224,14 +218,14 @@ def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: 
     stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
 
 
-def _importable(folder: Path) -> str:
-    """Return the import name of a package directory, its name under an import root and its repository-relative dotted path elsewhere."""
-    if folder.parent in _IMPORT_ROOTS or not folder.is_relative_to(REPO_ROOT):
+def _importable(folder: Path, config: pytest.Config) -> str:
+    """Return the import name of a package directory, its name under a ``pythonpath`` root and its rootdir-relative dotted path elsewhere."""
+    if folder.parent in config.getini("pythonpath") or not folder.is_relative_to(config.rootpath):
         return folder.name
-    return ".".join(folder.relative_to(REPO_ROOT).parts)
+    return ".".join(folder.relative_to(config.rootpath).parts)
 
 
-def register_package_tree(stash: pytest.Stash, source_root: Path, suite_root: Path) -> tuple[str, ...]:
+def register_package_tree(config: pytest.Config, source_root: Path, suite_root: Path) -> tuple[str, ...]:
     """Register each Python package directly beneath ``source_root`` under the name its modules import by, with the same-named folder under ``suite_root`` as the test directory.
 
     Returns:
@@ -239,28 +233,28 @@ def register_package_tree(stash: pytest.Stash, source_root: Path, suite_root: Pa
     """
     children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
     authored = tuple(child for child in children if any(child.rglob("*.py")))
-    names = tuple(_importable(child) for child in authored)
+    names = tuple(_importable(child, config) for child in authored)
     for name, child in zip(names, authored, strict=True):
-        register_package(stash, name, suite=suite_root / child.name)
+        register_package(config.stash, name, suite=suite_root / child.name)
     return names
 
 
-def _module_name(py: Path) -> str:
+def _module_name(py: Path, rootpath: Path) -> str:
     """Return the dotted name pytest importlib mode assigns a test module."""
-    return ".".join((py.relative_to(REPO_ROOT) if py.is_relative_to(REPO_ROOT) else py).with_suffix("").parts)
+    return ".".join((py.relative_to(rootpath) if py.is_relative_to(rootpath) else py).with_suffix("").parts)
 
 
-def _test_modules(suite: Path) -> frozenset[str]:
-    return frozenset(_module_name(py) for pattern in _TEST_FILE_GLOBS for py in suite.rglob(pattern))
+def _test_modules(suite: Path, config: pytest.Config) -> frozenset[str]:
+    return frozenset(_module_name(py, config.rootpath) for pattern in config.getini("python_files") for py in suite.rglob(pattern))
 
 
-def uncollected_test_modules(packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
+def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
     """Return package test modules that pytest did not import during collection, their coverage declarations were not recorded.
 
     Collection imports every selected test module, a dotted name absent from ``sys.modules`` marks an uncollected module.
     """
     gaps = {
-        package: tuple(sorted(name for name in _test_modules(registration.suite) if name not in sys.modules))
+        package: tuple(sorted(name for name in _test_modules(registration.suite, config) if name not in sys.modules))
         for package, registration in packages.items()
         if registration.suite is not None
     }

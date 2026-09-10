@@ -6,32 +6,32 @@ Extractors repeating `fd`, `rg`, `jq`, or bundled extractor output are redundant
 
 ## [01]-[READING]
 
-- Repository outlines pass `--items structure`, members need `--view expanded`
-- `--match` and `--type` reach items alone, `--match` prints `nothing found` per file without a match
-- `--json=compact | grep '^\[{' | jq` over an item's `members` array reaches a member
+- Directory outlines pass `--items structure` for local items, members need `--view expanded`
+- `--match` is a Rust regex over item names, signatures, and first source lines, `--type` a comma list of `symbolType` values, neither reaches members
+- `--json=compact | jq` over an item's `members` array reaches a member
 - `<dir> -l <lang>` walks one language of a directory
-- Named dot directories and ignored paths need no `--no-ignore` flag
 - `<file> --items imports` lists a file's dependencies, `<dir> --items exports --view signatures` enumerates public entry points
 - `<file> --match '^<symbol>$' --view expanded` expands one symbol, `<producer> | ast-grep outline --stdin -l <lang>` outlines piped code
-- `<path> --json=stream | grep '^{' | jq -c '<filter>'` post-processes entries
+- `<path> --json=stream | rg '^\{' | jq -c '<filter>'` post-processes entries
 
 ## [02]-[EXTRACTORS]
 
+- Extractor documents hold `id`, `language`, `role` (`item` or `member`), `symbolType`, `rule`, and `name`, a member adds `parentRuleIds`
+- Optional keys are `signature`, `isImport`, `isExported`, `isPublic`, `constraints`, `utils`, and `transform`
 - `isImport` defaults to `false`, `isExported` and `isPublic` to `true`
 - File or stdin runs default to `--items structure --view digest`, a directory run or mixed arguments to `--items exports --view names`
 - `names` and `signatures` extract no member, `digest` prints member names with empty signatures, `expanded` evaluates member signatures
-- `--match` is case-sensitive Rust regex over item names and signatures and forces signature detail
-- `--type` takes a comma list of `symbolType` values
 - `--pub-members` drops members with `isPublic` false
 - Text view prints the item name in place of an empty signature, `--json` holds `""` for it
 - JSON entries hold `role`, `symbolType`, `name`, `range` (`byteOffset`, zero-based `start` and `end`), `signature`, and `astKind`
 - Items add `isImport`, `isExported`, and `members` (omitted when empty), a member adds `isPublic`
 - Injected regions (a `run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
-- Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, and php
+- Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
 - An extractor file holds one document per extractor separated by `---`, documents of several languages load from one file
+- `--outline-rules` loads a file for a built-in language, `customLanguages.<name>.outlineRules` one for a custom language, `sgconfig.yml` holds no other outline key
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, the first match on a node wins
 - One file loaded through both `outlineRules` and `--outline-rules` registers each extractor once
-- `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`, tsx members need the bundled set
+- `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`
 
 ## [03]-[CONSTRUCTION]
 
@@ -55,16 +55,13 @@ Choose the item boundary before its name or signature, a declaration matched thr
 - Quoted keys stay quoted where unquoting changes their spelling
 - Headers keep generics, constraints, attributes, and heritage clauses
 
-An extractor is refused when the construct has no identifier or an agent reads its text whole:
-a table row, a catalog `yq` prints, a `rule` or `fix` member inside a rule document, a workflow `env` or `permissions` block.
-TOML has no ast-grep language, a `customLanguages` grammar is a question for the user.
+Constructs with no identifier (a table row, a keyed block inside a document read whole) take no extractor.
+TOML has no built-in language, a `customLanguages` grammar adds one.
 
 ## [04]-[CHECKS]
 
-- Assert exact item and member identities, order, and cardinality before signatures, flags, and ranges, a partial comparison accepts extra entries
+- Compare exact item and member identities, order, and cardinality before signatures, flags, and ranges, a partial comparison accepts extra entries
 - Cardinality is a structural count, `ast-grep scan --inline-rules "$(cat <extractor>)" <path> --json=compact | jq length`
-- Fixtures per extractor: a nested declaration of the same syntax, a quoted or flow key, a comment before the construct, a multi-line header
-- Fixtures hold Unicode before a declaration and an injected region where the extractor applies to one
 - Added members prove under `--view expanded`
 - Proof runs `--outline-rules <existing>.yml --outline-rules <new>.yml` against the same command without the new file
 - Check each requested view, omitted member signatures in `digest` prove no failed transformation

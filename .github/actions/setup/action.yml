@@ -23,5 +23,5 @@ runs:
             key: pnpm-${{ runner.os }}-${{ runner.arch }}-${{ hashFiles('pnpm-lock.yaml') }}
         - run: pnpm install
           shell: bash
-        - run: uv sync --locked --only-group dev
+        - run: uv sync --locked --all-packages --no-default-groups --group dev
           shell: bash

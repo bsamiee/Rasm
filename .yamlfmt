@@ -1,0 +1,6 @@
+formatter:
+    indent: 4
+    retain_line_breaks: true
+gitignore_excludes: true
+exclude:
+    - pnpm-lock.yaml

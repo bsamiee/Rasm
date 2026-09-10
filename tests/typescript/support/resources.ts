@@ -56,7 +56,6 @@ interface ObjectStoreDoubles {
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _CONTROL_NOTIFICATION_PREFIX = '<test-support-control:';
 const _utf8 = new TextEncoder();
 
 // --- [ERRORS] --------------------------------------------------------------------------
@@ -90,6 +89,7 @@ const _database = <A>(run: () => Promise<A>): Effect.Effect<A, TestResourceError
             }),
     });
 
+// S3 returns list results in UTF-8 binary order
 const _byUtf8Bytes: Order.Order<string> = Order.mapInput(Order.array(Order.number), (key: string) => Array.fromIterable(_utf8.encode(key)));
 
 const TestDatabases: {
@@ -120,12 +120,10 @@ const TestDatabases: {
                 yield* Effect.acquireRelease(
                     _database(() =>
                         db.listen(channel, (payload) => {
-                            if (!payload.startsWith(_CONTROL_NOTIFICATION_PREFIX)) {
-                                mailbox.unsafeOffer(payload);
-                            }
+                            mailbox.unsafeOffer(payload);
                         }),
                     ),
-                    (dispose) => Effect.ignore(Effect.promise(() => dispose())),
+                    (dispose) => Effect.promise(() => dispose()),
                 );
                 return mailbox;
             }),

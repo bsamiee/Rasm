@@ -4,7 +4,6 @@
     "type": "module",
     "exports": {
         "./arbitraries": "./arbitraries.ts",
-        "./bench": "./bench.ts",
         "./properties": "./properties.ts",
         "./resources": "./resources.ts",
         "./setup": "./setup.ts",

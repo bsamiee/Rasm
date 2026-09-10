@@ -27,7 +27,7 @@ public sealed class CallSpy<TArgs> {
 
     public Seq<TArgs> Arguments => calls.Value.Map(static call => call.Arguments);
 
-    // The returned function records every call under the member name and answers from the behavior, a sequence that runs out fails the test
+    // Returned function records every call under the member name and answers from the behavior, an exhausted sequence fails the test
     public Func<TArgs, TResult> Stub<TResult>(string member, StubBehavior<TResult> behavior) {
         ArgumentException.ThrowIfNullOrWhiteSpace(member);
         ArgumentNullException.ThrowIfNull(behavior);
@@ -46,7 +46,7 @@ public sealed class CallSpy<TArgs> {
         };
     }
 
-    // Installs the stub into a mutable hook through bind, and the action bind returns restores the hook when the handle disposes
+    // Installs the stub into a mutable hook through bind, the action bind returns restores the hook when the handle disposes
     public RestoreHandle Attach<TResult>(string member, StubBehavior<TResult> behavior, Func<Func<TArgs, TResult>, Action> bind) {
         ArgumentNullException.ThrowIfNull(bind);
         return new RestoreHandle(bind(Stub(member, behavior)));
@@ -69,7 +69,7 @@ public sealed class Timeline(DateTimeOffset? start = null) {
         return events.Value.Skip(before);
     }
 
-    // Due is the schedule time of the firing, and Observed is the clock reading in the callback, which FakeTimeProvider moves to the end of Advance before it fires
+    // Due is the schedule time of the firing, Observed is the clock reading in the callback, FakeTimeProvider moves the clock to the end of Advance before it fires
     public ITimer CreateTimer(string label, TimeSpan due, TimeSpan? period = null) {
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
         TimeSpan origin = Clock.GetUtcNow() - Clock.Start;

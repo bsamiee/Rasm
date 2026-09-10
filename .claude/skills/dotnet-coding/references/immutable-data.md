@@ -1,6 +1,6 @@
 # [IMMUTABLE_DATA]
 
-Covers the snapshot and transition model behind the immutability rules of `dotnet-coding`, with the persistent structures and their costs.
+Covers the snapshot and transition model behind the immutability rules, with the persistent structures and their costs.
 
 ## [01]-[TRANSITIONS]
 
@@ -22,11 +22,11 @@ Shared mutable state creates problems:
 - Hidden coupling, every reader depends on every code path that can change the shared object
 - Loss of purity, changing state outside a function's local scope is an observable side effect
 
-Locks protect one update, and coordination becomes difficult when one business action affects many objects or subsystems, the larger the scope of shared mutation, the harder atomicity and correctness are to reason about. The concurrency source need not be threads, because asynchronous and parallel execution raise the same hazards, and a system that combines concurrency with state mutation cannot be proved free of race conditions, correctness comes from removing mutation from shared state. Mutation confined to a function is different, a local accumulator hidden from callers does not make the function impure, and `Fold` expresses that intent directly.
+Locks protect one update, and coordination becomes difficult when one business action affects many objects or subsystems, the larger the scope of shared mutation, the harder atomicity and correctness are to reason about. Asynchronous and parallel execution raise the same hazards as threads, a system that combines concurrency with state mutation cannot be proved free of race conditions, correctness comes from removing mutation from shared state. Mutation confined to a function is different, a local accumulator hidden from callers does not make the function impure, and `Fold` expresses that intent directly.
 
 ## [03]-[VALUES_AND_ENTITIES]
 
-For a value object, the value decides identity: changing a date, a number, or a geometric shape produces a different value, framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values instead of altering the receiver. Custom immutable operations follow the same shape, and a struct stays immutable, because a value type is copied between functions and a mutation of the copy propagates down the call stack and never back up:
+For a value object, the value decides identity: changing a date, a number, or a geometric shape produces a different value, framework primitives, `LocalDate`, and `string` are immutable, and their operations (`LocalDate.PlusDays`) return new values instead of altering the receiver. Custom immutable operations follow the same shape. A value type is copied between functions, a mutation of the copy propagates down the call stack and never back up:
 
 ```csharp
 internal readonly record struct Point(double X, double Y);
@@ -42,7 +42,7 @@ Entities differ: their identity persists while their state changes, the state is
 
 ## [04]-[DOMAIN_STATE]
 
-The snapshot constructs through factories that establish the initial values, exposes only the transitions the domain permits, and copies a mutable input collection at the boundary, and later changes to the caller's list never reach it:
+Snapshots construct through factories that establish the initial values, expose only the transitions the domain permits, and copy a mutable input collection at the boundary, and later changes to the caller's list never reach it:
 
 ```csharp
 internal readonly record struct Code(string Value);
@@ -73,7 +73,7 @@ Public setters let callers replace properties, private setters still let code in
 
 Lenses update a nested field without a chain of `with` expressions.
 
-Reflection can copy an object and replace one backing field, and it removes boilerplate at the cost of speed and of the control over legal transitions, explicit copy methods stay preferred. Data can be declared in F#, where declarations are immutable by default and support copy-and-update expressions while C# implements the behavior, at the cost of a mixed-language solution and an extra assembly boundary. No C# technique prevents all mutation, because reflection can alter private and read-only fields, and the goal is to prevent accidental mutation and to communicate the intended model.
+Reflection can copy an object and replace one backing field, and it removes boilerplate at the cost of speed and of the control over legal transitions, explicit copy methods stay preferred. Data can be declared in F#, where declarations are immutable by default and support copy-and-update expressions while C# implements the behavior, at the cost of a mixed-language solution and an extra assembly boundary. Reflection can alter private and read-only fields, no C# technique prevents all mutation, the goal is to prevent accidental mutation and to communicate the intended model.
 
 ## [06]-[COST]
 
@@ -85,7 +85,7 @@ Immutable updates allocate a new top-level object and raise garbage collection, 
 
 ## [07]-[PERSISTENT_LISTS]
 
-The functional singly linked list is defined recursively, and persistent means that earlier in-memory versions stay available after an update, not that anything reaches a disk:
+Functional singly linked lists are defined recursively, and persistent means that earlier in-memory versions stay available after an update, not that anything reaches a disk:
 
 ```text
 List<T> = Empty | Cons(head: T, tail: List<T>)
@@ -106,7 +106,7 @@ internal static class Histories {
 }
 ```
 
-Prepends share the whole existing list, the original and every derived list coexist because the shared tail cannot change:
+Prepends share the whole existing list, the shared tail cannot change and the original and every derived list coexist:
 
 ```text
 original:       A -> B -> C
@@ -114,10 +114,11 @@ prepend X: X -> A -> B -> C
 prepend Y: Y -> A -> B -> C
 ```
 
-The operation costs stay within the order of magnitude of the mutable structure:
+Operation costs stay within the order of magnitude of the mutable structure:
 - Prepend is `O(1)` with one new node, and removing the head is `O(1)` by returning the tail
 - `Map`, `Filter`, and a full aggregation are `O(n)`
-- Inserting or removing at index `m` is `O(m)` traversal with `m` rebuilt prefix nodes, and indexed operations belong on `Lst<A>`, which supplies `Insert`, `RemoveAt`, and `SetItem` over a balanced tree
+- Inserting or removing at index `m` is `O(m)` traversal with `m` rebuilt prefix nodes
+- Indexed operations belong on `Lst<A>`, which supplies `Insert`, `RemoveAt`, and `SetItem` over a balanced tree
 - Repeated appends at the end fit poorly, a queue-like workload takes another structure
 
 When emptiness matters, the sequence is consumed through `Match`, and a recursive implementation can overflow the stack on a long list, a long history folds with `Fold`.

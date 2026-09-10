@@ -1,7 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: <package>-<shape>
-language: <language>
-arguments: [<slot>]
-rule:
-    kind: <kind>
-    has: {field: <role>, matches: <slot>}

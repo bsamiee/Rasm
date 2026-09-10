@@ -1,11 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { EngineInterface, On, ToolCallInput } from 'claude-code';
-import { type Decision, deny, fold, when } from '../composition/decision.ts';
+import { type Decision, deny, fold, type Rule, when } from '../composition/decision.ts';
 import { gitGuard, gitPaths } from '../policies/git.ts';
 import { type PathEvent, pathGuard } from '../policies/paths.ts';
 import { waitGuard } from '../policies/shell.ts';
-import { type Parse, parse, SCAN, type Scanner } from '../text/argv.ts';
+import { type Command, type Parse, parse, SCAN, type Scanner } from '../text/argv.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -15,6 +15,10 @@ interface Facts {
     readonly parsed: Parse;
     readonly existing: readonly string[];
 }
+
+// --- [CONSTANTS] -----------------------------------------------------------------------
+
+const _CTRL = /\p{Cc}+/gu;
 
 // --- [REFINEMENTS] ---------------------------------------------------------------------
 
@@ -46,13 +50,14 @@ const _grow = ($: EngineInterface, parsed: Promise<Parse>, seed: Promise<Facts>)
 
 const _facts = ($: EngineInterface, parsed: Promise<Parse>): Promise<Facts> => _grow($, parsed, parsed.then(_seed));
 
+const _rules = (e: Commanded, commands: readonly Command[], existing: readonly string[]): readonly Rule<Commanded>[] =>
+    e.tool === 'Bash' ? [gitGuard(commands, existing), waitGuard(commands)] : [gitGuard(commands, existing)];
+
 const _decide = (e: Commanded, facts: Facts): Decision<Commanded> =>
-    facts.parsed.kind === 'unparsed'
-        ? deny(`command not parsed, ${facts.parsed.reason}`)
-        : fold<Commanded>([gitGuard(facts.parsed.commands, facts.existing), waitGuard(facts.parsed.commands)])(e);
+    facts.parsed.kind === 'unparsed' ? deny(`command not parsed, ${facts.parsed.reason}`) : fold(_rules(e, facts.parsed.commands, facts.existing))(e);
 
 const _answer = <E extends ToolCallInput, R>(decision: Decision<E>, next: (e: E) => R): R | { readonly deny: string } =>
-    decision.kind === 'deny' ? { deny: decision.reason } : next(decision.e);
+    decision.kind === 'deny' ? { deny: decision.reason.replace(_CTRL, ' ') } : next(decision.e);
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 

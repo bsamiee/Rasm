@@ -48,6 +48,8 @@ const _REPOSITORY = {
 
 const _VULNERABILITY_ALERTS = { enabled: true } as const satisfies Omit<RepositoryVulnerabilityAlertsArgs, 'repository'>;
 
+const _ADMIN_ROLE = 5;
+
 const _RULESETS = {
     main: {
         target: 'branch',
@@ -58,7 +60,7 @@ const _RULESETS = {
             nonFastForward: true,
             requiredStatusChecks: { requiredChecks: [{ context: 'required' }], strictRequiredStatusChecksPolicy: false },
         },
-        bypassActors: [{ actorType: 'RepositoryRole', actorId: 5, bypassMode: 'always' }],
+        bypassActors: [{ actorType: 'RepositoryRole', actorId: _ADMIN_ROLE, bypassMode: 'always' }],
     },
 } as const satisfies Record<string, Omit<RepositoryRulesetArgs, 'repository' | 'name'>>;
 

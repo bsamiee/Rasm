@@ -11,5 +11,5 @@ transform:
     SLASHED_AGAIN: {replace: {source: $SLASHED, replace: '([A-Za-z0-9_.):*])\\([A-Za-z0-9_.$*(@%])', by: '$1/$2'}}
     TRAILED: {replace: {source: $SLASHED_AGAIN, replace: '([A-Za-z0-9_.):*])\\(\s*["'']?\s*)$', by: '$1/$2'}}
 fix: $TRAILED
-message: Path holds a backslash separator, MSBuild on Unix converts it when the first segment exists on disk alone
+message: Path holds a backslash separator, MSBuild on Unix converts it in a property whose first segment exists on disk and in an item a task receives alone
 note: Write `/`, MSBuild reads it on every operating system

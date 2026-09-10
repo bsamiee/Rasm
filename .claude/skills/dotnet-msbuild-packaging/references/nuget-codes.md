@@ -20,11 +20,11 @@ Restore reports `NU1xxx` codes and `dotnet pack` reports `NU5xxx` codes, `TreatW
 |  [12]   | `NU1109` | Transitive pinning holds a package below a dependency floor  | Raise the `PackageVersion`, or turn transitive pinning off   |
 |  [13]   | `NU1201` | Referenced project targets a newer framework                 | Lower the referenced framework or raise the consumer's       |
 |  [14]   | `NU1202` | Package has no asset for the project's framework             | Change the framework, or pick a version that targets it      |
-|  [15]   | `NU1301` | Source did not answer                                        | Remove the source, or `RestoreIgnoreFailedSources`           |
+|  [15]   | `NU1301` | Source unreachable or missing                                | Remove the source, or `RestoreIgnoreFailedSources`           |
 |  [16]   | `NU1504` | One id appears in two `PackageReference` items               | Keep one item, `Update` changes metadata on it               |
 |  [17]   | `NU1506` | One id appears in two `PackageVersion` items                 | Keep one item, `Update` changes it in a nested file          |
 |  [18]   | `NU1507` | CPM with two or more HTTP sources and no source mapping      | Add `packageSourceMapping` with `*` on one source            |
-|  [19]   | `NU1510` | Direct reference to a package the framework supplies         | Remove the reference and its `PackageVersion` item           |
+|  [19]   | `NU1510` | Direct reference to a package the framework supplies         | Remove the `PackageReference`                                |
 |  [20]   | `NU1602` | Dependency declares no lower bound                           | Reference the dependency directly at an exact version        |
 |  [21]   | `NU1603` | Declared lower bound absent, a higher version resolved       | Reference the resolved version directly in `PackageVersion`  |
 |  [22]   | `NU1605` | Direct reference resolved below a dependency's demand        | Raise the `PackageVersion` to the demanded version           |
@@ -33,14 +33,13 @@ Restore reports `NU1xxx` codes and `dotnet pack` reports `NU5xxx` codes, `TreatW
 
 ## [02]-[PACK_CODES]
 
-| [INDEX] | [CODE]   | [CAUSE]                                                          | [FIX]                                                   |
-| :-----: | :------- | :--------------------------------------------------------------- | :------------------------------------------------------ |
-|  [01]   | `NU5017` | No assembly, dependency, or framework reference packed           | Add `lib/<tfm>/_._` and keep the dependency group       |
-|  [02]   | `NU5100` | Assembly sits outside `lib/<tfm>/`                               | `PackagePath="lib/<tfm>/"`, or drop `Pack="true"` on it |
-|  [03]   | `NU5104` | Stable package depends on a prerelease package                   | Prerelease `Version`, or a stable dependency version    |
-|  [04]   | `NU5105` | Version uses SemVer 2.0.0 parts an old client cannot read        | Keep the version, clients before 4.3 alone are affected |
-|  [05]   | `NU5110` | The `.ps1` file sits outside `tools/`                            | Move it under `tools/` or drop `Pack="true"`            |
-|  [06]   | `NU5111` | The `.ps1` file under `tools/` is not `init.ps1`                 | Rename it, `init.ps1` alone runs                        |
-|  [07]   | `NU5118` | Two items pack to one `PackagePath`                              | One item per `PackagePath`                              |
-|  [08]   | `NU5128` | `lib/<tfm>/` has a file and no dependency group for it           | Turn `SuppressDependenciesWhenPacking` off              |
-|  [09]   | `NU5129` | The `build/` file is not named `<PackageId>.props` or `.targets` | Rename the file, another name is never imported         |
+| [INDEX] | [CODE]   | [CAUSE]                                                          | [FIX]                                                     |
+| :-----: | :------- | :--------------------------------------------------------------- | :-------------------------------------------------------- |
+|  [01]   | `NU5017` | No assembly, dependency, or framework reference packed           | Add `lib/<tfm>/_._` and keep the dependency group         |
+|  [02]   | `NU5100` | Assembly sits outside `lib/<tfm>/`                               | `PackagePath="lib/<tfm>/"`, or drop `Pack="true"` on it   |
+|  [03]   | `NU5104` | Stable package depends on a prerelease package                   | Prerelease `Version`, or a stable dependency version      |
+|  [04]   | `NU5110` | `.ps1` file sits outside `tools/`                                | Move it under `tools/` or drop `Pack="true"`              |
+|  [05]   | `NU5111` | `.ps1` file under `tools/` is not `init.ps1`                     | Rename it, `init.ps1` alone runs                          |
+|  [06]   | `NU5118` | Two items pack to one `PackagePath`                              | One item per `PackagePath`                                |
+|  [07]   | `NU5128` | `lib/` or `ref/` file for a framework without a dependency group | `SuppressDependenciesWhenPacking` off, or `lib/<tfm>/_._` |
+|  [08]   | `NU5129` | `build/` file is not named `<PackageId>.props` or `.targets`     | Rename the file, another name is never imported           |

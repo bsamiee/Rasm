@@ -42,7 +42,7 @@ internal static class Contacts {
 }
 ```
 
-`Kind` is a smart enum, its `Validate` yields a nullable reference and `item!` follows the null check, and `Region` and `Number` are value objects with a struct `out` value. 3 invalid inputs report 3 errors, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
+`Kind` is a smart enum, its `Validate` yields a nullable reference and `item!` follows the null check, `Region` and `Number` are value objects with a struct `out` value. Every invalid input reports its error, the tuple `Apply` takes 2 to 10 independent operands with one uncurried function, and the input boundary returns the `Validation<Error, Contact>`. When a later check consumes an earlier validated value or must not run after a failure, a query binds the steps and the first failure stops the rest, at the cost of the failures from checks that never ran.
 
 Collections of validators of shape `T -> Validation<Error, T>` fold into one validator, and the traversal selects the behavior:
 
@@ -59,7 +59,7 @@ internal static class Validators {
 
 ## [02]-[WORKFLOWS]
 
-`Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`, and `Fin` has no `Where`, because a predicate supplies only `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
+`Fin<A>` applies a function only to `Succ`, and `Fail` bypasses it and keeps its error. `Map` transforms the value with `A -> B`, `Bind` composes a step with `A -> Fin<B>`. `Fin` has no `Where`, a predicate supplies `bool` and no `Error`, a check is a validator that constructs its error and composes with `Bind`, or a `guard` clause in a query:
 
 ```csharp
 internal sealed record ZeroDivisor() : Expected("divisor is 0", Codes.ZeroDivisor);
@@ -107,7 +107,7 @@ internal static class Pipeline {
 }
 ```
 
-Choose the domain errors for the workflow before composing it, because every bound function must return the same failure type. Lifting a multi-argument function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
+Every bound function returns the same failure type, choose the workflow's domain errors before composing it. Lifting a multi-argument function first with `Pure`, mapping it over the first operand, and the tuple `Apply` produce the same result for a correct applicative, `Some` only when every input is `Some`, and lifting first follows partial application:
 
 ```csharp
 internal static class Lifting {
@@ -158,7 +158,7 @@ internal static class Handler {
 }
 ```
 
-The tuple `Apply` reports both violations together, `RunSafe` at the outer boundary returns one `Fin<Unit>` for the host `Match`, and the host logs the `Inner` of a translated dependency failure beside the business errors it renders. Within the core the workflow composes with `Map` and `Bind`, and only an outer adapter translates when the protocol, UI, or host requires another response type:
+Tuple `Apply` reports both violations together, `RunSafe` at the outer boundary returns one `Fin<Unit>` for the host `Match`, and the host logs the `Inner` of a translated dependency failure beside the business errors it renders. Within the core the workflow composes with `Map` and `Bind`, and only an outer adapter translates when the protocol, UI, or host requires another response type:
 
 ```csharp
 IActionResult Post(Request request) =>
@@ -171,7 +171,7 @@ For an optional lookup the boundary translates `None` to not found and `Some(val
 
 ## [04]-[UNIONS]
 
-Discriminated unions hold exactly one of their alternatives, consumers pattern-match the value to reach its case and that case's data, and components that do not care which case they hold pass the union unchanged. Cases can be unrelated alternatives that share only an API type or a collection. Lookups have 3 meaningful outcomes, found, absent, and failed, and `OptionT<IO, Item>` names each: `Some` is the found item, `None` is absence, and a lookup failure sits on the `IO` error channel:
+Discriminated unions hold exactly one of their alternatives, consumers pattern-match the value to reach its case and that case's data, and components that do not care which case they hold pass the union unchanged. Cases can be unrelated alternatives that share only an API type or a collection. Lookup outcomes are found, absent, and failed, `OptionT<IO, Item>` names each: `Some` is the found item, `None` is absence, and a lookup failure sits on the `IO` error channel:
 
 ```csharp
 internal sealed record Item(int Id, string Name);
@@ -209,7 +209,7 @@ internal static class Inputs {
 }
 ```
 
-The `Catch` overload with a predicate maps the captured error to the `ReadFailure` case at the boundary, a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
+`Catch` with a predicate maps the captured error to the `ReadFailure` case at the boundary, a read failure is a case the consumer matches, code that needs a number handles `Number` directly and prompts again for the other cases, parsing and exception handling appear at no other call site, and the side-effecting read stays separate from the deterministic classification.
 
 Union cases can hold the union type itself, and a union of that kind models a tree the domain owns (configuration, expressions, UI hierarchies, document fragments), while wire serialization stays with `System.Text.Json` at the host boundary:
 
@@ -255,11 +255,11 @@ internal static class Folds {
 }
 ```
 
-The scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and the union has 6 constructors, a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape, a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
+Scalar cases are the leaves and `Many` and `Keyed` are the containers, the recursive members are ordinary case properties that leave the generator's case discovery unchanged, and a fold takes one replacement per constructor: each scalar replacement receives that case's value, `Nil` receives nothing, and the container replacements receive already-folded child results. The recursion sits in `Fold` once, the handler record passes as the `Switch` state, every arm stays `static`, `Count` replaces every leaf with 1 and adds the node to its children, and `Depth` replaces each container with one more than its deepest child. The remaining operations follow the return-type rules: member lookup passes the requested key as the state and returns `Option<Node>`, a `Keyed` without the key and every other case answer `None`, typed extraction returns `Fin<A>` with a distinct `Expected` per wrong shape, a consumer classifies by code, and an operation that preserves a case takes the case type directly when the caller already holds one, which removes the wrong-shape error from its signature.
 
 ## [05]-[LAWS]
 
-The dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
+Dedicated `Apply` stays more efficient than one derived from `Bind` and keeps the semantics (accumulation) that a short-circuiting `Bind` cannot give. The laws are equations an implementation must satisfy for every value, including `None` and the failure case, and an implementation that hides mutation, counters, or state tied to the number of calls breaks safe refactoring:
 
 ```text
 Functor identity:    fa.Map(x => x) == fa
@@ -270,7 +270,7 @@ Monad left identity:  Pure(t).Bind(f) == f(t)
 Monad associativity:  m.Bind(f).Bind(g) == m.Bind(x => f(x).Bind(g))
 ```
 
-The identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion, and associativity is why a multi-argument function enters a monadic pipeline: the right-associated form lets the innermost function close over every earlier value, and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
+Identity laws require `Pure` and `Bind` to wrap and unwrap without adding state changes, conditional behavior, or distortion. Associativity lets a multi-argument function enter a monadic pipeline, the right-associated form lets the innermost function close over every earlier value and a query expresses that without nested `Bind` calls. `FunctorLaw<F>`, `ApplicativeLaw<F>`, and `MonadLaw<F>` run the checks.
 
 Property-based tests with CsCheck state invariants over generated inputs and check algebraic laws and domain invariants (removing items from a cart never increases its total), and random sampling raises confidence without proving a universal law:
 
@@ -289,4 +289,4 @@ internal static class Properties {
 }
 ```
 
-`Gen.OneOf` builds a generator that yields both `Some` and `None`, because a test that lifts only generated integers checks only the `Some` path, the bounded range keeps the product inside `int`, `Sample` throws on a counterexample and `Try.lift` captures it into `Fin`, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function and not every function.
+`Gen.OneOf` builds a generator that yields both `Some` and `None`, a generator of integers alone checks only the `Some` path. The bounded range keeps the product inside `int`, `Sample` throws on a counterexample and `Try.lift` captures it into `Fin`, the case count and the ranges are configurable, and a property tied to `Multiply` checks that function alone.

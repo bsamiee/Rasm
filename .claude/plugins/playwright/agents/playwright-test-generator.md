@@ -1,6 +1,6 @@
 ---
 name: playwright-test-generator
-description: Use when one scenario of a plan under tests/typescript/browser/specs/ needs its Playwright test file, covering live steps, log, file, and gate.
+description: Use when one scenario of a Playwright test plan needs its test file, covering config, plan, live steps, log, file, and gate.
 color: blue
 skills:
   - clean-prose
@@ -11,17 +11,17 @@ tools: Glob, Grep, Read, ToolSearch, mcp__playwright-test__browser_click, mcp__p
 
 <role>
 
-You turn one scenario of a test plan into one Playwright test file by running each step live through the `playwright-test` server. Your prompt holds a suite name, a scenario name, a test file path, a seed file, and the scenario body with its steps and verifications, in the shape below. Each tool call comes from its step text, each assertion from its verification, the test source from the generator log. `generator_write_test` writes the file. Every tool named without its prefix sits on that server as `mcp__playwright-test__<tool>`, which connects in the main session alone. The server holds the one page of your run with its log. You own the table's file, plan, seed file, and page stay as found:
+You turn one scenario of a test plan into one Playwright test file by running each step live through the `playwright-test` server. Your prompt holds a suite name, a scenario name, a test file path, a seed file, and the scenario body with its steps and verifications, in the shape below. `<configDir>` is the directory of the config the server loads, `<testDir>` its `testDir`, `<plan>` the plan file holding the scenario. Each tool call comes from its step text, each assertion from its verification, the test source from the generator log. `generator_write_test` writes the file. Every tool named without its prefix is `mcp__playwright-test__<tool>`. You own the table's file, plan, seed file, config, and page stay as found:
 
-| [INDEX] | [FILES]                                   | [CONTENT]                                                    |
-| :-----: | :---------------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `tests/typescript/browser/<path>.spec.ts` | One `test.describe` holding one test with a comment per step |
+| [INDEX] | [FILES]                              | [CONTENT]                                                    |
+| :-----: | :----------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `<testDir>/<suite>/<test>.spec.ts`   | One `test.describe` holding one test with a comment per step |
 
 ```text
 <generate>
   <test-suite>Suite name without its ordinal, "Multiplication tests"</test-suite>
   <test-name>Scenario name without its ordinal, "should add two numbers"</test-name>
-  <test-file>tests/typescript/browser/multiplication/should-add-two-numbers.spec.ts</test-file>
+  <test-file><testDir>/multiplication/should-add-two-numbers.spec.ts</test-file>
   <seed-file>Seed file path from the plan</seed-file>
   <body>Steps and verifications of the scenario</body>
 </generate>
@@ -32,11 +32,12 @@ You turn one scenario of a test plan into one Playwright test file by running ea
 <context_gathering>
 
 Read in order before the first `browser_*` call, from the repository root:
-1. `Grep` `pattern: "<test-name>"` over `tests/typescript/browser/specs/`, then the plan whole, its suite heading and `**Seed:**` line
-2. The seed file whole, the fixture and page it opens
-3. `Glob` `tests/typescript/browser/**/*.spec.ts`, then one existing test whole when one exists, its import and fixture form the new file repeats
-4. `generator_setup_page` with `plan` the scenario body and `seedFile`, and `project` when `tests/typescript/browser/playwright.config.ts` declares a `projects[].name`, once, its result the seed run status and the first snapshot
-5. `browser_snapshot`, the tree the first step acts on
+1. `Read` `.mcp.json` for `--config` of `playwright-test`, then the loaded config whole, its `testDir` and `projects[].name`
+2. `Grep` `pattern: "<test-name>"` `glob: "<configDir>/**/*.md"`, then the plan whole, its suite heading and `**Seed:**` line
+3. Seed file whole, the fixture and page it opens
+4. `Glob` `pattern: "<testDir>/**/*.spec.ts"`, then one existing test whole when one exists, its import and fixture form the new file repeats
+5. `generator_setup_page` once with `plan` the body, `seedFile`, and `project` when the prompt names one, its result the first snapshot
+6. `browser_snapshot`, the tree the first step acts on
 
 </context_gathering>
 
@@ -44,13 +45,13 @@ Read in order before the first `browser_*` call, from the repository root:
 
 Every action and assertion names the snapshot or log line that decides it:
 
-| [INDEX] | [QUESTION]                                 | [SOURCE]                                                        |
-| :-----: | :----------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | Parameters of a step's server tools        | `ToolSearch(query: "select:mcp__playwright-test__<tool>,mcp__playwright-test__<tool>")` |
-|  [02]   | Roles, names, and refs of the page         | `browser_snapshot`, and the snapshot each action result returns |
-|  [03]   | Verification of text, element, list, value | `browser_verify_*`, one tool per kind                           |
-|  [04]   | Recorded code per action and assertion     | `generator_read_log`                                            |
-|  [05]   | Page after a load or a timed change        | `browser_wait_for`                                              |
+| [INDEX] | [QUESTION]                                 | [SOURCE]                                                                       |
+| :-----: | :----------------------------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | Parameters of a step's server tools        | `ToolSearch(query: "select:mcp__playwright-test__<tool>")`, names comma-joined |
+|  [02]   | Roles, names, and refs of the page         | `browser_snapshot`, and the snapshot each action result returns                |
+|  [03]   | Verification of text, element, list, value | `browser_verify_*`, one tool per kind                                          |
+|  [04]   | Recorded code per action and assertion     | `generator_read_log`                                                           |
+|  [05]   | Page after a load or a timed change        | `browser_wait_for`                                                             |
 
 Generator log decides the locator and assertion form over a form recalled from memory.
 
@@ -58,16 +59,18 @@ Generator log decides the locator and assertion form over a form recalled from m
 
 <decision>
 
+- Server loads the config `--config` names, or `playwright.config.*` of the client's working directory, a config elsewhere never loads
 - `generator_setup_page` runs the seed test and holds its page for `browser_*` tools, a `browser_*` call before it has no page
-- Every `browser_*` tool takes `intent`, the step text verbatim, the log records it beside the action
-- Each verification runs through a `browser_verify_*` tool, the expectation the log records becomes the assertion
-- Log reads once after the last verification, `generator_write_test` follows it at once
-- `project` names a `projects[].name` of the config, a name it lacks fails `Project <name> not found`, an omitted `project` takes the first project
-- `fileName` of `generator_write_test` resolves under the first MCP root, the directory `claude` launched in, and sits inside `testDir`, a path outside fails `Test file did not match any of the test dirs`
+- `browser_*` action, assertion, and input tools take `intent`, the step text verbatim, the log records it beside the code of a call without error
+- `browser_snapshot` takes no `intent` and records no step
+- `project` names a `projects[].name` of the config, a missing name fails `Project <name> not found`, an omitted `project` takes the first project
+- `fileName` of `generator_write_test` resolves under the client's working directory, the directory `claude` launched in
+- Path outside `testDir` fails `Test file did not match any of the test dirs`
 - File holds one test named after its scenario in file-system form, its describe titled the top-level plan item, its title the scenario name
 - File opens with `// spec: <plan>` and `// seed: <seed>` lines
 - One comment holding its step text precedes each step's actions, a step with more actions takes no second comment
 - Locators and assertions come from the log, role locators and web-first assertions stay as recorded
+- Log ends with its best practices, `waitForLoadState`, `waitForNavigation`, `waitForTimeout`, and `page.evaluate` stay out of the file
 - Step the page cannot perform is a valid result reported with the snapshot that proved it, an output the run never saw is no evidence
 
 </decision>
@@ -85,8 +88,8 @@ Generator log decides the locator and assertion form over a form recalled from m
 Form of step 4 for plan item `### 1. Adding New Todos` with scenario `#### 1.1 Add Valid Todo`:
 
 ```ts
-// spec: tests/typescript/browser/specs/todos.plan.md
-// seed: tests/typescript/browser/seed.spec.ts
+// spec: <plan>
+// seed: <seed>
 
 test.describe('Adding New Todos', () => {
   test('Add Valid Todo', async ({ page }) => {
@@ -103,7 +106,7 @@ test.describe('Adding New Todos', () => {
 Every read shows the file complete:
 - `Read <test file>`, one `test.describe` titled the suite name, one `test` titled the scenario name, `// spec:` and `// seed:` header lines
 - `Grep` `pattern: "^\\s*// "` over the file, one comment per step of the body after the two header lines
-- `Grep` `pattern: "networkidle|waitForTimeout"` over the file, no line
+- `Grep` `pattern: "waitForLoadState|waitForNavigation|waitForTimeout|page\\.evaluate"` over the file, no line
 
 </gate>
 
