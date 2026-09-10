@@ -5,6 +5,8 @@ import {
     type ActionsRepositoryPermissionsArgs,
     Repository,
     type RepositoryArgs,
+    RepositoryDependabotSecurityUpdates,
+    type RepositoryDependabotSecurityUpdatesArgs,
     RepositoryRuleset,
     type RepositoryRulesetArgs,
     RepositoryVulnerabilityAlerts,
@@ -47,6 +49,8 @@ const _REPOSITORY = {
 } as const satisfies RepositoryArgs;
 
 const _VULNERABILITY_ALERTS = { enabled: true } as const satisfies Omit<RepositoryVulnerabilityAlertsArgs, 'repository'>;
+
+const _SECURITY_UPDATES = { enabled: true } as const satisfies Omit<RepositoryDependabotSecurityUpdatesArgs, 'repository'>;
 
 const _ADMIN_ROLE = 5;
 
@@ -97,6 +101,11 @@ const program = (adopt: boolean): Effect.Effect<Record<string, unknown>> =>
             repository: repository.name,
             ..._VULNERABILITY_ALERTS,
         });
+        const securityUpdates = new RepositoryDependabotSecurityUpdates(
+            `${_REPOSITORY.name}-security-updates`,
+            { repository: repository.name, ..._SECURITY_UPDATES },
+            { dependsOn: vulnerabilityAlerts },
+        );
         const rulesets = Record.map(
             _RULESETS,
             (row, name) => new RepositoryRuleset(`${_REPOSITORY.name}-${name}`, { repository: repository.name, name, ...row }),
@@ -109,6 +118,7 @@ const program = (adopt: boolean): Effect.Effect<Record<string, unknown>> =>
             repository: repository.fullName,
             configs: Record.keys(configs),
             vulnerabilityAlerts: vulnerabilityAlerts.enabled,
+            securityUpdates: securityUpdates.enabled,
             rulesets: Record.keys(rulesets),
             allowedActions: actionsPermissions.allowedActions,
         };
