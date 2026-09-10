@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-expression-in-run-step
+language: yaml
+severity: error
+files: ['.github/**']
+rule:
+    kind: block_mapping_pair, flow_pair
+    all:
+        - has: {field: key, regex: '^(run|"run"|''run'')$'}
+        - has:
+            field: value
+            regex: '\$\{\{'
+            any:
+                - kind: flow_node
+                - kind: block_node
+                  has: {kind: block_scalar}
+message: '`run` script embeds a `${{ }}` expression, GitHub substitutes its value as text before the shell parses the script'
+note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read `"$NAME"` in the script'

@@ -340,7 +340,7 @@
                 ]
             },
             "outline": {
-                "command": "ast-grep outline $(printf -- '--outline-rules %s ' tools/ast-grep/outline/*.yml)",
+                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml",
                 "cache": false,
                 "dependsOn": [
                     "grammar"

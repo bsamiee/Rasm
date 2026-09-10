@@ -106,7 +106,7 @@ const _metricChanges = (
 
 class _CapturedSpan implements Tracer.Span {
     readonly _tag = 'Span' as const;
-    readonly attributes = new Map<string, unknown>();
+    readonly attributes: Map<string, unknown> = new Map();
     readonly context: Context.Context<never>;
     readonly kind: Tracer.SpanKind;
     readonly name: string;

@@ -12,5 +12,5 @@ rule:
 transform:
     RESULT: replace($TAG, replace='(/?>)$', by=' WriteOnlyWhenDifferent="true"$1')
 fix: $RESULT
-message: 'The replacement write updates the timestamp when the content is unchanged, the form of WriteOnlyWhenDifferent="true" on the write'
-note: 'An append and a deliberate timestamp update keep Overwrite without the flag'
+message: '`WriteLinesToFile` with `Overwrite` updates the timestamp when the content is unchanged'
+note: Add `WriteOnlyWhenDifferent="true"`

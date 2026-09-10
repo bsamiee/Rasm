@@ -62,5 +62,5 @@ rule:
 fix: |-
     with anyio.CancelScope(shield=True):
         $BODY
-message: 'The cleanup block awaits under the cancellation it handles and the await raises before the release completes, the form of `with anyio.CancelScope(shield=True):` around the cleanup'
-note: 'A cancelled scope raises at every checkpoint until a shielded scope encloses it, `anyio.move_on_after(<seconds>, shield=True)` bounds the shielded cleanup'
+message: 'Cleanup await raises under the cancellation the block handles'
+note: 'Wrap the cleanup in `with anyio.CancelScope(shield=True):`'

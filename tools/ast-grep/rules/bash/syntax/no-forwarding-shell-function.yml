@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-shell-function
+language: bash
+severity: error
+rule:
+    kind: function_definition
+    not: {has: {field: redirect, pattern: $$_REDIRECT}}
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has:
+            field: body
+            kind: compound_statement
+            matches: bash-single-command-body
+            has:
+                kind: command
+                pattern: $CALL
+                all:
+                    - has: {field: name, regex: '^[A-Za-z0-9_./-]+$'}
+                    - has:
+                        kind: string
+                        regex: '^"\$(\{@\}|@)"$'
+                        nthChild: {position: 1, reverse: true}
+                        follows: {kind: command_name}
+message: '`$NAME` forwards every argument unchanged to `$CALL`'
+note: Delete the function and call the forwarded command at each call site

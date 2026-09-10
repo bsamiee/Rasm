@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fourth-shell-control-level
+language: bash
+severity: error
+utils:
+    control: {kind: 'if_statement, for_statement, c_style_for_statement, while_statement, case_statement'}
+    boundary: {any: [{matches: control}, {kind: function_definition}]}
+rule:
+    matches: control
+    inside:
+        matches: control
+        stopBy: {matches: boundary}
+        inside:
+            matches: control
+            stopBy: {matches: boundary}
+            inside:
+                matches: control
+                stopBy: {matches: boundary}
+                not: {inside: {matches: control, stopBy: {kind: function_definition}}}
+message: Control statement sits at a fourth nesting level
+note: Flatten inner levels into guard clauses, `<condition> || continue`, a helper function moves the levels without removing them

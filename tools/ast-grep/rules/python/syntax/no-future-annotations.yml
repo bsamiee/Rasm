@@ -16,5 +16,5 @@ transform:
     KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
     OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
 fix: $OUT
-message: 'The future import stores annotations as strings in place of deferred evaluation, the form of the module without the import'
-note: 'Python 3.14 evaluates annotations lazily, and a consumer reading `__annotations__` resolves each name at read time'
+message: 'Future import stores annotations as strings, PEP 649 evaluates them lazily without it'
+note: 'Delete the import'

@@ -35,5 +35,5 @@ rule:
 constraints:
     IDENTITY: {matches: csharp-identity-callback}
 fix: "$RESULT.IfFail($FALLBACK)"
-message: "`Match` on `$RESULT` returns the success value unchanged and handles the failure, the form of `IfFail`"
-note: IfFail with the failure handler on a Fin<A> Match whose result is A, a wider result keeps Match
+message: "`Match` on `$RESULT` returns the success value unchanged and handles failure alone"
+note: "`<fin>.IfFail(<handler>)` returns the success value or handler's value"

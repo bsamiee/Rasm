@@ -198,6 +198,21 @@
         },
         {
             "includes": [
+                "tools/nx/*.ts"
+            ],
+            "linter": {
+                "domains": {
+                    "qwik": "none"
+                },
+                "rules": {
+                    "correctness": {
+                        "noNodejsModules": "off"
+                    }
+                }
+            }
+        },
+        {
+            "includes": [
                 ".claude/plugins/**"
             ],
             "linter": {

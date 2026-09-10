@@ -44,7 +44,7 @@ rule:
                                 source: {regex: '^(node:)?perf_hooks$'}
                                 exported: {regex: '^performance$'}
     pattern: $READ
-message: '`$READ` reads the clock or the random source of the host as an ambient value, the form of the clock or random source taken from the owning service or an argument'
-note: 'The service names the origin, units, and cryptographic guarantee of the value'
+message: '`$READ` reads host time or randomness as an ambient value'
+note: '`Clock` and `Random` services or an argument supply the value'
 labels:
     READ: {style: primary}

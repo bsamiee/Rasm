@@ -10,5 +10,5 @@ rule:
           has: {field: constructor, pattern: $NAME, regex: '^(globalThis\.)?Promise$', matches: syntax-global-reference}
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?Promise\.(all|allSettled|any|race|resolve|reject|withResolvers|try)$', matches: syntax-global-reference}
-message: '`$NAME` builds a promise where the effect is the composed value, the form of composed effects adapted to a promise at the host boundary'
-note: 'The effect keeps settlement order, rejection identity, concurrency, and cancellation'
+message: '`$NAME` composes through a promise outside the host boundary'
+note: 'Compose effects, `Effect.runPromise` adapts the result at the host boundary'

@@ -42,7 +42,7 @@ rule:
             - inside: {kind: export_clause, inside: {kind: export_statement, not: {has: {field: source, kind: string}}}}
 constraints:
     ALIAS: {not: {regex: '^default$'}}
-message: '`$ALIAS` is another name for `$TARGET`, the form of `$TARGET` referenced and exported under its own name'
-note: 'A type alias resolves a name collision between two namespaces'
+message: '`$ALIAS` is another name for `$TARGET`'
+note: 'Reference and export the target by its name'
 labels:
-    TARGET: {style: primary, message: The name the declaration repeats}
+    TARGET: {style: primary, message: Aliased name}

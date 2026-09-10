@@ -11,7 +11,7 @@ utils:
                 has: {kind: generator_function, pattern: $BODY, not: {has: {field: name, kind: identifier}}}
             - kind: call_expression
               has: {field: function, kind: member_expression, has: {field: object, matches: generator-effect}}
-    thunk-answer:
+    thunk-body:
         any:
             - matches: generator-effect
               pattern: $GENERATOR
@@ -30,12 +30,12 @@ rule:
             has:
                 kind: arrow_function, function_expression
                 not: {any: [{has: {regex: '^async$'}}, {has: {field: parameters, has: {pattern: $_}}}, {has: {field: return_type, kind: type_annotation}}]}
-                has: {field: body, matches: thunk-answer}
+                has: {field: body, matches: thunk-body}
         - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
 constraints:
     M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM)$"}}}}
 fix: $GENERATOR
-message: '`$M.suspend` wraps a `$M.gen` that already suspends its generator body until execution, the form of the generator effect alone'
-note: '`$M.suspend` defers a thunk that works or selects an effect before constructing it'
+message: '`$M.gen` defers its body until run, `$M.suspend` around it defers nothing'
+note: 'Delete the `suspend` call around the generator effect'
 labels:
     GENERATOR: {style: primary}

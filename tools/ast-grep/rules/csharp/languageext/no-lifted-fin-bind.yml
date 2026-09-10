@@ -45,5 +45,5 @@ constraints:
                                 selector: invocation_expression
                                 strictness: cst
 fix: '$IO.lift($THUNK)'
-message: "`$IO.lift` over a Fin thunk binds a second lift of the Fin value, the form of one `IO.lift` over the thunk"
-note: IO.lift with the Func<Fin<A>> thunk alone yields IO<A> with the failure on the IO channel, a FinT input or an alias keeps Bind
+message: "`$IO.lift` over a Fin thunk binds a second lift of the Fin value"
+note: "`IO.lift(<thunk>)` over `Func<Fin<A>>` returns `IO<A>` that fails on the Fin failure"

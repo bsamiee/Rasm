@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-echo-of-expansion
+language: bash
+severity: error
+utils:
+    data:
+        any:
+            - kind: string
+              matches: bash-expanded-word
+              not: {has: {kind: 'simple_expansion, expansion', regex: '\$\{?@|\[@\]|@\}'}}
+            - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
+              not: {regex: '\$\{?@|\[@\]|@\}'}
+rule:
+    kind: command
+    pattern: $ECHO
+    all:
+        - has: {field: name, regex: '^echo$'}
+        - has: {pattern: $TEXT, matches: data, nthChild: {position: 1, reverse: true}}
+        - not: {has: {not: {any: [{kind: command_name}, {kind: word, regex: '^-[neE]+$'}, {pattern: $TEXT}]}}}
+        - not: {has: {kind: word, nthChild: {position: 2, ofRule: {kind: word}}}}
+rewriters:
+    - id: line
+      rule: {pattern: $ECHO, not: {has: {kind: word, regex: '[ne]'}}}
+      fix: printf '%s\n' $TEXT
+    - id: no-newline
+      rule: {pattern: $ECHO, has: {kind: word, regex: '^-[E]*n[E]*$'}}
+      fix: printf '%s' $TEXT
+    - id: escapes
+      rule: {pattern: $ECHO, has: {kind: word, regex: '^-[E]*e[E]*$'}}
+      fix: printf '%b\n' $TEXT
+    - id: escapes-no-newline
+      rule: {pattern: $ECHO}
+      fix: printf '%b' $TEXT
+transform:
+    PRINTF: rewrite($ECHO, rewriters=[line, no-newline, escapes, escapes-no-newline])
+    QUOTED: {replace: {source: $PRINTF, replace: '(?s)^(printf \S+ )(\$.*)$', by: '$1"$2"'}}
+fix: $QUOTED
+message: '`echo` parses `$TEXT` as options when its value matches `-[neE]+`'
+note: Print through a literal format, `printf '%s\n' "$<value>"`

@@ -53,8 +53,8 @@ rule:
                         field: body
                         all:
                             - has: {matches: self-assignment}
-                            - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: self-assignment}]}}}
-message: '`__init__` of `$NAME` assigns attributes of self alone, the form of fields declared on a `msgspec.Struct` without `__init__`'
-note: '`frozen=True` on the Struct makes the value immutable'
+                            - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: self-assignment}]}}}
+message: '`__init__` of `$NAME` assigns self attributes alone'
+note: 'Declare the fields on a `msgspec.Struct` with `frozen=True`'
 labels:
-    NAME: {style: primary, message: Class with an init that assigns fields alone}
+    NAME: {style: primary, message: Init-only class}

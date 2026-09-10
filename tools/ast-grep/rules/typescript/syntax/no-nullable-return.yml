@@ -36,45 +36,45 @@ utils:
                             - has:
                                 field: type_arguments
                                 has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: no-value-type}
-    nothing:
+    undefined-value:
         any:
             - kind: undefined
             - kind: unary_expression
               has: {field: operator, regex: '^void$'}
-    null-answer:
+    null-result:
         any:
             - kind: 'null'
             - kind: parenthesized_expression
-              has: {matches: null-answer}
+              has: {matches: null-result}
             - kind: ternary_expression
-              any: [{has: {field: consequence, matches: null-answer}}, {has: {field: alternative, matches: null-answer}}]
+              any: [{has: {field: consequence, matches: null-result}}, {has: {field: alternative, matches: null-result}}]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-answer}}]
+              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-result}}]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-answer}}]
-    undefined-answer:
+              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-result}}]
+    undefined-result:
         any:
-            - matches: nothing
+            - matches: undefined-value
             - kind: parenthesized_expression
-              has: {matches: undefined-answer}
+              has: {matches: undefined-result}
             - kind: ternary_expression
-              any: [{has: {field: consequence, matches: undefined-answer}}, {has: {field: alternative, matches: undefined-answer}}]
+              any: [{has: {field: consequence, matches: undefined-result}}, {has: {field: alternative, matches: undefined-result}}]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-answer}}]
+              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: undefined-result}}]
             - kind: binary_expression
-              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-answer}}]
+              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: undefined-result}}]
 rule:
     any:
         - kind: return_statement
-          has: {matches: null-answer}
+          has: {matches: null-result}
         - kind: arrow_function
-          has: {field: body, matches: null-answer}
+          has: {field: body, matches: null-result}
         - kind: return_statement
-          has: {matches: undefined-answer}
+          has: {matches: undefined-result}
           inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
         - kind: arrow_function
           all:
-            - has: {field: body, matches: undefined-answer}
+            - has: {field: body, matches: undefined-result}
             - has: {field: return_type, matches: value-annotation}
-message: The function returns `null` or `undefined` to stand for absence, the form of an Option, `Option.fromNullable(value)` at the boundary and `Option.none()` inside
-note: '`Option.match` reads both cases'
+message: 'Function returns `null` or `undefined` for absence'
+note: 'Return `Option`, `Option.none()` inside and `Option.fromNullable(value)` at the boundary'

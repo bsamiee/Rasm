@@ -24,5 +24,5 @@ rule:
             inside:
                 stopBy: {matches: syntax-function-boundary}
                 matches: effect-promise-boundary
-message: 'The platform fetch runs outside the boundary and answers an untyped promise, the form of `HttpClient` from the context or `Effect.tryPromise` at the boundary'
-note: '`HttpClient` carries typed errors, retries, and spans'
+message: 'Global `fetch` returns an untyped promise outside a promise conversion callback'
+note: 'Request through the `HttpClient` service, failures are typed `HttpClientError` values'

@@ -7,4 +7,5 @@ rule:
     all:
         - has: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}
         - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}}
-message: 'The conditional expression nests a conditional, the form of `match` cases or the owning result combinator at the call site'
+message: 'Conditional expression nests a conditional'
+note: 'Select with `match`, one `case` per branch'

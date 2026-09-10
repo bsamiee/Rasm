@@ -13,7 +13,7 @@ utils:
             - kind: array
             - kind: spread_element
             - kind: ternary_expression
-    module-value:
+    module-constant-value:
         kind: call_expression
         any:
             - inside:
@@ -33,7 +33,7 @@ utils:
                 kind: member_expression
                 field: object
                 stopBy: {not: {matches: expression-wrapper}}
-                inside: {kind: call_expression, field: function, matches: module-value}
+                inside: {kind: call_expression, field: function, matches: module-constant-value}
     effect-function-factory:
         kind: call_expression
         has:
@@ -50,7 +50,7 @@ utils:
                     all:
                         - has: {field: property, regex: '^fn$'}
                         - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Effect$'}}}}
-    effect-function-root:
+    effect-fn-body:
         matches: syntax-function-boundary
         pattern: $BODY
         inside:
@@ -65,10 +65,10 @@ utils:
             inside:
                 all:
                     - matches: effect-function-factory
-                    - matches: module-value
+                    - matches: module-constant-value
     nested-scope:
         matches: syntax-function-boundary
-        not: {matches: effect-function-root}
+        not: {matches: effect-fn-body}
         any:
             - inside: {matches: syntax-function-boundary, stopBy: end}
             - inside: {kind: arguments, stopBy: {not: {matches: callback-wrapper}}}
@@ -106,6 +106,7 @@ rule:
                     matches: control
                     stopBy: {matches: control-boundary}
                     not: {inside: {matches: control, stopBy: {matches: syntax-function-boundary}}}
-message: The operation exceeds three nested function or control levels, the form of a `pipe` step, an `Effect.gen` statement, or a combinator of the owning module at the fourth level
+message: 'Functions or control statements nest four deep'
+note: 'Flatten the fourth level into a `pipe` step or an `Effect.gen` statement'
 labels:
     SCOPE: {style: primary}

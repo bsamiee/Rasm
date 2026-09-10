@@ -118,5 +118,5 @@ transform:
 fix: return $HEAD$PLAIN$TAIL
 labels:
     SUBJECT: {style: primary, message: Result transformation}
-message: 'Match over `$SUBJECT` repeats error propagation around an Ok transformation, the form of `<subject>.map(<transformation>)`'
-note: '`map` applies the transformation to the Ok value and passes an Error through unchanged, a match that narrows the value or maps the error is another form'
+message: 'Match over `$SUBJECT` repeats error propagation around an Ok transformation'
+note: 'Use `<subject>.map(<transformation>)`'

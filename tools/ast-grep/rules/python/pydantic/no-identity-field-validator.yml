@@ -75,7 +75,7 @@ rule:
                     field: body
                     all:
                         - has: {kind: return_statement, pattern: 'return $VALUE'}
-                        - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-inert-statement}}}}}
+                        - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
         - inside:
             kind: block
             inside:
@@ -99,6 +99,6 @@ rule:
                                   has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
         - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 fix: ''
-message: '`$METHOD` returns the field value without validating or changing it, the form of the field alone with its type and constraints'
-note: 'The field keeps its type and constraints without the validator, a plain or wrap validator and an override of a base validator change the value or the flow'
+message: '`$METHOD` returns the field value unchanged'
+note: 'Delete the validator'
 labels: {METHOD: {style: primary, message: Identity validator}}

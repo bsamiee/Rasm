@@ -1,0 +1,49 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-case-conversion-substitution
+language: bash
+severity: error
+utils:
+    parameter: {matches: {bash-parameter: {name: {kind: 'variable_name, subscript', pattern: $NAME}}}}
+    case-set:
+        kind: word, string, raw_string
+        regex: '^["'']?(\[:lower:\]|\[:upper:\]|a-z|A-Z|\[a-z\]|\[A-Z\])["'']?$'
+    argument: {not: {kind: 'command_name, herestring_redirect, file_redirect, heredoc_redirect'}}
+    translate:
+        kind: command
+        all:
+            - has: {field: name, regex: '^(?:\S+/)?tr$'}
+            - has: {matches: case-set, pattern: $FROM, nthChild: {position: 1, ofRule: {matches: argument}}}
+            - has: {matches: case-set, nthChild: {position: 2, ofRule: {matches: argument}}}
+            - not: {has: {nthChild: {position: 3, ofRule: {matches: argument}}}}
+    printer:
+        kind: command
+        any:
+            - all:
+                - has: {field: name, regex: '^echo$'}
+                - has: {kind: string, matches: parameter, nthChild: 2}
+                - not: {has: {nthChild: 3}}
+            - all:
+                - has: {field: name, regex: '^printf$'}
+                - has: {kind: 'word, string, raw_string', regex: '^["'']?%s(\\n)?["'']?$', nthChild: 2}
+                - has: {kind: string, matches: parameter, nthChild: 3}
+                - not: {has: {nthChild: 4}}
+rule:
+    kind: command_substitution
+    pattern: $SUB
+    all:
+        - not: {has: {nthChild: 2}}
+        - has:
+            any:
+                - kind: pipeline
+                  all:
+                    - has: {matches: printer, nthChild: 1}
+                    - has: {matches: translate, nthChild: 2}
+                    - not: {has: {nthChild: 3}}
+                - matches: translate
+                  has: {field: redirect, kind: herestring_redirect, has: {matches: parameter}}
+transform:
+    TO_UPPER: {replace: {source: $FROM, replace: '^["'']?(\[:lower:\]|a-z|\[a-z\])["'']?$', by: 'U'}}
+    OPERATOR: {replace: {source: $TO_UPPER, replace: '^["'']?(\[:upper:\]|A-Z|\[A-Z\])["'']?$', by: 'L'}}
+fix: ${$NAME@$OPERATOR}
+message: '`$SUB` forks a subshell and `tr` to convert case'
+note: Expand `${<name>@U}` or `${<name>@L}`

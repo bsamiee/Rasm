@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exit-in-else-clause
+language: bash
+severity: error
+utils:
+    leaving-command:
+        kind: command
+        has: {field: name, regex: '^(exit|return|continue|break)$'}
+rule:
+    kind: if_statement
+    pattern: $IF
+    all:
+        - not: {has: {kind: elif_clause}}
+        - has: {field: condition, pattern: $COND, precedes: {regex: '^then$', stopBy: {not: {regex: '^;$'}}}}
+        - has:
+            kind: else_clause
+            pattern: $ELSE
+            has: {matches: leaving-command, nthChild: {position: 1, reverse: true}}
+        - not:
+            has:
+                matches: leaving-command
+                precedes: {stopBy: end, kind: else_clause}
+        - not: {has: {stopBy: end, kind: 'heredoc_body, string, raw_string', regex: '\n'}}
+rewriters:
+    - id: then-statement
+      rule:
+        pattern: $STATEMENT
+        inside: {kind: if_statement, pattern: $IF}
+        not: {any: [{nthChild: 1}, {kind: else_clause}]}
+      fix: $STATEMENT
+transform:
+    STATEMENTS: {rewrite: {source: $IF, rewriters: [then-statement], joinBy: "\n"}}
+    THEN: {replace: {source: $STATEMENTS, replace: '\n {4}', by: "\n"}}
+    BODY: {replace: {source: $ELSE, replace: '(?s)^else\s*|\s*$', by: ''}}
+    LEAVING: {replace: {source: $BODY, replace: '\n[ \t]+', by: "\n"}}
+fix: |-
+    $COND || {
+        $LEAVING
+    }
+    $THEN
+message: Else clause leaves the scope while the then branch nests under the condition
+note: 'Guard with `<condition> || { <else body>; }` and continue with the then branch unnested'

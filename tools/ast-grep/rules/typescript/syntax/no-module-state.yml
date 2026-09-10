@@ -10,4 +10,5 @@ rule:
             - kind: program
             - kind: export_statement
               inside: {kind: program}
-message: 'The module-level `let` permits shared reassignment, the form of `const` with a changing binding in the scope that owns its updates'
+message: 'Module-level `let` shares mutable state across the module'
+note: 'Pass changing state as a returned value, `Ref` holds state shared across fibers'

@@ -10,4 +10,5 @@ rule:
             - kind: for_in_statement
               has: {regex: '^await$'}
         - not: {inside: {stopBy: {matches: syntax-function-boundary}, matches: effect-promise-boundary}}
-message: 'Await or for-await consumes a promise outside its conversion callback, the form of `Effect.tryPromise` or `Effect.promise` at the boundary and `Stream.fromAsyncIterable` for an async iterable'
+message: '`await` or `for await` consumes a promise outside a promise conversion callback'
+note: '`Effect.tryPromise` converts the promise, `Stream.fromAsyncIterable` the async iterable'

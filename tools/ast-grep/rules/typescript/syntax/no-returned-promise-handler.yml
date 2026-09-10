@@ -14,7 +14,7 @@ rule:
             matches: syntax-function-boundary
             not: {has: {regex: '^async$'}}
             stopBy: {matches: syntax-function-boundary}
-message: 'The function returns a promise through `$HANDLER`, the form of an `async` body that awaits the promise'
-note: 'The handler callback becomes the statements after the `await`'
+message: 'Non-async function returns a `$HANDLER` chain'
+note: '`async` body awaits the promise, the handler callback becomes the statements after `await`'
 labels:
-    HANDLER: {style: primary, message: The handler that the await replaces}
+    HANDLER: {style: primary, message: Handler the `await` replaces}

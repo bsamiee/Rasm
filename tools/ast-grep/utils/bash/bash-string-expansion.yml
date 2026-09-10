@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: bash-string-expansion
+language: bash
+rule:
+    any:
+        - matches: {bash-parameter: {name: {kind: 'variable_name, subscript'}}}
+        - kind: expansion
+          has: {field: operator, pattern: $$_OP}
+          not:
+            any:
+                - has: {kind: subscript, has: {field: index, regex: '^[@*]$'}}
+                - has: {field: operator, regex: '^#$', precedes: {kind: 'variable_name, subscript, special_variable_name'}}
+        - kind: command_substitution

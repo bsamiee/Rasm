@@ -18,5 +18,6 @@ rule:
     kind: keyword_argument
     has: {field: name, regex: "^((min|max)_items|allow_mutation)$", pattern: $NAME}
     inside: {kind: argument_list, inside: {matches: field-call}}
-message: '`$NAME` is a deprecated Pydantic field option, the form of `min_length`, `max_length`, or `frozen=True`'
+message: '`$NAME` is a deprecated `Field` option'
+note: '`min_length` and `max_length` replace `min_items` and `max_items`, `frozen=True` replaces `allow_mutation=False`'
 labels: {NAME: {style: primary, message: Field option}}

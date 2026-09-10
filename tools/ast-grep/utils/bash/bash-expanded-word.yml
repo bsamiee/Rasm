@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: bash-expanded-word
+language: bash
+rule:
+    any:
+        - kind: simple_expansion, expansion, command_substitution, arithmetic_expansion
+        - kind: string
+          has: {matches: bash-expanded-word}
+        - kind: concatenation
+          has: {matches: bash-expanded-word}

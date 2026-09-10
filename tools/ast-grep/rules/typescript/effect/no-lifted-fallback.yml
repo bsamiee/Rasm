@@ -6,13 +6,13 @@ utils:
     constant-success:
         matches:
             effect-constant-handler:
-                answer:
+                result:
                     not: {has: {field: arguments, has: {kind: spread_element}}}
                     any: [{pattern: $M.succeed($_)}, {pattern: $M.succeed<$$$_>($_)}]
     constant-failure:
         matches:
             effect-constant-handler:
-                answer:
+                result:
                     not: {has: {field: arguments, has: {kind: spread_element}}}
                     any: [{pattern: $M.fail($_)}, {pattern: $M.fail<$$$_>($_)}]
 rule:
@@ -77,5 +77,5 @@ rewriters:
 transform:
     RECOVERED: rewrite($CALL, rewriters=[succeed-first, succeed-last, fail-first, fail-last])
 fix: $RECOVERED
-message: 'The alternative only lifts the value its fallback returns, the form of `orElseSucceed(effect, () => value)` or `orElseFail(effect, () => error)`'
-note: 'Both members take the thunk and keep the fallback lazy'
+message: '`$M.$RECOVER` fallback lifts a constant'
+note: '`<module>.orElseSucceed(self, () => value)` or `<module>.orElseFail(self, () => error)` lifts the thunk result'

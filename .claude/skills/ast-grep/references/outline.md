@@ -28,7 +28,9 @@ Extractors repeating `fd`, `rg`, `jq`, or bundled extractor output are redundant
 - Items add `isImport`, `isExported`, and `members` (omitted when empty), a member adds `isPublic`
 - Injected regions (a `run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
 - Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, and php
+- An extractor file holds one document per extractor separated by `---`, documents of several languages load from one file
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, the first match on a node wins
+- One file loaded through both `outlineRules` and `--outline-rules` registers each extractor once
 - `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`, tsx members need the bundled set
 
 ## [03]-[CONSTRUCTION]

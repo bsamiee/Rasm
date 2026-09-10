@@ -11,5 +11,5 @@ transform:
     SLASHED_AGAIN: {replace: {source: $SLASHED, replace: '([A-Za-z0-9_.):*])\\([A-Za-z0-9_.$*(@%])', by: '$1/$2'}}
     TRAILED: {replace: {source: $SLASHED_AGAIN, replace: '([A-Za-z0-9_.):*])\\(\s*["'']?\s*)$', by: '$1/$2'}}
 fix: $TRAILED
-message: 'The path holds a backslash separator, the form of / in every path'
-note: 'sh deletes a backslash in a command and Unix converts it only in a path whose first segment exists'
+message: Path holds a backslash separator, MSBuild on Unix converts it when the first segment exists on disk alone
+note: Write `/`, MSBuild reads it on every operating system

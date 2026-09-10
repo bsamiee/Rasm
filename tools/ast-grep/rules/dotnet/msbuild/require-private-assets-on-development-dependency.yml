@@ -77,5 +77,5 @@ rewriters:
                 replace: '\s*(/?>)$'
                 by: ' PrivateAssets="all"$1'
       fix: $FIXED
-message: 'The analyzer, generator, or build tool flows to every consumer without PrivateAssets, the form of PrivateAssets="all" on the reference'
-note: 'The package stays in the compiling project'
+message: Development dependency flows to every referencing project
+note: Set `PrivateAssets="all"` on the reference

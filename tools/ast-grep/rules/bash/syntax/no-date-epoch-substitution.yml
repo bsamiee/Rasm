@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-date-epoch-substitution
+language: bash
+severity: error
+rule:
+    kind: command_substitution
+    pattern: $SUB
+    all:
+        - has:
+            kind: command
+            all:
+                - has: {field: name, regex: '^(?:\S+/)?date$'}
+                - has: {kind: 'word, string, raw_string', pattern: $FORMAT, regex: '^["'']?\+%s["'']?$', nthChild: {position: 1, reverse: true}}
+                - not: {has: {not: {any: [{kind: command_name}, {kind: word, regex: '^(-u|--utc|--universal)$'}, {pattern: $FORMAT}]}}}
+        - not: {has: {nthChild: 2}}
+transform:
+    EPOCH: {replace: {source: $SUB, replace: '(?s)^.*$', by: '$$EPOCHSECONDS'}}
+fix: $EPOCH
+message: '`$SUB` forks `date` for epoch seconds'
+note: Read `$EPOCHSECONDS`

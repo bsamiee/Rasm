@@ -7,4 +7,5 @@ rule:
     any:
         - matches: {python-module-member: {module: {regex: '^warnings$'}, name: {regex: '^(warn|warn_explicit|deprecated)$'}}}
         - matches: {python-module-member: {module: {regex: '^typing_extensions$'}, name: {regex: '^deprecated$'}}}
-message: '`$USE` emits a warning or declares a deprecated API, the form of a returned `Result` for an expected failure and a deletion for a replaced API'
+message: '`$USE` emits a warning or declares a deprecated API'
+note: 'Return a `Result` for an expected failure, delete a replaced API'

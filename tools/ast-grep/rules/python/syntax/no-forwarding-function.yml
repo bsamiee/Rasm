@@ -25,7 +25,7 @@ utils:
             - inside: {kind: await, inside: {matches: forwarding-statement}}
     single-statement-body:
         kind: block
-        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-inert-statement}}}}}
+        not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
     first-parameter:
         any: [{kind: identifier, pattern: $A}, {kind: typed_parameter, has: {kind: identifier, pattern: $A}}]
     second-parameter:
@@ -80,4 +80,5 @@ rule:
         - not: {has: {field: name, pattern: $F}}
 constraints:
     F: {matches: named-callee}
-message: 'The def forwards its parameters unchanged to one call of `$F` and adds a name for the callee, the form of `$F` itself where the def is passed or called'
+message: 'Function forwards its parameters unchanged to `$F`'
+note: 'Replace the function with its callee at each use'

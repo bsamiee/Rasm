@@ -11,3 +11,16 @@ customLanguages:
         libraryPath: .cache/ast-grep/xml.so
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
         expandoChar: _
+        outlineRules: tools/ast-grep/outline/msbuild.yml
+languageInjections:
+    - hostLanguage: yaml
+      rule:
+        kind: block_mapping_pair, flow_pair
+        all:
+            - has: {field: key, regex: '^(run|"run"|''run'')$'}
+            - has:
+                field: value
+                any:
+                    - {kind: flow_node, has: {kind: plain_scalar, pattern: $CONTENT, not: {regex: '[\r\n]'}}}
+                    - {kind: block_node, has: {kind: block_scalar, pattern: $CONTENT, regex: '^\|'}}
+      injected: bash

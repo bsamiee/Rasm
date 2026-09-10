@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-loop-over-command-substitution
+language: bash
+severity: error
+rule:
+    kind: for_statement
+    has:
+        any:
+            - kind: command_substitution
+              pattern: $SUB
+            - kind: simple_expansion
+              pattern: $SUB
+              has: {kind: variable_name}
+            - kind: expansion
+              pattern: $SUB
+              has: {kind: variable_name}
+message: '`for` word-splits and glob-expands `$SUB` into its items'
+note: Read the items into an array with `mapfile -t` and loop over `"${<items>[@]}"`

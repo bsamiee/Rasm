@@ -13,5 +13,5 @@ constraints:
 transform:
     MEMBERS: {replace: {source: $TYPES, replace: '^\(\s*(.*?)\s*,?\s*\)$', by: '$1'}}
 fix: $MEMBERS
-message: 'The except clause parenthesizes its exception types, the form of `except <A>, <B>:`'
-note: 'PEP 758 admits the unparenthesized tuple without an `as` clause, a multiline or starred tuple and an `as` clause keep the parentheses'
+message: 'Except clause parenthesizes its exception types'
+note: 'Use `except <A>, <B>:`, PEP 758 allows the unparenthesized tuple'

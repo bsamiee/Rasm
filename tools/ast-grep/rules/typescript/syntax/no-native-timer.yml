@@ -27,5 +27,5 @@ rule:
                         syntax-import-reference:
                             source: {regex: '^(node:)?timers/promises$'}
                             exported: {regex: '^scheduler$'}
-message: '`$NAME` schedules work through the host timer outside the effect runtime, the form of `Effect.sleep` for a delay, a `Schedule` for repetition, and `Effect.yieldNow` for yielding'
-note: 'Cancellation is an interruption of the runtime'
+message: '`$NAME` schedules on the host timer outside the effect runtime'
+note: '`Effect.sleep` replaces a timeout, `Effect.repeat` with a `Schedule` an interval, `Effect.yieldNow` a microtask, interruption a clear call'

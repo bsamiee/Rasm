@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mapfile-status-loop
+language: bash
+severity: error
+utils:
+    named-reader:
+        kind: command
+        all:
+            - has: {field: name, regex: '^(mapfile|readarray)$'}
+            - not: {has: {kind: word, regex: '^["'']?-[a-zA-Z]*C'}}
+            - has: {kind: word, pattern: $ARRAY, regex: '^[A-Za-z_][A-Za-z0-9_]*$', nthChild: {position: 1, reverse: true}}
+            - not: {has: {kind: word, regex: '^-[a-zA-Z]*[dnOsuCc]$', precedes: {kind: word, pattern: $ARRAY}}}
+            - not: {has: {matches: bash-expanded-word}}
+    leaving-command:
+        kind: command
+        has: {field: name, regex: '^(return|exit|break)$'}
+rule:
+    matches: named-reader
+    pattern: $READER
+    inside:
+        kind: while_statement
+        field: condition
+        all:
+            - regex: '^while\b'
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'do_group, comment'}}}}}
+            - not: {has: {field: body, has: {matches: leaving-command, stopBy: {kind: 'function_definition, subshell, while_statement, for_statement, c_style_for_statement'}}}}
+fix: '$READER && (( ${#$ARRAY[@]} ))'
+message: '`$READER` succeeds at EOF, its status never ends the loop'
+note: Test the array length after the reader, `while mapfile -tn <count> <array> && (( ${#<array>[@]} )); do`

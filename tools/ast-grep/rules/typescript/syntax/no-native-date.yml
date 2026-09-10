@@ -10,5 +10,5 @@ rule:
             - has: {field: arguments, has: {pattern: $_, not: {kind: comment}}}
         - kind: call_expression
           has: {field: function, regex: '^(globalThis\.)?Date\.(parse|UTC)$', matches: syntax-global-reference}
-message: 'The time value is built through the native Date, the form of `DateTime.make` at the boundary'
-note: '`DateTime.unsafeMake` takes an input with established validity'
+message: 'Native `Date` accepts invalid input with no failure case'
+note: '`DateTime.make(input)` returns `Option.none()` for invalid input'

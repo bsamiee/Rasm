@@ -32,5 +32,5 @@ rewriters:
             - matches: {msbuild-element: {name: {regex: '^SetTargetFramework$'}}}
               inside: {kind: content, inside: {pattern: _REFERENCE}}
       fix: ''
-message: 'The ProjectReference sets and undefines TargetFramework, the form of SetTargetFramework alone or the undefine alone'
-note: 'The MSBuild task removes the name after it applies the set value, a referenced project that must receive the framework keeps the set'
+message: '`ProjectReference` sets `TargetFramework` and undefines it, the `MSBuild` task removes the name after it applies the set value'
+note: Delete `SetTargetFramework`

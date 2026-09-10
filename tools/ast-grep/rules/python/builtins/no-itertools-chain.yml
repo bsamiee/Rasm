@@ -46,5 +46,5 @@ transform:
     SET_CLOSE: {replace: {source: $COLLECT, replace: "^set$", by: "}"}}
     CLOSE: {replace: {source: $SET_CLOSE, replace: "^list$", by: "]"}}
 fix: "$OPEN*iterable for iterable in $ITER$GROUP$GENERATOR_GROUP$CLOSE"
-message: '`$CALL` concatenates iterables through a chain object, the form of the unpacking comprehension `[*part for part in (<a>, <b>)]`'
-note: 'PEP 798 admits `*` in a comprehension body, `{*...}` builds a set and `(*...)` a lazy generator'
+message: '`$CALL` concatenates iterables through a chain object'
+note: 'Use `[*iterable for iterable in (<a>, <b>)]`, PEP 798 allows `*` in a comprehension body'

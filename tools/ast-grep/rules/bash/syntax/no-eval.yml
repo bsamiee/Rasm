@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-eval
+language: bash
+severity: error
+utils:
+    shell-name: {kind: command_name, regex: '^(?:\S+/)?(bash|sh|dash|ksh|zsh)$'}
+rule:
+    kind: command
+    pattern: $CMD
+    any:
+        - has: {field: name, regex: '^eval$'}
+        - all:
+            - has: {field: name, matches: shell-name}
+            - has: {matches: bash-expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$'}}
+message: '`$CMD` parses its arguments as shell code a second time'
+note: Build the command in an array and run `"${<array>[@]}"`, pass data to `bash -c '<script>' _ "$<value>"` as `$1`

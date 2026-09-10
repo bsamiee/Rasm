@@ -1,7 +1,7 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
 id: effect-constant-handler
 language: tsx
-arguments: [answer]
+arguments: [result]
 rule:
     kind: arrow_function, function_expression
     all:
@@ -39,7 +39,7 @@ rule:
         - has:
             field: body
             any:
-                - matches: answer
+                - matches: result
                 - kind: statement_block
-                  has: {kind: return_statement, has: {matches: answer}}
+                  has: {kind: return_statement, has: {matches: result}}
                   not: {has: {nthChild: 2}}

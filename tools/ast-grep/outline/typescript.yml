@@ -1,0 +1,185 @@
+id: typescript-ambient-member
+language: tsx
+role: member
+parentRuleIds: [tsx-ambient-module, tsx-export-ambient-module]
+symbolType: struct
+utils:
+    module-body:
+        kind: statement_block
+        inside: {kind: module, inside: {kind: ambient_declaration}}
+rule:
+    kind: type_alias_declaration, interface_declaration, function_signature, method_signature
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+    any:
+        - inside: {matches: module-body}
+        - inside: {kind: export_statement, inside: {matches: module-body}}
+transform:
+    WITHOUT_VALUE: {replace: {source: $DECLARATION, replace: '^(type\s+[\w$]+(?:<[\s\S]*>)?)\s*=[\s\S]*$', by: '$1'}}
+    WITHOUT_BODY: {replace: {source: $WITHOUT_VALUE, replace: '^(interface\s[^{]*?)\s*\{[\s\S]*$', by: '$1'}}
+    WITHOUT_TERMINATOR: {replace: {source: $WITHOUT_BODY, replace: ';\s*$', by: ''}}
+    SIGNATURE: {replace: {source: $WITHOUT_TERMINATOR, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {inside: {kind: export_statement}}
+
+---
+id: typescript-object-member
+language: tsx
+role: member
+parentRuleIds: [tsx-export-const, tsx-export-const-typed, tsx-top-level-const, tsx-top-level-const-typed, tsx-export-let, tsx-export-let-typed, tsx-top-level-let, tsx-top-level-let-typed]
+symbolType: property
+utils:
+    declared-value:
+        inside:
+            kind: variable_declarator
+            field: value
+            inside:
+                kind: lexical_declaration
+                any:
+                    - inside: {kind: program}
+                    - inside: {kind: export_statement, inside: {kind: program}}
+            stopBy:
+                not: {kind: 'as_expression, satisfies_expression, parenthesized_expression'}
+    schema-module:
+        kind: identifier
+        pattern: $MODULE
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                not: {has: {regex: '^type$'}}
+                any:
+                    - all:
+                        - has: {field: source, regex: '^["'']effect(/index)?["'']$'}
+                        - has:
+                            stopBy: end
+                            kind: import_specifier
+                            has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^Schema$'}
+                            all:
+                                - has: {kind: identifier, pattern: $MODULE, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
+                                - not: {has: {regex: '^type$'}}
+                    - all:
+                        - has: {field: source, regex: '^["'']effect/Schema["'']$'}
+                        - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}
+    struct-import:
+        kind: identifier
+        pattern: $STRUCT
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                not: {has: {regex: '^type$'}}
+                all:
+                    - has: {field: source, regex: '^["'']effect/Schema["'']$'}
+                    - has:
+                        stopBy: end
+                        kind: import_specifier
+                        has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^Struct$'}
+                        all:
+                            - has: {kind: identifier, pattern: $STRUCT, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
+                            - not: {has: {regex: '^type$'}}
+rule:
+    any:
+        - kind: pair
+          has: {field: key, pattern: $NAME}
+        - kind: shorthand_property_identifier
+          pattern: $NAME
+    pattern: $DECLARATION
+    inside:
+        kind: object
+        any:
+            - matches: declared-value
+            - nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+              inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    matches: declared-value
+                    has:
+                        field: function
+                        any:
+                            - kind: member_expression
+                              all:
+                                - has: {field: property, regex: '^Struct$'}
+                                - has: {field: object, matches: schema-module}
+                            - matches: struct-import
+name: $NAME
+signature: $DECLARATION
+isPublic: true
+
+---
+id: typescript-test
+language: tsx
+role: item
+symbolType: function
+rule:
+    kind: call_expression
+    inside: {kind: expression_statement, inside: {kind: program}}
+    all:
+        - has:
+            field: function
+            pattern: $CALLEE
+            any:
+                - kind: identifier
+                  regex: ^(describe|test|it)$
+                - kind: member_expression
+                  has: {field: object, kind: identifier, regex: '^(describe|test|it)$'}
+                - kind: call_expression
+                  has: {field: function, kind: member_expression, has: {field: object, kind: identifier, regex: '^(describe|test|it)$'}}
+                - kind: call_expression
+                  has: {field: function, kind: identifier, regex: '^layer$'}
+        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $TITLE}}
+transform:
+    NAME: {replace: {source: $TITLE, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
+name: $NAME
+signature: $CALLEE($TITLE)
+isExported: false
+
+---
+id: typescript-test-case
+language: tsx
+role: member
+parentRuleIds: [typescript-test]
+symbolType: method
+utils:
+    suite-body:
+        kind: statement_block
+        inside:
+            kind: arrow_function, function_expression
+            inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    inside: {kind: expression_statement, inside: {kind: program}}
+                    has:
+                        field: function
+                        any:
+                            - kind: identifier
+                              regex: ^describe$
+                            - kind: member_expression
+                              has: {field: object, kind: identifier, regex: '^describe$'}
+                            - kind: call_expression
+                              has: {field: function, kind: identifier, regex: '^layer$'}
+rule:
+    kind: call_expression
+    inside: {kind: expression_statement, inside: {matches: suite-body}}
+    all:
+        - has:
+            field: function
+            pattern: $CALLEE
+            any:
+                - kind: identifier
+                  regex: ^(test|it)$
+                - kind: member_expression
+                  has: {field: object, kind: identifier, regex: '^(test|it)$'}
+                - kind: call_expression
+                  has: {field: function, kind: member_expression, has: {field: object, kind: identifier, regex: '^(test|it)$'}}
+        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $TITLE}}
+transform:
+    NAME: {replace: {source: $TITLE, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
+name: $NAME
+signature: $CALLEE($TITLE)
+isPublic: true

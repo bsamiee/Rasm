@@ -25,5 +25,5 @@ rule:
             inside:
                 kind: content
                 inside: {kind: element, follows: {stopBy: end, kind: element, has: {kind: content, has: {matches: same-include}}}}
-message: 'Directory.Build.props updates or removes a default SDK item before the SDK declares it, the form of the change in the project or Directory.Build.targets, or an exclusion through DefaultItemExcludes'
-note: 'Directory.Build.props imports before the SDK item globs exist'
+message: '`Directory.Build.props` updates or removes an SDK default item before the SDK declares it'
+note: Move the item to `Directory.Build.targets`

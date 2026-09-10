@@ -79,5 +79,5 @@ transform:
     METHOD_NAME: {replace: {source: $METHOD, replace: "^(.+)$", by: "$1"}}
     FUNCTION_NAME: {replace: {source: $FUNCTION, replace: "^(.+)$", by: "$1"}}
 fix: "$HEAD$METHOD_NAME$FUNCTION_NAME($VALUE)"
-message: The inline codec instance serves one operation and is discarded, the form of the module `encode` or `decode` function
-note: The module functions use the default configuration, one `Encoder` or `Decoder` instance serves repeated operations with one configuration
+message: Codec instance serves one call
+note: Use `<module>.encode(<value>)` or `<module>.decode(<value>)`

@@ -13,4 +13,5 @@ transform:
             replace: '(\$\(MSBuildThisFileDirectory(?:NoRoot)?\))[\\/]+'
             by: '$1'
 fix: $JOINED
-message: 'The separator follows a reserved property that ends with one, the form of the segment concatenated directly after the property'
+message: Path adds a separator after a reserved property that ends with one
+note: 'Append the segment without a separator, `$(MSBuildThisFileDirectory)<segment>`'

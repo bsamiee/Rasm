@@ -97,7 +97,7 @@ rewriters:
 transform:
     STEPS: rewrite($CALL, rewriters=[unary, steps, unary-head, head])
 fix: pipe($STEPS)
-message: 'Module calls nest four deep as data-first arguments and read from the inside out, the form of `pipe(value, ...)` in evaluation order'
-note: 'Three nested data-first calls read in place, `pipe(value, Array.map(project), Array.flatten)` states a deeper composition'
+message: 'Data-first module calls nest four deep and read from the inside out'
+note: '`pipe(value, step, step, step)` lists the steps in evaluation order'
 labels:
     CALL: {style: primary}

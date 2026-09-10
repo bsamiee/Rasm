@@ -65,5 +65,5 @@ transform:
     CALL: {replace: {source: $CALLEE, replace: 'match$', by: 'ifNone'}}
     FIRST: {replace: {source: $INPUT, replace: '(?s)^(.*)$', by: '${1}, '}}
 fix: "$HEAD$CALL($FIRST$FALLBACK)"
-message: "`Match` returns the Some value unchanged and supplies a fallback for None, the form of `IfNone`"
-note: IfNone with the fallback on an Option<A> Match whose result is A, a wider result or an Action fallback keeps Match
+message: "`Match` returns the Some value unchanged and supplies a fallback for None"
+note: "`<option>.IfNone(<fallback>)` returns the Some value or fallback"

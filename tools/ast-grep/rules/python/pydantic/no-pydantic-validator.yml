@@ -7,4 +7,5 @@ rule:
         - matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: "^(validator|root_validator|validate_arguments)$", pattern: $NAME}}}
         - matches: {python-module-member: {module: {regex: '^pydantic(\.deprecated)?\.class_validators$'}, name: {regex: "^(validator|root_validator)$", pattern: $NAME}}}
         - matches: {python-module-member: {module: {regex: '^pydantic(\.deprecated)?\.decorator$'}, name: {regex: "^validate_arguments$", pattern: $NAME}}}
-message: '`$NAME` is a deprecated Pydantic validator decorator, the form of `field_validator(<field>, mode=<stage>)`, `model_validator(mode=<stage>)`, or `validate_call`'
+message: '`$NAME` is a deprecated validator decorator'
+note: '`field_validator` replaces `validator`, `model_validator` replaces `root_validator`, `validate_call` replaces `validate_arguments`'

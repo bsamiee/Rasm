@@ -99,5 +99,5 @@ rewriters:
 transform:
     OUT: rewrite($STMT, rewriters=[and-statement, or-negated-statement, or-boolean-statement, or-statement, if-statement, else-boolean-statement, else-statement, if-else-statement, filtered-loop, loop])
 fix: $OUT
-message: The expression statement drops the value of a selection or iteration, the form of an `if` statement for the selection and a `for` loop for the iteration
-note: The `if` body holds the effect of the selected branch, and the loop body runs once per element and builds no collection
+message: Expression statement drops the value of a selection or iteration
+note: Write the selection as an `if` statement and the iteration as a `for` loop

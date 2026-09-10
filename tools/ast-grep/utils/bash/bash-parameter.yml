@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: bash-parameter
+language: bash
+arguments: [name]
+utils:
+    plain:
+        any:
+            - kind: simple_expansion
+              has: {kind: variable_name, matches: name}
+            - kind: expansion
+              has: {any: [{kind: variable_name}, {kind: subscript, not: {has: {field: index, regex: '^[@*]$'}}}], matches: name}
+              not: {has: {field: operator, pattern: $$_OP}}
+rule:
+    any:
+        - matches: plain
+        - kind: string
+          has: {matches: plain}
+          not: {has: {nthChild: 2}}

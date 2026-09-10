@@ -56,7 +56,7 @@ utils:
         all:
             - has: {field: property, regex: '^filterOrFail$'}
             - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM)$'}}}}
-    record-mapper:
+    options-callee:
         kind: member_expression
         any:
             - all:
@@ -100,6 +100,6 @@ rule:
             - has: {field: function, pattern: $FAIL, matches: filter-constructor}
         - all:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
-            - has: {field: function, pattern: $FAIL, matches: record-mapper}
-message: '`$FAIL` fails with `$ERROR`, a value no tag names, the form of a `Data.TaggedError` instance such as `new LoadError({ path })`'
-note: '`Effect.catchTag` recovers a tagged error by its tag'
+            - has: {field: function, pattern: $FAIL, matches: options-callee}
+message: '`$FAIL` fails with `$ERROR`, a value with no `_tag`'
+note: 'Fail with a `Data.TaggedError` instance, `Effect.catchTag` recovers it by `_tag`'

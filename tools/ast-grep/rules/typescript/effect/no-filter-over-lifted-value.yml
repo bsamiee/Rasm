@@ -56,18 +56,18 @@ rewriters:
             - pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS))"
               has: {field: function, kind: identifier}
       fix: $M.liftPredicate($VALUE, $$$ARGS)
-    - id: functional-steps
+    - id: pipe-function-steps
       rule:
         pattern: "$PIPE($M.$LIFT($VALUE), $M.$FILTER($$$ARGS), $$$REST)"
         has: {field: function, kind: identifier}
       fix: $PIPE($VALUE, $M.liftPredicate($$$ARGS), $$$REST)
-    - id: method-steps
+    - id: pipe-method-steps
       rule:
         pattern: "$M.$LIFT($VALUE).pipe($M.$FILTER($$$ARGS), $$$REST)"
       fix: $M.liftPredicate($VALUE, $$$ARGS).pipe($$$REST)
 transform:
-    LIFT: rewrite($CALL, rewriters=[direct, pipe, functional-steps, method-steps])
+    LIFT: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
 labels: {CALL: {style: primary}}
 fix: $LIFT
-message: 'The predicate filters a value the call lifted into the carrier, the form of the module `liftPredicate(value, predicate)`'
-note: 'Effect and Either take the error callback as the third argument, later pipe steps stay outside the call'
+message: '`$MODULE` lifts a value and filters it in one expression'
+note: '`<module>.liftPredicate(value, predicate, orFailWith)` lifts by the predicate, `Option.liftPredicate` takes no `orFailWith`'

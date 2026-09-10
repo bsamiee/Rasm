@@ -88,6 +88,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `NEW: replace($OLD, replace=<regex>, by=<text>)` replaces text, `NEW: substring($OLD, startChar=1, endChar=-1)` slices it
 - `NEW: convert($OLD, toCase=snakeCase)` converts case, `NEW: rewrite($OLD, rewriters=[<id>])` rewrites nodes
 - `replace` reads Rust regex captures in its `by` field as `$1` or `${NAME}`, with `$$` for a literal dollar
+- A template reads every `$NAME` as a metavariable and fails the load on an unbound one, a literal `$NAME` comes from a `replace` whose `by` spells `$$NAME`
 - Rewriters sit in the document `rewriters` list, `rewrite()` selects them by id
 - Each rewriter holds `id`, `rule`, and `fix`, with optional `constraints`, `transform`, and `utils`
 - Traversal covers the captured root and its descendants, each node of a `$$$` capture included
@@ -106,6 +107,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Injection entries capture the embedded source as `$CONTENT` and name the parser in `injected`, a language or a candidate list with `$LANG`
 - Injections parse source ranges without decoding host strings, plain and literal block YAML scalars and JSON strings with no `escape_sequence`
 - Injection entries hold ownership predicates in their `utils` map beside `rule` and `injected`, injection compilation loads no `utilDirs`
+- A `run:` scalar of a workflow or composite step is bash, an Nx `command` string runs under `/bin/sh` and takes no bash rule
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), an unquoted second kind reads as a key
 - Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates and transform sources use `$`
 - XML patterns bind whole nodes, `<Name>_TEXT</Name>` captures content
@@ -134,6 +136,36 @@ Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precede
 
 Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks the precedence.
 
+| [INDEX] | [BASH]                          | [SHAPE]                                                                                                |
+| :-----: | :------------------------------ | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `[ x = y ]`, `[[ x = y ]]`      | `test_command` with the bracket unnamed over a `binary_expression` with `left`, `operator`, `right`    |
+|  [02]   | `$(cmd)`, backticks             | `command_substitution` with the delimiter unnamed and one `command` child per simple command           |
+|  [03]   | `echo $x`, `echo "$x"`          | `simple_expansion` under `command` when unquoted and under `string` when double-quoted                 |
+|  [04]   | `$1`, `${10}`, `$@`, `$?`       | `variable_name` under `simple_expansion` or `expansion`, `special_variable_name` for `$@`, `$#`, `$?`  |
+|  [05]   | `${x#*/}`, `${x:-d}`            | `expansion` with `variable_name` and an `operator` child, the pattern a `regex` or `word` child        |
+|  [06]   | `${x//a/$r}`                    | `expansion` with two `operator` children, the replacement follows the second `/`                       |
+|  [07]   | `x=${ cmd; }`, `${\| cmd; }`    | `ERROR` over the statement, tree-sitter-bash has no node for the bash 5.3 no-fork substitution         |
+|  [08]   | `cmd <<<"$x"`                   | `command` with `redirect: herestring_redirect`, the last stage's after a pipeline                      |
+|  [09]   | `cmd > f`, `done < <(p)`        | `redirected_statement` with `body` and `redirect: file_redirect` wrapping the whole list or pipeline   |
+|  [10]   | `for f in $(ls); do`            | `for_statement` with `variable`, `value: command_substitution`, and `body: do_group`                   |
+|  [11]   | `(( x += 1 ))`, `(( x++ ))`     | `compound_statement` over a `binary_expression`, a `postfix_expression` for `x++`                      |
+|  [12]   | `local -n r=$1`, `declare -A m` | `declaration_command` with the keyword, an option `word`, and `variable_assignment` children           |
+|  [13]   | `f() { ...; }`                  | `function_definition` with `name: word` and `body: compound_statement`, `function` spelling included   |
+|  [14]   | `if c; then a; else b; fi`      | `if_statement` with the condition, the then statements, and `else_clause` as named children, no `then` |
+|  [15]   | `run: \|` block scalar          | `ERROR` token for the `\|` indicator before the first `command`, the commands after it parse           |
+|  [16]   | `${{ inputs.x }}` in a step     | `ERROR` node                                                                                           |
+
+- `has: {field: argument}` tests the first argument alone, a guard over any argument drops `field`
+- `follows` on an argument binds with `stopBy: end` alone, the neighbor default stops at the unnamed token between siblings
+
+| [INDEX] | [YAML]                | [SHAPE]                                                                                    |
+| :-----: | :-------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | Block or flow mapping | `block_mapping_pair` or `flow_pair`, with `key` and `value` fields under the mapping       |
+|  [02]   | Mapping value         | `block_node` or `flow_node` wraps the mapping, sequence, or scalar                         |
+|  [03]   | Quoted key            | Preserve scalar spelling, or match plain, single-quoted, and double-quoted forms           |
+|  [04]   | Document-level pair   | Pair inside `block_mapping, flow_mapping` inside `block_node, flow_node` inside `document` |
+|  [05]   | `\"` in a quoted case | `double_quote_scalar` text holds the backslash, a `regex` over it reads the escape         |
+
 | [INDEX] | [CSHARP]                            | [SHAPE]                                                                                          |
 | :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------------- |
 |  [01]   | `Match(Succ: x => x, Fail: e => 0)` | `$F` in `Match($I, $F)` binds the whole `argument` with its name, `Fail: $F` the lambda alone    |
@@ -141,10 +173,8 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 
 ## [07]-[OUTLINE]
 
-An outline returns a declaration's parsed range, so the agent reads the member's lines and nothing else,
-where `rg` returns every textual occurrence of the name and cannot separate the definition from its uses or say where the body ends.
-That difference pays only in a file long enough that reading it whole costs more than one outline call,
-in a language with no richer navigator (Roslyn already answers this for C#, so the use is TypeScript and Python).
-An extractor over a file an agent reads whole anyway (a workflow, a project file, a rule) earns no place.
+An outline returns a declaration's parsed range, so the agent reads the member's lines and nothing else, where `rg` returns every textual occurrence of the name and cannot separate the definition from its uses or say where the body ends. That difference pays only in a file long enough that reading it whole costs more than one outline call, in a language with no richer navigator (Roslyn already answers this for C#, so the use is TypeScript, Python, and MSBuild). An extractor over a file an agent reads whole anyway (a workflow, a manifest, a rule) earns no place.
+
+- One multi-document file holds a language's extractors, `--outline-rules` loads one for a built-in language and `customLanguages.<name>.outlineRules` one for a custom language
 - `isImport` defaults to `false`, `isExported` and `isPublic` to `true`
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, the first match on a node wins

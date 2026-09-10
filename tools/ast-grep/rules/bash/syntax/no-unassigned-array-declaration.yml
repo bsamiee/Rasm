@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unassigned-array-declaration
+language: bash
+severity: error
+rule:
+    kind: variable_name
+    pattern: $NAME
+    inside:
+        kind: declaration_command
+        all:
+            - has: {kind: word, regex: '^-[aAgiIlrtux]*[aA][aAgiIlrtux]*$'}
+            - inside:
+                kind: function_definition, program
+                stopBy: {kind: function_definition}
+                has:
+                    stopBy: end
+                    kind: expansion
+                    all:
+                        - has: {field: operator, regex: '^#$'}
+                        - has: {kind: subscript, all: [{has: {field: name, pattern: $NAME}}, {has: {field: index, regex: '^[@*]$'}}]}
+fix: $NAME=()
+message: 'Declaration leaves `$NAME` unassigned, `${#$NAME[@]}` fails as unbound under `set -u`'
+note: Assign the empty array in the declaration, `<name>=()`

@@ -40,6 +40,6 @@ rule:
                     matches: control
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
-message: 'C# execution exceeds three nested function or control levels, the form of a guard clause, a switch expression, a query expression, or a combinator of the owning type at the fourth level'
+message: Function or control nesting reaches a fourth level
 labels:
     SCOPE: {style: primary}

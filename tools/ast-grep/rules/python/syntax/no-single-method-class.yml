@@ -20,10 +20,11 @@ rule:
             any:
                 - all:
                     - has: {kind: function_definition, not: {has: {field: name, regex: '^__.*__$'}}}
-                    - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-inert-statement}, {matches: init}]}}}}}
+                    - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-docstring-or-comment}, {matches: init}]}}}}}
                 - all:
                     - has: {matches: static-method}
-                    - not: {has: {not: {any: [{matches: python-inert-statement}, {matches: static-method}]}}}
-message: '`$NAME` holds one instance method or only static methods, the form of a function, a `msgspec.Struct` holding the state with the operation as its method, or a dict of the values'
+                    - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: static-method}]}}}
+message: '`$NAME` holds one instance method or static methods alone'
+note: 'Write the operation as a function, its state as a `msgspec.Struct`'
 labels:
     NAME: {style: primary, message: Class with one method}

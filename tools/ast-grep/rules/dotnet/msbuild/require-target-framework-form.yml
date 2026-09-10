@@ -25,5 +25,5 @@ rewriters:
     - id: singular
       rule: {kind: Name, inside: {kind: 'STag, ETag', inside: {pattern: _PROPERTY}}}
       fix: TargetFramework
-message: 'The property name disagrees with its value, the form of TargetFramework for one framework and TargetFrameworks for a semicolon list'
-note: 'A list in TargetFramework fails with NETSDK1046, one framework in TargetFrameworks adds an outer build'
+message: Property name disagrees with its value
+note: Use `TargetFramework` for one framework and `TargetFrameworks` for a semicolon list

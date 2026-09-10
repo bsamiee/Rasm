@@ -5,14 +5,14 @@ severity: error
 utils:
     true-arm:
         any:
-            - matches: {effect-constant-handler: {answer: {kind: 'true'}}}
+            - matches: {effect-constant-handler: {result: {kind: 'true'}}}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^constTrue$'}
                 - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Function$'}}}}
     false-arm:
         any:
-            - matches: {effect-constant-handler: {answer: {kind: 'false'}}}
+            - matches: {effect-constant-handler: {result: {kind: 'false'}}}
             - kind: member_expression
               all:
                 - has: {field: property, regex: '^constFalse$'}
@@ -56,28 +56,29 @@ rewriters:
     - id: true-key
       rule: {matches: true-pair}
       fix: $KEY
-    - id: flag
+    - id: boolean
       rule:
         pattern: "Boolean.match($V, $_)"
         has: {field: arguments, has: {kind: object, has: {matches: true-pair}}}
       constraints: {KEY: {regex: "^onTrue$"}}
       fix: ($V)
-    - id: flag-not
+    - id: negated-boolean
       rule: {pattern: "Boolean.match($V, $_)"}
       fix: "(!($V))"
-    - id: carrier-first
+    - id: data-first
       rule: {pattern: "$M.$_($V, $C)"}
       transform:
         CASE: {rewrite: {source: $C, rewriters: [true-key], joinBy: ""}}
         PRED: replace($CASE, replace='^on(\w+)$', by='is$1')
       fix: $M.$PRED($V)
-    - id: carrier-last
+    - id: data-last
       rule: {pattern: $M.$_($C)}
       transform:
         CASE: {rewrite: {source: $C, rewriters: [true-key], joinBy: ""}}
         PRED: replace($CASE, replace='^on(\w+)$', by='is$1')
       fix: $M.$PRED
 transform:
-    PREDICATE: rewrite($CALL, rewriters=[flag, flag-not, carrier-first, carrier-last])
+    PREDICATE: rewrite($CALL, rewriters=[boolean, negated-boolean, data-first, data-last])
 fix: $PREDICATE
-message: 'The match returns the result of an existing case predicate, the form of `Option.isSome`, `Effect.isSuccess`, or the boolean itself'
+message: '`$M.match` maps one case to `true` and the other to `false`'
+note: 'Use `<module>.is<Case>(value)`, or `value` and `!value` for `Boolean.match`'

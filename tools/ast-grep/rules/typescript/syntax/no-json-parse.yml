@@ -5,5 +5,5 @@ severity: error
 rule:
     kind: call_expression
     has: {field: function, regex: '^(globalThis\.)?JSON\.parse$', matches: syntax-global-reference}
-message: '`JSON.parse` answers an unvalidated value, the form of `Schema.decodeUnknown(Schema.parseJson(schema))`'
-note: 'The decoder answers a typed value or a `ParseError`'
+message: '`JSON.parse` returns an unvalidated `any`'
+note: '`Schema.decodeUnknown(Schema.parseJson(schema))` returns the typed value or a `ParseError`'

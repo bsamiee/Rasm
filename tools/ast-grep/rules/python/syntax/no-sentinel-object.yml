@@ -29,4 +29,5 @@ rule:
         - inside:
             kind: expression_statement
             inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
-message: '`$NAME` is a sentinel object standing for absence by identity, the form of `hasattr`, `in`, or `T | None` at the boundary'
+message: '`$NAME` is a sentinel standing for absence by identity'
+note: 'Declare the value as `<T> | None`'

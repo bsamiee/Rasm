@@ -23,7 +23,7 @@ utils:
                     field: function
                     matches: runtime-member
                     has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Runtime$'}}}}
-    effect-owner:
+    effect-combinator:
         kind: call_expression
         any:
             - has:
@@ -44,7 +44,7 @@ utils:
                 all:
                     - has: {field: property, regex: "^(update|modify|updateAndGet|getAndUpdate|updateSome|modifySome|updateSomeAndGet|getAndUpdateSome|updateEffect|modifyEffect)$"}
                     - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Ref|SynchronizedRef|SubscriptionRef)$'}}}}
-            - has: {field: function, kind: call_expression, matches: effect-owner}
+            - has: {field: function, kind: call_expression, matches: effect-combinator}
     callback:
         matches: syntax-function-boundary
         any:
@@ -72,7 +72,7 @@ utils:
                 - kind: statement_block
                   has: {kind: return_statement, has: {matches: run-call}}
                   not: {has: {nthChild: 2}}
-    lifting-owner:
+    fixable-call:
         kind: call_expression
         all:
             - has: {field: function, kind: member_expression, has: {field: object, matches: effect-module}}
@@ -83,7 +83,7 @@ rule:
     kind: call_expression
     pattern: $CALL
     all:
-        - matches: effect-owner
+        - matches: effect-combinator
         - has:
             field: arguments
             has:
@@ -91,35 +91,35 @@ rule:
                 matches: callback
                 has: {stopBy: {matches: syntax-function-boundary}, matches: run-invocation, pattern: $RUN}
 rewriters:
-    - id: unrun
+    - id: effect-argument
       rule: {matches: run-call}
       fix: $EFFECT
     - id: map-first
       rule:
         pattern: '$M.map($SELF, $H)'
-        matches: lifting-owner
+        matches: fixable-call
         has: {field: arguments, has: {nthChild: 2, matches: run-callback}}
-      transform: {BODY: 'rewrite($H, rewriters=[unrun])'}
+      transform: {BODY: 'rewrite($H, rewriters=[effect-argument])'}
       fix: $M.flatMap($SELF, $BODY)
     - id: map-last
       rule:
         pattern: $M.map($H)
-        matches: lifting-owner
+        matches: fixable-call
         has: {field: arguments, has: {nthChild: 1, matches: run-callback}}
-      transform: {BODY: 'rewrite($H, rewriters=[unrun])'}
+      transform: {BODY: 'rewrite($H, rewriters=[effect-argument])'}
       fix: $M.flatMap($BODY)
     - id: suspend
       rule:
         pattern: $M.$OWNER($H)
-        matches: lifting-owner
+        matches: fixable-call
         has: {field: arguments, has: {nthChild: 1, matches: run-callback}}
       constraints: {OWNER: {regex: '^(sync|promise)$'}}
-      transform: {BODY: 'rewrite($H, rewriters=[unrun])'}
+      transform: {BODY: 'rewrite($H, rewriters=[effect-argument])'}
       fix: $M.suspend($BODY)
 transform:
     COMPOSED: rewrite($CALL, rewriters=[map-first, map-last, suspend])
 fix: $COMPOSED
-message: '`$RUN` runs an effect through a separate runtime inside a callback that composes effects, the form of the effect returned through `flatMap`, `suspend`, or `yield*`'
-note: A callback that returns the effect composes it in the enclosing runtime with its interruption and context
+message: '`$RUN` starts a separate runtime inside an effect callback'
+note: 'Return the effect from the callback, the enclosing runtime supplies interruption and context'
 labels:
     RUN: {style: primary}

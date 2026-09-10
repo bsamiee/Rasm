@@ -17,8 +17,5 @@
         "@electric-sql/pglite": "catalog:",
         "effect": "catalog:",
         "vitest": "catalog:"
-    },
-    "nx": {
-        "tags": ["language:typescript"]
     }
 }

@@ -1,0 +1,173 @@
+id: msbuild-group
+language: xml
+role: item
+symbolType: object
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        has: {kind: Name, regex: "^(PropertyGroup|ItemGroup)$"}
+    inside:
+        kind: element
+        inside: {kind: document}
+        has:
+            kind: STag
+            has: {kind: Name, regex: "^Project$"}
+        stopBy:
+            not:
+                any:
+                    - kind: content
+                    - kind: element
+                      has:
+                        kind: STag
+                        has: {kind: Name, regex: "^(Choose|When|Otherwise)$"}
+transform:
+    LABELED: {replace: {source: $TAG, replace: '^<(\w+)(?:[\s\S]*\sLabel=["'']([^"'']*)["''])?[\s\S]*$', by: '$1 $2'}}
+    LINE: {replace: {source: $LABELED, replace: '\s*\n\s*', by: ' '}}
+    NAME: {replace: {source: $LINE, replace: '\s+$', by: ''}}
+name: $NAME
+signature: $TAG
+isExported: false
+
+---
+id: msbuild-property
+language: xml
+role: member
+parentRuleIds: [msbuild-group]
+symbolType: property
+rule:
+    kind: element
+    pattern: _PROPERTY
+    has:
+        kind: STag, EmptyElemTag
+        has: {kind: Name, pattern: _NAME}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has:
+                kind: STag
+                has: {kind: Name, regex: "^PropertyGroup$"}
+name: $NAME
+signature: $PROPERTY
+isPublic: true
+
+---
+id: msbuild-item
+language: xml
+role: member
+parentRuleIds: [msbuild-group]
+symbolType: variable
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        all:
+            - has: {kind: Name, pattern: _NAME}
+            - has:
+                kind: Attribute
+                all:
+                    - has: {kind: Name, regex: "^(Include|Update|Remove)$"}
+                    - has: {kind: AttValue, pattern: _VALUE}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has:
+                kind: STag
+                has: {kind: Name, regex: "^ItemGroup$"}
+name: "$NAME $VALUE"
+signature: $TAG
+isPublic: true
+
+---
+id: msbuild-target
+language: xml
+role: item
+symbolType: function
+rule:
+    kind: element
+    has:
+        all:
+            - kind: STag, EmptyElemTag
+            - pattern: _TAG
+            - has: {kind: Name, regex: "^Target$"}
+            - has:
+                kind: Attribute
+                all:
+                    - has: {kind: Name, regex: "^Name$"}
+                    - has: {kind: AttValue, pattern: _VALUE}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            inside: {kind: document}
+            has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+transform:
+    NAME: substring($VALUE, startChar=1, endChar=-1)
+name: $NAME
+signature: $TAG
+isExported: true
+
+---
+id: msbuild-task
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: method
+rule:
+    kind: element
+    all:
+        - has:
+            all:
+                - kind: STag, EmptyElemTag
+                - pattern: _TAG
+                - has:
+                    kind: Name
+                    pattern: _NAME
+                    not: {regex: "^(PropertyGroup|ItemGroup|OnError)$"}
+        - inside:
+            kind: content
+            inside:
+                kind: element
+                has:
+                    kind: STag
+                    has: {kind: Name, regex: "^Target$"}
+                inside:
+                    kind: content
+                    inside:
+                        kind: element
+                        inside: {kind: document}
+                        has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+name: $NAME
+signature: $TAG
+isPublic: true
+
+---
+id: msbuild-target-group
+language: xml
+role: member
+parentRuleIds: [msbuild-target]
+symbolType: object
+rule:
+    kind: element
+    has:
+        kind: STag, EmptyElemTag
+        pattern: _TAG
+        has: {kind: Name, pattern: _NAME, regex: '^(PropertyGroup|ItemGroup)$'}
+    inside:
+        kind: content
+        inside:
+            kind: element
+            has: {kind: STag, has: {kind: Name, regex: '^Target$'}}
+            inside:
+                kind: content
+                inside:
+                    kind: element
+                    inside: {kind: document}
+                    has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
+name: $NAME
+signature: $TAG
+isPublic: true
