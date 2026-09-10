@@ -23,7 +23,7 @@ Use `dotnet-msbuild-evaluation` for the evaluation rule behind an entry.
 
 Prove each with `dotnet msbuild <project> -getProperty:<Name>`.
 
-### [AP-01]-[ERROR]-[UNQUOTED_CONDITION_OPERANDS]
+### [01.1]-[AP-01]-[ERROR]-[UNQUOTED_CONDITION_OPERANDS]
 
 - SMELL: `Condition="$(Foo) == net10.0"`, a comparison side without single quotes
 - WHY:
@@ -39,7 +39,7 @@ Prove each with `dotnet msbuild <project> -getProperty:<Name>`.
 <Optimize Condition="'$(TargetFramework)' == 'net10.0'">true</Optimize>
 ```
 
-### [AP-02]-[ERROR]-[SIDE_EFFECTS_DURING_PROPERTY_EVALUATION]
+### [01.2]-[AP-02]-[ERROR]-[SIDE_EFFECTS_DURING_PROPERTY_EVALUATION]
 
 - SMELL: Property functions that read or write the file system inside a `PropertyGroup`
 - WHY:
@@ -59,7 +59,7 @@ Prove each with `dotnet msbuild <project> -getProperty:<Name>`.
 </Target>
 ```
 
-### [AP-03]-[ERROR]-[GLOBAL_PROPERTY_REASSIGNED_IN_PROJECT_XML]
+### [01.3]-[AP-03]-[ERROR]-[GLOBAL_PROPERTY_REASSIGNED_IN_PROJECT_XML]
 
 - SMELL: Project XML assigns a property the command line, `Directory.Build.rsp`, or an `<MSBuild>` task can supply
 - WHY:
@@ -79,7 +79,7 @@ Prove each with `dotnet msbuild <project> -getProperty:<Name>`.
 
 Prove each with `-getProperty` from one project, and with `-pp:` when the assignment source is in question.
 
-### [AP-04]-[ERROR]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
+### [02.1]-[AP-04]-[ERROR]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
 - SMELL: A `.targets` file alone sets a default a `.props` file or the project body reads
 - WHY: `.targets` imports after the project body, every earlier reader sees an empty value
@@ -92,7 +92,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 <ToolVersion Condition="'$(ToolVersion)' == ''">2.0</ToolVersion>
 ```
 
-### [AP-05]-[STYLE]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
+### [02.2]-[AP-05]-[STYLE]-[UNCONDITIONAL_PROPERTY_OVERRIDE_IN_MULTIPLE_SCOPES]
 
 - SMELL: `Directory.Build.props` and a `.csproj` assign one property without a condition, the last assignment wins silently
 - RULE:
@@ -107,7 +107,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 <GenerateDocumentationFile Condition="'$(GenerateDocumentationFile)' == ''">true</GenerateDocumentationFile>
 ```
 
-### [AP-06]-[ERROR]-[PROPS_CONDITION_ON_A_LATER_VALUE]
+### [02.3]-[AP-06]-[ERROR]-[PROPS_CONDITION_ON_A_LATER_VALUE]
 
 - SMELL: A `.props` condition on `$(TargetFramework)`, `$(OutputType)`, an SDK-computed path, or a property the project body sets
 - WHY:
@@ -133,7 +133,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 </ItemGroup>
 ```
 
-### [AP-07]-[ERROR]-[ARTIFACTSPATH_IN_A_PROJECT_FILE]
+### [02.4]-[AP-07]-[ERROR]-[ARTIFACTSPATH_IN_A_PROJECT_FILE]
 
 - SMELL: `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`, or `BaseIntermediateOutputPath` in a project file
 - WHY:
@@ -152,7 +152,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'artifacts'))</ArtifactsPath>
 ```
 
-### [AP-08]-[STYLE]-[RESTATING_AN_SDK_DEFAULT_OR_A_ROOT_VALUE]
+### [02.5]-[AP-08]-[STYLE]-[RESTATING_AN_SDK_DEFAULT_OR_A_ROOT_VALUE]
 
 - SMELL:
   - An SDK default in a project, `OutputType=Library`, `EnableDefaultItems=true`, `RootNamespace` equal to the project name
@@ -172,7 +172,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 <LangVersion>latest</LangVersion>
 ```
 
-### [AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
+### [02.6]-[AP-09]-[STYLE]-[NOWARN_IN_A_PROJECT_FILE]
 
 - SMELL: `NoWarn` with a compiler or analyzer code in a project, or `NoWarn` assigned without `$(NoWarn);`
 - WHY:
@@ -189,7 +189,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 <NoWarn>$(NoWarn);NU1603</NoWarn>
 ```
 
-### [AP-10]-[ERROR]-[RSP_OR_SOLUTION_PROPS_FOR_A_PROJECT_SETTING]
+### [02.7]-[AP-10]-[ERROR]-[RSP_OR_SOLUTION_PROPS_FOR_A_PROJECT_SETTING]
 
 - SMELL: `-p:Name=Value` in `Directory.Build.rsp`, or a project value in `Directory.Solution.props`
 - WHY:
@@ -210,7 +210,7 @@ Prove each with `-getProperty` from one project, and with `-pp:` when the assign
 
 Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 
-### [AP-11]-[ERROR]-[ITEM_UPDATE_OR_REMOVE_BEFORE_THE_SDK_INCLUDE]
+### [03.1]-[AP-11]-[ERROR]-[ITEM_UPDATE_OR_REMOVE_BEFORE_THE_SDK_INCLUDE]
 
 - SMELL: `Update` or `Remove` in `Directory.Build.props`, an `Update` matching no item, or an `Include` of a file the default glob matches
 - WHY:
@@ -229,7 +229,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 <None Update="appsettings.json" CopyToOutputDirectory="PreserveNewest" />
 ```
 
-### [AP-12]-[ERROR]-[REFERENCE_WITH_HINTPATH_FOR_A_PACKAGE_OR_PROJECT]
+### [03.2]-[AP-12]-[ERROR]-[REFERENCE_WITH_HINTPATH_FOR_A_PACKAGE_OR_PROJECT]
 
 - SMELL: `Reference` with a `HintPath` into `packages/` or another project's `bin/`, or a host-supplied assembly without `Private="false"`
 - WHY:
@@ -249,7 +249,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 <Reference Include="HostCore" HintPath="$(HostAssemblyDir)HostCore.dll" Private="false" />
 ```
 
-### [AP-13]-[STYLE]-[REDUNDANT_PROJECTREFERENCE_TO_A_TRANSITIVE_DEPENDENCY]
+### [03.3]-[AP-13]-[STYLE]-[REDUNDANT_PROJECTREFERENCE_TO_A_TRANSITIVE_DEPENDENCY]
 
 - SMELL: `Core` references `Utils`, the project references both and names no `Utils` type
 - WHY: Project references are transitive through `project.assets.json` unless `DisableTransitiveProjectReferences` is `true`
@@ -263,7 +263,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 <ProjectReference Include="../Core/Core.csproj" />
 ```
 
-### [AP-14]-[ERROR]-[IMPORT_WITHOUT_EXISTS_GUARD]
+### [03.4]-[AP-14]-[ERROR]-[IMPORT_WITHOUT_EXISTS_GUARD]
 
 - SMELL: `<Import Project="...">` of an optional file without `Condition="Exists('...')"`
 - WHY:
@@ -280,7 +280,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 <Project Sdk="Microsoft.NET.Sdk">
 ```
 
-### [AP-15]-[ERROR]-[ASSEMBLYINFO_WITH_GENERATEASSEMBLYINFO]
+### [03.5]-[AP-15]-[ERROR]-[ASSEMBLYINFO_WITH_GENERATEASSEMBLYINFO]
 
 - SMELL: `AssemblyInfo.cs` with an attribute the SDK generates while `GenerateAssemblyInfo` is `true`
 - WHY: The compiler sees the attribute twice, `CS0579`
@@ -292,7 +292,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 <AssemblyTitle>Library</AssemblyTitle>
 ```
 
-### [AP-16]-[ERROR]-[TARGETFRAMEWORK_PLURAL_SINGULAR_CONFUSION]
+### [03.6]-[AP-16]-[ERROR]-[TARGETFRAMEWORK_PLURAL_SINGULAR_CONFUSION]
 
 - SMELL: A list in `TargetFramework`, both properties in one project, or one value in `TargetFrameworks`
 - WHY:
@@ -307,7 +307,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 <TargetFrameworks>net10.0;netstandard2.0</TargetFrameworks>
 ```
 
-### [AP-17]-[ERROR]-[PROJECTREFERENCE_CYCLE_OR_UPWARD_EDGE]
+### [03.7]-[AP-17]-[ERROR]-[PROJECTREFERENCE_CYCLE_OR_UPWARD_EDGE]
 
 - SMELL: Two projects referencing each other, or a library referencing an application, tool, or test project
 - WHY:
@@ -328,7 +328,7 @@ Prove each with `dotnet msbuild <project> -getItem:<Type>`.
 
 Prove each with a build at `-v:n`, and a repeated build for the incremental case.
 
-### [AP-18]-[STYLE]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
+### [04.1]-[AP-18]-[STYLE]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
 - SMELL: A target writing files without `Inputs` and `Outputs`, or a target combining unrelated work
 - WHY: A target without both attributes runs on every build, one stale input reruns every step of a large target
@@ -350,7 +350,7 @@ Prove each with a build at `-v:n`, and a repeated build for the incremental case
 </Target>
 ```
 
-### [AP-19]-[ERROR]-[CALLTARGET_FOR_A_DEPENDENCY]
+### [04.2]-[AP-19]-[ERROR]-[CALLTARGET_FOR_A_DEPENDENCY]
 
 - SMELL: `<CallTarget Targets="Compute" />` followed by a task reading a value the called target sets
 - WHY: Values a `CallTarget` target creates reach the caller after it finishes, the next task reads empty
@@ -368,7 +368,7 @@ Prove each with a build at `-v:n`, and a repeated build for the incremental case
 </Target>
 ```
 
-### [AP-20]-[ERROR]-[COPY_TASK_FOR_AN_OUTPUT_ITEM]
+### [04.3]-[AP-20]-[ERROR]-[COPY_TASK_FOR_AN_OUTPUT_ITEM]
 
 - SMELL: `Copy` placing a content file in `$(OutDir)`, or a target named `AfterBuild` or `BeforeBuild` in a `.csproj` or `.props` file
 - WHY:
@@ -385,7 +385,7 @@ Prove each with a build at `-v:n`, and a repeated build for the incremental case
 <None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
 ```
 
-### [AP-21]-[ERROR]-[WRITELINESTOFILE_WITHOUT_OVERWRITE]
+### [04.4]-[AP-21]-[ERROR]-[WRITELINESTOFILE_WITHOUT_OVERWRITE]
 
 - SMELL: `WriteLinesToFile` without `Overwrite="true"`
 - WHY: The task appends, the file grows by one copy of `Lines` per build
@@ -398,7 +398,7 @@ Prove each with a build at `-v:n`, and a repeated build for the incremental case
 <WriteLinesToFile File="$(IntermediateOutputPath)version.txt" Lines="$(Version)" Overwrite="true" WriteOnlyWhenDifferent="true" />
 ```
 
-### [AP-22]-[ERROR]-[DESTINATIONFOLDER_FLATTENS_A_TREE]
+### [04.5]-[AP-22]-[ERROR]-[DESTINATIONFOLDER_FLATTENS_A_TREE]
 
 - SMELL: `Copy` with `DestinationFolder` over a recursive glob
 - WHY: Every file lands in one directory, two files with one name overwrite each other
@@ -415,7 +415,7 @@ Prove each with a build at `-v:n`, and a repeated build for the incremental case
 
 Prove each with a build on the current host, the `Exec` command line reads at `-v:n`.
 
-### [AP-23]-[STYLE]-[HARDCODED_ABSOLUTE_PATHS]
+### [05.1]-[AP-23]-[STYLE]-[HARDCODED_ABSOLUTE_PATHS]
 
 - SMELL: `C:\tools\`, `D:\packages\`, or `/usr/local/bin/` in a project file
 - WHY: The path exists on one machine, a missing import or reference fails `MSB4019` or `MSB3245`
@@ -428,7 +428,7 @@ Prove each with a build on the current host, the `Exec` command line reads at `-
 <ToolPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', 'tools', 'mytool'))</ToolPath>
 ```
 
-### [AP-24]-[ERROR]-[BACKSLASHES_IN_PATHS]
+### [05.2]-[AP-24]-[ERROR]-[BACKSLASHES_IN_PATHS]
 
 - SMELL: Backslash separators in a file that builds on more than one operating system
 - WHY:
@@ -451,7 +451,7 @@ Prove each with a build on the current host, the `Exec` command line reads at `-
 <Exec Command="cat data/file.txt" />
 ```
 
-### [AP-25]-[STYLE]-[EXEC_FOR_A_BUILTIN_TASK_OR_A_PROPERTY_FUNCTION]
+### [05.3]-[AP-25]-[STYLE]-[EXEC_FOR_A_BUILTIN_TASK_OR_A_PROPERTY_FUNCTION]
 
 - SMELL:
   - `Exec` running `mkdir`, `copy`, `del`, `xcopy`, `touch`, or `echo text > file`
@@ -486,7 +486,7 @@ Prove each with a build on the current host, the `Exec` command line reads at `-
 <CleanVersion>$(Version.Replace('-preview', ''))</CleanVersion>
 ```
 
-### [AP-26]-[ERROR]-[PLATFORM_SPECIFIC_EXEC_WITHOUT_OS_CONDITION]
+### [05.4]-[AP-26]-[ERROR]-[PLATFORM_SPECIFIC_EXEC_WITHOUT_OS_CONDITION]
 
 - SMELL: `<Exec Command="chmod +x ..." />` or `<Exec Command="cmd /c ..." />` without an operating system condition
 - WHY: The command fails on the other operating system
@@ -503,7 +503,7 @@ Prove each with a build on the current host, the `Exec` command line reads at `-
 </Target>
 ```
 
-### [AP-27]-[ERROR]-[EXEC_BUILDS_A_PROJECT]
+### [05.5]-[AP-27]-[ERROR]-[EXEC_BUILDS_A_PROJECT]
 
 - SMELL: `<Exec Command="dotnet build ..." />`, `dotnet pack`, `dotnet publish`, or `msbuild` inside a target
 - WHY: The command starts a build process the engine cannot schedule or log, global properties reach it by hand, `-check` reports `BC0302`
@@ -522,7 +522,7 @@ Prove each with a build on the current host, the `Exec` command line reads at `-
 
 Prove each with `binlog_evaluations` on a `-bl:{}.binlog` build, two evaluations of one project outside restore share the output paths.
 
-### [AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
+### [06.1]-[AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 
 - SMELL: An `<MSBuild>` call with a `Properties` value the target project's output path lacks (`_IsPublishing=true`)
 - WHY:
@@ -543,7 +543,7 @@ Prove each with `binlog_evaluations` on a `-bl:{}.binlog` build, two evaluations
 <Target Name="PublishOnBuild" AfterTargets="Build" DependsOnTargets="Publish" Condition="'$(_IsPublishing)' == ''" />
 ```
 
-### [AP-29]-[ERROR]-[SETTARGETFRAMEWORK_ON_A_SINGLE_TARGETING_PROJECTREFERENCE]
+### [06.2]-[AP-29]-[ERROR]-[SETTARGETFRAMEWORK_ON_A_SINGLE_TARGETING_PROJECTREFERENCE]
 
 - SMELL: `ProjectReference` with `SetTargetFramework="TargetFramework=net10.0"` to a project declaring `<TargetFramework>net10.0</TargetFramework>`
 - WHY:

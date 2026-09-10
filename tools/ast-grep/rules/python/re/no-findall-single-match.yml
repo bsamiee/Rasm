@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-findall-single-match
+language: python
+severity: error
+utils:
+    first-element:
+        kind: subscript
+        has: {field: subscript, regex: '^-?[01]$'}
+rule:
+    kind: call
+    pattern: $CALL
+    any:
+        - pattern: next($RX.finditer($$$))
+        - pattern: next($RX.finditer($$$), $$$)
+        - pattern: next(iter($RX.findall($$$)))
+        - pattern: list($RX.finditer($$$))
+          inside: {matches: first-element, field: value}
+        - pattern: $RX.findall($$$)
+          any:
+              - inside: {matches: first-element, field: value}
+              - inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern'}}
+              - inside: {kind: match_statement, field: subject}
+constraints:
+    RX: {regex: '(?i)(^|[._])(re|rx|regex|pattern)$'}
+message: '`$CALL` reads one match through the iterator or list of every match'
+note: 'Use `match`, `search`, or `fullmatch` and select on `None`'

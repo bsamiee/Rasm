@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bool-as-slice-index
+language: python
+severity: error
+utils:
+    bool-leaf:
+        any:
+            - kind: 'comparison_operator, not_operator, true, false'
+            - kind: call
+              has: {field: function, regex: '^bool$'}
+    bool-parameter:
+        any:
+            - kind: typed_parameter
+              all:
+                  - has: {kind: identifier, pattern: $B}
+                  - has: {field: type, regex: '^bool$'}
+            - kind: typed_default_parameter
+              all:
+                  - has: {field: name, pattern: $B}
+                  - has: {field: type, regex: '^bool$'}
+    bool-operand-parameter:
+        any:
+            - kind: typed_parameter
+              all:
+                  - has: {kind: identifier, pattern: $B2}
+                  - has: {field: type, regex: '^bool$'}
+            - kind: typed_default_parameter
+              all:
+                  - has: {field: name, pattern: $B2}
+                  - has: {field: type, regex: '^bool$'}
+    bool-operand:
+        any:
+            - matches: bool-leaf
+            - kind: parenthesized_expression
+              has: {matches: bool-leaf}
+            - kind: identifier
+              pattern: $B2
+              any:
+                  - inside: {kind: function_definition, stopBy: end, has: {field: parameters, has: {matches: bool-operand-parameter}}}
+                  - inside:
+                      kind: function_definition
+                      stopBy: end
+                      has:
+                          stopBy: {matches: python-function-boundary}
+                          kind: assignment
+                          all:
+                              - has: {field: left, kind: identifier, pattern: $B2}
+                              - has: {field: right, matches: bool-leaf}
+    bool-source:
+        any:
+            - matches: bool-leaf
+            - kind: parenthesized_expression
+              has: {matches: bool-source}
+            - kind: boolean_operator
+              all:
+                  - has: {field: left, matches: bool-operand}
+                  - has: {field: right, matches: bool-operand}
+            - kind: call
+              all:
+                  - has: {field: function, regex: '^int$'}
+                  - has: {field: arguments, has: {matches: bool-operand}}
+    bool-name:
+        kind: identifier
+        pattern: $B
+        any:
+            - inside: {kind: function_definition, stopBy: end, has: {field: parameters, has: {matches: bool-parameter}}}
+            - inside:
+                kind: function_definition
+                stopBy: end
+                has:
+                    stopBy: {matches: python-function-boundary}
+                    kind: assignment
+                    all:
+                        - has: {field: left, kind: identifier, pattern: $B}
+                        - has: {field: right, matches: bool-source}
+    bool-value:
+        any:
+            - matches: bool-source
+            - matches: bool-name
+    repeated:
+        kind: 'list, tuple, string'
+rule:
+    any:
+        - kind: subscript
+          pattern: $USE
+          has:
+              field: subscript
+              any:
+                  - kind: slice
+                    has: {nthChild: 1, matches: bool-value}
+                  - kind: call
+                    matches: bool-source
+                  - matches: bool-name
+        - kind: binary_operator
+          pattern: $USE
+          all:
+              - has: {field: operator, regex: '^\*$'}
+              - any:
+                  - all: [{has: {field: left, matches: repeated}}, {has: {field: right, matches: bool-value}}]
+                  - all: [{has: {field: right, matches: repeated}}, {has: {field: left, matches: bool-value}}]
+message: '`$USE` reads a boolean as an index or a repeat count'
+note: 'Select the two forms by `<a> if <test> else <b>`'

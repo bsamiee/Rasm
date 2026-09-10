@@ -12,8 +12,8 @@ Agent definitions hold one role with its discovery steps, procedure, owned files
 
 ## [01]-[DIVIDE]
 
-| [INDEX] | [HOLDER] | [CONTENT]                                                                        |
-| :-----: | :------- | :------------------------------------------------------------------------------- |
+| [INDEX] | [HOLDER] | [CONTENT]                                                                         |
+| :-----: | :------- | :-------------------------------------------------------------------------------- |
 |  [01]   | Skill    | Knowledge of a subject every caller applies: intent, criteria, facts of its tools |
 |  [02]   | Agent    | One role's purpose, scope its prompt supplies, order it works in, proof it gives  |
 
@@ -31,20 +31,20 @@ Runs that repeat the same discovery steps and gate get an agent. Roles with inpu
 
 Files open with frontmatter and a `# [NAME]` heading, then sections in run order as XML elements named for purpose, with a blank line after each opening tag, text against the tag parses as one HTML block:
 
-| [INDEX] | [SECTION]           | [PURPOSE]                                                                       |
-| :-----: | :------------------ | :------------------------------------------------------------------------------ |
-|  [01]   | `name`              | Lowercase and hyphens, equal to the file stem                                   |
-|  [02]   | `description`       | Delegation sentence                                                             |
-|  [03]   | `skills`            | Skills preloaded whole at spawn, every run applies each                         |
-|  [04]   | `tools`             | Allowlist of tool names or `mcp__<server>` patterns, absent for every tool      |
-|  [05]   | `color`             | Transcript color: red, blue, green, yellow, purple, orange, pink, cyan          |
-|  [06]   | `role`              | Addresses the agent as you, states purpose, scope, owned files, and decisions   |
-|  [07]   | `context_gathering` | Discovery steps in order before the first edit                                  |
-|  [08]   | `sources`           | Question-to-source table                                                        |
-|  [09]   | `decision`          | Proven facts that decide a reading                                              |
-|  [10]   | `procedure`         | Imperative steps in run order, each judgment naming its criterion               |
-|  [11]   | `gate`              | Proof commands run at close                                                     |
-|  [12]   | `done_when`         | Observable conditions of a finished run                                         |
+| [INDEX] | [SECTION]           | [PURPOSE]                                                                     |
+| :-----: | :------------------ | :---------------------------------------------------------------------------- |
+|  [01]   | `name`              | Lowercase and hyphens, equal to the file stem                                 |
+|  [02]   | `description`       | Delegation sentence                                                           |
+|  [03]   | `skills`            | Skills preloaded whole at spawn, every run applies each                       |
+|  [04]   | `tools`             | Allowlist of tool names or `mcp__<server>` patterns, absent for every tool    |
+|  [05]   | `color`             | Transcript color: red, blue, green, yellow, purple, orange, pink, cyan        |
+|  [06]   | `role`              | Addresses the agent as you, states purpose, scope, owned files, and decisions |
+|  [07]   | `context_gathering` | Discovery steps in order before the first edit                                |
+|  [08]   | `sources`           | Question-to-source table                                                      |
+|  [09]   | `decision`          | Proven facts that decide a reading                                            |
+|  [10]   | `procedure`         | Imperative steps in run order, each judgment naming its criterion             |
+|  [11]   | `gate`              | Proof commands run at close                                                   |
+|  [12]   | `done_when`         | Observable conditions of a finished run                                       |
 
 [ROLES]:
 - Role opens with purpose in one paragraph, scope comes from the prompt, an empty scope defaults to the set a file the role reads declares

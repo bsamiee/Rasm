@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-local-named-as-module-function
+language: python
+severity: error
+utils:
+    module-function:
+        any:
+            - kind: function_definition
+              has: {field: name, pattern: $N}
+            - kind: decorated_definition
+              has: {kind: function_definition, has: {field: name, pattern: $N}}
+    binding-target:
+        kind: identifier
+        pattern: $N
+        any:
+            - inside: {kind: 'assignment, augmented_assignment', field: left}
+            - inside: {kind: named_expression, field: name}
+            - inside: {kind: for_statement, field: left}
+            - inside: {kind: as_pattern_target}
+            - inside: {kind: aliased_import, field: alias}
+            - inside:
+                kind: 'pattern_list, tuple_pattern, list_pattern'
+                stopBy: {kind: 'assignment, for_statement'}
+                inside: {kind: 'assignment, for_statement', field: left}
+rule:
+    kind: identifier
+    all:
+        - matches: binding-target
+        - inside: {kind: function_definition, stopBy: end}
+        - inside: {kind: module, stopBy: end, has: {matches: module-function}}
+        - not:
+            inside:
+                kind: function_definition
+                stopBy: end
+                has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $N}}}}}
+message: 'Local `$N` hides the module function `$N`'
+note: 'Name the local for its value'

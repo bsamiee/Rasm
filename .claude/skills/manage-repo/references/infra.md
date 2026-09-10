@@ -18,7 +18,7 @@ Pulumi's Automation API runs the typed program in process, GitHub Actions runs w
 |  [03]   | Concurrency  | `group` by workflow and ref, `cancel-in-progress` as an expression, `queue: max` excludes `cancel-in-progress`    |
 |  [04]   | Checkout     | `persist-credentials: false` unless the job pushes, `fetch-depth: 0` for `nx-set-shas` and `nx affected`          |
 |  [05]   | Cache        | `actions/cache` keyed by `hashFiles` over the files that decide the contents, no `restore-keys`                   |
-|  [06]   | Shell        | `defaults.run.shell` covers workflow `run` steps, each composite `run` step declares `shell`                       |
+|  [06]   | Shell        | `defaults.run.shell` covers workflow `run` steps, each composite `run` step declares `shell`                      |
 |  [07]   | Expressions  | `${{ }}` values reach a script through the step `env` map                                                         |
 |  [08]   | Status check | Fan-in job with `needs` over every job and `if: always()`, failing on a `needs.<job>.result` other than `success` |
 

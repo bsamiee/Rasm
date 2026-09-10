@@ -161,12 +161,12 @@ internal static class Report {
 
 Recursive functions need a base case that returns the final value, a recursive case that calls the same function with values closer to that condition, and a returned value on every path. C# does not optimize tail calls, the depth bound selects the form:
 
-| [INDEX] | [APPROACH]                | [USE_WHEN]                                                     | [COST]                                   |
-| :-----: | :------------------------ | :------------------------------------------------------------- | :--------------------------------------- |
-|  [01]   | Direct recursion          | Maximum depth small and bounded                                | Unbounded calls grow the stack           |
-|  [02]   | `Trampoline<A>`           | Pure transition, unbounded depth                               | Every step is a deferred call            |
-|  [03]   | `Monad.recur`             | Effectful transition, only the final value needed              | Intermediate states are lost             |
-|  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>`   | Each `unfold` call reruns the transition |
+| [INDEX] | [APPROACH]                | [USE_WHEN]                                                   | [COST]                                   |
+| :-----: | :------------------------ | :----------------------------------------------------------- | :--------------------------------------- |
+|  [01]   | Direct recursion          | Maximum depth small and bounded                              | Unbounded calls grow the stack           |
+|  [02]   | `Trampoline<A>`           | Pure transition, unbounded depth                             | Every step is a deferred call            |
+|  [03]   | `Monad.recur`             | Effectful transition, only the final value needed            | Intermediate states are lost             |
+|  [04]   | `LanguageExt.List.unfold` | Intermediate states are meaningful and compose as a `Seq<A>` | Each `unfold` call reruns the transition |
 
 ## [03]-[IMMUTABILITY]
 

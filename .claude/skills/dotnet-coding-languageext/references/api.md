@@ -381,19 +381,19 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 `FinT<M, A>` is the `Fin`-over-`M` transformer:
 
-| [INDEX] | [MEMBER]                              | [KIND]      | [DESCRIPTION]                                                     |
-| :-----: | :------------------------------------ | :---------- | :---------------------------------------------------------------- |
-|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)` | constructor | Construction from `K<M, Fin<A>>`                                  |
-|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`   | static      | Construction from an evaluated value                              |
-|  [03]   | `FinT.lift(Fin<A>)`                   | static      | Conversion from an evaluated `Fin`                                |
-|  [04]   | `FinT.lift(K<M, A>)`                  | static      | Lift from `K<M, A>`                                               |
-|  [05]   | `FinT.lift(K<M, Fin<A>>)`             | static      | Named form of the constructor                                     |
-|  [06]   | `FinT.liftIO(IO<A>)`                  | static      | Lift from `IO<A>` under `MonadIO<M>`                              |
-|  [07]   | `FinT.liftIO(IO<Fin<A>>)`             | static      | Lift from `IO<Fin<A>>` directly                                   |
-|  [08]   | `FinT.runFin`                         | property    | The `K<M, Fin<A>>` result                                         |
-|  [09]   | `FinT.Bind` overload set              | instance    | Binds `FinT`, `K<FinT<M>,B>`, `Fin<B>`, `Pure<B>`, `Fail<Error>`  |
-|  [10]   | `FinT.SelectMany` overload set        | instance    | Binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, `Fin<B>`, `Pure<B>`       |
-|  [11]   | `FinT.Match(Succ, Fail)` / `MapFail`  | instance    | `K<M, B>` fold / failure map                                      |
+| [INDEX] | [MEMBER]                              | [KIND]      | [DESCRIPTION]                                                    |
+| :-----: | :------------------------------------ | :---------- | :--------------------------------------------------------------- |
+|  [01]   | `new FinT<M, A>(K<M, Fin<A>> runFin)` | constructor | Construction from `K<M, Fin<A>>`                                 |
+|  [02]   | `FinT.Succ(A)` / `FinT.Fail(Error)`   | static      | Construction from an evaluated value                             |
+|  [03]   | `FinT.lift(Fin<A>)`                   | static      | Conversion from an evaluated `Fin`                               |
+|  [04]   | `FinT.lift(K<M, A>)`                  | static      | Lift from `K<M, A>`                                              |
+|  [05]   | `FinT.lift(K<M, Fin<A>>)`             | static      | Named form of the constructor                                    |
+|  [06]   | `FinT.liftIO(IO<A>)`                  | static      | Lift from `IO<A>` under `MonadIO<M>`                             |
+|  [07]   | `FinT.liftIO(IO<Fin<A>>)`             | static      | Lift from `IO<Fin<A>>` directly                                  |
+|  [08]   | `FinT.runFin`                         | property    | The `K<M, Fin<A>>` result                                        |
+|  [09]   | `FinT.Bind` overload set              | instance    | Binds `FinT`, `K<FinT<M>,B>`, `Fin<B>`, `Pure<B>`, `Fail<Error>` |
+|  [10]   | `FinT.SelectMany` overload set        | instance    | Binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, `Fin<B>`, `Pure<B>`      |
+|  [11]   | `FinT.Match(Succ, Fail)` / `MapFail`  | instance    | `K<M, B>` fold / failure map                                     |
 
 - LINQ query syntax lowers to `SelectMany`, a `Fail<Error>` step inside a `FinT` query needs an explicit lift
 
@@ -401,21 +401,21 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 `Writer<W, A>` accumulates monoidal output beside a value, `W : Monoid<W>` throughout:
 
-| [INDEX] | [MEMBER]                                                    | [KIND]   | [DESCRIPTION]                             |
-| :-----: | :---------------------------------------------------------- | :------- | :---------------------------------------- |
-|  [01]   | `Writer.pure<W, A>(A)`                                      | static   | Value with the empty output               |
-|  [02]   | `Writer.tell<W>(W item)`                                    | static   | Emit output, value is `Unit`              |
-|  [03]   | `Writer.write<W, A>(A value, W item)`                       | static   | Emit value and output together            |
-|  [04]   | `Writer.listen(Writer<W, A>)`                               | static   | Return the accumulated output as a value  |
-|  [05]   | `Writer.listens(Func<W, B>, Writer<W, A>)`                  | static   | Return a projection of the output         |
-|  [06]   | `Writer.censor(Func<W, W>, Writer<W, A>)`                   | static   | Rewrite the output, value untouched       |
-|  [07]   | `Writer.pass(Writer<W, (A, Func<W, W>)>)`                   | static   | Step supplies its own output rewriter     |
-|  [08]   | `Writer.Run() -> (A Value, W Output)`                       | instance | Only extraction, total                    |
-|  [09]   | `Writer.Listen()` / `Listens(Func<W, B>)` / `Censor`        | instance | Instance forms of rows [04]–[06]          |
-|  [10]   | `Writer.Bind` / `SelectMany` / `Map`                        | instance | LINQ composition, outputs `Combine`       |
-|  [11]   | `Writer.Write(A, W)` / `Write((A Value, W Output))`         | instance | Append output to a running computation    |
-|  [12]   | `Tell<W>.ToWriter()` / `ToWriterT<M>()` / `ToWritable<M>()` | instance | Literal converted to each type            |
-|  [13]   | `WriterT<W, M, A>`                                          | record   | Same accumulation over any `Monad<M>`     |
+| [INDEX] | [MEMBER]                                                    | [KIND]   | [DESCRIPTION]                            |
+| :-----: | :---------------------------------------------------------- | :------- | :--------------------------------------- |
+|  [01]   | `Writer.pure<W, A>(A)`                                      | static   | Value with the empty output              |
+|  [02]   | `Writer.tell<W>(W item)`                                    | static   | Emit output, value is `Unit`             |
+|  [03]   | `Writer.write<W, A>(A value, W item)`                       | static   | Emit value and output together           |
+|  [04]   | `Writer.listen(Writer<W, A>)`                               | static   | Return the accumulated output as a value |
+|  [05]   | `Writer.listens(Func<W, B>, Writer<W, A>)`                  | static   | Return a projection of the output        |
+|  [06]   | `Writer.censor(Func<W, W>, Writer<W, A>)`                   | static   | Rewrite the output, value untouched      |
+|  [07]   | `Writer.pass(Writer<W, (A, Func<W, W>)>)`                   | static   | Step supplies its own output rewriter    |
+|  [08]   | `Writer.Run() -> (A Value, W Output)`                       | instance | Only extraction, total                   |
+|  [09]   | `Writer.Listen()` / `Listens(Func<W, B>)` / `Censor`        | instance | Instance forms of rows [04]–[06]         |
+|  [10]   | `Writer.Bind` / `SelectMany` / `Map`                        | instance | LINQ composition, outputs `Combine`      |
+|  [11]   | `Writer.Write(A, W)` / `Write((A Value, W Output))`         | instance | Append output to a running computation   |
+|  [12]   | `Tell<W>.ToWriter()` / `ToWriterT<M>()` / `ToWritable<M>()` | instance | Literal converted to each type           |
+|  [13]   | `WriterT<W, M, A>`                                          | record   | Same accumulation over any `Monad<M>`    |
 
 - Each bind combines both outputs through the monoid, a `Seq<A>` output is an append-only log and an `Error` output a warning channel
 - `Writer<W, A>` has no failure branch, a computation that accumulates output and fails stacks `WriterT<W, Fin, A>`
@@ -532,39 +532,39 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 ### [02.11]-[STATE_OPTICS_AND_PRELUDE]
 
-| [INDEX] | [MEMBER]                                 | [KIND]   | [DESCRIPTION]                         |
-| :-----: | :--------------------------------------- | :------- | :------------------------------------ |
+| [INDEX] | [MEMBER]                                 | [KIND]   | [DESCRIPTION]                           |
+| :-----: | :--------------------------------------- | :------- | :-------------------------------------- |
 |  [01]   | `Prelude.Atom(A, Func<A,bool>)`          | static   | `Option<Atom<A>>`, `None` when rejected |
-|  [02]   | `Atom.Value`                             | property | Current-state snapshot read           |
-|  [03]   | `Atom.ValueIO`                           | property | Same read as an `IO<A>`               |
-|  [04]   | `Atom.Swap(Func<A,A>) -> A`              | instance | CAS update, post-state return         |
-|  [05]   | `Atom.SwapMaybe(Func<A,Option<A>>) -> A` | instance | CAS update, `None` keeps the state    |
-|  [06]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update as an `IO`                 |
-|  [07]   | `Atom.Change`                            | event    | Accepted-swap notification            |
-|  [08]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | Lock-free map construction            |
-|  [09]   | `Prelude.Ref(A, Func<A,bool>)`           | static   | Transactional reference               |
-|  [10]   | `Prelude.atomic(Func<R>, Isolation)`     | static   | Multi-`Ref` transaction               |
-|  [11]   | `Prelude.swap(Ref<A>, Func<A,A>)`        | static   | In-transaction update                 |
-|  [12]   | `Prelude.commute(Ref<A>, Func<A,A>)`     | static   | Order-free in-transaction update      |
-|  [13]   | `Lens.New(Func<A,B>, Func<B,Func<A,A>>)` | static   | Lens construction                     |
-|  [14]   | `Lens.Set(B, A)`                         | instance | Immutable focused write               |
-|  [15]   | `Lens.Update(Func<B,B>, A)`              | instance | Immutable focused edit                |
-|  [16]   | `Lens.fst<A,B>()`                        | static   | First-item tuple lens                 |
-|  [17]   | `Lens.snd<A,B>()`                        | static   | Second-item tuple lens                |
-|  [18]   | `Lens.tuple(Lens<A,C>, Lens<B,D>)`       | static   | Composed tuple lens                   |
-|  [19]   | `Seq<A>.headOrNone`                      | property | First-item lens over a `Seq`          |
-|  [20]   | `Seq<A>.lastOrNone`                      | property | Final-item lens over a `Seq`          |
-|  [21]   | `Prelude.memo(Func<A,B>)`                | static   | Memoized pure function                |
-|  [22]   | `Prelude.memo(Func<A>)`                  | static   | Memoized nullary thunk                |
-|  [23]   | `Prelude.memo(IEnumerable<A>)`           | static   | Lazy `Seq<A>`, each item cached once  |
-|  [24]   | `Prelude.memoUnsafe(Func<A,B>)`          | static   | Unsynchronized memo table             |
-|  [25]   | `Prelude.memoK(Func<K<F,A>>)`            | static   | Caches the `K<F,A>` construction      |
-|  [26]   | `Prelude.memoK(K<F,A>)` / `memoK(A)`     | static   | Preloaded memo over an existing value |
-|  [27]   | `Memo.Reset()`                           | instance | Drop a memoized value                 |
-|  [28]   | `Range.fromMinMax(A, A, A)`              | static   | Generated bounded sequence            |
-|  [29]   | `Prelude.Range(int\|long from, count)`   | static   | `Range<A>` from origin and count      |
-|  [30]   | `Prelude.unit`                           | property | The `Unit` literal                    |
-|  [31]   | `Prelude.identity(A)`                    | static   | Identity function                     |
+|  [02]   | `Atom.Value`                             | property | Current-state snapshot read             |
+|  [03]   | `Atom.ValueIO`                           | property | Same read as an `IO<A>`                 |
+|  [04]   | `Atom.Swap(Func<A,A>) -> A`              | instance | CAS update, post-state return           |
+|  [05]   | `Atom.SwapMaybe(Func<A,Option<A>>) -> A` | instance | CAS update, `None` keeps the state      |
+|  [06]   | `Atom.SwapIO(Func<A,A>)`                 | instance | CAS update as an `IO`                   |
+|  [07]   | `Atom.Change`                            | event    | Accepted-swap notification              |
+|  [08]   | `Prelude.AtomHashMap(HashMap<K,V>)`      | static   | Lock-free map construction              |
+|  [09]   | `Prelude.Ref(A, Func<A,bool>)`           | static   | Transactional reference                 |
+|  [10]   | `Prelude.atomic(Func<R>, Isolation)`     | static   | Multi-`Ref` transaction                 |
+|  [11]   | `Prelude.swap(Ref<A>, Func<A,A>)`        | static   | In-transaction update                   |
+|  [12]   | `Prelude.commute(Ref<A>, Func<A,A>)`     | static   | Order-free in-transaction update        |
+|  [13]   | `Lens.New(Func<A,B>, Func<B,Func<A,A>>)` | static   | Lens construction                       |
+|  [14]   | `Lens.Set(B, A)`                         | instance | Immutable focused write                 |
+|  [15]   | `Lens.Update(Func<B,B>, A)`              | instance | Immutable focused edit                  |
+|  [16]   | `Lens.fst<A,B>()`                        | static   | First-item tuple lens                   |
+|  [17]   | `Lens.snd<A,B>()`                        | static   | Second-item tuple lens                  |
+|  [18]   | `Lens.tuple(Lens<A,C>, Lens<B,D>)`       | static   | Composed tuple lens                     |
+|  [19]   | `Seq<A>.headOrNone`                      | property | First-item lens over a `Seq`            |
+|  [20]   | `Seq<A>.lastOrNone`                      | property | Final-item lens over a `Seq`            |
+|  [21]   | `Prelude.memo(Func<A,B>)`                | static   | Memoized pure function                  |
+|  [22]   | `Prelude.memo(Func<A>)`                  | static   | Memoized nullary thunk                  |
+|  [23]   | `Prelude.memo(IEnumerable<A>)`           | static   | Lazy `Seq<A>`, each item cached once    |
+|  [24]   | `Prelude.memoUnsafe(Func<A,B>)`          | static   | Unsynchronized memo table               |
+|  [25]   | `Prelude.memoK(Func<K<F,A>>)`            | static   | Caches the `K<F,A>` construction        |
+|  [26]   | `Prelude.memoK(K<F,A>)` / `memoK(A)`     | static   | Preloaded memo over an existing value   |
+|  [27]   | `Memo.Reset()`                           | instance | Drop a memoized value                   |
+|  [28]   | `Range.fromMinMax(A, A, A)`              | static   | Generated bounded sequence              |
+|  [29]   | `Prelude.Range(int\|long from, count)`   | static   | `Range<A>` from origin and count        |
+|  [30]   | `Prelude.unit`                           | property | The `Unit` literal                      |
+|  [31]   | `Prelude.identity(A)`                    | static   | Identity function                       |
 
 - Results memoized past the run are `memo` over the executed value, the `memoK(K<F,A>)` and `memoK(A)` arities preload a value that already exists
 
@@ -572,26 +572,26 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 
 `AtomHashMap<K, V>` is the lock-free map `Prelude.AtomHashMap(…)` or `HashMap.ToAtom()` creates, every mutation returns `Unit`, publishes on `Change`, and commits under a CAS retry loop, and `AtomHashMap<EqK, K, V>` has the same members with an explicit `EqK` equality trait type parameter:
 
-| [INDEX] | [MEMBER]                                                  | [KIND]   | [DESCRIPTION]                                     |
-| :-----: | :-------------------------------------------------------- | :------- | :------------------------------------------------ |
-|  [01]   | `Swap(Func<TrackingHashMap<K,V>, TrackingHashMap<K,V>>)`  | instance | Whole-map CAS update seeing its own change log    |
-|  [02]   | `SwapKey(K, Func<V, V>)`                                  | instance | One-key CAS update                                |
-|  [03]   | `SwapKey(K, Func<Option<V>, Option<V>>)`                  | instance | One-key CAS covering insert, edit, and delete     |
-|  [04]   | `Add(K, V)` / `TryAdd(K, V)`                              | instance | Insert, throwing or tolerating a duplicate        |
-|  [05]   | `AddOrUpdate(K, V)` / `(K, Func<V,V>, Func<V>)`           | instance | Upsert, unconditional or matched                  |
-|  [06]   | `SetItem(K, V)` / `SetItem(K, Func<V,V>)`                 | instance | Replace an existing key                           |
-|  [07]   | `TrySetItem(K, V)` / `TrySetItems(IEnumerable<K>, …)`     | instance | Replace only where the key is present             |
-|  [08]   | `AddRange` / `AddOrUpdateRange` / `TryAddRange`           | instance | One commit per bulk write                         |
-|  [09]   | `Remove(K)` / `RemoveRange(IEnumerable<K>)`               | instance | Delete one key or a set of keys                   |
-|  [10]   | `Clear()`                                                 | instance | Drop every entry                                  |
-|  [11]   | `FilterInPlace(Func<K,V,bool>)` / `MapInPlace(Func<V,V>)` | instance | Narrow or reshape without rebuilding              |
-|  [12]   | `Append` / `Subtract` / `Except` / `SymmetricExcept`      | instance | Set algebra against a map or a pair sequence      |
-|  [13]   | `Union(rhs, WhenMatched)` / `Intersect(rhs, WhenMatched)` | instance | Merge under an explicit collision rule            |
-|  [14]   | `Change`                                                  | event    | One `HashMapPatch<K,V>` per accepted commit       |
-|  [15]   | `Find(K)` / `FindOrMaybeAdd(K, Func<Option<V>>)`          | instance | `Option<V>` read, optionally seeding on a miss    |
-|  [16]   | `ToHashMap()` / `ToSeq()` / `AsIterable()`                | instance | Immutable snapshot at the read                    |
-|  [17]   | `Fold(S, Func<S,K,V,S>)` / `Iter(Action<K,V>)`            | fold     | Key-and-value iteration over a snapshot           |
-|  [18]   | `HashMapPatch.From` / `To` / `Changes`                    | property | Both snapshots and the `HashMap<K, Change<V>>`    |
+| [INDEX] | [MEMBER]                                                  | [KIND]   | [DESCRIPTION]                                  |
+| :-----: | :-------------------------------------------------------- | :------- | :--------------------------------------------- |
+|  [01]   | `Swap(Func<TrackingHashMap<K,V>, TrackingHashMap<K,V>>)`  | instance | Whole-map CAS update seeing its own change log |
+|  [02]   | `SwapKey(K, Func<V, V>)`                                  | instance | One-key CAS update                             |
+|  [03]   | `SwapKey(K, Func<Option<V>, Option<V>>)`                  | instance | One-key CAS covering insert, edit, and delete  |
+|  [04]   | `Add(K, V)` / `TryAdd(K, V)`                              | instance | Insert, throwing or tolerating a duplicate     |
+|  [05]   | `AddOrUpdate(K, V)` / `(K, Func<V,V>, Func<V>)`           | instance | Upsert, unconditional or matched               |
+|  [06]   | `SetItem(K, V)` / `SetItem(K, Func<V,V>)`                 | instance | Replace an existing key                        |
+|  [07]   | `TrySetItem(K, V)` / `TrySetItems(IEnumerable<K>, …)`     | instance | Replace only where the key is present          |
+|  [08]   | `AddRange` / `AddOrUpdateRange` / `TryAddRange`           | instance | One commit per bulk write                      |
+|  [09]   | `Remove(K)` / `RemoveRange(IEnumerable<K>)`               | instance | Delete one key or a set of keys                |
+|  [10]   | `Clear()`                                                 | instance | Drop every entry                               |
+|  [11]   | `FilterInPlace(Func<K,V,bool>)` / `MapInPlace(Func<V,V>)` | instance | Narrow or reshape without rebuilding           |
+|  [12]   | `Append` / `Subtract` / `Except` / `SymmetricExcept`      | instance | Set algebra against a map or a pair sequence   |
+|  [13]   | `Union(rhs, WhenMatched)` / `Intersect(rhs, WhenMatched)` | instance | Merge under an explicit collision rule         |
+|  [14]   | `Change`                                                  | event    | One `HashMapPatch<K,V>` per accepted commit    |
+|  [15]   | `Find(K)` / `FindOrMaybeAdd(K, Func<Option<V>>)`          | instance | `Option<V>` read, optionally seeding on a miss |
+|  [16]   | `ToHashMap()` / `ToSeq()` / `AsIterable()`                | instance | Immutable snapshot at the read                 |
+|  [17]   | `Fold(S, Func<S,K,V,S>)` / `Iter(Action<K,V>)`            | fold     | Key-and-value iteration over a snapshot        |
+|  [18]   | `HashMapPatch.From` / `To` / `Changes`                    | property | Both snapshots and the `HashMap<K, Change<V>>` |
 
 - `Atom<HashMap<K,V>>` makes every keyed write a whole-map `Swap` returning a new map, `SwapKey` commits one key under the same CAS discipline
 - Commit results read through `Change` or a later `Find`

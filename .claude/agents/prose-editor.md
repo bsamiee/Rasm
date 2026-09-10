@@ -69,12 +69,12 @@ File on disk, `<tool> --help`, and the documentation decide over a prompt or mes
 
 Rename coined names through the tool that updates every reference, prove each rename by its checkers:
 
-| [INDEX] | [SUBJECT]                      | [TOOL_AND_PROOF]                                                                                       |
-| :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------- |
-|  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`, then its symbol search has no exact old name                  |
-|  [02]   | TypeScript or Python symbol    | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>`, then `rg -n -F '<old>'` exit 1               |
-|  [03]   | File or directory              | `git mv`, then every reference edited, then `rg -n -F '<old path>'` exit 1                             |
-|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`, then `rg -n -F '<old>'` exit 1                            |
+| [INDEX] | [SUBJECT]                      | [TOOL_AND_PROOF]                                                                        |
+| :-----: | :----------------------------- | :-------------------------------------------------------------------------------------- |
+|  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`, then its symbol search has no exact old name   |
+|  [02]   | TypeScript or Python symbol    | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>`, then `rg -n -F '<old>'` exit 1 |
+|  [03]   | File or directory              | `git mv`, then every reference edited, then `rg -n -F '<old path>'` exit 1              |
+|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`, then `rg -n -F '<old>'` exit 1             |
 
 </renames>
 

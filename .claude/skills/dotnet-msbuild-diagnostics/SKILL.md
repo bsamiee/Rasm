@@ -130,16 +130,16 @@ Run in order: `binlog_overview`, `binlog_diagnose` on a failed build, `binlog_er
 
 `binlog_search` matches nodes, a match on a target or task includes its child messages up to `context` levels, task output, copy details, and up-to-date reasons sit there.
 
-| [INDEX] | [QUERY]                       | [MATCHES]                                                    |
-| :-----: | :---------------------------- | :----------------------------------------------------------- |
-|  [01]   | `$error`, `$warning`          | Every error or warning node                                  |
-|  [02]   | `$task Csc`                   | Every invocation of that task                                |
-|  [03]   | `$target Build`               | Every target with that name                                  |
-|  [04]   | `$project Item`               | Every project with the text in its name                      |
-|  [05]   | `under($project Item) CS1234` | Nodes under that project containing the text                 |
-|  [06]   | `$task $time`                 | Tasks with timing, slowest first                             |
-|  [07]   | `"exact phrase"`              | Message text, a phrase with an inner `"` matches nothing     |
-|  [08]   | `name=value`                  | Field match, a property assignment                           |
+| [INDEX] | [QUERY]                       | [MATCHES]                                                |
+| :-----: | :---------------------------- | :------------------------------------------------------- |
+|  [01]   | `$error`, `$warning`          | Every error or warning node                              |
+|  [02]   | `$task Csc`                   | Every invocation of that task                            |
+|  [03]   | `$target Build`               | Every target with that name                              |
+|  [04]   | `$project Item`               | Every project with the text in its name                  |
+|  [05]   | `under($project Item) CS1234` | Nodes under that project containing the text             |
+|  [06]   | `$task $time`                 | Tasks with timing, slowest first                         |
+|  [07]   | `"exact phrase"`              | Message text, a phrase with an inner `"` matches nothing |
+|  [08]   | `name=value`                  | Field match, a property assignment                       |
 
 - A text match prints the matched line alone, the `$target` form reaches the reason line under it
 
@@ -200,21 +200,21 @@ Start at `binlog_diagnose`, route the error class by the table, fix the first er
 
 `dotnet build -check` runs every inbox check and reports each finding as a build diagnostic with a `BC` code. The checks belong to MSBuild, `dotnet build`, `dotnet msbuild`, and a replay run one set.
 
-| [INDEX] | [CODE]   | [REPORTS]                                                             | [DEFAULT]           |
-| :-----: | :------- | :-------------------------------------------------------------------- | :------------------ |
-|  [01]   | `BC0101` | Two projects with one `OutputPath` or `IntermediateOutputPath`        | Warning             |
-|  [02]   | `BC0102` | Two tasks writing one file, across projects or instances              | Warning             |
-|  [03]   | `BC0103` | Property values read from an environment variable                     | Suggestion, project |
-|  [04]   | `BC0104` | `Reference` to a project output in place of `ProjectReference`        | Warning             |
-|  [05]   | `BC0105` | `EmbeddedResource` without `Culture` or `WithCulture=false` metadata  | Warning             |
-|  [06]   | `BC0106` | `CopyToOutputDirectory="Always"` on an item                           | Warning             |
-|  [07]   | `BC0107` | `TargetFramework` and `TargetFrameworks` both set                     | Warning             |
-|  [08]   | `BC0108` | `TargetFramework` or `TargetFrameworks` in a project without the SDK  | Warning             |
-|  [09]   | `BC0201` | Property reads no declaration precedes                                | Warning, project    |
-|  [10]   | `BC0202` | Property reads before the declaration that follows them               | Warning, project    |
-|  [11]   | `BC0203` | Properties declared in the project and never read                     | None, project       |
-|  [12]   | `BC0301` | Project under the Downloads folder or another untrusted directory     | Error, project      |
-|  [13]   | `BC0302` | `Exec` that runs `dotnet`, `msbuild`, or `nuget` to build a project   | Warning             |
+| [INDEX] | [CODE]   | [REPORTS]                                                            | [DEFAULT]           |
+| :-----: | :------- | :------------------------------------------------------------------- | :------------------ |
+|  [01]   | `BC0101` | Two projects with one `OutputPath` or `IntermediateOutputPath`       | Warning             |
+|  [02]   | `BC0102` | Two tasks writing one file, across projects or instances             | Warning             |
+|  [03]   | `BC0103` | Property values read from an environment variable                    | Suggestion, project |
+|  [04]   | `BC0104` | `Reference` to a project output in place of `ProjectReference`       | Warning             |
+|  [05]   | `BC0105` | `EmbeddedResource` without `Culture` or `WithCulture=false` metadata | Warning             |
+|  [06]   | `BC0106` | `CopyToOutputDirectory="Always"` on an item                          | Warning             |
+|  [07]   | `BC0107` | `TargetFramework` and `TargetFrameworks` both set                    | Warning             |
+|  [08]   | `BC0108` | `TargetFramework` or `TargetFrameworks` in a project without the SDK | Warning             |
+|  [09]   | `BC0201` | Property reads no declaration precedes                               | Warning, project    |
+|  [10]   | `BC0202` | Property reads before the declaration that follows them              | Warning, project    |
+|  [11]   | `BC0203` | Properties declared in the project and never read                    | None, project       |
+|  [12]   | `BC0301` | Project under the Downloads folder or another untrusted directory    | Error, project      |
+|  [13]   | `BC0302` | `Exec` that runs `dotnet`, `msbuild`, or `nuget` to build a project  | Warning             |
 
 - Suggestions print as `message` lines on the console logger at `-v:m` and higher
 - `BC0201` and `BC0202` accept a self-reference and an emptiness check, and report a read inside a `Condition`
@@ -250,7 +250,6 @@ build_check.BC0202.AllowUninitializedPropertiesInConditions = true
 ## [05]-[SHARED_OUTPUT_PATHS]
 
 MSBuild creates one project instance per project path and global-property set. Two instances with one `OutputPath` or `IntermediateOutputPath`, or two projects with one directory, fail by build order: one project consumes the other's `project.assets.json`, `MSB3026` copy retries and file locks appear in parallel builds, outputs come from the wrong instance. A successful build's console reports none of them without `-check`, the steps detect them:
-
 1. Run the BuildCheck workflow, read `BC0101` per shared directory and `BC0102` per file two tasks wrote
 2. Run `binlog_compare_property` on `IntermediateOutputPath`, then `OutputPath`, an absolute value grouping two projects is the shared directory
 3. Run `binlog_double_writes` for directories more than one project copied into, it covers projects `binlog_compare_property` reports as `NOT SET`
@@ -275,14 +274,14 @@ MSBuild creates one project instance per project path and global-property set. T
 |  [09]   | `_IsPublishing`                        | No            | Set by `dotnet publish`, an `<MSBuild>` call passing it builds twice     |
 |  [10]   | `PublishReadyToRun`                    | No            | Publish setting adding an instance without a path change                 |
 
-| [INDEX] | [SIGNAL]                                      | [CAUSE]                                   | [FIX]                                        |
-| :-----: | :-------------------------------------------- | :---------------------------------------- | :------------------------------------------- |
-|  [01]   | `BC0102` names `Csc` twice from one project   | `AppendTargetFrameworkToOutputPath=false` | Remove the append property                   |
-|  [02]   | Two projects at one absolute `obj` or `bin`   | One `Base*OutputPath` for every project   | One directory per project                    |
-|  [03]   | `SolutionFileName` is the one difference      | One project in two solutions of one build | One solution per build, or a filter          |
-|  [04]   | `_IsPublishing` is the one difference         | `<MSBuild>` passes `_IsPublishing=true`   | `DependsOnTargets="Publish"` in one instance |
-|  [05]   | `TargetFramework` differs, single-targeting   | `SetTargetFramework` on the reference     | Remove `SetTargetFramework`                  |
-|  [06]   | Properties outside the path differ            | Extra `Properties` on an `<MSBuild>` call | `GlobalPropertiesToRemove` on the edge       |
+| [INDEX] | [SIGNAL]                                    | [CAUSE]                                   | [FIX]                                        |
+| :-----: | :------------------------------------------ | :---------------------------------------- | :------------------------------------------- |
+|  [01]   | `BC0102` names `Csc` twice from one project | `AppendTargetFrameworkToOutputPath=false` | Remove the append property                   |
+|  [02]   | Two projects at one absolute `obj` or `bin` | One `Base*OutputPath` for every project   | One directory per project                    |
+|  [03]   | `SolutionFileName` is the one difference    | One project in two solutions of one build | One solution per build, or a filter          |
+|  [04]   | `_IsPublishing` is the one difference       | `<MSBuild>` passes `_IsPublishing=true`   | `DependsOnTargets="Publish"` in one instance |
+|  [05]   | `TargetFramework` differs, single-targeting | `SetTargetFramework` on the reference     | Remove `SetTargetFramework`                  |
+|  [06]   | Properties outside the path differ          | Extra `Properties` on an `<MSBuild>` call | `GlobalPropertiesToRemove` on the edge       |
 
 - `binlog_search` with `$task MSBuild` lists each call under the project making it
 - `GlobalPropertiesToRemove` on a `ProjectReference` strips a property from the referenced build, none a project passes to itself

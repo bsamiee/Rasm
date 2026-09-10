@@ -126,17 +126,17 @@ Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precede
 - `ERROR` constructs are unenforceable, the enclosing statement pattern matches them
 - `kind: ERROR` and `ast-grep run -k ERROR -l <lang>` find the recovered form
 
-| [INDEX] | [PYTHON]                         | [SHAPE]                                                                                               |
-| :-----: | :------------------------------- | :---------------------------------------------------------------------------------------------------- |
-|  [01]   | `except A, B:`                   | One `except_clause` with two `value` fields, trailing comma included                                  |
-|  [02]   | `from __future__ import a, b`    | `future_import_statement` with one `name: dotted_name` per name                                       |
-|  [03]   | `def f(x: int)`                  | `typed_parameter` with the name as its unfielded first `identifier` and `type` as the field           |
-|  [04]   | `(v := a if b else c)`           | Tree-sitter nests `named_expression` in the first arm, Python binds the whole conditional             |
-|  [05]   | `[i async for i in g]`           | `for_in_clause` with `async` as an unnamed child                                                      |
-|  [06]   | `match x:` with `case C() if g:` | `body: block` over `alternative: case_clause`, fields `guard: if_clause` and `consequence: block`     |
-|  [07]   | `case Result()`                  | `class_pattern` with no `case_pattern` child                                                          |
-|  [08]   | `Optional[X]`                    | `type` > `generic_type` > `type_parameter` in an annotation, `subscript` in a value position          |
-|  [09]   | `[*items for items in groups]`   | `list_comprehension` with a `body: list_splat`, set and generator forms with the same `body`          |
+| [INDEX] | [PYTHON]                         | [SHAPE]                                                                                           |
+| :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------ |
+|  [01]   | `except A, B:`                   | One `except_clause` with two `value` fields, trailing comma included                              |
+|  [02]   | `from __future__ import a, b`    | `future_import_statement` with one `name: dotted_name` per name                                   |
+|  [03]   | `def f(x: int)`                  | `typed_parameter` with the name as its unfielded first `identifier` and `type` as the field       |
+|  [04]   | `(v := a if b else c)`           | Tree-sitter nests `named_expression` in the first arm, Python binds the whole conditional         |
+|  [05]   | `[i async for i in g]`           | `for_in_clause` with `async` as an unnamed child                                                  |
+|  [06]   | `match x:` with `case C() if g:` | `body: block` over `alternative: case_clause`, fields `guard: if_clause` and `consequence: block` |
+|  [07]   | `case Result()`                  | `class_pattern` with no `case_pattern` child                                                      |
+|  [08]   | `Optional[X]`                    | `type` > `generic_type` > `type_parameter` in an annotation, `subscript` in a value position      |
+|  [09]   | `[*items for items in groups]`   | `list_comprehension` with a `body: list_splat`, set and generator forms with the same `body`      |
 
 Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks the precedence.
 

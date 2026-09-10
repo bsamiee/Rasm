@@ -54,11 +54,11 @@ internal sealed partial class Location {
 
 `string` `Validate` splits the text and delegates to the generated member `Validate`, the hook trims and rejects on the JSON, model binding, and `Parse` paths, a read of `" store :doc"` through the constructor keeps the padding, and the same read through `Validate` trims it. `Configuration` passed to `UseThinktectureValueConverters`, `AddThinktectureValueConverters`, or `HasThinktectureValueConverter` sets column lengths, the strategies skip a type with a factory flagged `UseWithEntityFramework`, and every other column length comes from `HasMaxLength`:
 
-| [INDEX] | [SETTING]                             | [DEFAULT]                               | [EFFECT]                                           |
-| :-----: | :------------------------------------ | :-------------------------------------- | :------------------------------------------------- |
-|  [01]   | `UseConstructorForRead`               | `true`                                  | Factories with the constructor read through it     |
-|  [02]   | `SmartEnums.MaxLengthStrategy`        | `DefaultSmartEnumMaxLengthStrategy`     | Longest string key, rounded up to the next ten     |
-|  [03]   | `KeyedValueObjects.MaxLengthStrategy` | `NoOpKeyedValueObjectMaxLengthStrategy` | No length                                          |
+| [INDEX] | [SETTING]                             | [DEFAULT]                               | [EFFECT]                                       |
+| :-----: | :------------------------------------ | :-------------------------------------- | :--------------------------------------------- |
+|  [01]   | `UseConstructorForRead`               | `true`                                  | Factories with the constructor read through it |
+|  [02]   | `SmartEnums.MaxLengthStrategy`        | `DefaultSmartEnumMaxLengthStrategy`     | Longest string key, rounded up to the next ten |
+|  [03]   | `KeyedValueObjects.MaxLengthStrategy` | `NoOpKeyedValueObjectMaxLengthStrategy` | No length                                      |
 
 `Configuration.NoMaxLength` is the preset that skips the length step for both families, the default and no-op strategies expose one `Instance`, `FixedSmartEnumMaxLengthStrategy(32)` and `FixedKeyedValueObjectMaxLengthStrategy(32)` set one length, `CustomSmartEnumMaxLengthStrategy` takes a `Func<Type, Type, IReadOnlyList<ISmartEnumItem>, MaxLengthChange>` and `CustomKeyedValueObjectMaxLengthStrategy` a `Func<Type, Type, MaxLengthChange>`, `MaxLengthChange.None` leaves a column alone, and a strategy's second constructor argument `overwriteExistingMaxLength` replaces a length that `HasMaxLength` already set:
 

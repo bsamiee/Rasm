@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-dunder-as-callable
+language: python
+severity: error
+rule:
+    kind: attribute
+    pattern: $DUNDER
+    all:
+        - has: {field: object, kind: identifier, regex: '^([A-Z][a-z]\w*|int|float|complex|bool|str|bytes|list|tuple|dict|set|frozenset)$'}
+        - has: {field: attribute, pattern: $NAME, regex: '^__i?(lt|le|eq|ne|ge|gt|not|abs|add|and|floordiv|index|invert|lshift|mod|mul|matmul|neg|or|pos|pow|rshift|sub|truediv|xor|concat|contains|getitem|setitem|delitem)__$'}
+        - not: {inside: {kind: call, field: function}}
+        - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
+        - not: {inside: {kind: comparison_operator}}
+transform:
+    NAMED: {replace: {source: $NAME, replace: '^__(or|and|not)__$', by: '${1}_'}}
+    OPERATOR: {replace: {source: $NAMED, replace: '^__(\w+)__$', by: '$1'}}
+fix: operator.$OPERATOR
+message: 'Dunder `$DUNDER` is passed as a callable'
+note: 'Use `operator.<name>`, `import operator` binds the module'

@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-index-literal-by-code
+language: python
+severity: error
+utils:
+    truth-code:
+        any:
+            - kind: 'comparison_operator, not_operator'
+            - kind: call
+              has: {field: function, regex: '^bool$'}
+rule:
+    kind: subscript
+    all:
+        - has: {field: subscript, pattern: $CODE, not: {kind: 'integer, slice, string, unary_operator'}}
+        - has:
+            field: value
+            pattern: $TABLE
+            any:
+                - kind: 'tuple, list'
+                - kind: string
+                  inside: {kind: subscript, has: {field: subscript, matches: truth-code}}
+message: 'Literal `$TABLE` is read at the computed index `$CODE`'
+note: 'Select the value by `match` over the case, or by an enum member holding it'

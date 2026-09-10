@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-record-rebuilt-from-itself
+language: python
+severity: error
+utils:
+    struct-field:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, kind: identifier}
+                - has: {field: type, kind: type}
+    field-1:
+        matches: struct-field
+        has: {kind: assignment, has: {field: left, pattern: $F1}}
+        not: {follows: {stopBy: end, matches: struct-field}}
+    field-2:
+        matches: struct-field
+        has: {kind: assignment, has: {field: left, pattern: $F2}}
+        follows: {matches: field-1}
+    field-3:
+        matches: struct-field
+        has: {kind: assignment, has: {field: left, pattern: $F3}}
+        follows: {matches: field-2}
+    last-field:
+        not: {precedes: {stopBy: end, matches: struct-field}}
+    frozen-struct:
+        kind: class_definition
+        all:
+            - has: {field: name, pattern: $C}
+            - has:
+                field: superclasses
+                all:
+                    - has: {regex: '^(msgspec\.)?Struct$'}
+                    - has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}
+    other-type:
+        kind: identifier
+        pattern: $X
+        any:
+            - regex: '^self$'
+              inside: {kind: class_definition, stopBy: end, not: {has: {field: name, pattern: $C}}}
+            - inside:
+                kind: function_definition
+                stopBy: end
+                has:
+                    field: parameters
+                    has:
+                        kind: typed_parameter
+                        all:
+                            - has: {kind: identifier, pattern: $X}
+                            - has: {field: type, kind: type, not: {pattern: $C}}
+rule:
+    kind: call
+    all:
+        - has: {field: function, kind: identifier, pattern: $C}
+        - has: {field: arguments, has: {nthChild: 1, pattern: $X.$F1}}
+        - not: {has: {field: arguments, has: {nthChild: 1, kind: attribute, has: {field: object, matches: other-type}}}}
+        - any:
+            - all:
+                - has: {field: arguments, all: [{has: {nthChild: 2, pattern: $X.$F2}}, {not: {has: {nthChild: 3}}}]}
+                - inside: {kind: module, stopBy: end, has: {matches: frozen-struct, has: {field: body, has: {all: [{matches: field-2}, {matches: last-field}]}}}}
+            - all:
+                - has: {field: arguments, all: [{has: {nthChild: 2, pattern: $X.$F2}}, {has: {nthChild: 3, pattern: $X.$F3}}, {not: {has: {nthChild: 4}}}]}
+                - inside: {kind: module, stopBy: end, has: {matches: frozen-struct, has: {field: body, has: {all: [{matches: field-3}, {matches: last-field}]}}}}
+fix: $X
+message: '`$C(...)` rebuilds `$X` from every field in order'
+note: 'Use the record itself, a frozen record equals its rebuild'

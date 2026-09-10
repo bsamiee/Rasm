@@ -64,15 +64,15 @@ Files outside the chain:
 
 `Condition` attributes hold one expression string MSBuild tokenizes before it expands properties:
 
-| [INDEX] | [FORM]                     | [RULE]                                                                               |
-| :-----: | :------------------------- | :----------------------------------------------------------------------------------- |
-|  [01]   | `'$(A)' == 'b'`, `!=`      | Case-insensitive string comparison, quote both sides, an empty side needs its quotes |
+| [INDEX] | [FORM]                     | [RULE]                                                                                |
+| :-----: | :------------------------- | :------------------------------------------------------------------------------------ |
+|  [01]   | `'$(A)' == 'b'`, `!=`      | Case-insensitive string comparison, quote both sides, an empty side needs its quotes  |
 |  [02]   | `<`, `>`, `<=`, `>=`       | Decimal, `0x` hexadecimal, or `System.Version` operands, escaped as `&lt;` and `&gt;` |
-|  [03]   | `Exists('path')`           | File or directory test, no wildcard expansion                                        |
-|  [04]   | `HasTrailingSlash('path')` | True for a trailing `/` or `\`                                                       |
-|  [05]   | `!`, `And`, `Or`, `( )`    | `And` binds tighter than `Or`, a mixed chain without parentheses warns `MSB4130`     |
-|  [06]   | `$([MSBuild]::Fn(...))`    | Boolean property functions stand alone, string ones sit inside quotes                |
-|  [07]   | `$(A.StartsWith('x'))`     | String instance methods on a property, the value evaluates to `True` or `False`      |
+|  [03]   | `Exists('path')`           | File or directory test, no wildcard expansion                                         |
+|  [04]   | `HasTrailingSlash('path')` | True for a trailing `/` or `\`                                                        |
+|  [05]   | `!`, `And`, `Or`, `( )`    | `And` binds tighter than `Or`, a mixed chain without parentheses warns `MSB4130`      |
+|  [06]   | `$([MSBuild]::Fn(...))`    | Boolean property functions stand alone, string ones sit inside quotes                 |
+|  [07]   | `$(A.StartsWith('x'))`     | String instance methods on a property, the value evaluates to `True` or `False`       |
 
 - Inside a quoted operand, backticks quote function arguments and an inner `'` fails `MSB4092`
 - `'` alone quotes a top-level operand, `&apos;` inside a single-quoted attribute evaluates
@@ -139,15 +139,15 @@ Prove a value without a build with `dotnet msbuild <project> -getProperty:Name`,
 
 Item elements perform one operation each, in order of appearance across every import:
 
-| [INDEX] | [ATTRIBUTE]                      | [EFFECT]                                                                                  |
-| :-----: | :------------------------------- | :---------------------------------------------------------------------------------------- |
-|  [01]   | `Include`                        | Adds items with the metadata on the element, duplicates stay outside a target             |
-|  [02]   | `Exclude`                        | Subtracts from the `Include` of the same element, beside `Update` it fails `MSB4066`      |
-|  [03]   | `Remove`                         | Removes matching items of that type, `Remove="@(Type)"` clears it                         |
-|  [04]   | `Update`                         | Sets metadata on items existing at that point, an unmatched spec reports nothing          |
-|  [05]   | `MatchOnMetadata`                | `Remove="@(Other)"` matches on the named metadata, `MatchOnMetadataOptions="PathLike"`    |
-|  [06]   | `KeepMetadata`, `RemoveMetadata` | In a target, filters the metadata copied from the source items, definition defaults stay  |
-|  [07]   | `KeepDuplicates="false"`         | In a target, skips an item with the identity and metadata of an existing item             |
+| [INDEX] | [ATTRIBUTE]                      | [EFFECT]                                                                                 |
+| :-----: | :------------------------------- | :--------------------------------------------------------------------------------------- |
+|  [01]   | `Include`                        | Adds items with the metadata on the element, duplicates stay outside a target            |
+|  [02]   | `Exclude`                        | Subtracts from the `Include` of the same element, beside `Update` it fails `MSB4066`     |
+|  [03]   | `Remove`                         | Removes matching items of that type, `Remove="@(Type)"` clears it                        |
+|  [04]   | `Update`                         | Sets metadata on items existing at that point, an unmatched spec reports nothing         |
+|  [05]   | `MatchOnMetadata`                | `Remove="@(Other)"` matches on the named metadata, `MatchOnMetadataOptions="PathLike"`   |
+|  [06]   | `KeepMetadata`, `RemoveMetadata` | In a target, filters the metadata copied from the source items, definition defaults stay |
+|  [07]   | `KeepDuplicates="false"`         | In a target, skips an item with the identity and metadata of an existing item            |
 
 - Inside a target, `Update` applies its metadata to every item of the type, `Condition="'%(Identity)' == 'name'"` on an item element selects one item
 - Outside a target, an item condition reads properties and `@(Item)` lists, `%(Custom)` fails `MSB4191` and `%(Filename)` fails `MSB4190`
@@ -194,7 +194,7 @@ Each declaration has one owning file, chosen by what it reads and who overrides 
 
 | [INDEX] | [DECLARATION]                                                                                        | [FILE]                           |
 | :-----: | :--------------------------------------------------------------------------------------------------- | :------------------------------- |
-|  [01]   | Repository root paths, `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`                | `Directory.Build.props`          |
+|  [01]   | Repository root paths, `ArtifactsPath`, `UseArtifactsOutput`, `ArtifactsProjectName`                 | `Directory.Build.props`          |
 |  [02]   | `BaseIntermediateOutputPath`, `MSBuildProjectExtensionsPath`                                         | `Directory.Build.props`          |
 |  [03]   | Defaults a project overrides: `Nullable`, `ImplicitUsings`, `TreatWarningsAsErrors`, `AnalysisLevel` | `Directory.Build.props`          |
 |  [04]   | Classification from `MSBuildProjectName` or `MSBuildProjectDirectory`                                | `Directory.Build.props`          |
@@ -212,11 +212,11 @@ Each declaration has one owning file, chosen by what it reads and who overrides 
 
 ## [06]-[TROUBLESHOOTING]
 
-| [INDEX] | [PROBLEM]                                | [CAUSE]                                        | [FIX]                                 |
-| :-----: | :--------------------------------------- | :--------------------------------------------- | :------------------------------------ |
-|  [01]   | `Directory.Build.props` is not imported  | Case differs on a case-sensitive volume        | Match the case exactly                |
-|  [02]   | `Directory.Build.props` value is ignored | Project body or the SDK reassigns it later     | Set it in `Directory.Build.targets`   |
-|  [03]   | Property holds `@(...)` text             | Properties never read items                    | Read the list in a target             |
-|  [04]   | `-getProperty` fails with `MSB1063`      | Argument is a solution                         | Point the query at one project file   |
+| [INDEX] | [PROBLEM]                                | [CAUSE]                                    | [FIX]                               |
+| :-----: | :--------------------------------------- | :----------------------------------------- | :---------------------------------- |
+|  [01]   | `Directory.Build.props` is not imported  | Case differs on a case-sensitive volume    | Match the case exactly              |
+|  [02]   | `Directory.Build.props` value is ignored | Project body or the SDK reassigns it later | Set it in `Directory.Build.targets` |
+|  [03]   | Property holds `@(...)` text             | Properties never read items                | Read the list in a target           |
+|  [04]   | `-getProperty` fails with `MSB1063`      | Argument is a solution                     | Point the query at one project file |
 
 - `dotnet msbuild <project> -p:TargetFramework=net10.0 -getProperty:Name` evaluates one inner build of a multi-targeting project

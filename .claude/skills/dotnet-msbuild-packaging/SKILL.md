@@ -246,20 +246,20 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - `Deterministic` gives every zip entry the `DeterministicTimestamp` time, RFC 3339 or Unix seconds
 - `SOURCE_DATE_EPOCH` fills `DeterministicTimestamp` when unset, the wall clock otherwise
 
-| [INDEX] | [PROPERTY]                                      | [EFFECT]                                                                          |
-| :-----: | :---------------------------------------------- | :-------------------------------------------------------------------------------- |
-|  [01]   | `PackageId`, `Version`                          | Id defaults to `AssemblyName`, prefix and suffix properties compose `Version`     |
-|  [02]   | `PackageOutputPath`                             | Directory of the `.nupkg` files                                                   |
-|  [03]   | `IncludeBuildOutput=false`                      | No assembly in `lib/`, for a package of assets                                    |
-|  [04]   | `PackageReadmeFile`                             | Path inside the package of a Markdown file the project packs with `Pack="true"`   |
-|  [05]   | `PackageLicenseExpression`                      | SPDX expression, `PackageLicenseFile` is the alternative for a packed file        |
-|  [06]   | `IncludeSymbols`, `SymbolPackageFormat`         | `snupkg` writes the portable PDBs beside the `.nupkg`                             |
-|  [07]   | `PublishRepositoryUrl`, `EmbedUntrackedSources` | SourceLink writes the repository URL and embeds generated sources                 |
-|  [08]   | `PackAsTool`, `ToolCommandName`                 | Packs an executable as a `dotnet tool`, the SDK imports the tool pack targets     |
-|  [09]   | `DevelopmentDependency`                         | Build-time dependency, consumers exclude its compile assets                       |
-|  [10]   | `PackageType`                                   | Semicolon list of package types, `Dependency` is the default                      |
-|  [11]   | `NoPackageAnalysis`                             | Skips the `NU5xxx` analysis, for a layout the rules cannot describe               |
-|  [12]   | `NuspecFile`                                    | Packs a hand-written nuspec and ignores the project, for a non-SDK package        |
+| [INDEX] | [PROPERTY]                                      | [EFFECT]                                                                        |
+| :-----: | :---------------------------------------------- | :------------------------------------------------------------------------------ |
+|  [01]   | `PackageId`, `Version`                          | Id defaults to `AssemblyName`, prefix and suffix properties compose `Version`   |
+|  [02]   | `PackageOutputPath`                             | Directory of the `.nupkg` files                                                 |
+|  [03]   | `IncludeBuildOutput=false`                      | No assembly in `lib/`, for a package of assets                                  |
+|  [04]   | `PackageReadmeFile`                             | Path inside the package of a Markdown file the project packs with `Pack="true"` |
+|  [05]   | `PackageLicenseExpression`                      | SPDX expression, `PackageLicenseFile` is the alternative for a packed file      |
+|  [06]   | `IncludeSymbols`, `SymbolPackageFormat`         | `snupkg` writes the portable PDBs beside the `.nupkg`                           |
+|  [07]   | `PublishRepositoryUrl`, `EmbedUntrackedSources` | SourceLink writes the repository URL and embeds generated sources               |
+|  [08]   | `PackAsTool`, `ToolCommandName`                 | Packs an executable as a `dotnet tool`, the SDK imports the tool pack targets   |
+|  [09]   | `DevelopmentDependency`                         | Build-time dependency, consumers exclude its compile assets                     |
+|  [10]   | `PackageType`                                   | Semicolon list of package types, `Dependency` is the default                    |
+|  [11]   | `NoPackageAnalysis`                             | Skips the `NU5xxx` analysis, for a layout the rules cannot describe             |
+|  [12]   | `NuspecFile`                                    | Packs a hand-written nuspec and ignores the project, for a non-SDK package      |
 
 `GenerateNuspec` runs after `Build` and after `_GetPackageFiles` collects the `Pack="true"` items, a validation target takes `BeforeTargets="GenerateNuspec"`, a target that adds files sets `TargetsForTfmSpecificContentInPackage` and returns `TfmSpecificPackageFile` items with `PackagePath` metadata, or `TargetsForTfmSpecificBuildOutput` for files in `lib/`.
 
@@ -345,15 +345,15 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 |  [04]   | `-nodeReuse:false`              | Worker nodes exit with the build, an idle node otherwise stays for the next build      |
 |  [05]   | `-p:UseSharedCompilation=false` | Compiles in process, the Roslyn server otherwise waits 10 minutes after the last build |
 
-| [INDEX] | [VARIABLE]                             | [EFFECT]                                                                  |
-| :-----: | :------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `DOTNET_NOLOGO=1`                      | No first-run banner                                                       |
-|  [02]   | `DOTNET_CLI_TELEMETRY_OPTOUT=1`        | No telemetry                                                              |
-|  [03]   | `DOTNET_GENERATE_ASPNET_CERTIFICATE=0` | No development certificate on first run                                   |
-|  [04]   | `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0`    | No `PATH` edit on first run                                               |
-|  [05]   | `NUGET_PACKAGES=<runner cache dir>`    | Global packages folder the runner cache restores between jobs             |
-|  [06]   | `DOTNET_CLI_HOME=<dir>`                | Location of first-run sentinels, workload data, and local tools           |
-|  [07]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included  |
+| [INDEX] | [VARIABLE]                             | [EFFECT]                                                                 |
+| :-----: | :------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `DOTNET_NOLOGO=1`                      | No first-run banner                                                      |
+|  [02]   | `DOTNET_CLI_TELEMETRY_OPTOUT=1`        | No telemetry                                                             |
+|  [03]   | `DOTNET_GENERATE_ASPNET_CERTIFICATE=0` | No development certificate on first run                                  |
+|  [04]   | `DOTNET_ADD_GLOBAL_TOOLS_TO_PATH=0`    | No `PATH` edit on first run                                              |
+|  [05]   | `NUGET_PACKAGES=<runner cache dir>`    | Global packages folder the runner cache restores between jobs            |
+|  [06]   | `DOTNET_CLI_HOME=<dir>`                | Location of first-run sentinels, workload data, and local tools          |
+|  [07]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
 
 `global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs the `Microsoft.Testing.Extensions.TrxReport` package in each test project, `--project` and `--solution` exclude each other, the exit code is `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
 
@@ -365,15 +365,15 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 
 ## [07]-[ANTIPATTERNS]
 
-| [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                            |
-| :-----: | :---------------------------------------------------------- | :------------------------------------------------------------------------ |
-|  [01]   | `Reference` with a `HintPath` into `~/.nuget`               | `PackageReference` with `GeneratePathProperty` when a path is needed      |
-|  [02]   | `PackageVersion` with `1.*`                                 | Exact version, `dotnet-outdated` moves it                                 |
-|  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update`  |
-|  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                            |
-|  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings              |
-|  [06]   | NuGet lock file or lock-file restore setting                | Deleted, exact central versions make restore repeat without a lock file   |
-|  [07]   | `GeneratePackageOnBuild` in a library                       | `dotnet pack` from the pipeline, a build then writes no package           |
-|  [08]   | Packed `build/` props setting a property unconditionally    | `Condition="'$(Name)' == ''"`, the consumer keeps its own value           |
-|  [09]   | Native libraries under `contentFiles`                       | `runtimes/<rid>/native/`, the one layout with RID selection               |
-|  [10]   | `SuppressDependenciesWhenPacking` with a `lib/<tfm>/` entry | Dependency group stays                                                    |
+| [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                           |
+| :-----: | :---------------------------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `Reference` with a `HintPath` into `~/.nuget`               | `PackageReference` with `GeneratePathProperty` when a path is needed     |
+|  [02]   | `PackageVersion` with `1.*`                                 | Exact version, `dotnet-outdated` moves it                                |
+|  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update` |
+|  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                           |
+|  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings             |
+|  [06]   | NuGet lock file or lock-file restore setting                | Deleted, exact central versions make restore repeat without a lock file  |
+|  [07]   | `GeneratePackageOnBuild` in a library                       | `dotnet pack` from the pipeline, a build then writes no package          |
+|  [08]   | Packed `build/` props setting a property unconditionally    | `Condition="'$(Name)' == ''"`, the consumer keeps its own value          |
+|  [09]   | Native libraries under `contentFiles`                       | `runtimes/<rid>/native/`, the one layout with RID selection              |
+|  [10]   | `SuppressDependenciesWhenPacking` with a `lib/<tfm>/` entry | Dependency group stays                                                   |

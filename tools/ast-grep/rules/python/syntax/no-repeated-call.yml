@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-call
+language: python
+severity: error
+utils:
+    scope:
+        kind: 'expression_statement, return_statement, if_statement, elif_clause, else_clause, for_statement, while_statement, with_statement, assert_statement, raise_statement, delete_statement, function_definition, class_definition, decorated_definition, block, module, match_statement, case_clause, try_statement, except_clause, finally_clause, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+    constant:
+        any:
+            - kind: 'integer, float, string, true, false, none'
+            - kind: unary_operator
+              has: {matches: constant}
+            - kind: identifier
+              regex: '^_?[A-Z][A-Z0-9_]*$'
+            - kind: attribute
+              regex: '^[A-Z]\w*\.[A-Z][A-Z0-9_]*$'
+            - kind: keyword_argument
+              has: {field: value, matches: constant}
+    stateful-callee:
+        regex: '^(next|anext|input|print|(\w+\.)*(choice|choices|random|randint|randrange|uniform|shuffle|sample|getrandbits|randbytes|token_bytes|token_hex|token_urlsafe|now|today|utcnow|time|monotonic|perf_counter|urandom|uuid1|uuid4|read|readline|readlines|write|pop|popleft|popitem|append|extend|insert|remove|discard|update|setdefault|send|recv))$'
+    holds-call:
+        any:
+            - pattern: $CALL
+            - has: {stopBy: end, pattern: $CALL}
+    repeat-site:
+        all:
+            - not: {matches: scope}
+            - not: {inside: {kind: assert_statement}}
+            - not: {nthChild: 3, inside: {kind: conditional_expression}}
+            - follows: {stopBy: end, matches: holds-call}
+rule:
+    kind: call
+    pattern: $CALL
+    all:
+        - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
+        - not: {has: {field: function, matches: stateful-callee}}
+        - not: {has: {kind: 'await, yield, named_expression, lambda', stopBy: end}}
+        - any:
+            - matches: repeat-site
+            - inside: {stopBy: {matches: scope}, matches: repeat-site}
+message: '`$CALL` is evaluated twice in one expression'
+note: 'Bind `(<name> := <call>)` at the first read and read the name'

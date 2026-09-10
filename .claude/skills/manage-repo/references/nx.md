@@ -26,15 +26,15 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 
 ## [03]-[INPUTS]
 
-| [INDEX] | [FORM]                                           | [HASHES]                                                   |
-| :-----: | :----------------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `{projectRoot}/**/*`, `{workspaceRoot}/<path>`   | Files matching the glob, `!` negates                       |
-|  [02]   | `<name>`, `^<name>`                              | Named input of the project, of its dependencies            |
-|  [03]   | `{ "runtime": "<command>" }`                     | Command output, the tool version                           |
-|  [04]   | `{ "env": "<NAME>" }`                            | Variable value                                             |
-|  [05]   | `{ "externalDependencies": ["<package>"] }`      | Installed package versions                                 |
-|  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`      | Outputs of dependency tasks, `transitive: true` recurses   |
-|  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`    | Listed fields of a JSON file, `excludeFields` the rest     |
+| [INDEX] | [FORM]                                         | [HASHES]                                                 |
+| :-----: | :--------------------------------------------- | :------------------------------------------------------- |
+|  [01]   | `{projectRoot}/**/*`, `{workspaceRoot}/<path>` | Files matching the glob, `!` negates                     |
+|  [02]   | `<name>`, `^<name>`                            | Named input of the project, of its dependencies          |
+|  [03]   | `{ "runtime": "<command>" }`                   | Command output, the tool version                         |
+|  [04]   | `{ "env": "<NAME>" }`                          | Variable value                                           |
+|  [05]   | `{ "externalDependencies": ["<package>"] }`    | Installed package versions                               |
+|  [06]   | `{ "dependentTasksOutputFiles": "<glob>" }`    | Outputs of dependency tasks, `transitive: true` recurses |
+|  [07]   | `{ "json": "<path>", "fields": ["<field>"] }`  | Listed fields of a JSON file, `excludeFields` the rest   |
 
 - Cache hits restore the files `outputs` name
 

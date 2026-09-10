@@ -24,21 +24,21 @@ Doppler reads each option from the highest source present, a flag, then an envir
 
 ## [02]-[DOPPLER_CLI]
 
-| [INDEX] | [TASK]                        | [COMMAND]                                                                                          |
-| :-----: | :---------------------------- | :------------------------------------------------------------------------------------------------- |
-|  [01]   | Auth proof                    | `doppler me`                                                                                       |
-|  [02]   | Effective options per scope   | `doppler configure debug --json \| jq 'with_entries(.value \|= del(.token))'`                      |
-|  [03]   | Every scope entry             | `doppler configure --all --json \| jq 'with_entries(.value \|= del(.token))'`                      |
-|  [04]   | One directory's scope         | `doppler configure get project config --scope <dir> --json`                                        |
-|  [05]   | Set a directory scope         | `doppler configure set project=<p> config=<c> --scope <dir>`                                       |
-|  [06]   | Unset a directory scope       | `doppler configure unset project config --scope <dir>`                                             |
-|  [07]   | Key inventory                 | `doppler secrets --only-names --json --project <p> --config <c> \| jq 'keys'`                      |
-|  [08]   | One value                     | `doppler secrets get <NAME> --plain --project <p> --config <c>`                                    |
-|  [09]   | Write a value from stdin      | `<producer> \| doppler secrets set <NAME> --project <p> --config <c>`                              |
-|  [10]   | Inject env into a process     | `doppler run --project <p> --config <c> -- <cmd>`                                                  |
-|  [11]   | Shell operators in a command  | `doppler run --project <p> --config <c> --command '<cmd> && <cmd>'`                                |
-|  [12]   | Ephemeral service token       | `doppler configs tokens create <name> --project <p> --config <c> --max-age <duration> --plain`     |
-|  [13]   | Revoke a service token        | `doppler configs tokens revoke <token> --project <p> --config <c>`                                 |
+| [INDEX] | [TASK]                       | [COMMAND]                                                                                      |
+| :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------- |
+|  [01]   | Auth proof                   | `doppler me`                                                                                   |
+|  [02]   | Effective options per scope  | `doppler configure debug --json \| jq 'with_entries(.value \|= del(.token))'`                  |
+|  [03]   | Every scope entry            | `doppler configure --all --json \| jq 'with_entries(.value \|= del(.token))'`                  |
+|  [04]   | One directory's scope        | `doppler configure get project config --scope <dir> --json`                                    |
+|  [05]   | Set a directory scope        | `doppler configure set project=<p> config=<c> --scope <dir>`                                   |
+|  [06]   | Unset a directory scope      | `doppler configure unset project config --scope <dir>`                                         |
+|  [07]   | Key inventory                | `doppler secrets --only-names --json --project <p> --config <c> \| jq 'keys'`                  |
+|  [08]   | One value                    | `doppler secrets get <NAME> --plain --project <p> --config <c>`                                |
+|  [09]   | Write a value from stdin     | `<producer> \| doppler secrets set <NAME> --project <p> --config <c>`                          |
+|  [10]   | Inject env into a process    | `doppler run --project <p> --config <c> -- <cmd>`                                              |
+|  [11]   | Shell operators in a command | `doppler run --project <p> --config <c> --command '<cmd> && <cmd>'`                            |
+|  [12]   | Ephemeral service token      | `doppler configs tokens create <name> --project <p> --config <c> --max-age <duration> --plain` |
+|  [13]   | Revoke a service token       | `doppler configs tokens revoke <token> --project <p> --config <c>`                             |
 
 - `configure` JSON prints `project` and `config` as `enclave.project` and `enclave.config`, `del(.token)` strips the token from a printed scope
 
@@ -46,19 +46,19 @@ Doppler reads each option from the highest source present, a flag, then an envir
 
 Secret references take the form `op://<vault>/<item>/[<section>/]<field>`:
 
-| [INDEX] | [TASK]                       | [COMMAND]                                                                     |
-| :-----: | :--------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Auth proof                   | `op whoami`                                                                   |
-|  [02]   | Vault inventory              | `op vault list`                                                               |
-|  [03]   | Item names in a vault        | `op item list --vault <vault> --format json \| jq -r '.[].title'`             |
-|  [04]   | Field names of an item       | `op item get <item> --vault <vault> --format json \| jq -r '.fields[].label'` |
-|  [05]   | One field                    | `op read "op://<vault>/<item>/<field>"`                                       |
-|  [06]   | One-time code                | `op item get <item> --vault <vault> --otp`                                    |
-|  [07]   | Private key in OpenSSH form  | `op read "op://<vault>/<item>/private key?ssh-format=openssh"`                |
-|  [08]   | Field to a mode-600 file     | `op read --out-file <file> "op://<vault>/<item>/<field>"`                     |
-|  [09]   | Env vars for one process     | `<VAR>="op://<vault>/<item>/<field>" op run -- <cmd>`                         |
-|  [10]   | Rendered template            | `op inject -i <template> -o <out>`                                            |
-|  [11]   | Rename an item               | `op item edit "<title>" --title "<new-title>" --vault <vault>`                |
+| [INDEX] | [TASK]                      | [COMMAND]                                                                     |
+| :-----: | :-------------------------- | :---------------------------------------------------------------------------- |
+|  [01]   | Auth proof                  | `op whoami`                                                                   |
+|  [02]   | Vault inventory             | `op vault list`                                                               |
+|  [03]   | Item names in a vault       | `op item list --vault <vault> --format json \| jq -r '.[].title'`             |
+|  [04]   | Field names of an item      | `op item get <item> --vault <vault> --format json \| jq -r '.fields[].label'` |
+|  [05]   | One field                   | `op read "op://<vault>/<item>/<field>"`                                       |
+|  [06]   | One-time code               | `op item get <item> --vault <vault> --otp`                                    |
+|  [07]   | Private key in OpenSSH form | `op read "op://<vault>/<item>/private key?ssh-format=openssh"`                |
+|  [08]   | Field to a mode-600 file    | `op read --out-file <file> "op://<vault>/<item>/<field>"`                     |
+|  [09]   | Env vars for one process    | `<VAR>="op://<vault>/<item>/<field>" op run -- <cmd>`                         |
+|  [10]   | Rendered template           | `op inject -i <template> -o <out>`                                            |
+|  [11]   | Rename an item              | `op item edit "<title>" --title "<new-title>" --vault <vault>`                |
 
 - `OP_ACCOUNT` or `--account` selects the account when the app holds more than one
 - `op run` masks secret values on stdout and stderr

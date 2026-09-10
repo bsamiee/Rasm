@@ -6997,6 +6997,7 @@ dev = [
     { name = "types-protobuf" },
     { name = "types-psutil" },
     { name = "types-pyphen" },
+    { name = "types-regex" },
     { name = "types-reportlab" },
     { name = "types-shapely" },
     { name = "yamllint" },
@@ -7226,6 +7227,7 @@ workspace = [
     { name = "quadax" },
     { name = "queenbee" },
     { name = "rasterio" },
+    { name = "regex" },
     { name = "reportlab" },
     { name = "resvg-py" },
     { name = "rhino3dm" },
@@ -7270,6 +7272,7 @@ workspace = [
     { name = "vl-convert-python" },
     { name = "wasmtime" },
     { name = "watchfiles" },
+    { name = "wcwidth" },
     { name = "weasyprint" },
     { name = "xarray" },
     { name = "xlsxwriter" },
@@ -7315,6 +7318,7 @@ dev = [
     { name = "types-protobuf" },
     { name = "types-psutil" },
     { name = "types-pyphen" },
+    { name = "types-regex" },
     { name = "types-reportlab" },
     { name = "types-shapely" },
     { name = "yamllint" },
@@ -7544,6 +7548,7 @@ workspace = [
     { name = "quadax" },
     { name = "queenbee" },
     { name = "rasterio" },
+    { name = "regex" },
     { name = "reportlab" },
     { name = "resvg-py" },
     { name = "rhino3dm" },
@@ -7588,6 +7593,7 @@ workspace = [
     { name = "vl-convert-python" },
     { name = "wasmtime" },
     { name = "watchfiles" },
+    { name = "wcwidth" },
     { name = "weasyprint" },
     { name = "xarray" },
     { name = "xlsxwriter" },
@@ -8715,6 +8721,15 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/60/cf/903310e6495f8f32174a4cba5e5352ca13f6efa4cfeea584350237e75623/types_pyphen-0.18.1.20260816.tar.gz", hash = "sha256:99ef2fe9b9568e2477e13576e6d0752b42099b5a42f9ceb3c0f7c940993db840", size = 7753, upload-time = "2026-08-16T02:50:04.501Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/42/1f/45f3735e7aa07454998f2b28b823df31e9da4b287235988ae445447d44ba/types_pyphen-0.18.1.20260816-py3-none-any.whl", hash = "sha256:7bdb1b640e1ed1f5fd480955b4e6a81f5bac28f1c5918dfafeca7eea5350d2bc", size = 7722, upload-time = "2026-08-16T02:50:03.465Z" },
+]
+
+[[package]]
+name = "types-regex"
+version = "2026.9.3.20260903"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/ac/65/7a39af8705ba0685429e8306ce7cbc6d40be0658c36bb2330aefcca13815/types_regex-2026.9.3.20260903.tar.gz", hash = "sha256:eef82a0ae08806f32609fc4829fee845f98672dd6378834c34dec33bf8c60cf0", size = 13858, upload-time = "2026-09-03T06:36:49.602Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/8e/c7/571fb5dbfee06a57651d8af664dbda43409277b6f7ccff5df8fbeee526e3/types_regex-2026.9.3.20260903-py3-none-any.whl", hash = "sha256:d12a58823ba330497c4369fc47f9de028f5fd74036d3cfabb7732c69e88a5fd0", size = 11181, upload-time = "2026-09-03T06:36:48.605Z" },
 ]
 
 [[package]]

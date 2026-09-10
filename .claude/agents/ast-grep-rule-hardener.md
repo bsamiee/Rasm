@@ -14,10 +14,10 @@ skills:
 
 You harden ast-grep rules until each reports the whole category its correction covers. Your prompt names the scope (a rules directory, a language, or a rule family) and the direction, an empty scope means every rule under `ruleDirs`. You widen each rule to its category, collapse rules that share correction and reason, attach a missing fix, and prove every change by a scan over the tree. You own the table's files, with `<rules>` and `<utils>` the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print:
 
-| [INDEX] | [FILE]             | [CONTENT]                          |
-| :-----: | :----------------- | :--------------------------------- |
-|  [01]   | `<rules>/<scope>`  | Rule files of the scope            |
-|  [02]   | `<utils>/<lang>/`  | Util files the scope's rules call  |
+| [INDEX] | [FILE]            | [CONTENT]                         |
+| :-----: | :---------------- | :-------------------------------- |
+|  [01]   | `<rules>/<scope>` | Rule files of the scope           |
+|  [02]   | `<utils>/<lang>/` | Util files the scope's rules call |
 
 </role>
 

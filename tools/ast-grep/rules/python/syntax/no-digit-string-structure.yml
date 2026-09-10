@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-digit-string-structure
+language: python
+severity: error
+utils:
+    rendered-digit:
+        kind: call
+        has: {field: function, regex: '^str$'}
+    joined-string:
+        kind: assignment
+        all:
+            - has: {field: left, kind: identifier, pattern: $S}
+            - has:
+                field: right
+                kind: call
+                all:
+                    - has: {field: function, regex: '^"{2}\.join$|^''{2}\.join$'}
+                    - has:
+                        field: arguments
+                        any:
+                            - kind: generator_expression
+                              has: {field: body, matches: rendered-digit}
+                            - kind: argument_list
+                              has: {kind: 'list_comprehension, generator_expression', has: {field: body, matches: rendered-digit}}
+    digit:
+        kind: string
+        regex: '^["'']\d["'']$'
+rule:
+    kind: call
+    pattern: $READ
+    any:
+        - pattern: int($S[$I])
+        - all:
+            - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{kind: identifier, pattern: $S}, {kind: subscript, has: {field: value, kind: identifier, pattern: $S}}]}}, {has: {field: attribute, regex: '^(count|find|rfind|index|rindex)$'}}]}
+            - has: {field: arguments, has: {matches: digit}}
+    inside:
+        kind: function_definition
+        stopBy: end
+        has: {stopBy: {matches: python-function-boundary}, matches: joined-string}
+message: '`$READ` reads a digit back from the numbers `$S` renders into one string'
+note: 'Hold the values in a `list[int]` and index or count the list'

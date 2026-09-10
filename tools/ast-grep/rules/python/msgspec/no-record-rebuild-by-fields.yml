@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-record-rebuild-by-fields
+language: python
+severity: error
+utils:
+    struct-field:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, kind: identifier, pattern: $A}
+                - has: {field: type, kind: type}
+    own-struct:
+        kind: class_definition
+        all:
+            - has: {field: name, pattern: $C}
+            - has: {field: superclasses, has: {regex: '^(msgspec\.)?Struct$'}}
+            - has: {field: body, has: {matches: struct-field}}
+    field-read:
+        kind: attribute
+        all:
+            - has: {field: object, kind: identifier, pattern: $X}
+            - has: {field: attribute, pattern: $A}
+            - inside: {kind: module, stopBy: end, has: {matches: own-struct}}
+            - any:
+                - all:
+                    - has: {field: object, regex: '^self$'}
+                    - inside: {kind: class_definition, stopBy: end, has: {field: name, pattern: $C}}
+                - inside:
+                    kind: function_definition
+                    stopBy: end
+                    has:
+                        field: parameters
+                        has:
+                            kind: typed_parameter
+                            all:
+                                - has: {kind: identifier, pattern: $X}
+                                - has: {field: type, kind: type, pattern: $C}
+rule:
+    kind: call
+    all:
+        - has: {field: function, kind: identifier, pattern: $C}
+        - has:
+            field: arguments
+            all:
+                - has:
+                    any:
+                        - matches: field-read
+                        - kind: keyword_argument
+                          has: {field: value, matches: field-read}
+                - has: {pattern: $_, not: {pattern: $X.$_}}
+message: '`$C(...)` rebuilds `$X` by spelling its fields'
+note: 'Use `replace(<record>, <field>=<value>)` from `copy`, the record supplies every other field'

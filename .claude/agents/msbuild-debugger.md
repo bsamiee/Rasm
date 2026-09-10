@@ -46,30 +46,30 @@ Read in order before the first edit:
 
 Every cause names the tool result that decides it:
 
-| [INDEX] | [QUESTION]                         | [SOURCE]                                                                                          |
-| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | Build status and failing target    | `mcp__binlog__binlog_overview`, then `mcp__binlog__binlog_diagnose`                               |
-|  [02]   | Error text with the tool's reason  | `mcp__binlog__binlog_errors` with `category`, `include_task_output=true`, and `project`           |
+| [INDEX] | [QUESTION]                         | [SOURCE]                                                                                           |
+| :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------- |
+|  [01]   | Build status and failing target    | `mcp__binlog__binlog_overview`, then `mcp__binlog__binlog_diagnose`                                |
+|  [02]   | Error text with the tool's reason  | `mcp__binlog__binlog_errors` with `category`, `include_task_output=true`, and `project`            |
 |  [03]   | Assignments of a property          | `mcp__binlog__binlog_explain_property`, `project` the `.csproj` file name, `Set by: evaluation`    |
-|  [04]   | Whether a value came from `-p:`    | `mcp__binlog__binlog_compare_property`, `(global — driven by the solution)` beside each project   |
-|  [05]   | Evaluation ids of a project        | `mcp__binlog__binlog_evaluations` with `project`                                                  |
-|  [06]   | Global properties of an evaluation | `mcp__binlog__binlog_evaluation_global_properties` with `evaluation_id`                           |
-|  [07]   | File that declares a property      | `mcp__binlog__binlog_search_files` with the element text, `<Name>`                                |
-|  [08]   | Declaration behind a `file(line)`  | `Read` with `offset` at the line and `limit`, an owned file whole                                 |
+|  [04]   | Whether a value came from `-p:`    | `mcp__binlog__binlog_compare_property`, `(global — driven by the solution)` beside each project    |
+|  [05]   | Evaluation ids of a project        | `mcp__binlog__binlog_evaluations` with `project`                                                   |
+|  [06]   | Global properties of an evaluation | `mcp__binlog__binlog_evaluation_global_properties` with `evaluation_id`                            |
+|  [07]   | File that declares a property      | `mcp__binlog__binlog_search_files` with the element text, `<Name>`                                 |
+|  [08]   | Declaration behind a `file(line)`  | `Read` with `offset` at the line and `limit`, an owned file whole                                  |
 |  [09]   | Value a file evaluates to today    | `dotnet msbuild <project or Directory.Build.props> -getProperty:A,B -getItem:C`, one file per call |
-|  [10]   | Targets a no-change build ran      | `mcp__binlog__binlog_search_targets` on `CoreCompile`, its `skipped`                              |
-|  [11]   | Stale inputs behind a rerun        | `mcp__binlog__binlog_incremental_analysis` through `jq`                                           |
-|  [12]   | Why a target ran or skipped        | `mcp__binlog__binlog_search` with `under($project <name>) $target <target>` and `context` 2       |
-|  [13]   | Message text across the build      | `mcp__binlog__binlog_search` with the phrase in `"`, the phrase holding no inner `"`              |
-|  [14]   | Parameters of a task               | `mcp__binlog__binlog_task_details` with `project`, `target_name`, and `task_name`, through `jq`   |
-|  [15]   | Compiler error                     | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=false`        |
-|  [16]   | Analyzer error                     | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=true`         |
-|  [17]   | Task exception with a stack trace  | `mcp__roslyn-codelens__resolve_stack_trace`, the `file`, `line`, and `origin` of each frame       |
-|  [18]   | Generators of the solution         | `mcp__roslyn-codelens__get_source_generators` without `project`                                   |
-|  [19]   | Generated file                     | `mcp__roslyn-codelens__get_generated_code` with `generator` or `file`                             |
-|  [20]   | BuildCheck counts of a capture     | `mcp__binlog__binlog_errors` and `mcp__binlog__binlog_warnings` with `category=BuildCheck`        |
-|  [21]   | Source file as the build saw it    | `mcp__binlog__binlog_files` with `filePath`, `startLine`, and `endLine`                           |
-|  [22]   | Solution other than the server's   | `mcp__roslyn-codelens__load_solution` with `path`, then `mcp__roslyn-codelens__unload_solution`   |
+|  [10]   | Targets a no-change build ran      | `mcp__binlog__binlog_search_targets` on `CoreCompile`, its `skipped`                               |
+|  [11]   | Stale inputs behind a rerun        | `mcp__binlog__binlog_incremental_analysis` through `jq`                                            |
+|  [12]   | Why a target ran or skipped        | `mcp__binlog__binlog_search` with `under($project <name>) $target <target>` and `context` 2        |
+|  [13]   | Message text across the build      | `mcp__binlog__binlog_search` with the phrase in `"`, the phrase holding no inner `"`               |
+|  [14]   | Parameters of a task               | `mcp__binlog__binlog_task_details` with `project`, `target_name`, and `task_name`, through `jq`    |
+|  [15]   | Compiler error                     | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=false`         |
+|  [16]   | Analyzer error                     | `mcp__roslyn-codelens__get_diagnostics` with `severity=error` and `includeAnalyzers=true`          |
+|  [17]   | Task exception with a stack trace  | `mcp__roslyn-codelens__resolve_stack_trace`, the `file`, `line`, and `origin` of each frame        |
+|  [18]   | Generators of the solution         | `mcp__roslyn-codelens__get_source_generators` without `project`                                    |
+|  [19]   | Generated file                     | `mcp__roslyn-codelens__get_generated_code` with `generator` or `file`                              |
+|  [20]   | BuildCheck counts of a capture     | `mcp__binlog__binlog_errors` and `mcp__binlog__binlog_warnings` with `category=BuildCheck`         |
+|  [21]   | Source file as the build saw it    | `mcp__binlog__binlog_files` with `filePath`, `startLine`, and `endLine`                            |
+|  [22]   | Solution other than the server's   | `mcp__roslyn-codelens__load_solution` with `path`, then `mcp__roslyn-codelens__unload_solution`    |
 
 `jq` reads are `jq -c '.data.summary' <file>` with `jq -c '.data.targets[] | select(.skipped==false and (.staleOutputs[0]|test("/"))) | {projectLabel, targetName, reason, triggerInputs}' <file>` for `binlog_incremental_analysis` and `jq -r '.parameters.<Name>' <file>` for `binlog_task_details`. Binlog and installed SDK decide over a page.
 
@@ -99,6 +99,7 @@ Every cause names the tool result that decides it:
 |  [03]   | Shared path or 2 builds | `dotnet-msbuild-diagnostics`, shared output paths                                                       |
 |  [04]   | Unexpected rebuild      | `references/evaluation-and-incrementality.md`, incrementality, a pair under `<scratch>`                 |
 |  [05]   | Wrong property or item  | `binlog_explain_property`, `binlog_compare_property`, then `dotnet-msbuild-evaluation`, troubleshooting |
+
 2. Restore a measured pair with `dotnet restore <build> --artifacts-path <scratch>`
 3. Run the prompt's build twice with `--no-restore --artifacts-path <scratch> -bl:<logs><purpose>-{}.binlog`, the pair
 4. Read the file a tool names at its `file(line)` through `Read` with `offset`, an owned file whole

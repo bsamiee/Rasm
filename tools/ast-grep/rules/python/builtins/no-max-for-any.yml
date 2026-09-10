@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-max-for-any
+language: python
+severity: error
+utils:
+    extremum:
+        kind: call
+        all:
+            - has: {field: function, kind: identifier, regex: '^(max|min)$'}
+            - has:
+                field: arguments
+                any:
+                    - kind: generator_expression
+                      pattern: $GEN
+                    - kind: argument_list
+                      has: {kind: list_comprehension, pattern: $GEN}
+                      not: {has: {nthChild: 2}}
+    evaluated:
+        any:
+            - kind: 'call, await, named_expression, yield'
+            - has: {kind: 'call, await, named_expression, yield', stopBy: end}
+rule:
+    kind: comparison_operator
+    pattern: $CMP
+    all:
+        - has: {nthChild: 1, matches: extremum}
+        - has: {field: operators, pattern: $$OP}
+        - has: {nthChild: 2, pattern: $BOUND}
+        - not: {has: {nthChild: 3}}
+constraints:
+    GEN: {has: {field: body, not: {kind: 'conditional_expression, boolean_operator, lambda, comparison_operator, named_expression, not_operator'}}}
+    BOUND: {not: {any: [{regex: '[<>]'}, {matches: evaluated}]}}
+    OP: {regex: '^(<|<=|>|>=)$'}
+rewriters:
+    - id: compare-body
+      rule: {pattern: $BODY, inside: {kind: 'generator_expression, list_comprehension', field: body}}
+      fix: $BODY $OP $BOUND
+transform:
+    COMPARED: rewrite($GEN, rewriters=[compare-body])
+    CLAUSES: {replace: {source: $COMPARED, replace: '(?s)^\[(.*)\]$', by: '($1)'}}
+    KEY: {replace: {source: $CMP, replace: '(?s)^(max|min)\(.*\)\s*(<=|>=|<|>)\s*[^<>]*$', by: '$1$2'}}
+    ANY: {replace: {source: $KEY, replace: '^(max>=?|min<=?)$', by: 'any'}}
+    QUANTIFIER: {replace: {source: $ANY, replace: '^(max<=?|min>=?)$', by: 'all'}}
+fix: $QUANTIFIER$CLAUSES
+message: '`$CMP` compares an extremum to a bound'
+note: 'Use `any` or `all` over the comparison per element, an empty iterable then yields a value in place of `ValueError`'

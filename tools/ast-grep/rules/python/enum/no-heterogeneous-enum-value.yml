@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-heterogeneous-enum-value
+language: python
+severity: error
+utils:
+    enum-class:
+        kind: class_definition
+        has: {field: superclasses, has: {regex: '^(enum\.)?(Enum|IntEnum|StrEnum|Flag|IntFlag)$'}}
+    unpacking-init:
+        kind: function_definition
+        has: {field: name, regex: '^(__init__|__new__)$'}
+    homogeneous:
+        any:
+            - not: {has: {pattern: $_, not: {kind: string}}}
+            - not: {has: {pattern: $_, not: {kind: 'integer, unary_operator'}}}
+            - not: {has: {pattern: $_, not: {kind: 'float, unary_operator'}}}
+            - not: {has: {pattern: $_, not: {kind: 'tuple, list'}}}
+            - not: {has: {pattern: $_, not: {kind: identifier}}}
+            - not: {has: {pattern: $_, not: {kind: attribute}}}
+            - not: {has: {pattern: $_, not: {kind: 'true, false'}}}
+rule:
+    kind: assignment
+    pattern: $MEMBER
+    all:
+        - has: {field: left, kind: identifier, regex: '^[A-Z][A-Z0-9_]*$'}
+        - has: {field: right, kind: 'tuple, list, expression_list', has: {nthChild: 2}, not: {matches: homogeneous}}
+        - inside:
+            kind: expression_statement
+            inside:
+                kind: block
+                inside: {matches: enum-class}
+                not: {has: {any: [{matches: unpacking-init}, {kind: decorated_definition, has: {matches: unpacking-init}}]}}
+message: 'Member `$MEMBER` holds data of several kinds as one tuple read by position'
+note: 'Declare one field per element and unpack them in `__init__(self, <a>, <b>)`'

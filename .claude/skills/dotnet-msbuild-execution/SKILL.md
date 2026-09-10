@@ -15,11 +15,11 @@ MSBuild execution phase, from target order to copy-to-output rules.
 
 MSBuild runs each target at most once per project instance, in an order the target attributes decide. For one requested target the engine runs its `DependsOnTargets` left to right, the targets naming it in `BeforeTargets`, the body, then the targets naming it in `AfterTargets`. `InitialTargets` run before every requested target, `-target:` replaces `DefaultTargets`, the last definition of a target name wins, names compare without case.
 
-| [INDEX] | [ATTRIBUTE]        | [OWNER]          | [USE_WHEN]                                                                |
-| :-----: | :----------------- | :--------------- | :------------------------------------------------------------------------ |
-|  [01]   | `DependsOnTargets` | Consuming target | Named target is your own and finishes before the consumer reads           |
-|  [02]   | `BeforeTargets`    | Inserted target  | Named target is another file's and runs after the inserted one            |
-|  [03]   | `AfterTargets`     | Inserted target  | Named target is another file's and produces what the inserted consumes    |
+| [INDEX] | [ATTRIBUTE]        | [OWNER]          | [USE_WHEN]                                                             |
+| :-----: | :----------------- | :--------------- | :--------------------------------------------------------------------- |
+|  [01]   | `DependsOnTargets` | Consuming target | Named target is your own and finishes before the consumer reads        |
+|  [02]   | `BeforeTargets`    | Inserted target  | Named target is another file's and runs after the inserted one         |
+|  [03]   | `AfterTargets`     | Inserted target  | Named target is another file's and produces what the inserted consumes |
 
 - Combine attributes on one target, `DependsOnTargets` for your own chain and `BeforeTargets` or `AfterTargets` for the SDK target
 - Target `Condition` evaluates when the target is about to run, after earlier targets updated the properties and items it reads
@@ -220,13 +220,13 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 
 Command line switches prove what a target returns and control the whole build:
 
-| [INDEX] | [SWITCH]                               | [EFFECT]                                                                   |
-| :-----: | :------------------------------------- | :------------------------------------------------------------------------- |
-|  [01]   | `-target:Name` or `-t:Name`            | Runs named targets in place of `DefaultTargets`                            |
-|  [02]   | `-getTargetResult:Name`                | Runs target, prints `Result` and returned `Items` as JSON                  |
-|  [03]   | `-t:Name -getProperty:` or `-getItem:` | Prints value after target ran                                              |
-|  [04]   | `-tl:on`                               | Terminal logger, `-v:n` shows target and task messages on console logger   |
-|  [05]   | `-isolate -outputResultsCache:file`    | Serializes built target results, `-inputResultsCaches:file` reuses them    |
+| [INDEX] | [SWITCH]                               | [EFFECT]                                                                 |
+| :-----: | :------------------------------------- | :----------------------------------------------------------------------- |
+|  [01]   | `-target:Name` or `-t:Name`            | Runs named targets in place of `DefaultTargets`                          |
+|  [02]   | `-getTargetResult:Name`                | Runs target, prints `Result` and returned `Items` as JSON                |
+|  [03]   | `-t:Name -getProperty:` or `-getItem:` | Prints value after target ran                                            |
+|  [04]   | `-tl:on`                               | Terminal logger, `-v:n` shows target and task messages on console logger |
+|  [05]   | `-isolate -outputResultsCache:file`    | Serializes built target results, `-inputResultsCaches:file` reuses them  |
 
 - Graph builds predict the targets of every reference through `ProjectReferenceTargets`, a custom target called on references joins through an item
 - `Build` maps to `GetTargetFrameworks`, the default target, `GetNativeManifest`, and `GetCopyToOutputDirectoryItems`
@@ -244,13 +244,13 @@ Command line switches prove what a target returns and control the whole build:
 
 Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` runs one inner build per `TargetFrameworks` entry through the `MSBuild` task with `TargetFramework` as a global property, a target attached to `Build` runs in the outer build and in every inner build. `dotnet publish` passes `_IsPublishing=true` as a global property, `dotnet build` and `dotnet pack` do not, the SDK sets it when it packs a tool.
 
-| [INDEX] | [SCOPE]                 | [CONDITION]                            | [NOTE]                                                          |
-| :-----: | :---------------------- | :------------------------------------- | :-------------------------------------------------------------- |
-|  [01]   | Inner build alone       | `'$(TargetFramework)' != ''`           | Per-assembly work, `OutDir` and `IntermediateOutputPath` set    |
-|  [02]   | Outer build alone       | `'$(IsCrossTargetingBuild)' == 'true'` | Per-project work, no compile output, `TargetFrameworks` set     |
-|  [03]   | Publish alone           | `'$(_IsPublishing)' == 'true'`         | SDK sets it and changes the output path                         |
-|  [04]   | Not a design-time build | `'$(DesignTimeBuild)' != 'true'`       | IDE loads, hooks that write files or fail the build test it     |
-|  [05]   | `CoreBuild` alone       | `'$(BuildingProject)' == 'true'`       | `BuildOnlySettings` sets it, false in `GetTargetPath` calls     |
+| [INDEX] | [SCOPE]                 | [CONDITION]                            | [NOTE]                                                       |
+| :-----: | :---------------------- | :------------------------------------- | :----------------------------------------------------------- |
+|  [01]   | Inner build alone       | `'$(TargetFramework)' != ''`           | Per-assembly work, `OutDir` and `IntermediateOutputPath` set |
+|  [02]   | Outer build alone       | `'$(IsCrossTargetingBuild)' == 'true'` | Per-project work, no compile output, `TargetFrameworks` set  |
+|  [03]   | Publish alone           | `'$(_IsPublishing)' == 'true'`         | SDK sets it and changes the output path                      |
+|  [04]   | Not a design-time build | `'$(DesignTimeBuild)' != 'true'`       | IDE loads, hooks that write files or fail the build test it  |
+|  [05]   | `CoreBuild` alone       | `'$(BuildingProject)' == 'true'`       | `BuildOnlySettings` sets it, false in `GetTargetPath` calls  |
 
 - `IsPublishable=false` turns `Publish` into a no-op
 - `ComputeFilesToPublish` fills `@(ResolvedFileToPublish)` with `RelativePath` and `CopyToPublishDirectory` metadata
@@ -258,7 +258,7 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 - `dotnet publish` on a multi-targeting project fails `NETSDK1129` without `-f`, a publish hook runs in an inner build
 - `RuntimeIdentifier` appends `_<rid>` to the pivot under the artifacts layout and adds a `<rid>/` directory under the default layout
 - `AppendRuntimeIdentifierToOutputPath=false` removes the default-layout directory alone
-- Publish copies each `ResolvedFileToPublish` item from its source, never from `$(OutDir)`, a target editing `$(OutDir)` files runs again after `Publish`
+- Publish copies each `ResolvedFileToPublish` item from its source, never from `$(OutDir)`, a target editing `$(OutDir)` files reruns after `Publish`
 
 ```xml
 <Target Name="AddNoticesToPublish" AfterTargets="ComputeFilesToPublish">

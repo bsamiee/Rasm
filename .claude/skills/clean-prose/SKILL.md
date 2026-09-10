@@ -11,6 +11,9 @@ Governs every English text in a project (markdown, comments, messages, identifie
 - [01]-[WORD_MAP](references/word-map.md): Words to delete or replace, with replacement for each
 - [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail
 
+[SCRIPTS]:
+- [01]-[PROSE](scripts/prose.py): `uv run --script scripts/prose.py check <path>...` prints findings, `fix` writes fixable, NOT authoritative or replacement for direct read
+
 ## [01]-[TERMINOLOGY]
 
 Each term comes from current documentation of its language, tool, or field at newest standard context supports, and passes each test:
@@ -20,39 +23,39 @@ Each term comes from current documentation of its language, tool, or field at ne
 
 Words that fail take the current term for what they name, and a real term of a field (SIMD lane) stays:
 
-| [INDEX] | [COINED]                                                    | [REAL]                                           |
-| :-----: | :---------------------------------------------------------- | :----------------------------------------------- |
-|  [01]   | ship, shipped, shipping                                     | publish, include, copy, release                  |
-|  [02]   | seat, seated, roster                                        | register, place, list                            |
-|  [03]   | admit, admission, blessed, mint, minted                     | accept, validate, approved, create, issue        |
-|  [04]   | strata, stratum, substrate, fabric, backbone                | layer, base, infrastructure                      |
-|  [05]   | lane, realm, landscape, surface                             | pipeline, packaging project, area, feature set   |
-|  [06]   | capsule, island, box (as isolation)                         | package, module, sandbox, host                   |
-|  [07]   | rung, ladder                                                | arm, case, chain of guard clauses                |
-|  [08]   | charter, doctrine, law, ruling, canon                       | rule, policy, decision, convention               |
-|  [09]   | anchor (as a metaphor)                                      | pin, root, reference, positive rule              |
-|  [10]   | payload (outside a message, request, or call body)          | file, asset, content, package path, arguments    |
-|  [11]   | vocabulary table, closed family                             | lookup table, const object, sealed hierarchy     |
-|  [12]   | custody, custodian, posture, guardrail, beacon              | storage, holder, configuration, check, signal    |
-|  [13]   | verb (for a CLI action), twin, sibling variant              | subcommand, overload, suffix variant             |
-|  [14]   | rides, carries, travels, lives (for a value)                | holds, stores, sets, belongs to, goes in         |
-|  [15]   | probe (as a test double), fan-out degree                    | spy, degree of parallelism                       |
-|  [16]   | phantom, ghost, census, sweep (a check)                     | missing, undefined, coverage check, assertion    |
-|  [17]   | materialize, pristine, in-flight (change)                   | write, empty, uncommitted                        |
-|  [18]   | interior, flips, mirrors (as matches)                       | inside, disabled, matches                        |
-|  [19]   | bare (name), edge (as a boundary), bespoke                  | unqualified, boundary, custom                    |
-|  [20]   | weave, unlock, surfaces (verb)                              | insert, enable, throws                           |
-|  [21]   | topology (declared resources), estate (a program)           | resources, program                               |
-|  [22]   | intent (an input value)                                     | value                                            |
-|  [23]   | blanket (a catch-all), peers on, floors (version)           | discard, declares a peer on, requires or later   |
-|  [24]   | host-free, feature parity                                   | without a browser, covers the same cases         |
-|  [25]   | repair (a missing asset), inert                             | add, does nothing                                |
-|  [26]   | harmless (a repeated call), wiring                          | changes nothing, composing                       |
-|  [27]   | building blocks (after a package name)                      | primitives                                       |
-|  [28]   | pool (concurrent jobs), migration shim                      | jobs, degree of parallelism, the old path        |
-|  [29]   | settled (a fact), hard-won, land (a change)                 | proven, proven, commit, write                    |
-|  [30]   | pluggable, publication-quality                              | delete                                           |
-|  [31]   | toolkit, suite (after a package name)                       | delete                                           |
+| [INDEX] | [COINED]                                           | [REAL]                                         |
+| :-----: | :------------------------------------------------- | :--------------------------------------------- |
+|  [01]   | ship, shipped, shipping                            | publish, include, copy, release                |
+|  [02]   | seat, seated, roster                               | register, place, list                          |
+|  [03]   | admit, admission, blessed, mint, minted            | accept, validate, approved, create, issue      |
+|  [04]   | strata, stratum, substrate, fabric, backbone       | layer, base, infrastructure                    |
+|  [05]   | lane, realm, landscape, surface                    | pipeline, packaging project, area, feature set |
+|  [06]   | capsule, island, box (as isolation)                | package, module, sandbox, host                 |
+|  [07]   | rung, ladder                                       | arm, case, chain of guard clauses              |
+|  [08]   | charter, doctrine, law, ruling, canon              | rule, policy, decision, convention             |
+|  [09]   | anchor (as a metaphor)                             | pin, root, reference, positive rule            |
+|  [10]   | payload (outside a message, request, or call body) | file, asset, content, package path, arguments  |
+|  [11]   | vocabulary table, closed family                    | lookup table, const object, sealed hierarchy   |
+|  [12]   | custody, custodian, posture, guardrail, beacon     | storage, holder, configuration, check, signal  |
+|  [13]   | verb (for a CLI action), twin, sibling variant     | subcommand, overload, suffix variant           |
+|  [14]   | rides, carries, travels, lives (for a value)       | holds, stores, sets, belongs to, goes in       |
+|  [15]   | probe (as a test double), fan-out degree           | spy, degree of parallelism                     |
+|  [16]   | phantom, ghost, census, sweep (a check)            | missing, undefined, coverage check, assertion  |
+|  [17]   | materialize, pristine, in-flight (change)          | write, empty, uncommitted                      |
+|  [18]   | interior, flips, mirrors (as matches)              | inside, disabled, matches                      |
+|  [19]   | bare (name), edge (as a boundary), bespoke         | unqualified, boundary, custom                  |
+|  [20]   | weave, unlock, surfaces (verb)                     | insert, enable, throws                         |
+|  [21]   | topology (declared resources), estate (a program)  | resources, program                             |
+|  [22]   | intent (an input value)                            | value                                          |
+|  [23]   | blanket (a catch-all), peers on, floors (version)  | discard, declares a peer on, requires or later |
+|  [24]   | host-free, feature parity                          | without a browser, covers the same cases       |
+|  [25]   | repair (a missing asset), inert                    | add, does nothing                              |
+|  [26]   | harmless (a repeated call), wiring                 | changes nothing, composing                     |
+|  [27]   | building blocks (after a package name)             | primitives                                     |
+|  [28]   | pool (concurrent jobs), migration shim             | jobs, degree of parallelism, the old path      |
+|  [29]   | settled (a fact), hard-won, land (a change)        | proven, proven, commit, write                  |
+|  [30]   | pluggable, publication-quality                     | delete                                         |
+|  [31]   | toolkit, suite (after a package name)              | delete                                         |
 
 Identifiers and every other name in code, build, and rule files say what the thing is in their language's vocabulary, renames go through language tooling to update every reference, test, and file name. Prose writes code names in backticks with exact spelling, shows a tool use as command itself (`ruff check`), and keeps tool or product names used as words plain. Names and text another system resolves or emits stay exact, reports name each coupling. Examples, snippets, and comments in guidance use placeholder names (`<tool>`, `<dir>`, `Item`, `Command`) and neutral values, domain names appear where a fact belongs to that domain. Repository, product, and organization names belong in identifiers an ecosystem requires, package descriptions, CLI help text, opening sentence of their README, and in prose as a contrast with another product.
 

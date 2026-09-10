@@ -201,7 +201,8 @@ def identity[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) ->
 
 def idempotent[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:
     """Assert ``eq(f(x), f(f(x)))`` for idempotence."""
-    _assert_equal(f(x), f(f(x)), eq)
+    once = f(x)
+    _assert_equal(once, f(once), eq)
 
 
 def involution[T](x: T, f: Callable[[T], T], *, eq: _Equality[T] = operator.eq) -> None:

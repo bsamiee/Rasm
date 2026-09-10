@@ -4,27 +4,27 @@ Attribute settings of value objects, smart enums, ad hoc unions, and regular uni
 
 ## [01]-[VALUE_OBJECTS]
 
-| [INDEX] | [SETTING]                                  | [DEFAULT]     | [EFFECT]                                                      |
-| :-----: | :----------------------------------------- | :------------ | :------------------------------------------------------------ |
-|  [01]   | `ConversionToKeyMemberType`                | `Implicit`    | `ConversionOperatorsGeneration.None` removes the operator     |
-|  [02]   | `ConversionFromKeyMemberType`              | `Explicit`    | Calls `Create`, `None` removes it                             |
-|  [03]   | `UnsafeConversionToKeyMemberType`          | `Explicit`    | Class to value-type key, throws on `null`                     |
-|  [04]   | `EqualityComparisonOperators`              | `Default`     | `None` or `DefaultWithKeyTypeOverloads`                       |
-|  [05]   | `ComparisonOperators`                      | `Default`     | Same values, must match the equality setting (105)            |
-|  [06]   | Arithmetic operator settings               | `Default`     | Present when the key supports it, results go through `Create` |
-|  [07]   | `SkipToString` and the `SkipI*` settings   | `false`       | Remove the member, `SkipIParsable` includes `ISpanParsable`   |
-|  [08]   | `SkipEqualityComparison`                   | `false`       | Removes equality members and both operator settings           |
-|  [09]   | `SkipFactoryMethods`                       | `false`       | No factories, converters, parsing, key conversion, arithmetic |
-|  [10]   | `ConstructorAccessModifier`                | `Private`     | Constructor accessibility                                     |
-|  [11]   | `CreateFactoryMethodName`                  | `Create`      | Factory name, `CreateCore` follows the rename                 |
-|  [12]   | `TryCreateFactoryMethodName`               | `TryCreate`   | Factory name                                                  |
-|  [13]   | `NullInFactoryMethodsYieldsNull`           | `false`       | Class factories return `null` for `null` input                |
-|  [14]   | `EmptyStringInFactoryMethodsYieldsNull`    | `false`       | Blank `string` keys and `null` yield `null`, 109 on a struct  |
-|  [15]   | `AllowDefaultStructs`                      | `false`       | Accepts `default` and emits `public static readonly T Empty`  |
-|  [16]   | `DefaultInstancePropertyName`              | `Empty`       | Name of that default instance                                 |
-|  [17]   | `KeyMember*` settings                      | Private field | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind`   |
-|  [18]   | `SkipKeyMember`                            | `false`       | Leaves the key member to the hand-written part                |
-|  [19]   | `SerializationFrameworks`                  | `All`         | Flags that select the emitted converter attributes            |
+| [INDEX] | [SETTING]                                | [DEFAULT]     | [EFFECT]                                                      |
+| :-----: | :--------------------------------------- | :------------ | :------------------------------------------------------------ |
+|  [01]   | `ConversionToKeyMemberType`              | `Implicit`    | `ConversionOperatorsGeneration.None` removes the operator     |
+|  [02]   | `ConversionFromKeyMemberType`            | `Explicit`    | Calls `Create`, `None` removes it                             |
+|  [03]   | `UnsafeConversionToKeyMemberType`        | `Explicit`    | Class to value-type key, throws on `null`                     |
+|  [04]   | `EqualityComparisonOperators`            | `Default`     | `None` or `DefaultWithKeyTypeOverloads`                       |
+|  [05]   | `ComparisonOperators`                    | `Default`     | Same values, must match the equality setting (105)            |
+|  [06]   | Arithmetic operator settings             | `Default`     | Present when the key supports it, results go through `Create` |
+|  [07]   | `SkipToString` and the `SkipI*` settings | `false`       | Remove the member, `SkipIParsable` includes `ISpanParsable`   |
+|  [08]   | `SkipEqualityComparison`                 | `false`       | Removes equality members and both operator settings           |
+|  [09]   | `SkipFactoryMethods`                     | `false`       | No factories, converters, parsing, key conversion, arithmetic |
+|  [10]   | `ConstructorAccessModifier`              | `Private`     | Constructor accessibility                                     |
+|  [11]   | `CreateFactoryMethodName`                | `Create`      | Factory name, `CreateCore` follows the rename                 |
+|  [12]   | `TryCreateFactoryMethodName`             | `TryCreate`   | Factory name                                                  |
+|  [13]   | `NullInFactoryMethodsYieldsNull`         | `false`       | Class factories return `null` for `null` input                |
+|  [14]   | `EmptyStringInFactoryMethodsYieldsNull`  | `false`       | Blank `string` keys and `null` yield `null`, 109 on a struct  |
+|  [15]   | `AllowDefaultStructs`                    | `false`       | Accepts `default` and emits `public static readonly T Empty`  |
+|  [16]   | `DefaultInstancePropertyName`            | `Empty`       | Name of that default instance                                 |
+|  [17]   | `KeyMember*` settings                    | Private field | `KeyMemberName`, `KeyMemberAccessModifier`, `KeyMemberKind`   |
+|  [18]   | `SkipKeyMember`                          | `false`       | Leaves the key member to the hand-written part                |
+|  [19]   | `SerializationFrameworks`                | `All`         | Flags that select the emitted converter attributes            |
 
 ## [02]-[SMART_ENUMS]
 

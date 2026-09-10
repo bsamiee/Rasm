@@ -3,6 +3,8 @@ name = "rasm"
 version = "0.0.0"
 requires-python = ">=3.15"
 
+# --- [DEPENDENCY_GROUPS] ----------------------------------------------------------------
+
 [dependency-groups]
 workspace = [
     # --- [GENERAL]
@@ -46,12 +48,14 @@ workspace = [
     "pydantic-settings",                                  # Settings models read from the environment and files
     "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
     "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
+    "regex",                                              # Unicode property classes the standard library regex lacks, emoji and pictograph matching
     "ruamel-yaml",                                        # Round-trip YAML with comments and layout kept
     "structlog",                                          # Structured logging with processors and typed events
     "tblib",                                              # Cross-process traceback fidelity for worker exceptions
     "tomlkit",
     "wasmtime",                                           # In-process WASM guest sandbox for sandboxed workers
     "watchfiles",
+    "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
     "xxhash",                                             # Content identity hashes matching System.IO.Hashing in C#
     # --- [IO_TRANSPORT]
     "asyncssh",                                           # SSH and SFTP client for remote workers
@@ -333,6 +337,7 @@ dev = [
     "types-protobuf",
     "types-psutil",
     "types-pyphen",
+    "types-regex",
     "types-reportlab",
     "types-shapely",
 ]

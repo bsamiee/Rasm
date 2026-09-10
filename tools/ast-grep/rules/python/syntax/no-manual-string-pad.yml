@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-manual-string-pad
+language: python
+severity: error
+rule:
+    any:
+        - kind: binary_operator
+          pattern: $FILL * $LEFT + $TEXT + $FILL * $RIGHT
+        - kind: string
+          has:
+              kind: interpolation
+              pattern: {context: 'f"{$FILL * $LEFT}"', selector: interpolation}
+              precedes:
+                  kind: interpolation
+                  pattern: {context: 'f"{$TEXT}"', selector: interpolation}
+                  precedes:
+                      kind: interpolation
+                      pattern: {context: 'f"{$FILL * $RIGHT}"', selector: interpolation}
+constraints:
+    FILL: {kind: 'string, identifier'}
+    RIGHT: {any: [{pattern: $LEFT}, {has: {pattern: $LEFT, stopBy: end}}]}
+message: '`$TEXT` is padded by hand with `$FILL` on both sides'
+note: 'Use `format(<text>, f"<align><width>")`, with `<width> + len(<text>) - wcswidth(<text>)` for a display width'

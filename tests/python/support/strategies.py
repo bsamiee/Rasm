@@ -52,9 +52,7 @@ def _json_value(depth: int = 0) -> st.SearchStrategy[object]:
         _JSON_SCALAR
         if depth >= 2
         else st.one_of(
-            _JSON_SCALAR,
-            st.lists(_json_value(depth + 1), max_size=3),
-            st.dictionaries(st.text(min_size=1, max_size=8), _json_value(depth + 1), max_size=3),
+            _JSON_SCALAR, st.lists((inner := _json_value(depth + 1)), max_size=3), st.dictionaries(st.text(min_size=1, max_size=8), inner, max_size=3)
         )
     )
 
@@ -89,8 +87,10 @@ def _multiples[N](
     decimal_step = Decimal(str(step))
     lower_quotient = Fraction(str(lower)) / Fraction(decimal_step)
     upper_quotient = Fraction(str(upper)) / Fraction(decimal_step)
-    minimum_multiplier = ceil(lower_quotient) + (1 if exclude_lower and lower_quotient == ceil(lower_quotient) else 0)
-    maximum_multiplier = floor(upper_quotient) - (1 if exclude_upper and upper_quotient == floor(upper_quotient) else 0)
+    lower_ceiling = ceil(lower_quotient)
+    upper_floor = floor(upper_quotient)
+    minimum_multiplier = lower_ceiling + (1 if exclude_lower and lower_quotient == lower_ceiling else 0)
+    maximum_multiplier = upper_floor - (1 if exclude_upper and upper_quotient == upper_floor else 0)
     return (
         st.integers(min_value=minimum_multiplier, max_value=maximum_multiplier).map(lambda multiplier: convert(Decimal(multiplier) * decimal_step))
         if minimum_multiplier <= maximum_multiplier
@@ -393,14 +393,14 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             if not _is_schema(fields):
                 return st.fixed_dictionaries({})
             required = {
-                str(name): _pydantic_strategy(_schema_member(field, "schema"), definitions)
+                str(name): _pydantic_strategy(member, definitions)
                 for name, field in fields.items()
-                if _is_schema(field) and _schema_member(field, "schema").get("type") != "default"
+                if _is_schema(field) and (member := _schema_member(field, "schema")).get("type") != "default"
             }
             optional = {
-                str(name): _pydantic_strategy(_schema_member(field, "schema"), definitions)
+                str(name): _pydantic_strategy(member, definitions)
                 for name, field in fields.items()
-                if _is_schema(field) and _schema_member(field, "schema").get("type") == "default"
+                if _is_schema(field) and (member := _schema_member(field, "schema")).get("type") == "default"
             }
             return st.fixed_dictionaries(required, optional=optional)
         case "model-field" | "dataclass-field" | "typed-dict-field":

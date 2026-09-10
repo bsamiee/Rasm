@@ -1,8 +1,6 @@
 # [OUTLINE]
 
-`ast-grep outline` maps declarations and their direct members to source ranges.
-Outlines locate what to act on: a declaration to edit, a member to attach a change to, a registration to trace, a rule to read.
-Extractors repeating `fd`, `rg`, `jq`, or bundled extractor output are redundant.
+`ast-grep outline` maps declarations and their direct members to source ranges. Outlines locate what to act on: a declaration to edit, a member to attach a change to, a registration to trace, a rule to read. Extractors repeating `fd`, `rg`, `jq`, or bundled extractor output are redundant.
 
 ## [01]-[READING]
 
@@ -28,15 +26,15 @@ Extractors repeating `fd`, `rg`, `jq`, or bundled extractor output are redundant
 - Injected regions (a `run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
 - Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
 - An extractor file holds one document per extractor separated by `---`, documents of several languages load from one file
-- `--outline-rules` loads a file for a built-in language, `customLanguages.<name>.outlineRules` one for a custom language, `sgconfig.yml` holds no other outline key
+- `--outline-rules` loads a file for a built-in language, `customLanguages.<name>.outlineRules` for a custom one
+- `sgconfig.yml` holds no other outline key
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, the first match on a node wins
 - One file loaded through both `outlineRules` and `--outline-rules` registers each extractor once
 - `--no-default-outline-rules` fails a member naming a bundled parent with `references unknown parent rule`
 
 ## [03]-[CONSTRUCTION]
 
-Reuse a bundled extractor selecting the construct.
-Choose the item boundary before its name or signature, a declaration matched through its named fields with ancestry restricted to the intended scope.
+Reuse a bundled extractor selecting the construct. Choose the item boundary before its name or signature, a declaration matched through its named fields with ancestry restricted to the intended scope.
 
 - One extractor per construct with a predicate flag (`isExported: {inside: {kind: export_statement}}`), a pair of ids duplicates the rule
 - Repository items over the wrapping node (`decorated_definition`, `export_statement`) take the declaration from a bundled item
@@ -55,8 +53,7 @@ Choose the item boundary before its name or signature, a declaration matched thr
 - Quoted keys stay quoted where unquoting changes their spelling
 - Headers keep generics, constraints, attributes, and heritage clauses
 
-Constructs with no identifier (a table row, a keyed block inside a document read whole) take no extractor.
-TOML has no built-in language, a `customLanguages` grammar adds one.
+Constructs with no identifier (a table row, a keyed block inside a document read whole) take no extractor. TOML has no built-in language, a `customLanguages` grammar adds one.
 
 ## [04]-[CHECKS]
 

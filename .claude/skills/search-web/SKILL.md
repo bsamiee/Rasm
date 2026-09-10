@@ -138,7 +138,6 @@ rm -rf <dir>
 ## [03]-[RESEARCH]
 
 Questions naming more than one product, a span longer than one release cycle, or a state held across repositories take a report, a question one page answers takes one read. One program over any topic, from a written scope to a brief the next agent acts on without repeating the reading:
-
 1. Scope: question, known facts with dates, decision, and output form as the query in `<dir>/run.json`, the run starts detached at `high`
 2. Understand: one Exa sentence per unknown (what it is, owner, primary sources, last change, open questions), a result's wording phrases the next
 3. Deepen: `tvly extract --query` over the URL union names the page, `web_fetch_exa` reads it whole, `github` MCP lists issues and pull requests

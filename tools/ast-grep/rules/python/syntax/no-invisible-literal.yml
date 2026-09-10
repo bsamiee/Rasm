@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-invisible-literal
+language: python
+severity: error
+rule:
+    kind: string
+    regex: '(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}])[\x{200C}\x{200D}\x{FE0E}\x{FE0F}]|[\x{00A0}\x{00AD}\x{2028}\x{2029}\x{2060}\x{FEFF}]'
+    not: {inside: {kind: string, stopBy: end}}
+message: 'String literal holds an invisible code point'
+note: 'Spell the code point as `\uXXXX`, a raw pattern reads the escape through the regex engine'

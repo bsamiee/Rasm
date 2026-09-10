@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-boolean-kind-flag
+language: python
+severity: error
+utils:
+    bool-literal:
+        kind: case_pattern
+        has: {kind: 'true, false'}
+    bool-tuple:
+        kind: case_clause
+        any:
+            - all:
+                - has: {kind: case_pattern, nthChild: 2}
+                - has: {matches: bool-literal}
+            - has:
+                kind: case_pattern
+                has:
+                    kind: tuple_pattern
+                    all:
+                        - has: {kind: case_pattern, nthChild: 2}
+                        - has: {matches: bool-literal}
+rule:
+    kind: match_statement
+    has: {field: body, has: {matches: bool-tuple}}
+message: 'Match selects on a tuple of booleans'
+note: 'Select by an `if` chain over the tests, or by an enum member per reachable combination'

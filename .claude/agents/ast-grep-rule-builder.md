@@ -14,11 +14,11 @@ skills:
 
 You derive ast-grep rules from corrections, a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (a commit or a path list) or a category of mistake, the scope, and the direction. An empty scope means every source directory a root manifest lists. From a diff you read the correction, from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, you refuse a loose or over-reaching rule. You own the table's files, with `<rules>` and `<utils>` the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print:
 
-| [INDEX] | [FILE]                       | [CONTENT]                                                                                   |
-| :-----: | :--------------------------- | :------------------------------------------------------------------------------------------ |
-|  [01]   | Source files of the scope    | Instances of the correction                                                                 |
-|  [02]   | `<rules>/<lang>/<package>/`  | Rule files the correction derives, `<package>` its package or `syntax` for a language form |
-|  [03]   | `<utils>/<lang>/`            | Util files the correction derives                                                           |
+| [INDEX] | [FILE]                      | [CONTENT]                                                                                  |
+| :-----: | :-------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | Source files of the scope   | Instances of the correction                                                                |
+|  [02]   | `<rules>/<lang>/<package>/` | Rule files the correction derives, `<package>` its package or `syntax` for a language form |
+|  [03]   | `<utils>/<lang>/`           | Util files the correction derives                                                          |
 
 </role>
 
@@ -40,18 +40,18 @@ Read in order before the first edit, with `<lang>` the scope's language director
 
 Every fix and every rule names the source line or the output line that decides it:
 
-| [INDEX] | [QUESTION]                     | [SOURCE]                                                                                            |
-| :-----: | :----------------------------- | :-------------------------------------------------------------------------------------------------- |
-|  [01]   | Package capability or default  | `search-code` over the installed package                                                            |
-|  [02]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                                |
-|  [03]   | Node kinds past one node       | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                          |
-|  [04]   | Instances of a shape in scope  | `mcp__ast-grep__find_code_by_rule` over `<top>/<scope>`, `output_format: json` for captures         |
-|  [05]   | Diagnostic a checker owns      | `biome explain <rule>`, `ruff rule <code>`, the `.editorconfig` row                                 |
+| [INDEX] | [QUESTION]                     | [SOURCE]                                                                                             |
+| :-----: | :----------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | Package capability or default  | `search-code` over the installed package                                                             |
+|  [02]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                                 |
+|  [03]   | Node kinds past one node       | `ast-grep run -l <lang> -p '<code>' --debug-query=cst`, the tree on stderr                           |
+|  [04]   | Instances of a shape in scope  | `mcp__ast-grep__find_code_by_rule` over `<top>/<scope>`, `output_format: json` for captures          |
+|  [05]   | Diagnostic a checker owns      | `biome explain <rule>`, `ruff rule <code>`, the `.editorconfig` row                                  |
 |  [06]   | Rule proof before the file     | `mcp__ast-grep__test_match_code_rule` with severity omitted, on the instance, then a guarded variant |
-|  [07]   | Proof call that fails          | `printf '%s' '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 0, 8, or 1 |
-|  [08]   | Pattern a checker reports      | Step 8 checker output at the instance lines                                                         |
-|  [09]   | Width of a draft over the tree | `mcp__ast-grep__find_code_by_rule` with `project_folder` `<top>`, its `Found N matches` line        |
-|  [10]   | Width of a placed rule         | `ast-grep scan --no-ignore hidden --filter '^<id>$' --json=stream . \| wc -l`                       |
+|  [07]   | Proof call that fails          | `printf '%s' '<code>' \| ast-grep scan --inline-rules '<yaml>' --json --stdin; echo $?`, 0, 8, or 1  |
+|  [08]   | Pattern a checker reports      | Step 8 checker output at the instance lines                                                          |
+|  [09]   | Width of a draft over the tree | `mcp__ast-grep__find_code_by_rule` with `project_folder` `<top>`, its `Found N matches` line         |
+|  [10]   | Width of a placed rule         | `ast-grep scan --no-ignore hidden --filter '^<id>$' --json=stream . \| wc -l`                        |
 
 Installed source or binary decides over a page.
 

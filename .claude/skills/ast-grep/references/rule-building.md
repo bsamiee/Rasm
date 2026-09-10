@@ -13,16 +13,14 @@ Read the supplied evidence, then the dependencies deciding the correction:
 
 ## [02]-[SMELLS]
 
-Structural search locates candidates, language and package contracts judge the correction.
-Matching shapes alone prove no redundant type, repeated effect, unused declaration, or interchangeable library call.
+Structural search locates candidates, language and package contracts judge the correction. Matching shapes alone prove no redundant type, repeated effect, unused declaration, or interchangeable library call.
 
 - Repeated string spelling proves no shared domain fact
 - Library families derive from installed exports and overloads, positional arguments in documented order and keyword arguments by name
 - Every branch's return is known before a fold becomes map or bind
 - Package operations import from their documented submodule
 
-Before searching a category, read the scope's linter and analyzer rules.
-Categories a package member decides need the package source beside the code, the search finds call sites once the member is named.
+Before searching a category, read the scope's linter and analyzer rules. Categories a package member decides need the package source beside the code, the search finds call sites once the member is named.
 
 ## [03]-[FIX]
 
