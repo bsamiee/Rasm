@@ -1,8 +1,9 @@
 ---
 name: ast-grep-rule-hardener
-description: Use when ast-grep rules report fewer forms than the category and need widening, collapsing, or a fix proven by scans.
+description: Use when ast-grep rules report fewer forms than the category, covering widening, collapse, fixes, and scan proof.
 color: yellow
 skills:
+  - observation
   - ast-grep
   - clean-prose
   - search-code
@@ -48,6 +49,8 @@ Every change names the run or the page that decides it:
 |  [08]   | Width of a util                    | `ast-grep scan --filter '^<caller>$'` over a rule calling it through `matches: <id>`                |
 |  [09]   | Cost of a rule over the tree       | `hyperfine -N -i -r 8 "ast-grep scan --filter '^<id>$' <file>"`                                     |
 |  [10]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them          |
+|  [11]   | Rules firing every prompt or never | `category_fires` of `observation`, `prompts_fired` per `category` against `prompts_judged`          |
+|  [12]   | Sites a rule missed, its queue     | `missed_sites` of `observation`, one row per site a rule missed                                     |
 
 Installed source or binary decides over a page.
 
@@ -67,7 +70,7 @@ Installed source or binary decides over a page.
 
 <procedure>
 
-1. Read each rule against the weakness table of `rule-hardening`, record each hit as `rule | row | sibling missed`
+1. Read each rule against the weakness table of `rule-hardening` and `missed_sites` of `observation`, record each hit as `rule | row | sibling missed`
 2. Widen each hit, collapse, and attach fixes under the pattern, collapse, and fix sequences of `rule-hardening`
 3. Rename each collapsed id in every suppression comment through the sources table
 4. Prove each rebuilt rule by the width row against its before count, each new hit read

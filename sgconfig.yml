@@ -12,7 +12,17 @@ customLanguages:
         extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
         expandoChar: _
         outlineRules: tools/ast-grep/outline/msbuild.yml
+    sql:
+        libraryPath: .cache/ast-grep/sql.so
+        extensions: [sql]
+        expandoChar: _
 languageInjections:
+    - hostLanguage: tsx
+      rule:
+        kind: string_fragment
+        pattern: $CONTENT
+        regex: '(?i)^\s*(alter|begin|commit|create|delete|drop|insert|pragma|select|update|with)\b'
+      injected: sql
     - hostLanguage: yaml
       rule:
         kind: block_mapping_pair, flow_pair

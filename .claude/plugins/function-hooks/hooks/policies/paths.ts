@@ -19,9 +19,9 @@ const _SECOND_FILES: readonly RegExp[] = [
     /^\.yamllint(?:\.yml)?$/u,
 ];
 
-// --- [RULES] ---------------------------------------------------------------------------
+// --- [POLICY] --------------------------------------------------------------------------
 
-const pathGuard = <E extends PathEvent>(e: E): Decision<E> => {
+const pathPolicy = <E extends PathEvent>(e: E): Decision<E> => {
     const name = basename(e.file_path);
     return _SECOND_FILES.some((pattern) => pattern.test(name))
         ? deny(`${name} is a second file beside its owner, put the fact in the owner`)
@@ -31,4 +31,4 @@ const pathGuard = <E extends PathEvent>(e: E): Decision<E> => {
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { PathEvent };
-export { pathGuard };
+export { pathPolicy };

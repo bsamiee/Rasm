@@ -16,8 +16,6 @@ utils:
               regex: '^[A-Z]\w*\.[A-Z][A-Z0-9_]*$'
             - kind: keyword_argument
               has: {field: value, matches: constant}
-    stateful-callee:
-        regex: '^(next|anext|input|print|(\w+\.)*(choice|choices|random|randint|randrange|uniform|shuffle|sample|getrandbits|randbytes|token_bytes|token_hex|token_urlsafe|now|today|utcnow|time|monotonic|perf_counter|urandom|uuid1|uuid4|read|readline|readlines|write|pop|popleft|popitem|append|extend|insert|remove|discard|update|setdefault|send|recv))$'
     holds-call:
         any:
             - pattern: $CALL
@@ -33,7 +31,7 @@ rule:
     pattern: $CALL
     all:
         - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
-        - not: {has: {field: function, matches: stateful-callee}}
+        - has: {field: function, kind: identifier, not: {regex: '^(next|anext|input|print)$'}}
         - not: {has: {kind: 'await, yield, named_expression, lambda', stopBy: end}}
         - any:
             - matches: repeat-site

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: syntax-decision
+language: tsx
+arguments: [subject]
+rule:
+    any:
+        - kind: binary_expression, unary_expression
+          has: {matches: subject}
+        - kind: switch_statement
+          has: {field: value, has: {stopBy: end, matches: subject}}
+        - kind: if_statement, while_statement, do_statement, for_statement, ternary_expression
+          has: {field: condition, has: {stopBy: end, matches: subject}}

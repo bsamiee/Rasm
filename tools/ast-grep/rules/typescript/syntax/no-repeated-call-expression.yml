@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-call-expression
+language: tsx
+severity: error
+utils:
+    scope:
+        any:
+            - matches: syntax-function-boundary
+            - kind: 'expression_statement, return_statement, lexical_declaration, variable_declaration, if_statement, for_statement, for_in_statement, while_statement, do_statement, switch_statement, switch_case, switch_default, catch_clause, throw_statement, statement_block, class_declaration, abstract_class_declaration, public_field_definition, enum_declaration, export_statement'
+    constant:
+        any:
+            - kind: 'number, string, true, false, null, undefined, regex'
+            - kind: template_string
+              not: {has: {kind: template_substitution}}
+            - kind: unary_expression
+              has: {matches: constant}
+            - kind: identifier
+              regex: '^_?[A-Z][A-Z0-9_]*$'
+            - kind: member_expression
+              regex: '^[A-Z]\w*\.[A-Z][A-Z0-9_]*$'
+    repeat-site:
+        all:
+            - not: {matches: scope}
+            - follows:
+                stopBy: end
+                not: {inside: {kind: ternary_expression, field: consequence}}
+                any:
+                    - pattern: $CALL
+                    - not: {matches: syntax-function-boundary}
+                      has: {stopBy: {matches: syntax-function-boundary}, pattern: $CALL}
+rule:
+    kind: call_expression
+    pattern: $CALL
+    all:
+        - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
+        - has: {field: function, kind: identifier}
+        - not: {has: {kind: 'await_expression, yield_expression, arrow_function, function_expression, assignment_expression, augmented_assignment_expression, update_expression', stopBy: end}}
+        - any:
+            - matches: repeat-site
+            - inside: {stopBy: {matches: scope}, matches: repeat-site}
+message: '`$CALL` is evaluated twice in one expression'
+note: 'Bind `const <name> = <call>` at the first read and read the name'

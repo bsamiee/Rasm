@@ -111,6 +111,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, `**/<name>` every file of that name
 - Dot directories under a walked path need `--no-ignore hidden`, a dot path named on the command needs no flag
 - Injection entries capture the embedded source as `$CONTENT` and name the parser in `injected`, a language or a candidate list with `$LANG`
+- `injected` names a built-in language or a `customLanguages` key, `run -l <injected>` walks every file of a host that injects it
 - Injections parse source ranges without decoding host strings, plain and literal block YAML scalars and JSON strings with no `escape_sequence`
 - Injection entries hold ownership predicates in their `utils` map beside `rule` and `injected`, injection compilation loads no `utilDirs`
 - Kind lists inside a flow map are quoted (`{kind: 'block_mapping_pair, flow_pair'}`), an unquoted second kind reads as a key
@@ -177,6 +178,11 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 | :-----: | :------------------ | :------------------------------------------------------------------------------------------- |
 |  [01]   | `<Name>text</Name>` | Patterns bind whole elements, `<Name>_TEXT</Name>` captures the content                      |
 |  [02]   | `Attribute="value"` | `AttValue` includes its quotes, a value that can hold the other quote matches each delimiter |
+
+| [INDEX] | [SQL]                        | [SHAPE]                                                                                              |
+| :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------------- |
+|  [01]   | `ifnull(a, b)` alone         | `ERROR`, an expression pattern takes `context: select <expr>` with `selector: invocation` or `term`  |
+|  [02]   | `create view v as select ...` | `statement` > `create_view` with `object_reference` > `name: identifier` and `create_query` > `select` |
 
 ## [07]-[OUTLINE]
 

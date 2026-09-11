@@ -41,6 +41,11 @@
             "command": "mise",
             "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
         },
+        "indesign-sidekick": {
+            "type": "stdio",
+            "command": "/usr/local/bin/indesign-sidekick",
+            "args": ["start"]
+        },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",
@@ -83,6 +88,17 @@
         "claudeCodeDocs": {
             "type": "http",
             "url": "https://code.claude.com/docs/mcp"
+        },
+        "illustrator": {
+            "type": "http",
+            "url": "http://localhost:18412/v1/mcp",
+            "headers": {
+                "Authorization": "Bearer ${ILLUSTRATOR_MCP_TOKEN}"
+            }
+        },
+        "arena": {
+            "type": "http",
+            "url": "https://mcp.are.na/mcp"
         }
     }
 }

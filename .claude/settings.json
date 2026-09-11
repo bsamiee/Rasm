@@ -49,6 +49,11 @@
       "Bash(tvly *)",
       "Bash(curl *)",
       "Bash(tar *)",
+      "Bash(osascript *)",
+      "Bash(screencapture *)",
+      "Bash(esbuild *)",
+      "Bash(/usr/libexec/PlistBuddy *)",
+      "Bash(defaults *)",
       "mcp__roslyn-codelens__*",
       "mcp__binlog__*",
       "mcp__ast-grep__*",
@@ -61,6 +66,8 @@
       "mcp__claudeCodeDocs__*",
       "mcp__playwright__*",
       "mcp__playwright-test__*",
+      "mcp__illustrator__*",
+      "mcp__indesign-sidekick__*",
       "mcp__computer-use__*"
     ],
     "deny": [],
@@ -70,7 +77,8 @@
   "enableAllProjectMcpServers": true,
   "disabledMcpjsonServers": [
     "greptile",
-    "hostinger"
+    "hostinger",
+    "arena"
   ],
   "hooks": {
     "SessionStart": [

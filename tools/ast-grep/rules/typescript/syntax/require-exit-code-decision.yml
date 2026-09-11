@@ -1,0 +1,79 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-exit-code-decision
+language: tsx
+severity: error
+utils:
+    process-run:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^run$'}
+                - has: {field: object, kind: member_expression, has: {field: property, regex: '^process$'}}
+    run-result:
+        any:
+            - matches: process-run
+            - {kind: await_expression, has: {matches: process-run}}
+    then-callback:
+        kind: arrow_function, function_expression
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^then$'}
+                        - has: {field: object, matches: process-run}
+    scope:
+        any: [{matches: syntax-function-boundary}, {kind: program}]
+rule:
+    any:
+        - kind: object_pattern
+          all:
+            - has:
+                any:
+                    - {kind: shorthand_property_identifier_pattern, regex: '^(stdout|stderr)$', pattern: $STREAM}
+                    - {kind: pair_pattern, has: {field: key, regex: '^(stdout|stderr)$', pattern: $STREAM}}
+            - any:
+                - inside: {kind: required_parameter, field: pattern, inside: {kind: formal_parameters, inside: {matches: then-callback}}}
+                - inside: {kind: variable_declarator, field: name, has: {field: value, matches: run-result}}
+            - any:
+                - not: {has: {kind: 'shorthand_property_identifier_pattern, pair_pattern', regex: '^exitCode\b'}}
+                - all:
+                    - has:
+                        any:
+                            - {kind: shorthand_property_identifier_pattern, regex: '^exitCode$', pattern: $CODE}
+                            - kind: pair_pattern
+                              all:
+                                - has: {field: key, regex: '^exitCode$'}
+                                - has: {field: value, kind: identifier, pattern: $CODE}
+                    - not:
+                        inside:
+                            matches: scope
+                            stopBy: {matches: scope}
+                            has: {stopBy: end, matches: {syntax-decision: {subject: {kind: identifier, pattern: $CODE}}}}
+        - kind: member_expression
+          all:
+            - has: {field: property, regex: '^(stdout|stderr)$', pattern: $STREAM}
+            - has: {field: object, kind: identifier, pattern: $RESULT}
+            - inside:
+                matches: scope
+                stopBy: end
+                all:
+                    - any:
+                        - has:
+                            stopBy: end
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, kind: identifier, pattern: $RESULT}
+                                - has: {field: value, matches: run-result}
+                        - matches: then-callback
+                          has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $RESULT}}}
+                    - not: {has: {stopBy: end, matches: {syntax-decision: {subject: {kind: member_expression, pattern: $RESULT.exitCode}}}}}
+message: '`$.process.run` result reads `$STREAM` with no decision on `exitCode`'
+note: 'Compare `exitCode` before reading the streams, a non-zero exit returns the failure with `stderr` as its reason'
+labels:
+    STREAM: {style: primary}

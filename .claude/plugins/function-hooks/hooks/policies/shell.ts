@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { type Decision, deny, pass } from '../composition/decision.ts';
-import { type Argv, type Command, pastAssignments, strip } from '../text/argv.ts';
+import { type Command, pastAssignments, strip } from '../text/command.ts';
 import { basename } from '../text/path.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -13,10 +13,10 @@ const _LAUNCHERS: readonly string[] = ['mise', 'doppler', 'op'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _launched = (words: Argv): readonly string[] =>
+const _launched = (words: readonly string[]): readonly string[] =>
     _LAUNCHERS.includes(basename(strip(words)[0] ?? '')) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
 
-const _heads = (words: Argv): readonly string[] =>
+const _heads = (words: readonly string[]): readonly string[] =>
     [pastAssignments(words)[0], strip(words)[0], ..._launched(words)].map((word) => basename(word ?? ''));
 
 const _reason = (command: Command): readonly string[] => {
@@ -27,9 +27,9 @@ const _reason = (command: Command): readonly string[] => {
     return command.condition && !heads.includes('read') ? [`${command.words.join(' ')} ${_POLL}`] : [];
 };
 
-// --- [RULES] ---------------------------------------------------------------------------
+// --- [POLICY] --------------------------------------------------------------------------
 
-const waitGuard =
+const waitPolicy =
     (commands: readonly Command[]): (<E>(e: E) => Decision<E>) =>
     <E>(e: E): Decision<E> => {
         const reasons = commands.flatMap(_reason);
@@ -38,4 +38,4 @@ const waitGuard =
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { waitGuard };
+export { waitPolicy };

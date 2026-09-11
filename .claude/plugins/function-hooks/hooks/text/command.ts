@@ -1,20 +1,17 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ProcessRunResult } from 'claude-code';
+import { fault, ok, type Result } from '../composition/result.ts';
 import { basename } from './path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Argv = readonly string[];
-
 type Scanner = (text: string) => Promise<ProcessRunResult>;
 
 interface Command {
-    readonly words: Argv;
+    readonly words: readonly string[];
     readonly condition: boolean;
 }
-
-type Parse = { readonly kind: 'parsed'; readonly commands: readonly Command[] } | { readonly kind: 'unparsed'; readonly reason: string };
 
 interface Body {
     readonly text: string;
@@ -98,29 +95,29 @@ const _unquote = (word: string): string =>
             single ?? (double === undefined ? (bare ?? '') : double.replace(_ESCAPED, '$<char>')),
     );
 
-const _stripOptions = (argv: Argv): Argv => {
-    const [head] = argv;
+const _stripOptions = (words: readonly string[]): readonly string[] => {
+    const [head] = words;
     if (head === undefined || !(head.includes('=') || _DIGITS.test(head) || _SUBCOMMANDS.includes(head) || head.startsWith('-'))) {
-        return argv;
+        return words;
     }
-    return _stripOptions(argv.slice(_VALUE_OPTS.includes(head) ? 2 : 1));
+    return _stripOptions(words.slice(_VALUE_OPTS.includes(head) ? 2 : 1));
 };
 
-const pastAssignments = (argv: Argv): Argv => {
-    const index = argv.findIndex((word) => !_ENV_ASSIGN.test(word));
-    return index < 0 ? [] : argv.slice(index);
+const pastAssignments = (words: readonly string[]): readonly string[] => {
+    const index = words.findIndex((word) => !_ENV_ASSIGN.test(word));
+    return index < 0 ? [] : words.slice(index);
 };
 
-const strip = (argv: Argv): Argv => {
-    const [head] = argv;
-    return head !== undefined && (_ENV_ASSIGN.test(head) || _WRAPPERS.includes(head)) ? strip(_stripOptions(argv.slice(1))) : argv;
+const strip = (words: readonly string[]): readonly string[] => {
+    const [head] = words;
+    return head !== undefined && (_ENV_ASSIGN.test(head) || _WRAPPERS.includes(head)) ? strip(_stripOptions(words.slice(1))) : words;
 };
 
-const _inline = (argv: Argv): readonly string[] => {
-    const hit = argv.findIndex((word) => word.startsWith('-') && !word.startsWith('--') && word.endsWith('c'));
+const _inline = (words: readonly string[]): readonly string[] => {
+    const hit = words.findIndex((word) => word.startsWith('-') && !word.startsWith('--') && word.endsWith('c'));
     return hit < 0
         ? []
-        : argv
+        : words
               .slice(hit + 1)
               .filter((word) => word !== '--')
               .slice(0, 1);
@@ -128,16 +125,16 @@ const _inline = (argv: Argv): readonly string[] => {
 
 // --- [RESOLUTION] ----------------------------------------------------------------------
 
-const _texts = (name: string, argv: Argv): readonly string[] => {
+const _texts = (name: string, words: readonly string[]): readonly string[] => {
     if (name === 'eval') {
-        return [argv.slice(1).join(' ')];
+        return [words.slice(1).join(' ')];
     }
-    return _SHELLS.includes(name) ? _inline(argv) : [];
+    return _SHELLS.includes(name) ? _inline(words) : [];
 };
 
 const _resolve = (command: Command, depth: number): Resolved => {
-    const argv = strip(command.words);
-    const texts = depth < _MAX_DEPTH ? _texts(basename(argv[0] ?? ''), argv) : [];
+    const words = strip(command.words);
+    const texts = depth < _MAX_DEPTH ? _texts(basename(words[0] ?? ''), words) : [];
     return { commands: [command], bodies: texts.filter((text) => text !== '').map((text): Body => ({ text, condition: command.condition })) };
 };
 
@@ -154,40 +151,48 @@ const _commands = (report: string, condition: boolean): readonly Command[] =>
         }),
     );
 
-const _run = (scan: Scanner, text: string, condition: boolean): Promise<Parse> =>
+const _run = (scan: Scanner, text: string, condition: boolean): Promise<Result<readonly Command[]>> =>
     scan(text).then(
-        ({ exitCode, stdout, stderr }): Parse =>
+        ({ exitCode, stdout, stderr }): Result<readonly Command[]> =>
             exitCode === 0 && (stdout === '' || stdout.endsWith('\n'))
-                ? { kind: 'parsed', commands: _commands(stdout, condition) }
-                : { kind: 'unparsed', reason: `ast-grep exited ${exitCode} over the command, ${stderr.trim()}` },
-        (cause: unknown): Parse => ({ kind: 'unparsed', reason: `ast-grep did not run over the command, ${String(cause)}` }),
+                ? ok(_commands(stdout, condition))
+                : fault(`ast-grep exited ${exitCode} over the command, ${stderr.trim()}`),
+        (cause: unknown): Result<readonly Command[]> => fault(`ast-grep did not run over the command, ${String(cause)}`),
     );
 
-const _join = (left: Parse, right: Parse): Parse => {
-    if (left.kind === 'unparsed') {
+const _join = (left: Result<readonly Command[]>, right: Result<readonly Command[]>): Result<readonly Command[]> => {
+    if (left.kind === 'fault') {
         return left;
     }
-    return right.kind === 'unparsed' ? right : { kind: 'parsed', commands: [...left.commands, ...right.commands] };
+    return right.kind === 'fault' ? right : ok([...left.value, ...right.value]);
 };
 
-const _own = (parsed: Parse, depth: number): Parse =>
-    parsed.kind === 'unparsed' ? parsed : { kind: 'parsed', commands: parsed.commands.flatMap((command) => _resolve(command, depth).commands) };
+const _own = (parsed: Result<readonly Command[]>, depth: number): Result<readonly Command[]> =>
+    parsed.kind === 'fault' ? parsed : ok(parsed.value.flatMap((command) => _resolve(command, depth).commands));
 
-const _bodies = (parsed: Parse, depth: number): readonly Body[] =>
-    parsed.kind === 'unparsed' ? [] : parsed.commands.flatMap((command) => _resolve(command, depth).bodies);
+const _bodies = (parsed: Result<readonly Command[]>, depth: number): readonly Body[] =>
+    parsed.kind === 'fault' ? [] : parsed.value.flatMap((command) => _resolve(command, depth).bodies);
 
 const _nested =
     (scan: Scanner, body: Body, depth: number) =>
-    (left: Parse): Promise<Parse> =>
+    (left: Result<readonly Command[]>): Promise<Result<readonly Command[]>> =>
         _parse(scan, body.text, depth + 1, body.condition).then((right) => _join(left, right));
 
-const _chain = (scan: Scanner, own: Promise<Parse>, bodies: readonly Body[], depth: number): Promise<Parse> =>
-    bodies.reduce((chain, body) => chain.then(_nested(scan, body, depth)), own);
+const _chain = (
+    scan: Scanner,
+    own: Promise<Result<readonly Command[]>>,
+    bodies: readonly Body[],
+    depth: number,
+): Promise<Result<readonly Command[]>> => bodies.reduce((chain, body) => chain.then(_nested(scan, body, depth)), own);
 
-const _grow = (scan: Scanner, run: Promise<Parse>, own: Promise<Parse>, depth: number): Promise<Parse> =>
-    run.then((parsed) => _chain(scan, own, _bodies(parsed, depth), depth));
+const _grow = (
+    scan: Scanner,
+    run: Promise<Result<readonly Command[]>>,
+    own: Promise<Result<readonly Command[]>>,
+    depth: number,
+): Promise<Result<readonly Command[]>> => run.then((parsed) => _chain(scan, own, _bodies(parsed, depth), depth));
 
-const _expand = (scan: Scanner, run: Promise<Parse>, depth: number): Promise<Parse> =>
+const _expand = (scan: Scanner, run: Promise<Result<readonly Command[]>>, depth: number): Promise<Result<readonly Command[]>> =>
     _grow(
         scan,
         run,
@@ -195,11 +200,12 @@ const _expand = (scan: Scanner, run: Promise<Parse>, depth: number): Promise<Par
         depth,
     );
 
-const _parse = (scan: Scanner, text: string, depth: number, condition: boolean): Promise<Parse> => _expand(scan, _run(scan, text, condition), depth);
+const _parse = (scan: Scanner, text: string, depth: number, condition: boolean): Promise<Result<readonly Command[]>> =>
+    _expand(scan, _run(scan, text, condition), depth);
 
-const parse = (scan: Scanner, command: string): Promise<Parse> => _parse(scan, command, 0, false);
+const parse = (scan: Scanner, command: string): Promise<Result<readonly Command[]>> => _parse(scan, command, 0, false);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Argv, Command, Parse, Scanner };
+export type { Command, Scanner };
 export { parse, pastAssignments, SCAN, strip };

@@ -275,6 +275,7 @@ catalog:
     '@nx/vitest': 23.2.0
     '@biomejs/biome': 2.5.12
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
+    '@derekstride/tree-sitter-sql': 0.3.11
     '@swc/core': 1.16.2
     '@swc-node/register': 1.12.1
     tsx: 4.23.13
@@ -303,8 +304,9 @@ overrides:
     '@pulumi/pulumi': 'catalog:'
     # cloudevents calls uuid.v4, an API uuid 14 keeps
     cloudevents>uuid: 14.0.2
-    # Grammar package misspells the optional marker of its tree-sitter peer, and the grammar target reads its C sources alone
+    # Grammar packages misspell the optional marker of their tree-sitter peer, and the grammar target reads their C sources alone
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
+    '@derekstride/tree-sitter-sql>tree-sitter': '-'
     # Plugin peer range spans 7 and 8, auto-install takes the 7 release beside @babel/core 8 and its peer on core 7 goes unmet
     '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
     # vite-plugin-inspect takes kit 0.4 with devframe 0.8, and json-render's peer on @devframes/hub 0.9 goes unmet
@@ -321,6 +323,7 @@ overrides:
 allowBuilds:
     '@biomejs/biome': true
     '@datadog/pprof': true
+    '@derekstride/tree-sitter-sql': false
     '@node-rs/argon2': true
     '@parcel/watcher': true
     '@pulumi/command': true

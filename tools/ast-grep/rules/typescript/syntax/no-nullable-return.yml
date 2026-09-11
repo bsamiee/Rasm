@@ -36,26 +36,27 @@ utils:
                             - has:
                                 field: type_arguments
                                 has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: no-value-type}
-    undefined-value:
+    null-or-nan-result:
+        any:
+            - kind: 'null'
+            - kind: identifier
+              regex: '^NaN$'
+            - kind: member_expression
+              regex: '^(globalThis\.)?Number\.NaN$'
+            - kind: 'parenthesized_expression, as_expression, satisfies_expression'
+              has: {matches: null-or-nan-result}
+            - kind: ternary_expression
+              any: [{has: {field: consequence, matches: null-or-nan-result}}, {has: {field: alternative, matches: null-or-nan-result}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-or-nan-result}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-or-nan-result}}]
+    undefined-result:
         any:
             - kind: undefined
             - kind: unary_expression
               has: {field: operator, regex: '^void$'}
-    null-result:
-        any:
-            - kind: 'null'
-            - kind: parenthesized_expression
-              has: {matches: null-result}
-            - kind: ternary_expression
-              any: [{has: {field: consequence, matches: null-result}}, {has: {field: alternative, matches: null-result}}]
-            - kind: binary_expression
-              all: [{has: {field: operator, regex: '^(\?\?|\|\||&&)$'}}, {has: {field: right, matches: null-result}}]
-            - kind: binary_expression
-              all: [{has: {field: operator, regex: '^&&$'}}, {has: {field: left, matches: null-result}}]
-    undefined-result:
-        any:
-            - matches: undefined-value
-            - kind: parenthesized_expression
+            - kind: 'parenthesized_expression, as_expression, satisfies_expression'
               has: {matches: undefined-result}
             - kind: ternary_expression
               any: [{has: {field: consequence, matches: undefined-result}}, {has: {field: alternative, matches: undefined-result}}]
@@ -66,9 +67,9 @@ utils:
 rule:
     any:
         - kind: return_statement
-          has: {matches: null-result}
+          has: {matches: null-or-nan-result}
         - kind: arrow_function
-          has: {field: body, matches: null-result}
+          has: {field: body, matches: null-or-nan-result}
         - kind: return_statement
           has: {matches: undefined-result}
           inside: {matches: value-function, stopBy: {matches: syntax-function-boundary}}
@@ -76,5 +77,5 @@ rule:
           all:
             - has: {field: body, matches: undefined-result}
             - has: {field: return_type, matches: value-annotation}
-message: 'Function returns `null` or `undefined` for absence'
-note: 'Return `Option`, `Option.none()` inside and `Option.fromNullable(value)` at the boundary'
+message: 'Function returns `null`, `undefined`, or `NaN` for absence'
+note: 'Return `Option`, `Option.none()` inside, `Option.fromNullable` or `Option.liftPredicate` at the boundary'

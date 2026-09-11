@@ -32,7 +32,7 @@ rule:
           any:
             - inside:
                 stopBy:
-                    not: {kind: parenthesized_expression}
+                    not: {matches: syntax-expression-wrapper}
                 kind: arguments
                 inside:
                     matches: promise-call
@@ -41,7 +41,7 @@ rule:
                         has: {field: property, regex: ^(promise|tryPromise)$}
             - inside:
                 stopBy:
-                    not: {kind: parenthesized_expression}
+                    not: {matches: syntax-expression-wrapper}
                 kind: pair
                 field: value
                 has: {field: key, regex: ^(try|"try"|'try')$}

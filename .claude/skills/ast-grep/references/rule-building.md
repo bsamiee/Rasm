@@ -31,13 +31,19 @@ Rewrites edit semantically verified selections alone, unverified forms violating
 
 ## [04]-[BAR]
 
-A correction earns a rule by one criterion and is refused by one, a correction under the bar ends as findings:
-- Rules enforce a newest-language form a configured checker lacks
-- Rules report a bad logic pattern, an indirection layer, or a hand-written counterpart of an installed library's operation
+Corrections earn a rule by one criterion and are refused by one, each a verdict token with `earns` 1 or 0, a correction under the bar ends as findings:
+
+| [INDEX] | [VERDICT]         | [EARNS] | [CRITERION]                                                               |
+| :-----: | :---------------- | :-----: | :------------------------------------------------------------------------ |
+|  [01]   | `newest-form`     |    1    | Newest-language form a configured checker lacks                           |
+|  [02]   | `bad-logic`       |    1    | Bad logic pattern                                                         |
+|  [03]   | `indirection`     |    1    | Indirection layer                                                         |
+|  [04]   | `library-op`      |    1    | Hand-written counterpart of an installed library's operation              |
+|  [05]   | `repository-fact` |    0    | Repository fact, the manifest or owner file states it once                |
+|  [06]   | `misparse`        |    0    | Form tree-sitter parses wrong, matched by the enclosing statement pattern |
+|  [07]   | `option-grammar`  |    0    | One tool's option grammar                                                 |
+
 - Patterns with one instance and no sibling are findings, width alone earns no rule
-- Rules restating a repository fact are refused, the manifest or owner file states it once
-- Rules banning a form tree-sitter parses wrong are refused, the enclosing statement pattern matches the recovered form
-- Rules cataloging one tool's option grammar are refused
 - Rules duplicating a configured checker are refused, a project condition or a mechanical correction the checker lacks earns one
 
 ## [05]-[DERIVATION]

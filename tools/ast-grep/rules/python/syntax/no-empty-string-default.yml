@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-string-default
+language: python
+severity: error
+utils:
+    empty-string:
+        kind: string
+        not: {has: {kind: "string_content, interpolation"}}
+rule:
+    any:
+        - kind: typed_default_parameter
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: type, kind: type, regex: '^str$'}
+            - has: {field: value, matches: empty-string}
+        - kind: assignment
+          all:
+            - has: {field: left, kind: identifier, pattern: $NAME}
+            - has: {field: type, kind: type, regex: '^str$'}
+            - has: {field: right, matches: empty-string}
+            - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
+message: '`$NAME` defaults to an empty string standing for absence'
+note: 'Declare `$NAME: str | None = None` and test `is None`, the empty string stays a value; the body and each consumer change per site, no fix'

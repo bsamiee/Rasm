@@ -12,13 +12,13 @@ rule:
                     - inside:
                         kind: public_field_definition, variable_declarator, required_parameter, optional_parameter
                         field: value
-                        stopBy: {not: {kind: parenthesized_expression}}
+                        stopBy: {not: {matches: syntax-expression-wrapper}}
                         has:
                             field: type
                             has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
                     - inside:
                         kind: satisfies_expression
-                        stopBy: {not: {kind: parenthesized_expression}}
+                        stopBy: {not: {matches: syntax-expression-wrapper}}
                         has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$', matches: syntax-global-reference}

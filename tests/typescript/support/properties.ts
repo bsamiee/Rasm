@@ -186,7 +186,10 @@ const Property: Property = {
             name: options.name ?? 'equivalence is reflexive, symmetric, and transitive',
             arbitraries: { a: options.arb, b: options.arb, c: options.arb },
             predicate: (equals, { a, b, c }) =>
-                Effect.sync(() => equals(a, a) && equals(a, b) === equals(b, a) && (!(equals(a, b) && equals(b, c)) || equals(a, c))),
+                Effect.sync(() => {
+                    const related = equals(a, b);
+                    return equals(a, a) && related === equals(b, a) && (!(related && equals(b, c)) || equals(a, c));
+                }),
             counterexample: options.counterexample,
         }),
     order: (options) =>
@@ -194,12 +197,10 @@ const Property: Property = {
             name: options.name ?? 'comparison defines a total order',
             arbitraries: { a: options.arb, b: options.arb, c: options.arb },
             predicate: (compare, { a, b, c }) =>
-                Effect.sync(
-                    () =>
-                        compare(a, a) === 0 &&
-                        compare(a, b) === -compare(b, a) &&
-                        (!(compare(a, b) <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0),
-                ),
+                Effect.sync(() => {
+                    const order = compare(a, b);
+                    return compare(a, a) === 0 && order === -compare(b, a) && (!(order <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0);
+                }),
             counterexample: options.counterexample,
         }),
     inverse: (options) =>
@@ -214,6 +215,7 @@ const Property: Property = {
             name: options.name ?? 'operation is deterministic',
             arbitraries: { input: options.arb },
             predicate: (subject, { input }) =>
+                // ast-grep-ignore: no-repeated-call-expression
                 Effect.zipWith(subject(input), subject(input), (first, second) => (options.equals ?? Equal.equals)(first, second)),
             counterexample: options.counterexample,
         }),

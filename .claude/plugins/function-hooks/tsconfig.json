@@ -1,7 +1,7 @@
 {
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
-        "types": [],
+        "types": ["node"],
         "composite": false,
         "declarationMap": false,
         "emitDeclarationOnly": false,
@@ -12,5 +12,5 @@
         "jsxFactory": "h",
         "jsxFragmentFactory": "Fragment"
     },
-    "include": ["../../types", "hooks"]
+    "include": ["../../types", "hooks", "*.ts"]
 }

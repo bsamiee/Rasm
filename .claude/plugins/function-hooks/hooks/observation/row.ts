@@ -40,10 +40,6 @@ const _RESPONSE = 'tool_response';
 const _FILE = 'file';
 const _READ_DROPS: readonly string[] = ['content', 'base64', 'cells'];
 const _WRITE_DROPS: readonly string[] = ['content'];
-const _CALLS = 'tool_calls';
-const _CALL_DROPS: readonly string[] = [_RESPONSE];
-const _TRACE = 'trace';
-const _TRACE_DROPS: readonly string[] = ['received', 'returned'];
 
 // --- [REFINEMENTS] ---------------------------------------------------------------------
 
@@ -74,15 +70,13 @@ const _written: Trim = (value, tool) => {
     return _named(tool, _WRITE) && _isRecord(response) ? { ...value, [_RESPONSE]: _without(response, _WRITE_DROPS) } : value;
 };
 
-const _batched: Trim = (value) => {
-    const calls = value[_CALLS];
-    return Array.isArray(calls) ? { ...value, [_CALLS]: calls.filter(_isRecord).map((call) => _without(call, _CALL_DROPS)) } : value;
-};
-
-const _traced: Trim = (value) => {
-    const trace = value[_TRACE];
-    return Array.isArray(trace) ? { ...value, [_TRACE]: trace.filter(_isRecord).map((link) => _without(link, _TRACE_DROPS)) } : value;
-};
+// Drops the keys from every record of the list under `key`
+const _dropped =
+    (key: string, drops: readonly string[]): Trim =>
+    (value): Readonly<Record<string, unknown>> => {
+        const items = value[key];
+        return Array.isArray(items) ? { ...value, [key]: items.filter(_isRecord).map((item) => _without(item, drops)) } : value;
+    };
 
 const _keys = (columns: Columns): readonly string[] =>
     [columns.session, columns.prompt, columns.agent, columns.tool, columns.toolUse].filter(_isText).concat(columns.drops);
@@ -93,13 +87,14 @@ const _payload = (value: Readonly<Record<string, unknown>>, columns: Columns, to
         _keys(columns),
     );
 
-const row = (event: Event, value: Readonly<Record<string, unknown>>, columns: Columns, session: string, ts: number): Row => {
-    const own = _text(value, columns.session);
+const session = (value: Readonly<Record<string, unknown>>, columns: Columns): Cell => _text(value, columns.session);
+
+const row = (event: Event, value: Readonly<Record<string, unknown>>, columns: Columns, sessionId: string, ts: number): Row => {
     const tool = _text(value, columns.tool);
     return {
         event,
         ts,
-        sessionId: own.kind === 'text' ? own.text : session,
+        sessionId,
         promptId: _text(value, columns.prompt),
         agentId: _text(value, columns.agent),
         tool,
@@ -117,12 +112,12 @@ const CLASSIC: Columns = {
     tool: 'tool_name',
     toolUse: 'tool_use_id',
     drops: ['hook_event_name'],
-    trims: [_read, _written, _batched],
+    trims: [_read, _written, _dropped('tool_calls', [_RESPONSE])],
 };
-const CALL: Columns = { agent: 'agentId', tool: 'tool', toolUse: 'tool_use_id', drops: [], trims: [_traced] };
-const TURN: Columns = { drops: [], trims: [] };
+const CALL: Columns = { agent: 'agentId', tool: 'tool', toolUse: 'tool_use_id', drops: [], trims: [_dropped('trace', ['received', 'returned'])] };
+const TURN: Columns = { agent: 'agentId', drops: [], trims: [] };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Cell, Columns, Event, Row };
-export { CALL, CLASSIC, row, TURN };
+export { CALL, CLASSIC, row, session, TURN };

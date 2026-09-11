@@ -1,7 +1,35 @@
 {
     "name": "function-hooks",
-    "description": "Refuses destructive git commands, shell waits, and a second config file beside its owner, and records every hook event to .cache/observation/observation.db",
+    "description": "Denies policy-refused tool calls, records hook events as observation rows, delivers findings per lineage",
     "author": {
         "name": "Bardia Samiee"
+    },
+    "userConfig": {
+        "editThreshold": {
+            "type": "number",
+            "title": "Edit threshold",
+            "description": "Unjudged in-tree edits on a lineage that spawn the edit agent, 0 off",
+            "default": 20,
+            "min": 0
+        },
+        "editAgent": {
+            "type": "string",
+            "title": "Edit agent",
+            "description": "Agent under .claude/agents/ spawned over range <key> <from_ts> <to_ts>",
+            "default": "shape-cataloger"
+        },
+        "categoryThreshold": {
+            "type": "number",
+            "title": "Category threshold",
+            "description": "Confirmed sites a recurring category needs to spawn the category agent, 0 off",
+            "default": 0,
+            "min": 0
+        },
+        "categoryAgent": {
+            "type": "string",
+            "title": "Category agent",
+            "description": "Agent under .claude/agents/ spawned over category <category> lineage <key>",
+            "default": "ast-grep-rule-builder"
+        }
     }
 }

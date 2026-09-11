@@ -33,8 +33,28 @@ rule:
         - kind: type_alias_declaration
           all:
             - has: {field: name, pattern: $ALIAS}
-            - has: {field: value, kind: type_identifier, pattern: $TARGET}
+            - has: {field: value, kind: 'type_identifier, nested_type_identifier', pattern: $TARGET}
             - not: {has: {field: type_parameters, kind: type_parameters}}
+        - kind: type_alias_declaration
+          pattern: $DECLARATION
+          all:
+            - has: {field: name, pattern: $ALIAS}
+            - has: {field: value, kind: generic_type, pattern: $TARGET}
+            - not: {has: {field: type_parameters, kind: type_parameters}}
+            - inside:
+                kind: program
+                all:
+                    - not: {has: {kind: export_statement, has: {stopBy: end, kind: 'identifier, type_identifier', pattern: $ALIAS}}}
+                    - has:
+                        pattern: $USER
+                        not: {pattern: $DECLARATION}
+                        has: {stopBy: end, kind: type_identifier, pattern: $ALIAS}
+                    - not:
+                        has:
+                            all:
+                                - not: {pattern: $DECLARATION}
+                                - not: {pattern: $USER}
+                                - has: {stopBy: end, kind: type_identifier, pattern: $ALIAS}
         - kind: export_specifier
           all:
             - has: {field: alias, kind: identifier, pattern: $ALIAS}
@@ -43,6 +63,6 @@ rule:
 constraints:
     ALIAS: {not: {regex: '^default$'}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Reference and export the target by its name'
+note: 'Spell the target where the alias is used'
 labels:
     TARGET: {style: primary, message: Aliased name}

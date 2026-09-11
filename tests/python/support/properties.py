@@ -27,7 +27,7 @@ class PropertyRecord(msgspec.Struct, frozen=True):
     subject: str
     property_name: str
     module: str
-    subject_module: str = ""
+    subject_module: str | None = None
 
 
 class PackageUnderTest(msgspec.Struct, frozen=True):
@@ -173,7 +173,7 @@ def property_test[**P](
             subject=_qualname(subject),
             property_name=property_name or getattr(fn, "__name__", repr(fn)),
             module=getattr(fn, "__module__", "<unknown>"),
-            subject_module=getattr(subject, "__module__", "") or "",
+            subject_module=getattr(subject, "__module__", None),
         )
         marked: Callable[P, None] = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), markers, with_settings)
         return pytest.mark.property(record=record)(marked)
@@ -194,9 +194,7 @@ def record_coverage_declarations(module: object) -> tuple[PropertyRecord, ...]:
             raise TypeError(f"COVERS in {name} lists {value!r}: entries must be types or callables")
         case _:
             return tuple(
-                PropertyRecord(
-                    subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", "") or ""
-                )
+                PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", None))
                 for subject in covers
             )
 
@@ -271,7 +269,7 @@ def assert_property_coverage(
         packages: Registered packages, the ``PACKAGES_UNDER_TEST`` stash value.
         only: Packages to inspect, ``None`` inspects every registration.
     """
-    global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in records if not record.subject_module)
+    global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is None)
 
     for package, registration in packages.items():
         if only is not None and package not in only:
@@ -280,7 +278,7 @@ def assert_property_coverage(
         covered = global_covered | frozenset(
             record.subject.rsplit(".", 1)[-1]
             for record in records
-            if record.subject_module == package or record.subject_module.startswith(f"{package}.")
+            if record.subject_module is not None and (record.subject_module == package or record.subject_module.startswith(f"{package}."))
         )
         uncovered = frozenset(
             name

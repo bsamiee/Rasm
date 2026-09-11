@@ -1,12 +1,12 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { type Decision, deny, pass } from '../composition/decision.ts';
-import { type Argv, type Command, strip } from '../text/argv.ts';
+import { type Command, strip } from '../text/command.ts';
 import { basename } from '../text/path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Refinement = (args: Argv, existing: readonly string[]) => readonly string[];
+type Refinement = (args: readonly string[], existing: readonly string[]) => readonly string[];
 
 interface GitRow {
     readonly why: string;
@@ -19,7 +19,7 @@ interface GitRow {
 
 interface Head {
     readonly key: Key;
-    readonly args: Argv;
+    readonly args: readonly string[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -92,28 +92,26 @@ const GIT = {
 
 type Key = keyof typeof GIT;
 
-const _rows: Readonly<Record<Key, GitRow>> = GIT;
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _isKey = (candidate: string): candidate is Key => Object.hasOwn(GIT, candidate);
 
-const _skip = (argv: Argv, index: number): number => {
-    const word = argv[index];
-    return word !== undefined && _isFlag(word) ? _skip(argv, index + (_GIT_VALUE_OPTS.includes(word) ? 2 : 1)) : index;
+const _skip = (words: readonly string[], index: number): number => {
+    const word = words[index];
+    return word !== undefined && _isFlag(word) ? _skip(words, index + (_GIT_VALUE_OPTS.includes(word) ? 2 : 1)) : index;
 };
 
-const _heads = (words: Argv): readonly Head[] =>
+const _heads = (words: readonly string[]): readonly Head[] =>
     [words.slice(0, 2).join(' '), words[0] ?? '']
         .filter(_isKey)
         .slice(0, 1)
         .map((key): Head => ({ key, args: words.slice(key.split(' ').length) }));
 
-const _hits = (row: GitRow, args: Argv): readonly string[] =>
+const _hits = (row: GitRow, args: readonly string[]): readonly string[] =>
     args.filter((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true).slice(0, 1);
 
-const _verdict = (head: Head, existing: readonly string[]): readonly string[] => {
-    const row = _rows[head.key];
+const _refusals = (head: Head, existing: readonly string[]): readonly string[] => {
+    const row: GitRow = GIT[head.key];
     if (row.safe?.includes(head.args[0] ?? '') === true) {
         return [];
     }
@@ -124,14 +122,14 @@ const _verdict = (head: Head, existing: readonly string[]): readonly string[] =>
     return hits.length > 0 ? hits.map((hit) => `git ${head.key} ${hit} ${row.why}`) : (row.refine?.(head.args, existing) ?? []);
 };
 
-const _reason = (argv: Argv, existing: readonly string[]): readonly string[] => {
-    const index = _skip(argv, 1);
-    return argv.slice(1, index).some((word) => word.startsWith('alias.'))
+const _reason = (words: readonly string[], existing: readonly string[]): readonly string[] => {
+    const index = _skip(words, 1);
+    return words.slice(1, index).some((word) => word.startsWith('alias.'))
         ? [_ALIAS]
-        : _heads(argv.slice(index)).flatMap((head) => _verdict(head, existing));
+        : _heads(words.slice(index)).flatMap((head) => _refusals(head, existing));
 };
 
-const _gits = (commands: readonly Command[]): readonly Argv[] =>
+const _gits = (commands: readonly Command[]): readonly (readonly string[])[] =>
     commands
         .map((command) => strip(command.words))
         .flatMap((words) =>
@@ -139,18 +137,18 @@ const _gits = (commands: readonly Command[]): readonly Argv[] =>
         );
 
 const gitPaths = (commands: readonly Command[]): readonly string[] =>
-    _gits(commands).flatMap((argv) =>
-        _heads(argv.slice(_skip(argv, 1))).flatMap((head) => (_REFINED.includes(head.key) ? head.args.filter((word) => !_isFlag(word)) : [])),
+    _gits(commands).flatMap((words) =>
+        _heads(words.slice(_skip(words, 1))).flatMap((head) => (_REFINED.includes(head.key) ? head.args.filter((word) => !_isFlag(word)) : [])),
     );
 
-const gitGuard =
+const gitPolicy =
     (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) =>
     <E>(e: E): Decision<E> => {
-        const reasons = _gits(commands).flatMap((argv) => _reason(argv, existing));
+        const reasons = _gits(commands).flatMap((words) => _reason(words, existing));
         const distinct = reasons.filter((reason, index) => reasons.indexOf(reason) === index);
         return distinct.length === 0 ? pass(e) : deny(`${distinct.join(', ')}, ${_ADVICE}`);
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { gitGuard, gitPaths };
+export { gitPaths, gitPolicy };

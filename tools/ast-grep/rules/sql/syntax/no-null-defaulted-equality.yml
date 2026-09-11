@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-null-defaulted-equality
+language: sql
+severity: error
+utils:
+    left-defaulted:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^(ifnull|coalesce)$'}
+            - has: {nthChild: 2, pattern: _A}
+            - has: {nthChild: 3, pattern: _X}
+    right-defaulted:
+        kind: invocation
+        all:
+            - has: {kind: object_reference, regex: '(?i)^(ifnull|coalesce)$'}
+            - has: {nthChild: 2, pattern: _B}
+            - has: {nthChild: 3, pattern: _X}
+rule:
+    kind: binary_expression
+    all:
+        - has: {field: operator, regex: '^(=|<>|!=)$', pattern: __OPERATOR}
+        - has: {field: left, matches: left-defaulted}
+        - has: {field: right, matches: right-defaulted}
+transform:
+    EQUAL: {replace: {source: $OPERATOR, replace: '^=$', by: ''}}
+    NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ' not'}}
+fix: '$A is$NEGATION $B'
+message: '`$A` and `$B` compare through the shared default `$X`'
+note: '`is` and `is not` compare null-safe, a default collides with its own value'

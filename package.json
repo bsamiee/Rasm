@@ -18,6 +18,7 @@
         "@deck.gl/layers": "catalog:",
         "@deck.gl/mapbox": "catalog:",
         "@deck.gl/mesh-layers": "catalog:",
+        "@derekstride/tree-sitter-sql": "catalog:",
         "@dopplerhq/node-sdk": "catalog:",
         "@duckdb/duckdb-wasm": "catalog:",
         "@duckdb/node-api": "catalog:",
@@ -313,12 +314,13 @@
                 "parallelism": false
             },
             "grammar": {
-                "command": "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
+                "executor": "nx:run-commands",
                 "cache": true,
                 "inputs": [
                     {
                         "externalDependencies": [
-                            "@tree-sitter-grammars/tree-sitter-xml"
+                            "@tree-sitter-grammars/tree-sitter-xml",
+                            "@derekstride/tree-sitter-sql"
                         ]
                     },
                     {
@@ -326,8 +328,16 @@
                     }
                 ],
                 "outputs": [
-                    "{workspaceRoot}/.cache/ast-grep/xml.so"
-                ]
+                    "{workspaceRoot}/.cache/ast-grep/xml.so",
+                    "{workspaceRoot}/.cache/ast-grep/sql.so"
+                ],
+                "options": {
+                    "commands": [
+                        "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
+                        "tree-sitter build --output .cache/ast-grep/sql.so node_modules/@derekstride/tree-sitter-sql"
+                    ],
+                    "parallel": true
+                }
             },
             "rewrite": {
                 "command": "ast-grep scan -U",
@@ -353,7 +363,7 @@
                 "inputs": [
                     "{workspaceRoot}/**/*",
                     {
-                        "dependentTasksOutputFiles": "**/xml.so"
+                        "dependentTasksOutputFiles": "**/*.so"
                     },
                     {
                         "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version"

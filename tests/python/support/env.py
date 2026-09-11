@@ -50,7 +50,7 @@ class SshHost(msgspec.Struct, frozen=True, gc=False):
 class RemoteFS(msgspec.Struct, frozen=True, gc=False):
     """Remote filesystem double scoped to a per-test in-memory root."""
 
-    root: str = ""
+    root: str | None = None
 
 
 class ObjectStore(msgspec.Struct, frozen=True, gc=False):
@@ -110,7 +110,7 @@ def _provision_ssh(spec: SshHost) -> Provisioned[Awaitable[asyncssh.SSHClientCon
 
 def _provision_filesystem(spec: RemoteFS) -> Provisioned[AbstractFileSystem]:
     """Scope an in-memory filesystem double to an isolated root."""
-    scoped = spec.root or f"/env-fs/{uuid.uuid4().hex}"
+    scoped = spec.root if spec.root is not None else f"/env-fs/{uuid.uuid4().hex}"
     memory = MemoryFileSystem()
     memory.makedirs(scoped, exist_ok=True)
 

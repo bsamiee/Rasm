@@ -111,6 +111,38 @@ signature: $DECLARATION
 isPublic: true
 
 ---
+id: typescript-hook-registration
+language: tsx
+role: member
+parentRuleIds: [tsx-top-level-arrow-function, tsx-export-const, tsx-export-const-typed]
+symbolType: method
+rule:
+    kind: call_expression
+    pattern: $DECLARATION
+    inside:
+        kind: expression_statement
+        inside:
+            kind: statement_block
+            inside:
+                kind: arrow_function, function_expression
+                inside:
+                    kind: variable_declarator
+                    field: value
+                    inside:
+                        kind: lexical_declaration
+                        any:
+                            - inside: {kind: program}
+                            - inside: {kind: export_statement, inside: {kind: program}}
+    all:
+        - has: {field: function, kind: identifier, regex: '^on$'}
+        - has: {field: arguments, has: {kind: 'string, template_string', nthChild: 1, pattern: $EVENT}}
+transform:
+    NAME: {replace: {source: $EVENT, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
+name: $NAME
+signature: on($EVENT)
+isPublic: true
+
+---
 id: typescript-test
 language: tsx
 role: item
