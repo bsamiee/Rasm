@@ -7,7 +7,7 @@
         {
             "name": "function-hooks",
             "source": "./function-hooks",
-            "description": "Refuses destructive git commands, shell waits, and a second config file beside its owner"
+            "description": "Refuses destructive git commands, shell waits, and a second config file beside its owner, and records every hook event to .cache/observation/observation.db"
         },
         {
             "name": "playwright",

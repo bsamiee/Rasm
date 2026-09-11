@@ -18,15 +18,15 @@ Result, effect, and collection types come from `LanguageExt.Core`, the runtimes 
 
 Result and effect types and their runtime shapes:
 
-| [INDEX] | [TYPE]                 | [SHAPE]               |
-| :-----: | :--------------------- | :-------------------- |
-|  [01]   | `Option<A>`            | readonly struct       |
-|  [02]   | `Fin<A>`               | abstract class        |
-|  [03]   | `Either<L, R>`         | abstract record class |
-|  [04]   | `Validation<Error, A>` | abstract record class |
-|  [05]   | `Try<A>`               | record class          |
-|  [06]   | `IO<A>`                | abstract record class |
-|  [07]   | `Eff<RT, A>`           | record class          |
+| [INDEX] | [TYPE]                 | [SHAPE]                 |
+| :-----: | :--------------------- | :---------------------- |
+|  [01]   | `Option<A>`            | `readonly struct`       |
+|  [02]   | `Fin<A>`               | `abstract class`        |
+|  [03]   | `Either<L, R>`         | `abstract record class` |
+|  [04]   | `Validation<Error, A>` | `abstract record class` |
+|  [05]   | `Try<A>`               | `record class`          |
+|  [06]   | `IO<A>`                | `abstract record class` |
+|  [07]   | `Eff<RT, A>`           | `record class`          |
 
 Each type exposes `Match` with one function per case:
 - `Match` on `IO` and `Eff` returns an effect

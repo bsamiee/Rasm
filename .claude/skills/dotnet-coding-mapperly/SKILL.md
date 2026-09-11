@@ -232,37 +232,37 @@ Mapping method declarations, one row per capability:
 
 Every attribute Mapperly reads, with its declaration target and whether it repeats:
 
-| [INDEX] | [SYMBOL]                                   | [TARGET]                | [ALLOW_MULTIPLE] | [CAPABILITY]                         |
-| :-----: | :----------------------------------------- | :---------------------- | :--------------: | :----------------------------------- |
-|  [01]   | `MapperAttribute`                          | class                   |        No        | Mapper declaration and options       |
-|  [02]   | `MapperDefaultsAttribute`                  | assembly                |        No        | Same options for every mapper        |
-|  [03]   | `UseMapperAttribute`                       | field, property         |        No        | Use the member's mapping methods     |
-|  [04]   | `UseStaticMapperAttribute`                 | class, assembly         |       Yes        | Use a type's static mapping methods  |
-|  [05]   | `UseStaticMapperAttribute<T>`              | class, assembly         |       Yes        | Same, generic form                   |
-|  [06]   | `MapperConstructorAttribute`               | constructor             |        No        | Select the constructor to call       |
-|  [07]   | `ObjectFactoryAttribute`                   | method                  |        No        | Construct or resolve the target      |
-|  [08]   | `MapperIgnoreAttribute`                    | property, field, method |        No        | Exclude a member or a method         |
-|  [09]   | `UserMappingAttribute`                     | method                  |        No        | User-implemented mapping method      |
-|  [10]   | `NamedMappingAttribute`                    | method                  |        No        | Name a mapping for `Use`             |
-|  [11]   | `IncludeMappingConfigurationAttribute`     | method                  |       Yes        | Reuse another method's configuration |
-|  [12]   | `MappingTargetAttribute`                   | parameter               |        No        | Mark the parameter as the target     |
-|  [13]   | `MappingTargetOriginalValueAttribute`      | parameter               |        No        | Pass the target member's prior value |
-|  [14]   | `FormatProviderAttribute`                  | field, property         |        No        | Expose an `IFormatProvider`          |
-|  [15]   | `ReferenceHandlerAttribute`                | parameter               |        No        | Mark the reference-handler parameter |
-|  [16]   | `MapPropertyAttribute`                     | method                  |       Yes        | Rename, flatten, and unflatten       |
-|  [17]   | `MapPropertyFromSourceAttribute`           | method                  |       Yes        | Map the source object to a member    |
-|  [18]   | `MapNestedPropertiesAttribute`             | method                  |       Yes        | Flatten every member of a path       |
-|  [19]   | `MapValueAttribute`                        | method                  |       Yes        | Assign a constant or generated value |
-|  [20]   | `MapperIgnoreSourceAttribute`              | method                  |       Yes        | Exclude a source member              |
-|  [21]   | `MapperIgnoreTargetAttribute`              | method                  |       Yes        | Exclude a target member              |
-|  [22]   | `MapperRequiredMappingAttribute`           | method                  |        No        | Unmapped-member diagnostics          |
-|  [23]   | `MapperIgnoreObsoleteMembersAttribute`     | method                  |        No        | Obsolete-member policy               |
-|  [24]   | `MapDerivedTypeAttribute`                  | method                  |       Yes        | One derived source and target pair   |
-|  [25]   | `MapDerivedTypeAttribute<TSource,TTarget>` | method                  |       Yes        | Same, generic form                   |
-|  [26]   | `MapEnumAttribute`                         | method                  |        No        | Enum strategy for one mapping        |
-|  [27]   | `MapEnumValueAttribute`                    | method                  |       Yes        | Pair enum members                    |
-|  [28]   | `MapperIgnoreSourceValueAttribute`         | method                  |       Yes        | Exclude a source enum value          |
-|  [29]   | `MapperIgnoreTargetValueAttribute`         | method                  |       Yes        | Exclude a target enum value          |
+| [INDEX] | [SYMBOL]                                   | [TARGET]                      | [ALLOW_MULTIPLE] | [CAPABILITY]                         |
+| :-----: | :----------------------------------------- | :---------------------------- | :--------------: | :----------------------------------- |
+|  [01]   | `MapperAttribute`                          | `class`                       |        No        | Mapper declaration and options       |
+|  [02]   | `MapperDefaultsAttribute`                  | `assembly`                    |        No        | Same options for every mapper        |
+|  [03]   | `UseMapperAttribute`                       | `field`, `property`           |        No        | Use the member's mapping methods     |
+|  [04]   | `UseStaticMapperAttribute`                 | `class`, `assembly`           |       Yes        | Use a type's static mapping methods  |
+|  [05]   | `UseStaticMapperAttribute<T>`              | `class`, `assembly`           |       Yes        | Same, generic form                   |
+|  [06]   | `MapperConstructorAttribute`               | `constructor`                 |        No        | Select the constructor to call       |
+|  [07]   | `ObjectFactoryAttribute`                   | `method`                      |        No        | Construct or resolve the target      |
+|  [08]   | `MapperIgnoreAttribute`                    | `property`, `field`, `method` |        No        | Exclude a member or a method         |
+|  [09]   | `UserMappingAttribute`                     | `method`                      |        No        | User-implemented mapping method      |
+|  [10]   | `NamedMappingAttribute`                    | `method`                      |        No        | Name a mapping for `Use`             |
+|  [11]   | `IncludeMappingConfigurationAttribute`     | `method`                      |       Yes        | Reuse another method's configuration |
+|  [12]   | `MappingTargetAttribute`                   | `parameter`                   |        No        | Mark the parameter as the target     |
+|  [13]   | `MappingTargetOriginalValueAttribute`      | `parameter`                   |        No        | Pass the target member's prior value |
+|  [14]   | `FormatProviderAttribute`                  | `field`, `property`           |        No        | Expose an `IFormatProvider`          |
+|  [15]   | `ReferenceHandlerAttribute`                | `parameter`                   |        No        | Mark the reference-handler parameter |
+|  [16]   | `MapPropertyAttribute`                     | `method`                      |       Yes        | Rename, flatten, and unflatten       |
+|  [17]   | `MapPropertyFromSourceAttribute`           | `method`                      |       Yes        | Map the source object to a member    |
+|  [18]   | `MapNestedPropertiesAttribute`             | `method`                      |       Yes        | Flatten every member of a path       |
+|  [19]   | `MapValueAttribute`                        | `method`                      |       Yes        | Assign a constant or generated value |
+|  [20]   | `MapperIgnoreSourceAttribute`              | `method`                      |       Yes        | Exclude a source member              |
+|  [21]   | `MapperIgnoreTargetAttribute`              | `method`                      |       Yes        | Exclude a target member              |
+|  [22]   | `MapperRequiredMappingAttribute`           | `method`                      |        No        | Unmapped-member diagnostics          |
+|  [23]   | `MapperIgnoreObsoleteMembersAttribute`     | `method`                      |        No        | Obsolete-member policy               |
+|  [24]   | `MapDerivedTypeAttribute`                  | `method`                      |       Yes        | One derived source and target pair   |
+|  [25]   | `MapDerivedTypeAttribute<TSource,TTarget>` | `method`                      |       Yes        | Same, generic form                   |
+|  [26]   | `MapEnumAttribute`                         | `method`                      |        No        | Enum strategy for one mapping        |
+|  [27]   | `MapEnumValueAttribute`                    | `method`                      |       Yes        | Pair enum members                    |
+|  [28]   | `MapperIgnoreSourceValueAttribute`         | `method`                      |       Yes        | Exclude a source enum value          |
+|  [29]   | `MapperIgnoreTargetValueAttribute`         | `method`                      |       Yes        | Exclude a target enum value          |
 
 - `Use` values and `IncludeMappingConfigurationAttribute` names accept a reference outside the mapper
 - Every ignore attribute except `MapperIgnoreObsoleteMembersAttribute` exposes `Justification` as a `string?`

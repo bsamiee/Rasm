@@ -38,10 +38,10 @@ Operators produce new observables in place of handling individual events imperat
 |  [06]   | `Concat`        | Emits the first stream, then subscribes to the second after the first completes | `Combine`                            |
 |  [07]   | `StartWith`     | Prefixes a stream with initial values                                           | `pure` then `Combine`                |
 |  [08]   | `Merge`         | Interleaves values from streams as they arrive                                  | `Source.merge`                       |
-|  [09]   | `CombineLatest` | Recomputes from the latest values on either change, after both emitted          | none                                 |
+|  [09]   | `CombineLatest` | Recomputes from the latest values on either change, after both emitted          | None                                 |
 |  [10]   | `Zip`           | Pairs each value with one matching partner                                      | `Zip`                                |
 |  [11]   | `Scan`          | Emits every successive accumulated state                                        | `Scan` on `Seq`                      |
-|  [12]   | `GroupBy`       | Splits one stream into keyed streams                                            | none                                 |
+|  [12]   | `GroupBy`       | Splits one stream into keyed streams                                            | None                                 |
 
 Queries over `Source<A>` with a `from` per stage flatten the inner source of each value instead of blocking on it. `Combine` depends on completion, when its first source never completes the second is never observed. Partitioning is the stream form of branching, each branch transforms independently, normalizes to a common type, and rejoins with `Source.merge`:
 

@@ -23,7 +23,7 @@
 - Text view prints the item name in place of an empty signature, `--json` holds `""` for it
 - JSON entries hold `role`, `symbolType`, `name`, `range` (`byteOffset`, zero-based `start` and `end`), `signature`, and `astKind`
 - Items add `isImport`, `isExported`, and `members` (omitted when empty), a member adds `isPublic`
-- Injected regions (a `run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
+- Injected regions (`run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
 - Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
 - An extractor file holds one document per extractor separated by `---`, documents of several languages load from one file
 - `--outline-rules` loads a file for a built-in language, `customLanguages.<name>.outlineRules` for a custom one
@@ -53,7 +53,7 @@ Reuse a bundled extractor selecting the construct. Choose the item boundary befo
 - Quoted keys stay quoted where unquoting changes their spelling
 - Headers keep generics, constraints, attributes, and heritage clauses
 
-Constructs with no identifier (a table row, a keyed block inside a document read whole) take no extractor. TOML has no built-in language, a `customLanguages` grammar adds one.
+Constructs with no identifier (table row, a keyed block inside a document read whole) take no extractor. TOML has no built-in language, a `customLanguages` grammar adds one.
 
 ## [04]-[CHECKS]
 

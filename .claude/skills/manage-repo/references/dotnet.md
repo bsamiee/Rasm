@@ -10,4 +10,4 @@ MSBuild directory files and central package versions own every shared .NET decla
 
 ## [02]-[UPGRADES]
 
-- dotnet-outdated moves the central rows the project it analyzes references and no other, `--no-restore` writes them in place of `dotnet add package`
+- `dotnet-outdated` moves the central rows the analyzed project references and no other, `--no-restore` writes them in place of `dotnet add package`

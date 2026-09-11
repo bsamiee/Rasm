@@ -55,7 +55,7 @@ Relations stay where they establish fields, captures, or traversal stops. Duplic
 |  [01]   | Sub-rule copied into another `any:` arm of one rule        | Local `utils:` entry                                                |
 |  [02]   | Sub-rule copied into another rule                          | Global util                                                         |
 |  [03]   | Shared shape with one slot each caller fills               | Parameterized global util, `arguments:` beside a `kind` guard       |
-|  [04]   | Nested form of the shape (a parenthesized number)          | Util recursion through `matches` under `has` or `inside`            |
+|  [04]   | Nested form of the shape (parenthesized number)            | Util recursion through `matches` under `has` or `inside`            |
 |  [05]   | Two shapes each nested inside the other                    | Mutual recursion across two global utils, leaf sets local to each   |
 |  [06]   | Repeated shape the `message` names                         | Shared util named for that shape                                    |
 |  [07]   | Capture the fix re-matches inside the shared shape         | Local util binding it, or an argument rule binding it at the call   |

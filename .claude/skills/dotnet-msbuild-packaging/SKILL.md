@@ -126,7 +126,7 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 
 `dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore <project>` moves every referenced row to its newest release, prereleases included:
 - `dnx` downloads the tool package to the NuGet cache and runs it, arguments after `--` reach the tool
-- dotnet-outdated restores the project and reads `project.assets.json`, a project that fails restore reports no row
+- `dotnet-outdated` restores the project and reads `project.assets.json`, a project that fails restore reports no row
 - `--no-restore` makes the tool write each `PackageVersion` row under CPM itself, without it `dotnet add package` runs per row with a restore each
 - Rows with an exact range (`[x.y.z]`) stay, the candidate satisfies the row's range
 - Candidate versions have a dependency group the project's target framework accepts, a release for a later framework alone moves no row
@@ -361,7 +361,7 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 - `TestingPlatformCommandLineArguments` reaches the test run through `RunArguments`
 - `TestingPlatformDotnetTestSupport` belongs to the VSTest mode, the .NET 10 runner fails when a project sets it
 - Extension options (`--report-trx`, `--coverage`, `--crashdump`) fail with exit code `5` in a project without the providing package
-- coverlet.MTP names each report by a timestamp under `--results-directory`
+- `coverlet.MTP` names each report by a timestamp under `--results-directory`
 
 ## [07]-[ANTIPATTERNS]
 

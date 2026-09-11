@@ -2,7 +2,7 @@
 # requires-python = ">=3.15"
 # dependencies = ["msgspec", "regex", "wcwidth"]
 # ///
-"""Check and fix the house style of markdown files and of section dividers in source files."""
+"""Check and fix the house style of markdown files and of section dividers and comments in source files."""
 
 from collections.abc import Callable, Iterable
 from copy import replace
@@ -38,39 +38,42 @@ class Marker(Enum):
 
     @property
     def lattice(self) -> Ctx:
-        """The members that claim blocks in a file of this kind."""
-        return SOURCE if self.sign else MARKDOWN
+        """The members that claim blocks in a file of this kind, blank lines joined here so a rule over one kind's members skips the other kind."""
+        return (SOURCE if self.sign else MARKDOWN) | Ctx.BLANK
 
 
 class Ctx(Flag):
-    """Block kinds in claim order: each pattern claims a whole block and captures its text spans as `t`, `claimed` names the members before it."""
+    """Block kinds in claim order: each pattern claims a whole block and captures its text spans as `t`, `claimed` names the members before it, `sign` the file's comment sign."""
 
     pattern: str
     rx: regex.Pattern[str]
     FRONTMATTER = r"\A---\n(?:.*\n)*?---$"
     FENCE = r"^(?P<fence>```|~~~).*\n(?:.*\n)*?(?P=fence).*$"
+    METADATA = r"^# /// [a-zA-Z0-9-]+$(?:\n#(?: .*)?$)*?\n# ///$"
     HEADING = r"^(?P<level>#{1,6}) (?P<t>.+)$"
     TABLE = r"^(?P<row>\|(?: *(?P<t>(?:\\\||[^|\n])*?) *\|)+ *$)(?:\n(?&row))*"
     ENTRY = r"^(?P<bullet> *(?:[-*+]|\d+\.) )(?:(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) )?(?P<t>.+)$(?:\n(?!(?&bullet)) +(?P<t>\S.*)$)*"
     LABEL = r"^\[[A-Z_]+\](?::(?: (?P<t>.+))?)?$"
-    DIVIDER = rf"^(?P<head>[ \t]*(?:{'|'.join(regex.escape(m.sign) for m in Marker if m.sign)}) --- )(?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?$"
+    DIVIDER = r"^(?P<head>[ \t]*(?&sign) --- )(?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?$"
+    DIRECTIVE = r"^[ \t]*(?&sign) \S*:(?:\s.*)?$"
+    COMMENT = r"^[ \t]*(?&sign) (?P<t>\S.*)$"
     BLANK = r"^[ \t]*$"
     PARAGRAPH = r"^(?P<t>.+)$(?:\n(?!(?&claimed))(?P<t>.+)$)*"
     CODE = r"^.+$(?:\n(?!(?&claimed)).+$)*"
 
     def __new__(cls, pattern: str) -> Self:
-        """Give each member the next bit, its pattern, and the pattern compiled to read one block alone, where `claimed` matches nothing."""
+        """Give each member the next bit, its pattern, and the pattern compiled to read one block alone, where `claimed` matches nothing and `sign` any comment sign."""
         member = object.__new__(cls)
         member._value_ = 2 ** len(cls.__members__)
         member.pattern = pattern
-        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))){pattern}", regex.MULTILINE)
+        signs = "|".join(regex.escape(m.sign) for m in Marker if m.sign)
+        member.rx = regex.compile(rf"(?(DEFINE)(?P<claimed>(?!))(?P<sign>{signs})){pattern}", regex.MULTILINE)
         return member
 
 
-OPAQUE = Ctx.FRONTMATTER | Ctx.FENCE
 TEXT = reduce(or_, (c for c in Ctx if "t" in c.rx.groupindex))
-MARKDOWN = OPAQUE | TEXT | Ctx.BLANK
-SOURCE = Ctx.DIVIDER | Ctx.BLANK | Ctx.CODE
+MARKDOWN = Ctx.FRONTMATTER | Ctx.FENCE | Ctx.HEADING | Ctx.TABLE | Ctx.ENTRY | Ctx.LABEL | Ctx.PARAGRAPH
+SOURCE = Ctx.METADATA | Ctx.DIVIDER | Ctx.DIRECTIVE | Ctx.COMMENT | Ctx.CODE
 
 # --- [ENGINE] ---------------------------------------------------------------------------
 
@@ -183,7 +186,7 @@ def block(fn: Callable[[Block], Block]) -> Callable[[Ctx, list[Block]], list[Blo
 
 
 def doc(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Ctx, list[Block]], list[Block]]:
-    """Lift a whole-sequence transform, for rules that read neighbors or count."""
+    """Lift a whole-sequence transform, for rules that read neighbors or count, the mask selecting the files alone."""
     return lambda _, blocks: fn(blocks)
 
 
@@ -438,9 +441,9 @@ def repeats(d: Doc) -> list[Line]:
 
 
 def empties(d: Doc) -> list[Line]:
-    """Full dividers with no code before the next full divider or the end of the file."""
+    """Full dividers with nothing but dividers before the next full divider or the end of the file."""
     starts = [i for i, b in enumerate(d.blocks) if full(b)]
-    return [subject(d.blocks[i]) for i, j in pairwise([*starts, len(d.blocks)]) if all(b.ctx is not Ctx.CODE for b in d.blocks[i + 1 : j])]
+    return [subject(d.blocks[i]) for i, j in pairwise([*starts, len(d.blocks)]) if all(b.ctx is Ctx.DIVIDER for b in d.blocks[i + 1 : j])]
 
 
 def orphans(d: Doc) -> list[Line]:
@@ -452,7 +455,7 @@ def orphans(d: Doc) -> list[Line]:
 
 RULES: tuple[Fix | Report, ...] = (
     Fix(TEXT | Ctx.BLANK, block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
-    Fix(TEXT, text(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s))),
+    Fix(TEXT & MARKDOWN, text(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s))),
     Fix(TEXT, text(emoji)),
     Fix(Ctx.ENTRY, block(leader)),
     Fix(Ctx.ENTRY, doc(cards)),
@@ -462,16 +465,19 @@ RULES: tuple[Fix | Report, ...] = (
     Fix(Ctx.HEADING, block(chain)),
     Fix(Ctx.HEADING, doc(headings)),
     Fix(Ctx.LABEL, doc(labels)),
+    Fix(Ctx.PARAGRAPH | Ctx.ENTRY, block(wrap)),
+    Fix(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, text(lambda s: regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s))),
     Fix(Ctx.TABLE, block(index)),
     Fix(Ctx.TABLE, block(render)),
-    Fix(Ctx.PARAGRAPH | Ctx.ENTRY, block(wrap)),
     Fix(MARKDOWN, doc(spacing)),
     Report(Ctx.HEADING, "`{}` is not the one `[TOKEN]` H1", h1s),
-    Report(TEXT, "`{}` resolves to no file", dead),
+    Report(TEXT, "Text opens with an article", probe(r"(?i)(?:a|an|the)\s+\S")),
+    Report(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, "Text opens with a lowercase letter", probe(r"\p{Ll}")),
+    Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
     Report(Ctx.ENTRY, "Entry runs past column 150", wide),
     Report(Ctx.TABLE, "Table runs past column 150", wide),
     Report(Ctx.DIVIDER, "Divider `{}` repeats an earlier full divider", repeats),
-    Report(Ctx.DIVIDER | Ctx.CODE, "Divider `{}` opens an empty section", empties),
+    Report(SOURCE, "Divider `{}` opens an empty section", empties),
     Report(Ctx.DIVIDER, "Sub divider `{}` precedes the first full divider", orphans),
 )
 
@@ -479,11 +485,11 @@ RULES: tuple[Fix | Report, ...] = (
 
 
 def lex(path: Path, marker: Marker) -> list[Block]:
-    """Tokenize the file into blocks in one pass over the lattice, the members before the last as `claimed`, line numbers from newline counts, no block for a file with no content."""
+    """Tokenize the file into blocks in one pass over the lattice, the members before the last as `claimed`, the marker's sign as `sign`, line numbers from newline counts, no block for a file with no content."""
     src = path.read_text(encoding="utf-8").removesuffix("\n")
     members = {name: c for name, c in Ctx.__members__.items() if c in marker.lattice}
     *claimed, rest = (f"(?P<{name}>{c.pattern})" for name, c in members.items())
-    lexer = regex.compile(f"(?P<claimed>{'|'.join(claimed)})|{rest}", regex.MULTILINE)
+    lexer = regex.compile(f"(?(DEFINE)(?P<sign>{regex.escape(marker.sign)}))(?P<claimed>{'|'.join(claimed)})|{rest}", regex.MULTILINE)
 
     def claim(m: regex.Match[str]) -> Block:
         first = src.count("\n", 0, m.start()) + 1
@@ -494,8 +500,8 @@ def lex(path: Path, marker: Marker) -> list[Block]:
 
 
 def lint(path: Path, marker: Marker) -> Doc:
-    """Fold every rule whose mask the lattice holds over the file, findings in line order."""
-    rules = [r for r in RULES if r.mask in marker.lattice]
+    """Fold every rule whose mask meets the lattice over the file, findings in line order."""
+    rules = [r for r in RULES if r.mask & marker.lattice]
     done = reduce(lambda d, r: r.apply(d), rules, Doc(path, lex(path, marker)))
     return replace(done, found=sorted(done.found, key=lambda f: f.line))
 
