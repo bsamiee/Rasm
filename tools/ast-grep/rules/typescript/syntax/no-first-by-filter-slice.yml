@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-first-by-filter-slice
+language: tsx
+severity: error
+rule:
+    any:
+        - pattern: $L.filter($P).slice(0, 1)
+        - pattern: $L.filter($P)[0]
+        - pattern: $L.filter($P).at(0)
+message: '`$L.filter` scans the whole list for its first match'
+note: '`$L.find($P)` stops at the first match, `fromNullable` lifts it into `Option`, or a direct `undefined` test decides at once'

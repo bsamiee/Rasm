@@ -5,6 +5,7 @@ import { type Decision, deny, fold, type Policy, when } from '../composition/dec
 import type { Result } from '../composition/result.ts';
 import { gitPaths, gitPolicy } from '../policies/git.ts';
 import { type PathEvent, pathPolicy } from '../policies/paths.ts';
+import { scriptPolicy } from '../policies/script.ts';
 import { waitPolicy } from '../policies/shell.ts';
 import { type Command, parse, type Scanner } from '../text/command.ts';
 
@@ -29,23 +30,23 @@ const _hasCommand = (e: ToolCallInput): e is Commanded => (e.tool === 'Bash' || 
 
 const _paths = (parsed: Result<readonly Command[]>): readonly string[] => (parsed.kind === 'ok' ? gitPaths(parsed.value) : []);
 
-const _seed = (parsed: Result<readonly Command[]>): Facts => ({ parsed, existing: [] });
+const _step = (exists: Exists, facts: Facts, path: string): Promise<Facts> =>
+    exists(path).then((found) => (found ? { ...facts, existing: [...facts.existing, path] } : facts));
 
-const _found =
-    (exists: Exists, path: string) =>
-    (facts: Facts): Promise<Facts> =>
-        exists(path).then((found) => (found ? { ...facts, existing: [...facts.existing, path] } : facts));
+const _walk = (exists: Exists, facts: Facts, path: string, rest: readonly string[]): Promise<Facts> =>
+    rest.reduce((chain, next) => chain.then((known) => _step(exists, known, next)), _step(exists, facts, path));
 
-const _walk = (exists: Exists, seed: Promise<Facts>, paths: readonly string[]): Promise<Facts> =>
-    paths.reduce((chain, path) => chain.then(_found(exists, path)), seed);
+const _facts = (exists: Exists, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> =>
+    parsed.then((known) => {
+        const facts: Facts = { parsed: known, existing: [] };
+        const [head, ...tail] = _paths(known);
+        return head === undefined ? facts : _walk(exists, facts, head, tail);
+    });
 
-const _grow = (exists: Exists, parsed: Promise<Result<readonly Command[]>>, seed: Promise<Facts>): Promise<Facts> =>
-    parsed.then((known) => _walk(exists, seed, _paths(known)));
-
-const _facts = (exists: Exists, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> => _grow(exists, parsed, parsed.then(_seed));
-
-const _policies = (e: Commanded, commands: readonly Command[], existing: readonly string[]): readonly Policy<Commanded>[] =>
-    e.tool === 'Bash' ? [gitPolicy(commands, existing), waitPolicy(commands)] : [gitPolicy(commands, existing)];
+const _policies = (e: Commanded, commands: readonly Command[], existing: readonly string[]): readonly Policy<Commanded>[] => [
+    gitPolicy(commands, existing),
+    ...(e.tool === 'Bash' ? [waitPolicy(commands), scriptPolicy(commands)] : []),
+];
 
 const _decide = (e: Commanded, facts: Facts): Decision<Commanded> =>
     facts.parsed.kind === 'fault' ? deny(`command not parsed, ${facts.parsed.reason}`) : fold(_policies(e, facts.parsed.value, facts.existing))(e);

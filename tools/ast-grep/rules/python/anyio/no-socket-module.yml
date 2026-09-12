@@ -14,4 +14,4 @@ rule:
             - matches: {python-module-member: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
             - matches: {python-imported-name: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
 message: '`$CALL` uses the blocking socket module'
-note: 'Use the anyio networking function'
+note: 'Use `anyio.connect_tcp` or `anyio.create_tcp_listener` for TCP, `anyio.create_udp_socket` for UDP, `anyio.connect_unix` or `anyio.create_unix_listener` for a Unix socket, and `anyio.getaddrinfo` or `anyio.getnameinfo` for a name'

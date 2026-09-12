@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-value-or-promise-return
+language: tsx
+severity: error
+utils:
+    return-annotation:
+        kind: type_annotation
+        inside: {field: return_type, matches: syntax-function-boundary}
+    promise-of:
+        kind: generic_type
+        all:
+            - has: {field: name, regex: '^(Promise|PromiseLike)$'}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $T}}
+    promise-of-readonly:
+        kind: generic_type
+        all:
+            - has: {field: name, regex: '^(Promise|PromiseLike)$'}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: readonly_type, has: {pattern: $T}}}
+rule:
+    kind: union_type
+    any:
+        - inside: {matches: return-annotation}
+          all:
+              - has: {matches: promise-of}
+              - has: {pattern: $T, not: {matches: promise-of}}
+        - inside: {kind: readonly_type, inside: {matches: return-annotation}}
+          all:
+              - has: {matches: promise-of-readonly}
+              - has: {pattern: $T, not: {kind: generic_type}}
+message: 'Function returns `$T` or a promise of it, every caller handles both'
+note: 'One `Promise<$T>` per function, the synchronous branches sit inside the `then` callback'

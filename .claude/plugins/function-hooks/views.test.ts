@@ -13,7 +13,8 @@ const _OLD_RANGE =
     'create table judged_range(kind text not null, lineage_key text not null, worktree text not null, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict;';
 const _OLD_KIND = "create table range_kind(kind text); insert into range_kind(kind) values ('commit'), ('edit');";
 const _OLD_INDEX = 'create index finding_path on finding(path, occurrence);';
-// Open statement around its dot commands, which node:sqlite runs none of: the selects print between `.output` and `.output`, the temp tables drop, and `.read` applies what the selects printed
+const _OLD_TRANSITION =
+    "create table finding_transition(finding_id text not null, state text not null, subject_hash text not null, start_line integer, start_column integer, end_line integer, end_column integer, occurrence integer, at integer not null, by text not null, evidence text, verdict text, successor text) strict; insert into finding_transition(finding_id, state, subject_hash, start_line, occurrence, at, by, evidence, verdict) values ('f1', 'confirmed', 'h1', 3, 1, 1, 'agent:a', 'present', null), ('f1', 'moved', 'h1', null, null, 2, 'check:sqlite3', null, null);";
 const _PARTS = open('.').split(/^\..*\n/gmu);
 const [_BEGUN = '', _SELECTS = '', _DROPS = '', _APPLIED = ''] = _PARTS;
 
@@ -21,7 +22,6 @@ const [_BEGUN = '', _SELECTS = '', _DROPS = '', _APPLIED = ''] = _PARTS;
 
 const _binary = (left: string, right: string): number => Number(left > right) - Number(left < right);
 
-// Hashing runs in the sqlite3 shell alone, absent from the library node:sqlite links, registered so the generated column of finding parses; no case inserts a finding
 const _sha3 = (): never => {
     throw new Error('sha3 hashes rows in the sqlite3 shell alone');
 };
@@ -32,7 +32,6 @@ const _sink = (): DatabaseSync => {
     return database;
 };
 
-// Delta as the shell prints it to the file: one statement per row of the two selects
 const _delta = (database: DatabaseSync): string => {
     database.exec(_BEGUN);
     return _SELECTS
@@ -126,5 +125,38 @@ it('rebuilds a table whose stored body differs, keeping the rows of its common c
     expect(old.prepare("select count(1) as n from sqlite_master where name like '%__delta'").get()?.['n']).toBe(0);
     expect(_views(old)).toStrictEqual(created);
     expect(_opened(old)).not.toContain('create table');
+    old.close();
+});
+
+it('rebuilds the transition table over its rows, dropping successor and adding path and bytes as null', () => {
+    const old = _sink();
+    old.exec(_OLD_TRANSITION);
+    const delta = _opened(old);
+    expect(delta).toContain('alter table finding_transition__delta rename to finding_transition;');
+    expect(_columns(old, 'finding_transition')).toStrictEqual([
+        'finding_id',
+        'state',
+        'subject_hash',
+        'path',
+        'start_line',
+        'start_column',
+        'end_line',
+        'end_column',
+        'byte_start',
+        'byte_end',
+        'occurrence',
+        'at',
+        'by',
+        'evidence',
+        'verdict',
+    ]);
+    expect(
+        old
+            .prepare(
+                "select group_concat(state || '|' || subject_hash || '|' || ifnull(start_line, '-') || '|' || ifnull(occurrence, '-') || '|' || at || '|' || by || '|' || ifnull(evidence, '-') || '|' || ifnull(path, '-') || '|' || ifnull(byte_start, '-'), ' ') as rows from (select * from finding_transition order by at)",
+            )
+            .get()?.['rows'],
+    ).toBe('confirmed|h1|3|1|1|agent:a|present|-|- moved|h1|-|-|2|check:sqlite3|-|-|-');
+    expect(old.prepare("select count(1) as n from sqlite_master where name like '%__delta'").get()?.['n']).toBe(0);
     old.close();
 });

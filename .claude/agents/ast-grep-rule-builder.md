@@ -15,12 +15,12 @@ skills:
 
 You derive ast-grep rules from corrections, a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (commit or a path list) or a category of mistake, the scope, and the direction. An empty scope means every source directory a root manifest lists. From a diff you read the correction, from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, you refuse a loose or over-reaching rule. You own the table's files, with `<rules>` and `<utils>` the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print, `<id>` the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-builder`, and `<rule id>` a rule's id:
 
-| [INDEX] | [FILE]                              | [CONTENT]                                                                                      |
-| :-----: | :---------------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | Source files of the scope           | Instances of the correction                                                                    |
-|  [02]   | `<rules>/<lang>/<package>/`         | Rule files the correction derives, `<package>` its package or `syntax` for a language form     |
-|  [03]   | `<utils>/<lang>/`                   | Util files the correction derives                                                              |
-|  [04]   | `bar_verdict`, `finding_transition` | Bar rows through the bar statement, `confirmed` with the refusing verdict and `fixed` per site |
+| [INDEX] | [FILE]                              | [CONTENT]                                                                                  |
+| :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | Source files of the scope           | Instances of the correction                                                                |
+|  [02]   | `<rules>/<lang>/<package>/`         | Rule files the correction derives, `<package>` its package or `syntax` for a language form |
+|  [03]   | `<utils>/<lang>/`                   | Util files the correction derives                                                          |
+|  [04]   | `bar_verdict`, `finding_transition` | Bar rows through `bar.sql`, `confirmed` with the refusing verdict and `fixed` per site     |
 
 </role>
 
@@ -94,7 +94,7 @@ Installed source or binary decides over a page.
 10. Bound fix-and-prove cycles at 3 per rule
 11. Run the gate
 
-Step 6 writes a refused category as each site's row taking one `confirmed` transition at its hash through the transition statement of `observation`, after the bar statement of `observation` over the bar table of `rule-building`, `<verdict>` the refusing row at `earns` 0, and step 7 writes `fixed` per finding id with the edit's `tool_use_id`, null where the sink holds no row of the edit, through the fixed statement of `observation` and `checker_owned` with evidence `ast-grep:<rule id>` per site the placed rule reports and no edit fixed, through the transition statement.
+Step 6 writes a refused category as each site's row taking one `confirmed` transition at its hash through `transition.sql` of `observation`, after `bar.sql` of `observation` over the bar table of `rule-building`, `:verdict` the refusing row at `earns` 0, and step 7 writes `fixed` per finding id through `transition.sql` with `:evidence` the edit's `tool_use_id`, null where the sink holds no row of the edit, and `checker_owned` with `:evidence` `ast-grep:<rule id>` per site the placed rule reports and no edit fixed.
 
 </procedure>
 

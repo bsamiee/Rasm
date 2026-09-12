@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fourth-nesting-level-sql
+language: sql
+severity: error
+utils:
+    nested: {kind: 'subquery, cte'}
+    fourth-level:
+        matches: nested
+        inside:
+            matches: nested
+            stopBy: end
+            inside:
+                matches: nested
+                stopBy: end
+                inside: {matches: nested, stopBy: end}
+rule:
+    matches: fourth-level
+    not: {inside: {matches: fourth-level, stopBy: end}}
+message: Subquery or common table expression sits at a fourth nesting level
+note: Flatten inner levels into named common table expressions, a window function replaces a correlated subquery over the same rows

@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-distinct-by-index-of
+language: tsx
+severity: error
+utils:
+    same-list:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^indexOf$'}}]}
+            - has: {field: arguments, has: {pattern: $X, nthChild: 1}}
+    first-index-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^===?$'}
+            - any:
+                - all: [{has: {field: left, matches: same-list}}, {has: {field: right, pattern: $I}}]
+                - all: [{has: {field: left, pattern: $I}}, {has: {field: right, matches: same-list}}]
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^filter$'}}]}
+        - has:
+              field: arguments
+              has:
+                  kind: arrow_function
+                  all:
+                      - has: {field: parameters, all: [{has: {nthChild: 1, has: {kind: identifier, pattern: $X}}}, {has: {nthChild: 2, has: {kind: identifier, pattern: $I}}}]}
+                      - has: {field: body, matches: first-index-test}
+message: '`$L.filter` keeps the first of each value by a quadratic `indexOf` scan'
+note: 'A `ReadonlySet<T>`-typed `new Set($L)` holds each value once, `no-native-collection` permits the typed declaration'

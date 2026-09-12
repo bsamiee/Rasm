@@ -33,6 +33,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 
 ## [02]-[RULES]
 
+- Ids share one namespace across languages, a category checked in two languages names each rule `<category>-<language>`, in one the category alone
 - Rule objects are unordered `all`s with keys applied atomic, composite, then relational, `all:` keeps list order
 - Rules need a kind set from `pattern` or `kind`, `regex`, `range`, `nthChild`, `not`, `all: []`, or `any: []` alone fails the load
 - `kind` takes a named node, an anonymous token (`then`) fails the load with `Cannot parse rule`, exit 8
@@ -183,6 +184,9 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 | :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------------- |
 |  [01]   | `ifnull(a, b)` alone         | `ERROR`, an expression pattern takes `context: select <expr>` with `selector: invocation` or `term`  |
 |  [02]   | `create view v as select ...` | `statement` > `create_view` with `object_reference` > `name: identifier` and `create_query` > `select` |
+|  [03]   | `count(1) filter (where c)`  | `invocation` with a `filter_expression` child beside `parameter`, a guard over it keeps a filtered aggregate silent |
+|  [04]   | `max(x) over (partition by p)` | `window_function` over the `invocation` and a `window_specification`, an aggregate pattern matches the inner `invocation` |
+|  [05]   | `case when c then v end`     | `case` with `keyword_case`, `keyword_when`, `keyword_then`, `keyword_else`, and `keyword_end` as named children, `nthChild` counts them |
 
 ## [07]-[OUTLINE]
 

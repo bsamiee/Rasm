@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-empty-string-default
+id: no-empty-string-default-python
 language: python
 severity: error
 utils:
@@ -20,4 +20,4 @@ rule:
             - has: {field: right, matches: empty-string}
             - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: 'Declare `$NAME: str | None = None` and test `is None`, the empty string stays a value; the body and each consumer change per site, no fix'
+note: 'Declare `$NAME: str | None = None` and test `is None`, the empty string stays a value'

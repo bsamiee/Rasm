@@ -1,0 +1,121 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-suffix-plural
+language: tsx
+severity: error
+utils:
+    count-test:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(===|!==|==|!=|>|<|>=|<=)$'}
+            - has: {kind: number}
+    count-condition:
+        any:
+            - matches: count-test
+            - has: {matches: count-test, stopBy: end}
+    suffix-text:
+        kind: string
+        pattern: $SUFFIX
+        regex: '^[''"](s|es|ies)[''"]$'
+    plural-text:
+        any: [{matches: syntax-empty-string}, {matches: suffix-text}]
+    stem-text:
+        kind: string
+        regex: '^[''"]y[''"]$'
+    stem-suffix-text:
+        kind: string
+        pattern: $SUFFIX
+        regex: '^[''"]ies[''"]$'
+    stem-pair-text:
+        any: [{matches: stem-text}, {matches: stem-suffix-text}]
+    suffixed-text:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: left, pattern: $NOUN}
+                - has: {field: operator, regex: '^\+$'}
+                - has: {field: right, matches: suffix-text}
+            - kind: template_string
+              pattern: $SUFFIX
+              regex: '^`\$\{[^}]*\}(s|es|ies)`$'
+              has: {kind: template_substitution, has: {pattern: $NOUN}}
+    suffix-pair:
+        kind: ternary_expression
+        any:
+            - all:
+                - has: {field: consequence, matches: plural-text}
+                - has: {field: alternative, matches: plural-text}
+            - all:
+                - has: {field: consequence, matches: stem-pair-text}
+                - has: {field: alternative, matches: stem-pair-text}
+    word-text:
+        kind: string
+        regex: '[A-Za-z][''"]$'
+    count-ternary:
+        kind: ternary_expression
+        all:
+            - has: {field: condition, matches: count-condition}
+            - any:
+                - matches: suffix-pair
+                - all:
+                    - has: {field: consequence, pattern: $NOUN}
+                    - has: {field: alternative, matches: suffixed-text}
+                - all:
+                    - has: {field: alternative, pattern: $NOUN}
+                    - has: {field: consequence, matches: suffixed-text}
+    word-flag-ternary:
+        kind: ternary_expression
+        all:
+            - matches: suffix-pair
+            - any:
+                - inside: {kind: template_substitution, follows: {kind: string_fragment, regex: '[A-Za-z]$'}}
+                - inside:
+                    kind: parenthesized_expression
+                    inside:
+                        kind: binary_expression
+                        field: right
+                        all:
+                            - has: {field: operator, regex: '^\+$'}
+                            - has:
+                                field: left
+                                any:
+                                    - matches: word-text
+                                    - {kind: binary_expression, has: {field: right, matches: word-text}}
+    plural-assignment:
+        kind: assignment_expression
+        all:
+            - has: {field: left, pattern: $NAME}
+            - has: {field: right, matches: plural-text}
+    plural-declaration:
+        any:
+            - kind: lexical_declaration
+            - kind: variable_declaration
+        has:
+            kind: variable_declarator
+            all:
+                - has: {field: name, pattern: $NAME}
+                - has: {field: value, matches: plural-text}
+    count-if:
+        kind: if_statement
+        all:
+            - has: {field: condition, matches: count-condition}
+            - any:
+                - all:
+                    - has: {field: consequence, has: {matches: plural-assignment, stopBy: end}}
+                    - any:
+                        - follows: {matches: plural-declaration, stopBy: end}
+                        - has: {field: alternative, has: {matches: plural-assignment, stopBy: end}}
+                - has:
+                    field: consequence
+                    has:
+                        stopBy: end
+                        kind: augmented_assignment_expression
+                        all:
+                            - has: {field: operator, regex: '^\+=$'}
+                            - has: {field: right, matches: suffix-text}
+rule:
+    any:
+        - matches: count-ternary
+        - matches: word-flag-ternary
+        - matches: count-if
+message: '`$SUFFIX` spells an English plural by suffix'
+note: 'Take both spellings from the caller, `count === 1 ? one : many`'

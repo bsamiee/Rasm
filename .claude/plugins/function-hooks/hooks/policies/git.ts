@@ -1,6 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { type Decision, deny, pass } from '../composition/decision.ts';
+import { fromNullable, none, type Option, some } from '../composition/option.ts';
 import { type Command, strip } from '../text/command.ts';
 import { basename } from '../text/path.ts';
 
@@ -58,15 +59,14 @@ const _config: Refinement = (args) => {
 };
 
 const _checkout: Refinement = (args, existing) => {
-    const targets = args.filter((word) => word === '-' || !_isFlag(word));
-    const first = targets[0] ?? '';
+    const [first, ...more] = args.filter((word) => word === '-' || !_isFlag(word));
     if (!args.includes('--') && args.some((word) => _CHECKOUT_CREATE.includes(word))) {
         return [];
     }
-    if (args.includes('--') || targets.length > 1 || first === '.' || (targets.length > 0 && first.startsWith(':'))) {
+    if (args.includes('--') || more.length > 0 || first === '.' || first?.startsWith(':') === true) {
         return ['git checkout with a pathspec overwrites working-tree files'];
     }
-    return targets.length === 1 && first !== '-' && existing.includes(first)
+    return first !== undefined && first !== '-' && existing.includes(first)
         ? [`git checkout ${first} names an existing path and would overwrite it`]
         : [];
 };
@@ -101,32 +101,34 @@ const _skip = (words: readonly string[], index: number): number => {
     return word !== undefined && _isFlag(word) ? _skip(words, index + (_GIT_VALUE_OPTS.includes(word) ? 2 : 1)) : index;
 };
 
-const _heads = (words: readonly string[]): readonly Head[] =>
-    [words.slice(0, 2).join(' '), words[0] ?? '']
-        .filter(_isKey)
-        .slice(0, 1)
-        .map((key): Head => ({ key, args: words.slice(key.split(' ').length) }));
+const _head = (words: readonly string[]): Option<Head> => {
+    const key = [words.slice(0, 2).join(' '), ...words.slice(0, 1)].find(_isKey);
+    return key === undefined ? none : some({ key, args: words.slice(key.split(' ').length) });
+};
 
-const _hits = (row: GitRow, args: readonly string[]): readonly string[] =>
-    args.filter((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true).slice(0, 1);
+const _hit = (row: GitRow, args: readonly string[]): Option<string> =>
+    fromNullable(args.find((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true));
 
 const _refusals = (head: Head, existing: readonly string[]): readonly string[] => {
     const row: GitRow = GIT[head.key];
-    if (row.safe?.includes(head.args[0] ?? '') === true) {
+    const [first] = head.args;
+    if (first !== undefined && row.safe?.includes(first) === true) {
         return [];
     }
     if (row.any === true) {
         return [`git ${head.key} ${row.why}`];
     }
-    const hits = _hits(row, head.args);
-    return hits.length > 0 ? hits.map((hit) => `git ${head.key} ${hit} ${row.why}`) : (row.refine?.(head.args, existing) ?? []);
+    const hit = _hit(row, head.args);
+    return hit.kind === 'some' ? [`git ${head.key} ${hit.value} ${row.why}`] : (row.refine?.(head.args, existing) ?? []);
 };
 
 const _reason = (words: readonly string[], existing: readonly string[]): readonly string[] => {
     const index = _skip(words, 1);
-    return words.slice(1, index).some((word) => word.startsWith('alias.'))
-        ? [_ALIAS]
-        : _heads(words.slice(index)).flatMap((head) => _refusals(head, existing));
+    if (words.slice(1, index).some((word) => word.startsWith('alias.'))) {
+        return [_ALIAS];
+    }
+    const head = _head(words.slice(index));
+    return head.kind === 'some' ? _refusals(head.value, existing) : [];
 };
 
 const _gits = (commands: readonly Command[]): readonly (readonly string[])[] =>
@@ -137,16 +139,16 @@ const _gits = (commands: readonly Command[]): readonly (readonly string[])[] =>
         );
 
 const gitPaths = (commands: readonly Command[]): readonly string[] =>
-    _gits(commands).flatMap((words) =>
-        _heads(words.slice(_skip(words, 1))).flatMap((head) => (_REFINED.includes(head.key) ? head.args.filter((word) => !_isFlag(word)) : [])),
-    );
+    _gits(commands).flatMap((words) => {
+        const head = _head(words.slice(_skip(words, 1)));
+        return head.kind === 'some' && _REFINED.includes(head.value.key) ? head.value.args.filter((word) => !_isFlag(word)) : [];
+    });
 
 const gitPolicy =
     (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) =>
     <E>(e: E): Decision<E> => {
-        const reasons = _gits(commands).flatMap((words) => _reason(words, existing));
-        const distinct = reasons.filter((reason, index) => reasons.indexOf(reason) === index);
-        return distinct.length === 0 ? pass(e) : deny(`${distinct.join(', ')}, ${_ADVICE}`);
+        const distinct: ReadonlySet<string> = new Set(_gits(commands).flatMap((words) => _reason(words, existing)));
+        return distinct.size === 0 ? pass(e) : deny(`${[...distinct].join(', ')}, ${_ADVICE}`);
     };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

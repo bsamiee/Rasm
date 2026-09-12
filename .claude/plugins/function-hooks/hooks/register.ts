@@ -32,13 +32,12 @@ import {
     resolved,
     type Settings,
     STATE,
-    type State,
     settings,
     state,
     status,
     unbuilt,
 } from './observation/delivery.ts';
-import { CALL, type Cell, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
+import { CALL, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
 import { SCAN } from './text/command.ts';
 import { basename } from './text/path.ts';
@@ -54,13 +53,11 @@ type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]
 
 type Boundary = Frozen<ClassicHookInputs['Stop']> | Frozen<ClassicHookInputs['SubagentStop']>;
 
-// One text held across calls, `set` answers whether it changed
 interface Memo {
     readonly text: () => string;
     readonly set: (text: string) => boolean;
 }
 
-// Held from register until reload: settings, claimed spawns, the footer text, the last log line
 interface Environment {
     readonly chosen: Settings;
     readonly claims: Set<string>;
@@ -73,7 +70,7 @@ interface Environment {
 const _CTRL = /\p{Cc}+/gu;
 const _WORKTREE: Argv = ['git', 'rev-parse', '--show-toplevel'];
 const _BRANCH: Argv = ['git', 'branch', '--show-current'];
-const _NONE: readonly string[] = [];
+const _NO_ENTRIES: readonly string[] = [];
 
 // --- [MEMO] ----------------------------------------------------------------------------
 
@@ -99,12 +96,11 @@ const _run = ($: EngineInterface, argv: Argv, init?: ProcessRunInit): Promise<Re
 
 // --- [OPEN] ----------------------------------------------------------------------------
 
-// WAL switch runs as its own process after the schema committed, its exclusive lock waits on no busy handler
-// Loss to a concurrent first open of a fresh sink is logged and leaves the sink open in its journal mode
 const _switched = ($: EngineInterface, sqlite: Argv, root: string): Promise<Result<Sink>> =>
     _run($, sqlite, { stdin: 'pragma journal_mode=wal;' }).then((switched) => {
-        if (switched.kind === 'fault') {
-            $.ui.log(`journal mode not switched, ${switched.reason}`);
+        const mode = switched.kind === 'ok' ? switched.value.trim() : switched.reason;
+        if (mode !== 'wal') {
+            $.ui.log(`journal mode not switched, ${mode}`);
         }
         return ok({ argv: sqlite, root });
     });
@@ -139,7 +135,7 @@ const _open = ($: EngineInterface): Promise<Result<Sink>> =>
 const _write = ($: EngineInterface, sqlite: Argv, built: Row): Promise<void> =>
     _run($, sqlite, { stdin: script(built) }).then((ran) => {
         if (ran.kind === 'fault') {
-            $.ui.log(`${built.event} row ${built.toolUseId.kind === 'text' ? built.toolUseId.text : built.sessionId} not written, ${ran.reason}`);
+            $.ui.log(`${built.event} row ${built.toolUseId.kind === 'some' ? built.toolUseId.value : built.sessionId} not written, ${ran.reason}`);
         }
     });
 
@@ -151,9 +147,9 @@ const record = (
     columns: Columns,
     ts: number,
 ): Promise<void> => {
-    const own: Cell = session(value, columns);
-    return own.kind === 'text'
-        ? _write($, sink.argv, row(event, value, columns, own.text, ts))
+    const own = session(value, columns);
+    return own.kind === 'some'
+        ? _write($, sink.argv, row(event, value, columns, own.value, ts))
         : $.session.id().then((id) => _write($, sink.argv, row(event, value, columns, id, ts)));
 };
 
@@ -189,10 +185,9 @@ const _spawn = ($: EngineInterface, agent: string, prompt: string, description: 
 
 const _skip = ($: EngineInterface, reason: string): readonly string[] => {
     $.ui.log(`boundary skipped, ${reason}`);
-    return _NONE;
+    return _NO_ENTRIES;
 };
 
-// Claim holds the agent definition from the spawn call until the spawn resolves and later boundary events list the subagent
 const _judge = ($: EngineInterface, lineage: Lineage, to: number, range: Range, tasks: readonly string[], claims: Set<string>): void => {
     if (due(range, [...tasks, ...claims])) {
         claims.add(range.trigger.agent);
@@ -207,21 +202,11 @@ const _judge = ($: EngineInterface, lineage: Lineage, to: number, range: Range, 
     }
 };
 
-const _delivered = (
-    $: EngineInterface,
-    sink: Sink,
-    e: Boundary,
-    lineage: Lineage,
-    found: number,
-    now: number,
-): readonly string[] | Promise<readonly string[]> =>
-    e.hook_event_name === 'Stop' && found > 0
-        ? _run($, sink.argv, { stdin: DELIVER(lineage, e.session_id, now), cwd: lineage.worktree }).then((rows) =>
-              rows.kind === 'fault' ? _skip($, `delivery rows not written, ${rows.reason}`) : context(rows.value, lineage.branch),
-          )
-        : _NONE;
+const _delivered = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, now: number): Promise<readonly string[]> =>
+    _run($, sink.argv, { stdin: DELIVER(lineage, e.session_id, now), cwd: lineage.worktree }).then((rows) =>
+        rows.kind === 'fault' ? _skip($, `delivery rows not written, ${rows.reason}`) : context(rows.value, lineage.branch),
+    );
 
-// Refused category spawns take their report rows back, so the category is due again at the next boundary event
 const _revoked = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, now: number, launched: boolean): void => {
     if (!launched) {
         _run($, sink.argv, { stdin: REVOKE(lineage, e.session_id, now), cwd: lineage.worktree }).then((taken) => {
@@ -266,48 +251,13 @@ const _handed = (
     e: Boundary,
     lineage: Lineage,
     environment: Environment,
-    seen: State,
     now: number,
-    candidate: Candidate | undefined,
-): readonly string[] | Promise<readonly string[]> =>
-    candidate === undefined
-        ? _delivered($, sink, e, lineage, seen.undelivered, now)
-        : _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, now), cwd: lineage.worktree })
-              .then((written) => _reported($, sink, e, lineage, environment, now, candidate, written))
-              .then(() => _delivered($, sink, e, lineage, seen.undelivered, now));
-
-const _shown = (
-    $: EngineInterface,
-    sink: Sink,
-    e: Boundary,
-    lineage: Lineage,
-    to: number,
-    environment: Environment,
-    seen: State,
-): readonly string[] | Promise<readonly string[]> => {
-    if (environment.footer.set(status(seen))) {
-        $.ui.invalidate('ui.render');
-    }
-    const tasks = listed(e.background_tasks);
-    if (tasks.kind === 'fault') {
-        return _skip($, tasks.reason);
-    }
-    _judge($, lineage, to, seen.edits, tasks.value, environment.claims);
-    const waiting = awaiting(seen);
-    if (
-        e.hook_event_name === 'Stop' &&
-        environment.chosen.categoryThreshold === 0 &&
-        waiting.length > 0 &&
-        environment.logged.set(unbuilt(waiting))
-    ) {
-        $.ui.log(environment.logged.text());
-    }
-    const [candidate] = dueCategories(seen, environment.chosen, [...tasks.value, ...environment.claims]);
-    if (candidate !== undefined) {
-        environment.claims.add(environment.chosen.categoryAgent);
-    }
-    return _handed($, sink, e, lineage, environment, seen, $.clock.now(), candidate);
-};
+    candidate: Candidate,
+    delivering: boolean,
+): Promise<readonly string[]> =>
+    _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, now), cwd: lineage.worktree })
+        .then((written) => _reported($, sink, e, lineage, environment, now, candidate, written))
+        .then(() => (delivering ? _delivered($, sink, e, lineage, now) : _NO_ENTRIES));
 
 const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, environment: Environment): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: STATE(lineage, to, environment.chosen), cwd: lineage.worktree }).then((read) => {
@@ -315,10 +265,31 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
             return _skip($, `state not read, ${read.reason}`);
         }
         const seen = state(read.value, environment.chosen);
-        return seen.kind === 'fault' ? _skip($, `state line not read, ${seen.reason}`) : _shown($, sink, e, lineage, to, environment, seen.value);
+        if (seen.kind === 'fault') {
+            return _skip($, `state line not read, ${seen.reason}`);
+        }
+        if (environment.footer.set(status(seen.value))) {
+            $.ui.invalidate('ui.render');
+        }
+        const tasks = listed(e.background_tasks);
+        if (tasks.kind === 'fault') {
+            return _skip($, tasks.reason);
+        }
+        _judge($, lineage, to, seen.value.edits, tasks.value, environment.claims);
+        const stopping = e.hook_event_name === 'Stop';
+        const waiting = awaiting(seen.value);
+        if (stopping && environment.chosen.categoryThreshold === 0 && waiting.length > 0 && environment.logged.set(unbuilt(waiting))) {
+            $.ui.log(environment.logged.text());
+        }
+        const [candidate] = dueCategories(seen.value, environment.chosen, [...tasks.value, ...environment.claims]);
+        const delivering = stopping && seen.value.undelivered > 0;
+        if (candidate === undefined) {
+            return delivering ? _delivered($, sink, e, lineage, $.clock.now()) : _NO_ENTRIES;
+        }
+        environment.claims.add(environment.chosen.categoryAgent);
+        return _handed($, sink, e, lineage, environment, $.clock.now(), candidate, delivering);
     });
 
-// Branch empty on a detached head, so the lineage is the worktree's
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
     _run($, _BRANCH, { cwd: e.cwd }).then((branch) =>
         branch.kind === 'fault'
@@ -336,19 +307,17 @@ const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Envi
         if (e.hook_event_name === 'SessionEnd' && environment.footer.set('')) {
             $.ui.invalidate('ui.render');
         }
-        return _stopping(e) ? _boundary($, sink, e, to, environment) : _NONE;
+        return _stopping(e) ? _boundary($, sink, e, to, environment) : _NO_ENTRIES;
     });
 
 const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult =>
-    entries.length === 0 ? result : { ...result, additionalContext: [...(result.additionalContext ?? _NONE), ...entries] };
+    entries.length === 0 ? result : { ...result, additionalContext: [...(result.additionalContext ?? _NO_ENTRIES), ...entries] };
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
 const register: Register = (on, options) => {
     const claims: Set<string> = new Set();
-    // Footer empty at zero counts, after a reload, and after SessionEnd, written at boundary events alone
     const environment: Environment = { chosen: settings(options), claims, footer: _memo(), logged: _memo() };
-    // Thunk keeps `$` inside the hook, since the validator follows `$` into top-level functions alone, and the memo out of a parameter
     let opening: Promise<Result<Sink>> | undefined;
     const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
         opening ??= attempt();
@@ -392,7 +361,7 @@ const register: Register = (on, options) => {
         ($, e, next) =>
             next.is('!classic.PreToolUse', e)
                 ? once(() => _open($))
-                      .then((sink) => (sink.kind === 'ok' ? _observed($, sink.value, e, environment, $.clock.now()) : _NONE))
+                      .then((sink) => (sink.kind === 'ok' ? _observed($, sink.value, e, environment, $.clock.now()) : _NO_ENTRIES))
                       .then((entries) => next(e).then((result) => _answered(result, entries)))
                 : next(e),
     );

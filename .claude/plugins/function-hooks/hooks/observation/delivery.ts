@@ -77,15 +77,12 @@ const _under = (column: string, worktree: string): string => {
     return `(${column} = ${literal} or substr(${column}, 1, length(${literal}) + 1) = ${quoted(`${worktree}/`)})`;
 };
 
-// Some session runs the agent on the worktree, a row of the running_agents view
 const _elsewhere = (agent: string, lineage: Lineage): string =>
     `exists (select 1 from running_agents r where r.agent_type = ${quoted(agent)} and ${_under('r.cwd', lineage.worktree)})`;
 
-// Range cells: rows of the trigger's view on the worktree since the lineage's last range up to the event, that range's end, a run elsewhere
 const _range = (trigger: Trigger, lineage: Lineage, to: number): string =>
     `(select count(1) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}), r.f, ${trigger.threshold > 0 ? _elsewhere(trigger.agent, lineage) : '0'}`;
 
-// One state line of six cells, then one line per recurring category
 const STATE = (lineage: Lineage, to: number, chosen: Settings): string => {
     const key = quoted(lineage.key);
     return [
@@ -160,11 +157,9 @@ const state = (stdout: string, chosen: Settings): Result<State> => {
 
 // --- [DECISIONS] -----------------------------------------------------------------------
 
-// Agent definitions the boundary event lists in flight, every Stop and SubagentStop row of the sink carries the field
 const listed = (tasks: ClassicHookInputs['Stop']['background_tasks']): Result<readonly string[]> =>
     tasks === undefined ? fault('background_tasks absent') : ok(tasks.flatMap((task) => (task.agent_type === undefined ? [] : [task.agent_type])));
 
-// Busy names the agent definitions in flight in this session and claimed by this process
 const due = (range: Range, busy: readonly string[]): boolean =>
     range.trigger.threshold > 0 && range.count >= range.trigger.threshold && !range.running && !busy.includes(range.trigger.agent);
 
@@ -181,36 +176,35 @@ const rangePrompt = (lineage: Lineage, from: number, to: number): string => `ran
 
 const categoryPrompt = (category: string, lineage: Lineage): string => `category ${category} lineage ${lineage.key}`;
 
-const _many = (count: number, noun: string): string => `${count} ${noun}${count === 1 ? '' : 's'}`;
+const _many = (count: number, one: string, many: string): string => `${count} ${count === 1 ? one : many}`;
 
-// One additionalContext entry naming the ids a delivery returned, none when it returned none
 const context = (stdout: string, branch: string): readonly string[] => {
     const found = _lines(stdout);
     return found.length === 0
         ? []
-        : [`${_many(found.length, 'finding')} on ${branch}, ids ${found.join(', ')}, apply the delivery section of the observation skill`];
+        : [
+              `${_many(found.length, 'finding', 'findings')} on ${branch}, ids ${found.join(', ')}, apply the delivery section of the observation skill`,
+          ];
 };
 
 const _segment = (count: number, text: string): readonly string[] => (count === 0 ? [] : [text]);
 
-// Footer label the `SessionMode` render hook draws
 const status = (seen: State): string => {
     const waiting = awaiting(seen).length;
     return [
-        ..._segment(seen.edits.count, `${_many(seen.edits.count, 'edit')} unjudged`),
-        ..._segment(seen.open, `${_many(seen.open, 'finding')} open`),
-        ..._segment(waiting, _many(waiting, 'recurring category')),
+        ..._segment(seen.edits.count, `${_many(seen.edits.count, 'edit', 'edits')} unjudged`),
+        ..._segment(seen.open, `${_many(seen.open, 'finding', 'findings')} open`),
+        ..._segment(waiting, _many(waiting, 'recurring category', 'recurring categories')),
     ].join(' · ');
 };
 
-// Spawns resolve once the subagent started, with its id, or refused
 const resolved = (agent: string, subject: string, result: AgentSpawnResult): string =>
     result.deny === undefined
         ? `spawned ${agent}${result.agentId === undefined ? '' : ` ${result.agentId}`} over ${subject}`
         : `${agent} refused over ${subject}: ${result.deny}`;
 
 const unbuilt = (waiting: readonly Candidate[]): string =>
-    `${waiting.map((candidate) => `${candidate.category} ${_many(candidate.sites, 'site')}`).join(', ')} at categoryThreshold 0`;
+    `${waiting.map((candidate) => `${candidate.category} ${_many(candidate.sites, 'site', 'sites')}`).join(', ')} at categoryThreshold 0`;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-expansion-in-sql-literal
+language: bash
+severity: error
+rule:
+    kind: string
+    all:
+        - has: {kind: 'simple_expansion, expansion, command_substitution'}
+        - regex: '^"(?:[^'']*''[^'']*'')*[^'']*''[^'']*\$(\{|\(|[A-Za-z_])'
+        - not: {regex: '^"\s*\.param\s'}
+        - inside:
+              kind: command
+              has: {field: name, regex: '^(?:\S+/)?sqlite3$'}
+message: Shell expansion sits inside a single-quoted SQL literal of a `sqlite3` command
+note: "`-cmd \".param set :name '<value>'\"` binds an identifier or path, `json_each(readfile(:file))` reads text from a JSON file"

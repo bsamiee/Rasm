@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-aggregate
+language: sql
+severity: error
+rule:
+    kind: invocation
+    all:
+        - has: {kind: object_reference, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$', pattern: _AGG}
+        - not: {has: {kind: keyword_distinct}}
+        - not: {has: {kind: filter_expression}}
+        - has:
+              field: parameter
+              kind: term
+              has:
+                  field: value
+                  any:
+                      - pattern: {context: 'select case when _COND then _VALUE end', selector: case}
+                      - pattern: {context: 'select iif(_COND, _VALUE, null)', selector: invocation}
+                      - pattern: {context: 'select iif(_COND, _VALUE)', selector: invocation}
+fix: $AGG($VALUE) filter (where $COND)
+message: '`$AGG` folds a conditional that answers null outside `$COND`'
+note: '`$AGG($VALUE) filter (where $COND)` aggregates the matching rows alone, the aggregate ignores null already'

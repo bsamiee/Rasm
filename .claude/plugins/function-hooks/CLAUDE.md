@@ -1,19 +1,19 @@
 # [FUNCTION_HOOKS]
 
-Layers of the plugin from the hooks module up to the units a purpose adds, each built on the capability of the layer beneath, with the touch point that extends each layer and what a change there costs. Use `observation` for every name, statement, and command against the sink, `plugin-authoring` for the harness contract of a hooks module.
+Layers of the plugin from the hooks module up to the units a purpose adds, each built on the capability of the layer beneath, with the touch point that extends each layer and what a change there costs. Use `observation` for every name, script, and command against the sink, `plugin-authoring` for the harness contract of a hooks module.
 
 ## [01]-[ENGINE]
 
 `hooks/register.ts` is the one module the harness loads, holds every registration and every `$` call, and turns each event it records into one row:
-- `tool.call` folds the policies of `hooks/policies/` through `hooks/events/tool-call.ts`, the wait policy on Bash alone, the first refusal answers
+- `tool.call` folds `hooks/policies/` through `hooks/events/tool-call.ts`, wait and script policies on Bash alone, the first refusal answers
 - Bash and Monitor commands take one `ast-grep` process per call and one more per `sh -c` or `eval` body to depth 8, an unread command is refused
 - Deny from a policy or a plugin beneath is recorded on `tool.call`, a host permission denial as `PermissionDenied`, a passed call as `PostToolUse`
 - `classic.*` records the events its matcher lists, `turn.*` the turn events, `ui.render` on `SessionMode` draws the footer label
 - `record` is the one path every row takes: event name, value, a `Columns` selection, and the clock, session id from the selection or the harness
 - `hooks/observation/row.ts` builds the row: selected fields become columns, every other field stays in `payload` under its harness name
-- Drops are Read content, image data, and notebook cells, Write content, each batch call's response, and a deny trace's values
+- Drops are file bodies and images of Read, Write, and Edit calls, batch call responses, and deny trace values
 - `script` of `hooks/observation/sql.ts` renders one insert, one awaited `sqlite3` process writes it before `next(e)`, a deny row after the answer
-- `sqlite3` is the binary `mise where sqlite` names, read once per load, a `mise exec` launcher per write costs more than the write
+- `sqlite3` is `bin/sqlite3` under the install `mise where sqlite` names, read once per load, a `mise exec` launcher costs more than a write
 - Failed write is one `$.ui.log` line naming the row, the row is lost, nothing retries
 - `open` runs once per load at its first recorded event, one `sqlite3` process applying the declarations, a second switching the journal to WAL
 - Failed open is one log line and no rows until reload, a session outside a git repository opens nothing
@@ -29,7 +29,7 @@ Layers of the plugin from the hooks module up to the units a purpose adds, each 
 - Two sessions of one lineage stopping inside one state read both spawn, their duplicate ledger and delivery rows read as one range and one key
 - Session killed with no end row leaves its spawn's start row standing, triggers naming that agent wait until the session resumes and stops
 - Hook that throws, outruns its budget, or answers a wrong shape is skipped and the event's answer stands, a module defect costs rows, never the turn
-- `hooks/composition/` holds the result types, `Decision` for a policy and `Result` for a process, `hooks/text/` the command parser and path helper
+- `hooks/composition/` holds `Decision` for a policy, `Result` for a process, `Option` for absence, `hooks/text/` the parser and path helper
 
 ## [02]-[SINK]
 
@@ -37,11 +37,13 @@ One SQLite file per repository, at the path `observation` names, holds every row
 - Rows are one table with identity columns beside one JSON `payload`, written once, updated and deleted by nothing in the plugin
 - Payload key the harness adds lands on new rows with no change, older rows answer null to `json_extract` over it
 - Views are the `_VIEWS` elements of `sql.ts`, each one question over rows, dropped and created at every open, a new body applies at the next load
+- Views reach other views through joins, a correlated subquery over a view runs its body once per outer row
 - Lookup tables hold every state, channel, and kind, `_ROWS` adds a declared value at open and retires one no row references
 - `bar_verdict` holds the verdict shape and no declared row
 - Finding tables of `_TABLES` hold category, path, text, span, message, and source, never a shape, a rubric, or a purpose, any judgment writes them
 - Writers are disjoint, agents write finding, transition, ledger, and bar rows through the skill, the engine observation, delivery, and enum rows
-- Identity expression of `finding_id` is fixed once rows exist, a rebuild recomputes the ids while transitions keep the old ones
+- `text_hash` and `finding_id` are generated columns fixed once rows exist, a rebuild recomputes them while transitions keep the old ids
+- Moved site keeps its id, its `moved` transition carries the new path, `finding_state` reads the current path from the latest transition
 - Evolution is `open`: declarations are the schema, the delta to the file is applied at each load's first event, a refused delta rolls back whole
 - Delta file beside the sink holds the drops and rebuilds the last open computed, the record of a refused open
 - Rebuild refuses a `not null` column with no default over rows, a renamed strict key, a declaration sharing no stored column, a check old rows fail
@@ -56,10 +58,11 @@ One SQLite file per repository, at the path `observation` names, holds every row
 ## [03]-[SKILL]
 
 `.claude/skills/observation/SKILL.md` is the read and write contract between the sink and every reader and writer above it:
-- Skill owns every write statement, every view reader, and every name a row, view, state, or channel carries, an agent's file holds its scope selects
-- Verdict names stay in the rubric skill that judges them, the skill holds the statement that writes them into `bar_verdict`
-- Skill owns the checker mapping, one statement per checker turning its JSON into site rows, a new checker is one more statement there
-- To a specialization the skill is preloaded whole at spawn through `skills`, an agent's file names a statement and restates none of it
+- Skill owns every write script, every view reader, and every name a row, view, state, or channel carries, an agent's file holds its scope selects
+- Skill's `references/sqlite.md` holds the SQLite and DuckDB facts that decide a script's form, one section per documentation page
+- Verdict names stay in the rubric skill that judges them, the skill's `bar.sql` writes them into `bar_verdict`
+- Skill owns the checker mapping, one script per checker turning its JSON into site rows, a new checker is one more script there
+- To a specialization the skill is preloaded whole at spawn through `skills`, an agent's file names a script and restates none of it
 - Main agent loads the skill by its description when it reads rows or acts on a delivered line
 - Skill holds the main agent's side of the contract: what the context line asks and the transitions that close it
 - Reader is a command under an allow row the tree holds, never a registered tool, a tool wraps the command and adds no fact
@@ -70,10 +73,10 @@ Purpose above the sink is one of three units, chosen by what the purpose needs t
 - View answers a question a query over rows answers: one `_VIEWS` element of `sql.ts`, its reader in the skill, and the views test's count
 - View never touches `register.ts`, `row.ts`, an agent, or an option, and reads what rows already hold
 - Agent profile answers a judgment needing the working tree or a rubric: one file under `.claude/agents/` preloading `observation` and the rubric
-- Agent reads rows and the working tree, writes finding rows through the skill's statements, and touches nothing in the plugin beyond its name
+- Agent reads rows and the working tree, writes finding rows through the skill's scripts, and touches nothing in the plugin beyond its name
 - Rubric stays in its owning skill, `ast-grep` for shapes, `clean-prose` for prose, the agent holds run order, prompt-supplied scope, and its gate
 - Option pair answers a trigger: `<kind>Threshold` and `<kind>Agent` in `userConfig`, a trigger in `delivery.ts` naming a view, a `range_kind` row
-- Option pair touches no row or agent, names a count and never a purpose, its spawn joins the judging step and its kind the skill's ledger statement
+- Option pair touches no row or agent, names a count and never a purpose, its spawn joins the judging step and its kind the skill's `ledger.sql`
 - Option values come from `pluginConfigs` of user settings, `--settings`, or managed settings, a project `.claude/settings.json` reaches no option
 - Options are read once at `register`, a changed value waits for the plugin's reload
 - Category trigger is the second pair, `categoryThreshold` and `categoryAgent` over recurring confirmed categories, free of purpose the same way
@@ -90,13 +93,14 @@ Rows hold every event the module registers, from every session, process, and wor
 - Running spawn is listed under `background_tasks` at boundary events, its `turn.complete` row ends it in `running_agents`
 - Classic events outside the matcher reach no row, `PreToolUse` among them
 - `Stop` fires before the turn's last transcript records and `SessionEnd` sees them, `/clear` ends one session id and starts another
-- Transcript text and per-message usage stay in the transcript files, rows keep the paths as pointers the skill's DuckDB command reads
+- Transcript text and per-message usage stay in the transcript files, rows keep the paths as pointers the skill's transcript scripts read
+- Shell rewrite of a file (`sd`, `sed -i`, `perl -i`, a redirect) leaves no patch row, `edited_files` and the lifecycle's `-` line see none
 - Remote-isolated subagent runs elsewhere and lands no row, its `Agent` row holds `remote_launched`, `taskId`, and `sessionUrl`, no `agentId`
 
 ## [06]-[OTHER_PURPOSES]
 
 Loop with another purpose, one whose evidence is harness events, runs on the same layers and touches nothing in the plugin:
-- Rows already hold the evidence: files edited with their patches, commands run, agents spawned, denials, compactions, tokens, and dollars
+- Rows hold the evidence: files edited with their patches, commands run, agents spawned, denials, compactions, tokens, and dollars
 - Question is a query an agent runs through the skill's read command, a view joins `sql.ts` when the query recurs across readers
 - Judgment is one agent under `.claude/agents/` preloading `observation` and its own rubric's skill, writing `finding` rows under its own categories
 - Verification is the agent's concern: a judgment writes `proposed` and its verifier confirms, a checker source writes `confirmed` and never delivers
@@ -115,8 +119,8 @@ Change at a level costs in proportion to what sits above it:
 - Delivered context line costs the main agent one more model step at that `Stop`
 - Sink change applies at the next load in every session, a table body change rebuilds the table, a view change reaches every reader from then
 - Sink change without its skill change is a drift no checker reports, an agent's command fails first
-- Skill change runs in every agent that preloads it on its next spawn, a wrong statement writes wrong rows under every purpose
-- Skill statement is proven by running it against the live sink, the skill's own commands are the proof
+- Skill change runs in every agent that preloads it on its next spawn, a wrong script writes wrong rows under every purpose
+- Skill script is proven by running it against a copy of the sink, the skill's own command form is the proof
 - Agent change costs model tokens per run and rows others act on, `confirmed` reaches the main agent at the next `Stop`, `proposed` waits
 - Option change costs cadence, a lower threshold spawns more often over smaller ranges, a name matching no definition refuses the spawn, logged
 - View change costs nothing at write time and one query per reader, a wrong view answers wrong rows to every reader, the views test proves it prepares

@@ -1,7 +1,15 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-forwarding-shell-function
+id: no-forwarding-function-bash
 language: bash
 severity: error
+utils:
+    single-command-body:
+        kind: compound_statement
+        has: {kind: command}
+        not:
+            any:
+                - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}
+                - has: {regex: '^&$'}
 rule:
     kind: function_definition
     not: {has: {field: redirect, pattern: $$_REDIRECT}}
@@ -9,8 +17,7 @@ rule:
         - has: {field: name, pattern: $NAME}
         - has:
             field: body
-            kind: compound_statement
-            matches: bash-single-command-body
+            matches: single-command-body
             has:
                 kind: command
                 pattern: $CALL

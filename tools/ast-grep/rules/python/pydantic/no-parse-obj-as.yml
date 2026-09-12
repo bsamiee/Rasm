@@ -1,8 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-parse-obj-as
-language: python
-severity: error
-rule:
-    matches: {python-module-member: {module: {regex: '^pydantic((\.deprecated)?\.tools)?$'}, name: {regex: "^parse_obj_as$", pattern: $NAME}}}
-message: '`$NAME` is a deprecated `TypeAdapter` wrapper'
-note: 'Use `TypeAdapter(<type>).validate_python(<value>)` with the adapter built once'

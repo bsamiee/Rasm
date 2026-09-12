@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-arm-case
+language: sql
+severity: error
+rule:
+    kind: case
+    pattern: _CASE
+    any:
+        - pattern: {context: 'select case when _COND then _THEN end', selector: case}
+        - pattern: {context: 'select case when _COND then _THEN else _ELSE end', selector: case}
+    not:
+        all:
+            - not: {has: {kind: keyword_else}}
+            - inside:
+                  kind: term
+                  inside:
+                      kind: invocation
+                      all:
+                          - has: {kind: object_reference, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}
+                          - not: {has: {kind: keyword_distinct}}
+rewriters:
+    - id: with-else
+      rule: {pattern: {context: 'select case when _COND then _THEN else _ELSE end', selector: case}}
+      fix: iif($COND, $THEN, $ELSE)
+    - id: without-else
+      rule: {pattern: {context: 'select case when _COND then _THEN end', selector: case}}
+      fix: iif($COND, $THEN, null)
+transform:
+    RESULT: {rewrite: {source: $CASE, rewriters: [with-else, without-else]}}
+fix: $RESULT
+message: '`case` with one `when` arm selects between two values'
+note: '`iif($COND, $THEN, $ELSE)` is the same selection as one call, `null` where the `case` has no `else`'

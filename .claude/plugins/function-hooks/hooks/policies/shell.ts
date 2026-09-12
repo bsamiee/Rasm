@@ -13,11 +13,13 @@ const _LAUNCHERS: readonly string[] = ['mise', 'doppler', 'op'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _launched = (words: readonly string[]): readonly string[] =>
-    _LAUNCHERS.includes(basename(strip(words)[0] ?? '')) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
+const _launched = (words: readonly string[]): readonly string[] => {
+    const [head] = strip(words);
+    return head !== undefined && _LAUNCHERS.includes(basename(head)) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
+};
 
 const _heads = (words: readonly string[]): readonly string[] =>
-    [pastAssignments(words)[0], strip(words)[0], ..._launched(words)].map((word) => basename(word ?? ''));
+    [...pastAssignments(words).slice(0, 1), ...strip(words).slice(0, 1), ..._launched(words)].map(basename);
 
 const _reason = (command: Command): readonly string[] => {
     const heads = _heads(command.words);

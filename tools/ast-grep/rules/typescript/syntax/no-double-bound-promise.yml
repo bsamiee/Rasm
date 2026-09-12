@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-double-bound-promise
+language: tsx
+severity: error
+utils:
+    promise:
+        kind: identifier
+        pattern: $P
+    awaited:
+        kind: await_expression
+        has: {matches: promise}
+    chain:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^then$'}
+                - has: {field: object, any: [{matches: promise}, {matches: chain}]}
+    bound:
+        any: [{matches: promise}, {matches: awaited}, {matches: chain}]
+rule:
+    kind: 'arguments, array'
+    any:
+        - has: {matches: chain, follows: {stopBy: end, matches: bound}}
+        - has: {any: [{matches: promise}, {matches: awaited}], follows: {stopBy: end, matches: chain}}
+message: '`$P` is bound by two `then` chains one call joins'
+note: 'One `$P.then` callback reads the value once and returns both results'

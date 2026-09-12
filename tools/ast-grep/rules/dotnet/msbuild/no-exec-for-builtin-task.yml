@@ -36,9 +36,19 @@ transform:
             source: $DELETED
             replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*touch\s+([^"''\s]+)\s*["'']'
             by: '<Touch${1}Files="${2}" AlwaysCreate="true"'
-    APPENDED:
+    COPIED:
         replace:
             source: $TOUCHED
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:copy|cp)\s+([^"''\s-][^"''\s]*)\s+([^"''\s]+)\s*["'']'
+            by: '<Copy${1}SourceFiles="${2}" DestinationFiles="${3}"'
+    MOVED:
+        replace:
+            source: $COPIED
+            replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*(?:move|mv|ren|rename)\s+([^"''\s-][^"''\s]*)\s+([^"''\s]+)\s*["'']'
+            by: '<Move${1}SourceFiles="${2}" DestinationFiles="${3}"'
+    APPENDED:
+        replace:
+            source: $MOVED
             replace: '(?s)^<Exec\b([^<]*?)\bCommand\s*=\s*["'']\s*echo\s+(.*?)\s*(?:&gt;&gt;|>>)\s*([^"''\s]+)\s*["'']'
             by: '<WriteLinesToFile${1}File="${3}" Lines="${2}"'
     WRITTEN:
@@ -49,4 +59,4 @@ transform:
     RESTORED: {replace: {source: $WRITTEN, replace: '^<ExecKeep', by: '<Exec'}}
 fix: $RESTORED
 message: '`Exec` runs a shell command for a file operation a built-in task covers on every operating system'
-note: Use the built-in task
+note: 'Use `MakeDir`, `RemoveDir`, `Delete`, `Copy`, `Move`, `Touch`, or `WriteLinesToFile`'

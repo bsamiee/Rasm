@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-module-state
+id: no-module-state-tsx
 language: tsx
 severity: error
 rule:

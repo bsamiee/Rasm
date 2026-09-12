@@ -214,9 +214,10 @@ const Property: Property = {
         Property.define({
             name: options.name ?? 'operation is deterministic',
             arbitraries: { input: options.arb },
-            predicate: (subject, { input }) =>
-                // ast-grep-ignore: no-repeated-call-expression
-                Effect.zipWith(subject(input), subject(input), (first, second) => (options.equals ?? Equal.equals)(first, second)),
+            predicate: (subject, { input }) => {
+                const run = subject(input);
+                return Effect.zipWith(run, run, (first, second) => (options.equals ?? Equal.equals)(first, second));
+            },
             counterexample: options.counterexample,
         }),
     homomorphic: (options) =>

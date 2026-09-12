@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-boolean-sum
+language: sql
+severity: error
+rule:
+    kind: invocation
+    all:
+        - has: {kind: object_reference, regex: '(?i)^(sum|total)$', pattern: _AGG}
+        - not: {has: {kind: keyword_distinct}}
+        - not: {has: {kind: filter_expression}}
+        - has:
+              field: parameter
+              kind: term
+              has:
+                  field: value
+                  pattern: _COND
+                  any:
+                      - kind: binary_expression
+                        has: {field: operator, pattern: __OPERATOR, regex: '(?i)^(=|==|<>|!=|<|>|<=|>=|is|is\s+not|like|not\s+like|glob|in|not\s+in|between|not\s+between|and|or)$'}
+                      - kind: unary_expression
+                        has: {field: operator, kind: keyword_not}
+fix: count(1) filter (where $COND)
+message: '`$AGG` adds the truth values of `$COND`'
+note: '`count(1) filter (where $COND)` counts the matching rows, and answers 0 where a sum over no true row answers null'

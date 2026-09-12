@@ -125,7 +125,7 @@ flowchart LR
 
 - `.claude/settings.json` holds allow list, one entry per tool or server, and `mise env` hooks
 - `.mcp.json` runs each stdio server under `mise exec`
-- `function-hooks` plugin refuses destructive git commands, shell waits, and a second config file beside its owner
+- `function-hooks` plugin policies refuse destructive git commands, shell waits, written files run in one call, hand timing, and second config files
 - Skills hold knowledge of one subject, agents hold one role with its procedure and gate, memory holds facts no file covers
 - `nx run rasm:browsers` installs the Chromium build the Playwright commands launch
 
