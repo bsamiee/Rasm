@@ -16,6 +16,7 @@
             { "runtime": "dotnet --version" }
         ],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }],
+        "xcode": [{ "runtime": "xcodebuild -version" }],
         "typescript": [
             "{workspaceRoot}/biome.json",
             "{workspaceRoot}/tsconfig.base.json",
@@ -33,6 +34,27 @@
                 "filter": { "projects": ["tag:language:dotnet"] },
                 "dependsOn": ["^build", { "projects": ["rasm"], "target": "restore" }],
                 "inputs": ["...", "dotnet"]
+            },
+            {
+                "filter": { "projects": ["tag:language:swift"] },
+                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination generic/platform=macOS -derivedDataPath .cache/xcode/{projectRoot} build",
+                "inputs": ["default", "xcode"],
+                "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug"]
+            }
+        ],
+        "lint": [
+            {
+                "filter": { "projects": ["tag:language:swift"] },
+                "command": "xcrun swift-format lint --strict --recursive {projectRoot}",
+                "cache": true,
+                "inputs": ["default", "xcode"]
+            }
+        ],
+        "format": [
+            {
+                "filter": { "projects": ["tag:language:swift"] },
+                "command": "xcrun swift-format format --in-place --recursive {projectRoot}",
+                "cache": false
             }
         ],
         "typecheck": [
@@ -80,7 +102,10 @@
                 ]
             }
         ],
-        "check": [{ "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] }]
+        "check": [
+            { "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] },
+            { "filter": { "projects": ["tag:language:swift"] }, "dependsOn": ["build", "lint"] }
+        ]
     },
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false } },
     "plugins": [

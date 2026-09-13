@@ -86,7 +86,7 @@ const GIT = {
     reset: { why: 'wipes working-tree or index state', flags: ['--hard', '--merge', '--keep'], refine: _reset },
     restore: { why: 'discards working-tree state', refine: _restore },
     revert: { why: 'reverses committed history', any: true },
-    stash: { why: 'hides uncommitted work other agents depend on', any: true, safe: ['list', 'show'] },
+    stash: { why: 'hides uncommitted work other agents depend on, git show HEAD:<path> reads the committed file', any: true, safe: ['list', 'show'] },
     switch: { why: 'discards local changes', flags: ['-f', '-C', '--discard-changes'], starts: ['--force'] },
 } as const satisfies Readonly<Record<string, GitRow>>;
 

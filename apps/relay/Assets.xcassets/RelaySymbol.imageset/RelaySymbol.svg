@@ -1,0 +1,7 @@
+<svg fill="none" height="16" viewBox="0 0 16 16" width="16" xmlns="http://www.w3.org/2000/svg">
+  <title>Relay</title>
+  <path d="M2.4 2.8H10C12.43 2.8 14.4 4.77 14.4 7.2V8.4M13.6 13.2H6C3.57 13.2 1.6 11.23 1.6 8.8V7.6" stroke="black" stroke-linecap="round" stroke-width="1.15" />
+  <path d="M5.2 6.4H10M6 9.6H10.8" stroke="black" stroke-linecap="round" stroke-width="1.15" />
+  <circle cx="2.4" cy="2.8" fill="black" r="1.1" />
+  <circle cx="13.6" cy="13.2" fill="black" r="1.1" />
+</svg>

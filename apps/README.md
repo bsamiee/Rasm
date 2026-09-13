@@ -7,28 +7,31 @@ Each `apps/<app-name>/` holds one app's projects in every language it needs. App
 ```text
 apps/
 └── <app-name>/
-    ├── <Project>/          # C# project, joined to Workspace.slnx
-    ├── <project>/          # Python project, resolved by the root `pyproject.toml`
-    └── <project>/          # TypeScript project, included by the pnpm apps/*/* glob
+    ├── <Project>/              # C# project, joined to Workspace.slnx
+    ├── <project>/              # Python project, resolved by the root pyproject.toml
+    ├── <project>/              # TypeScript project, included by the pnpm apps/*/* glob
+    ├── <App>.xcodeproj/        # Swift app project and shared scheme, Info.plist and asset catalog beside it
+    └── <Area>/<Feature>.swift  # Swift files by responsibility, synchronized into the app target
 ```
 
 - App directories stay unrelated: apps couple only through a published package, never through a shared parent
-- Language mix is an app decision, an app spans C#, Python, and TypeScript with a directory per project
+- Language mix is an app decision, an app spans C#, Python, TypeScript, and Swift with a manifest per project
 - Path segments hold app identity alone, host and deployment come from project configuration
 - Pulumi programs an app owns sit under the app directory with one stack per environment, and `infra/` holds the repository's own resources
 
 ## [02]-[HOSTS]
 
-Rhino 9 and Grasshopper 2 are the current hosts. Blender or any later host joins by adding its boundary package under `libs/`, with no change to tree, glob, or classification here.
+Rhino 9, Grasshopper 2, and macOS are the current hosts. Host APIs belong at app boundaries or in independently consumable packages under `libs/`.
 
 [CRITICAL]: Rhino work targets Rhino 9 on macOS, never GH1 `.gha`, Rhino 8, or Windows.
 
 - Hosts get no folder level, an app naming its host is a naming choice, not structure
 - `Directory.Build.props` owns project classification and the host assembly references
+- Xcode owns a macOS app's toolchain and SDK
 
 ## [03]-[SHARED_CONFIGURATION]
 
-Root configuration files reach every app directory, an app adds no configuration of its own.
+Root files own shared policy, project manifests own app configuration.
 
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position
@@ -42,9 +45,15 @@ Root configuration files reach every app directory, an app adds no configuration
 - Project `tsconfig.json` extends `tsconfig.base.json` and holds its `outDir` under `.cache/` and its `types`
 - `references` lists the projects a project depends on, `typecheck` builds it from its own `tsconfig.json`, and `^typecheck` runs them first
 
+[SWIFT]:
+- `.xcodeproj` files own their build settings: Swift version, warnings as errors, upcoming features, deployment target, bundle identity, and signing
+- Synchronized root folders include every source and resource under the project root, membership exceptions list the files the bundle leaves out
+- `swift-format` runs at its defaults, with no configuration file
+
 ## [04]-[PROJECT_CREATION]
 
 Projects are written by hand as the minimal file set, the set an init command produces.
 
 - C# projects are a `.csproj` listed in `Workspace.slnx` and checked by the project policy targets
 - TypeScript projects are a `package.json` beside a `tsconfig.json` that extends the root configuration
+- Swift apps are an `.xcodeproj` with a shared scheme beside an `Info.plist`

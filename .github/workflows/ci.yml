@@ -33,7 +33,22 @@ jobs:
                 workflow-id: ci.yml
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
-            - run: nx affected -t check
+            - run: nx affected -t check --exclude=tag:host:macos
+
+    macos:
+        runs-on: macos-26
+        timeout-minutes: 60
+        steps:
+            - uses: actions/checkout@v7
+              with:
+                fetch-depth: 0
+                filter: tree:0
+                persist-credentials: false
+            - uses: nrwl/nx-set-shas@v5
+              with:
+                workflow-id: ci.yml
+            - uses: ./.github/actions/setup
+            - run: nx affected -t check --exclude='!tag:host:macos'
 
     format:
         runs-on: ubuntu-24.04
@@ -47,7 +62,7 @@ jobs:
             - run: git diff --exit-code
 
     required:
-        needs: [check, format]
+        needs: [check, macos, format]
         if: always()
         runs-on: ubuntu-slim
         timeout-minutes: 5

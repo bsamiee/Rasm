@@ -8,6 +8,9 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
+[*.swift]
+indent_size = 2                                                               # swift-format default
+
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
 csharp_style_namespace_declarations = file_scoped:error                       # File-scoped namespaces

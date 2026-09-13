@@ -1,0 +1,10 @@
+<svg fill="none" height="1024" viewBox="0 0 1024 1024" width="1024" xmlns="http://www.w3.org/2000/svg">
+  <title>Relay</title>
+  <rect fill="#FAFAFA" height="824" rx="185.4" width="824" x="100" y="100" />
+  <g stroke="#242424" stroke-linecap="round" stroke-width="2.25" transform="translate(248 248) scale(22)">
+    <path d="M5 5.5H14.5C17.5376 5.5 20 7.96243 20 11V12.5M19 18.5H9.5C6.46243 18.5 4 16.0376 4 13V11.5"/>
+    <path d="M8.5 10H14.5M9.5 14H15.5"/>
+    <circle cx="5" cy="5.5" fill="#242424" r="2.1" stroke="none"/>
+    <circle cx="19" cy="18.5" fill="#242424" r="2.1" stroke="none"/>
+  </g>
+</svg>

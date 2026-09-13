@@ -116,6 +116,7 @@ lerna-debug.log*
 mise.local.toml
 .idea/
 .history/
+xcuserdata/
 *.swp
 *.swo
 *.tmp
