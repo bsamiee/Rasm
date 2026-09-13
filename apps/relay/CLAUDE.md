@@ -109,7 +109,7 @@ Everything Relay owns sits under `~/Library/Application Support/Relay`, `<id>` t
 ## [05]-[PERMISSIONS]
 
 Relay has no sandbox, entitlement, Automation, Accessibility, or notification API, prompts are Keychain, login items, and a profile's folder reads:
-- Build signs automatically with the Apple Development identity of team `BBXB9R367P`, issued by Xcode to the Apple ID in Xcode > Settings > Apple Accounts
+- Build signs automatically with the Apple Development identity of team `BBXB9R367P`, issued by Xcode to the signed-in Apple ID
 - Designated requirement names Apple's chain, that team, and the certificate, one Keychain grant survives every rebuild
 - CI signs ad-hoc through `CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=` forwarded to the build target
 - Answer "Always Allow" with the login password at the first read of each item, Claude Code's `apple-tool:` partition asks for the password
