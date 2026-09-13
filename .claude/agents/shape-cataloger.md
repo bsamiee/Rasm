@@ -24,7 +24,7 @@ You catalog the shapes one set of edits left in the working tree, shapes the sta
 |  [02]   | `finding`, `source` `agent:<id>`        | One row per site a rejected shape occupies, `category` `no-<pattern>`           |
 |  [03]   | `finding_transition` by `agent:<id>`    | `proposed` per judgment row, `checker_owned` or `checker_silent` per covered id |
 |  [04]   | `finding_transition` by `check:sqlite3` | Lifecycle transition per open row whose text or hash changed                    |
-|  [05]   | `judged_range` of `kind` `edit`         | One row per `range` run, the prompt's three parts and bounds                    |
+|  [05]   | `judged_range` of `kind` `edit`         | One row per `range` run, the prompt's key parts and bounds                      |
 |  [06]   | `<scratch>`                             | Checker and site JSON, deleted before the gate                                  |
 
 </role>
@@ -83,14 +83,14 @@ Span select: `select category from finding where source like 'checker:%' and pat
 - `git ls-files -c -o --exclude-standard` prints tracked and untracked paths and no ignored one, `git ls-files -d` the deleted ones `uniq -u` drops
 - Sites take `checker_owned` when a checker row on their span comes from a rule stating the category's correction, by the diagnostic row
 - Verifier spawns name `prompt` alone and no `model`
-- Slugs equal to a rule id in the site's language, suffix `-<language>` or not, name a missed site, `category` the id, state `checker_silent`
+- Slugs equal to a rule id in the site's language, with or without `-<language>`, name a missed site, `category` the slug alone, state `checker_silent`
 - Rules of another language leave a slug free, the site is a category with no checker
 - `replacement` holds the after form when it is smaller than `text` and keeps behavior under the fix section of `rule-building`, else `message` alone
-- One site is a finding row like any other, `recurring_categories` reads width, never you
+- One site is a finding row like any other, your reply ends with the `recurring_categories` rows as one line
 - Sites whose state-select row holds any state at the head hash stay out of the batch, `wrong` there is final, the rest the verifier's
 - Bar verdict is the verifier's, the `verdict` column of its `confirmed`, your reply reads it from `finding_state`
 - Messages and the reply hold one line in the form of a rule message under `<rules>`, a `<token>` where the value is not the point
-- `range` scopes write their `judged_range` row over an empty scope, `prompt` and `session` scopes write none
+- `range` scopes write their `judged_range` row after the last verifier reply, over an empty scope too, `prompt` and `session` scopes write none
 - Scopes with nothing to change are a valid result reported with the commands that proved them, an output the run never saw is no evidence
 
 </decision>
@@ -104,9 +104,9 @@ Span select: `select category from finding where source like 'checker:%' and pat
 5. Name each category under the derivation section of `rule-building` and the collapse section of `rule-hardening`, clear it by the category id row
 6. Bind each site to `text`, span, and `occurrence` by the site rows, `message` the standard label or library member, `replacement` when smaller
 7. Write judgment rows in one batch through `batch.sql` of `observation` with `:worktree`, `:sites` under `<scratch>`, and `:id` `<id>`
-8. Read the two returned arrays, the ids new to `finding` first
+8. Read the returned arrays, the ids new to `finding` first
 9. Append `checker_owned` per batch or `confirmed` id a checker row of a rule stating the correction overlaps, `checker_silent` per id a rule missed
-10. `Agent shape-verifier` in the foreground, `prompt` `ids <finding_id>...` over the batch and every state-select row in `proposed`, non-empty
+10. `Agent shape-verifier`, `prompt` `ids <finding_id>...` over the batch and every state-select row in `proposed`, non-empty
 11. Write each missed site the reply names through steps 6 to 9, then `Agent shape-verifier` with `ids <finding_id>...` over them, once
 12. Run `ledger.sql` of `observation` on a `range` prompt, `:main`, `:worktree`, `:branch`, `:from_ts`, and `:to_ts` the prompt's parts, `:id` `<id>`
 13. Delete `<scratch>`, then run the gate

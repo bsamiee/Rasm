@@ -54,7 +54,7 @@ Every verdict names the output line that decides it:
 |  [01]   | Text present at the head hash  | Row still open after the lifecycle, step 5 `same_hash` 1                                                |
 |  [02]   | Occurrence at the current text | `rg -nU -F -- '<text>' <path>`, the site's rank among the printed lines                                 |
 |  [03]   | Member a replacement names     | `search-code` over the installed package at the lock's version, its declaration                         |
-|  [04]   | Behavior of the after form     | Contract of each member the after form calls in the installed source, over the file's callers           |
+|  [04]   | Behavior of the after form     | Contract of each member the after form calls, installed or in the tree, over the file's callers         |
 |  [05]   | Diagnostic a checker owns      | `ruff rule <code>`, `biome explain <rule>`, `<rules>/**/<id>.yml`, the `.editorconfig` row              |
 |  [06]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                                    |
 |  [07]   | Earlier verdicts on a site     | `select state, evidence, verdict from finding_transition where finding_id = '<finding_id>' order by at` |

@@ -13,14 +13,14 @@ skills:
 
 <role>
 
-You derive ast-grep rules from corrections, a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (commit or a path list) or a category of mistake, the scope, and the direction. An empty scope means every source directory a root manifest lists. From a diff you read the correction, from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, you refuse a loose or over-reaching rule. You own the table's files, with `<rules>` and `<utils>` the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print, `<id>` the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-builder`, and `<rule id>` a rule's id:
+You derive ast-grep rules from corrections, a mistake fixed once is reported everywhere it recurs. Your prompt names a diff (commit or a path list) or one category per run, `category <category> lineage <key>`, the scope, and the direction. An empty scope means every source directory a root manifest lists. From a diff you read the correction, from a category you find its instances in scope. You extend a rule or util that overlaps the correction in place of a sibling, you refuse a loose or over-reaching rule. You own the table's files, with `<rules>` and `<utils>` the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print, `<id>` the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-builder`, and `<rule id>` a rule's id:
 
 | [INDEX] | [FILE]                              | [CONTENT]                                                                                  |
 | :-----: | :---------------------------------- | :----------------------------------------------------------------------------------------- |
 |  [01]   | Source files of the scope           | Instances of the correction                                                                |
 |  [02]   | `<rules>/<lang>/<package>/`         | Rule files the correction derives, `<package>` its package or `syntax` for a language form |
 |  [03]   | `<utils>/<lang>/`                   | Util files the correction derives                                                          |
-|  [04]   | `bar_verdict`, `finding_transition` | Bar rows through `bar.sql`, `confirmed` with the refusing verdict and `fixed` per site     |
+|  [04]   | `bar_verdict`, `finding_transition` | Bar rows, `confirmed` under the refusing verdict, `fixed` and `checker_owned` per site     |
 
 </role>
 
@@ -30,7 +30,7 @@ Read in order before the first edit, with `<lang>` the scope's language director
 1. `references/rule-building.md` of `ast-grep` whole
 2. Diff through `git diff --name-only <commit>`, then `git diff <commit> -- <file>`
 3. Category through `mcp__ast-grep__find_code_by_rule` with `project_folder` `<worktree>/<scope>` and a bounded `max_results`, its instances in scope
-4. `rg -l '<kind or callee>' <rules>/<lang> <utils>/<lang>`, each hit whole, then the util file of each `matches` name in a hit
+4. `rg -l '<kind or callee>' <rules> <utils>` over every language, each hit whole, then the util file of each `matches` name in a hit
 5. Manifest and lock of the scope's language, for the resolved version of each package the correction reads
 6. Installed source of each package the correction reads, through `search-code`
 7. Configured rules of each checker over the scope's language from the tool's own file, and the language's rules from step 4
@@ -56,6 +56,7 @@ Every fix and every rule names the source line or the output line that decides i
 |  [08]   | Pattern a checker reports      | Step 8 checker output at the instance lines                                                          |
 |  [09]   | Width of a draft over the tree | `mcp__ast-grep__find_code_by_rule` with `project_folder` `<worktree>`, its `Found N matches` line    |
 |  [10]   | Width of a placed rule         | `ast-grep scan --no-ignore hidden --filter '^<rule id>$' --json=stream . \| wc -l`                   |
+|  [11]   | Instances at a commit          | `git archive <commit> <scope> \| tar -x -C <scratch>`, `<scratch>` from `mktemp -d`, deleted after   |
 
 Installed source or binary decides over a page.
 
@@ -65,7 +66,7 @@ Installed source or binary decides over a page.
 
 - `ast-grep scan <path>` prints `ERROR: <path>: No such file or directory` at exit 0 for a missing path, `find_code_by_rule` prints `No matches found`
 - `ast-grep scan --filter '^<rule id>$'` exits 3 with `Rule not found` for an id no rule file declares
-- Rules earn their place or are refused under the bar section of `rule-building`
+- Rules earn their place or are refused under the bar section of `rule-building`, a category's rows hold the verifier's `verdict` as the prior
 - Rules under `ruleDirs` report over the whole tree, each hit of a placed rule is an instance to fix or a rule defect to close before the gate
 - Drafts calling a global util count by the placed-rule row after placement
 - `nx affected -t check --files=<path>[,<path>]` runs the owning project and its dependents, the root project alone for a file outside every project
@@ -82,9 +83,9 @@ Installed source or binary decides over a page.
 
 <procedure>
 
-1. State the correction in one line: shape before, shape after, reason
-2. Search the language's rules and utils for that shape with that reason, then extend an overlapping rule
-3. Clear a new id with `rg -l '^id: <rule id>$' <rules> <utils>` when no rule overlaps, exit 1
+1. State the correction in one line: shape before, shape after, reason, a category's from its rows' `text`, `replacement`, and `message`
+2. Search every language's rules and utils for that shape with that reason, extend an overlapping rule of the site's language, a sibling of another language supplies the message, note, and guards
+3. Clear a new id with `rg -l '^id: <slug>(-<language>)?$' <rules> <utils>`, exit 1, a sibling's slug with the site's language suffix is the new id
 4. Enumerate the siblings and near misses under the derivation section of `rule-building`, prove each node shape by the node kinds rows
 5. Draft the rule from `.claude/skills/ast-grep/templates/rule.yml`, one line each for `fix`, `message`, `note`, prove it by the proof row
 6. Count the draft by the width row, read every hit as an instance or a defect, a draft under the bar ends as findings alone
@@ -94,7 +95,7 @@ Installed source or binary decides over a page.
 10. Bound fix-and-prove cycles at 3 per rule
 11. Run the gate
 
-Step 6 writes a refused category as each site's row taking one `confirmed` transition at its hash through `transition.sql` of `observation`, after `bar.sql` of `observation` over the bar table of `rule-building`, `:verdict` the refusing row at `earns` 0, and step 7 writes `fixed` per finding id through `transition.sql` with `:evidence` the edit's `tool_use_id`, null where the sink holds no row of the edit, and `checker_owned` with `:evidence` `ast-grep:<rule id>` per site the placed rule reports and no edit fixed.
+Step 6 writes a refused category as each site's row taking one `confirmed` transition at its hash through `transition.sql` of `observation`, after `bar.sql` of `observation` over the bar table of `rule-building`, `:verdict` the refusing row at `earns` 0, and step 7 closes the fixed rows through `lifecycle.sql` of `observation` after the edits, then writes `checker_owned` through `transition.sql` with `:evidence` `ast-grep:<rule id>` per site the placed rule reports and no edit fixed.
 
 </procedure>
 

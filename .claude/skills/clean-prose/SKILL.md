@@ -12,7 +12,7 @@ Governs every English text in a project (markdown, comments, messages, identifie
 - [02]-[REWRITES](references/rewrites.md): Before and after pairs for structural moves, with rewrites that look right and fail
 
 [SCRIPTS]:
-- [01]-[PROSE](scripts/prose.py): `uv run --script scripts/prose.py check <path>...` prints findings, `fix` writes fixable, NOT authoritative or replacement for direct read
+- [01]-[PROSE](scripts/prose.py): `uv run --script scripts/prose.py check <path>...` prints findings, `fix` writes the fixable ones, a read decides
 
 ## [01]-[TERMINOLOGY]
 
@@ -86,7 +86,7 @@ Each sentence states one instruction or fact in active voice and simple present 
 - Clauses that complete one fact continue after a comma or "and"
 - Lines a reader must act on are instructions, lines that record what a system does are statements
 - Statements and entries open with a subject noun, plural when generic, or with an instruction verb, a condition precedes the verb with a comma
-- Noun chains stop at three words, a longer chain is rebuilt whole
+- Noun chains stop at 3 words, a longer chain is rebuilt whole
 - Instructions state their required form, a sentence opening with `never`, `not`, or `no` states the required form, a restriction that is fact stays
 - Forbidden forms go in the section's anti-pattern table beside the correct form, and stay as facts when section has none
 - Warnings precede their step and state its command or condition, then its risk
@@ -119,7 +119,7 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - Each fact appears once, in its owning file under the heading that names it
 - Sentences that restate what their file, heading, code, or previous sentence supplies at the same scope go
 - Paths and names that locate what a sentence acts on stay
-- Phrasings that differ in subject, scope, or value are two facts or one wrong fact, the phrasing its owning source proves stays
+- Phrasings that differ in subject, scope, or value are separate facts or one wrong fact, the phrasing its owning source proves stays
 - Facts a deleted sentence alone held move to the sentence that holds their topic
 - Heading, lead-in, and previous sentence supply subject, its noun repeats where a fact otherwise attaches to another subject
 - Opening sentences state their scope as one category, every other sentence about the file, section, or skill goes
@@ -150,7 +150,7 @@ Snippets show one rule or operation of the package their file owns, the owned ty
 - Names keep one shape within a file
 
 Tables hold values a reader decides by, the sentence that explains them stays in section text:
-- Headers are one or two words, cells hold values, identifiers, or short phrases without an article, period, or semicolon
+- Headers hold at most 2 words, cells hold values, identifiers, or short phrases without an article, period, or semicolon
 - Cells open with a capital letter, except backticked identifiers and literal words
 - Rows that list what a file exports, declares, or registers go, section text names the file
 - Rows that repeat a step or section sentence go, a step names the table it applies
@@ -169,7 +169,7 @@ Bracket headers with an [INDEX] column are house style:
 
 Comments state intent or constraint code cannot show, in one line and statement with no trailing period:
 - Comments open with a capital letter, backticked identifier, or a tool name, and no article
-- Each sentence stays whole on its line within language line length, intent that needs two lines goes
+- Each sentence stays whole on its line within language line length, intent that needs a second line goes
 - Consecutive full-line comments merge into one, a comment that repeats its code goes
 - Inline comments stay and get the same removals
 - Test case comments name case's shape as a noun phrase, then the fact that decides it

@@ -15,10 +15,11 @@ skills:
 
 You harden ast-grep rules until each reports the whole category its correction covers. Your prompt names the scope (a rules directory, a language, or a rule family) and the direction, an empty scope means every rule under `ruleDirs`. You widen each rule to its category, collapse rules that share correction and reason, attach a missing fix, and prove every change by a scan over the tree. You own the table's files, with `<rules>` and `<utils>` the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print:
 
-| [INDEX] | [FILE]            | [CONTENT]                         |
-| :-----: | :---------------- | :-------------------------------- |
-|  [01]   | `<rules>/<scope>` | Rule files of the scope           |
-|  [02]   | `<utils>/<lang>/` | Util files the scope's rules call |
+| [INDEX] | [FILE]               | [CONTENT]                                                     |
+| :-----: | :------------------- | :------------------------------------------------------------ |
+|  [01]   | `<rules>/<scope>`    | Rule files of the scope                                       |
+|  [02]   | `<utils>/<lang>/`    | Util files the scope's rules call                             |
+|  [03]   | `finding_transition` | `checker_owned` per `missed_sites` row a rebuilt rule reports |
 
 </role>
 
@@ -50,7 +51,8 @@ Every change names the run or the page that decides it:
 |  [09]   | Cost of a rule over the tree       | `hyperfine -N -i -r 8 "ast-grep scan --filter '^<id>$' <file>"`                                     |
 |  [10]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them          |
 |  [11]   | Rules firing every prompt or never | `category_fires` of `observation`, `prompts_fired` per `category` against `prompts_judged`          |
-|  [12]   | Sites a rule missed, its queue     | `missed_sites` of `observation`, one row per site a rule missed                                     |
+|  [12]   | Sites a rule missed                | `missed_sites` of `observation`, one row per site a rule missed                                     |
+|  [13]   | Width at a commit                  | `git archive <commit> <dir> \| tar -x -C <scratch>`, `<scratch>` from `mktemp -d`, deleted after    |
 
 Installed source or binary decides over a page.
 
@@ -70,14 +72,15 @@ Installed source or binary decides over a page.
 
 <procedure>
 
-1. Read each rule against the weakness table of `rule-hardening` and `missed_sites` of `observation`, record each hit as `rule | row | sibling missed`
+1. Read each rule against the weakness table of `rule-hardening`, `missed_sites`, and `category_fires`, each hit as `rule | row | sibling missed`
 2. Widen each hit, collapse, and attach fixes under the pattern, collapse, and fix sequences of `rule-hardening`
 3. Rename each collapsed id in every suppression comment through the sources table
 4. Prove each rebuilt rule by the width row against its before count, each new hit read
-5. Read `git log -p` over each rebuilt rule, restore what the rebuild dropped
-6. Apply each edit as an exact-string replacement that asserts one match, read the result
-7. Bound fix-and-prove cycles at 3 per rule
-8. Run the gate
+5. Write `checker_owned` through `transition.sql` of `observation` per `missed_sites` row a rebuilt rule reports, `:evidence` `ast-grep:<id>`
+6. Read `git log -p` over each rebuilt rule, restore what the rebuild dropped
+7. Apply each edit as an exact-string replacement that asserts one match, read the result
+8. Bound fix-and-prove cycles at 3 per rule
+9. Run the gate
 
 </procedure>
 
@@ -88,6 +91,7 @@ Every command returns zero warnings and zero errors, a failure another agent's e
 - `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c`, each rule at or above its before count
 - `nx affected -t check --files=<path>[,<path>]` over rebuilt rules and utils, `Successfully ran target check`, or `error[<id>]` lines as findings
 - `rg -n -F 'ast-grep-ignore: <old>' .` and `rg -l '^id: <old>$' <rules> <utils>` per collapsed id, exit 1
+- `ast-grep scan --no-ignore hidden --filter '^<id>$' <path>` per `missed_sites` row left under a rebuilt id, no hit, the site reported as a finding
 - `git status --porcelain`, files under `<rules>` and `<utils>` alone
 
 </gate>

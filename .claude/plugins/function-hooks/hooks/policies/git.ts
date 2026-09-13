@@ -1,5 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import type { ToolCallInput } from 'claude-code';
 import { type Decision, deny, pass } from '../composition/decision.ts';
 import { fromNullable, none, type Option, some } from '../composition/option.ts';
 import { type Command, strip } from '../text/command.ts';
@@ -23,10 +24,14 @@ interface Head {
     readonly args: readonly string[];
 }
 
+type WorktreeEvent = Extract<ToolCallInput, { readonly tool: 'Agent' | 'EnterWorktree' }>;
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ADVICE = 'leave the tree and its history as they are';
 const _ALIAS = 'inline git alias can hide a refused subcommand';
+const _DIRECT = 'git show HEAD:<path> reads one committed file, git archive <rev> <path> | tar -x -C <dir> extracts a committed tree';
+const _WORKTREE = `creates a second checkout with its own metadata and sync cost, ${_DIRECT}`;
 const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
 const _GIT_VALUE_OPTS: readonly string[] = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'];
 const _REFINED: readonly string[] = ['reset', 'checkout'];
@@ -35,7 +40,7 @@ const _REFINED: readonly string[] = ['reset', 'checkout'];
 
 const _isFlag = (word: string): boolean => word.startsWith('-');
 
-const _short = (word: string, letter: string): boolean => word.startsWith('-') && !word.startsWith('--') && word.includes(letter);
+const _short = (word: string, letter: string): boolean => _isFlag(word) && !word.startsWith('--') && word.includes(letter);
 
 const _reset: Refinement = (args, existing) => {
     const targets = args.filter((word) => !_isFlag(word));
@@ -86,8 +91,9 @@ const GIT = {
     reset: { why: 'wipes working-tree or index state', flags: ['--hard', '--merge', '--keep'], refine: _reset },
     restore: { why: 'discards working-tree state', refine: _restore },
     revert: { why: 'reverses committed history', any: true },
-    stash: { why: 'hides uncommitted work other agents depend on, git show HEAD:<path> reads the committed file', any: true, safe: ['list', 'show'] },
+    stash: { why: `hides uncommitted work other agents depend on, ${_DIRECT}`, any: true, safe: ['list', 'show'] },
     switch: { why: 'discards local changes', flags: ['-f', '-C', '--discard-changes'], starts: ['--force'] },
+    worktree: { why: _WORKTREE, any: true, safe: ['list'] },
 } as const satisfies Readonly<Record<string, GitRow>>;
 
 type Key = keyof typeof GIT;
@@ -151,6 +157,13 @@ const gitPolicy =
         return distinct.size === 0 ? pass(e) : deny(`${[...distinct].join(', ')}, ${_ADVICE}`);
     };
 
+const _isolated = (e: WorktreeEvent): boolean => e.tool === 'EnterWorktree' || e.isolation === 'worktree';
+
+const _label = (e: WorktreeEvent): string => (e.tool === 'EnterWorktree' ? e.tool : `${e.tool} isolation worktree`);
+
+const worktreePolicy = (e: WorktreeEvent): Decision<WorktreeEvent> => (_isolated(e) ? deny(`${_label(e)} ${_WORKTREE}, ${_ADVICE}`) : pass(e));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { gitPaths, gitPolicy };
+export type { WorktreeEvent };
+export { gitPaths, gitPolicy, worktreePolicy };

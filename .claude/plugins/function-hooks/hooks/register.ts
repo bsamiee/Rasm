@@ -12,19 +12,20 @@ import type {
     ToolCallInput,
     ToolCallResult,
 } from 'claude-code';
-import { fault, ok, type Result } from './composition/result.ts';
+import { bind, fault, ok, type Result } from './composition/result.ts';
 import { decide } from './events/tool-call.ts';
 import {
-    awaiting,
     type Candidate,
     categoryPrompt,
     context,
     DELIVER,
     due,
     dueCategories,
+    held,
     type Lineage,
     lineageOf,
     listed,
+    occupied,
     type Range,
     REPORT,
     REVOKE,
@@ -35,7 +36,7 @@ import {
     settings,
     state,
     status,
-    unbuilt,
+    type Task,
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
@@ -62,7 +63,6 @@ interface Environment {
     readonly chosen: Settings;
     readonly claims: Set<string>;
     readonly footer: Memo;
-    readonly logged: Memo;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -188,8 +188,16 @@ const _skip = ($: EngineInterface, reason: string): readonly string[] => {
     return _NO_ENTRIES;
 };
 
-const _judge = ($: EngineInterface, lineage: Lineage, to: number, range: Range, tasks: readonly string[], claims: Set<string>): void => {
-    if (due(range, [...tasks, ...claims])) {
+const _judge = (
+    $: EngineInterface,
+    lineage: Lineage,
+    to: number,
+    range: Range,
+    tasks: readonly Task[],
+    quiet: boolean,
+    claims: Set<string>,
+): void => {
+    if (due(range, occupied(tasks, claims), quiet)) {
         claims.add(range.trigger.agent);
         _spawn(
             $,
@@ -261,28 +269,24 @@ const _handed = (
 
 const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, environment: Environment): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: STATE(lineage, to, environment.chosen), cwd: lineage.worktree }).then((read) => {
-        if (read.kind === 'fault') {
-            return _skip($, `state not read, ${read.reason}`);
-        }
-        const seen = state(read.value, environment.chosen);
+        const seen = bind(read, (stdout) => state(stdout, environment.chosen));
         if (seen.kind === 'fault') {
-            return _skip($, `state line not read, ${seen.reason}`);
-        }
-        if (environment.footer.set(status(seen.value))) {
-            $.ui.invalidate('ui.render');
+            return _skip($, `state not read, ${seen.reason}`);
         }
         const tasks = listed(e.background_tasks);
+        const holding = tasks.kind === 'ok' ? held(seen.value.edits, tasks.value) : [];
+        if (environment.footer.set(status(seen.value, holding.length))) {
+            $.ui.invalidate('ui.render');
+        }
         if (tasks.kind === 'fault') {
             return _skip($, tasks.reason);
         }
-        _judge($, lineage, to, seen.value.edits, tasks.value, environment.claims);
+        const quiet = holding.length === 0;
+        _judge($, lineage, to, seen.value.edits, tasks.value, quiet, environment.claims);
+        const busy = occupied(tasks.value, environment.claims);
         const stopping = e.hook_event_name === 'Stop';
-        const waiting = awaiting(seen.value);
-        if (stopping && environment.chosen.categoryThreshold === 0 && waiting.length > 0 && environment.logged.set(unbuilt(waiting))) {
-            $.ui.log(environment.logged.text());
-        }
-        const [candidate] = dueCategories(seen.value, environment.chosen, [...tasks.value, ...environment.claims]);
-        const delivering = stopping && seen.value.undelivered > 0;
+        const delivering = stopping && seen.value.undelivered > 0 && quiet && !busy.includes(environment.chosen.edits.agent);
+        const [candidate] = dueCategories(seen.value, environment.chosen, busy, quiet);
         if (candidate === undefined) {
             return delivering ? _delivered($, sink, e, lineage, $.clock.now()) : _NO_ENTRIES;
         }
@@ -317,7 +321,7 @@ const _answered = (result: ClassicResult, entries: readonly string[]): ClassicRe
 
 const register: Register = (on, options) => {
     const claims: Set<string> = new Set();
-    const environment: Environment = { chosen: settings(options), claims, footer: _memo(), logged: _memo() };
+    const environment: Environment = { chosen: settings(options), claims, footer: _memo() };
     let opening: Promise<Result<Sink>> | undefined;
     const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
         opening ??= attempt();

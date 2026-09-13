@@ -424,6 +424,12 @@ def wide(d: Doc) -> list[Line]:
     return [b.head for b in d.blocks if any(wcswidth(line.text) > 150 for line in b.lines)]
 
 
+def counted(d: Doc) -> list[Line]:
+    """Lines of text spans holding an enumeration word of the word map, code spans opaque, each named by the word."""
+    words = r"(?i)\b(?:two|three|four|five|six|seven|eight|nine|ten|several|various|multiple|numerous|a number of|a couple of|a few)\b"
+    return [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in regex.finditer(words, regex.sub(r"`[^`]*`", "", line.text))]
+
+
 def full(block: Block) -> bool:
     """Whether the block is a divider carrying dash fill."""
     return block.ctx is Ctx.DIVIDER and parts(block.ctx, block.text)["fill"] is not None
@@ -474,6 +480,7 @@ RULES: tuple[Fix | Report, ...] = (
     Report(TEXT, "Text opens with an article", probe(r"(?i)(?:a|an|the)\s+\S")),
     Report(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, "Text opens with a lowercase letter", probe(r"\p{Ll}")),
     Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
+    Report(TEXT, "Text counts visible items with `{}`", counted),
     Report(Ctx.ENTRY, "Entry runs past column 150", wide),
     Report(Ctx.TABLE, "Table runs past column 150", wide),
     Report(Ctx.DIVIDER, "Divider `{}` repeats an earlier full divider", repeats),

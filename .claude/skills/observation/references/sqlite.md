@@ -101,7 +101,7 @@ Page `cli.html`, the `sqlite3` process every reader and writer runs:
 |  [01]   | `readfile`, `writefile`, and `sha3` are shell functions         | Hashing writes through the shell, `views.test.ts` throws in its `sha3` |
 |  [02]   | `readfile` is null for a missing path and raises on a directory | `subject_hash` `''` for a gone file, `cast` to text before `instr`     |
 |  [03]   | `-bail` stops at the first error                                | Writers run under `-bail`, a failed statement never reaches `commit`   |
-|  [04]   | `.timeout` waits on a locked database                           | `begin immediate` waits ten seconds before failing                     |
+|  [04]   | `.timeout` waits on a locked database                           | `begin immediate` waits 10 seconds before failing                      |
 |  [05]   | `-json` prints one array per select with rows, nothing for none | Readers read an absent array as zero rows                              |
 |  [06]   | `.mode tabs` writes raw tabs and newlines inside values         | State script cells hold counts and flags alone                         |
 |  [07]   | `.output <file>` and `.read <file>` redirect and replay         | Open writes the delta file, scripts share files through `.read`        |
@@ -146,7 +146,7 @@ Pages `optoverview.html` and `queryplanner.html`, view bodies and indexes:
 | :-----: | :-------------------------------------------------------------- | :------------------------------------------------------------------ |
 |  [01]   | Subquery in `from` flattens into the outer query                | Views join views, a correlated subquery over a view never flattens  |
 |  [02]   | Index serves a prefix of its columns with `=` then one range    | `(event, tool, ts)` serves `event = x and tool in (...) and ts > y` |
-|  [03]   | Two indexes where one is a prefix of the other waste one        | No index on `event` alone beside `(event, tool, ts)`                |
+|  [03]   | Index that is a prefix of another index wastes one              | No index on `event` alone beside `(event, tool, ts)`                |
 |  [04]   | `like` with a literal prefix uses an index, a leading `%` scans | `like '%git mv %'` over Bash rows reads every row of its ts range   |
 |  [05]   | Correlated `not exists` on an unindexed column scans per row    | `tool_use_id` index serves `denials` and the lifecycle's `edit`     |
 

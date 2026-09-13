@@ -20,13 +20,14 @@ Layers of the plugin from the hooks module up to the units a purpose adds, each 
 - Lost journal switch at a concurrent first open of a fresh sink is one log line, the sink stays open in its journal mode
 - Boundary branch runs after the row at `Stop` and at a `SubagentStop` whose `agent_type` is not blank, both with `stop_hook_active` false
 - Boundary reads the lineage from git, runs one state query, spawns due agents by name, writes delivery rows, and answers `additionalContext` entries
+- Boundary is quiet when no task under `background_tasks` edited the unjudged range, spawns and delivery wait for one, the footer counts the editors
 - `hooks/observation/delivery.ts` holds the boundary's pure parts: settings, statements, state parsing, due predicates, prompts, and texts
 - Environment held from `register` until reload: settings read once, spawn claims, logged texts, and the footer label empty at the start
 - Footer label is set at boundary events alone and cleared at `SessionEnd`, no tool event costs a state query
 - Claim holds an agent name from its spawn call until the spawn resolves, later boundary events list the running agent under `background_tasks`
 - Run of the agent from another session on the worktree is a `running_agents` row the state query reads, the trigger waits on it
 - Boundary event with no `background_tasks` field reads state and sets the footer, then skips spawn and delivery, one log line names the absence
-- Two sessions of one lineage stopping inside one state read both spawn, their duplicate ledger and delivery rows read as one range and one key
+- Sessions of one lineage stopping inside one state read each spawn, their duplicate ledger and delivery rows read as one range and one key
 - Session killed with no end row leaves its spawn's start row standing, triggers naming that agent wait until the session resumes and stops
 - Hook that throws, outruns its budget, or answers a wrong shape is skipped and the event's answer stands, a module defect costs rows, never the turn
 - `hooks/composition/` holds `Decision` for a policy, `Result` for a process, `Option` for absence, `hooks/text/` the parser and path helper
@@ -52,7 +53,7 @@ One SQLite file per repository, at the path `observation` names, holds every row
 - Retired view goes at the next open, a retired table or index stays until a statement drops it
 - Engine scripts run under `-bail`, without it the shell continues past a failed statement and reaches `commit`
 - `views.test.ts` runs the open in memory through `node:sqlite`, prepares every view, and rebuilds a changed table over rows, the proof under `check`
-- Several processes and worktrees write one file at once, WAL and the busy timeout serialize them, a reader never waits on a writer
+- Processes and worktrees write one file at once, WAL and the busy timeout serialize them, a reader never waits on a writer
 - Finding rows are never deleted, a refused category spawn takes its `report` delivery rows back, removing `.cache/observation/` is the reset
 
 ## [03]-[SKILL]
@@ -69,7 +70,7 @@ One SQLite file per repository, at the path `observation` names, holds every row
 
 ## [04]-[SPECIALIZATION]
 
-Purpose above the sink is one of three units, chosen by what the purpose needs that the layers beneath lack, each touching its owner alone:
+Purpose above the sink is a view, an agent profile, or an option pair, chosen by what the purpose needs that the layers beneath lack, each touching its owner alone:
 - View answers a question a query over rows answers: one `_VIEWS` element of `sql.ts`, its reader in the skill, and the views test's count
 - View never touches `register.ts`, `row.ts`, an agent, or an option, and reads what rows already hold
 - Agent profile answers a judgment needing the working tree or a rubric: one file under `.claude/agents/` preloading `observation` and the rubric
@@ -80,7 +81,7 @@ Purpose above the sink is one of three units, chosen by what the purpose needs t
 - Option values come from `pluginConfigs` of user settings, `--settings`, or managed settings, a project `.claude/settings.json` reaches no option
 - Options are read once at `register`, a changed value waits for the plugin's reload
 - Category trigger is the second pair, `categoryThreshold` and `categoryAgent` over recurring confirmed categories, free of purpose the same way
-- Category threshold defaults to 0 while `CLAUDE.md` keeps a rule edit a task the user asks for
+- Category threshold defaults to 2, the second instance the root rule names, the builder's run is the rule edit's own task
 - Prompt a spawn passes is the range or the category with the lineage key alone and `cwd` at the worktree, the agent derives the rest from rows
 - Spawned agent runs in the session's process on its file's model, else the session's, its reply is its `turn.complete` `answer` and opens no turn
 - Purpose whose evidence no row holds has its gap at the engine, a payload key or a matcher entry, the layers above read rows alone
@@ -106,7 +107,7 @@ Loop with another purpose, one whose evidence is harness events, runs on the sam
 - Verification is the agent's concern: a judgment writes `proposed` and its verifier confirms, a checker source writes `confirmed` and never delivers
 - Trigger is the existing count, `editAgent` set to the new agent replaces the one it names over the same edits, or a person's `Agent` call
 - Delivery and closing come with the layers, confirmed `agent:*` rows at the head hash undelivered on the lineage reach the main agent at `Stop`
-- Category trigger comes the same way: two confirmed sites of one category with no refusing verdict make it recurring, `categoryAgent` names who acts
+- Category trigger comes the same way, `categoryAgent` names who acts over a recurring category
 - Case, documentation drift: an agent reads `edited_files` of its range, finds prose naming the edited paths, and writes findings the loop delivers
 
 ## [07]-[COST]
@@ -115,7 +116,7 @@ Change at a level costs in proportion to what sits above it:
 - Engine change touches every row after it, a dropped payload key is gone from those rows for good, a column change reaches every view and reader
 - Engine change is proven by a live session after `claude plugin validate`, the typecheck, and the views test pass
 - Engine defect costs a row per event it fails on until reload, a fault the module catches is one `$.ui.log` line in the transcript and the debug log
-- Boundary costs two git processes and one state query at every stop event, a delivery or a report one write more
+- Boundary costs the worktree and branch git processes and one state query at every stop event, a delivery or a report one write more
 - Delivered context line costs the main agent one more model step at that `Stop`
 - Sink change applies at the next load in every session, a table body change rebuilds the table, a view change reaches every reader from then
 - Sink change without its skill change is a drift no checker reports, an agent's command fails first

@@ -3,6 +3,7 @@ select count(*) as touched from finding_state where finding_id in (select value 
 select count(*) as proposed from finding_state where finding_id in (select value from json_each(:ids)) and state = 'proposed';
 select count(*) as unevidenced from finding_transition where by = 'agent:' || :id and state in ('wrong', 'checker_owned', 'checker_silent') and evidence = '';
 select count(*) as unjudged from finding_transition where by = 'agent:' || :id and state = 'confirmed' and verdict is null;
+select count(*) as repeated from (select finding_id from finding_transition where by = 'agent:' || :id group by finding_id, state having count(*) > 1);
 select count(*) as oversized from finding_state where by = 'agent:' || :id and state = 'confirmed' and length(replacement) >= length(text);
 select count(*) as stale from finding_state where by = 'agent:' || :id and subject_hash <> lower(hex(sha3(readfile(path), 256)));
 select count(*) as stale_closed from finding_state where finding_id in (select value from json_each(:ids)) and by = 'check:sqlite3' and subject_hash <> lower(hex(sha3(readfile(path), 256)));

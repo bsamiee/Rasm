@@ -2,6 +2,9 @@
 
 type Result<T> = { readonly kind: 'ok'; readonly value: T } | { readonly kind: 'fault'; readonly reason: string };
 
+// Value of each result by position, a tuple keeps each member's type
+type Values<R extends readonly Result<unknown>[]> = { readonly [K in keyof R]: R[K] extends Result<infer T> ? T : never };
+
 // --- [CONSTRUCTORS] --------------------------------------------------------------------
 
 const ok = <T>(value: T): Result<T> => ({ kind: 'ok', value });
@@ -10,19 +13,19 @@ const fault = <T>(reason: string): Result<T> => ({ kind: 'fault', reason });
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const faults = (results: readonly Result<unknown>[]): readonly string[] =>
-    results.flatMap((result) => (result.kind === 'fault' ? [result.reason] : []));
+const map = <A, B>(result: Result<A>, f: (value: A) => B): Result<B> => (result.kind === 'ok' ? ok(f(result.value)) : result);
 
-// Fault holding every reason of the results
-const invalid = <T>(results: readonly Result<unknown>[]): Result<T> => fault(faults(results).join(', '));
+const bind = <A, B>(result: Result<A>, f: (value: A) => Result<B>): Result<B> => (result.kind === 'ok' ? f(result.value) : result);
 
-// Independent results combine into one, every fault's reason kept
-const all = <T>(results: readonly Result<T>[]): Result<readonly T[]> => {
-    const reasons = faults(results);
-    return reasons.length === 0 ? ok(results.flatMap((result) => (result.kind === 'ok' ? [result.value] : []))) : invalid(results);
+// Array methods over a tuple answer an array, the assertion restores the positions Values names
+const all = <R extends readonly Result<unknown>[]>(results: readonly [...R]): Result<Values<R>> => {
+    const reasons = results.flatMap((result) => (result.kind === 'fault' ? [result.reason] : []));
+    return reasons.length === 0
+        ? ok(results.flatMap((result) => (result.kind === 'ok' ? [result.value] : [])) as Values<R>)
+        : fault(reasons.join(', '));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Result };
-export { all, fault, faults, invalid, ok };
+export { all, bind, fault, map, ok };

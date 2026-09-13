@@ -160,13 +160,16 @@ const _body = (command: Command, depth: number): Option<string> => {
     return text.kind === 'some' && text.value === '' ? none : text;
 };
 
-const _nested = (todo: readonly Command[], depth: number): Option<Nested> =>
-    fromNullable(
-        todo.flatMap((command, at) => {
-            const text = _body(command, depth);
-            return text.kind === 'some' ? [{ before: todo.slice(0, at), command, text: text.value, rest: todo.slice(at + 1) }] : [];
-        })[0],
-    );
+const _nested = (todo: readonly Command[], depth: number, at: number): Option<Nested> => {
+    const command = todo[at];
+    if (command === undefined) {
+        return none;
+    }
+    const text = _body(command, depth);
+    return text.kind === 'some'
+        ? some({ before: todo.slice(0, at), command, text: text.value, rest: todo.slice(at + 1) })
+        : _nested(todo, depth, at + 1);
+};
 
 // --- [REPORT] --------------------------------------------------------------------------
 
@@ -226,7 +229,7 @@ const _placed = (scan: Scanner, depth: number, done: readonly Command[], nested:
             return inner;
         }
         const placed = [...done, ...nested.before, nested.command, ...inner.value];
-        const next = _nested(nested.rest, depth);
+        const next = _nested(nested.rest, depth, 0);
         return next.kind === 'none' ? ok([...placed, ...nested.rest]) : _placed(scan, depth, placed, next.value);
     });
 
@@ -235,7 +238,7 @@ const _parse = (scan: Scanner, text: string, depth: number, condition: boolean, 
         if (parsed.kind === 'fault') {
             return parsed;
         }
-        const nested = _nested(parsed.value, depth);
+        const nested = _nested(parsed.value, depth, 0);
         return nested.kind === 'none' ? parsed : _placed(scan, depth, [], nested.value);
     });
 

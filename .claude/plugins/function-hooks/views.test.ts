@@ -16,11 +16,20 @@ const _OLD_INDEX = 'create index finding_path on finding(path, occurrence);';
 const _OLD_TRANSITION =
     "create table finding_transition(finding_id text not null, state text not null, subject_hash text not null, start_line integer, start_column integer, end_line integer, end_column integer, occurrence integer, at integer not null, by text not null, evidence text, verdict text, successor text) strict; insert into finding_transition(finding_id, state, subject_hash, start_line, occurrence, at, by, evidence, verdict) values ('f1', 'confirmed', 'h1', 3, 1, 1, 'agent:a', 'present', null), ('f1', 'moved', 'h1', null, null, 2, 'check:sqlite3', null, null);";
 const _PARTS = open('.').split(/^\..*\n/gmu);
-const [_BEGUN = '', _SELECTS = '', _DROPS = '', _APPLIED = ''] = _PARTS;
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _binary = (left: string, right: string): number => Number(left > right) - Number(left < right);
+
+const _segments = (parts: readonly string[]): readonly [string, string, string, string] => {
+    const [begun, selects, drops, applied] = parts;
+    if (begun === undefined || selects === undefined || drops === undefined || applied === undefined) {
+        throw new Error(`the open statement splits into ${parts.length} segments, not ${_SEGMENTS}`);
+    }
+    return [begun, selects, drops, applied];
+};
+
+const [_BEGUN, _SELECTS, _DROPS, _APPLIED] = _segments(_PARTS);
 
 const _sha3 = (): never => {
     throw new Error('sha3 hashes rows in the sqlite3 shell alone');

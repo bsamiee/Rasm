@@ -36,15 +36,15 @@ Read in order before the first edit, `<scope>` your file list, `<code>` its file
 
 Every value and every rename names the source that decides it:
 
-| [INDEX] | [QUESTION]                                | [SOURCE]                                                                                   |
-| :-----: | :---------------------------------------- | :----------------------------------------------------------------------------------------- |
-|  [01]   | Real value of a flag, path, or name       | File on disk, then `<tool> --help`, then the tool's documentation                          |
-|  [02]   | Facts a rewrite dropped                   | `git log -p --follow -- <file>`                                                            |
-|  [03]   | Declared value or run fact of a number    | Declaration, manifest, or option that states it                                            |
-|  [04]   | Table row restating a file or a step      | `rg -n -F '<cell>'` over the file's steps and section text, and the file the row describes |
-|  [05]   | References of a TypeScript or Python name | `mcp__ast-grep__find_code`, `pattern` the identifier alone, `project_folder` `<worktree>`  |
-|  [06]   | References of a file or prose name        | `rg -n -F '<name>'`                                                                        |
-|  [07]   | Files a prompt id touched                 | `edited_files` of `Skill(observation)` by `prompt_id`                                      |
+| [INDEX] | [QUESTION]                             | [SOURCE]                                                                                   |
+| :-----: | :------------------------------------- | :----------------------------------------------------------------------------------------- |
+|  [01]   | Real value of a flag, path, or name    | File on disk, then `<tool> --help`, then the tool's documentation                          |
+|  [02]   | Facts a rewrite dropped                | `git log -p --follow -- <file>`                                                            |
+|  [03]   | Declared value or run fact of a number | Declaration, manifest, or option that states it                                            |
+|  [04]   | Table row restating a file or a step   | `rg -n -F '<cell>'` over the file's steps and section text, and the file the row describes |
+|  [05]   | References of a code name              | `mcp__ast-grep__find_code`, `pattern` the identifier alone, `project_folder` `<worktree>`  |
+|  [06]   | References of a file or prose name     | `rg -n -F '<name>'`                                                                        |
+|  [07]   | Files a prompt id touched              | `edited_files` of `Skill(observation)` by `prompt_id`                                      |
 
 File on disk, `<tool> --help`, and the documentation decide over a prompt or message.
 
@@ -73,7 +73,7 @@ Rename coined names through the tool that updates every reference, prove each re
 | [INDEX] | [SUBJECT]                      | [TOOL_AND_PROOF]                                                                        |
 | :-----: | :----------------------------- | :-------------------------------------------------------------------------------------- |
 |  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`, then its symbol search has no exact old name   |
-|  [02]   | TypeScript or Python symbol    | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>`, then `rg -n -F '<old>'` exit 1 |
+|  [02]   | Symbol of every other language | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>`, then `rg -n -F '<old>'` exit 1 |
 |  [03]   | File or directory              | `git mv`, then every reference edited, then `rg -n -F '<old path>'` exit 1              |
 |  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`, then `rg -n -F '<old>'` exit 1             |
 
