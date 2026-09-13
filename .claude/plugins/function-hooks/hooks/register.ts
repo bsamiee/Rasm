@@ -12,6 +12,7 @@ import type {
     ToolCallInput,
     ToolCallResult,
 } from 'claude-code';
+import { fromNullable, none, type Option } from './composition/option.ts';
 import { bind, fault, ok, type Result } from './composition/result.ts';
 import { decide } from './events/tool-call.ts';
 import {
@@ -22,6 +23,7 @@ import {
     due,
     dueCategories,
     held,
+    LEDGER,
     type Lineage,
     lineageOf,
     listed,
@@ -171,15 +173,15 @@ const _denied = (
 const _stopping = (e: Classic): e is Boundary =>
     (e.hook_event_name === 'Stop' && !e.stop_hook_active) || (e.hook_event_name === 'SubagentStop' && e.agent_type !== '' && !e.stop_hook_active);
 
-const _spawn = ($: EngineInterface, agent: string, prompt: string, description: string, cwd: string, subject: string): Promise<boolean> =>
+const _spawn = ($: EngineInterface, agent: string, prompt: string, description: string, cwd: string, subject: string): Promise<Option<string>> =>
     $.agent.spawn({ prompt, subagentType: agent, description, cwd }).then(
         (result) => {
             $.ui.log(resolved(agent, subject, result));
-            return result.deny === undefined;
+            return fromNullable(result.agentId);
         },
         (cause: unknown) => {
             $.ui.log(`${agent} did not spawn, ${String(cause)}`);
-            return false;
+            return none;
         },
     );
 
@@ -188,8 +190,16 @@ const _skip = ($: EngineInterface, reason: string): readonly string[] => {
     return _NO_ENTRIES;
 };
 
+const _claimed = ($: EngineInterface, sink: Sink, lineage: Lineage, range: Range, to: number, agent: string): Promise<void> =>
+    _run($, sink.argv, { stdin: LEDGER(lineage, range, to, agent, $.clock.now()), cwd: lineage.worktree }).then((written) => {
+        if (written.kind === 'fault') {
+            $.ui.log(`ledger row not written, ${written.reason}`);
+        }
+    });
+
 const _judge = (
     $: EngineInterface,
+    sink: Sink,
     lineage: Lineage,
     to: number,
     range: Range,
@@ -199,14 +209,9 @@ const _judge = (
 ): void => {
     if (due(range, occupied(tasks, claims), quiet)) {
         claims.add(range.trigger.agent);
-        _spawn(
-            $,
-            range.trigger.agent,
-            rangePrompt(lineage, range.from, to),
-            `judge ${range.trigger.kind}s`,
-            lineage.worktree,
-            `${range.from}..${to}`,
-        ).then(() => claims.delete(range.trigger.agent));
+        _spawn($, range.trigger.agent, rangePrompt(lineage, range.from, to), `judge ${range.trigger.kind}s`, lineage.worktree, `${range.from}..${to}`)
+            .then((spawned) => (spawned.kind === 'some' ? _claimed($, sink, lineage, range, to, spawned.value) : undefined))
+            .then(() => claims.delete(range.trigger.agent));
     }
 };
 
@@ -247,9 +252,9 @@ const _reported = (
         'judge category',
         lineage.worktree,
         candidate.category,
-    ).then((launched) => {
+    ).then((spawned) => {
         environment.claims.delete(environment.chosen.categoryAgent);
-        _revoked($, sink, e, lineage, now, launched);
+        _revoked($, sink, e, lineage, now, spawned.kind === 'some');
     });
 };
 
@@ -282,7 +287,7 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
             return _skip($, tasks.reason);
         }
         const quiet = holding.length === 0;
-        _judge($, lineage, to, seen.value.edits, tasks.value, quiet, environment.claims);
+        _judge($, sink, lineage, to, seen.value.edits, tasks.value, quiet, environment.claims);
         const busy = occupied(tasks.value, environment.claims);
         const stopping = e.hook_event_name === 'Stop';
         const delivering = stopping && seen.value.undelivered > 0 && quiet && !busy.includes(environment.chosen.edits.agent);

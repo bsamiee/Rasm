@@ -131,8 +131,3 @@ Relay has no sandbox, entitlement, Automation, Accessibility, or notification AP
 - `Claude`, `OpenAI`, and `RelaySymbol` are single-SVG imagesets with template rendering and preserved vector representation
 - `Relay:lint` and `Relay:format` run `swift-format`, `Relay:check` depends on `build` and `lint`
 - CI runs the affected `check` of macOS projects on the `xcode-27` runner
-
-## [07]-[ATTRIBUTION]
-
-- Claude mark is Claude's from claude.com, OpenAI mark is Simple Icons' under CC0 1.0, Relay's symbol and icon are original
-- Relay is adapted from Franciskid's LLMCodeBar, LICENSE holds its MIT notice

@@ -8,7 +8,7 @@
         "editThreshold": {
             "type": "number",
             "title": "Edit threshold",
-            "description": "Unjudged in-tree edits on a lineage that spawn the edit agent at a quiet boundary, 0 off",
+            "description": "Unjudged in-tree files edited on a lineage that spawn the edit agent at a quiet boundary, 0 off",
             "default": 20,
             "min": 0
         },

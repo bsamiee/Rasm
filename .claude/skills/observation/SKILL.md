@@ -6,10 +6,10 @@ user-invocable: false
 
 # [OBSERVATION]
 
-Sink `<main>/.cache/observation/observation.db` holds one row per hook event the `function-hooks` plugin records, views over the rows, and finding tables agents write, one file per repository under its main worktree. `<main>` is the first `worktree` line of `git worktree list --porcelain`, `<worktree>` the `git rev-parse --show-toplevel` line, `<branch>` the `git branch --show-current` line, and `<db>` the sink path. Readers run `sqlite3 -json -cmd ".param set :<name> <value>" <db> "<select>"` from `<worktree>`, one binding per id the select reads, `-json` renders `payload` as a JSON string and `jq '[.[] | .payload |= fromjson]'` nests it. Writers run one script from `<worktree>` with its parameters bound before the read:
+Sink `<main>/.cache/observation/observation.db` holds one row per hook event the `function-hooks` plugin records, views over the rows, and finding tables agents write, one file per repository under its main worktree. `<main>` is the first `worktree` line of `git worktree list --porcelain`, `<worktree>` the `git rev-parse --show-toplevel` line, `<branch>` the `git branch --show-current` line, `<db>` the sink path, and `<scripts>` `.claude/skills/observation/scripts`. Readers run `sqlite3 -json -cmd ".param set :<name> <value>" <db> "<select>"` from `<worktree>`, one binding per id the select reads, `-json` renders `payload` as a JSON string and `jq '[.[] | .payload |= fromjson]'` nests it. Writers run one script from `<worktree>` with its parameters bound before the read:
 
 ```bash
-sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> ".read .claude/skills/observation/scripts/lifecycle.sql"
+sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> ".read <scripts>/lifecycle.sql"
 ```
 
 One `-cmd ".param set :<name> <value>"` binds each parameter, the value SQL-evaluated: text goes as `'<text>'`, a text holding `'` as `"'<text>'"` with each `'` doubled, a number bare, an absent value as `null`, and a name left unbound reads null. `:sites` names a JSON array of objects keyed by `site` columns, `:out` the JSON a checker wrote, `:ids` a JSON array of finding ids. DuckDB scripts run `duckdb -json -cmd "set variable transcript = '<transcript>'" -f <script>`, the sink attached through `-cmd "attach '<db>' as s (type sqlite, read_only)"`.
@@ -25,12 +25,11 @@ One `-cmd ".param set :<name> <value>"` binds each parameter, the value SQL-eval
 - [05]-[BIOME](scripts/biome.sql): `:worktree`, `:out`, confirms `biome lint --reporter=json` diagnostics, returns as `batch.sql`
 - [06]-[ROSLYN](scripts/roslyn.sql): `:worktree`, `:out`, confirms SARIF results with a location, returns as `batch.sql`
 - [07]-[TRANSITION](scripts/transition.sql): `:finding_id`, `:state`, `:by`, `:evidence`, `:verdict`, one transition, returns id and state
-- [08]-[LEDGER](scripts/ledger.sql): `:main`, `:worktree`, `:branch`, `:from_ts`, `:to_ts`, `:id`, one `judged_range` row, returns nothing
-- [09]-[BAR](scripts/bar.sql): `:verdict`, `:earns`, one `bar_verdict` row updated in place, returns nothing
-- [10]-[GATE_CATALOGER](scripts/gate-cataloger.sql): `:id`, the shape-cataloger's gate counts, one named array per select
-- [11]-[GATE_VERIFIER](scripts/gate-verifier.sql): `:id`, `:start`, `:ids`, the shape-verifier's gate counts, one named array per select
-- [12]-[TRANSCRIPT](scripts/transcript.sql): DuckDB, variable `transcript`, messages, model, and tokens of one transcript
-- [13]-[AGENT_TRANSCRIPTS](scripts/agent-transcripts.sql): DuckDB, attached `s`, cost per subagent from its transcript, background ones included
+- [08]-[BAR](scripts/bar.sql): `:verdict`, `:earns`, one `bar_verdict` row updated in place, returns nothing
+- [09]-[GATE_CATALOGER](scripts/gate-cataloger.sql): `:id`, the shape-cataloger's gate counts, one named array per select
+- [10]-[GATE_VERIFIER](scripts/gate-verifier.sql): `:id`, `:start`, `:ids`, the shape-verifier's gate counts, one named array per select
+- [11]-[TRANSCRIPT](scripts/transcript.sql): DuckDB, variable `transcript`, messages, model, and tokens of one transcript
+- [12]-[AGENT_TRANSCRIPTS](scripts/agent-transcripts.sql): DuckDB, attached `s`, cost per subagent from its transcript, background ones included
 
 `site.sql`, `hit.sql`, `span.sql`, `line.sql`, and `insert.sql` serve the scripts above through `.read`, none runs alone. A batch is one transaction, a nonzero exit leaves nothing applied.
 
@@ -123,20 +122,20 @@ sqlite3 -json -cmd ".param set :worktree '<worktree>'" <db> "select * from runni
 
 Finding tables in `sql.ts`, every one `strict`, their `state`, `channel`, `kind`, and `verdict` values rows of `transition_state`, `delivery_channel`, `range_kind`, and `bar_verdict`:
 
-| [INDEX] | [TABLE]              | [PURPOSE]                                                  | [WRITER]                            |
-| :-----: | :------------------- | :--------------------------------------------------------- | :---------------------------------- |
-|  [01]   | `finding`            | One row per site, never updated                            | Checker script or judgment agent    |
-|  [02]   | `finding_transition` | Every state change, append-only                            | Judgment agents, checks, the user   |
-|  [03]   | `finding_delivery`   | One row per context line delivered, with its `lineage_key` | Delivery hook alone                 |
-|  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts as columns     | Judgment agent spawned over a range |
+| [INDEX] | [TABLE]              | [PURPOSE]                                                  | [WRITER]                          |
+| :-----: | :------------------- | :--------------------------------------------------------- | :-------------------------------- |
+|  [01]   | `finding`            | One row per site, never updated                            | Checker script or judgment agent  |
+|  [02]   | `finding_transition` | Every state change, append-only                            | Judgment agents, checks, the user |
+|  [03]   | `finding_delivery`   | One row per context line delivered, with its `lineage_key` | Delivery hook alone               |
+|  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts as columns     | Plugin, as a range spawn resolves |
 
 Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase hex:
-- `finding` and `site` generate `ntext` from `text`, tabs, returns, and newlines as spaces, every run of spaces as one
+- `finding` and `site` generate `ntext` as `<normalized>` over `text`, tabs, returns, and newlines as spaces, every run of spaces as one
 - `finding` and `site` generate `text_hash` as `sha3` over `ntext`
 - `finding` generates `finding_id` as `sha3` over `category`, observed `path`, `text_hash`, and `occurrence` joined by `char(0)`
 - `source` takes `checker:<tool>` or `agent:<id>`
 - Every transition writes `path`, the site's current path, `finding_state` reads the latest transition's `path` and the observed path under a null
-- `subject_hash` is `lower(hex(sha3(readfile(<path>), 256)))` at observation, `<path>` the finding's current `path`
+- `subject_hash` is `<head>`, `lower(hex(sha3(readfile(path), 256)))` over the finding's current `path`
 - `subject_hash` of a gone file is `''`, equal to no stored hash
 - `occurrence` is the ordinal of `text` within the file at observation
 - `path` is relative to `<worktree>`, lines and columns are one-based, `byte_start` and `byte_end` zero-based
@@ -145,10 +144,12 @@ Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase 
 - Live rows, `proposed`, `confirmed`, `checker_owned`, `checker_silent`, and `waived`, hold a site on disk, `lifecycle.sql` re-checks each one
 - `lineage_key` is `<main>/<worktree>/<branch>`, generated by `judged_range` from its columns, `<branch>` empty on a detached head
 - `by` takes `user`, `agent:<id>`, or `check:<tool>`, `<id>` the writer's `agent_id` in a subagent, its `session_id` on the main loop
-- `verdict` holds the verifier's bar verdict on its `confirmed`, a `bar_verdict` row copied by a re-confirm and kept across a move, else null
-- `bar_verdict` opens empty, the judging agent fills it from its rubric's bar table through `bar.sql`
+- `verdict` holds the rule builder's `bar_verdict` row on a `confirmed` under a refused category, copied by re-confirm, kept across a move, else null
+- `bar_verdict` opens empty, the rule builder alone fills it from the bar table of `rule-building` through `bar.sql`
 - Retired verdicts keep their `bar_verdict` row, `finding_transition.verdict` references it
-- `confirmed` under another bar leaves `verdict` null, `recurring_categories` reads null as not refused
+- `recurring_categories` reads a null `verdict` as not refused
+- `<rules>` and `<utils>` are the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print
+- Category id is free when `rg -l '^id: <category>(-<language>)?$' <rules> <utils>` exits 1
 
 | [INDEX] | [STATE]          | [MEANING]                                              | [WRITER]                     | [EVIDENCE]                 |
 | :-----: | :--------------- | :----------------------------------------------------- | :--------------------------- | :------------------------- |
@@ -157,12 +158,12 @@ Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase 
 |  [03]   | `wrong`          | Fix changes behavior, or false positive                | `agent:<id>`                 | Reason, final at this hash |
 |  [04]   | `checker_owned`  | Checker rule states the category, a checker row covers | `agent:<id>`                 | `<tool>:<rule id>`         |
 |  [05]   | `checker_silent` | Checker rule states the category and missed the site   | `agent:<id>`                 | `<tool>:<rule id>`         |
-|  [06]   | `fixed`          | Text absent after an edit whose removed lines held it  | `check:<tool>`               | `tool_use_id`              |
+|  [06]   | `fixed`          | Text absent, an edit removed it or a write lacks it    | `check:<tool>`               | `tool_use_id`              |
 |  [07]   | `vanished`       | Text absent with no edit removing it, or `path` gone   | `check:<tool>`               | `null`                     |
 |  [08]   | `moved`          | Text moved by an edit or `git mv` since its transition | `check:<tool>`               | `null`, `path` the new one |
 |  [09]   | `waived`         | User accepts the site as is                            | `user`                       | Reason                     |
 
-Rows are stale when `subject_hash` of the latest `confirmed` differs from `lower(hex(sha3(readfile(path), 256)))` at read time. Rows are covered when the latest transition is `checker_owned` with the checker rule stating the correction as evidence, a checker row on the same span with another correction covers nothing. `readfile` runs from `<worktree>` in a statement alone, views hold none, `:ids` bound to a JSON array of the ids a reader filters by:
+Rows are stale when `subject_hash` of the latest `confirmed` differs from `<head>` at read time, present when `ntext` occurs in `<normalized>` over `cast(readfile(path) as text)`. Rows are covered when the latest transition is `checker_owned` with the checker rule stating the correction as evidence, a checker row on the same span with another correction covers nothing. `readfile` runs from `<worktree>` in a statement alone, views hold none:
 
 ```bash
 # Writer's <id> and <start>, a subagent by :agent, its definition name, the main loop by :literal, text of one of its own Bash commands
@@ -175,8 +176,20 @@ sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from fi
 # Which agent findings stand confirmed with no wrong at the same hash
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from confirmed_findings where finding_id in (select value from json_each(:ids))"
 
-# Which confirmed findings are open and which lineage keys were told since the last close, a key gone at SessionEnd or a non-report PostCompact
-sqlite3 -json -cmd ".param set :key '<lineage_key>'" <db> "select * from open_findings where subject_hash = lower(hex(sha3(readfile(path), 256))) and not exists (select 1 from json_each(delivered_on) where value = :key)"
+# Which confirmed findings are open and present on disk, and which lineage keys were told since the last close
+sqlite3 -json -cmd ".param set :key '<lineage_key>'" <db> "select * from open_findings where instr(<normalized>, ntext) > 0 and not exists (select 1 from json_each(delivered_on) where value = :key)"
+
+# Every transition of one finding in order
+sqlite3 -json -cmd ".param set :finding_id '<finding_id>'" <db> "select state, evidence, verdict, at, by from finding_transition where finding_id = :finding_id order by at"
+
+# Which checker categories overlap one span
+sqlite3 -json -cmd ".param set :path '<path>'" -cmd ".param set :start_line <n>" -cmd ".param set :end_line <n>" <db> "select category from finding where source like 'checker:%' and path = :path and start_line <= :end_line and end_line >= :start_line"
+
+# Rows on the scope paths, every proposed row, and every confirmed row at a stale hash, :paths a JSON array relative to the worktree
+sqlite3 -json -cmd ".param set :paths '[\"<a>\", \"<b>\"]'" <db> "select finding_id, category, path, text, occurrence, source, state, subject_hash = <head> as same_hash from finding_state where path in (select value from json_each(:paths)) or state = 'proposed' or (state = 'confirmed' and subject_hash <> <head>)"
+
+# What each edit call changed, :ids the tool_use_ids
+sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select tool_use_id, payload from observation where event = 'PostToolUse' and tool_use_id in (select value from json_each(:ids))" | jq '[.[] | .payload |= fromjson]'
 
 # Which categories recur, two or more confirmed sites under no refused verdict, and the keys their report reached
 sqlite3 -json <db> "select * from recurring_categories order by sites desc"
@@ -212,9 +225,11 @@ biome lint --reporter=json <paths> > <out>
 dotnet build <project> --no-dependencies --no-incremental -p:ErrorLog=<out>%2Cversion=2.1; ls <out>
 ```
 
+Diagnostic of a checker category comes from its owner, `ruff rule <code>`, `biome explain <rule>`, `<rules>/**/<rule id>.yml`, or the `.editorconfig` row of a Roslyn id.
+
 ## [05]-[DELIVERY]
 
-At a quiet `Stop`, one whose `background_tasks` hold no editor of the unjudged range, the plugin reads `open_findings` at the head hash with `delivered_on` lacking the lineage key, writes one `finding_delivery` row per id, and answers one `additionalContext` entry, `<n> findings on <branch>, ids <a, b>, apply the delivery section of the observation skill`, nothing at zero rows or while the edit agent runs. `report` rows, one per site handed to a spawned agent with `agent_id` null, count in `delivered_on` and `reported_on` until the site's next close or the delivering session's end. Spawned agents outlive a compaction, not the session. A recurring category at `categoryThreshold` spawns `<agent>` with `category <category> lineage <key>` at a quiet `Stop`, one at a time, its `report` rows the hand-off, and the rule it writes moves each site to `checker_owned`. Model that receives the findings entry:
+At a quiet `Stop`, one with no editor of the unjudged range and no `editAgent` running, the plugin delivers every `open_findings` row present on disk with `delivered_on` lacking the lineage key: one `finding_delivery` row per id and one `additionalContext` entry, `<n> findings on <branch>, ids <a, b>, apply the delivery section of the observation skill`. Deliveries count in `delivered_on` until the site closes. A category at `categoryThreshold` confirmed sites spawns `categoryAgent` with `category <category> lineage <key>`, one at a time, its sites' `report` rows counting in `reported_on` the same way. Spawned agents outlive a compaction, not the session. Model that receives the findings entry:
 1. Read the ids through the `confirmed_findings` reader
 2. Validate each against the current task and act on the sites in scope
 3. Write one transition per id through `transition.sql`, `fixed` with the edit's `tool_use_id`, `wrong` with the reason, `waived` on the user's word

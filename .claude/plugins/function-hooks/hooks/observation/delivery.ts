@@ -2,7 +2,7 @@
 
 import type { AgentSpawnResult, ClassicHookInputs, PluginOptions } from 'claude-code';
 import { all, fault, map, ok, type Result } from '../composition/result.ts';
-import { quoted } from './sql.ts';
+import { normalized, quoted } from './sql.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -22,6 +22,7 @@ interface Settings {
 }
 
 interface Lineage {
+    readonly main: string;
     readonly worktree: string;
     readonly branch: string;
     readonly key: string;
@@ -63,6 +64,8 @@ interface State {
 const _INTEGER = /^\d+$/u;
 const _CELLS = 7;
 const _CATEGORY_CELLS = 3;
+// Finding text present in its file on disk, readfile relative to the worktree the statement runs from
+const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 0`;
 
 // --- [SETTINGS] ------------------------------------------------------------------------
 
@@ -79,7 +82,7 @@ const settings = (options: PluginOptions): Settings => ({
     categoryAgent: String(options['categoryAgent']),
 });
 
-const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ worktree, branch, key: `${main}/${worktree}/${branch}` });
+const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ main, worktree, branch, key: `${main}/${worktree}/${branch}` });
 
 // --- [STATEMENTS] ----------------------------------------------------------------------
 
@@ -92,7 +95,7 @@ const _elsewhere = (agent: string, lineage: Lineage): string =>
     `exists (select 1 from running_agents r where r.agent_type = ${quoted(agent)} and ${_under('r.cwd', lineage.worktree)})`;
 
 const _range = (trigger: Trigger, lineage: Lineage, to: number): string =>
-    `(select count(1) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}), r.f, ${trigger.threshold > 0 ? _elsewhere(trigger.agent, lineage) : '0'}`;
+    `(select count(distinct v.file_path) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}), r.f, ${trigger.threshold > 0 ? _elsewhere(trigger.agent, lineage) : '0'}`;
 
 // Tabs mode prints the null of no editor as an empty cell and an empty string as ""
 const _editors = (trigger: Trigger, lineage: Lineage, to: number): string =>
@@ -102,10 +105,16 @@ const STATE = (lineage: Lineage, to: number, chosen: Settings): string => {
     const key = quoted(lineage.key);
     return [
         '.mode tabs',
-        `with r(f) as (select coalesce(max(to_ts), 0) from judged_range where kind = ${quoted(chosen.edits.kind)} and lineage_key = ${key}), o as (select delivered_on from open_findings where subject_hash = lower(hex(sha3(readfile(path), 256)))) select ${_range(chosen.edits, lineage, to)}, (select count(1) from o), (select count(1) from o where not exists (select 1 from json_each(o.delivered_on) where value = ${key})), ${_elsewhere(chosen.categoryAgent, lineage)}, ${_editors(chosen.edits, lineage, to)} from r;`,
+        `with r(f) as (select coalesce(max(to_ts), 0) from judged_range where kind = ${quoted(chosen.edits.kind)} and lineage_key = ${key}), o as (select delivered_on from open_findings where ${_PRESENT}) select ${_range(chosen.edits, lineage, to)}, (select count(1) from o), (select count(1) from o where not exists (select 1 from json_each(o.delivered_on) where value = ${key})), ${_elsewhere(chosen.categoryAgent, lineage)}, ${_editors(chosen.edits, lineage, to)} from r;`,
         `select category, sites, exists (select 1 from json_each(reported_on) where value = ${key}) from recurring_categories order by sites desc, category;`,
     ].join('\n');
 };
+
+const LEDGER = (lineage: Lineage, range: Range, to: number, agent: string, now: number): string =>
+    [
+        'pragma foreign_keys = on;',
+        `insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) values (${quoted(range.trigger.kind)}, ${quoted(lineage.main)}, ${quoted(lineage.worktree)}, ${quoted(lineage.branch)}, ${range.from}, ${to}, ${quoted(agent)}, ${now});`,
+    ].join('\n');
 
 const REPORT = (lineage: Lineage, session: string, category: string, now: number): string =>
     [
@@ -124,7 +133,7 @@ const DELIVER = (lineage: Lineage, session: string, now: number): string => {
     return [
         '.mode tabs',
         'pragma foreign_keys = on;',
-        `insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select finding_id, ${key}, ${quoted(session)}, null, 'additionalContext', ${now} from open_findings where subject_hash = lower(hex(sha3(readfile(path), 256))) and not exists (select 1 from json_each(delivered_on) where value = ${key}) returning finding_id;`,
+        `insert into finding_delivery(finding_id, lineage_key, session_id, agent_id, channel, delivered_at) select finding_id, ${key}, ${quoted(session)}, null, 'additionalContext', ${now} from open_findings where ${_PRESENT} and not exists (select 1 from json_each(delivered_on) where value = ${key}) returning finding_id;`,
     ].join('\n');
 };
 
@@ -222,7 +231,7 @@ const _segment = (count: number, text: string): readonly string[] => (count === 
 const status = (seen: State, holding: number): string => {
     const waiting = _awaiting(seen).length;
     return [
-        ..._segment(seen.edits.count, `${_many(seen.edits.count, 'edit', 'edits')} unjudged`),
+        ..._segment(seen.edits.count, `${_many(seen.edits.count, 'file', 'files')} unjudged`),
         ..._segment(holding, `${_many(holding, 'editor', 'editors')} in flight`),
         ..._segment(seen.open, `${_many(seen.open, 'finding', 'findings')} open`),
         ..._segment(waiting, _many(waiting, 'recurring category', 'recurring categories')),
@@ -244,6 +253,7 @@ export {
     due,
     dueCategories,
     held,
+    LEDGER,
     lineageOf,
     listed,
     occupied,

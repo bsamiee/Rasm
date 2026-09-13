@@ -1,6 +1,6 @@
 -- Closes, moves, and reconfirms every live finding against disk and the edits since its transition in one transaction, :worktree the tree the paths are relative to, run from it
 -- Live states are proposed, confirmed, checker_owned, checker_silent, and waived, the site on disk at its last transition
--- Removed line holding the text is fixed, an edit or `git mv` since the transition placing it elsewhere is moved, text gone otherwise is vanished, a confirmed row present at a new hash is reconfirmed, every other live row keeps its state
+-- Removed line holding the text, or a write with content lacking it, is fixed, an edit or `git mv` since the transition placing it elsewhere is moved, text gone otherwise is vanished, a confirmed row present at a new hash is reconfirmed, every other live row keeps its state
 -- Spans locate the raw text's nth occurrence, null where whitespace alone differs, a site another finding holds at the new path closes as vanished, a zero-width site moves by `git mv` alone
 pragma foreign_keys = on;
 begin immediate;
@@ -29,9 +29,12 @@ select h.finding_id, e.tool_use_id, max(e.ts) as ts
 from head h
 join edit e on e.file_path = :worktree || '/' || h.path and e.ts > h.at
 where h.present = 0
-    and exists (
-        select 1 from json_each(e.payload, '$.tool_response.structuredPatch') p
-        where instr((select group_concat(substr(l.value, 2), char(10)) from json_each(p.value, '$.lines') l where substr(l.value, 1, 1) = '-'), h.text) > 0
+    and (
+        exists (
+            select 1 from json_each(e.payload, '$.tool_response.structuredPatch') p
+            where instr((select group_concat(substr(l.value, 2), char(10)) from json_each(p.value, '$.lines') l where substr(l.value, 1, 1) = '-'), h.text) > 0
+        )
+        or instr(e.payload ->> '$.tool_input.content', h.text) = 0
     )
 group by h.finding_id;
 create temp table move as

@@ -19,15 +19,18 @@ Layers of the plugin from the hooks module up to the units a purpose adds, each 
 - Failed open is one log line and no rows until reload, a session outside a git repository opens nothing
 - Lost journal switch at a concurrent first open of a fresh sink is one log line, the sink stays open in its journal mode
 - Boundary branch runs after the row at `Stop` and at a `SubagentStop` whose `agent_type` is not blank, both with `stop_hook_active` false
-- Boundary reads the lineage from git, runs one state query, spawns due agents by name, writes delivery rows, and answers `additionalContext` entries
+- Boundary reads the lineage from git, runs one state query, spawns due agents, writes ledger and delivery rows, and answers `additionalContext`
 - Boundary is quiet when no task under `background_tasks` edited the unjudged range, spawns and delivery wait for one, the footer counts the editors
+- Ledger row of an edit range is written when its spawn resolves with an agent id, the next range opens after its `to_ts` while the agent still runs
+- Unjudged count is distinct files edited in the tree since the lineage's last `to_ts`, the threshold names files
 - `hooks/observation/delivery.ts` holds the boundary's pure parts: settings, statements, state parsing, due predicates, prompts, and texts
 - Environment held from `register` until reload: settings read once, spawn claims, logged texts, and the footer label empty at the start
 - Footer label is set at boundary events alone and cleared at `SessionEnd`, no tool event costs a state query
 - Claim holds an agent name from its spawn call until the spawn resolves, later boundary events list the running agent under `background_tasks`
 - Run of the agent from another session on the worktree is a `running_agents` row the state query reads, the trigger waits on it
 - Boundary event with no `background_tasks` field reads state and sets the footer, then skips spawn and delivery, one log line names the absence
-- Sessions of one lineage stopping inside one state read each spawn, their duplicate ledger and delivery rows read as one range and one key
+- Sessions of one lineage stopping before a spawn resolves each spawn, their ledger rows read as one range, their delivery rows as one key
+- Delivery and report rows count on a lineage until the finding closes, a killed agent's report row stands and its category waits for a person
 - Session killed with no end row leaves its spawn's start row standing, triggers naming that agent wait until the session resumes and stops
 - Hook that throws, outruns its budget, or answers a wrong shape is skipped and the event's answer stands, a module defect costs rows, never the turn
 - `hooks/composition/` holds `Decision` for a policy, `Result` for a process, `Option` for absence, `hooks/text/` the parser and path helper
@@ -42,7 +45,7 @@ One SQLite file per repository, at the path `observation` names, holds every row
 - Lookup tables hold every state, channel, and kind, `_ROWS` adds a declared value at open and retires one no row references
 - `bar_verdict` holds the verdict shape and no declared row
 - Finding tables of `_TABLES` hold category, path, text, span, message, and source, never a shape, a rubric, or a purpose, any judgment writes them
-- Writers are disjoint, agents write finding, transition, ledger, and bar rows through the skill, the engine observation, delivery, and enum rows
+- Writers are disjoint, agents write finding, transition, and bar rows through the skill, the engine observation, delivery, ledger, and enum rows
 - `text_hash` and `finding_id` are generated columns fixed once rows exist, a rebuild recomputes them while transitions keep the old ids
 - Moved site keeps its id, its `moved` transition carries the new path, `finding_state` reads the current path from the latest transition
 - Evolution is `open`: declarations are the schema, the delta to the file is applied at each load's first event, a refused delta rolls back whole
@@ -77,7 +80,7 @@ Purpose above the sink is a view, an agent profile, or an option pair, chosen by
 - Agent reads rows and the working tree, writes finding rows through the skill's scripts, and touches nothing in the plugin beyond its name
 - Rubric stays in its owning skill, `ast-grep` for shapes, `clean-prose` for prose, the agent holds run order, prompt-supplied scope, and its gate
 - Option pair answers a trigger: `<kind>Threshold` and `<kind>Agent` in `userConfig`, a trigger in `delivery.ts` naming a view, a `range_kind` row
-- Option pair touches no row or agent, names a count and never a purpose, its spawn joins the judging step and its kind the skill's `ledger.sql`
+- Option pair touches no row or agent, names a count and never a purpose, its spawn joins the judging step, its kind the boundary's ledger row
 - Option values come from `pluginConfigs` of user settings, `--settings`, or managed settings, a project `.claude/settings.json` reaches no option
 - Options are read once at `register`, a changed value waits for the plugin's reload
 - Category trigger is the second pair, `categoryThreshold` and `categoryAgent` over recurring confirmed categories, free of purpose the same way
@@ -106,7 +109,7 @@ Loop with another purpose, one whose evidence is harness events, runs on the sam
 - Judgment is one agent under `.claude/agents/` preloading `observation` and its own rubric's skill, writing `finding` rows under its own categories
 - Verification is the agent's concern: a judgment writes `proposed` and its verifier confirms, a checker source writes `confirmed` and never delivers
 - Trigger is the existing count, `editAgent` set to the new agent replaces the one it names over the same edits, or a person's `Agent` call
-- Delivery and closing come with the layers, confirmed `agent:*` rows at the head hash undelivered on the lineage reach the main agent at `Stop`
+- Delivery and closing come with the layers, confirmed `agent:*` rows present on disk and undelivered on the lineage reach the main agent at `Stop`
 - Category trigger comes the same way, `categoryAgent` names who acts over a recurring category
 - Case, documentation drift: an agent reads `edited_files` of its range, finds prose naming the edited paths, and writes findings the loop delivers
 
