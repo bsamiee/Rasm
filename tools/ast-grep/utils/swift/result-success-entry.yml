@@ -1,0 +1,8 @@
+id: result-success-entry
+language: swift
+rule:
+    kind: switch_entry
+    all:
+        - has: {kind: switch_pattern, regex: '^(let\s+)?\.success\b'}
+        - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
+        - not: {has: {kind: statements, has: {nthChild: 1, pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}}}}

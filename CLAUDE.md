@@ -11,14 +11,16 @@
 - Checks, rules, and tests stay read-only during a code change, editing one is its own task the user asks for
 - Checks run over the files a change touched, never the full tree
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
+- Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
 - Refactors become ast-grep rules, before form as pattern and after form as fix, once a second instance exists and no checker reports it
 - Skills, memories, and docs hold the principle that decides a case, a project's state is its files
+- Paths git ignores hold no project state, a file under one is read and never edited, checked, or created
 - Every tool, package, and server in the tree is a capability, its current docs decide a solution's form before one is written
 - Audits, security scans, supply-chain pins, and approval gates join a manifest, target, workflow, or program at the user's request alone
 
 ## [01]-[LANGUAGE_STANDARDS]
 
-Navigate code through its language's skill and MCP server, or through the ast-grep skill and MCP for every other language, fallback to project CLI tooling
+Navigate code through its language's skill and MCP server, or the ast-grep skill and MCP for every other language, then project CLI tooling
 
 [TOOL_ROUTING]:
 - ALWAYS use `search-web` skill for a question the open web answers
@@ -35,6 +37,7 @@ Navigate code through its language's skill and MCP server, or through the ast-gr
 - ALWAYS use `nuget` MCP to validate a NuGet package and find its newest version
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
+- ALWAYS use `computer-use` MCP for a native application window, its wait and screenshot tools stand where a shell would sleep
 - ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
 
 [CLI_TOOLING]:
@@ -91,7 +94,7 @@ Navigate code through its language's skill and MCP server, or through the ast-gr
 
 [DIRECTNESS]: Code calls the owning API in the direct form, and every layer between a caller and that API adds a fact the API lacks
 - ALWAYS call the owning type or package directly, a wrapper exists only to add a domain type, a boundary conversion, or a composed policy
-- ALWAYS name the real type, a type alias exists only to resolve a name collision between two referenced namespaces
+- ALWAYS name the real type, a type alias exists only to resolve a name collision between referenced namespaces
 - ALWAYS define a custom operator, implicit conversion, or extension method for a domain meaning, never to shorten a call the direct form states
 - ALWAYS reach a dependency through the function or runtime that supplies it, never a service locator or a layer that forwards a call unchanged
 

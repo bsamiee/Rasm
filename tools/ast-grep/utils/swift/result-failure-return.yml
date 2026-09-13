@@ -1,0 +1,4 @@
+id: result-failure-return
+language: swift
+rule:
+    matches: {swift-single-statement: {first: {pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}}}}

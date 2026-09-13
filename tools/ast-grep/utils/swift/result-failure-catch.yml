@@ -1,0 +1,23 @@
+id: result-failure-catch
+language: swift
+utils:
+    plain-binding:
+        kind: pattern
+        all:
+            - has: {field: bound_identifier, kind: simple_identifier}
+            - not: {has: {kind: 'pattern, user_type'}}
+rule:
+    kind: catch_block
+    all:
+        - not: {has: {kind: pattern, not: {matches: plain-binding}}}
+        - not: {has: {kind: where_clause}}
+        - has:
+            kind: statements
+            all:
+                - has:
+                    nthChild: 1
+                    any:
+                        - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
+                        - pattern: '$_.resume(returning: .failure($$$_))'
+                        - pattern: '$_ = .failure($$$_)'
+                - not: {has: {nthChild: 2}}

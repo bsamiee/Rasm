@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fourth-nesting-level-swift
+language: swift
+severity: error
+utils:
+    function:
+        kind: function_declaration, init_declaration, deinit_declaration, subscript_declaration, lambda_literal, computed_property, computed_getter, computed_setter, computed_modify, willset_clause, didset_clause
+    nested-function:
+        any:
+            - kind: lambda_literal
+            - kind: function_declaration
+              inside: {kind: 'function_body, lambda_literal', stopBy: end}
+    view-builder:
+        kind: 'property_declaration, function_declaration'
+        regex: '(?s)^[^{]*(@(View|Scene|ToolbarContent|Commands)Builder\b|\bsome\s+(View|Scene|ToolbarContent|Commands)\b|\bAnyView\b)'
+    fourth-function:
+        matches: nested-function
+        not: {inside: {matches: view-builder, stopBy: end}}
+        inside:
+            matches: nested-function
+            stopBy: end
+            inside:
+                matches: nested-function
+                stopBy: end
+                inside: {matches: nested-function, stopBy: end}
+    control:
+        any:
+            - kind: guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement, do_statement
+            - kind: if_statement
+              not: {inside: {kind: if_statement}}
+            - kind: ternary_expression
+              not: {inside: {kind: ternary_expression, field: if_false, stopBy: {not: {kind: tuple_expression}}}}
+    boundary: {any: [{matches: control}, {matches: function}]}
+rule:
+    pattern: $SCOPE
+    any:
+        - matches: fourth-function
+          not: {inside: {matches: fourth-function, stopBy: end}}
+        - matches: control
+          inside:
+            matches: control
+            stopBy: {matches: boundary}
+            inside:
+                matches: control
+                stopBy: {matches: boundary}
+                inside:
+                    matches: control
+                    stopBy: {matches: boundary}
+                    not: {inside: {matches: control, stopBy: {matches: function}}}
+message: Closure or control nesting reaches a fourth level
+note: Flatten the fourth level into a guard clause or a named function, a view builder's closures are its form
+labels:
+    SCOPE: {style: primary}

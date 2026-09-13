@@ -1,36 +1,40 @@
 import Foundation
-import Security
 
-enum ClaudeFailure: Error {
+nonisolated enum ClaudeSystemCall: Sendable {
+  case mkdir
+  case rmdir
+  case lstat
+  case procPIDInfo
+}
+
+nonisolated enum ClaudeFailure: LocalizedError {
   case executableMissing
   case signInRequired
   case authenticationFailed(Int32)
-  case native(ProcessFailure)
+  case process(ProcessFailure)
   case keychain(OSStatus)
   case filesystem(any Error)
-  case systemCall(operation: String, code: Int32)
+  case systemCall(ClaudeSystemCall, Int32)
   case invalidCredentials
   case invalidIdentity(IdentityFailure)
-  case invalidSavedAccounts(ClaudeAccountIssues)
+  case invalidSavedAccounts(ClaudeAccountErrors)
   case invalidResponse
-  case invalidQuota(ClaudeQuotaIssues)
+  case invalidQuota(ClaudeQuotaErrors)
   case http(Int)
   case transport(any Error)
   case accountChanged
-  case accountUnavailable
   case modelUnavailable
   case sessionUnknown
   case requestFailed
   case protocolFailure
   case operationInProgress
   case cancelled
-  case leaseBusy(URL)
-  case leaseCompromised(URL)
+  case lockHeld(URL)
+  case lockCompromised(URL)
   case unfinishedSelection
   indirect case sessionConfirmationPending(ClaudeFailure)
   indirect case cleanup(operation: ClaudeFailure, release: ClaudeFailure)
 
-  /// The operation failure beneath any release failures recorded after it.
   var cause: ClaudeFailure {
     switch self {
     case .cleanup(let operation, _): operation.cause
@@ -38,7 +42,6 @@ enum ClaudeFailure: Error {
     }
   }
 
-  /// This failure, carrying the release failure that followed it.
   func releasing(_ release: Result<Void, ClaudeFailure>) -> ClaudeFailure {
     switch release {
     case .success: self
@@ -46,31 +49,31 @@ enum ClaudeFailure: Error {
     }
   }
 
+  var unauthorized: Bool {
+    if case .http(401) = self { true } else { false }
+  }
+
   var requiresSignIn: Bool {
     switch self {
-    case .signInRequired, .accountUnavailable:
-      true
-    case .http(401):
-      true
-    case .cleanup(let operation, _):
-      operation.requiresSignIn
-    case .sessionConfirmationPending(let cause):
-      cause.requiresSignIn
-    case .executableMissing, .authenticationFailed, .native, .keychain, .filesystem, .systemCall,
+    case .signInRequired: true
+    case .cleanup(let operation, _): operation.requiresSignIn
+    case .sessionConfirmationPending(let cause): cause.requiresSignIn
+    case .executableMissing, .authenticationFailed, .process, .keychain, .filesystem, .systemCall,
       .invalidCredentials, .invalidIdentity, .invalidSavedAccounts, .invalidResponse, .invalidQuota,
-      .http, .transport, .accountChanged, .modelUnavailable, .sessionUnknown,
-      .requestFailed, .protocolFailure, .operationInProgress, .cancelled,
-      .leaseBusy, .leaseCompromised, .unfinishedSelection:
+      .http, .transport, .accountChanged, .modelUnavailable, .sessionUnknown, .requestFailed,
+      .protocolFailure, .operationInProgress, .cancelled, .lockHeld, .lockCompromised,
+      .unfinishedSelection:
       false
     }
   }
 
-  var userMessage: String {
+  var errorDescription: String? {
     switch self {
     case .executableMissing: "Install Claude Code to connect an account."
-    case .signInRequired, .accountUnavailable: "Sign in to this Claude account again."
+    case .signInRequired: "Sign in to this Claude account again."
+    case .http(401): "Claude refused the saved sign-in token."
     case .authenticationFailed: "Claude could not complete sign-in."
-    case .native(let failure): failure.userMessage
+    case .process(let failure): failure.localizedDescription
     case .keychain: "Allow Relay to access the Claude sign-in in Keychain."
     case .filesystem: "Relay could not read or save the Claude account."
     case .systemCall: "Relay could not access Claude’s account storage."
@@ -78,7 +81,6 @@ enum ClaudeFailure: Error {
     case .invalidIdentity: "Claude did not return a complete account identity."
     case .invalidSavedAccounts: "Relay could not recover the saved Claude account identities."
     case .invalidResponse, .invalidQuota: "Claude returned usage Relay could not interpret."
-    case .http(401): "Sign in to this Claude account again."
     case .http(429): "Claude is limiting usage requests."
     case .http: "Claude could not provide current usage."
     case .transport: "Could not reach Claude."
@@ -88,12 +90,12 @@ enum ClaudeFailure: Error {
     case .requestFailed: "Claude did not complete the session request."
     case .protocolFailure: "This Claude Code response is not supported."
     case .operationInProgress: "Wait for the current Claude account operation."
-    case .cancelled: "Cancelled."
-    case .leaseBusy: "Claude is updating this sign-in. Try again when it finishes."
-    case .leaseCompromised: "Claude’s sign-in changed while Relay was updating it."
+    case .cancelled: "Canceled."
+    case .lockHeld: "Claude is updating this sign-in. Try again when it finishes."
+    case .lockCompromised: "Claude’s sign-in changed while Relay was updating it."
     case .unfinishedSelection: "Finish recovering the previous Claude account switch."
     case .sessionConfirmationPending: "Waiting for Claude to confirm the session window."
-    case .cleanup(let operation, _): operation.userMessage
+    case .cleanup(let operation, _): operation.localizedDescription
     }
   }
 
@@ -102,37 +104,32 @@ enum ClaudeFailure: Error {
     case .sessionConfirmationPending: true
     case .cleanup(let operation, let release):
       operation.awaitingSessionConfirmation || release.awaitingSessionConfirmation
-    case .executableMissing, .signInRequired, .authenticationFailed, .native, .keychain,
-      .filesystem,
-      .systemCall, .invalidCredentials, .invalidIdentity, .invalidSavedAccounts, .invalidResponse,
-      .invalidQuota, .http, .transport, .accountChanged, .accountUnavailable, .modelUnavailable,
+    case .executableMissing, .signInRequired, .authenticationFailed, .process, .keychain,
+      .filesystem, .systemCall, .invalidCredentials, .invalidIdentity, .invalidSavedAccounts,
+      .invalidResponse, .invalidQuota, .http, .transport, .accountChanged, .modelUnavailable,
       .sessionUnknown, .requestFailed, .protocolFailure, .operationInProgress, .cancelled,
-      .leaseBusy, .leaseCompromised, .unfinishedSelection:
+      .lockHeld, .lockCompromised, .unfinishedSelection:
       false
     }
   }
 }
 
-extension Result where Failure == ClaudeFailure {
-  /// Binds an asynchronous operation that consumes this result's value; a failure skips it.
-  /// Named apart from `flatMap` because an async overload of that name would capture every
-  /// synchronous `flatMap` call made from an async context.
-  func bind<Next>(
-    _ next: (Success) async -> Result<Next, ClaudeFailure>
-  ) async -> Result<Next, ClaudeFailure> {
-    switch self {
-    case .success(let value): await next(value)
-    case .failure(let error): .failure(error)
+nonisolated extension Result<ProcessTermination, ProcessFailure> {
+  func exited(
+    _ failure: (Int32) -> ClaudeFailure = { status in .process(.exit(status)) }
+  ) -> Result<Void, ClaudeFailure> {
+    mapError(ClaudeFailure.process).flatMap { termination in
+      termination.status == 0 ? .success(()) : .failure(failure(termination.status))
     }
   }
 }
 
-struct ClaudeAccountIssues: IssueAggregate {
+nonisolated struct ClaudeAccountErrors: AggregateError {
   let first: IdentityFailure
   let remaining: [IdentityFailure]
 }
 
-struct ClaudeQuotaIssues: IssueAggregate {
+nonisolated struct ClaudeQuotaErrors: AggregateError {
   let first: QuotaFailure
   let remaining: [QuotaFailure]
 }

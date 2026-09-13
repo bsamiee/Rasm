@@ -1,40 +1,40 @@
 # [RASM]
 
-Rasm is a polyglot monorepo with macOS-first development and portable code and tooling for Linux and Windows. Root manifests hold every dependency version, one file owns each concern, every developer command is one Nx target calling one tool.
+Rasm is a polyglot monorepo with macOS-first development and portable code and tooling for Linux and Windows.
 
 ## [01]-[LAYOUT]
 
 ```text
 Rasm/
-├── apps/                     # One directory per application, projects in every language it needs
-├── libs/                     # Independently consumable packages, one directory per language
+├── apps/                     # One product per directory
+├── libs/                     # Packages, one directory per language
 ├── tests/                    # Shared test support per language and suites outside libs/
 ├── eng/                      # Engineering projects per language, outside `Workspace.slnx` and the task graph
 │   └── dotnet/               # Catalog project referencing every central package row
-├── infra/                    # Pulumi program holding repository settings and secret store
+├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines and rules per language
-│   └── nx/                   # Nx plugin tagging each project by its manifest and naming its targets
+│   └── nx/                   # Nx plugin adding a project per manifest to the task graph
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK version
-├── nx.json                   # Task graph, named inputs, per-language target defaults, plugins
-├── package.json              # Root package, development dependencies, root Nx targets
+├── nx.json                   # Task graph
+├── package.json              # Development dependencies and root Nx targets
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
-├── pyproject.toml            # Python dependency groups and every Python tool table
+├── pyproject.toml            # Python dependency groups and tool tables
 ├── Directory.Packages.props  # .NET central package versions
 ├── Directory.Build.props     # .NET build defaults and project classification by tree position
 ├── Directory.Build.targets   # .NET items, host package references, and policy targets
 ├── NuGet.config              # NuGet source and package folder
 ├── Workspace.slnx            # .NET solution
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
-├── tsconfig.json             # Root TypeScript project over configuration, tooling, and infrastructure
+├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Vitest configuration each project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
-├── sgconfig.yml              # ast-grep rules, parsers, and embedded languages
+├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor settings and .NET analyzer severity
 ├── .yamllint.yaml, .yamlfmt  # YAML lint and format
-├── .github/                  # ci.yml, codeql.yml, dependabot.yml, and setup action
-├── .claude/                  # Skills, agents, settings, and plugin marketplace
+├── .github/                  # Continuous integration and repository automation
+├── .claude/                  # Agent harness knowledge and settings
 ├── .mcp.json                 # Agent harness MCP servers
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
@@ -47,8 +47,8 @@ flowchart LR
     subgraph toolchain ["Toolchain"]
         direction TB
         mise_tools["mise.toml [tools], global.json"] --> binaries["Tool binaries"]
-        mise_env["mise.toml [env]"] --> processes["Every process: shell, Claude Bash, MCP server"]
-        xcode["xcode-select"] --> apple_tools["xcodebuild, swift-format, macOS SDK"]
+        mise_env["mise.toml [env]"] --> processes["Every process"]
+        xcode["xcode-select"] --> apple_tools["Xcode toolchain and macOS SDK"]
     end
 
     subgraph dependencies ["Dependencies"]
@@ -72,7 +72,7 @@ flowchart LR
         format_tree["nx run rasm:format"] --> writers["Every portable writer, then dotnet format"]
         check_all["nx run-many -t check"] --> project_check["Build, typecheck, or test per project"]
         check_affected["nx affected -t check"] --> project_check
-        ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host, format with git diff --exit-code"]
+        ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner, format with git diff --exit-code"]
     end
 
     toolchain --> dependencies --> taskgraph --> commands
@@ -81,19 +81,15 @@ flowchart LR
 ## [03]-[TASKS]
 
 - Targets call one tool, arguments on the command, configuration in the tool's own file
-- `nx run rasm:lint` runs every portable checker, `nx run rasm:format` every portable writer, `nx run rasm:check` lint and root typecheck
-- `nx run-many -t check` runs every project, `nx run <project>:<target>` one, `nx affected -t check` the changed ones
+- `nx run rasm:check` runs lint and root typecheck
+- `nx run <project>:<target>` runs one target of one project
 - `nx run rasm:upgrade` moves every catalog and tool binary to its newest release, `--configuration <language>` one catalog, `tools` the binaries
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- Workspace plugin names each project's language tag and empty `typecheck` and `check` targets, `test` for a Python suite under `tests/`
-- Xcode projects get `build`, `lint`, `format`, and `check` targets under tag `host:macos`, CI runs each host's affected `check` on its runner
-- `targetDefaults` filtered by `tag:language:*` hold the per-language body of each named target, `@nx/dotnet` and `@nx/vitest` infer their own
+- Workspace plugin names each project's tags and empty targets by manifest, `@nx/dotnet` and `@nx/vitest` infer their own
 - Root targets hold operations with no owning project
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under `.cache/` and `.artifacts/`, each tool relocated through its own setting
-- `package.json` holds dependencies and root targets, `nx.json` the graph, a project's `tsconfig.json` extends the base, no `project.json`
-- Mini configs, wrappers, and aliases beside an owner are corrected at the owner
 
 ## [04]-[OWNERS]
 
@@ -113,13 +109,14 @@ flowchart LR
 - Package rows and `.editorconfig` rows hold a one-line purpose comment, every other file holds section dividers alone
 - Tool rows name a release candidate where `latest` resolves a development build
 - Facts sit once in their owning file, other files name the owner
+- Mini configs, wrappers, and aliases beside an owner are corrected at the owner
 
 ## [05]-[QUALITY]
 
-- .NET: Roslyn analyzers at `latest-all`, warnings as errors, code style enforced in build, severity in `.editorconfig`
+- .NET: Roslyn analyzers at `latest-all`, warnings as errors, code style enforced in build
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
-- Swift: warnings as errors and upcoming features in the project build settings, `swift-format lint --strict` at zero findings
+- Swift: warnings as errors and upcoming features, `swift-format lint --strict` at zero findings
 - Tree: `yamllint`, `actionlint`, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
@@ -135,9 +132,8 @@ flowchart LR
 ## [07]-[STRUCTURE]
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
-- Each `apps/<name>/` is one product with its own host, spanning as many languages and projects as the host requires
-- Rhino projects use Rhino 9 and Grasshopper 2, `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
-- Manifests define projects: `.csproj` in `Workspace.slnx`, `package.json` beside `tsconfig.json`, `pyproject.toml`, `.xcodeproj`
+- `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
+- Manifests define projects, no `project.json`: `.csproj` in `Workspace.slnx`, `package.json` beside `tsconfig.json`, `pyproject.toml`, `.xcodeproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Project files sit at the project root, with no `src/` directory at any depth and no directory adding a level of nesting alone
 - Each language area builds and runs without another present

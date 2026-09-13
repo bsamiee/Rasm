@@ -4,8 +4,10 @@ language: tsx
 severity: error
 rule:
     any:
-        - pattern: $L.filter($P).slice(0, 1)
-        - pattern: $L.filter($P)[0]
-        - pattern: $L.filter($P).at(0)
-message: '`$L.filter` scans the whole list for its first match'
-note: '`$L.find($P)` stops at the first match, `fromNullable` lifts it into `Option`, or a direct `undefined` test decides at once'
+        - pattern: $L.$SCAN($P).slice(0, 1)
+        - pattern: $L.$SCAN($P)[0]
+        - pattern: $L.$SCAN($P).at(0)
+constraints:
+    SCAN: {regex: '^(filter|flatMap)$'}
+message: '`$L.$SCAN` scans the whole list for its first match'
+note: '`$L.find($P)` stops at the first match, `Array.findFirst` of `effect` takes the `Option` mapper of a `flatMap`, `fromNullable` lifts the result into `Option` or an `undefined` test decides it'

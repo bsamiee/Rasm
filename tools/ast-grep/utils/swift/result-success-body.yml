@@ -1,0 +1,12 @@
+id: result-success-body
+language: swift
+rule:
+    kind: statements
+    pattern: $BODY
+    all:
+        - has: {nthChild: {position: 1, reverse: true}, pattern: {context: 'func f() { return .success($_) }', selector: control_transfer_statement}}
+        - not:
+            has:
+                stopBy: {kind: 'lambda_literal, function_declaration'}
+                kind: control_transfer_statement
+                not: {all: [{nthChild: {position: 1, reverse: true}}, {inside: {kind: statements, pattern: $BODY}}]}

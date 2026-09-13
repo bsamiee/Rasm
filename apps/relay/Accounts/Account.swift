@@ -1,6 +1,7 @@
+import DeveloperToolsSupport
 import Foundation
 
-enum RelayProvider: String, CaseIterable, Codable, Sendable {
+nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
   case claude
   case openAI
 
@@ -10,30 +11,37 @@ enum RelayProvider: String, CaseIterable, Codable, Sendable {
     case .openAI: "OpenAI"
     }
   }
+
+  @MainActor var symbol: ImageResource {
+    switch self {
+    case .claude: .claude
+    case .openAI: .openAI
+    }
+  }
 }
 
-enum SessionPolicy: String, CaseIterable, Codable, Sendable {
+nonisolated enum SessionPolicy: String, Codable, Sendable {
   case manual
   case automatic
 }
 
-enum SessionStartState: String, Codable, Sendable {
+nonisolated enum SessionStartState: String, Codable, Sendable {
   case idle
   case awaitingConfirmation
 }
 
-enum IdentityIssue: Equatable, Sendable {
+nonisolated enum IdentityError: Error {
   case missingAccountID
   case missingEmail
   case emptyOrganizationID
 }
 
-struct IdentityFailure: IssueAggregate, Equatable {
-  let first: IdentityIssue
-  let remaining: [IdentityIssue]
+nonisolated struct IdentityFailure: AggregateError {
+  let first: IdentityError
+  let remaining: [IdentityError]
 }
 
-struct AccountIdentity: Equatable, Sendable {
+nonisolated struct AccountIdentity: Sendable {
   let accountID: String
   let organizationID: String?
   let email: String
@@ -72,24 +80,24 @@ struct AccountIdentity: Equatable, Sendable {
     }
   }
 
-  func identifies(_ other: AccountIdentity) -> Bool {
+  func isSameAccount(as other: AccountIdentity) -> Bool {
     accountID == other.accountID && organizationID == other.organizationID
   }
 }
 
-struct RelayAccount: Identifiable, Equatable, Sendable {
+nonisolated struct Account: Identifiable, Sendable {
   let id: UUID
-  let provider: RelayProvider
+  let provider: Provider
   var identity: AccountIdentity
   var sessionPolicy: SessionPolicy
 }
 
-struct AccountSelection: Sendable {
+nonisolated struct AccountSelection: Sendable {
   let identity: AccountIdentity
-  let preservedAccount: RelayAccount?
+  let preservedAccount: Account?
 }
 
-enum AuthenticationState: Equatable, Codable, Sendable {
+nonisolated enum AuthenticationState: Equatable, Codable, Sendable {
   case connected
   case signInRequired
 }
@@ -105,8 +113,8 @@ enum AccountOperation: Equatable, Sendable {
   case removing
 }
 
-struct AccountPresentation: Identifiable, Sendable {
-  let account: RelayAccount
+struct AccountViewModel: Identifiable, Sendable {
+  let account: Account
   let authentication: AuthenticationState
   let usageState: UsageState
   let operation: AccountOperation
@@ -114,17 +122,20 @@ struct AccountPresentation: Identifiable, Sendable {
   let isSelected: Bool
 
   var id: UUID { account.id }
-  var usage: UsageSnapshot? { usageState.snapshot }
-  var isUsageCurrent: Bool {
-    switch usageState {
-    case .current: true
-    case .unavailable, .stale: false
-    }
-  }
+  var isBusy: Bool { operation != .idle && operation != .awaitingWindow }
+  var canSelect: Bool { authentication == .connected && !isBusy }
+  var canStartSession: Bool { authentication == .connected && operation == .idle }
+  var isUsageCurrent: Bool { if case .current = usageState { true } else { false } }
+}
+
+enum AuthenticationPhase: Equatable, Sendable {
+  case pending
+  case refused(String)
+  case cancelling
 }
 
 struct AuthenticationPresentation: Identifiable {
   let id: UUID
-  let provider: RelayProvider
-  let issue: String?
+  let provider: Provider
+  let phase: AuthenticationPhase
 }

@@ -1,0 +1,7 @@
+id: result-failure-entry
+language: swift
+rule:
+    kind: switch_entry
+    all:
+        - has: {kind: switch_pattern, regex: '^(let\s+)?\.failure\b'}
+        - has: {matches: result-failure-return}

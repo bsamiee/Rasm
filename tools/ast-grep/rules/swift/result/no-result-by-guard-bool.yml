@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-result-by-guard-bool
+language: swift
+severity: error
+utils:
+    effect:
+        kind: 'await_expression, try_expression'
+    leading:
+        any:
+            - inside: {kind: control_transfer_statement}
+            - all:
+                - nthChild: 1
+                - inside: {matches: leading}
+    plain-value:
+        not:
+            any:
+                - kind: ternary_expression
+                - has: {matches: effect, stopBy: {kind: lambda_literal}}
+rule:
+    kind: guard_statement
+    all:
+        - not: {has: {regex: '^,$'}}
+        - not: {has: {field: condition, kind: 'value_binding_pattern, availability_condition'}}
+        - not: {has: {field: condition, regex: '^case$'}}
+        - has: {field: condition, pattern: $COND, matches: plain-value, not: {matches: effect}}
+        - has:
+            matches:
+                swift-single-statement:
+                    first:
+                        kind: control_transfer_statement
+                        regex: '^return\b'
+                        has: {field: result, pattern: $ELSE, matches: plain-value}
+        - precedes:
+            kind: control_transfer_statement
+            regex: '^return\b'
+            has:
+                field: result
+                pattern: $TAIL
+                not: {kind: ternary_expression}
+                any:
+                    - not: {has: {matches: effect, stopBy: {kind: lambda_literal}}}
+                    - all:
+                        - regex: '^(try\??|await)\s'
+                        - not: {has: {matches: effect, stopBy: {kind: lambda_literal}, not: {matches: leading}}}
+transform:
+    PREFIX: {replace: {source: $TAIL, replace: '(?s)^((?:(?:try\??|await)\s+)*).*$', by: '$1'}}
+    VALUE: {replace: {source: $TAIL, replace: '^(?:(?:try\??|await)\s+)*', by: ''}}
+fix:
+    template: 'return $PREFIX$COND ? $VALUE : $ELSE'
+    expandEnd: {kind: control_transfer_statement}
+message: '`guard` followed by one `return` selects between two values by statements'
+note: '`<condition> ? <value> : <else value>` returns the same cases as one expression, `await` and `try` move in front of the condition'

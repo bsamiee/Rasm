@@ -1,48 +1,38 @@
 import ServiceManagement
 
-enum LoginItemRegistration: Equatable {
-  case enabled
-  case disabled
-  case requiresApproval
-  case unavailable
-}
+struct LoginItem {
+  let status: SMAppService.Status
+  let updateFailed: Bool
 
-struct LoginItemState: Equatable {
-  let registration: LoginItemRegistration
-  let issue: String?
+  static var current: LoginItem {
+    LoginItem(status: SMAppService.mainApp.status, updateFailed: false)
+  }
 
   var isEnabled: Bool {
-    switch registration {
+    switch status {
     case .enabled, .requiresApproval: true
-    case .disabled, .unavailable: false
+    case .notRegistered, .notFound: false
+    @unknown default: false
     }
   }
-}
 
-@MainActor
-enum LoginItem {
-  static func state(issue: String? = nil) -> LoginItemState {
-    let registration: LoginItemRegistration =
-      switch SMAppService.mainApp.status {
-      case .enabled: .enabled
-      case .notRegistered: .disabled
-      case .requiresApproval: .requiresApproval
-      case .notFound: .unavailable
-      @unknown default: .unavailable
-      }
-    return LoginItemState(registration: registration, issue: issue)
+  var issue: String? {
+    switch (status, updateFailed) {
+    case (_, true): "Launch at login could not be updated"
+    case (.notFound, false): "Launch at login is unavailable"
+    case (.enabled, false), (.notRegistered, false), (.requiresApproval, false): nil
+    @unknown default: nil
+    }
   }
 
-  static func setEnabled(_ enabled: Bool) async -> LoginItemState {
-    do {
+  static func setEnabled(_ enabled: Bool) async -> LoginItem {
+    let update: Result<Void, any Error> = await Result {
       if enabled {
         try SMAppService.mainApp.register()
       } else {
         try await SMAppService.mainApp.unregister()
       }
-      return state()
-    } catch {
-      return state(issue: "Launch at login could not be updated")
     }
+    return LoginItem(status: SMAppService.mainApp.status, updateFailed: (try? update.get()) == nil)
   }
 }

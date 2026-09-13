@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-result-by-do-catch
+language: swift
+severity: error
+rule:
+    kind: do_statement
+    all:
+        - has: {kind: statements, nthChild: 1, pattern: $BODY, matches: result-success-body}
+        - has:
+            kind: catch_block
+            matches: result-failure-catch
+            all:
+                - has: {kind: statements, has: {pattern: {context: 'func f() { return .failure($FAILURE) }', selector: control_transfer_statement}}}
+                - any:
+                    - has: {kind: pattern, has: {field: bound_identifier, pattern: $CAUGHT}}
+                    - not: {has: {kind: pattern}}
+                      has: {kind: catch_keyword, pattern: $$KEYWORD}
+        - not: {has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}}
+        - any:
+            - has: {kind: statements, nthChild: 1, has: {kind: await_expression, stopBy: {kind: 'lambda_literal, function_declaration'}, pattern: $AWAITED}}
+            - pattern: $SYNC
+transform:
+    OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
+    OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
+    RETURNING: {replace: {source: $BODY, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+    INNER: {replace: {source: $RETURNING, replace: '\s*return \(\)$', by: ''}}
+    DEFAULT: {replace: {source: $KEYWORD, replace: '(?s)^.*$', by: 'error'}}
+fix: |-
+    return $OPEN_ASYNC$OPEN_SYNC {
+      $INNER
+    }.mapError { $CAUGHT$DEFAULT in $FAILURE }
+message: '`do` builds a Result by hand, `.success` last and `.failure` in `catch`'
+note: '`Result { <throwing statements> }.mapError { error in <failure> }` returns the same cases, `await Result` over a body that awaits'

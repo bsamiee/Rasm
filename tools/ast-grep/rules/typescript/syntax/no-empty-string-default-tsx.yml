@@ -13,11 +13,17 @@ utils:
               has: {field: operator, regex: '^\+$'}
             - kind: template_substitution
 rule:
-    kind: binary_expression
-    all:
-        - has: {field: left, matches: indexed-element}
-        - has: {field: operator, regex: '^(\?\?|\|\|)$'}
-        - has: {field: right, matches: syntax-empty-string}
-        - not: {inside: {matches: concatenation, stopBy: {not: {kind: parenthesized_expression}}}}
+    any:
+        - kind: binary_expression
+          all:
+            - has: {field: left, matches: indexed-element}
+            - has: {field: operator, regex: '^(\?\?|\|\|)$'}
+            - has: {field: right, matches: syntax-empty-string}
+            - not: {inside: {matches: concatenation, stopBy: {not: {kind: parenthesized_expression}}}}
+        - kind: 'assignment_pattern, object_assignment_pattern'
+          all:
+            - inside: {kind: 'array_pattern, object_pattern, pair_pattern'}
+            - has: {field: left, pattern: $ELEMENT}
+            - has: {field: right, matches: syntax-empty-string}
 message: '`$ELEMENT` defaults to an empty string standing for an absent element'
 note: 'Bind `const [head] = <list>` and test `head === undefined`, the empty string stays a value'

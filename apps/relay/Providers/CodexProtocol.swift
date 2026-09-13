@@ -1,34 +1,32 @@
 import Foundation
 
-enum CodexProtocol {
+nonisolated enum CodexProtocol {
   struct AccountUsage: Sendable {
     let snapshot: UsageSnapshot
     let permitsIncludedUsage: Bool?
   }
 
-  struct StarterModel: Sendable {
+  struct GreetingModel: Sendable {
     let name: String
     let effort: String
   }
 
-  // Published subscription pricing gives Luna the most messages per window of every current model.
-  static let starterModelName: String = "gpt-5.6-luna"
+  static let greetingModelName: String = "gpt-5.6-luna"
 
-  // Least costly first, the model's advertised efforts select the first member it supports.
-  private static let effortLadder: [String] = [
+  private static let reasoningEfforts: [String] = [
     "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
   ]
 
   static func identity(_ connection: CodexConnection) async -> Result<AccountIdentity, CodexFailure>
   {
     return await connection.request("account/read", params: .object(["refreshToken": .bool(false)]))
-      .flatMap(chatgptAccount)
+      .flatMap(chatGPTAccount)
       .bind { account in
         await connection.request(
           "getAuthStatus",
           params: .object(["includeToken": .bool(true), "refreshToken": .bool(false)])
         )
-        .flatMap(chatgptToken)
+        .flatMap(chatGPTToken)
         .flatMap(authenticationClaims)
         .flatMap { claims in
           AccountIdentity.make(
@@ -43,10 +41,10 @@ enum CodexProtocol {
 
   static func identity(
     _ connection: CodexConnection,
-    matching account: RelayAccount
+    matching account: Account
   ) async -> Result<AccountIdentity, CodexFailure> {
     return await identity(connection).flatMap { identity in
-      identity.identifies(account.identity) ? .success(identity) : .failure(.identityChanged)
+      identity.isSameAccount(as: account.identity) ? .success(identity) : .failure(.identityChanged)
     }
   }
 
@@ -67,87 +65,83 @@ enum CodexProtocol {
     identity: AccountIdentity,
     observedAt: Date
   ) -> Result<AccountUsage, CodexFailure> {
-    switch response["accountId"] {
-    case .none, .some(.null): break
-    case .some(.string(let workspaceID)) where workspaceID == identity.organizationID: break
-    case .some: return .failure(.invalidResponse(field: "usage workspace identifier"))
-    }
-    let permitsIncludedUsage: Bool?
-    switch response["ordinaryUsageAllowed"] {
-    case .none, .some(.null): permitsIncludedUsage = nil
-    case .some(.bool(let value)): permitsIncludedUsage = value
-    case .some: return .failure(.invalidResponse(field: "included usage availability"))
-    }
-    let limits: JSONValue?
-    switch response["rateLimitsByLimitId"] {
-    case .some(.object(let values)): limits = values["codex"]
-    case .none, .some(.null):
-      guard let primary: JSONValue = response["rateLimits"], primary.objectValue != nil else {
-        return .failure(.invalidResponse(field: "usage limits"))
+    let workspace: Result<Void, CodexFieldFailure> =
+      switch response["accountId"] {
+      case .none, .some(.null): .success(())
+      case .some(.string(let workspaceID)) where workspaceID == identity.organizationID:
+        .success(())
+      case .some: .failure(CodexFieldFailure("usage workspace identifier"))
       }
-      switch primary["limitId"] {
-      case .none, .some(.null), .some(.string("codex")): limits = primary
-      case .some(.string): limits = nil
-      case .some: return .failure(.invalidResponse(field: "usage limit identifier"))
+    let permitsIncludedUsage: Result<Bool?, CodexFieldFailure> =
+      switch response["ordinaryUsageAllowed"] {
+      case .none, .some(.null): .success(nil)
+      case .some(.bool(let value)): .success(value)
+      case .some: .failure(CodexFieldFailure("included usage availability"))
       }
-    case .some: return .failure(.invalidResponse(field: "usage limits"))
-    }
-    var session: QuotaWindow?
-    var weekly: QuotaWindow?
-    var failures: [String] = []
-    for field: String in ["primary", "secondary"] {
-      guard let value: JSONValue = limits?[field], value != .null else { continue }
-      switch window(value, field: field) {
-      case .failure(let error): failures.append(error.field)
-      case .success((let duration, let window)):
-        switch duration {
-        case 300: session = window
-        case 10_080: weekly = window
-        default: break
+    let limits: Result<JSONValue?, CodexFieldFailure> =
+      switch response["rateLimitsByLimitId"] {
+      case .some(.object(let values)): .success(values["codex"])
+      case .none, .some(.null):
+        switch response["rateLimits"] {
+        case .some(.object(let primary)):
+          switch primary["limitId"] {
+          case .none, .some(.null), .some(.string("codex")): .success(.object(primary))
+          case .some(.string): .success(nil)
+          case .some: .failure(CodexFieldFailure("usage limit identifier"))
+          }
+        case .none, .some: .failure(CodexFieldFailure("usage limits"))
+        }
+      case .some: .failure(CodexFieldFailure("usage limits"))
+      }
+    return combine(workspace, permitsIncludedUsage, limits)
+      .flatMap { _, permitsIncludedUsage, limits in
+        traverse(
+          ["primary", "secondary"].compactMap { field in
+            limits?[field].flatMap { value in value == .null ? nil : (field, value) }
+          }
+        ) { field, value in quotaWindow(value, field: field) }
+        .map { windows in
+          AccountUsage(
+            snapshot: UsageSnapshot(
+              session: windows.last { duration, _ in duration == 300 }?.1,
+              weekly: windows.last { duration, _ in duration == 10_080 }?.1,
+              fable: nil,
+              observedAt: observedAt
+            ),
+            permitsIncludedUsage: permitsIncludedUsage
+          )
         }
       }
-    }
-    if !failures.isEmpty {
-      return .failure(.invalidResponse(field: failures.joined(separator: ", ")))
-    }
-    return .success(
-      AccountUsage(
-        snapshot: UsageSnapshot(
-          session: session, weekly: weekly, fable: nil, observedAt: observedAt),
-        permitsIncludedUsage: permitsIncludedUsage
-      ))
+      .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
   }
 
-  static func starterModel(_ connection: CodexConnection) async -> Result<
-    StarterModel, CodexFailure
-  > {
-    var cursor: String?
-    repeat {
-      var parameters: [String: JSONValue] = ["includeHidden": .bool(false)]
-      if let cursor { parameters["cursor"] = .string(cursor) }
-      let response: JSONValue
-      switch await connection.request("model/list", params: .object(parameters)) {
-      case .success(let value): response = value
-      case .failure(let error): return .failure(error)
-      }
+  static func greetingModel(
+    _ connection: CodexConnection,
+    cursor: String? = nil
+  ) async -> Result<GreetingModel, CodexFailure> {
+    var parameters: [String: JSONValue] = ["includeHidden": .bool(false)]
+    if let cursor { parameters["cursor"] = .string(cursor) }
+    return await connection.request("model/list", params: .object(parameters)).bind { response in
       guard let models: [JSONValue] = response["data"]?.arrayValue else {
         return .failure(.invalidResponse(field: "model list"))
       }
       if let model: JSONValue = models.first(where: { value in
-        value["model"]?.stringValue == starterModelName && value["hidden"]?.boolValue != true
+        value["model"]?.stringValue == greetingModelName && value["hidden"]?.boolValue != true
       }) {
-        return starterEffort(model).map { effort in
-          StarterModel(name: starterModelName, effort: effort)
+        return greetingEffort(model).map { effort in
+          GreetingModel(name: greetingModelName, effort: effort)
         }
       }
-      cursor = response["nextCursor"]?.stringValue
-    } while cursor != nil
-    return .failure(.modelUnavailable)
+      return await
+        (response["nextCursor"]?.stringValue.map(Result<String, CodexFailure>.success)
+        ?? .failure(.modelUnavailable))
+        .bind { next in await greetingModel(connection, cursor: next) }
+    }
   }
 
   static func sendGreeting(
     _ connection: CodexConnection,
-    model: StarterModel,
+    model: GreetingModel,
     workingDirectory: URL
   ) async -> Result<Void, CodexFailure> {
     return await connection.request(
@@ -191,7 +185,7 @@ enum CodexProtocol {
     }
   }
 
-  private struct ChatgptAccount {
+  private struct ChatGPTAccount {
     let email: String
     let plan: String?
   }
@@ -201,30 +195,27 @@ enum CodexProtocol {
     let workspaceID: String
   }
 
-  private static func chatgptAccount(_ response: JSONValue) -> Result<ChatgptAccount, CodexFailure>
+  private static func chatGPTAccount(_ response: JSONValue) -> Result<ChatGPTAccount, CodexFailure>
   {
     guard let account: JSONValue = response["account"], account != .null else {
       return .failure(.signInRequired)
     }
-    guard account["type"]?.stringValue == "chatgpt" else { return .failure(.subscriptionRequired) }
-    guard let email: String = account["email"]?.stringValue else {
-      return .failure(.invalidResponse(field: "account email"))
-    }
-    return .success(ChatgptAccount(email: email, plan: account["planType"]?.stringValue))
+    return account["type"]?.stringValue == "chatgpt"
+      ? account["email"]?.stringValue.map { email in
+        .success(ChatGPTAccount(email: email, plan: account["planType"]?.stringValue))
+      } ?? .failure(.invalidResponse(field: "account email"))
+      : .failure(.subscriptionRequired)
   }
 
-  private static func chatgptToken(_ response: JSONValue) -> Result<String, CodexFailure> {
-    guard let method: String = response["authMethod"]?.stringValue else {
-      return .failure(.signInRequired)
-    }
-    guard method == "chatgpt" else { return .failure(.subscriptionRequired) }
-    guard let token: String = response["authToken"]?.stringValue else {
-      return .failure(.signInRequired)
-    }
-    return .success(token)
+  private static func chatGPTToken(_ response: JSONValue) -> Result<String, CodexFailure> {
+    response["authMethod"]?.stringValue.map { method in
+      method == "chatgpt"
+        ? response["authToken"]?.stringValue.map { token in .success(token) }
+          ?? .failure(.signInRequired)
+        : .failure(.subscriptionRequired)
+    } ?? .failure(.signInRequired)
   }
 
-  // Codex's own JWT reader takes `chatgpt_user_id`, then `user_id`, under the auth claim.
   private static func authenticationClaims(_ token: String) -> Result<
     AuthenticationClaims, CodexFailure
   > {
@@ -240,57 +231,68 @@ enum CodexProtocol {
     else {
       return .failure(.invalidResponse(field: "account identity"))
     }
-    guard let auth: [String: JSONValue] = claims["https://api.openai.com/auth"]?.objectValue,
-      let workspaceID: String = auth["chatgpt_account_id"]?.stringValue
-    else {
-      return .failure(.invalidResponse(field: "workspace identifier"))
-    }
-    switch (auth["chatgpt_user_id"], auth["user_id"]) {
-    case (.some(.string(let userID)), _), (.none, .some(.string(let userID))),
-      (.some(.null), .some(.string(let userID))):
-      return .success(AuthenticationClaims(userID: userID, workspaceID: workspaceID))
-    default:
-      return .failure(.invalidResponse(field: "user identifier"))
-    }
+    return claims["https://api.openai.com/auth"]?.objectValue.map(authenticationClaims(auth:))
+      ?? .failure(.invalidResponse(field: "workspace identifier"))
   }
 
-  private static func starterEffort(_ model: JSONValue) -> Result<String, CodexFailure> {
-    guard let efforts: [JSONValue] = model["supportedReasoningEfforts"]?.arrayValue else {
-      return .failure(.invalidResponse(field: "model reasoning effort"))
-    }
+  private static func authenticationClaims(
+    auth: [String: JSONValue]
+  ) -> Result<AuthenticationClaims, CodexFailure> {
+    let workspaceID: Result<String, CodexFieldFailure> =
+      auth["chatgpt_account_id"]?.stringValue.map { workspaceID in .success(workspaceID) }
+      ?? .failure(CodexFieldFailure("workspace identifier"))
+    let userID: Result<String, CodexFieldFailure> =
+      switch (auth["chatgpt_user_id"], auth["user_id"]) {
+      case (.some(.string(let userID)), _), (.none, .some(.string(let userID))),
+        (.some(.null), .some(.string(let userID))):
+        .success(userID)
+      default: .failure(CodexFieldFailure("user identifier"))
+      }
+    return combine(userID, workspaceID)
+      .map { userID, workspaceID in AuthenticationClaims(userID: userID, workspaceID: workspaceID) }
+      .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
+  }
+
+  private static func greetingEffort(_ model: JSONValue) -> Result<String, CodexFailure> {
     let supported: Set<String> = Set(
-      efforts.compactMap { value in value["reasoningEffort"]?.stringValue })
-    guard let effort: String = effortLadder.first(where: supported.contains) else {
-      return .failure(.invalidResponse(field: "model reasoning effort"))
-    }
-    return .success(effort)
+      (model["supportedReasoningEfforts"]?.arrayValue ?? []).compactMap { value in
+        value["reasoningEffort"]?.stringValue
+      })
+    return reasoningEfforts.first(where: supported.contains).map { effort in .success(effort) }
+      ?? .failure(.invalidResponse(field: "model reasoning effort"))
   }
 
   private static func greetingOverrides(_ effective: JSONValue) -> Result<
     [String: JSONValue], CodexFailure
   > {
-    guard let config: [String: JSONValue] = effective["config"]?.objectValue else {
-      return .failure(.invalidResponse(field: "effective configuration"))
+    effective["config"]?.objectValue.map(greetingOverrides(config:))
+      ?? .failure(.invalidResponse(field: "effective configuration"))
+  }
+
+  private static func greetingOverrides(
+    config: [String: JSONValue]
+  ) -> Result<[String: JSONValue], CodexFailure> {
+    let servers: Result<[String: JSONValue], CodexFailure> =
+      switch config["mcp_servers"] {
+      case .none, .some(.null): .success([:])
+      case .some(.object(let values)):
+        .success(values.mapValues { _ in .object(["enabled": .bool(false)]) })
+      case .some: .failure(.invalidResponse(field: "MCP configuration"))
+      }
+    return servers.map { servers in
+      var overrides: [String: JSONValue] = Dictionary(
+        uniqueKeysWithValues: disabledFeatures.map { key in (key, .bool(false)) })
+      overrides["web_search"] = .string("disabled")
+      overrides["project_doc_max_bytes"] = .number(0)
+      overrides["mcp_servers"] = .object(servers)
+      return overrides
     }
-    let servers: [String: JSONValue]
-    switch config["mcp_servers"] {
-    case .none, .some(.null): servers = [:]
-    case .some(.object(let values)):
-      servers = values.mapValues { _ in .object(["enabled": .bool(false)]) }
-    case .some: return .failure(.invalidResponse(field: "MCP configuration"))
-    }
-    var overrides: [String: JSONValue] = Dictionary(
-      uniqueKeysWithValues: disabledFeatures.map { key in (key, .bool(false)) })
-    overrides["web_search"] = .string("disabled")
-    overrides["project_doc_max_bytes"] = .number(0)
-    overrides["mcp_servers"] = .object(servers)
-    return .success(overrides)
   }
 
   private static func completeGreeting(
     _ connection: CodexConnection,
     threadID: String,
-    model: StarterModel
+    model: GreetingModel
   ) async -> Result<Void, CodexFailure> {
     return await connection.request(
       "turn/start",
@@ -302,12 +304,15 @@ enum CodexProtocol {
       ])
     )
     .bind { (response: JSONValue) async -> Result<JSONValue, CodexFailure> in
-      guard let turnID: String = response["turn"]?["id"]?.stringValue else {
-        return .failure(.invalidResponse(field: "temporary turn identifier"))
-      }
-      return await connection.notification("turn/completed") { value in
-        value["threadId"]?.stringValue == threadID && value["turn"]?["id"]?.stringValue == turnID
-      }
+      return await
+        (response["turn"]?["id"]?.stringValue.map(Result<String, CodexFailure>.success)
+        ?? .failure(.invalidResponse(field: "temporary turn identifier")))
+        .bind { turnID in
+          await connection.notification("turn/completed") { value in
+            value["threadId"]?.stringValue == threadID
+              && value["turn"]?["id"]?.stringValue == turnID
+          }
+        }
     }
     .flatMap { (completed: JSONValue) -> Result<Void, CodexFailure> in
       let turn: JSONValue? = completed["turn"]
@@ -316,44 +321,47 @@ enum CodexProtocol {
       case "interrupted": return .failure(.cancelled)
       case "failed":
         let error: JSONValue? = turn?["error"]
-        return .failure(
-          .turnFailed(
-            code: error?["codexErrorInfo"]?.stringValue.flatMap(CodexTurnErrorCode.init),
-            message: error?["message"]?.stringValue ?? "OpenAI could not start the session."))
+        return error?["message"]?.stringValue.map { message in
+          .failure(
+            .turnFailed(
+              code: error?["codexErrorInfo"]?.stringValue.flatMap(CodexTurnErrorCode.init),
+              message: message))
+        } ?? .failure(.invalidResponse(field: "turn error"))
       default: return .failure(.invalidResponse(field: "turn completion"))
       }
     }
   }
 
-  private static func window(
+  private static func quotaWindow(
     _ value: JSONValue,
     field: String
-  ) -> Result<(Int?, QuotaWindow), CodexWindowFailure> {
-    let duration: Int?
-    switch value["windowDurationMins"] {
-    case .none, .some(.null): duration = nil
-    case .some(let number):
-      guard let minutes: Int = number.intValue, minutes > 0 else {
-        return .failure(CodexWindowFailure(field: "\(field) window duration"))
+  ) -> Result<(Int?, QuotaWindow), CodexFieldFailure> {
+    let duration: Result<Int?, CodexFieldFailure> =
+      switch value["windowDurationMins"] {
+      case .none, .some(.null): .success(nil)
+      case .some(let number):
+        number.intValue.flatMap { minutes in minutes > 0 ? minutes : nil }
+          .map { minutes in .success(minutes) }
+          ?? .failure(CodexFieldFailure("\(field) window duration"))
       }
-      duration = minutes
+    let amount: Result<UsageAmount, CodexFieldFailure> =
+      (value["usedPercent"]?.doubleValue).map { percent in
+        UsageAmount.make(percent: percent).mapError { _ in
+          CodexFieldFailure("\(field) usage percentage")
+        }
+      } ?? .failure(CodexFieldFailure("\(field) usage percentage"))
+    let resetsAt: Result<Date?, CodexFieldFailure> =
+      switch value["resetsAt"] {
+      case .none, .some(.null): .success(nil)
+      case .some(.number(let seconds)) where seconds.isFinite:
+        .success(Date(timeIntervalSince1970: seconds))
+      case .some: .failure(CodexFieldFailure("\(field) reset time"))
+      }
+    return combine(duration, amount, resetsAt).map { duration, amount, resetsAt in
+      (duration, QuotaWindow(amount: amount, resetsAt: resetsAt))
     }
-    guard let percent: Double = value["usedPercent"]?.doubleValue,
-      case .success(let amount) = UsageAmount.make(percent: percent)
-    else {
-      return .failure(CodexWindowFailure(field: "\(field) usage percentage"))
-    }
-    let resetsAt: Date?
-    switch value["resetsAt"] {
-    case .none, .some(.null): resetsAt = nil
-    case .some(.number(let seconds)) where seconds.isFinite:
-      resetsAt = Date(timeIntervalSince1970: seconds)
-    case .some: return .failure(CodexWindowFailure(field: "\(field) reset time"))
-    }
-    return .success((duration, QuotaWindow(amount: amount, resetsAt: resetsAt)))
   }
 
-  // Codex's temporary_structured_request disables the owning tool capabilities at thread creation.
   private static let disabledFeatures: [String] = [
     "features.apps", "features.code_mode", "features.code_mode_only", "features.context_management",
     "features.current_time_reminder", "features.deferred_executor", "features.enable_fanout",
@@ -365,8 +373,4 @@ enum CodexProtocol {
     "skills.include_instructions", "token_budget.use_history_notes_extension",
     "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
   ]
-}
-
-private struct CodexWindowFailure: Error {
-  let field: String
 }

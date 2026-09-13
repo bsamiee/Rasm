@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-explicit-pointer-conversion
+language: swift
+severity: error
+utils:
+    stored-value:
+        kind: 'simple_identifier, navigation_expression'
+        not: {has: {kind: call_suffix, stopBy: end}}
+    single-parameter:
+        kind: lambda_function_type
+        has:
+            kind: lambda_function_type_parameters
+            all:
+                - has: {kind: lambda_parameter, has: {field: name, pattern: $POINTER}}
+                - not: {has: {nthChild: 2}}
+    single-call:
+        matches: {swift-single-statement: {first: {pattern: $BODY, not: {kind: control_transfer_statement}}}}
+    argument-use:
+        not:
+            has:
+                kind: simple_identifier
+                pattern: $POINTER
+                stopBy: end
+                not: {inside: {kind: value_argument}}
+    base-use:
+        not:
+            has:
+                kind: simple_identifier
+                pattern: $POINTER
+                stopBy: end
+                not:
+                    inside:
+                        kind: navigation_expression
+                        regex: '^\w+\.baseAddress$'
+                        inside: {kind: value_argument, stopBy: {not: {kind: postfix_expression}}}
+    closure:
+        kind: call_suffix
+        has:
+            kind: lambda_literal
+            all:
+                - has: {matches: single-parameter}
+                - has: {kind: statements, matches: single-call}
+rule:
+    kind: call_expression
+    any:
+        - all:
+            - has:
+                kind: navigation_expression
+                all:
+                    - has: {field: target, pattern: $TARGET, matches: stored-value}
+                    - has: {field: suffix, regex: '^\.withCString$'}
+            - has: {matches: closure, has: {kind: lambda_literal, has: {kind: statements, matches: argument-use}}}
+        - all:
+            - has:
+                kind: navigation_expression
+                all:
+                    - has: {field: target, pattern: $TARGET, matches: stored-value}
+                    - has: {field: suffix, regex: '^\.withUnsafeBufferPointer$'}
+            - has: {matches: closure, has: {kind: lambda_literal, has: {kind: statements, matches: base-use}}}
+        - all:
+            - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Pointer$'}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    has:
+                        kind: value_argument
+                        all:
+                            - has: {kind: value_argument_label, regex: '^to$'}
+                            - has: {field: value, pattern: $TARGET, kind: prefix_expression, regex: '^&'}
+            - has: {matches: closure, has: {kind: lambda_literal, has: {kind: statements, matches: argument-use}}}
+rewriters:
+    - id: unwrapped-base
+      rule:
+        kind: postfix_expression
+        regex: '!$'
+        has: {kind: navigation_expression, regex: '^\w+\.baseAddress$', has: {field: target, pattern: $POINTER}}
+      fix: $TARGET
+    - id: base
+      rule:
+        kind: navigation_expression
+        regex: '^\w+\.baseAddress$'
+        has: {field: target, pattern: $POINTER}
+      fix: $TARGET
+    - id: argument
+      rule:
+        kind: simple_identifier
+        pattern: $POINTER
+        not: {inside: {kind: 'navigation_suffix, value_argument_label'}}
+      fix: $TARGET
+transform:
+    CALL: {rewrite: {source: $BODY, rewriters: [unwrapped-base, base, argument]}}
+fix: $CALL
+message: 'Closure hands `$TARGET` to a call as a pointer the call converts to on its own'
+note: 'A `String`, `[Element]`, or `&value` argument converts to the pointer type of its parameter for the call, pass the value directly'

@@ -1,0 +1,8 @@
+id: swift-single-statement
+language: swift
+arguments: [first]
+rule:
+    kind: statements
+    all:
+        - has: {nthChild: 1, matches: first}
+        - not: {has: {nthChild: 2}}

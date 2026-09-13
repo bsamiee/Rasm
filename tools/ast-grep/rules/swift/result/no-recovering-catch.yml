@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-recovering-catch
+language: swift
+severity: error
+rule:
+    kind: do_statement
+    all:
+        - has: {kind: catch_block, matches: result-failure-catch}
+        - has:
+            kind: catch_block
+            all:
+                - has: {kind: pattern, pattern: $CAUGHT}
+                - has:
+                    matches:
+                        swift-single-statement:
+                            first:
+                                any:
+                                    - pattern: {context: 'func f() { return .success($$$_) }', selector: control_transfer_statement}
+                                    - kind: assignment
+message: '`catch $CAUGHT` recovers by hand beside the `catch` that returns `.failure`'
+note: '`Result { ... }.mapError { error in <failure> }.flatMapError { failure in ... }` recovers the mapped failure, `as?` replaces the cast'

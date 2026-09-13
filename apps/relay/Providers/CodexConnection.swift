@@ -1,26 +1,22 @@
 import Foundation
 
 actor CodexConnection {
-  typealias Reply = Result<JSONValue, CodexFailure>
-
-  // A request's reply slot exists from before its write until its reply is consumed, so a reply
-  // that lands while the write is still in flight is kept instead of dropped.
   private enum PendingReply {
     case unclaimed
-    case arrived(Reply)
-    case awaited(CheckedContinuation<Reply, Never>)
+    case arrived(Result<JSONValue, CodexFailure>)
+    case awaited(CheckedContinuation<Result<JSONValue, CodexFailure>, Never>)
   }
 
   private struct NotificationWaiter {
     let matches: @Sendable (JSONValue) -> Bool
-    let continuation: CheckedContinuation<Reply, Never>
+    let continuation: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>
   }
 
   private static let awaitedNotifications: Set<String> = [
     "account/login/completed", "turn/completed",
   ]
 
-  private let process: NativeProcess
+  private let process: ChildProcess
   private var reader: Task<Void, Never>?
   private var nextRequestID: Int = 0
   private var replies: [String: PendingReply] = [:]
@@ -28,7 +24,7 @@ actor CodexConnection {
   private var waiters: [String: [NotificationWaiter]] = [:]
   private var terminalFailure: CodexFailure?
 
-  init(process: NativeProcess) {
+  init(process: ChildProcess) {
     self.process = process
   }
 
@@ -59,70 +55,74 @@ actor CodexConnection {
     }
   }
 
-  func request(_ method: String, params: JSONValue? = nil) async -> Reply {
-    if let terminalFailure { return .failure(terminalFailure) }
-    if Task.isCancelled { return .failure(.cancelled) }
-    nextRequestID += 1
-    let id: String = String(nextRequestID)
-    var message: [String: JSONValue] = ["id": .string(id), "method": .string(method)]
-    if let params { message["params"] = params }
-    replies[id] = .unclaimed
-    if case .failure(let error) = await write(.object(message)) {
-      replies.removeValue(forKey: id)
-      return .failure(error)
-    }
-    if let terminalFailure {
-      replies.removeValue(forKey: id)
-      return .failure(terminalFailure)
-    }
-    if case .arrived(let reply) = replies[id] {
-      replies.removeValue(forKey: id)
-      return reply
-    }
-    return await withTaskCancellationHandler {
-      await withCheckedContinuation { continuation in
-        replies[id] = .awaited(continuation)
+  func request(_ method: String, params: JSONValue? = nil) async -> Result<
+    JSONValue, CodexFailure
+  > {
+    return await ready.bind { _ in
+      nextRequestID += 1
+      let id: String = String(nextRequestID)
+      var message: [String: JSONValue] = ["id": .string(id), "method": .string(method)]
+      if let params { message["params"] = params }
+      replies[id] = .unclaimed
+      if case .failure(let error) = await write(.object(message)) {
+        replies.removeValue(forKey: id)
+        return .failure(error)
       }
-    } onCancel: {
-      Task { await self.cancel() }
+      if let terminalFailure {
+        replies.removeValue(forKey: id)
+        return .failure(terminalFailure)
+      }
+      if case .arrived(let reply) = replies[id] {
+        replies.removeValue(forKey: id)
+        return reply
+      }
+      return await withTaskCancellationHandler {
+        await withCheckedContinuation { continuation in
+          replies[id] = .awaited(continuation)
+        }
+      } onCancel: {
+        Task { await self.cancel() }
+      }
     }
   }
 
   func notification(
     _ method: String,
     matching predicate: @escaping @Sendable (JSONValue) -> Bool
-  ) async -> Reply {
-    if let terminalFailure { return .failure(terminalFailure) }
-    if Task.isCancelled { return .failure(.cancelled) }
-    if let index: Int = notifications[method]?.firstIndex(where: predicate),
-      let value: JSONValue = notifications[method]?.remove(at: index)
-    {
-      return .success(value)
-    }
-    return await withTaskCancellationHandler {
-      await withCheckedContinuation { continuation in
-        waiters[method, default: []].append(
-          NotificationWaiter(matches: predicate, continuation: continuation))
+  ) async -> Result<JSONValue, CodexFailure> {
+    return await ready.bind { _ in
+      if let index: Int = notifications[method]?.firstIndex(where: predicate),
+        let value: JSONValue = notifications[method]?.remove(at: index)
+      {
+        return .success(value)
       }
-    } onCancel: {
-      Task { await self.cancel() }
+      return await withTaskCancellationHandler {
+        await withCheckedContinuation { continuation in
+          waiters[method, default: []].append(
+            NotificationWaiter(matches: predicate, continuation: continuation))
+        }
+      } onCancel: {
+        Task { await self.cancel() }
+      }
     }
+  }
+
+  private var ready: Result<Void, CodexFailure> {
+    terminalFailure.map { failure in .failure(failure) }
+      ?? (Task.isCancelled ? .failure(.cancelled) : .success(()))
   }
 
   func cancel() async {
-    finish(.cancelled)
-    await process.cancel()
-    await stopReading()
+    await shutdown(.cancelled)
   }
 
   func close() async {
-    finish(.connectionClosed)
-    await process.closeInput()
-    await process.cancel()
-    await stopReading()
+    await shutdown(.connectionClosed)
   }
 
-  private func stopReading() async {
+  private func shutdown(_ failure: CodexFailure) async {
+    finish(failure)
+    await process.cancel()
     let source: Task<Void, Never>? = reader
     reader = nil
     source?.cancel()
@@ -130,27 +130,18 @@ actor CodexConnection {
   }
 
   private func write(_ value: JSONValue) async -> Result<Void, CodexFailure> {
-    let data: Data
-    do {
-      var encoded: Data = try JSONEncoder().encode(value)
-      encoded.append(0x0A)
-      data = encoded
-    } catch {
-      return .failure(.invalidResponse(field: "request"))
-    }
-    return await process.send(data).mapError(CodexFailure.process)
+    return await Result { try JSONEncoder().encode(value) + [0x0A] }
+      .mapError { _ in CodexFailure.invalidResponse(field: "request") }
+      .bind { data in await process.send(data).mapError(CodexFailure.process) }
   }
 
   private func receive(_ data: Data) async {
-    let message: JSONValue
-    do {
-      message = try JSONDecoder().decode(JSONValue.self, from: data)
-    } catch {
+    guard let message: JSONValue = try? JSONDecoder().decode(JSONValue.self, from: data) else {
       finish(.invalidResponse(field: "protocol message"))
       return
     }
     if let id: JSONValue = message["id"], message["method"] != nil {
-      _ = await write(
+      let refusal: Result<Void, CodexFailure> = await write(
         .object([
           "id": id,
           "error": .object([
@@ -158,10 +149,11 @@ actor CodexConnection {
             "message": .string("Relay does not provide agent tools."),
           ]),
         ]))
+      if case .failure(let error) = refusal { finish(error) }
       return
     }
     if let id: String = message["id"]?.stringValue, let pending: PendingReply = replies[id] {
-      let reply: Reply = Self.reply(message)
+      let reply: Result<JSONValue, CodexFailure> = Self.reply(message)
       switch pending {
       case .unclaimed: replies[id] = .arrived(reply)
       case .arrived: break
@@ -184,17 +176,20 @@ actor CodexConnection {
     }
   }
 
-  private static func reply(_ message: JSONValue) -> Reply {
+  private static func reply(_ message: JSONValue) -> Result<JSONValue, CodexFailure> {
     if let error: JSONValue = message["error"] {
-      guard let code: Int = error["code"]?.intValue,
-        let description: String = error["message"]?.stringValue
-      else { return .failure(.invalidResponse(field: "request error")) }
-      return .failure(.requestRejected(code: code, message: description))
+      let code: Result<Int, CodexFieldFailure> =
+        error["code"]?.intValue.map(Result.success) ?? .failure(CodexFieldFailure("error code"))
+      let description: Result<String, CodexFieldFailure> =
+        error["message"]?.stringValue.map(Result.success)
+        ?? .failure(CodexFieldFailure("error message"))
+      return combine(code, description)
+        .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
+        .flatMap { code, description in .failure(.requestRejected(code: code, message: description))
+        }
     }
-    guard let result: JSONValue = message["result"] else {
-      return .failure(.invalidResponse(field: "request result"))
-    }
-    return .success(result)
+    return message["result"].map { result in .success(result) }
+      ?? .failure(.invalidResponse(field: "request result"))
   }
 
   private func finish(_ failure: CodexFailure) {
@@ -202,28 +197,14 @@ actor CodexConnection {
     terminalFailure = failure
     let pendingReplies: [PendingReply] = Array(replies.values)
     replies.removeAll()
-    for pending: PendingReply in pendingReplies {
-      if case .awaited(let continuation) = pending {
-        continuation.resume(returning: .failure(failure))
-      }
+    for case .awaited(let continuation) in pendingReplies {
+      continuation.resume(returning: .failure(failure))
     }
-    let pendingWaiters: [NotificationWaiter] = waiters.values.flatMap { values in values }
+    let pendingWaiters: [NotificationWaiter] = Array(waiters.values.joined())
     waiters.removeAll()
     notifications.removeAll()
     for waiter: NotificationWaiter in pendingWaiters {
       waiter.continuation.resume(returning: .failure(failure))
-    }
-  }
-}
-
-extension Result {
-  // The asynchronous bind, `flatMap` stays the synchronous form the standard library declares.
-  func bind<NewSuccess>(
-    _ transform: (Success) async -> Result<NewSuccess, Failure>
-  ) async -> Result<NewSuccess, Failure> {
-    switch self {
-    case .success(let value): await transform(value)
-    case .failure(let error): .failure(error)
     }
   }
 }

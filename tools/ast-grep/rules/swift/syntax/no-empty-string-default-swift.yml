@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-string-default-swift
+language: swift
+severity: error
+utils:
+    empty-string:
+        any:
+            - kind: line_string_literal
+              not: {has: {kind: 'line_str_text, interpolated_expression'}}
+            - pattern: String()
+rule:
+    any:
+        - kind: nil_coalescing_expression
+          all:
+            - has: {field: value, pattern: $SHAPE}
+            - has: {field: if_nil, matches: empty-string}
+            - not: {inside: {kind: 'additive_expression, interpolated_expression', stopBy: {not: {kind: tuple_expression}}}}
+        - kind: switch_entry
+          all:
+            - has: {kind: switch_pattern, pattern: $SHAPE}
+            - has: {matches: {swift-single-statement: {first: {matches: empty-string}}}}
+        - matches: empty-string
+          all:
+            - inside: {kind: 'function_declaration, init_declaration'}
+            - follows: {kind: parameter, pattern: $SHAPE, stopBy: end}
+        - kind: property_declaration
+          all:
+            - inside: {kind: 'class_body, enum_class_body'}
+            - has: {field: name, kind: pattern, pattern: $SHAPE}
+            - has: {kind: type_annotation, regex: '^:\s*String$'}
+            - has: {field: value, matches: empty-string}
+message: '`$SHAPE` yields an empty string standing for absence'
+note: 'Declare or return an Optional and test `nil`, the empty string stays a value'

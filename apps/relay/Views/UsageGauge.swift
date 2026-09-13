@@ -1,34 +1,20 @@
 import SwiftUI
 
-enum UsagePeriod {
-  case session
-  case weekly
-  case fable
-
-  var name: String {
-    switch self {
-    case .session: "Session"
-    case .weekly: "Weekly"
-    case .fable: "Fable"
-    }
-  }
-}
-
 struct UsageGauge: View {
-  let period: UsagePeriod
-  let quota: QuotaWindow?
+  let quota: AccountQuota
+  let window: QuotaWindow?
   let isCurrent: Bool
 
-  private static let barHeight: CGFloat = 6
+  private static let trackHeight: CGFloat = 6
 
   var body: some View {
     TimelineView(.periodic(from: .now, by: 60)) { context in
       VStack(alignment: .leading, spacing: 4) {
         HStack(alignment: .firstTextBaseline, spacing: 8) {
-          Text(period.name)
+          Text(quota.name)
             .foregroundStyle(isCurrent ? .primary : .secondary)
           Spacer(minLength: 8)
-          Text(reading(at: context.date))
+          Text(currentValueLabel(at: context.date))
             .monospacedDigit()
             .foregroundStyle(isCurrent ? .secondary : .tertiary)
             .contentTransition(.numericText())
@@ -38,73 +24,85 @@ struct UsageGauge: View {
         Capsule()
           .fill(.quaternary)
           .overlay(alignment: .leading) {
-            GeometryReader { geometry in
-              Capsule()
-                .fill(isCurrent ? Color.blue : Color.gray)
-                .frame(width: geometry.size.width * (quota?.amount.fraction ?? 0))
+            if let window {
+              GeometryReader { geometry in
+                Capsule()
+                  .fill(isCurrent ? Color.accentColor : Color.secondary)
+                  .frame(width: geometry.size.width * window.amount.fraction)
+              }
             }
           }
-          .frame(height: Self.barHeight)
+          .frame(height: Self.trackHeight)
       }
-      .animation(.default, value: quota)
+      .animation(.default, value: window)
       .accessibilityElement(children: .ignore)
-      .accessibilityLabel("\(period.name) usage")
+      .accessibilityLabel("\(quota.name) usage")
       .accessibilityValue(accessibilityValue(at: context.date))
-      .accessibilityHint(resetDetails(at: context.date))
-      .help(resetDetails(at: context.date))
+      .accessibilityHint(resetDescription(at: context.date))
+      .help(resetDescription(at: context.date))
       .focusable()
     }
   }
 
-  private func reading(at now: Date) -> String {
-    [quota.map { usagePercentage($0.amount.percent) } ?? "", resetLabel(at: now)]
-      .filter { !$0.isEmpty }
+  private func currentValueLabel(at now: Date) -> String {
+    [window.flatMap { usagePercentage($0.amount.percent) }, resetLabel(at: now)]
+      .compactMap { $0 }
       .joined(separator: " · ")
   }
 
   private func resetLabel(at now: Date) -> String {
-    guard let quota else { return "Unavailable" }
-    switch (period, quota.resetsAt) {
-    case (.session, .some(let reset)) where reset > now:
-      return sessionCountdown(until: reset, at: now)
-    case (.session, .some):
-      return isCurrent ? "Ready" : "Awaiting update"
-    case (.session, .none) where quota.amount.fraction == 0:
-      return isCurrent ? "Ready" : "Awaiting update"
-    case (.session, .none), (.weekly, .none), (.fable, .none):
-      return "Unavailable"
-    case (.weekly, .some(let reset)), (.fable, .some(let reset)):
-      return reset > now
-        ? reset.formatted(.dateTime.weekday(.abbreviated).hour().minute())
-        : "Awaiting update"
-    }
+    window.map { window in
+      switch quota {
+      case .session:
+        switch window.sessionState(at: now) {
+        case .running(let reset): sessionCountdown(until: reset, at: now)
+        case .idle: isCurrent ? "Ready" : "Awaiting update"
+        case .unknown: "Unavailable"
+        }
+      case .weekly, .fable:
+        window.resetsAt.map { reset in
+          reset > now
+            ? reset.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+            : "Awaiting update"
+        } ?? "Unavailable"
+      }
+    } ?? "Unavailable"
   }
 
-  private func resetDetails(at now: Date) -> String {
-    guard let reset: Date = quota?.resetsAt else {
-      return quota == nil ? "Usage unavailable" : "No reset time reported"
+  private func resetDescription(at now: Date) -> String {
+    switch window {
+    case .none: "Usage unavailable"
+    case .some(let window):
+      window.resetsAt.map { remainingDescription(until: $0, at: now) } ?? "No reset time reported"
     }
-    let exact: String = reset.formatted(date: .complete, time: .complete)
-    let remaining: TimeInterval = reset.timeIntervalSince(now)
-    if remaining <= 0 { return "Reset time: \(exact). No time remaining." }
-    if remaining < 60 { return "Resets \(exact). Less than a minute remaining." }
-    let duration: String = Duration.seconds(remaining).formatted(
-      Duration.UnitsFormatStyle(
-        allowedUnits: [.days, .hours, .minutes], width: .wide, maximumUnitCount: 2
-      ))
-    return "Resets \(exact). \(duration) remaining."
   }
 
   private func accessibilityValue(at now: Date) -> String {
-    guard let quota else { return "Unavailable" }
-    let amount: String = quota.amount.fraction.formatted(.percent.precision(.fractionLength(0...2)))
-    return "\(amount) used, \(resetLabel(at: now))\(isCurrent ? "" : ", last reported usage")"
+    window.map { window in
+      let amount: String = window.amount.fraction.formatted(
+        .percent.precision(.fractionLength(0...2)))
+      return "\(amount) used, \(resetLabel(at: now))\(isCurrent ? "" : ", last reported usage")"
+    } ?? "Unavailable"
   }
 }
 
-private func usagePercentage(_ percent: Double) -> String {
+private func remainingDescription(until reset: Date, at now: Date) -> String {
+  let exact: String = reset.formatted(date: .complete, time: .complete)
+  let remaining: TimeInterval = reset.timeIntervalSince(now)
+  let duration: String = Duration.seconds(remaining).formatted(
+    Duration.UnitsFormatStyle(
+      allowedUnits: [.days, .hours, .minutes], width: .wide, maximumUnitCount: 2
+    ))
+  return switch remaining {
+  case ...0: "Reset time: \(exact). No time remaining."
+  case ..<60: "Resets \(exact). Less than a minute remaining."
+  default: "Resets \(exact). \(duration) remaining."
+  }
+}
+
+private func usagePercentage(_ percent: Double) -> String? {
   switch percent {
-  case 0: ""
+  case 0: nil
   case ..<1: "<1%"
   case 100: "100%"
   default: "\(Int(percent.rounded(.down)))%"

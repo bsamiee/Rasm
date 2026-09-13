@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-do-catch-for-result
+language: swift
+severity: error
+rule:
+    kind: do_statement
+    all:
+        - has: {kind: catch_block, matches: result-failure-catch}
+        - not: {has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}}
+        - not: {has: {kind: statements, nthChild: 1, matches: result-success-body}}
+message: '`do` body continues past a `catch` that returns `.failure`'
+note: '`Result { <throwing statements> }.mapError { error in <failure> }` holds the cases, `flatMap` or `bind` of `Issues.swift` continues on the value'

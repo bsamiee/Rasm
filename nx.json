@@ -37,7 +37,7 @@
             },
             {
                 "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination generic/platform=macOS -derivedDataPath .cache/xcode/{projectRoot} build",
+                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath .cache/xcode/{projectRoot} build",
                 "inputs": ["default", "xcode"],
                 "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug"]
             }
@@ -104,7 +104,10 @@
         ],
         "check": [
             { "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] },
-            { "filter": { "projects": ["tag:language:swift"] }, "dependsOn": ["build", "lint"] }
+            {
+                "filter": { "projects": ["tag:language:swift"] },
+                "dependsOn": [{ "target": "build", "params": "forward" }, "lint"]
+            }
         ]
     },
     "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false } },

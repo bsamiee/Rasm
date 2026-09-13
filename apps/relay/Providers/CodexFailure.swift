@@ -1,13 +1,12 @@
 import Foundation
 
-enum CodexAccountAction: Sendable {
+nonisolated enum CodexAccountAction: Sendable {
   case signOut
   case remove
   case reconnect
 }
 
-// The string forms of the app-server's `CodexErrorInfo` on a failed turn.
-enum CodexTurnErrorCode: String, Sendable {
+nonisolated enum CodexTurnErrorCode: String, Sendable {
   case contextWindowExceeded
   case sessionBudgetExceeded
   case usageLimitExceeded
@@ -23,7 +22,7 @@ enum CodexTurnErrorCode: String, Sendable {
   case other
 }
 
-enum CodexFailure: Error, Sendable {
+nonisolated enum CodexFailure: LocalizedError, Sendable {
   case applicationUnavailable
   case process(ProcessFailure)
   case cancelled
@@ -58,22 +57,15 @@ enum CodexFailure: Error, Sendable {
   }
 
   var awaitingSessionConfirmation: Bool {
-    switch self {
-    case .sessionConfirmationPending: true
-    case .applicationUnavailable, .process, .cancelled, .connectionClosed, .invalidResponse,
-      .requestRejected, .signInRequired, .subscriptionRequired, .signInPageUnopened,
-      .signInRefused, .identityChanged, .modelUnavailable, .includedUsageBlocked, .turnFailed,
-      .storage, .desktopLaunch, .desktopUnavailable, .desktopMustClose:
-      false
-    }
+    if case .sessionConfirmationPending = self { true } else { false }
   }
 
-  var userMessage: String {
+  var errorDescription: String? {
     switch self {
     case .applicationUnavailable:
       "Install the OpenAI desktop app to connect an account."
-    case .process(let failure): failure.userMessage
-    case .cancelled: "Cancelled."
+    case .process(let failure): failure.localizedDescription
+    case .cancelled: "Canceled."
     case .connectionClosed: "The OpenAI connection closed."
     case .invalidResponse(let field): "OpenAI returned an unreadable \(field)."
     case .requestRejected(_, let message): message
@@ -87,7 +79,7 @@ enum CodexFailure: Error, Sendable {
     case .includedUsageBlocked: "OpenAI reports that this account’s included usage is unavailable."
     case .turnFailed(_, let message): message
     case .sessionConfirmationPending(let failure):
-      "Session start is awaiting confirmation. \(failure.userMessage)"
+      "Session start is awaiting confirmation. \(failure.localizedDescription)"
     case .storage(let error): "Could not save the OpenAI account: \(error.localizedDescription)"
     case .desktopLaunch(let error): "Could not open the OpenAI app: \(error.localizedDescription)"
     case .desktopUnavailable: "The OpenAI account window is no longer open."
@@ -96,4 +88,9 @@ enum CodexFailure: Error, Sendable {
     case .desktopMustClose(.reconnect): "Quit this account’s Codex app before signing in again."
     }
   }
+}
+
+nonisolated struct CodexFieldFailure: AggregateError {
+  let first: String
+  let remaining: [String]
 }

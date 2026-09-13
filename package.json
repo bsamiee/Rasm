@@ -348,7 +348,7 @@
                 ]
             },
             "outline": {
-                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml",
+                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml",
                 "cache": false,
                 "dependsOn": [
                     "grammar"

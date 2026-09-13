@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-boolean-by-match-swift
+language: swift
+severity: error
+utils:
+    literal-body:
+        matches:
+            swift-single-statement:
+                first:
+                    any:
+                        - kind: boolean_literal
+                        - kind: control_transfer_statement
+                          regex: '^return\b'
+                          has: {field: result, kind: boolean_literal}
+    literal-entry:
+        kind: switch_entry
+        all:
+            - not: {has: {kind: where_keyword}}
+            - has: {kind: statements, matches: literal-body}
+    single-pattern:
+        kind: switch_entry
+        all:
+            - has: {kind: switch_pattern, pattern: $PATTERN}
+            - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
+    boolean-switch:
+        kind: switch_statement
+        all:
+            - has: {field: expr, pattern: $SUBJECT}
+            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+            - has: {kind: switch_entry, nthChild: {position: 1, ofRule: {kind: switch_entry}}, matches: literal-entry}
+            - has: {kind: switch_entry, nthChild: {position: 2, ofRule: {kind: switch_entry}}, matches: literal-entry}
+    matched-body:
+        kind: statements
+        pattern: $FIRST
+        matches: literal-body
+        has: {kind: boolean_literal, pattern: $IN, stopBy: end}
+    other-return:
+        kind: control_transfer_statement
+        has: {field: result, kind: boolean_literal, pattern: $OUT, not: {pattern: $IN}}
+rule:
+    any:
+        - kind: if_statement
+          pattern: $IF
+          regex: '^if\s+case\b'
+          all:
+            - not: {has: {regex: '^else$'}}
+            - has: {kind: statements, matches: matched-body}
+            - precedes: {matches: other-return}
+        - kind: if_statement
+          pattern: $IF
+          regex: '^if\s+case\b'
+          all:
+            - has: {regex: '^else$'}
+            - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: matched-body}
+            - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: literal-body, has: {matches: other-return}}
+            - not: {precedes: {kind: control_transfer_statement}}
+        - kind: guard_statement
+          pattern: $GUARD
+          regex: '^guard\s+case\b'
+          all:
+            - not: {has: {regex: '^,$'}}
+            - has: {kind: statements, matches: literal-body, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
+            - precedes:
+                kind: control_transfer_statement
+                pattern: $FIRST
+                has: {field: result, kind: boolean_literal, pattern: $IN, not: {pattern: $OUT}}
+        - matches: boolean-switch
+          all:
+            - has:
+                kind: switch_entry
+                nthChild: {position: 1, ofRule: {kind: switch_entry}}
+                matches: single-pattern
+                has: {kind: statements, pattern: $FIRST, has: {kind: boolean_literal, pattern: $IN, stopBy: end}}
+            - has:
+                kind: switch_entry
+                nthChild: {position: 2, ofRule: {kind: switch_entry}}
+                has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end, not: {pattern: $IN}}}
+        - matches: boolean-switch
+          all:
+            - has:
+                kind: switch_entry
+                nthChild: {position: 1, ofRule: {kind: switch_entry}}
+                not: {matches: single-pattern}
+                has: {kind: statements, pattern: $FIRST, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
+            - has:
+                kind: switch_entry
+                nthChild: {position: 2, ofRule: {kind: switch_entry}}
+                matches: single-pattern
+                has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end, not: {pattern: $OUT}}}
+transform:
+    RETURN: {replace: {source: $FIRST, replace: '(?s)^\s*(return\s+)?.*$', by: '$1'}}
+    HEAD: {replace: {source: $IF, replace: '(?s)^(if\s+case\b.*?)\s*\{\s*return\s+(?:true|false)\s*\}(?:\s*else\s*\{\s*return\s+(?:true|false)\s*\})?$', by: '$1'}}
+    TEST: {replace: {source: $GUARD, replace: '(?s)^guard\s+(case\b.*?)\s*else\s*\{\s*return\s+(?:true|false)\s*\}$', by: 'if $1'}}
+    CASE: {replace: {source: $PATTERN, replace: '^', by: 'if case '}}
+    VALUE: {replace: {source: $SUBJECT, replace: '^', by: ' = '}}
+fix:
+    template: '$RETURN$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }'
+    expandEnd: {kind: control_transfer_statement}
+message: 'One case yields `$IN` and every other case `$OUT`'
+note: '`if case <pattern> = <value> { <matched> } else { <other> }` is one expression over both cases, `<value> == <case>` where the type is `Equatable`'

@@ -36,7 +36,7 @@ jobs:
             - run: nx affected -t check --exclude=tag:host:macos
 
     macos:
-        runs-on: macos-26
+        runs-on: xcode-27
         timeout-minutes: 60
         steps:
             - uses: actions/checkout@v7
@@ -48,7 +48,7 @@ jobs:
               with:
                 workflow-id: ci.yml
             - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='!tag:host:macos'
+            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_IDENTITY=-
 
     format:
         runs-on: ubuntu-24.04

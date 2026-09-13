@@ -1,6 +1,6 @@
 import Foundation
 
-enum JSONValue: Codable, Equatable, Sendable {
+nonisolated enum JSONValue: Codable, Equatable, Sendable {
   case null
   case bool(Bool)
   case number(Double)
@@ -12,25 +12,17 @@ enum JSONValue: Codable, Equatable, Sendable {
     let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
     if container.decodeNil() {
       self = .null
-      return
+    } else if let value: Bool = try? container.decode(Bool.self) {
+      self = .bool(value)
+    } else if let value: Double = try? container.decode(Double.self) {
+      self = .number(value)
+    } else if let value: String = try? container.decode(String.self) {
+      self = .string(value)
+    } else if let value: [JSONValue] = try? container.decode([JSONValue].self) {
+      self = .array(value)
+    } else {
+      self = .object(try container.decode([String: JSONValue].self))
     }
-    do {
-      self = .bool(try container.decode(Bool.self))
-      return
-    } catch DecodingError.typeMismatch(_, _) {}
-    do {
-      self = .number(try container.decode(Double.self))
-      return
-    } catch DecodingError.typeMismatch(_, _) {}
-    do {
-      self = .string(try container.decode(String.self))
-      return
-    } catch DecodingError.typeMismatch(_, _) {}
-    do {
-      self = .array(try container.decode([JSONValue].self))
-      return
-    } catch DecodingError.typeMismatch(_, _) {}
-    self = .object(try container.decode([String: JSONValue].self))
   }
 
   func encode(to encoder: any Encoder) throws {
@@ -47,11 +39,6 @@ enum JSONValue: Codable, Equatable, Sendable {
 
   subscript(_ key: String) -> JSONValue? {
     objectValue?[key]
-  }
-
-  subscript(_ index: Int) -> JSONValue? {
-    guard case .array(let values) = self, values.indices.contains(index) else { return nil }
-    return values[index]
   }
 
   var stringValue: String? {

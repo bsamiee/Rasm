@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-classifying-catch
+language: swift
+severity: error
+utils:
+    failure-body:
+        matches:
+            swift-single-statement:
+                first:
+                    any:
+                        - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
+                        - pattern: '$_.resume(returning: .failure($$$_))'
+rule:
+    kind: do_statement
+    all:
+        - has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}
+        - not: {has: {kind: catch_block, not: {has: {kind: statements, matches: failure-body}}}}
+message: 'Every `catch` classifies the thrown error into a `.failure` by hand'
+note: '`Result { <throwing statements> }.mapError { error in <classification> }` holds the cases, one function classifies the error types'

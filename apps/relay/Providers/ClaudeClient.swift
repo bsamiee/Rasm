@@ -1,48 +1,48 @@
+import CryptoKit
 import Foundation
 
-private struct ClaudeRunningOperation: Sendable {
+private nonisolated struct ClaudeRunningOperation: Sendable {
   let id: UUID
   let cancel: @Sendable () -> Void
   let wait: @Sendable () async -> Void
 }
 
-/// One read of the shared default store and the journal it reconciles against.
-private struct ClaudeObservedSelection: Sendable {
+private nonisolated struct ClaudeCurrentSelection: Sendable {
   let selected: UUID?
-  let shared: ClaudeCredentialSnapshot?
-  let journal: ClaudeSelectionJournal
+  let shared: ClaudeCredentials?
+  let state: ClaudeSelectionState
 }
 
-/// An account's current grant and the store that owns it.
-private struct ClaudeOwnedCredentials: Sendable {
-  let store: ClaudeNativeStore
-  let snapshot: ClaudeCredentialSnapshot
-}
-
-private enum ClaudeSelectionMode: Sendable {
-  /// Make the account the shared login, importing its grant unless it is already there.
-  case select
-  /// Re-import the account's grant only when it is the shared login.
-  case refreshSelected
+private nonisolated struct ClaudeStoredCredentials: Sendable {
+  let store: ClaudeCredentialStore
+  let credentials: ClaudeCredentials
 }
 
 actor ClaudeClient {
-  private let paths: RelayPaths
+  private static let excludedEnvironmentVariables: Set<String> = [
+    "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL",
+    "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR", "CCR_OAUTH_TOKEN_FILE",
+    "CLAUDE_CODE_OAUTH_REFRESH_TOKEN", "CLAUDE_CODE_OAUTH_SCOPES", "CLAUDE_CODE_OAUTH_CLIENT_ID",
+    "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY",
+    "CLAUDE_CODE_SIMPLE", "CLAUDE_CODE_REMOTE_SESSION_ID", "CLAUDE_CODE_REMOTE",
+    "ANTHROPIC_UNIX_SOCKET", "CLAUDE_CODE_SUBSCRIPTION_TYPE", "CLAUDE_CODE_RATE_LIMIT_TIER",
+    "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR",
+  ]
+
+  private let paths: FileLocations
   private let environment: [String: String]
   private let username: String
-  private let maintenanceID: UUID = UUID()
+  private let allAccountsID: UUID = UUID()
   private let session: URLSession
   private var operations: [UUID: ClaudeRunningOperation] = [:]
   private var exclusiveOperation: UUID?
-  private var verifiedIdentities: [String: AccountIdentity] = [:]
+  private var verifiedIdentities: [SHA256Digest: AccountIdentity] = [:]
 
-  init(paths: RelayPaths, environment: [String: String]) {
+  init(paths: FileLocations, environment: [String: String]) {
     self.paths = paths
     self.environment = environment
     let candidate: String = environment["USER"] ?? NSUserName()
-    username =
-      candidate.range(of: "^[a-zA-Z0-9._-]+$", options: .regularExpression) != nil
-      ? candidate : "claude-code-user"
+    username = candidate.contains(/^[a-zA-Z0-9._-]+$/) ? candidate : "claude-code-user"
     let configuration: URLSessionConfiguration = .ephemeral
     configuration.timeoutIntervalForRequest = 15
     configuration.timeoutIntervalForResource = 30
@@ -50,81 +50,80 @@ actor ClaudeClient {
     session = URLSession(configuration: configuration)
   }
 
-  // MARK: - Store API
-
   func connect(id: UUID) async -> Result<AccountIdentity, ClaudeFailure> {
-    await perform(accountID: id) {
+    await run(forAccount: id) {
       await self.connectAccount(id: id, expected: nil, policy: .manual)
     }
   }
 
-  func reconnect(account: RelayAccount) async -> Result<AccountIdentity, ClaudeFailure> {
-    await perform(accountID: account.id, exclusive: true) {
-      await self.reconnectPrivately(account).bind { identity in
-        let refreshed: RelayAccount = RelayAccount(
+  func reconnect(account: Account) async -> Result<AccountIdentity, ClaudeFailure> {
+    await run(forAccount: account.id, exclusive: true) {
+      await self.reconnectAccount(account).bind { identity in
+        let refreshed: Account = Account(
           id: account.id, provider: .claude, identity: identity,
           sessionPolicy: account.sessionPolicy
         )
-        return await self.selectAccount(refreshed, accounts: [refreshed], mode: .refreshSelected)
+        return await self.selectAccount(refreshed, accounts: [refreshed], onlyIfSelected: true)
           .map { selection in selection.identity }
       }
     }
   }
 
-  func usage(for account: RelayAccount, accounts: [RelayAccount]) async -> Result<
+  func usage(for account: Account, accounts: [Account]) async -> Result<
     UsageSnapshot, ClaudeFailure
   > {
-    await perform(accountID: account.id) {
-      await self.ownedCredentials(for: account, accounts: accounts).bind { owned in
-        await self.fetchUsage(owned.snapshot.grant)
+    await run(forAccount: account.id) {
+      await self.withCredentials(for: account, accounts: accounts) { stored in
+        await self.fetchUsage(stored.credentials.token)
       }
+      .map { _, snapshot in snapshot }
     }
   }
 
   func startSession(
-    for account: RelayAccount, accounts: [RelayAccount]
+    for account: Account, accounts: [Account]
   ) async -> Result<UsageSnapshot, ClaudeFailure> {
-    await perform(accountID: account.id) {
-      await self.ownedCredentials(for: account, accounts: accounts).bind { owned in
-        await self.fetchUsage(owned.snapshot.grant).bind {
-          snapshot -> Result<UsageSnapshot, ClaudeFailure> in
-          switch snapshot.sessionState(at: Date()) {
-          case .running: return .success(snapshot)
-          case .unknown: return .failure(.sessionUnknown)
-          case .idle:
-            // The greeting runs on the access token alone, so the grant it used stays current.
-            return await self.headless(
-              store: owned.store, action: .greeting, grant: owned.snapshot.grant
-            ).bind { _ in
-              await self.fetchUsage(owned.snapshot.grant)
-                .mapError(ClaudeFailure.sessionConfirmationPending)
-            }
+    await run(forAccount: account.id) {
+      let usage: Result<(ClaudeStoredCredentials, UsageSnapshot), ClaudeFailure> =
+        await self.withCredentials(for: account, accounts: accounts) { stored in
+          await self.fetchUsage(stored.credentials.token)
+        }
+      return await usage.bind { stored, snapshot -> Result<UsageSnapshot, ClaudeFailure> in
+        switch snapshot.sessionState(at: Date()) {
+        case .running: return .success(snapshot)
+        case .unknown: return .failure(.sessionUnknown)
+        case .idle:
+          return await self.runSession(
+            store: stored.store, action: .greeting, token: stored.credentials.token
+          ).bind { _ in
+            await self.fetchUsage(stored.credentials.token)
+              .mapError(ClaudeFailure.sessionConfirmationPending)
           }
         }
       }
     }
   }
 
-  func select(_ account: RelayAccount, accounts: [RelayAccount]) async -> Result<
+  func select(_ account: Account, accounts: [Account]) async -> Result<
     AccountSelection, ClaudeFailure
   > {
-    await perform(accountID: account.id, exclusive: true) {
-      await self.selectAccount(account, accounts: accounts, mode: .select)
+    await run(forAccount: account.id, exclusive: true) {
+      await self.selectAccount(account, accounts: accounts, onlyIfSelected: false)
     }
   }
 
-  func signOut(_ account: RelayAccount, accounts: [RelayAccount]) async -> Result<
+  func signOut(_ account: Account, accounts: [Account]) async -> Result<
     Void, ClaudeFailure
   > {
-    await perform(accountID: account.id, exclusive: true) {
+    await run(forAccount: account.id, exclusive: true) {
       await self.signOutAccount(account, accounts: accounts)
     }
   }
 
-  func remove(_ account: RelayAccount, accounts: [RelayAccount]) async -> Result<
+  func remove(_ account: Account, accounts: [Account]) async -> Result<
     Void, ClaudeFailure
   > {
-    await perform(accountID: account.id, exclusive: true) {
+    await run(forAccount: account.id, exclusive: true) {
       await self.signOutAccount(account, accounts: accounts).bind { _ in
         await self.discardPrivateStore(id: account.id)
       }
@@ -133,29 +132,30 @@ actor ClaudeClient {
 
   func discardConnection(id: UUID) async -> Result<Void, ClaudeFailure> {
     await cancel(accountID: id)
-    return await perform(accountID: id, exclusive: true) {
+    return await run(forAccount: id, exclusive: true) {
       await self.discardPrivateStore(id: id)
     }
   }
 
-  func selectedAccount(in accounts: [RelayAccount]) async -> Result<UUID?, ClaudeFailure> {
-    guard accounts.contains(where: { account in account.provider == .claude }) else {
-      return .success(nil)
-    }
-    return await perform(accountID: maintenanceID) {
-      await self.observeSelection(accounts: accounts).map { observed in observed.selected }
-    }
+  func selectedAccount(in accounts: [Account]) async -> Result<UUID?, ClaudeFailure> {
+    await accounts.contains(where: { account in account.provider == .claude })
+      ? run(
+        forAccount: allAccountsID,
+        operation: {
+          await self.currentSelection(accounts: accounts).map { current in current.selected }
+        })
+      : .success(nil)
   }
 
-  func recoverAccounts() async -> Result<[RelayAccount], ClaudeFailure> {
-    await perform(accountID: maintenanceID, exclusive: true) {
-      await self.recoverSelection().bind { _ in
-        await self.readJournal().flatMap { journal in
-          traverse(journal.preservedAccounts) { record in
-            record.account().mapError { failure in ClaudeAccountIssues(failure) }
-          }
-          .mapError(ClaudeFailure.invalidSavedAccounts)
+  func recoverAccounts() async -> Result<[Account], ClaudeFailure> {
+    await run(forAccount: allAccountsID, exclusive: true) {
+      await self.recoverSelection(operationID: self.allAccountsID).bind { _ in
+        await self.selectionState()
+      }.flatMap { state in
+        traverse(state.preservedAccounts) { record in
+          record.account().mapError(ClaudeAccountErrors.init)
         }
+        .mapError(ClaudeFailure.invalidSavedAccounts)
       }
     }
   }
@@ -173,12 +173,8 @@ actor ClaudeClient {
     for accountID in Array(operations.keys) { await cancel(accountID: accountID) }
   }
 
-  // MARK: - Operation registry
-
-  /// One operation per account at a time; an exclusive operation waits for every running one
-  /// and admits no other until it finishes.
-  private func perform<Value: Sendable>(
-    accountID: UUID,
+  private func run<Value: Sendable>(
+    forAccount accountID: UUID,
     exclusive: Bool = false,
     operation: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
   ) async -> Result<Value, ClaudeFailure> {
@@ -189,8 +185,7 @@ actor ClaudeClient {
     let id: UUID = UUID()
     let task: Task<Result<Value, ClaudeFailure>, Never> = Task {
       for previous in preceding { await previous.wait() }
-      guard !Task.isCancelled else { return .failure(.cancelled) }
-      return await operation()
+      return await Task.isCancelled ? .failure(.cancelled) : operation()
     }
     operations[accountID] = ClaudeRunningOperation(
       id: id, cancel: { task.cancel() }, wait: { _ = await task.value }
@@ -206,160 +201,178 @@ actor ClaudeClient {
     return result
   }
 
-  private func requestCancellation(accountID: UUID) {
-    operations[accountID]?.cancel()
+  private func cancelHandler(for accountID: UUID) -> @Sendable () async -> Void {
+    { [weak self] in await self?.operations[accountID]?.cancel() }
   }
 
-  private func compromise(_ accountID: UUID) -> @Sendable () async -> Void {
-    { [weak self] in await self?.requestCancellation(accountID: accountID) }
-  }
-
-  /// Holds Claude Code's refresh locks on the directories while the body runs.
-  private func refreshing<Value: Sendable>(
+  private func withRefreshLock<Value: Sendable>(
     _ directories: [URL], operationID: UUID,
-    _ body: (ClaudeRefreshLease) async -> Result<Value, ClaudeFailure>
+    _ body: (ClaudeLock) async -> Result<Value, ClaudeFailure>
   ) async -> Result<Value, ClaudeFailure> {
-    switch await ClaudeRefreshLease.acquire(
-      directories: directories, onCompromise: compromise(operationID))
-    {
-    case .success(let lease): return await lease.finish(await body(lease))
-    case .failure(let error): return .failure(error)
-    }
+    await ClaudeLock.oauthRefresh(
+      directories: directories, onCompromised: cancelHandler(for: operationID)
+    )
+    .bind { lock in await lock.release(returning: await body(lock)) }
   }
 
-  /// Holds Claude Code's storage-write lock on the store while the body writes it.
-  private func writing<Value: Sendable>(
-    _ store: ClaudeNativeStore, operationID: UUID,
+  private func withStorageWriteLock<Value: Sendable>(
+    _ store: ClaudeCredentialStore, operationID: UUID,
     _ body: () async -> Result<Value, ClaudeFailure>
   ) async -> Result<Value, ClaudeFailure> {
-    switch await ClaudeRefreshLease.storageWrite(
-      directory: store.directory, onCompromise: compromise(operationID))
-    {
-    case .success(let lease): return await lease.finish(await body())
-    case .failure(let error): return .failure(error)
-    }
+    await ClaudeLock.storageWrite(
+      directory: store.directory, onCompromised: cancelHandler(for: operationID)
+    )
+    .bind { lock in await lock.release(returning: await body()) }
   }
-
-  // MARK: - Connection
 
   private func connectAccount(
     id: UUID, expected: AccountIdentity?, policy: SessionPolicy
   ) async -> Result<AccountIdentity, ClaudeFailure> {
-    let store: ClaudeNativeStore = privateStore(id)
-    return await authenticate(store: store, email: expected?.email, grant: nil, selection: nil)
+    let store: ClaudeCredentialStore = privateStore(id)
+    return await authenticate(store: store, email: expected?.email, token: nil, selection: nil)
       .bind { _ in await store.read() }
-      .flatMap { snapshot -> Result<AccountIdentity, ClaudeFailure> in
-        guard let snapshot else { return .failure(.signInRequired) }
-        if let expected, !snapshot.identity.identifies(expected) {
-          return .failure(.accountChanged)
-        }
-        let account: RelayAccount = RelayAccount(
-          id: id, provider: .claude, identity: snapshot.identity, sessionPolicy: policy)
-        return updateJournal { journal in
-          journal.preservedAccounts.removeAll { record in record.id == id }
-          journal.preservedAccounts.append(ClaudeStoredAccount(account))
-          journal.unavailableAccountIDs.remove(id)
-        }.map { _ in snapshot.identity }
+      .flatMap { credentials in matched(credentials, to: expected) }
+      .flatMap { credentials in
+        updateSelectionState { state in
+          state.preserve(
+            ClaudeStoredAccount(
+              Account(
+                id: id, provider: .claude, identity: credentials.identity, sessionPolicy: policy)))
+          state.unavailableAccountIDs.remove(id)
+        }.map { _ in credentials.identity }
       }
   }
 
-  private func reconnectPrivately(_ account: RelayAccount) async -> Result<
+  private func reconnectAccount(_ account: Account) async -> Result<
     AccountIdentity, ClaudeFailure
   > {
-    let store: ClaudeNativeStore = privateStore(account.id)
-    return await refreshing([store.directory], operationID: account.id) {
-      lease -> Result<AccountIdentity, ClaudeFailure> in
-      let previous: ClaudeCredentialSnapshot?
-      switch await store.read() {
-      case .success(let value): previous = value
-      case .failure(let error): return .failure(error)
+    let store: ClaudeCredentialStore = privateStore(account.id)
+    return await withRefreshLock([store.directory], operationID: account.id) { lock in
+      await store.read().bind { previous -> Result<AccountIdentity, ClaudeFailure> in
+        let signedIn: Result<AccountIdentity, ClaudeFailure> = await connectAccount(
+          id: account.id, expected: account.identity, policy: account.sessionPolicy
+        )
+        guard case .failure(let error) = signedIn else { return signedIn }
+        return .failure(
+          error.releasing(
+            await lock.status().bind { _ in
+              await restore(previous, to: store, operationID: account.id)
+            }))
       }
-      let signedIn: Result<AccountIdentity, ClaudeFailure> = await connectAccount(
-        id: account.id, expected: account.identity, policy: account.sessionPolicy
-      )
-      guard case .failure(let error) = signedIn else { return signedIn }
-      if case .failure(let compromised) = await lease.status() {
-        return .failure(.cleanup(operation: error, release: compromised))
-      }
-      // Browser login obtains a new grant and native re-login preserves the previous grant.
-      // Restoration owns its lifetime so a cancelled login still restores.
-      let restored: Result<Void, ClaudeFailure> = await Task {
-        await self.restorePrivateConnection(previous, store: store, operationID: account.id)
-      }.value
-      return .failure(error.releasing(restored))
     }
   }
 
-  private func restorePrivateConnection(
-    _ previous: ClaudeCredentialSnapshot?, store: ClaudeNativeStore, operationID: UUID
+  private func restore(
+    _ previous: ClaudeCredentials?, to store: ClaudeCredentialStore, operationID: UUID
   ) async -> Result<Void, ClaudeFailure> {
-    if let previous { return await park(previous, in: store, operationID: operationID) }
-    return await writing(store, operationID: operationID) {
-      await store.deletePrivateCredentials()
+    await Task {
+      if let previous {
+        return await self.write(previous, to: store, operationID: operationID)
+      }
+      return await self.withStorageWriteLock(store, operationID: operationID) {
+        await store.deleteCredentials()
+      }
+    }.value
+  }
+
+  private func withCredentials<Value: Sendable>(
+    for account: Account, accounts: [Account],
+    _ request: (ClaudeStoredCredentials) async -> Result<Value, ClaudeFailure>
+  ) async -> Result<(ClaudeStoredCredentials, Value), ClaudeFailure> {
+    func send(_ stored: ClaudeStoredCredentials) async -> Result<
+      (ClaudeStoredCredentials, Value), ClaudeFailure
+    > {
+      await verify(stored.credentials).bind { _ in
+        await request(stored).map { value in (stored, value) }
+      }
+    }
+    return await storedCredentials(for: account, accounts: accounts).bind { stored in
+      let sent: Result<(ClaudeStoredCredentials, Value), ClaudeFailure> = await send(stored)
+      guard case .failure(let error) = sent, error.unauthorized else { return sent }
+      return await renew(stored, for: account).bind(send).mapError { retried in
+        retried.unauthorized ? .signInRequired : retried
+      }
     }
   }
 
-  // MARK: - Credentials
+  private func renew(
+    _ stored: ClaudeStoredCredentials, for account: Account
+  ) async -> Result<ClaudeStoredCredentials, ClaudeFailure> {
+    await withRefreshLock([stored.store.directory], operationID: account.id) { _ in
+      await stored.store.read()
+    }
+    .flatMap { credentials in self.matched(credentials, to: account.identity) }
+    .bind { current in
+      await current.token.fingerprint == stored.credentials.token.fingerprint
+        ? refreshOAuthToken(current, in: stored.store, for: account.identity) : .success(current)
+    }
+    .map { credentials in ClaudeStoredCredentials(store: stored.store, credentials: credentials) }
+  }
 
-  /// Reads the account's grant once from the store that owns it, refreshes it through Claude
-  /// Code when it is about to expire, and confirms the identity it belongs to.
-  private func ownedCredentials(
-    for account: RelayAccount, accounts: [RelayAccount]
-  ) async -> Result<ClaudeOwnedCredentials, ClaudeFailure> {
-    guard account.provider == .claude else { return .failure(.invalidCredentials) }
-    let observed: ClaudeObservedSelection
-    switch await observeSelection(accounts: accounts) {
-    case .success(let value): observed = value
-    case .failure(let error): return .failure(error)
-    }
-    let owner: ClaudeNativeStore
-    let stored: ClaudeCredentialSnapshot?
-    if observed.selected == account.id {
-      owner = defaultStore()
-      stored = observed.shared
-    } else {
-      guard !observed.journal.unavailableAccountIDs.contains(account.id) else {
-        return .failure(.accountUnavailable)
+  private func refreshOAuthToken(
+    _ credentials: ClaudeCredentials, in store: ClaudeCredentialStore, for identity: AccountIdentity
+  ) async -> Result<ClaudeCredentials, ClaudeFailure> {
+    await
+      (credentials.token.refreshToken == nil
+      ? .failure(.signInRequired) : runSession(store: store, action: .refreshCredentials))
+      .bind { _ in await store.read() }
+      .flatMap { credentials in matched(credentials, to: identity) }
+  }
+
+  private func storedCredentials(
+    for account: Account, accounts: [Account]
+  ) async -> Result<ClaudeStoredCredentials, ClaudeFailure> {
+    await
+      (account.provider == .claude
+      ? currentSelection(accounts: accounts) : .failure(.invalidCredentials))
+      .bind { current -> Result<ClaudeStoredCredentials, ClaudeFailure> in
+        let owner: ClaudeCredentialStore
+        let stored: Result<ClaudeCredentials?, ClaudeFailure>
+        if current.selected == account.id {
+          owner = defaultStore()
+          stored = .success(current.shared)
+        } else if current.state.unavailableAccountIDs.contains(account.id) {
+          return .failure(.signInRequired)
+        } else {
+          owner = privateStore(account.id)
+          stored = await owner.read()
+        }
+        return await stored.flatMap { credentials in matched(credentials, to: account.identity) }
+          .bind { credentials in
+            await credentials.token.needsRefresh(at: Date())
+              ? refreshOAuthToken(credentials, in: owner, for: account.identity)
+              : .success(credentials)
+          }
+          .flatMap { current in
+            Task.isCancelled
+              ? .failure(.cancelled)
+              : .success(ClaudeStoredCredentials(store: owner, credentials: current))
+          }
       }
-      owner = privateStore(account.id)
-      switch await owner.read() {
-      case .success(let value): stored = value
-      case .failure(let error): return .failure(error)
-      }
-    }
-    guard let stored else { return .failure(.signInRequired) }
-    guard stored.identity.identifies(account.identity) else { return .failure(.accountChanged) }
-    var current: ClaudeCredentialSnapshot = stored
-    if stored.grant.needsRefresh(at: Date()) {
-      guard stored.grant.refreshToken != nil else { return .failure(.signInRequired) }
-      if case .failure(let error) = await headless(store: owner, action: .refreshCredentials) {
-        return .failure(error)
-      }
-      switch await owner.read() {
-      case .success(.some(let refreshed)) where refreshed.identity.identifies(account.identity):
-        current = refreshed
-      case .success(.some): return .failure(.accountChanged)
-      case .success(.none): return .failure(.signInRequired)
-      case .failure(let error): return .failure(error)
-      }
-    }
-    guard !Task.isCancelled else { return .failure(.cancelled) }
-    return await verify(current).map { snapshot in
-      ClaudeOwnedCredentials(store: owner, snapshot: snapshot)
+  }
+
+  private func matched(
+    _ credentials: ClaudeCredentials?, to identity: AccountIdentity?
+  ) -> Result<ClaudeCredentials, ClaudeFailure> {
+    switch credentials {
+    case .some(let value)
+    where identity.map({ expected in value.identity.isSameAccount(as: expected) }) != false:
+      .success(value)
+    case .some: .failure(.accountChanged)
+    case .none: .failure(.signInRequired)
     }
   }
 
-  /// Confirms through the profile endpoint, once per access token, that the grant belongs to
-  /// the account the configuration names.
-  private func verify(_ snapshot: ClaudeCredentialSnapshot) async -> Result<
-    ClaudeCredentialSnapshot, ClaudeFailure
+  private func verify(_ credentials: ClaudeCredentials) async -> Result<
+    ClaudeCredentials, ClaudeFailure
   > {
-    let fingerprint: String = snapshot.grant.fingerprint
+    let fingerprint: SHA256Digest = credentials.token.fingerprint
     if let identity: AccountIdentity = verifiedIdentities[fingerprint] {
-      return identity.identifies(snapshot.identity) ? .success(snapshot) : .failure(.accountChanged)
+      return identity.isSameAccount(as: credentials.identity)
+        ? .success(credentials) : .failure(.accountChanged)
     }
     return await fetch(
-      "https://api.anthropic.com/api/oauth/profile", bearer: snapshot.grant.accessToken,
+      "https://api.anthropic.com/api/oauth/profile", bearer: credentials.token.accessToken,
       headers: ["Content-Type": "application/json", "Cache-Control": "no-cache"]
     )
     .flatMap { data in decode(JSONValue.self, from: data) }
@@ -372,23 +385,27 @@ actor ClaudeClient {
       }
       return AccountIdentity.make(
         accountID: accountID, organizationID: organizationID, email: email,
-        plan: snapshot.grant.plan
+        plan: credentials.token.plan
       ).mapError(ClaudeFailure.invalidIdentity)
     }
-    .flatMap { identity -> Result<ClaudeCredentialSnapshot, ClaudeFailure> in
-      guard identity.identifies(snapshot.identity) else { return .failure(.accountChanged) }
+    .flatMap { identity -> Result<ClaudeCredentials, ClaudeFailure> in
+      guard identity.isSameAccount(as: credentials.identity) else {
+        return .failure(.accountChanged)
+      }
       verifiedIdentities[fingerprint] = identity
-      return .success(snapshot)
+      return .success(credentials)
     }
   }
 
-  private func fetchUsage(_ grant: ClaudeGrant) async -> Result<UsageSnapshot, ClaudeFailure> {
+  private func fetchUsage(_ token: ClaudeOAuthToken) async -> Result<
+    UsageSnapshot, ClaudeFailure
+  > {
     await fetch(
-      "https://api.anthropic.com/api/oauth/usage", bearer: grant.accessToken,
+      "https://api.anthropic.com/api/oauth/usage", bearer: token.accessToken,
       headers: ["anthropic-beta": "oauth-2025-04-20", "Accept": "application/json"]
     )
     .flatMap { data in decode(ClaudeUsageResponse.self, from: data) }
-    .flatMap { payload in payload.snapshot(observedAt: Date()) }
+    .flatMap { usage in usage.snapshot(observedAt: Date()) }
   }
 
   private func fetch(
@@ -396,379 +413,374 @@ actor ClaudeClient {
   ) async -> Result<Data, ClaudeFailure> {
     guard let url: URL = URL(string: address) else { return .failure(.invalidResponse) }
     var request: URLRequest = URLRequest(url: url)
-    request.cachePolicy = .reloadIgnoringLocalCacheData
     request.setValue("Bearer \(bearer)", forHTTPHeaderField: "Authorization")
     for (name, value) in headers { request.setValue(value, forHTTPHeaderField: name) }
-    do {
-      let (data, response): (Data, URLResponse) = try await session.data(for: request)
-      guard let response: HTTPURLResponse = response as? HTTPURLResponse else {
-        return .failure(.invalidResponse)
+    let response: Result<(Data, URLResponse), any Error> = await Result {
+      try await session.data(for: request)
+    }
+    return response.mapError { error -> ClaudeFailure in
+      switch error {
+      case is CancellationError: .cancelled
+      case let error as URLError where error.code == .cancelled: .cancelled
+      default: .transport(error)
       }
-      guard response.statusCode == 200 else { return .failure(.http(response.statusCode)) }
-      return Task.isCancelled ? .failure(.cancelled) : .success(data)
-    } catch is CancellationError {
-      return .failure(.cancelled)
-    } catch let error as URLError where error.code == .cancelled {
-      return .failure(.cancelled)
-    } catch {
-      return .failure(.transport(error))
+    }
+    .flatMap { data, response -> Result<Data, ClaudeFailure> in
+      switch (response as? HTTPURLResponse)?.statusCode {
+      case 200: Task.isCancelled ? .failure(.cancelled) : .success(data)
+      case .some(let status): .failure(.http(status))
+      case .none: .failure(.invalidResponse)
+      }
     }
   }
 
   private func decode<Value: Decodable>(
     _ type: Value.Type, from data: Data
   ) -> Result<Value, ClaudeFailure> {
-    do {
-      return .success(try JSONDecoder().decode(type, from: data))
-    } catch {
-      return .failure(.invalidResponse)
-    }
+    Result { try JSONDecoder().decode(type, from: data) }.mapError { _ in .invalidResponse }
   }
 
-  // MARK: - Selection
-
-  /// Derives the selected account from the shared login and records it in the journal.
-  private func observeSelection(accounts: [RelayAccount]) async -> Result<
-    ClaudeObservedSelection, ClaudeFailure
+  private func currentSelection(accounts: [Account]) async -> Result<
+    ClaudeCurrentSelection, ClaudeFailure
   > {
     await defaultStore().read().flatMap { current in
-      readJournal().flatMap { journal -> Result<ClaudeObservedSelection, ClaudeFailure> in
-        guard journal.pending == nil else { return .failure(.unfinishedSelection) }
-        let selected: UUID? = current.flatMap { snapshot in
-          accounts.first { account in
-            account.provider == .claude && account.identity.identifies(snapshot.identity)
-          }?.id
-        }
-        guard journal.selectedAccountID != selected else {
+      let selected: UUID? = current.flatMap { credentials in
+        accounts.first { account in
+          account.provider == .claude && account.identity.isSameAccount(as: credentials.identity)
+        }?.id
+      }
+      return selectionState().flatMap { state -> Result<ClaudeCurrentSelection, ClaudeFailure> in
+        guard state.pending == nil else { return .failure(.unfinishedSelection) }
+        guard state.selectedAccountID != selected else {
           return .success(
-            ClaudeObservedSelection(selected: selected, shared: current, journal: journal))
+            ClaudeCurrentSelection(selected: selected, shared: current, state: state))
         }
-        var updated: ClaudeSelectionJournal = journal
-        if let previous: UUID = journal.selectedAccountID {
+        var updated: ClaudeSelectionState = state
+        if let previous: UUID = state.selectedAccountID {
           updated.unavailableAccountIDs.insert(previous)
         }
         updated.selectedAccountID = selected
         if let selected { updated.unavailableAccountIDs.remove(selected) }
         return updated.write(to: paths.claudeSelectionFile).map { _ in
-          ClaudeObservedSelection(selected: selected, shared: current, journal: updated)
+          ClaudeCurrentSelection(selected: selected, shared: current, state: updated)
         }
       }
     }
   }
 
   private func selectAccount(
-    _ account: RelayAccount, accounts: [RelayAccount], mode: ClaudeSelectionMode
+    _ account: Account, accounts: [Account], onlyIfSelected: Bool
   ) async -> Result<AccountSelection, ClaudeFailure> {
-    if case .failure(let error) = await recoverSelection(operationID: account.id) {
-      return .failure(error)
-    }
-    let journal: ClaudeSelectionJournal
-    switch readJournal() {
-    case .success(let value): journal = value
-    case .failure(let error): return .failure(error)
-    }
-    let shared: ClaudeNativeStore = defaultStore()
-    // The lock precedes the read, so no native refresh rotates the shared grant after it.
-    return await refreshing(
-      [shared.directory, privateStore(account.id).directory], operationID: account.id
-    ) { lease -> Result<AccountSelection, ClaudeFailure> in
-      let before: ClaudeCredentialSnapshot?
-      switch await shared.read() {
-      case .success(let value): before = value
-      case .failure(let error): return .failure(error)
-      }
-      switch (mode, before) {
-      case (.select, .some(let current)) where current.identity.identifies(account.identity):
-        return updateJournal { journal in
-          journal.selectedAccountID = account.id
-          journal.unavailableAccountIDs.remove(account.id)
-        }.map { _ in AccountSelection(identity: current.identity, preservedAccount: nil) }
-      case (.refreshSelected, let current)
-      where current?.identity.identifies(account.identity) != true:
-        return .success(AccountSelection(identity: account.identity, preservedAccount: nil))
-      default: break
-      }
-      guard !journal.unavailableAccountIDs.contains(account.id) else {
-        return .failure(.accountUnavailable)
-      }
-      let outgoing: RelayAccount?
-      switch outgoingAccount(before, accounts: accounts, journal: journal) {
-      case .success(let value): outgoing = value
-      case .failure(let error): return .failure(error)
-      }
-      guard let outgoing, outgoing.id != account.id else {
-        return await selectLeased(
-          account, accounts: accounts, outgoing: outgoing, before: before, lease: lease)
-      }
-      return await refreshing([privateStore(outgoing.id).directory], operationID: account.id) {
-        _ in
-        await selectLeased(
-          account, accounts: accounts, outgoing: outgoing, before: before, lease: lease)
+    await recoverSelection(operationID: account.id).flatMap { _ in selectionState() }.bind {
+      state -> Result<AccountSelection, ClaudeFailure> in
+      let shared: ClaudeCredentialStore = defaultStore()
+      return await withRefreshLock(
+        [shared.directory, privateStore(account.id).directory], operationID: account.id
+      ) { lock -> Result<AccountSelection, ClaudeFailure> in
+        await shared.read().bind { before in
+          await select(
+            account, accounts: accounts, onlyIfSelected: onlyIfSelected, state: state,
+            before: before, lock: lock)
+        }
       }
     }
   }
 
-  /// The account whose grant the shared store holds before the switch.
+  private func select(
+    _ account: Account, accounts: [Account], onlyIfSelected: Bool,
+    state: ClaudeSelectionState, before: ClaudeCredentials?, lock: ClaudeLock
+  ) async -> Result<AccountSelection, ClaudeFailure> {
+    switch before {
+    case .some(let current)
+    where !onlyIfSelected && current.identity.isSameAccount(as: account.identity):
+      return updateSelectionState { state in
+        state.selectedAccountID = account.id
+        state.unavailableAccountIDs.remove(account.id)
+      }.map { _ in AccountSelection(identity: current.identity, preservedAccount: nil) }
+    case _ where onlyIfSelected && before?.identity.isSameAccount(as: account.identity) != true:
+      return .success(AccountSelection(identity: account.identity, preservedAccount: nil))
+    default: break
+    }
+    return await
+      (state.unavailableAccountIDs.contains(account.id)
+      ? .failure(.signInRequired) : outgoingAccount(before, accounts: accounts, state: state))
+      .bind { outgoing in
+        guard let outgoing, outgoing.id != account.id else {
+          return await switchSelection(
+            account, accounts: accounts, outgoing: outgoing, before: before, lock: lock)
+        }
+        return await withRefreshLock([privateStore(outgoing.id).directory], operationID: account.id)
+        {
+          _ in
+          await switchSelection(
+            account, accounts: accounts, outgoing: outgoing, before: before, lock: lock)
+        }
+      }
+  }
+
   private func outgoingAccount(
-    _ before: ClaudeCredentialSnapshot?, accounts: [RelayAccount],
-    journal: ClaudeSelectionJournal
-  ) -> Result<RelayAccount?, ClaudeFailure> {
-    guard let before else { return .success(nil) }
-    if let known: RelayAccount = accounts.first(where: { candidate in
-      candidate.provider == .claude && candidate.identity.identifies(before.identity)
-    }) {
-      return .success(known)
-    }
-    if let record: ClaudeStoredAccount = journal.preservedAccounts.first(where: { record in
-      record.identifies(before.identity)
-    }) {
-      return record.account().map(Optional.some).mapError(ClaudeFailure.invalidIdentity)
-    }
-    return .success(
-      RelayAccount(id: UUID(), provider: .claude, identity: before.identity, sessionPolicy: .manual)
-    )
+    _ before: ClaudeCredentials?, accounts: [Account], state: ClaudeSelectionState
+  ) -> Result<Account?, ClaudeFailure> {
+    before.map { before in
+      knownAccount(for: before.identity, accounts: accounts, state: state).map(Optional.some)
+    } ?? .success(nil)
   }
 
-  private func selectLeased(
-    _ account: RelayAccount, accounts: [RelayAccount], outgoing: RelayAccount?,
-    before: ClaudeCredentialSnapshot?, lease: ClaudeRefreshLease
+  private func knownAccount(
+    for identity: AccountIdentity, accounts: [Account], state: ClaudeSelectionState
+  ) -> Result<Account, ClaudeFailure> {
+    accounts.first { candidate in
+      candidate.provider == .claude && candidate.identity.isSameAccount(as: identity)
+    }
+    .map { known -> Result<Account, ClaudeFailure> in .success(known) }
+      ?? state.preservedAccount(for: identity).map { record in
+        record.account().mapError(ClaudeFailure.invalidIdentity)
+      }
+      ?? .success(
+        Account(id: UUID(), provider: .claude, identity: identity, sessionPolicy: .manual))
+  }
+
+  private func switchSelection(
+    _ account: Account, accounts: [Account], outgoing: Account?,
+    before: ClaudeCredentials?, lock: ClaudeLock
   ) async -> Result<AccountSelection, ClaudeFailure> {
-    let shared: ClaudeNativeStore = defaultStore()
-    let incoming: ClaudeCredentialSnapshot
-    switch await privateStore(account.id).read() {
-    case .success(.some(let value)): incoming = value
-    case .success(.none): return .failure(.signInRequired)
-    case .failure(let error): return .failure(error)
-    }
-    guard incoming.identity.identifies(account.identity) else { return .failure(.accountChanged) }
-    guard incoming.grant.refreshToken != nil, !incoming.grant.scopes.isEmpty else {
-      return .failure(.signInRequired)
-    }
-    if case .failure(let error) = executable() { return .failure(error) }
-    if case .failure(let error) = prepareDirectories(store: shared) { return .failure(error) }
-    guard !Task.isCancelled else { return .failure(.cancelled) }
-    var pending: ClaudePendingSelection = ClaudePendingSelection(
-      incoming: ClaudeStoredAccount(account), outgoing: outgoing.map(ClaudeStoredAccount.init),
-      phase: .prepared, child: nil
-    )
-    let prepared: Result<Void, ClaudeFailure> = updateJournal { journal in
-      journal.pending = pending
-      if let outgoing {
-        journal.preservedAccounts.removeAll { record in record.id == outgoing.id }
-        journal.preservedAccounts.append(ClaudeStoredAccount(outgoing))
+    await privateStore(account.id).read()
+      .flatMap { credentials in matched(credentials, to: account.identity) }
+      .bind { incoming -> Result<AccountSelection, ClaudeFailure> in
+        guard incoming.token.refreshToken != nil, !incoming.token.scopes.isEmpty else {
+          return .failure(.signInRequired)
+        }
+        var pending: ClaudePendingSelection = ClaudePendingSelection(
+          incoming: ClaudeStoredAccount(account), outgoing: outgoing.map(ClaudeStoredAccount.init),
+          phase: .prepared, child: nil
+        )
+        let prepared: Result<Void, ClaudeFailure> = prepareSelection(
+          pending, account: account, outgoing: outgoing)
+        pending.phase = .importing
+        return await prepared.bind { _ in
+          await importSelection(
+            pending, incoming: incoming, before: before, operationID: account.id, lock: lock)
+        }
+        .flatMap { credentials in
+          selection(credentials, account: account, accounts: accounts, outgoing: outgoing)
+        }
       }
-      journal.preservedAccounts.removeAll { record in record.id == account.id }
-      journal.preservedAccounts.append(ClaudeStoredAccount(account))
-    }
-    if case .failure(let error) = prepared { return .failure(error) }
-    let parked: Result<Void, ClaudeFailure> =
-      if let outgoing, let before, outgoing.id != account.id {
-        await park(before, in: privateStore(outgoing.id), operationID: account.id)
-      } else {
-        .success(())
+  }
+
+  private func prepareSelection(
+    _ pending: ClaudePendingSelection, account: Account, outgoing: Account?
+  ) -> Result<Void, ClaudeFailure> {
+    executable()
+      .flatMap { _ in createDirectories(store: defaultStore()) }
+      .flatMap { _ in Task.isCancelled ? .failure(.cancelled) : .success(()) }
+      .flatMap { _ in
+        updateSelectionState { state in
+          state.pending = pending
+          if let outgoing { state.preserve(ClaudeStoredAccount(outgoing)) }
+          state.preserve(ClaudeStoredAccount(account))
+        }
       }
-    pending.phase = .importing
-    let imported: Result<Void, ClaudeFailure> = await parked.bind { _ in
-      await importSelection(pending, grant: incoming.grant, lease: lease)
-    }
-    let reconciled: Result<ClaudeCredentialSnapshot?, ClaudeFailure> = await readJournal().bind {
-      recorded -> Result<ClaudeCredentialSnapshot?, ClaudeFailure> in
-      guard let pending: ClaudePendingSelection = recorded.pending else {
-        return .failure(.unfinishedSelection)
-      }
-      return await reconcileSelection(pending)
-    }
-    switch (imported, reconciled) {
-    case (.failure(let operation), .failure(let recovery)):
-      return .failure(.cleanup(operation: operation, release: recovery))
-    case (.failure(let error), .success): return .failure(error)
-    case (.success, .failure(let error)): return .failure(error)
-    case (.success, .success(let snapshot)):
-      guard let snapshot, snapshot.identity.identifies(account.identity) else {
-        return .failure(.accountChanged)
-      }
-      let preserved: RelayAccount? = outgoing.flatMap { value in
-        accounts.contains(where: { known in known.id == value.id }) ? nil : value
-      }
-      return .success(AccountSelection(identity: snapshot.identity, preservedAccount: preserved))
-    }
   }
 
   private func importSelection(
-    _ pending: ClaudePendingSelection, grant: ClaudeGrant, lease: ClaudeRefreshLease
-  ) async -> Result<Void, ClaudeFailure> {
-    if case .failure(let error) = await lease.status() { return .failure(error) }
-    guard !Task.isCancelled else { return .failure(.cancelled) }
-    if case .failure(let error) = updateJournal({ journal in journal.pending = pending }) {
-      return .failure(error)
+    _ pending: ClaudePendingSelection, incoming: ClaudeCredentials, before: ClaudeCredentials?,
+    operationID: UUID, lock: ClaudeLock
+  ) async -> Result<ClaudeCredentials?, ClaudeFailure> {
+    let saved: Result<Void, ClaudeFailure> =
+      if let outgoing = pending.outgoing, let before, outgoing.id != pending.incoming.id {
+        await write(before, to: privateStore(outgoing.id), operationID: operationID)
+      } else {
+        .success(())
+      }
+    let imported: Result<Void, ClaudeFailure> = await saved.bind { _ in
+      await importCredentials(pending, token: incoming.token, lock: lock)
     }
-    // The native login rotates the refresh token and writes the account under Claude Code's
-    // own storage-write lock, which stays free while the child runs.
-    return await authenticate(store: defaultStore(), email: nil, grant: grant, selection: pending)
+    let reconciled: Result<ClaudeCredentials?, ClaudeFailure> = await selectionState()
+      .flatMap { recorded in
+        recorded.pending.map(Result<ClaudePendingSelection, ClaudeFailure>.success)
+          ?? .failure(.unfinishedSelection)
+      }
+      .bind { pending in await reconcileSelection(pending) }
+    return imported.mapError { error in error.releasing(reconciled.map { _ in () }) }
+      .flatMap { _ in reconciled }
   }
 
-  private func park(
-    _ snapshot: ClaudeCredentialSnapshot, in store: ClaudeNativeStore, operationID: UUID
+  private func selection(
+    _ credentials: ClaudeCredentials?, account: Account, accounts: [Account], outgoing: Account?
+  ) -> Result<AccountSelection, ClaudeFailure> {
+    guard let credentials, credentials.identity.isSameAccount(as: account.identity) else {
+      return .failure(.accountChanged)
+    }
+    let preserved: Account? = outgoing.flatMap { value in
+      accounts.contains(where: { known in known.id == value.id }) ? nil : value
+    }
+    return .success(AccountSelection(identity: credentials.identity, preservedAccount: preserved))
+  }
+
+  private func importCredentials(
+    _ pending: ClaudePendingSelection, token: ClaudeOAuthToken, lock: ClaudeLock
   ) async -> Result<Void, ClaudeFailure> {
-    await writing(store, operationID: operationID) { await store.park(snapshot) }
+    await lock.status()
+      .flatMap { _ in Task.isCancelled ? .failure(.cancelled) : .success(()) }
+      .flatMap { _ in updateSelectionState { state in state.pending = pending } }
+      .bind { _ in
+        await authenticate(store: defaultStore(), email: nil, token: token, selection: pending)
+      }
   }
 
-  /// Settles a switch against the shared login as it stands and clears the pending record.
+  private func write(
+    _ credentials: ClaudeCredentials, to store: ClaudeCredentialStore, operationID: UUID
+  ) async -> Result<Void, ClaudeFailure> {
+    await withStorageWriteLock(store, operationID: operationID) { await store.write(credentials) }
+  }
+
   private func reconcileSelection(
     _ pending: ClaudePendingSelection
-  ) async -> Result<ClaudeCredentialSnapshot?, ClaudeFailure> {
-    let current: ClaudeCredentialSnapshot?
-    switch await defaultStore().read() {
-    case .success(let value): current = value
-    case .failure(let error): return .failure(error)
-    }
-    var journal: ClaudeSelectionJournal
-    switch readJournal() {
-    case .success(let value): journal = value
-    case .failure(let error): return .failure(error)
-    }
-    let selected: UUID? = current.flatMap { snapshot in
-      journal.preservedAccounts.first { record in record.identifies(snapshot.identity) }?.id
-    }
-    journal.selectedAccountID = selected
-    journal.pending = nil
-    if let selected { journal.unavailableAccountIDs.remove(selected) }
-    if pending.phase == .importing, selected != pending.incoming.id {
-      // A failed finalizer may have rotated the dormant refresh token before
-      // persisting its replacement. That old grant is no longer a credential owner.
-      journal.unavailableAccountIDs.insert(pending.incoming.id)
-    }
-    if let outgoing: ClaudeStoredAccount = pending.outgoing,
-      outgoing.id != selected, outgoing.id != pending.incoming.id
-    {
-      switch await privateStore(outgoing.id).read() {
-      case .success(.some(let saved)) where outgoing.identifies(saved.identity):
-        journal.unavailableAccountIDs.remove(outgoing.id)
-      case .success:
-        journal.unavailableAccountIDs.insert(outgoing.id)
-      case .failure(let error): return .failure(error)
+  ) async -> Result<ClaudeCredentials?, ClaudeFailure> {
+    await defaultStore().read().bind { current in
+      await selectionState().bind { recorded in
+        await reconciled(recorded, pending: pending, current: current)
+          .flatMap { state in state.write(to: paths.claudeSelectionFile) }
+          .map { _ in current }
       }
     }
-    return journal.write(to: paths.claudeSelectionFile).map { _ in current }
   }
 
-  private func recoverSelection(operationID: UUID? = nil) async -> Result<Void, ClaudeFailure> {
-    let pending: ClaudePendingSelection
-    switch readJournal() {
-    case .success(let journal):
-      guard let value: ClaudePendingSelection = journal.pending else { return .success(()) }
-      pending = value
-    case .failure(let error): return .failure(error)
+  private func reconciled(
+    _ recorded: ClaudeSelectionState, pending: ClaudePendingSelection,
+    current: ClaudeCredentials?
+  ) async -> Result<ClaudeSelectionState, ClaudeFailure> {
+    var state: ClaudeSelectionState = recorded
+    let selected: UUID? = current.flatMap { credentials in
+      recorded.preservedAccount(for: credentials.identity)?.id
     }
-    if let child: ClaudeChildIdentity = pending.child {
-      switch child.isRunning() {
-      case .success(true): return .failure(.unfinishedSelection)
-      case .success(false): break
-      case .failure(let error): return .failure(error)
+    state.selectedAccountID = selected
+    state.pending = nil
+    if let selected { state.unavailableAccountIDs.remove(selected) }
+    if pending.phase == .importing, selected != pending.incoming.id {
+      state.unavailableAccountIDs.insert(pending.incoming.id)
+    }
+    guard let outgoing: ClaudeStoredAccount = pending.outgoing, outgoing.id != selected,
+      outgoing.id != pending.incoming.id
+    else {
+      return .success(state)
+    }
+    let reconciled: ClaudeSelectionState = state
+    return await privateStore(outgoing.id).read().map { saved in
+      var updated: ClaudeSelectionState = reconciled
+      if saved.map({ value in outgoing.isSameAccount(as: value.identity) }) == true {
+        updated.unavailableAccountIDs.remove(outgoing.id)
+      } else {
+        updated.unavailableAccountIDs.insert(outgoing.id)
+      }
+      return updated
+    }
+  }
+
+  private func recoverSelection(operationID: UUID) async -> Result<Void, ClaudeFailure> {
+    await selectionState().bind { state -> Result<Void, ClaudeFailure> in
+      guard let pending: ClaudePendingSelection = state.pending else { return .success(()) }
+      let running: Result<Bool, ClaudeFailure> =
+        pending.child.map { child in child.isRunning() } ?? .success(false)
+      return await running.bind { running -> Result<Void, ClaudeFailure> in
+        await running ? .failure(.unfinishedSelection) : recover(pending, operationID: operationID)
       }
     }
-    let directories: [URL] =
-      [defaultStore().directory, privateStore(pending.incoming.id).directory]
-      + (pending.outgoing.map { value in [privateStore(value.id).directory] } ?? [])
-    return await refreshing(directories, operationID: operationID ?? maintenanceID) { _ in
+  }
+
+  private func recover(
+    _ pending: ClaudePendingSelection, operationID: UUID
+  ) async -> Result<Void, ClaudeFailure> {
+    let stores: [ClaudeCredentialStore?] = [
+      defaultStore(), privateStore(pending.incoming.id),
+      pending.outgoing.map { value in privateStore(value.id) },
+    ]
+    return await withRefreshLock(
+      stores.compactMap { store in store?.directory }, operationID: operationID
+    ) { _ in
       await reconcileSelection(pending).map { _ in () }
     }
   }
 
-  // MARK: - Sign-out
-
-  private func signOutAccount(_ account: RelayAccount, accounts: [RelayAccount]) async -> Result<
+  private func signOutAccount(_ account: Account, accounts: [Account]) async -> Result<
     Void, ClaudeFailure
   > {
-    if case .failure(let error) = await recoverSelection(operationID: account.id) {
-      return .failure(error)
-    }
-    let shared: ClaudeNativeStore = defaultStore()
-    let saved: ClaudeNativeStore = privateStore(account.id)
-    return await refreshing([shared.directory, saved.directory], operationID: account.id) { _ in
-      await signOutLeased(account, accounts: accounts, shared: shared, saved: saved)
+    await recoverSelection(operationID: account.id).bind { _ in
+      let shared: ClaudeCredentialStore = defaultStore()
+      let saved: ClaudeCredentialStore = privateStore(account.id)
+      return await withRefreshLock([shared.directory, saved.directory], operationID: account.id) {
+        _ in
+        await signOut(account, accounts: accounts, shared: shared, saved: saved)
+      }
     }
   }
 
-  private func signOutLeased(
-    _ account: RelayAccount, accounts: [RelayAccount], shared: ClaudeNativeStore,
-    saved: ClaudeNativeStore
+  private func signOut(
+    _ account: Account, accounts: [Account], shared: ClaudeCredentialStore,
+    saved: ClaudeCredentialStore
   ) async -> Result<Void, ClaudeFailure> {
-    let current: ClaudeCredentialSnapshot?
-    switch await shared.read() {
-    case .success(let value): current = value
-    case .failure(let error): return .failure(error)
-    }
-    if let current, current.identity.identifies(account.identity) {
-      // The shared grant moves to the private store, where the native logout revokes it.
-      if case .failure(let error) = await park(current, in: saved, operationID: account.id) {
-        return .failure(error)
-      }
-      let erased: Result<Void, ClaudeFailure> = await writing(shared, operationID: account.id) {
-        await shared.eraseSavedSignIn(matching: current.grant.value)
-      }
-      if case .failure(let error) = erased {
-        guard case .accountChanged = error.cause else { return .failure(error) }
-        // The parked copy stays valid; the shared login now names another account.
-        if case .failure(let recovery) = await observeSelection(accounts: accounts) {
-          return .failure(.cleanup(operation: error, release: recovery))
+    await shared.read().bind { current -> Result<Void, ClaudeFailure> in
+      guard let current, current.identity.isSameAccount(as: account.identity) else {
+        return await saved.read().bind { credentials -> Result<Void, ClaudeFailure> in
+          switch credentials {
+          case .some(let value) where value.identity.isSameAccount(as: account.identity):
+            return await logOut(store: saved)
+          case .some: return .failure(.accountChanged)
+          case .none: return .success(())
+          }
         }
-        return .failure(
-          error.releasing(
-            updateJournal { journal in journal.unavailableAccountIDs.remove(account.id) }))
       }
-      if case .failure(let error) = await logout(store: saved) { return .failure(error) }
-    } else {
-      switch await saved.read() {
-      case .success(.some(let snapshot)):
-        guard snapshot.identity.identifies(account.identity) else {
-          return .failure(.accountChanged)
+      let erased: Result<Void, ClaudeFailure> = await write(
+        current, to: saved, operationID: account.id
+      ).bind { _ in
+        await withStorageWriteLock(shared, operationID: account.id) {
+          await shared.removeOAuthToken(matching: current.token.value)
         }
-        if case .failure(let error) = await logout(store: saved) { return .failure(error) }
-      case .success(.none): break
-      case .failure(let error): return .failure(error)
       }
+      guard case .failure(let error) = erased else { return await logOut(store: saved) }
+      guard case .accountChanged = error.cause else { return .failure(error) }
+      return .failure(
+        error.releasing(
+          await currentSelection(accounts: accounts).flatMap { _ in
+            updateSelectionState { state in state.unavailableAccountIDs.remove(account.id) }
+          }))
     }
-    return updateJournal { journal in
-      if journal.selectedAccountID == account.id { journal.selectedAccountID = nil }
-      journal.unavailableAccountIDs.insert(account.id)
+    .flatMap { _ in
+      updateSelectionState { state in
+        if state.selectedAccountID == account.id { state.selectedAccountID = nil }
+        state.unavailableAccountIDs.insert(account.id)
+      }
     }
   }
 
   private func discardPrivateStore(id: UUID) async -> Result<Void, ClaudeFailure> {
-    let store: ClaudeNativeStore = privateStore(id)
-    return await refreshing([store.directory], operationID: id) { _ in
-      await writing(store, operationID: id) { await store.deletePrivateCredentials() }
-    }
-    .flatMap { _ -> Result<Void, ClaudeFailure> in
-      do {
-        try FileManager.default.removeItem(at: store.directory)
-        return .success(())
-      } catch {
-        return .failure(.filesystem(error))
-      }
+    let store: ClaudeCredentialStore = privateStore(id)
+    return await withRefreshLock([store.directory], operationID: id) { _ in
+      await withStorageWriteLock(store, operationID: id) { await store.deleteCredentials() }
     }
     .flatMap { _ in
-      updateJournal { journal in
-        journal.preservedAccounts.removeAll { record in record.id == id }
-        journal.unavailableAccountIDs.remove(id)
+      Result { try FileManager.default.removeItem(at: store.directory) }
+        .mapError(ClaudeFailure.filesystem)
+    }
+    .flatMap { _ in
+      updateSelectionState { state in
+        state.preservedAccounts.removeAll { record in record.id == id }
+        state.unavailableAccountIDs.remove(id)
       }
     }
   }
 
-  // MARK: - Native client
-
-  private func headless(
-    store: ClaudeNativeStore, action: ClaudeHeadlessAction, grant: ClaudeGrant? = nil
+  private func runSession(
+    store: ClaudeCredentialStore, action: ClaudeSessionAction, token: ClaudeOAuthToken? = nil
   ) async -> Result<Void, ClaudeFailure> {
-    await prepareDirectories(store: store).flatMap { _ in executable() }.bind {
+    await createDirectories(store: store).flatMap { _ in executable() }.bind {
       binary -> Result<Void, ClaudeFailure> in
       let sessionID: UUID = UUID()
       var childEnvironment: [String: String] = processEnvironment(store: store)
-      if let grant {
-        childEnvironment["CLAUDE_CODE_OAUTH_TOKEN"] = grant.accessToken
-        childEnvironment["CLAUDE_CODE_SUBSCRIPTION_TYPE"] = grant.plan
-        childEnvironment["CLAUDE_CODE_RATE_LIMIT_TIER"] = grant.value["rateLimitTier"]?.stringValue
+      if let token {
+        childEnvironment["CLAUDE_CODE_OAUTH_TOKEN"] = token.accessToken
+        childEnvironment["CLAUDE_CODE_SUBSCRIPTION_TYPE"] = token.plan
+        childEnvironment["CLAUDE_CODE_RATE_LIMIT_TIER"] = token.value["rateLimitTier"]?.stringValue
       }
       let invocation: ProcessInvocation = ProcessInvocation(
         executable: binary,
@@ -782,155 +794,133 @@ actor ClaudeClient {
         environment: childEnvironment,
         workingDirectory: paths.workingDirectory
       )
-      return await ClaudeHeadless.run(invocation: invocation, action: action, sessionID: sessionID)
+      return await ClaudeSession.run(invocation: invocation, action: action, sessionID: sessionID)
     }
   }
 
-  /// Runs the native login: a browser flow into the store, or a refresh-token exchange when a
-  /// grant is given, which Claude Code finalizes with its own rotation and account metadata.
   private func authenticate(
-    store: ClaudeNativeStore, email: String?, grant: ClaudeGrant?,
+    store: ClaudeCredentialStore, email: String?, token: ClaudeOAuthToken?,
     selection: ClaudePendingSelection?
   ) async -> Result<Void, ClaudeFailure> {
-    let launched: Result<NativeProcess, ClaudeFailure> = await prepareDirectories(store: store)
+    await createDirectories(store: store)
       .flatMap { _ in executable() }
-      .bind { binary -> Result<NativeProcess, ClaudeFailure> in
+      .bind { binary -> Result<ChildProcess, ClaudeFailure> in
         var arguments: [String] = ["auth", "login", "--claudeai"]
         if let email { arguments.append(contentsOf: ["--email", email]) }
         var childEnvironment: [String: String] = processEnvironment(store: store)
-        if let grant {
-          guard let refresh: String = grant.refreshToken, !refresh.isEmpty,
-            !grant.scopes.isEmpty
+        if let token {
+          guard let refresh: String = token.refreshToken, !refresh.isEmpty,
+            !token.scopes.isEmpty
           else { return .failure(.signInRequired) }
           childEnvironment["CLAUDE_CODE_OAUTH_REFRESH_TOKEN"] = refresh
-          childEnvironment["CLAUDE_CODE_OAUTH_SCOPES"] = grant.scopes.joined(separator: " ")
-          childEnvironment["CLAUDE_CODE_OAUTH_CLIENT_ID"] = grant.clientID
+          childEnvironment["CLAUDE_CODE_OAUTH_SCOPES"] = token.scopes.joined(separator: " ")
+          childEnvironment["CLAUDE_CODE_OAUTH_CLIENT_ID"] = token.clientID
         }
         guard !Task.isCancelled else { return .failure(.cancelled) }
         let invocation: ProcessInvocation = ProcessInvocation(
           executable: binary, arguments: arguments, environment: childEnvironment,
           workingDirectory: paths.workingDirectory
         )
-        return await NativeProcess.launch(invocation).mapError(ClaudeFailure.native)
+        return await ChildProcess.launch(invocation).mapError(ClaudeFailure.process)
       }
-    let process: NativeProcess
-    switch launched {
-    case .success(let value): process = value
-    case .failure(let error): return authenticationNotStarted(error, selection: selection)
-    }
-    if var selection {
-      let recorded: Result<Void, ClaudeFailure> = ClaudeChildIdentity.read(
-        processID: process.processIdentifier
-      ).flatMap { child -> Result<Void, ClaudeFailure> in
-        selection.child = child
-        selection.phase = .importing
-        return updateJournal { journal in journal.pending = selection }
+      .mapError { error in importNotStarted(error, selection: selection) }
+      .bind { process -> Result<Void, ClaudeFailure> in
+        if case .failure(let error) = recordChild(of: process, selection: selection) {
+          await process.cancel()
+          return .failure(error)
+        }
+        return await withTaskCancellationHandler {
+          let termination: Result<ProcessTermination, ProcessFailure> =
+            await process.waitUntilExit()
+          return Task.isCancelled
+            ? .failure(.cancelled) : termination.exited(ClaudeFailure.authenticationFailed)
+        } onCancel: {
+          Task { await process.cancel() }
+        }
       }
-      if case .failure(let error) = recorded {
-        await process.cancel()
-        return .failure(error)
-      }
-    }
-    return await withTaskCancellationHandler {
-      let output: Result<ProcessOutput, ProcessFailure> = await process.waitForExit()
-      if Task.isCancelled { return .failure(.cancelled) }
-      return output.mapError(ClaudeFailure.native).flatMap { output in
-        output.exitCode == 0 ? .success(()) : .failure(.authenticationFailed(output.exitCode))
-      }
-    } onCancel: {
-      Task { await process.cancel() }
-    }
   }
 
-  /// Records that the import never started, so recovery keeps the incoming grant available.
-  private func authenticationNotStarted(
-    _ failure: ClaudeFailure, selection: ClaudePendingSelection?
+  private func recordChild(
+    of process: ChildProcess, selection: ClaudePendingSelection?
   ) -> Result<Void, ClaudeFailure> {
-    guard var selection else { return .failure(failure) }
+    selection.map { selection in
+      ClaudeChildProcess.read(processID: process.processIdentifier).flatMap { child in
+        var importing: ClaudePendingSelection = selection
+        importing.child = child
+        importing.phase = .importing
+        return updateSelectionState { state in state.pending = importing }
+      }
+    } ?? .success(())
+  }
+
+  private func importNotStarted(
+    _ failure: ClaudeFailure, selection: ClaudePendingSelection?
+  ) -> ClaudeFailure {
+    guard var selection else { return failure }
     selection.phase = .prepared
     selection.child = nil
-    return .failure(failure.releasing(updateJournal { journal in journal.pending = selection }))
+    return failure.releasing(updateSelectionState { state in state.pending = selection })
   }
 
-  private func logout(store: ClaudeNativeStore) async -> Result<Void, ClaudeFailure> {
-    guard !Task.isCancelled else { return .failure(.cancelled) }
-    return await prepareDirectories(store: store).flatMap { _ in executable() }.bind {
-      binary -> Result<Void, ClaudeFailure> in
-      let invocation: ProcessInvocation = ProcessInvocation(
-        executable: binary, arguments: ["auth", "logout"],
-        environment: processEnvironment(store: store),
-        workingDirectory: paths.workingDirectory
-      )
-      let process: NativeProcess
-      switch await NativeProcess.launch(invocation) {
-      case .success(let value): process = value
-      case .failure(let error): return .failure(.native(error))
+  private func logOut(store: ClaudeCredentialStore) async -> Result<Void, ClaudeFailure> {
+    await (Task.isCancelled ? .failure(.cancelled) : createDirectories(store: store))
+      .flatMap { _ in executable() }
+      .bind { binary in
+        await ChildProcess.launch(
+          ProcessInvocation(
+            executable: binary, arguments: ["auth", "logout"],
+            environment: processEnvironment(store: store),
+            workingDirectory: paths.workingDirectory
+          )
+        ).mapError(ClaudeFailure.process)
       }
-      return await withTaskCancellationHandler {
-        await process.closeInput()
-        let result: Result<ProcessOutput, ProcessFailure> = await process.waitForExit()
-        if Task.isCancelled { return .failure(.cancelled) }
-        return result.mapError(ClaudeFailure.native).flatMap { output in
-          output.exitCode == 0 ? .success(()) : .failure(.native(.exit(output.exitCode)))
+      .bind { process in
+        await withTaskCancellationHandler {
+          await process.closeInput()
+          let termination: Result<ProcessTermination, ProcessFailure> =
+            await process.waitUntilExit()
+          return Task.isCancelled ? .failure(.cancelled) : termination.exited()
+        } onCancel: {
+          Task { await process.cancel() }
         }
-      } onCancel: {
-        Task { await process.cancel() }
       }
-    }
   }
 
   private func executable() -> Result<URL, ClaudeFailure> {
-    let pathEntries: [URL] = (environment["PATH"] ?? "").split(separator: ":").map { path in
-      URL(fileURLWithPath: String(path), isDirectory: true).appending(path: "claude")
-    }
-    let native: URL = userHome().appending(path: ".local/bin/claude")
-    guard
-      let executable: URL = (pathEntries + [native]).first(where: { url in
-        FileManager.default.isExecutableFile(atPath: url.path)
-      })
-    else { return .failure(.executableMissing) }
-    return .success(executable)
+    let candidates: [URL] =
+      (environment["PATH"]?.split(separator: ":").map { path in
+        URL(fileURLWithPath: String(path), isDirectory: true).appending(path: "claude")
+      } ?? []) + [homeDirectory().appending(path: ".local/bin/claude")]
+    return candidates.first { url in FileManager.default.isExecutableFile(atPath: url.path) }
+      .map(Result<URL, ClaudeFailure>.success) ?? .failure(.executableMissing)
   }
 
-  /// The child's environment: no credential or provider override, the private store's
-  /// directory when the store is not the shared one, and auto memory off.
-  private func processEnvironment(store: ClaudeNativeStore) -> [String: String] {
-    var result: [String: String] = environment
-    let overrides: [String] = [
-      "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL",
-      "CLAUDE_CODE_OAUTH_TOKEN", "CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR", "CCR_OAUTH_TOKEN_FILE",
-      "CLAUDE_CODE_OAUTH_REFRESH_TOKEN", "CLAUDE_CODE_OAUTH_SCOPES", "CLAUDE_CODE_OAUTH_CLIENT_ID",
-      "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX", "CLAUDE_CODE_USE_FOUNDRY",
-      "CLAUDE_CODE_SIMPLE",
-      "CLAUDE_CODE_REMOTE_SESSION_ID", "CLAUDE_CODE_REMOTE", "ANTHROPIC_UNIX_SOCKET",
-      "CLAUDE_CODE_SUBSCRIPTION_TYPE", "CLAUDE_CODE_RATE_LIMIT_TIER",
-      "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR",
-    ]
-    for name in overrides { result.removeValue(forKey: name) }
-    let shared: ClaudeNativeStore = defaultStore()
-    if store.service != shared.service || store.configuration != shared.configuration {
-      result["CLAUDE_CONFIG_DIR"] = store.directory.path.precomposedStringWithCanonicalMapping
+  private func processEnvironment(store: ClaudeCredentialStore) -> [String: String] {
+    var result: [String: String] = environment.filter { entry in
+      !Self.excludedEnvironmentVariables.contains(entry.key)
+    }
+    let shared: ClaudeCredentialStore = defaultStore()
+    if let path: String = store.configDirectoryPath,
+      store.service != shared.service || store.configFile != shared.configFile
+    {
+      result["CLAUDE_CONFIG_DIR"] = path
       result.removeValue(forKey: "CLAUDE_SECURESTORAGE_CONFIG_DIR")
     }
     result["CLAUDE_CODE_DISABLE_AUTO_MEMORY"] = "1"
     return result
   }
 
-  // MARK: - Stores and files
-
-  private func privateStore(_ id: UUID) -> ClaudeNativeStore {
+  private func privateStore(_ id: UUID) -> ClaudeCredentialStore {
     let directory: URL = paths.claudeDirectory(id)
-    return ClaudeNativeStore(
-      directory: directory, configuration: directory.appending(path: ".claude.json"),
-      defaultNamespace: false, username: username
+    return ClaudeCredentialStore(
+      directory: directory, configFile: directory.appending(path: ".claude.json"),
+      legacyConfigFile: directory.appending(path: ".config.json"),
+      configDirectoryPath: directory.path.precomposedStringWithCanonicalMapping,
+      username: username
     )
   }
 
-  /// The store Claude Code reads with the app's environment: `CLAUDE_SECURESTORAGE_CONFIG_DIR`
-  /// names the credential directory when set (empty meaning `~/.claude`), otherwise
-  /// `CLAUDE_CONFIG_DIR`, which also moves `.claude.json` inside it; the Keychain namespace
-  /// is the default one only when the credential directory is the default.
-  private func defaultStore() -> ClaudeNativeStore {
+  private func defaultStore() -> ClaudeCredentialStore {
     let configured: String? = environment["CLAUDE_CONFIG_DIR"].flatMap { value in
       value.isEmpty ? nil : value
     }
@@ -939,49 +929,52 @@ actor ClaudeClient {
       if let secure, !secure.isEmpty {
         URL(fileURLWithPath: secure.precomposedStringWithCanonicalMapping, isDirectory: true)
       } else if secure != nil {
-        userHome().appending(path: ".claude", directoryHint: .isDirectory)
+        homeDirectory().appending(path: ".claude", directoryHint: .isDirectory)
       } else {
         paths.defaultClaudeDirectory
       }
-    let configuration: URL =
+    let configFile: URL =
       configured == nil
-      ? userHome().appending(path: ".claude.json")
+      ? homeDirectory().appending(path: ".claude.json")
       : paths.defaultClaudeDirectory.appending(path: ".claude.json")
-    let defaultNamespace: Bool = if let secure { secure.isEmpty } else { configured == nil }
-    return ClaudeNativeStore(
-      directory: directory, configuration: configuration,
-      defaultNamespace: defaultNamespace, username: username
+    let configDirectoryPath: String? =
+      if let secure {
+        secure.isEmpty ? nil : secure.precomposedStringWithCanonicalMapping
+      } else {
+        configured?.precomposedStringWithCanonicalMapping
+      }
+    return ClaudeCredentialStore(
+      directory: directory, configFile: configFile,
+      legacyConfigFile: paths.defaultClaudeDirectory.appending(path: ".config.json"),
+      configDirectoryPath: configDirectoryPath, username: username
     )
   }
 
-  private func userHome() -> URL {
-    if let home: String = environment["HOME"], !home.isEmpty {
-      return URL(fileURLWithPath: home, isDirectory: true)
-    }
-    return FileManager.default.homeDirectoryForCurrentUser
+  private func homeDirectory() -> URL {
+    environment["HOME"].flatMap { home in
+      home.isEmpty ? nil : URL(fileURLWithPath: home, isDirectory: true)
+    } ?? FileManager.default.homeDirectoryForCurrentUser
   }
 
-  private func prepareDirectories(store: ClaudeNativeStore) -> Result<Void, ClaudeFailure> {
-    do {
+  private func createDirectories(store: ClaudeCredentialStore) -> Result<Void, ClaudeFailure> {
+    Result {
       try FileManager.default.createDirectory(
         at: paths.workingDirectory, withIntermediateDirectories: true)
       try FileManager.default.createDirectory(
         at: store.directory, withIntermediateDirectories: true)
-      return .success(())
-    } catch {
-      return .failure(.filesystem(error))
     }
+    .mapError(ClaudeFailure.filesystem)
   }
 
-  private func readJournal() -> Result<ClaudeSelectionJournal, ClaudeFailure> {
-    ClaudeSelectionJournal.read(at: paths.claudeSelectionFile)
+  private func selectionState() -> Result<ClaudeSelectionState, ClaudeFailure> {
+    ClaudeSelectionState.read(at: paths.claudeSelectionFile)
   }
 
-  private func updateJournal(
-    _ change: (inout ClaudeSelectionJournal) -> Void
+  private func updateSelectionState(
+    _ change: (inout ClaudeSelectionState) -> Void
   ) -> Result<Void, ClaudeFailure> {
-    readJournal().flatMap { journal in
-      var updated: ClaudeSelectionJournal = journal
+    selectionState().flatMap { state in
+      var updated: ClaudeSelectionState = state
       change(&updated)
       return updated.write(to: paths.claudeSelectionFile)
     }

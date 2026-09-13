@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-in-loop-body
+language: swift
+severity: error
+utils:
+    plain-loop:
+        kind: for_statement
+        all:
+            - has: {field: collection, pattern: $COLL}
+            - not: {has: {kind: where_clause}}
+    single-item:
+        kind: pattern
+        all:
+            - has: {field: bound_identifier, kind: simple_identifier}
+            - not: {has: {nthChild: 2}}
+    single-if:
+        matches: {swift-single-statement: {first: {kind: if_statement, not: {has: {regex: '^(,|else)$'}}}}}
+    element-source:
+        pattern: $SOURCE
+        follows: {regex: '^=$'}
+        all:
+            - not: {pattern: $ELEMENT}
+            - has: {kind: simple_identifier, pattern: $ELEMENT, stopBy: end}
+rule:
+    any:
+        - matches: plain-loop
+          all:
+            - has: {field: item, matches: single-item, pattern: $X}
+            - has:
+                kind: statements
+                matches: single-if
+                has:
+                    kind: if_statement
+                    pattern: $IF
+                    regex: '^if\s+case\b'
+                    all:
+                        - has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}}
+                        - has: {kind: statements, pattern: $BODY}
+        - matches: plain-loop
+          all:
+            - has: {field: item, matches: single-item, pattern: $ELEMENT}
+            - has:
+                kind: statements
+                matches: single-if
+                has:
+                    kind: if_statement
+                    all:
+                        - has: {field: condition, kind: value_binding_pattern}
+                        - has: {field: bound_identifier, kind: simple_identifier, pattern: $Y}
+                        - any:
+                            - has: {kind: type_annotation, pattern: $TYPE}
+                            - not: {has: {kind: type_annotation}}
+                        - has: {matches: element-source}
+                        - has: {kind: statements, pattern: $BODY}
+        - matches: plain-loop
+          all:
+            - has: {field: item, matches: single-item, pattern: $Z}
+            - has:
+                kind: statements
+                matches: single-if
+                has:
+                    kind: if_statement
+                    all:
+                        - not: {has: {field: condition, kind: 'value_binding_pattern, availability_condition'}}
+                        - not: {has: {regex: '^case$'}}
+                        - has: {field: condition, pattern: $COND}
+                        - has: {kind: statements, pattern: $BODY}
+        - matches: plain-loop
+          pattern:
+            context: |-
+                for $Z in $COLL {
+                  guard $COND else { continue }
+                  $$$REST
+                }
+            selector: for_statement
+          has: {field: item, matches: single-item}
+        - matches: plain-loop
+          pattern:
+            context: |-
+                for $ELEMENT in $COLL {
+                  guard let $Y = $SOURCE else { continue }
+                  $$$REST
+                }
+            selector: for_statement
+          all:
+            - has: {field: item, matches: single-item}
+            - has: {kind: statements, has: {kind: guard_statement, has: {matches: element-source}}}
+        - matches: plain-loop
+          pattern:
+            context: |-
+                for $ELEMENT in $COLL {
+                  guard let $Y: $ANNOTATED = $SOURCE else { continue }
+                  $$$REST
+                }
+            selector: for_statement
+          all:
+            - has: {field: item, matches: single-item}
+            - has: {kind: statements, has: {kind: guard_statement, has: {matches: element-source}}}
+        - matches: plain-loop
+          pattern:
+            context: |-
+                for $ITEM in $COLL {
+                  guard case $$$PATTERN = $ITEM else { continue }
+                  $$$REST
+                }
+            selector: for_statement
+          has: {field: item, matches: single-item}
+transform:
+    CASE: {replace: {source: $IF, replace: '(?s)^if\s+case\s+(.*?)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\s*\{.*$', by: 'case $1'}}
+    GUARDED: {replace: {source: $ITEM, replace: '(?s)^.*$', by: 'case '}}
+    COLON: {replace: {source: $ANNOTATED, replace: '^', by: ': '}}
+    OPEN: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: '.compactMap({ '}}
+    BIND: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: ' in '}}
+    CLOSE: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: ' })'}}
+    WHERE: {replace: {source: $COND, replace: '^', by: ' where '}}
+    STATEMENTS: {replace: {source: $BODY, replace: '\s+$', by: ''}}
+fix: |-
+    for $CASE$GUARDED$$$PATTERN$Y$TYPE$COLON$Z in $COLL$OPEN$ELEMENT$BIND$SOURCE$CLOSE$WHERE {
+      $STATEMENTS$$$REST
+    }
+message: '`for` opens its body with a test over the element, the loop visits every element and the body selects'
+note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values, `for <element> in <sequence> where <condition>` the elements passing a test'

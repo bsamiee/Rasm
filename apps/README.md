@@ -10,7 +10,7 @@ apps/
     ├── <Project>/              # C# project, joined to Workspace.slnx
     ├── <project>/              # Python project, resolved by the root pyproject.toml
     ├── <project>/              # TypeScript project, included by the pnpm apps/*/* glob
-    ├── <App>.xcodeproj/        # Swift app project and shared scheme, Info.plist and asset catalog beside it
+    ├── <App>.xcodeproj/        # Swift app project and shared scheme, icon document and asset catalog beside it
     └── <Area>/<Feature>.swift  # Swift files by responsibility, synchronized into the app target
 ```
 
@@ -46,7 +46,7 @@ Root files own shared policy, project manifests own app configuration.
 - `references` lists the projects a project depends on, `typecheck` builds it from its own `tsconfig.json`, and `^typecheck` runs them first
 
 [SWIFT]:
-- `.xcodeproj` files own their build settings: Swift version, warnings as errors, upcoming features, deployment target, bundle identity, and signing
+- `.xcodeproj` files own their build settings: Swift version, warnings as errors, concurrency, deployment target, identity, plist keys, and signing
 - Synchronized root folders include every source and resource under the project root, membership exceptions list the files the bundle leaves out
 - `swift-format` runs at its defaults, with no configuration file
 
@@ -56,4 +56,4 @@ Projects are written by hand as the minimal file set, the set an init command pr
 
 - C# projects are a `.csproj` listed in `Workspace.slnx` and checked by the project policy targets
 - TypeScript projects are a `package.json` beside a `tsconfig.json` that extends the root configuration
-- Swift apps are an `.xcodeproj` with a shared scheme beside an `Info.plist`
+- Swift apps are an `.xcodeproj` with a shared scheme, the Info.plist generated from its settings
