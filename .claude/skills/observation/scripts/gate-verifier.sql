@@ -1,4 +1,4 @@
--- Gate counts of one shape-verifier run, :id its agent id, :start its SubagentStart ts, :ids a JSON array of the scope's finding ids, one named array per select, touched equals the count of ids with their text present and every other count is 0, run from the worktree
+-- Gate counts of one shape-verifier run, :id its agent id, :start its SubagentStart ts, :ids a JSON array of the scope's finding ids, one named array per select, touched the ids with their text present, proposed the ids whose text left, every other count 0, run from the worktree
 select count(*) as touched from finding_state where finding_id in (select value from json_each(:ids)) and at >= :start;
 select count(*) as proposed from finding_state where finding_id in (select value from json_each(:ids)) and state = 'proposed';
 select count(*) as unevidenced from finding_transition where by = 'agent:' || :id and state in ('wrong', 'checker_owned', 'checker_silent') and evidence = '';

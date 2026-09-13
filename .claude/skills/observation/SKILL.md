@@ -150,6 +150,7 @@ Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase 
 - `recurring_categories` reads a null `verdict` as not refused
 - `<rules>` and `<utils>` are the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print
 - Category id is free when `rg -l '^id: <category>(-<language>)?$' <rules> <utils>` exits 1
+- Rules with their language and correction are the lines `fd -e yml . <rules> -x yq -r '[.id, .language, .message] | join(" | ")' {}` prints
 
 | [INDEX] | [STATE]          | [MEANING]                                              | [WRITER]                     | [EVIDENCE]                 |
 | :-----: | :--------------- | :----------------------------------------------------- | :--------------------------- | :------------------------- |
@@ -172,6 +173,9 @@ sqlite3 -json -cmd ".param set :literal '<literal>'" <db> "select session_id, ts
 
 # Every finding at its current path with its state, span, hash, and last close
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from finding_state where finding_id in (select value from json_each(:ids))"
+
+# Head hash of each finding's file now, beside the hash its last transition stored
+sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select finding_id, path, subject_hash, <head> as head from finding_state where finding_id in (select value from json_each(:ids))"
 
 # Which agent findings stand confirmed with no wrong at the same hash
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from confirmed_findings where finding_id in (select value from json_each(:ids))"

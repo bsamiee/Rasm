@@ -232,7 +232,7 @@ const status = (seen: State, holding: number): string => {
     const waiting = _awaiting(seen).length;
     return [
         ..._segment(seen.edits.count, `${_many(seen.edits.count, 'file', 'files')} unjudged`),
-        ..._segment(holding, `${_many(holding, 'editor', 'editors')} in flight`),
+        ..._segment(holding, `${_many(holding, 'editor', 'editors')} running`),
         ..._segment(seen.open, `${_many(seen.open, 'finding', 'findings')} open`),
         ..._segment(waiting, _many(waiting, 'recurring category', 'recurring categories')),
     ].join(' · ');

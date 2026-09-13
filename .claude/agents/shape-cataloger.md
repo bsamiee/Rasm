@@ -40,11 +40,11 @@ Read in order before the first row, `<paths>` the `file_path` values step 1 prin
 
 2. `<id>`, the own-id command
 3. `<scope>`, `{ git ls-files -c -o --exclude-standard -- <paths>; git ls-files -d -- <paths>; } | sort | uniq -u`, empty when step 1 printed no row
-4. The smells, fix, bar, and derivation sections of `references/rule-building.md` of `ast-grep`
-5. Change of each scope row, the change reader of `observation` with `:ids` `<tool_use_ids>`, its `structuredPatch` lines the text you judge
-6. Rows on scope paths, every proposed row, and every confirmed row at a stale hash, the state reader of `observation` with `:paths` the `<scope>` lines as one JSON array
-7. Rules with their corrections, `fd -e yml . <rules> -x yq -r '[.id, .language, .message] | join(" | ")' {}`
-8. The declaration around each changed line, the outline of `ast-grep` over its path naming the lines, then `Read` with `offset` and `limit` over them
+4. Smells, fix, bar, and derivation sections of `references/rule-building.md` of `ast-grep`
+5. Changes, the change reader of `observation` with `:ids` `<tool_use_ids>`, its `structuredPatch` lines or a Write's `content` the text you judge
+6. Rows on scope paths, proposed, or stale, the state reader of `observation` with `:paths` the `<scope>` lines as one JSON array
+7. Rules with their corrections, the rules line of the findings section of `observation`
+8. Declaration holding each changed line, `ast-grep outline <path> --json=compact` for its `range`, then `Read` with `offset` and `limit` over it
 9. `Skill(dotnet-coding)` when `<scope>` holds a `.cs` file
 10. `git status --porcelain`, its lines as `<status>`
 
@@ -62,10 +62,10 @@ Every row names the output line that decides it:
 |  [02]   | Occurrence of a site's text    | `rg -nU -F -- '<text>' <path>`, the site's rank among the printed lines                              |
 |  [03]   | Node kinds of one node         | `mcp__ast-grep__dump_syntax_tree` with `format: cst`                                                 |
 |  [04]   | Sites of one category in scope | `mcp__ast-grep__find_code_by_rule` over `<worktree>/<dir>` with a bounded `max_results`              |
-|  [05]   | Diagnostic a checker owns      | The diagnostic line of the mapping section of `observation`                                          |
-|  [06]   | Category id in use             | The free-id line of the findings section of `observation`, exit 1 means free                         |
-|  [07]   | Checker row on a site's span   | The span reader of `observation`, then its diagnostic                                                |
-|  [08]   | Earlier verdicts on a site     | The transitions reader of `observation`                                                              |
+|  [05]   | Diagnostic a checker owns      | Diagnostic line of the mapping section of `observation`                                              |
+|  [06]   | Category id in use             | Free-id line of the findings section of `observation`, exit 1 means free                             |
+|  [07]   | Checker row on a site's span   | Span reader of `observation`, then its diagnostic                                                    |
+|  [08]   | Earlier verdicts on a site     | Transitions reader of `observation`                                                                  |
 |  [09]   | C# diagnostics of a project    | Roslyn command and statement of `observation`                                                        |
 
 File on disk and checker output decide over a message, a memory, or a row.
@@ -79,12 +79,14 @@ File on disk and checker output decide over a message, a memory, or a row.
 - `git ls-files -c -o --exclude-standard` prints tracked and untracked paths and no ignored one, `git ls-files -d` the deleted ones `uniq -u` drops
 - Sites take `checker_owned` when a checker row on their span comes from a rule stating the category's correction, by the diagnostic
 - Verifier spawns name `prompt` alone
-- Slugs equal to a rule id in the site's language, with or without `-<language>`, name a missed site, `category` the slug alone, state `checker_silent`
+- Slug a rule of the site's language holds names a missed site, `category` the slug alone, state `checker_silent`
 - Rules of another language leave a slug free, the site is a category with no checker
+- Outline `range` lines are zero-based, `offset` of `Read` is one-based
 - `replacement` holds the after form when it is smaller than `text` and keeps behavior under the fix section of `rule-building`, else `message` alone
 - One site is a finding row like any other, your reply ends with the `recurring_categories` rows as one line
 - Sites whose state-reader row holds any state at the head hash stay out of the batch, `wrong` there is final, the rest the verifier's
-- Ledger row of a `range` prompt is the plugin's, written as your spawn resolves, you write none
+- `ranges` of `gate-cataloger.sql` is `1` when the plugin spawned you and `0` when a person did, the plugin writes the row with your id
+- `proposed` of `gate-cataloger.sql` counts the step 11 rows and the rows the verifier's reply counted as left
 - Messages and the reply hold one line in the form of a rule message under `<rules>`, a `<token>` where the value is not the point
 - Scopes with nothing to change are a valid result reported with the commands that proved them, an output the run never saw is no evidence
 
@@ -95,7 +97,7 @@ File on disk and checker output decide over a message, a memory, or a row.
 1. Run `lifecycle.sql` of `observation` with `:worktree`, its returned rows the closes and reconfirms over every open row
 2. Run the checker commands of `observation` over a non-empty `<scope>`, each output under `<scratch>`
 3. Run each checker's script of `observation` with `:worktree` and `:out` its output
-4. Read each changed declaration against CLAUDE.md section 02 and the smells and bar sections of `rule-building`, each site as shape before, after, reason
+4. Judge each changed declaration by CLAUDE.md section 02 and the smells and bar sections of `rule-building`, each site as before, after, reason
 5. Name each category under the derivation section of `rule-building` and the collapse section of `rule-hardening`, clear it by the free-id line
 6. Bind each site to `text`, span, and `occurrence` by the site rows, `message` the standard label or library member, `replacement` when smaller
 7. Write judgment rows in one batch through `batch.sql` of `observation` with `:worktree`, `:sites` under `<scratch>`, and `:id` `<id>`
@@ -111,11 +113,11 @@ Steps 9 and 11 run `transition.sql` of `observation` per id, `:by` `agent:<id>`,
 
 <gate>
 
-Every command returns its expected line, `<scope>` from step 3, `<id>` from step 2:
+Every command returns its expected line, `<scope>` from step 3, `<id>` from step 2, `<bind>` `-cmd ".param set :id '<id>'"`:
 - `printf '%s\n' <scope> | git check-ignore --stdin` over a non-empty `<scope>`, no line, exit 1
 - `printf '%s/%s/%s\n' <main> <worktree> <branch>`, the prompt's `<key>` on a `range` prompt
 - `ast-grep scan --no-ignore hidden --inspect summary <scope>` over a non-empty `<scope>`, `scannedFileCount` equal to its line count
-- `sqlite3 -json -cmd ".param set :id '<id>'" <db> ".read <scripts>/gate-cataloger.sql"`, every count `0`, `ranges` `1` on a `range` prompt
+- `sqlite3 -json <bind> <db> ".read <scripts>/gate-cataloger.sql"`, `ranges` and `proposed` by their decision lines, every other count `0`
 - `git status --porcelain`, the `<status>` lines
 - `ls <scratch>`, `No such file or directory`
 
@@ -124,7 +126,7 @@ Every command returns its expected line, `<scope>` from step 3, `<id>` from step
 <done_when>
 
 - Every open row on a scope path or at a stale hash holds its latest transition at the head hash
-- Every checker diagnostic over `<scope>` is a `checker:*` row, every rejected shape a judgment row the verifier saw once
+- Every checker diagnostic over `<scope>` is a `checker:*` row, every rejected shape a judgment row, the batch verified once
 - Every judgment row a checker row covers holds `checker_owned`, no row restates a checker row
 - Every gate result line sits in the transcript, no partial row, deferred value, or workaround remains
 
