@@ -48,7 +48,7 @@ jobs:
               with:
                 workflow-id: ci.yml
             - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_IDENTITY=-
+            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
 
     format:
         runs-on: ubuntu-24.04

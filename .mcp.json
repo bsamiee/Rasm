@@ -1,104 +1,153 @@
 {
-    "mcpServers": {
-        "roslyn-codelens": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
-        },
-        "binlog": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "Microsoft.AITools.BinlogMcp"]
-        },
-        "nuget": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "dotnet", "dnx", "NuGet.Mcp.Server"]
-        },
-        "ast-grep": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "ast-grep-server"],
-            "env": {
-                "AST_GREP_CONFIG": "${CLAUDE_PROJECT_DIR:-.}/sgconfig.yml"
-            }
-        },
-        "hostinger": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "hostinger-api-mcp"],
-            "env": {
-                "HOSTINGER_API_TOKEN": "${HOSTINGER_API_TOKEN}"
-            }
-        },
-        "playwright": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "playwright", "mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
-        },
-        "playwright-test": {
-            "type": "stdio",
-            "command": "mise",
-            "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
-        },
-        "indesign-sidekick": {
-            "type": "stdio",
-            "command": "/usr/local/bin/indesign-sidekick",
-            "args": ["start"]
-        },
-        "github": {
-            "type": "http",
-            "url": "https://api.githubcopilot.com/mcp/",
-            "headers": {
-                "Authorization": "Bearer ${GH_PROJECTS_TOKEN}",
-                "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search",
-                "X-MCP-Exclude-Tools": "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file",
-                "X-MCP-Features": "file_blame,issue_dependencies"
-            }
-        },
-        "exa": {
-            "type": "http",
-            "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run",
-            "headers": {
-                "x-api-key": "${EXA_API_KEY}"
-            }
-        },
-        "context7": {
-            "type": "http",
-            "url": "https://mcp.context7.com/mcp",
-            "headers": {
-                "Authorization": "Bearer ${CONTEXT7_API_KEY}"
-            }
-        },
-        "deepwiki": {
-            "type": "http",
-            "url": "https://mcp.deepwiki.com/mcp"
-        },
-        "greptile": {
-            "type": "http",
-            "url": "https://api.greptile.com/mcp",
-            "headers": {
-                "Authorization": "Bearer ${GREPTILE_API_KEY}"
-            }
-        },
-        "openaiDeveloperDocs": {
-            "type": "http",
-            "url": "https://developers.openai.com/mcp"
-        },
-        "claudeCodeDocs": {
-            "type": "http",
-            "url": "https://code.claude.com/docs/mcp"
-        },
-        "illustrator": {
-            "type": "http",
-            "url": "http://localhost:18412/v1/mcp",
-            "headers": {
-                "Authorization": "Bearer ${ILLUSTRATOR_MCP_TOKEN}"
-            }
-        },
-        "arena": {
-            "type": "http",
-            "url": "https://mcp.are.na/mcp"
-        }
+  "mcpServers": {
+    "roslyn-codelens": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "dotnet",
+        "dnx",
+        "RoslynCodeLens.Mcp",
+        "Workspace.slnx"
+      ]
+    },
+    "binlog": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "dotnet",
+        "dnx",
+        "Microsoft.AITools.BinlogMcp"
+      ]
+    },
+    "nuget": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "dotnet",
+        "dnx",
+        "NuGet.Mcp.Server"
+      ]
+    },
+    "ast-grep": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "ast-grep-server"
+      ],
+      "env": {
+        "AST_GREP_CONFIG": "${CLAUDE_PROJECT_DIR:-.}/sgconfig.yml"
+      }
+    },
+    "hostinger": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "hostinger-api-mcp"
+      ],
+      "env": {
+        "HOSTINGER_API_TOKEN": "${HOSTINGER_API_TOKEN}"
+      }
+    },
+    "playwright": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "playwright",
+        "mcp",
+        "--headless",
+        "--caps=config,network,pdf,storage,testing,vision,devtools"
+      ]
+    },
+    "playwright-test": {
+      "type": "stdio",
+      "command": "mise",
+      "args": [
+        "exec",
+        "--",
+        "playwright",
+        "run-test-mcp-server",
+        "--headless"
+      ]
+    },
+    "indesign-sidekick": {
+      "type": "stdio",
+      "command": "/usr/local/bin/indesign-sidekick",
+      "args": [
+        "start"
+      ]
+    },
+    "github": {
+      "type": "http",
+      "url": "https://api.githubcopilot.com/mcp/",
+      "headers": {
+        "Authorization": "Bearer ${GH_PROJECTS_TOKEN}",
+        "X-MCP-Toolsets": "context,repos,issues,pull_requests,actions,git,dependabot,github_support_docs_search",
+        "X-MCP-Exclude-Tools": "delete_repository,delete_file,create_repository,fork_repository,push_files,create_or_update_file",
+        "X-MCP-Features": "file_blame,issue_dependencies"
+      }
+    },
+    "exa": {
+      "type": "http",
+      "url": "https://mcp.exa.ai/mcp?tools=web_fetch_exa,web_search_advanced_exa,agent_run",
+      "headers": {
+        "x-api-key": "${EXA_API_KEY}"
+      }
+    },
+    "context7": {
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${CONTEXT7_API_KEY}"
+      }
+    },
+    "deepwiki": {
+      "type": "http",
+      "url": "https://mcp.deepwiki.com/mcp"
+    },
+    "greptile": {
+      "type": "http",
+      "url": "https://api.greptile.com/mcp",
+      "headers": {
+        "Authorization": "Bearer ${GREPTILE_API_KEY}"
+      }
+    },
+    "openaiDeveloperDocs": {
+      "type": "http",
+      "url": "https://developers.openai.com/mcp"
+    },
+    "claudeCodeDocs": {
+      "type": "http",
+      "url": "https://code.claude.com/docs/mcp"
+    },
+    "illustrator": {
+      "type": "http",
+      "url": "http://localhost:18412/v1/mcp",
+      "headers": {
+        "Authorization": "Bearer ${ILLUSTRATOR_MCP_TOKEN}"
+      }
+    },
+    "arena": {
+      "type": "http",
+      "url": "https://mcp.are.na/mcp"
+    },
+    "xcode": {
+      "type": "stdio",
+      "command": "xcrun",
+      "args": [
+        "mcpbridge"
+      ]
     }
+  }
 }

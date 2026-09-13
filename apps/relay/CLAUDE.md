@@ -109,10 +109,9 @@ Everything Relay owns sits under `~/Library/Application Support/Relay`, `<id>` t
 ## [05]-[PERMISSIONS]
 
 Relay has no sandbox, entitlement, Automation, Accessibility, or notification API, prompts are Keychain, login items, and a profile's folder reads:
-- Build is signed with `Bardia Samiee Development`, a self-signed code-signing identity in the login keychain with no team
-- Import `relay-signing.p12` (1Password document "Relay code signing identity", vault Personal, field `passphrase`) before the first build
-- Trust the certificate for code signing after import, `security add-trusted-cert -r trustRoot -p codeSign`, one login-password dialog
-- Designated requirement names that certificate, one Keychain grant survives every rebuild
+- Build signs automatically with the Apple Development identity of team `BBXB9R367P`, issued by Xcode to the Apple ID in Xcode > Settings > Apple Accounts
+- Designated requirement names Apple's chain, that team, and the certificate, one Keychain grant survives every rebuild
+- CI signs ad-hoc through `CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=` forwarded to the build target
 - Answer "Always Allow" with the login password at the first read of each item, Claude Code's `apple-tool:` partition asks for the password
 - Items are the shared one and one private item per account, CLI logout deletes the private item and its prompt returns after the next sign-in
 - Launch at login registers `SMAppService.mainApp`, macOS posts its login-items notice once
@@ -124,7 +123,7 @@ Relay has no sandbox, entitlement, Automation, Accessibility, or notification AP
 `Relay.xcodeproj` is Xcode 27's format, `objectVersion = 110`, its synchronized root folder puts every file under `apps/relay` in the target:
 - Sources sit under `App/` (store, paths, login shell, login item), `Accounts/` (domain, repository), `Providers/` (one client each), and `Views/`
 - Membership exceptions leave CLAUDE.md, LICENSE, and the project out, bundle resources are `Assets.car` and `AppIcon.icns`
-- Bundle `app.rasm.relay` on macOS 26.0, Swift 6 with approachable concurrency, MainActor default isolation, warnings as errors, manual signing
+- Bundle `app.rasm.relay` on macOS 26.0, Swift 6 with approachable concurrency, MainActor default isolation, warnings as errors, automatic signing
 - Generated Info.plist, `INFOPLIST_KEY_LSUIElement` its one added key, keeps Relay out of the Dock
 - `AppIcon.icon` is an Icon Composer document, fill `#FAFAFA` light and `#242424` dark with the glyph `Relay.svg` inverted
 - `actool` renders the icon stack for Aqua, DarkAqua, and Tintable, the 16 to 1024 renditions, and `AppIcon.icns`, no PNG is checked in
