@@ -38,6 +38,7 @@ Navigate code through its language's skill and MCP server, or the ast-grep skill
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
 - ALWAYS use `computer-use` MCP for a native application window, its wait and screenshot tools stand where a shell would sleep
+- ALWAYS use `xcode` MCP for an Xcode project's build, run, tests, previews, diagnostics, settings, and navigation, not `xcodebuild` in a shell
 - ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
 
 [CLI_TOOLING]:
