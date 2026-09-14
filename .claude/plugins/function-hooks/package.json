@@ -5,7 +5,7 @@
     "nx": {
         "targets": {
             "typecheck": {
-                "inputs": ["default", "typescript", { "externalDependencies": ["typescript"] }, { "runtime": "claude --version" }]
+                "inputs": ["...", "{workspaceRoot}/.claude/types/claude-code.d.ts"]
             }
         }
     }

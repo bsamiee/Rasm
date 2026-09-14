@@ -144,6 +144,7 @@ _tmp/
 
 .claude/agent-memory-local/
 .claude/settings.local.json
-.claude/types/
+.claude/types/*
+!.claude/types/claude-code.d.ts
 .claude/worktrees/
 docs/research
