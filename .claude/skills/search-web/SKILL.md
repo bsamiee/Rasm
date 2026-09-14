@@ -56,7 +56,7 @@ mcp__exa__web_search_advanced_exa {"query": "<product> release", "category": "ne
 # Repository candidates, a repository URL's text holds stars, license, and created date
 mcp__exa__web_search_advanced_exa {"query": "<capability> library, compared against <incumbent>", "category": "github", "textMaxCharacters": 300, "numResults": 6}
 
-# [CLAIM] Page the live fetch answers with an error status or a script shell, literal in the reader's markdown or through the site's API
+# [CLAIM] Page with a live fetch returning an error status or JavaScript-rendered HTML, literal in the reader's markdown or through the site's API
 mcp__exa__web_fetch_exa {"urls": ["<url>"], "maxCharacters": 20000}
 ```
 
@@ -72,7 +72,7 @@ tvly extract $({ printf '%s\n' <exa-url> <exa-url>; tvly search "<keywords>" --m
 # [TAVILY] Whole pages in one call, each hit URL before its cited lines
 tvly search "<keywords>" --include-raw-content markdown --max-results 3 --json | jq -r '.results[] | "\(.url)\n\(.raw_content)"' | rg -n -C2 '<literal>|^https?://'
 
-# [CLAIM] Cited lines holding the literal on the live page, last line is HTTP status and bytes, an error status or a script shell shows there
+# [CLAIM] Cited lines holding the literal on the live page, last line is HTTP status and bytes, an error status or the byte count of JavaScript-rendered HTML shows there
 curl -sL -w '\n%{http_code} %{size_download}\n' <url> | rg -n -C2 '<literal>|^[0-9]{3} [0-9]+$'
 ```
 
