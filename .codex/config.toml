@@ -5,3 +5,15 @@ required = true
 startup_timeout_sec = 120
 tool_timeout_sec = 300
 default_tools_approval_mode = "approve"
+
+[mcp_servers.rhino-mcp-platform]
+command = "/Users/bardiasamiee/Library/Application Support/McNeel/Rhinoceros/packages/9.0/Rhino-MCP-Platform/0.2.1-wip/router/osx-arm64/rhino-mcp-router"
+args = ["--default-version", "9"]
+startup_timeout_sec = 20
+tool_timeout_sec = 180
+
+[mcp_servers.lldb]
+command = "xcrun"
+args = ["lldb-mcp"]
+startup_timeout_sec = 20
+tool_timeout_sec = 120

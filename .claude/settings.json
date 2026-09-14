@@ -74,6 +74,7 @@
       "mcp__openaiDeveloperDocs__*",
       "mcp__playwright-test__*",
       "mcp__playwright__*",
+      "mcp__rhino-mcp-platform__*",
       "mcp__roslyn-codelens__*",
       "mcp__xcode__*"
     ],
