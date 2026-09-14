@@ -33,6 +33,7 @@ struct LoginItem {
         try await SMAppService.mainApp.unregister()
       }
     }
-    return LoginItem(status: SMAppService.mainApp.status, updateFailed: (try? update.get()) == nil)
+    let updateFailed: Bool = if case .failure = update { true } else { false }
+    return LoginItem(status: SMAppService.mainApp.status, updateFailed: updateFailed)
   }
 }

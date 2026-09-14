@@ -1,21 +1,17 @@
 import CryptoKit
 import Foundation
+import Subprocess
+import System
 
-private nonisolated struct ClaudeRunningOperation: Sendable {
-  let id: UUID
-  let cancel: @Sendable () -> Void
-  let wait: @Sendable () async -> Void
+nonisolated enum ClaudeSelection: Equatable, Sendable {
+  case none
+  case known(UUID)
+  case unknown(AccountIdentity)
 }
 
-private nonisolated struct ClaudeCurrentSelection: Sendable {
-  let selected: UUID?
-  let shared: ClaudeCredentials?
-  let state: ClaudeSelectionState
-}
-
-private nonisolated struct ClaudeStoredCredentials: Sendable {
-  let store: ClaudeCredentialStore
-  let credentials: ClaudeCredentials
+private nonisolated struct ClaudeCachedUsage: Sendable {
+  let usage: AccountUsage
+  let until: Date
 }
 
 actor ClaudeClient {
@@ -28,15 +24,26 @@ actor ClaudeClient {
     "ANTHROPIC_UNIX_SOCKET", "CLAUDE_CODE_SUBSCRIPTION_TYPE", "CLAUDE_CODE_RATE_LIMIT_TIER",
     "CLAUDE_CODE_API_KEY_FILE_DESCRIPTOR",
   ]
+  private static let executableDirectories: [String] = [
+    ".local/bin", ".bun/bin", ".npm-global/bin", ".volta/bin",
+  ]
+  private static let systemExecutableDirectories: [String] = [
+    "/opt/homebrew/bin", "/usr/local/bin",
+  ]
+  private static let usageCacheDuration: TimeInterval = 15 * 60
+  private static let loginDeadline: Duration = .seconds(300)
+  private static let logoutDeadline: Duration = .seconds(60)
 
   private let paths: FileLocations
   private let environment: [String: String]
   private let username: String
-  private let allAccountsID: UUID = UUID()
   private let session: URLSession
-  private var operations: [UUID: ClaudeRunningOperation] = [:]
-  private var exclusiveOperation: UUID?
+  nonisolated let sharedConfigFile: URL
   private var verifiedIdentities: [SHA256Digest: AccountIdentity] = [:]
+  private var usageCache: [UUID: ClaudeCachedUsage] = [:]
+  private var retryAfter: [UUID: Date] = [:]
+  private var shadow: ClaudeGrant?
+  private var lastSelection: AccountIdentity?
 
   init(paths: FileLocations, environment: [String: String]) {
     self.paths = paths
@@ -48,331 +55,307 @@ actor ClaudeClient {
     configuration.timeoutIntervalForResource = 30
     configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
     session = URLSession(configuration: configuration)
+    sharedConfigFile =
+      Self.defaultStore(
+        paths: paths, environment: environment, username: username
+      ).configFile
+  }
+
+  func settle(known: [Account]) async -> Result<Void, ClaudeFailure> {
+    await selectionState().bind { state -> Result<Void, ClaudeFailure> in
+      guard let pending: ClaudePendingSwitch = state.pending else { return .success(()) }
+      return await settle(pending, known: known)
+    }
+  }
+
+  private func settle(
+    _ pending: ClaudePendingSwitch, known: [Account]
+  ) async -> Result<Void, ClaudeFailure> {
+    let shared: ClaudeCredentialStore = defaultStore()
+    let incoming: ClaudeCredentialStore = privateStore(pending.incoming)
+    let outgoing: ClaudeCredentialStore? = pending.outgoing.map(privateStore)
+    let stores: [ClaudeCredentialStore] = [shared, incoming] + (outgoing.map { [$0] } ?? [])
+    let copy: (id: UUID?, store: ClaudeCredentialStore?) =
+      switch pending.phase {
+      case .parking: (pending.outgoing, outgoing)
+      case .installing: (pending.incoming, incoming)
+      }
+    return await ClaudeLock.oauthRefresh(directories: stores.map(\.directory)) {
+      await shared.identity()
+        .bind { identity in await self.deleteDuplicate(copy, of: identity, known: known) }
+        .bind { _ in await self.record(nil) }
+    }
+  }
+
+  private func deleteDuplicate(
+    _ copy: (id: UUID?, store: ClaudeCredentialStore?), of identity: AccountIdentity?,
+    known: [Account]
+  ) async -> Result<Void, ClaudeFailure> {
+    guard let identity, let store: ClaudeCredentialStore = copy.store,
+      let account: Account = known.first(where: { account in account.id == copy.id }),
+      account.identity.isSameAccount(as: identity)
+    else { return .success(()) }
+    return await store.deleteItem()
+  }
+
+  func currentSelection(known: [Account]) async -> Result<ClaudeSelection, ClaudeFailure> {
+    await defaultStore().identity().bind { identity -> Result<ClaudeSelection, ClaudeFailure> in
+      guard let identity else {
+        lastSelection = nil
+        shadow = nil
+        return .success(.none)
+      }
+      let parked: Result<Void, ClaudeFailure> = await parkShadow(
+        displacedBy: identity, known: known)
+      lastSelection = identity
+      let match: Account? = known.first { account in
+        account.provider == .claude && account.identity.isSameAccount(as: identity)
+      }
+      return parked.map { _ in match.map { account in .known(account.id) } ?? .unknown(identity) }
+    }
   }
 
   func connect(id: UUID) async -> Result<AccountIdentity, ClaudeFailure> {
-    await run(forAccount: id) {
-      await self.connectAccount(id: id, expected: nil, policy: .manual)
-    }
+    let store: ClaudeCredentialStore = privateStore(id)
+    return await authenticate(store: store, email: nil)
+      .bind { _ in await store.read() }
+      .flatMap { content in
+        content.grant.map { grant in .success(grant.identity) } ?? .failure(.signInRequired)
+      }
   }
 
   func reconnect(account: Account) async -> Result<AccountIdentity, ClaudeFailure> {
-    await run(forAccount: account.id, exclusive: true) {
-      await self.reconnectAccount(account).bind { identity in
-        let refreshed: Account = Account(
-          id: account.id, provider: .claude, identity: identity,
-          sessionPolicy: account.sessionPolicy
-        )
-        return await self.selectAccount(refreshed, accounts: [refreshed], onlyIfSelected: true)
-          .map { selection in selection.identity }
+    let store: ClaudeCredentialStore = privateStore(account.id)
+    return await authenticate(store: store, email: account.identity.email)
+      .bind { _ in await store.read() }
+      .bind { content -> Result<AccountIdentity, ClaudeFailure> in
+        guard let grant: ClaudeGrant = content.grant else { return .failure(.signInRequired) }
+        guard grant.identity.isSameAccount(as: account.identity) else {
+          return .failure(.accountChanged.releasing(await logOut(store: store)))
+        }
+        return .success(grant.identity)
+      }
+  }
+
+  func discardConnection(id: UUID) async -> Result<Void, ClaudeFailure> {
+    let store: ClaudeCredentialStore = privateStore(id)
+    usageCache.removeValue(forKey: id)
+    return await store.deleteItem().flatMap { _ in
+      Result { try FileManager.default.removeItem(at: store.directory) }.flatMapError { error in
+        (error as? CocoaError)?.code == .fileNoSuchFile
+          ? .success(()) : .failure(.filesystem(error))
       }
     }
   }
 
-  func usage(for account: Account, accounts: [Account]) async -> Result<
-    UsageSnapshot, ClaudeFailure
-  > {
-    await run(forAccount: account.id) {
-      await self.withCredentials(for: account, accounts: accounts) { stored in
-        await self.fetchUsage(stored.credentials.token)
+  func usage(
+    for account: Account, isSelected: Bool, fresh: Bool
+  ) async -> Result<AccountUsage, ClaudeFailure> {
+    let now: Date = Date()
+    if !fresh, let cached: ClaudeCachedUsage = usageCache[account.id], cached.until > now {
+      return .success(cached.usage)
+    }
+    if let limit: Date = retryAfter[account.id], limit > now {
+      return .failure(.rateLimited(until: limit))
+    }
+    return await grant(for: account, isSelected: isSelected).bind { stored in
+      await request(for: account, isSelected: isSelected, grant: stored) { grant in
+        await fetchUsage(grant.token)
       }
-      .map { _, snapshot in snapshot }
+    }
+    .map { usage in
+      usageCache[account.id] = ClaudeCachedUsage(
+        usage: usage, until: Date().addingTimeInterval(Self.usageCacheDuration))
+      return usage
+    }
+    .mapError { error in
+      if case .rateLimited(let until) = error.cause { retryAfter[account.id] = until }
+      return error
     }
   }
 
   func startSession(
-    for account: Account, accounts: [Account]
-  ) async -> Result<UsageSnapshot, ClaudeFailure> {
-    await run(forAccount: account.id) {
-      let usage: Result<(ClaudeStoredCredentials, UsageSnapshot), ClaudeFailure> =
-        await self.withCredentials(for: account, accounts: accounts) { stored in
-          await self.fetchUsage(stored.credentials.token)
-        }
-      return await usage.bind { stored, snapshot -> Result<UsageSnapshot, ClaudeFailure> in
-        switch snapshot.sessionState(at: Date()) {
-        case .running: return .success(snapshot)
-        case .unknown: return .failure(.sessionUnknown)
-        case .idle:
-          return await self.runSession(
-            store: stored.store, action: .greeting, token: stored.credentials.token
-          ).bind { _ in
-            await self.fetchUsage(stored.credentials.token)
-              .mapError(ClaudeFailure.sessionConfirmationPending)
-          }
-        }
+    for account: Account, isSelected: Bool
+  ) async -> Result<AccountUsage, ClaudeFailure> {
+    await usage(for: account, isSelected: isSelected, fresh: false).bind { current in
+      guard case .ready = current.availability(at: Date()) else { return .success(current) }
+      return await grant(for: account, isSelected: isSelected).bind { stored in
+        await greet(store: store(for: account, isSelected: isSelected), token: stored.token)
       }
+      .bind { _ in await usage(for: account, isSelected: isSelected, fresh: true) }
     }
   }
 
-  func select(_ account: Account, accounts: [Account]) async -> Result<
-    AccountSelection, ClaudeFailure
-  > {
-    await run(forAccount: account.id, exclusive: true) {
-      await self.selectAccount(account, accounts: accounts, onlyIfSelected: false)
-    }
-  }
-
-  func signOut(_ account: Account, accounts: [Account]) async -> Result<
-    Void, ClaudeFailure
-  > {
-    await run(forAccount: account.id, exclusive: true) {
-      await self.signOutAccount(account, accounts: accounts)
-    }
-  }
-
-  func remove(_ account: Account, accounts: [Account]) async -> Result<
-    Void, ClaudeFailure
-  > {
-    await run(forAccount: account.id, exclusive: true) {
-      await self.signOutAccount(account, accounts: accounts).bind { _ in
-        await self.discardPrivateStore(id: account.id)
-      }
-    }
-  }
-
-  func discardConnection(id: UUID) async -> Result<Void, ClaudeFailure> {
-    await cancel(accountID: id)
-    return await run(forAccount: id, exclusive: true) {
-      await self.discardPrivateStore(id: id)
-    }
-  }
-
-  func selectedAccount(in accounts: [Account]) async -> Result<UUID?, ClaudeFailure> {
-    await accounts.contains(where: { account in account.provider == .claude })
-      ? run(
-        forAccount: allAccountsID,
-        operation: {
-          await self.currentSelection(accounts: accounts).map { current in current.selected }
-        })
-      : .success(nil)
-  }
-
-  func recoverAccounts() async -> Result<[Account], ClaudeFailure> {
-    await run(forAccount: allAccountsID, exclusive: true) {
-      await self.recoverSelection(operationID: self.allAccountsID).bind { _ in
-        await self.selectionState()
-      }.flatMap { state in
-        traverse(state.preservedAccounts) { record in
-          record.account().mapError(ClaudeAccountErrors.init)
-        }
-        .mapError(ClaudeFailure.invalidSavedAccounts)
-      }
-    }
-  }
-
-  func cancel(accountID: UUID) async {
-    guard let operation: ClaudeRunningOperation = operations[accountID] else { return }
-    operation.cancel()
-    await operation.wait()
-    if operations[accountID]?.id == operation.id { operations.removeValue(forKey: accountID) }
-    if exclusiveOperation == operation.id { exclusiveOperation = nil }
-  }
-
-  func cancelOperations() async {
-    for operation in operations.values { operation.cancel() }
-    for accountID in Array(operations.keys) { await cancel(accountID: accountID) }
-  }
-
-  private func run<Value: Sendable>(
-    forAccount accountID: UUID,
-    exclusive: Bool = false,
-    operation: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
-  ) async -> Result<Value, ClaudeFailure> {
-    guard exclusiveOperation == nil, operations[accountID] == nil else {
-      return .failure(.operationInProgress)
-    }
-    let preceding: [ClaudeRunningOperation] = exclusive ? Array(operations.values) : []
-    let id: UUID = UUID()
-    let task: Task<Result<Value, ClaudeFailure>, Never> = Task {
-      for previous in preceding { await previous.wait() }
-      return await Task.isCancelled ? .failure(.cancelled) : operation()
-    }
-    operations[accountID] = ClaudeRunningOperation(
-      id: id, cancel: { task.cancel() }, wait: { _ = await task.value }
-    )
-    if exclusive { exclusiveOperation = id }
-    let result: Result<Value, ClaudeFailure> = await withTaskCancellationHandler {
-      await task.value
-    } onCancel: {
-      task.cancel()
-    }
-    if operations[accountID]?.id == id { operations.removeValue(forKey: accountID) }
-    if exclusiveOperation == id { exclusiveOperation = nil }
-    return result
-  }
-
-  private func cancelHandler(for accountID: UUID) -> @Sendable () async -> Void {
-    { [weak self] in await self?.operations[accountID]?.cancel() }
-  }
-
-  private func withRefreshLock<Value: Sendable>(
-    _ directories: [URL], operationID: UUID,
-    _ body: (ClaudeLock) async -> Result<Value, ClaudeFailure>
-  ) async -> Result<Value, ClaudeFailure> {
-    await ClaudeLock.oauthRefresh(
-      directories: directories, onCompromised: cancelHandler(for: operationID)
-    )
-    .bind { lock in await lock.release(returning: await body(lock)) }
-  }
-
-  private func withStorageWriteLock<Value: Sendable>(
-    _ store: ClaudeCredentialStore, operationID: UUID,
-    _ body: () async -> Result<Value, ClaudeFailure>
-  ) async -> Result<Value, ClaudeFailure> {
-    await ClaudeLock.storageWrite(
-      directory: store.directory, onCompromised: cancelHandler(for: operationID)
-    )
-    .bind { lock in await lock.release(returning: await body()) }
-  }
-
-  private func connectAccount(
-    id: UUID, expected: AccountIdentity?, policy: SessionPolicy
-  ) async -> Result<AccountIdentity, ClaudeFailure> {
-    let store: ClaudeCredentialStore = privateStore(id)
-    return await authenticate(store: store, email: expected?.email, token: nil, selection: nil)
-      .bind { _ in await store.read() }
-      .flatMap { credentials in matched(credentials, to: expected) }
-      .flatMap { credentials in
-        updateSelectionState { state in
-          state.preserve(
-            ClaudeStoredAccount(
-              Account(
-                id: id, provider: .claude, identity: credentials.identity, sessionPolicy: policy)))
-          state.unavailableAccountIDs.remove(id)
-        }.map { _ in credentials.identity }
-      }
-  }
-
-  private func reconnectAccount(_ account: Account) async -> Result<
+  func select(_ account: Account, outgoing: Account?) async -> Result<
     AccountIdentity, ClaudeFailure
   > {
-    let store: ClaudeCredentialStore = privateStore(account.id)
-    return await withRefreshLock([store.directory], operationID: account.id) { lock in
-      await store.read().bind { previous -> Result<AccountIdentity, ClaudeFailure> in
-        let signedIn: Result<AccountIdentity, ClaudeFailure> = await connectAccount(
-          id: account.id, expected: account.identity, policy: account.sessionPolicy
-        )
-        guard case .failure(let error) = signedIn else { return signedIn }
-        return .failure(
-          error.releasing(
-            await lock.status().bind { _ in
-              await restore(previous, to: store, operationID: account.id)
-            }))
-      }
+    let shared: ClaudeCredentialStore = defaultStore()
+    let incoming: ClaudeCredentialStore = privateStore(account.id)
+    let parked: ClaudeCredentialStore? = outgoing.map { value in privateStore(value.id) }
+    let directories: [URL] =
+      [shared.directory, incoming.directory] + (parked.map { [$0.directory] } ?? [])
+    return await ClaudeLock.oauthRefresh(directories: directories) {
+      await self.switchGrant(
+        account, outgoing: outgoing, shared: shared, incoming: incoming, parked: parked)
+    }
+    .bind { grant in await verify(grant).map { verified in verified.identity } }
+  }
+
+  func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ClaudeFailure> {
+    let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
+    usageCache.removeValue(forKey: account.id)
+    if isSelected { shadow = nil }
+    return await logOut(store: store)
+  }
+
+  func remove(_ account: Account, isSelected: Bool) async -> Result<Void, ClaudeFailure> {
+    await signOut(account, isSelected: isSelected).bind { _ in
+      await discardConnection(id: account.id)
     }
   }
 
-  private func restore(
-    _ previous: ClaudeCredentials?, to store: ClaudeCredentialStore, operationID: UUID
+  private func parkShadow(
+    displacedBy identity: AccountIdentity, known: [Account]
   ) async -> Result<Void, ClaudeFailure> {
-    await Task {
-      if let previous {
-        return await self.write(previous, to: store, operationID: operationID)
-      }
-      return await self.withStorageWriteLock(store, operationID: operationID) {
-        await store.deleteCredentials()
-      }
-    }.value
-  }
-
-  private func withCredentials<Value: Sendable>(
-    for account: Account, accounts: [Account],
-    _ request: (ClaudeStoredCredentials) async -> Result<Value, ClaudeFailure>
-  ) async -> Result<(ClaudeStoredCredentials, Value), ClaudeFailure> {
-    func send(_ stored: ClaudeStoredCredentials) async -> Result<
-      (ClaudeStoredCredentials, Value), ClaudeFailure
-    > {
-      await verify(stored.credentials).bind { _ in
-        await request(stored).map { value in (stored, value) }
-      }
+    guard let previous: AccountIdentity = lastSelection, !previous.isSameAccount(as: identity),
+      let displaced: Account = known.first(where: { account in
+        account.provider == .claude && account.identity.isSameAccount(as: previous)
+      }),
+      let grant: ClaudeGrant = shadow, grant.identity.isSameAccount(as: previous)
+    else {
+      if !(lastSelection?.isSameAccount(as: identity) ?? false) { shadow = nil }
+      return .success(())
     }
-    return await storedCredentials(for: account, accounts: accounts).bind { stored in
-      let sent: Result<(ClaudeStoredCredentials, Value), ClaudeFailure> = await send(stored)
-      guard case .failure(let error) = sent, error.unauthorized else { return sent }
-      return await renew(stored, for: account).bind(send).mapError { retried in
-        retried.unauthorized ? .signInRequired : retried
+    shadow = nil
+    let store: ClaudeCredentialStore = privateStore(displaced.id)
+    return await ClaudeLock.oauthRefresh(directories: [store.directory]) {
+      await store.readItem().bind { existing -> Result<Void, ClaudeFailure> in
+        let occupied: Bool = existing?["claudeAiOauth"].map { value in value != .null } == true
+        return await occupied ? .success(()) : self.write(grant, into: store)
       }
     }
   }
 
-  private func renew(
-    _ stored: ClaudeStoredCredentials, for account: Account
-  ) async -> Result<ClaudeStoredCredentials, ClaudeFailure> {
-    await withRefreshLock([stored.store.directory], operationID: account.id) { _ in
-      await stored.store.read()
-    }
-    .flatMap { credentials in self.matched(credentials, to: account.identity) }
-    .bind { current in
-      await current.token.fingerprint == stored.credentials.token.fingerprint
-        ? refreshOAuthToken(current, in: stored.store, for: account.identity) : .success(current)
-    }
-    .map { credentials in ClaudeStoredCredentials(store: stored.store, credentials: credentials) }
+  private func write(
+    _ grant: ClaudeGrant, into store: ClaudeCredentialStore
+  ) async -> Result<Void, ClaudeFailure> {
+    await ClaudeLock.storageWrite(directory: store.directory) { await store.writeItem(grant.item) }
+      .flatMap { _ in store.writeAccount(grant.account) }
   }
 
-  private func refreshOAuthToken(
-    _ credentials: ClaudeCredentials, in store: ClaudeCredentialStore, for identity: AccountIdentity
-  ) async -> Result<ClaudeCredentials, ClaudeFailure> {
-    await
-      (credentials.token.refreshToken == nil
-      ? .failure(.signInRequired) : runSession(store: store, action: .refreshCredentials))
+  private func record(_ pending: ClaudePendingSwitch?) -> Result<Void, ClaudeFailure> {
+    updateSelectionState { state in state.pending = pending }
+  }
+
+  private func switchGrant(
+    _ account: Account, outgoing: Account?, shared: ClaudeCredentialStore,
+    incoming: ClaudeCredentialStore, parked: ClaudeCredentialStore?
+  ) async -> Result<ClaudeGrant, ClaudeFailure> {
+    await shared.read().bind { before -> Result<ClaudeGrant, ClaudeFailure> in
+      await incoming.read().bind { content -> Result<ClaudeGrant, ClaudeFailure> in
+        await self.install(
+          content.grant, replacing: before.grant, for: account, outgoing: outgoing,
+          shared: shared, incoming: incoming, parked: parked)
+      }
+    }
+  }
+
+  private func install(
+    _ grant: ClaudeGrant?, replacing current: ClaudeGrant?, for account: Account,
+    outgoing: Account?, shared: ClaudeCredentialStore, incoming: ClaudeCredentialStore,
+    parked: ClaudeCredentialStore?
+  ) async -> Result<ClaudeGrant, ClaudeFailure> {
+    guard let grant, grant.identity.isSameAccount(as: account.identity) else {
+      return .failure(.signInRequired)
+    }
+    if let current, current.identity.isSameAccount(as: account.identity) {
+      return await incoming.deleteItem().map { _ in current }
+    }
+    let parking: ClaudePendingSwitch = ClaudePendingSwitch(
+      incoming: account.id, outgoing: outgoing?.id, phase: .parking)
+    let installing: ClaudePendingSwitch = ClaudePendingSwitch(
+      incoming: account.id, outgoing: outgoing?.id, phase: .installing)
+    return await record(parking)
+      .bind { _ in await self.park(current, for: outgoing, into: parked) }
+      .flatMap { _ in self.record(installing) }
+      .bind { _ in await self.write(grant, into: shared) }
+      .bind { _ in await incoming.deleteItem() }
+      .flatMap { _ in self.record(nil) }
+      .map { _ in
+        shadow = grant
+        lastSelection = grant.identity
+        usageCache.removeValue(forKey: account.id)
+        return grant
+      }
+  }
+
+  private func park(
+    _ current: ClaudeGrant?, for outgoing: Account?, into store: ClaudeCredentialStore?
+  ) async -> Result<Void, ClaudeFailure> {
+    guard let current, let outgoing, let store,
+      current.identity.isSameAccount(as: outgoing.identity)
+    else { return .success(()) }
+    return await write(current, into: store)
+  }
+
+  private func store(for account: Account, isSelected: Bool) -> ClaudeCredentialStore {
+    isSelected ? defaultStore() : privateStore(account.id)
+  }
+
+  private func grant(
+    for account: Account, isSelected: Bool
+  ) async -> Result<ClaudeGrant, ClaudeFailure> {
+    let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
+    return await store.read()
+      .flatMap { content in matched(content, to: account.identity) }
+      .bind { grant -> Result<ClaudeGrant, ClaudeFailure> in
+        await grant.token.needsRefresh(at: Date())
+          ? refreshGrant(in: store, for: account.identity) : .success(grant)
+      }
+      .map { grant in
+        if isSelected { shadow = grant }
+        return grant
+      }
+  }
+
+  private func request<Value: Sendable>(
+    for account: Account, isSelected: Bool, grant: ClaudeGrant,
+    _ send: (ClaudeGrant) async -> Result<Value, ClaudeFailure>
+  ) async -> Result<Value, ClaudeFailure> {
+    let sent: Result<Value, ClaudeFailure> = await verify(grant).bind(send)
+    guard case .failure(let error) = sent, error.unauthorized else { return sent }
+    let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
+    return await refreshGrant(in: store, for: account.identity)
+      .bind { renewed in await verify(renewed).bind(send) }
+      .mapError { retried in retried.unauthorized ? .signInRequired : retried }
+  }
+
+  private func refreshGrant(
+    in store: ClaudeCredentialStore, for identity: AccountIdentity
+  ) async -> Result<ClaudeGrant, ClaudeFailure> {
+    await runSession(store: store, action: .refreshCredentials, token: nil)
       .bind { _ in await store.read() }
-      .flatMap { credentials in matched(credentials, to: identity) }
-  }
-
-  private func storedCredentials(
-    for account: Account, accounts: [Account]
-  ) async -> Result<ClaudeStoredCredentials, ClaudeFailure> {
-    await
-      (account.provider == .claude
-      ? currentSelection(accounts: accounts) : .failure(.invalidCredentials))
-      .bind { current -> Result<ClaudeStoredCredentials, ClaudeFailure> in
-        let owner: ClaudeCredentialStore
-        let stored: Result<ClaudeCredentials?, ClaudeFailure>
-        if current.selected == account.id {
-          owner = defaultStore()
-          stored = .success(current.shared)
-        } else if current.state.unavailableAccountIDs.contains(account.id) {
-          return .failure(.signInRequired)
-        } else {
-          owner = privateStore(account.id)
-          stored = await owner.read()
-        }
-        return await stored.flatMap { credentials in matched(credentials, to: account.identity) }
-          .bind { credentials in
-            await credentials.token.needsRefresh(at: Date())
-              ? refreshOAuthToken(credentials, in: owner, for: account.identity)
-              : .success(credentials)
-          }
-          .flatMap { current in
-            Task.isCancelled
-              ? .failure(.cancelled)
-              : .success(ClaudeStoredCredentials(store: owner, credentials: current))
-          }
-      }
+      .flatMap { content in matched(content, to: identity) }
   }
 
   private func matched(
-    _ credentials: ClaudeCredentials?, to identity: AccountIdentity?
-  ) -> Result<ClaudeCredentials, ClaudeFailure> {
-    switch credentials {
-    case .some(let value)
-    where identity.map({ expected in value.identity.isSameAccount(as: expected) }) != false:
-      .success(value)
-    case .some: .failure(.accountChanged)
-    case .none: .failure(.signInRequired)
+    _ content: ClaudeStoreContent, to identity: AccountIdentity
+  ) -> Result<ClaudeGrant, ClaudeFailure> {
+    switch content {
+    case .grant(let grant) where grant.identity.isSameAccount(as: identity): .success(grant)
+    case .grant: .failure(.accountChanged)
+    case .empty, .signedOut: .failure(.signInRequired)
     }
   }
 
-  private func verify(_ credentials: ClaudeCredentials) async -> Result<
-    ClaudeCredentials, ClaudeFailure
-  > {
-    let fingerprint: SHA256Digest = credentials.token.fingerprint
+  private func verify(_ grant: ClaudeGrant) async -> Result<ClaudeGrant, ClaudeFailure> {
+    let fingerprint: SHA256Digest = grant.token.fingerprint
     if let identity: AccountIdentity = verifiedIdentities[fingerprint] {
-      return identity.isSameAccount(as: credentials.identity)
-        ? .success(credentials) : .failure(.accountChanged)
+      return identity.isSameAccount(as: grant.identity)
+        ? .success(grant) : .failure(.accountChanged)
     }
     return await fetch(
-      "https://api.anthropic.com/api/oauth/profile", bearer: credentials.token.accessToken,
+      "https://api.anthropic.com/api/oauth/profile", bearer: grant.token.accessToken,
       headers: ["Content-Type": "application/json", "Cache-Control": "no-cache"]
     )
     .flatMap { data in decode(JSONValue.self, from: data) }
@@ -385,27 +368,23 @@ actor ClaudeClient {
       }
       return AccountIdentity.make(
         accountID: accountID, organizationID: organizationID, email: email,
-        plan: credentials.token.plan
+        plan: grant.token.plan
       ).mapError(ClaudeFailure.invalidIdentity)
     }
-    .flatMap { identity -> Result<ClaudeCredentials, ClaudeFailure> in
-      guard identity.isSameAccount(as: credentials.identity) else {
-        return .failure(.accountChanged)
-      }
+    .flatMap { identity -> Result<ClaudeGrant, ClaudeFailure> in
+      guard identity.isSameAccount(as: grant.identity) else { return .failure(.accountChanged) }
       verifiedIdentities[fingerprint] = identity
-      return .success(credentials)
+      return .success(grant)
     }
   }
 
-  private func fetchUsage(_ token: ClaudeOAuthToken) async -> Result<
-    UsageSnapshot, ClaudeFailure
-  > {
+  private func fetchUsage(_ token: ClaudeOAuthToken) async -> Result<AccountUsage, ClaudeFailure> {
     await fetch(
       "https://api.anthropic.com/api/oauth/usage", bearer: token.accessToken,
       headers: ["anthropic-beta": "oauth-2025-04-20", "Accept": "application/json"]
     )
     .flatMap { data in decode(ClaudeUsageResponse.self, from: data) }
-    .flatMap { usage in usage.snapshot(observedAt: Date()) }
+    .flatMap { usage in usage.usage(observedAt: Date()) }
   }
 
   private func fetch(
@@ -426,10 +405,18 @@ actor ClaudeClient {
       }
     }
     .flatMap { data, response -> Result<Data, ClaudeFailure> in
-      switch (response as? HTTPURLResponse)?.statusCode {
-      case 200: Task.isCancelled ? .failure(.cancelled) : .success(data)
-      case .some(let status): .failure(.http(status))
-      case .none: .failure(.invalidResponse)
+      guard let http: HTTPURLResponse = response as? HTTPURLResponse else {
+        return .failure(.invalidResponse)
+      }
+      switch http.statusCode {
+      case 200: return Task.isCancelled ? .failure(.cancelled) : .success(data)
+      case 429:
+        let seconds: TimeInterval =
+          http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init) ?? 0
+        return .failure(
+          .rateLimited(
+            until: Date().addingTimeInterval(seconds > 0 ? seconds : Self.usageCacheDuration)))
+      case let status: return .failure(.http(status))
       }
     }
   }
@@ -440,458 +427,118 @@ actor ClaudeClient {
     Result { try JSONDecoder().decode(type, from: data) }.mapError { _ in .invalidResponse }
   }
 
-  private func currentSelection(accounts: [Account]) async -> Result<
-    ClaudeCurrentSelection, ClaudeFailure
-  > {
-    await defaultStore().read().flatMap { current in
-      let selected: UUID? = current.flatMap { credentials in
-        accounts.first { account in
-          account.provider == .claude && account.identity.isSameAccount(as: credentials.identity)
-        }?.id
-      }
-      return selectionState().flatMap { state -> Result<ClaudeCurrentSelection, ClaudeFailure> in
-        guard state.pending == nil else { return .failure(.unfinishedSelection) }
-        guard state.selectedAccountID != selected else {
-          return .success(
-            ClaudeCurrentSelection(selected: selected, shared: current, state: state))
-        }
-        var updated: ClaudeSelectionState = state
-        if let previous: UUID = state.selectedAccountID {
-          updated.unavailableAccountIDs.insert(previous)
-        }
-        updated.selectedAccountID = selected
-        if let selected { updated.unavailableAccountIDs.remove(selected) }
-        return updated.write(to: paths.claudeSelectionFile).map { _ in
-          ClaudeCurrentSelection(selected: selected, shared: current, state: updated)
-        }
-      }
-    }
-  }
-
-  private func selectAccount(
-    _ account: Account, accounts: [Account], onlyIfSelected: Bool
-  ) async -> Result<AccountSelection, ClaudeFailure> {
-    await recoverSelection(operationID: account.id).flatMap { _ in selectionState() }.bind {
-      state -> Result<AccountSelection, ClaudeFailure> in
-      let shared: ClaudeCredentialStore = defaultStore()
-      return await withRefreshLock(
-        [shared.directory, privateStore(account.id).directory], operationID: account.id
-      ) { lock -> Result<AccountSelection, ClaudeFailure> in
-        await shared.read().bind { before in
-          await select(
-            account, accounts: accounts, onlyIfSelected: onlyIfSelected, state: state,
-            before: before, lock: lock)
-        }
-      }
-    }
-  }
-
-  private func select(
-    _ account: Account, accounts: [Account], onlyIfSelected: Bool,
-    state: ClaudeSelectionState, before: ClaudeCredentials?, lock: ClaudeLock
-  ) async -> Result<AccountSelection, ClaudeFailure> {
-    switch before {
-    case .some(let current)
-    where !onlyIfSelected && current.identity.isSameAccount(as: account.identity):
-      return updateSelectionState { state in
-        state.selectedAccountID = account.id
-        state.unavailableAccountIDs.remove(account.id)
-      }.map { _ in AccountSelection(identity: current.identity, preservedAccount: nil) }
-    case _ where onlyIfSelected && before?.identity.isSameAccount(as: account.identity) != true:
-      return .success(AccountSelection(identity: account.identity, preservedAccount: nil))
-    default: break
-    }
-    return await
-      (state.unavailableAccountIDs.contains(account.id)
-      ? .failure(.signInRequired) : outgoingAccount(before, accounts: accounts, state: state))
-      .bind { outgoing in
-        guard let outgoing, outgoing.id != account.id else {
-          return await switchSelection(
-            account, accounts: accounts, outgoing: outgoing, before: before, lock: lock)
-        }
-        return await withRefreshLock([privateStore(outgoing.id).directory], operationID: account.id)
-        {
-          _ in
-          await switchSelection(
-            account, accounts: accounts, outgoing: outgoing, before: before, lock: lock)
-        }
-      }
-  }
-
-  private func outgoingAccount(
-    _ before: ClaudeCredentials?, accounts: [Account], state: ClaudeSelectionState
-  ) -> Result<Account?, ClaudeFailure> {
-    before.map { before in
-      knownAccount(for: before.identity, accounts: accounts, state: state).map(Optional.some)
-    } ?? .success(nil)
-  }
-
-  private func knownAccount(
-    for identity: AccountIdentity, accounts: [Account], state: ClaudeSelectionState
-  ) -> Result<Account, ClaudeFailure> {
-    accounts.first { candidate in
-      candidate.provider == .claude && candidate.identity.isSameAccount(as: identity)
-    }
-    .map { known -> Result<Account, ClaudeFailure> in .success(known) }
-      ?? state.preservedAccount(for: identity).map { record in
-        record.account().mapError(ClaudeFailure.invalidIdentity)
-      }
-      ?? .success(
-        Account(id: UUID(), provider: .claude, identity: identity, sessionPolicy: .manual))
-  }
-
-  private func switchSelection(
-    _ account: Account, accounts: [Account], outgoing: Account?,
-    before: ClaudeCredentials?, lock: ClaudeLock
-  ) async -> Result<AccountSelection, ClaudeFailure> {
-    await privateStore(account.id).read()
-      .flatMap { credentials in matched(credentials, to: account.identity) }
-      .bind { incoming -> Result<AccountSelection, ClaudeFailure> in
-        guard incoming.token.refreshToken != nil, !incoming.token.scopes.isEmpty else {
-          return .failure(.signInRequired)
-        }
-        var pending: ClaudePendingSelection = ClaudePendingSelection(
-          incoming: ClaudeStoredAccount(account), outgoing: outgoing.map(ClaudeStoredAccount.init),
-          phase: .prepared, child: nil
-        )
-        let prepared: Result<Void, ClaudeFailure> = prepareSelection(
-          pending, account: account, outgoing: outgoing)
-        pending.phase = .importing
-        return await prepared.bind { _ in
-          await importSelection(
-            pending, incoming: incoming, before: before, operationID: account.id, lock: lock)
-        }
-        .flatMap { credentials in
-          selection(credentials, account: account, accounts: accounts, outgoing: outgoing)
-        }
-      }
-  }
-
-  private func prepareSelection(
-    _ pending: ClaudePendingSelection, account: Account, outgoing: Account?
-  ) -> Result<Void, ClaudeFailure> {
-    executable()
-      .flatMap { _ in createDirectories(store: defaultStore()) }
-      .flatMap { _ in Task.isCancelled ? .failure(.cancelled) : .success(()) }
-      .flatMap { _ in
-        updateSelectionState { state in
-          state.pending = pending
-          if let outgoing { state.preserve(ClaudeStoredAccount(outgoing)) }
-          state.preserve(ClaudeStoredAccount(account))
-        }
-      }
-  }
-
-  private func importSelection(
-    _ pending: ClaudePendingSelection, incoming: ClaudeCredentials, before: ClaudeCredentials?,
-    operationID: UUID, lock: ClaudeLock
-  ) async -> Result<ClaudeCredentials?, ClaudeFailure> {
-    let saved: Result<Void, ClaudeFailure> =
-      if let outgoing = pending.outgoing, let before, outgoing.id != pending.incoming.id {
-        await write(before, to: privateStore(outgoing.id), operationID: operationID)
-      } else {
-        .success(())
-      }
-    let imported: Result<Void, ClaudeFailure> = await saved.bind { _ in
-      await importCredentials(pending, token: incoming.token, lock: lock)
-    }
-    let reconciled: Result<ClaudeCredentials?, ClaudeFailure> = await selectionState()
-      .flatMap { recorded in
-        recorded.pending.map(Result<ClaudePendingSelection, ClaudeFailure>.success)
-          ?? .failure(.unfinishedSelection)
-      }
-      .bind { pending in await reconcileSelection(pending) }
-    return imported.mapError { error in error.releasing(reconciled.map { _ in () }) }
-      .flatMap { _ in reconciled }
-  }
-
-  private func selection(
-    _ credentials: ClaudeCredentials?, account: Account, accounts: [Account], outgoing: Account?
-  ) -> Result<AccountSelection, ClaudeFailure> {
-    guard let credentials, credentials.identity.isSameAccount(as: account.identity) else {
-      return .failure(.accountChanged)
-    }
-    let preserved: Account? = outgoing.flatMap { value in
-      accounts.contains(where: { known in known.id == value.id }) ? nil : value
-    }
-    return .success(AccountSelection(identity: credentials.identity, preservedAccount: preserved))
-  }
-
-  private func importCredentials(
-    _ pending: ClaudePendingSelection, token: ClaudeOAuthToken, lock: ClaudeLock
+  private func greet(
+    store: ClaudeCredentialStore, token: ClaudeOAuthToken
   ) async -> Result<Void, ClaudeFailure> {
-    await lock.status()
-      .flatMap { _ in Task.isCancelled ? .failure(.cancelled) : .success(()) }
-      .flatMap { _ in updateSelectionState { state in state.pending = pending } }
-      .bind { _ in
-        await authenticate(store: defaultStore(), email: nil, token: token, selection: pending)
-      }
-  }
-
-  private func write(
-    _ credentials: ClaudeCredentials, to store: ClaudeCredentialStore, operationID: UUID
-  ) async -> Result<Void, ClaudeFailure> {
-    await withStorageWriteLock(store, operationID: operationID) { await store.write(credentials) }
-  }
-
-  private func reconcileSelection(
-    _ pending: ClaudePendingSelection
-  ) async -> Result<ClaudeCredentials?, ClaudeFailure> {
-    await defaultStore().read().bind { current in
-      await selectionState().bind { recorded in
-        await reconciled(recorded, pending: pending, current: current)
-          .flatMap { state in state.write(to: paths.claudeSelectionFile) }
-          .map { _ in current }
-      }
-    }
-  }
-
-  private func reconciled(
-    _ recorded: ClaudeSelectionState, pending: ClaudePendingSelection,
-    current: ClaudeCredentials?
-  ) async -> Result<ClaudeSelectionState, ClaudeFailure> {
-    var state: ClaudeSelectionState = recorded
-    let selected: UUID? = current.flatMap { credentials in
-      recorded.preservedAccount(for: credentials.identity)?.id
-    }
-    state.selectedAccountID = selected
-    state.pending = nil
-    if let selected { state.unavailableAccountIDs.remove(selected) }
-    if pending.phase == .importing, selected != pending.incoming.id {
-      state.unavailableAccountIDs.insert(pending.incoming.id)
-    }
-    guard let outgoing: ClaudeStoredAccount = pending.outgoing, outgoing.id != selected,
-      outgoing.id != pending.incoming.id
-    else {
-      return .success(state)
-    }
-    let reconciled: ClaudeSelectionState = state
-    return await privateStore(outgoing.id).read().map { saved in
-      var updated: ClaudeSelectionState = reconciled
-      if saved.map({ value in outgoing.isSameAccount(as: value.identity) }) == true {
-        updated.unavailableAccountIDs.remove(outgoing.id)
-      } else {
-        updated.unavailableAccountIDs.insert(outgoing.id)
-      }
-      return updated
-    }
-  }
-
-  private func recoverSelection(operationID: UUID) async -> Result<Void, ClaudeFailure> {
-    await selectionState().bind { state -> Result<Void, ClaudeFailure> in
-      guard let pending: ClaudePendingSelection = state.pending else { return .success(()) }
-      let running: Result<Bool, ClaudeFailure> =
-        pending.child.map { child in child.isRunning() } ?? .success(false)
-      return await running.bind { running -> Result<Void, ClaudeFailure> in
-        await running ? .failure(.unfinishedSelection) : recover(pending, operationID: operationID)
-      }
-    }
-  }
-
-  private func recover(
-    _ pending: ClaudePendingSelection, operationID: UUID
-  ) async -> Result<Void, ClaudeFailure> {
-    let stores: [ClaudeCredentialStore?] = [
-      defaultStore(), privateStore(pending.incoming.id),
-      pending.outgoing.map { value in privateStore(value.id) },
-    ]
-    return await withRefreshLock(
-      stores.compactMap { store in store?.directory }, operationID: operationID
-    ) { _ in
-      await reconcileSelection(pending).map { _ in () }
-    }
-  }
-
-  private func signOutAccount(_ account: Account, accounts: [Account]) async -> Result<
-    Void, ClaudeFailure
-  > {
-    await recoverSelection(operationID: account.id).bind { _ in
-      let shared: ClaudeCredentialStore = defaultStore()
-      let saved: ClaudeCredentialStore = privateStore(account.id)
-      return await withRefreshLock([shared.directory, saved.directory], operationID: account.id) {
-        _ in
-        await signOut(account, accounts: accounts, shared: shared, saved: saved)
-      }
-    }
-  }
-
-  private func signOut(
-    _ account: Account, accounts: [Account], shared: ClaudeCredentialStore,
-    saved: ClaudeCredentialStore
-  ) async -> Result<Void, ClaudeFailure> {
-    await shared.read().bind { current -> Result<Void, ClaudeFailure> in
-      guard let current, current.identity.isSameAccount(as: account.identity) else {
-        return await saved.read().bind { credentials -> Result<Void, ClaudeFailure> in
-          switch credentials {
-          case .some(let value) where value.identity.isSameAccount(as: account.identity):
-            return await logOut(store: saved)
-          case .some: return .failure(.accountChanged)
-          case .none: return .success(())
-          }
-        }
-      }
-      let erased: Result<Void, ClaudeFailure> = await write(
-        current, to: saved, operationID: account.id
-      ).bind { _ in
-        await withStorageWriteLock(shared, operationID: account.id) {
-          await shared.removeOAuthToken(matching: current.token.value)
-        }
-      }
-      guard case .failure(let error) = erased else { return await logOut(store: saved) }
-      guard case .accountChanged = error.cause else { return .failure(error) }
-      return .failure(
-        error.releasing(
-          await currentSelection(accounts: accounts).flatMap { _ in
-            updateSelectionState { state in state.unavailableAccountIDs.remove(account.id) }
-          }))
-    }
-    .flatMap { _ in
-      updateSelectionState { state in
-        if state.selectedAccountID == account.id { state.selectedAccountID = nil }
-        state.unavailableAccountIDs.insert(account.id)
-      }
-    }
-  }
-
-  private func discardPrivateStore(id: UUID) async -> Result<Void, ClaudeFailure> {
-    let store: ClaudeCredentialStore = privateStore(id)
-    return await withRefreshLock([store.directory], operationID: id) { _ in
-      await withStorageWriteLock(store, operationID: id) { await store.deleteCredentials() }
-    }
-    .flatMap { _ in
-      Result { try FileManager.default.removeItem(at: store.directory) }
-        .mapError(ClaudeFailure.filesystem)
-    }
-    .flatMap { _ in
-      updateSelectionState { state in
-        state.preservedAccounts.removeAll { record in record.id == id }
-        state.unavailableAccountIDs.remove(id)
-      }
-    }
+    await runSession(store: store, action: .greeting, token: token)
   }
 
   private func runSession(
-    store: ClaudeCredentialStore, action: ClaudeSessionAction, token: ClaudeOAuthToken? = nil
+    store: ClaudeCredentialStore, action: ClaudeSessionAction, token: ClaudeOAuthToken?
   ) async -> Result<Void, ClaudeFailure> {
     await createDirectories(store: store).flatMap { _ in executable() }.bind {
       binary -> Result<Void, ClaudeFailure> in
       let sessionID: UUID = UUID()
       var childEnvironment: [String: String] = processEnvironment(store: store)
-      if let token {
-        childEnvironment["CLAUDE_CODE_OAUTH_TOKEN"] = token.accessToken
-        childEnvironment["CLAUDE_CODE_SUBSCRIPTION_TYPE"] = token.plan
-        childEnvironment["CLAUDE_CODE_RATE_LIMIT_TIER"] = token.value["rateLimitTier"]?.stringValue
+      let tokenPipe: Result<FileDescriptor?, ClaudeFailure> =
+        token.map { token in
+          Self.tokenDescriptor(token.accessToken).map { descriptor in
+            childEnvironment["CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR"] = String(
+              descriptor.rawValue)
+            if let plan: String = token.plan {
+              childEnvironment["CLAUDE_CODE_SUBSCRIPTION_TYPE"] = plan
+            }
+            if let tier: String = token.value["rateLimitTier"]?.stringValue {
+              childEnvironment["CLAUDE_CODE_RATE_LIMIT_TIER"] = tier
+            }
+            return descriptor
+          }
+        } ?? .success(nil)
+      return await tokenPipe.bind { descriptor -> Result<Void, ClaudeFailure> in
+        let invocation: ProcessInvocation = ProcessInvocation(
+          executable: binary,
+          arguments: [
+            "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
+            "--tools", "", "--setting-sources=", "--strict-mcp-config", "--disable-slash-commands",
+            "--no-session-persistence", "--max-turns", "1", "--session-id", sessionID.uuidString,
+            "--system-prompt", "Reply with one word.",
+            "--settings", "{\"disableAllHooks\":true,\"autoMemoryEnabled\":false}",
+          ],
+          environment: childEnvironment,
+          workingDirectory: paths.workingDirectory,
+          inheritedInput: descriptor
+        )
+        let outcome: Result<Void, ClaudeFailure> = await ClaudeSession.run(
+          invocation: invocation, action: action, sessionID: sessionID)
+        if let descriptor { try? descriptor.close() }
+        return outcome
       }
-      let invocation: ProcessInvocation = ProcessInvocation(
-        executable: binary,
-        arguments: [
-          "-p", "--input-format", "stream-json", "--output-format", "stream-json", "--verbose",
-          "--tools", "", "--setting-sources=", "--strict-mcp-config", "--disable-slash-commands",
-          "--no-session-persistence", "--max-turns", "1", "--session-id", sessionID.uuidString,
-          "--system-prompt", "Reply with one word.",
-          "--settings", "{\"disableAllHooks\":true,\"autoMemoryEnabled\":false}",
-        ],
-        environment: childEnvironment,
-        workingDirectory: paths.workingDirectory
-      )
-      return await ClaudeSession.run(invocation: invocation, action: action, sessionID: sessionID)
     }
   }
 
+  private static func tokenDescriptor(_ token: String) -> Result<FileDescriptor, ClaudeFailure> {
+    Result { try FileDescriptor.pipe() }
+      .mapError(ClaudeFailure.filesystem)
+      .flatMap { pipe in
+        Result { try pipe.writeEnd.closeAfter { try pipe.writeEnd.writeAll(token.utf8) } }
+          .map { _ in pipe.readEnd }
+          .mapError { error in
+            try? pipe.readEnd.close()
+            return .filesystem(error)
+          }
+      }
+  }
+
   private func authenticate(
-    store: ClaudeCredentialStore, email: String?, token: ClaudeOAuthToken?,
-    selection: ClaudePendingSelection?
+    store: ClaudeCredentialStore, email: String?
   ) async -> Result<Void, ClaudeFailure> {
     await createDirectories(store: store)
       .flatMap { _ in executable() }
-      .bind { binary -> Result<ChildProcess, ClaudeFailure> in
+      .bind { binary -> Result<Void, ClaudeFailure> in
         var arguments: [String] = ["auth", "login", "--claudeai"]
         if let email { arguments.append(contentsOf: ["--email", email]) }
-        var childEnvironment: [String: String] = processEnvironment(store: store)
-        if let token {
-          guard let refresh: String = token.refreshToken, !refresh.isEmpty,
-            !token.scopes.isEmpty
-          else { return .failure(.signInRequired) }
-          childEnvironment["CLAUDE_CODE_OAUTH_REFRESH_TOKEN"] = refresh
-          childEnvironment["CLAUDE_CODE_OAUTH_SCOPES"] = token.scopes.joined(separator: " ")
-          childEnvironment["CLAUDE_CODE_OAUTH_CLIENT_ID"] = token.clientID
-        }
-        guard !Task.isCancelled else { return .failure(.cancelled) }
-        let invocation: ProcessInvocation = ProcessInvocation(
-          executable: binary, arguments: arguments, environment: childEnvironment,
-          workingDirectory: paths.workingDirectory
+        return await ProcessRun.collect(
+          ProcessInvocation(
+            executable: binary, arguments: arguments, environment: processEnvironment(store: store),
+            workingDirectory: paths.workingDirectory
+          ), deadline: Self.loginDeadline
         )
-        return await ChildProcess.launch(invocation).mapError(ClaudeFailure.process)
-      }
-      .mapError { error in importNotStarted(error, selection: selection) }
-      .bind { process -> Result<Void, ClaudeFailure> in
-        if case .failure(let error) = recordChild(of: process, selection: selection) {
-          await process.cancel()
-          return .failure(error)
-        }
-        return await withTaskCancellationHandler {
-          let termination: Result<ProcessTermination, ProcessFailure> =
-            await process.waitUntilExit()
-          return Task.isCancelled
-            ? .failure(.cancelled) : termination.exited(ClaudeFailure.authenticationFailed)
-        } onCancel: {
-          Task { await process.cancel() }
+        .claude()
+        .flatMap { output in
+          output.status.isSuccess ? .success(()) : .failure(.authenticationFailed(output.status))
         }
       }
-  }
-
-  private func recordChild(
-    of process: ChildProcess, selection: ClaudePendingSelection?
-  ) -> Result<Void, ClaudeFailure> {
-    selection.map { selection in
-      ClaudeChildProcess.read(processID: process.processIdentifier).flatMap { child in
-        var importing: ClaudePendingSelection = selection
-        importing.child = child
-        importing.phase = .importing
-        return updateSelectionState { state in state.pending = importing }
-      }
-    } ?? .success(())
-  }
-
-  private func importNotStarted(
-    _ failure: ClaudeFailure, selection: ClaudePendingSelection?
-  ) -> ClaudeFailure {
-    guard var selection else { return failure }
-    selection.phase = .prepared
-    selection.child = nil
-    return failure.releasing(updateSelectionState { state in state.pending = selection })
   }
 
   private func logOut(store: ClaudeCredentialStore) async -> Result<Void, ClaudeFailure> {
-    await (Task.isCancelled ? .failure(.cancelled) : createDirectories(store: store))
+    await createDirectories(store: store)
       .flatMap { _ in executable() }
       .bind { binary in
-        await ChildProcess.launch(
+        await ProcessRun.collect(
           ProcessInvocation(
             executable: binary, arguments: ["auth", "logout"],
             environment: processEnvironment(store: store),
             workingDirectory: paths.workingDirectory
-          )
-        ).mapError(ClaudeFailure.process)
+          ), deadline: Self.logoutDeadline
+        ).claude()
       }
-      .bind { process in
-        await withTaskCancellationHandler {
-          await process.closeInput()
-          let termination: Result<ProcessTermination, ProcessFailure> =
-            await process.waitUntilExit()
-          return Task.isCancelled ? .failure(.cancelled) : termination.exited()
-        } onCancel: {
-          Task { await process.cancel() }
-        }
-      }
+      .bind { _ in await store.deleteItem() }
   }
 
   private func executable() -> Result<URL, ClaudeFailure> {
-    let candidates: [URL] =
-      (environment["PATH"]?.split(separator: ":").map { path in
-        URL(fileURLWithPath: String(path), isDirectory: true).appending(path: "claude")
-      } ?? []) + [homeDirectory().appending(path: ".local/bin/claude")]
-    return candidates.first { url in FileManager.default.isExecutableFile(atPath: url.path) }
+    let home: URL = homeDirectory()
+    let directories: [URL] =
+      Self.executableDirectories.map { path in
+        home.appending(path: path, directoryHint: .isDirectory)
+      }
+      + Self.systemExecutableDirectories.map { path in
+        URL(filePath: path, directoryHint: .isDirectory)
+      }
+      + (environment["PATH"]?.split(separator: ":").map { path in
+        URL(filePath: String(path), directoryHint: .isDirectory)
+      } ?? [])
+    return directories.map { directory in directory.appending(path: "claude") }
+      .first { url in FileManager.default.isExecutableFile(atPath: url.path) }
       .map(Result<URL, ClaudeFailure>.success) ?? .failure(.executableMissing)
   }
 
@@ -921,21 +568,28 @@ actor ClaudeClient {
   }
 
   private func defaultStore() -> ClaudeCredentialStore {
+    Self.defaultStore(paths: paths, environment: environment, username: username)
+  }
+
+  private static func defaultStore(
+    paths: FileLocations, environment: [String: String], username: String
+  ) -> ClaudeCredentialStore {
+    let home: URL = homeDirectory(environment)
     let configured: String? = environment["CLAUDE_CONFIG_DIR"].flatMap { value in
       value.isEmpty ? nil : value
     }
     let secure: String? = environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"]
     let directory: URL =
       if let secure, !secure.isEmpty {
-        URL(fileURLWithPath: secure.precomposedStringWithCanonicalMapping, isDirectory: true)
+        URL(filePath: secure.precomposedStringWithCanonicalMapping, directoryHint: .isDirectory)
       } else if secure != nil {
-        homeDirectory().appending(path: ".claude", directoryHint: .isDirectory)
+        home.appending(path: ".claude", directoryHint: .isDirectory)
       } else {
         paths.defaultClaudeDirectory
       }
     let configFile: URL =
       configured == nil
-      ? homeDirectory().appending(path: ".claude.json")
+      ? home.appending(path: ".claude.json")
       : paths.defaultClaudeDirectory.appending(path: ".claude.json")
     let configDirectoryPath: String? =
       if let secure {
@@ -951,9 +605,13 @@ actor ClaudeClient {
   }
 
   private func homeDirectory() -> URL {
+    Self.homeDirectory(environment)
+  }
+
+  private static func homeDirectory(_ environment: [String: String]) -> URL {
     environment["HOME"].flatMap { home in
-      home.isEmpty ? nil : URL(fileURLWithPath: home, isDirectory: true)
-    } ?? FileManager.default.homeDirectoryForCurrentUser
+      home.isEmpty ? nil : URL(filePath: home, directoryHint: .isDirectory)
+    } ?? URL.homeDirectory
   }
 
   private func createDirectories(store: ClaudeCredentialStore) -> Result<Void, ClaudeFailure> {

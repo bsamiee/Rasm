@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-acl-rewrite-command
+language: swift
+severity: error
+rule:
+    any:
+        - all:
+            - matches: {swift-security-argument: {subcommand: {regex: '^"(add|delete|find)-generic-password"$', pattern: $COMMAND}}}
+            - has: {kind: line_string_literal, regex: '^"-(T|A)"$'}
+        - kind: line_string_literal
+          all:
+            - has: {kind: line_str_text, regex: '^(add|delete|find)-generic-password( |$)', pattern: $COMMAND}
+            - has: {kind: line_str_text, regex: '(^| )-(T|A)( |$)'}
+        - kind: line_str_text
+          regex: set-generic-password-partition-list
+          pattern: $COMMAND
+message: '`$COMMAND` rewrites the item ACL or partition list, `-T` on an existing item is a `change_acl` request that prompts, a partition list needs the login password, and the next write of the owning program undoes both'
+note: 'Write the item through `add-generic-password -U` with no `-T` or `-A` and leave the partition list to the owning program, no fix, deleting a flag and its value removes two sibling elements the match binds as no one range'

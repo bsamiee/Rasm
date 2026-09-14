@@ -87,7 +87,7 @@
         <PackageVersion Include="QuikGraph.Graphviz"                                      Version="2.5.0" />                 <!-- DOT serialization for graph structures -->
         <PackageVersion Include="QuikGraph.Petri"                                         Version="2.5.0" />                 <!-- Petri net construction and simulation -->
         <PackageVersion Include="QuikGraph.Serialization"                                 Version="2.5.0" />                 <!-- Graph structure serialization including GraphML -->
-        <PackageVersion Include="RBush"                                                   Version="4.0.0" />                 <!-- Dynamic 2D R-tree spatial index with bulk loading and rectangle queries -->
+        <PackageVersion Include="RBush.Signed"                                            Version="4.0.0" />                 <!-- Dynamic 2D R-tree spatial index with bulk loading and rectangle queries, the strong-named build ClosedXML depends on -->
         <PackageVersion Include="Roaring.Net"                                             Version="1.4.1" />                 <!-- Compressed bitmap integer sets with set algebra and portable serialization -->
         <PackageVersion Include="Supercluster.KDTree.Net"                                 Version="1.0.22" />                <!-- Immutable k-d tree for nearest-neighbor searches -->
         <PackageVersion Include="SuperLinq"                                               Version="6.4.1" />                 <!-- Sequence operators: windows, permutations, batching, scans, ranking, and tree traversal -->

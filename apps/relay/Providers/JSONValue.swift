@@ -10,19 +10,21 @@ nonisolated enum JSONValue: Codable, Equatable, Sendable {
 
   init(from decoder: any Decoder) throws {
     let container: any SingleValueDecodingContainer = try decoder.singleValueContainer()
-    if container.decodeNil() {
-      self = .null
-    } else if let value: Bool = try? container.decode(Bool.self) {
-      self = .bool(value)
-    } else if let value: Double = try? container.decode(Double.self) {
-      self = .number(value)
-    } else if let value: String = try? container.decode(String.self) {
-      self = .string(value)
-    } else if let value: [JSONValue] = try? container.decode([JSONValue].self) {
-      self = .array(value)
-    } else {
-      self = .object(try container.decode([String: JSONValue].self))
+    self = try container.decodeNil() ? .null : Self.value(in: container)
+  }
+
+  private static func value(in container: any SingleValueDecodingContainer) throws -> JSONValue {
+    let first: Result<JSONValue, any Error> = Result { try .bool(container.decode(Bool.self)) }
+    let candidates: [() throws -> JSONValue] = [
+      { try .number(container.decode(Double.self)) },
+      { try .string(container.decode(String.self)) },
+      { try .array(container.decode([JSONValue].self)) },
+      { try .object(container.decode([String: JSONValue].self)) },
+    ]
+    return try candidates.reduce(first) { outcome, candidate in
+      outcome.flatMapError { _ in Result(catching: candidate) }
     }
+    .get()
   }
 
   func encode(to encoder: any Encoder) throws {

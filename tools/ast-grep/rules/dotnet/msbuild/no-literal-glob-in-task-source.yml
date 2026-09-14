@@ -3,30 +3,50 @@ id: no-literal-glob-in-task-source
 language: xml
 severity: error
 rule:
+    kind: element
     pattern: _TASK
     any:
         - all:
-            - matches: {msbuild-element: {name: {regex: "^(Copy|Move)$"}}}
-            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: "^SourceFiles$"}, value: {regex: "[*?]"}}}}}
+            - has: {matches: msbuild-tag, has: {kind: Name, pattern: _NAME, regex: '^(Copy|Move)$'}}
+            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
         - all:
-            - matches: {msbuild-element: {name: {regex: "^(Delete|Touch)$"}}}
-            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: "^Files$"}, value: {regex: "[*?]"}}}}}
+            - has: {matches: msbuild-tag, has: {kind: Name, pattern: _NAME, regex: '^(Delete|Touch)$'}}
+            - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Files$'}, value: {pattern: _GLOB, regex: '[*?]'}}}}}
+rewriters:
+    - id: pass-item
+      rule:
+        kind: AttValue
+        inside:
+            kind: Attribute
+            has: {kind: Name, regex: '^(SourceFiles|Files)$'}
+            inside: {matches: msbuild-tag, has: {kind: Name, pattern: _NAME}, inside: {pattern: _TASK}}
+      transform:
+        ITEM: {replace: {source: $NAME, replace: '^(.*)$', by: '_${1}Files'}}
+      fix: '"@($ITEM)"'
+    - id: tree-destination
+      rule:
+        kind: Attribute
+        all:
+            - has: {kind: Name, regex: '^DestinationFolder$'}
+            - has: {kind: AttValue, pattern: _FOLDER}
+            - inside:
+                matches: msbuild-tag
+                all:
+                    - has: {kind: Name, pattern: _NAME}
+                    - inside: {pattern: _TASK}
+                    - has: {kind: Attribute, all: [{has: {kind: Name, regex: '^SourceFiles$'}}, {has: {kind: AttValue, regex: '\*\*'}}]}
+      transform:
+        ITEM: {replace: {source: $NAME, replace: '^(.*)$', by: '_${1}Files'}}
+        DIRECTORY: {replace: {source: $FOLDER, replace: '(?s)^["'']?(.*?)[\\/]?["'']?$', by: '$1'}}
+      fix: 'DestinationFiles="@($ITEM->''$DIRECTORY/%(RecursiveDir)%(Filename)%(Extension)'')"'
 transform:
-    ITEMIZED:
-        replace:
-            source: $TASK
-            replace: '(?s)^<(Copy|Move)\b(?P<a>[^<]*?)\bSourceFiles\s*=\s*["''](?P<g>[^"'']*)["'']'
-            by: '<ItemGroup><_${1}Source Remove="@(_${1}Source)" /><_${1}Source Include="${g}" /></ItemGroup><${1}${a}SourceFiles="@(_${1}Source)"'
-    LISTED:
-        replace:
-            source: $ITEMIZED
-            replace: '(?s)^<(Delete|Touch)\b(?P<a>[^<]*?)\bFiles\s*=\s*["''](?P<g>[^"'']*)["'']'
-            by: '<ItemGroup><_${1}File Remove="@(_${1}File)" /><_${1}File Include="${g}" /></ItemGroup><${1}${a}Files="@(_${1}File)"'
-    RECURSIVE:
-        replace:
-            source: $LISTED
-            replace: '(?s)^(<ItemGroup>.*?Include="[^"]*\*\*[^"]*".*?<(Copy|Move)\b[^<]*?)\bDestinationFolder\s*=\s*["''](?P<d>[^"'']*?)/?["'']'
-            by: '${1}DestinationFiles="@(_${2}Source->''${d}/%(RecursiveDir)%(Filename)%(Extension)'')"'
-fix: $RECURSIVE
+    ITEM: {replace: {source: $NAME, replace: '^(.*)$', by: '_${1}Files'}}
+    REWRITTEN: rewrite($TASK, rewriters=[pass-item, tree-destination])
+fix: |-
+    <ItemGroup>
+        <$ITEM Remove="@($ITEM)" />
+        <$ITEM Include=$GLOB />
+    </ItemGroup>
+    $REWRITTEN
 message: Task reads a wildcard in its file list as a literal file name, an item `Include` alone expands wildcards
 note: Declare the wildcard in an item `Include` and pass `@(Item)`

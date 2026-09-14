@@ -13,8 +13,6 @@ rule:
                 - has: {kind: 'word, string, raw_string', pattern: $FORMAT, regex: '^["'']?\+%s["'']?$', nthChild: {position: 1, reverse: true}}
                 - not: {has: {not: {any: [{kind: command_name}, {kind: word, regex: '^(-u|--utc|--universal)$'}, {pattern: $FORMAT}]}}}
         - not: {has: {nthChild: 2}}
-transform:
-    EPOCH: {replace: {source: $SUB, replace: '(?s)^.*$', by: '$$EPOCHSECONDS'}}
-fix: $EPOCH
+fix: ${EPOCHSECONDS}
 message: '`$SUB` forks `date` for epoch seconds'
 note: Read `$EPOCHSECONDS`

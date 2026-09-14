@@ -3,35 +3,19 @@ import Foundation
 nonisolated struct SavedAccount: Sendable {
   let account: Account
   let authentication: AuthenticationState
-  let sessionStart: SessionStartState
-  let usage: UsageSnapshot?
+  let usage: AccountUsage?
 }
 
 nonisolated struct SavedAccounts: Sendable {
   let accounts: [SavedAccount]
-  let selected: [Provider: UUID]
-}
-
-nonisolated enum AccountQuota: Sendable {
-  case session
-  case weekly
-  case fable
-
-  var name: String {
-    switch self {
-    case .session: "Session"
-    case .weekly: "Weekly"
-    case .fable: "Fable"
-    }
-  }
 }
 
 nonisolated enum AccountStorageError: Error {
   case invalidAccount(id: UUID, error: IdentityError)
-  case invalidUsage(id: UUID, quota: AccountQuota, failure: QuotaFailure)
+  case invalidUsage(id: UUID, kind: String, failure: QuotaFailure)
+  case invalidWindowKind(id: UUID, kind: String)
   case invalidObservedAt(id: UUID)
   case duplicateAccount(id: UUID)
-  case invalidSelection(provider: String, id: UUID)
 }
 
 nonisolated struct AccountStorageErrors: AggregateError {
@@ -67,7 +51,7 @@ actor AccountStorage {
     return Result { try decoder.decode(Document.self, from: Data(contentsOf: fileURL)) }
       .flatMapError { error -> Result<Document, any Error> in
         (error as? CocoaError)?.code == .fileReadNoSuchFile
-          ? .success(Document(SavedAccounts(accounts: [], selected: [:])))
+          ? .success(Document(SavedAccounts(accounts: [])))
           : .failure(error)
       }
       .mapError(AccountStorageFailure.read)
@@ -88,12 +72,9 @@ actor AccountStorage {
 
   private struct Document: Codable {
     let records: [Record]
-    let selected: [String: UUID]
 
     init(_ value: SavedAccounts) {
       records = value.accounts.map(Record.init)
-      selected = Dictionary(
-        uniqueKeysWithValues: value.selected.map { ($0.key.rawValue, $0.value) })
     }
 
     func savedAccounts() -> Result<SavedAccounts, AccountStorageFailure> {
@@ -101,7 +82,7 @@ actor AccountStorage {
         record.savedAccount()
       }
       let identities: [AccountIdentity?] = checked.map { result in
-        (try? result.get())?.account.identity
+        if case .success(let saved) = result { saved.account.identity } else { nil }
       }
       let accounts: Result<[SavedAccount], AccountStorageErrors> = traverse(checked) { $0 }
       let duplicates: [AccountStorageError] = records.indices
@@ -110,21 +91,8 @@ actor AccountStorage {
       let uniqueness: Result<Void, AccountStorageErrors> =
         AccountStorageErrors(collecting: duplicates).map { errors in .failure(errors) }
         ?? .success(())
-      let selections: Result<[(Provider, UUID)], AccountStorageErrors> = traverse(
-        selected.sorted { $0.key < $1.key }
-      ) { entry -> Result<(Provider, UUID), AccountStorageErrors> in
-        guard let provider: Provider = Provider(rawValue: entry.key),
-          records.contains(where: { $0.id == entry.value && $0.provider == provider })
-        else {
-          return .failure(
-            AccountStorageErrors(.invalidSelection(provider: entry.key, id: entry.value)))
-        }
-        return .success((provider, entry.value))
-      }
-      return combine(accounts, uniqueness, selections)
-        .map { accounts, _, selections in
-          SavedAccounts(accounts: accounts, selected: Dictionary(uniqueKeysWithValues: selections))
-        }
+      return combine(accounts, uniqueness)
+        .map { accounts, _ in SavedAccounts(accounts: accounts) }
         .mapError(AccountStorageFailure.invalidData)
     }
 
@@ -150,7 +118,6 @@ actor AccountStorage {
     let plan: String?
     let sessionPolicy: SessionPolicy
     let authentication: AuthenticationState
-    let sessionStart: SessionStartState
     let usage: Snapshot?
 
     init(_ value: SavedAccount) {
@@ -162,7 +129,6 @@ actor AccountStorage {
       plan = value.account.identity.plan
       sessionPolicy = value.account.sessionPolicy
       authentication = value.authentication
-      sessionStart = value.sessionStart
       usage = value.usage.map(Snapshot.init)
     }
 
@@ -175,14 +141,13 @@ actor AccountStorage {
           remaining: failure.remaining.map { error in .invalidAccount(id: id, error: error) }
         )
       }
-      let snapshot: Result<UsageSnapshot?, AccountStorageErrors> =
-        usage.map { value in value.usageSnapshot(id: id).map(Optional.some) } ?? .success(nil)
+      let snapshot: Result<AccountUsage?, AccountStorageErrors> =
+        usage.map { value in value.accountUsage(id: id).map(Optional.some) } ?? .success(nil)
       return combine(identity, snapshot).map { identity, snapshot in
         SavedAccount(
           account: Account(
             id: id, provider: provider, identity: identity, sessionPolicy: sessionPolicy),
           authentication: authentication,
-          sessionStart: sessionStart,
           usage: snapshot
         )
       }
@@ -190,18 +155,35 @@ actor AccountStorage {
   }
 
   private struct Window: Codable {
+    let kind: String
     let percent: Double
     let resetsAt: Date?
+    let rejected: Bool
 
     init(_ value: QuotaWindow) {
-      percent = value.amount.percent
+      kind =
+        switch value.kind {
+        case .session: "session"
+        case .weekly: "weekly"
+        case .model(let name): "model:\(name)"
+        }
+      percent = value.used.percent
       resetsAt = value.resetsAt
+      rejected = value.rejected
     }
 
-    func quotaWindow(id: UUID, quota: AccountQuota) -> Result<QuotaWindow, AccountStorageErrors> {
+    func quotaWindow(id: UUID) -> Result<QuotaWindow, AccountStorageErrors> {
+      let quotaKind: Result<QuotaKind, AccountStorageErrors> =
+        switch kind {
+        case "session": .success(.session)
+        case "weekly": .success(.weekly)
+        case _ where kind.hasPrefix("model:") && kind.count > 6:
+          .success(.model(String(kind.dropFirst(6))))
+        default: .failure(AccountStorageErrors(.invalidWindowKind(id: id, kind: kind)))
+        }
       let amount: Result<UsageAmount, AccountStorageErrors> = UsageAmount.make(percent: percent)
         .mapError { failure in
-          AccountStorageErrors(.invalidUsage(id: id, quota: quota, failure: failure))
+          AccountStorageErrors(.invalidUsage(id: id, kind: kind, failure: failure))
         }
       let reset: Result<Date?, AccountStorageErrors> =
         switch resetsAt {
@@ -209,48 +191,36 @@ actor AccountStorage {
         case .some(let date) where date.timeIntervalSince1970.isFinite: .success(date)
         case .some:
           .failure(
-            AccountStorageErrors(.invalidUsage(id: id, quota: quota, failure: .invalidResetDate)))
+            AccountStorageErrors(.invalidUsage(id: id, kind: kind, failure: .invalidResetDate)))
         }
-      return combine(amount, reset).map { amount, date in
-        QuotaWindow(amount: amount, resetsAt: date)
+      return combine(quotaKind, amount, reset).map { quotaKind, amount, date in
+        QuotaWindow(kind: quotaKind, used: amount, resetsAt: date, rejected: rejected)
       }
     }
   }
 
   private struct Snapshot: Codable {
-    let session: Window?
-    let weekly: Window?
-    let fable: Window?
+    let windows: [Window]
+    let includedUsageAllowed: Bool?
     let observedAt: Date
 
-    init(_ value: UsageSnapshot) {
-      session = value.session.map(Window.init)
-      weekly = value.weekly.map(Window.init)
-      fable = value.fable.map(Window.init)
+    init(_ value: AccountUsage) {
+      windows = value.windows.map(Window.init)
+      includedUsageAllowed = value.includedUsageAllowed
       observedAt = value.observedAt
     }
 
-    func usageSnapshot(id: UUID) -> Result<UsageSnapshot, AccountStorageErrors> {
-      let windows: Result<(QuotaWindow?, QuotaWindow?, QuotaWindow?), AccountStorageErrors> =
-        combine(
-          quotaWindow(session, quota: .session, id: id),
-          quotaWindow(weekly, quota: .weekly, id: id),
-          quotaWindow(fable, quota: .fable, id: id)
-        )
+    func accountUsage(id: UUID) -> Result<AccountUsage, AccountStorageErrors> {
+      let checked: Result<[QuotaWindow], AccountStorageErrors> = traverse(windows) { window in
+        window.quotaWindow(id: id)
+      }
       let observed: Result<Date, AccountStorageErrors> =
         observedAt.timeIntervalSince1970.isFinite
         ? .success(observedAt)
         : .failure(AccountStorageErrors(.invalidObservedAt(id: id)))
-      return combine(windows, observed).map { windows, date in
-        UsageSnapshot(session: windows.0, weekly: windows.1, fable: windows.2, observedAt: date)
+      return combine(checked, observed).map { windows, date in
+        AccountUsage(windows: windows, includedUsageAllowed: includedUsageAllowed, observedAt: date)
       }
-    }
-
-    private func quotaWindow(
-      _ window: Window?, quota: AccountQuota, id: UUID
-    ) -> Result<QuotaWindow?, AccountStorageErrors> {
-      window.map { value in value.quotaWindow(id: id, quota: quota).map(Optional.some) }
-        ?? .success(nil)
     }
   }
 }

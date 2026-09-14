@@ -13,7 +13,7 @@ rule:
             kind: expansion
             has: {field: operator, regex: '^:?\+$'}
             inside: {kind: 'command, array', stopBy: {not: {kind: concatenation}}}
-labels: {VALUE: {style: primary}}
 fix: '"$VALUE"'
 message: 'Option value `$VALUE` word-splits and glob-expands inside the alternative'
 note: 'Quote the value inside the alternative, `${<condition>:+--option="$<value>"}`'
+labels: {VALUE: {style: primary}}

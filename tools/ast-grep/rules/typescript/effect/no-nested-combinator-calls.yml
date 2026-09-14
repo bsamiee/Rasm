@@ -8,7 +8,7 @@ utils:
         has:
             field: function
             kind: member_expression
-            has: {field: object, matches: {effect-module-reference: {module: {kind: identifier}}}}
+            has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {kind: identifier}}}}
     pipe-step:
         kind: call_expression
         has:
@@ -29,7 +29,7 @@ utils:
         all:
             - matches: module-call
             - matches: pipe-step
-            - not: {has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Schema$"}}}}}}
+            - not: {has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Schema)?$"}, exported: {regex: "^Schema$"}}}}}}
     unary-step:
         matches: step
         has:
@@ -47,11 +47,6 @@ utils:
         any:
             - matches: unary-step
             - has: {field: arguments, has: {nthChild: 2}}
-    pipe-import:
-        kind: import_statement
-        all:
-            - has: {field: source, regex: '^["'']effect["'']$'}
-            - has: {kind: import_specifier, has: {field: name, regex: '^pipe$'}, not: {has: {field: alias, pattern: $_}}, stopBy: end}
 rule:
     pattern: $CALL
     all:
@@ -68,7 +63,6 @@ rule:
                 - inside: {kind: arguments, inside: {matches: data-first-step}}
         - not: {has: {kind: comment, stopBy: end}}
         - not: {has: {kind: type_arguments, stopBy: end}}
-        - inside: {kind: program, stopBy: end, has: {matches: pipe-import}}
 rewriters:
     - id: unary
       rule:

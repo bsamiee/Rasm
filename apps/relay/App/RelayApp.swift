@@ -1,5 +1,4 @@
 import AppKit
-import OSLog
 import SwiftUI
 
 @main
@@ -32,26 +31,14 @@ struct RelayApp: App {
 }
 
 private final class AppDelegate: NSObject, NSApplicationDelegate {
-  let store: AccountStore
-
-  override init() {
-    let process: [String: String] = ProcessInfo.processInfo.environment
-    switch LoginShell.environment(over: process) {
-    case .success(let environment):
-      store = AccountStore(environment: environment)
-    case .failure(let error):
-      Logger(subsystem: "app.rasm.relay", category: "Launch").error(
-        "Login shell environment unavailable: \(String(describing: error), privacy: .public)")
-      store = AccountStore(environment: process)
-    }
-  }
+  let store: AccountStore = AccountStore(process: ProcessInfo.processInfo.environment)
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     store.start()
   }
 
   func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
-    Task {
+    Task(name: "Quit Relay") {
       await store.stop()
       sender.reply(toApplicationShouldTerminate: true)
     }

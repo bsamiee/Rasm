@@ -1,38 +1,29 @@
 import Foundation
+import Subprocess
 
-nonisolated enum ClaudeSystemCall: Sendable {
-  case mkdir
-  case rmdir
-  case lstat
-  case procPIDInfo
-}
-
-nonisolated enum ClaudeFailure: LocalizedError {
+nonisolated enum ClaudeFailure: ProviderFailure {
   case executableMissing
   case signInRequired
-  case authenticationFailed(Int32)
+  case authenticationFailed(TerminationStatus)
   case process(ProcessFailure)
-  case keychain(OSStatus)
+  case keychainDenied
+  case keychainLocked
   case filesystem(any Error)
-  case systemCall(ClaudeSystemCall, Int32)
   case invalidCredentials
   case invalidIdentity(IdentityFailure)
-  case invalidSavedAccounts(ClaudeAccountErrors)
   case invalidResponse
   case invalidQuota(ClaudeQuotaErrors)
   case http(Int)
+  case rateLimited(until: Date)
   case transport(any Error)
   case accountChanged
   case modelUnavailable
-  case sessionUnknown
   case requestFailed
   case protocolFailure
-  case operationInProgress
   case cancelled
+  case timedOut
   case lockHeld(URL)
   case lockCompromised(URL)
-  case unfinishedSelection
-  indirect case sessionConfirmationPending(ClaudeFailure)
   indirect case cleanup(operation: ClaudeFailure, release: ClaudeFailure)
 
   var cause: ClaudeFailure {
@@ -50,20 +41,17 @@ nonisolated enum ClaudeFailure: LocalizedError {
   }
 
   var unauthorized: Bool {
-    if case .http(401) = self { true } else { false }
+    if case .http(401) = cause { true } else { false }
   }
 
   var requiresSignIn: Bool {
-    switch self {
-    case .signInRequired: true
-    case .cleanup(let operation, _): operation.requiresSignIn
-    case .sessionConfirmationPending(let cause): cause.requiresSignIn
-    case .executableMissing, .authenticationFailed, .process, .keychain, .filesystem, .systemCall,
-      .invalidCredentials, .invalidIdentity, .invalidSavedAccounts, .invalidResponse, .invalidQuota,
-      .http, .transport, .accountChanged, .modelUnavailable, .sessionUnknown, .requestFailed,
-      .protocolFailure, .operationInProgress, .cancelled, .lockHeld, .lockCompromised,
-      .unfinishedSelection:
-      false
+    if case .signInRequired = cause { true } else { false }
+  }
+
+  var isCancellation: Bool {
+    switch cause {
+    case .cancelled, .process(.cancelled): true
+    default: false
     }
   }
 
@@ -74,59 +62,56 @@ nonisolated enum ClaudeFailure: LocalizedError {
     case .http(401): "Claude refused the saved sign-in token."
     case .authenticationFailed: "Claude could not complete sign-in."
     case .process(let failure): failure.localizedDescription
-    case .keychain: "Allow Relay to access the Claude sign-in in Keychain."
+    case .keychainDenied: "macOS refused Relay’s Keychain request for this Claude sign-in."
+    case .keychainLocked: "Unlock the login keychain to read this Claude sign-in."
     case .filesystem: "Relay could not read or save the Claude account."
-    case .systemCall: "Relay could not access Claude’s account storage."
     case .invalidCredentials: "Claude’s saved sign-in is incomplete."
     case .invalidIdentity: "Claude did not return a complete account identity."
-    case .invalidSavedAccounts: "Relay could not recover the saved Claude account identities."
     case .invalidResponse, .invalidQuota: "Claude returned usage Relay could not interpret."
-    case .http(429): "Claude is limiting usage requests."
+    case .rateLimited(let until):
+      "Claude is limiting usage requests until \(UsagePresentation.weekday(until))."
     case .http: "Claude could not provide current usage."
     case .transport: "Could not reach Claude."
     case .accountChanged: "The Claude sign-in changed during this operation."
     case .modelUnavailable: "No eligible Haiku model is available for this account."
-    case .sessionUnknown: "Refresh Claude usage before starting a session."
     case .requestFailed: "Claude did not complete the session request."
     case .protocolFailure: "This Claude Code response is not supported."
-    case .operationInProgress: "Wait for the current Claude account operation."
     case .cancelled: "Canceled."
+    case .timedOut: "Claude Code did not answer in time."
     case .lockHeld: "Claude is updating this sign-in. Try again when it finishes."
     case .lockCompromised: "Claude’s sign-in changed while Relay was updating it."
-    case .unfinishedSelection: "Finish recovering the previous Claude account switch."
-    case .sessionConfirmationPending: "Waiting for Claude to confirm the session window."
     case .cleanup(let operation, _): operation.localizedDescription
     }
   }
+}
 
-  var awaitingSessionConfirmation: Bool {
-    switch self {
-    case .sessionConfirmationPending: true
-    case .cleanup(let operation, let release):
-      operation.awaitingSessionConfirmation || release.awaitingSessionConfirmation
-    case .executableMissing, .signInRequired, .authenticationFailed, .process, .keychain,
-      .filesystem, .systemCall, .invalidCredentials, .invalidIdentity, .invalidSavedAccounts,
-      .invalidResponse, .invalidQuota, .http, .transport, .accountChanged, .modelUnavailable,
-      .sessionUnknown, .requestFailed, .protocolFailure, .operationInProgress, .cancelled,
-      .lockHeld, .lockCompromised, .unfinishedSelection:
-      false
+nonisolated extension ClaudeFailure {
+  init(process failure: ProcessFailure) {
+    self =
+      switch failure {
+      case .cancelled: .cancelled
+      case .timedOut: .timedOut
+      default: .process(failure)
+      }
+  }
+}
+
+nonisolated extension Result where Failure == KeychainFailure {
+  func claude() -> Result<Success, ClaudeFailure> {
+    mapError { failure in
+      switch failure {
+      case .denied: .keychainDenied
+      case .interactionNotAllowed: .keychainLocked
+      case .process(let error): ClaudeFailure(process: error)
+      }
     }
   }
 }
 
-nonisolated extension Result<ProcessTermination, ProcessFailure> {
-  func exited(
-    _ failure: (Int32) -> ClaudeFailure = { status in .process(.exit(status)) }
-  ) -> Result<Void, ClaudeFailure> {
-    mapError(ClaudeFailure.process).flatMap { termination in
-      termination.status == 0 ? .success(()) : .failure(failure(termination.status))
-    }
+nonisolated extension Result where Failure == ProcessFailure {
+  func claude() -> Result<Success, ClaudeFailure> {
+    mapError(ClaudeFailure.init(process:))
   }
-}
-
-nonisolated struct ClaudeAccountErrors: AggregateError {
-  let first: IdentityFailure
-  let remaining: [IdentityFailure]
 }
 
 nonisolated struct ClaudeQuotaErrors: AggregateError {

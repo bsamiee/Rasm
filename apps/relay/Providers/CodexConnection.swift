@@ -1,46 +1,59 @@
 import Foundation
+import Subprocess
+import Synchronization
 
 actor CodexConnection {
-  private enum PendingReply {
+  private enum PendingReply: Sendable {
     case unclaimed
     case arrived(Result<JSONValue, CodexFailure>)
     case awaited(CheckedContinuation<Result<JSONValue, CodexFailure>, Never>)
   }
 
-  private struct NotificationWaiter {
+  private struct NotificationWaiter: Sendable {
+    let id: UUID
     let matches: @Sendable (JSONValue) -> Bool
     let continuation: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>
   }
 
-  private static let awaitedNotifications: Set<String> = [
-    "account/login/completed", "turn/completed",
+  private struct Registry: Sendable {
+    var replies: [String: PendingReply] = [:]
+    var waiters: [String: [NotificationWaiter]] = [:]
+    var terminalFailure: CodexFailure?
+  }
+
+  nonisolated let updates: AsyncStream<CodexProtocol.RateLimitsUpdated>
+  private let updatesContinuation: AsyncStream<CodexProtocol.RateLimitsUpdated>.Continuation
+  private let execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>
+  private let registry: Mutex<Registry> = Mutex(Registry())
+  private var nextRequestID: Int = 0
+  private var notifications: [String: [JSONValue]] = [:]
+
+  private static let retainedNotifications: Set<String> = [
+    "account/login/completed", "turn/completed", "account/updated",
   ]
 
-  private let process: ChildProcess
-  private var reader: Task<Void, Never>?
-  private var nextRequestID: Int = 0
-  private var replies: [String: PendingReply] = [:]
-  private var notifications: [String: [JSONValue]] = [:]
-  private var waiters: [String: [NotificationWaiter]] = [:]
-  private var terminalFailure: CodexFailure?
+  init(execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>) {
+    self.execution = execution
+    let stream = AsyncStream<CodexProtocol.RateLimitsUpdated>.makeStream()
+    updates = stream.stream
+    updatesContinuation = stream.continuation
+  }
 
-  init(process: ChildProcess) {
-    self.process = process
+  var isFinished: Bool { terminalFailure != nil }
+
+  func read() async {
+    do {
+      for try await line in execution.standardOutput.strings() {
+        await receive(Data(line.utf8))
+      }
+      finish(.connectionClosed)
+    } catch {
+      finish(CodexFailure(process: ProcessRun.failure(error)))
+    }
   }
 
   func initialize() async -> Result<Void, CodexFailure> {
-    let lines = process.lines
-    reader = Task { [weak self] in
-      for await line in lines {
-        guard let self else { return }
-        switch line {
-        case .success(let data): await self.receive(data)
-        case .failure(let error): await self.finish(.process(error))
-        }
-      }
-      await self?.finish(.connectionClosed)
-    }
-    return await request(
+    await request(
       "initialize",
       params: .object([
         "clientInfo": .object([
@@ -55,56 +68,142 @@ actor CodexConnection {
     }
   }
 
+  func request<Value: Decodable & Sendable>(
+    _ type: Value.Type, _ method: String, params: JSONValue? = nil
+  ) async -> Result<Value, CodexFailure> {
+    await request(method, params: params).flatMap { value in
+      Self.decode(type, value).map(Result.success)
+        ?? .failure(.invalidResponse(field: "\(method) response"))
+    }
+  }
+
   func request(_ method: String, params: JSONValue? = nil) async -> Result<
     JSONValue, CodexFailure
   > {
-    return await ready.bind { _ in
+    await ready.bind { _ in
       nextRequestID += 1
       let id: String = String(nextRequestID)
       var message: [String: JSONValue] = ["id": .string(id), "method": .string(method)]
       if let params { message["params"] = params }
-      replies[id] = .unclaimed
+      registry.withLock { state in state.replies[id] = .unclaimed }
       if case .failure(let error) = await write(.object(message)) {
-        replies.removeValue(forKey: id)
+        registry.withLock { state in _ = state.replies.removeValue(forKey: id) }
         return .failure(error)
       }
-      if let terminalFailure {
-        replies.removeValue(forKey: id)
-        return .failure(terminalFailure)
-      }
-      if case .arrived(let reply) = replies[id] {
-        replies.removeValue(forKey: id)
-        return reply
-      }
-      return await withTaskCancellationHandler {
-        await withCheckedContinuation { continuation in
-          replies[id] = .awaited(continuation)
+      return await reply(to: id)
+    }
+  }
+
+  private func reply(to id: String) async -> Result<JSONValue, CodexFailure> {
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        let settled: Result<JSONValue, CodexFailure>? = registry.withLock { state in
+          Self.claim(id, for: continuation, in: &state)
         }
-      } onCancel: {
-        Task { await self.cancel() }
+        if let settled { continuation.resume(returning: settled) }
       }
+    } onCancel: {
+      Self.cancelReply(id, in: self.registry)
+    }
+  }
+
+  private static func claim(
+    _ id: String, for continuation: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>,
+    in state: inout Registry
+  ) -> Result<JSONValue, CodexFailure>? {
+    if let failure: CodexFailure = state.terminalFailure {
+      state.replies.removeValue(forKey: id)
+      return .failure(failure)
+    }
+    switch state.replies[id] {
+    case .arrived(let reply):
+      state.replies.removeValue(forKey: id)
+      return reply
+    case .unclaimed where !Task.isCancelled:
+      state.replies[id] = .awaited(continuation)
+      return nil
+    case .unclaimed, .awaited, .none:
+      state.replies.removeValue(forKey: id)
+      return .failure(.cancelled)
+    }
+  }
+
+  func notification<Value: Decodable & Sendable>(
+    _ type: Value.Type, _ method: String,
+    matching predicate: @escaping @Sendable (Value) -> Bool
+  ) async -> Result<Value, CodexFailure> {
+    await notification(method) { params in
+      Self.decode(type, params).map(predicate) ?? false
+    }
+    .flatMap { params in
+      Self.decode(type, params).map(Result.success)
+        ?? .failure(.invalidResponse(field: "\(method) notification"))
     }
   }
 
   func notification(
-    _ method: String,
-    matching predicate: @escaping @Sendable (JSONValue) -> Bool
+    _ method: String, matching predicate: @escaping @Sendable (JSONValue) -> Bool
   ) async -> Result<JSONValue, CodexFailure> {
-    return await ready.bind { _ in
+    await ready.bind { _ in
       if let index: Int = notifications[method]?.firstIndex(where: predicate),
         let value: JSONValue = notifications[method]?.remove(at: index)
       {
         return .success(value)
       }
-      return await withTaskCancellationHandler {
-        await withCheckedContinuation { continuation in
-          waiters[method, default: []].append(
-            NotificationWaiter(matches: predicate, continuation: continuation))
-        }
-      } onCancel: {
-        Task { await self.cancel() }
-      }
+      return await notification(method, matching: predicate, waiter: UUID())
     }
+  }
+
+  private func notification(
+    _ method: String, matching predicate: @escaping @Sendable (JSONValue) -> Bool, waiter id: UUID
+  ) async -> Result<JSONValue, CodexFailure> {
+    await withTaskCancellationHandler {
+      await withCheckedContinuation { continuation in
+        let settled: Result<JSONValue, CodexFailure>? = registry.withLock { state in
+          Self.enroll(
+            NotificationWaiter(id: id, matches: predicate, continuation: continuation),
+            for: method, in: &state)
+        }
+        if let settled { continuation.resume(returning: settled) }
+      }
+    } onCancel: {
+      Self.cancelWaiter(id, method: method, in: self.registry)
+    }
+  }
+
+  private static func enroll(
+    _ waiter: NotificationWaiter, for method: String, in state: inout Registry
+  ) -> Result<JSONValue, CodexFailure>? {
+    if let failure: CodexFailure = state.terminalFailure { return .failure(failure) }
+    guard !Task.isCancelled else { return .failure(.cancelled) }
+    state.waiters[method, default: []].append(waiter)
+    return nil
+  }
+
+  func finish(_ failure: CodexFailure) {
+    let pending: (replies: [PendingReply], waiters: [NotificationWaiter])? = registry.withLock {
+      state in
+      guard state.terminalFailure == nil else { return nil }
+      state.terminalFailure = failure
+      let replies: [PendingReply] = Array(state.replies.values)
+      let waiters: [NotificationWaiter] = Array(state.waiters.values.joined())
+      state.replies.removeAll()
+      state.waiters.removeAll()
+      return (replies, waiters)
+    }
+    guard let pending else { return }
+    updatesContinuation.finish()
+    notifications.removeAll()
+    for case .awaited(let continuation) in pending.replies {
+      continuation.resume(returning: .failure(failure))
+    }
+    for waiter: NotificationWaiter in pending.waiters {
+      waiter.continuation.resume(returning: .failure(failure))
+    }
+  }
+
+  private var terminalFailure: CodexFailure? {
+    registry.withLock { state in state.terminalFailure }
   }
 
   private var ready: Result<Void, CodexFailure> {
@@ -112,32 +211,46 @@ actor CodexConnection {
       ?? (Task.isCancelled ? .failure(.cancelled) : .success(()))
   }
 
-  func cancel() async {
-    await shutdown(.cancelled)
+  private nonisolated static func cancelReply(
+    _ id: String, in registry: borrowing Mutex<Registry>
+  ) {
+    let awaited: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>? = registry.withLock {
+      state in
+      guard case .awaited(let continuation) = state.replies.removeValue(forKey: id) else {
+        return nil
+      }
+      return continuation
+    }
+    awaited?.resume(returning: .failure(.cancelled))
   }
 
-  func close() async {
-    await shutdown(.connectionClosed)
+  private nonisolated static func cancelWaiter(
+    _ id: UUID, method: String, in registry: borrowing Mutex<Registry>
+  ) {
+    let waiter: NotificationWaiter? = registry.withLock { state in
+      state.waiters[method]?.firstIndex(where: { waiter in waiter.id == id })
+        .flatMap { index in state.waiters[method]?.remove(at: index) }
+    }
+    waiter?.continuation.resume(returning: .failure(.cancelled))
   }
 
-  private func shutdown(_ failure: CodexFailure) async {
-    finish(failure)
-    await process.cancel()
-    let source: Task<Void, Never>? = reader
-    reader = nil
-    source?.cancel()
-    await source?.value
+  private static func decode<Value: Decodable>(_ type: Value.Type, _ params: JSONValue) -> Value? {
+    (try? JSONEncoder().encode(params)).flatMap { data in
+      try? JSONDecoder().decode(type, from: data)
+    }
   }
 
   private func write(_ value: JSONValue) async -> Result<Void, CodexFailure> {
-    return await Result { try JSONEncoder().encode(value) + [0x0A] }
+    await Result { try JSONEncoder().encode(value) + [0x0A] }
       .mapError { _ in CodexFailure.invalidResponse(field: "request") }
-      .bind { data in await process.send(data).mapError(CodexFailure.process) }
+      .bind { line in
+        await Result { _ = try await execution.standardInputWriter.write(line.bytes) }
+          .mapError { error in CodexFailure(process: ProcessRun.failure(error)) }
+      }
   }
 
   private func receive(_ data: Data) async {
     guard let message: JSONValue = try? JSONDecoder().decode(JSONValue.self, from: data) else {
-      finish(.invalidResponse(field: "protocol message"))
       return
     }
     if let id: JSONValue = message["id"], message["method"] != nil {
@@ -152,26 +265,40 @@ actor CodexConnection {
       if case .failure(let error) = refusal { finish(error) }
       return
     }
-    if let id: String = message["id"]?.stringValue, let pending: PendingReply = replies[id] {
+    if let id: String = message["id"]?.stringValue {
       let reply: Result<JSONValue, CodexFailure> = Self.reply(message)
-      switch pending {
-      case .unclaimed: replies[id] = .arrived(reply)
-      case .arrived: break
-      case .awaited(let continuation):
-        replies.removeValue(forKey: id)
-        continuation.resume(returning: reply)
-      }
+      let awaited: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>? =
+        registry.withLock { state in
+          switch state.replies[id] {
+          case .unclaimed:
+            state.replies[id] = .arrived(reply)
+            return nil
+          case .awaited(let continuation):
+            state.replies.removeValue(forKey: id)
+            return continuation
+          case .arrived, .none: return nil
+          }
+        }
+      awaited?.resume(returning: reply)
       return
     }
     guard let method: String = message["method"]?.stringValue,
-      let params: JSONValue = message["params"],
-      Self.awaitedNotifications.contains(method)
+      let params: JSONValue = message["params"]
     else { return }
-    if let index: Int = waiters[method]?.firstIndex(where: { waiter in waiter.matches(params) }),
-      let waiter: NotificationWaiter = waiters[method]?.remove(at: index)
+    if method == "account/rateLimits/updated",
+      let updated: CodexProtocol.RateLimitsUpdated = Self.decode(
+        CodexProtocol.RateLimitsUpdated.self, params)
     {
+      updatesContinuation.yield(updated)
+      return
+    }
+    let waiter: NotificationWaiter? = registry.withLock { state in
+      state.waiters[method]?.firstIndex(where: { waiter in waiter.matches(params) })
+        .flatMap { index in state.waiters[method]?.remove(at: index) }
+    }
+    if let waiter {
       waiter.continuation.resume(returning: .success(params))
-    } else {
+    } else if Self.retainedNotifications.contains(method) {
       notifications[method, default: []].append(params)
     }
   }
@@ -190,21 +317,5 @@ actor CodexConnection {
     }
     return message["result"].map { result in .success(result) }
       ?? .failure(.invalidResponse(field: "request result"))
-  }
-
-  private func finish(_ failure: CodexFailure) {
-    guard terminalFailure == nil else { return }
-    terminalFailure = failure
-    let pendingReplies: [PendingReply] = Array(replies.values)
-    replies.removeAll()
-    for case .awaited(let continuation) in pendingReplies {
-      continuation.resume(returning: .failure(failure))
-    }
-    let pendingWaiters: [NotificationWaiter] = Array(waiters.values.joined())
-    waiters.removeAll()
-    notifications.removeAll()
-    for waiter: NotificationWaiter in pendingWaiters {
-      waiter.continuation.resume(returning: .failure(failure))
-    }
   }
 }

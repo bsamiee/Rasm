@@ -15,6 +15,11 @@ rule:
     kind: identifier
     pattern: $BOUND
     all:
+        - not:
+            any:
+                - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
+                - inside: {kind: attribute, field: attribute}
+                - inside: {kind: keyword_argument, field: name}
         - not: {matches: {python-conflicting-import: {module: {matches: module}, name: {matches: name}}}}
         - any:
             - inside:

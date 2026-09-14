@@ -36,6 +36,18 @@ utils:
                             all:
                                 - has: {kind: identifier, pattern: $X}
                                 - has: {field: type, kind: type, pattern: $C}
+    replace-import:
+        any:
+            - kind: import_from_statement
+              all:
+                - has: {field: module_name, regex: '^copy$'}
+                - any:
+                    - has: {kind: dotted_name, regex: '^replace$', pattern: $REPLACE}
+                    - has: {kind: aliased_import, all: [{has: {field: name, regex: '^replace$'}}, {has: {field: alias, pattern: $REPLACE}}]}
+            - kind: import_statement
+              any:
+                - has: {kind: dotted_name, regex: '^copy$', pattern: $COPY}
+                - has: {kind: aliased_import, all: [{has: {field: name, regex: '^copy$'}}, {has: {field: alias, pattern: $COPY}}]}
 rule:
     kind: call
     all:
@@ -49,5 +61,25 @@ rule:
                         - kind: keyword_argument
                           has: {field: value, matches: field-read}
                 - has: {pattern: $_, not: {pattern: $X.$_}}
+        - any:
+            - pattern: $FIXABLE
+              all:
+                - inside: {kind: module, stopBy: end, has: {matches: replace-import}}
+                - has: {field: arguments, pattern: $ARGS, not: {has: {pattern: $_, not: {any: [{pattern: $X.$_}, {kind: keyword_argument}, {kind: comment}]}}}}
+                - has: {field: arguments, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $RECORD}]}}
+            - pattern: $UNFIXED
+rewriters:
+    - id: changed-keyword
+      rule:
+        kind: keyword_argument
+        pattern: $KEYWORD
+        not: {all: [{has: {field: name, pattern: $K}}, {has: {field: value, pattern: $X.$K}}]}
+      fix: $KEYWORD
+transform:
+    KEPT: rewrite($ARGS, rewriters=[changed-keyword], joinBy=', ')
+    MODULE_CALLEE: {replace: {source: $COPY, replace: '^(.+)$', by: '$1.replace'}}
+    PREFIX: {replace: {source: $RECORD, replace: '^(.+)$', by: '($1, '}}
+    TAIL: {replace: {source: $RECORD, replace: '^.+$', by: ')'}}
+fix: $REPLACE$MODULE_CALLEE$PREFIX$KEPT$TAIL$UNFIXED
 message: '`$C(...)` rebuilds `$X` by spelling its fields'
 note: 'Use `replace(<record>, <field>=<value>)` from `copy`, the record supplies every other field'

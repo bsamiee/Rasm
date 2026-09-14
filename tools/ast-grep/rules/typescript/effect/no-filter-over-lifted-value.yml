@@ -18,7 +18,7 @@ rule:
                 stopBy: end
                 kind: identifier
                 pattern: $MODULE
-                matches: {effect-module-reference: {module: {regex: "^(effect/)?Effect$"}}}
+                matches: {syntax-import-reference: {source: {regex: "^effect(/Effect)?$"}, exported: {regex: "^Effect$"}}}
         - all:
             - any:
                 - pattern: "$MODULE.filterOrLeft($MODULE.right($_), $_, $_)"
@@ -30,7 +30,7 @@ rule:
                 stopBy: end
                 kind: identifier
                 pattern: $MODULE
-                matches: {effect-module-reference: {module: {regex: "^(effect/)?Either$"}}}
+                matches: {syntax-import-reference: {source: {regex: "^effect(/Either)?$"}, exported: {regex: "^Either$"}}}
         - all:
             - any:
                 - pattern: "$MODULE.filter($MODULE.some($_), $_)"
@@ -42,9 +42,9 @@ rule:
                 stopBy: end
                 kind: identifier
                 pattern: $MODULE
-                matches: {effect-module-reference: {module: {regex: "^(effect/)?Option$"}}}
+                matches: {syntax-import-reference: {source: {regex: "^effect(/Option)?$"}, exported: {regex: "^Option$"}}}
 constraints:
-    PIPE: {matches: {effect-module-reference: {module: {regex: "^pipe$"}}}}
+    PIPE: {matches: {syntax-import-reference: {source: {regex: "^effect(/Function)?$"}, exported: {regex: "^pipe$"}}}}
 rewriters:
     - id: direct
       rule: {pattern: "$M.$FILTER($M.$LIFT($VALUE), $$$ARGS)"}
@@ -67,7 +67,7 @@ rewriters:
       fix: $M.liftPredicate($VALUE, $$$ARGS).pipe($$$REST)
 transform:
     LIFT: rewrite($CALL, rewriters=[direct, pipe, pipe-function-steps, pipe-method-steps])
-labels: {CALL: {style: primary}}
 fix: $LIFT
 message: '`$MODULE` lifts a value and filters it in one expression'
 note: '`<module>.liftPredicate(value, predicate, orFailWith)` lifts by the predicate, `Option.liftPredicate` takes no `orFailWith`'
+labels: {CALL: {style: primary}}

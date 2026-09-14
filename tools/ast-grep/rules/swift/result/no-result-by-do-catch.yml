@@ -2,32 +2,127 @@
 id: no-result-by-do-catch
 language: swift
 severity: error
+utils:
+    result-success-body:
+        kind: statements
+        pattern: $BODY
+        all:
+            - has: {nthChild: {position: 1, reverse: true}, pattern: {context: 'func f() { return .success($_) }', selector: control_transfer_statement}}
+            - not:
+                has:
+                    stopBy: {kind: 'lambda_literal, function_declaration'}
+                    kind: control_transfer_statement
+                    not: {all: [{nthChild: {position: 1, reverse: true}}, {inside: {kind: statements, pattern: $BODY}}]}
+    one-failure-catch:
+        all:
+            - has: {kind: catch_block, matches: result-failure-catch}
+            - not: {has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}}
+    classifying-catch:
+        kind: catch_block
+        has:
+            kind: statements
+            all:
+                - has: {nthChild: 1, matches: result-failure-statement}
+                - not: {has: {nthChild: 2}}
+    success-last:
+        kind: do_statement
+        matches: one-failure-catch
+        has: {kind: statements, matches: result-success-body}
+    error-use: {kind: simple_identifier, regex: '^error$'}
+    caught-name:
+        kind: catch_block
+        any:
+            - has: {kind: pattern, has: {field: bound_identifier, pattern: $CAUGHT}}
+            - all:
+                - not: {has: {kind: pattern}}
+                - has: {kind: statements, has: {stopBy: end, matches: error-use, pattern: $CAUGHT}}
+            - all:
+                - not: {any: [{has: {kind: pattern}}, {has: {kind: statements, has: {stopBy: end, matches: error-use}}}]}
+                - has: {kind: catch_keyword, pattern: $$KEYWORD}
+    to-result:
+        matches: success-last
+        all:
+            - has: {kind: statements, pattern: $BODY}
+            - has:
+                kind: catch_block
+                matches: caught-name
+                has: {kind: statements, has: {pattern: {context: 'func f() { return .failure($FAILURE) }', selector: control_transfer_statement}}}
+            - not: {has: {kind: comment, precedes: {kind: comment}}}
+            - any:
+                - has: {kind: comment, pattern: $LEAD, precedes: {kind: statements}}
+                - not: {has: {kind: comment, precedes: {kind: statements}}}
+            - any:
+                - has: {kind: statements, has: {kind: await_expression, stopBy: {kind: 'lambda_literal, function_declaration'}, pattern: $AWAITED}}
+                - pattern: $SYNC
+    point-free-failure:
+        kind: call_expression
+        all:
+            - has: {nthChild: 1, pattern: $CALLEE, regex: '^([A-Z]\w*(\.\w+)*|[a-z_]\w*)$'}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    all:
+                        - has:
+                            kind: value_argument
+                            all:
+                                - has: {field: value, kind: simple_identifier, pattern: $CAUGHT}
+                                - any:
+                                    - has: {kind: value_argument_label, pattern: $LABEL}
+                                    - not: {has: {kind: value_argument_label}}
+                        - not: {has: {nthChild: 2}}
+    to-point-free:
+        matches: to-result
+        has:
+            kind: catch_block
+            has:
+                kind: statements
+                has:
+                    kind: control_transfer_statement
+                    has:
+                        field: result
+                        kind: call_expression
+                        has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: point-free-failure}}}}
 rule:
     kind: do_statement
-    all:
-        - has: {kind: statements, nthChild: 1, pattern: $BODY, matches: result-success-body}
-        - has:
-            kind: catch_block
-            matches: result-failure-catch
-            all:
-                - has: {kind: statements, has: {pattern: {context: 'func f() { return .failure($FAILURE) }', selector: control_transfer_statement}}}
-                - any:
-                    - has: {kind: pattern, has: {field: bound_identifier, pattern: $CAUGHT}}
-                    - not: {has: {kind: pattern}}
-                      has: {kind: catch_keyword, pattern: $$KEYWORD}
-        - not: {has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}}
-        - any:
-            - has: {kind: statements, nthChild: 1, has: {kind: await_expression, stopBy: {kind: 'lambda_literal, function_declaration'}, pattern: $AWAITED}}
-            - pattern: $SYNC
+    pattern: $DO
+    any:
+        - matches: success-last
+        - matches: one-failure-catch
+          not: {has: {kind: statements, matches: result-success-body}}
+        - all:
+            - has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}
+            - not: {has: {kind: catch_block, not: {matches: classifying-catch}}}
+rewriters:
+    - id: result-point-free
+      rule: {matches: to-point-free}
+      transform:
+        OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
+        OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
+        RETURNING: {replace: {source: $BODY, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        INNER: {replace: {source: $RETURNING, replace: '\s*return \(\)$', by: ''}}
+        LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
+        INIT: {replace: {source: $CALLEE, replace: '^((?:\w+\.)*[A-Z]\w*)$', by: '$1.init'}}
+        LABELED: {replace: {source: $LABEL, replace: '^(.+)$', by: '($1:)'}}
+      fix: |-
+        return $OPEN_ASYNC$OPEN_SYNC {
+          $LEAD_LINE$INNER
+        }.mapError($INIT$LABELED)
+    - id: result-init
+      rule: {matches: to-result}
+      transform:
+        OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
+        OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
+        RETURNING: {replace: {source: $BODY, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
+        INNER: {replace: {source: $RETURNING, replace: '\s*return \(\)$', by: ''}}
+        UNUSED: {replace: {source: $KEYWORD, replace: '(?s)^.*$', by: '_'}}
+        LEAD_LINE: {replace: {source: $LEAD, replace: '$', by: "\n"}}
+      fix: |-
+        return $OPEN_ASYNC$OPEN_SYNC {
+          $LEAD_LINE$INNER
+        }.mapError { $CAUGHT$UNUSED in $FAILURE }
 transform:
-    OPEN_ASYNC: {replace: {source: $AWAITED, replace: '^[\s\S]*$', by: 'await Result'}}
-    OPEN_SYNC: {replace: {source: $SYNC, replace: '^[\s\S]*$', by: 'Result'}}
-    RETURNING: {replace: {source: $BODY, replace: '^([\s\S]*)\breturn \.success\(([\s\S]*)\)\s*$', by: '${1}return ${2}'}}
-    INNER: {replace: {source: $RETURNING, replace: '\s*return \(\)$', by: ''}}
-    DEFAULT: {replace: {source: $KEYWORD, replace: '(?s)^.*$', by: 'error'}}
-fix: |-
-    return $OPEN_ASYNC$OPEN_SYNC {
-      $INNER
-    }.mapError { $CAUGHT$DEFAULT in $FAILURE }
-message: '`do` builds a Result by hand, `.success` last and `.failure` in `catch`'
-note: '`Result { <throwing statements> }.mapError { error in <failure> }` returns the same cases, `await Result` over a body that awaits'
+    FIXED: {rewrite: {source: $DO, rewriters: [result-point-free, result-init]}}
+fix: $FIXED
+message: '`do` builds a Result by statements, `.failure` returned from `catch`'
+note: '`Result { <throwing statements> }.mapError(<classifier>)` returns the same cases, `await Result` over a body that awaits, the classifier is the point-free reference where the catch applies one callee to the caught error (`Type.init(label:)` for an initializer) and a closure otherwise, `{ _ in <failure> }` where the failure reads no error, `.flatMap { value in <continuation> }` where the body continues past the `catch`, one classifying function inside `mapError` where every `catch` classifies'

@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { type Decision, deny, pass } from '../composition/decision.ts';
-import { type Command, pastAssignments, strip } from '../text/command.ts';
+import { type Command, LAUNCHERS, pastAssignments, strip } from '../text/command.ts';
 import { basename } from '../text/path.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -9,13 +9,12 @@ import { basename } from '../text/path.ts';
 const _ALTERNATIVE = 'read the exit code of a foreground command or the completion notification of a background command or agent';
 const _WAIT = `waits, ${_ALTERNATIVE}`;
 const _POLL = `polls until its exit status changes, ${_ALTERNATIVE}`;
-const _LAUNCHERS: readonly string[] = ['mise', 'doppler', 'op'];
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const _launched = (words: readonly string[]): readonly string[] => {
     const [head] = strip(words);
-    return head !== undefined && _LAUNCHERS.includes(basename(head)) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
+    return head !== undefined && LAUNCHERS.includes(basename(head)) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
 };
 
 const _heads = (words: readonly string[]): readonly string[] =>

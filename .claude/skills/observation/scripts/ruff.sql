@@ -1,4 +1,4 @@
--- Confirms ruff diagnostics as sites, :worktree the checked tree, :out the JSON `ruff check --output-format json` wrote, run from :worktree
+-- Confirms ruff diagnostics as sites, :worktree the checked tree, :out the JSON `ruff check --output-format json` printed, run from :worktree
 .read .claude/skills/observation/scripts/site.sql
 .read .claude/skills/observation/scripts/hit.sql
 .param set :state 'confirmed'
@@ -15,6 +15,6 @@ select
     value ->> '$.severity',
     value ->> '$.message',
     'checker:ruff'
-from json_each(cast(readfile(:out) as text));
+from json_each(:out);
 .read .claude/skills/observation/scripts/span.sql
 .read .claude/skills/observation/scripts/insert.sql

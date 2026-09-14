@@ -3,17 +3,22 @@ id: require-private-normalized-property
 language: xml
 severity: error
 rule:
-    matches:
-        msbuild-property-value:
-            name: {regex: '^[A-Za-z]'}
-            text:
-                regex: "^\\s*\\$\\((\\[MSBuild\\]::(NormalizeDirectory|NormalizePath|EnsureTrailingSlash)|\\[System\\.IO\\.Path\\]::(GetFullPath|TrimEndingDirectorySeparator))\\(\\s*'?\\$\\([A-Za-z_][A-Za-z0-9_]*\\)'?\\s*\\)\\)\\s*$"
-    not:
-        inside:
-            kind: element
-            stopBy: end
+    all:
+        - matches: {msbuild-element: {name: {regex: '^[A-Za-z]'}}}
+        - inside: {kind: content, inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}}
+        - not: {inside: {matches: {msbuild-element: {name: {regex: '^ProjectExtensions$'}}}, stopBy: end}}
+        - has:
+            kind: content
             has:
-                matches: msbuild-tag
-                has: {matches: {msbuild-attribute: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}}
+                kind: CharData
+                regex: "^\\s*\\$\\((\\[MSBuild\\]::(NormalizeDirectory|NormalizePath|EnsureTrailingSlash)|\\[System\\.IO\\.Path\\]::(GetFullPath|TrimEndingDirectorySeparator))\\(\\s*'?\\$\\([A-Za-z_][A-Za-z0-9_]*\\)'?\\s*\\)\\)\\s*$"
+                not: {regex: '\(\s*''?\$\(MSBuild[A-Za-z0-9_]*\)'}
+        - not:
+            inside:
+                kind: element
+                stopBy: end
+                has:
+                    matches: msbuild-tag
+                    has: {matches: {msbuild-attribute: {name: {regex: '^TreatAsLocalProperty$'}, value: {regex: '[^"''\s]'}}}}
 message: Public property normalizes itself, a global property of the same name skips the assignment
-note: Hold the normalized value in a `_` prefixed private property
+note: Assign the normalized value to a private property

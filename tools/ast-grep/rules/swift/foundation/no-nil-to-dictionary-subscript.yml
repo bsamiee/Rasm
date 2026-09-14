@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nil-to-dictionary-subscript
+language: swift
+severity: error
+rule:
+    pattern: '$D[$K] = $V'
+    has:
+        field: result
+        any:
+            - kind: navigation_expression
+              has: {regex: '^\?$', stopBy: {kind: 'value_arguments, lambda_literal'}}
+            - kind: call_expression
+              has: {kind: navigation_expression, nthChild: 1, has: {regex: '^\?$', stopBy: {kind: 'value_arguments, lambda_literal'}}}
+            - kind: try_expression
+              has: {kind: try_operator, regex: '^try\?$'}
+            - kind: as_expression
+              has: {kind: as_operator, regex: '^as\?$'}
+            - kind: nil_coalescing_expression
+              has: {field: if_nil, regex: '^nil$'}
+constraints:
+    K: {not: {regex: '^[0-9_]+$'}}
+message: '`$D[$K] = $V` assigns an optional, a nil value removes the key and no diagnostic says so'
+note: '`if let value = $V { $D[$K] = value }` where absence keeps the entry, `$D[$K] = $V ?? <default>` where a default is meant, `$D.removeValue(forKey: $K)` where removal is meant, no fix, the meaning is a decision'

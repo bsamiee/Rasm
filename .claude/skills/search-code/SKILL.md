@@ -13,8 +13,7 @@ Dependency declarations read from installed files, usage from Context7, DeepWiki
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
 - Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
 - Index: `search_code` reads default branches in files under 384 KB, the tree call finds a path at a tag
-- Caps: Context7 tool descriptions cap each tool at three calls per question, an ID from the repository URL skips the resolve
-- Disk: `<dir>` is one directory under the session scratchpad holding every file a line writes, removed when the reading ends
+- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from the repository URL skips the resolve
 
 Numbered lines chain, each consuming the line before, unnumbered lines are alternatives, one per case its comment names.
 
@@ -31,23 +30,19 @@ pnpm why <pkg> --depth 1
 # [PYTHON] Version with every direct puller from uv.lock, an extra or group in parentheses
 uv tree --frozen --invert --package <pkg> --depth 1
 
-# [DOTNET] Unreferenced package, <dll> is .cache/nuget/packages/<id>/<version>/lib/<tfm>/<assembly>.dll
-# Assembly and .xml of a version the packages folder lacks, id lowercase
-curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xf - -C <dir> 'lib/*'
-# Types declaring a member across the assembly as .xml doc ids, ``N follows a generic method name, no decompile
-rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib dir>/*.xml
+# [DOTNET] Types declaring a member as .xml doc ids, ``N follows a generic method name, no decompile
+# Installed version, <lib> is .cache/nuget/packages/<id>/<version>/lib/<tfm>
+rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib>/*.xml
+# Version the packages folder lacks, the nupkg streamed through tar, id lowercase
+curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.nupkg" | tar -xOf - 'lib/*.xml' | rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*'
 
-# [DOTNET] Decompiled source
-# 1. Whole assembly as source, silent, one .cs per type name under its namespace directory, doc comments, arities, and nested types in it
-dotnet dnx ilspycmd -y -- -p -o <dir> --nested-directories <dll>
-# 2. File of a type by name, its directory is the namespace
-fd -e cs '<Type>' <dir>
-# 3. Type lines and public members of one file, a type line separates arities
-rg -n '^\s*public ' <dir>/<Namespace path>/<Type>.cs
-# 4. Doc comment, attributes, and signature per overload with line, Read at that line for the body
-rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*' <dir>/<Namespace path>/<Type>.cs
-# 5. Directory removed when reading ends, an extracted nupkg with it
-rm -rf <dir>
+# [DOTNET] Decompiled source on stdout with doc comments and nested types, <dll> is <lib>/<assembly>.dll of an installed version
+# 1. Full name of a type with its `N arity, entity types c, i, s, d, e as one word
+dotnet dnx ilspycmd -y -- -l cisde <dll> | rg '<Type>'
+# 2. Type line and public members of the type step 1 named
+dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -n '^\s*public '
+# 3. Doc comment, attributes, and signature per overload with line, `-A<n>` on the same rg reads the body
+dotnet dnx ilspycmd -y -- -t '<Namespace.Type`N>' <dll> | rg -nU '(^[ \t]*///.*\n)*([ \t]*\[.*\]\n)*[ \t]*public .*\b<Member>(<[^>]*>)?\(.*'
 
 # [TYPESCRIPT] Package under node_modules/<pkg>, package.json types names the entry file
 # 1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
@@ -132,8 +127,11 @@ git ls-remote --tags https://github.com/<owner>/<repo> | rg 'refs/tags/\S*<versi
 # 3. Cited lines of a file at the tag, any size
 gh api "repos/<owner>/<repo>/contents/<path>?ref=<tag>" -H "Accept: application/vnd.github.raw+json" | rg -n -A3 '\b<term>\b'
 
-# [GITHUB] Wiki pages and their lines, a repository without a wiki answers Repository not found
-git clone -q --depth 1 https://github.com/<owner>/<repo>.wiki.git <dir> && rg -n -A8 '\b<term>\b' <dir>; rm -rf <dir>
+# [GITHUB] Wiki pages served raw, a repository without a wiki prints no page name and answers 404 to a page
+# 1. Page names from the wiki's page list, Home stays unlisted
+curl -sL https://github.com/<owner>/<repo>/wiki/_pages | rg -o 'href="/<owner>/<repo>/wiki/[^"#/_][^"#/]*"' | sort -u
+# 2. Cited lines of one page
+curl -sL https://raw.githubusercontent.com/wiki/<owner>/<repo>/<Page>.md | rg -n -A8 '\b<term>\b'
 ```
 
 ```text

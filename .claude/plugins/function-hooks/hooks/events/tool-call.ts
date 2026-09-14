@@ -7,6 +7,7 @@ import { gitPaths, gitPolicy, type WorktreeEvent, worktreePolicy } from '../poli
 import { type PathEvent, pathPolicy } from '../policies/paths.ts';
 import { scriptPolicy } from '../policies/script.ts';
 import { waitPolicy } from '../policies/shell.ts';
+import { type Place, walkPolicy } from '../policies/walk.ts';
 import { type Command, parse, type Scanner } from '../text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -15,9 +16,12 @@ type Commanded = Extract<ToolCallInput, { readonly tool: 'Bash' | 'Monitor' }> &
 
 type Exists = (path: string) => Promise<boolean>;
 
+type Locate = () => Promise<Place>;
+
 interface Facts {
     readonly parsed: Result<readonly Command[]>;
     readonly existing: readonly string[];
+    readonly place: Place;
 }
 
 // --- [REFINEMENTS] ---------------------------------------------------------------------
@@ -38,26 +42,29 @@ const _step = (exists: Exists, facts: Facts, path: string): Promise<Facts> =>
 const _walk = (exists: Exists, facts: Facts, path: string, rest: readonly string[]): Promise<Facts> =>
     rest.reduce((chain, next) => chain.then((known) => _step(exists, known, next)), _step(exists, facts, path));
 
-const _facts = (exists: Exists, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> =>
+const _gathered = (exists: Exists, place: Place, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> =>
     parsed.then((known) => {
-        const facts: Facts = { parsed: known, existing: [] };
+        const facts: Facts = { parsed: known, existing: [], place };
         const [head, ...tail] = _paths(known);
         return head === undefined ? facts : _walk(exists, facts, head, tail);
     });
 
-const _policies = (e: Commanded, commands: readonly Command[], existing: readonly string[]): readonly Policy<Commanded>[] => [
-    gitPolicy(commands, existing),
-    ...(e.tool === 'Bash' ? [waitPolicy(commands), scriptPolicy(commands)] : []),
+const _facts = (exists: Exists, locate: Locate, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> =>
+    locate().then((place) => _gathered(exists, place, parsed));
+
+const _policies = (e: Commanded, commands: readonly Command[], facts: Facts): readonly Policy<Commanded>[] => [
+    gitPolicy(commands, facts.existing),
+    ...(e.tool === 'Bash' ? [waitPolicy(commands), scriptPolicy(commands), walkPolicy(commands, facts.place)] : []),
 ];
 
 const _decide = (e: Commanded, facts: Facts): Decision<Commanded> =>
-    facts.parsed.kind === 'fault' ? deny(`command not parsed, ${facts.parsed.reason}`) : fold(_policies(e, facts.parsed.value, facts.existing))(e);
+    facts.parsed.kind === 'fault' ? deny(`command not parsed, ${facts.parsed.reason}`) : fold(_policies(e, facts.parsed.value, facts))(e);
 
 // --- [DECISION] ------------------------------------------------------------------------
 
-const decide = async (e: ToolCallInput, scan: Scanner, exists: Exists): Promise<Decision<ToolCallInput>> =>
+const decide = async (e: ToolCallInput, scan: Scanner, exists: Exists, locate: Locate): Promise<Decision<ToolCallInput>> =>
     _hasCommand(e)
-        ? _facts(exists, parse(scan, e.command)).then((facts) => _decide(e, facts))
+        ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts))
         : fold([when(_isPath, pathPolicy), when(_isWorktree, worktreePolicy)])(e);
 
 // --- [EXPORTS] -------------------------------------------------------------------------

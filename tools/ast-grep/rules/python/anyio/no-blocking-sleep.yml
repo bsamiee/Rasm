@@ -4,6 +4,6 @@ language: python
 severity: error
 rule:
     pattern: $USE
-    matches: {python-module-member: {module: {regex: '^time$'}, name: {regex: '^sleep$'}}}
+    matches: {python-member-use: {module: {regex: '^time$'}, name: {regex: '^sleep$'}}}
 message: '`$USE` blocks the thread'
 note: 'Use `await anyio.sleep(<delay>)`'

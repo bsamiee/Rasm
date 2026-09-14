@@ -3,17 +3,22 @@
 prereleases = true
 minimum_release_age = "0s"
 idiomatic_version_file_enable_tools = ["dotnet"]
-python.uv_venv_auto = "source"
+python.uv_venv_auto = "create|source"
 
 # --- [ENV] ------------------------------------------------------------------------------
 [env]
 _.path = "./node_modules/.bin"
 DOTNET_NOLOGO = "1"
 DOTNET_CLI_TELEMETRY_OPTOUT = "1"
+DOTNET_CLI_HOME = "{{config_root}}/.cache/dotnet"
+NUGET_HTTP_CACHE_PATH = "{{config_root}}/.cache/nuget/http-cache"
+TREE_SITTER_LIBDIR = "{{config_root}}/.cache/tree-sitter/lib"
 UV_PYTHON = { value = "{{ tools.python.path }}", tools = true }
 PYTHONPYCACHEPREFIX = "{{config_root}}/.cache/pycache"
 HYPOTHESIS_STORAGE_DIRECTORY = "{{config_root}}/.cache/hypothesis"
 NX_WORKSPACE_DATA_DIRECTORY = "{{config_root}}/.cache/nx/workspace-data"
+BIOME_LOG_PATH = "{{config_root}}/.cache/biome/logs"
+npm_package_config_node_gyp_devdir = "{{config_root}}/.cache/node-gyp"
 PLAYWRIGHT_BROWSERS_PATH = "{{config_root}}/.cache/playwright/browsers"
 PLAYWRIGHT_MCP_USER_DATA_DIR = "{{ xdg_state_home }}/playwright-mcp/rasm"
 PLAYWRIGHT_MCP_BROWSER = "chromium"
@@ -26,6 +31,8 @@ python = "3.15.0rc2"
 node = "latest"
 pnpm = "latest"
 uv = "latest"
+rust = "latest"
+cmake = "latest"
 git-lfs = "latest"
 actionlint = "latest"
 yamlfmt = "latest"

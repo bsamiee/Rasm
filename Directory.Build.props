@@ -6,7 +6,6 @@
         <ToolsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tools'))</ToolsRoot>
         <TestsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tests'))</TestsRoot>
         <AppsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'apps'))</AppsRoot>
-        <CatalogRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'eng', 'dotnet'))</CatalogRoot>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
@@ -14,12 +13,6 @@
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(ToolsRoot)'))">tools</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
-        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(CatalogRoot)'))">catalog</ProjectRole>
-    </PropertyGroup>
-
-    <PropertyGroup Label="Package Catalog" Condition="'$(ProjectRole)' == 'catalog'">
-        <RestoreEnablePackagePruning>false</RestoreEnablePackagePruning>
-        <IsTestingPlatformApplication>false</IsTestingPlatformApplication>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">

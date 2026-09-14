@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-task-in-cancellation-handler
+language: swift
+severity: error
+utils:
+    unstructured-task:
+        any:
+            - pattern: Task { $$$C }
+            - pattern: Task($$$A) { $$$C }
+rule:
+    any:
+        - kind: call_expression
+          all:
+            - has: {kind: simple_identifier, regex: '^withTaskCancellationHandler$'}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: lambda_literal
+                    stopBy: end
+                    all:
+                        - follows: {regex: '^onCancel$', stopBy: end}
+                        - has: {matches: unstructured-task, stopBy: end, pattern: $TASK}
+        - kind: assignment
+          all:
+            - has: {field: target, regex: '\.onTermination$'}
+            - has: {field: result, kind: lambda_literal, has: {matches: unstructured-task, stopBy: end, pattern: $TASK}}
+message: '`$TASK` launched from a synchronous cancellation handler holds no happens-before relation to the awaiting frame and orphans its work'
+note: 'Cancel synchronously inside the handler, resume or finish the continuation, or await the cleanup as a child task of the enclosing group, no template derives the form'

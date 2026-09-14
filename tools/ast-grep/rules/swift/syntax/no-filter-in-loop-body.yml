@@ -21,6 +21,11 @@ utils:
         all:
             - not: {pattern: $ELEMENT}
             - has: {kind: simple_identifier, pattern: $ELEMENT, stopBy: end}
+    element-test:
+        all:
+            - not: {kind: 'try_expression, await_expression'}
+            - not: {has: {kind: 'try_expression, await_expression', stopBy: end}}
+            - has: {kind: simple_identifier, pattern: $Z, stopBy: end}
 rule:
     any:
         - matches: plain-loop
@@ -35,7 +40,7 @@ rule:
                     regex: '^if\s+case\b'
                     all:
                         - has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}}
-                        - has: {kind: statements, pattern: $BODY}
+                        - has: {kind: statements, pattern: $BODY, not: {has: {stopBy: end, kind: simple_identifier, pattern: $X}}}
         - matches: plain-loop
           all:
             - has: {field: item, matches: single-item, pattern: $ELEMENT}
@@ -63,7 +68,7 @@ rule:
                     all:
                         - not: {has: {field: condition, kind: 'value_binding_pattern, availability_condition'}}
                         - not: {has: {regex: '^case$'}}
-                        - has: {field: condition, pattern: $COND}
+                        - has: {field: condition, pattern: $COND, matches: element-test}
                         - has: {kind: statements, pattern: $BODY}
         - matches: plain-loop
           pattern:
@@ -73,7 +78,9 @@ rule:
                   $$$REST
                 }
             selector: for_statement
-          has: {field: item, matches: single-item}
+          all:
+            - has: {field: item, matches: single-item}
+            - has: {kind: statements, has: {kind: guard_statement, nthChild: 1, has: {field: condition, matches: element-test}}}
         - matches: plain-loop
           pattern:
             context: |-
@@ -119,4 +126,4 @@ fix: |-
       $STATEMENTS$$$REST
     }
 message: '`for` opens its body with a test over the element, the loop visits every element and the body selects'
-note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values, `for <element> in <sequence> where <condition>` the elements passing a test'
+note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values, `for <element> in <sequence> where <condition>` the elements passing a test, a test reading no element is loop-invariant and a `try` or `await` test stays in the body, a `case` binding nothing while the body reads the element is the variant without a template'

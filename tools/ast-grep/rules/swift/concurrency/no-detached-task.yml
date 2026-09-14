@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-detached-task
+language: swift
+severity: error
+rule:
+    kind: call_expression
+    has: {kind: navigation_expression, regex: '^Task\.detached$'}
+message: '`Task.detached` launches work with no parent, cancellation, priority, and isolation do not reach it'
+note: 'Add the work as a child task of the enclosing group through `group.addTask` or `async let`, `Task { }` changes isolation and stays unstructured'

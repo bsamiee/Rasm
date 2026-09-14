@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-default
+language: swift
+severity: error
+utils:
+    optional-try:
+        kind: try_expression
+        pattern: $TRY
+        has: {kind: try_operator, regex: '^try\?$'}
+    tried:
+        any:
+            - matches: optional-try
+            - kind: tuple_expression
+              has: {field: value, matches: optional-try}
+rule:
+    any:
+        - kind: nil_coalescing_expression
+          all:
+            - has: {field: value, matches: tried}
+            - has: {field: if_nil, pattern: $DEFAULT}
+        - matches: optional-try
+          has:
+            field: expr
+            kind: call_expression
+            all:
+                - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^get$'}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument}}}}
+        - kind: 'guard_statement, if_statement, while_statement'
+          has: {matches: optional-try, follows: {regex: '^=$'}}
+        - kind: 'equality_expression, infix_expression'
+          all:
+            - has: {matches: tried}
+            - has: {field: op, regex: '^[!=]=$'}
+            - has: {regex: '^nil$'}
+message: '`$TRY` collapses the thrown error into nil, the failure reaches no consumer'
+note: 'Recover through the result, `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `switch` or `.map`/`.mapError` over the result in place of `try? <result>.get()`, `switch Result { try <call> }` in place of `guard let <value> = try? <call> else { return <absent> }`, and the failure case in place of `(try? <call>) != nil`'

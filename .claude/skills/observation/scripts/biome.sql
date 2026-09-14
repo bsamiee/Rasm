@@ -1,4 +1,4 @@
--- Confirms biome diagnostics as sites, :worktree the checked tree, :out the JSON `biome lint --reporter=json` wrote over paths relative to it, run from :worktree
+-- Confirms biome diagnostics as sites, :worktree the checked tree, :out the JSON `biome lint --reporter=json` printed over paths relative to it, run from :worktree
 .read .claude/skills/observation/scripts/site.sql
 .read .claude/skills/observation/scripts/hit.sql
 .param set :state 'confirmed'
@@ -15,6 +15,6 @@ select
     value ->> '$.severity',
     value ->> '$.message',
     'checker:biome'
-from json_each(cast(readfile(:out) as text), '$.diagnostics');
+from json_each(:out, '$.diagnostics');
 .read .claude/skills/observation/scripts/span.sql
 .read .claude/skills/observation/scripts/insert.sql

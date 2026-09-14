@@ -1,6 +1,6 @@
 [mcp_servers.roslyn-codelens]
-command = "dotnet"
-args = ["dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
+command = "mise"
+args = ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]
 required = true
 startup_timeout_sec = 120
 tool_timeout_sec = 300

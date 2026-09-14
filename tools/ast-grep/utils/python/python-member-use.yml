@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-member-use
+language: python
+arguments: [module, name]
+rule:
+    any:
+        - matches: {python-module-member: {module: {matches: module}, name: {matches: name}}}
+        - matches: {python-imported-name: {module: {matches: module}, name: {matches: name}}}

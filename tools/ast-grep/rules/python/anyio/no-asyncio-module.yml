@@ -6,4 +6,4 @@ rule:
     pattern: $USE
     matches: {python-module-use: {module: {regex: '^asyncio(\.[\w.]+)?$'}}}
 message: '`$USE` calls asyncio directly'
-note: 'Use the anyio member'
+note: 'Use `anyio.run(<main>)`, `anyio.create_task_group()`, `anyio.sleep(<delay>)`, `anyio.Event`, `anyio.Lock`, and `anyio.Semaphore`'

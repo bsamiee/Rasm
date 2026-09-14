@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-legacy-file-url-init
+language: swift
+severity: error
+rule:
+    any:
+        - pattern: 'URL(fileURLWithPath: $P, $$$REST)'
+        - pattern: 'URL(fileURLWithPath: $P)'
+    not:
+        has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                has:
+                    kind: value_argument
+                    all:
+                        - has: {field: name, regex: '^isDirectory$'}
+                        - has: {field: value, not: {any: [{kind: boolean_literal}, {kind: simple_identifier}, {kind: navigation_expression}, {kind: prefix_expression}]}}
+transform:
+    DIRECTORY: {replace: {source: $$$REST, replace: 'isDirectory: true', by: 'directoryHint: .isDirectory'}}
+    FILE: {replace: {source: $DIRECTORY, replace: 'isDirectory: false', by: 'directoryHint: .notDirectory'}}
+    HINT: {replace: {source: $FILE, replace: 'isDirectory: ([^,]+)', by: 'directoryHint: $1 ? .isDirectory : .notDirectory'}}
+    TAIL: {replace: {source: $HINT, replace: '^(.+)$', by: ', $1'}}
+fix: 'URL(filePath: $P$TAIL)'
+message: '`URL(fileURLWithPath:)` is the legacy file URL initializer, `URL(filePath:directoryHint:relativeTo:)` is the current one'
+note: '`URL(filePath: $P)`, `isDirectory: true` becomes `directoryHint: .isDirectory`, `false` becomes `.notDirectory`, a Bool name becomes the ternary over both, `relativeTo:` stays, an `isDirectory:` call or other expression is the variant the rule leaves unreported'

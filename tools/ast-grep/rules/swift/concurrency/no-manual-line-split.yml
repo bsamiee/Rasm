@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-manual-line-split
+language: swift
+severity: error
+utils:
+    newline:
+        any:
+            - kind: hex_literal
+              regex: '^0x0[aA]$'
+            - kind: integer_literal
+              regex: '^10$'
+            - pattern: 'UInt8(ascii: "\n")'
+            - kind: line_string_literal
+              regex: '^"\\n"$'
+rule:
+    kind: for_statement
+    all:
+        - has: {field: collection, regex: '\.bytes$', pattern: $BYTES}
+        - has: {field: item, has: {field: bound_identifier, pattern: $B}}
+        - has:
+            kind: statements
+            has:
+                stopBy: end
+                any:
+                    - kind: equality_expression
+                      all:
+                        - has: {pattern: $B}
+                        - has: {matches: newline}
+                    - kind: switch_statement
+                      all:
+                        - has: {pattern: $B}
+                        - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
+message: '`for` over `$BYTES` splits lines by comparing `$B` to a newline by hand'
+note: 'Iterate `$BYTES.lines`, `FileHandle.AsyncBytes` and swift-subprocess `AsyncBufferSequence` supply `.lines`, the loop body collapses so no template derives it'

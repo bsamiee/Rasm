@@ -1,5 +1,5 @@
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.Build.NoTargets">
     <ItemGroup>
-        <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" />
+        <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" ExcludeAssets="build;buildMultitargeting;buildTransitive" />
     </ItemGroup>
 </Project>

@@ -3,6 +3,35 @@ id: no-promise-outside-boundary
 language: tsx
 severity: error
 ignores: ['**/*.config.ts', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+utils:
+    host-import:
+        kind: call_expression
+        has: {field: function, kind: import}
+    run-promise:
+        kind: call_expression
+        has:
+            field: function
+            any:
+                - kind: member_expression
+                  all:
+                    - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro))?$'}, exported: {regex: '^(Effect|Micro)$'}}}}
+                - kind: call_expression
+                  has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
+                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Runtime)?$'}, exported: {regex: '^Runtime$'}}}}
+    main-entry:
+        any:
+            - not: {inside: {matches: syntax-function-boundary, stopBy: end}}
+            - inside:
+                matches: syntax-function-boundary
+                stopBy: {matches: syntax-function-boundary}
+                any:
+                    - has: {field: name, regex: '^main$'}
+                    - inside: {kind: variable_declarator, has: {field: name, regex: '^main$'}}
 rule:
     all:
         - any:
@@ -10,5 +39,7 @@ rule:
             - kind: for_in_statement
               has: {regex: '^await$'}
         - not: {inside: {stopBy: {matches: syntax-function-boundary}, matches: effect-promise-boundary}}
+        - not: {kind: await_expression, has: {matches: host-import}}
+        - not: {kind: await_expression, matches: main-entry, has: {matches: run-promise}}
 message: '`await` or `for await` consumes a promise outside a promise conversion callback'
-note: '`Effect.tryPromise` converts the promise, `Stream.fromAsyncIterable` the async iterable'
+note: '`Effect.tryPromise` converts the promise, `Stream.fromAsyncIterable` the async iterable, `await Effect.runPromise(program)` at `main` translates the result for the host'

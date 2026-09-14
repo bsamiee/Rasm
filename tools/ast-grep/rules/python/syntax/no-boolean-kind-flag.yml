@@ -6,12 +6,18 @@ utils:
     bool-literal:
         kind: case_pattern
         has: {kind: 'true, false'}
+    bool-element:
+        kind: case_pattern
+        any:
+            - has: {kind: 'true, false'}
+            - regex: '^_$'
     bool-tuple:
         kind: case_clause
         any:
             - all:
                 - has: {kind: case_pattern, nthChild: 2}
                 - has: {matches: bool-literal}
+                - not: {has: {kind: case_pattern, not: {matches: bool-element}}}
             - has:
                 kind: case_pattern
                 has:
@@ -19,6 +25,7 @@ utils:
                     all:
                         - has: {kind: case_pattern, nthChild: 2}
                         - has: {matches: bool-literal}
+                        - not: {has: {kind: case_pattern, not: {matches: bool-element}}}
 rule:
     kind: match_statement
     has: {field: body, has: {matches: bool-tuple}}

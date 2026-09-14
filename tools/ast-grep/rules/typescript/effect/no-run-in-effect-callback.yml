@@ -3,11 +3,11 @@ id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
-    effect-module: {matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro)$'}}}}
+    effect-module: {matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro))?$'}, exported: {regex: '^(Effect|Micro)$'}}}}
     runtime-member:
         kind: member_expression
         all:
-            - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|Runtime)$'}}}}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|Runtime))?$'}, exported: {regex: '^(Effect|Micro|Runtime)$'}}}}
             - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
     run-invocation:
         kind: call_expression
@@ -22,7 +22,7 @@ utils:
                 has:
                     field: function
                     matches: runtime-member
-                    has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Runtime$'}}}}
+                    has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Runtime)?$'}, exported: {regex: '^Runtime$'}}}}
     effect-combinator:
         kind: call_expression
         any:
@@ -37,13 +37,13 @@ utils:
                             |tryMapPromise|gen|fn|fnUntraced|mapOut|mapError|mapBoth|catchAll|catchAllCause|catchTag|catchTags|catchSome|catchIf
                             |match|matchEffect|matchCause|matchCauseEffect|orElse|filterOrFail|filterOrElse|forEach|reduce|zipWith|ensuring
                             |onExit|onError|acquireRelease|acquireUseRelease|async|whenEffect|iterate|loop|retry|repeat|mapAccum|mapEffect)$
-                    - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink)$'}}}}
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink)$'}}}}
             - has:
                 field: function
                 kind: member_expression
                 all:
                     - has: {field: property, regex: "^(update|modify|updateAndGet|getAndUpdate|updateSome|modifySome|updateSomeAndGet|getAndUpdateSome|updateEffect|modifyEffect)$"}
-                    - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Ref|SynchronizedRef|SubscriptionRef)$'}}}}
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Ref|SynchronizedRef|SubscriptionRef))?$'}, exported: {regex: '^(Ref|SynchronizedRef|SubscriptionRef)$'}}}}
             - has: {field: function, kind: call_expression, matches: effect-combinator}
     callback:
         matches: syntax-function-boundary

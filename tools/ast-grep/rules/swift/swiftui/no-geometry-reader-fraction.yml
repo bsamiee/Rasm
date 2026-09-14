@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-geometry-reader-fraction
+language: swift
+severity: error
+rule:
+    pattern: 'GeometryReader { $G in $$$B }'
+    has:
+        stopBy: end
+        kind: value_argument
+        all:
+            - has: {kind: value_argument_label, regex: '^(width|height)$'}
+            - has:
+                stopBy: end
+                any:
+                    - pattern: $G.size.$AXIS * $F
+                    - pattern: $F * $G.size.$AXIS
+        inside: {pattern: $_.frame($$$), stopBy: end}
+constraints:
+    AXIS: {regex: '^(width|height)$'}
+message: '`GeometryReader` scales `$G.size.$AXIS` by `$F` inside `.frame`, a hand-written fraction of the container'
+note: 'Read `configuration.fractionCompleted` in a `ProgressViewStyle`, or `containerRelativeFrame(_:) { length, _ in length * fraction }`'

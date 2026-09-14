@@ -2,6 +2,15 @@
 id: no-unassigned-array-declaration
 language: bash
 severity: error
+utils:
+    assignment:
+        any:
+            - kind: variable_assignment
+              has: {field: name, any: [{kind: variable_name, pattern: $NAME}, {kind: subscript, has: {field: name, pattern: $NAME}}]}
+            - kind: command
+              all:
+                - has: {field: name, regex: '^(mapfile|readarray|read)$'}
+                - has: {kind: word, pattern: $NAME}
 rule:
     kind: variable_name
     pattern: $NAME
@@ -12,12 +21,14 @@ rule:
             - inside:
                 kind: function_definition, program
                 stopBy: {kind: function_definition}
-                has:
-                    stopBy: end
-                    kind: expansion
-                    all:
-                        - has: {field: operator, regex: '^#$'}
-                        - has: {kind: subscript, all: [{has: {field: name, pattern: $NAME}}, {has: {field: index, regex: '^[@*]$'}}]}
+                all:
+                    - has:
+                        stopBy: end
+                        kind: expansion
+                        all:
+                            - has: {field: operator, regex: '^#$'}
+                            - has: {kind: subscript, all: [{has: {field: name, pattern: $NAME}}, {has: {field: index, regex: '^[@*]$'}}]}
+                    - not: {has: {stopBy: {kind: function_definition}, matches: assignment}}
 fix: $NAME=()
 message: 'Declaration leaves `$NAME` unassigned, `${#$NAME[@]}` fails as unbound under `set -u`'
 note: Assign the empty array in the declaration, `<name>=()`

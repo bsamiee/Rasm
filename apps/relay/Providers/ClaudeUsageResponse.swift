@@ -4,25 +4,20 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
   struct Window: Decodable, Sendable {
     let utilization: Double?
     let resetsAt: String?
+    let status: String?
 
     enum CodingKeys: String, CodingKey {
-      case utilization
+      case utilization, status
       case resetsAt = "resets_at"
     }
 
-    func quotaWindow() -> Result<QuotaWindow?, ClaudeQuotaErrors> {
+    func quotaWindow(kind: QuotaKind) -> Result<QuotaWindow?, ClaudeQuotaErrors> {
       utilization.map { utilization in
         combine(
-          UsageAmount.make(percent: utilization).mapError { failure in ClaudeQuotaErrors(failure) },
-          resetDate()
-        ).map { amount, reset in QuotaWindow(amount: amount, resetsAt: reset) }
-      } ?? .success(nil)
-    }
-
-    private func resetDate() -> Result<Date?, ClaudeQuotaErrors> {
-      resetsAt.map { value in
-        ClaudeUsageResponse.date(value).map(Optional.some).mapError { failure in
-          ClaudeQuotaErrors(failure)
+          UsageAmount.make(percent: utilization).mapError(ClaudeQuotaErrors.init),
+          ClaudeUsageResponse.resetDate(resetsAt)
+        ).map { amount, reset in
+          QuotaWindow(kind: kind, used: amount, resetsAt: reset, rejected: status == "rejected")
         }
       } ?? .success(nil)
     }
@@ -32,62 +27,74 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
     struct Scope: Decodable, Sendable {
       struct Model: Decodable, Sendable {
         let displayName: String?
-        enum CodingKeys: String, CodingKey { case displayName = "display_name" }
+        let id: String?
+        enum CodingKeys: String, CodingKey {
+          case id
+          case displayName = "display_name"
+        }
       }
       let model: Model?
     }
 
     let kind: String
+    let group: String?
     let percent: Double?
+    let utilization: Double?
     let resetsAt: String?
+    let status: String?
     let scope: Scope?
 
     enum CodingKeys: String, CodingKey {
-      case kind, percent, scope
+      case kind, group, percent, utilization, scope, status
       case resetsAt = "resets_at"
+    }
+
+    var modelName: String? {
+      scope?.model.flatMap { model in model.displayName ?? model.id }
+    }
+
+    func quotaWindow() -> Result<QuotaWindow?, ClaudeQuotaErrors> {
+      guard kind == "weekly_scoped", let name: String = modelName else { return .success(nil) }
+      return Window(utilization: percent ?? utilization, resetsAt: resetsAt, status: status)
+        .quotaWindow(kind: .model(name))
     }
   }
 
   let fiveHour: Window?
   let sevenDay: Window?
-  let sevenDayOverageIncluded: Window?
   let limits: [Limit]?
 
   enum CodingKeys: String, CodingKey {
     case fiveHour = "five_hour"
     case sevenDay = "seven_day"
-    case sevenDayOverageIncluded = "seven_day_overage_included"
     case limits
   }
 
-  func snapshot(observedAt: Date) -> Result<UsageSnapshot, ClaudeFailure> {
+  func usage(observedAt: Date) -> Result<AccountUsage, ClaudeFailure> {
     let session: Result<QuotaWindow?, ClaudeQuotaErrors> =
-      fiveHour?.quotaWindow() ?? .success(nil)
+      fiveHour?.quotaWindow(kind: .session) ?? .success(nil)
     let weekly: Result<QuotaWindow?, ClaudeQuotaErrors> =
-      sevenDay?.quotaWindow() ?? .success(nil)
-    let scoped: Limit? = limits?.first { limit in
-      limit.kind == "weekly_scoped"
-        && limit.scope?.model?.displayName?.hasPrefix("Fable") == true
+      sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil)
+    let models: Result<[QuotaWindow?], ClaudeQuotaErrors> = traverse(limits ?? []) { limit in
+      limit.quotaWindow()
     }
-    let fable: Result<QuotaWindow?, ClaudeQuotaErrors> =
-      switch scoped {
-      case .some(let limit):
-        Window(utilization: limit.percent, resetsAt: limit.resetsAt).quotaWindow()
-      case .none: sevenDayOverageIncluded?.quotaWindow() ?? .success(nil)
-      }
-    return combine(session, weekly, fable).mapError(ClaudeFailure.invalidQuota).flatMap {
-      session, weekly, fable in
-      session == nil && weekly == nil && fable == nil
+    return combine(session, weekly, models).mapError(ClaudeFailure.invalidQuota).flatMap {
+      session, weekly, models in
+      let windows: [QuotaWindow] = [session, weekly].compactMap { $0 } + models.compactMap { $0 }
+      return windows.isEmpty
         ? .failure(.invalidResponse)
         : .success(
-          UsageSnapshot(session: session, weekly: weekly, fable: fable, observedAt: observedAt))
+          AccountUsage(windows: windows, includedUsageAllowed: nil, observedAt: observedAt))
     }
   }
 
-  private static func date(_ value: String) -> Result<Date, QuotaFailure> {
-    Result {
-      try Date.ISO8601FormatStyle(includingFractionalSeconds: value.contains(".")).parse(value)
-    }
-    .mapError { _ in .invalidResetDate }
+  static func resetDate(_ value: String?) -> Result<Date?, ClaudeQuotaErrors> {
+    value.map { value in
+      Result {
+        try Date.ISO8601FormatStyle(includingFractionalSeconds: value.contains(".")).parse(value)
+      }
+      .map(Optional.some)
+      .mapError { _ in ClaudeQuotaErrors(.invalidResetDate) }
+    } ?? .success(nil)
   }
 }

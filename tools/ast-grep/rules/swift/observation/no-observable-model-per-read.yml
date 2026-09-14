@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-observable-model-per-read
+language: swift
+severity: error
+rule:
+    kind: property_declaration
+    all:
+        - has: {kind: type_annotation, has: {kind: array_type, has: {kind: user_type, pattern: $T}}}
+        - has:
+            kind: computed_property
+            has:
+                kind: statements
+                has:
+                    nthChild: 1
+                    any:
+                        - pattern: '$S.map { $E in $T($$$A) }'
+                        - pattern: '$S.map { $T($$$A) }'
+    inside:
+        kind: class_body
+        inside:
+            kind: class_declaration
+            has: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
+message: '`$T` is built afresh per element of `$S` on every read'
+note: 'Store an array of per-item `@Observable` models, a computed projection registers the whole source array and hands SwiftUI new values to diff on every read'

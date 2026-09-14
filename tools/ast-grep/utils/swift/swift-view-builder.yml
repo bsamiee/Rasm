@@ -1,0 +1,5 @@
+id: swift-view-builder
+language: swift
+rule:
+    kind: 'property_declaration, function_declaration'
+    regex: '(?s)^[^{]*(@(View|Scene|ToolbarContent|Commands)Builder\b|\bsome\s+(View|Scene|ToolbarContent|Commands)\b|\bAnyView\b)'

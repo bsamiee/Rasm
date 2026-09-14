@@ -9,14 +9,19 @@ rule:
         - not: {has: {kind: keyword_distinct}}
         - not: {has: {kind: filter_expression}}
         - has:
-              field: parameter
-              kind: term
-              has:
-                  field: value
-                  any:
-                      - pattern: {context: 'select case when _COND then _VALUE end', selector: case}
-                      - pattern: {context: 'select iif(_COND, _VALUE, null)', selector: invocation}
-                      - pattern: {context: 'select iif(_COND, _VALUE)', selector: invocation}
-fix: $AGG($VALUE) filter (where $COND)
+            field: parameter
+            kind: term
+            has:
+                field: value
+                any:
+                    - pattern: {context: 'select case when _COND then _VALUE end', selector: case}
+                    - pattern: {context: 'select iif(_COND, _VALUE, null)', selector: invocation}
+                    - pattern: {context: 'select iif(_COND, _VALUE)', selector: invocation}
+        - any:
+            - has: {kind: term, pattern: _SEPARATOR, nthChild: 3}
+            - not: {has: {kind: term, nthChild: 3}}
+transform:
+    SEPARATOR_PARAMETER: {replace: {source: $SEPARATOR, replace: '^(.+)$', by: ', $1'}}
+fix: $AGG($VALUE$SEPARATOR_PARAMETER) filter (where $COND)
 message: '`$AGG` folds a conditional that answers null outside `$COND`'
 note: '`$AGG($VALUE) filter (where $COND)` aggregates the matching rows alone, the aggregate ignores null already'

@@ -8,12 +8,19 @@ utils:
             - kind: 'object, array'
             - kind: parenthesized_expression
               has: {matches: literal-value}
+    mutable-sequence-type:
+        any:
+            - kind: 'array_type, tuple_type'
+              not: {inside: {kind: readonly_type}}
+            - kind: generic_type
+              has: {field: name, regex: '^Array$'}
 rule:
     kind: satisfies_expression
     pattern: $VALUE satisfies $TYPE
     inside: {kind: variable_declarator, field: value, stopBy: {not: {kind: parenthesized_expression}}, inside: {matches: syntax-module-constant}}
+    not: {has: {nthChild: 2, has: {stopBy: end, matches: mutable-sequence-type}}}
 constraints:
     VALUE: {matches: literal-value}
 fix: $VALUE as const satisfies $TYPE
 message: '`satisfies` alone widens the literal types of a module constant'
-note: '`as const satisfies <type>` keeps the literal types and the check'
+note: '`as const satisfies <type>` keeps the literal types and the check, a type holding a mutable array or tuple member takes the widened literal'

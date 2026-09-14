@@ -5,17 +5,33 @@ severity: error
 utils:
     function:
         kind: function_declaration, init_declaration, deinit_declaration, subscript_declaration, lambda_literal, computed_property, computed_getter, computed_setter, computed_modify, willset_clause, didset_clause
+    scope-callee:
+        any:
+            - kind: simple_identifier
+              regex: '^(with[A-Z]\w*|Result|Task)$'
+            - kind: navigation_expression
+              has: {field: suffix, regex: '^\.(addTask|addTaskUnlessCancelled|run|withLock|withValue)$'}
+    scope-closure:
+        kind: lambda_literal
+        inside:
+            kind: call_suffix
+            not: {has: {kind: lambda_literal, nthChild: {position: 2, ofRule: {kind: lambda_literal}}}}
+            inside:
+                kind: call_expression
+                has:
+                    any:
+                        - matches: scope-callee
+                        - kind: call_expression
+                          has: {matches: scope-callee}
     nested-function:
         any:
             - kind: lambda_literal
+              not: {matches: scope-closure}
             - kind: function_declaration
               inside: {kind: 'function_body, lambda_literal', stopBy: end}
-    view-builder:
-        kind: 'property_declaration, function_declaration'
-        regex: '(?s)^[^{]*(@(View|Scene|ToolbarContent|Commands)Builder\b|\bsome\s+(View|Scene|ToolbarContent|Commands)\b|\bAnyView\b)'
     fourth-function:
         matches: nested-function
-        not: {inside: {matches: view-builder, stopBy: end}}
+        not: {inside: {matches: swift-view-builder, stopBy: end}}
         inside:
             matches: nested-function
             stopBy: end
@@ -48,6 +64,6 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Closure or control nesting reaches a fourth level
-note: Flatten the fourth level into a guard clause or a named function, a view builder's closures are its form
+note: Flatten the fourth level into a guard clause or a named function, a view builder's closures and the body closure of a scoped call are their call's form
 labels:
     SCOPE: {style: primary}

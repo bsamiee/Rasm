@@ -3,22 +3,18 @@ id: no-os-environ
 language: python
 severity: error
 utils:
-    mapping:
-        any:
-            - matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}
-            - matches: {python-imported-name: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}
+    mapping: {matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}}
 rule:
     any:
         - kind: call
           has:
             field: function
             any:
-                - matches: {python-module-member: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
-                - matches: {python-imported-name: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
+                - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
                 - kind: attribute
                   all:
                     - has: {field: object, matches: mapping}
-                    - has: {field: attribute, regex: '^(get|items|keys|values|copy)$'}
+                    - has: {field: attribute, regex: '^(get|items|keys|values)$'}
         - kind: comparison_operator
           regex: '\s(not\s+)?in\s+[\w.]+$'
           has: {matches: mapping, nthChild: 2}

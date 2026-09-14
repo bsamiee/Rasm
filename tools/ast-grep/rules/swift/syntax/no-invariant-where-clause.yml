@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-invariant-where-clause
+language: swift
+severity: error
+rule:
+    kind: for_statement
+    all:
+        - has: {field: item, pattern: $ITEM}
+        - has: {kind: where_clause, pattern: $WHERE}
+        - not:
+            has:
+                kind: where_clause
+                has:
+                    stopBy: end
+                    kind: simple_identifier
+                    pattern: $READ
+                    inside:
+                        kind: for_statement
+                        stopBy: {kind: for_statement}
+                        has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}
+message: '`$WHERE` reads nothing of `$ITEM`'
+note: 'Hoist the test above the loop, a `where` clause reading no element is loop-invariant and iterates the sequence to discard it'

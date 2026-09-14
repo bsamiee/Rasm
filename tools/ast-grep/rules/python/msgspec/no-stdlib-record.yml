@@ -3,9 +3,10 @@ id: no-stdlib-record
 language: python
 severity: error
 rule:
+    pattern: $NAME
     any:
-        - matches: {python-module-member: {module: {regex: "^collections$"}, name: {regex: "^namedtuple$", pattern: $NAME}}}
-        - matches: {python-module-member: {module: {regex: "^(typing|typing_extensions)$"}, name: {regex: "^NamedTuple$", pattern: $NAME}}}
-        - matches: {python-module-member: {module: {regex: "^dataclasses$"}, name: {regex: "^(dataclass|make_dataclass)$", pattern: $NAME}}}
+        - matches: {python-member-use: {module: {regex: "^collections$"}, name: {regex: "^namedtuple$"}}}
+        - matches: {python-member-use: {module: {regex: "^(typing|typing_extensions)$"}, name: {regex: "^NamedTuple$"}}}
+        - matches: {python-member-use: {module: {regex: "^dataclasses$"}, name: {regex: "^(dataclass|make_dataclass)$"}}}
 message: '`$NAME` declares a record outside msgspec and Pydantic'
 note: 'Declare fields on `msgspec.Struct` with `frozen=True`, or on a Pydantic model when it validates input'

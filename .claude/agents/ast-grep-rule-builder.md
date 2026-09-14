@@ -55,7 +55,7 @@ Every rule names the source line or the output line that decides it:
 |  [08]   | Pattern a checker reports      | Step 8 checker output at the instance lines                                                          |
 |  [09]   | Width of a draft over the tree | `mcp__ast-grep__find_code_by_rule` with `project_folder` `<worktree>`, its `Found N matches` line    |
 |  [10]   | Width of a placed rule         | `ast-grep scan --no-ignore hidden --filter '^<rule id>$' --json=stream . \| wc -l`                   |
-|  [11]   | Instances at a commit          | `git archive <commit> <scope> \| tar -x -C <scratch>`, `<scratch>` from `mktemp -d`, deleted after   |
+|  [11]   | Instances at a commit          | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads    |
 
 Installed source or binary decides over a page.
 

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-alias-declaration-swift
+language: swift
+severity: error
+rule:
+    kind: typealias_declaration
+    all:
+        - has: {field: name, kind: type_identifier, pattern: $ALIAS}
+        - has: {kind: user_type, pattern: $TARGET, not: {has: {kind: type_identifier, nthChild: 2}}}
+        - not: {has: {kind: type_parameters}}
+        - any:
+            - inside: {kind: source_file}
+            - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, not: {has: {kind: inheritance_specifier}}}}
+message: '`$ALIAS` is another name for `$TARGET`'
+note: 'Spell the target where the alias is used, a module-qualified target resolves a name collision and a member of a conforming type supplies an associated type'

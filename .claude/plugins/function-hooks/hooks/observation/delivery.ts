@@ -2,6 +2,7 @@
 
 import type { AgentSpawnResult, ClassicHookInputs, PluginOptions } from 'claude-code';
 import { all, fault, map, ok, type Result } from '../composition/result.ts';
+import { basename } from '../text/path.ts';
 import { normalized, quoted } from './sql.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -82,7 +83,13 @@ const settings = (options: PluginOptions): Settings => ({
     categoryAgent: String(options['categoryAgent']),
 });
 
-const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ main, worktree, branch, key: `${main}/${worktree}/${branch}` });
+// Key names the worktree by directory, `.` for the main one, so a moved repository keeps its lineage
+const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({
+    main,
+    worktree,
+    branch,
+    key: `${worktree === main ? '.' : basename(worktree)}/${branch}`,
+});
 
 // --- [STATEMENTS] ----------------------------------------------------------------------
 

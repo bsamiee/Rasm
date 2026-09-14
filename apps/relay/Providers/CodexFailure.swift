@@ -1,11 +1,5 @@
 import Foundation
 
-nonisolated enum CodexAccountAction: Sendable {
-  case signOut
-  case remove
-  case reconnect
-}
-
 nonisolated enum CodexTurnErrorCode: String, Sendable {
   case contextWindowExceeded
   case sessionBudgetExceeded
@@ -22,10 +16,11 @@ nonisolated enum CodexTurnErrorCode: String, Sendable {
   case other
 }
 
-nonisolated enum CodexFailure: LocalizedError, Sendable {
+nonisolated enum CodexFailure: ProviderFailure {
   case applicationUnavailable
   case process(ProcessFailure)
   case cancelled
+  case timedOut
   case connectionClosed
   case invalidResponse(field: String)
   case requestRejected(code: Int, message: String)
@@ -35,29 +30,30 @@ nonisolated enum CodexFailure: LocalizedError, Sendable {
   case signInRefused(reason: String?)
   case identityChanged
   case modelUnavailable
-  case includedUsageBlocked
   case turnFailed(code: CodexTurnErrorCode?, message: String)
-  indirect case sessionConfirmationPending(CodexFailure)
   case storage(any Error)
+  case keyringStorage
+  case forcedWorkspace
   case desktopLaunch(any Error)
-  case desktopUnavailable
-  case desktopMustClose(CodexAccountAction)
+  case desktopQuitRefused
 
   var requiresSignIn: Bool {
     switch self {
     case .signInRequired, .subscriptionRequired, .identityChanged: true
     case .turnFailed(.unauthorized, _): true
-    case .sessionConfirmationPending(let failure): failure.requiresSignIn
-    case .applicationUnavailable, .process, .cancelled, .connectionClosed, .invalidResponse,
-      .requestRejected, .signInPageUnopened, .signInRefused, .modelUnavailable,
-      .includedUsageBlocked, .turnFailed, .storage, .desktopLaunch, .desktopUnavailable,
-      .desktopMustClose:
+    case .applicationUnavailable, .process, .cancelled, .timedOut, .connectionClosed,
+      .invalidResponse, .requestRejected, .signInPageUnopened, .signInRefused, .modelUnavailable,
+      .turnFailed, .storage, .keyringStorage, .forcedWorkspace,
+      .desktopLaunch, .desktopQuitRefused:
       false
     }
   }
 
-  var awaitingSessionConfirmation: Bool {
-    if case .sessionConfirmationPending = self { true } else { false }
+  var isCancellation: Bool {
+    switch self {
+    case .cancelled, .process(.cancelled): true
+    default: false
+    }
   }
 
   var errorDescription: String? {
@@ -66,6 +62,7 @@ nonisolated enum CodexFailure: LocalizedError, Sendable {
       "Install the OpenAI desktop app to connect an account."
     case .process(let failure): failure.localizedDescription
     case .cancelled: "Canceled."
+    case .timedOut: "The OpenAI app server did not answer in time."
     case .connectionClosed: "The OpenAI connection closed."
     case .invalidResponse(let field): "OpenAI returned an unreadable \(field)."
     case .requestRejected(_, let message): message
@@ -76,17 +73,32 @@ nonisolated enum CodexFailure: LocalizedError, Sendable {
     case .identityChanged: "OpenAI is signed in to a different user or workspace."
     case .modelUnavailable:
       "The lowest-cost supported OpenAI model is unavailable for this account."
-    case .includedUsageBlocked: "OpenAI reports that this account’s included usage is unavailable."
     case .turnFailed(_, let message): message
-    case .sessionConfirmationPending(let failure):
-      "Session start is awaiting confirmation. \(failure.localizedDescription)"
     case .storage(let error): "Could not save the OpenAI account: \(error.localizedDescription)"
+    case .keyringStorage:
+      "Codex keeps its sign-in in the Keychain. Set cli_auth_credentials_store = \"file\" in ~/.codex/config.toml to switch accounts."
+    case .forcedWorkspace:
+      "Codex pins a workspace through forced_chatgpt_workspace_id in ~/.codex/config.toml, so accounts cannot switch."
     case .desktopLaunch(let error): "Could not open the OpenAI app: \(error.localizedDescription)"
-    case .desktopUnavailable: "The OpenAI account window is no longer open."
-    case .desktopMustClose(.signOut): "Quit this account’s Codex app before signing out."
-    case .desktopMustClose(.remove): "Quit this account’s Codex app before removing it."
-    case .desktopMustClose(.reconnect): "Quit this account’s Codex app before signing in again."
+    case .desktopQuitRefused: "The OpenAI app did not accept the quit request."
     }
+  }
+}
+
+nonisolated extension CodexFailure {
+  init(process failure: ProcessFailure) {
+    self =
+      switch failure {
+      case .cancelled: .cancelled
+      case .timedOut: .timedOut
+      default: .process(failure)
+      }
+  }
+}
+
+nonisolated extension Result where Failure == ProcessFailure {
+  func codex() -> Result<Success, CodexFailure> {
+    mapError(CodexFailure.init(process:))
   }
 }
 

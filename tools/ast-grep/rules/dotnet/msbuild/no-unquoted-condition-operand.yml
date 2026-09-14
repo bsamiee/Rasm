@@ -8,19 +8,17 @@ rule:
     any:
         - regex: |-
             (?x) ^ Condition \s* = \s* " \s*
-            (?: (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ | &quot;[^"'<>&]*&quot; ) \s* (?:==|!=) \s* (?: '[^'"&]*' | [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ | &quot;[^"'<>&]*&quot; )
-            | '[^'"&]*' \s* (?:==|!=) \s* (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ | &quot;[^"'<>&]*&quot; ) )
+            (?: (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ ) \s* (?:==|!=) \s* (?: '[^'"&]*' | [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ )
+            | '[^'"&]*' \s* (?:==|!=) \s* (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ ) )
             \s* " $
         - regex: |-
             (?x) ^ Condition \s* = \s* ' \s*
-            (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ | "[^"'<>&]*" ) \s* (?:==|!=) \s* (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ | "[^"'<>&]*" )
+            (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ ) \s* (?:==|!=) \s* (?: [$@%]\([A-Za-z_][A-Za-z0-9_.]*\) | [A-Za-z0-9_./:-]+ )
             \s* ' $
 transform:
-    ENTITY: {replace: {source: $CONDITION, replace: '^(Condition\s*=\s*".*?)&quot;([^"''<>&]*)&quot;(.*)$', by: "$1'$2'$3"}}
-    ENTITY_AGAIN: {replace: {source: $ENTITY, replace: '^(Condition\s*=\s*".*?)&quot;([^"''<>&]*)&quot;(.*)$', by: "$1'$2'$3"}}
     LEFT:
         replace:
-            source: $ENTITY_AGAIN
+            source: $CONDITION
             replace: "^(Condition\\s*=\\s*\"\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*(?:==|!=)\\s*(?:'[^'\\\"&]*'|[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)\\s*\")$"
             by: "$1'$2'$3"
     RIGHT:
@@ -28,11 +26,9 @@ transform:
             source: $LEFT
             replace: "^(Condition\\s*=\\s*\"\\s*'[^'\\\"&]*'\\s*(?:==|!=)\\s*)((?:[$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+))(\\s*\")$"
             by: "$1'$2'$3"
-    STRIPPED: {replace: {source: $RIGHT, replace: '^(Condition\s*=\s*''.*?)"([^"''<>&]*)"(.*)$', by: '$1$2$3'}}
-    STRIPPED_AGAIN: {replace: {source: $STRIPPED, replace: '^(Condition\s*=\s*''.*?)"([^"''<>&]*)"(.*)$', by: '$1$2$3'}}
     SINGLE:
         replace:
-            source: $STRIPPED_AGAIN
+            source: $RIGHT
             replace: "^(Condition\\s*=\\s*)'(\\s*)([$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)(\\s*(?:==|!=)\\s*)([$@%]\\([A-Za-z_][A-Za-z0-9_.]*\\)|[A-Za-z0-9_./:-]+)(\\s*)'$"
             by: "$1\"$2'$3'$4'$5'$6\""
 fix: $SINGLE

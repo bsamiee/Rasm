@@ -2,7 +2,27 @@
 id: no-ambient-read
 language: tsx
 severity: error
+utils:
+    service-adapter:
+        kind: call_expression
+        any:
+            - has: {field: function, kind: member_expression, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Clock|Random))?$'}, exported: {regex: '^(Clock|Random)$'}}}}}
+            - has:
+                field: function
+                kind: member_expression
+                all:
+                    - has: {field: property, regex: '^(withClock|setClock|withRandom|setRandom)$'}
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Layer))?$'}, exported: {regex: '^(Effect|Layer)$'}}}}
+            - has:
+                field: arguments
+                has:
+                    nthChild: 1
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^(Clock|Random)$'}
+                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Clock|Random))?$'}, exported: {regex: '^(Clock|Random)$'}}}}
 rule:
+    not: {inside: {kind: arguments, stopBy: end, inside: {matches: service-adapter}}}
     any:
         - kind: new_expression
           has: {field: constructor, regex: '^(globalThis\.)?Date$', matches: syntax-global-reference}
@@ -45,6 +65,6 @@ rule:
                                 exported: {regex: '^performance$'}
     pattern: $READ
 message: '`$READ` reads host time or randomness as an ambient value'
-note: '`Clock` and `Random` services or an argument supply the value'
+note: '`Clock` and `Random` services or an argument supply the value, the adapter supplying the service reads the host'
 labels:
     READ: {style: primary}

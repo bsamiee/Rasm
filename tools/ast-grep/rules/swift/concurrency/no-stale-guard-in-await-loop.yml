@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stale-guard-in-await-loop
+language: swift
+severity: error
+utils:
+    guard-state:
+        kind: simple_identifier
+        pattern: $STATE
+        not: {follows: {regex: '^\.$'}}
+        any:
+            - follows: {regex: '^=$'}
+            - inside: {kind: guard_statement}
+            - inside: {kind: prefix_expression, inside: {kind: guard_statement}}
+rule:
+    kind: for_statement
+    regex: '^for\s+(try\s+)?await\b'
+    all:
+        - has: {field: item, has: {field: bound_identifier, pattern: $L}}
+        - has:
+            kind: statements
+            all:
+                - has:
+                    kind: guard_statement
+                    nthChild: 1
+                    pattern: $GUARD
+                    all:
+                        - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)\b'}}
+                        - has: {matches: guard-state, stopBy: end}
+                        - not: {has: {pattern: $L, stopBy: end}}
+                - has:
+                    kind: assignment
+                    stopBy: end
+                    has: {field: target, has: {kind: simple_identifier, pattern: $STATE, stopBy: end}}
+                - not:
+                    has:
+                        kind: if_statement
+                        not: {nthChild: 1}
+                        has: {kind: statements, has: {kind: control_transfer_statement, regex: '^break$'}}
+message: '`$GUARD` reads `$STATE` the previous iteration set, the loop awaits one more `$L` before it exits'
+note: 'Test the exit after the statement that sets `$STATE`, `if <finished> { break }` as the last statement of the body, or close the input so the sequence ends'

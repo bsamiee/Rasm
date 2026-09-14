@@ -6,21 +6,52 @@ utils:
     first-element:
         kind: subscript
         has: {field: subscript, regex: '^-?[01]$'}
+    compiled-binding:
+        kind: assignment
+        all:
+            - has: {field: left, pattern: $RX}
+            - has: {field: right, kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^re$'}, name: {regex: '^compile$'}}}}}
+    compiled-pattern:
+        any:
+            - kind: identifier
+              pattern: $RX
+              any:
+                - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: compiled-binding}}
+                - inside:
+                    kind: function_definition
+                    stopBy: end
+                    has:
+                        field: parameters
+                        has:
+                            kind: 'typed_parameter, typed_default_parameter'
+                            all:
+                                - has: {kind: identifier, pattern: $RX}
+                                - has: {field: type, regex: '^(re\.)?Pattern(\[.*\])?$'}
+            - kind: attribute
+              pattern: $RX
+              has: {field: object, regex: '^self$'}
+              inside: {kind: class_definition, stopBy: end, has: {stopBy: end, matches: compiled-binding}}
+    regex-callee:
+        any:
+            - matches: {python-member-use: {module: {regex: '^re$'}, name: {regex: '^(findall|finditer)$'}}}
+            - kind: attribute
+              has: {field: object, matches: compiled-pattern}
 rule:
     kind: call
     pattern: $CALL
     any:
-        - pattern: next($RX.finditer($$$))
-        - pattern: next($RX.finditer($$$), $$$)
-        - pattern: next(iter($RX.findall($$$)))
-        - pattern: list($RX.finditer($$$))
+        - pattern: next($FINDITER($$$))
+        - pattern: next($FINDITER($$$), $$$)
+        - pattern: next(iter($FINDALL($$$)))
+        - pattern: list($FINDITER($$$))
           inside: {matches: first-element, field: value}
-        - pattern: $RX.findall($$$)
+        - pattern: $FINDALL($$$)
           any:
-              - inside: {matches: first-element, field: value}
-              - inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern'}}
-              - inside: {kind: match_statement, field: subject}
+            - inside: {matches: first-element, field: value}
+            - inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern'}}
+            - inside: {kind: match_statement, field: subject}
 constraints:
-    RX: {regex: '(?i)(^|[._])(re|rx|regex|pattern)$'}
+    FINDITER: {regex: '(^|\.)finditer$', matches: regex-callee}
+    FINDALL: {regex: '(^|\.)findall$', matches: regex-callee}
 message: '`$CALL` reads one match through the iterator or list of every match'
 note: 'Use `match`, `search`, or `fullmatch` and select on `None`'

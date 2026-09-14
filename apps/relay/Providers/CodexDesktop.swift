@@ -1,81 +1,68 @@
 import AppKit
 import Foundation
 
-nonisolated struct CodexDesktopInstance: Codable, Sendable {
-  let accountID: UUID
-  let processID: Int32
-  let launchedAt: Date
-}
-
-nonisolated struct CodexDesktopState: Codable, Sendable {
-  let instances: [CodexDesktopInstance]
-  let selectedAccountID: UUID?
-}
-
 enum CodexDesktop {
+  static let bundleIdentifier: String = "com.openai.codex"
+  private nonisolated static let quitDeadline: Duration = .seconds(10)
+
   static func applicationURL() -> Result<URL, CodexFailure> {
-    return NSWorkspace.shared.urlForApplication(withBundleIdentifier: "com.openai.codex")
+    NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
       .map { application in .success(application) } ?? .failure(.applicationUnavailable)
   }
 
-  static func isRunning(_ instance: CodexDesktopInstance) -> Bool {
-    return NSRunningApplication(processIdentifier: instance.processID).map { application in
-      application.bundleIdentifier == "com.openai.codex"
-        && !application.isTerminated
-        && application.launchDate == instance.launchedAt
-    } ?? false
+  static func runningInstances() -> [NSRunningApplication] {
+    NSRunningApplication.runningApplications(withBundleIdentifier: bundleIdentifier)
+      .filter { application in !application.isTerminated }
   }
 
-  static func frontmostAccount(in instances: [CodexDesktopInstance]) -> UUID? {
-    return NSWorkspace.shared.frontmostApplication.flatMap { frontmost in
-      instances.first { instance in
-        instance.processID == frontmost.processIdentifier && isRunning(instance)
-      }?.accountID
+  static func relaunchIfRunning() async -> Result<Void, CodexFailure> {
+    let instances: [NSRunningApplication] = runningInstances()
+    guard !instances.isEmpty else { return .success(()) }
+    for instance: NSRunningApplication in instances {
+      if case .failure = await quit(instance) { instance.forceTerminate() }
+      guard !Task.isCancelled else { return .failure(.cancelled) }
+    }
+    return await open()
+  }
+
+  private static func quit(_ instance: NSRunningApplication) async -> Result<Void, CodexFailure> {
+    let pid: pid_t = instance.processIdentifier
+    return await ProcessRun.withDeadline(quitDeadline, timedOut: .timedOut, cancelled: .cancelled) {
+      @MainActor in
+      let terminations: AsyncCompactMapSequence<NotificationCenter.Notifications, pid_t> =
+        terminatedProcessIdentifiers()
+      return switch (instance.terminate(), instance.isTerminated) {
+      case (false, _): .failure(.desktopQuitRefused)
+      case (true, true): .success(())
+      case (true, false): await terminations.contains(pid) ? .success(()) : .failure(.cancelled)
+      }
     }
   }
 
-  static func open(
-    accountID: UUID,
-    home: URL,
-    desktopDirectory: URL,
-    environment: [String: String],
-    existing: CodexDesktopInstance?
-  ) async -> Result<CodexDesktopInstance, CodexFailure> {
-    if let existing, isRunning(existing),
-      let application: NSRunningApplication = NSRunningApplication(
-        processIdentifier: existing.processID)
-    {
-      return application.activate(options: [.activateAllWindows])
-        ? .success(existing) : .failure(.desktopUnavailable)
-    }
-    var variables: [String: String] = environment
-    variables["CODEX_HOME"] = home.path
-    variables["CODEX_ELECTRON_USER_DATA_PATH"] = desktopDirectory.path
+  private nonisolated static func terminatedProcessIdentifiers()
+    -> AsyncCompactMapSequence<NotificationCenter.Notifications, pid_t>
+  {
+    NSWorkspace.shared.notificationCenter
+      .notifications(named: NSWorkspace.didTerminateApplicationNotification)
+      .compactMap { notification in
+        (notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication)?
+          .processIdentifier
+      }
+  }
+
+  static func open() async -> Result<Void, CodexFailure> {
     let configuration: NSWorkspace.OpenConfiguration = NSWorkspace.OpenConfiguration()
-    configuration.createsNewApplicationInstance = true
     configuration.activates = true
-    configuration.environment = variables
-    configuration.arguments = ["--user-data-dir=\(desktopDirectory.path)"]
     return await applicationURL().bind { application in
       await Result {
         try await NSWorkspace.shared.openApplication(at: application, configuration: configuration)
       }
       .mapError(CodexFailure.desktopLaunch)
-      .flatMap { running in
-        guard running.bundleIdentifier == "com.openai.codex", !running.isTerminated,
-          let launchedAt: Date = running.launchDate
-        else { return .failure(.desktopUnavailable) }
-        return .success(
-          CodexDesktopInstance(
-            accountID: accountID,
-            processID: running.processIdentifier,
-            launchedAt: launchedAt
-          ))
-      }
+      .map { _ in () }
     }
   }
 
   static func openSignIn(_ url: URL) -> Result<Void, CodexFailure> {
-    return NSWorkspace.shared.open(url) ? .success(()) : .failure(.signInPageUnopened)
+    NSWorkspace.shared.open(url) ? .success(()) : .failure(.signInPageUnopened)
   }
 }

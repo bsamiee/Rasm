@@ -32,45 +32,45 @@ utils:
         any:
             - all:
                 - has: {field: property, regex: '^fail$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)$'}}}}
             - all:
                 - has: {field: property, regex: '^left$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Either)?$'}, exported: {regex: '^Either$'}}}}
     lazy-constructor:
         kind: member_expression
         any:
             - all:
                 - has: {field: property, regex: '^failSync$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred)$'}}}}
             - all:
                 - has: {field: property, regex: '^orElseFail$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Stream))?$'}, exported: {regex: '^(Effect|STM|Stream)$'}}}}
             - all:
                 - has: {field: property, regex: '^mapError$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)$'}}}}
             - all:
                 - has: {field: property, regex: '^(mapLeft|fromOption)$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Either$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Either)?$'}, exported: {regex: '^Either$'}}}}
     filter-constructor:
         kind: member_expression
         all:
             - has: {field: property, regex: '^filterOrFail$'}
-            - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM)$'}}}}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM))?$'}, exported: {regex: '^(Effect|Micro|STM)$'}}}}
     options-callee:
         kind: member_expression
         any:
             - all:
                 - has: {field: property, regex: '^(try|tryPromise|tryMap|tryMapPromise)$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Effect$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
             - all:
                 - has: {field: property, regex: '^(try|tryPromise)$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Micro$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Micro)?$'}, exported: {regex: '^Micro$'}}}}
             - all:
                 - has: {field: property, regex: '^try$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(STM|Either)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(STM|Either))?$'}, exported: {regex: '^(STM|Either)$'}}}}
             - all:
                 - has: {field: property, regex: '^mapBoth$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Exit|Stream|Either)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Exit|Stream|Either))?$'}, exported: {regex: '^(Effect|STM|Exit|Stream|Either)$'}}}}
     failure-member:
         any:
             - kind: pair

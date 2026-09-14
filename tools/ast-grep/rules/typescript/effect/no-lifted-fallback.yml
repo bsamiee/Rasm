@@ -23,15 +23,15 @@ rule:
         - any:
             - all:
                 - has: {field: function, has: {field: property, regex: '^orElse$'}}
-                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}}
+                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Stream))?$'}, exported: {regex: '^(Effect|STM|Stream)$'}}}}}
             - all:
                 - has: {field: function, has: {field: property, regex: '^catchAll$'}}
-                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Micro|STM|Stream)$'}}}}}
+                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream)$'}}}}}
         - any:
             - has: {field: arguments, has: {matches: constant-success}}
             - all:
                 - has: {field: arguments, has: {matches: constant-failure}}
-                - has: {field: function, has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|STM|Stream)$'}}}}}
+                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Stream))?$'}, exported: {regex: '^(Effect|STM|Stream)$'}}}}}
     not:
         any:
             - has: {field: type_arguments, kind: type_arguments}

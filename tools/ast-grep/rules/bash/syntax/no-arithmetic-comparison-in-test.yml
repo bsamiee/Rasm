@@ -5,13 +5,19 @@ severity: error
 utils:
     numeric-operator: {kind: test_operator, regex: '^-(eq|ne|lt|le|gt|ge)$'}
     named-parameter: {matches: {bash-parameter: {name: {kind: 'variable_name, subscript'}}}}
-    numeric-operand:
+    bare-operand:
         any:
             - matches: named-parameter
             - kind: simple_expansion
               has: {kind: special_variable_name}
             - kind: expansion
               has: {field: operator, regex: '^#$'}
+    numeric-operand:
+        any:
+            - matches: bare-operand
+            - kind: string
+              has: {matches: bare-operand}
+              not: {has: {nthChild: 2}}
             - kind: number
             - kind: unary_expression
               has: {kind: number}
@@ -28,6 +34,7 @@ utils:
             - matches: comparison
             - kind: binary_expression
               all:
+                - has: {field: operator, regex: '^(&&|\|\|)$'}
                 - has: {field: left, matches: numeric-expression}
                 - has: {field: right, matches: numeric-expression}
             - kind: unary_expression
@@ -36,7 +43,6 @@ utils:
               has: {matches: numeric-expression}
 rule:
     kind: test_command
-    regex: '^\[\['
     pattern: $TEST
     has: {pattern: $EXPRESSION, matches: numeric-expression}
 rewriters:
@@ -44,17 +50,18 @@ rewriters:
       rule:
         matches: named-parameter
         pattern: $PARAMETER
-        not: {regex: '^"?\$\{?[0-9]+\}?"?$'}
+        not: {regex: '^\$\{?[0-9]+\}?$'}
       transform:
-        BARE: {replace: {source: $PARAMETER, replace: '^"?\$\{?|\}?"?$', by: ''}}
+        BARE: {replace: {source: $PARAMETER, replace: '^\$\{?|\}?$', by: ''}}
       fix: $BARE
-    - id: positional
+    - id: unquote
       rule:
-        matches: named-parameter
-        pattern: $PARAMETER
+        kind: string
+        pattern: $QUOTED
       transform:
-        UNQUOTED: {replace: {source: $PARAMETER, replace: '^"|"$', by: ''}}
-      fix: $UNQUOTED
+        INNER: rewrite($QUOTED, rewriters=[name])
+        BARE: {replace: {source: $INNER, replace: '^"|"$', by: ''}}
+      fix: $BARE
     - id: compare
       rule:
         matches: comparison
@@ -63,8 +70,8 @@ rewriters:
             - has: {field: operator, pattern: $OPERATOR}
             - has: {field: right, pattern: $RIGHT}
       transform:
-        L: rewrite($LEFT, rewriters=[name, positional])
-        R: rewrite($RIGHT, rewriters=[name, positional])
+        L: rewrite($LEFT, rewriters=[unquote, name])
+        R: rewrite($RIGHT, rewriters=[unquote, name])
         EQ: replace($OPERATOR, replace='^-eq$', by='==')
         NE: replace($EQ, replace='^-ne$', by='!=')
         LT: replace($NE, replace='^-lt$', by='<')
@@ -76,4 +83,4 @@ transform:
     BODY: rewrite($EXPRESSION, rewriters=[compare])
 fix: (( $BODY ))
 message: '`$TEST` compares numbers through a `-eq` family operator'
-note: Compare in an arithmetic command reading parameters by name, `(( <left> == <right> ))`
+note: 'Compare in an arithmetic command reading parameters by name, `(( <left> == <right> ))`, a quoted operand loses its quotes and `$#`, `$?`, `$1`, and `${#<array>[@]}` stay spelled as they are'

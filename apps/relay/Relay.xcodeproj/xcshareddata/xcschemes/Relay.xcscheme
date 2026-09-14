@@ -7,7 +7,7 @@
             </BuildActionEntry>
         </BuildActionEntries>
     </BuildAction>
-    <LaunchAction buildConfiguration="Debug">
+    <LaunchAction buildConfiguration="Debug" customLLDBInitFile="$(SRCROOT)/.lldbinit">
         <BuildableProductRunnable runnableDebuggingMode="0">
             <BuildableReference BuildableIdentifier="primary" BlueprintIdentifier="4A817EDECF31418AABA61709" BuildableName="Relay.app" BlueprintName="Relay" ReferencedContainer="container:Relay.xcodeproj"/>
         </BuildableProductRunnable>

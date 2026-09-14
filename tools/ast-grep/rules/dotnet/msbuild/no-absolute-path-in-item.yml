@@ -2,11 +2,26 @@
 id: no-absolute-path-in-item
 language: xml
 severity: error
+utils:
+    path-value:
+        any:
+            - kind: AttValue
+              not: {regex: 'RegularExpressions'}
+              inside:
+                kind: Attribute
+                has: {kind: Name, regex: '^(Include|Exclude|Remove|Update|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|Inputs|Outputs|WorkingDirectory|PackagePath)$'}
+            - kind: CharData
+              inside:
+                kind: content
+                inside:
+                    kind: element
+                    has:
+                        kind: STag
+                        has: {kind: Name, regex: '^(HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|WorkingDirectory|PackagePath|([A-Za-z_][A-Za-z0-9_]*)?(Path|Paths|Dir|Directory|Root|Roots|Manifest))$'}
+                not: {has: {kind: CharData, regex: 'RegularExpressions'}}
 rule:
-    matches:
-        msbuild-metadata:
-            name: {regex: "^(Include|Exclude|Update|Remove|Project|Path|HintPath|SourceFiles|DestinationFiles|DestinationFolder|Directories|Files|File|Inputs|Outputs|WorkingDirectory)$"}
-            value: {regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-])'}
-    not: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}}
+    matches: path-value
+    regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-])'
+    not: {inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}, stopBy: end}}
 message: Item path is absolute and resolves on the machine that wrote it alone
-note: 'Compose the path, `$([MSBuild]::NormalizePath(''$(MSBuildThisFileDirectory)'', ''<segment>''))`'
+note: 'Compose the path from a directory property and a relative segment, `$([MSBuild]::NormalizePath(''$(<Directory>)'', ''<segment>''))`'

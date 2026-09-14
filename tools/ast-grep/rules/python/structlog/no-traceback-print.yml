@@ -3,14 +3,11 @@ id: no-traceback-print
 language: python
 severity: error
 utils:
-    exception-class:
-        any:
-            - matches: {python-module-member: {module: {regex: "^traceback$"}, name: {regex: "^TracebackException$"}}}
-            - matches: {python-imported-name: {module: {regex: "^traceback$"}, name: {regex: "^TracebackException$"}}}
+    exception-class: {matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^TracebackException$"}}}}
 rule:
     pattern: $USE
     any:
-        - matches: {python-module-member: {module: {regex: "^traceback$"}, name: {regex: "^print_(exc|exception|stack|last|tb|list)$"}}}
+        - matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^print_(exc|exception|stack|last|tb|list)$"}}}
         - kind: call
           has:
             field: function

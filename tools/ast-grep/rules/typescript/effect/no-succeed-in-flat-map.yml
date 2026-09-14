@@ -9,17 +9,17 @@ utils:
             - has:
                 field: function
                 pattern: $M.succeed
-                has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM|Stream|Channel|Sink|Exit)$"}}}}
+                has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM|Stream|Channel|Sink|Exit))?$"}, exported: {regex: "^(Effect|Micro|STM|Stream|Channel|Sink|Exit)$"}}}}
             - has:
                 field: function
                 pattern: $M.some
-                has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Option$"}}}}
+                has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Option)?$"}, exported: {regex: "^Option$"}}}}
             - has:
                 field: function
                 pattern: $M.right
-                has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?Either$"}}}}
+                has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Either)?$"}, exported: {regex: "^Either$"}}}}
             - pattern: $M.void
-              has: {field: object, matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM|Channel|Exit|Option)$"}}}}
+              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM|Channel|Exit|Option))?$"}, exported: {regex: "^(Effect|Micro|STM|Channel|Exit|Option)$"}}}}
     void-callback:
         kind: arrow_function, function_expression
         has:
@@ -43,6 +43,39 @@ utils:
     lifted-value:
         matches: lifted-body
         not: {pattern: $_.void}
+    point-free-lift:
+        kind: member_expression
+        any:
+            - pattern: $M.succeed
+              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM|Stream|Channel|Sink|Exit))?$"}, exported: {regex: "^(Effect|Micro|STM|Stream|Channel|Sink|Exit)$"}}}}
+            - pattern: $M.some
+              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Option)?$"}, exported: {regex: "^Option$"}}}}
+            - pattern: $M.right
+              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Either)?$"}, exported: {regex: "^Either$"}}}}
+    identity-body:
+        matches: lifted-value
+        any: [{pattern: $_.$_($N)}, {pattern: $_.$_<$$$_>($N)}]
+    identity-callback:
+        kind: arrow_function, function_expression
+        not: {has: {regex: "^async$"}}
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $N}
+            - has:
+                field: parameters
+                has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $N}}
+                not: {has: {nthChild: 2}}
+        has:
+            field: body
+            any:
+                - matches: identity-body
+                - kind: parenthesized_expression
+                  has: {matches: identity-body}
+                - kind: statement_block
+                  has: {kind: return_statement, has: {matches: identity-body}}
+                  not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    identity-step:
+        any: [{matches: identity-callback}, {matches: point-free-lift}]
+        not: {has: {kind: comment, stopBy: end}}
 rule:
     kind: call_expression
     pattern: $CALL
@@ -54,11 +87,22 @@ rule:
                 nthChild: {position: 1, reverse: true}
                 any:
                     - matches: lifting-callback
+                    - matches: point-free-lift
                     - matches: lifted-value
                       inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^andThen$'}}}}
 constraints:
     F: {regex: "^(flatMap|andThen)$"}
 rewriters:
+    - id: identity-first
+      rule:
+        any: [{pattern: '$M.$_($SELF, $H)'}, {pattern: '$M.$_<$$$_>($SELF, $H)'}]
+        has: {field: arguments, has: {pattern: $H, matches: identity-step}}
+      fix: $SELF
+    - id: identity-last
+      rule:
+        any: [{pattern: $M.$OP($H)}, {pattern: $M.$OP<$$$_>($H)}]
+        has: {field: arguments, has: {pattern: $H, matches: identity-step}}
+      fix: $M.$OP($H)
     - id: as-first
       rule:
         any: [{pattern: '$M.andThen($SELF, $H)'}, {pattern: '$M.andThen<$$$_>($SELF, $H)'}]
@@ -112,8 +156,8 @@ rewriters:
         BODY: rewrite($H, rewriters=[return-type, unlift-object, unlift])
       fix: $M.map($BODY)
 transform:
-    MAPPED: rewrite($CALL, rewriters=[as-first, as-last, void-first, void-last, map-first, map-last])
+    MAPPED: rewrite($CALL, rewriters=[as-first, as-last, identity-first, identity-last, void-first, void-last, map-first, map-last])
 fix: $MAPPED
 message: '`$M.$F` callback lifts its result back into `$M`'
-note: '`<module>.map(callback)` for a transformed value, `<module>.as(value)` for a constant, `<module>.asVoid` for none'
+note: '`<module>.map(callback)` for a transformed value, `<module>.as(value)` for a constant, `<module>.asVoid` for none, an identity re-lift is the value itself and the step goes'
 labels: {CALL: {style: primary}}

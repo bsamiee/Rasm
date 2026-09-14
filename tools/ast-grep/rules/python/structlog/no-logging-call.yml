@@ -4,16 +4,12 @@ language: python
 severity: error
 utils:
     event-method: {regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
-    logger-factory:
-        any:
-            - matches: {python-module-member: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
-            - matches: {python-imported-name: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
     logger-call:
         kind: call
         has:
             field: function
             any:
-                - matches: logger-factory
+                - matches: {python-member-use: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
                 - kind: attribute
                   all:
                     - has: {field: attribute, regex: "^getChild$"}
@@ -61,7 +57,7 @@ utils:
 rule:
     pattern: $USE
     any:
-        - matches: {python-module-member: {module: {regex: "^logging$"}, name: {matches: event-method}}}
+        - matches: {python-member-use: {module: {regex: "^logging$"}, name: {matches: event-method}}}
         - kind: attribute
           all:
             - has: {field: attribute, matches: event-method}

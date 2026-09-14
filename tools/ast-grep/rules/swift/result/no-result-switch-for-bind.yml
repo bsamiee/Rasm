@@ -3,28 +3,32 @@ id: no-result-switch-for-bind
 language: swift
 severity: error
 utils:
-    single-condition:
-        kind: guard_statement
-        not: {has: {regex: '^,$'}}
+    failure-return:
+        matches: {swift-single-statement: {first: {pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}}}}
+    failure-entry:
+        kind: switch_entry
+        all:
+            - has: {kind: switch_pattern, regex: '^(let\s+)?\.failure\b'}
+            - has: {matches: failure-return}
+    success-entry:
+        kind: switch_entry
+        all:
+            - has: {kind: switch_pattern, regex: '^(let\s+)?\.success\b'}
+            - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
+            - not: {has: {kind: statements, has: {nthChild: 1, pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}}}}
 rule:
     any:
         - kind: switch_statement
           all:
-            - has: {matches: result-success-entry}
-            - has: {matches: result-failure-entry}
+            - has: {matches: success-entry}
+            - has: {matches: failure-entry}
             - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
         - kind: if_statement
           regex: '^if\s+case\s+(let\s+)?\.failure\b'
-          has: {matches: result-failure-return}
+          has: {matches: failure-return}
         - kind: guard_statement
           regex: '^guard\s+case\s+(let\s+)?\.success\b'
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
-          has: {matches: result-failure-return}
-        - matches: single-condition
-          regex: '^guard\s+(let|var)\s'
-          all:
-            - has: {kind: try_expression, stopBy: end, has: {kind: try_operator, regex: '^try\?$'}}
-            - has: {kind: navigation_suffix, stopBy: end, regex: '^\.get$'}
-            - has: {matches: result-failure-return}
+          has: {matches: failure-return}
 message: 'Statement unpacks a Result by hand, failure returned and value bound'
-note: '`<operation>.flatMap { value in ... }` skips the continuation on a failure, `bind` of `Issues.swift` where a side awaits, `mapError` first where the arm replaces the failure'
+note: '`<operation>.flatMap { value in <continuation> }` skips the continuation on a failure, an `async` `flatMap` overload where the continuation awaits, `mapError` first where the arm replaces the failure, a condition after the comma of `guard case` opens the continuation as its own test, `guard let value = try? result.get()` is the `no-try-default` site'

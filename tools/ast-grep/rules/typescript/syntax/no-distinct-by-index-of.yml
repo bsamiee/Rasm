@@ -15,16 +15,37 @@ utils:
             - any:
                 - all: [{has: {field: left, matches: same-list}}, {has: {field: right, pattern: $I}}]
                 - all: [{has: {field: left, pattern: $I}}, {has: {field: right, matches: same-list}}]
+    array-import:
+        kind: import_statement
+        all:
+            - has: {field: source, regex: '^["'']effect(/Array)?["'']$'}
+            - has:
+                stopBy: end
+                kind: import_specifier
+                all:
+                    - has: {field: name, regex: '^Array$'}
+                    - has: {kind: identifier, pattern: $ARRAY, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
 rule:
     kind: call_expression
     all:
         - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^filter$'}}]}
         - has:
-              field: arguments
-              has:
-                  kind: arrow_function
-                  all:
-                      - has: {field: parameters, all: [{has: {nthChild: 1, has: {kind: identifier, pattern: $X}}}, {has: {nthChild: 2, has: {kind: identifier, pattern: $I}}}]}
-                      - has: {field: body, matches: first-index-test}
+            field: arguments
+            has:
+                kind: arrow_function
+                all:
+                    - has: {field: parameters, all: [{has: {nthChild: 1, has: {kind: identifier, pattern: $X}}}, {has: {nthChild: 2, has: {kind: identifier, pattern: $I}}}]}
+                    - has: {field: body, matches: first-index-test}
+        - any:
+            - pattern: $FIXABLE
+              inside: {kind: program, stopBy: end, has: {matches: array-import}}
+            - pattern: $KEPT
+rewriters:
+    - id: dedupe
+      rule: {kind: call_expression}
+      fix: $ARRAY.dedupe($L)
+transform:
+    FIXED: rewrite($FIXABLE, rewriters=[dedupe])
+fix: $FIXED$KEPT
 message: '`$L.filter` keeps the first of each value by a quadratic `indexOf` scan'
-note: 'A `ReadonlySet<T>`-typed `new Set($L)` holds each value once, `no-native-collection` permits the typed declaration'
+note: '`Array.dedupe($L)` keeps the first of each value by `Equal`, the fix names the module under its imported name and a file without the `Array` import takes the import first'

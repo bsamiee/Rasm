@@ -9,7 +9,7 @@ languageGlobs:
 customLanguages:
     xml:
         libraryPath: .cache/ast-grep/xml.so
-        extensions: [csproj, props, targets, slnx, nuspec, pubxml, proj]
+        extensions: [xml, csproj, props, targets, slnx, nuspec, pubxml, proj]
         expandoChar: _
         outlineRules: tools/ast-grep/outline/msbuild.yml
     sql:

@@ -1,55 +1,72 @@
 import Foundation
+import Subprocess
 
-enum LoginShellFailure: Error {
+nonisolated enum LoginShellFailure: Error {
   case shellUnset
-  case run(any Error)
-  case terminationStatus(Int32)
+  case shellNotOnPath(String)
+  case run(ProcessFailure)
+  case terminationStatus(ProcessOutput)
   case markerNotFound
 }
 
-enum LoginShell {
-  static func environment(over process: [String: String]) -> Result<
+nonisolated enum LoginShell {
+  static let variables: [String] = [
+    "CLAUDE_CONFIG_DIR", "CLAUDE_SECURESTORAGE_CONFIG_DIR", "CODEX_HOME",
+  ]
+  private static let deadline: Duration = .seconds(5)
+  private static let workingDirectory: URL = URL.homeDirectory
+
+  static func exports(over process: [String: String]) async -> Result<
     [String: String], LoginShellFailure
   > {
-    process["SHELL"].map { environment(shell: $0, over: process) } ?? .failure(.shellUnset)
+    let shell: Result<URL, LoginShellFailure> =
+      process["SHELL"].flatMap { name in name.isEmpty ? nil : name }
+      .map { name in executable(named: name, searching: process["PATH"]) } ?? .failure(.shellUnset)
+    let marker: String = UUID().uuidString
+    let fields: String = variables.map { name in "\"${\(name)+1}\" \"$\(name)\"" }.joined(
+      separator: " ")
+    let script: String = "printf %s \(marker); printf '%s\\0' \(fields); printf %s \(marker)"
+    return await shell.bind { executable in
+      await ProcessRun.collect(
+        ProcessInvocation(
+          executable: executable, arguments: ["-lc", script],
+          environment: process, workingDirectory: workingDirectory
+        ), deadline: deadline
+      )
+      .mapError(LoginShellFailure.run)
+    }
+    .flatMap { output in
+      output.status.isSuccess ? .success(output) : .failure(.terminationStatus(output))
+    }
+    .flatMap { output -> Result<String, LoginShellFailure> in
+      let printed: String = output.standardOutput
+      guard let opening: Range<String.Index> = printed.range(of: marker),
+        let closing: Range<String.Index> = printed.range(
+          of: marker, range: opening.upperBound..<printed.endIndex)
+      else { return .failure(.markerNotFound) }
+      return .success(String(printed[opening.upperBound..<closing.lowerBound]))
+    }
+    .map { dump in
+      let fields: [Substring] = dump.split(separator: "\0", omittingEmptySubsequences: false)
+      let exported: [(String, String)] = variables.enumerated().compactMap { index, name in
+        let set: Int = index * 2
+        guard fields.indices.contains(set + 1), fields[set] == "1" else { return nil }
+        return (name, String(fields[set + 1]))
+      }
+      return process.merging(exported) { _, shell in shell }
+    }
   }
 
-  private static func environment(shell path: String, over process: [String: String]) -> Result<
-    [String: String], LoginShellFailure
-  > {
-    let marker: String = UUID().uuidString
-    let shell: Process = Process()
-    shell.executableURL = URL(filePath: path)
-    // -ilc: zsh reads .zprofile only in a login shell and .zshrc only in an interactive shell
-    shell.arguments = ["-ilc", "printf %s \(marker); /usr/bin/env -0; printf %s \(marker)"]
-    let output: Pipe = Pipe()
-    shell.standardInput = FileHandle.nullDevice
-    shell.standardOutput = output
-    shell.standardError = FileHandle.nullDevice
-    return Result(catching: shell.run)
-      .mapError(LoginShellFailure.run)
-      .flatMap { _ -> Result<Data, LoginShellFailure> in
-        let printed: Data = output.fileHandleForReading.readDataToEndOfFile()
-        shell.waitUntilExit()
-        return shell.terminationStatus == 0
-          ? .success(printed) : .failure(.terminationStatus(shell.terminationStatus))
-      }
-      .flatMap { printed -> Result<Data, LoginShellFailure> in
-        let frame: Data = Data(marker.utf8)
-        guard let opening: Range<Data.Index> = printed.range(of: frame),
-          let closing: Range<Data.Index> = printed.range(
-            of: frame, in: opening.upperBound..<printed.endIndex)
-        else { return .failure(.markerNotFound) }
-        return .success(printed[opening.upperBound..<closing.lowerBound])
-      }
-      .map { dump in
-        let exported: [(String, String)] = dump.split(separator: 0).compactMap { entry in
-          guard let pair: String = String(data: entry, encoding: .utf8),
-            let separator: String.Index = pair.firstIndex(of: "=")
-          else { return nil }
-          return (String(pair[..<separator]), String(pair[pair.index(after: separator)...]))
+  private static func executable(
+    named name: String, searching path: String?
+  ) -> Result<URL, LoginShellFailure> {
+    name.contains("/")
+      ? .success(URL(filePath: name, directoryHint: .notDirectory, relativeTo: workingDirectory))
+      : (path?.split(separator: ":") ?? [])
+        .map { directory in
+          URL(filePath: String(directory), directoryHint: .isDirectory).appending(path: name)
         }
-        return process.merging(exported) { _, shell in shell }
-      }
+        .first { url in FileManager.default.isExecutableFile(atPath: url.path) }
+        .map(Result<URL, LoginShellFailure>.success) ?? .failure(.shellNotOnPath(name))
   }
 }

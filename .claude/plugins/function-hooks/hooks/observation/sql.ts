@@ -28,7 +28,7 @@ const _TABLES: Readonly<Record<string, string>> = {
     ['finding_delivery']:
         '(finding_id text not null references finding(finding_id), lineage_key text not null, session_id text not null, agent_id text, channel text not null references delivery_channel(channel), delivered_at integer not null) strict',
     ['judged_range']:
-        "(kind text not null references range_kind(kind), main_worktree text not null, worktree text not null, branch text not null, lineage_key text generated always as (main_worktree || '/' || worktree || '/' || branch) stored, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict",
+        "(kind text not null references range_kind(kind), main_worktree text not null, worktree text not null, branch text not null, lineage_key text generated always as (iif(worktree = main_worktree, '.', substr(worktree, length(rtrim(worktree, replace(worktree, '/', ''))) + 1)) || '/' || branch) stored, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict",
 };
 const _INDEXES: readonly string[] = [
     'create index if not exists observation_session_ts on observation(session_id, ts);',

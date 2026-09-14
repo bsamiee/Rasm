@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-main-screen-layout
+language: swift
+severity: error
+rule:
+    pattern: NSScreen.main
+message: '`NSScreen.main` is the screen holding the key window, a window under layout opens on its own screen'
+note: 'Read `screen` of the window under layout, or size the content and let the window layer clamp it to its screen'

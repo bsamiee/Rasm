@@ -101,9 +101,14 @@ parentRuleIds: [swift-extension]
 symbolType: method
 rule:
     kind: function_declaration
+    pattern: $DECLARATION
     inside: {kind: class_body, inside: {kind: class_declaration, has: {field: declaration_kind, regex: '^extension$'}}}
     has: {field: name, kind: simple_identifier, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
+signature: $SIGNATURE
 isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
 
 ---
@@ -114,8 +119,13 @@ parentRuleIds: [swift-extension]
 symbolType: constructor
 rule:
     kind: init_declaration
+    pattern: $DECLARATION
     inside: {kind: class_body, inside: {kind: class_declaration, has: {field: declaration_kind, regex: '^extension$'}}}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
 name: init
+signature: $SIGNATURE
 isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
 
 ---

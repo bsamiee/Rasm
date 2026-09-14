@@ -1,10 +1,8 @@
-import Darwin
 import Foundation
 
 private nonisolated struct ClaudeLockfileStat: Equatable, Sendable {
-  let inode: UInt64
-  let seconds: Int
-  let nanoseconds: Int
+  let inode: Int
+  let modified: Date
 }
 
 private nonisolated struct ClaudeLockfile: Sendable {
@@ -18,9 +16,7 @@ private nonisolated struct ClaudeLockfile: Sendable {
       .flatMapError { error -> Result<Void, ClaudeFailure> in
         guard case .lockHeld = error else { return .failure(error) }
         return fileStat(at: url).flatMap { existing in
-          let modified: TimeInterval =
-            Double(existing.seconds) + Double(existing.nanoseconds) / 1_000_000_000
-          return modified < Date().timeIntervalSince1970 - staleAfter
+          existing.modified < Date().addingTimeInterval(-staleAfter)
             ? remove(at: url).flatMap { _ in create(at: url) } : .failure(.lockHeld(url))
         }
       }
@@ -34,15 +30,15 @@ private nonisolated struct ClaudeLockfile: Sendable {
   }
 
   mutating func update() -> Result<Void, ClaudeFailure> {
-    let now: TimeInterval = Date().timeIntervalSince1970
-    let seconds: Int = Int(now)
-    let touched: timeval = timeval(
-      tv_sec: seconds, tv_usec: Int32((now - Double(seconds)) * 1_000_000))
     let updated: Result<ClaudeLockfileStat, ClaudeFailure> = unchangedStat()
       .flatMap { _ in
-        Darwin.utimes(url.path, [touched, touched]) == 0
-          ? Self.fileStat(at: url) : .failure(.lockCompromised(url))
+        Result {
+          try FileManager.default.setAttributes(
+            [.modificationDate: Date()], ofItemAtPath: url.path)
+        }
+        .mapError(ClaudeFailure.filesystem)
       }
+      .flatMap { _ in Self.fileStat(at: url) }
       .flatMap { current in
         current.inode == stat.inode ? .success(current) : .failure(.lockCompromised(url))
       }
@@ -61,96 +57,121 @@ private nonisolated struct ClaudeLockfile: Sendable {
   }
 
   private static func create(at url: URL) -> Result<Void, ClaudeFailure> {
-    Darwin.mkdir(url.path, 0o700) == 0
-      ? .success(()) : .failure(errno == EEXIST ? .lockHeld(url) : .systemCall(.mkdir, errno))
+    Result {
+      try FileManager.default.createDirectory(
+        at: url, withIntermediateDirectories: false, attributes: [.posixPermissions: 0o700])
+    }
+    .mapError { error in
+      (error as? CocoaError)?.code == .fileWriteFileExists ? .lockHeld(url) : .filesystem(error)
+    }
   }
 
   private static func remove(at url: URL) -> Result<Void, ClaudeFailure> {
-    Darwin.rmdir(url.path) == 0 ? .success(()) : .failure(.systemCall(.rmdir, errno))
+    Result { try FileManager.default.removeItem(at: url) }.mapError(ClaudeFailure.filesystem)
   }
 
   private static func fileStat(at url: URL) -> Result<ClaudeLockfileStat, ClaudeFailure> {
-    var information: Darwin.stat = Darwin.stat()
-    guard Darwin.lstat(url.path, &information) == 0 else {
-      return .failure(.systemCall(.lstat, errno))
-    }
-    return information.st_mode & S_IFMT == S_IFDIR
-      ? .success(
-        ClaudeLockfileStat(
-          inode: UInt64(information.st_ino),
-          seconds: information.st_mtimespec.tv_sec,
-          nanoseconds: information.st_mtimespec.tv_nsec
-        ))
-      : .failure(.lockCompromised(url))
+    Result { try FileManager.default.attributesOfItem(atPath: url.path) }
+      .mapError(ClaudeFailure.filesystem)
+      .flatMap { attributes in
+        guard attributes[.type] as? FileAttributeType == .typeDirectory,
+          let inode: Int = attributes[.systemFileNumber] as? Int,
+          let modified: Date = attributes[.modificationDate] as? Date
+        else { return .failure(.lockCompromised(url)) }
+        return .success(ClaudeLockfileStat(inode: inode, modified: modified))
+      }
   }
 }
 
+private nonisolated struct ClaudeLockRequest: Sendable {
+  let url: URL
+  let stale: TimeInterval
+}
+
 actor ClaudeLock {
+  private static let attempts: Int = 10
+  private static let backoff: [Duration] = [
+    .milliseconds(100), .milliseconds(200), .milliseconds(400), .milliseconds(800),
+    .milliseconds(1000),
+  ]
+
   private var lockfiles: [ClaudeLockfile]
-  private var updates: Task<Void, Never>?
-  private var failure: ClaudeFailure?
-  private let onCompromised: @Sendable () async -> Void
 
-  private init(
-    lockfiles: [ClaudeLockfile], onCompromised: @escaping @Sendable () async -> Void
-  ) {
+  private init(lockfiles: [ClaudeLockfile]) {
     self.lockfiles = lockfiles
-    self.onCompromised = onCompromised
   }
 
-  static func oauthRefresh(
+  static func oauthRefresh<Value: Sendable>(
     directories: [URL],
-    onCompromised: @escaping @Sendable () async -> Void
-  ) async -> Result<ClaudeLock, ClaudeFailure> {
-    let ordered: [URL] = Set(directories).sorted { first, second in first.path < second.path }
-    return await createDirectories(ordered).bind { _ in
-      await acquire(
-        lockfiles: ordered.flatMap { directory in
-          [
-            (directory.appending(path: ".oauth_refresh.lock"), 60),
-            (URL(fileURLWithPath: directory.resolvingSymlinksInPath().path + ".lock"), 60),
-          ]
-        },
-        updateEvery: .seconds(5), onCompromised: onCompromised
-      )
-    }
-  }
-
-  static func storageWrite(
-    directory: URL,
-    onCompromised: @escaping @Sendable () async -> Void
-  ) async -> Result<ClaudeLock, ClaudeFailure> {
-    await createDirectories([directory]).bind { _ in
-      await acquire(
-        lockfiles: [(directory.appending(path: ".storage-write.lock"), 15)],
-        updateEvery: .milliseconds(7_500),
-        onCompromised: onCompromised
-      )
-    }
-  }
-
-  func status() -> Result<Void, ClaudeFailure> {
-    failure.map { error in .failure(error) } ?? .success(())
-  }
-
-  func release<Value: Sendable>(
-    returning outcome: Result<Value, ClaudeFailure>
+    _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
   ) async -> Result<Value, ClaudeFailure> {
-    let task: Task<Void, Never>? = updates
-    updates = nil
-    task?.cancel()
-    await task?.value
-    let released: Result<Void, ClaudeFailure> = lockfiles.reversed().reduce(status()) {
-      released, lockfile in
-      switch released {
-      case .success: lockfile.release()
-      case .failure(let error): .failure(error.releasing(lockfile.release()))
+    let ordered: [URL] = Set(directories).sorted { first, second in first.path < second.path }
+    return await holding(
+      ordered.flatMap { directory in
+        [
+          ClaudeLockRequest(url: directory.appending(path: ".oauth_refresh.lock"), stale: 60),
+          ClaudeLockRequest(
+            url: URL(filePath: directory.resolvingSymlinksInPath().path + ".lock"), stale: 60),
+        ]
+      },
+      updateEvery: .seconds(5), body)
+  }
+
+  static func storageWrite<Value: Sendable>(
+    directory: URL,
+    _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
+  ) async -> Result<Value, ClaudeFailure> {
+    await holding(
+      [ClaudeLockRequest(url: directory.appending(path: ".storage-write.lock"), stale: 15)],
+      updateEvery: .milliseconds(7_500), body)
+  }
+
+  private static func holding<Value: Sendable>(
+    _ requests: [ClaudeLockRequest], updateEvery interval: Duration,
+    _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
+  ) async -> Result<Value, ClaudeFailure> {
+    await createDirectories(requests.map { request in request.url.deletingLastPathComponent() })
+      .bind { _ in await acquire(requests, attempt: 0) }
+      .bind { lock in
+        let outcome: Result<Value, ClaudeFailure> = await withTaskGroup { group in
+          group.addTask(name: "locked-work") { await body() }
+          group.addTask(name: "lock-heartbeat") { await lock.heartbeat(every: interval) }
+          let first: Result<Value, ClaudeFailure> = await group.next() ?? .failure(.cancelled)
+          group.cancelAll()
+          await group.waitForAll()
+          return first
+        }
+        return await lock.release(returning: outcome)
+      }
+  }
+
+  private static func acquire(
+    _ requests: [ClaudeLockRequest], attempt: Int
+  ) async -> Result<ClaudeLock, ClaudeFailure> {
+    let held: Result<[ClaudeLockfile], ClaudeFailure> = requests.reduce(.success([])) {
+      held, request in
+      held.flatMap { lockfiles in
+        ClaudeLockfile.acquire(at: request.url, staleAfter: request.stale)
+          .map { lockfile in lockfiles + [lockfile] }
+          .mapError { error in release(lockfiles, after: error) }
       }
     }
-    lockfiles.removeAll()
-    return switch outcome {
-    case .success(let value): released.map { _ in value }
-    case .failure(let error): .failure(error.releasing(released))
+    switch held {
+    case .success(let lockfiles): return .success(ClaudeLock(lockfiles: lockfiles))
+    case .failure(.lockHeld) where attempt < attempts:
+      let delay: Duration = backoff[min(attempt, backoff.count - 1)]
+      return await Result { try await Task.sleep(for: delay) }
+        .mapError { _ in ClaudeFailure.cancelled }
+        .bind { _ in await acquire(requests, attempt: attempt + 1) }
+    case .failure(let error): return .failure(error)
+    }
+  }
+
+  private static func release(
+    _ lockfiles: [ClaudeLockfile], after error: ClaudeFailure
+  ) -> ClaudeFailure {
+    lockfiles.reversed().reduce(error) { outcome, lockfile in
+      outcome.releasing(lockfile.release())
     }
   }
 
@@ -163,52 +184,35 @@ actor ClaudeLock {
     .mapError(ClaudeFailure.filesystem)
   }
 
-  private static func acquire(
-    lockfiles requests: [(url: URL, stale: TimeInterval)],
-    updateEvery interval: Duration,
-    onCompromised: @escaping @Sendable () async -> Void
-  ) async -> Result<ClaudeLock, ClaudeFailure> {
-    let held: Result<[ClaudeLockfile], ClaudeFailure> = requests.reduce(.success([])) {
-      held, request in
-      held.flatMap { lockfiles in
-        ClaudeLockfile.acquire(at: request.url, staleAfter: request.stale)
-          .map { lockfile in lockfiles + [lockfile] }
-          .mapError { error in release(lockfiles, after: error) }
-      }
-    }
-    return await held.bind { lockfiles in
-      let lock: ClaudeLock = ClaudeLock(lockfiles: lockfiles, onCompromised: onCompromised)
-      await lock.startUpdates(every: interval)
-      return .success(lock)
+  private func heartbeat<Value: Sendable>(every interval: Duration) async -> Result<
+    Value, ClaudeFailure
+  > {
+    await Result { try await Task.sleep(for: interval) }
+      .mapError { _ in ClaudeFailure.cancelled }
+      .flatMap { _ in update() }
+      .bind { _ in await heartbeat(every: interval) }
+  }
+
+  private func update() -> Result<Void, ClaudeFailure> {
+    lockfiles.indices.reduce(.success(())) { outcome, index in
+      outcome.flatMap { _ in lockfiles[index].update() }
     }
   }
 
-  private static func release(
-    _ lockfiles: [ClaudeLockfile], after error: ClaudeFailure
-  ) -> ClaudeFailure {
-    lockfiles.reversed().reduce(error) { outcome, lockfile in
-      outcome.releasing(lockfile.release())
-    }
-  }
-
-  private func startUpdates(every interval: Duration) {
-    updates = Task { [weak self] in
-      while !Task.isCancelled {
-        guard (try? await Task.sleep(for: interval)) != nil, let self, await self.update() else {
-          return
-        }
+  private func release<Value: Sendable>(
+    returning outcome: Result<Value, ClaudeFailure>
+  ) -> Result<Value, ClaudeFailure> {
+    let released: Result<Void, ClaudeFailure> = lockfiles.reversed().reduce(.success(())) {
+      released, lockfile in
+      switch released {
+      case .success: lockfile.release()
+      case .failure(let error): .failure(error.releasing(lockfile.release()))
       }
     }
-  }
-
-  private func update() async -> Bool {
-    for index in lockfiles.indices {
-      if case .failure(let error) = lockfiles[index].update() {
-        failure = error
-        await onCompromised()
-        return false
-      }
+    lockfiles.removeAll()
+    return switch outcome {
+    case .success(let value): released.map { _ in value }
+    case .failure(let error): .failure(error.releasing(released))
     }
-    return true
   }
 }

@@ -26,6 +26,7 @@ rule:
                 - pattern: $CLASS()
                   has: {field: function, kind: identifier}
                   inside: {kind: module, stopBy: end, has: {matches: empty-class}}
+                  not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: type, all: [{has: {stopBy: end, kind: identifier, pattern: $CLASS}}, {has: {stopBy: end, kind: none}}]}}}
         - inside:
             kind: expression_statement
             inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}

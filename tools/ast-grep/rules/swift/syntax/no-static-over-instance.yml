@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-static-over-instance
+language: swift
+severity: error
+rule:
+    kind: function_declaration
+    all:
+        - any:
+            - has: {kind: modifiers, has: {kind: property_modifier, regex: '^static$'}}
+            - has: {regex: '^class$'}
+        - has: {field: name, kind: simple_identifier, pattern: $NAME}
+        - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}}
+        - has: {kind: parameter, pattern: $RECEIVER, has: {kind: user_type, pattern: $TYPE}}
+        - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {kind: user_type, pattern: $TYPE}}}
+message: '`$NAME` is a type member taking `$RECEIVER`, a value of the enclosing `$TYPE`'
+note: 'Drop `static` and the parameter, the receiver is `self` and every call site calls the member on that value'

@@ -3,6 +3,7 @@ id: no-contextlib-suppress
 language: python
 severity: error
 rule:
-    matches: {python-module-member: {module: {regex: '^contextlib$'}, name: {regex: '^suppress$', pattern: $NAME}}}
+    pattern: $NAME
+    matches: {python-member-use: {module: {regex: '^contextlib$'}, name: {regex: '^suppress$'}}}
 message: '`$NAME` hides the failure it catches'
-note: 'Return a `Result` from the suppressed call'
+note: 'Return an `expression.Result` from the suppressed call'

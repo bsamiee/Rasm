@@ -37,6 +37,11 @@ utils:
                         - matches: shield-name
                         - kind: as_pattern
                           has: {matches: shield-call}
+    anyio-import:
+        kind: import_statement
+        any:
+            - has: {kind: dotted_name, regex: '^anyio$', pattern: $ANYIO}
+            - has: {kind: aliased_import, all: [{has: {field: name, regex: '^anyio$'}}, {has: {field: alias, pattern: $ANYIO}}]}
     cancel-handler:
         kind: except_clause
         any:
@@ -59,8 +64,18 @@ rule:
                 - kind: for_statement
                   has: {regex: '^async$'}
         - not: {inside: {matches: shielded-scope, stopBy: {matches: python-function-boundary}}}
-fix: |-
-    with anyio.CancelScope(shield=True):
-        $BODY
+        - any:
+            - pattern: $SHIELDED
+              inside: {kind: module, stopBy: end, has: {matches: anyio-import}}
+            - pattern: $UNSHIELDED
+rewriters:
+    - id: shield
+      rule: {kind: block, pattern: $BLOCK}
+      fix: |-
+        with $ANYIO.CancelScope(shield=True):
+            $BLOCK
+transform:
+    OUT: rewrite($SHIELDED, rewriters=[shield])
+fix: $OUT$UNSHIELDED
 message: 'Cleanup await raises under the cancellation the block handles'
 note: 'Wrap the cleanup in `with anyio.CancelScope(shield=True):`'

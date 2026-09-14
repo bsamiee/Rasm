@@ -33,7 +33,7 @@ rule:
     pattern: $CALL
     all:
         - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
-        - has: {field: function, kind: identifier}
+        - has: {field: function, kind: 'identifier, member_expression'}
         - not: {has: {kind: 'await_expression, yield_expression, arrow_function, function_expression, assignment_expression, augmented_assignment_expression, update_expression', stopBy: end}}
         - any:
             - matches: repeat-site

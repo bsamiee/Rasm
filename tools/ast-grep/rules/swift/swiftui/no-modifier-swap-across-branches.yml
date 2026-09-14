@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-modifier-swap-across-branches
+language: swift
+severity: error
+rule:
+    pattern: 'if $C { $V.$M($$$A) } else { $V.$M($$$B) }'
+    not:
+        pattern: 'if $C { $E } else { $E }'
+    inside: {matches: swift-view-builder, stopBy: end}
+message: '`$V.$M` takes different arguments across the branches of `if $C`, two view identities torn down and rebuilt at every change of `$C`'
+note: 'Give the control one identity, `.tint`, `.disabled`, or `Toggle(...).toggleStyle(.button)` carries the state, a ternary argument serves where both arguments share one type'

@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-foundation-process
+language: swift
+severity: error
+rule:
+    all:
+        - pattern: $SITE
+        - any:
+            - pattern: Process()
+            - pattern: Pipe()
+            - kind: assignment
+              has: {field: target, regex: '\.terminationHandler$'}
+            - pattern: $P.waitUntilExit()
+message: '`$SITE` runs the child through `Foundation.Process`, which offers no session, process group, or teardown sequence and reaps after the pipe reads'
+note: 'Run the child through `Subprocess.run` of swift-subprocess with `platformOptions.createSession` and `platformOptions.teardownSequence` set, the pipe plumbing, exit wait, and termination handler go with the type, no fix, the run closure is a value the match does not hold'

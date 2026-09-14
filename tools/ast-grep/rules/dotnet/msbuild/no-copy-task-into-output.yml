@@ -6,5 +6,6 @@ rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
         - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir)\)'}}}}}
+        - not: {has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {regex: '^["'']\s*@\('}}}}}}
 message: Task writes into the project output alone, referencing projects and publish receive nothing
-note: Declare a `None` or `Content` item with `CopyToOutputDirectory`
+note: Declare a `None` or `Content` item with `CopyToOutputDirectory`, a wildcard source takes the `no-literal-glob-in-task-source` fix

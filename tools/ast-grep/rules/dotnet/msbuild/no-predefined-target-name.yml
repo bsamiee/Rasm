@@ -5,29 +5,42 @@ severity: error
 files: ['**/*.csproj', '**/*.props']
 rule:
     pattern: _TARGET
-    all:
-        - matches: {msbuild-element: {name: {regex: '^Target$'}}}
-        - matches:
-            msbuild-metadata:
-                name: {regex: '^Name$'}
-                value: {regex: '(?i)^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
+    matches: {msbuild-element: {name: {regex: '^Target$'}}}
+    has:
+        matches: msbuild-tag
+        has:
+            matches:
+                msbuild-attribute:
+                    name: {regex: '^Name$'}
+                    value: {regex: '(?i)^["''](Before|After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)["'']$'}
+rewriters:
+    - id: rename
+      rule:
+        kind: AttValue
+        pattern: _VALUE
+        inside:
+            kind: Attribute
+            has: {kind: Name, regex: '^Name$'}
+            inside: {matches: msbuild-tag, inside: {pattern: _TARGET}}
+      transform:
+        STEPPED: {replace: {source: $VALUE, replace: '(["''])$', by: 'Step$1'}}
+      fix: $STEPPED
+    - id: attach
+      rule:
+        matches: msbuild-tag
+        pattern: _TAG
+        inside: {pattern: _TARGET}
+        has: {kind: Attribute, all: [{has: {kind: Name, regex: '^Name$'}}, {has: {kind: AttValue, pattern: _NAME}}]}
+        not: {has: {kind: Attribute, has: {kind: Name, regex: '^(Before|After)Targets$'}}}
+      transform:
+        RENAMED_TAG: rewrite($TAG, rewriters=[rename])
+        HEAD: {replace: {source: $RENAMED_TAG, replace: '\s*/?>$', by: ''}}
+        CLOSE: {replace: {source: $RENAMED_TAG, replace: '(?s)^.*?(/?>)$', by: '$1'}}
+        BEFORE: {replace: {source: $NAME, replace: '(?i)^["'']before([A-Za-z]+)["'']$', by: 'BeforeTargets="$1"'}}
+        HOOK: {replace: {source: $BEFORE, replace: '(?i)^["'']after([A-Za-z]+)["'']$', by: 'AfterTargets="$1"'}}
+      fix: '$HEAD $HOOK$CLOSE'
 transform:
-    RENAMED_BEFORE:
-        replace:
-            source: $TARGET
-            replace: '(?si)^(<Target\b.*?\bName\s*=\s*)(["''])(Before)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)(["''])'
-            by: '${1}${2}${3}${4}Step${5}@@BeforeTargets="${4}"@@'
-    RENAMED:
-        replace:
-            source: $RENAMED_BEFORE
-            replace: '(?si)^(<Target\b.*?\bName\s*=\s*)(["''])(After)(Build|Compile|Clean|Publish|Rebuild|ResolveReferences|ResGen)(["''])'
-            by: '${1}${2}${3}${4}Step${5}@@AfterTargets="${4}"@@'
-    KEPT:
-        replace:
-            source: $RENAMED
-            replace: '(?si)^(<Target\b.*?\b(?:Before|After)Targets\s*=.*?)@@[^@]*@@|^(<Target\b[^@]*?)@@[^@]*@@([^>]*?\b(?:Before|After)Targets\s*=)'
-            by: '${1}${2}${3}'
-    ATTACHED: {replace: {source: $KEPT, replace: '@@([^@]*)@@', by: ' ${1}'}}
-fix: $ATTACHED
+    RENAMED: rewrite($TARGET, rewriters=[attach, rename])
+fix: $RENAMED
 message: Target takes a predefined name, the SDK import after the project body replaces it
 note: Give the target its own name and attach it with `BeforeTargets` or `AfterTargets`

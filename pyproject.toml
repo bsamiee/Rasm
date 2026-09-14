@@ -366,6 +366,7 @@ python-preference = "only-system"
 members = ["tests/python/support"]
 
 [tool.uv.extra-build-variables]
+manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }
 opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
 
 [tool.uv.extra-build-dependencies]
@@ -476,6 +477,7 @@ ignore = [
     "implicit-namespace-package",
     "missing-copyright-notice",
     "commented-out-code",
+    "suppressible-exception",                             # Steers to contextlib.suppress, which no-contextlib-suppress refuses, try-except-pass keeps reporting the swallow
 ]
 
 [tool.ruff.lint.per-file-ignores]

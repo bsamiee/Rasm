@@ -16,5 +16,5 @@ select
     value ->> '$.message',
     value ->> '$.replacement',
     'agent:' || :id
-from json_each(cast(readfile(:sites) as text));
+from json_each(:sites);
 .read .claude/skills/observation/scripts/insert.sql

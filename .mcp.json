@@ -43,7 +43,7 @@
         "ast-grep-server"
       ],
       "env": {
-        "AST_GREP_CONFIG": "${CLAUDE_PROJECT_DIR:-.}/sgconfig.yml"
+        "AST_GREP_CONFIG": "sgconfig.yml"
       }
     },
     "hostinger": {
@@ -83,7 +83,7 @@
     },
     "indesign-sidekick": {
       "type": "stdio",
-      "command": "/usr/local/bin/indesign-sidekick",
+      "command": "indesign-sidekick",
       "args": [
         "start"
       ]
@@ -147,6 +147,13 @@
       "command": "xcrun",
       "args": [
         "mcpbridge"
+      ]
+    },
+    "lldb": {
+      "type": "stdio",
+      "command": "xcrun",
+      "args": [
+        "lldb-mcp"
       ]
     }
   }

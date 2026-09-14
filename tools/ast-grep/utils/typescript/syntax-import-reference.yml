@@ -26,6 +26,19 @@ rule:
                                         - has: {field: name, matches: exported}
                                         - has: {kind: identifier, pattern: $IMPORTED, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
                                         - not: {has: {regex: '^type$'}}
+        - kind: identifier
+          pattern: $IMPORTED
+          all:
+            - not: {matches: syntax-shadowed-import}
+            - inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: import_statement
+                    all:
+                        - has: {field: source, not: {has: {kind: escape_sequence}}, has: {kind: string_fragment, regex: '/', matches: source}}
+                        - not: {has: {regex: '^type$'}}
+                        - has: {kind: import_clause, has: {kind: namespace_import, has: {kind: identifier, pattern: $IMPORTED}}}
         - kind: member_expression
           all:
             - has: {field: property, matches: exported}

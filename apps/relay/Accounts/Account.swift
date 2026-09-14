@@ -25,11 +25,6 @@ nonisolated enum SessionPolicy: String, Codable, Sendable {
   case automatic
 }
 
-nonisolated enum SessionStartState: String, Codable, Sendable {
-  case idle
-  case awaitingConfirmation
-}
-
 nonisolated enum IdentityError: Error {
   case missingAccountID
   case missingEmail
@@ -41,7 +36,7 @@ nonisolated struct IdentityFailure: AggregateError {
   let remaining: [IdentityError]
 }
 
-nonisolated struct AccountIdentity: Sendable {
+nonisolated struct AccountIdentity: Equatable, Sendable {
   let accountID: String
   let organizationID: String?
   let email: String
@@ -92,50 +87,53 @@ nonisolated struct Account: Identifiable, Sendable {
   var sessionPolicy: SessionPolicy
 }
 
-nonisolated struct AccountSelection: Sendable {
-  let identity: AccountIdentity
-  let preservedAccount: Account?
-}
-
 nonisolated enum AuthenticationState: Equatable, Codable, Sendable {
   case connected
   case signInRequired
 }
 
-enum AccountOperation: Equatable, Sendable {
-  case idle
+nonisolated enum AccountOperation: Equatable, Sendable {
   case refreshing
   case selecting
   case starting
-  case awaitingWindow
   case signingIn
   case signingOut
   case removing
+
+  var description: String {
+    switch self {
+    case .refreshing: "Refreshing usage"
+    case .selecting: "Switching account"
+    case .starting: "Starting session"
+    case .signingIn: "Signing in"
+    case .signingOut: "Signing out"
+    case .removing: "Removing account"
+    }
+  }
 }
 
-struct AccountViewModel: Identifiable, Sendable {
-  let account: Account
-  let authentication: AuthenticationState
-  let usageState: UsageState
-  let operation: AccountOperation
-  let issue: String?
-  let isSelected: Bool
-
-  var id: UUID { account.id }
-  var isBusy: Bool { operation != .idle && operation != .awaitingWindow }
-  var canSelect: Bool { authentication == .connected && !isBusy }
-  var canStartSession: Bool { authentication == .connected && operation == .idle }
-  var isUsageCurrent: Bool { if case .current = usageState { true } else { false } }
-}
-
-enum AuthenticationPhase: Equatable, Sendable {
+nonisolated enum AuthenticationPhase: Equatable, Sendable {
   case pending
   case refused(String)
   case cancelling
 }
 
-struct AuthenticationPresentation: Identifiable {
+nonisolated struct AuthenticationPresentation: Identifiable, Equatable, Sendable {
   let id: UUID
   let provider: Provider
   let phase: AuthenticationPhase
+  let startedAt: Date
+}
+
+nonisolated protocol ProviderFailure: LocalizedError, Sendable {
+  var requiresSignIn: Bool { get }
+  var isCancellation: Bool { get }
+}
+
+nonisolated struct ProviderError: LocalizedError, Sendable {
+  let failure: any ProviderFailure
+
+  var requiresSignIn: Bool { failure.requiresSignIn }
+  var isCancellation: Bool { failure.isCancellation }
+  var errorDescription: String? { failure.errorDescription }
 }

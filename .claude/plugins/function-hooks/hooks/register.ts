@@ -8,6 +8,7 @@ import type {
     Frozen,
     Next,
     ProcessRunInit,
+    ProcessRunResult,
     Register,
     ToolCallInput,
     ToolCallResult,
@@ -42,6 +43,7 @@ import {
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
+import type { Place } from './policies/walk.ts';
 import { SCAN } from './text/command.ts';
 import { basename } from './text/path.ts';
 
@@ -96,10 +98,17 @@ const _run = ($: EngineInterface, argv: Argv, init?: ProcessRunInit): Promise<Re
         (cause: unknown) => fault(`${basename(argv[0])} did not run, ${String(cause)}`),
     );
 
+const _scan = ($: EngineInterface, text: string): Promise<ProcessRunResult> =>
+    $.session.repo().then((repo) => $.process.run(SCAN, repo === null ? { stdin: text } : { stdin: text, cwd: repo.root }));
+
+const _homed = ($: EngineInterface, cwd: string): Promise<Place> => $.env.get('HOME').then((home) => ({ home: fromNullable(home), cwd }));
+
+const _place = ($: EngineInterface): Promise<Place> => $.session.cwd().then((cwd) => _homed($, cwd));
+
 // --- [OPEN] ----------------------------------------------------------------------------
 
 const _switched = ($: EngineInterface, sqlite: Argv, root: string): Promise<Result<Sink>> =>
-    _run($, sqlite, { stdin: 'pragma journal_mode=wal;' }).then((switched) => {
+    _run($, sqlite, { stdin: 'pragma journal_mode=wal;', cwd: root }).then((switched) => {
         const mode = switched.kind === 'ok' ? switched.value.trim() : switched.reason;
         if (mode !== 'wal') {
             $.ui.log(`journal mode not switched, ${mode}`);
@@ -108,7 +117,7 @@ const _switched = ($: EngineInterface, sqlite: Argv, root: string): Promise<Resu
     });
 
 const _applied = ($: EngineInterface, sqlite: Argv, root: string): Promise<Result<Sink>> =>
-    _run($, sqlite, { stdin: open(root) }).then((applied) =>
+    _run($, sqlite, { stdin: open(root), cwd: root }).then((applied) =>
         applied.kind === 'fault' ? fault(`schema not applied, ${applied.reason}`) : _switched($, sqlite, root),
     );
 
@@ -119,7 +128,9 @@ const _prepared = ($: EngineInterface, sqlite: Argv, root: string): Promise<Resu
     );
 
 const _located = ($: EngineInterface, root: string): Promise<Result<Sink>> =>
-    _run($, LOCATE).then((where) => (where.kind === 'fault' ? where : _prepared($, sqlite3(where.value.trim(), database(root)), root)));
+    _run($, LOCATE, { cwd: root }).then((where) =>
+        where.kind === 'fault' ? where : _prepared($, sqlite3(where.value.trim(), database(root)), root),
+    );
 
 const _open = ($: EngineInterface): Promise<Result<Sink>> =>
     $.session
@@ -134,8 +145,8 @@ const _open = ($: EngineInterface): Promise<Result<Sink>> =>
 
 // --- [RECORD] --------------------------------------------------------------------------
 
-const _write = ($: EngineInterface, sqlite: Argv, built: Row): Promise<void> =>
-    _run($, sqlite, { stdin: script(built) }).then((ran) => {
+const _write = ($: EngineInterface, sink: Sink, built: Row): Promise<void> =>
+    _run($, sink.argv, { stdin: script(built), cwd: sink.root }).then((ran) => {
         if (ran.kind === 'fault') {
             $.ui.log(`${built.event} row ${built.toolUseId.kind === 'some' ? built.toolUseId.value : built.sessionId} not written, ${ran.reason}`);
         }
@@ -151,8 +162,8 @@ const record = (
 ): Promise<void> => {
     const own = session(value, columns);
     return own.kind === 'some'
-        ? _write($, sink.argv, row(event, value, columns, own.value, ts))
-        : $.session.id().then((id) => _write($, sink.argv, row(event, value, columns, id, ts)));
+        ? _write($, sink, row(event, value, columns, own.value, ts))
+        : $.session.id().then((id) => _write($, sink, row(event, value, columns, id, ts)));
 };
 
 const _classic = ($: EngineInterface, sink: Sink, e: Classic, ts: number): Promise<void> =>
@@ -336,8 +347,9 @@ const register: Register = (on, options) => {
     on('tool.call', ($, e, next) =>
         decide(
             e,
-            (text: string) => $.process.run(SCAN, { stdin: text }),
+            (text: string) => _scan($, text),
             (path: string) => $.fs.exists(path),
+            () => _place($),
         )
             .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason.replace(_CTRL, ' ') } : next(decision.e)))
             .then<ToolCallResult>((answer) =>

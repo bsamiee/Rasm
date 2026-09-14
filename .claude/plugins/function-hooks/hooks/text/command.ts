@@ -94,6 +94,7 @@ const _DIGITS = /^\d+$/u;
 const _INLINE = /^-[A-Za-z]*c[A-Za-z]*$/u;
 const _SHELLS: readonly string[] = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
 const _SUBCOMMANDS: readonly string[] = ['run', 'exec', 'tool', 'x'];
+const LAUNCHERS: readonly string[] = ['mise', 'doppler', 'op'];
 const _VALUE_OPTS: readonly string[] = ['-u', '-I', '-n', '-g', '--user', '--replace'];
 const _WRAPPERS: readonly string[] = [
     'sudo',
@@ -247,4 +248,4 @@ const parse = (scan: Scanner, command: string): Promise<Result<readonly Command[
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Command, Scanner };
-export { parse, pastAssignments, SCAN, strip };
+export { LAUNCHERS, parse, pastAssignments, SCAN, strip };

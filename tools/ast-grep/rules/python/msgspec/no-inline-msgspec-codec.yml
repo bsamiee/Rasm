@@ -6,8 +6,7 @@ utils:
     msgspec-module:
         all:
             - any:
-                - matches: {python-module-member: {module: {regex: "^msgspec$"}, name: {regex: "^(json|msgpack)$"}}}
-                - matches: {python-imported-name: {module: {regex: "^msgspec$"}, name: {regex: "^(json|msgpack)$"}}}
+                - matches: {python-member-use: {module: {regex: "^msgspec$"}, name: {regex: "^(json|msgpack)$"}}}
                 - kind: identifier
                   pattern: $CODEC
                   not: {matches: {python-conflicting-import: {module: {regex: '^msgspec\.(json|msgpack)$'}, name: {regex: '^$'}}}}

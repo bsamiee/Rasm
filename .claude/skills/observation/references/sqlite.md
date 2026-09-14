@@ -62,13 +62,13 @@ Page `lang_expr.html`, operators and subqueries:
 
 Page `json1.html`, payload reads and file slicing:
 
-| [INDEX] | [FACT]                                                 | [DECIDES]                                                           |
-| :-----: | :----------------------------------------------------- | :------------------------------------------------------------------ |
-|  [01]   | `->>` answers an SQL value, `->` JSON text             | `->>` in mapping and lifecycle scripts, `strict` converts digits    |
-|  [02]   | `json_each` walks an array or object as rows           | Patch lines, `tool_calls`, `delivered_on`, `:sites`, `:ids`         |
-|  [03]   | Blob that reads as JSON text is accepted as JSON       | `cast(readfile(:out) as text)` states the intent before `json_each` |
-|  [04]   | `json_quote` escapes text, `\n` and `\\` in the result | `line.sql` splits a file into one array element per line            |
-|  [05]   | `json_group_array(distinct x)` aggregates one array    | `delivered_on` and `reported_on`                                    |
+| [INDEX] | [FACT]                                                 | [DECIDES]                                                        |
+| :-----: | :----------------------------------------------------- | :--------------------------------------------------------------- |
+|  [01]   | `->>` answers an SQL value, `->` JSON text             | `->>` in mapping and lifecycle scripts, `strict` converts digits |
+|  [02]   | `json_each` walks an array or object as rows           | Patch lines, `tool_calls`, `delivered_on`, `:sites`, `:ids`      |
+|  [03]   | Blob that reads as JSON text is accepted as JSON       | `cast(readfile('<log>') as text)` binds the Roslyn log as `:out` |
+|  [04]   | `json_quote` escapes text, `\n` and `\\` in the result | `line.sql` splits a file into one array element per line         |
+|  [05]   | `json_group_array(distinct x)` aggregates one array    | `delivered_on` and `reported_on`                                 |
 
 ## [07]-[AGGREGATES]
 
@@ -105,10 +105,14 @@ Page `cli.html`, the `sqlite3` process every reader and writer runs:
 |  [05]   | `-json` prints one array per select with rows, nothing for none | Readers read an absent array as zero rows                              |
 |  [06]   | `.mode tabs` writes raw tabs and newlines inside values         | State script cells hold counts and flags alone                         |
 |  [07]   | `.output <file>` and `.read <file>` redirect and replay         | Open writes the delta file, scripts share files through `.read`        |
-|  [08]   | `.read <file>` as the argument runs after every `-cmd`          | Script commands bind through `-cmd`, then name the script              |
+|  [08]   | Arguments after the database run in order after every `-cmd`    | Script commands bind through `-cmd`, then the JSON insert and `.read`  |
 |  [09]   | `.parameter set` evaluates SQL, unparsable text binds as text   | `'<text>'` binds text, a bare number an integer, `null` null           |
 |  [10]   | `.parameter set` inside a script binds the statements after it  | `batch.sql` and each checker script bind `:state` and `:by`            |
 |  [11]   | Unbound parameter reads null                                    | Missing `:state` or `:by` fails its `not null` column                  |
+|  [12]   | `-bail` ends the process after an SQL `-cmd`, arguments unrun   | Insert into `temp.sqlite_parameters` is an argument, never a `-cmd`    |
+|  [13]   | `.parameter set` VALUE is one token, `'` ends a quoted one      | JSON text binds through the table insert, `.param set` binds the rest  |
+|  [14]   | `readfile` seeks to size its file, a pipe raises out of memory  | JSON reaches a script as a bound value, never through stdin            |
+|  [15]   | `.parameter set` creates the binding table, absent before it    | `.param set :worktree` precedes the JSON insert, else `no such table`  |
 
 ## [10]-[FOREIGN_KEYS]
 

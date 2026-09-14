@@ -1,0 +1,124 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-function-swift
+language: swift
+severity: error
+utils:
+    function-reference:
+        any:
+            - kind: simple_identifier
+            - kind: navigation_expression
+              all:
+                - has: {field: target, any: [{kind: 'self_expression, super_expression'}, {matches: function-reference}]}
+                - not: {has: {regex: '^[?!]$'}}
+    named-callee:
+        nthChild: 1
+        pattern: $F
+        matches: function-reference
+    parenthesized-arguments:
+        kind: value_arguments
+        pattern: $ARGS
+        has: {regex: '^\($'}
+    forwarding-call:
+        kind: call_expression
+        all:
+            - has: {matches: named-callee}
+            - has: {kind: call_suffix, has: {matches: parenthesized-arguments}, not: {has: {kind: lambda_literal}}}
+    forwarding-statement:
+        any:
+            - matches: forwarding-call
+            - kind: 'try_expression, await_expression, control_transfer_statement'
+              has: {matches: forwarding-statement}
+    forwarding-body:
+        all:
+            - matches: {swift-single-statement: {first: {kind: 'call_expression, try_expression, await_expression, control_transfer_statement'}}}
+            - has: {nthChild: 1, matches: forwarding-statement}
+    parameter-1:
+        kind: 'parameter, lambda_parameter'
+        nthChild: {position: 1, ofRule: {kind: 'parameter, lambda_parameter'}}
+        has: {field: name, kind: simple_identifier, pattern: $A}
+    parameter-2:
+        kind: 'parameter, lambda_parameter'
+        nthChild: {position: 2, ofRule: {kind: 'parameter, lambda_parameter'}}
+        has: {field: name, kind: simple_identifier, pattern: $B}
+    parameter-3:
+        kind: 'parameter, lambda_parameter'
+        nthChild: {position: 3, ofRule: {kind: 'parameter, lambda_parameter'}}
+        has: {field: name, kind: simple_identifier, pattern: $C}
+    argument-1: {kind: value_argument, nthChild: 1, has: {field: value, kind: simple_identifier, pattern: $A}}
+    argument-2: {kind: value_argument, nthChild: 2, has: {field: value, kind: simple_identifier, pattern: $B}}
+    argument-3: {kind: value_argument, nthChild: 3, has: {field: value, kind: simple_identifier, pattern: $C}}
+    anonymous-1: {kind: value_argument, nthChild: 1, has: {field: value, kind: simple_identifier, regex: '^\$0$'}}
+    anonymous-2: {kind: value_argument, nthChild: 2, has: {field: value, kind: simple_identifier, regex: '^\$1$'}}
+    anonymous-3: {kind: value_argument, nthChild: 3, has: {field: value, kind: simple_identifier, regex: '^\$2$'}}
+    arguments-0: {kind: value_arguments, not: {has: {kind: value_argument}}}
+    arguments-1: {kind: value_arguments, has: {matches: argument-1}, not: {has: {nthChild: 2}}}
+    arguments-2: {kind: value_arguments, all: [{has: {matches: argument-1}}, {has: {matches: argument-2}}], not: {has: {nthChild: 3}}}
+    arguments-3: {kind: value_arguments, all: [{has: {matches: argument-1}}, {has: {matches: argument-2}}, {has: {matches: argument-3}}], not: {has: {nthChild: 4}}}
+    anonymous-arguments-1: {kind: value_arguments, has: {matches: anonymous-1}, not: {has: {nthChild: 2}}}
+    anonymous-arguments-2: {kind: value_arguments, all: [{has: {matches: anonymous-1}}, {has: {matches: anonymous-2}}], not: {has: {nthChild: 3}}}
+    anonymous-arguments-3: {kind: value_arguments, all: [{has: {matches: anonymous-1}}, {has: {matches: anonymous-2}}, {has: {matches: anonymous-3}}], not: {has: {nthChild: 4}}}
+    plain-parameters:
+        kind: function_declaration
+        not:
+            any:
+                - has: {field: default_value, pattern: $_}
+                - has: {kind: parameter, has: {regex: '^\.\.\.$'}}
+    forwarded-0: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-0}}}
+    forwarded-1: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-1}}}
+    forwarded-2: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-2}}}
+    forwarded-3: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: arguments-3}}}
+    anonymous-forwarded-1: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-1}}}
+    anonymous-forwarded-2: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-2}}}
+    anonymous-forwarded-3: {has: {kind: statements, matches: forwarding-body, has: {stopBy: end, kind: value_arguments, pattern: $ARGS, matches: anonymous-arguments-3}}}
+rule:
+    all:
+        - any:
+            - matches: plain-parameters
+              all:
+                - not: {has: {kind: parameter}}
+                - has: {field: body, matches: forwarded-0}
+            - matches: plain-parameters
+              all:
+                - has: {matches: parameter-1}
+                - not: {has: {kind: parameter, nthChild: {position: 2, ofRule: {kind: parameter}}}}
+                - has: {field: body, matches: forwarded-1}
+            - matches: plain-parameters
+              all:
+                - has: {matches: parameter-1}
+                - has: {matches: parameter-2}
+                - not: {has: {kind: parameter, nthChild: {position: 3, ofRule: {kind: parameter}}}}
+                - has: {field: body, matches: forwarded-2}
+            - matches: plain-parameters
+              all:
+                - has: {matches: parameter-1}
+                - has: {matches: parameter-2}
+                - has: {matches: parameter-3}
+                - not: {has: {kind: parameter, nthChild: {position: 4, ofRule: {kind: parameter}}}}
+                - has: {field: body, matches: forwarded-3}
+            - kind: lambda_literal
+              all:
+                - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {matches: parameter-1}, not: {has: {nthChild: 2}}}}
+                - matches: forwarded-1
+            - kind: lambda_literal
+              all:
+                - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}], not: {has: {nthChild: 3}}}}
+                - matches: forwarded-2
+            - kind: lambda_literal
+              all:
+                - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}], not: {has: {nthChild: 4}}}}
+                - matches: forwarded-3
+            - kind: lambda_literal
+              all:
+                - not: {has: {kind: lambda_function_type}}
+                - matches: anonymous-forwarded-1
+            - kind: lambda_literal
+              all:
+                - not: {has: {kind: lambda_function_type}}
+                - matches: anonymous-forwarded-2
+            - kind: lambda_literal
+              all:
+                - not: {has: {kind: lambda_function_type}}
+                - matches: anonymous-forwarded-3
+        - not: {has: {field: name, pattern: $F}}
+message: 'Function or closure forwards its parameters unchanged to `$F`'
+note: 'Call `$F` at each use, a closure takes the callee as a value, `f`, `obj.m`, `m(label:)`, or `Type.init`, and a trailing closure on a labeled parameter spells the label the trailing syntax elides, `(label: f)`'

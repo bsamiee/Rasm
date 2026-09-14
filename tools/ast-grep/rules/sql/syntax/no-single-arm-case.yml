@@ -12,12 +12,12 @@ rule:
         all:
             - not: {has: {kind: keyword_else}}
             - inside:
-                  kind: term
-                  inside:
-                      kind: invocation
-                      all:
-                          - has: {kind: object_reference, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}
-                          - not: {has: {kind: keyword_distinct}}
+                kind: term
+                inside:
+                    kind: invocation
+                    all:
+                        - has: {kind: object_reference, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}
+                        - not: {has: {kind: keyword_distinct}}
 rewriters:
     - id: with-else
       rule: {pattern: {context: 'select case when _COND then _THEN else _ELSE end', selector: case}}

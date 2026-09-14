@@ -11,9 +11,17 @@ utils:
             - has: {kind: word, pattern: $ARRAY, regex: '^[A-Za-z_][A-Za-z0-9_]*$', nthChild: {position: 1, reverse: true}}
             - not: {has: {kind: word, regex: '^-[a-zA-Z]*[dnOsuCc]$', precedes: {kind: word, pattern: $ARRAY}}}
             - not: {has: {matches: bash-expanded-word}}
+    isolated: {kind: 'function_definition, subshell, command_substitution, process_substitution'}
     leaving-command:
         kind: command
-        has: {field: name, regex: '^(return|exit|break)$'}
+        any:
+            - has: {field: name, regex: '^(return|exit)$'}
+            - all:
+                - has: {field: name, regex: '^break$'}
+                - has: {field: argument, not: {regex: '^["'']?1["'']?$'}}
+    break-command:
+        kind: command
+        has: {field: name, regex: '^break$'}
 rule:
     matches: named-reader
     pattern: $READER
@@ -23,7 +31,12 @@ rule:
         all:
             - regex: '^while\b'
             - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: 'do_group, comment'}}}}}
-            - not: {has: {field: body, has: {matches: leaving-command, stopBy: {kind: 'function_definition, subshell, while_statement, for_statement, c_style_for_statement'}}}}
+            - not:
+                has:
+                    field: body
+                    any:
+                        - has: {matches: leaving-command, stopBy: {matches: isolated}}
+                        - has: {matches: break-command, stopBy: {any: [{matches: isolated}, {kind: 'while_statement, for_statement, c_style_for_statement'}]}}
 fix: '$READER && (( ${#$ARRAY[@]} ))'
 message: '`$READER` succeeds at EOF, its status never ends the loop'
 note: Test the array length after the reader, `while mapfile -tn <count> <array> && (( ${#<array>[@]} )); do`

@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-enum
+language: swift
+severity: error
+utils:
+    payload-case:
+        kind: switch_pattern
+        has:
+            kind: pattern
+            all:
+                - has: {kind: pattern, has: {stopBy: end, kind: simple_identifier, pattern: $E}}
+                - not: {has: {kind: pattern, nthChild: {position: 2, ofRule: {kind: pattern}}}}
+    forwarded-member:
+        kind: navigation_expression
+        all:
+            - has: {field: target, kind: simple_identifier, pattern: $E}
+            - has: {field: suffix, kind: navigation_suffix, has: {field: suffix, kind: simple_identifier, pattern: $M}}
+    forwarding-body:
+        any:
+            - matches: forwarded-member
+            - kind: call_expression
+              all:
+                - has: {nthChild: 1, matches: forwarded-member}
+                - has: {kind: call_suffix, pattern: $ARGS, not: {has: {kind: lambda_literal}}}
+            - kind: control_transfer_statement
+              has: {field: result, matches: forwarding-body}
+    single-forwarding-statement:
+        all:
+            - matches: {swift-single-statement: {first: {kind: 'navigation_expression, call_expression, control_transfer_statement'}}}
+            - has: {nthChild: 1, matches: forwarding-body}
+    forwarding-entry:
+        kind: switch_entry
+        all:
+            - has: {matches: payload-case}
+            - has: {matches: single-forwarding-statement}
+    single-switch:
+        matches: {swift-single-statement: {first: {kind: switch_statement}}}
+rule:
+    kind: switch_statement
+    all:
+        - has: {field: expr, kind: self_expression}
+        - inside:
+            matches: single-switch
+            inside:
+                kind: 'computed_property, function_body'
+                inside:
+                    kind: 'property_declaration, function_declaration'
+                    has: {field: name, pattern: $NAME}
+                    inside: {kind: enum_class_body}
+        - has: {kind: switch_entry, has: {kind: statements, has: {stopBy: end, kind: navigation_suffix, has: {field: suffix, kind: simple_identifier, pattern: $M}}}}
+        - has: {kind: switch_entry, has: {kind: statements, any: [{has: {stopBy: end, kind: call_suffix, pattern: $ARGS}}, {not: {has: {stopBy: end, kind: call_suffix}}}]}}
+        - not: {has: {kind: switch_entry, not: {matches: forwarding-entry}}}
+message: '`$NAME` forwards `$M` of every payload unchanged'
+note: 'Declare a protocol the payload types conform to and hold `any Protocol`, the consumer reads `$M` on the payload with no switch per member'

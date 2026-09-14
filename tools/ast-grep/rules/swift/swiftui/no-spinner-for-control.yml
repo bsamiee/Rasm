@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-spinner-for-control
+language: swift
+severity: error
+utils:
+    spinner: {kind: call_expression, regex: '^ProgressView\('}
+    spinner-arm:
+        matches: {swift-single-statement: {first: {matches: spinner, pattern: $SPINNER}}}
+    control-arm:
+        matches: {swift-single-statement: {first: {not: {matches: spinner}, pattern: $CONTROL}}}
+rule:
+    any:
+        - kind: if_statement
+          all:
+            - has: {matches: spinner-arm}
+            - has: {matches: control-arm}
+            - not: {has: {kind: if_statement}}
+            - not: {has: {field: condition, regex: '^case$'}}
+        - kind: switch_statement
+          all:
+            - has: {kind: switch_entry, has: {matches: spinner-arm}}
+            - has: {kind: switch_entry, has: {matches: control-arm}}
+    inside: {matches: swift-view-builder, stopBy: end}
+message: '`$SPINNER` stands in for `$CONTROL` while its operation runs'
+note: 'Keep the control in place, `<control>.disabled(<condition>).overlay { if <condition> { ProgressView() } }`, a switch arm takes the same overlay by hand'

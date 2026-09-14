@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nonatomic-file-write
+language: swift
+severity: error
+utils:
+    data-receiver:
+        any:
+            - pattern: 'Data($$$ARGS)'
+            - pattern: '$OWNER.encode($$$ARGS)'
+            - pattern: '$OWNER.data(using: $$$ARGS)'
+    data-binding:
+        any:
+            - pattern: 'let $R: Data = $_'
+            - pattern: 'var $R: Data = $_'
+            - pattern: 'var $R: Data'
+            - pattern: {context: 'func f($R: Data) {}', selector: parameter}
+            - pattern: {context: 'func f(_ $R: Data) {}', selector: parameter}
+rule:
+    any:
+        - pattern: '$R.write(to: $U, atomically: $A, encoding: $E)'
+        - pattern: '$R.write(to: $U, atomically: $A)'
+        - pattern: '$R.write(to: $U)'
+          any:
+            - has: {kind: navigation_expression, has: {field: target, stopBy: end, matches: data-receiver}}
+            - inside: {stopBy: end, kind: function_declaration, has: {stopBy: end, matches: data-binding}}
+constraints:
+    A: {regex: '^false$'}
+transform:
+    ATOM: {replace: {source: $A, replace: '^false$', by: 'atomically: true'}}
+    TAIL: {replace: {source: $ATOM, replace: '^$', by: 'options: [.atomic]'}}
+    ENC: {replace: {source: $E, replace: '^(.+)$', by: ', encoding: $1'}}
+fix: '$R.write(to: $U, $TAIL$ENC)'
+message: '`$R.write(to:)` truncates the file in place, another process reads a half-written file until the write ends'
+note: '`options: [.atomic]` on `Data.write`, `atomically: true` on `String.write` and `NSData.write`, both stage the bytes and rename, an `options:` list without `.atomic`, a receiver with no visible `Data` type, and an optional-chained receiver are the variants without a template'

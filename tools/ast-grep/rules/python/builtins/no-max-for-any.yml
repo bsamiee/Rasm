@@ -3,6 +3,7 @@ id: no-max-for-any
 language: python
 severity: error
 utils:
+    plain-body: {has: {field: body, not: {kind: 'conditional_expression, boolean_operator, lambda, comparison_operator, named_expression, not_operator'}}}
     extremum:
         kind: call
         all:
@@ -11,14 +12,17 @@ utils:
                 field: arguments
                 any:
                     - kind: generator_expression
-                      pattern: $GEN
+                      matches: plain-body
                     - kind: argument_list
-                      has: {kind: list_comprehension, pattern: $GEN}
+                      has: {kind: list_comprehension, matches: plain-body}
                       not: {has: {nthChild: 2}}
     evaluated:
         any:
             - kind: 'call, await, named_expression, yield'
             - has: {kind: 'call, await, named_expression, yield', stopBy: end}
+    nonempty-literal:
+        kind: 'list, tuple, set'
+        has: {pattern: $_, not: {kind: 'list_splat, comment'}}
 rule:
     kind: comparison_operator
     pattern: $CMP
@@ -27,20 +31,40 @@ rule:
         - has: {field: operators, pattern: $$OP}
         - has: {nthChild: 2, pattern: $BOUND}
         - not: {has: {nthChild: 3}}
+        - any:
+            - pattern: $FIXABLE
+              has:
+                nthChild: 1
+                all:
+                    - has: {stopBy: end, kind: 'generator_expression, list_comprehension', pattern: $GEN}
+                    - not: {has: {stopBy: end, kind: for_in_clause, not: {has: {field: right, matches: nonempty-literal}}}}
+                    - not: {has: {stopBy: end, kind: if_clause}}
+            - pattern: $KEPT
 constraints:
-    GEN: {has: {field: body, not: {kind: 'conditional_expression, boolean_operator, lambda, comparison_operator, named_expression, not_operator'}}}
     BOUND: {not: {any: [{regex: '[<>]'}, {matches: evaluated}]}}
     OP: {regex: '^(<|<=|>|>=)$'}
 rewriters:
     - id: compare-body
       rule: {pattern: $BODY, inside: {kind: 'generator_expression, list_comprehension', field: body}}
       fix: $BODY $OP $BOUND
+    - id: any-quantifier
+      rule:
+        kind: comparison_operator
+        any:
+            - all: [{has: {nthChild: 1, has: {field: function, regex: '^max$'}}}, {has: {field: operators, regex: '^>=?$'}}]
+            - all: [{has: {nthChild: 1, has: {field: function, regex: '^min$'}}}, {has: {field: operators, regex: '^<=?$'}}]
+      fix: any
+    - id: all-quantifier
+      rule:
+        kind: comparison_operator
+        any:
+            - all: [{has: {nthChild: 1, has: {field: function, regex: '^max$'}}}, {has: {field: operators, regex: '^<=?$'}}]
+            - all: [{has: {nthChild: 1, has: {field: function, regex: '^min$'}}}, {has: {field: operators, regex: '^>=?$'}}]
+      fix: all
 transform:
     COMPARED: rewrite($GEN, rewriters=[compare-body])
     CLAUSES: {replace: {source: $COMPARED, replace: '(?s)^\[(.*)\]$', by: '($1)'}}
-    KEY: {replace: {source: $CMP, replace: '(?s)^(max|min)\(.*\)\s*(<=|>=|<|>)\s*[^<>]*$', by: '$1$2'}}
-    ANY: {replace: {source: $KEY, replace: '^(max>=?|min<=?)$', by: 'any'}}
-    QUANTIFIER: {replace: {source: $ANY, replace: '^(max<=?|min>=?)$', by: 'all'}}
-fix: $QUANTIFIER$CLAUSES
+    QUANTIFIER: rewrite($FIXABLE, rewriters=[any-quantifier, all-quantifier])
+fix: $QUANTIFIER$CLAUSES$KEPT
 message: '`$CMP` compares an extremum to a bound'
 note: 'Use `any` or `all` over the comparison per element, an empty iterable then yields a value in place of `ValueError`'

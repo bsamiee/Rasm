@@ -1,0 +1,86 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-exists-before-remove
+language: swift
+severity: error
+utils:
+    subject-path:
+        any:
+            - pattern: $SUBJECT.path
+            - pattern: $SUBJECT.path()
+    exists-arguments:
+        has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                has: {kind: value_argument, nthChild: 1, has: {field: value, matches: subject-path}}
+    exists-check:
+        any:
+            - pattern: '$MANAGER.fileExists(atPath: $_)'
+            - pattern: '$MANAGER.fileExists(atPath: $_, isDirectory: $$_)'
+        all:
+            - matches: exists-arguments
+            - has: {kind: navigation_expression, has: {field: target, pattern: $MANAGER, not: {kind: prefix_expression}}}
+    absent-check:
+        any:
+            - pattern: '!$MANAGER.fileExists(atPath: $_)'
+            - pattern: '!$MANAGER.fileExists(atPath: $_, isDirectory: $$_)'
+        matches: exists-arguments
+    removal:
+        any:
+            - pattern: '$MANAGER.removeItem(at: $SUBJECT)'
+            - pattern: '$MANAGER.removeItem(atPath: $SUBJECT.path)'
+            - pattern: '$MANAGER.removeItem(atPath: $SUBJECT.path())'
+            - pattern: '$MANAGER.trashItem(at: $SUBJECT, resultingItemURL: $$_)'
+    exit-body:
+        kind: statements
+        all:
+            - has: {nthChild: 1, kind: control_transfer_statement}
+            - not: {has: {nthChild: 2}}
+    result-select:
+        kind: ternary_expression
+        all:
+            - has: {field: condition, matches: exists-check}
+            - has:
+                field: if_true
+                any:
+                    - pattern: 'Result { try $REMOVE }.mapError { $ERROR in $FAILURE }'
+                    - pattern: 'Result { try $REMOVE }.mapError($CLASSIFY)'
+                has: {pattern: $REMOVE, matches: removal, stopBy: end}
+            - has: {field: if_false, pattern: $ELSE}
+rule:
+    pattern: $SITE
+    any:
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, matches: exists-check}
+            - has: {field: if_true, has: {matches: removal, stopBy: end}}
+        - kind: guard_statement
+          all:
+            - has: {field: condition, matches: exists-check}
+            - precedes: {has: {matches: removal, stopBy: end}, stopBy: end}
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: exists-check}
+            - has: {kind: statements, has: {matches: removal, stopBy: end}}
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: absent-check}
+            - not: {has: {regex: '^else$'}}
+            - has: {kind: statements, matches: exit-body}
+            - precedes: {has: {matches: removal, stopBy: end}, stopBy: end}
+        - kind: for_statement
+          all:
+            - has: {kind: where_clause, has: {matches: exists-check}}
+            - has: {kind: statements, has: {matches: removal, stopBy: end}}
+rewriters:
+    - id: tolerant-removal
+      rule: {matches: result-select}
+      transform:
+        NAME: {replace: {source: $CLASSIFY, replace: '(?s)^.*$', by: 'error'}}
+        APPLIED: {replace: {source: $CLASSIFY, replace: '$', by: '(error)'}}
+      fix: 'Result { try $REMOVE }.flatMapError { $ERROR$NAME in ($ERROR$NAME as? CocoaError)?.code == .fileNoSuchFile ? $ELSE : .failure($FAILURE$APPLIED) }'
+transform:
+    FIXED: {rewrite: {source: $SITE, rewriters: [tolerant-removal]}}
+fix: $FIXED
+message: '`fileExists` gates the removal of `$SUBJECT`, the check races the filesystem and repeats the one the removal makes'
+note: '`Result { try $MANAGER.removeItem(at: $SUBJECT) }.flatMapError { error in (error as? CocoaError)?.code == .fileNoSuchFile ? .success(()) : .failure(<failure>(error)) }` returns success for an absent path, `catch let error as CocoaError where error.code == .fileNoSuchFile` the same arm where a `do` statement holds the call'

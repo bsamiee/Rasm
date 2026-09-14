@@ -8,10 +8,10 @@ utils:
         any:
             - all:
                 - has: {field: property, regex: '^try$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?(Effect|Either|STM)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Either|STM))?$'}, exported: {regex: '^(Effect|Either|STM)$'}}}}
             - all:
                 - has: {field: property, regex: '^tryPromise$'}
-                - has: {field: object, matches: {effect-module-reference: {module: {regex: '^(effect/)?Effect$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
 rule:
     kind: call_expression
     all:

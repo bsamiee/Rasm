@@ -11,21 +11,26 @@ utils:
         all:
             - has: {field: name, regex: '^(Promise|PromiseLike)$'}
             - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $T}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, pattern: $ARG}}
     promise-of-readonly:
         kind: generic_type
         all:
             - has: {field: name, regex: '^(Promise|PromiseLike)$'}
-            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: readonly_type, has: {pattern: $T}}}
+            - has: {field: type_arguments, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: readonly_type, pattern: $ARG, has: {pattern: $T}}}
 rule:
-    kind: union_type
     any:
-        - inside: {matches: return-annotation}
+        - kind: union_type
+          inside: {matches: return-annotation}
           all:
-              - has: {matches: promise-of}
-              - has: {pattern: $T, not: {matches: promise-of}}
-        - inside: {kind: readonly_type, inside: {matches: return-annotation}}
-          all:
-              - has: {matches: promise-of-readonly}
-              - has: {pattern: $T, not: {kind: generic_type}}
-message: 'Function returns `$T` or a promise of it, every caller handles both'
-note: 'One `Promise<$T>` per function, the synchronous branches sit inside the `then` callback'
+            - has: {matches: promise-of}
+            - has: {pattern: $T, not: {matches: promise-of}}
+        - kind: readonly_type
+          inside: {matches: return-annotation}
+          has:
+            kind: union_type
+            all:
+                - has: {matches: promise-of-readonly}
+                - has: {pattern: $T, not: {kind: generic_type}}
+fix: Promise<$ARG>
+message: 'Function returns `$ARG` or a promise of it, every caller handles both'
+note: 'One `Promise<$ARG>` per function, the synchronous branches sit inside the `then` callback'

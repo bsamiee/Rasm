@@ -33,7 +33,7 @@ rule:
                 has: {field: body, matches: thunk-body}
         - not: {has: {stopBy: end, kind: comment, not: {inside: {stopBy: end, pattern: $GENERATOR}}}}
 constraints:
-    M: {matches: {effect-module-reference: {module: {regex: "^(effect/)?(Effect|Micro|STM)$"}}}}
+    M: {matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM))?$"}, exported: {regex: "^(Effect|Micro|STM)$"}}}}
 fix: $GENERATOR
 message: '`$M.gen` defers its body until run, `$M.suspend` around it defers nothing'
 note: 'Delete the `suspend` call around the generator effect'

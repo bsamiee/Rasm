@@ -4,12 +4,14 @@ language: tsx
 utils:
     promise-module:
         matches:
-            effect-module-reference:
-                module: {regex: '^(effect/)?(Effect|Micro)$'}
+            syntax-import-reference:
+                source: {regex: '^effect(/(Effect|Micro))?$'}
+                exported: {regex: '^(Effect|Micro)$'}
     stream-module:
         matches:
-            effect-module-reference:
-                module: {regex: '^(effect/)?Stream$'}
+            syntax-import-reference:
+                source: {regex: '^effect(/Stream)?$'}
+                exported: {regex: '^Stream$'}
     promise-call:
         kind: call_expression
         has:
@@ -24,8 +26,9 @@ utils:
                         - has:
                             field: object
                             matches:
-                                effect-module-reference:
-                                    module: {regex: '^(effect/)?Effect$'}
+                                syntax-import-reference:
+                                    source: {regex: '^effect(/Effect)?$'}
+                                    exported: {regex: '^Effect$'}
 rule:
     any:
         - kind: arrow_function, function_expression

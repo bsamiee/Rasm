@@ -5,20 +5,14 @@ severity: error
 utils:
     model-base:
         any:
-            - matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
-            - matches: {python-imported-name: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
-            - matches: {python-module-member: {module: {regex: '^pydantic_settings$'}, name: {regex: '^BaseSettings$'}}}
-            - matches: {python-imported-name: {module: {regex: '^pydantic_settings$'}, name: {regex: '^BaseSettings$'}}}
-    validator-function:
-        any:
-            - matches: {python-module-member: {module: {regex: '^pydantic$'}, name: {regex: '^field_validator$'}}}
-            - matches: {python-imported-name: {module: {regex: '^pydantic$'}, name: {regex: '^field_validator$'}}}
+            - matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
+            - matches: {python-member-use: {module: {regex: '^pydantic_settings$'}, name: {regex: '^BaseSettings$'}}}
     validator:
         kind: decorator
         has:
             kind: call
             all:
-                - has: {field: function, matches: validator-function}
+                - has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^field_validator$'}}}}
                 - has:
                     field: arguments
                     all:
@@ -98,7 +92,12 @@ rule:
                                 - kind: decorated_definition
                                   has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
         - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-fix: ''
+        - any:
+            - precedes: {pattern: $NEXT}
+            - pattern: $_
+fix:
+    template: $NEXT
+    expandEnd: {pattern: $NEXT}
 message: '`$METHOD` returns the field value unchanged'
 note: 'Delete the validator'
 labels: {METHOD: {style: primary, message: Identity validator}}

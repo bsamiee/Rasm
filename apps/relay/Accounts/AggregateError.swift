@@ -25,6 +25,10 @@ nonisolated extension AggregateError {
 }
 
 nonisolated extension Result {
+  var failure: Failure? {
+    if case .failure(let error) = self { error } else { nil }
+  }
+
   func bind<Next>(
     _ next: (Success) async -> Result<Next, Failure>
   ) async -> Result<Next, Failure> {

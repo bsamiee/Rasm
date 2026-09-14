@@ -14,6 +14,7 @@ utils:
             - not: {has: {pattern: $_, not: {kind: string}}}
             - not: {has: {pattern: $_, not: {kind: 'integer, unary_operator'}}}
             - not: {has: {pattern: $_, not: {kind: 'float, unary_operator'}}}
+            - not: {has: {pattern: $_, not: {kind: 'integer, float, unary_operator'}}}
             - not: {has: {pattern: $_, not: {kind: 'tuple, list'}}}
             - not: {has: {pattern: $_, not: {kind: identifier}}}
             - not: {has: {pattern: $_, not: {kind: attribute}}}

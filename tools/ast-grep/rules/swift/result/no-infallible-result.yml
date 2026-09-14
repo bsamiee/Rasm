@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-infallible-result
+language: swift
+severity: error
+utils:
+    boundary: {kind: 'function_declaration, lambda_literal'}
+    result-type:
+        kind: user_type
+        pattern: {context: 'func f() -> Result<$T, $E> {}', selector: user_type}
+    success-call:
+        kind: call_expression
+        has: {nthChild: 1, kind: prefix_expression, regex: '^\.success$'}
+    failure-reference:
+        any:
+            - {kind: prefix_expression, regex: '^\.failure$'}
+            - {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^failure$'}}}
+rule:
+    kind: function_declaration
+    pattern: $DECLARATION
+    all:
+        - has: {field: name, kind: simple_identifier, pattern: $NAME}
+        - has: {matches: result-type}
+        - has: {stopBy: {matches: boundary}, matches: success-call}
+        - not: {has: {stopBy: {matches: boundary}, matches: failure-reference}}
+        - not: {has: {stopBy: {matches: boundary}, kind: try_expression}}
+        - not: {has: {stopBy: {matches: boundary}, kind: control_transfer_statement, has: {regex: '^return$'}, not: {has: {field: result, matches: success-call}}}}
+        - any:
+            - has: {field: body, has: {matches: {swift-single-statement: {first: {matches: success-call}}}}}
+            - has: {stopBy: {matches: boundary}, kind: control_transfer_statement, has: {field: result, matches: success-call}}
+rewriters:
+    - id: return-type
+      rule: {matches: result-type, inside: {kind: function_declaration, pattern: $DECLARATION}}
+      fix: $T
+    - id: unwrap-success
+      rule: {matches: success-call, not: {inside: {kind: lambda_literal, stopBy: {kind: function_declaration}}}, has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, pattern: $V}}}}}
+      fix: $V
+transform:
+    UNWRAPPED: {rewrite: {source: $DECLARATION, rewriters: [return-type, unwrap-success]}}
+fix: $UNWRAPPED
+message: '`$NAME` returns `Result<$T, $E>` and constructs `.success` alone'
+note: 'Return `$T`, a function with no failure case returns its value and the caller reads no result'

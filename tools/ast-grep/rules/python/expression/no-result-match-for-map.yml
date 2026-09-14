@@ -116,7 +116,7 @@ transform:
     MAPPER: rewrite($VALUE, rewriters=[identity, point-free, mapper])
     TAIL: {replace: {source: $MAPPER, replace: "(?s)^(.+)$", by: ".map($1)"}}
 fix: return $HEAD$PLAIN$TAIL
-labels:
-    SUBJECT: {style: primary, message: Result transformation}
 message: 'Match over `$SUBJECT` repeats error propagation around an Ok transformation'
 note: 'Use `<subject>.map(<transformation>)`'
+labels:
+    SUBJECT: {style: primary, message: Result transformation}

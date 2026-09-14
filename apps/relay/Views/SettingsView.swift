@@ -5,7 +5,7 @@ struct SettingsView: View {
   let store: AccountStore
 
   @AppStorage("settings.selection") private var savedSelection: SidebarItem = .general
-  @State private var accountToRemove: AccountViewModel?
+  @State private var accountToRemove: AccountModel?
 
   var body: some View {
     NavigationSplitView {
@@ -14,31 +14,31 @@ struct SettingsView: View {
           .tag(SidebarItem.general)
 
         Section("Accounts") {
-          ForEach(store.accounts) { viewModel in
+          ForEach(store.accounts) { model in
             Label {
-              Text(viewModel.account.identity.email)
+              Text(model.account.identity.email)
                 .frame(maxWidth: .infinity, alignment: .leading)
-              if viewModel.isSelected {
+              if model.isSelected {
                 Image(systemName: "checkmark")
                   .foregroundStyle(.secondary)
-                  .accessibilityLabel("Working account")
+                  .accessibilityLabel("In use")
               }
             } icon: {
-              Image(viewModel.account.provider.symbol)
+              Image(model.account.provider.symbol)
             }
             .accessibilityElement(children: .combine)
-            .tag(SidebarItem.account(viewModel.id))
+            .tag(SidebarItem.account(model.id))
             .contextMenu {
-              Button("Move Up") { store.moveAccount(viewModel.id, by: -1) }
-                .disabled(store.accounts.first?.id == viewModel.id)
-              Button("Move Down") { store.moveAccount(viewModel.id, by: 1) }
-                .disabled(store.accounts.last?.id == viewModel.id)
+              Button("Move Up") { store.moveAccount(model.id, by: -1) }
+                .disabled(store.accounts.first?.id == model.id)
+              Button("Move Down") { store.moveAccount(model.id, by: 1) }
+                .disabled(store.accounts.last?.id == model.id)
               Divider()
-              Button("Remove Account…", role: .destructive) { accountToRemove = viewModel }
-                .disabled(viewModel.isBusy)
+              Button("Remove Account…", role: .destructive) { accountToRemove = model }
+                .disabled(model.isBusy)
             }
           }
-          .onMove { offsets, destination in store.moveAccounts(from: offsets, to: destination) }
+          .onMove(perform: store.moveAccounts(from:to:))
         }
       }
       .listStyle(.sidebar)
@@ -72,7 +72,7 @@ struct SettingsView: View {
       .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
     } detail: {
       if let selectedAccount {
-        AccountSettings(store: store, viewModel: selectedAccount)
+        AccountSettings(store: store, model: selectedAccount)
       } else {
         GeneralSettings(store: store)
       }
@@ -89,7 +89,7 @@ struct SettingsView: View {
           .background(.bar)
       }
     }
-    .sheet(item: .constant(store.authentication)) { pending in
+    .sheet(item: Binding(get: { store.authentication }, set: { _ in })) { pending in
       SignInSheet(store: store, provider: pending.provider)
     }
     .alert(
@@ -97,12 +97,12 @@ struct SettingsView: View {
       isPresented: Binding(
         get: { accountToRemove != nil }, set: { if !$0 { accountToRemove = nil } }),
       presenting: accountToRemove
-    ) { viewModel in
+    ) { model in
       Button("Cancel", role: .cancel) {}
         .keyboardShortcut(.defaultAction)
-      Button("Remove Account", role: .destructive) { store.remove(viewModel.id) }
-    } message: { viewModel in
-      Text(removalMessage(viewModel))
+      Button("Remove Account", role: .destructive) { store.remove(model.id) }
+    } message: { model in
+      Text(RemovalMessage.text(for: model))
     }
     .onChange(of: store.authentication?.id) { previous, current in
       if current == nil, let previous, store.accounts.contains(where: { $0.id == previous }) {
@@ -111,20 +111,12 @@ struct SettingsView: View {
     }
   }
 
-  private var selectedAccount: AccountViewModel? {
+  private var selectedAccount: AccountModel? {
     store.accounts.first { .account($0.id) == savedSelection }
   }
 
   private var selection: SidebarItem {
     selectedAccount.map { .account($0.id) } ?? .general
-  }
-
-  private func removalMessage(_ viewModel: AccountViewModel) -> String {
-    let removal: String =
-      "This removes \(viewModel.account.identity.email) and its saved sign-in from Relay."
-    return viewModel.isSelected && viewModel.account.provider == .claude
-      ? "\(removal) The current Claude Code account will be signed out."
-      : removal
   }
 
   private enum SidebarItem: RawRepresentable, Hashable {
@@ -150,21 +142,25 @@ struct SettingsView: View {
 
 private struct AccountSettings: View {
   let store: AccountStore
-  let viewModel: AccountViewModel
+  let model: AccountModel
 
   var body: some View {
     Form {
       Section {
         LabeledContent("Working account") {
-          if viewModel.operation == .selecting {
+          if model.operation == .selecting {
             ProgressView().controlSize(.small)
-          } else if viewModel.isSelected {
-            Label("Current", systemImage: "checkmark")
+          } else if model.isSelected {
+            Label("In use", systemImage: "checkmark")
               .foregroundStyle(.secondary)
           } else {
-            Button("Use Account") { store.select(viewModel.id) }
-              .disabled(!viewModel.canSelect)
+            Button("Use Account") { store.select(model.id) }
+              .disabled(!model.canSelect)
           }
+        }
+      } footer: {
+        if model.account.provider == .openAI, let note: String = store.codexPrecondition {
+          Text(note)
         }
       }
 
@@ -172,37 +168,40 @@ private struct AccountSettings: View {
         Picker(
           "Session start",
           selection: Binding(
-            get: { viewModel.account.sessionPolicy },
-            set: { store.setSessionPolicy($0, for: viewModel.id) })
+            get: { model.account.sessionPolicy },
+            set: { store.setSessionPolicy($0, for: model.id) })
         ) {
           Text("Manual").tag(SessionPolicy.manual)
           Text("Automatic").tag(SessionPolicy.automatic)
         }
       } footer: {
         Text(
-          "Manual starts a session when you click the provider symbol. Automatic sends “hi” when the provider reports the session idle."
+          "Manual starts a session when you click Start Session. Automatic sends “hi” when the provider reports the session ready."
         )
       }
 
       Section {
         HStack {
-          switch viewModel.authentication {
-          case .connected: Button("Sign Out") { store.signOut(viewModel.id) }
-          case .signInRequired: Button("Sign In…") { store.signIn(viewModel.id) }
+          switch model.authentication {
+          case .connected: Button("Sign Out") { store.signOut(model.id) }
+          case .signInRequired: Button("Sign In…") { store.signIn(model.id) }
           }
           Spacer()
-          if viewModel.operation == .signingOut || viewModel.operation == .removing {
+          if let operation: AccountOperation = model.operation {
             ProgressView().controlSize(.small)
+            Text(operation.description)
+              .font(.caption)
+              .foregroundStyle(.secondary)
           }
         }
-        .disabled(viewModel.isBusy)
+        .disabled(model.isBusy)
       } footer: {
-        if let issue: String = viewModel.issue { Text(issue) }
+        if let issue: String = model.issue { Text(issue) }
       }
     }
     .formStyle(.grouped)
-    .navigationTitle(viewModel.account.identity.email)
-    .navigationSubtitle(viewModel.account.provider.name)
+    .navigationTitle(model.account.identity.email)
+    .navigationSubtitle(model.account.provider.name)
   }
 }
 
@@ -214,8 +213,7 @@ private struct GeneralSettings: View {
       Section {
         Toggle(
           "Launch at login",
-          isOn: Binding(
-            get: { store.loginItem.isEnabled }, set: { store.setLoginItemEnabled($0) })
+          isOn: Binding(get: { store.loginItem.isEnabled }, set: store.setLoginItemEnabled)
         )
         .disabled(store.loginItem.status == .notFound)
         if store.loginItem.status == .requiresApproval {
@@ -227,6 +225,11 @@ private struct GeneralSettings: View {
     }
     .formStyle(.grouped)
     .navigationTitle("General")
+    .task {
+      while case .success = await Result(catching: { try await Task.sleep(for: .seconds(1)) }) {
+        store.refreshLoginItem()
+      }
+    }
   }
 }
 
@@ -239,19 +242,30 @@ private struct SignInSheet: View {
       Label("Sign In to \(provider.name)", image: provider.symbol)
         .font(.title3.weight(.medium))
 
-      if case .refused(let issue) = store.authentication?.phase {
+      switch store.authentication?.phase {
+      case .refused(let issue):
         Text(issue)
           .font(.callout)
-      } else {
-        ProgressView().controlSize(.small)
-          .frame(maxWidth: .infinity)
-          .padding(.vertical, 8)
+      case .pending, .cancelling, .none:
+        HStack(spacing: 8) {
+          ProgressView().controlSize(.small)
+          Text("Finish signing in to \(provider.name) in your browser.")
+            .font(.callout)
+          Spacer()
+          if let started: Date = store.authentication?.startedAt {
+            Text(.durationOffset(to: started), format: .time(pattern: .minuteSecond))
+              .font(.caption)
+              .monospacedDigit()
+              .foregroundStyle(.secondary)
+          }
+        }
       }
 
-      Button("Cancel", role: .cancel) { store.cancelAuthentication() }
-        .keyboardShortcut(.cancelAction)
-        .disabled(store.authentication?.phase == .cancelling)
-        .frame(maxWidth: .infinity, alignment: .trailing)
+      Button(store.authentication?.phase == .cancelling ? "Cancelling…" : "Cancel", role: .cancel) {
+        store.cancelAuthentication()
+      }
+      .keyboardShortcut(.cancelAction)
+      .frame(maxWidth: .infinity, alignment: .trailing)
     }
     .padding(24)
     .frame(width: 360)

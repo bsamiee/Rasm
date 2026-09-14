@@ -1,0 +1,7 @@
+id: result-failure-statement
+language: swift
+rule:
+    any:
+        - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
+        - pattern: '$_.resume(returning: .failure($$$_))'
+        - pattern: '$_ = .failure($$$_)'

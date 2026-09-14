@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-deadline-race-by-hand
+language: swift
+severity: error
+utils:
+    group-call:
+        kind: call_expression
+        has:
+            kind: navigation_expression
+            all:
+                - has: {field: target, kind: simple_identifier, pattern: $G}
+                - has: {field: suffix, regex: '^\.addTask(UnlessCancelled)?$'}
+    sleep-task:
+        matches: group-call
+        all:
+            - has: {stopBy: end, kind: call_expression, pattern: $SLEEP, regex: '^Task\.sleep\('}
+            - not: {has: {stopBy: end, kind: prefix_expression, regex: '^\.failure$'}}
+rule:
+    kind: call_expression
+    all:
+        - has: {stopBy: {kind: call_suffix}, kind: simple_identifier, regex: '^with(Throwing)?TaskGroup$', pattern: $RACE}
+        - has:
+            kind: call_suffix
+            has:
+                kind: lambda_literal
+                all:
+                    - has: {kind: lambda_parameter, stopBy: end, has: {field: name, pattern: $G}}
+                    - has: {stopBy: end, matches: sleep-task}
+                    - has: {stopBy: end, pattern: $G.next()}
+                    - has: {stopBy: end, pattern: $G.cancelAll()}
+message: '`$RACE` races the work against `$SLEEP` by hand and reads the deadline as a sentinel'
+note: 'Race the work in one deadline function every site calls, its sleeping child task returns the timed-out failure case and the caller reads a typed result, no fix, the work and the failure cases are decisions'

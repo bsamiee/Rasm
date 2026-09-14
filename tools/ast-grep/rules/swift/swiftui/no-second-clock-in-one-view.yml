@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-second-clock-in-one-view
+language: swift
+severity: error
+utils:
+    clock:
+        any:
+            - pattern: 'TimelineView($$$_) { $$$_ }'
+            - pattern: TimelineView($$$_)
+rule:
+    matches: swift-view-builder
+    all:
+        - has:
+            stopBy: {kind: 'function_declaration, property_declaration'}
+            matches: clock
+            pattern: $FIRST
+        - has:
+            stopBy: {kind: 'function_declaration, property_declaration'}
+            matches: clock
+            not: {pattern: $FIRST}
+            pattern: $SECOND
+message: 'A second `TimelineView` runs its own clock in one view'
+note: 'One clock per view, `context.date` of its `TimelineView` passes down to every subview'
+labels:
+    SECOND: {style: primary}

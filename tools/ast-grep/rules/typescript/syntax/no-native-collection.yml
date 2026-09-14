@@ -2,6 +2,13 @@
 id: no-native-collection
 language: tsx
 severity: error
+utils:
+    collection-type:
+        kind: generic_type
+        has: {field: name, regex: '^(Readonly)?(Map|Set)$'}
+    typed-return-function:
+        matches: syntax-function-boundary
+        has: {field: return_type, has: {stopBy: end, matches: collection-type}}
 rule:
     any:
         - kind: new_expression
@@ -13,14 +20,23 @@ rule:
                         kind: public_field_definition, variable_declarator, required_parameter, optional_parameter
                         field: value
                         stopBy: {not: {matches: syntax-expression-wrapper}}
-                        has:
-                            field: type
-                            has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
+                        has: {field: type, has: {matches: collection-type}}
                     - inside:
                         kind: satisfies_expression
                         stopBy: {not: {matches: syntax-expression-wrapper}}
-                        has: {kind: generic_type, has: {field: name, regex: '^(Readonly)?(Map|Set)$'}}
+                        has: {matches: collection-type}
+                    - inside:
+                        matches: typed-return-function
+                        field: body
+                        stopBy: {not: {matches: syntax-expression-wrapper}}
+                    - inside:
+                        kind: return_statement
+                        stopBy: {not: {matches: syntax-expression-wrapper}}
+                        inside: {matches: typed-return-function, stopBy: {matches: syntax-function-boundary}}
+                    - inside:
+                        kind: arguments
+                        stopBy: {not: {any: [{matches: syntax-expression-wrapper}, {kind: 'object, pair, array'}]}}
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$', matches: syntax-global-reference}
 message: '`$NAME` builds a native collection without structural key equality'
-note: '`HashMap` and `HashSet` compare keys by `Equal`, `Array.groupBy` groups into a record'
+note: '`HashMap` and `HashSet` compare keys by `Equal`, `Array.groupBy` groups into a record, a `ReadonlyMap` or `ReadonlySet` annotation, return type, or parameter states the native representation'

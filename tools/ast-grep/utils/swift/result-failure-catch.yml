@@ -14,10 +14,5 @@ rule:
         - has:
             kind: statements
             all:
-                - has:
-                    nthChild: 1
-                    any:
-                        - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
-                        - pattern: '$_.resume(returning: .failure($$$_))'
-                        - pattern: '$_ = .failure($$$_)'
+                - has: {nthChild: 1, matches: result-failure-statement}
                 - not: {has: {nthChild: 2}}

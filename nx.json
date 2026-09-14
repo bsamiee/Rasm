@@ -37,7 +37,7 @@
             },
             {
                 "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath .cache/xcode/{projectRoot} build",
+                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution build",
                 "inputs": ["default", "xcode"],
                 "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug"]
             }

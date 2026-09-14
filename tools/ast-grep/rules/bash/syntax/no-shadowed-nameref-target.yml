@@ -2,26 +2,53 @@
 id: no-shadowed-nameref-target
 language: bash
 severity: error
+utils:
+    nameref-declaration:
+        kind: declaration_command
+        has: {kind: word, regex: '^-[a-zA-Z]*n'}
+    argument: {not: {kind: command_name}}
+    call:
+        kind: command
+        has: {field: name, pattern: $FUNCTION}
+    reads-1: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?1\}?"?$'}}}}
+    reads-2: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?2\}?"?$'}}}}
+    reads-3: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?3\}?"?$'}}}}
+    reads-4: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?4\}?"?$'}}}}
+    reads-5: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?5\}?"?$'}}}}
+    reads-6: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?6\}?"?$'}}}}
+    reads-7: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?7\}?"?$'}}}}
+    reads-8: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?8\}?"?$'}}}}
+    reads-9: {has: {stopBy: end, matches: nameref-declaration, has: {kind: variable_assignment, has: {field: value, regex: '^"?\$\{?9\}?"?$'}}}}
+    passes-1: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 1, ofRule: {matches: argument}}}}}}
+    passes-2: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 2, ofRule: {matches: argument}}}}}}
+    passes-3: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 3, ofRule: {matches: argument}}}}}}
+    passes-4: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 4, ofRule: {matches: argument}}}}}}
+    passes-5: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 5, ofRule: {matches: argument}}}}}}
+    passes-6: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 6, ofRule: {matches: argument}}}}}}
+    passes-7: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 7, ofRule: {matches: argument}}}}}}
+    passes-8: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 8, ofRule: {matches: argument}}}}}}
+    passes-9: {inside: {kind: program, stopBy: end, has: {stopBy: end, matches: call, has: {kind: word, pattern: $LOCAL, nthChild: {position: 9, ofRule: {matches: argument}}}}}}
 rule:
     kind: variable_name
     pattern: $LOCAL
     inside:
         kind: declaration_command
         stopBy: {not: {kind: variable_assignment}}
+        not: {matches: nameref-declaration}
         inside:
             kind: function_definition
             stopBy: end
             all:
                 - has: {field: name, pattern: $FUNCTION}
-                - has: {stopBy: end, kind: declaration_command, has: {kind: word, regex: '^-[a-zA-Z]*n'}}
-                - inside:
-                    kind: program
-                    stopBy: end
-                    has:
-                        stopBy: end
-                        kind: command
-                        all:
-                            - has: {field: name, pattern: $FUNCTION}
-                            - has: {kind: word, pattern: $LOCAL}
-message: 'Local `$LOCAL` shadows the variable a caller passes to `$FUNCTION` by name, the nameref binds the local'
+                - any:
+                    - all: [{matches: reads-1}, {matches: passes-1}]
+                    - all: [{matches: reads-2}, {matches: passes-2}]
+                    - all: [{matches: reads-3}, {matches: passes-3}]
+                    - all: [{matches: reads-4}, {matches: passes-4}]
+                    - all: [{matches: reads-5}, {matches: passes-5}]
+                    - all: [{matches: reads-6}, {matches: passes-6}]
+                    - all: [{matches: reads-7}, {matches: passes-7}]
+                    - all: [{matches: reads-8}, {matches: passes-8}]
+                    - all: [{matches: reads-9}, {matches: passes-9}]
+message: 'Local `$LOCAL` shadows the variable a caller passes to `$FUNCTION` at the position its nameref reads, the nameref binds the local'
 note: Rename the local to a name no caller passes

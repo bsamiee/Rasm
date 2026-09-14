@@ -9,6 +9,6 @@ rule:
             matches: msbuild-tag
             all:
                 - has: {matches: {msbuild-attribute: {name: {regex: '^Projects$'}, value: {regex: '\$\((MSBuildProjectFullPath|MSBuildProjectFile)\)'}}}}
-                - has: {matches: {msbuild-attribute: {name: {regex: '^(Properties|RemoveProperties)$'}, value: {regex: '[^"''\s]'}}}}
+                - has: {matches: {msbuild-attribute: {name: {regex: '^Properties$'}, value: {regex: '[^"''\s]'}}}}
 message: '`MSBuild` task builds its own project under another global property set, a second instance rebuilds into the same output directories'
 note: Run the target in the same instance through `DependsOnTargets`

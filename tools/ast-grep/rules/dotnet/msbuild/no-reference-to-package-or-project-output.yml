@@ -9,5 +9,6 @@ rule:
             msbuild-metadata:
                 name: {regex: '^HintPath$'}
                 value: {regex: '(^["'']?|[\\/])packages[\\/]|[\\/](bin|obj)[\\/](Debug|Release|\$\()'}
+        - not: {matches: {msbuild-metadata: {name: {regex: '^Private$'}, value: {regex: '(?i)^["'']?\s*false\s*["'']?$'}}}}
 message: '`Reference` resolves an assembly from a package folder or a project output that no restore or build order produces'
 note: Reference a package through `PackageReference` and a project through `ProjectReference`

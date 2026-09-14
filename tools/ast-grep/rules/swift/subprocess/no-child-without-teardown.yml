@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-child-without-teardown
+language: swift
+severity: error
+rule:
+    kind: property_declaration
+    all:
+        - any:
+            - has: {kind: type_annotation, has: {stopBy: end, kind: user_type, regex: '^(Subprocess\.)?PlatformOptions$'}}
+            - has: {field: value, any: [{pattern: 'PlatformOptions()'}, {pattern: 'Subprocess.PlatformOptions()'}]}
+        - has: {field: name, pattern: $OPTIONS}
+        - inside:
+            stopBy: {kind: function_declaration}
+            kind: function_declaration
+            not:
+                all:
+                    - has: {stopBy: end, kind: simple_identifier, regex: '^teardownSequence$'}
+                    - has: {stopBy: end, kind: simple_identifier, regex: '^(createSession|processGroupID)$'}
+message: '`$OPTIONS` leaves the child outside its own session with no teardown sequence, `PlatformOptions` defaults to `createSession = false` and `teardownSequence = []`'
+note: 'Set `$OPTIONS.createSession = true` or `$OPTIONS.processGroupID` and `$OPTIONS.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: <duration>)]` in the same function, no fix, the duration is a decision'

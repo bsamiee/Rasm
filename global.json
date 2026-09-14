@@ -3,6 +3,9 @@
         "version": "10.0.400",
         "rollForward": "disable"
     },
+    "msbuild-sdks": {
+        "Microsoft.Build.NoTargets": "3.7.134"
+    },
     "test": {
         "runner": "Microsoft.Testing.Platform"
     }

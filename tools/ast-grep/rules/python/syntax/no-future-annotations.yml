@@ -8,13 +8,18 @@ rule:
     kind: future_import_statement
     pattern: $IMPORT
     has: {matches: annotations-feature}
+    any:
+        - precedes: {pattern: $NEXT}
+        - pattern: $_
 rewriters:
     - id: kept
       rule: {kind: dotted_name, pattern: $FEATURE, not: {matches: annotations-feature}}
       fix: $FEATURE
 transform:
     KEPT: rewrite($IMPORT, rewriters=[kept], joinBy=', ')
-    OUT: replace($KEPT, replace='^.+$', by='from __future__ import ${0}')
-fix: $OUT
+    OUT: {replace: {source: $KEPT, replace: '^.+$', by: "from __future__ import ${0}\n"}}
+fix:
+    template: $OUT$NEXT
+    expandEnd: {pattern: $NEXT}
 message: 'Future import stores annotations as strings, PEP 649 evaluates them lazily without it'
 note: 'Delete the import'

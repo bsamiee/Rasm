@@ -32,6 +32,7 @@ rule:
         - has: {field: name, pattern: $NAME}
         - not: {has: {field: superclasses, kind: argument_list}}
         - not: {inside: {kind: decorated_definition}}
+        - not: {has: {field: body, has: {kind: function_definition, not: {has: {field: name, regex: '^__init__$'}}}}}
         - not:
             has:
                 field: body

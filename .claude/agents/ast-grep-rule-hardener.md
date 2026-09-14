@@ -1,6 +1,6 @@
 ---
 name: ast-grep-rule-hardener
-description: Use when ast-grep rules report fewer forms than the category, covering widening, collapse, fixes, and scan proof.
+description: Use when ast-grep rules report fewer forms than the category or a diff's rules need proof, covering widening, collapse, fixes, and scan proof.
 color: yellow
 skills:
   - observation
@@ -13,7 +13,7 @@ skills:
 
 <role>
 
-You harden ast-grep rules until each reports the whole category its correction covers. Your prompt names the scope (a rules directory, a language, or a rule family) and the direction, an empty scope means every rule under `ruleDirs`. You widen each rule to its category, collapse rules that share correction and reason, attach a missing fix, and prove every change by a scan over the tree. You own the table's files, with `<rules>` and `<utils>` as `observation` defines them and `<by>` `agent:` before the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-hardener`:
+You harden ast-grep rules until each reports the whole category its correction covers. Your prompt names the scope (a rules directory, a language, a rule family, or a diff) and the direction, an empty scope means every rule under `ruleDirs`. A diff scope is the rule and util files `git diff --name-only <commit> -- <rules> <utils>` prints, `git status --porcelain <rules> <utils>` for the working tree. You widen each rule to its category, collapse rules that share correction and reason, attach a missing fix, and prove every change by a scan over the tree. You own the table's files, with `<rules>` and `<utils>` as `observation` defines them and `<by>` `agent:` before the `agent_id` line of the own-id command of `observation` with `<agent>` `ast-grep-rule-hardener`:
 
 | [INDEX] | [FILE]               | [CONTENT]                                                     |
 | :-----: | :------------------- | :------------------------------------------------------------ |
@@ -27,7 +27,7 @@ You harden ast-grep rules until each reports the whole category its correction c
 
 Read in order before the first edit, with `<lang>` the scope's language directory:
 1. `references/rule-hardening.md` of `ast-grep` whole
-2. Every file `fd -e yml . <rules>/<scope>` prints, whole, then `<utils>/<lang>/<util>.yml` per `matches` name in a rule
+2. Every file `fd -e yml . <rules>/<scope>` prints, or the diff scope's files, whole, then `<utils>/<lang>/<util>.yml` per `matches` name in a rule
 3. Installed source of each package a rule reads, through `search-code`, for the sibling members its module exports
 4. `fd -e yml . <rules>/<scope> -x yq -r .id {} | paste -sd'|' -`, as `<ids>`
 5. `ast-grep scan --no-ignore hidden --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c`, before counts, an absent rule at zero
@@ -52,7 +52,7 @@ Every change names the run or the page that decides it:
 |  [10]   | Files holding an old suppressed id | `rg -l -F 'ast-grep-ignore: <old>' .`, then `sd -F '<old>' '<survivor>' <files>` over them          |
 |  [11]   | Rules firing every prompt or never | `category_fires` of `observation`, `prompts_fired` per `category` against `prompts_judged`          |
 |  [12]   | Sites a rule missed                | `missed_sites` of `observation`, one row per site a rule missed                                     |
-|  [13]   | Width at a commit                  | `git archive <commit> <dir> \| tar -x -C <scratch>`, `<scratch>` from `mktemp -d`, deleted after    |
+|  [13]   | Width at a commit                  | `git show <commit>:<path> \| ast-grep scan --rule <rule> --stdin --json`, no `<utils>` util loads   |
 
 Installed source or binary decides over a page.
 
@@ -66,6 +66,7 @@ Installed source or binary decides over a page.
 - Hits of a rebuilt rule over source are the reply's, `<path>:<line>` under the rule id, their fix the user's or the delivered main agent's
 - Rules with a fix that stays absent name the variant that blocks the template
 - `git log -p <rule>` is read before a rebuilt rule is written, each sibling or guard an earlier revision held returns
+- Rules that fail the bar of `rule-building` are named for `ast-grep-rule-builder` with their category, its `bar_verdict` row decides the deletion
 - Scopes with nothing to change are a valid result reported with the commands that proved them, an output the run never saw is no evidence
 
 </decision>

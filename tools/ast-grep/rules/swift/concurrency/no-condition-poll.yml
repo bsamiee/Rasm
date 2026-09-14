@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-condition-poll
+language: swift
+severity: error
+utils:
+    observed-state:
+        kind: navigation_expression
+        all:
+            - has: {field: suffix, regex: '^\.(isTerminated|isRunning|isFinished|isCancelled|isExecuting)$'}
+            # `!Task.isCancelled` parses as `(!Task).isCancelled`, the target regex reads the bang
+            - not: {has: {field: target, regex: '^!?Task$'}}
+    sleep-call:
+        any:
+            - pattern: Task.sleep($$$A)
+            - pattern: Thread.sleep($$$A)
+            - pattern: usleep($$$A)
+            - pattern: sleep($$$A)
+rule:
+    kind: 'while_statement, repeat_while_statement'
+    all:
+        - has:
+            stopBy: end
+            matches: observed-state
+            pattern: $STATE
+            not: {inside: {kind: statements, stopBy: {kind: 'while_statement, repeat_while_statement'}}}
+        - has: {kind: statements, has: {matches: sleep-call, stopBy: end, pattern: $SLEEP}}
+message: '`$SLEEP` polls `$STATE` in a loop'
+note: 'Await the change through `publisher(for:)` on the key path, `NSWorkspace.shared.notificationCenter.notifications(named:)`, or the server push where one exists'

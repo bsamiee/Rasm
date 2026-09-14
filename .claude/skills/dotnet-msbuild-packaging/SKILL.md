@@ -90,7 +90,7 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 |  [03]   | `IncludeAssets`        | Assets the project consumes, default `all`                                               |
 |  [04]   | `ExcludeAssets`        | Assets the project skips, default `none`                                                 |
 |  [05]   | `GeneratePathProperty` | Defines `$(PkgSome_Package)` for `Some.Package` as the package directory                 |
-|  [06]   | `Aliases`              | C# extern alias for the package assemblies when two packages share a namespace           |
+|  [06]   | `Aliases`              | C# extern alias for the package assemblies when packages share a namespace               |
 |  [07]   | `NoWarn`               | Suppresses a restore code for the one reference                                          |
 |  [08]   | `Condition`            | Adds the reference under a condition, pack maps a `TargetFramework` condition alone      |
 
@@ -135,17 +135,18 @@ Catalog projects reference every central row, the tool then reads rows no other 
 
 ```xml
 <!-- Catalog/Catalog.csproj -->
-<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.Build.NoTargets">
   <ItemGroup>
-    <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" />
+    <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" ExcludeAssets="build;buildMultitargeting;buildTransitive" />
   </ItemGroup>
 </Project>
 ```
 
+- `Microsoft.Build.NoTargets` restores without compiling, `global.json` `msbuild-sdks` holds its version
 - `ClearMetadata` drops `Version`, a `PackageReference` with `Version` under CPM fails `NU1008`
 - `Exclude` skips the rows root `Directory.Build.props` already references, a duplicate reports `NU1504`
-- `RestoreEnablePackagePruning=false` keeps a framework-supplied row from `NU1510`
-- `IsTestingPlatformApplication=false` keeps `Microsoft.Testing.Platform.MSBuild` from treating a project with test packages as a test application
+- `ExcludeAssets` keeps every package's build props and targets out of the evaluation, no package then reshapes the project
+- `NoTargets` declares no framework reference, pruning then has nothing to prune and no row reports `NU1510`
 
 ## [03]-[RESTORE]
 

@@ -26,6 +26,7 @@ rule:
         - kind: property_declaration
           all:
             - inside: {kind: 'class_body, enum_class_body'}
+            - has: {kind: value_binding_pattern, regex: '^let$'}
             - has: {field: name, kind: pattern, pattern: $SHAPE}
             - has: {kind: type_annotation, regex: '^:\s*String$'}
             - has: {field: value, matches: empty-string}

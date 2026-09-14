@@ -93,7 +93,6 @@ rule:
                 any:
                     - pattern: $P if $P is not None else $D
                     - pattern: $D if $P is None else $P
-                    - pattern: $P or $D
                     - kind: if_statement
                       all:
                         - has: {field: condition, pattern: $P is None}

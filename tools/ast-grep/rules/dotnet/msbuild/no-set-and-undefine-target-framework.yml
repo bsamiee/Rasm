@@ -19,9 +19,6 @@ rule:
                 has:
                     matches: msbuild-tag
                     has: {kind: Attribute, has: {kind: Name, regex: '^Condition$'}}
-transform:
-    STRIPPED: rewrite($REFERENCE, rewriters=[remove-set])
-fix: $STRIPPED
 rewriters:
     - id: remove-set
       rule:
@@ -32,5 +29,8 @@ rewriters:
             - matches: {msbuild-element: {name: {regex: '^SetTargetFramework$'}}}
               inside: {kind: content, inside: {pattern: _REFERENCE}}
       fix: ''
+transform:
+    STRIPPED: rewrite($REFERENCE, rewriters=[remove-set])
+fix: $STRIPPED
 message: '`ProjectReference` sets `TargetFramework` and undefines it, the `MSBuild` task removes the name after it applies the set value'
 note: Delete `SetTargetFramework`

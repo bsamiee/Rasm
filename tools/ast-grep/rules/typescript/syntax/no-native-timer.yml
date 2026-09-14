@@ -2,8 +2,20 @@
 id: no-native-timer
 language: tsx
 severity: error
+utils:
+    listener-callback:
+        matches: syntax-function-boundary
+        inside:
+            kind: arguments
+            inside:
+                kind: call_expression
+                has: {field: function, kind: member_expression, has: {field: property, regex: '^(addEventListener|once|on)$'}}
 rule:
     kind: call_expression
+    not:
+        all:
+            - has: {field: function, regex: 'clear(Timeout|Interval|Immediate)$'}
+            - inside: {matches: listener-callback, stopBy: {matches: syntax-function-boundary}}
     has:
         field: function
         pattern: $NAME
@@ -28,4 +40,4 @@ rule:
                             source: {regex: '^(node:)?timers/promises$'}
                             exported: {regex: '^scheduler$'}
 message: '`$NAME` schedules on the host timer outside the effect runtime'
-note: '`Effect.sleep` replaces a timeout, `Effect.repeat` with a `Schedule` an interval, `Effect.yieldNow` a microtask, interruption a clear call'
+note: '`Effect.sleep` replaces a timeout, `Effect.repeat` with a `Schedule` an interval, `Effect.yieldNow` a microtask, interruption a clear call, a listener clearing a host-registered id releases it at the boundary'

@@ -3,6 +3,12 @@ id: no-empty-string-default-tsx
 language: tsx
 severity: error
 utils:
+    empty-string:
+        any:
+            - kind: string
+              not: {has: {kind: string_fragment}}
+            - kind: template_string
+              not: {has: {kind: 'string_fragment, template_substitution'}}
     indexed-element:
         kind: subscript_expression
         pattern: $ELEMENT
@@ -18,12 +24,13 @@ rule:
           all:
             - has: {field: left, matches: indexed-element}
             - has: {field: operator, regex: '^(\?\?|\|\|)$'}
-            - has: {field: right, matches: syntax-empty-string}
+            - has: {field: right, matches: empty-string}
             - not: {inside: {matches: concatenation, stopBy: {not: {kind: parenthesized_expression}}}}
         - kind: 'assignment_pattern, object_assignment_pattern'
           all:
             - inside: {kind: 'array_pattern, object_pattern, pair_pattern'}
             - has: {field: left, pattern: $ELEMENT}
-            - has: {field: right, matches: syntax-empty-string}
+            - has: {field: right, matches: empty-string}
+            - not: {inside: {kind: 'required_parameter, optional_parameter', stopBy: {not: {kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern'}}}}
 message: '`$ELEMENT` defaults to an empty string standing for an absent element'
-note: 'Bind `const [head] = <list>` and test `head === undefined`, the empty string stays a value'
+note: 'Bind `const [head] = <list>` and test `head === undefined`, the empty string stays a value, a parameter default states the caller contract'

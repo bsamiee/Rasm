@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-token-in-child-environment
+language: swift
+severity: error
+utils:
+    secret-name:
+        kind: line_string_literal
+        regex: '^"[A-Z][A-Z0-9_]*_(TOKEN|SECRET|PASSWORD|KEY)"$'
+    secret-value:
+        any:
+            - kind: navigation_expression
+              has: {field: suffix, has: {field: suffix, regex: '(?i)(accessToken|refreshToken|idToken|apiKey|secret|password)$'}}
+            - kind: simple_identifier
+              regex: '(?i)(accessToken|refreshToken|idToken|apiKey|secret|password)$'
+    descriptor-value:
+        regex: '(?i)(descriptor|fileno|rawValue)'
+rule:
+    any:
+        - pattern: '$STORE[$KEY] = $VALUE'
+          any:
+            - all:
+                - has: {field: target, has: {stopBy: end, matches: secret-name}}
+                - has: {field: result, not: {matches: descriptor-value}}
+            - all:
+                - has: {field: target, has: {stopBy: end, kind: line_string_literal}}
+                - has: {field: result, matches: secret-value}
+        - kind: line_string_literal
+          pattern: $KEY
+          nthChild: 2n+1
+          inside: {kind: dictionary_literal}
+          any:
+            - all:
+                - matches: secret-name
+                - precedes: {pattern: $VALUE, not: {matches: descriptor-value}, stopBy: {pattern: $_}}
+            - precedes: {pattern: $VALUE, matches: secret-value, stopBy: {pattern: $_}}
+message: '`$KEY` carries `$VALUE` into the child environment, `ps` reads the environment of every process of the uid'
+note: 'Write the secret into a pipe and pass the descriptor number the child reads it from, no fix, the descriptor is a value the match does not hold'

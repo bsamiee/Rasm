@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-queue-continuation-bridge
+language: swift
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {kind: simple_identifier, regex: '^with(Checked|Unsafe)(Throwing)?Continuation$'}
+        - has:
+            kind: call_suffix
+            has:
+                kind: lambda_literal
+                all:
+                    - has: {kind: lambda_parameter, stopBy: end, has: {field: name, pattern: $K}}
+                    - has:
+                        stopBy: end
+                        kind: call_expression
+                        pattern: $BRIDGE
+                        all:
+                            - has: {kind: navigation_expression, has: {field: suffix, regex: '^\.(async|sync|asyncAfter)$'}}
+                            - has: {pattern: $K.resume($$$R), stopBy: end}
+message: '`$BRIDGE` resumes `$K` from a dispatch queue, the bridge cannot be cancelled and blocked work pins the continuation'
+note: 'Move the work onto an `actor` or mark the member `@concurrent`, the isolation is decided per type and no template derives it'

@@ -16,7 +16,7 @@ Rasm/
 │   ├── ast-grep/             # Outlines and rules per language
 │   └── nx/                   # Nx plugin adding a project per manifest to the task graph
 ├── mise.toml                 # Tool binaries and process environment
-├── global.json               # .NET SDK version
+├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
 ├── package.json              # Development dependencies and root Nx targets
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
@@ -36,6 +36,7 @@ Rasm/
 ├── .github/                  # Continuous integration and repository automation
 ├── .claude/                  # Agent harness knowledge and settings
 ├── .mcp.json                 # Agent harness MCP servers
+├── .codex/                   # Codex harness settings
 ├── CLAUDE.md                 # Agent standards, AGENTS.md is its symlink
 └── README.md
 ```
@@ -124,8 +125,8 @@ flowchart LR
 ## [06]-[HARNESS]
 
 - `.claude/settings.json` holds allow list, one entry per tool or server, and `mise env` hooks
-- `.mcp.json` runs each stdio server under `mise exec`
-- `function-hooks` plugin policies refuse destructive git commands, shell waits, written files run in one call, hand timing, and second config files
+- `.mcp.json` and `.codex/config.toml` run each mise-installed server under `mise exec`
+- `function-hooks` policies answer each tool call with deny or next, one policy per file under `.claude/plugins/function-hooks/hooks/policies/`
 - Skills hold knowledge of one subject, agents hold one role with its procedure and gate, memory holds facts no file covers
 - `nx run rasm:browsers` installs the Chromium build the Playwright commands launch
 

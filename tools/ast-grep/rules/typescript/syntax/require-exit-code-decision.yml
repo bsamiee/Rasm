@@ -29,6 +29,22 @@ utils:
                         - has: {field: object, matches: process-run}
     scope:
         any: [{matches: syntax-function-boundary}, {kind: program}]
+    decision-on-code:
+        any:
+            - kind: binary_expression, unary_expression
+              has: {kind: identifier, pattern: $CODE}
+            - kind: switch_statement
+              has: {field: value, has: {stopBy: end, kind: identifier, pattern: $CODE}}
+            - kind: if_statement, while_statement, do_statement, for_statement, ternary_expression
+              has: {field: condition, has: {stopBy: end, kind: identifier, pattern: $CODE}}
+    decision-on-result:
+        any:
+            - kind: binary_expression, unary_expression
+              has: {kind: member_expression, pattern: $RESULT.exitCode}
+            - kind: switch_statement
+              has: {field: value, has: {stopBy: end, kind: member_expression, pattern: $RESULT.exitCode}}
+            - kind: if_statement, while_statement, do_statement, for_statement, ternary_expression
+              has: {field: condition, has: {stopBy: end, kind: member_expression, pattern: $RESULT.exitCode}}
 rule:
     any:
         - kind: object_pattern
@@ -54,7 +70,7 @@ rule:
                         inside:
                             matches: scope
                             stopBy: {matches: scope}
-                            has: {stopBy: end, matches: {syntax-decision: {subject: {kind: identifier, pattern: $CODE}}}}
+                            has: {stopBy: end, matches: decision-on-code}
         - kind: member_expression
           all:
             - has: {field: property, regex: '^(stdout|stderr)$', pattern: $STREAM}
@@ -72,8 +88,12 @@ rule:
                                 - has: {field: value, matches: run-result}
                         - matches: then-callback
                           has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $RESULT}}}
-                    - not: {has: {stopBy: end, matches: {syntax-decision: {subject: {kind: member_expression, pattern: $RESULT.exitCode}}}}}
-message: '`$.process.run` result reads `$STREAM` with no decision on `exitCode`'
+                    - not: {has: {stopBy: end, matches: decision-on-result}}
+        - kind: member_expression
+          all:
+            - has: {field: property, regex: '^(stdout|stderr)$', pattern: $STREAM}
+            - has: {field: object, stopBy: {not: {kind: parenthesized_expression}}, matches: run-result}
+message: 'Process result reads `$STREAM` with no decision on `exitCode`'
 note: 'Compare `exitCode` before reading the streams, a non-zero exit returns the failure with `stderr` as its reason'
 labels:
     STREAM: {style: primary}

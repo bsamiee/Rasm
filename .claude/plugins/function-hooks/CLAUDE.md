@@ -5,8 +5,11 @@ Layers of the plugin from the hooks module up to the units a purpose adds, each 
 ## [01]-[ENGINE]
 
 `hooks/register.ts` is the one module the harness loads, holds every registration and every `$` call, and turns each event it records into one row:
-- `tool.call` folds `hooks/policies/` through `hooks/events/tool-call.ts`, wait and script policies on Bash alone, the first refusal answers
+- `tool.call` folds `hooks/policies/` through `hooks/events/tool-call.ts`, wait, script, and walk policies on Bash alone, the first refusal answers
 - Bash and Monitor commands take one `ast-grep` process per call and one more per `sh -c` or `eval` body to depth 8, an unread command is refused
+- Walk policy refuses `fd`, `find`, `rg`, `du`, `tree`, `lsof +D`, and recursive `grep` and `ls` starting at, under, or above `~/Library/CloudStorage`
+- Starts are the positional paths the installed binary walks, the session `cwd` when the command names none, option values are none
+- Start above `CloudStorage` passes when a word names it, `HOME` and the session `cwd` resolve the paths
 - Deny from a policy or a plugin beneath is recorded on `tool.call`, a host permission denial as `PermissionDenied`, a passed call as `PostToolUse`
 - `classic.*` records the events its matcher lists, `turn.*` the turn events, `ui.render` on `SessionMode` draws the footer label
 - `record` is the one path every row takes: event name, value, a `Columns` selection, and the clock, session id from the selection or the harness
@@ -14,11 +17,13 @@ Layers of the plugin from the hooks module up to the units a purpose adds, each 
 - Drops are file bodies and images of Read, Write, and Edit calls, batch call responses, and deny trace values
 - `script` of `hooks/observation/sql.ts` renders one insert, one awaited `sqlite3` process writes it before `next(e)`, a deny row after the answer
 - `sqlite3` is `bin/sqlite3` under the install `mise where sqlite` names, read once per load, a `mise exec` launcher costs more than a write
+- Scan, locate, open, and row writes run at the repository root, where `mise` resolves their binaries
+- Boundary statements and spawns run at the worktree, the git processes that find it at the event's `cwd`
 - Failed write is one `$.ui.log` line naming the row, the row is lost, nothing retries
 - `open` runs once per load at its first recorded event, one `sqlite3` process applying the declarations, a second switching the journal to WAL
 - Failed open is one log line and no rows until reload, a session outside a git repository opens nothing
 - Lost journal switch at a concurrent first open of a fresh sink is one log line, the sink stays open in its journal mode
-- Boundary branch runs after the row at `Stop` and at a `SubagentStop` whose `agent_type` is not blank, both with `stop_hook_active` false
+- Boundary branch runs after the row at `Stop` and at a `SubagentStop` with a non-empty `agent_type`, both with `stop_hook_active` false
 - Boundary reads the lineage from git, runs one state query, spawns due agents, writes ledger and delivery rows, and answers `additionalContext`
 - Boundary is quiet when no task under `background_tasks` edited the unjudged range, spawns and delivery wait for one, the footer counts the editors
 - Ledger row of an edit range is written when its spawn resolves with an agent id, the next range opens after its `to_ts` while the agent still runs
@@ -39,7 +44,7 @@ Layers of the plugin from the hooks module up to the units a purpose adds, each 
 
 One SQLite file per repository, at the path `observation` names, holds every row the engine writes and every table an agent writes:
 - Rows are one table with identity columns beside one JSON `payload`, written once, updated and deleted by nothing in the plugin
-- Payload key the harness adds lands on new rows with no change, older rows answer null to `json_extract` over it
+- Payload key the harness adds is written to new rows with no change, older rows answer null to `json_extract` over the key
 - Views are the `_VIEWS` elements of `sql.ts`, each one question over rows, dropped and created at every open, a new body applies at the next load
 - Views reach other views through joins, a correlated subquery over a view runs its body once per outer row
 - Lookup tables hold every state, channel, and kind, `_ROWS` adds a declared value at open and retires one no row references
@@ -47,11 +52,11 @@ One SQLite file per repository, at the path `observation` names, holds every row
 - Finding tables of `_TABLES` hold category, path, text, span, message, and source, never a shape, a rubric, or a purpose, any judgment writes them
 - Writers are disjoint, agents write finding, transition, and bar rows through the skill, the engine observation, delivery, ledger, and enum rows
 - `text_hash` and `finding_id` are generated columns fixed once rows exist, a rebuild recomputes them while transitions keep the old ids
-- Moved site keeps its id, its `moved` transition carries the new path, `finding_state` reads the current path from the latest transition
+- Moved site keeps its id, its `moved` transition holds the new path, `finding_state` reads the current path from the latest transition
 - Evolution is `open`: declarations are the schema, the delta to the file is applied at each load's first event, a refused delta rolls back whole
 - Delta file beside the sink holds the drops and rebuilds the last open computed, the record of a refused open
 - Rebuild refuses a `not null` column with no default over rows, a renamed strict key, a declaration sharing no stored column, a check old rows fail
-- Column added over rows carries a default, a check over a fact old rows lack stays the writer's gate
+- Column added over rows holds a default, a check over a fact old rows lack stays the writer's gate
 - Declared and stored names match case-insensitively
 - Retired view goes at the next open, a retired table or index stays until a statement drops it
 - Engine scripts run under `-bail`, without it the shell continues past a failed statement and reaches `commit`
@@ -62,7 +67,7 @@ One SQLite file per repository, at the path `observation` names, holds every row
 ## [03]-[SKILL]
 
 `.claude/skills/observation/SKILL.md` is the read and write contract between the sink and every reader and writer above it:
-- Skill owns every write script, every view reader, and every name a row, view, state, or channel carries, an agent's file holds its scope selects
+- Skill owns every write script, every view reader, and every name a row, view, state, or channel holds, an agent's file holds its scope selects
 - Skill's `references/sqlite.md` holds the SQLite and DuckDB facts that decide a script's form, one section per documentation page
 - Verdict names stay in the rubric skill that judges them, the skill's `bar.sql` writes them into `bar_verdict`
 - Skill owns the checker mapping, one script per checker turning its JSON into site rows, a new checker is one more script there
@@ -84,26 +89,26 @@ Purpose above the sink is a view, an agent profile, or an option pair, chosen by
 - Option values come from `pluginConfigs` of user settings, `--settings`, or managed settings, a project `.claude/settings.json` reaches no option
 - Options are read once at `register`, a changed value waits for the plugin's reload
 - Category trigger is the second pair, `categoryThreshold` and `categoryAgent` over recurring confirmed categories, free of purpose the same way
-- Category threshold defaults to 2, the second instance the root rule names, the builder's run is the rule edit's own task
+- Category threshold defaults to 2, the second instance the root rule names
 - Prompt a spawn passes is the range or the category with the lineage key alone and `cwd` at the worktree, the agent derives the rest from rows
 - Spawned agent runs in the session's process on its file's model, else the session's, its reply is its `turn.complete` `answer` and opens no turn
-- Purpose whose evidence no row holds has its gap at the engine, a payload key or a matcher entry, the layers above read rows alone
+- Purpose with evidence no row holds has its gap at the engine, a payload key or a matcher entry, the layers above read rows alone
 
 ## [05]-[OBSERVED]
 
 Rows hold every event the module registers, from every session, process, and worktree of the repository, and nothing a dispatch does not carry:
-- Every dispatched classic event the matcher lists, every `turn.*` event, and every refused `tool.call` lands, one row per dispatch at `$.clock`
+- Every dispatched classic event the matcher lists, every `turn.*` event, and every refused `tool.call` is written, one row per dispatch at `$.clock`
 - Subagents run in the session's process through the same module
 - Running spawn is listed under `background_tasks` at boundary events, its `turn.complete` row ends it in `running_agents`
 - Classic events outside the matcher reach no row, `PreToolUse` among them
 - `Stop` fires before the turn's last transcript records and `SessionEnd` sees them, `/clear` ends one session id and starts another
 - Transcript text and per-message usage stay in the transcript files, rows keep the paths as pointers the skill's transcript scripts read
 - Shell rewrite of a file (`sd`, `sed -i`, `perl -i`, a redirect) leaves no patch row, `edited_files` and the lifecycle's `-` line see none
-- Remote-isolated subagent runs elsewhere and lands no row, its `Agent` row holds `remote_launched`, `taskId`, and `sessionUrl`, no `agentId`
+- Remote-isolated subagent runs elsewhere and writes no row, its `Agent` row holds `remote_launched`, `taskId`, and `sessionUrl`, no `agentId`
 
 ## [06]-[OTHER_PURPOSES]
 
-Loop with another purpose, one whose evidence is harness events, runs on the same layers and touches nothing in the plugin:
+Loop with another purpose, one with harness events as evidence, runs on the same layers and touches nothing in the plugin:
 - Rows hold the evidence: files edited with their patches, commands run, agents spawned, denials, compactions, tokens, and dollars
 - Question is a query an agent runs through the skill's read command, a view joins `sql.ts` when the query recurs across readers
 - Judgment is one agent under `.claude/agents/` preloading `observation` and its own rubric's skill, writing `finding` rows under its own categories
@@ -116,7 +121,7 @@ Loop with another purpose, one whose evidence is harness events, runs on the sam
 ## [07]-[COST]
 
 Change at a level costs in proportion to what sits above it:
-- Engine change touches every row after it, a dropped payload key is gone from those rows for good, a column change reaches every view and reader
+- Engine change touches every row after it, a dropped payload key is gone from every later row, a column change reaches every view and reader
 - Engine change is proven by a live session after `claude plugin validate`, the typecheck, and the views test pass
 - Engine defect costs a row per event it fails on until reload, a fault the module catches is one `$.ui.log` line in the transcript and the debug log
 - Boundary costs the worktree and branch git processes and one state query at every stop event, a delivery or a report one write more

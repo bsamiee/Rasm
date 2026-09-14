@@ -13,11 +13,20 @@ utils:
                     kind: Attribute
                     all:
                         - has: {kind: Name, regex: '^Include$'}
-                        - has:
-                            kind: AttValue
-                            regex: |-
-                                (?xi)^["']([A-Za-z0-9.]+\.(Analyzers?|SourceGenerators?|Generators?)|Riok\.Mapperly|Grpc\.Tools|MessagePackAnalyzer
-                                |Microsoft\.CodeAnalysis\.CSharp|Microsoft\.CodeAnalysis\.Analyzers|MinVer|Generator\.Equals)["']$
+                        - has: {kind: AttValue, regex: '(?i)^["'']([A-Za-z0-9.]+\.(Analyzers?|SourceGenerators?|Generators?))["'']$'}
+    all-assets:
+        any:
+            - regex: '(?i)^["'']?\s*all\s*["'']?$'
+            - all:
+                - regex: '(?i)^["'']?\s*(?:(?:compile|runtime|contentFiles|build|buildMultitargeting|buildTransitive|analyzers|native)\s*;\s*)*(?:compile|runtime|contentFiles|build|buildMultitargeting|buildTransitive|analyzers|native)\s*;?\s*["'']?$'
+                - regex: '(?i)(^["'']?|;)\s*compile\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*runtime\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*contentFiles\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*build\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*buildMultitargeting\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*buildTransitive\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*analyzers\s*(;|["'']?$)'
+                - regex: '(?i)(^["'']?|;)\s*native\s*(;|["'']?$)'
     private-assets-all:
         kind: element
         any:
@@ -28,14 +37,14 @@ utils:
                         kind: Attribute
                         all:
                             - has: {kind: Name, regex: '^PrivateAssets$'}
-                            - has: {kind: AttValue, regex: '(?i)^["'']?\s*all\s*["'']?$'}
+                            - has: {kind: AttValue, matches: all-assets}
                 - not:
                     has:
                         kind: content
                         has:
                             kind: element
                             has: {matches: msbuild-tag, has: {kind: Name, regex: '^PrivateAssets$'}}
-                            not: {has: {kind: content, regex: '(?i)^["'']?\s*all\s*["'']?$'}}
+                            not: {has: {kind: content, matches: all-assets}}
             - has:
                 kind: content
                 has:
@@ -45,15 +54,12 @@ utils:
                         reverse: true
                         ofRule: {kind: element, has: {matches: msbuild-tag, has: {kind: Name, regex: '^PrivateAssets$'}}}
                     all:
-                        - has: {kind: content, regex: '(?i)^["'']?\s*all\s*["'']?$'}
+                        - has: {kind: content, matches: all-assets}
                         - not: {has: {kind: STag, has: {kind: Attribute}}}
 rule:
     pattern: _REFERENCE
     matches: development-reference
     not: {matches: private-assets-all}
-transform:
-    FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
-fix: $FIXED
 rewriters:
     - id: remove-metadata
       rule:
@@ -77,5 +83,8 @@ rewriters:
                 replace: '\s*(/?>)$'
                 by: ' PrivateAssets="all"$1'
       fix: $FIXED
+transform:
+    FIXED: rewrite($REFERENCE, rewriters=[add-metadata, remove-metadata])
+fix: $FIXED
 message: Development dependency flows to every referencing project
 note: Set `PrivateAssets="all"` on the reference
