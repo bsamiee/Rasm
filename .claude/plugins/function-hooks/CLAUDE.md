@@ -1,135 +1,72 @@
 # [FUNCTION_HOOKS]
 
-Layers of the plugin from the hooks module up to the units a purpose adds, each built on the capability of the layer beneath, with the touch point that extends each layer and what a change there costs. Use `observation` for every name, script, and command against the sink, `plugin-authoring` for the harness contract of a hooks module.
+Policies refuse a tool call, every recorded event becomes a sink row, and stop events spawn judging agents and deliver findings. Use `observation` for every sink name, script, and reader.
 
-## [01]-[ENGINE]
+## [01]-[POLICIES]
 
-`hooks/register.ts` is the one module the harness loads, holds every registration and every `$` call, and turns each event it records into one row:
-- `tool.call` folds `hooks/policies/` through `hooks/events/tool-call.ts`, wait, script, and walk policies on Bash alone, the first refusal answers
-- Bash and Monitor commands take one `ast-grep` process per call and one more per `sh -c` or `eval` body to depth 8, an unread command is refused
-- Walk policy refuses `fd`, `find`, `rg`, `du`, `tree`, `lsof +D`, and recursive `grep` and `ls` starting at, under, or above `~/Library/CloudStorage`
-- Starts are the positional paths the installed binary walks, the session `cwd` when the command names none, option values are none
-- Start above `CloudStorage` passes when a word names it, `HOME` and the session `cwd` resolve the paths
-- Deny from a policy or a plugin beneath is recorded on `tool.call`, a host permission denial as `PermissionDenied`, a passed call as `PostToolUse`
-- `classic.*` records the events its matcher lists, `turn.*` the turn events, `ui.render` on `SessionMode` draws the footer label
-- `record` is the one path every row takes: event name, value, a `Columns` selection, and the clock, session id from the selection or the harness
-- `hooks/observation/row.ts` builds the row: selected fields become columns, every other field stays in `payload` under its harness name
-- Drops are file bodies and images of Read, Write, and Edit calls, batch call responses, and deny trace values
-- `script` of `hooks/observation/sql.ts` renders one insert, one awaited `sqlite3` process writes it before `next(e)`, a deny row after the answer
-- `sqlite3` is `bin/sqlite3` under the install `mise where sqlite` names, read once per load, a `mise exec` launcher costs more than a write
+Each refusal states what the call does, then the target, MCP tool, or owner file that is the path:
+- Parsing a Bash or Monitor command costs one `ast-grep` process per call and one more per `sh -c` or `eval` body to depth 8
+- Option lists a walker policy splits by are read from the installed binary, a valued option missing there makes its value a start path
+- One `git check-ignore` process per written path resolves ignored paths
+- Refusal is proven headless through `--plugin-dir` and read back from the `denials` view
+
+## [02]-[RECORDING]
+
+Every classic event the matcher lists, every `turn.*` event, and every refused `tool.call` becomes one row stamped from `$.clock`:
+- Classic events outside the matcher reach no row
+- Read, Write, and Edit call bodies, batch call responses, and deny trace values drop before the write
+- One awaited `sqlite3` process writes the row before `next(e)`, a deny row after the answer
+- `sqlite3` is `bin/sqlite3` under the install `mise where sqlite` names, resolved once per load
 - Scan, locate, open, and row writes run at the repository root, where `mise` resolves their binaries
-- Boundary statements and spawns run at the worktree, the git processes that find it at the event's `cwd`
-- Failed write is one `$.ui.log` line naming the row, the row is lost, nothing retries
-- `open` runs once per load at its first recorded event, one `sqlite3` process applying the declarations, a second switching the journal to WAL
-- Failed open is one log line and no rows until reload, a session outside a git repository opens nothing
-- Lost journal switch at a concurrent first open of a fresh sink is one log line, the sink stays open in its journal mode
-- Boundary branch runs after the row at `Stop` and at a `SubagentStop` with a non-empty `agent_type`, both with `stop_hook_active` false
-- Boundary reads the lineage from git, runs one state query, spawns due agents, writes ledger and delivery rows, and answers `additionalContext`
-- Boundary is quiet when no task under `background_tasks` edited the unjudged range, spawns and delivery wait for one, the footer counts the editors
-- Ledger row of an edit range is written when its spawn resolves with an agent id, the next range opens after its `to_ts` while the agent still runs
-- Unjudged count is distinct files edited in the tree since the lineage's last `to_ts`, the threshold names files
-- `hooks/observation/delivery.ts` holds the boundary's pure parts: settings, statements, state parsing, due predicates, prompts, and texts
-- Environment held from `register` until reload: settings read once, spawn claims, logged texts, and the footer label empty at the start
-- Footer label is set at boundary events alone and cleared at `SessionEnd`, no tool event costs a state query
-- Claim holds an agent name from its spawn call until the spawn resolves, later boundary events list the running agent under `background_tasks`
-- Run of the agent from another session on the worktree is a `running_agents` row the state query reads, the trigger waits on it
-- Boundary event with no `background_tasks` field reads state and sets the footer, then skips spawn and delivery, one log line names the absence
-- Sessions of one lineage stopping before a spawn resolves each spawn, their ledger rows read as one range, their delivery rows as one key
-- Delivery and report rows count on a lineage until the finding closes, a killed agent's report row stands and its category waits for a person
-- Session killed with no end row leaves its spawn's start row standing, triggers naming that agent wait until the session resumes and stops
-- Hook that throws, outruns its budget, or answers a wrong shape is skipped and the event's answer stands, a module defect costs rows, never the turn
-- `hooks/composition/` holds `Decision` for a policy, `Result` for a process, `Option` for absence, `hooks/text/` the parser and path helper
+- Failed write is one `$.ui.log` line naming the row, the row is lost and nothing retries
+- Shell rewrite of a file (`sd`, `sed -i`, a redirect) writes no edit row, the edit trigger counts none
+- `ui.render` on `SessionMode` draws the footer label, set at a boundary event alone and cleared at `SessionEnd`
 
-## [02]-[SINK]
+## [03]-[SCHEMA]
 
-One SQLite file per repository, at the path `observation` names, holds every row the engine writes and every table an agent writes:
-- Rows are one table with identity columns beside one JSON `payload`, written once, updated and deleted by nothing in the plugin
-- Payload key the harness adds is written to new rows with no change, older rows answer null to `json_extract` over the key
-- Views are the `_VIEWS` elements of `sql.ts`, each one question over rows, dropped and created at every open, a new body applies at the next load
-- Views reach other views through joins, a correlated subquery over a view runs its body once per outer row
-- Lookup tables hold every state, channel, and kind, `_ROWS` adds a declared value at open and retires one no row references
-- `bar_verdict` holds the verdict shape and no declared row
-- Finding tables of `_TABLES` hold category, path, text, span, message, and source, never a shape, a rubric, or a purpose, any judgment writes them
-- Writers are disjoint, agents write finding, transition, and bar rows through the skill, the engine observation, delivery, ledger, and enum rows
-- `text_hash` and `finding_id` are generated columns fixed once rows exist, a rebuild recomputes them while transitions keep the old ids
-- Moved site keeps its id, its `moved` transition holds the new path, `finding_state` reads the current path from the latest transition
-- Evolution is `open`: declarations are the schema, the delta to the file is applied at each load's first event, a refused delta rolls back whole
-- Delta file beside the sink holds the drops and rebuilds the last open computed, the record of a refused open
+Declarations of `hooks/observation/sql.ts` are the schema, applied as a delta at a load's first recorded event, a refused delta rolls back whole:
+- Delta file beside the sink holds the drops and rebuilds the last open computed
+- Views drop and create at every open, a new body applies at the next load
+- Lookup table takes a declared value at open and retires one no row references
 - Rebuild refuses a `not null` column with no default over rows, a renamed strict key, a declaration sharing no stored column, a check old rows fail
 - Column added over rows holds a default, a check over a fact old rows lack stays the writer's gate
 - Declared and stored names match case-insensitively
 - Retired view goes at the next open, a retired table or index stays until a statement drops it
-- Engine scripts run under `-bail`, without it the shell continues past a failed statement and reaches `commit`
-- `views.test.ts` runs the open in memory through `node:sqlite`, prepares every view, and rebuilds a changed table over rows, the proof under `check`
-- Processes and worktrees write one file at once, WAL and the busy timeout serialize them, a reader never waits on a writer
-- Finding rows are never deleted, a refused category spawn takes its `report` delivery rows back, removing `.cache/observation/` is the reset
+- Generated columns recompute over a rebuilt table while transitions keep the ids stored before it
+- Rows insert once, no statement updates or deletes one
+- Payload key the harness adds reaches new rows alone, older rows answer null to `json_extract` over the key
+- Scripts run under `-bail`, a failed statement without it reaches `commit`
+- Failed open is one log line and no rows until reload, a session outside a git repository opens nothing
+- Lost journal switch at a concurrent first open is one log line, the sink stays open in its journal mode
+- WAL and the busy timeout serialize the processes and worktrees writing one file
+- Removing `.cache/observation/` is the reset
 
-## [03]-[SKILL]
+## [04]-[BOUNDARY]
 
-`.claude/skills/observation/SKILL.md` is the read and write contract between the sink and every reader and writer above it:
-- Skill owns every write script, every view reader, and every name a row, view, state, or channel holds, an agent's file holds its scope selects
-- Skill's `references/sqlite.md` holds the SQLite and DuckDB facts that decide a script's form, one section per documentation page
-- Verdict names stay in the rubric skill that judges them, the skill's `bar.sql` writes them into `bar_verdict`
-- Skill owns the checker mapping, one script per checker turning its JSON into site rows, a new checker is one more script there
-- To a specialization the skill is preloaded whole at spawn through `skills`, an agent's file names a script and restates none of it
-- Main agent loads the skill by its description when it reads rows or acts on a delivered line
-- Skill holds the main agent's side of the contract: what the context line asks and the transitions that close it
-- Reader is a command under an allow row the tree holds, a registered tool wraps the command and adds no fact
+Boundary runs after the row at `Stop` and at a `SubagentStop` with a non-empty `agent_type`, both with `stop_hook_active` false:
+- Lineage comes from the worktree and branch git reports at the event's `cwd`, statements and spawns run at the worktree
+- One state query per boundary event reads the counts, sets the footer label, and decides the spawns, no tool event costs a query
+- Spawn waits while a task under `background_tasks` edited the unjudged range or the agent runs on the worktree from another session
+- Unjudged count is distinct files edited in the tree since the lineage's last `to_ts`, the threshold counts files
+- Ledger row of an edit range is written when its spawn resolves with an agent id, the next range opens after that `to_ts` while the agent runs
+- Prompt a spawn passes is the range or the category with the lineage key alone, the agent derives the rest from rows
+- Category spawn that refuses takes its `report` delivery rows back
+- Boundary event with no `background_tasks` field reads state and sets the footer, skips spawn and delivery, and logs the absence
 
-## [04]-[SPECIALIZATION]
+## [05]-[EXTENSION]
 
-Purpose above the sink is a view, an agent profile, or an option pair, chosen by what the purpose needs that the layers beneath lack, each touching its owner alone:
-- View answers a question a query over rows answers: one `_VIEWS` element of `sql.ts`, its reader in the skill, and the views test's count
-- View reads what rows already hold and touches nothing in `register.ts`, `row.ts`, an agent, or an option
-- Agent profile answers a judgment needing the working tree or a rubric: one file under `.claude/agents/` preloading `observation` and the rubric
-- Agent reads rows and the working tree, writes finding rows through the skill's scripts, and touches nothing in the plugin beyond its name
-- Rubric stays in its owning skill, `ast-grep` for shapes, `clean-prose` for prose, the agent holds run order, prompt-supplied scope, and its gate
-- Option pair answers a trigger: `<kind>Threshold` and `<kind>Agent` in `userConfig`, a trigger in `delivery.ts` naming a view, a `range_kind` row
-- Option pair leaves rows and agents alone, names a count in place of a purpose, its spawn joins the judging step, its kind the boundary's ledger row
-- Option values come from `pluginConfigs` of user settings, `--settings`, or managed settings, a project `.claude/settings.json` reaches no option
-- Options are read once at `register`, a changed value waits for the plugin's reload
-- Category trigger is the second pair, `categoryThreshold` and `categoryAgent` over recurring confirmed categories, free of purpose the same way
-- Category threshold defaults to 2, the second instance the root rule names
-- Prompt a spawn passes is the range or the category with the lineage key alone and `cwd` at the worktree, the agent derives the rest from rows
-- Spawned agent runs in the session's process on its file's model, else the session's, its reply is its `turn.complete` `answer` and opens no turn
-- Purpose with evidence no row holds has its gap at the engine, a payload key or a matcher entry, the layers above read rows alone
+New purpose takes a view, an agent, or a trigger pair, each touching its own owner:
+- View is one `_VIEWS` element of `sql.ts` with its reader in the skill and its count in `views.test.ts`
+- View reads what rows already hold and touches no registration, column, agent, or option
+- Agent is one file under `.claude/agents/` preloading `observation` and its rubric's skill
+- Agent reads rows and the working tree, writes findings through the skill's scripts, and touches nothing in the module
+- Trigger pair is `<kind>Threshold` and `<kind>Agent` in `userConfig` with a `range_kind` row and a `delivery.ts` trigger over one view
+- Options are read once at `register`, a changed value waits for the module's reload
+- Evidence no row holds is a gap at the module, one payload key or one matcher entry
 
-## [05]-[OBSERVED]
+## [06]-[PROOF]
 
-Rows hold every event the module registers, from every session, process, and worktree of the repository, and nothing a dispatch does not carry:
-- Every dispatched classic event the matcher lists, every `turn.*` event, and every refused `tool.call` is written, one row per dispatch at `$.clock`
-- Subagents run in the session's process through the same module
-- Running spawn is listed under `background_tasks` at boundary events, its `turn.complete` row ends it in `running_agents`
-- Classic events outside the matcher reach no row, `PreToolUse` among them
-- `Stop` fires before the turn's last transcript records and `SessionEnd` sees them, `/clear` ends one session id and starts another
-- Transcript text and per-message usage stay in the transcript files, rows keep the paths as pointers the skill's transcript scripts read
-- Shell rewrite of a file (`sd`, `sed -i`, `perl -i`, a redirect) leaves no patch row, `edited_files` and the lifecycle's `-` line see none
-- Remote-isolated subagent runs elsewhere and writes no row, its `Agent` row holds `remote_launched`, `taskId`, and `sessionUrl`, no `agentId`
-
-## [06]-[OTHER_PURPOSES]
-
-Loop with another purpose, one with harness events as evidence, runs on the same layers and touches nothing in the plugin:
-- Rows hold the evidence: files edited with their patches, commands run, agents spawned, denials, compactions, tokens, and dollars
-- Question is a query an agent runs through the skill's read command, a view joins `sql.ts` when the query recurs across readers
-- Judgment is one agent under `.claude/agents/` preloading `observation` and its own rubric's skill, writing `finding` rows under its own categories
-- Verification is the agent's concern: a judgment writes `proposed` and its verifier confirms, a checker source writes `confirmed` and never delivers
-- Trigger is the existing count, `editAgent` set to the new agent replaces the one it names over the same edits, or a person's `Agent` call
-- Delivery and closing come with the layers, confirmed `agent:*` rows present on disk and undelivered on the lineage reach the main agent at `Stop`
-- Category trigger comes the same way, `categoryAgent` names who acts over a recurring category
-- Case, documentation drift: an agent reads `edited_files` of its range, finds prose naming the edited paths, and writes findings the loop delivers
-
-## [07]-[COST]
-
-Change at a level costs in proportion to what sits above it:
-- Engine change touches every row after it, a dropped payload key is gone from every later row, a column change reaches every view and reader
-- Engine change is proven by a live session after `claude plugin validate`, the typecheck, and the views test pass
-- Engine defect costs a row per event it fails on until reload, a fault the module catches is one `$.ui.log` line in the transcript and the debug log
-- Boundary costs the worktree and branch git processes and one state query at every stop event, a delivery or a report one write more
-- Delivered context line costs the main agent one more model step at that `Stop`
-- Sink change applies at the next load in every session, a table body change rebuilds the table, a view change reaches every reader from then
+`claude plugin validate`, the typecheck, and the views test pass before a live session proves a module change:
+- `views.test.ts` prepares every view and rebuilds a changed table over rows through `node:sqlite`, run under target `check`
 - Sink change without its skill change is a drift no checker reports, an agent's command fails first
-- Skill change runs in every agent that preloads it on its next spawn, a wrong script writes wrong rows under every purpose
-- Skill script is proven by running it against a copy of the sink, the skill's own command form is the proof
-- Agent change costs model tokens per run and rows others act on, `confirmed` reaches the main agent at the next `Stop`, `proposed` waits
-- Option change costs cadence, a lower threshold spawns more often over smaller ranges, a name matching no definition refuses the spawn, logged
-- View change costs nothing at write time and one query per reader, a wrong view answers wrong rows to every reader, the views test proves it prepares
+- Agent name matching no definition refuses the spawn, one log line names it

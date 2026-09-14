@@ -35,8 +35,8 @@ final class AccountModel: Identifiable {
   }
 
   func canStartSession(at now: Date) -> Bool {
-    guard isConnected, !isBusy else { return false }
-    return availability(at: now).map { availability in availability == .ready } ?? true
+    isConnected && usage.isCurrent && (operation == nil || operation == .refreshing)
+      && availability(at: now) == .ready
   }
 
   func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {

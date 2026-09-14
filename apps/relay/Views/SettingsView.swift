@@ -21,7 +21,7 @@ struct SettingsView: View {
               if model.isSelected {
                 Image(systemName: "checkmark")
                   .foregroundStyle(.secondary)
-                  .accessibilityLabel("In use")
+                  .accessibilityLabel("Active")
               }
             } icon: {
               Image(model.account.provider.symbol)
@@ -151,7 +151,7 @@ private struct AccountSettings: View {
           if model.operation == .selecting {
             ProgressView().controlSize(.small)
           } else if model.isSelected {
-            Label("In use", systemImage: "checkmark")
+            Label("Active", systemImage: "checkmark")
               .foregroundStyle(.secondary)
           } else {
             Button("Use Account") { store.select(model.id) }
@@ -176,7 +176,7 @@ private struct AccountSettings: View {
         }
       } footer: {
         Text(
-          "Manual starts a session on Start Session, Automatic sends “hi” when the provider reports the session ready"
+          "Manual starts a session from the card, Automatic sends “hi” when the provider reports the session ready"
         )
       }
 

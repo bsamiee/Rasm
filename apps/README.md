@@ -14,7 +14,7 @@ apps/
     └── <Area>/<Feature>.swift  # Swift files by responsibility, synchronized into the app target
 ```
 
-- App directories stay unrelated: apps couple only through a published package, never through a shared parent
+- Apps couple through a published package alone, never through a shared parent
 - Language mix is an app decision, an app spans C#, Python, TypeScript, and Swift with a manifest per project
 - Path segments hold app identity alone, host and deployment come from project configuration
 - Pulumi programs an app owns sit under the app directory with one stack per environment, and `infra/` holds the repository's own resources
@@ -35,7 +35,7 @@ Root files own shared policy, project manifests own app configuration.
 
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position
-- Nested `Directory.Build.*` files under an app directory import the parent file first, because MSBuild stops at the nearest one
+- MSBuild stops at the nearest `Directory.Build.*` file, a nested one under an app directory imports the parent first
 
 [PYTHON]:
 - Root `pyproject.toml` owns resolution, dependency groups, and `uv.lock`, and an app project's manifest holds bare-name dependencies
@@ -48,11 +48,17 @@ Root files own shared policy, project manifests own app configuration.
 [SWIFT]:
 - `.xcodeproj` files own their build settings: Swift version, warnings as errors, concurrency, deployment target, identity, plist keys, and signing
 - Synchronized root folders include every source and resource under the project root, membership exceptions list the files the bundle leaves out
-- `swift-format` runs at its defaults, with no configuration file
+- `.xcodeproj` outside its own exceptions gains a `projectReferences` entry to itself at each Xcode save
+- Shared scheme names `$(SRCROOT)/.lldbinit` as its run action's LLDB Init File, and that file starts the debugger MCP server
+- `Package.resolved` under the project workspace pins every package, `-disableAutomaticPackageResolution` fails a build on a stale pin
+- `actool` renders the icon stack for every appearance and rendition into `Assets.car` and `AppIcon.icns`, no rendered image is checked in
+- Apps sign automatically with the Apple Development identity Xcode holds for the signed-in Apple ID
+- Designated requirement names the bundle id, Apple's anchor, the identity as leaf, and the WWDR intermediate, not the team
+- Continuous integration signs ad-hoc, forwarding `CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=` to the build
 
 ## [04]-[PROJECT_CREATION]
 
-Projects are written by hand as the minimal file set, the set an init command produces.
+Projects are written by hand as the file set an init command produces.
 
 - C# projects are a `.csproj` listed in `Workspace.slnx` and checked by the project policy targets
 - TypeScript projects are a `package.json` beside a `tsconfig.json` that extends the root configuration

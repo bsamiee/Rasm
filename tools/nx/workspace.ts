@@ -54,7 +54,7 @@ const _configuration = (file: string, language: Language, context: CreateNodesCo
                 root: dirname(directory),
                 name: basename(directory, '.xcodeproj'),
                 tags: ['language:swift', 'host:macos'],
-                targets: { build: {}, lint: {}, format: {}, check: {} },
+                targets: { build: {}, install: {}, lint: {}, format: {}, check: {} },
             };
         case 'dotnet':
         case 'typescript':

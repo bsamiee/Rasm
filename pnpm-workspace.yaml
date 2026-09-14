@@ -273,7 +273,7 @@ catalog:
     '@nx/js': 23.2.0
     '@nx/vite': 23.2.0
     '@nx/vitest': 23.2.0
-    '@biomejs/biome': 2.5.12
+    '@biomejs/biome': 2.5.13
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     '@derekstride/tree-sitter-sql': 0.3.11
     '@swc/core': 1.16.2

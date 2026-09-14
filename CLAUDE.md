@@ -38,17 +38,16 @@ Navigate code through its language's skill and MCP server, or the ast-grep skill
 - ALWAYS use `claudeCodeDocs`/`openaiDeveloperDocs` MCP for a question about Claude Code or Codex
 - ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
 - ALWAYS use `computer-use` MCP for a native application window, its wait and screenshot tools stand where a shell would sleep
-- ALWAYS use `xcode` MCP for Apple documentation and an Xcode project's build, run, console, tests, previews, and settings
-- ALWAYS use `lldb` MCP for a debugger command outside the `RunProject` session or spanning tool calls, `InvokeDebuggerCommand` inside it
+- ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
 - ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
 
 [CLI_TOOLING]:
 
 | [INDEX] | [TOOL]      | [GUIDANCE]                                                                                                  |
 | :-----: | :---------- | :---------------------------------------------------------------------------------------------------------- |
-|  [01]   | `tree`      | `tree <dir>` lists all directories and files, `-D` for dirs only                                            |
-|  [02]   | `loc`       | `loc <dir>` for true LOC count with complexity score, folder total + per file                               |
-|  [03]   | `fd`        | Use for ALL normal filesystem queries/actions, superseded by specialized skills/mcp depending on context    |
+|  [01]   | `tree`      | `tree <dir>` lists directories and files, `-D` only directories                                             |
+|  [02]   | `loc`       | `loc <dir>` counts code lines with complexity score per file and folder                                     |
+|  [03]   | `fd`        | `fd <pattern> <path>` finds files and directories, a skill or MCP covering that area supersedes it          |
 |  [04]   | `rg`        | `rg <pattern> <paths>` for literals, comments, and prose, never for code search                             |
 |  [05]   | `gh`        | Local checkout work: PR from HEAD, checks, checkout, releases, secrets, `gh api` for any uncovered endpoint |
 |  [06]   | `jq`/`yq`   | `yq '.expr' f`, never `yq r`, `jq` needs `-r` for shell values and `[]?` on optional arrays                 |

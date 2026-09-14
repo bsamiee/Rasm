@@ -11,7 +11,8 @@
             "**",
             "!**/pnpm-lock.yaml",
             "!**/uv.lock",
-            "!**/*.html"
+            "!**/*.html",
+            "!.claude/types/claude-code.d.ts"
         ]
     },
     "formatter": {

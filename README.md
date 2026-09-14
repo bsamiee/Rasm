@@ -84,11 +84,12 @@ flowchart LR
 - Targets call one tool, arguments on the command, configuration in the tool's own file
 - `nx run rasm:check` runs lint and root typecheck
 - `nx run <project>:<target>` runs one target of one project
+- `nx run <project>:install` places a macOS app's Release product under `/Applications`
 - `nx run rasm:upgrade` moves every catalog and tool binary to its newest release, `--configuration <language>` one catalog, `tools` the binaries
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - Workspace plugin names each project's tags and empty targets by manifest, `@nx/dotnet` and `@nx/vitest` infer their own
-- Root targets hold operations with no owning project
+- Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under `.cache/` and `.artifacts/`, each tool relocated through its own setting
 

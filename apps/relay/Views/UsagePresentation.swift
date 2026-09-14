@@ -18,21 +18,30 @@ nonisolated enum UsagePresentation {
   }
 
   static func weekday(_ reset: Date) -> String {
-    reset.formatted(.dateTime.weekday(.abbreviated).hour().minute())
+    resetTime(reset, weekday: .abbreviated)
+  }
+
+  static func resetTooltip(_ reset: Date?) -> String {
+    reset.map { reset in resetTime(reset, weekday: .wide) } ?? "No reset"
+  }
+
+  private static func resetTime(_ reset: Date, weekday: Date.FormatStyle.Symbol.Weekday) -> String {
+    reset.formatted(.dateTime.weekday(weekday).hour().minute())
   }
 
   static func sessionReading(
     _ window: QuotaWindow?, availability: Availability?, isCurrent: Bool, at now: Date
-  ) -> String {
-    guard let window else { return isCurrent ? "Ready" : "Awaiting update" }
-    let used: String? = percentage(window.used)
-    let state: String =
+  ) -> String? {
+    let used: String? = window.flatMap { window in percentage(window.used) }
+    let state: String? =
       switch availability {
       case .running(let until): countdown(until: until, at: now)
       case .blocked: "Blocked"
-      case .ready, .none: isCurrent ? "Ready" : "Awaiting update"
+      case .ready, .none: "Awaiting update"
       }
-    return [used, state].compactMap { $0 }.joined(separator: " · ")
+    guard !isCurrent || availability != .ready else { return nil }
+    let parts: [String] = [used, state].compactMap { $0 }
+    return parts.isEmpty ? nil : parts.joined(separator: " · ")
   }
 
   static func reading(_ window: QuotaWindow, at now: Date) -> String {
@@ -43,31 +52,8 @@ nonisolated enum UsagePresentation {
     return [used, reset].compactMap { $0 }.joined(separator: " · ")
   }
 
-  static func sharedResetLine(_ windows: [QuotaWindow], at now: Date) -> String? {
-    let resets: [Date] = windows.compactMap(\.resetsAt).filter { reset in reset > now }
-    guard let first: Date = resets.min(), let last: Date = resets.max() else { return nil }
-    let exact: String = first.formatted(
-      .dateTime.weekday(.abbreviated).month(.abbreviated).day().hour().minute())
-    return last.timeIntervalSince(first) < 60
-      ? "Resets \(exact)" : "Resets \(exact), \(weekday(last)) for the last window"
-  }
-
   static func blockedLine(_ availability: Availability?) -> String? {
     guard case .blocked(let until) = availability else { return nil }
     return until.map { reset in "Blocked until \(weekday(reset))" } ?? "Blocked"
-  }
-
-  static func remaining(until reset: Date, at now: Date) -> String {
-    let exact: String = reset.formatted(date: .complete, time: .complete)
-    let remaining: TimeInterval = reset.timeIntervalSince(now)
-    let duration: String = Duration.seconds(remaining).formatted(
-      Duration.UnitsFormatStyle(
-        allowedUnits: [.days, .hours, .minutes], width: .wide, maximumUnitCount: 2
-      ))
-    return switch remaining {
-    case ...0: "Reset \(exact), no time remaining"
-    case ..<60: "Resets \(exact), less than a minute remaining"
-    default: "Resets \(exact), \(duration) remaining"
-    }
   }
 }

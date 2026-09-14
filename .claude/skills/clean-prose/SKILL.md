@@ -132,11 +132,12 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - External URLs outside a package page, download, or tool document go, the fact they cited is stated
 - Prose states purpose, contents stay in the thing: a file, directory, section, diagram node, reference, or comment line names what it is for
 - Tree and index lines with a list as their fact keep the list
-- Guidance that enumerates quirks or copies one tool's configuration rows drifts, one rule for the category replaces it
+- Guidance that enumerates code members, quirks, or one tool's configuration rows drifts, one rule for the category replaces it
+- New cases widen the category of the line holding their rule, an appended clause or item restates that rule
 - Prose about code names the command, identifier, or file and states its purpose, its steps stay in code
 - Steps that name a command hold one reading that decides what follows
 - Paragraphs hold one topic, parallel cases sit in one list, or in one sentence when each case is a phrase
-- Entries (list items, steps, listing lines, table rows, tree comments) hold one fact or purpose in one line under 150 columns
+- Entries (list items, steps, table rows, listing lines, diagram labels, fence comments) hold one fact or purpose in one line under 150 columns
 - Entries over the width hold a chained or restated sentence, the content is rebuilt whole
 - Entries open with a capital letter or an identifier and end without a period
 - List items share one grammatical form and follow their lead-in colon without a blank line

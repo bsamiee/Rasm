@@ -8,39 +8,33 @@ struct MenuBarExtraContent: View {
   @Environment(\.dismiss) private var dismiss: DismissAction
   @State private var accountToRemove: AccountModel?
 
-  private static let width: CGFloat = 384
-  private static let contentMargin: CGFloat = 16
-  private static let rowSpacing: CGFloat = 24
-  private static let footerSpacing: CGFloat = 8
-  private static let footerHeight: CGFloat = 28
-
   var body: some View {
-    VStack(spacing: Self.footerSpacing) {
+    VStack(spacing: 8) {
       ScrollView {
         accounts
       }
       .fixedSize(horizontal: false, vertical: true)
       .scrollBounceBehavior(.basedOnSize)
 
-      Menu {
-        Button("Settings…", action: openSettings)
-          .keyboardShortcut(",", modifiers: .command)
-        Divider()
-        Button("Quit Relay") { NSApplication.shared.terminate(nil) }
-          .keyboardShortcut("q", modifiers: .command)
-      } label: {
-        Image(systemName: "gearshape")
-          .font(.callout)
-          .frame(width: Self.footerHeight, height: Self.footerHeight)
+      HStack {
+        Spacer()
+        Menu {
+          Button("Settings…", action: openSettings)
+            .keyboardShortcut(",", modifiers: .command)
+          Divider()
+          Button("Quit Relay") { NSApplication.shared.terminate(nil) }
+            .keyboardShortcut("q", modifiers: .command)
+        } label: {
+          Image(systemName: "gearshape")
+            .font(.body)
+        }
+        .menuIndicator(.hidden)
+        .buttonStyle(.accessoryBar)
+        .accessibilityLabel("Relay menu")
       }
-      .menuIndicator(.hidden)
-      .buttonStyle(.accessoryBar)
-      .fixedSize()
-      .frame(maxWidth: .infinity, alignment: .trailing)
-      .accessibilityLabel("Relay menu")
     }
-    .padding(Self.contentMargin)
-    .frame(width: Self.width)
+    .padding(16)
+    .frame(width: 384)
     .onAppear { store.setMenuBarExtraVisible(true) }
     .onDisappear { store.setMenuBarExtraVisible(false) }
     .alert(
@@ -58,7 +52,7 @@ struct MenuBarExtraContent: View {
   }
 
   private var accounts: some View {
-    VStack(spacing: Self.rowSpacing) {
+    VStack(spacing: 24) {
       if store.isLoading {
         ProgressView().controlSize(.small)
           .frame(maxWidth: .infinity)
@@ -105,21 +99,15 @@ private struct AccountCard: View {
   let store: AccountStore
   let remove: () -> Void
 
-  private static let labelMinHeight: CGFloat = 20
-  private static let glyphColumn: CGFloat = 24
-
   var body: some View {
     TimelineView(.periodic(from: .now, by: 60)) { context in
       VStack(alignment: .leading, spacing: 8) {
-        emailRow
-        HStack(alignment: .top, spacing: 12) {
-          Image(model.account.provider.symbol)
-            .foregroundStyle(.secondary)
-            .frame(width: Self.glyphColumn, height: Self.labelMinHeight)
-            .accessibilityLabel(model.account.provider.name)
+        Text(model.account.identity.email)
+          .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .glyphRow, spacing: 12) {
+          providerGlyph
           VStack(alignment: .leading, spacing: 8) {
             gauges(at: context.date)
-            SessionControl(model: model, store: store, now: context.date)
             if let note: String = note(at: context.date) {
               Text(note)
                 .font(.subheadline)
@@ -141,143 +129,89 @@ private struct AccountCard: View {
     }
   }
 
-  private var emailRow: some View {
+  private var providerGlyph: some View {
     Button {
       store.select(model.id)
     } label: {
-      HStack(alignment: .firstTextBaseline, spacing: 8) {
-        Text(model.account.identity.email)
-          .fixedSize(horizontal: false, vertical: true)
-          .frame(maxWidth: .infinity, alignment: .leading)
-        if model.isSelected {
-          Text("In use")
-            .font(.caption)
-            .foregroundStyle(.secondary)
-          Image(systemName: "checkmark")
-            .font(.subheadline.weight(.medium))
-            .foregroundStyle(.secondary)
-            .accessibilityHidden(true)
-        }
-      }
-      .frame(minHeight: Self.labelMinHeight)
-      .opacity(model.operation == .selecting ? 0.5 : 1)
-      .overlay {
-        if model.operation == .selecting { ProgressView().controlSize(.mini) }
+      if model.isSelected {
+        Image(model.account.provider.symbol)
+          .foregroundStyle(Color.accentColor)
+      } else {
+        Image(model.account.provider.symbol)
       }
     }
     .buttonStyle(.accessoryBar)
-    .disabled(!model.canSelect)
-    .accessibilityLabel(model.account.identity.email)
+    .foregroundStyle(.secondary)
+    .disabled(!model.isSelected && !model.canSelect)
+    .overlay {
+      if model.operation == .selecting { ProgressView().controlSize(.mini) }
+    }
+    .accessibilityLabel(model.account.provider.name)
     .accessibilityAddTraits(model.isSelected ? .isSelected : [])
-    .accessibilityHint("Switches \(model.account.provider.name) to the account")
-    .help(model.isSelected ? "In use" : "Switch \(model.account.provider.name) to the account")
+    .help(model.isSelected ? "Active account" : "Switch account")
   }
 
   @ViewBuilder
   private func gauges(at now: Date) -> some View {
     let usage: AccountUsage? = model.usage.usage
     let isCurrent: Bool = model.usage.isCurrent
-    let availability: Availability? = model.availability(at: now)
     let session: QuotaWindow? = usage?.session
+    let isStarting: Bool = model.operation == .starting
+    let showsStart: Bool = isStarting || model.canStartSession(at: now)
     UsageGauge(
       title: "Session",
       reading: UsagePresentation.sessionReading(
-        session, availability: availability, isCurrent: isCurrent, at: now),
-      fraction: session?.used.fraction, isCurrent: isCurrent,
-      detail: session?.resetsAt.map { reset in UsagePresentation.remaining(until: reset, at: now) }
-        ?? "No session window reported")
+        session, availability: model.availability(at: now), isCurrent: isCurrent, at: now),
+      fraction: showsStart ? 0 : session?.used.fraction ?? 0, isCurrent: isCurrent,
+      detail: UsagePresentation.resetTooltip(session?.resetsAt), leadsGlyphRow: true
+    ) {
+      if showsStart {
+        HStack(alignment: .firstTextBaseline, spacing: 8) {
+          if isStarting, let started: Date = model.operationStartedAt {
+            Text(.durationOffset(to: started), format: .time(pattern: .minuteSecond))
+              .font(.caption)
+              .monospacedDigit()
+              .foregroundStyle(.secondary)
+          }
+          sessionStart(isStarting: isStarting)
+        }
+        .transition(.opacity)
+      }
+    }
+    .animation(.default, value: showsStart)
     if let usage {
       let weekly: [QuotaWindow] = (usage.weekly.map { [$0] } ?? []) + usage.models
       ForEach(Array(weekly.enumerated()), id: \.offset) { _, window in
         UsageGauge(
-          title: window.kind.name,
-          reading: UsagePresentation.reading(window, at: now),
+          title: window.kind.name, reading: UsagePresentation.reading(window, at: now),
           fraction: window.used.fraction, isCurrent: isCurrent,
-          detail: window.resetsAt.map { reset in UsagePresentation.remaining(until: reset, at: now)
-          }
-            ?? "No reset time reported")
-      }
-      if let line: String = UsagePresentation.sharedResetLine(weekly, at: now) {
-        Text(line)
-          .font(.caption)
-          .foregroundStyle(.tertiary)
-          .fixedSize(horizontal: false, vertical: true)
+          detail: UsagePresentation.resetTooltip(window.resetsAt), leadsGlyphRow: false
+        ) {}
       }
     }
+  }
+
+  private func sessionStart(isStarting: Bool) -> some View {
+    Button {
+      if isStarting { store.cancelOperation(model.id) } else { store.startSession(model.id) }
+    } label: {
+      Image(systemName: "arrow.trianglehead.clockwise")
+        .font(.body)
+    }
+    .buttonStyle(.accessoryBar)
+    .overlay {
+      if isStarting { ProgressView().controlSize(.mini) }
+    }
+    .accessibilityLabel(isStarting ? "Cancel" : "Start session")
+    .help(isStarting ? "Cancel" : "Start session")
   }
 
   private func note(at now: Date) -> String? {
-    switch (model.issue, model.authentication) {
-    case (.some(let issue), _): issue
-    case (.none, .signInRequired): "Sign in required"
-    case (.none, .connected): UsagePresentation.blockedLine(model.availability(at: now))
-    }
-  }
-}
-
-private struct SessionControl: View {
-  let model: AccountModel
-  let store: AccountStore
-  let now: Date
-
-  var body: some View {
-    HStack(spacing: 8) {
-      Button(action: act) {
-        Text(label)
-          .monospacedDigit()
-          .frame(minWidth: 96)
-      }
-      .buttonStyle(.bordered)
-      .controlSize(.small)
-      .disabled(!isEnabled)
-      .overlay {
-        if model.operation == .starting { ProgressView().controlSize(.mini) }
-      }
-      .accessibilityLabel("Session")
-      .accessibilityValue(label)
-      .help(help)
-      if model.operation == .starting, let started: Date = model.operationStartedAt {
-        Text(.durationOffset(to: started), format: .time(pattern: .minuteSecond))
-          .font(.caption)
-          .monospacedDigit()
-          .foregroundStyle(.secondary)
-      } else if let operation: AccountOperation = model.operation, operation != .starting {
-        Text(operation.description)
-          .font(.caption)
-          .foregroundStyle(.secondary)
-      }
-    }
-  }
-
-  private var label: String {
-    switch (model.operation, model.availability(at: now)) {
-    case (.starting, _): "Cancel"
-    case (_, .running(let until)): UsagePresentation.countdown(until: until, at: now)
-    case (_, .blocked): "Blocked"
-    case (_, .ready), (_, .none): "Start Session"
-    }
-  }
-
-  private var isEnabled: Bool {
-    model.operation == .starting || model.canStartSession(at: now)
-  }
-
-  private var help: String {
-    switch (model.operation, model.availability(at: now)) {
-    case (.starting, _): "Cancel the session start"
-    case (.some(let operation), _): operation.description
-    case (_, .running(let until)): UsagePresentation.remaining(until: until, at: now)
-    case (_, .blocked): UsagePresentation.blockedLine(model.availability(at: now)) ?? "Blocked"
-    case (_, .ready), (_, .none):
-      model.isConnected ? "Open a 5-hour window with one short message" : "Sign in from Settings"
-    }
-  }
-
-  private func act() {
-    if model.operation == .starting {
-      store.cancelOperation(model.id)
-    } else {
-      store.startSession(model.id)
+    switch (model.issue, model.operation, model.authentication) {
+    case (.some(let issue), _, _): issue
+    case (.none, .signingOut, _), (.none, .removing, _): model.operation?.description
+    case (.none, _, .signInRequired): "Sign in required"
+    case (.none, _, .connected): UsagePresentation.blockedLine(model.availability(at: now))
     }
   }
 }
