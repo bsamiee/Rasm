@@ -1,16 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import {
-    ActionsRepositoryPermissions,
-    type ActionsRepositoryPermissionsArgs,
-    Repository,
-    type RepositoryArgs,
-    RepositoryDependabotSecurityUpdates,
-    type RepositoryDependabotSecurityUpdatesArgs,
-    RepositoryRuleset,
-    type RepositoryRulesetArgs,
-    RepositoryVulnerabilityAlerts,
-    type RepositoryVulnerabilityAlertsArgs,
+import { ActionsRepositoryPermissions, type ActionsRepositoryPermissionsArgs, Repository, type RepositoryArgs, RepositoryDependabotSecurityUpdates, type RepositoryDependabotSecurityUpdatesArgs,
+    RepositoryRuleset, type RepositoryRulesetArgs, RepositoryVulnerabilityAlerts, type RepositoryVulnerabilityAlertsArgs,
 } from '@pulumi/github';
 import type { CustomResourceOptions } from '@pulumi/pulumi';
 import { BranchConfig, Environment, Project, type ProjectArgs } from '@pulumiverse/doppler';
@@ -19,9 +10,7 @@ import { Effect, Record } from 'effect';
 // --- [DOPPLER] -------------------------------------------------------------------------
 
 const _PROJECT = { name: 'rasm', description: 'Repository and service secrets' } as const satisfies ProjectArgs;
-
 const _ENVIRONMENTS = { dev: 'Development', prd: 'Production' } as const;
-
 const _BRANCH_CONFIGS = { dev_repo: 'dev' } as const satisfies Record<`${keyof typeof _ENVIRONMENTS}_${string}`, keyof typeof _ENVIRONMENTS>;
 
 // --- [GITHUB] --------------------------------------------------------------------------
@@ -47,13 +36,9 @@ const _REPOSITORY = {
     webCommitSignoffRequired: false,
     securityAndAnalysis: { secretScanning: { status: 'enabled' }, secretScanningPushProtection: { status: 'enabled' } },
 } as const satisfies RepositoryArgs;
-
 const _VULNERABILITY_ALERTS = { enabled: true } as const satisfies Omit<RepositoryVulnerabilityAlertsArgs, 'repository'>;
-
 const _SECURITY_UPDATES = { enabled: true } as const satisfies Omit<RepositoryDependabotSecurityUpdatesArgs, 'repository'>;
-
 const _ADMIN_ROLE = 5;
-
 const _RULESETS = {
     main: {
         target: 'branch',
@@ -67,7 +52,6 @@ const _RULESETS = {
         bypassActors: [{ actorType: 'RepositoryRole', actorId: _ADMIN_ROLE, bypassMode: 'always' }],
     },
 } as const satisfies Record<string, Omit<RepositoryRulesetArgs, 'repository' | 'name'>>;
-
 const _ACTIONS_PERMISSIONS = {
     allowedActions: 'selected',
     allowedActionsConfig: {
@@ -82,18 +66,10 @@ const program = (adopt: boolean): Effect.Effect<Record<string, unknown>> =>
     Effect.sync(() => {
         const adoption = (id: string): CustomResourceOptions => (adopt ? { import: id } : {});
         const project = new Project(_PROJECT.name, _PROJECT, adoption(_PROJECT.name));
-        const environments = Record.map(
-            _ENVIRONMENTS,
-            (name, slug) => new Environment(slug, { project: project.name, slug, name }, adoption(`${_PROJECT.name}.${slug}`)).slug,
-        );
+        const environments = Record.map(_ENVIRONMENTS, (name, slug) => new Environment(slug, { project: project.name, slug, name }, adoption(`${_PROJECT.name}.${slug}`)).slug);
         const branchConfigs = Record.map(
             _BRANCH_CONFIGS,
-            (environment, name) =>
-                new BranchConfig(
-                    name,
-                    { project: project.name, environment: environments[environment], name },
-                    adoption(`${_PROJECT.name}.${environment}.${name}`),
-                ).name,
+            (environment, name) => new BranchConfig(name, { project: project.name, environment: environments[environment], name }, adoption(`${_PROJECT.name}.${environment}.${name}`)).name,
         );
         const configs = { ...environments, ...branchConfigs };
         const repository = new Repository(_REPOSITORY.name, _REPOSITORY, { protect: true, ...adoption(_REPOSITORY.name) });
@@ -106,10 +82,7 @@ const program = (adopt: boolean): Effect.Effect<Record<string, unknown>> =>
             { repository: repository.name, ..._SECURITY_UPDATES },
             { dependsOn: vulnerabilityAlerts },
         );
-        const rulesets = Record.map(
-            _RULESETS,
-            (row, name) => new RepositoryRuleset(`${_REPOSITORY.name}-${name}`, { repository: repository.name, name, ...row }),
-        );
+        const rulesets = Record.map(_RULESETS, (row, name) => new RepositoryRuleset(`${_REPOSITORY.name}-${name}`, { repository: repository.name, name, ...row }));
         const actionsPermissions = new ActionsRepositoryPermissions(`${_REPOSITORY.name}-actions-permissions`, {
             repository: repository.name,
             ..._ACTIONS_PERMISSIONS,

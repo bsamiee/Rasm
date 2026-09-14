@@ -1,32 +1,13 @@
 {
     "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
-    "vcs": {
-        "enabled": true,
-        "clientKind": "git",
-        "useIgnoreFile": true
-    },
-    "files": {
-        "ignoreUnknown": true,
-        "includes": [
-            "**",
-            "!**/pnpm-lock.yaml",
-            "!**/uv.lock",
-            "!**/*.html",
-            "!.claude/types/claude-code.d.ts"
-        ]
-    },
-    "formatter": {
-        "indentStyle": "space",
-        "indentWidth": 4,
-        "lineWidth": 150
-    },
+    "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
+    "files": { "ignoreUnknown": true, "includes": ["**", "!**/pnpm-lock.yaml", "!**/uv.lock", "!**/*.html", "!.claude/types/claude-code.d.ts"] },
+    "formatter": { "indentStyle": "space", "indentWidth": 4, "lineWidth": 200 },
+    "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
+    "json": { "formatter": { "enabled": false } },
+    "assist": { "actions": { "source": { "organizeImports": "on", "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
-        "domains": {
-            "project": "all",
-            "react": "all",
-            "test": "all",
-            "types": "all"
-        },
+        "domains": { "project": "all", "react": "all", "test": "all", "types": "all" },
         "rules": {
             "preset": "all",
             "a11y": "error",
@@ -69,202 +50,62 @@
                 "useReduceTypeParameter": "error",
                 "useRegexpTest": "error",
                 "useSortedClasses": "error",
-                "useThisInClassMethods": {
-                    "level": "error",
-                    "options": {
-                        "ignoreOverrideMethods": true
-                    }
-                },
+                "useThisInClassMethods": { "level": "error", "options": { "ignoreOverrideMethods": true } },
                 "useUnicodeRegex": "error"
             }
         }
     },
-    "javascript": {
-        "formatter": {
-            "quoteStyle": "single"
-        },
-        "resolver": {
-            "experimentalPnpmCatalogs": true
-        }
-    },
-    "json": {
-        "formatter": {
-            "enabled": false
-        }
-    },
     "overrides": [
         {
-            "includes": [
-                "infra/automation.ts"
-            ],
-            "linter": {
-                "domains": {
-                    "qwik": "none"
-                },
-                "rules": {
-                    "correctness": {
-                        "noProcessGlobal": "off"
-                    }
-                }
-            }
-        },
-        {
-            "includes": [
-                "**"
-            ],
+            "includes": ["**"],
             "linter": {
                 "rules": {
                     "complexity": {
-                        "noExcessiveCognitiveComplexity": {
-                            "level": "error",
-                            "options": {
-                                "maxAllowedComplexity": 30
-                            }
-                        },
+                        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 30 } },
                         "noExcessiveLinesPerFunction": "off",
                         "useLiteralKeys": "off",
-                        "useMaxParams": {
-                            "level": "error",
-                            "options": {
-                                "max": 8
-                            }
-                        }
+                        "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
-                    "suspicious": {
-                        "noShadowRestrictedNames": "off"
-                    },
+                    "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",
                         "noExcessiveLinesPerFile": "off",
                         "noInferrableTypes": "off",
-                        "noParameterAssign": {
-                            "level": "error",
-                            "options": {
-                                "propertyAssignment": "deny"
-                            }
-                        },
+                        "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
                         "noTernary": "off",
                         "useDefaultSwitchClause": "off",
-                        "useReadonlyClassProperties": {
-                            "level": "error",
-                            "options": {
-                                "checkAllProperties": true
-                            }
-                        }
+                        "useReadonlyClassProperties": { "level": "error", "options": { "checkAllProperties": true } }
                     },
-                    "security": {
-                        "noSecrets": "off"
-                    }
+                    "suspicious": { "noShadowRestrictedNames": "off" }
                 }
             }
         },
         {
-            "includes": [
-                "**/libs/typescript/**",
-                "**/apps/**",
-                "**/tools/**",
-                "**/infra/**",
-                "!**/*.spec.*",
-                "!**/*.test.*",
-                "!**/*.bench.*"
-            ],
-            "linter": {
-                "rules": {
-                    "style": {
-                        "noDefaultExport": "error"
-                    },
-                    "suspicious": {
-                        "noConsole": "error"
-                    }
-                }
-            }
+            "includes": ["**/libs/typescript/**", "**/apps/**", "**/tools/**", "**/infra/**", "!**/*.spec.*", "!**/*.test.*", "!**/*.bench.*"],
+            "linter": { "rules": { "style": { "noDefaultExport": "error" }, "suspicious": { "noConsole": "error" } } }
         },
         {
-            "includes": [
-                "**/vitest.config.ts"
-            ],
-            "linter": {
-                "domains": {
-                    "qwik": "none"
-                },
-                "rules": {
-                    "correctness": {
-                        "noNodejsModules": "off"
-                    },
-                    "style": {
-                        "noDefaultExport": "off"
-                    }
-                }
-            }
+            "includes": ["**/vitest.config.ts"],
+            "linter": { "domains": { "qwik": "none" }, "rules": { "correctness": { "noNodejsModules": "off" }, "style": { "noDefaultExport": "off" } } }
         },
+        { "includes": ["tools/nx/*.ts"], "linter": { "domains": { "qwik": "none" }, "rules": { "correctness": { "noNodejsModules": "off" } } } },
         {
-            "includes": [
-                "tools/nx/*.ts"
-            ],
-            "linter": {
-                "domains": {
-                    "qwik": "none"
-                },
-                "rules": {
-                    "correctness": {
-                        "noNodejsModules": "off"
-                    }
-                }
-            }
+            "includes": [".claude/plugins/**"],
+            "linter": { "domains": { "qwik": "none" }, "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
         },
+        { "includes": ["infra/automation.ts"], "linter": { "domains": { "qwik": "none" }, "rules": { "correctness": { "noProcessGlobal": "off" } } } },
         {
-            "includes": [
-                ".claude/plugins/**"
-            ],
-            "linter": {
-                "domains": {
-                    "qwik": "none"
-                },
-                "rules": {
-                    "correctness": {
-                        "noUndeclaredDependencies": "off",
-                        "noUnresolvedImports": "off"
-                    }
-                }
-            }
-        },
-        {
-            "includes": [
-                "infra/program.ts"
-            ],
+            "includes": ["infra/program.ts"],
             "linter": {
                 "rules": {
                     "style": {
                         "useNamingConvention": {
                             "level": "error",
-                            "options": {
-                                "conventions": [
-                                    {
-                                        "selector": {
-                                            "kind": "objectLiteralProperty"
-                                        },
-                                        "formats": [
-                                            "camelCase",
-                                            "snake_case",
-                                            "CONSTANT_CASE"
-                                        ]
-                                    }
-                                ]
-                            }
+                            "options": { "conventions": [{ "selector": { "kind": "objectLiteralProperty" }, "formats": ["camelCase", "snake_case", "CONSTANT_CASE"] }] }
                         }
                     }
                 }
             }
         }
-    ],
-    "assist": {
-        "actions": {
-            "source": {
-                "organizeImports": "on",
-                "useSortedAttributes": "on",
-                "useSortedPackageJson": "on",
-                "useSortedProperties": "on"
-            }
-        }
-    }
+    ]
 }

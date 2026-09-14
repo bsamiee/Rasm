@@ -16,8 +16,7 @@ const _launched = (words: readonly string[]): readonly string[] => {
     return head !== undefined && LAUNCHERS.includes(basename(head)) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
 };
 
-const _heads = (words: readonly string[]): readonly string[] =>
-    [...pastAssignments(words).slice(0, 1), ...strip(words).slice(0, 1), ..._launched(words)].map(basename);
+const _heads = (words: readonly string[]): readonly string[] => [...pastAssignments(words).slice(0, 1), ...strip(words).slice(0, 1), ..._launched(words)].map(basename);
 
 const _reason = (command: Command): readonly string[] => {
     const heads = _heads(command.words);

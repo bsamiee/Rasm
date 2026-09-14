@@ -39,9 +39,7 @@ class PackageUnderTest(msgspec.Struct, frozen=True):
 
 # --- [STASH] ----------------------------------------------------------------------------
 
-PROPERTY_RECORDS: pytest.StashKey[tuple[PropertyRecord, ...]] = (
-    pytest.StashKey()
-)  # Written once at collection from the property marks and the COVERS tuples
+PROPERTY_RECORDS: pytest.StashKey[tuple[PropertyRecord, ...]] = pytest.StashKey()  # Written once at collection from the property marks and the COVERS tuples
 PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest.StashKey()  # Written by register_package at configure
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -97,9 +95,7 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
     public_api: dict[str, object] = {}
     for mod in modules:
         all_names: object = getattr(mod, "__all__", None)
-        names = (
-            [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
-        )
+        names = [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
         for name in names:
             if not hasattr(mod, name):
                 failures.append((getattr(mod, "__name__", "<module>"), f"__all__ names {name!r} but the module never defines it"))
@@ -143,16 +139,7 @@ def property_test[**P](
                 if not _resolvable(subject):
                     raise TypeError(f"@property_test given=True requires a resolvable type form, got {subject!r}")
                 drawn = next(reversed(inspect.signature(fn).parameters), "")
-                target = (
-                    functools.wraps(fn)(
-                        lambda *args, **kwargs: (
-                            [hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events],
-                            fn(*args, **kwargs),
-                        )[-1]
-                    )
-                    if events
-                    else fn
-                )
+                target = functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events], fn(*args, **kwargs))[-1]) if events else fn
                 with_given = hyp_given(strategy_for(subject))(target)
             case _:
                 with_given = fn
@@ -193,10 +180,7 @@ def record_coverage_declarations(module: object) -> tuple[PropertyRecord, ...]:
         case [value, *_]:
             raise TypeError(f"COVERS in {name} lists {value!r}: entries must be types or callables")
         case _:
-            return tuple(
-                PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", None))
-                for subject in covers
-            )
+            return tuple(PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", None)) for subject in covers)
 
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
@@ -210,9 +194,7 @@ def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: 
     """
     packages = stash.get(PACKAGES_UNDER_TEST, frozendict())
     prior = packages.get(package)
-    registration = PackageUnderTest(
-        exempt=(prior.exempt if prior is not None else frozenset()) | exempt, suite=suite if prior is None or prior.suite is None else prior.suite
-    )
+    registration = PackageUnderTest(exempt=(prior.exempt if prior is not None else frozenset()) | exempt, suite=suite if prior is None or prior.suite is None else prior.suite)
     stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
 
 
@@ -252,16 +234,12 @@ def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, Packa
     Collection imports every selected test module, a dotted name absent from ``sys.modules`` marks an uncollected module.
     """
     gaps = {
-        package: tuple(sorted(name for name in _test_modules(registration.suite, config) if name not in sys.modules))
-        for package, registration in packages.items()
-        if registration.suite is not None
+        package: tuple(sorted(name for name in _test_modules(registration.suite, config) if name not in sys.modules)) for package, registration in packages.items() if registration.suite is not None
     }
     return {package: missing for package, missing in gaps.items() if missing}
 
 
-def assert_property_coverage(
-    records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest], *, only: frozenset[str] | None = None
-) -> None:
+def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest], *, only: frozenset[str] | None = None) -> None:
     """Assert every registered public API has a property test or an explicit exemption.
 
     Args:
@@ -276,20 +254,11 @@ def assert_property_coverage(
             continue
         public_api, failures = _public_api(package)
         covered = global_covered | frozenset(
-            record.subject.rsplit(".", 1)[-1]
-            for record in records
-            if record.subject_module is not None and (record.subject_module == package or record.subject_module.startswith(f"{package}."))
+            record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is not None and (record.subject_module == package or record.subject_module.startswith(f"{package}."))
         )
-        uncovered = frozenset(
-            name
-            for name, member in public_api.items()
-            if name not in covered and name not in registration.exempt and not is_automatically_exempt(member)
-        )
+        uncovered = frozenset(name for name, member in public_api.items() if name not in covered and name not in registration.exempt and not is_automatically_exempt(member))
         gaps = [*(f"  - {name}" for name in sorted(uncovered)), *(f"  ! {mod}: {err}" for mod, err in failures)]
-        assert not gaps, (
-            f"Property-test coverage gap in '{package}': {len(uncovered)} public symbol(s) are untested and {len(failures)} module(s) failed to import:\n"
-            + "\n".join(gaps)
-        )
+        assert not gaps, f"Property-test coverage gap in '{package}': {len(uncovered)} public symbol(s) are untested and {len(failures)} module(s) failed to import:\n" + "\n".join(gaps)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

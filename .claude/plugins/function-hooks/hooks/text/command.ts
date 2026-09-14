@@ -36,11 +36,9 @@ interface Nested {
 
 const _MAX_DEPTH = 8;
 const _SEPARATOR = '\u001f';
-const _CONDITION =
-    '{any: [{inside: {kind: while_statement, field: condition}}, {inside: {stopBy: end, inside: {kind: while_statement, field: condition}}}]}';
+const _CONDITION = '{any: [{inside: {kind: while_statement, field: condition}}, {inside: {stopBy: end, inside: {kind: while_statement, field: condition}}}]}';
 const _LOOPED = '{inside: {kind: do_group, stopBy: end}}';
-const _COMPOUND =
-    'compound_statement, subshell, for_statement, c_style_for_statement, while_statement, if_statement, case_statement, function_definition';
+const _COMPOUND = 'compound_statement, subshell, for_statement, c_style_for_statement, while_statement, if_statement, case_statement, function_definition';
 const _ON_COMMAND = `{any: [{inside: {kind: command}}, {inside: {kind: heredoc_redirect}}, {inside: {kind: redirected_statement, not: {has: {field: body, kind: '${_COMPOUND}'}}}}]}`;
 const _INPUT = "{regex: '^\\d*<'}";
 const _rule = (id: string, relation: string): string => `id: ${id}
@@ -69,22 +67,7 @@ const _RULES = [
     _CLOCK,
 ].join('\n---\n');
 const _COMMANDS: readonly string[] = ['command', 'condition', 'looped'];
-const SCAN: readonly string[] = [
-    'mise',
-    'exec',
-    '--',
-    'ast-grep',
-    'scan',
-    '--stdin',
-    '--config',
-    '/dev/null',
-    '--inline-rules',
-    _RULES,
-    '--color',
-    'never',
-    '--report-style',
-    'short',
-];
+const SCAN: readonly string[] = ['mise', 'exec', '--', 'ast-grep', 'scan', '--stdin', '--config', '/dev/null', '--inline-rules', _RULES, '--color', 'never', '--report-style', 'short'];
 const _REPORT = /^STDIN:(?<line>\d+):(?<column>\d+): \w+\[(?<rule>\w+)\]: (?<text>.*)$/gmu;
 const _WORD = /^(?!\d*[<>]|&>)./su;
 const _QUOTED = /\$?'(?<single>[^']*)'|\$?"(?<double>(?:[^"\\]|\\.)*)"|\\(?<unquoted>[\s\S])/gu;
@@ -96,37 +79,12 @@ const _SHELLS: readonly string[] = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
 const _SUBCOMMANDS: readonly string[] = ['run', 'exec', 'tool', 'x'];
 const LAUNCHERS: readonly string[] = ['mise', 'doppler', 'op'];
 const _VALUE_OPTS: readonly string[] = ['-u', '-I', '-n', '-g', '--user', '--replace'];
-const _WRAPPERS: readonly string[] = [
-    'sudo',
-    'doas',
-    'env',
-    'command',
-    'exec',
-    'nice',
-    'nohup',
-    'stdbuf',
-    'timeout',
-    'time',
-    'xargs',
-    'caffeinate',
-    'arch',
-    'setsid',
-    'uv',
-    'npm',
-    'npx',
-    'pnpm',
-    'poetry',
-    'hatch',
-];
+const _WRAPPERS: readonly string[] = ['sudo', 'doas', 'env', 'command', 'exec', 'nice', 'nohup', 'stdbuf', 'timeout', 'time', 'xargs', 'caffeinate', 'arch', 'setsid', 'uv', 'npm', 'npx', 'pnpm', 'poetry', 'hatch',];
 
 // --- [WORDS] ---------------------------------------------------------------------------
 
 const _unquote = (word: string): string =>
-    word.replace(
-        _QUOTED,
-        (match: string, single?: string, double?: string, unquoted?: string): string =>
-            single ?? unquoted ?? (double === undefined ? match : double.replace(_ESCAPED, '$<char>')),
-    );
+    word.replace(_QUOTED, (match: string, single?: string, double?: string, unquoted?: string): string => single ?? unquoted ?? (double === undefined ? match : double.replace(_ESCAPED, '$<char>')));
 
 const _stripOptions = (words: readonly string[]): readonly string[] => {
     const [head] = words;
@@ -167,9 +125,7 @@ const _nested = (todo: readonly Command[], depth: number, at: number): Option<Ne
         return none;
     }
     const text = _body(command, depth);
-    return text.kind === 'some'
-        ? some({ before: todo.slice(0, at), command, text: text.value, rest: todo.slice(at + 1) })
-        : _nested(todo, depth, at + 1);
+    return text.kind === 'some' ? some({ before: todo.slice(0, at), command, text: text.value, rest: todo.slice(at + 1) }) : _nested(todo, depth, at + 1);
 };
 
 // --- [REPORT] --------------------------------------------------------------------------
@@ -181,9 +137,7 @@ const _hit = ({ groups }: RegExpMatchArray): readonly Hit[] => {
     const line = groups?.['line'];
     const column = groups?.['column'];
     const text = groups?.['text'];
-    return rule === undefined || line === undefined || column === undefined || text === undefined
-        ? []
-        : [{ rule, line: Number(line), column: Number(column), text }];
+    return rule === undefined || line === undefined || column === undefined || text === undefined ? [] : [{ rule, line: Number(line), column: Number(column), text }];
 };
 
 const _hits = (report: string): readonly Hit[] => [...report.matchAll(_REPORT)].flatMap(_hit).toSorted(_before);
@@ -218,9 +172,7 @@ const _commands = (hits: readonly Hit[], condition: boolean, looped: boolean): r
 const _run = (scan: Scanner, text: string, condition: boolean, looped: boolean): Promise<Result<readonly Command[]>> =>
     scan(text).then(
         ({ exitCode, stdout, stderr }): Result<readonly Command[]> =>
-            exitCode === 0 && (stdout === '' || stdout.endsWith('\n'))
-                ? ok(_commands(_hits(stdout), condition, looped))
-                : fault(`ast-grep exited ${exitCode} over the command, ${stderr.trim()}`),
+            exitCode === 0 && (stdout === '' || stdout.endsWith('\n')) ? ok(_commands(_hits(stdout), condition, looped)) : fault(`ast-grep exited ${exitCode} over the command, ${stderr.trim()}`),
         (cause: unknown): Result<readonly Command[]> => fault(`ast-grep did not run over the command, ${String(cause)}`),
     );
 

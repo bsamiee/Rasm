@@ -1,20 +1,4 @@
-import {
-    Array,
-    type Context,
-    Effect,
-    Exit,
-    HashMap,
-    Match,
-    Metric,
-    type MetricPair,
-    MetricState,
-    MutableRef,
-    Option,
-    Order,
-    pipe,
-    Record,
-    Tracer,
-} from 'effect';
+import { Array, type Context, Effect, Exit, HashMap, Match, Metric, type MetricPair, MetricState, MutableRef, Option, Order, pipe, Record, Tracer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -90,10 +74,7 @@ const _readings = (pair: MetricPair.MetricPair.Untyped): readonly MetricReading[
 const _keyedReadings = (pairs: readonly MetricPair.MetricPair.Untyped[]): readonly (readonly [string, MetricReading])[] =>
     Array.map(Array.flatMap(pairs, _readings), (reading) => [_metricKey(reading), reading] as const);
 
-const _metricChanges = (
-    before: readonly (readonly [string, MetricReading])[],
-    after: readonly (readonly [string, MetricReading])[],
-): readonly MetricChange[] => {
+const _metricChanges = (before: readonly (readonly [string, MetricReading])[], after: readonly (readonly [string, MetricReading])[]): readonly MetricChange[] => {
     const prior = HashMap.fromIterable(before);
     return Array.filterMap(after, ([key, reading]) =>
         HashMap.get(prior, key).pipe(
@@ -199,13 +180,4 @@ const Telemetry: Telemetry = {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export {
-    type MetricChange,
-    type MetricKind,
-    type MetricReading,
-    type SpanEvent,
-    type SpanOutcome,
-    type SpanRecord,
-    Telemetry,
-    type TelemetryObservation,
-};
+export { type MetricChange, type MetricKind, type MetricReading, type SpanEvent, type SpanOutcome, type SpanRecord, Telemetry, type TelemetryObservation };

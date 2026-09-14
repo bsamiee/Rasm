@@ -14,13 +14,11 @@ interface Place {
 
 type Relation = 'inside' | 'above' | 'apart';
 
-// Positional words and the options the option words open, `-ab` opens `-a` and `-b`, `--name=value` opens `--name`
 interface Scan {
     readonly found: readonly string[];
     readonly given: readonly string[];
 }
 
-// Start paths a walker reads from its arguments, none when the arguments do not walk
 type Walker = (args: readonly string[]) => Option<readonly string[]>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -29,11 +27,9 @@ const _NAME = 'CloudStorage';
 const _CLOUD = `~/Library/${_NAME}`;
 const _WHY = `descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider`;
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
-// Expression primaries of find, three characters or more, `(`, or `!`, the positional words before the first are the start paths
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _RECURSIVE = /^-[A-Za-z]*[rR]/u;
 const _LISTS = /^-[A-Za-z]*R/u;
-// Options whose value is the next word, read from the installed fd, ripgrep, ugrep, BSD du, eza, and BSD ls
 const _FD_STARTS: readonly string[] = ['-C', '--base-directory', '--search-path'];
 const _FD: readonly string[] = [
     ..._FD_STARTS,
@@ -65,7 +61,6 @@ const _FD: readonly string[] = [
     '--path-separator',
     '--and',
 ];
-// Words from the first of these on are the command fd runs per result
 const _FD_COMMAND: readonly string[] = ['-x', '--exec', '-X', '--exec-batch'];
 const _RG: readonly string[] = [
     '-A',
@@ -118,7 +113,6 @@ const _RG: readonly string[] = [
     '--hyperlink-format',
     '--generate',
 ];
-// Options after which no positional is the pattern
 const _RG_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '--files', '--type-list'];
 const _GREP: readonly string[] = [
     '-A',
@@ -196,7 +190,6 @@ const _LS: readonly string[] = ['-D'];
 
 // --- [WORDS] ---------------------------------------------------------------------------
 
-// Options an option word opens and whether the next word is its value, a cluster closes at its first valued letter
 const _option = (valued: readonly string[], word: string): readonly [readonly string[], boolean] => {
     const [head = word] = word.split('=');
     const names = head.startsWith('--') ? [head] : [...head.slice(1)].map((letter) => `-${letter}`);
@@ -237,7 +230,6 @@ const _values = (flags: readonly string[], args: readonly string[]): readonly st
 
 // --- [WALKERS] -------------------------------------------------------------------------
 
-// Positionals after the pattern, every positional once an option supplied the pattern
 const _afterPattern = (valued: readonly string[], patterns: readonly string[], args: readonly string[]): readonly string[] => {
     const scan = _scan(valued, args);
     return scan.given.some((name) => patterns.includes(name)) ? scan.found : scan.found.slice(1);
@@ -282,8 +274,7 @@ const _segments = (home: string, cwd: string, word: string): readonly string[] =
     return kept;
 };
 
-const _prefixes = (parent: readonly string[], child: readonly string[]): boolean =>
-    parent.length <= child.length && parent.every((segment, index) => segment === child[index]);
+const _prefixes = (parent: readonly string[], child: readonly string[]): boolean => parent.length <= child.length && parent.every((segment, index) => segment === child[index]);
 
 const _relation = (cloud: readonly string[], path: readonly string[]): Relation => {
     if (_prefixes(cloud, path)) {

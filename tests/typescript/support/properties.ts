@@ -45,23 +45,15 @@ interface BinaryOptions<A, Args> extends PropertyOptions<Binary<A>, Args> {
 }
 
 interface Property {
-    readonly verifyCounterexample: <S, A extends PropertyArbitraries, E, R>(
-        definition: PropertyDefinition<S, A, E, R>,
-    ) => Effect.Effect<void, PropertyError, R | TestServices.TestServices>;
-    readonly define: <S, const A extends PropertyArbitraries, E = never, R = never>(
-        definition: PropertyDefinition<S, A, E, R>,
-    ) => RegisteredProperty<S, R>;
+    readonly verifyCounterexample: <S, A extends PropertyArbitraries, E, R>(definition: PropertyDefinition<S, A, E, R>) => Effect.Effect<void, PropertyError, R | TestServices.TestServices>;
+    readonly define: <S, const A extends PropertyArbitraries, E = never, R = never>(definition: PropertyDefinition<S, A, E, R>) => RegisteredProperty<S, R>;
     readonly register: <S, R>(api: PropertyApi<R>, subject: S, properties: readonly RegisteredProperty<S, R>[]) => void;
     readonly associative: <A>(options: BinaryOptions<A, { readonly a: A; readonly b: A; readonly c: A }>) => RegisteredProperty<Binary<A>>;
     readonly commutative: <A>(options: BinaryOptions<A, { readonly a: A; readonly b: A }>) => RegisteredProperty<Binary<A>>;
     readonly idempotent: <A>(options: BinaryOptions<A, { readonly a: A }>) => RegisteredProperty<Binary<A>>;
     readonly identity: <A>(options: BinaryOptions<A, { readonly a: A }> & { readonly empty: A }) => RegisteredProperty<Binary<A>>;
-    readonly equivalence: <A>(
-        options: PropertyOptions<Equals<A>, { readonly a: A; readonly b: A; readonly c: A }> & { readonly arb: FastCheck.Arbitrary<A> },
-    ) => RegisteredProperty<Equals<A>>;
-    readonly order: <A>(
-        options: PropertyOptions<Order.Order<A>, { readonly a: A; readonly b: A; readonly c: A }> & { readonly arb: FastCheck.Arbitrary<A> },
-    ) => RegisteredProperty<Order.Order<A>>;
+    readonly equivalence: <A>(options: PropertyOptions<Equals<A>, { readonly a: A; readonly b: A; readonly c: A }> & { readonly arb: FastCheck.Arbitrary<A> }) => RegisteredProperty<Equals<A>>;
+    readonly order: <A>(options: PropertyOptions<Order.Order<A>, { readonly a: A; readonly b: A; readonly c: A }> & { readonly arb: FastCheck.Arbitrary<A> }) => RegisteredProperty<Order.Order<A>>;
     readonly inverse: <A, B>(
         options: PropertyOptions<Isomorphism<A, B>, { readonly a: A }> & { readonly arb: FastCheck.Arbitrary<A>; readonly equals?: Equals<A> },
     ) => RegisteredProperty<Isomorphism<A, B>>;
@@ -94,10 +86,9 @@ interface Property {
         },
     ) => RegisteredProperty<() => { readonly model: Model; readonly real: Real }>;
     readonly machineAsync: <Model extends object, Real>(
-        options: PropertyOptions<
-            () => { readonly model: Model; readonly real: Real },
-            { readonly run: Iterable<FastCheck.AsyncCommand<Model, Real>> }
-        > & { readonly commands: readonly FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>[] },
+        options: PropertyOptions<() => { readonly model: Model; readonly real: Real }, { readonly run: Iterable<FastCheck.AsyncCommand<Model, Real>> }> & {
+            readonly commands: readonly FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>[];
+        },
     ) => RegisteredProperty<() => { readonly model: Model; readonly real: Real }>;
     readonly interleave: (
         options: PropertyOptions<(schedule: FastCheck.Scheduler) => Promise<boolean>, { readonly schedule: FastCheck.Scheduler }>,
@@ -152,8 +143,7 @@ const Property: Property = {
         Property.define({
             name: options.name ?? 'combine is associative',
             arbitraries: { a: options.arb, b: options.arb, c: options.arb },
-            predicate: (combine, { a, b, c }) =>
-                Effect.sync(() => (options.equals ?? Equal.equals)(combine(combine(a, b), c), combine(a, combine(b, c)))),
+            predicate: (combine, { a, b, c }) => Effect.sync(() => (options.equals ?? Equal.equals)(combine(combine(a, b), c), combine(a, combine(b, c)))),
             counterexample: options.counterexample,
         }),
     commutative: (options) =>
@@ -224,8 +214,7 @@ const Property: Property = {
         Property.define({
             name: options.name ?? 'map commutes with combine',
             arbitraries: { a: options.arb, b: options.arb },
-            predicate: (to, { a, b }) =>
-                Effect.sync(() => (options.equals ?? Equal.equals)(to(options.combine(a, b)), options.combineImage(to(a), to(b)))),
+            predicate: (to, { a, b }) => Effect.sync(() => (options.equals ?? Equal.equals)(to(options.combine(a, b)), options.combineImage(to(a), to(b)))),
             counterexample: options.counterexample,
         }),
     monotone: (options) =>

@@ -56,9 +56,7 @@ const _without = (value: Readonly<Record<string, unknown>>, keys: readonly strin
     Object.fromEntries(Object.entries(value).filter(([key]) => !keys.includes(key)));
 
 const _trimmed = (value: Readonly<Record<string, unknown>>, response: unknown): Readonly<Record<string, unknown>> =>
-    _isRecord(response) && _isRecord(response[_FILE])
-        ? { ...value, [_RESPONSE]: { ...response, [_FILE]: _without(response[_FILE], _READ_DROPS) } }
-        : value;
+    _isRecord(response) && _isRecord(response[_FILE]) ? { ...value, [_RESPONSE]: { ...response, [_FILE]: _without(response[_FILE], _READ_DROPS) } } : value;
 
 const _read: Trim = (value, tool) => (_named(tool, _READ) ? _trimmed(value, value[_RESPONSE]) : value);
 
@@ -75,8 +73,7 @@ const _dropped =
         return Array.isArray(items) ? { ...value, [key]: items.filter(_isRecord).map((item) => _without(item, drops)) } : value;
     };
 
-const _keys = (columns: Columns): readonly string[] =>
-    [columns.session, columns.prompt, columns.agent, columns.tool, columns.toolUse].filter(_isText).concat(columns.drops);
+const _keys = (columns: Columns): readonly string[] => [columns.session, columns.prompt, columns.agent, columns.tool, columns.toolUse].filter(_isText).concat(columns.drops);
 
 const _payload = (value: Readonly<Record<string, unknown>>, columns: Columns, tool: Option<string>): Readonly<Record<string, unknown>> =>
     _without(

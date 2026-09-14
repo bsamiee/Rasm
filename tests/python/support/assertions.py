@@ -15,17 +15,7 @@ from typing import overload, Protocol, runtime_checkable, Self, TYPE_CHECKING
 from expression import Option, Result
 from expression.collections import Block
 from hypothesis import settings as hyp_settings, target
-from hypothesis.stateful import (
-    Bundle,
-    consumes,
-    initialize,
-    invariant,
-    multiple,
-    precondition,
-    rule,
-    RuleBasedStateMachine,
-    run_state_machine_as_test,
-)
+from hypothesis.stateful import Bundle, consumes, initialize, invariant, multiple, precondition, rule, RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 import msgspec.json
 import msgspec.msgpack
@@ -142,10 +132,7 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
                 return None
             index = tuple(int(i) for i in np.argwhere(~near)[0])
             return f"{path}{list(index)}: {np.atleast_1d(left)[index]!r} !~ {np.atleast_1d(right)[index]!r}"
-        case (
-            (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_a,
-            (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_b,
-        ):
+        case ((int() | float() | complex() | Decimal() | fractions.Fraction()) as num_a, (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_b):
             return None if _num_close(num_a, num_b, rel_tol, abs_tol) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
         case (_QuantityLike() as qty_a, _QuantityLike() as qty_b):
             if qty_b.units != qty_a.units:
@@ -295,9 +282,7 @@ def validity_matrix[T](cases: Iterable[ValidityCase[T]], valid: Callable[[T], bo
 def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None: ...
 
 
-def validity_matrix[T](
-    cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None
-) -> None:
+def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None:
     """Assert each case's expected validity as an independent subtest when available."""
     count = 0
     for raw in cases:

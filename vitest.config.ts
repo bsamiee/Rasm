@@ -86,10 +86,7 @@ const _root: Effect.Effect<ViteUserConfig, never, FileSystem.FileSystem | Path.P
             ...project.test,
             coverage: { ...project.test?.coverage, clean: false, reporter: ['lcovonly', 'json'], reportsDirectory: `${_ARTIFACTS}/coverage` },
             projects: Array.map(workspace.packages, (glob) => `${glob}/vitest.config.ts`),
-            reporters: Array.filter(
-                Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci }),
-                (reporter) => reporter !== 'blob',
-            ),
+            reporters: Array.filter(Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci }), (reporter) => reporter !== 'blob'),
         },
     };
 }).pipe(Effect.orDie);

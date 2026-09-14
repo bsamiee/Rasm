@@ -1,33 +1,14 @@
 import { type HttpApp, HttpClient, HttpServer } from '@effect/platform';
 import { NodeHttpServer } from '@effect/platform-node';
 import { type Extensions, PGlite } from '@electric-sql/pglite';
-import {
-    Array,
-    Context,
-    Data,
-    Effect,
-    flow,
-    HashMap,
-    Layer,
-    Mailbox,
-    Option,
-    Order,
-    type ParseResult,
-    Predicate,
-    Ref,
-    Schema,
-    type Scope,
-    Struct,
-} from 'effect';
+import { Array, Context, Data, Effect, flow, HashMap, Layer, Mailbox, Option, Order, type ParseResult, Predicate, Ref, Schema, type Scope, Struct } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface TestDatabaseService {
     readonly exec: (statements: string) => Effect.Effect<void, TestResourceError>;
     readonly rows: (statement: string, params?: readonly unknown[]) => Effect.Effect<readonly unknown[], TestResourceError>;
-    readonly decoded: <A, I>(
-        schema: Schema.Schema<A, I, never>,
-    ) => (statement: string, params?: readonly unknown[]) => Effect.Effect<readonly A[], TestResourceError | ParseResult.ParseError>;
+    readonly decoded: <A, I>(schema: Schema.Schema<A, I, never>) => (statement: string, params?: readonly unknown[]) => Effect.Effect<readonly A[], TestResourceError | ParseResult.ParseError>;
     readonly listen: (channel: string) => Effect.Effect<Mailbox.ReadonlyMailbox<string, TestResourceError>, TestResourceError, Scope.Scope>;
     readonly rollbackTransaction: <A, E, R>(work: Effect.Effect<A, E, R>) => Effect.Effect<A, E | TestResourceError, R>;
 }

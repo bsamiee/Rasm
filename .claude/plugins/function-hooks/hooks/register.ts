@@ -1,45 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type {
-    ClassicHookEvent,
-    ClassicHookInputs,
-    ClassicResult,
-    EngineInterface,
-    Frozen,
-    Next,
-    ProcessRunInit,
-    ProcessRunResult,
-    Register,
-    ToolCallInput,
-    ToolCallResult,
-} from 'claude-code';
+import type { ClassicHookEvent, ClassicHookInputs, ClassicResult, EngineInterface, Frozen, Next, ProcessRunInit, ProcessRunResult, Register, ToolCallInput, ToolCallResult } from 'claude-code';
 import { fromNullable, none, type Option } from './composition/option.ts';
 import { bind, fault, ok, type Result } from './composition/result.ts';
 import { decide } from './events/tool-call.ts';
-import {
-    type Candidate,
-    categoryPrompt,
-    context,
-    DELIVER,
-    due,
-    dueCategories,
-    held,
-    LEDGER,
-    type Lineage,
-    lineageOf,
-    listed,
-    occupied,
-    type Range,
-    REPORT,
-    REVOKE,
-    rangePrompt,
-    resolved,
-    type Settings,
-    STATE,
-    settings,
-    state,
-    status,
-    type Task,
+import { type Candidate, categoryPrompt, context, DELIVER, due, dueCategories, held, LEDGER, type Lineage, lineageOf, listed, occupied, type Range, REPORT, REVOKE, rangePrompt, resolved,
+    type Settings, STATE, settings, state, status, type Task,
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
@@ -98,8 +64,7 @@ const _run = ($: EngineInterface, argv: Argv, init?: ProcessRunInit): Promise<Re
         (cause: unknown) => fault(`${basename(argv[0])} did not run, ${String(cause)}`),
     );
 
-const _scan = ($: EngineInterface, text: string): Promise<ProcessRunResult> =>
-    $.session.repo().then((repo) => $.process.run(SCAN, repo === null ? { stdin: text } : { stdin: text, cwd: repo.root }));
+const _scan = ($: EngineInterface, text: string): Promise<ProcessRunResult> => $.session.repo().then((repo) => $.process.run(SCAN, repo === null ? { stdin: text } : { stdin: text, cwd: repo.root }));
 
 const _homed = ($: EngineInterface, cwd: string): Promise<Place> => $.env.get('HOME').then((home) => ({ home: fromNullable(home), cwd }));
 
@@ -117,9 +82,7 @@ const _switched = ($: EngineInterface, sqlite: Argv, root: string): Promise<Resu
     });
 
 const _applied = ($: EngineInterface, sqlite: Argv, root: string): Promise<Result<Sink>> =>
-    _run($, sqlite, { stdin: open(root), cwd: root }).then((applied) =>
-        applied.kind === 'fault' ? fault(`schema not applied, ${applied.reason}`) : _switched($, sqlite, root),
-    );
+    _run($, sqlite, { stdin: open(root), cwd: root }).then((applied) => (applied.kind === 'fault' ? fault(`schema not applied, ${applied.reason}`) : _switched($, sqlite, root)));
 
 const _prepared = ($: EngineInterface, sqlite: Argv, root: string): Promise<Result<Sink>> =>
     $.fs.write(keep(root), '').then(
@@ -128,9 +91,7 @@ const _prepared = ($: EngineInterface, sqlite: Argv, root: string): Promise<Resu
     );
 
 const _located = ($: EngineInterface, root: string): Promise<Result<Sink>> =>
-    _run($, LOCATE, { cwd: root }).then((where) =>
-        where.kind === 'fault' ? where : _prepared($, sqlite3(where.value.trim(), database(root)), root),
-    );
+    _run($, LOCATE, { cwd: root }).then((where) => (where.kind === 'fault' ? where : _prepared($, sqlite3(where.value.trim(), database(root)), root)));
 
 const _open = ($: EngineInterface): Promise<Result<Sink>> =>
     $.session
@@ -152,18 +113,9 @@ const _write = ($: EngineInterface, sink: Sink, built: Row): Promise<void> =>
         }
     });
 
-const record = (
-    $: EngineInterface,
-    sink: Sink,
-    event: Event,
-    value: Readonly<Record<string, unknown>>,
-    columns: Columns,
-    ts: number,
-): Promise<void> => {
+const record = ($: EngineInterface, sink: Sink, event: Event, value: Readonly<Record<string, unknown>>, columns: Columns, ts: number): Promise<void> => {
     const own = session(value, columns);
-    return own.kind === 'some'
-        ? _write($, sink, row(event, value, columns, own.value, ts))
-        : $.session.id().then((id) => _write($, sink, row(event, value, columns, id, ts)));
+    return own.kind === 'some' ? _write($, sink, row(event, value, columns, own.value, ts)) : $.session.id().then((id) => _write($, sink, row(event, value, columns, id, ts)));
 };
 
 const _classic = ($: EngineInterface, sink: Sink, e: Classic, ts: number): Promise<void> =>
@@ -171,18 +123,12 @@ const _classic = ($: EngineInterface, sink: Sink, e: Classic, ts: number): Promi
         ? $.session.usage().then((usage) => record($, sink, e.hook_event_name, { ...e, usage }, CLASSIC, ts))
         : record($, sink, e.hook_event_name, e, CLASSIC, ts);
 
-const _denied = (
-    $: EngineInterface,
-    sink: Sink,
-    e: Frozen<ToolCallInput>,
-    next: Next<'tool.call'>,
-    answer: ToolCallResult,
-): Promise<ToolCallResult> => record($, sink, 'tool.call', { ...e, deny: answer.deny, trace: next.trace }, CALL, $.clock.now()).then(() => answer);
+const _denied = ($: EngineInterface, sink: Sink, e: Frozen<ToolCallInput>, next: Next<'tool.call'>, answer: ToolCallResult): Promise<ToolCallResult> =>
+    record($, sink, 'tool.call', { ...e, deny: answer.deny, trace: next.trace }, CALL, $.clock.now()).then(() => answer);
 
 // --- [DELIVERY] ------------------------------------------------------------------------
 
-const _stopping = (e: Classic): e is Boundary =>
-    (e.hook_event_name === 'Stop' && !e.stop_hook_active) || (e.hook_event_name === 'SubagentStop' && e.agent_type !== '' && !e.stop_hook_active);
+const _stopping = (e: Classic): e is Boundary => (e.hook_event_name === 'Stop' && !e.stop_hook_active) || (e.hook_event_name === 'SubagentStop' && e.agent_type !== '' && !e.stop_hook_active);
 
 const _spawn = ($: EngineInterface, agent: string, prompt: string, description: string, cwd: string, subject: string): Promise<Option<string>> =>
     $.agent.spawn({ prompt, subagentType: agent, description, cwd }).then(
@@ -208,16 +154,7 @@ const _claimed = ($: EngineInterface, sink: Sink, lineage: Lineage, range: Range
         }
     });
 
-const _judge = (
-    $: EngineInterface,
-    sink: Sink,
-    lineage: Lineage,
-    to: number,
-    range: Range,
-    tasks: readonly Task[],
-    quiet: boolean,
-    claims: Set<string>,
-): void => {
+const _judge = ($: EngineInterface, sink: Sink, lineage: Lineage, to: number, range: Range, tasks: readonly Task[], quiet: boolean, claims: Set<string>): void => {
     if (due(range, occupied(tasks, claims), quiet)) {
         claims.add(range.trigger.agent);
         _spawn($, range.trigger.agent, rangePrompt(lineage, range.from, to), `judge ${range.trigger.kind}s`, lineage.worktree, `${range.from}..${to}`)
@@ -241,44 +178,19 @@ const _revoked = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
     }
 };
 
-const _reported = (
-    $: EngineInterface,
-    sink: Sink,
-    e: Boundary,
-    lineage: Lineage,
-    environment: Environment,
-    now: number,
-    candidate: Candidate,
-    written: Result<string>,
-): void => {
+const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, now: number, candidate: Candidate, written: Result<string>): void => {
     if (written.kind === 'fault') {
         environment.claims.delete(environment.chosen.categoryAgent);
         $.ui.log(`report rows not written, ${written.reason}`);
         return;
     }
-    _spawn(
-        $,
-        environment.chosen.categoryAgent,
-        categoryPrompt(candidate.category, lineage),
-        'judge category',
-        lineage.worktree,
-        candidate.category,
-    ).then((spawned) => {
+    _spawn($, environment.chosen.categoryAgent, categoryPrompt(candidate.category, lineage), 'judge category', lineage.worktree, candidate.category).then((spawned) => {
         environment.claims.delete(environment.chosen.categoryAgent);
         _revoked($, sink, e, lineage, now, spawned.kind === 'some');
     });
 };
 
-const _handed = (
-    $: EngineInterface,
-    sink: Sink,
-    e: Boundary,
-    lineage: Lineage,
-    environment: Environment,
-    now: number,
-    candidate: Candidate,
-    delivering: boolean,
-): Promise<readonly string[]> =>
+const _handed = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, now: number, candidate: Candidate, delivering: boolean): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, now), cwd: lineage.worktree })
         .then((written) => _reported($, sink, e, lineage, environment, now, candidate, written))
         .then(() => (delivering ? _delivered($, sink, e, lineage, now) : _NO_ENTRIES));
@@ -312,15 +224,11 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
 
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
     _run($, _BRANCH, { cwd: e.cwd }).then((branch) =>
-        branch.kind === 'fault'
-            ? _skip($, branch.reason)
-            : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim().replace(_CTRL, ' ')), to, environment),
+        branch.kind === 'fault' ? _skip($, branch.reason) : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim().replace(_CTRL, ' ')), to, environment),
     );
 
 const _boundary = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment): Promise<readonly string[]> =>
-    _run($, _WORKTREE, { cwd: e.cwd }).then((worktree) =>
-        worktree.kind === 'fault' ? _skip($, worktree.reason) : _branched($, sink, e, to, environment, worktree.value.trim()),
-    );
+    _run($, _WORKTREE, { cwd: e.cwd }).then((worktree) => (worktree.kind === 'fault' ? _skip($, worktree.reason) : _branched($, sink, e, to, environment, worktree.value.trim())));
 
 const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Environment, to: number): Promise<readonly string[]> =>
     _classic($, sink, e, to).then(() => {
@@ -352,11 +260,7 @@ const register: Register = (on, options) => {
             () => _place($),
         )
             .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason.replace(_CTRL, ' ') } : next(decision.e)))
-            .then<ToolCallResult>((answer) =>
-                answer.deny === undefined
-                    ? answer
-                    : once(() => _open($)).then((sink) => (sink.kind === 'ok' ? _denied($, sink.value, e, next, answer) : answer)),
-            ),
+            .then<ToolCallResult>((answer) => (answer.deny === undefined ? answer : once(() => _open($)).then((sink) => (sink.kind === 'ok' ? _denied($, sink.value, e, next, answer) : answer)))),
     );
 
     on(
@@ -393,9 +297,7 @@ const register: Register = (on, options) => {
             .then(() => next(e)),
     );
 
-    on('ui.render', { component: 'SessionMode' }, (_$, e, next) =>
-        environment.footer.text() === '' ? next(e) : next({ ...e, props: { modes: [...e.props.modes, environment.footer.text()] } }),
-    );
+    on('ui.render', { component: 'SessionMode' }, (_$, e, next) => (environment.footer.text() === '' ? next(e) : next({ ...e, props: { modes: [...e.props.modes, environment.footer.text()] } })));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

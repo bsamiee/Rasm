@@ -443,7 +443,7 @@ provides-extras = ["extensions", "sql"]
 [tool.ruff]
 cache-dir = ".cache/ruff"
 preview = true
-line-length = 150
+line-length = 200
 src = [".", "libs/python"]
 
 [tool.ruff.format]

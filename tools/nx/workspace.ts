@@ -2,15 +2,7 @@
 
 import { readFileSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
-import {
-    type CreateNodes,
-    type CreateNodesContext,
-    type CreateNodesResult,
-    type CreateNodesResultArray,
-    createNodesFromFiles,
-    type ProjectConfiguration,
-    type TargetConfiguration,
-} from '@nx/devkit';
+import { type CreateNodes, type CreateNodesContext, type CreateNodesResult, type CreateNodesResultArray, createNodesFromFiles, type ProjectConfiguration, type TargetConfiguration } from '@nx/devkit';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -41,8 +33,7 @@ const _pythonName = (file: string, context: CreateNodesContext): string => {
     return name;
 };
 
-const _pythonTargets = (file: string): Record<string, TargetConfiguration> =>
-    file.startsWith('tests/python/libs/') ? { typecheck: {}, test: {}, check: {} } : { typecheck: {}, check: {} };
+const _pythonTargets = (file: string): Record<string, TargetConfiguration> => (file.startsWith('tests/python/libs/') ? { typecheck: {}, test: {}, check: {} } : { typecheck: {}, check: {} });
 
 const _configuration = (file: string, language: Language, context: CreateNodesContext): ProjectConfiguration => {
     const directory = dirname(file);

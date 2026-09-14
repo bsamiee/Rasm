@@ -36,8 +36,7 @@ const _isWorktree = (e: ToolCallInput): e is WorktreeEvent => e.tool === 'Agent'
 
 const _paths = (parsed: Result<readonly Command[]>): readonly string[] => (parsed.kind === 'ok' ? gitPaths(parsed.value) : []);
 
-const _step = (exists: Exists, facts: Facts, path: string): Promise<Facts> =>
-    exists(path).then((found) => (found ? { ...facts, existing: [...facts.existing, path] } : facts));
+const _step = (exists: Exists, facts: Facts, path: string): Promise<Facts> => exists(path).then((found) => (found ? { ...facts, existing: [...facts.existing, path] } : facts));
 
 const _walk = (exists: Exists, facts: Facts, path: string, rest: readonly string[]): Promise<Facts> =>
     rest.reduce((chain, next) => chain.then((known) => _step(exists, known, next)), _step(exists, facts, path));
@@ -49,8 +48,7 @@ const _gathered = (exists: Exists, place: Place, parsed: Promise<Result<readonly
         return head === undefined ? facts : _walk(exists, facts, head, tail);
     });
 
-const _facts = (exists: Exists, locate: Locate, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> =>
-    locate().then((place) => _gathered(exists, place, parsed));
+const _facts = (exists: Exists, locate: Locate, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> => locate().then((place) => _gathered(exists, place, parsed));
 
 const _policies = (e: Commanded, commands: readonly Command[], facts: Facts): readonly Policy<Commanded>[] => [
     gitPolicy(commands, facts.existing),
@@ -63,9 +61,7 @@ const _decide = (e: Commanded, facts: Facts): Decision<Commanded> =>
 // --- [DECISION] ------------------------------------------------------------------------
 
 const decide = async (e: ToolCallInput, scan: Scanner, exists: Exists, locate: Locate): Promise<Decision<ToolCallInput>> =>
-    _hasCommand(e)
-        ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts))
-        : fold([when(_isPath, pathPolicy), when(_isWorktree, worktreePolicy)])(e);
+    _hasCommand(e) ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts)) : fold([when(_isPath, pathPolicy), when(_isWorktree, worktreePolicy)])(e);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

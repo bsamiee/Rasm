@@ -136,9 +136,7 @@ class Loopback(msgspec.Struct, frozen=True, gc=False):
 
 
 @asynccontextmanager
-async def loopback_server[S: _AsyncServer](
-    listen: Callable[[], Awaitable[S]], port_of: Callable[[S], int], *, host: str = "127.0.0.1"
-) -> AsyncGenerator[Loopback]:
+async def loopback_server[S: _AsyncServer](listen: Callable[[], Awaitable[S]], port_of: Callable[[S], int], *, host: str = "127.0.0.1") -> AsyncGenerator[Loopback]:
     """Bind a loopback server for the duration of the ``async with`` and yield its ``Loopback``."""
     async with await listen() as server:
         yield Loopback(host=host, port=port_of(server))
@@ -208,17 +206,4 @@ class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = [
-    "Async",
-    "Batch",
-    "Factory",
-    "Loopback",
-    "NdjsonOracle",
-    "CallSpy",
-    "CallRecord",
-    "StubBehavior",
-    "Sync",
-    "VariantWriter",
-    "autojump_backend",
-    "loopback_server",
-]
+__all__ = ["Async", "Batch", "Factory", "Loopback", "NdjsonOracle", "CallSpy", "CallRecord", "StubBehavior", "Sync", "VariantWriter", "autojump_backend", "loopback_server"]

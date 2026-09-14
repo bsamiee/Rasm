@@ -229,10 +229,7 @@ def cards(blocks: list[Block]) -> list[Block]:
     def renumber(entries: list[Block]) -> list[Block]:
         matches = [parts(b.ctx, b.head.text) for b in entries]
         counts = accumulate(int(m["path"] is not None) for m in matches)
-        return [
-            b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b
-            for b, m, n in zip(entries, matches, counts, strict=True)
-        ]
+        return [b.retext(f"{m['bullet']}[{n:02}]-{token(Path(m['path']).stem)}({m['path']}): {m['t']}") if m["path"] is not None else b for b, m, n in zip(entries, matches, counts, strict=True)]
 
     return [b for entry, run in groupby(blocks, key=lambda b: b.ctx is Ctx.ENTRY) for b in (renumber(list(run)) if entry else run)]
 

@@ -43,9 +43,7 @@ const _short = (word: string, letter: string): boolean => _isFlag(word) && !word
 const _reset: Refinement = (args, existing) => {
     const targets = args.filter((word) => !_isFlag(word));
     const [target] = targets;
-    return target === undefined || args.includes('--') || targets.some((named) => existing.includes(named))
-        ? []
-        : [`git reset ${target} moves HEAD and drops commits from the branch`];
+    return target === undefined || args.includes('--') || targets.some((named) => existing.includes(named)) ? [] : [`git reset ${target} moves HEAD and drops commits from the branch`];
 };
 
 const _restore: Refinement = (args) => {
@@ -56,9 +54,7 @@ const _restore: Refinement = (args) => {
 
 const _config: Refinement = (args) => {
     const alias = args.find((word) => word.startsWith('alias.'));
-    return alias !== undefined && args.slice(args.indexOf(alias) + 1).some((word) => !_isFlag(word))
-        ? [`git config ${alias} defines a git alias that can hide a refused subcommand`]
-        : [];
+    return alias !== undefined && args.slice(args.indexOf(alias) + 1).some((word) => !_isFlag(word)) ? [`git config ${alias} defines a git alias that can hide a refused subcommand`] : [];
 };
 
 const _checkout: Refinement = (args, existing) => {
@@ -69,9 +65,7 @@ const _checkout: Refinement = (args, existing) => {
     if (args.includes('--') || more.length > 0 || first === '.' || first?.startsWith(':') === true) {
         return ['git checkout with a pathspec overwrites working-tree files'];
     }
-    return first !== undefined && first !== '-' && existing.includes(first)
-        ? [`git checkout ${first} names an existing path and would overwrite it`]
-        : [];
+    return first !== undefined && first !== '-' && existing.includes(first) ? [`git checkout ${first} names an existing path and would overwrite it`] : [];
 };
 
 // --- [POLICY] --------------------------------------------------------------------------
@@ -138,9 +132,7 @@ const _reason = (words: readonly string[], existing: readonly string[]): readonl
 const _gits = (commands: readonly Command[]): readonly (readonly string[])[] =>
     commands
         .map((command) => strip(command.words))
-        .flatMap((words) =>
-            words.flatMap((word, index) => ((index === 0 || words[index - 1] === '--') && basename(word) === 'git' ? [words.slice(index)] : [])),
-        );
+        .flatMap((words) => words.flatMap((word, index) => ((index === 0 || words[index - 1] === '--') && basename(word) === 'git' ? [words.slice(index)] : [])));
 
 const gitPaths = (commands: readonly Command[]): readonly string[] =>
     _gits(commands).flatMap((words) => {

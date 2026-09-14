@@ -65,7 +65,6 @@ interface State {
 const _INTEGER = /^\d+$/u;
 const _CELLS = 7;
 const _CATEGORY_CELLS = 3;
-// Finding text present in its file on disk, readfile relative to the worktree the statement runs from
 const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 0`;
 
 // --- [SETTINGS] ------------------------------------------------------------------------
@@ -83,7 +82,6 @@ const settings = (options: PluginOptions): Settings => ({
     categoryAgent: String(options['categoryAgent']),
 });
 
-// Key names the worktree by directory, `.` for the main one, a moved repository keeps its lineage
 const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({
     main,
     worktree,
@@ -98,13 +96,11 @@ const _under = (column: string, worktree: string): string => {
     return `(${column} = ${literal} or substr(${column}, 1, length(${literal}) + 1) = ${quoted(`${worktree}/`)})`;
 };
 
-const _elsewhere = (agent: string, lineage: Lineage): string =>
-    `exists (select 1 from running_agents r where r.agent_type = ${quoted(agent)} and ${_under('r.cwd', lineage.worktree)})`;
+const _elsewhere = (agent: string, lineage: Lineage): string => `exists (select 1 from running_agents r where r.agent_type = ${quoted(agent)} and ${_under('r.cwd', lineage.worktree)})`;
 
 const _range = (trigger: Trigger, lineage: Lineage, to: number): string =>
     `(select count(distinct v.file_path) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}), r.f, ${trigger.threshold > 0 ? _elsewhere(trigger.agent, lineage) : '0'}`;
 
-// Tabs mode prints the null of no editor as an empty cell and an empty string as ""
 const _editors = (trigger: Trigger, lineage: Lineage, to: number): string =>
     `(select group_concat(distinct v.agent_id) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)} and v.agent_id is not null)`;
 
@@ -130,10 +126,7 @@ const REPORT = (lineage: Lineage, session: string, category: string, now: number
     ].join('\n');
 
 const REVOKE = (lineage: Lineage, session: string, now: number): string =>
-    [
-        'pragma foreign_keys = on;',
-        `delete from finding_delivery where lineage_key = ${quoted(lineage.key)} and session_id = ${quoted(session)} and channel = 'report' and delivered_at = ${now};`,
-    ].join('\n');
+    ['pragma foreign_keys = on;', `delete from finding_delivery where lineage_key = ${quoted(lineage.key)} and session_id = ${quoted(session)} and channel = 'report' and delivered_at = ${now};`].join('\n',);
 
 const DELIVER = (lineage: Lineage, session: string, now: number): string => {
     const key = quoted(lineage.key);
@@ -167,22 +160,14 @@ const _isHead = (cells: readonly string[]): cells is Head => cells.length === _C
 
 const _isCategory = (cells: readonly string[]): cells is Category => cells.length === _CATEGORY_CELLS;
 
-const _candidateOf = ([category, sites, reported]: Category): Result<Candidate> =>
-    map(all([_integer(sites), _flag(reported)]), ([counted, told]) => ({ category, sites: counted, reported: told }));
+const _candidateOf = ([category, sites, reported]: Category): Result<Candidate> => map(all([_integer(sites), _flag(reported)]), ([counted, told]) => ({ category, sites: counted, reported: told }));
 
-const _candidate = (cells: readonly string[]): Result<Candidate> =>
-    _isCategory(cells) ? _candidateOf(cells) : fault(`category line holds ${cells.length} cells`);
+const _candidate = (cells: readonly string[]): Result<Candidate> => (_isCategory(cells) ? _candidateOf(cells) : fault(`category line holds ${cells.length} cells`));
 
 const _state = (chosen: Settings, head: Head, rest: readonly (readonly string[])[]): Result<State> => {
     const [count, from, running, open, undelivered, categoryRunning, editors] = head;
     return map(
-        all([
-            _rangeOf(chosen.edits, count, from, running, editors),
-            _integer(open),
-            _integer(undelivered),
-            _flag(categoryRunning),
-            all(rest.map(_candidate)),
-        ]),
+        all([_rangeOf(chosen.edits, count, from, running, editors), _integer(open), _integer(undelivered), _flag(categoryRunning), all(rest.map(_candidate))]),
         ([edits, opened, waiting, elsewhere, candidates]) => ({ edits, open: opened, undelivered: waiting, categoryRunning: elsewhere, candidates }),
     );
 };
@@ -195,9 +180,7 @@ const state = (stdout: string, chosen: Settings): Result<State> => {
 // --- [DECISIONS] -----------------------------------------------------------------------
 
 const listed = (tasks: ClassicHookInputs['Stop']['background_tasks']): Result<readonly Task[]> =>
-    tasks === undefined
-        ? fault('background_tasks absent')
-        : ok(tasks.flatMap((task) => (task.agent_type === undefined ? [] : [{ id: task.id, agentType: task.agent_type }])));
+    tasks === undefined ? fault('background_tasks absent') : ok(tasks.flatMap((task) => (task.agent_type === undefined ? [] : [{ id: task.id, agentType: task.agent_type }])));
 
 const held = (range: Range, tasks: readonly Task[]): readonly Task[] => tasks.filter((task) => range.editors.includes(task.id));
 
@@ -206,13 +189,10 @@ const occupied = (tasks: readonly Task[], claims: ReadonlySet<string>): readonly
 const due = (range: Range, busy: readonly string[], quiet: boolean): boolean =>
     range.trigger.threshold > 0 && range.count >= range.trigger.threshold && !range.running && quiet && !busy.includes(range.trigger.agent);
 
-const _idle = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): boolean =>
-    quiet && !seen.categoryRunning && !busy.includes(chosen.categoryAgent);
+const _idle = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): boolean => quiet && !seen.categoryRunning && !busy.includes(chosen.categoryAgent);
 
 const dueCategories = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): readonly Candidate[] =>
-    chosen.categoryThreshold > 0 && _idle(seen, chosen, busy, quiet)
-        ? seen.candidates.filter((candidate) => candidate.sites >= chosen.categoryThreshold && !candidate.reported)
-        : [];
+    chosen.categoryThreshold > 0 && _idle(seen, chosen, busy, quiet) ? seen.candidates.filter((candidate) => candidate.sites >= chosen.categoryThreshold && !candidate.reported) : [];
 
 const _awaiting = (seen: State): readonly Candidate[] => seen.candidates.filter((candidate) => !candidate.reported);
 
@@ -226,11 +206,7 @@ const _many = (count: number, one: string, many: string): string => `${count} ${
 
 const context = (stdout: string, branch: string): readonly string[] => {
     const found = _lines(stdout);
-    return found.length === 0
-        ? []
-        : [
-              `${_many(found.length, 'finding', 'findings')} on ${branch}, ids ${found.join(', ')}, apply the delivery section of the observation skill`,
-          ];
+    return found.length === 0 ? [] : [`${_many(found.length, 'finding', 'findings')} on ${branch}, ids ${found.join(', ')}, apply the delivery section of the observation skill`];
 };
 
 const _segment = (count: number, text: string): readonly string[] => (count === 0 ? [] : [text]);
@@ -246,30 +222,9 @@ const status = (seen: State, holding: number): string => {
 };
 
 const resolved = (agent: string, subject: string, result: AgentSpawnResult): string =>
-    result.deny === undefined
-        ? `spawned ${agent}${result.agentId === undefined ? '' : ` ${result.agentId}`} over ${subject}`
-        : `${agent} refused over ${subject}: ${result.deny}`;
+    result.deny === undefined ? `spawned ${agent}${result.agentId === undefined ? '' : ` ${result.agentId}`} over ${subject}` : `${agent} refused over ${subject}: ${result.deny}`;
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Candidate, Lineage, Range, Settings, Task };
-export {
-    categoryPrompt,
-    context,
-    DELIVER,
-    due,
-    dueCategories,
-    held,
-    LEDGER,
-    lineageOf,
-    listed,
-    occupied,
-    REPORT,
-    REVOKE,
-    rangePrompt,
-    resolved,
-    STATE,
-    settings,
-    state,
-    status,
-};
+export { categoryPrompt, context, DELIVER, due, dueCategories, held, LEDGER, lineageOf, listed, occupied, REPORT, REVOKE, rangePrompt, resolved, STATE, settings, state, status };

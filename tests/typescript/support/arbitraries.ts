@@ -36,25 +36,16 @@ const _optionalKeys = (schema: Schema.Schema.Any): readonly OptionalKey[] =>
 
 const _varyOptionalFields = <A>(base: FastCheck.Arbitrary<A>, keys: readonly OptionalKey[]): FastCheck.Arbitrary<A> =>
     base.chain((value) =>
-        FastCheck.tuple(
-            FastCheck.subarray(Array.map(keys, (key) => key.name)),
-            FastCheck.subarray(Array.filterMap(keys, (key) => Option.liftPredicate(key.name, () => key.undefinable))),
-        ).map(
+        FastCheck.tuple(FastCheck.subarray(Array.map(keys, (key) => key.name)), FastCheck.subarray(Array.filterMap(keys, (key) => Option.liftPredicate(key.name, () => key.undefinable)))).map(
             ([dropped, unset]) =>
-                Record.filter(
-                    { ...(value as Record<string, unknown>), ...Record.fromIterableWith(unset, (key) => [key, undefined]) },
-                    (_, key) => !Array.contains(dropped, key),
-                ) as A,
+                Record.filter({ ...(value as Record<string, unknown>), ...Record.fromIterableWith(unset, (key) => [key, undefined]) }, (_, key) => !Array.contains(dropped, key)) as A,
         ),
     );
 
 function optionalFields<S extends Schema.Schema.Any>(schema: S): FastCheck.Arbitrary<Schema.Schema.Encoded<S>>;
 function optionalFields<A>(arb: FastCheck.Arbitrary<A>, keys: readonly string[]): FastCheck.Arbitrary<A>;
 function optionalFields<T>(model: ArbitraryModel<T>, required?: readonly (keyof T & string)[]): FastCheck.Arbitrary<Partial<T>>;
-function optionalFields(
-    input: Schema.Schema.Any | FastCheck.Arbitrary<unknown> | ArbitraryModel<Record<string, unknown>>,
-    keys: readonly string[] = [],
-): FastCheck.Arbitrary<unknown> {
+function optionalFields(input: Schema.Schema.Any | FastCheck.Arbitrary<unknown> | ArbitraryModel<Record<string, unknown>>, keys: readonly string[] = []): FastCheck.Arbitrary<unknown> {
     return Match.value(input).pipe(
         Match.when(Schema.isSchema, (schema) => _varyOptionalFields(Arbitrary.make(Schema.encodedBoundSchema(schema)), _optionalKeys(schema))),
         Match.when(Match.instanceOfUnsafe(FastCheck.Arbitrary), (arb) =>
@@ -67,11 +58,8 @@ function optionalFields(
     );
 }
 
-const distinctArray = <A>(
-    base: FastCheck.Arbitrary<A>,
-    count: number,
-    equals: (self: A, that: A) => boolean = Equal.equals,
-): FastCheck.Arbitrary<readonly A[]> => FastCheck.uniqueArray(base, { minLength: count, maxLength: count, comparator: equals });
+const distinctArray = <A>(base: FastCheck.Arbitrary<A>, count: number, equals: (self: A, that: A) => boolean = Equal.equals): FastCheck.Arbitrary<readonly A[]> =>
+    FastCheck.uniqueArray(base, { minLength: count, maxLength: count, comparator: equals });
 
 const missingClassifications = <A, Label extends string>(
     arbitrary: FastCheck.Arbitrary<A>,

@@ -9,12 +9,10 @@ import { open } from './hooks/observation/sql.ts';
 const _VIEW = /create view (?<name>\w+) as/gu;
 const _COUNT = 21;
 const _SEGMENTS = 4;
-const _OLD_RANGE =
-    'create table judged_range(kind text not null, lineage_key text not null, worktree text not null, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict;';
+const _OLD_RANGE = 'create table judged_range(kind text not null, lineage_key text not null, worktree text not null, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict;';
 const _OLD_KIND = "create table range_kind(kind text); insert into range_kind(kind) values ('commit'), ('edit');";
 const _OLD_INDEX = 'create index finding_path on finding(path, occurrence);';
-const _OLD_TRANSITION =
-    "create table finding_transition(finding_id text not null, state text not null, subject_hash text not null, start_line integer, start_column integer, end_line integer, end_column integer, occurrence integer, at integer not null, by text not null, evidence text, verdict text, successor text) strict; insert into finding_transition(finding_id, state, subject_hash, start_line, occurrence, at, by, evidence, verdict) values ('f1', 'confirmed', 'h1', 3, 1, 1, 'agent:a', 'present', null), ('f1', 'moved', 'h1', null, null, 2, 'check:sqlite3', null, null);";
+const _OLD_TRANSITION = "create table finding_transition(finding_id text not null, state text not null, subject_hash text not null, start_line integer, start_column integer, end_line integer, end_column integer, occurrence integer, at integer not null, by text not null, evidence text, verdict text, successor text) strict; insert into finding_transition(finding_id, state, subject_hash, start_line, occurrence, at, by, evidence, verdict) values ('f1', 'confirmed', 'h1', 3, 1, 1, 'agent:a', 'present', null), ('f1', 'moved', 'h1', null, null, 2, 'check:sqlite3', null, null);";
 const _PARTS = open('.').split(/^\..*\n/gmu);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -113,23 +111,9 @@ it('rebuilds a table whose stored body differs, keeping the rows of its common c
     expect(delta).toContain('alter table judged_range__delta rename to judged_range;');
     expect(delta).toContain('drop index if exists finding_path;');
     expect(delta).toContain('drop index if exists FINDING_CATEGORY;');
-    expect(old.prepare("select sql from sqlite_master where name = 'finding_path'").get()?.['sql']).toBe(
-        'CREATE INDEX finding_path on finding(path)',
-    );
-    expect(old.prepare("select sql from sqlite_master where name = 'finding_category'").get()?.['sql']).toBe(
-        'CREATE INDEX finding_category on finding(category)',
-    );
-    expect(_columns(old, 'judged_range')).toStrictEqual([
-        'kind',
-        'main_worktree',
-        'worktree',
-        'branch',
-        'lineage_key generated',
-        'from_ts',
-        'to_ts',
-        'agent_id',
-        'at',
-    ]);
+    expect(old.prepare("select sql from sqlite_master where name = 'finding_path'").get()?.['sql']).toBe('CREATE INDEX finding_path on finding(path)');
+    expect(old.prepare("select sql from sqlite_master where name = 'finding_category'").get()?.['sql']).toBe('CREATE INDEX finding_category on finding(category)');
+    expect(_columns(old, 'judged_range')).toStrictEqual(['kind', 'main_worktree', 'worktree', 'branch', 'lineage_key generated', 'from_ts', 'to_ts', 'agent_id', 'at']);
     expect(old.prepare('select group_concat(kind) as kinds from (select kind from range_kind order by kind)').get()?.['kinds']).toBe('edit');
     expect(old.prepare("select count(1) as n from sqlite_master where name like '%__delta'").get()?.['n']).toBe(0);
     expect(_views(old)).toStrictEqual(created);

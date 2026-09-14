@@ -49,15 +49,10 @@ const _operation = (operation: Exclude<StackError['operation'], 'select'>, adopt
 
 // --- [COMMANDS] ------------------------------------------------------------------------
 
-const _import = Options.boolean('import').pipe(
-    Options.withDescription('Adopt the live Doppler project, environments, branch configs, and repository'),
-);
+const _import = Options.boolean('import').pipe(Options.withDescription('Adopt the live Doppler project, environments, branch configs, and repository'));
 
 const _automation = Command.make('automation').pipe(
-    Command.withSubcommands([
-        Command.make('up', { import: _import }, ({ import: adopt }) => _operation('up', adopt)),
-        Command.make('refresh', {}, () => _operation('refresh', false)),
-    ]),
+    Command.withSubcommands([Command.make('up', { import: _import }, ({ import: adopt }) => _operation('up', adopt)), Command.make('refresh', {}, () => _operation('refresh', false))]),
 );
 
 // --- [ENTRY] ---------------------------------------------------------------------------

@@ -11,7 +11,6 @@ type Argv = readonly [string, ...string[]];
 
 const LOCATE: Argv = ['mise', 'where', 'sqlite'];
 
-// Tabs, returns, and newlines as spaces, every run of spaces as one
 const normalized = (text: string): string =>
     `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
 
