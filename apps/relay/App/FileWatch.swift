@@ -6,14 +6,32 @@ import System
 nonisolated enum FileWatch {
   static func changes(of file: URL) -> AsyncThrowingStream<Void, any Error> {
     AsyncThrowingStream { continuation in
-      let watcher: Watcher = Watcher(file: file, continuation: continuation)
+      let watcher: Watcher = Watcher(file: file, probe: contentDigest, continuation: continuation)
       continuation.onTermination = { _ in watcher.stop() }
       watcher.start()
     }
   }
 
+  static func presence(of entry: URL) -> AsyncThrowingStream<Void, any Error> {
+    AsyncThrowingStream { continuation in
+      let watcher: Watcher = Watcher(
+        file: entry, probe: presenceDigest, continuation: continuation)
+      continuation.onTermination = { _ in watcher.stop() }
+      watcher.start()
+    }
+  }
+
+  private static func contentDigest(_ file: URL) -> SHA256Digest? {
+    (try? Data(contentsOf: file)).map(SHA256.hash(data:))
+  }
+
+  private static func presenceDigest(_ entry: URL) -> SHA256Digest? {
+    FileManager.default.fileExists(atPath: entry.path) ? SHA256.hash(data: Data()) : nil
+  }
+
   private final class Watcher: @unchecked Sendable {
     private let file: URL
+    private let probe: @Sendable (URL) -> SHA256Digest?
     private let continuation: AsyncThrowingStream<Void, any Error>.Continuation
     private let queue: DispatchQueue = DispatchQueue(label: "app.rasm.relay.filewatch")
     private var directorySource: (any DispatchSourceFileSystemObject)?
@@ -22,8 +40,12 @@ nonisolated enum FileWatch {
     private var digest: SHA256Digest?
     private var stopped: Bool = false
 
-    init(file: URL, continuation: AsyncThrowingStream<Void, any Error>.Continuation) {
+    init(
+      file: URL, probe: @escaping @Sendable (URL) -> SHA256Digest?,
+      continuation: AsyncThrowingStream<Void, any Error>.Continuation
+    ) {
       self.file = file
+      self.probe = probe
       self.continuation = continuation
     }
 
@@ -107,7 +129,7 @@ nonisolated enum FileWatch {
     }
 
     private func currentDigest() -> SHA256Digest? {
-      (try? Data(contentsOf: file)).map(SHA256.hash(data:))
+      probe(file)
     }
   }
 }

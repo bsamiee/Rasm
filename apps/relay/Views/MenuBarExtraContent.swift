@@ -19,7 +19,7 @@ struct MenuBarExtraContent: View {
       HStack {
         Spacer()
         Menu {
-          Button("Settings…", action: openSettings)
+          Button("Settings", action: showSettings)
             .keyboardShortcut(",", modifiers: .command)
           Divider()
           Button("Quit Relay") { NSApplication.shared.terminate(nil) }
@@ -35,6 +35,7 @@ struct MenuBarExtraContent: View {
     }
     .padding(16)
     .frame(width: 384)
+    .background(PanelToolTips())
     .onAppear { store.setMenuBarExtraVisible(true) }
     .onDisappear { store.setMenuBarExtraVisible(false) }
     .alert(
@@ -58,7 +59,7 @@ struct MenuBarExtraContent: View {
           .frame(maxWidth: .infinity)
           .padding(.vertical, 8)
       } else if store.accounts.isEmpty {
-        Button("Add Account…", action: openSettings)
+        Button("Add Account", action: showSettings)
           .disabled(!store.canAddAccount)
           .frame(maxWidth: .infinity)
           .padding(.vertical, 8)
@@ -78,10 +79,10 @@ struct MenuBarExtraContent: View {
     }
   }
 
-  private func openSettings() {
+  private func showSettings() {
     dismiss()
-    NSApplication.shared.activate()
     openWindow(id: "settings")
+    Task(name: "Bring Relay front") { await Activation.requestFront() }
   }
 }
 
@@ -102,8 +103,19 @@ private struct AccountCard: View {
   var body: some View {
     TimelineView(.periodic(from: .now, by: 60)) { context in
       VStack(alignment: .leading, spacing: 8) {
-        Text(model.account.identity.email)
-          .fixedSize(horizontal: false, vertical: true)
+        HStack(alignment: .firstTextBaseline) {
+          Text(model.account.identity.email)
+            .fixedSize(horizontal: false, vertical: true)
+          Spacer(minLength: 12)
+          if let expiry: Date = model.usage.usage?.signInExpiresAt {
+            Text(UsagePresentation.loginExpiry(expiry))
+              .font(.caption)
+              .monospacedDigit()
+              .foregroundStyle(.secondary)
+              .help(UsagePresentation.loginExpiryTooltip(expiry))
+              .accessibilityLabel(UsagePresentation.loginExpiryTooltip(expiry))
+          }
+        }
         HStack(alignment: .glyphRow, spacing: 12) {
           providerGlyph
           VStack(alignment: .leading, spacing: 8) {
@@ -123,7 +135,7 @@ private struct AccountCard: View {
         Button("Move Down") { store.moveAccount(model.id, by: 1) }
           .disabled(store.accounts.last?.id == model.id)
         Divider()
-        Button("Remove Account…", role: .destructive, action: remove)
+        Button("Remove Account", role: .destructive, action: remove)
           .disabled(model.isBusy)
       }
     }
@@ -156,36 +168,32 @@ private struct AccountCard: View {
     let usage: AccountUsage? = model.usage.usage
     let isCurrent: Bool = model.usage.isCurrent
     let session: QuotaWindow? = usage?.session
+    let hasSession: Bool = usage.map { current in current.session != nil } ?? true
     let isStarting: Bool = model.operation == .starting
     let showsStart: Bool = isStarting || model.canStartSession(at: now)
-    UsageGauge(
-      title: "Session",
-      reading: UsagePresentation.sessionReading(
-        session, availability: model.availability(at: now), isCurrent: isCurrent, at: now),
-      fraction: showsStart ? 0 : session?.used.fraction ?? 0, isCurrent: isCurrent,
-      detail: UsagePresentation.resetTooltip(session?.resetsAt), leadsGlyphRow: true
-    ) {
-      if showsStart {
-        HStack(alignment: .firstTextBaseline, spacing: 8) {
-          if isStarting, let started: Date = model.operationStartedAt {
-            Text(.durationOffset(to: started), format: .time(pattern: .minuteSecond))
-              .font(.caption)
-              .monospacedDigit()
-              .foregroundStyle(.secondary)
-          }
+    if hasSession {
+      UsageGauge(
+        title: "Session",
+        reading: UsagePresentation.sessionReading(
+          session, availability: model.availability(at: now), isCurrent: isCurrent, at: now),
+        fraction: showsStart ? 0 : session?.used.fraction ?? 0, isCurrent: isCurrent,
+        detail: UsagePresentation.resetTooltip(session?.resetsAt), leadsGlyphRow: true
+      ) {
+        if showsStart {
           sessionStart(isStarting: isStarting)
+            .transition(.opacity)
         }
-        .transition(.opacity)
       }
+      .animation(.default, value: showsStart)
     }
-    .animation(.default, value: showsStart)
     if let usage {
       let weekly: [QuotaWindow] = (usage.weekly.map { [$0] } ?? []) + usage.models
-      ForEach(Array(weekly.enumerated()), id: \.offset) { _, window in
+      ForEach(Array(weekly.enumerated()), id: \.offset) { offset, window in
         UsageGauge(
           title: window.kind.name, reading: UsagePresentation.reading(window, at: now),
           fraction: window.used.fraction, isCurrent: isCurrent,
-          detail: UsagePresentation.resetTooltip(window.resetsAt), leadsGlyphRow: false
+          detail: UsagePresentation.resetTooltip(window.resetsAt),
+          leadsGlyphRow: !hasSession && offset == 0
         ) {}
       }
     }
@@ -197,10 +205,11 @@ private struct AccountCard: View {
     } label: {
       Image(systemName: "arrow.trianglehead.clockwise")
         .font(.body)
+        .opacity(isStarting ? 0 : 1)
     }
     .buttonStyle(.accessoryBar)
     .overlay {
-      if isStarting { ProgressView().controlSize(.mini) }
+      if isStarting { ProgressView().controlSize(.small) }
     }
     .accessibilityLabel(isStarting ? "Cancel" : "Start session")
     .help(isStarting ? "Cancel" : "Start session")
@@ -211,7 +220,9 @@ private struct AccountCard: View {
     case (.some(let issue), _, _): issue
     case (.none, .signingOut, _), (.none, .removing, _): model.operation?.description
     case (.none, _, .signInRequired): "Sign in required"
-    case (.none, _, .connected): UsagePresentation.blockedLine(model.availability(at: now))
+    case (.none, _, .connected):
+      UsagePresentation.blockedLine(model.availability(at: now))
+        ?? UsagePresentation.signInLine(expiring: model.usage.usage?.signInExpiresAt, at: now)
     }
   }
 }

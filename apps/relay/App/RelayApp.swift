@@ -23,7 +23,7 @@ struct RelayApp: App {
     .windowToolbarStyle(.unified)
     .commands {
       CommandGroup(replacing: .appSettings) {
-        Button("Settings…") { openWindow(id: "settings") }
+        Button("Settings") { openWindow(id: "settings") }
           .keyboardShortcut(",", modifiers: .command)
       }
     }

@@ -31,21 +31,21 @@ private nonisolated enum ClaudeSessionPhase: Sendable {
 }
 
 private nonisolated enum ClaudeSessionStep: Sendable {
-  case awaiting(ClaudeSessionPhase)
-  case finished
+  case awaiting(ClaudeSessionPhase, sessionReset: Date?)
+  case finished(sessionReset: Date?)
 }
 
 nonisolated enum ClaudeSession {
   static func run(
     invocation: ProcessInvocation, action: ClaudeSessionAction, sessionID: UUID
-  ) async -> Result<Void, ClaudeFailure> {
-    let outcome: Result<(Result<Void, ClaudeFailure>, TerminationStatus), ProcessFailure> =
+  ) async -> Result<Date?, ClaudeFailure> {
+    let outcome: Result<(Result<Date?, ClaudeFailure>, TerminationStatus), ProcessFailure> =
       await ProcessRun.stream(invocation, deadline: action.deadline) { execution in
         await readLoop(execution: execution, action: action, sessionID: sessionID)
       }
     return outcome.claude().flatMap { result, status in
-      result.flatMap { _ in
-        status.isSuccess ? .success(()) : .failure(.process(.exit(status)))
+      result.flatMap { reset in
+        status.isSuccess ? .success(reset) : .failure(.process(.exit(status)))
       }
     }
   }
@@ -53,22 +53,23 @@ nonisolated enum ClaudeSession {
   private static func readLoop(
     execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
     action: ClaudeSessionAction, sessionID: UUID
-  ) async -> Result<Result<Void, ClaudeFailure>, ProcessFailure> {
+  ) async -> Result<Result<Date?, ClaudeFailure>, ProcessFailure> {
     let initial: ClaudeSessionPhase = .initializing(UUID().uuidString)
     var step: Result<ClaudeSessionStep, ClaudeFailure> = await sendControlRequest(
-      ["subtype": .string("initialize")], for: initial, to: execution)
+      ["subtype": .string("initialize")], for: initial, sessionReset: nil, to: execution)
     let lines: SubprocessOutputSequence.StringSequence<UTF8> = execution.standardOutput.strings()
     let read: Result<Void, any Error> = await Result {
       for try await line in lines {
-        guard case .success(.awaiting(let phase)) = step else { break }
+        guard case .success(.awaiting(let phase, let reset)) = step else { break }
         step = await advance(
-          phase, line: line, execution: execution, action: action, sessionID: sessionID)
+          phase, sessionReset: reset, line: line, execution: execution, action: action,
+          sessionID: sessionID)
         if case .success(.finished) = step { break }
       }
     }
-    let outcome: Result<Void, ClaudeFailure> = step.flatMap { step in
+    let outcome: Result<Date?, ClaudeFailure> = step.flatMap { step in
       switch step {
-      case .finished: .success(())
+      case .finished(let reset): .success(reset)
       case .awaiting: .failure(Task.isCancelled ? .cancelled : .protocolFailure)
       }
     }
@@ -76,24 +77,32 @@ nonisolated enum ClaudeSession {
   }
 
   private static func advance(
-    _ phase: ClaudeSessionPhase, line: String,
+    _ phase: ClaudeSessionPhase, sessionReset: Date?, line: String,
     execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
     action: ClaudeSessionAction, sessionID: UUID
   ) async -> Result<ClaudeSessionStep, ClaudeFailure> {
     guard !Task.isCancelled else { return .failure(.cancelled) }
     guard let event: JSONValue = try? JSONDecoder().decode(JSONValue.self, from: Data(line.utf8))
-    else { return .success(.awaiting(phase)) }
+    else { return .success(.awaiting(phase, sessionReset: sessionReset)) }
     if event["type"]?.stringValue == "auth_status", event["error"]?.stringValue != nil {
       return .failure(.signInRequired)
     }
+    if event["type"]?.stringValue == "rate_limit_event",
+      let info: JSONValue = event["rate_limit_info"],
+      info["rateLimitType"]?.stringValue == "five_hour",
+      let seconds: Double = info["resetsAt"]?.doubleValue
+    {
+      return .success(
+        .awaiting(phase, sessionReset: Date(timeIntervalSince1970: seconds)))
+    }
     if case .greeting = phase, event["type"]?.stringValue == "result" {
       return event["subtype"]?.stringValue == "success" && event["is_error"]?.boolValue != true
-        ? .success(.finished) : .failure(.requestFailed)
+        ? .success(.finished(sessionReset: sessionReset)) : .failure(.requestFailed)
     }
     guard event["type"]?.stringValue == "control_response",
       let response: JSONValue = event["response"],
       response["request_id"]?.stringValue == phase.requestID
-    else { return .success(.awaiting(phase)) }
+    else { return .success(.awaiting(phase, sessionReset: sessionReset)) }
     guard response["subtype"]?.stringValue == "success" else { return .failure(.protocolFailure) }
     switch phase {
     case .initializing:
@@ -102,13 +111,14 @@ nonisolated enum ClaudeSession {
       case .refreshCredentials:
         return await sendControlRequest(
           ["subtype": .string("get_usage"), "skip_behaviors": .bool(true)],
-          for: .readingUsage(id), to: execution, closingInput: true)
+          for: .readingUsage(id), sessionReset: sessionReset, to: execution, closingInput: true)
       case .greeting:
         return await sendControlRequest(
-          ["subtype": .string("list_models")], for: .readingModels(id), to: execution)
+          ["subtype": .string("list_models")], for: .readingModels(id), sessionReset: sessionReset,
+          to: execution)
       }
     case .readingUsage:
-      return .success(.finished)
+      return .success(.finished(sessionReset: sessionReset))
     case .readingModels:
       guard let models: [JSONValue] = response["response"]?["models"]?.arrayValue,
         let model: JSONValue = models.first(where: { item in
@@ -122,7 +132,7 @@ nonisolated enum ClaudeSession {
       }
       return await sendControlRequest(
         ["subtype": .string("set_model"), "model": .string(resolved)],
-        for: .settingModel(UUID().uuidString), to: execution)
+        for: .settingModel(UUID().uuidString), sessionReset: sessionReset, to: execution)
     case .settingModel:
       let message: JSONValue = .object([
         "type": .string("user"),
@@ -131,7 +141,7 @@ nonisolated enum ClaudeSession {
         "message": .object(["role": .string("user"), "content": .string("hi")]),
       ])
       return await send(message, to: execution, closingInput: true).map { _ in
-        .awaiting(.greeting)
+        .awaiting(.greeting, sessionReset: sessionReset)
       }
     case .greeting:
       return .failure(.protocolFailure)
@@ -139,7 +149,7 @@ nonisolated enum ClaudeSession {
   }
 
   private static func sendControlRequest(
-    _ request: [String: JSONValue], for phase: ClaudeSessionPhase,
+    _ request: [String: JSONValue], for phase: ClaudeSessionPhase, sessionReset: Date?,
     to execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
     closingInput: Bool = false
   ) async -> Result<ClaudeSessionStep, ClaudeFailure> {
@@ -151,7 +161,7 @@ nonisolated enum ClaudeSession {
             "request": .object(request),
           ]), to: execution, closingInput: closingInput
         )
-        .map { _ in .awaiting(phase) }
+        .map { _ in .awaiting(phase, sessionReset: sessionReset) }
       }
   }
 

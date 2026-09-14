@@ -2,6 +2,11 @@
 
 Policies refuse a tool call, every recorded event becomes a sink row, and stop events spawn judging agents and deliver findings. Use `observation` for every sink name, script, and reader.
 
+[TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny` or `next`
+- ALWAYS use `plugin-authoring` skill for writing or changing a function hook
+- ALWAYS write a policy as a pure function from the parsed call to a decision, the registered hook alone reads `$` and answers `deny` or `next`
+- ALWAYS fold every policy under the one `tool.call` registration, the first refusal is the call's answer
+
 ## [01]-[POLICIES]
 
 Each refusal states what the call does, then the target, MCP tool, or owner file that is the path:

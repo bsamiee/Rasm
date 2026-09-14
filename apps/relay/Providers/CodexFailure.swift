@@ -23,7 +23,7 @@ nonisolated enum CodexFailure: ProviderFailure {
   case timedOut
   case connectionClosed
   case invalidResponse(field: String)
-  case requestRejected(code: Int, message: String)
+  case requestRejected(method: String, code: Int, message: String, server: String)
   case signInRequired
   case subscriptionRequired
   case signInPageUnopened
@@ -65,7 +65,8 @@ nonisolated enum CodexFailure: ProviderFailure {
     case .timedOut: "OpenAI app server did not answer in time"
     case .connectionClosed: "OpenAI connection closed"
     case .invalidResponse(let field): "OpenAI returned an unreadable \(field)"
-    case .requestRejected(_, let message): message
+    case .requestRejected(let method, _, let message, let server):
+      "Codex \(server) rejected \(method), \(message)"
     case .signInRequired: "Sign in to this OpenAI account"
     case .subscriptionRequired: "Connect this account with a ChatGPT subscription"
     case .signInPageUnopened: "OpenAI sign-in page could not open"

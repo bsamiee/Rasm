@@ -26,6 +26,8 @@ actor CodexConnection {
   private let execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>
   private let registry: Mutex<Registry> = Mutex(Registry())
   private var nextRequestID: Int = 0
+  private var methods: [String: String] = [:]
+  private var serverVersion: String = "app-server"
   private var notifications: [String: [JSONValue]] = [:]
 
   private static let retainedNotifications: Set<String> = [
@@ -63,8 +65,15 @@ actor CodexConnection {
         ]),
         "capabilities": .object(["experimentalApi": .bool(true)]),
       ])
-    ).bind { _ in
-      await write(.object(["method": .string("initialized")]))
+    ).bind { result in
+      serverVersion = Self.version(in: result["userAgent"]?.stringValue) ?? serverVersion
+      return await write(.object(["method": .string("initialized")]))
+    }
+  }
+
+  private static func version(in userAgent: String?) -> String? {
+    userAgent.flatMap { agent in
+      agent.firstMatch(of: /^[^\/]+\/(\S+)/).map { match in String(match.1) }
     }
   }
 
@@ -86,11 +95,15 @@ actor CodexConnection {
       var message: [String: JSONValue] = ["id": .string(id), "method": .string(method)]
       if let params { message["params"] = params }
       registry.withLock { state in state.replies[id] = .unclaimed }
+      methods[id] = method
       if case .failure(let error) = await write(.object(message)) {
         registry.withLock { state in _ = state.replies.removeValue(forKey: id) }
+        methods.removeValue(forKey: id)
         return .failure(error)
       }
-      return await reply(to: id)
+      let answer: Result<JSONValue, CodexFailure> = await reply(to: id)
+      methods.removeValue(forKey: id)
+      return answer
     }
   }
 
@@ -266,7 +279,8 @@ actor CodexConnection {
       return
     }
     if let id: String = message["id"]?.stringValue {
-      let reply: Result<JSONValue, CodexFailure> = Self.reply(message)
+      let reply: Result<JSONValue, CodexFailure> = Self.reply(
+        message, method: methods[id] ?? "request", server: serverVersion)
       let awaited: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>? =
         registry.withLock { state in
           switch state.replies[id] {
@@ -303,7 +317,9 @@ actor CodexConnection {
     }
   }
 
-  private static func reply(_ message: JSONValue) -> Result<JSONValue, CodexFailure> {
+  private static func reply(
+    _ message: JSONValue, method: String, server: String
+  ) -> Result<JSONValue, CodexFailure> {
     if let error: JSONValue = message["error"] {
       let code: Result<Int, CodexFieldFailure> =
         error["code"]?.intValue.map(Result.success) ?? .failure(CodexFieldFailure("error code"))
@@ -312,7 +328,9 @@ actor CodexConnection {
         ?? .failure(CodexFieldFailure("error message"))
       return combine(code, description)
         .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
-        .flatMap { code, description in .failure(.requestRejected(code: code, message: description))
+        .flatMap { code, description in
+          .failure(
+            .requestRejected(method: method, code: code, message: description, server: server))
         }
     }
     return message["result"].map { result in .success(result) }

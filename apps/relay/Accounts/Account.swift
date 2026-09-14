@@ -114,6 +114,7 @@ nonisolated enum AccountOperation: Equatable, Sendable {
 
 nonisolated enum AuthenticationPhase: Equatable, Sendable {
   case pending
+  case completing
   case refused(String)
   case cancelling
 }
@@ -123,6 +124,10 @@ nonisolated struct AuthenticationPresentation: Identifiable, Equatable, Sendable
   let provider: Provider
   let phase: AuthenticationPhase
   let startedAt: Date
+
+  func entering(_ phase: AuthenticationPhase) -> AuthenticationPresentation {
+    AuthenticationPresentation(id: id, provider: provider, phase: phase, startedAt: startedAt)
+  }
 }
 
 nonisolated protocol ProviderFailure: LocalizedError, Sendable {

@@ -1,3 +1,4 @@
+import AppKit
 import ServiceManagement
 import SwiftUI
 
@@ -22,6 +23,7 @@ struct SettingsView: View {
                 Image(systemName: "checkmark")
                   .foregroundStyle(.secondary)
                   .accessibilityLabel("Active")
+                  .help("Active account")
               }
             } icon: {
               Image(model.account.provider.symbol)
@@ -34,7 +36,7 @@ struct SettingsView: View {
               Button("Move Down") { store.moveAccount(model.id, by: 1) }
                 .disabled(store.accounts.last?.id == model.id)
               Divider()
-              Button("Remove Account…", role: .destructive) { accountToRemove = model }
+              Button("Remove Account", role: .destructive) { accountToRemove = model }
                 .disabled(model.isBusy)
             }
           }
@@ -70,6 +72,7 @@ struct SettingsView: View {
         .padding(8)
       }
       .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 280)
+      .toolbar(removing: .sidebarToggle)
     } detail: {
       if let selectedAccount {
         AccountSettings(store: store, model: selectedAccount)
@@ -184,7 +187,7 @@ private struct AccountSettings: View {
         HStack {
           switch model.authentication {
           case .connected: Button("Sign Out") { store.signOut(model.id) }
-          case .signInRequired: Button("Sign In…") { store.signIn(model.id) }
+          case .signInRequired: Button("Sign In") { store.signIn(model.id) }
           }
           Spacer()
           if let operation: AccountOperation = model.operation {
@@ -215,9 +218,8 @@ private struct GeneralSettings: View {
           "Launch at login",
           isOn: Binding(get: { store.loginItem.isEnabled }, set: store.setLoginItemEnabled)
         )
-        .disabled(store.loginItem.status == .notFound)
-        if store.loginItem.status == .requiresApproval {
-          Button("Open Login Items…") { SMAppService.openSystemSettingsLoginItems() }
+        if store.loginItem.requiresApproval {
+          Button("Open Login Items") { SMAppService.openSystemSettingsLoginItems() }
         }
       } footer: {
         if let issue: String = store.loginItem.issue { Text(issue) }
@@ -226,7 +228,10 @@ private struct GeneralSettings: View {
     .formStyle(.grouped)
     .navigationTitle("General")
     .task {
-      while case .success = await Result(catching: { try await Task.sleep(for: .seconds(1)) }) {
+      store.refreshLoginItem()
+      for await _ in NotificationCenter.default.notifications(
+        named: NSApplication.didBecomeActiveNotification)
+      {
         store.refreshLoginItem()
       }
     }
@@ -237,38 +242,71 @@ private struct SignInSheet: View {
   let store: AccountStore
   let provider: Provider
 
+  @State private var code: String = ""
+  @FocusState private var isCodeFocused: Bool
+
   var body: some View {
     VStack(alignment: .leading, spacing: 16) {
       Label("Sign In to \(provider.name)", image: provider.symbol)
         .font(.title3.weight(.medium))
-
-      switch store.authentication?.phase {
-      case .refused(let issue):
-        Text(issue)
-          .font(.callout)
-      case .pending, .cancelling, .none:
-        HStack(spacing: 8) {
-          ProgressView().controlSize(.small)
-          Text("Finish signing in to \(provider.name) in the browser")
-            .font(.callout)
-          Spacer()
-          if let started: Date = store.authentication?.startedAt {
-            Text(.durationOffset(to: started), format: .time(pattern: .minuteSecond))
-              .font(.caption)
-              .monospacedDigit()
-              .foregroundStyle(.secondary)
-          }
-        }
+      if let pending: AuthenticationPresentation = store.authentication {
+        content(pending)
       }
-
-      Button(store.authentication?.phase == .cancelling ? "Canceling…" : "Cancel", role: .cancel) {
-        store.cancelAuthentication()
-      }
-      .keyboardShortcut(.cancelAction)
-      .frame(maxWidth: .infinity, alignment: .trailing)
     }
     .padding(24)
     .frame(width: 360)
     .interactiveDismissDisabled()
+    .defaultFocus($isCodeFocused, true)
+  }
+
+  @ViewBuilder
+  private func content(_ pending: AuthenticationPresentation) -> some View {
+    switch pending.phase {
+    case .refused(let issue):
+      Text(issue)
+        .font(.callout)
+      Button("Done") { store.dismissAuthentication() }
+        .keyboardShortcut(.defaultAction)
+        .frame(maxWidth: .infinity, alignment: .trailing)
+    case .pending, .completing, .cancelling:
+      HStack(spacing: 8) {
+        ProgressView().controlSize(.small)
+        Text(status(pending.phase))
+          .font(.callout)
+        Spacer()
+        Text(.durationOffset(to: pending.startedAt), format: .time(pattern: .minuteSecond))
+          .font(.caption)
+          .monospacedDigit()
+          .foregroundStyle(.secondary)
+      }
+      if provider == .claude {
+        TextField("Code", text: $code, prompt: Text("Paste code here if prompted"))
+          .focused($isCodeFocused)
+          .onSubmit { store.submitAuthenticationCode(code) }
+          .disabled(pending.phase != .pending)
+      }
+      HStack {
+        Spacer()
+        Button("Cancel", role: .cancel) { store.cancelAuthentication() }
+          .keyboardShortcut(.cancelAction)
+          .disabled(pending.phase == .cancelling)
+        if provider == .claude {
+          Button("Continue") { store.submitAuthenticationCode(code) }
+            .keyboardShortcut(.defaultAction)
+            .disabled(
+              pending.phase != .pending
+                || code.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+        }
+      }
+    }
+  }
+
+  private func status(_ phase: AuthenticationPhase) -> String {
+    switch phase {
+    case .pending: "Opening browser to sign in"
+    case .completing: "Completing sign-in"
+    case .cancelling: "Stopping sign-in"
+    case .refused(let issue): issue
+    }
   }
 }

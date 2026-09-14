@@ -38,6 +38,7 @@ nonisolated enum UsagePresentation {
       case .running(let until): countdown(until: until, at: now)
       case .blocked: "Blocked"
       case .ready, .none: "Awaiting update"
+      case .noSessionWindow: nil
       }
     guard !isCurrent || availability != .ready else { return nil }
     let parts: [String] = [used, state].compactMap { $0 }
@@ -47,7 +48,11 @@ nonisolated enum UsagePresentation {
   static func reading(_ window: QuotaWindow, at now: Date) -> String {
     let used: String? = percentage(window.used)
     let reset: String? = window.resetsAt.map { reset in
-      reset > now ? weekday(reset) : "Awaiting update"
+      switch reset.timeIntervalSince(now) {
+      case ...0: "Awaiting update"
+      case ..<86_400: countdown(until: reset, at: now)
+      default: weekday(reset)
+      }
     }
     return [used, reset].compactMap { $0 }.joined(separator: " · ")
   }
@@ -55,5 +60,18 @@ nonisolated enum UsagePresentation {
   static func blockedLine(_ availability: Availability?) -> String? {
     guard case .blocked(let until) = availability else { return nil }
     return until.map { reset in "Blocked until \(weekday(reset))" } ?? "Blocked"
+  }
+
+  static func signInLine(expiring expiry: Date?, at now: Date) -> String? {
+    guard let expiry, expiry <= now else { return nil }
+    return "Login expired"
+  }
+
+  static func loginExpiry(_ expiry: Date) -> String {
+    expiry.formatted(.dateTime.month(.abbreviated).day())
+  }
+
+  static func loginExpiryTooltip(_ expiry: Date) -> String {
+    "Login expires \(expiry.formatted(.dateTime.weekday(.wide).month().day().hour().minute()))"
   }
 }

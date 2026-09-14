@@ -39,6 +39,7 @@ actor ClaudeClient {
   private let username: String
   private let session: URLSession
   nonisolated let sharedConfigFile: URL
+  nonisolated let sharedRefreshLock: URL
   private var verifiedIdentities: [SHA256Digest: AccountIdentity] = [:]
   private var usageCache: [UUID: ClaudeCachedUsage] = [:]
   private var retryAfter: [UUID: Date] = [:]
@@ -55,10 +56,10 @@ actor ClaudeClient {
     configuration.timeoutIntervalForResource = 30
     configuration.requestCachePolicy = .reloadIgnoringLocalCacheData
     session = URLSession(configuration: configuration)
-    sharedConfigFile =
-      Self.defaultStore(
-        paths: paths, environment: environment, username: username
-      ).configFile
+    let shared: ClaudeCredentialStore = Self.defaultStore(
+      paths: paths, environment: environment, username: username)
+    sharedConfigFile = shared.configFile
+    sharedRefreshLock = shared.directory.appending(path: ".oauth_refresh.lock")
   }
 
   func settle(known: [Account]) async -> Result<Void, ClaudeFailure> {
@@ -99,7 +100,8 @@ actor ClaudeClient {
   }
 
   func currentSelection(known: [Account]) async -> Result<ClaudeSelection, ClaudeFailure> {
-    await defaultStore().identity().bind { identity -> Result<ClaudeSelection, ClaudeFailure> in
+    let shared: ClaudeCredentialStore = defaultStore()
+    return await shared.identity().bind { identity -> Result<ClaudeSelection, ClaudeFailure> in
       guard let identity else {
         lastSelection = nil
         lastCredential = nil
@@ -108,6 +110,11 @@ actor ClaudeClient {
       let saved: Result<Void, ClaudeFailure> = await saveLastCredential(
         incoming: identity, known: known)
       lastSelection = identity
+      if case .success(.credential(let held)) = await shared.read(),
+        held.identity.isSameAccount(as: identity)
+      {
+        lastCredential = held
+      }
       let match: Account? = known.first { account in
         account.provider == .claude && account.identity.isSameAccount(as: identity)
       }
@@ -115,9 +122,11 @@ actor ClaudeClient {
     }
   }
 
-  func connect(id: UUID) async -> Result<AccountIdentity, ClaudeFailure> {
+  func connect(
+    id: UUID, codes: AsyncStream<String>
+  ) async -> Result<AccountIdentity, ClaudeFailure> {
     let store: ClaudeCredentialStore = privateStore(id)
-    return await authenticate(store: store, email: nil)
+    return await authenticate(store: store, email: nil, codes: codes)
       .bind { _ in await store.read() }
       .flatMap { content in
         content.credential.map { credential in .success(credential.identity) }
@@ -125,9 +134,11 @@ actor ClaudeClient {
       }
   }
 
-  func reconnect(account: Account) async -> Result<AccountIdentity, ClaudeFailure> {
+  func reconnect(
+    account: Account, codes: AsyncStream<String>
+  ) async -> Result<AccountIdentity, ClaudeFailure> {
     let store: ClaudeCredentialStore = privateStore(account.id)
-    return await authenticate(store: store, email: account.identity.email)
+    return await authenticate(store: store, email: account.identity.email, codes: codes)
       .bind { _ in await store.read() }
       .bind { content -> Result<AccountIdentity, ClaudeFailure> in
         guard let credential: ClaudeCredential = content.credential else {
@@ -163,7 +174,9 @@ actor ClaudeClient {
     }
     return await credential(for: account, isSelected: isSelected).bind { stored in
       await request(for: account, isSelected: isSelected, credential: stored) { credential in
-        await fetchUsage(credential.token)
+        await fetchUsage(credential.token).map { usage in
+          usage.withSignInExpiry(credential.token.refreshTokenExpiresAt)
+        }
       }
     }
     .map { usage in
@@ -185,8 +198,19 @@ actor ClaudeClient {
       return await credential(for: account, isSelected: isSelected).bind { stored in
         await greet(store: store(for: account, isSelected: isSelected), token: stored.token)
       }
-      .bind { _ in await usage(for: account, isSelected: isSelected, fresh: true) }
+      .bind { reset in
+        await usage(for: account, isSelected: isSelected, fresh: true).map { fresh in
+          started(fresh, reset: reset, for: account)
+        }
+      }
     }
+  }
+
+  private func started(_ usage: AccountUsage, reset: Date?, for account: Account) -> AccountUsage {
+    let merged: AccountUsage = usage.settingSessionReset(reset)
+    usageCache[account.id] = ClaudeCachedUsage(
+      usage: merged, until: Date().addingTimeInterval(Self.usageCacheDuration))
+    return merged
   }
 
   func select(_ account: Account, outgoing: Account?) async -> Result<
@@ -245,10 +269,8 @@ actor ClaudeClient {
   private func write(
     _ credential: ClaudeCredential, into store: ClaudeCredentialStore
   ) async -> Result<Void, ClaudeFailure> {
-    await ClaudeLock.storageWrite(directory: store.directory) {
-      await store.writeItem(credential.item)
-    }
-    .flatMap { _ in store.writeAccount(credential.account) }
+    await store.writeItem(credential.item)
+      .flatMap { _ in store.writeAccount(credential.account) }
   }
 
   private func record(_ pending: ClaudePendingSwitch?) -> Result<Void, ClaudeFailure> {
@@ -442,15 +464,15 @@ actor ClaudeClient {
 
   private func greet(
     store: ClaudeCredentialStore, token: ClaudeOAuthToken
-  ) async -> Result<Void, ClaudeFailure> {
+  ) async -> Result<Date?, ClaudeFailure> {
     await runSession(store: store, action: .greeting, token: token)
   }
 
   private func runSession(
     store: ClaudeCredentialStore, action: ClaudeSessionAction, token: ClaudeOAuthToken?
-  ) async -> Result<Void, ClaudeFailure> {
+  ) async -> Result<Date?, ClaudeFailure> {
     await createDirectories(store: store).flatMap { _ in executable() }.bind {
-      binary -> Result<Void, ClaudeFailure> in
+      binary -> Result<Date?, ClaudeFailure> in
       let sessionID: UUID = UUID()
       var childEnvironment: [String: String] = processEnvironment(store: store)
       let tokenPipe: Result<FileDescriptor?, ClaudeFailure> =
@@ -467,7 +489,7 @@ actor ClaudeClient {
             return descriptor
           }
         } ?? .success(nil)
-      return await tokenPipe.bind { descriptor -> Result<Void, ClaudeFailure> in
+      return await tokenPipe.bind { descriptor -> Result<Date?, ClaudeFailure> in
         let invocation: ProcessInvocation = ProcessInvocation(
           executable: binary,
           arguments: [
@@ -481,7 +503,7 @@ actor ClaudeClient {
           workingDirectory: paths.workingDirectory,
           inheritedInput: descriptor
         )
-        let outcome: Result<Void, ClaudeFailure> = await ClaudeSession.run(
+        let outcome: Result<Date?, ClaudeFailure> = await ClaudeSession.run(
           invocation: invocation, action: action, sessionID: sessionID)
         if let descriptor { try? descriptor.close() }
         return outcome
@@ -503,24 +525,48 @@ actor ClaudeClient {
   }
 
   private func authenticate(
-    store: ClaudeCredentialStore, email: String?
+    store: ClaudeCredentialStore, email: String?, codes: AsyncStream<String>
   ) async -> Result<Void, ClaudeFailure> {
     await createDirectories(store: store)
       .flatMap { _ in executable() }
       .bind { binary -> Result<Void, ClaudeFailure> in
         var arguments: [String] = ["auth", "login", "--claudeai"]
         if let email { arguments.append(contentsOf: ["--email", email]) }
-        return await ProcessRun.collect(
+        return await ProcessRun.stream(
           ProcessInvocation(
             executable: binary, arguments: arguments, environment: processEnvironment(store: store),
             workingDirectory: paths.workingDirectory
           ), deadline: Self.loginDeadline
-        )
+        ) { execution in
+          await Self.attendLogin(execution, codes: codes)
+        }
         .claude()
-        .flatMap { output in
-          output.status.isSuccess ? .success(()) : .failure(.authenticationFailed(output.status))
+        .flatMap { _, status in
+          status.isSuccess ? .success(()) : .failure(.authenticationFailed(status))
         }
       }
+  }
+
+  private static func attendLogin(
+    _ execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>,
+    codes: AsyncStream<String>
+  ) async -> Result<Void, ProcessFailure> {
+    await withTaskGroup { group in
+      group.addTask(name: "Login code") {
+        for await code in codes {
+          return await Result {
+            _ = try await execution.standardInputWriter.write(Array((code + "\n").utf8))
+            try await execution.standardInputWriter.finish()
+          }
+          .mapError(ProcessRun.failure)
+        }
+        return .success(())
+      }
+      _ = await Result { for try await _ in execution.standardOutput.strings() {} }
+      group.cancelAll()
+      let delivered: Result<Void, ProcessFailure> = await group.next() ?? .success(())
+      return Task.isCancelled ? .failure(.cancelled) : delivered
+    }
   }
 
   private func logOut(store: ClaudeCredentialStore) async -> Result<Void, ClaudeFailure> {

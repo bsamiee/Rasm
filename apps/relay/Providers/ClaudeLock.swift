@@ -117,15 +117,6 @@ actor ClaudeLock {
       updateEvery: .seconds(5), body)
   }
 
-  static func storageWrite<Value: Sendable>(
-    directory: URL,
-    _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
-  ) async -> Result<Value, ClaudeFailure> {
-    await holding(
-      [ClaudeLockRequest(url: directory.appending(path: ".storage-write.lock"), stale: 15)],
-      updateEvery: .milliseconds(7_500), body)
-  }
-
   private static func holding<Value: Sendable>(
     _ requests: [ClaudeLockRequest], updateEvery interval: Duration,
     _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>

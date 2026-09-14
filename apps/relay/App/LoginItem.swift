@@ -2,10 +2,10 @@ import ServiceManagement
 
 struct LoginItem {
   let status: SMAppService.Status
-  let updateFailed: Bool
+  let failure: String?
 
   static var current: LoginItem {
-    LoginItem(status: SMAppService.mainApp.status, updateFailed: false)
+    LoginItem(status: SMAppService.mainApp.status, failure: nil)
   }
 
   var isEnabled: Bool {
@@ -16,13 +16,10 @@ struct LoginItem {
     }
   }
 
+  var requiresApproval: Bool { status == .requiresApproval }
+
   var issue: String? {
-    switch (status, updateFailed) {
-    case (_, true): "Launch at login could not be updated"
-    case (.notFound, false): "Launch at login is unavailable"
-    case (.enabled, false), (.notRegistered, false), (.requiresApproval, false): nil
-    @unknown default: nil
-    }
+    failure ?? (requiresApproval ? "Approval pending in Login Items" : nil)
   }
 
   static func setEnabled(_ enabled: Bool) async -> LoginItem {
@@ -33,7 +30,7 @@ struct LoginItem {
         try await SMAppService.mainApp.unregister()
       }
     }
-    let updateFailed: Bool = if case .failure = update { true } else { false }
-    return LoginItem(status: SMAppService.mainApp.status, updateFailed: updateFailed)
+    return LoginItem(
+      status: SMAppService.mainApp.status, failure: update.failure?.localizedDescription)
   }
 }

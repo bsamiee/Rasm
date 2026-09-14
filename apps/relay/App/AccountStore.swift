@@ -24,6 +24,7 @@ final class AccountStore {
     subsystem: "app.rasm.relay", category: "Accounts")
   @ObservationIgnored private var root: Task<Void, Never>?
   @ObservationIgnored private var authenticationTask: Task<Void, Never>?
+  @ObservationIgnored private var authenticationCodes: AsyncStream<String>.Continuation?
   @ObservationIgnored private var saveTask: Task<Void, Never>?
   @ObservationIgnored private var refreshPause: Task<Void, any Error>?
   @ObservationIgnored private var lastPanelOpen: Date = .distantPast
@@ -93,6 +94,9 @@ final class AccountStore {
         group.addTask(name: "Wake") { await self.observeWake() }
         group.addTask(name: "Claude selection") {
           await self.observe(file: self.claude.sharedConfigFile)
+        }
+        group.addTask(name: "Claude refresh lock") {
+          await self.observeRefreshLock(self.claude.sharedRefreshLock)
         }
         group.addTask(name: "Codex selection") { await self.observe(file: self.codex.liveAuthFile) }
         group.addTask(name: "Codex rate limits") { await self.observeCodexUpdates() }
@@ -204,12 +208,31 @@ final class AccountStore {
     authenticate(id: id, provider: model.account.provider, existing: model)
   }
 
-  func cancelAuthentication() {
-    guard let pending: AuthenticationPresentation = authentication, pending.phase != .cancelling
+  func submitAuthenticationCode(_ code: String) {
+    let trimmed: String = code.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard let pending: AuthenticationPresentation = authentication, pending.phase == .pending,
+      let codes: AsyncStream<String>.Continuation = authenticationCodes, !trimmed.isEmpty
     else { return }
-    authentication = AuthenticationPresentation(
-      id: pending.id, provider: pending.provider, phase: .cancelling, startedAt: pending.startedAt)
-    authenticationTask?.cancel()
+    authentication = pending.entering(.completing)
+    codes.yield(trimmed)
+    codes.finish()
+  }
+
+  func cancelAuthentication() {
+    guard let pending: AuthenticationPresentation = authentication else { return }
+    switch pending.phase {
+    case .pending, .completing:
+      authentication = pending.entering(.cancelling)
+      authenticationTask?.cancel()
+    case .refused, .cancelling: return
+    }
+  }
+
+  func dismissAuthentication() {
+    guard let pending: AuthenticationPresentation = authentication,
+      case .refused = pending.phase
+    else { return }
+    authentication = nil
   }
 
   func signOut(_ id: UUID) {
@@ -396,14 +419,20 @@ final class AccountStore {
   private func authenticate(id: UUID, provider: Provider, existing: AccountModel?) {
     authentication = AuthenticationPresentation(
       id: id, provider: provider, phase: .pending, startedAt: Date())
+    let codes: (stream: AsyncStream<String>, continuation: AsyncStream<String>.Continuation) =
+      AsyncStream<String>.makeStream()
+    authenticationCodes = codes.continuation
     let task: Task<Void, Never> = Task(name: "Sign in \(provider.name)") { [self] in
       let result: Result<AccountIdentity, ProviderError> =
         switch (provider, existing) {
-        case (.claude, .some(let model)): await claude.reconnect(account: model.account).erased()
-        case (.claude, .none): await claude.connect(id: id).erased()
+        case (.claude, .some(let model)):
+          await claude.reconnect(account: model.account, codes: codes.stream).erased()
+        case (.claude, .none): await claude.connect(id: id, codes: codes.stream).erased()
         case (.openAI, .some(let model)): await codex.reconnect(account: model.account).erased()
         case (.openAI, .none): await codex.connect(id: id).erased()
         }
+      codes.continuation.finish()
+      authenticationCodes = nil
       switch result {
       case .success(let identity) where !Task.isCancelled:
         await connect(id: id, provider: provider, identity: identity, existing: existing)
@@ -430,23 +459,35 @@ final class AccountStore {
   private func connect(
     id: UUID, provider: Provider, identity: AccountIdentity, existing: AccountModel?
   ) async {
-    if let duplicate: AccountModel = accounts.first(where: { model in
+    let duplicate: AccountModel? = accounts.first { model in
       model.id != id && model.account.provider == provider
         && model.account.identity.isSameAccount(as: identity)
-    }) {
+    }
+    let replaced: AccountModel?
+    switch (duplicate, existing) {
+    case (.some(let connected), _) where connected.isConnected || connected.isBusy:
       authentication = AuthenticationPresentation(
         id: id, provider: provider, phase: .refused("\(identity.email) is already connected"),
         startedAt: Date())
-      duplicate.issue = nil
+      connected.issue = nil
       if existing == nil { await discard(id, provider: provider) }
       return
+    case (.some(let signedOut), .none): replaced = signedOut
+    case (.some, .some), (.none, _): replaced = nil
     }
     let model: AccountModel =
       existing
       ?? AccountModel(
-        account: Account(id: id, provider: provider, identity: identity, sessionPolicy: .manual),
-        authentication: .connected, usage: .unavailable)
-    if existing == nil { accounts.append(model) }
+        account: Account(
+          id: id, provider: provider, identity: identity,
+          sessionPolicy: replaced?.account.sessionPolicy ?? .manual),
+        authentication: .connected, usage: replaced?.usage ?? .unavailable)
+    if let replaced, let index: Int = accounts.firstIndex(where: { $0.id == replaced.id }) {
+      accounts[index] = model
+      await discard(replaced.id, provider: provider)
+    } else if existing == nil {
+      accounts.append(model)
+    }
     model.account.identity = identity
     model.authentication = .connected
     model.issue = nil
@@ -544,6 +585,18 @@ final class AccountStore {
     } catch {
       logger.error(
         "Watch on \(file.path, privacy: .private): \(String(describing: error), privacy: .private)")
+    }
+  }
+
+  private func observeRefreshLock(_ lock: URL) async {
+    do {
+      for try await _ in FileWatch.presence(of: lock) {
+        guard !isSwitching, !FileManager.default.fileExists(atPath: lock.path) else { continue }
+        await readSelection()
+      }
+    } catch {
+      logger.error(
+        "Watch on \(lock.path, privacy: .private): \(String(describing: error), privacy: .private)")
     }
   }
 

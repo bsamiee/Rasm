@@ -57,12 +57,14 @@ nonisolated enum Availability: Equatable, Sendable {
   case blocked(until: Date?)
   case running(until: Date)
   case ready
+  case noSessionWindow
 }
 
 nonisolated struct AccountUsage: Equatable, Sendable {
   let windows: [QuotaWindow]
   let includedUsageAllowed: Bool?
   let observedAt: Date
+  var signInExpiresAt: Date? = nil
 
   var session: QuotaWindow? { windows.first { window in window.kind == .session } }
   var weekly: QuotaWindow? { windows.first { window in window.kind == .weekly } }
@@ -75,7 +77,8 @@ nonisolated struct AccountUsage: Equatable, Sendable {
   func availability(at now: Date) -> Availability {
     if let weekly, weekly.blocks { return .blocked(until: weekly.resetsAt) }
     if includedUsageAllowed == false { return .blocked(until: weekly?.resetsAt) }
-    if let reset: Date = session?.resetsAt, reset > now { return .running(until: reset) }
+    guard let session else { return .noSessionWindow }
+    if let reset: Date = session.resetsAt, reset > now { return .running(until: reset) }
     return .ready
   }
 
@@ -85,11 +88,31 @@ nonisolated struct AccountUsage: Equatable, Sendable {
         window.keepingReset(
           from: previous?.windows.first { earlier in earlier.kind == window.kind }, at: now)
       },
-      includedUsageAllowed: includedUsageAllowed, observedAt: observedAt)
+      includedUsageAllowed: includedUsageAllowed, observedAt: observedAt,
+      signInExpiresAt: signInExpiresAt)
+  }
+
+  func withSignInExpiry(_ date: Date?) -> AccountUsage {
+    AccountUsage(
+      windows: windows, includedUsageAllowed: includedUsageAllowed, observedAt: observedAt,
+      signInExpiresAt: date)
   }
 
   var nextReset: Date? {
     windows.compactMap(\.resetsAt).min()
+  }
+
+  func settingSessionReset(_ reset: Date?) -> AccountUsage {
+    guard let reset, let session, session.resetsAt == nil else { return self }
+    return AccountUsage(
+      windows: windows.map { window in
+        window.kind == .session
+          ? QuotaWindow(
+            kind: .session, used: window.used, resetsAt: reset, rejected: window.rejected)
+          : window
+      },
+      includedUsageAllowed: includedUsageAllowed, observedAt: observedAt,
+      signInExpiresAt: signInExpiresAt)
   }
 }
 

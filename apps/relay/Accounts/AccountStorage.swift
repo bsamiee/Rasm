@@ -203,11 +203,13 @@ actor AccountStorage {
     let windows: [Window]
     let includedUsageAllowed: Bool?
     let observedAt: Date
+    let signInExpiresAt: Date?
 
     init(_ value: AccountUsage) {
       windows = value.windows.map(Window.init)
       includedUsageAllowed = value.includedUsageAllowed
       observedAt = value.observedAt
+      signInExpiresAt = value.signInExpiresAt
     }
 
     func accountUsage(id: UUID) -> Result<AccountUsage, AccountStorageErrors> {
@@ -219,7 +221,9 @@ actor AccountStorage {
         ? .success(observedAt)
         : .failure(AccountStorageErrors(.invalidObservedAt(id: id)))
       return combine(checked, observed).map { windows, date in
-        AccountUsage(windows: windows, includedUsageAllowed: includedUsageAllowed, observedAt: date)
+        AccountUsage(
+          windows: windows, includedUsageAllowed: includedUsageAllowed, observedAt: date,
+          signInExpiresAt: signInExpiresAt)
       }
     }
   }
