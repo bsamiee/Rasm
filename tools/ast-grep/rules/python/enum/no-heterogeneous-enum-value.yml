@@ -31,5 +31,5 @@ rule:
                 kind: block
                 inside: {matches: enum-class}
                 not: {has: {any: [{matches: unpacking-init}, {kind: decorated_definition, has: {matches: unpacking-init}}]}}
-message: 'Member `$MEMBER` holds data of several kinds as one tuple read by position'
+message: 'Member `$MEMBER` holds values of mixed kinds in one tuple read by position'
 note: 'Declare one field per element and unpack them in `__init__(self, <a>, <b>)`'

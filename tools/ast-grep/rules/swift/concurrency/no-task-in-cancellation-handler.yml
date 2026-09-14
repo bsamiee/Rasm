@@ -24,5 +24,5 @@ rule:
           all:
             - has: {field: target, regex: '\.onTermination$'}
             - has: {field: result, kind: lambda_literal, has: {matches: unstructured-task, stopBy: end, pattern: $TASK}}
-message: '`$TASK` launched from a synchronous cancellation handler holds no happens-before relation to the awaiting frame and orphans its work'
-note: 'Cancel synchronously inside the handler, resume or finish the continuation, or await the cleanup as a child task of the enclosing group, no template derives the form'
+message: '`$TASK` from a synchronous cancellation handler runs with no happens-before relation to the awaiting frame'
+note: 'Cancel synchronously inside the handler, resume or finish the continuation, or await the cleanup as a child task of the enclosing group'

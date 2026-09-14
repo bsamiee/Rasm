@@ -22,12 +22,12 @@ Numbered lines chain, each consuming the line before, unnumbered lines are alter
 One member's signature and doc, a type's members, a module's exports, or a configuration option, read from the installed files at the pinned version:
 
 ```bash
-# [VERSION] Installed version of a direct or transitive package and the package that pulls it in, one line per ecosystem
+# [VERSION] Installed version of a direct or transitive package and the package that depends on it, one line per ecosystem
 # [DOTNET] Resolved version at each node of the graph from a restored project
 dotnet nuget why <project>.csproj <id>
-# [TYPESCRIPT] Version per puller, a transitive package's directory is node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>, scope / spelled +
+# [TYPESCRIPT] Version per dependent, a transitive package's directory is node_modules/.pnpm/<pkg>@<version>*/node_modules/<pkg>, scope / spelled +
 pnpm why <pkg> --depth 1
-# [PYTHON] Version with every direct puller from uv.lock, an extra or group in parentheses
+# [PYTHON] Version with every direct dependent from uv.lock, an extra or group in parentheses
 uv tree --frozen --invert --package <pkg> --depth 1
 
 # [DOTNET] Types declaring a member as .xml doc ids, ``N follows a generic method name, no decompile
@@ -70,13 +70,13 @@ rg -n -A3 '<Target Name="<target>"' "$(dotnet msbuild <project>.csproj -getPrope
 
 ## [02]-[USAGE]
 
-How a member composes, from the repository's recipes, source, wiki, and README and from public code, one concept per query naming the symbol:
+How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming the symbol:
 
 ```text
 # [CONTEXT7] ID is the repository URL's /owner/repo lowercased, resolve when metadata names no URL
 # Candidates with snippet count, reputation, benchmark score, and Versions
 mcp__context7__resolve-library-id {"libraryName": "<repository name>", "query": "<task sentence naming the symbol>"}
-# Recipes and source of the default branch with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
+# Code examples and source of the default branch with a Source URL per snippet, wiki pages can describe an older major, `not found` means unindexed
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>", "query": "<one concept naming the symbol>"}
 # Snapshot from the Versions list, __branch__<name> snapshots an older major
 mcp__context7__query-docs {"libraryId": "/<owner>/<repo>/<version>", "query": "<one concept>"}
@@ -89,7 +89,7 @@ mcp__deepwiki__read_wiki_structure {"repoName": "<owner>/<repo>"}
 # 2. Answer with quoted signatures over repositories step 1 indexed, up to ten per call
 mcp__deepwiki__ask_question {"repoName": ["<owner>/<repo>", "<owner>/<repo>"], "question": "<question naming the members>"}
 
-# [GITHUB] Public code composing two members, repository and commit per fragment
+# [GITHUB] Public code composing members, repository and commit per fragment
 mcp__github__search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
 
 # [DOTNET] AGENTS.md of an installed NuGet package, its README otherwise, from the packages folder or the source
@@ -116,7 +116,7 @@ Repository, commit, and tag behind an installed version, then its tree, files, b
 
 ```bash
 # 1. Repository URL and build commit from package metadata, one line per ecosystem
-# [DOTNET] projectUrl holds the repository when the repository element carries a commit alone
+# [DOTNET] projectUrl holds the repository when the repository element holds a commit alone
 rg -o '<(repository|projectUrl)[^<]*' .cache/nuget/packages/<id>/<version>/<id>.nuspec
 # [TYPESCRIPT] Repository URL, package directory in a monorepo, and commit when the publisher recorded one
 pnpm view <pkg>@<version> repository.url repository.directory gitHead --json

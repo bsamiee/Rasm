@@ -33,5 +33,5 @@ rule:
                 - matches: secret-name
                 - precedes: {pattern: $VALUE, not: {matches: descriptor-value}, stopBy: {pattern: $_}}
             - precedes: {pattern: $VALUE, matches: secret-value, stopBy: {pattern: $_}}
-message: '`$KEY` carries `$VALUE` into the child environment, `ps` reads the environment of every process of the uid'
-note: 'Write the secret into a pipe and pass the descriptor number the child reads it from, no fix, the descriptor is a value the match does not hold'
+message: '`$KEY` exposes `$VALUE` in the child environment to `ps` under the same uid'
+note: 'Write the secret into a pipe and pass the descriptor number the child reads it from'

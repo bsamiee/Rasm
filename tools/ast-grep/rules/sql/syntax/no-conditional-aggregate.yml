@@ -24,4 +24,4 @@ transform:
     SEPARATOR_PARAMETER: {replace: {source: $SEPARATOR, replace: '^(.+)$', by: ', $1'}}
 fix: $AGG($VALUE$SEPARATOR_PARAMETER) filter (where $COND)
 message: '`$AGG` folds a conditional that answers null outside `$COND`'
-note: '`$AGG($VALUE) filter (where $COND)` aggregates the matching rows alone, the aggregate ignores null already'
+note: 'Use `$AGG($VALUE) filter (where $COND)`'

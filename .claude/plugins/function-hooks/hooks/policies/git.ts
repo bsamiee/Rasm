@@ -84,7 +84,7 @@ const GIT = {
     clean: { why: 'deletes untracked files', any: true },
     config: { why: 'defines a git alias that can hide a refused subcommand', refine: _config },
     push: { why: 'rewrites or deletes remote history', flags: ['-f', '-d', '--delete', '--mirror', '--prune'], starts: ['--force', '+', ':'] },
-    rebase: { why: 'rewrites commits other agents can already hold', any: true },
+    rebase: { why: 'rewrites commits other agents can hold', any: true },
     'reflog delete': { why: 'erases reflog entries, the last recovery path', any: true },
     'reflog drop': { why: 'erases reflog entries, the last recovery path', any: true },
     'reflog expire': { why: 'erases reflog entries, the last recovery path', any: true },

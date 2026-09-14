@@ -159,5 +159,5 @@ transform:
     MAPPED: rewrite($CALL, rewriters=[as-first, as-last, identity-first, identity-last, void-first, void-last, map-first, map-last])
 fix: $MAPPED
 message: '`$M.$F` callback lifts its result back into `$M`'
-note: '`<module>.map(callback)` for a transformed value, `<module>.as(value)` for a constant, `<module>.asVoid` for none, an identity re-lift is the value itself and the step goes'
+note: '`<module>.map(callback)` for a transformed value, `<module>.as(value)` for a constant, `<module>.asVoid` for none'
 labels: {CALL: {style: primary}}

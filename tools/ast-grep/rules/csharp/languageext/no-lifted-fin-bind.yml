@@ -46,4 +46,4 @@ constraints:
                                 strictness: cst
 fix: '$IO.lift($THUNK)'
 message: "`$IO.lift` over a Fin thunk binds a second lift of the Fin value"
-note: "`IO.lift(<thunk>)` over `Func<Fin<A>>` returns `IO<A>` that fails on the Fin failure"
+note: "Use `IO.lift(<thunk>)` alone"

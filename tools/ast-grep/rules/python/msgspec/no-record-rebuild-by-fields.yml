@@ -82,4 +82,4 @@ transform:
     TAIL: {replace: {source: $RECORD, replace: '^.+$', by: ')'}}
 fix: $REPLACE$MODULE_CALLEE$PREFIX$KEPT$TAIL$UNFIXED
 message: '`$C(...)` rebuilds `$X` by spelling its fields'
-note: 'Use `replace(<record>, <field>=<value>)` from `copy`, the record supplies every other field'
+note: 'Use `replace(<record>, <field>=<value>)` from `copy`'

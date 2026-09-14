@@ -95,4 +95,4 @@ rule:
             - has: {field: return_type, matches: value-annotation}
             - not: {matches: host-contract}
 message: 'Function returns `null`, `undefined`, or `NaN` for absence'
-note: 'Return `Option`, `Option.none()` inside, `Option.fromNullable` or `Option.liftPredicate` at the boundary, a component rendering nothing and a `JSON.stringify` replacer omitting a key answer the host contract'
+note: 'Return `Option`, `Option.none()` inside, `Option.fromNullable` or `Option.liftPredicate` at the boundary'

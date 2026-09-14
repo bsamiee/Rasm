@@ -42,4 +42,4 @@ rule:
         - not: {kind: await_expression, has: {matches: host-import}}
         - not: {kind: await_expression, matches: main-entry, has: {matches: run-promise}}
 message: '`await` or `for await` consumes a promise outside a promise conversion callback'
-note: '`Effect.tryPromise` converts the promise, `Stream.fromAsyncIterable` the async iterable, `await Effect.runPromise(program)` at `main` translates the result for the host'
+note: '`Effect.tryPromise` converts the promise, `Stream.fromAsyncIterable` the async iterable'

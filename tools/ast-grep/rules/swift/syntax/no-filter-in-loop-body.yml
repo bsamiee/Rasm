@@ -125,5 +125,5 @@ fix: |-
     for $CASE$GUARDED$$$PATTERN$Y$TYPE$COLON$Z in $COLL$OPEN$ELEMENT$BIND$SOURCE$CLOSE$WHERE {
       $STATEMENTS$$$REST
     }
-message: '`for` opens its body with a test over the element, the loop visits every element and the body selects'
-note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values, `for <element> in <sequence> where <condition>` the elements passing a test, a test reading no element is loop-invariant and a `try` or `await` test stays in the body, a `case` binding nothing while the body reads the element is the variant without a template'
+message: '`for` selects elements by a test at the top of its body'
+note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values, `for <element> in <sequence> where <condition>` the elements passing a test'

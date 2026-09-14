@@ -50,5 +50,5 @@ rule:
                     - all: [{matches: reads-7}, {matches: passes-7}]
                     - all: [{matches: reads-8}, {matches: passes-8}]
                     - all: [{matches: reads-9}, {matches: passes-9}]
-message: 'Local `$LOCAL` shadows the variable a caller passes to `$FUNCTION` at the position its nameref reads, the nameref binds the local'
+message: 'Local `$LOCAL` shadows the variable a caller passes to `$FUNCTION` at the position its nameref reads'
 note: Rename the local to a name no caller passes

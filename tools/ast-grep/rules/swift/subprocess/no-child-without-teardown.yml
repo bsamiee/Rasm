@@ -16,5 +16,5 @@ rule:
                 all:
                     - has: {stopBy: end, kind: simple_identifier, regex: '^teardownSequence$'}
                     - has: {stopBy: end, kind: simple_identifier, regex: '^(createSession|processGroupID)$'}
-message: '`$OPTIONS` leaves the child outside its own session with no teardown sequence, `PlatformOptions` defaults to `createSession = false` and `teardownSequence = []`'
-note: 'Set `$OPTIONS.createSession = true` or `$OPTIONS.processGroupID` and `$OPTIONS.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: <duration>)]` in the same function, no fix, the duration is a decision'
+message: '`$OPTIONS` leaves the child in the parent session with no teardown sequence'
+note: 'Set `$OPTIONS.createSession = true` or `$OPTIONS.processGroupID` and `$OPTIONS.teardownSequence = [.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: <duration>)]` in the same function'

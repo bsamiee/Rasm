@@ -12,7 +12,7 @@ Sink `<main>/.cache/observation/observation.db` holds one row per hook event the
 sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> ".read <scripts>/lifecycle.sql"
 ```
 
-One `-cmd ".param set :<name> <value>"` binds each parameter, the value SQL-evaluated: text goes as `'<text>'`, a text holding `'` as `"'<text>'"` with each `'` doubled, a number bare, an absent value as `null`, and a name left unbound reads null. `:ids` names a JSON array of finding ids. `:out` and `:sites` hold JSON text, `:out` the JSON a checker printed, `:sites` a JSON array of objects keyed by `site` columns. JSON text holds `'` and `"`, the quotes `.param set` splits its value on, so each binds as one row of the shell's binding table through an SQL argument after `<db>`, where `''` spells one `'`, and never through an SQL `-cmd`, which ends a `-bail` process before the arguments run:
+One `-cmd ".param set :<name> <value>"` binds each parameter, the value SQL-evaluated: text goes as `'<text>'`, a text holding `'` as `"'<text>'"` with each `'` doubled, a number bare, an absent value as `null`, and a name left unbound reads null. `:ids` names a JSON array of finding ids. `:out` and `:sites` hold JSON text, `:out` the JSON a checker printed, `:sites` a JSON array of objects keyed by `site` columns. JSON text holds `'` and `"`, the quotes `.param set` splits its value on, each binds as one row of the shell's binding table through an SQL argument after `<db>`, where `''` spells one `'`, an SQL `-cmd` ends a `-bail` process before the arguments run:
 
 ```bash
 sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> "insert into temp.sqlite_parameters(key, value) values(':out', '$(<checker command> | sd -F "'" "''")')" ".read <scripts>/<script>"
@@ -180,7 +180,7 @@ sqlite3 -json -cmd ".param set :literal '<literal>'" <db> "select session_id, ts
 # Every finding at its current path with its state, span, hash, and last close
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from finding_state where finding_id in (select value from json_each(:ids))"
 
-# Head hash of each finding's file now, beside the hash its last transition stored
+# Head hash of each finding's file beside the hash its last transition stored
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select finding_id, path, subject_hash, <head> as head from finding_state where finding_id in (select value from json_each(:ids))"
 
 # Which agent findings stand confirmed with no wrong at the same hash

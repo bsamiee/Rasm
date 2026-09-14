@@ -93,7 +93,7 @@ struct SettingsView: View {
       SignInSheet(store: store, provider: pending.provider)
     }
     .alert(
-      "Remove Account?",
+      "Remove Account",
       isPresented: Binding(
         get: { accountToRemove != nil }, set: { if !$0 { accountToRemove = nil } }),
       presenting: accountToRemove
@@ -147,7 +147,7 @@ private struct AccountSettings: View {
   var body: some View {
     Form {
       Section {
-        LabeledContent("Working account") {
+        LabeledContent("Active account") {
           if model.operation == .selecting {
             ProgressView().controlSize(.small)
           } else if model.isSelected {
@@ -176,7 +176,7 @@ private struct AccountSettings: View {
         }
       } footer: {
         Text(
-          "Manual starts a session when you click Start Session. Automatic sends “hi” when the provider reports the session ready."
+          "Manual starts a session on Start Session, Automatic sends “hi” when the provider reports the session ready"
         )
       }
 
@@ -249,7 +249,7 @@ private struct SignInSheet: View {
       case .pending, .cancelling, .none:
         HStack(spacing: 8) {
           ProgressView().controlSize(.small)
-          Text("Finish signing in to \(provider.name) in your browser.")
+          Text("Finish signing in to \(provider.name) in the browser")
             .font(.callout)
           Spacer()
           if let started: Date = store.authentication?.startedAt {
@@ -261,7 +261,7 @@ private struct SignInSheet: View {
         }
       }
 
-      Button(store.authentication?.phase == .cancelling ? "Cancelling…" : "Cancel", role: .cancel) {
+      Button(store.authentication?.phase == .cancelling ? "Canceling…" : "Cancel", role: .cancel) {
         store.cancelAuthentication()
       }
       .keyboardShortcut(.cancelAction)

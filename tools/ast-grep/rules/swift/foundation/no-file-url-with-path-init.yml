@@ -1,5 +1,5 @@
 # yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-legacy-file-url-init
+id: no-file-url-with-path-init
 language: swift
 severity: error
 rule:
@@ -22,5 +22,5 @@ transform:
     HINT: {replace: {source: $FILE, replace: 'isDirectory: ([^,]+)', by: 'directoryHint: $1 ? .isDirectory : .notDirectory'}}
     TAIL: {replace: {source: $HINT, replace: '^(.+)$', by: ', $1'}}
 fix: 'URL(filePath: $P$TAIL)'
-message: '`URL(fileURLWithPath:)` is the legacy file URL initializer, `URL(filePath:directoryHint:relativeTo:)` is the current one'
-note: '`URL(filePath: $P)`, `isDirectory: true` becomes `directoryHint: .isDirectory`, `false` becomes `.notDirectory`, a Bool name becomes the ternary over both, `relativeTo:` stays, an `isDirectory:` call or other expression is the variant the rule leaves unreported'
+message: '`URL(fileURLWithPath:)` predates `URL(filePath:directoryHint:relativeTo:)`'
+note: 'Call `URL(filePath: $P)` with `isDirectory: true` as `directoryHint: .isDirectory`, `false` as `.notDirectory`, and a `Bool` name as the ternary over both'

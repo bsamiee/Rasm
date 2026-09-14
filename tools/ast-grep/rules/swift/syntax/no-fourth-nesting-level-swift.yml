@@ -64,6 +64,6 @@ rule:
                     stopBy: {matches: boundary}
                     not: {inside: {matches: control, stopBy: {matches: function}}}
 message: Closure or control nesting reaches a fourth level
-note: Flatten the fourth level into a guard clause or a named function, a view builder's closures and the body closure of a scoped call are their call's form
+note: Flatten the fourth level into a guard clause or a named function
 labels:
     SCOPE: {style: primary}

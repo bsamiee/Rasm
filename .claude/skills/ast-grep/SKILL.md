@@ -20,7 +20,7 @@ MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_cod
 Patterns are valid code under the language's tree-sitter grammar with whole-node metavariables:
 - `$VAR` one named node, `$$VAR` one named or unnamed node (operators and keywords included)
 - `$$$MULTI` lazy zero-or-more without backtracking, `$_` and `$_NAME` non-capturing
-- A wrong-kind pattern takes `pattern: { context: <full-code>, selector: <kind> }`
+- Wrong-kind patterns take `pattern: { context: <full-code>, selector: <kind> }`
 - `$$$` before a node ends at the first fitting sibling, `f($$$H, { $$$P }, $$$T)` matches `f(x, { a }, { b })`
 - `smart` and `cst` require the comma before `$$$`, `f($A, $$$R)` matches `f(x,)` and misses `f(x)`, `ast` and below bind `R` empty on `f(x)`
 - `strictness` per value: `cst` skips nothing, `smart` skips unnamed target nodes and comments, `ast` skips unnamed nodes on both sides
@@ -33,7 +33,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 
 ## [02]-[RULES]
 
-- Ids share one namespace across languages, a category checked in two languages names each rule `<category>-<language>`, in one the category alone
+- Ids share one namespace across languages, a category checked in more than one names each rule `<category>-<language>`, in one the category alone
 - Rule objects are unordered `all`s with keys applied atomic, composite, then relational, `all:` keeps list order
 - Rules need a kind set from `pattern` or `kind`, `regex`, `range`, `nthChild`, `not`, `all: []`, or `any: []` alone fails the load
 - `kind` takes a named node, an anonymous token (`then`) fails the load with `Cannot parse rule`, exit 8
@@ -63,7 +63,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 ## [03]-[UTILS]
 
 - Global utils are named `<package>-<shape>` and hold `id`, `language`, `arguments`, `rule`, `constraints`, `utils`, and `transform`, no `fix`
-- Global util ids share one namespace across languages, one id in two languages fails the load as `Duplicate rule id`
+- Global util ids share one namespace across languages, one id in more than one language fails the load as `Duplicate rule id`
 - Consumers name the util directory under `utilDirs`, `scan -r`, `--inline-rules`, and the MCP load none
 - Utils under `not:` or `inside:` supply no kind to their caller, a kindless caller aborts with `Rule must specify a set of AST kinds to match`
 - Parameterized utils take `arguments` at the global level alone, arguments are mandatory, a string `matches: <id>` of a parameterized util exits 8
@@ -130,7 +130,7 @@ Tree-sitter recovers with `ERROR` or zero-width `MISSING` nodes, and its precede
 
 | [INDEX] | [PYTHON]                         | [SHAPE]                                                                                           |
 | :-----: | :------------------------------- | :------------------------------------------------------------------------------------------------ |
-|  [01]   | `except A, B:`                   | One `except_clause` with two `value` fields, trailing comma included                              |
+|  [01]   | `except A, B:`                   | One `except_clause` with a `value` field per name, trailing comma included                        |
 |  [02]   | `from __future__ import a, b`    | `future_import_statement` with one `name: dotted_name` per name                                   |
 |  [03]   | `def f(x: int)`                  | `typed_parameter` with the name as its unfielded first `identifier` and `type` as the field       |
 |  [04]   | `(v := a if b else c)`           | Tree-sitter nests `named_expression` in the first arm, Python binds the whole conditional         |
@@ -149,7 +149,7 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 |  [03]   | `echo $x`, `echo "$x"`          | `simple_expansion` under `command` when unquoted and under `string` when double-quoted                 |
 |  [04]   | `$1`, `${10}`, `$@`, `$?`       | `variable_name` under `simple_expansion` or `expansion`, `special_variable_name` for `$@`, `$#`, `$?`  |
 |  [05]   | `${x#*/}`, `${x:-d}`            | `expansion` with `variable_name` and an `operator` child, the pattern a `regex` or `word` child        |
-|  [06]   | `${x//a/$r}`                    | `expansion` with two `operator` children, the replacement follows the second `/`                       |
+|  [06]   | `${x//a/$r}`                    | `expansion` with `operator` children `//` and `/`, the replacement follows the second `/`              |
 |  [07]   | `x=${ cmd; }`, `${\| cmd; }`    | `expansion` with an `ERROR` child at the `;`, the grammar has no node for the no-fork substitution     |
 |  [08]   | `cmd <<<"$x"`                   | `command` with `redirect: herestring_redirect`, the last stage's after a pipeline                      |
 |  [09]   | `cmd > f`, `done < <(p)`        | `redirected_statement` with `body` and `redirect: file_redirect` wrapping the whole list or pipeline   |
@@ -180,13 +180,17 @@ Fixes emit walrus conditionals as `(v := (a if b else c))`, `ast.parse` checks t
 |  [01]   | `<Name>text</Name>` | Patterns bind whole elements, `<Name>_TEXT</Name>` captures the content                      |
 |  [02]   | `Attribute="value"` | `AttValue` includes its quotes, a value that can hold the other quote matches each delimiter |
 
-| [INDEX] | [SQL]                        | [SHAPE]                                                                                              |
-| :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------------- |
-|  [01]   | `ifnull(a, b)` alone         | `ERROR`, an expression pattern takes `context: select <expr>` with `selector: invocation` or `term`  |
-|  [02]   | `create view v as select ...` | `statement` > `create_view` with `object_reference` > `name: identifier` and `create_query` > `select` |
-|  [03]   | `count(1) filter (where c)`  | `invocation` with a `filter_expression` child beside `parameter`, a guard over it keeps a filtered aggregate silent |
-|  [04]   | `max(x) over (partition by p)` | `window_function` over the `invocation` and a `window_specification`, an aggregate pattern matches the inner `invocation` |
-|  [05]   | `case when c then v end`     | `case` with `keyword_case`, `keyword_when`, `keyword_then`, `keyword_else`, and `keyword_end` as named children, `nthChild` counts them |
+| [INDEX] | [SQL]                          | [SHAPE]                                                                                                |
+| :-----: | :----------------------------- | :----------------------------------------------------------------------------------------------------- |
+|  [01]   | `ifnull(a, b)` alone           | `ERROR`, an expression pattern takes `context: select <expr>` with `selector: invocation` or `term`    |
+|  [02]   | `create view v as select ...`  | `statement` > `create_view` with `object_reference` > `name: identifier` and `create_query` > `select` |
+|  [03]   | `count(1) filter (where c)`    | `invocation` with a `filter_expression` child beside `parameter`                                       |
+|  [04]   | `max(x) over (partition by p)` | `window_function` over the `invocation` and a `window_specification`                                   |
+|  [05]   | `case when c then v end`       | `case` with one named `keyword_*` child per keyword                                                    |
+
+- Guards over the `filter_expression` child keep a filtered aggregate silent
+- Aggregate patterns match the inner `invocation` of a `window_function`
+- Keyword children of a `case` are `keyword_case`, `keyword_when`, `keyword_then`, `keyword_else`, and `keyword_end`, `nthChild` counts them
 
 ## [07]-[OUTLINE]
 

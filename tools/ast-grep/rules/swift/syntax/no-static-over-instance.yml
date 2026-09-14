@@ -13,4 +13,4 @@ rule:
         - has: {kind: parameter, pattern: $RECEIVER, has: {kind: user_type, pattern: $TYPE}}
         - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {kind: user_type, pattern: $TYPE}}}
 message: '`$NAME` is a type member taking `$RECEIVER`, a value of the enclosing `$TYPE`'
-note: 'Drop `static` and the parameter, the receiver is `self` and every call site calls the member on that value'
+note: 'Drop `static` and `$RECEIVER`, the body reads `self` and call sites call the member on the value'

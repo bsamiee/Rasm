@@ -48,4 +48,4 @@ transform:
     CLOSE: substring($BRACKETS, startChar=1, endChar=2)
 fix: "$OPEN*iterable for iterable in $ITER$GROUP$GENERATOR_GROUP$CLOSE"
 message: '`$CALL` concatenates iterables through a chain object'
-note: 'Use `[*iterable for iterable in (<a>, <b>)]`, PEP 798 allows `*` in a comprehension body'
+note: 'Use `[*iterable for iterable in (<a>, <b>)]`'

@@ -19,5 +19,5 @@ rule:
                         all:
                             - has: {kind: navigation_expression, has: {field: suffix, regex: '^\.(async|sync|asyncAfter)$'}}
                             - has: {pattern: $K.resume($$$R), stopBy: end}
-message: '`$BRIDGE` resumes `$K` from a dispatch queue, the bridge cannot be cancelled and blocked work pins the continuation'
-note: 'Move the work onto an `actor` or mark the member `@concurrent`, the isolation is decided per type and no template derives it'
+message: '`$BRIDGE` resumes `$K` from a dispatch queue that no cancellation reaches'
+note: 'Move the work onto an `actor` or mark the member `@concurrent`'

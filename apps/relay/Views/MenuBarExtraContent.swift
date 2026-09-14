@@ -44,7 +44,7 @@ struct MenuBarExtraContent: View {
     .onAppear { store.setMenuBarExtraVisible(true) }
     .onDisappear { store.setMenuBarExtraVisible(false) }
     .alert(
-      "Remove Account?",
+      "Remove Account",
       isPresented: Binding(
         get: { accountToRemove != nil }, set: { if !$0 { accountToRemove = nil } }),
       presenting: accountToRemove
@@ -93,10 +93,9 @@ struct MenuBarExtraContent: View {
 
 enum RemovalMessage {
   static func text(for model: AccountModel) -> String {
-    let removal: String =
-      "This removes \(model.account.identity.email) and its saved sign-in from Relay."
+    let removal: String = "Removing \(model.account.identity.email) deletes its saved sign-in"
     return model.isSelected && model.account.provider == .claude
-      ? "\(removal) The current Claude Code account will be signed out."
+      ? "\(removal) and signs Claude Code out"
       : removal
   }
 }
@@ -170,8 +169,8 @@ private struct AccountCard: View {
     .disabled(!model.canSelect)
     .accessibilityLabel(model.account.identity.email)
     .accessibilityAddTraits(model.isSelected ? .isSelected : [])
-    .accessibilityHint("Use this \(model.account.provider.name) account")
-    .help(model.isSelected ? "In use" : "Use this account")
+    .accessibilityHint("Switches \(model.account.provider.name) to the account")
+    .help(model.isSelected ? "In use" : "Switch \(model.account.provider.name) to the account")
   }
 
   @ViewBuilder

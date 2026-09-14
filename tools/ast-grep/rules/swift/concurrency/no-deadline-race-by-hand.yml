@@ -29,4 +29,4 @@ rule:
                     - has: {stopBy: end, pattern: $G.next()}
                     - has: {stopBy: end, pattern: $G.cancelAll()}
 message: '`$RACE` races the work against `$SLEEP` by hand and reads the deadline as a sentinel'
-note: 'Race the work in one deadline function every site calls, its sleeping child task returns the timed-out failure case and the caller reads a typed result, no fix, the work and the failure cases are decisions'
+note: 'Race the work in one deadline function every site calls, its sleeping child task returns the timed-out failure case'

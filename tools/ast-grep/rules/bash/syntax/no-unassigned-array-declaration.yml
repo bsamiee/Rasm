@@ -30,5 +30,5 @@ rule:
                             - has: {kind: subscript, all: [{has: {field: name, pattern: $NAME}}, {has: {field: index, regex: '^[@*]$'}}]}
                     - not: {has: {stopBy: {kind: function_definition}, matches: assignment}}
 fix: $NAME=()
-message: 'Declaration leaves `$NAME` unassigned, `${#$NAME[@]}` fails as unbound under `set -u`'
+message: 'Unassigned declaration of `$NAME` fails `${#$NAME[@]}` as unbound under `set -u`'
 note: Assign the empty array in the declaration, `<name>=()`

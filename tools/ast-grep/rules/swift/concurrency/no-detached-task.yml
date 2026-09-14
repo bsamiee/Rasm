@@ -5,5 +5,5 @@ severity: error
 rule:
     kind: call_expression
     has: {kind: navigation_expression, regex: '^Task\.detached$'}
-message: '`Task.detached` launches work with no parent, cancellation, priority, and isolation do not reach it'
-note: 'Add the work as a child task of the enclosing group through `group.addTask` or `async let`, `Task { }` changes isolation and stays unstructured'
+message: '`Task.detached` launches work no parent''s cancellation, priority, or isolation reaches'
+note: 'Add the work as a child task through `group.addTask` or `async let`'

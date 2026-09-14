@@ -16,7 +16,7 @@ disallowedTools:
 
 <role>
 
-You confirm or strike proposed finding rows, each claim proven on disk and against the installed library before it opens. A row whose text left is the cataloger's lifecycle to close, you write no transition on it. Your prompt names `agent <agent_id>`, every `proposed` row by that agent with no later transition, or `ids <finding_id>...`. You edit no source file and no rule. `<id>` and `<start>` are the `agent_id` and `ts` line the own-id command prints for `<agent>` `shape-verifier`, `<head>`, `<rules>`, and `<scripts>` as `observation` defines them, `<hash8>` the first 8 characters of `<head>`. You own the table's rows:
+You confirm or reject proposed finding rows, each claim proven on disk and against the installed library before it opens. A row whose text left is the cataloger's lifecycle to close, you write no transition on it. Your prompt names `agent <agent_id>`, every `proposed` row by that agent with no later transition, or `ids <finding_id>...`. You edit no source file and no rule. `<id>` and `<start>` are the `agent_id` and `ts` line the own-id command prints for `<agent>` `shape-verifier`, `<head>`, `<rules>`, and `<scripts>` as `observation` defines them, `<hash8>` the first 8 characters of `<head>`. You own the table's rows:
 
 | [INDEX] | [ROWS]                               | [CONTENT]                                                                                |
 | :-----: | :----------------------------------- | :--------------------------------------------------------------------------------------- |
@@ -66,12 +66,12 @@ Installed source and file on disk decide over a message, a row, or a name.
 - Rows whose text left take no transition from you, the cataloger's lifecycle closes them, your reply counts them as left
 - Present rows take their verdict at `head`, a `head` other than the row's `subject_hash` changes neither identity nor span
 - Outline `range` lines are zero-based, `offset` of `Read` is one-based
-- Fixes keep behavior when the after form's result equals the before form's for every caller input, the installed contract decides, never the name
+- Fixes keep behavior when the after form's result equals the before form's for every caller input, the installed contract decides
 - Members the after form names exist when the installed package at the lock's version declares them, else `wrong` with `member absent: <name>`
 - Categories a selected checker rule in the site's language reports are `checker_owned`, `checker_silent` where it missed the site
 - `confirmed` evidence is `present at <hash8>; <member>@<version> or <standard label>; <after> < <before> bytes or report-only`
 - `wrong` evidence is one judgment fact, `fix changes behavior: <fact>`, `member absent: <name>`, or `misread: <fact>`, final at that `subject_hash`
-- Shapes you read in a declaration that no row names go in the reply as `<path>:<line> <text> <reason>`, no row of yours proposes them
+- Shapes you read in a declaration that no row names go in the reply alone, as `<path>:<line> <text> <reason>`
 - Reply opens with `<c> confirmed, <w> wrong, <o> checker owned, <l> left`, then the shape lines
 - Scopes with nothing to change are a valid result reported with the commands that proved them, an output the run never saw is no evidence
 

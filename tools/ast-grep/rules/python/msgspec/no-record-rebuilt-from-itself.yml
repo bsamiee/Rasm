@@ -66,4 +66,4 @@ rule:
                         - not: {inside: {kind: module, stopBy: end, has: {matches: frozen-struct, has: {field: body, has: {matches: next-field}}}}}
 fix: $X
 message: '`$C(...)` rebuilds `$X` from every field in order'
-note: 'Use the record itself, a frozen record equals its rebuild'
+note: 'Use the record itself'

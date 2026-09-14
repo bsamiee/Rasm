@@ -90,4 +90,4 @@ transform:
     FIRST: {replace: {source: $INPUT, replace: '(?s)^(.*)$', by: '${1}, '}}
 fix: "$FIN$OPTION_HEAD$CALL($FIRST$FALLBACK)"
 message: "`Match` returns one case's value unchanged and handles the other case alone"
-note: "`<fin>.IfFail(<handler>)` returns the success value or the handler's value, `<option>.IfNone(<fallback>)` the Some value or the fallback"
+note: "Use `<fin>.IfFail(<handler>)` or `<option>.IfNone(<fallback>)`"

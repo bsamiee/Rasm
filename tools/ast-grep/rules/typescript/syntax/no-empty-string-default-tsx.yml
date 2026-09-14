@@ -33,4 +33,4 @@ rule:
             - has: {field: right, matches: empty-string}
             - not: {inside: {kind: 'required_parameter, optional_parameter', stopBy: {not: {kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern'}}}}
 message: '`$ELEMENT` defaults to an empty string standing for an absent element'
-note: 'Bind `const [head] = <list>` and test `head === undefined`, the empty string stays a value, a parameter default states the caller contract'
+note: 'Bind `const [head] = <list>` and test `head === undefined`, the empty string stays a value'

@@ -160,7 +160,7 @@ actor CodexConnection {
     await withTaskCancellationHandler {
       await withCheckedContinuation { continuation in
         let settled: Result<JSONValue, CodexFailure>? = registry.withLock { state in
-          Self.enroll(
+          Self.register(
             NotificationWaiter(id: id, matches: predicate, continuation: continuation),
             for: method, in: &state)
         }
@@ -171,7 +171,7 @@ actor CodexConnection {
     }
   }
 
-  private static func enroll(
+  private static func register(
     _ waiter: NotificationWaiter, for method: String, in state: inout Registry
   ) -> Result<JSONValue, CodexFailure>? {
     if let failure: CodexFailure = state.terminalFailure { return .failure(failure) }
@@ -259,7 +259,7 @@ actor CodexConnection {
           "id": id,
           "error": .object([
             "code": .number(-32601),
-            "message": .string("Relay does not provide agent tools."),
+            "message": .string("Relay does not provide agent tools"),
           ]),
         ]))
       if case .failure(let error) = refusal { finish(error) }

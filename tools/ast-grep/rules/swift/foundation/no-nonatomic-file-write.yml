@@ -30,5 +30,5 @@ transform:
     TAIL: {replace: {source: $ATOM, replace: '^$', by: 'options: [.atomic]'}}
     ENC: {replace: {source: $E, replace: '^(.+)$', by: ', encoding: $1'}}
 fix: '$R.write(to: $U, $TAIL$ENC)'
-message: '`$R.write(to:)` truncates the file in place, another process reads a half-written file until the write ends'
-note: '`options: [.atomic]` on `Data.write`, `atomically: true` on `String.write` and `NSData.write`, both stage the bytes and rename, an `options:` list without `.atomic`, a receiver with no visible `Data` type, and an optional-chained receiver are the variants without a template'
+message: '`$R.write(to:)` truncates the file in place and exposes a half-written file until the write ends'
+note: 'Pass `options: [.atomic]` to `Data.write` or `atomically: true` to `String.write` and `NSData.write`'

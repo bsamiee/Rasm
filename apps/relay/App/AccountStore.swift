@@ -25,7 +25,7 @@ final class AccountStore {
   @ObservationIgnored private var root: Task<Void, Never>?
   @ObservationIgnored private var authenticationTask: Task<Void, Never>?
   @ObservationIgnored private var saveTask: Task<Void, Never>?
-  @ObservationIgnored private var sleeper: Task<Void, any Error>?
+  @ObservationIgnored private var refreshPause: Task<Void, any Error>?
   @ObservationIgnored private var lastPanelOpen: Date = .distantPast
   private var isStorageAvailable: Bool = false
   private var isStopping: Bool = false
@@ -56,7 +56,7 @@ final class AccountStore {
       defaultClaudeDirectory: claudeDirectory, defaultCodexHome: codexHome)
   }
 
-  private func adopt(environment: [String: String]) {
+  private func configure(environment: [String: String]) {
     let locations: FileLocations = Self.locations(home: URL.homeDirectory, environment: environment)
     claude = ClaudeClient(paths: locations, environment: environment)
     codex = CodexClient(paths: locations, environment: environment)
@@ -79,7 +79,7 @@ final class AccountStore {
     guard root == nil else { return }
     root = Task(name: "Accounts") { [self] in
       switch await LoginShell.exports(over: process) {
-      case .success(let environment): adopt(environment: environment)
+      case .success(let environment): configure(environment: environment)
       case .failure(let error):
         logger.error(
           "Login shell exports unavailable: \(String(describing: error), privacy: .public)")
@@ -105,7 +105,7 @@ final class AccountStore {
     isStopping = true
     root?.cancel()
     authenticationTask?.cancel()
-    sleeper?.cancel()
+    refreshPause?.cancel()
     for model: AccountModel in accounts { model.cancel() }
     _ = await ProcessRun.withDeadline(Self.stopDeadline) { .success(await self.awaitOutstanding()) }
     if isStorageAvailable { await save() }
@@ -118,8 +118,8 @@ final class AccountStore {
     await codex.shutdown()
   }
 
-  private func wakeScheduler() {
-    sleeper?.cancel()
+  private func reschedule() {
+    refreshPause?.cancel()
   }
 
   func setMenuBarExtraVisible(_ visible: Bool) {
@@ -131,7 +131,7 @@ final class AccountStore {
       await readSelection()
       refresh(fresh: false)
     }
-    wakeScheduler()
+    reschedule()
   }
 
   func refreshLoginItem() {
@@ -349,13 +349,13 @@ final class AccountStore {
     switch claudeSelection {
     case .success(.none): apply(selected: nil, provider: .claude)
     case .success(.known(let id)): apply(selected: id, provider: .claude)
-    case .success(.unknown(let identity)): adopt(identity, provider: .claude)
+    case .success(.unknown(let identity)): register(identity, provider: .claude)
     case .failure(let error): report(ProviderError(failure: error), provider: .claude)
     }
     switch codexSelection {
     case .success(.none): apply(selected: nil, provider: .openAI)
     case .success(.known(let id)): apply(selected: id, provider: .openAI)
-    case .success(.unknown(let identity)): adopt(identity, provider: .openAI)
+    case .success(.unknown(let identity)): register(identity, provider: .openAI)
     case .failure(let error): report(ProviderError(failure: error), provider: .openAI)
     }
   }
@@ -371,7 +371,7 @@ final class AccountStore {
     }
   }
 
-  private func adopt(_ identity: AccountIdentity, provider: Provider) {
+  private func register(_ identity: AccountIdentity, provider: Provider) {
     if let existing: AccountModel = accounts.first(where: { model in
       model.account.provider == provider && model.account.identity.isSameAccount(as: identity)
     }) {
@@ -435,7 +435,7 @@ final class AccountStore {
         && model.account.identity.isSameAccount(as: identity)
     }) {
       authentication = AuthenticationPresentation(
-        id: id, provider: provider, phase: .refused("This account is already connected"),
+        id: id, provider: provider, phase: .refused("\(identity.email) is already connected"),
         startedAt: Date())
       duplicate.issue = nil
       if existing == nil { await discard(id, provider: provider) }
@@ -472,13 +472,13 @@ final class AccountStore {
   private func apply(_ result: Result<AccountUsage, ProviderError>, to model: AccountModel) {
     switch result {
     case .success(let usage):
-      let carried: AccountUsage = usage.carryingResets(from: model.usage.usage, at: Date())
+      let carried: AccountUsage = usage.keepingResets(from: model.usage.usage, at: Date())
       model.usage = .current(carried)
       model.authentication = .connected
       model.issue = nil
       if case .running = carried.availability(at: Date()) { model.automaticStartAttempted = false }
       scheduleSave()
-      wakeScheduler()
+      reschedule()
       startAutomaticSessionIfNeeded(model)
     case .failure(let error):
       model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
@@ -571,7 +571,7 @@ final class AccountStore {
       let pause: Task<Void, any Error> = Task(name: "Refresh pause") {
         try await Task.sleep(for: delay)
       }
-      sleeper = pause
+      refreshPause = pause
       let slept: Result<Void, any Error> = await pause.result
       guard !Task.isCancelled, !isStopping else { return }
       if case .success = slept { refresh(fresh: false) }

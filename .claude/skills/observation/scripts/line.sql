@@ -1,5 +1,5 @@
 -- Line table over the content table, one row per line of each file with its one-based byte position and text, no parameter
--- Backslashes read as slashes, one byte each, so an escaped newline in the text splits no line
+-- Backslashes read as slashes, one byte each, an escaped newline in the text splits no line
 create temp table line as
 select
     c.path,

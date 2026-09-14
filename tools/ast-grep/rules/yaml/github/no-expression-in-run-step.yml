@@ -14,5 +14,5 @@ rule:
                 - kind: flow_node
                 - kind: block_node
                   has: {kind: block_scalar}
-message: '`run` script embeds a `${{ }}` expression, GitHub substitutes its value as text before the shell parses the script'
+message: 'GitHub substitutes a `${{ }}` expression in a `run` script as text before the shell parses it'
 note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read `"$NAME"` in the script'

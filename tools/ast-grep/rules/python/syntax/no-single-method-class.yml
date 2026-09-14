@@ -25,6 +25,6 @@ rule:
                     - has: {matches: static-method}
                     - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: static-method}]}}}
 message: '`$NAME` holds one instance method or static methods alone'
-note: 'Write the operation as a function, its state as a `msgspec.Struct`'
+note: 'Write the operation as a function and its state as a `msgspec.Struct`'
 labels:
     NAME: {style: primary, message: Class with one method}

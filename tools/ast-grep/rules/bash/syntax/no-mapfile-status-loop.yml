@@ -38,5 +38,5 @@ rule:
                         - has: {matches: leaving-command, stopBy: {matches: isolated}}
                         - has: {matches: break-command, stopBy: {any: [{matches: isolated}, {kind: 'while_statement, for_statement, c_style_for_statement'}]}}
 fix: '$READER && (( ${#$ARRAY[@]} ))'
-message: '`$READER` succeeds at EOF, its status never ends the loop'
+message: '`$READER` succeeds at EOF and never ends the loop by status'
 note: Test the array length after the reader, `while mapfile -tn <count> <array> && (( ${#<array>[@]} )); do`

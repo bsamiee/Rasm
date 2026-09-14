@@ -48,4 +48,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[dedupe])
 fix: $FIXED$KEPT
 message: '`$L.filter` keeps the first of each value by a quadratic `indexOf` scan'
-note: '`Array.dedupe($L)` keeps the first of each value by `Equal`, the fix names the module under its imported name and a file without the `Array` import takes the import first'
+note: '`Array.dedupe($L)` keeps the first of each value by `Equal`'

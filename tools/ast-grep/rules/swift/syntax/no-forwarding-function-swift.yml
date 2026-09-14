@@ -121,4 +121,4 @@ rule:
                 - matches: anonymous-forwarded-3
         - not: {has: {field: name, pattern: $F}}
 message: 'Function or closure forwards its parameters unchanged to `$F`'
-note: 'Call `$F` at each use, a closure takes the callee as a value, `f`, `obj.m`, `m(label:)`, or `Type.init`, and a trailing closure on a labeled parameter spells the label the trailing syntax elides, `(label: f)`'
+note: 'Call `$F` at each use, or pass it as a value (`f`, `obj.m`, `m(label:)`, `Type.init`), a trailing closure on a labeled parameter becomes `(label: f)`'

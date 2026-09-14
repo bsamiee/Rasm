@@ -11,4 +11,4 @@ rule:
             stopBy: {matches: python-function-boundary}
             has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}}}
 message: 'Body discards parameter `$P` with an underscore assignment'
-note: 'Rename the parameter `_<name>`, keyword callers pass the new name'
+note: 'Rename the parameter `_<name>` in the signature and at keyword callers'

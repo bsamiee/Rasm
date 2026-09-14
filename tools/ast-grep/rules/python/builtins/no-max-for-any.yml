@@ -67,4 +67,4 @@ transform:
     QUANTIFIER: rewrite($FIXABLE, rewriters=[any-quantifier, all-quantifier])
 fix: $QUANTIFIER$CLAUSES$KEPT
 message: '`$CMP` compares an extremum to a bound'
-note: 'Use `any` or `all` over the comparison per element, an empty iterable then yields a value in place of `ValueError`'
+note: 'Use `any` or `all` over the comparison per element'

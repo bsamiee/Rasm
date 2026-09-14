@@ -40,9 +40,8 @@ final class AccountModel: Identifiable {
   }
 
   func run(_ operation: AccountOperation, _ work: @escaping @MainActor () async -> Void) {
-    guard running == nil else {
-      issue =
-        "Wait for \(self.operation?.description.lowercased() ?? "the current operation") to finish."
+    if let running {
+      issue = "Wait for \(running.kind.description.lowercased()) to finish"
       return
     }
     issue = nil

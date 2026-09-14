@@ -82,5 +82,5 @@ rewriters:
 transform:
     FIXED: {rewrite: {source: $SITE, rewriters: [tolerant-removal]}}
 fix: $FIXED
-message: '`fileExists` gates the removal of `$SUBJECT`, the check races the filesystem and repeats the one the removal makes'
-note: '`Result { try $MANAGER.removeItem(at: $SUBJECT) }.flatMapError { error in (error as? CocoaError)?.code == .fileNoSuchFile ? .success(()) : .failure(<failure>(error)) }` returns success for an absent path, `catch let error as CocoaError where error.code == .fileNoSuchFile` the same arm where a `do` statement holds the call'
+message: '`fileExists` before the removal of `$SUBJECT` races the filesystem and repeats the removal''s own check'
+note: '`Result { try $MANAGER.removeItem(at: $SUBJECT) }.flatMapError { error in (error as? CocoaError)?.code == .fileNoSuchFile ? .success(()) : .failure(<failure>(error)) }` returns success for an absent path, `catch let error as CocoaError where error.code == .fileNoSuchFile` the same arm inside a `do` statement'

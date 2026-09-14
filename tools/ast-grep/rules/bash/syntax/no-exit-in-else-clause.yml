@@ -39,4 +39,4 @@ fix: |-
     }
     $THEN
 message: Else clause leaves the scope while the then branch nests under the condition
-note: 'Guard with `<condition> || { <else body>; }` and continue with the then branch unnested'
+note: 'Guard with `<condition> || { <else body>; }` and unnest the then branch'

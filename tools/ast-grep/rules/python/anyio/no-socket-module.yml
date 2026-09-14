@@ -10,4 +10,4 @@ rule:
     pattern: $CALL
     has: {field: function, matches: {python-member-use: {module: {regex: '^socket$'}, name: {matches: socket-member}}}}
 message: '`$CALL` uses the blocking socket module'
-note: 'Use `anyio.connect_tcp` or `anyio.create_tcp_listener` for TCP, `anyio.create_udp_socket` for UDP, `anyio.connect_unix` or `anyio.create_unix_listener` for a Unix socket, and `anyio.getaddrinfo` or `anyio.getnameinfo` for a name'
+note: 'Use the anyio networking function'

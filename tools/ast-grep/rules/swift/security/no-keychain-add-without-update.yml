@@ -10,4 +10,4 @@ transform:
     UPDATED: {replace: {source: $ARGS, replace: '"add-generic-password"', by: '"add-generic-password", "-U"'}}
 fix: $UPDATED
 message: '`add-generic-password` without `-U` adds a second item beside the existing one'
-note: '`-U` updates the item in place and keeps its ACL and partition list, the fix inserts it after the subcommand wherever the subcommand sits in the array'
+note: 'Pass `-U`, it updates the item in place and keeps its ACL and partition list'

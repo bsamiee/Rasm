@@ -24,5 +24,5 @@ transform:
     DROPPED: {replace: {source: $ARGS, replace: '"-i", ?|, ?"-i"', by: ''}}
     WITHOUT: {replace: {source: $DROPPED, replace: '"-([a-zA-Z]*)i([a-zA-Z]*)"', by: '"-$1$2"'}}
 fix: $WITHOUT
-message: '`$FLAG` starts an interactive shell in a child with no terminal, the interactive profile runs under the parent application''s attribution'
+message: '`$FLAG` runs the interactive profile in a child with no terminal under the parent application''s attribution'
 note: 'Pass the login flags without `i`, `["-lc", script]`'

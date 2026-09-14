@@ -32,5 +32,5 @@ rewriters:
 transform:
     STRIPPED: rewrite($REFERENCE, rewriters=[remove-set])
 fix: $STRIPPED
-message: '`ProjectReference` sets `TargetFramework` and undefines it, the `MSBuild` task removes the name after it applies the set value'
+message: '`ProjectReference` sets `TargetFramework` and undefines it'
 note: Delete `SetTargetFramework`

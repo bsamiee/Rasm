@@ -14,6 +14,6 @@ rule:
             follows: {regex: '^/$'}
             inside: {kind: expansion}
 fix: '"$VALUE"'
-message: 'Replacement `$VALUE` expands unquoted, `&` in its value inserts the matched text under `patsub_replacement`'
+message: 'Unquoted replacement `$VALUE` inserts the matched text at `&` under `patsub_replacement`'
 note: Quote the replacement, `${<name>//<pattern>/"$<replacement>"}`
 labels: {VALUE: {style: primary}}

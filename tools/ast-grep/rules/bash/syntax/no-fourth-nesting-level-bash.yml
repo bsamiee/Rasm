@@ -18,4 +18,4 @@ rule:
                 stopBy: {matches: boundary}
                 not: {inside: {matches: control, stopBy: {kind: function_definition}}}
 message: Control statement sits at a fourth nesting level
-note: Flatten inner levels into guard clauses, `<condition> || continue`, a helper function moves the levels without removing them
+note: Flatten inner levels into guard clauses, `<condition> || continue`

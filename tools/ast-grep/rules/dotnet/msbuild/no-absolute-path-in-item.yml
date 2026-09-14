@@ -24,4 +24,4 @@ rule:
     regex: '^["'']?([A-Za-z]:[\\/]|~[\\/]|/[A-Za-z0-9_.-])'
     not: {inside: {matches: {msbuild-element: {name: {regex: '^PropertyGroup$'}}}, stopBy: end}}
 message: Item path is absolute and resolves on the machine that wrote it alone
-note: 'Compose the path from a directory property and a relative segment, `$([MSBuild]::NormalizePath(''$(<Directory>)'', ''<segment>''))`'
+note: 'Compose the path, `$([MSBuild]::NormalizePath(''$(<Directory>)'', ''<segment>''))`'

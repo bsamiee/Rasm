@@ -26,4 +26,4 @@ transform:
     NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ' not'}}
 fix: '$A is$NEGATION $B'
 message: '`$A` and `$B` compare through the shared default `$X`'
-note: '`is` and `is not` compare null-safe, a default collides with its own value'
+note: 'Compare with `is` or `is not`'

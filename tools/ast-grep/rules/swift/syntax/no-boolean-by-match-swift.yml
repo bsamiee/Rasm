@@ -143,4 +143,4 @@ fix:
     template: '$RETURN$CTOR_OPEN$BEFORE_ARGS$LABEL_COLON$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }$TAIL_ARGS$CTOR_CLOSE'
     expandEnd: {kind: control_transfer_statement}
 message: 'One case yields `$IN` and every other case `$OUT`'
-note: '`if case <pattern> = <value> { <matched> } else { <other> }` is one expression over both cases, `<value> == <case>` where the type is `Equatable`, two arms building one constructor call that differs in one boolean argument take the expression as that argument'
+note: '`if case <pattern> = <value> { <matched> } else { <other> }` is one expression over both cases, `<value> == <case>` where the type is `Equatable`'

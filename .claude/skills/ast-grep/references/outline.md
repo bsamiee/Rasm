@@ -25,7 +25,7 @@
 - Items add `isImport`, `isExported`, and `members` (omitted when empty), a member adds `isPublic`
 - Injected regions (`run:` shell block) merge into the host file's items in host order with host-relative ranges and the host path and language
 - Bundled extractors cover rust, typescript, javascript, python, go, kotlin, java, swift, csharp, cpp, c, ruby, php, and markdown
-- An extractor file holds one document per extractor separated by `---`, documents of several languages load from one file
+- Extractor files hold one document per extractor separated by `---`, documents of different languages load from one file
 - `--outline-rules` loads a file for a built-in language, `customLanguages.<name>.outlineRules` for a custom one
 - `sgconfig.yml` holds no other outline key
 - Rules load bundled first, then `customLanguages.<name>.outlineRules`, then `--outline-rules` in flag order, the first match on a node wins

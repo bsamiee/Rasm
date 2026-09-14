@@ -83,7 +83,7 @@ const settings = (options: PluginOptions): Settings => ({
     categoryAgent: String(options['categoryAgent']),
 });
 
-// Key names the worktree by directory, `.` for the main one, so a moved repository keeps its lineage
+// Key names the worktree by directory, `.` for the main one, a moved repository keeps its lineage
 const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({
     main,
     worktree,

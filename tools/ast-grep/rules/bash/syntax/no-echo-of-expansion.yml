@@ -13,7 +13,7 @@ utils:
               has: {matches: expansion}
               not: {has: {any: [{kind: string_content}, {kind: 'simple_expansion, expansion', regex: '\$\{?@|\[@\]|@\}'}]}}
             - matches: expansion
-              pattern: $BARE
+              pattern: $UNQUOTED
 rule:
     kind: command
     all:
@@ -31,7 +31,7 @@ transform:
     ESCAPES: {replace: {source: $ESCAPING, replace: '^.+$', by: '%b'}}
     TEXT_ONLY: {replace: {source: $LITERAL, replace: '^.+$', by: '%s'}}
     NEWLINE: {replace: {source: $LINE, replace: '^.+$', by: '\n'}}
-    WRAPPED: {replace: {source: $BARE, replace: '^.+$', by: '"$0"'}}
+    WRAPPED: {replace: {source: $UNQUOTED, replace: '^.+$', by: '"$0"'}}
 fix: printf '$ESCAPES$TEXT_ONLY$NEWLINE' $QUOTED$WRAPPED
 message: '`echo` parses `$TEXT` as options when its value matches `-[neE]+`'
 note: Print through a literal format, `printf '%s\n' "$<value>"`

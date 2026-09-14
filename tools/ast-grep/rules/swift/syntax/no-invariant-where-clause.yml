@@ -19,4 +19,4 @@ rule:
                         stopBy: {kind: for_statement}
                         has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}
 message: '`$WHERE` reads nothing of `$ITEM`'
-note: 'Hoist the test above the loop, a `where` clause reading no element is loop-invariant and iterates the sequence to discard it'
+note: 'Hoist the test above the loop'

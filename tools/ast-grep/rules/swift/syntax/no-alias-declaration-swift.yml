@@ -12,4 +12,4 @@ rule:
             - inside: {kind: source_file}
             - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, not: {has: {kind: inheritance_specifier}}}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell the target where the alias is used, a module-qualified target resolves a name collision and a member of a conforming type supplies an associated type'
+note: 'Spell `$TARGET` where `$ALIAS` is used'

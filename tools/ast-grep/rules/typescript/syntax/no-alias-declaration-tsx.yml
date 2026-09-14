@@ -79,6 +79,6 @@ rule:
 constraints:
     ALIAS: {not: {regex: '^default$'}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell the target where the alias is used, an export renaming an internal name and a type alias over an aliased import resolve a name at the boundary'
+note: 'Spell `$TARGET` where `$ALIAS` is used'
 labels:
     TARGET: {style: primary, message: Aliased name}

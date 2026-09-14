@@ -23,4 +23,4 @@ constraints:
     VALUE: {matches: literal-value}
 fix: $VALUE as const satisfies $TYPE
 message: '`satisfies` alone widens the literal types of a module constant'
-note: '`as const satisfies <type>` keeps the literal types and the check, a type holding a mutable array or tuple member takes the widened literal'
+note: '`as const satisfies <type>` keeps the literal types and the check'

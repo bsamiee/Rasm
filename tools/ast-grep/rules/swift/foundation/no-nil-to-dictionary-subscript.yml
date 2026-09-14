@@ -19,5 +19,5 @@ rule:
               has: {field: if_nil, regex: '^nil$'}
 constraints:
     K: {not: {regex: '^[0-9_]+$'}}
-message: '`$D[$K] = $V` assigns an optional, a nil value removes the key and no diagnostic says so'
-note: '`if let value = $V { $D[$K] = value }` where absence keeps the entry, `$D[$K] = $V ?? <default>` where a default is meant, `$D.removeValue(forKey: $K)` where removal is meant, no fix, the meaning is a decision'
+message: '`$D[$K] = $V` removes the key when `$V` is nil'
+note: '`if let value = $V { $D[$K] = value }` where absence keeps the entry, `$D[$K] = $V ?? <default>` where a default is meant, `$D.removeValue(forKey: $K)` where removal is meant'

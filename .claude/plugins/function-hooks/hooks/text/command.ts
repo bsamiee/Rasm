@@ -87,7 +87,7 @@ const SCAN: readonly string[] = [
 ];
 const _REPORT = /^STDIN:(?<line>\d+):(?<column>\d+): \w+\[(?<rule>\w+)\]: (?<text>.*)$/gmu;
 const _WORD = /^(?!\d*[<>]|&>)./su;
-const _QUOTED = /\$?'(?<single>[^']*)'|\$?"(?<double>(?:[^"\\]|\\.)*)"|\\(?<bare>[\s\S])/gu;
+const _QUOTED = /\$?'(?<single>[^']*)'|\$?"(?<double>(?:[^"\\]|\\.)*)"|\\(?<unquoted>[\s\S])/gu;
 const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _DIGITS = /^\d+$/u;
@@ -124,8 +124,8 @@ const _WRAPPERS: readonly string[] = [
 const _unquote = (word: string): string =>
     word.replace(
         _QUOTED,
-        (match: string, single?: string, double?: string, bare?: string): string =>
-            single ?? bare ?? (double === undefined ? match : double.replace(_ESCAPED, '$<char>')),
+        (match: string, single?: string, double?: string, unquoted?: string): string =>
+            single ?? unquoted ?? (double === undefined ? match : double.replace(_ESCAPED, '$<char>')),
     );
 
 const _stripOptions = (words: readonly string[]): readonly string[] => {

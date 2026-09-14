@@ -13,9 +13,9 @@ nonisolated struct ClaudeOAuthToken: Sendable {
   func needsRefresh(at now: Date) -> Bool {
     let accessExpiring: Bool =
       expiresAt.map { expiry in expiry <= now.addingTimeInterval(300) } ?? true
-    let grantExpiring: Bool =
+    let refreshTokenExpiring: Bool =
       refreshTokenExpiresAt.map { expiry in expiry <= now.addingTimeInterval(86_400) } ?? false
-    return accessExpiring || grantExpiring
+    return accessExpiring || refreshTokenExpiring
   }
 
   static func make(_ value: JSONValue) -> Result<ClaudeOAuthToken?, ClaudeFailure> {
@@ -36,12 +36,12 @@ nonisolated struct ClaudeOAuthToken: Sendable {
       checkedScopes, milliseconds(value["expiresAt"]), milliseconds(value["refreshTokenExpiresAt"])
     )
     .mapError { failure in failure.first }
-    .map { _, expiry, grantExpiry in
+    .map { _, expiry, refreshTokenExpiry in
       ClaudeOAuthToken(
         value: value,
         accessToken: token,
         expiresAt: expiry,
-        refreshTokenExpiresAt: grantExpiry,
+        refreshTokenExpiresAt: refreshTokenExpiry,
         plan: value["subscriptionType"]?.stringValue
       )
     }
@@ -62,7 +62,7 @@ nonisolated struct ClaudeFailures: AggregateError {
   let remaining: [ClaudeFailure]
 }
 
-nonisolated struct ClaudeGrant: Sendable {
+nonisolated struct ClaudeCredential: Sendable {
   let item: [String: JSONValue]
   let token: ClaudeOAuthToken
   let account: JSONValue
@@ -72,28 +72,28 @@ nonisolated struct ClaudeGrant: Sendable {
 nonisolated enum ClaudeStoreContent: Sendable {
   case empty
   case signedOut(AccountIdentity?)
-  case grant(ClaudeGrant)
+  case credential(ClaudeCredential)
 
-  var grant: ClaudeGrant? {
-    if case .grant(let grant) = self { grant } else { nil }
+  var credential: ClaudeCredential? {
+    if case .credential(let credential) = self { credential } else { nil }
   }
 }
 
 nonisolated struct ClaudeCredentialStore: Sendable {
   let directory: URL
   let configFile: URL
-  let legacyConfigFile: URL
+  let directoryConfigFile: URL
   let configDirectoryPath: String?
   let service: String
   let username: String
 
   init(
-    directory: URL, configFile: URL, legacyConfigFile: URL, configDirectoryPath: String?,
+    directory: URL, configFile: URL, directoryConfigFile: URL, configDirectoryPath: String?,
     username: String
   ) {
     self.directory = directory
     self.configFile = configFile
-    self.legacyConfigFile = legacyConfigFile
+    self.directoryConfigFile = directoryConfigFile
     self.configDirectoryPath = configDirectoryPath
     service =
       configDirectoryPath.map { value in
@@ -123,7 +123,8 @@ nonisolated struct ClaudeCredentialStore: Sendable {
     account.map { account in
       identity(of: account, plan: token?.plan).map { identity in
         token.map { token in
-          .grant(ClaudeGrant(item: item, token: token, account: account, identity: identity))
+          .credential(
+            ClaudeCredential(item: item, token: token, account: account, identity: identity))
         } ?? .signedOut(identity)
       }
     } ?? .success(.empty)
@@ -190,7 +191,8 @@ nonisolated struct ClaudeCredentialStore: Sendable {
   }
 
   private var existingConfigFile: URL {
-    FileManager.default.fileExists(atPath: legacyConfigFile.path) ? legacyConfigFile : configFile
+    FileManager.default.fileExists(atPath: directoryConfigFile.path)
+      ? directoryConfigFile : configFile
   }
 
   private static func readJSONObject(at url: URL, missingIsEmpty: Bool) -> Result<

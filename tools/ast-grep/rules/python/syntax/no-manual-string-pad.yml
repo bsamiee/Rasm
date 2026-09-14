@@ -20,4 +20,4 @@ constraints:
     FILL: {kind: 'string, identifier'}
     RIGHT: {any: [{pattern: $LEFT}, {has: {pattern: $LEFT, stopBy: end}}]}
 message: '`$TEXT` is padded by hand with `$FILL` on both sides'
-note: 'Use `format(<text>, f"<align><width>")`, widened by `len(<text>)` minus the display width for text holding wide characters'
+note: 'Use `format(<text>, f"<align><width>")`'

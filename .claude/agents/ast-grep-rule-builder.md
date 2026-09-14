@@ -111,7 +111,7 @@ Every command returns zero warnings and zero errors:
 
 - Every instance the placed rule reports is a `checker_owned` row or a line of the reply, or the category holds its refusing verdict
 - Every derived rule holds a `fix` where one template corrects every sibling, and names the variant without a template otherwise
-- No rule with that correction and reason exists beside the derived one
+- Derived rule is the one rule holding its correction and reason
 - Every gate result line sits in the transcript, no partial edit, deferred value, or workaround remains
 
 </done_when>

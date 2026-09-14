@@ -7,5 +7,5 @@ rule:
     not:
         pattern: 'if $C { $E } else { $E }'
     inside: {matches: swift-view-builder, stopBy: end}
-message: '`$V.$M` takes different arguments across the branches of `if $C`, two view identities torn down and rebuilt at every change of `$C`'
-note: 'Give the control one identity, `.tint`, `.disabled`, or `Toggle(...).toggleStyle(.button)` carries the state, a ternary argument serves where both arguments share one type'
+message: '`$V.$M` with different arguments per branch of `if $C` rebuilds the view identity at every change of `$C`'
+note: 'Keep one `$V` and pass the state through `.tint`, `.disabled`, `Toggle(...).toggleStyle(.button)`, or a ternary argument where both arguments share one type'

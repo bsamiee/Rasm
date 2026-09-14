@@ -21,4 +21,4 @@ rule:
                       has: {field: operator, kind: keyword_not}
 fix: count(1) filter (where $COND)
 message: '`$AGG` adds the truth values of `$COND`'
-note: '`count(1) filter (where $COND)` counts the matching rows, and answers 0 where a sum over no true row answers null'
+note: 'Use `count(1) filter (where $COND)`'

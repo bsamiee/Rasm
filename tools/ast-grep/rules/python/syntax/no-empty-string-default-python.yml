@@ -22,4 +22,4 @@ rule:
 constraints:
     NAME: {not: {regex: '^(sep|separator|prefix|suffix|delimiter)$'}}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: 'Declare `$NAME: str | None = None` and test `is None`, the empty string stays a value'
+note: 'Declare `$NAME: str | None = None` and test `is None`'

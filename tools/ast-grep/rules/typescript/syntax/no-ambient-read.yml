@@ -65,6 +65,6 @@ rule:
                                 exported: {regex: '^performance$'}
     pattern: $READ
 message: '`$READ` reads host time or randomness as an ambient value'
-note: '`Clock` and `Random` services or an argument supply the value, the adapter supplying the service reads the host'
+note: '`Clock` and `Random` services or an argument supply the value'
 labels:
     READ: {style: primary}

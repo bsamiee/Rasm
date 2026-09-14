@@ -35,7 +35,7 @@ mcp__exa__web_search_advanced_exa {"query": "<product> release notes for a versi
 # Site named in the sentence, vendor page ranks first
 mcp__exa__web_search_advanced_exa {"query": "<vendor site> page on <topic>", "enableHighlights": true, "highlightsMaxCharacters": 600, "textMaxCharacters": 1, "numResults": 5}
 
-# Docs of one package rank first, no result using both means no recipe exists
+# Docs of one package rank first, no result using both means no example exists
 mcp__exa__web_search_advanced_exa {"query": "<language> example composing <package> with <package> through <member>", "enableHighlights": true, "highlightsMaxCharacters": 800, "textMaxCharacters": 1, "numResults": 5}
 
 # Advisory text with affected and patched versions, the package manager's audit decides whether one applies
@@ -86,7 +86,7 @@ From known URLs or a site root to the text a claim needs, a site section through
 mcp__exa__web_fetch_exa {"urls": ["<url>", "<url>"], "maxCharacters": 20000}
 
 # [PDF] Rendered pages as printed, tables, figures, and scanned pages, up to twenty pages per call
-# <pdf> is the one file `curl -sfL -o <pdf> <pdf-url>` writes, removed after the read
+# <pdf> is the file `curl -sfL -o <pdf> <pdf-url>` writes, removed after the read
 Read {"file_path": "<pdf>", "pages": "<page>-<page>"}
 ```
 

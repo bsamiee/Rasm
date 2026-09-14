@@ -18,5 +18,5 @@ rule:
             - all:
                 - has: {kind: Name, regex: '^Lines$'}
                 - inside: {matches: msbuild-tag, has: {kind: Name, regex: '^WriteLinesToFile$'}}
-message: Backslash path separator reaches the shell or the written file as text, MSBuild converts separators in properties and items alone
-note: Write `/`, every operating system reads it
+message: Backslash separator reaches the shell or the written file as text
+note: Write `/`

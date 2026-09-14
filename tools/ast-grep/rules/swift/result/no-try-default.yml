@@ -32,5 +32,5 @@ rule:
             - has: {matches: tried}
             - has: {field: op, regex: '^[!=]=$'}
             - has: {regex: '^nil$'}
-message: '`$TRY` collapses the thrown error into nil, the failure reaches no consumer'
-note: 'Recover through the result, `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `switch` or `.map`/`.mapError` over the result in place of `try? <result>.get()`, `switch Result { try <call> }` in place of `guard let <value> = try? <call> else { return <absent> }`, and the failure case in place of `(try? <call>) != nil`'
+message: '`$TRY` collapses the thrown error into a nil no consumer reads'
+note: '`Result { try <call> }.flatMapError { error in <recovered case> }` replaces `(try? <call>) ?? <default>`, a `switch` or `.map`/`.mapError` over the result replaces `try? <result>.get()`, `switch Result { try <call> }` replaces the `guard let` form, and the failure case replaces `(try? <call>) != nil`'

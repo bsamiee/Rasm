@@ -33,13 +33,13 @@ nonisolated enum FileWatch {
         let directory: Result<any DispatchSourceFileSystemObject, any Error> = source(
           path: file.deletingLastPathComponent().path, events: .write
         ) { [weak self] in
-          self?.armFile()
+          self?.openFileSource()
           self?.scheduleEmit()
         }
         switch directory {
         case .success(let source):
           directorySource = source
-          armFile()
+          openFileSource()
         case .failure(let error): continuation.finish(throwing: error)
         }
       }
@@ -56,7 +56,7 @@ nonisolated enum FileWatch {
       }
     }
 
-    private func armFile() {
+    private func openFileSource() {
       guard !stopped, fileSource == nil else { return }
       let opened: Result<any DispatchSourceFileSystemObject, any Error> = source(
         path: file.path, events: [.write, .extend, .delete, .rename, .attrib]

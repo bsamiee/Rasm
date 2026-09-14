@@ -29,5 +29,5 @@ rule:
                             - has: {matches: ignored}
                             - has: {kind: value_binding_pattern, regex: '^var$'}
                             - has: {field: name, pattern: $NAME}
-message: '`$OWNER` reads `$NAME`, an `@ObservationIgnored` property whose mutation publishes nothing'
-note: 'Drop `@ObservationIgnored` from the property the computed member reads, an ignored property publishes no mutation to its readers, a getter registering itself through `access(keyPath:)` stays silent'
+message: '`$OWNER` reads `$NAME`, an `@ObservationIgnored` property with no published mutation'
+note: 'Drop `@ObservationIgnored` from `$NAME`'

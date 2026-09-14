@@ -21,4 +21,4 @@ rule:
             kind: class_declaration
             has: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
 message: '`$T` is built afresh per element of `$S` on every read'
-note: 'Store an array of per-item `@Observable` models, a computed projection registers the whole source array and hands SwiftUI new values to diff on every read'
+note: 'Store an array of per-item `@Observable` models'

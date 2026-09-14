@@ -19,7 +19,7 @@ rule:
             matches: clock
             not: {pattern: $FIRST}
             pattern: $SECOND
-message: 'A second `TimelineView` runs its own clock in one view'
-note: 'One clock per view, `context.date` of its `TimelineView` passes down to every subview'
+message: '`$SECOND` runs a second clock in one view'
+note: 'Pass `context.date` of the first `TimelineView` down to every subview'
 labels:
     SECOND: {style: primary}

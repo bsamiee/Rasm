@@ -45,7 +45,7 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
 
   var blocks: Bool { used.isExhausted || rejected }
 
-  func carryingReset(from previous: QuotaWindow?, at now: Date) -> QuotaWindow {
+  func keepingReset(from previous: QuotaWindow?, at now: Date) -> QuotaWindow {
     guard resetsAt == nil, let previous, previous.kind == kind,
       let reset: Date = previous.resetsAt, reset > now
     else { return self }
@@ -79,10 +79,10 @@ nonisolated struct AccountUsage: Equatable, Sendable {
     return .ready
   }
 
-  func carryingResets(from previous: AccountUsage?, at now: Date) -> AccountUsage {
+  func keepingResets(from previous: AccountUsage?, at now: Date) -> AccountUsage {
     AccountUsage(
       windows: windows.map { window in
-        window.carryingReset(
+        window.keepingReset(
           from: previous?.windows.first { earlier in earlier.kind == window.kind }, at: now)
       },
       includedUsageAllowed: includedUsageAllowed, observedAt: observedAt)

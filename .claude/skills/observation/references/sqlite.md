@@ -29,11 +29,11 @@ Page `lang_upsert.html`, repeat inserts and the bar row:
 
 Page `lang_returning.html`, batch and lifecycle outputs:
 
-| [INDEX] | [FACT]                                                          | [DECIDES]                                                        |
-| :-----: | :-------------------------------------------------------------- | :--------------------------------------------------------------- |
-|  [01]   | Rows come in arbitrary order                                    | Readers match ids, never positions                               |
-|  [02]   | Output serves no subquery or CTE                                | `insert.sql` transition joins `site` again, not the first output |
-|  [03]   | Rows are the ones the statement wrote, `do nothing` writes none | First `insert.sql` array lists sites new to the table            |
+| [INDEX] | [FACT]                                                          | [DECIDES]                                             |
+| :-----: | :-------------------------------------------------------------- | :---------------------------------------------------- |
+|  [01]   | Rows come in arbitrary order                                    | Readers match rows by id                              |
+|  [02]   | Output serves no subquery or CTE                                | `insert.sql` transition joins `site` again            |
+|  [03]   | Rows are the ones the statement wrote, `do nothing` writes none | First `insert.sql` array lists sites new to the table |
 
 ## [04]-[WITH]
 
@@ -109,9 +109,9 @@ Page `cli.html`, the `sqlite3` process every reader and writer runs:
 |  [09]   | `.parameter set` evaluates SQL, unparsable text binds as text   | `'<text>'` binds text, a bare number an integer, `null` null           |
 |  [10]   | `.parameter set` inside a script binds the statements after it  | `batch.sql` and each checker script bind `:state` and `:by`            |
 |  [11]   | Unbound parameter reads null                                    | Missing `:state` or `:by` fails its `not null` column                  |
-|  [12]   | `-bail` ends the process after an SQL `-cmd`, arguments unrun   | Insert into `temp.sqlite_parameters` is an argument, never a `-cmd`    |
+|  [12]   | `-bail` ends the process after an SQL `-cmd`, arguments unrun   | Insert into `temp.sqlite_parameters` is an argument                    |
 |  [13]   | `.parameter set` VALUE is one token, `'` ends a quoted one      | JSON text binds through the table insert, `.param set` binds the rest  |
-|  [14]   | `readfile` seeks to size its file, a pipe raises out of memory  | JSON reaches a script as a bound value, never through stdin            |
+|  [14]   | `readfile` seeks to size its file, a pipe raises out of memory  | JSON reaches a script as a bound value                                 |
 |  [15]   | `.parameter set` creates the binding table, absent before it    | `.param set :worktree` precedes the JSON insert, else `no such table`  |
 
 ## [10]-[FOREIGN_KEYS]
@@ -136,11 +136,11 @@ Page `stricttables.html`, every finding table:
 
 Page `wal.html`, the sink's journal:
 
-| [INDEX] | [FACT]                                   | [DECIDES]                                                  |
-| :-----: | :--------------------------------------- | :--------------------------------------------------------- |
-|  [01]   | `journal_mode=wal` persists in the file  | Open switches once, later opens read `wal`                 |
-|  [02]   | One writer at a time, readers block none | Writers wait under `.timeout`, readers wait on nothing     |
-|  [03]   | Every process shares one host            | Sink sits under the main worktree, never on a network path |
+| [INDEX] | [FACT]                                   | [DECIDES]                                              |
+| :-----: | :--------------------------------------- | :----------------------------------------------------- |
+|  [01]   | `journal_mode=wal` persists in the file  | Open switches once, later opens read `wal`             |
+|  [02]   | One writer at a time, readers block none | Writers wait under `.timeout`, readers wait on nothing |
+|  [03]   | Every process shares one host            | Sink sits under the main worktree                      |
 
 ## [13]-[OPTIMIZER]
 

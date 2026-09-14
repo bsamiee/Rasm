@@ -59,28 +59,28 @@ nonisolated enum CodexFailure: ProviderFailure {
   var errorDescription: String? {
     switch self {
     case .applicationUnavailable:
-      "Install the OpenAI desktop app to connect an account."
+      "Install the OpenAI desktop app to connect an account"
     case .process(let failure): failure.localizedDescription
-    case .cancelled: "Canceled."
-    case .timedOut: "The OpenAI app server did not answer in time."
-    case .connectionClosed: "The OpenAI connection closed."
-    case .invalidResponse(let field): "OpenAI returned an unreadable \(field)."
+    case .cancelled: "Canceled"
+    case .timedOut: "OpenAI app server did not answer in time"
+    case .connectionClosed: "OpenAI connection closed"
+    case .invalidResponse(let field): "OpenAI returned an unreadable \(field)"
     case .requestRejected(_, let message): message
-    case .signInRequired: "Sign in to this OpenAI account."
-    case .subscriptionRequired: "Connect this account with a ChatGPT subscription."
-    case .signInPageUnopened: "The OpenAI sign-in page could not open."
-    case .signInRefused(let reason): reason ?? "OpenAI sign-in did not finish."
-    case .identityChanged: "OpenAI is signed in to a different user or workspace."
+    case .signInRequired: "Sign in to this OpenAI account"
+    case .subscriptionRequired: "Connect this account with a ChatGPT subscription"
+    case .signInPageUnopened: "OpenAI sign-in page could not open"
+    case .signInRefused(let reason): reason ?? "OpenAI sign-in did not finish"
+    case .identityChanged: "OpenAI is signed in to a different user or workspace"
     case .modelUnavailable:
-      "The lowest-cost supported OpenAI model is unavailable for this account."
+      "OpenAI model \(CodexProtocol.greetingModelName) is unavailable for this account"
     case .turnFailed(_, let message): message
-    case .storage(let error): "Could not save the OpenAI account: \(error.localizedDescription)"
+    case .storage(let error): "Could not save the OpenAI account, \(error.localizedDescription)"
     case .keyringStorage:
-      "Codex keeps its sign-in in the Keychain. Set cli_auth_credentials_store = \"file\" in ~/.codex/config.toml to switch accounts."
+      "Codex keeps its sign-in in the Keychain, set cli_auth_credentials_store = \"file\" in ~/.codex/config.toml to switch accounts"
     case .forcedWorkspace:
-      "Codex pins a workspace through forced_chatgpt_workspace_id in ~/.codex/config.toml, so accounts cannot switch."
-    case .desktopLaunch(let error): "Could not open the OpenAI app: \(error.localizedDescription)"
-    case .desktopQuitRefused: "The OpenAI app did not accept the quit request."
+      "Codex pins a workspace through forced_chatgpt_workspace_id in ~/.codex/config.toml, unset it to switch accounts"
+    case .desktopLaunch(let error): "Could not open the OpenAI app, \(error.localizedDescription)"
+    case .desktopQuitRefused: "OpenAI app did not accept the quit request"
     }
   }
 }

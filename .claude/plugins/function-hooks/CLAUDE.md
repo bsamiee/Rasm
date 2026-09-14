@@ -74,18 +74,18 @@ One SQLite file per repository, at the path `observation` names, holds every row
 - To a specialization the skill is preloaded whole at spawn through `skills`, an agent's file names a script and restates none of it
 - Main agent loads the skill by its description when it reads rows or acts on a delivered line
 - Skill holds the main agent's side of the contract: what the context line asks and the transitions that close it
-- Reader is a command under an allow row the tree holds, never a registered tool, a tool wraps the command and adds no fact
+- Reader is a command under an allow row the tree holds, a registered tool wraps the command and adds no fact
 
 ## [04]-[SPECIALIZATION]
 
 Purpose above the sink is a view, an agent profile, or an option pair, chosen by what the purpose needs that the layers beneath lack, each touching its owner alone:
 - View answers a question a query over rows answers: one `_VIEWS` element of `sql.ts`, its reader in the skill, and the views test's count
-- View never touches `register.ts`, `row.ts`, an agent, or an option, and reads what rows already hold
+- View reads what rows already hold and touches nothing in `register.ts`, `row.ts`, an agent, or an option
 - Agent profile answers a judgment needing the working tree or a rubric: one file under `.claude/agents/` preloading `observation` and the rubric
 - Agent reads rows and the working tree, writes finding rows through the skill's scripts, and touches nothing in the plugin beyond its name
 - Rubric stays in its owning skill, `ast-grep` for shapes, `clean-prose` for prose, the agent holds run order, prompt-supplied scope, and its gate
 - Option pair answers a trigger: `<kind>Threshold` and `<kind>Agent` in `userConfig`, a trigger in `delivery.ts` naming a view, a `range_kind` row
-- Option pair touches no row or agent, names a count and never a purpose, its spawn joins the judging step, its kind the boundary's ledger row
+- Option pair leaves rows and agents alone, names a count in place of a purpose, its spawn joins the judging step, its kind the boundary's ledger row
 - Option values come from `pluginConfigs` of user settings, `--settings`, or managed settings, a project `.claude/settings.json` reaches no option
 - Options are read once at `register`, a changed value waits for the plugin's reload
 - Category trigger is the second pair, `categoryThreshold` and `categoryAgent` over recurring confirmed categories, free of purpose the same way

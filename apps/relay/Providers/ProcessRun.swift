@@ -27,12 +27,12 @@ nonisolated enum ProcessFailure: LocalizedError, Sendable {
 
   var errorDescription: String? {
     switch self {
-    case .launch(let error): "Could not start the provider: \(error.description)"
-    case .io(let error): "The provider connection failed: \(error.localizedDescription)"
-    case .exit(.exited(let code)): "The provider exited with status \(code)."
-    case .exit(.signaled(let signal)): "The provider was stopped by signal \(signal)."
-    case .timedOut: "The provider did not answer in time."
-    case .cancelled: "Canceled."
+    case .launch(let error): "Could not start the provider, \(error.description)"
+    case .io(let error): "Provider connection failed, \(error.localizedDescription)"
+    case .exit(.exited(let code)): "Provider exited with status \(code)"
+    case .exit(.signaled(let signal)): "Signal \(signal) stopped the provider"
+    case .timedOut: "Provider did not answer in time"
+    case .cancelled: "Canceled"
     case .protocolViolation(let message): message
     }
   }
@@ -154,7 +154,7 @@ nonisolated enum ProcessRun {
       options.preSpawnProcessConfigurator = { _, actions in
         guard posix_spawn_file_actions_addinherit_np(&actions, source) == 0 else {
           throw ProcessFailure.protocolViolation(
-            "The provider input descriptor could not be shared.")
+            "posix_spawn refused to inherit the provider input descriptor")
         }
       }
     }

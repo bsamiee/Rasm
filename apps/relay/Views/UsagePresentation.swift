@@ -65,9 +65,9 @@ nonisolated enum UsagePresentation {
         allowedUnits: [.days, .hours, .minutes], width: .wide, maximumUnitCount: 2
       ))
     return switch remaining {
-    case ...0: "Reset time: \(exact). No time remaining."
-    case ..<60: "Resets \(exact). Less than a minute remaining."
-    default: "Resets \(exact). \(duration) remaining."
+    case ...0: "Reset \(exact), no time remaining"
+    case ..<60: "Resets \(exact), less than a minute remaining"
+    default: "Resets \(exact), \(duration) remaining"
     }
   }
 }

@@ -42,5 +42,5 @@ rewriters:
 transform:
     RENAMED: rewrite($TARGET, rewriters=[attach, rename])
 fix: $RENAMED
-message: Target takes a predefined name, the SDK import after the project body replaces it
+message: Target takes a predefined name the SDK import after the project body overrides
 note: Give the target its own name and attach it with `BeforeTargets` or `AfterTargets`

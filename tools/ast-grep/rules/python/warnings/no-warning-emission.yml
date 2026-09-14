@@ -8,4 +8,4 @@ rule:
         - matches: {python-member-use: {module: {regex: '^warnings$'}, name: {regex: '^(warn|warn_explicit|deprecated)$'}}}
         - matches: {python-member-use: {module: {regex: '^typing_extensions$'}, name: {regex: '^deprecated$'}}}
 message: '`$USE` emits a warning or declares a deprecated API'
-note: 'Return an `expression.Result` for an expected failure, delete a replaced API'
+note: 'Return an `expression.Result` for an expected failure and delete a replaced API'

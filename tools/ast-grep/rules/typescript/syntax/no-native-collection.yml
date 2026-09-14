@@ -39,4 +39,4 @@ rule:
         - kind: call_expression
           has: {field: function, pattern: $NAME, regex: '^(globalThis\.)?(Map|Object)\.groupBy$', matches: syntax-global-reference}
 message: '`$NAME` builds a native collection without structural key equality'
-note: '`HashMap` and `HashSet` compare keys by `Equal`, `Array.groupBy` groups into a record, a `ReadonlyMap` or `ReadonlySet` annotation, return type, or parameter states the native representation'
+note: '`HashMap` and `HashSet` compare keys by `Equal`, `Array.groupBy` groups into a record'

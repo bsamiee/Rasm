@@ -31,4 +31,4 @@ rule:
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
           has: {matches: failure-return}
 message: 'Statement unpacks a Result by hand, failure returned and value bound'
-note: '`<operation>.flatMap { value in <continuation> }` skips the continuation on a failure, an `async` `flatMap` overload where the continuation awaits, `mapError` first where the arm replaces the failure, a condition after the comma of `guard case` opens the continuation as its own test, `guard let value = try? result.get()` is the `no-try-default` site'
+note: '`<operation>.flatMap { value in <continuation> }` skips the continuation on a failure, `bind` where the continuation awaits, `mapError` first where the arm replaces the failure'

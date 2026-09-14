@@ -4,5 +4,5 @@ language: swift
 severity: error
 rule:
     pattern: NSScreen.main
-message: '`NSScreen.main` is the screen holding the key window, a window under layout opens on its own screen'
-note: 'Read `screen` of the window under layout, or size the content and let the window layer clamp it to its screen'
+message: '`NSScreen.main` sizes a window under layout by the key window''s screen'
+note: 'Read `screen` of the window under layout, or size the content and let the window clamp it to its screen'

@@ -17,5 +17,5 @@ rule:
         inside: {pattern: $_.frame($$$), stopBy: end}
 constraints:
     AXIS: {regex: '^(width|height)$'}
-message: '`GeometryReader` scales `$G.size.$AXIS` by `$F` inside `.frame`, a hand-written fraction of the container'
+message: '`GeometryReader` scales `$G.size.$AXIS` by `$F` inside `.frame` as a hand-written container fraction'
 note: 'Read `configuration.fractionCompleted` in a `ProgressViewStyle`, or `containerRelativeFrame(_:) { length, _ in length * fraction }`'

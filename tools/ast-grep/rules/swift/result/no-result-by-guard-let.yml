@@ -55,7 +55,7 @@ utils:
         any:
             - follows: {kind: guard_statement, has: {field: bound_identifier, pattern: $LIFTED}}
             - inside: {kind: statements, inside: {kind: if_statement, has: {field: bound_identifier, pattern: $LIFTED}}}
-    bare-try:
+    plain-try:
         kind: try_expression
         has: {kind: try_operator, regex: '^try$'}
     value-return:
@@ -79,8 +79,8 @@ utils:
                     pattern: $THROWING
                     not: {has: {kind: await_expression, stopBy: {kind: lambda_literal}}}
                     any:
-                        - matches: bare-try
-                        - has: {matches: bare-try, stopBy: {kind: lambda_literal}}
+                        - matches: plain-try
+                        - has: {matches: plain-try, stopBy: {kind: lambda_literal}}
                 - matches: name-x
             - all:
                 - has: {field: result, pattern: $VALUE, not: {any: [{matches: effect}, {has: {matches: effect, stopBy: {kind: lambda_literal}}}]}}

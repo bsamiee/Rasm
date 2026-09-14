@@ -123,4 +123,4 @@ rule:
                 - all: [{has: {field: left, matches: repeated}}, {has: {field: right, matches: bool-value}}]
                 - all: [{has: {field: right, matches: repeated}}, {has: {field: left, matches: bool-value}}]
 message: '`$USE` reads a boolean as an index or a repeat count'
-note: 'Select the two forms by `<a> if <test> else <b>`'
+note: 'Select the form by `<a> if <test> else <b>`'

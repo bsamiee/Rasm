@@ -130,8 +130,8 @@ actor CodexClient {
     let incoming: URL = paths.codexHome(account.id).appending(path: "auth.json")
     return await preconditions().bind { _ in
       await CodexAuthFile.read(at: incoming).bind {
-        parked -> Result<AccountIdentity, CodexFailure> in
-        guard let parked, parked.identity.isSameAccount(as: account.identity) else {
+        saved -> Result<AccountIdentity, CodexFailure> in
+        guard let saved, saved.identity.isSameAccount(as: account.identity) else {
           return .failure(.signInRequired)
         }
         await stopServer(liveHome)
@@ -139,7 +139,7 @@ actor CodexClient {
         if let outgoing { await stopServer(paths.codexHome(outgoing.id)) }
         return await swapAuthFiles(account, outgoing: outgoing, incoming: incoming)
           .bind { _ in await CodexDesktop.relaunchIfRunning() }
-          .map { _ in parked.identity }
+          .map { _ in saved.identity }
       }
     }
   }
@@ -170,7 +170,7 @@ actor CodexClient {
         if let live, live.identity.isSameAccount(as: account.identity) {
           return remove(incoming)
         }
-        let parked: Result<Void, CodexFailure> =
+        let saved: Result<Void, CodexFailure> =
           if let live, let outgoing, live.identity.isSameAccount(as: outgoing.identity) {
             installFile(
               from: liveAuthFile, to: paths.codexHome(outgoing.id).appending(path: "auth.json"))
@@ -178,7 +178,7 @@ actor CodexClient {
             .success(())
           }
         return
-          parked
+          saved
           .flatMap { _ in installFile(from: incoming, to: liveAuthFile) }
           .flatMap { _ in remove(incoming) }
       }
@@ -189,13 +189,13 @@ actor CodexClient {
       let data: Data = try Data(contentsOf: source)
       let directory: URL = destination.deletingLastPathComponent()
       try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
-      let staged: URL = directory.appending(path: ".auth.json.relay-\(UUID().uuidString)")
+      let temporary: URL = directory.appending(path: ".auth.json.relay-\(UUID().uuidString)")
       guard
         FileManager.default.createFile(
-          atPath: staged.path, contents: data, attributes: [.posixPermissions: 0o600])
+          atPath: temporary.path, contents: data, attributes: [.posixPermissions: 0o600])
       else { throw CocoaError(.fileWriteUnknown) }
       _ = try FileManager.default.replaceItemAt(
-        destination, withItemAt: staged, options: .usingNewMetadataOnly)
+        destination, withItemAt: temporary, options: .usingNewMetadataOnly)
     }
     .mapError(CodexFailure.storage)
   }

@@ -33,5 +33,5 @@ rule:
                 kind: function_definition
                 stopBy: end
                 has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $N}}}}}
-message: 'Local `$N` hides the module function `$N`'
+message: 'Local `$N` shadows the module function `$N`'
 note: 'Name the local for its value'

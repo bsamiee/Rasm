@@ -3,7 +3,7 @@ id: no-forwarding-enum
 language: swift
 severity: error
 utils:
-    payload-case:
+    associated-value-case:
         kind: switch_pattern
         has:
             kind: pattern
@@ -31,7 +31,7 @@ utils:
     forwarding-entry:
         kind: switch_entry
         all:
-            - has: {matches: payload-case}
+            - has: {matches: associated-value-case}
             - has: {matches: single-forwarding-statement}
     single-switch:
         matches: {swift-single-statement: {first: {kind: switch_statement}}}
@@ -50,5 +50,5 @@ rule:
         - has: {kind: switch_entry, has: {kind: statements, has: {stopBy: end, kind: navigation_suffix, has: {field: suffix, kind: simple_identifier, pattern: $M}}}}
         - has: {kind: switch_entry, has: {kind: statements, any: [{has: {stopBy: end, kind: call_suffix, pattern: $ARGS}}, {not: {has: {stopBy: end, kind: call_suffix}}}]}}
         - not: {has: {kind: switch_entry, not: {matches: forwarding-entry}}}
-message: '`$NAME` forwards `$M` of every payload unchanged'
-note: 'Declare a protocol the payload types conform to and hold `any Protocol`, the consumer reads `$M` on the payload with no switch per member'
+message: '`$NAME` forwards `$M` of every associated value unchanged'
+note: 'Declare a protocol the associated value types conform to and hold `any <Protocol>`, the consumer reads `$M` on it with no switch'

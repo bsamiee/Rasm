@@ -125,4 +125,4 @@ transform:
     FIXED: {rewrite: {source: $DO, rewriters: [result-point-free, result-init]}}
 fix: $FIXED
 message: '`do` builds a Result by statements, `.failure` returned from `catch`'
-note: '`Result { <throwing statements> }.mapError(<classifier>)` returns the same cases, `await Result` over a body that awaits, the classifier is the point-free reference where the catch applies one callee to the caught error (`Type.init(label:)` for an initializer) and a closure otherwise, `{ _ in <failure> }` where the failure reads no error, `.flatMap { value in <continuation> }` where the body continues past the `catch`, one classifying function inside `mapError` where every `catch` classifies'
+note: '`Result { <throwing statements> }.mapError(<classifier>)` returns the same cases, `await Result` over a body that awaits, `.flatMap { value in <continuation> }` where the body continues past the `catch`, one classifying function where every `catch` classifies'

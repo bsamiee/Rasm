@@ -5,7 +5,7 @@ severity: error
 utils:
     numeric-operator: {kind: test_operator, regex: '^-(eq|ne|lt|le|gt|ge)$'}
     named-parameter: {matches: {bash-parameter: {name: {kind: 'variable_name, subscript'}}}}
-    bare-operand:
+    parameter-operand:
         any:
             - matches: named-parameter
             - kind: simple_expansion
@@ -14,9 +14,9 @@ utils:
               has: {field: operator, regex: '^#$'}
     numeric-operand:
         any:
-            - matches: bare-operand
+            - matches: parameter-operand
             - kind: string
-              has: {matches: bare-operand}
+              has: {matches: parameter-operand}
               not: {has: {nthChild: 2}}
             - kind: number
             - kind: unary_expression
@@ -52,16 +52,16 @@ rewriters:
         pattern: $PARAMETER
         not: {regex: '^\$\{?[0-9]+\}?$'}
       transform:
-        BARE: {replace: {source: $PARAMETER, replace: '^\$\{?|\}?$', by: ''}}
-      fix: $BARE
+        NAME: {replace: {source: $PARAMETER, replace: '^\$\{?|\}?$', by: ''}}
+      fix: $NAME
     - id: unquote
       rule:
         kind: string
         pattern: $QUOTED
       transform:
         INNER: rewrite($QUOTED, rewriters=[name])
-        BARE: {replace: {source: $INNER, replace: '^"|"$', by: ''}}
-      fix: $BARE
+        UNQUOTED: {replace: {source: $INNER, replace: '^"|"$', by: ''}}
+      fix: $UNQUOTED
     - id: compare
       rule:
         matches: comparison
@@ -83,4 +83,4 @@ transform:
     BODY: rewrite($EXPRESSION, rewriters=[compare])
 fix: (( $BODY ))
 message: '`$TEST` compares numbers through a `-eq` family operator'
-note: 'Compare in an arithmetic command reading parameters by name, `(( <left> == <right> ))`, a quoted operand loses its quotes and `$#`, `$?`, `$1`, and `${#<array>[@]}` stay spelled as they are'
+note: Compare in an arithmetic command reading parameters by name, `(( <left> == <right> ))`

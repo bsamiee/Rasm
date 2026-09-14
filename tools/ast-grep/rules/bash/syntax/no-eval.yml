@@ -13,4 +13,4 @@ rule:
             - has: {field: name, matches: shell-name}
             - has: {matches: bash-expanded-word, follows: {kind: word, regex: '^-[a-zA-Z]*c[a-zA-Z]*$'}}
 message: '`$CMD` parses its arguments as shell code a second time'
-note: Build the command in an array and run `"${<array>[@]}"`, pass data to `bash -c '<script>' _ "$<value>"` as `$1`
+note: Run the command from an array, `"${<array>[@]}"`, or pass data to `bash -c '<script>' _ "$<value>"` as `$1`

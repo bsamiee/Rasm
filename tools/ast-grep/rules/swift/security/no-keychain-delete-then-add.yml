@@ -10,5 +10,5 @@ rule:
             all:
                 - inside: {kind: statements}
                 - follows: {stopBy: end, has: {stopBy: end, matches: {swift-security-argument: {subcommand: {regex: '^"delete-generic-password"$'}}}}}
-message: '`$COMMAND` follows a `delete-generic-password` of the item in the same body, the delete drops the ACL and partition list and the add recreates them under the writer alone'
-note: '`add-generic-password -U` replaces the data in place, no fix, the correction removes the delete statement the match does not cover, a `switch` dispatching delete and add as separate cases holds no sequence and stays silent'
+message: '`$COMMAND` after `delete-generic-password` recreates the item''s ACL and partition list under the writer alone'
+note: 'Drop the `delete-generic-password` statement, `add-generic-password -U` replaces the data in place'

@@ -27,4 +27,4 @@ transform:
     QUALIFIED: {replace: {source: $MODULE, replace: '^(.+)$', by: '$1.'}}
 fix: $QUALIFIED$OPERATOR$UNBOUND
 message: 'Dunder `$DUNDER` is passed as a callable'
-note: 'Use `operator.<name>`, `import operator` binds the module'
+note: 'Use `operator.<name>` after `import operator`'

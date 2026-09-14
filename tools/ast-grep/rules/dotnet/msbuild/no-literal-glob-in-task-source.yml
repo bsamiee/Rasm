@@ -48,5 +48,5 @@ fix: |-
         <$ITEM Include=$GLOB />
     </ItemGroup>
     $REWRITTEN
-message: Task reads a wildcard in its file list as a literal file name, an item `Include` alone expands wildcards
+message: Task reads a wildcard in its file list as a literal file name
 note: Declare the wildcard in an item `Include` and pass `@(Item)`

@@ -17,4 +17,4 @@ rule:
     matches: fourth-level
     not: {inside: {matches: fourth-level, stopBy: end}}
 message: Subquery or common table expression sits at a fourth nesting level
-note: Flatten inner levels into named common table expressions, a window function replaces a correlated subquery over the same rows
+note: Flatten inner levels into named common table expressions, a correlated subquery into a window function over the same rows
