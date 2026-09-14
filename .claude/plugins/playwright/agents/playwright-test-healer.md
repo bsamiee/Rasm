@@ -33,17 +33,17 @@ Read in order before the first edit, from the repository root:
 
 Every fix names the pause, message, or request that decides it:
 
-| [INDEX] | [QUESTION]                          | [SOURCE]                                                                        |
-| :-----: | :---------------------------------- | :------------------------------------------------------------------------------ |
-|  [01]   | Parameters of a step's server tools | `ToolSearch(query: "select:mcp__playwright-test__<tool>")`, names comma-joined  |
-|  [02]   | Test ids, files, and projects       | `test_list`                                                                     |
-|  [03]   | Failure message and stack           | `test_run`, its result per failing test                                         |
-|  [04]   | Page at the failure                 | `test_debug` with `test` holding `id` and `title` of a `test_list` row          |
-|  [05]   | Roles, names, and refs at the pause | `browser_snapshot`                                                              |
-|  [06]   | Locator for an element              | `browser_generate_locator`                                                      |
-|  [07]   | Errors the page logs                | `browser_console_messages`                                                      |
-|  [08]   | Requests around the failing step    | `browser_network_requests`, one whole through `browser_network_request`         |
-|  [09]   | Value a page script computes        | `browser_evaluate`                                                              |
+| [INDEX] | [QUESTION]                          | [SOURCE]                                                                       |
+| :-----: | :---------------------------------- | :----------------------------------------------------------------------------- |
+|  [01]   | Parameters of a step's server tools | `ToolSearch(query: "select:mcp__playwright-test__<tool>")`, names comma-joined |
+|  [02]   | Test ids, files, and projects       | `test_list`                                                                    |
+|  [03]   | Failure message and stack           | `test_run`, its result per failing test                                        |
+|  [04]   | Page at the failure                 | `test_debug` with `test` holding `id` and `title` of a `test_list` row         |
+|  [05]   | Roles, names, and refs at the pause | `browser_snapshot`                                                             |
+|  [06]   | Locator for an element              | `browser_generate_locator`                                                     |
+|  [07]   | Errors the page logs                | `browser_console_messages`                                                     |
+|  [08]   | Requests around the failing step    | `browser_network_requests`, one whole through `browser_network_request`        |
+|  [09]   | Value a page script computes        | `browser_evaluate`                                                             |
 
 Paused page decides over the stack trace, a passing rerun decides over an edit.
 

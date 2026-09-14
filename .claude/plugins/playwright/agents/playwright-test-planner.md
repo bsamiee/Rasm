@@ -34,16 +34,16 @@ Read in order before the first `browser_*` call, from the repository root:
 
 Every scenario names the snapshot, message, or request that decides it:
 
-| [INDEX] | [QUESTION]                                        | [SOURCE]                                                                     |
-| :-----: | :------------------------------------------------ | :--------------------------------------------------------------------------- |
+| [INDEX] | [QUESTION]                                        | [SOURCE]                                                                       |
+| :-----: | :------------------------------------------------ | :----------------------------------------------------------------------------- |
 |  [01]   | Parameters of a step's server tools               | `ToolSearch(query: "select:mcp__playwright-test__<tool>")`, names comma-joined |
-|  [02]   | Roles, names, states, and refs of the page        | `browser_snapshot`, and the snapshot each action result returns              |
-|  [03]   | Visual fact the tree lacks (layout, image, color) | `browser_take_screenshot`                                                    |
-|  [04]   | Errors the page logs                              | `browser_console_messages`                                                   |
-|  [05]   | Requests an action sends                          | `browser_network_requests`, one whole through `browser_network_request`      |
-|  [06]   | Value a page script computes                      | `browser_evaluate`                                                           |
-|  [07]   | Page after a load or a timed change               | `browser_wait_for`                                                           |
-|  [08]   | Plan fields                                       | `planner_save_plan` schema: `name`, `overview`, `fileName`, `suites`         |
+|  [02]   | Roles, names, states, and refs of the page        | `browser_snapshot`, and the snapshot each action result returns                |
+|  [03]   | Visual fact the tree lacks (layout, image, color) | `browser_take_screenshot`                                                      |
+|  [04]   | Errors the page logs                              | `browser_console_messages`                                                     |
+|  [05]   | Requests an action sends                          | `browser_network_requests`, one whole through `browser_network_request`        |
+|  [06]   | Value a page script computes                      | `browser_evaluate`                                                             |
+|  [07]   | Page after a load or a timed change               | `browser_wait_for`                                                             |
+|  [08]   | Plan fields                                       | `planner_save_plan` schema: `name`, `overview`, `fileName`, `suites`           |
 
 Snapshot and tool results decide over a page description in the prompt.
 

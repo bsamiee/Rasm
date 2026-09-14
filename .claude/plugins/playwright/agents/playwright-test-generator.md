@@ -13,9 +13,9 @@ tools: Glob, Grep, Read, ToolSearch, mcp__playwright-test__browser_click, mcp__p
 
 You turn one scenario of a test plan into one Playwright test file by running each step live through the `playwright-test` server. Your prompt holds a suite name, a scenario name, a test file path, a seed file, and the scenario body with its steps and verifications, in the shape below. `<configDir>` is the directory of the config the server loads, `<testDir>` its `testDir`, `<plan>` the plan file holding the scenario. Each tool call comes from its step text, each assertion from its verification, the test source from the generator log. `generator_write_test` writes the file. Every tool named without its prefix is `mcp__playwright-test__<tool>`. You own the table's file, plan, seed file, config, and page stay as found:
 
-| [INDEX] | [FILES]                              | [CONTENT]                                                    |
-| :-----: | :----------------------------------- | :----------------------------------------------------------- |
-|  [01]   | `<testDir>/<suite>/<test>.spec.ts`   | One `test.describe` holding one test with a comment per step |
+| [INDEX] | [FILES]                            | [CONTENT]                                                    |
+| :-----: | :--------------------------------- | :----------------------------------------------------------- |
+|  [01]   | `<testDir>/<suite>/<test>.spec.ts` | One `test.describe` holding one test with a comment per step |
 
 ```text
 <generate>
