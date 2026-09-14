@@ -23,9 +23,7 @@ const _SECOND_FILES: readonly RegExp[] = [
 
 const pathPolicy = <E extends PathEvent>(e: E): Decision<E> => {
     const name = basename(e.file_path);
-    return _SECOND_FILES.some((pattern) => pattern.test(name))
-        ? deny(`${name} is a second file beside its owner, put the fact in the owner`)
-        : pass(e);
+    return _SECOND_FILES.some((pattern) => pattern.test(name)) ? deny(`${name} is a second file beside its owner`) : pass(e);
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

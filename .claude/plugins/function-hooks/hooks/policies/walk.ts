@@ -27,7 +27,7 @@ type Walker = (args: readonly string[]) => Option<readonly string[]>;
 
 const _NAME = 'CloudStorage';
 const _CLOUD = `~/Library/${_NAME}`;
-const _WHY = `descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider, use mdfind through the Spotlight index, start the walker at a directory outside ${_NAME}, or exclude it by name (--exclude ${_NAME})`;
+const _WHY = `descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider`;
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 // Expression primaries of find, three characters or more, `(`, or `!`, the positional words before the first are the start paths
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;

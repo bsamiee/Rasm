@@ -9,7 +9,7 @@ Policies refuse a tool call, every recorded event becomes a sink row, and stop e
 
 ## [01]-[POLICIES]
 
-Each refusal states what the call does, then the target, MCP tool, or owner file that is the path:
+Each refusal states what the call does and nothing else, a repository tool that replaces a native command is the one alternative named (`hyperfine` for `time`):
 - Parsing a Bash or Monitor command costs one `ast-grep` process per call and one more per `sh -c` or `eval` body to depth 8
 - Option lists a walker policy splits by are read from the installed binary, a valued option missing there makes its value a start path
 - One `git check-ignore` process per written path resolves ignored paths

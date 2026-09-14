@@ -6,9 +6,8 @@ import { basename } from '../text/path.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ALTERNATIVE = 'read the exit code of a foreground command or the completion notification of a background command or agent';
-const _WAIT = `waits, ${_ALTERNATIVE}`;
-const _POLL = `polls until its exit status changes, ${_ALTERNATIVE}`;
+const _WAIT = 'waits';
+const _POLL = 'polls until its exit status changes';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

@@ -6,7 +6,6 @@ import { basename } from '../text/path.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _SCRIPT = 'write the script file, then run it in one command';
 const _TIMER = "hyperfine -N -r <runs> '<command>' times commands";
 const _DEVICE = '/dev/';
 
@@ -36,8 +35,8 @@ const _reasons = (commands: readonly Command[]): readonly string[] =>
         return [
             ..._reads(command)
                 .filter((path) => written.includes(path))
-                .map((path) => `${path} written then read in one call, ${_SCRIPT}`),
-            ...(command.looped ? _writes(command).map((path) => `${path} appended in a loop, ${_SCRIPT}`) : []),
+                .map((path) => `${path} written then read in one call`),
+            ...(command.looped ? _writes(command).map((path) => `${path} appended in a loop`) : []),
             ..._timed(command),
             ...command.clocks.map((clock) => `${clock} times by hand, ${_TIMER}`),
         ];

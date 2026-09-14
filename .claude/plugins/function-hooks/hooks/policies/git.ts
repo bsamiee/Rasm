@@ -28,10 +28,8 @@ type WorktreeEvent = Extract<ToolCallInput, { readonly tool: 'Agent' | 'EnterWor
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ADVICE = 'leave the tree and its history as they are';
 const _ALIAS = 'inline git alias can hide a refused subcommand';
-const _DIRECT = 'git show HEAD:<path> reads one committed file, git archive <rev> <path> | tar -x -C <dir> extracts a committed tree';
-const _WORKTREE = `creates a second checkout with its own metadata and sync cost, ${_DIRECT}`;
+const _WORKTREE = 'creates a second checkout with its own metadata and sync cost';
 const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
 const _GIT_VALUE_OPTS: readonly string[] = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'];
 const _REFINED: readonly string[] = ['reset', 'checkout'];
@@ -91,7 +89,7 @@ const GIT = {
     reset: { why: 'wipes working-tree or index state', flags: ['--hard', '--merge', '--keep'], refine: _reset },
     restore: { why: 'discards working-tree state', refine: _restore },
     revert: { why: 'reverses committed history', any: true },
-    stash: { why: `hides uncommitted work other agents depend on, ${_DIRECT}`, any: true, safe: ['list', 'show'] },
+    stash: { why: 'hides uncommitted work other agents depend on', any: true, safe: ['list', 'show'] },
     switch: { why: 'discards local changes', flags: ['-f', '-C', '--discard-changes'], starts: ['--force'] },
     worktree: { why: _WORKTREE, any: true, safe: ['list'] },
 } as const satisfies Readonly<Record<string, GitRow>>;
@@ -154,14 +152,14 @@ const gitPolicy =
     (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) =>
     <E>(e: E): Decision<E> => {
         const distinct: ReadonlySet<string> = new Set(_gits(commands).flatMap((words) => _reason(words, existing)));
-        return distinct.size === 0 ? pass(e) : deny(`${[...distinct].join(', ')}, ${_ADVICE}`);
+        return distinct.size === 0 ? pass(e) : deny([...distinct].join(', '));
     };
 
 const _isolated = (e: WorktreeEvent): boolean => e.tool === 'EnterWorktree' || e.isolation === 'worktree';
 
 const _label = (e: WorktreeEvent): string => (e.tool === 'EnterWorktree' ? e.tool : `${e.tool} isolation worktree`);
 
-const worktreePolicy = (e: WorktreeEvent): Decision<WorktreeEvent> => (_isolated(e) ? deny(`${_label(e)} ${_WORKTREE}, ${_ADVICE}`) : pass(e));
+const worktreePolicy = (e: WorktreeEvent): Decision<WorktreeEvent> => (_isolated(e) ? deny(`${_label(e)} ${_WORKTREE}`) : pass(e));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
