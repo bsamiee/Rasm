@@ -12,7 +12,6 @@
 
 /* Begin PBXFileReference section */
 		4A817EDECF31418AABA61701 /* Relay.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Relay.app; sourceTree = BUILT_PRODUCTS_DIR; };
-		DFC8E9ED3057DF9900C6BA1C /* Relay.xcodeproj */ = {isa = PBXFileReference; lastKnownFileType = "wrapper.pb-project"; path = Relay.xcodeproj; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
@@ -23,6 +22,7 @@
 				AGENTS.md,
 				CLAUDE.md,
 				LICENSE,
+				Relay.xcodeproj,
 			);
 			target = 4A817EDECF31418AABA61709 /* Relay */;
 		};
@@ -63,11 +63,6 @@
 			children = (
 				4A817EDECF31418AABA61701 /* Relay.app */,
 			);
-			name = Products;
-			sourceTree = "<group>";
-		};
-		DFC8E9EE3057DF9900C6BA1C /* Products */ = {
-			isa = PBXGroup;
 			name = Products;
 			sourceTree = "<group>";
 		};
@@ -120,12 +115,6 @@
 			preferredProjectObjectVersion = 110;
 			productRefGroup = 4A817EDECF31418AABA61707 /* Products */;
 			projectDirPath = "";
-			projectReferences = (
-				{
-					ProductGroup = DFC8E9EE3057DF9900C6BA1C /* Products */;
-					ProjectRef = DFC8E9ED3057DF9900C6BA1C /* Relay.xcodeproj */;
-				},
-			);
 			projectRoot = "";
 			targets = (
 				4A817EDECF31418AABA61709 /* Relay */,
