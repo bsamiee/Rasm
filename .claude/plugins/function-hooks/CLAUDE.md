@@ -12,6 +12,7 @@ Policies refuse a tool call, every recorded event becomes a sink row, and stop e
 Each refusal states what the call does and nothing else, a repository tool that replaces a native command is the one alternative named (`hyperfine` for `time`):
 - Parsing a Bash or Monitor command costs one `ast-grep` process per call and one more per `sh -c` or `eval` body to depth 8
 - Option lists a walker policy splits by are read from the installed binary, a valued option missing there makes its value a start path
+- Walker policy joins the Bash policies when `walkPolicy` is true, its default false passes every walker
 - One `git check-ignore` process per written path resolves ignored paths
 - Refusal is proven headless through `--plugin-dir` and read back from the `denials` view
 

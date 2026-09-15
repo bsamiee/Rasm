@@ -16,6 +16,6 @@ rule:
 constraints:
     VALUE: {matches: wide-assertion}
 message: 'Double assertion reaches `$TYPE` with no validation'
-note: '`Schema.decodeUnknownSync(schema)(value)` validates into the type'
+note: '`Schema.decodeUnknown(schema)(value)` validates into the type or fails with a `ParseError`'
 labels:
     TYPE: {style: primary, message: Type the assertion claims}

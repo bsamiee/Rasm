@@ -1,0 +1,60 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rendered-cause
+language: tsx
+severity: error
+utils:
+    failure-callback:
+        kind: arrow_function, function_expression
+        any:
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^(catch|onFailure|onLeft)$'}}
+            - inside:
+                kind: arguments
+                inside:
+                    kind: call_expression
+                    has:
+                        field: function
+                        kind: member_expression
+                        has: {field: property, regex: '^(mapError|mapErrorCause|mapLeft|catchAll|catchAllCause|catchTag|catchTags|catchIf|catchSome|catchSomeCause|tapError|tapErrorCause|tapErrorTag)$'}
+    cause-parameter:
+        matches: failure-callback
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $CAUSE}
+            - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $CAUSE}}}
+    rendering:
+        any:
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    any:
+                        - {kind: identifier, regex: '^String$', matches: syntax-global-reference}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^stringify$'}
+                            - has: {field: object, regex: '^JSON$', matches: syntax-global-reference}
+                        - kind: member_expression
+                          all:
+                            - has: {field: property, regex: '^toStringUnknown$'}
+                            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Inspectable)?$'}, exported: {regex: '^Inspectable$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $CAUSE}}
+            - kind: member_expression
+              all:
+                - has: {field: object, kind: identifier, pattern: $CAUSE}
+                - has: {field: property, regex: '^(message|stack)$'}
+            - kind: template_substitution
+              has: {kind: identifier, pattern: $CAUSE}
+rule:
+    any:
+        - matches: rendering
+          inside: {stopBy: end, matches: cause-parameter}
+        - kind: member_expression
+          pattern: $CAUSE
+          regex: '^this\.cause$'
+          inside:
+            kind: method_definition
+            stopBy: end
+            all:
+                - has: {regex: '^get$'}
+                - has: {field: name, regex: '^message$'}
+message: '`$CAUSE` renders to text before the boundary'
+note: 'Hold `cause: unknown` on the variant, `Cause.pretty(cause, { renderErrorCause: true })` renders it at the boundary'

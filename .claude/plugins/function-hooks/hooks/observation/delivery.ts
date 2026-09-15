@@ -113,10 +113,10 @@ const STATE = (lineage: Lineage, to: number, chosen: Settings): string => {
     ].join('\n');
 };
 
-const LEDGER = (lineage: Lineage, range: Range, to: number, agent: string, now: number): string =>
+const LEDGER = (lineage: Lineage, range: Range, to: number, agent: string): string =>
     [
         'pragma foreign_keys = on;',
-        `insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) values (${quoted(range.trigger.kind)}, ${quoted(lineage.main)}, ${quoted(lineage.worktree)}, ${quoted(lineage.branch)}, ${range.from}, ${to}, ${quoted(agent)}, ${now});`,
+        `insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) values (${quoted(range.trigger.kind)}, ${quoted(lineage.main)}, ${quoted(lineage.worktree)}, ${quoted(lineage.branch)}, ${range.from}, ${to}, ${quoted(agent)}, ${to});`,
     ].join('\n');
 
 const REPORT = (lineage: Lineage, session: string, category: string, now: number): string =>
@@ -126,7 +126,9 @@ const REPORT = (lineage: Lineage, session: string, category: string, now: number
     ].join('\n');
 
 const REVOKE = (lineage: Lineage, session: string, now: number): string =>
-    ['pragma foreign_keys = on;', `delete from finding_delivery where lineage_key = ${quoted(lineage.key)} and session_id = ${quoted(session)} and channel = 'report' and delivered_at = ${now};`].join('\n',);
+    ['pragma foreign_keys = on;', `delete from finding_delivery where lineage_key = ${quoted(lineage.key)} and session_id = ${quoted(session)} and channel = 'report' and delivered_at = ${now};`].join(
+        '\n',
+    );
 
 const DELIVER = (lineage: Lineage, session: string, now: number): string => {
     const key = quoted(lineage.key);

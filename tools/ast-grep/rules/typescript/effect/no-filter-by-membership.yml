@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-by-membership
+language: tsx
+severity: error
+ignores: ['.claude/plugins/**']
+utils:
+    effect-array:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}
+    membership:
+        kind: call_expression
+        any:
+            - pattern: $SET.has($SEEN, $X)
+              has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/HashSet)?$'}, exported: {regex: '^HashSet$'}}}}}
+            - pattern: $ARRAY.contains($SEEN, $X)
+              has: {field: function, has: {field: object, matches: effect-array}}
+            - pattern: $SEEN.has($X)
+            - pattern: $SEEN.includes($X)
+    predicate:
+        kind: arrow_function
+        all:
+            - has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $X}}, not: {has: {nthChild: 2}}}
+            - has: {field: body, any: [{matches: membership}, {pattern: '!$INNER', has: {matches: membership}}]}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, has: {field: property, regex: '^filter$'}}
+        - any:
+            - all:
+                - has: {field: function, has: {field: object, matches: effect-array, pattern: $MODULE}}
+                - has: {field: arguments, pattern: $ARGS, has: {matches: predicate, pattern: $FN, nthChild: {position: 1, reverse: true}}}
+            - all:
+                - pattern: $KEPT
+                - has: {field: function, has: {field: object, not: {matches: effect-array}}}
+                - has: {field: arguments, has: {matches: predicate, nthChild: 1}, not: {has: {nthChild: 2}}}
+constraints:
+    SEEN: {not: {any: [{kind: identifier, pattern: $X}, {has: {stopBy: end, kind: identifier, pattern: $X}}]}}
+rewriters:
+    - id: other
+      rule: {kind: arrow_function}
+      fix: $SEEN
+    - id: absent
+      rule: {kind: arrow_function, has: {field: body, pattern: '!$_'}}
+      fix: difference
+    - id: present
+      rule: {kind: arrow_function}
+      fix: intersection
+transform:
+    OPERATION: rewrite($FN, rewriters=[absent, present])
+    OPERANDS: rewrite($ARGS, rewriters=[other])
+fix: $MODULE.$OPERATION$OPERANDS$KEPT
+message: '`filter` tests each element for membership in `$SEEN` by hand'
+note: '`Array.difference` keeps the elements absent from `$SEEN`, `Array.intersection` the elements present, both by `Equal`'

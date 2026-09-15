@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-data-first-runner
+language: tsx
+severity: error
+utils:
+    runner:
+        kind: member_expression
+        pattern: $RUN
+        any:
+            - all:
+                - has: {field: property, regex: '^runMain$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform-(node|bun)$'}, exported: {regex: '^(NodeRuntime|BunRuntime)$'}}}}
+            - all:
+                - has: {field: property, regex: '^run$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/cli(/Command)?$'}, exported: {regex: '^Command$'}}}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, matches: runner}
+        - any:
+            - pattern: $RUN($PROGRAM)
+            - pattern: '$RUN($PROGRAM, $OPTIONS)'
+        - not: {has: {field: arguments, has: {nthChild: 1, kind: object}}}
+        - any:
+            - pattern: $FIXABLE
+              not: {has: {kind: comment, stopBy: end}}
+            - pattern: $KEPT
+rewriters:
+    - id: extend
+      rule:
+        pattern: $SELF.pipe($$$_)
+        has: {field: arguments, pattern: $STEPS}
+      transform:
+        INNER: substring($STEPS, startChar=1, endChar=-1)
+        LISTED: replace($INNER, replace='(?s),\s*$', by='')
+      fix: $SELF.pipe($LISTED, $RUN($OPTIONS))
+    - id: open
+      rule: {pattern: $SELF}
+      fix: $SELF.pipe($RUN($OPTIONS))
+    - id: runner
+      rule:
+        any:
+            - pattern: $RUN($PROGRAM)
+            - pattern: '$RUN($PROGRAM, $OPTIONS)'
+      transform:
+        PIPED: rewrite($PROGRAM, rewriters=[extend, open])
+      fix: $PIPED
+transform:
+    FIXED: rewrite($FIXABLE, rewriters=[runner])
+fix: $FIXED$KEPT
+message: '`$RUN` wraps the program it runs, the steps read from the inside out'
+note: '`program.pipe(step, $RUN(options))` ends the pipe with the runner'

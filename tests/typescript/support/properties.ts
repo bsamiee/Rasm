@@ -1,19 +1,18 @@
+// --- [IMPORTS] -------------------------------------------------------------------------
+
 import type { Vitest } from '@effect/vitest';
-import { Arbitrary, Data, Effect, Equal, FastCheck, Inspectable, type Order, Schema, type TestServices } from 'effect';
+import { Data, Effect, type Equivalence, FastCheck, Function, type Order, pipe, Schema, type TestServices } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type PropertyArbitraries = { readonly [K in string]: Schema.Schema.Any | FastCheck.Arbitrary<unknown> };
-type ArbitraryValues<A extends PropertyArbitraries> = {
-    readonly [K in keyof A]: A[K] extends FastCheck.Arbitrary<infer T> ? T : Schema.Schema.Type<A[K]>;
-};
-type PropertyApi<R> = Vitest.Methods<R> | Vitest.MethodsNonLive<R>;
+type Values<A extends Vitest.Arbitraries> = { readonly [K in keyof A]: A[K] extends FastCheck.Arbitrary<infer T> ? T : Schema.Schema.Type<A[K]> };
 type Binary<A> = (left: A, right: A) => A;
-type Equals<A> = (self: A, that: A) => boolean;
+type Registration<S, R = never> = (it: Vitest.MethodsNonLive<R>, subject: S) => void;
 
-interface Isomorphism<A, B> {
-    readonly to: (value: A) => B;
-    readonly from: (image: B) => A;
+interface Law<S, A extends Vitest.Arbitraries, E, R> {
+    readonly name: string;
+    readonly arbitraries: A;
+    readonly predicate: (subject: S, args: Values<A>) => Effect.Effect<boolean, E, R | TestServices.TestServices>;
 }
 
 interface Counterexample<S, Args> {
@@ -22,279 +21,137 @@ interface Counterexample<S, Args> {
     readonly args: Args;
 }
 
-interface PropertyDefinition<S, A extends PropertyArbitraries, E, R> {
-    readonly name: string;
-    readonly arbitraries: A;
-    readonly predicate: (subject: S, args: ArbitraryValues<A>) => Effect.Effect<boolean, E, R | TestServices.TestServices>;
-    readonly counterexample: Counterexample<S, ArbitraryValues<A>>;
-}
-
-interface RegisteredProperty<S, R = never> {
-    readonly name: string;
-    readonly register: (api: PropertyApi<R>, subject: S) => void;
-}
-
-interface PropertyOptions<S, Args> {
-    readonly name?: string;
-    readonly counterexample: Counterexample<S, Args>;
-}
-
-interface BinaryOptions<A, Args> extends PropertyOptions<Binary<A>, Args> {
-    readonly arb: FastCheck.Arbitrary<A>;
-    readonly equals?: Equals<A>;
-}
-
-interface Property {
-    readonly verifyCounterexample: <S, A extends PropertyArbitraries, E, R>(definition: PropertyDefinition<S, A, E, R>) => Effect.Effect<void, PropertyError, R | TestServices.TestServices>;
-    readonly define: <S, const A extends PropertyArbitraries, E = never, R = never>(definition: PropertyDefinition<S, A, E, R>) => RegisteredProperty<S, R>;
-    readonly register: <S, R>(api: PropertyApi<R>, subject: S, properties: readonly RegisteredProperty<S, R>[]) => void;
-    readonly associative: <A>(options: BinaryOptions<A, { readonly a: A; readonly b: A; readonly c: A }>) => RegisteredProperty<Binary<A>>;
-    readonly commutative: <A>(options: BinaryOptions<A, { readonly a: A; readonly b: A }>) => RegisteredProperty<Binary<A>>;
-    readonly idempotent: <A>(options: BinaryOptions<A, { readonly a: A }>) => RegisteredProperty<Binary<A>>;
-    readonly identity: <A>(options: BinaryOptions<A, { readonly a: A }> & { readonly empty: A }) => RegisteredProperty<Binary<A>>;
-    readonly equivalence: <A>(options: PropertyOptions<Equals<A>, { readonly a: A; readonly b: A; readonly c: A }> & { readonly arb: FastCheck.Arbitrary<A> }) => RegisteredProperty<Equals<A>>;
-    readonly order: <A>(options: PropertyOptions<Order.Order<A>, { readonly a: A; readonly b: A; readonly c: A }> & { readonly arb: FastCheck.Arbitrary<A> }) => RegisteredProperty<Order.Order<A>>;
-    readonly inverse: <A, B>(
-        options: PropertyOptions<Isomorphism<A, B>, { readonly a: A }> & { readonly arb: FastCheck.Arbitrary<A>; readonly equals?: Equals<A> },
-    ) => RegisteredProperty<Isomorphism<A, B>>;
-    readonly deterministic: <I, A, E, R>(
-        options: PropertyOptions<(input: I) => Effect.Effect<A, E, R>, { readonly input: I }> & {
-            readonly arb: FastCheck.Arbitrary<I>;
-            readonly equals?: Equals<A>;
-        },
-    ) => RegisteredProperty<(input: I) => Effect.Effect<A, E, R>, R>;
-    readonly homomorphic: <A, B>(
-        options: PropertyOptions<(value: A) => B, { readonly a: A; readonly b: A }> & {
-            readonly arb: FastCheck.Arbitrary<A>;
-            readonly combine: Binary<A>;
-            readonly combineImage: Binary<B>;
-            readonly equals?: Equals<B>;
-        },
-    ) => RegisteredProperty<(value: A) => B>;
-    readonly monotone: <A>(
-        options: PropertyOptions<(state: A) => A, { readonly a: A }> & { readonly arb: FastCheck.Arbitrary<A>; readonly order: Order.Order<A> },
-    ) => RegisteredProperty<(state: A) => A>;
-    readonly total: <I, E, R>(
-        options: PropertyOptions<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }> & { readonly arb: FastCheck.Arbitrary<I> },
-    ) => RegisteredProperty<(input: I) => Effect.Effect<unknown, E, R>, R>;
-    readonly roundtrip: <A, I>(
-        options: PropertyOptions<Schema.Schema<A, I, never>, { readonly value: A }> & { readonly schema: Schema.Schema<A, I, never> },
-    ) => RegisteredProperty<Schema.Schema<A, I, never>>;
-    readonly machine: <Model extends object, Real>(
-        options: PropertyOptions<() => { readonly model: Model; readonly real: Real }, { readonly run: Iterable<FastCheck.Command<Model, Real>> }> & {
-            readonly commands: readonly FastCheck.Arbitrary<FastCheck.Command<Model, Real>>[];
-        },
-    ) => RegisteredProperty<() => { readonly model: Model; readonly real: Real }>;
-    readonly machineAsync: <Model extends object, Real>(
-        options: PropertyOptions<() => { readonly model: Model; readonly real: Real }, { readonly run: Iterable<FastCheck.AsyncCommand<Model, Real>> }> & {
-            readonly commands: readonly FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>[];
-        },
-    ) => RegisteredProperty<() => { readonly model: Model; readonly real: Real }>;
-    readonly interleave: (
-        options: PropertyOptions<(schedule: FastCheck.Scheduler) => Promise<boolean>, { readonly schedule: FastCheck.Scheduler }>,
-    ) => RegisteredProperty<(schedule: FastCheck.Scheduler) => Promise<boolean>>;
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class PropertyError extends Data.Error<{
-    readonly reason: 'violation' | 'counterexample';
-    readonly property: string;
-    readonly detail: string;
-}> {
-    readonly _tag = 'PropertyError' as const;
-}
+type PropertyError = Data.TaggedEnum<{
+    readonly counterexampleAccepted: { readonly property: string; readonly label: string };
+    readonly modelDivergence: { readonly cause: unknown };
+}>;
+
+const PropertyError: Data.TaggedEnum.Constructor<PropertyError> = Data.taggedEnum<PropertyError>();
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const Property: Property = {
-    verifyCounterexample: (definition) =>
-        definition.predicate(definition.counterexample.implementation, definition.counterexample.args).pipe(
-            Effect.orElseSucceed(() => false),
-            Effect.filterOrFail(
-                (holds) => !holds,
-                () => new PropertyError({ reason: 'counterexample', property: definition.name, detail: definition.counterexample.label }),
-            ),
-            Effect.asVoid,
-        ),
-    define: (definition) => ({
-        name: definition.name,
-        register: (api, subject) => {
-            api.effect.prop(definition.name, definition.arbitraries, (args) =>
-                Effect.asVoid(
-                    Effect.filterOrFail(
-                        definition.predicate(subject, args),
-                        (holds) => holds,
-                        () => new PropertyError({ reason: 'violation', property: definition.name, detail: Inspectable.toStringUnknown(args) }),
-                    ),
-                ),
-            );
-            api.effect(`${definition.name} rejects ${definition.counterexample.label}`, () => Property.verifyCounterexample(definition));
-        },
-    }),
-    register: (api, subject, properties) => {
-        for (const property of properties) {
-            property.register(api, subject);
-        }
-    },
+const law =
+    <S, const A extends Vitest.Arbitraries, E, R>({ name, arbitraries, predicate }: Law<S, A, E, R>): Registration<S, R> =>
+    (it, subject): void =>
+        it.effect.prop(name, arbitraries, (args) => predicate(subject, args));
 
-    // --- [BUILT_IN_PROPERTIES] ---------------------------------------------------------
-    associative: (options) =>
-        Property.define({
-            name: options.name ?? 'combine is associative',
-            arbitraries: { a: options.arb, b: options.arb, c: options.arb },
-            predicate: (combine, { a, b, c }) => Effect.sync(() => (options.equals ?? Equal.equals)(combine(combine(a, b), c), combine(a, combine(b, c)))),
-            counterexample: options.counterexample,
-        }),
-    commutative: (options) =>
-        Property.define({
-            name: options.name ?? 'combine is commutative',
-            arbitraries: { a: options.arb, b: options.arb },
-            predicate: (combine, { a, b }) => Effect.sync(() => (options.equals ?? Equal.equals)(combine(a, b), combine(b, a))),
-            counterexample: options.counterexample,
-        }),
-    idempotent: (options) =>
-        Property.define({
-            name: options.name ?? 'combine is idempotent',
-            arbitraries: { a: options.arb },
-            predicate: (combine, { a }) => Effect.sync(() => (options.equals ?? Equal.equals)(combine(a, a), a)),
-            counterexample: options.counterexample,
-        }),
-    identity: (options) =>
-        Property.define({
-            name: options.name ?? 'the identity element is neutral',
-            arbitraries: { a: options.arb },
-            predicate: (combine, { a }) =>
-                Effect.sync(() => {
-                    const equals = options.equals ?? Equal.equals;
-                    return equals(combine(options.empty, a), a) && equals(combine(a, options.empty), a);
-                }),
-            counterexample: options.counterexample,
-        }),
-    equivalence: (options) =>
-        Property.define({
-            name: options.name ?? 'equivalence is reflexive, symmetric, and transitive',
-            arbitraries: { a: options.arb, b: options.arb, c: options.arb },
-            predicate: (equals, { a, b, c }) =>
-                Effect.sync(() => {
-                    const related = equals(a, b);
-                    return equals(a, a) && related === equals(b, a) && (!(related && equals(b, c)) || equals(a, c));
-                }),
-            counterexample: options.counterexample,
-        }),
-    order: (options) =>
-        Property.define({
-            name: options.name ?? 'comparison defines a total order',
-            arbitraries: { a: options.arb, b: options.arb, c: options.arb },
-            predicate: (compare, { a, b, c }) =>
-                Effect.sync(() => {
-                    const order = compare(a, b);
-                    return compare(a, a) === 0 && order === -compare(b, a) && (!(order <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0);
-                }),
-            counterexample: options.counterexample,
-        }),
-    inverse: (options) =>
-        Property.define({
-            name: options.name ?? 'decode recovers each encoded value',
-            arbitraries: { a: options.arb },
-            predicate: (isomorphism, { a }) => Effect.sync(() => (options.equals ?? Equal.equals)(isomorphism.from(isomorphism.to(a)), a)),
-            counterexample: options.counterexample,
-        }),
-    deterministic: (options) =>
-        Property.define({
-            name: options.name ?? 'operation is deterministic',
-            arbitraries: { input: options.arb },
-            predicate: (subject, { input }) => {
-                const run = subject(input);
-                return Effect.zipWith(run, run, (first, second) => (options.equals ?? Equal.equals)(first, second));
-            },
-            counterexample: options.counterexample,
-        }),
-    homomorphic: (options) =>
-        Property.define({
-            name: options.name ?? 'map commutes with combine',
-            arbitraries: { a: options.arb, b: options.arb },
-            predicate: (to, { a, b }) => Effect.sync(() => (options.equals ?? Equal.equals)(to(options.combine(a, b)), options.combineImage(to(a), to(b)))),
-            counterexample: options.counterexample,
-        }),
-    monotone: (options) =>
-        Property.define({
-            name: options.name ?? 'step never regresses',
-            arbitraries: { a: options.arb },
-            predicate: (step, { a }) => Effect.sync(() => options.order(a, step(a)) <= 0),
-            counterexample: options.counterexample,
-        }),
-    total: (options) =>
-        Property.define({
-            name: options.name ?? 'operation is total',
-            arbitraries: { input: options.arb },
-            predicate: (subject, { input }) => Effect.isSuccess(subject(input)),
-            counterexample: options.counterexample,
-        }),
-    roundtrip: (options) => {
-        const equivalence = Schema.equivalence(options.schema);
-        return Property.define({
-            name: options.name ?? 'codec round-trips',
-            arbitraries: { value: Arbitrary.make(options.schema) },
-            predicate: (subject, { value }) =>
-                Effect.match(Effect.flatMap(Schema.encode(subject)(value), Schema.decode(subject)), {
-                    onFailure: () => false,
-                    onSuccess: (back) => equivalence(value, back),
-                }),
-            counterexample: options.counterexample,
-        });
-    },
-    machine: (options) => {
-        const name = options.name ?? 'system conforms to its model';
-        return Property.define({
-            name,
-            arbitraries: { run: FastCheck.commands([...options.commands]) },
-            predicate: (setup, { run }) =>
-                Effect.isSuccess(
-                    Effect.try({
-                        try: () => FastCheck.modelRun(setup, run),
-                        catch: (cause) => new PropertyError({ reason: 'violation', property: name, detail: Inspectable.toStringUnknown(cause) }),
-                    }),
-                ),
-            counterexample: options.counterexample,
-        });
-    },
-    machineAsync: (options) => {
-        const name = options.name ?? 'asynchronous system conforms to its model';
-        return Property.define({
-            name,
-            arbitraries: { run: FastCheck.commands([...options.commands]) },
-            predicate: (setup, { run }) =>
-                Effect.isSuccess(
-                    Effect.tryPromise({
-                        try: () => FastCheck.asyncModelRun(setup, run),
-                        catch: (cause) => new PropertyError({ reason: 'violation', property: name, detail: Inspectable.toStringUnknown(cause) }),
-                    }),
-                ),
-            counterexample: options.counterexample,
-        });
-    },
-    interleave: (options) =>
-        Property.define({
-            name: options.name ?? 'holds under every interleaving',
-            arbitraries: { schedule: FastCheck.scheduler() },
-            predicate: (subject, { schedule }) => Effect.promise(() => subject(schedule)),
-            counterexample: options.counterexample,
-        }),
-};
+const define =
+    <S, const A extends Vitest.Arbitraries, E, R>(property: Law<S, A, E, R>, counterexample: Counterexample<S, Values<A>>): Registration<S, R> =>
+    (it, subject): void => {
+        law(property)(it, subject);
+        it.effect(`${property.name} rejects ${counterexample.label}`, () =>
+            property.predicate(counterexample.implementation, counterexample.args).pipe(
+                Effect.filterOrFail(Function.identity),
+                Effect.flip,
+                Effect.mapError(() => PropertyError.counterexampleAccepted({ property: property.name, label: counterexample.label })),
+            ),
+        );
+    };
+
+// --- [LAWS] ----------------------------------------------------------------------------
+
+const associative = <A>(arb: FastCheck.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> =>
+    law({
+        name: 'combine is associative',
+        arbitraries: { a: arb, b: arb, c: arb },
+        predicate: (combine, { a, b, c }) => Effect.sync(() => equals(combine(combine(a, b), c), combine(a, combine(b, c)))),
+    });
+
+const commutative = <A>(arb: FastCheck.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> =>
+    law({ name: 'combine is commutative', arbitraries: { a: arb, b: arb }, predicate: (combine, { a, b }) => Effect.sync(() => equals(combine(a, b), combine(b, a))) });
+
+const idempotent = <A>(arb: FastCheck.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<Binary<A>> =>
+    law({ name: 'combine is idempotent', arbitraries: { a: arb }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(a, a), a)) });
+
+const identity = <A>(arb: FastCheck.Arbitrary<A>, equals: Equivalence.Equivalence<A>, empty: A): Registration<Binary<A>> =>
+    law({ name: 'empty is the identity', arbitraries: { a: arb }, predicate: (combine, { a }) => Effect.sync(() => equals(combine(empty, a), a) && equals(combine(a, empty), a)) });
+
+const equivalence = <A>(arb: FastCheck.Arbitrary<A>): Registration<Equivalence.Equivalence<A>> =>
+    law({
+        name: 'equivalence is reflexive, symmetric, and transitive',
+        arbitraries: { a: arb, b: arb, c: arb },
+        predicate: (equals, { a, b, c }) => Effect.sync(() => pipe(equals(a, b), (related) => equals(a, a) && related === equals(b, a) && (!(related && equals(b, c)) || equals(a, c)))),
+    });
+
+const order = <A>(arb: FastCheck.Arbitrary<A>): Registration<Order.Order<A>> =>
+    law({
+        name: 'comparison defines a total order',
+        arbitraries: { a: arb, b: arb, c: arb },
+        predicate: (compare, { a, b, c }) =>
+            Effect.sync(() => pipe(compare(a, b), (ordering) => compare(a, a) === 0 && ordering === -compare(b, a) && (!(ordering <= 0 && compare(b, c) <= 0) || compare(a, c) <= 0))),
+    });
+
+const inverse = <A, B>(arb: FastCheck.Arbitrary<A>, equals: Equivalence.Equivalence<A>): Registration<{ readonly to: (value: A) => B; readonly from: (image: B) => A }> =>
+    law({ name: 'decode recovers each encoded value', arbitraries: { a: arb }, predicate: (codec, { a }) => Effect.sync(() => equals(codec.from(codec.to(a)), a)) });
+
+const deterministic = <I, A, E, R>(arb: FastCheck.Arbitrary<I>, equals: Equivalence.Equivalence<A>): Registration<(input: I) => Effect.Effect<A, E, R>, R> =>
+    law({ name: 'operation is deterministic', arbitraries: { input: arb }, predicate: (subject, { input }) => pipe(subject(input), (run) => Effect.zipWith(run, run, equals)) });
+
+const homomorphic = <A, B>(arb: FastCheck.Arbitrary<A>, combine: Binary<A>, combineImage: Binary<B>, equals: Equivalence.Equivalence<B>): Registration<(value: A) => B> =>
+    law({ name: 'map commutes with combine', arbitraries: { a: arb, b: arb }, predicate: (map, { a, b }) => Effect.sync(() => equals(map(combine(a, b)), combineImage(map(a), map(b)))) });
+
+const monotone = <A>(arb: FastCheck.Arbitrary<A>, compare: Order.Order<A>): Registration<(state: A) => A> =>
+    law({ name: 'step is monotone', arbitraries: { a: arb }, predicate: (step, { a }) => Effect.sync(() => compare(a, step(a)) <= 0) });
+
+const total = <I, E, R>(
+    arb: FastCheck.Arbitrary<I>,
+    counterexample: Counterexample<(input: I) => Effect.Effect<unknown, E, R>, { readonly input: I }>,
+): Registration<(input: I) => Effect.Effect<unknown, E, R>, R> =>
+    define({ name: 'operation is total', arbitraries: { input: arb }, predicate: (subject, { input }) => Effect.isSuccess(subject(input)) }, counterexample);
+
+const interleave = (
+    counterexample: Counterexample<(schedule: FastCheck.Scheduler) => Promise<boolean>, { readonly schedule: FastCheck.Scheduler }>,
+): Registration<(schedule: FastCheck.Scheduler) => Promise<boolean>> =>
+    define({ name: 'holds under every interleaving', arbitraries: { schedule: FastCheck.scheduler() }, predicate: (subject, { schedule }) => Effect.promise(() => subject(schedule)) }, counterexample);
+
+const roundtrip = <A, I>(it: Vitest.MethodsNonLive, codec: Schema.Schema<A, I, never>): void =>
+    it.effect.prop('codec round-trips', { value: codec }, ({ value }) =>
+        Schema.encode(codec)(value).pipe(
+            Effect.flatMap(Schema.decode(codec)),
+            Effect.map((decoded) => Schema.equivalence(codec)(value, decoded)),
+        ),
+    );
+
+const machine =
+    <Model extends object, Real>(commands: readonly FastCheck.Arbitrary<FastCheck.Command<Model, Real>>[]): Registration<() => { readonly model: Model; readonly real: Real }> =>
+    (it, setup): void =>
+        it.effect.prop('system conforms to its model', { run: FastCheck.commands([...commands]) }, ({ run }) =>
+            Effect.try({ try: () => FastCheck.modelRun(setup, run), catch: (cause) => PropertyError.modelDivergence({ cause }) }),
+        );
+
+const asyncMachine =
+    <Model extends object, Real>(commands: readonly FastCheck.Arbitrary<FastCheck.AsyncCommand<Model, Real>>[]): Registration<() => { readonly model: Model; readonly real: Real }> =>
+    (it, setup): void =>
+        it.effect.prop('asynchronous system conforms to its model', { run: FastCheck.commands([...commands]) }, ({ run }) =>
+            Effect.tryPromise({ try: () => FastCheck.asyncModelRun(setup, run), catch: (cause) => PropertyError.modelDivergence({ cause }) }),
+        );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export {
-    type ArbitraryValues,
+    associative,
+    asyncMachine,
     type Binary,
-    type Equals,
-    type Isomorphism,
-    Property,
-    type PropertyApi,
-    type PropertyArbitraries,
-    type PropertyDefinition,
+    type Counterexample,
+    commutative,
+    define,
+    deterministic,
+    equivalence,
+    homomorphic,
+    idempotent,
+    identity,
+    interleave,
+    inverse,
+    type Law,
+    law,
+    machine,
+    monotone,
+    order,
     PropertyError,
-    type PropertyOptions,
-    type RegisteredProperty,
+    type Registration,
+    roundtrip,
+    total,
+    type Values,
 };

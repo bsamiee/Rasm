@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-empty-match-fallback
+language: tsx
+severity: error
+utils:
+    empty-value:
+        any:
+            - kind: array
+              not: {has: {pattern: $_}}
+            - kind: object
+              not: {has: {pattern: $_}}
+            - kind: 'undefined, null'
+            - kind: string
+              not: {has: {kind: string_fragment}}
+            - kind: parenthesized_expression
+              has: {matches: empty-value}
+            - kind: call_expression
+              all:
+                - has: {field: function, has: {field: property, regex: '^none$'}}
+                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Option)?$'}, exported: {regex: '^Option$'}}}}}
+                - not: {has: {field: arguments, has: {pattern: $_}}}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^void$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+    constant-thunk:
+        kind: member_expression
+        has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^Function$'}}}}
+rule:
+    kind: call_expression
+    all:
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^orElse$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Match)?$'}, exported: {regex: '^Match$'}}}}
+        - has:
+            field: arguments
+            has:
+                any:
+                    - matches: {effect-constant-handler: {result: {matches: empty-value, pattern: $D}}}
+                    - kind: call_expression
+                      all:
+                        - has: {field: function, matches: constant-thunk, has: {field: property, regex: '^constant$'}}
+                        - has: {field: arguments, has: {matches: empty-value, pattern: $D}}
+                    - matches: constant-thunk
+                      has: {field: property, regex: '^const(Undefined|Null|Void)$', pattern: $D}
+message: '`Match.orElse` yields `$D` for every case the arms miss'
+note: '`Match.orElseAbsurd` when the arms cover the union, one more `Match.when` or `Match.tag` arm otherwise'

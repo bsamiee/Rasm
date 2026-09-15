@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-namespace-object
+language: tsx
+severity: error
+utils:
+    function-object:
+        kind: object
+        all:
+            - has: {any: [{kind: method_definition}, {kind: pair, has: {field: value, kind: 'arrow_function, function_expression, call_expression, new_expression'}}]}
+            - not: {has: {kind: pair, has: {field: key, kind: 'string, number, computed_property_name'}}}
+            - not: {has: {kind: spread_element}}
+rule:
+    kind: variable_declarator
+    all:
+        - inside: {matches: syntax-module-constant}
+        - has: {field: name, kind: identifier, pattern: $NAME}
+        - has:
+            field: value
+            any:
+                - matches: function-object
+                - matches: syntax-expression-wrapper
+                  has: {stopBy: {not: {matches: syntax-expression-wrapper}}, matches: function-object}
+        - not:
+            inside:
+                kind: program
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: identifier, shorthand_property_identifier
+                    pattern: $NAME
+                    not:
+                        any:
+                            - inside: {kind: variable_declarator, field: name}
+                            - inside: {kind: member_expression, field: object}
+                            - inside: {kind: export_specifier}
+message: '`$NAME` groups functions in an object the module already namespaces'
+note: 'Declare each member as its own `const` and list it in the export statement'

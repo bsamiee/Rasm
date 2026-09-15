@@ -1,0 +1,122 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-function-tsx
+language: tsx
+severity: error
+ignores: ['.claude/plugins/**']
+utils:
+    effect-module:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {kind: identifier, not: {regex: '^Schema$'}}}}
+    named-callee:
+        any:
+            - kind: identifier
+              pattern: $ROOT
+              not:
+                inside:
+                    matches: syntax-function-boundary
+                    stopBy: {matches: syntax-function-boundary}
+                    any:
+                        - has: {field: name, pattern: $ROOT}
+                        - has: {field: parameter, kind: identifier, pattern: $ROOT}
+                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $ROOT}}
+            - kind: member_expression
+              not: {has: {kind: optional_chain}}
+              has: {field: object, matches: named-callee, regex: '^[A-Z]'}
+    inner-callee:
+        any:
+            - kind: identifier
+              pattern: $INNER
+              not:
+                inside:
+                    matches: syntax-function-boundary
+                    stopBy: {matches: syntax-function-boundary}
+                    any:
+                        - has: {field: name, pattern: $INNER}
+                        - has: {field: parameter, kind: identifier, pattern: $INNER}
+                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $INNER}}
+            - kind: member_expression
+              not: {has: {kind: optional_chain}}
+              has: {field: object, matches: inner-callee, regex: '^[A-Z]'}
+    dual-operation:
+        kind: member_expression
+        all:
+            - has: {field: object, matches: effect-module}
+            - has:
+                field: property
+                regex: |-
+                    (?x)^(map|flatMap|andThen|tap|tapError|tapBoth|filter|filterMap|filterOrFail|filterOrElse|forEach|reduce|getOrElse|orElse
+                    |orElseSucceed|orElseFail|catchAll|catchAllCause|catchTag|catchTags|catchSome|mapError|mapBoth|match|matchEffect|zip
+                    |zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext|mapInput|partition|partitionMap|take
+                    |takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll|retry|repeat|timeout|delay|when
+                    |race|merge|mapOut|filterInput|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast|chunksOf
+                    |intersperse|union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|sortBy|groupBy
+                    |sort|sortWith|dedupeWith|get|set|has|remove|modify|update|pick|omit|evolve|liftPredicate|fromOption|withTracer
+                    |provideMerge|startsWith|endsWith|includes|join|equals|matchTag|tapErrorTag|catchIf)$
+    string-method:
+        regex: |-
+            (?x)^(startsWith|endsWith|includes|trim|trimStart|trimEnd|toUpperCase|toLowerCase|split|slice|at|charAt|charCodeAt
+            |indexOf|lastIndexOf|replace|replaceAll|repeat|padStart|padEnd|concat|search|normalize|localeCompare|substring)$
+    parameter-1: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: identifier, pattern: $A}}
+    parameter-2: {kind: required_parameter, nthChild: 2, has: {field: pattern, kind: identifier, pattern: $B}}
+    parameter-3: {kind: required_parameter, nthChild: 3, has: {field: pattern, kind: identifier, pattern: $C}}
+    parameters-1:
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $A}
+            - has: {field: parameters, has: {matches: parameter-1}, not: {has: {nthChild: 2}}}
+    parameters-2:
+        has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}], not: {has: {nthChild: 3}}}
+    parameters-3:
+        has: {field: parameters, all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}], not: {has: {nthChild: 4}}}
+    parameters-rest:
+        has: {field: parameters, has: {kind: required_parameter, nthChild: 1, has: {field: pattern, kind: rest_pattern, has: {kind: identifier, pattern: $A}}}, not: {has: {nthChild: 2}}}
+    parameter-read:
+        any: [{kind: identifier, pattern: $A}, {has: {stopBy: end, kind: identifier, pattern: $A}}]
+    forwarded-1:
+        pattern: $BODY
+        any:
+            - pattern: $F($A)
+              has: {field: function, matches: named-callee}
+            - pattern: $F($G($A))
+              all:
+                - has: {field: function, matches: named-callee}
+                - has: {field: arguments, has: {kind: call_expression, has: {field: function, matches: inner-callee}}}
+            - kind: member_expression
+              not: {has: {kind: optional_chain}}
+              all: [{has: {field: object, kind: identifier, pattern: $A}}, {has: {field: property, kind: property_identifier}}]
+            - kind: identifier
+              pattern: $A
+            - pattern: '$M.$OP($A, $$$REST)'
+              has: {field: function, matches: dual-operation}
+              not: {has: {field: arguments, has: {not: {nthChild: 1}, matches: parameter-read}}}
+            - pattern: $A.$METHOD($$$REST)
+              has: {field: function, has: {field: property, matches: string-method}}
+              not: {has: {field: arguments, has: {matches: parameter-read}}}
+    forwarded-2:
+        all: [{pattern: $BODY}, {pattern: '$F($A, $B)'}, {has: {field: function, matches: named-callee}}]
+    forwarded-3:
+        all: [{pattern: $BODY}, {pattern: '$F($A, $B, $C)'}, {has: {field: function, matches: named-callee}}]
+    forwarded-rest:
+        all: [{pattern: $BODY}, {pattern: $F(...$A)}, {has: {field: function, matches: named-callee}}]
+    single-return:
+        kind: statement_block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    result-1:
+        any: [{matches: forwarded-1}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-1}}}]
+    result-2:
+        any: [{matches: forwarded-2}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-2}}}]
+    result-3:
+        any: [{matches: forwarded-3}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-3}}}]
+    result-rest:
+        any: [{matches: forwarded-rest}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-rest}}}]
+rule:
+    kind: arrow_function, function_expression, function_declaration
+    all:
+        - not: {regex: '^async\b'}
+        - not: {has: {field: parameters, has: {kind: optional_parameter}}}
+        - not: {has: {field: parameters, has: {kind: required_parameter, has: {field: value, pattern: $_}}}}
+        - any:
+            - all: [{matches: parameters-1}, {has: {field: body, matches: result-1}}]
+            - all: [{matches: parameters-2}, {has: {field: body, matches: result-2}}]
+            - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
+            - all: [{matches: parameters-rest}, {has: {field: body, matches: result-rest}}]
+message: 'Function forwards its parameters unchanged into `$BODY`'
+note: 'Pass the callee, `flow(inner, callee)`, `Struct.get(key)`, or `Function.identity` where the callee takes no more arguments'

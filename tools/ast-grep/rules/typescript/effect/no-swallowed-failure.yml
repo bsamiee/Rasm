@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-swallowed-failure
+language: tsx
+severity: error
+utils:
+    effect-module:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM))?$'}, exported: {regex: '^(Effect|STM)$'}}}
+    failure-constructor:
+        kind: call_expression
+        pattern: $INNER
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(try|tryPromise|tryMap|tryMapPromise|fail|failSync|filterOrFail|mapError|mapBoth|orElseFail)$'}
+                - has: {field: object, matches: effect-module}
+    boolean-handler:
+        matches: {effect-constant-handler: {result: {kind: 'true, false'}}}
+    boolean-pair:
+        kind: pair
+        all:
+            - has: {field: key, regex: '^onSuccess$'}
+            - has: {field: value, matches: boolean-handler}
+rule:
+    kind: call_expression
+    any:
+        - all:
+            - has:
+                field: function
+                kind: member_expression
+                pattern: $CALL
+                all:
+                    - has: {field: property, regex: '^(isSuccess|isFailure)$'}
+                    - has: {field: object, matches: effect-module}
+            - has: {field: arguments, has: {nthChild: 1, matches: failure-constructor}}
+        - all:
+            - has:
+                field: function
+                kind: member_expression
+                pattern: $CALL
+                all:
+                    - has: {field: property, regex: '^match$'}
+                    - has: {field: object, matches: effect-module}
+            - has:
+                field: arguments
+                has:
+                    kind: object
+                    all:
+                        - has:
+                            kind: pair
+                            all:
+                                - has: {field: key, regex: '^onFailure$'}
+                                - has: {field: value, matches: boolean-handler}
+                        - not: {has: {matches: boolean-pair}}
+message: '`$CALL` collapses a typed failure into a boolean'
+note: 'Return the effect with its failure, the consumer reads the variant by `_tag`'

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-switch-lookup
+language: tsx
+severity: error
+utils:
+    returning-case:
+        kind: switch_case, switch_default
+        all:
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+            - not: {has: {field: body, not: {kind: return_statement}}}
+            - not: {has: {field: body, kind: return_statement, not: {has: {pattern: $_}}}}
+    literal-case:
+        kind: switch_case
+        has: {field: value, any: [{kind: 'string, number'}, {kind: template_string, not: {has: {kind: template_substitution}}}]}
+rule:
+    kind: switch_statement
+    all:
+        - has: {field: value, has: {pattern: $KEY}}
+        - has:
+            field: body
+            all:
+                - has: {kind: switch_case, has: {field: body, kind: return_statement}}
+                - not: {has: {kind: switch_case, not: {matches: literal-case}}}
+                - not: {has: {kind: 'switch_case, switch_default', not: {matches: returning-case}}}
+message: '`switch` over `$KEY` returns one value per literal case'
+note: 'Index a record keyed by the literals, `Schema.Literal(...Struct.keys(record))` validates the key'

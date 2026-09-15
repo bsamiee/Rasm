@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-callback-offer
+language: tsx
+severity: error
+utils:
+    constructor-call:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(make|unbounded|bounded|dropping|sliding)$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Mailbox|Queue))?$'}, exported: {regex: '^(Mailbox|Queue)$'}}}}
+    offer-call:
+        kind: call_expression
+        any:
+            - pattern: $QUEUE.unsafeOffer($$$_)
+            - pattern: $QUEUE.unsafeOfferAll($$$_)
+            - pattern: Queue.unsafeOffer($QUEUE, $$$_)
+            - pattern: Queue.unsafeOfferAll($QUEUE, $$$_)
+rule:
+    kind: variable_declarator
+    all:
+        - has: {field: name, kind: identifier, pattern: $QUEUE}
+        - has: {field: value, any: [{matches: constructor-call}, {kind: yield_expression, has: {matches: constructor-call}}, {kind: await_expression, has: {matches: constructor-call}}]}
+        - inside:
+            kind: lexical_declaration
+            inside:
+                kind: statement_block
+                has:
+                    stopBy: end
+                    matches: syntax-function-boundary
+                    has: {stopBy: end, matches: offer-call}
+message: '`unsafeOffer` feeds `$QUEUE` from a callback'
+note: '`Stream.asyncPush((emit) => register(emit.single))` turns the callback into a stream, the register effect runs under a `Scope`'

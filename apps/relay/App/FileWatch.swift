@@ -4,18 +4,19 @@ import Foundation
 import System
 
 nonisolated enum FileWatch {
-  static func changes(of file: URL) -> AsyncThrowingStream<Void, any Error> {
-    AsyncThrowingStream { continuation in
-      let watcher: Watcher = Watcher(file: file, probe: contentDigest, continuation: continuation)
-      continuation.onTermination = { _ in watcher.stop() }
-      watcher.start()
-    }
+  static func changes(of file: URL) -> AsyncThrowingStream<SHA256Digest?, any Error> {
+    marks(of: file, probe: contentDigest)
   }
 
-  static func presence(of entry: URL) -> AsyncThrowingStream<Void, any Error> {
+  static func presence(of entry: URL) -> AsyncThrowingStream<Bool, any Error> {
+    marks(of: entry, probe: exists)
+  }
+
+  private static func marks<Mark: Equatable & Sendable>(
+    of file: URL, probe: @escaping @Sendable (URL) -> Mark
+  ) -> AsyncThrowingStream<Mark, any Error> {
     AsyncThrowingStream { continuation in
-      let watcher: Watcher = Watcher(
-        file: entry, probe: presenceDigest, continuation: continuation)
+      let watcher: Watcher<Mark> = Watcher(file: file, probe: probe, continuation: continuation)
       continuation.onTermination = { _ in watcher.stop() }
       watcher.start()
     }
@@ -25,24 +26,24 @@ nonisolated enum FileWatch {
     (try? Data(contentsOf: file)).map(SHA256.hash(data:))
   }
 
-  private static func presenceDigest(_ entry: URL) -> SHA256Digest? {
-    FileManager.default.fileExists(atPath: entry.path) ? SHA256.hash(data: Data()) : nil
+  private static func exists(_ entry: URL) -> Bool {
+    FileManager.default.fileExists(atPath: entry.path)
   }
 
-  private final class Watcher: @unchecked Sendable {
+  private final class Watcher<Mark: Equatable & Sendable>: @unchecked Sendable {
     private let file: URL
-    private let probe: @Sendable (URL) -> SHA256Digest?
-    private let continuation: AsyncThrowingStream<Void, any Error>.Continuation
+    private let probe: @Sendable (URL) -> Mark
+    private let continuation: AsyncThrowingStream<Mark, any Error>.Continuation
     private let queue: DispatchQueue = DispatchQueue(label: "app.rasm.relay.filewatch")
     private var directorySource: (any DispatchSourceFileSystemObject)?
     private var fileSource: (any DispatchSourceFileSystemObject)?
     private var pending: DispatchWorkItem?
-    private var digest: SHA256Digest?
+    private var mark: Mark?
     private var stopped: Bool = false
 
     init(
-      file: URL, probe: @escaping @Sendable (URL) -> SHA256Digest?,
-      continuation: AsyncThrowingStream<Void, any Error>.Continuation
+      file: URL, probe: @escaping @Sendable (URL) -> Mark,
+      continuation: AsyncThrowingStream<Mark, any Error>.Continuation
     ) {
       self.file = file
       self.probe = probe
@@ -51,7 +52,7 @@ nonisolated enum FileWatch {
 
     func start() {
       queue.async { [self] in
-        digest = currentDigest()
+        mark = probe(file)
         let directory: Result<any DispatchSourceFileSystemObject, any Error> = source(
           path: file.deletingLastPathComponent().path, events: .write
         ) { [weak self] in
@@ -122,14 +123,10 @@ nonisolated enum FileWatch {
 
     private func emitIfChanged() {
       guard !stopped else { return }
-      let current: SHA256Digest? = currentDigest()
-      guard current != digest else { return }
-      digest = current
-      continuation.yield(())
-    }
-
-    private func currentDigest() -> SHA256Digest? {
-      probe(file)
+      let current: Mark = probe(file)
+      guard current != mark else { return }
+      mark = current
+      continuation.yield(current)
     }
   }
 }

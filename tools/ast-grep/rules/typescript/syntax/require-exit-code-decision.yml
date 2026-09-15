@@ -93,7 +93,12 @@ rule:
           all:
             - has: {field: property, regex: '^(stdout|stderr)$', pattern: $STREAM}
             - has: {field: object, stopBy: {not: {kind: parenthesized_expression}}, matches: run-result}
-message: 'Process result reads `$STREAM` with no decision on `exitCode`'
-note: 'Compare `exitCode` before reading the streams, a non-zero exit returns the failure with `stderr` as its reason'
+        - kind: member_expression
+          pattern: $STREAM
+          all:
+            - has: {field: property, regex: '^(string|lines|stream|streamLines)$'}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform(/Command)?$'}, exported: {regex: '^Command$'}}}}
+message: '`$STREAM` reads process output with no decision on `exitCode`'
+note: 'Read `exitCode` from `Command.start` before the streams, a non-zero exit fails with `stderr` as its reason'
 labels:
     STREAM: {style: primary}

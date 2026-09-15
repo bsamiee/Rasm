@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-node-file-import
+language: tsx
+severity: error
+rule:
+    kind: import_statement
+    all:
+        - has: {field: source, has: {kind: string_fragment, pattern: $MODULE, regex: '^(node:)?(fs(/promises)?|path(/(posix|win32))?|child_process|https?|url|worker_threads)$'}}
+        - not: {has: {regex: '^type$'}}
+message: '`$MODULE` reaches the host outside the effect runtime'
+note: '`@effect/platform` supplies the service (`FileSystem`, `Path`, `Command`, `HttpClient`, `HttpServer`, `Worker`), `NodeContext.layer` provides it'

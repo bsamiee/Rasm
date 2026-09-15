@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import Network
 import OSLog
 import Observation
 import SwiftUI
@@ -89,8 +90,8 @@ final class AccountStore {
       guard isStorageAvailable, !isStopping else { return }
       await settle()
       await readSelection()
-      refresh(fresh: true)
       await withDiscardingTaskGroup { group in
+        group.addTask(name: "Network") { await self.observeNetwork() }
         group.addTask(name: "Wake") { await self.observeWake() }
         group.addTask(name: "Claude selection") {
           await self.observe(file: self.claude.sharedConfigFile)
@@ -133,7 +134,7 @@ final class AccountStore {
     loginItem = .current
     Task(name: "Panel opened") { [self] in
       await readSelection()
-      refresh(fresh: false)
+      refresh(revalidatingSelected: false)
     }
     reschedule()
   }
@@ -193,7 +194,7 @@ final class AccountStore {
     Task(name: "Refresh after switch") { [self] in
       await model.finish()
       guard !isStopping else { return }
-      refresh([model] + (outgoing.map { [$0] } ?? []), fresh: true)
+      refresh([model] + (outgoing.map { [$0] } ?? []), revalidatingSelected: true)
     }
   }
 
@@ -283,7 +284,7 @@ final class AccountStore {
     model.account.sessionPolicy = policy
     model.automaticStartAttempted = false
     scheduleSave()
-    if policy == .automatic { refresh([model], fresh: false) }
+    if policy == .automatic { refresh([model], revalidatingSelected: false) }
   }
 
   func moveAccount(_ id: UUID, by offset: Int) {
@@ -389,7 +390,7 @@ final class AccountStore {
       let selected: Bool = model.id == id
       model.isSelected = selected
       if selected, model.authentication != .connected, !model.isBusy {
-        refresh([model], fresh: true)
+        refresh([model], revalidatingSelected: true)
       }
     }
   }
@@ -407,7 +408,7 @@ final class AccountStore {
     accounts.append(model)
     apply(selected: model.id, provider: provider)
     scheduleSave()
-    refresh([model], fresh: false)
+    refresh([model], revalidatingSelected: false)
   }
 
   private func report(_ error: ProviderError, provider: Provider) {
@@ -494,7 +495,7 @@ final class AccountStore {
     authentication = nil
     await save()
     await readSelection()
-    refresh([model], fresh: true)
+    refresh([model], revalidatingSelected: true)
   }
 
   private func discard(_ id: UUID, provider: Provider) async {
@@ -527,21 +528,20 @@ final class AccountStore {
     }
   }
 
-  private func refresh(fresh: Bool) {
-    refresh(accounts, fresh: fresh)
+  private func refresh(revalidatingSelected: Bool) {
+    refresh(accounts, revalidatingSelected: revalidatingSelected)
   }
 
-  private func refresh(_ candidates: [AccountModel], fresh: Bool) {
+  private func refresh(_ candidates: [AccountModel], revalidatingSelected: Bool) {
     guard isStorageAvailable, !isStopping, !isSwitching else { return }
     for model: AccountModel in candidates
-    where (model.isConnected || (fresh && model.isSelected)) && !model.isBusy {
+    where (model.isConnected || (revalidatingSelected && model.isSelected)) && !model.isBusy {
       let account: Account = model.account
       let isSelected: Bool = model.isSelected
       model.run(.refreshing) { [self] in
         let result: Result<AccountUsage, ProviderError> =
           switch account.provider {
-          case .claude:
-            await claude.usage(for: account, isSelected: isSelected, fresh: fresh).erased()
+          case .claude: await claude.usage(for: account, isSelected: isSelected).erased()
           case .openAI: await codex.usage(for: account, isSelected: isSelected).erased()
           }
         apply(result, to: model)
@@ -560,12 +560,21 @@ final class AccountStore {
     }
   }
 
+  private func observeNetwork() async {
+    var previous: NWPath.Status? = nil
+    for await path in NWPathMonitor() {
+      defer { previous = path.status }
+      guard path.status == .satisfied, previous != .satisfied, !isStopping else { continue }
+      await readSelection()
+      refresh(revalidatingSelected: true)
+    }
+  }
+
   private func observeWake() async {
     for await _ in NSWorkspace.shared.notificationCenter.notifications(
       named: NSWorkspace.didWakeNotification)
     {
       await readSelection()
-      refresh(fresh: true)
     }
   }
 
@@ -580,7 +589,7 @@ final class AccountStore {
         let changed: [AccountModel] = accounts.filter { model in
           before[model.id] != model.isSelected
         }
-        refresh(changed, fresh: true)
+        refresh(changed, revalidatingSelected: true)
       }
     } catch {
       logger.error(
@@ -590,8 +599,8 @@ final class AccountStore {
 
   private func observeRefreshLock(_ lock: URL) async {
     do {
-      for try await _ in FileWatch.presence(of: lock) {
-        guard !isSwitching, !FileManager.default.fileExists(atPath: lock.path) else { continue }
+      for try await present in FileWatch.presence(of: lock) {
+        guard !isSwitching, !present else { continue }
         await readSelection()
       }
     } catch {
@@ -627,7 +636,7 @@ final class AccountStore {
       refreshPause = pause
       let slept: Result<Void, any Error> = await pause.result
       guard !Task.isCancelled, !isStopping else { return }
-      if case .success = slept { refresh(fresh: false) }
+      if case .success = slept { refresh(revalidatingSelected: false) }
     }
   }
 

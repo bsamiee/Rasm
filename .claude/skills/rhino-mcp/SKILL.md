@@ -1,147 +1,119 @@
 ---
 name: rhino-mcp
-description: "Use when scripting, querying, or capturing a Rhino session, or building a Grasshopper canvas, covering slots, document IO, and materials."
+description: "Use when a task drives a Rhino session or a Grasshopper 2 canvas, covering slots, scripts, documents, captures, and materials."
 ---
 
 # [RHINO_MCP]
 
-`rhino-mcp-platform`, a project-scope stdio server in `.mcp.json` running the `rhino-mcp-router` binary, proxies each `mcp__rhino-mcp-platform__*` call to a per-document loopback HTTP listener inside the targeted Rhino "slot". Every document-touching tool binds to that slot's `RhinoDoc`. All outputs are JSON strings (viewport adds a JPEG block). The router runs directly on the client's stdio pipe: it spawns a Rhino host on demand, adopts a user-started session through its slot lifecycle, and exits on client disconnect.
+`.mcp.json` runs `rhino-mcp-platform`, the router of the `Rhino-MCP-Platform` yak package, as a project-scope stdio server.
 
-`forge-rhino-up` (idempotent, splash-free) brings up a visible Rhino the router adopts.
+- Slot: One listener per open Rhino document bound to `RhinoDoc`, one port per listener from 10500 up
+- Argument: Every tool but `spawn_slot` and `list_slots` takes `slot`, required on `close_slot` alone
+- Default: Omitted `slot` targets the last used or open Rhino, a spawn when none runs
+- Result: `{payload}` or `{error: {code, message}}`
 
-[SERVER]:
-- `.mcp.json` runs the router from the `Rhino-MCP-Platform` yak package under `${HOME}/Library/Application Support/McNeel/Rhinoceros/packages/9.0/` with `--default-version 9`, the argument selecting the Rhino major
-- The package version is a segment of the router path, `yak update Rhino-MCP-Platform` moves the package and the path segment follows, Rhino restarts before the plugin loads
-- `mcneel.github.io/RhinoAI/docs` holds the official setup, the `MCPConnect` command in Rhino prints the same launch form for a user-scope install
-- `g1_*` tools drive Grasshopper 1 with the `g2_*` shapes, `g1_solve_graph` in place of `g2_solve_canvas`
+## [01]-[SLOTS]
 
-## [01]-[SLOT_LIFECYCLE]
+Every router process lists the same slots, other sessions share the slots and `.artifacts/rhino/`
 
-Every non-router tool accepts an implicit `slot` arg (animal-name ID). Omitting it uses the last-used/open Rhino, auto-spawning one only if none is running. Slot state is lazy, `list_slots` prunes crashed Rhinos and adopts user-started ones since the last call.
+- `spawn_slot {"version": "9"}` — `slotId` of a new document in the running Rhino when one runs
+- `list_slots {}` — `payload[]` of `{slotId, port, pid, version, adopted, endpoint}`, proves a held `slot` is live
+- `adopted: true` marks a slot from a document that advertised itself
+- `close_slot {"slot": "<slot>"}` — Stops a spawned slot's listener, document and Rhino stay open, an adopted slot answers `cannot_close_adopted`
+- `ask_user {"question": "<question>", "options": ["<option>"]}` — Answers a refusal, the tool serves the Rhino MCP panel's agent alone
 
-| [INDEX] | [TOOL]       | [DOES]                                                  | [KEY_IO]                                                     |
-| :-----: | :----------- | :------------------------------------------------------ | :----------------------------------------------------------- |
-|  [01]   | `spawn_slot` | Launch a new Rhino, return its slot ID                  | → `{ slotId }`, pass `slot` on later calls                   |
-|  [02]   | `list_slots` | List running slots, prunes crashed, adopts user-started | → `payload[]` (`slotId, port, autoSpawned, crashReportPath`) |
-|  [03]   | `close_slot` | Close a spawned slot                                    | → `payload.closed`, `error.code` set                         |
+[QUIT]:
+- With `doc.Modified` false on every open document, `osascript -e 'tell application "<app>" to quit'` ends a Rhino the router spawned
 
-- `close_slot`: stops listener, closes doc, saves none, `error.code` ∈ `slot_not_found`, `cannot_close_adopted`
+[ADOPTION]:
+- Each open document of a user-started Rhino is a slot after the next `list_slots`, a Rhino at its start dialog has none
+- Documents advertise themselves once Rhino Options → AI finds and enables an agent CLI, `[]` with a document open means none is enabled
+- `MCPStart` typed in a document starts the document's listener, Return accepts the `Port <10500>` prompt
 
-[IMPORTANT] Poll `list_slots` before assuming a held `slot` is live. Adopted (user-started) slots return `cannot_close_adopted` and are non-disposable, treat them as borrowed.
+## [02]-[SCRIPTING]
 
-## [02]-[SCRIPTING]-[RUN_CSHARP_PYTHON_COMMAND]
+Scripts print one JSON line holding the post-condition read, Python first and C# for what Python cannot reach:
+- `__rhino_doc__` — Slot's `RhinoDoc` in both languages, `scriptcontext.doc` and `rhinoscriptsyntax` resolve elsewhere
+- `run_command {"command": "_Box 0,0,0 10,10,10 _Enter"}` — `Done.` after the command
+- `get_commands {"filter": "<substring>"}` — First line counts the matches, 200 listed per call
+- Use `search-code` for a RhinoCommon or Grasshopper2 member
 
-Scripting is the universal fallback: full RhinoCommon scoped to the slot's doc, stdout/error captured.
+`run_csharp {"script": "<statements>"}` — Same shape from `Console.WriteLine` in a statement body:
+- Compile failures, top-level `return` included, answer `Compile Error` with no detail
 
-| [INDEX] | [TOOL]         | [INPUT]   | [OUTPUT]                                           |
-| :-----: | :------------- | :-------- | :------------------------------------------------- |
-|  [01]   | `run_python`   | `script`  | `{stdout, error}`, `error` null on success         |
-|  [02]   | `run_csharp`   | `script`  | `{stdout, error}`                                  |
-|  [03]   | `run_command`  | `command` | Command-window text (`"_Box 0,0,0 10,10,10"`)      |
-|  [04]   | `get_commands` | `filter?` | Newline list of English command names (cap 200)    |
+`run_python {"script": "<python>"}` — `payload.{stdout, stderr}`, a raise answers `payload.{error, message}` with no stdout:
+- `doc.Objects.Count` counts hidden and deleted objects, iterating `doc.Objects` skips both
+- Scripts take absolute paths of the local filesystem, the working directory is `/`
+- Rhino 9 runs CPython 3.13, a script uses no newer form
+- `# r: <package>` as first line installs a pip package into Rhino's site-env before the script runs, `# env: <dir>` adds a directory to `sys.path`
+- `RhinoDoc.Create` makes a document without a window, a Rhino quit alone closes such a document
 
-[IMPORTANT] `run_csharp` evaluates a statement body, a top-level `return <expr>;` is rejected, emit results through `Console.WriteLine(...)`.
+[VERDICT]:
+- Results without `error` prove nothing about the document, a silent failure and a no-op read as success
+- Post-conditions read through `list_objects`, a document read in the same script, `g2_get_canvas_graph`, or the written `.3dm`
 
-[IMPORTANT] Both scripting tools inject `__rhino_doc__` (the slot's `RhinoDoc`). Use it directly in both languages, `scriptcontext.doc` and the implicit `rhinoscriptsyntax` doc bind to the wrong document.
+## [03]-[DOCUMENT]
 
-[IMPORTANT] `error: null` is necessary and insufficient for success: error detection is heuristic string-matching (`Traceback`, `error CS`, `Compile Error`, `Exception:`) over scraped command-window text, a silent failure or a no-op can read as success. Assert post-conditions explicitly (re-query `g2_get_canvas_graph`, `list_objects`, or the written `.3dm`). Capture happens after completion, `print` or `Console.WriteLine` explicit, self-serialized structured results. `run_command` hard-blocks when a prior command awaits interactive input, prefer scripting for non-trivial geometry.
+- `open_doc {"path": "</abs/file.3dm>", "clearFirst": false}` — Imports into the slot's document, `imported` counts hidden and skips deleted objects
+  - `open -a <app> </abs/file.3dm>` opens a file as a document of its own, a slot after the next `list_slots`
+- `save_doc {"path": "</abs/file.3dm>"}` — Writes a copy and leaves `doc.Path` unchanged, `objects` counts hidden and deleted objects
+- `close_doc {"path": "</abs/file.3dm>"}` — Result reports closed while the document can stay open, `Rhino.RhinoDoc.OpenDocuments()` proves the close
 
-## [03]-[DOCUMENT_IO]
+## [04]-[SCENE]
 
-Headless, no dialogs. All bound to the slot's doc.
+- `get_context {}` — First call of a task, `grasshopper[]` holds `{version, canvasOpen, componentCount, wireCount}`
+- `list_objects {"layer": "<path>", "geometryType": "<type>", "includeHidden": false}` — `{id, name, layer, type}` per object
+- `get_selection {}` — Selected objects
+- `set_selection {"ids": ["<guid>"], "names": ["<name>"], "layer": "<path>", "geometryType": "<type>"}` — Union of the filters
+- `set_layer_material {"layer": "<path>", "color": "#FF0000", "transparency": 0.0, "gloss": 0.5, "applyToLayerColor": true}` — Render material
+- Layer changes beyond material go through `doc.Layers` in a script
 
-| [INDEX] | [TOOL]      | [INPUTS]                         | [OUTPUT]                                                              |
-| :-----: | :---------- | :------------------------------- | :-------------------------------------------------------------------- |
-|  [01]   | `open_doc`  | `path` (abs), `clearFirst=false` | Import or merge, zoom-extents all views, → `{path, imported, cleared}` |
-|  [02]   | `save_doc`  | `path` (.3dm abs)                | Overwrite with WriteUserData, dialogs suppressed, → `{path, objects}` |
-|  [03]   | `close_doc` | `path?`                          | Save-then-close when path given, else discard, → status string        |
+## [05]-[VIEWPORT]
 
-## [04]-[SCENE_QUERY_SELECTION_MATERIALS]
+- `set_camera {"location": {"x": 0, "y": 0, "z": 0}, "target": {"x": 0, "y": 0, "z": 0}, "lensLength": 50}` — Active viewport camera
+- `zoom_to_layer {"layer": "<path>"}` — Active viewport to a layer's bounding box
+- `zoom_to_object {"ids": ["<guid>"]}` — Active viewport to the objects' bounding box
 
-| [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]              |
-| :-----: | :------------------- | :------------------- | :-------------------------- |
-|  [01]   | `list_objects`       | Object filters       | Object query payload        |
-|  [02]   | `get_selection`      | None                 | Selected object payload     |
-|  [03]   | `set_selection`      | Selection filters    | Selection count and warning |
-|  [04]   | `set_layer_material` | Layer material write | Material status             |
+[CAPTURE]:
+- `tools/rhino/capture.py` writes `.artifacts/rhino/<name>.jpg` at 1280x720, the largest size `Read` shows whole
+- `<name>` is a short label reused through a task, a re-capture overwrites the file
+- `capture(doc, name)` frames every visible object in `Perspective` under `Shaded`, locked objects included, hidden objects and off layers excluded
+- `Capture` holds `path` and `frame`, a second capture for `magick compare` runs in the same script after the document change with that `frame`
+- Captures draw the selection highlight and gumball, `doc.Objects.UnselectAll()` precedes each
+- RhinoCommon stubs live outside the repository, a program under `tools/rhino/` silences the unresolved imports at file scope
 
-[SCENE_QUERY_SHAPES]:
-- Filters: `names[]?`, `layer?`, `geometryType?`, `includeHidden=false`, `includeLocked=true`, `limit=1000`
-- Object item: `{id, name, layer, type}`
-- Selection write: `ids[]?`, `names[]?`, `layer?`, and `geometryType?` select a union after clearing current selection
-- Material write: `layer`, `color?`, `transparency?` 0-1, `gloss?` 0-1, and `applyToLayerColor=true`
-- `geometryType` values: `point`, `pointset`, `curve`, `surface`, `brep`, `mesh`, `annotation`, `light`, `block`
+```python
+# r: msgspec
+# [RUN_PYTHON] Capture of every visible object, then one of a world bounding box in another view and mode, <root> is the repository root
+import runpy
+capture = runpy.run_path("<root>/tools/rhino/capture.py")["capture"]
+print(capture(__rhino_doc__, "<name>"))
+print(capture(__rhino_doc__, "<name>", ((<x0>, <y0>, <z0>), (<x1>, <y1>, <z1>)), view="Top", mode="Pen"))
+```
 
-## [05]-[VIEWPORT_AND_CAMERA]
+```bash
+# Pixels of <b> that differ from <a> in red over the faded <a>, exit 1 marks a difference
+magick compare .artifacts/rhino/<a>.jpg .artifacts/rhino/<b>.jpg .artifacts/rhino/<diff>.png
+# Captures tiled at 640x360, four fill one 1280x720 sheet
+magick montage .artifacts/rhino/{<a>,<b>,<c>,<d>}.jpg -geometry 640x360 .artifacts/rhino/<sheet>.jpg
+```
 
-| [INDEX] | [TOOL]               | [INPUT_SCOPE]        | [OUTPUT_SCOPE]          |
-| :-----: | :------------------- | :------------------- | :---------------------- |
-|  [01]   | `get_viewport_image` | Viewport capture     | Metadata and JPEG block |
-|  [02]   | `set_camera`         | Camera or bbox frame | Active viewport camera  |
-|  [03]   | `zoom_to_layer`      | Layer path           | Layer union bbox zoom   |
-|  [04]   | `zoom_to_object`     | Object GUIDs         | Object union bbox zoom  |
+## [06]-[GRASSHOPPER]
 
-[VIEWPORT_CAPTURE_SHAPE]:
-- Size: `width=480` up to `1280`, `height=270` up to `720`
-- Frame inputs: `view?`, `displayMode?`, `cameraLocation?`, `target?`, `boxMin?`/`boxMax?`, `zoom?`
-- Output: JSON metadata and JPEG when the scene is renderable, metadata-only diagnostic when empty or off-screen
-- Camera write: `location?`, `target?`, `up?`, `lensLength?`, `projection?`, and `boxMin?`/`boxMax?`, bbox framing applies last
-
-[IMPORTANT] On an empty/off-screen capture, read `scene.boundingBox` and object counts before re-framing with `boxMin`/`boxMax` or `view`. Every JPEG block costs context tokens: capture at the minimum resolution sufficient to diagnose, keep the `480x270` default, and escalate toward the `1280x720` ceiling only after a metadata-only pass.
-
-## [06]-[GRASSHOPPER]-[GRAPH_AUTHORING_G2]
-
-`g2_*` tools author `Grasshopper2` canvas and document objects through McNeel's interactive MCP platform.
-
-[GH_KERNEL_RULES]:
-- Solve: mutating GH2 tools accept `solve=true`, set `solve=false` while batching and solve once after the batch
-- Explicit solve: use `g2_solve_canvas` for solve/status readback
-- Slider policy: GH2 sliders use `decimals` `0..12`, `0` gives integer behavior
-
-[GH_COMPONENT_SHAPES]:
-- Component search: `query`, `category?`, `subcategory?`, and `limit=20` return `Guid`, `Name`, `Category`, `SubCategory`, `Kind`, and `Description`
-- Component ports: `g2_describe_component` returns `Inputs[]`/`Outputs[]`: `Name`, `UserName`, `Description`, `TypeName`, `Access`, `Requirement`
-
-Discovery operations use GH2 component lookup and port-inspection tools:
-
-| [INDEX] | [TOOL]                  | [INPUT_SCOPE]   | [OUTPUT_SCOPE]        |
-| :-----: | :---------------------- | :-------------- | :-------------------- |
-|  [01]   | `g2_start`              | None            | Canvas startup        |
-|  [02]   | `g2_search_components`  | Component query | Component candidates  |
-|  [03]   | `g2_describe_component` | Component name  | Port contract records |
-
-Placement operations create canvas objects from component and slider inputs:
-
-| [INDEX] | [TOOL]               | [INPUT_SCOPE]       | [OUTPUT_SCOPE]   |
-| :-----: | :------------------- | :------------------ | :--------------- |
-|  [01]   | `g2_place_component` | Component selector  | Placed component |
-|  [02]   | `g2_place_slider`    | Slider value policy | Placed slider    |
-
-[GH_GRAPH_BATCH_SHAPE]:
-- Component placement: `selector` prefers `Guid`, `x=100`, `y=100`, and `solve=true` are default placement inputs
-- Slider placement: `min`, `value`, `max`, `x`, `y`, `decimals`, `solve`, and `name?` define the slider
-- Batch apply: `g2_apply_graph` accepts `sliders[]`, `components[]` with caller `Key`, `wires[]` with `SrcKey`/`DstKey`, and `solve=true`
-- Batch output: `g2_apply_graph` returns `Placed[]`, `PlaceErrors[]`, `Wires[]`, and `WiresOk` without aborting on per-step failures
-
-Wiring and solving operations connect objects, apply batches, and resolve the canvas:
-
-| [INDEX] | [TOOL]            | [INPUT_SCOPE] | [OUTPUT_SCOPE]       |
-| :-----: | :---------------- | :------------ | :------------------- |
-|  [01]   | `g2_connect`      | Single wire   | Wire result          |
-|  [02]   | `g2_connect_many` | Wire batch    | Batch wire result    |
-|  [03]   | `g2_apply_graph`  | Graph batch   | Placement and wiring |
-|  [04]   | `g2_solve_canvas` | Solve policy  | Solve status         |
-
-[GH_CANVAS_READBACK_SHAPE]:
-- Canvas readback: `g2_get_canvas_graph` accepts `include_data=true` and `sample_size=3`
-- Canvas payload: readback returns `Objects[]` and `Wires[]`, records have `Messages[]`, input `Sources[]`, data summaries, slider `DisplaySummary`
-- Canvas cleanup: `g2_clear_canvas` requires `confirm=true` and accepts `solve=true`
-
-Inspection and cleanup operations read or clear the current canvas:
-
-| [INDEX] | [TOOL]                | [INPUT_SCOPE] | [OUTPUT_SCOPE] |
-| :-----: | :-------------------- | :------------ | :------------- |
-|  [01]   | `g2_get_canvas_graph` | Readback      | Graph payload  |
-|  [02]   | `g2_clear_canvas`     | Confirmation  | Removal count  |
-
-[IMPORTANT] Prefer `selector` by `Guid` from `g2_search_components`, a name match with many candidates yields `{Error:"ambiguous", Candidates[]}`. Call `g2_describe_component` before placing or wiring to learn input and output ports. For closed-loop iteration, read back `g2_get_canvas_graph`: object `Messages[]` hold per-component warnings/errors and slider `DisplaySummary` holds computed values. Use `g2_apply_graph` to build a whole definition in one call. `g2_connect` and `g2_connect_many` accept numeric index, `Name`, `UserName`, or `DisplayName` for ports, and `""` or `"0"` for pure params, for example sliders.
+Grasshopper 2 changes apply a graph with a solve, read the diagnostics, then read the canvas:
+- `g2_start {}` — `canvasOpen` in `get_context` proves the start
+- `g2_search_components {"query": "<substring>", "category": "<chapter>", "subcategory": "<section>"}` — `guid` per match is the selector
+  - Filters match a chapter and section name exactly (`Curve`, `Conic`)
+- `g2_describe_component {"name": "<Name>"}` — `inputs[]` and `outputs[]` name the port selectors
+- `g2_place_component {"selector": "<guid>", "x": 100, "y": 100, "solve": false}` — `id` of one component
+- `g2_place_slider {"min": 0, "value": 5, "max": 10, "decimals": 3, "name": "<UserName>", "solve": false}` — `id` of one slider
+- `g2_connect {"src_id": "<guid>", "src": "<port>", "dst_id": "<guid>", "dst": "<port>", "solve": false}` — one wire, `""` selects a slider's port
+- `g2_connect_many {"wires": [{"SrcId": "<guid>", "Src": "<port>", "DstId": "<guid>", "Dst": "<port>"}]}` — wires with one solve
+- `g2_apply_graph {"sliders": [<slider>], "components": [<component>], "wires": [<wire>], "solve": true}` — `placed[]` maps key to id
+  - Solve summary of `g2_solve_canvas` follows `placed[]`
+- `g2_solve_canvas {}` — solve with `diagnostics[]`
+- `g2_get_canvas_graph {"include_data": true, "sample_size": 3}` — `objects[]` with `messages[]` and `inputs[].data.sample`, `wires[]`
+  - Wrong-type wires answer `ok: true` and solve with zero diagnostics (a circle into a number samples its circumference)
+  - Canvas builds assert every wired input's `sample`
+- `Editor.Instance.Canvas.Document` is the canvas in `run_python` after `from Grasshopper2.UI import Editor`, `Objects.ActiveObjects` lists objects
+- `g2_clear_canvas {"confirm": true}` — `removed` counts every object

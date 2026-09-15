@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-manual-tag-field
+language: tsx
+severity: error
+utils:
+    tag-field:
+        kind: public_field_definition
+        all:
+            - has: {field: name, regex: '^_tag$'}
+            - has:
+                field: value
+                any:
+                    - {kind: string, pattern: $TAG}
+                    - {kind: as_expression, has: {kind: string, pattern: $TAG}}
+    tagged-class:
+        kind: class_declaration
+        all:
+            - has: {field: name, pattern: $NAME}
+            - has:
+                kind: class_heritage
+                has:
+                    kind: extends_clause
+                    all:
+                        - has: {field: value, kind: member_expression, pattern: $DATA.$BASE}
+                        - has: {field: type_arguments, kind: type_arguments, pattern: $TYPES}
+            - has: {field: body, pattern: $BODY, has: {matches: tag-field}}
+rule:
+    matches: tagged-class
+    any:
+        - pattern: $FIXABLE
+          all:
+            - not: {has: {field: type_parameters, kind: type_parameters}}
+            - not: {has: {kind: class_heritage, has: {kind: implements_clause}}}
+            - not: {has: {kind: comment, stopBy: end}}
+        - pattern: $KEPT
+constraints:
+    BASE: {regex: '^(Error|Class)$'}
+    DATA: {matches: {syntax-import-reference: {source: {regex: '^effect(/Data)?$'}, exported: {regex: '^Data$'}}}}
+rewriters:
+    - id: drop-tag
+      rule: {matches: tag-field}
+      fix: ''
+    - id: tagged
+      rule: {matches: tagged-class}
+      transform:
+        TAGGED: replace($BASE, replace='^', by='Tagged')
+        STRIPPED: rewrite($BODY, rewriters=[drop-tag])
+        JOINED: replace($STRIPPED, replace='(?m)^[ \t]*;[ \t]*\n', by='')
+        MEMBERS: replace($JOINED, replace='^\{[\s;]*\}$', by='{}')
+      fix: class $NAME extends $DATA.$TAGGED($TAG)$TYPES $MEMBERS
+transform:
+    FIXED: rewrite($FIXABLE, rewriters=[tagged])
+fix: $FIXED$KEPT
+message: '`$NAME` sets `_tag` by hand on `$DATA.$BASE`'
+note: '`Data.Tagged$BASE($TAG)` sets `_tag`, `Data.taggedEnum` or `Data.tagged` builds a variant with no class'

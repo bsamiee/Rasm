@@ -50,18 +50,18 @@ const _gathered = (exists: Exists, place: Place, parsed: Promise<Result<readonly
 
 const _facts = (exists: Exists, locate: Locate, parsed: Promise<Result<readonly Command[]>>): Promise<Facts> => locate().then((place) => _gathered(exists, place, parsed));
 
-const _policies = (e: Commanded, commands: readonly Command[], facts: Facts): readonly Policy<Commanded>[] => [
+const _policies = (e: Commanded, commands: readonly Command[], facts: Facts, walking: boolean): readonly Policy<Commanded>[] => [
     gitPolicy(commands, facts.existing),
-    ...(e.tool === 'Bash' ? [waitPolicy(commands), scriptPolicy(commands), walkPolicy(commands, facts.place)] : []),
+    ...(e.tool === 'Bash' ? [waitPolicy(commands), scriptPolicy(commands), ...(walking ? [walkPolicy(commands, facts.place)] : [])] : []),
 ];
 
-const _decide = (e: Commanded, facts: Facts): Decision<Commanded> =>
-    facts.parsed.kind === 'fault' ? deny(`command not parsed, ${facts.parsed.reason}`) : fold(_policies(e, facts.parsed.value, facts))(e);
+const _decide = (e: Commanded, facts: Facts, walking: boolean): Decision<Commanded> =>
+    facts.parsed.kind === 'fault' ? deny(`command not parsed, ${facts.parsed.reason}`) : fold(_policies(e, facts.parsed.value, facts, walking))(e);
 
 // --- [DECISION] ------------------------------------------------------------------------
 
-const decide = async (e: ToolCallInput, scan: Scanner, exists: Exists, locate: Locate): Promise<Decision<ToolCallInput>> =>
-    _hasCommand(e) ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts)) : fold([when(_isPath, pathPolicy), when(_isWorktree, worktreePolicy)])(e);
+const decide = async (e: ToolCallInput, scan: Scanner, exists: Exists, locate: Locate, walking: boolean): Promise<Decision<ToolCallInput>> =>
+    _hasCommand(e) ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts, walking)) : fold([when(_isPath, pathPolicy), when(_isWorktree, worktreePolicy)])(e);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-library-interface-class
+language: tsx
+severity: error
+utils:
+    library-interface:
+        kind: nested_type_identifier
+        all:
+            - has: {field: module, matches: {syntax-import-reference: {source: {regex: '^(effect|@effect/\w+)(/\w+)?$'}, exported: {kind: identifier}}}}
+            - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable)$'}}
+rule:
+    kind: class_declaration, abstract_class_declaration, class
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has:
+            kind: class_heritage
+            has:
+                kind: implements_clause
+                has:
+                    pattern: $INTERFACE
+                    any:
+                        - matches: library-interface
+                        - kind: generic_type
+                          has: {field: name, matches: library-interface}
+message: '`$NAME` reimplements `$INTERFACE`, a value the library constructs'
+note: '`<module>.make` or the runtime accessor builds the value, `Tracer.make` over `Effect.tracer` for a `Span`'

@@ -70,7 +70,7 @@ const _COMMANDS: readonly string[] = ['command', 'condition', 'looped'];
 const SCAN: readonly string[] = ['mise', 'exec', '--', 'ast-grep', 'scan', '--stdin', '--config', '/dev/null', '--inline-rules', _RULES, '--color', 'never', '--report-style', 'short'];
 const _REPORT = /^STDIN:(?<line>\d+):(?<column>\d+): \w+\[(?<rule>\w+)\]: (?<text>.*)$/gmu;
 const _WORD = /^(?!\d*[<>]|&>)./su;
-const _QUOTED = /\$?'(?<single>[^']*)'|\$?"(?<double>(?:[^"\\]|\\.)*)"|\\(?<unquoted>[\s\S])/gu;
+const _QUOTED = /(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu;
 const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
 const _ENV_ASSIGN = /^[A-Za-z_][A-Za-z0-9_]*=/u;
 const _DIGITS = /^\d+$/u;
@@ -79,12 +79,34 @@ const _SHELLS: readonly string[] = ['sh', 'bash', 'zsh', 'dash', 'ksh'];
 const _SUBCOMMANDS: readonly string[] = ['run', 'exec', 'tool', 'x'];
 const LAUNCHERS: readonly string[] = ['mise', 'doppler', 'op'];
 const _VALUE_OPTS: readonly string[] = ['-u', '-I', '-n', '-g', '--user', '--replace'];
-const _WRAPPERS: readonly string[] = ['sudo', 'doas', 'env', 'command', 'exec', 'nice', 'nohup', 'stdbuf', 'timeout', 'time', 'xargs', 'caffeinate', 'arch', 'setsid', 'uv', 'npm', 'npx', 'pnpm', 'poetry', 'hatch',];
+const _WRAPPERS: readonly string[] = [
+    'sudo',
+    'doas',
+    'env',
+    'command',
+    'exec',
+    'nice',
+    'nohup',
+    'stdbuf',
+    'timeout',
+    'time',
+    'xargs',
+    'caffeinate',
+    'arch',
+    'setsid',
+    'uv',
+    'npm',
+    'npx',
+    'pnpm',
+    'poetry',
+    'hatch',
+];
 
 // --- [WORDS] ---------------------------------------------------------------------------
 
-const _unquote = (word: string): string =>
-    word.replace(_QUOTED, (match: string, single?: string, double?: string, unquoted?: string): string => single ?? unquoted ?? (double === undefined ? match : double.replace(_ESCAPED, '$<char>')));
+const _unquoted = (_match: string, quote: string | undefined, body: string): string => (quote === '"' ? body.replace(_ESCAPED, '$<char>') : body);
+
+const _word = (field: string): readonly string[] => (_WORD.test(field) ? [field.replace(_QUOTED, _unquoted)] : []);
 
 const _stripOptions = (words: readonly string[]): readonly string[] => {
     const [head] = words;
@@ -142,13 +164,9 @@ const _hit = ({ groups }: RegExpMatchArray): readonly Hit[] => {
 
 const _hits = (report: string): readonly Hit[] => [...report.matchAll(_REPORT)].flatMap(_hit).toSorted(_before);
 
-const _words = (text: string): readonly string[] =>
-    text
-        .split(_SEPARATOR)
-        .filter((word) => _WORD.test(word))
-        .map(_unquote);
+const _words = (text: string): readonly string[] => text.split(_SEPARATOR).flatMap(_word);
 
-const _texts = (hits: readonly Hit[], rule: string): readonly string[] => hits.flatMap((hit) => (hit.rule === rule ? [_unquote(hit.text)] : []));
+const _texts = (hits: readonly Hit[], rule: string): readonly string[] => hits.flatMap((hit) => (hit.rule === rule ? [hit.text.replace(_QUOTED, _unquoted)] : []));
 
 const _span = (hits: readonly Hit[], start: Hit, next: Option<Hit>, first: boolean): readonly Hit[] =>
     hits.filter((hit) => (first || _before(start, hit) <= 0) && (next.kind === 'none' || _before(hit, next.value) < 0));

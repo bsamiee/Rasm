@@ -1,0 +1,44 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throw-on-absence
+language: tsx
+severity: error
+ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
+utils:
+    absence-test:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^===?$'}
+                - has: {kind: 'undefined, null'}
+            - kind: unary_expression
+              all:
+                - has: {field: operator, regex: '^!$'}
+                - has: {field: argument, kind: 'identifier, member_expression, subscript_expression'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\|\|$'}
+                - has: {matches: absence-test}
+            - kind: parenthesized_expression
+              has: {matches: absence-test}
+    throwing:
+        any:
+            - kind: throw_statement
+            - kind: statement_block
+              has: {kind: throw_statement}
+              not: {has: {nthChild: 2}}
+rule:
+    any:
+        - kind: if_statement
+          pattern: $IF
+          all:
+            - has: {field: condition, matches: absence-test}
+            - has: {field: consequence, matches: throwing}
+        - kind: member_expression
+          pattern: $IF
+          all:
+            - has: {field: property, regex: '^getOrThrow(With)?$'}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Either))?$'}, exported: {regex: '^(Option|Either)$'}}}}
+message: '`throw` stands in for the failure case of an absent value'
+note: 'Return the reason as a value, `ParseResult.fromOption` under `Schema.transformOrFail` or `Effect.fail` with a tagged variant'
+labels:
+    IF: {style: primary}

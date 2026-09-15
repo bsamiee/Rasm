@@ -101,6 +101,10 @@ actor ClaudeLock {
     self.lockfiles = lockfiles
   }
 
+  nonisolated static func refreshLockfile(in directory: URL) -> URL {
+    directory.appending(path: ".oauth_refresh.lock")
+  }
+
   static func oauthRefresh<Value: Sendable>(
     directories: [URL],
     _ body: @escaping @Sendable () async -> Result<Value, ClaudeFailure>
@@ -109,7 +113,7 @@ actor ClaudeLock {
     return await holding(
       ordered.flatMap { directory in
         [
-          ClaudeLockRequest(url: directory.appending(path: ".oauth_refresh.lock"), stale: 60),
+          ClaudeLockRequest(url: refreshLockfile(in: directory), stale: 60),
           ClaudeLockRequest(
             url: URL(filePath: directory.resolvingSymlinksInPath().path + ".lock"), stale: 60),
         ]

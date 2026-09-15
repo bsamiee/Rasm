@@ -14,7 +14,9 @@ Rasm/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines and rules per language
-│   └── nx/                   # Nx plugin adding a project per manifest to the task graph
+│   ├── nx/                   # Nx plugin adding a project per manifest to the task graph
+│   ├── rhino/                # Tooling Rhino runs through the MCP router
+│   └── yak/                  # Rhino packages installed through the yak CLI
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
@@ -58,6 +60,7 @@ flowchart LR
         catalog_py["pyproject.toml groups"] --> lock_py["uv.lock, .venv/bin on PATH"]
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
         catalog_net --> catalog_project["eng/dotnet/Rasm.Catalog"] --> upgrade["rasm:upgrade"]
+        yak["tools/yak"] --> upgrade
     end
 
     subgraph taskgraph ["Task graph"]
@@ -85,7 +88,8 @@ flowchart LR
 - `nx run rasm:check` runs lint and root typecheck
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:install` places a macOS app's Release product under `/Applications`
-- `nx run rasm:upgrade` moves every catalog and tool binary to its newest release, `--configuration <language>` one catalog, `tools` the binaries
+- `nx run rasm:upgrade` moves every catalog and tool binary to its newest release
+- `nx run rasm:upgrade --configuration <language>` moves one catalog, `tools` the binaries, `rhino` the Rhino packages
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
 - Workspace plugin names each project's tags and empty targets by manifest, `@nx/dotnet` and `@nx/vitest` infer their own
@@ -107,6 +111,7 @@ flowchart LR
 |  [08]   | Secret                         | Doppler, read through `doppler run` around the command                                |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:up`                  |
 |  [10]   | Tool no target runs            | Machine profile                                                                       |
+|  [11]   | Rhino package                  | `nx run rasm:upgrade --configuration rhino` at the newest upstream development build  |
 
 - Package rows and `.editorconfig` rows hold a one-line purpose comment, every other file holds section dividers alone
 - Tool rows name a release candidate where `latest` resolves a development build

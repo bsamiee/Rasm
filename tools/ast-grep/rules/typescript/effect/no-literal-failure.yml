@@ -102,4 +102,4 @@ rule:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: options-callee}
 message: '`$FAIL` fails with `$ERROR`, a value with no `_tag`'
-note: 'Fail with a `Data.TaggedError` instance, `Effect.catchTag` recovers it by `_tag`'
+note: 'Fail with a `Data.TaggedError`, `Data.taggedEnum`, or `Data.tagged` value, `Effect.catchTag` recovers it by `_tag`'

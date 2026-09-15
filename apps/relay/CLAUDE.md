@@ -36,7 +36,7 @@ Provider CLI and desktop app run as the selected account, Relay stores every oth
 - 401 on a usage read refreshes once, a second 401 requires a new sign-in
 - Item with an empty `refreshToken` reads as signed out
 - Locked login keychain keeps the account connected
-- 429 waits `Retry-After`, a missing or zero value waits the usage cache duration
+- 429 waits `Retry-After`, a missing or zero value leaves the next scheduled read in place
 - Children inherit no Claude Code credential, endpoint, model, cloud, or remote-session variable
 - Sign-out runs `claude auth logout` in the account's store
 - Remove signs out, then deletes the Keychain item and the account directory
@@ -66,10 +66,12 @@ Sessions are 5-hour usage windows, each started by one greeting on the least cos
 - Model window at 100% blocks nothing
 - Limit reporting no window of 12 h or less has no session, its card shows no session gauge and no start, a Pro Codex account reports the weekly window alone while the Spark limit carries 5 h and weekly
 - Manual is the default policy, Automatic sends the greeting once per ready window
-- Launch, wake, panel open, and each change of `.claude.json` or the live `auth.json` reread the active accounts, then refresh usage
+- Launch, wake, panel open, and each change of `.claude.json` or the live `auth.json` reread the active accounts
+- Usage refreshes when `NWPathMonitor` reports the path satisfied, at launch and once the network returns after a wake, and on panel open, a dark wake with no network refreshes nothing
 - Refresh ticks every 60 s while the panel is open, every 5, 15, or 30 minutes by how recently it was open while closed, and at each known reset
+- Every refresh is a request, the schedule alone decides how often Claude usage is read
 - Claude session reset comes from the `rate_limit_event` the stream emits after the greeting turn, the usage endpoint reports the window later and a reading without a reset keeps the one already known
-- Claude usage is cached 15 minutes, a session start reads fresh after the greeting and caches the reading with the event's reset
+- Session start reads usage again after the greeting and carries the event's reset into that reading
 - Session start control stays in place under a spinner overlay with its symbol hidden while the greeting runs, no elapsed counter
 
 ## [03]-[INTERFACE]

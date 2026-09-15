@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-union-parameter-dispatch
+language: tsx
+severity: error
+ignores: ['**/*.d.ts']
+rule:
+    any:
+        - kind: function_signature
+          not: {inside: {kind: ambient_declaration, stopBy: end}}
+        - kind: method_signature
+          inside: {kind: class_body}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^[!=]==?$'}
+            - has: {kind: unary_expression, all: [{has: {field: operator, regex: '^typeof$'}}, {has: {field: argument, kind: identifier, pattern: $PARAMETER}}]}
+            - has: {kind: string}
+            - inside:
+                matches: syntax-function-boundary
+                stopBy: {matches: syntax-function-boundary}
+                all:
+                    - any:
+                        - has: {field: parameter, kind: identifier, pattern: $PARAMETER}
+                        - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $PARAMETER}}
+                    - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
+message: 'Argument shape selects the behavior at runtime through an overload or a `typeof` test'
+note: 'One signature takes a validated options record, `Schema` decodes the shape at the boundary'

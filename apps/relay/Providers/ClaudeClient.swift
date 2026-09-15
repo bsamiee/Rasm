@@ -9,11 +9,6 @@ nonisolated enum ClaudeSelection: Equatable, Sendable {
   case unknown(AccountIdentity)
 }
 
-private nonisolated struct ClaudeCachedUsage: Sendable {
-  let usage: AccountUsage
-  let until: Date
-}
-
 actor ClaudeClient {
   private static let excludedEnvironmentVariables: Set<String> = [
     "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "ANTHROPIC_BASE_URL", "ANTHROPIC_MODEL",
@@ -30,7 +25,6 @@ actor ClaudeClient {
   private static let systemExecutableDirectories: [String] = [
     "/opt/homebrew/bin", "/usr/local/bin",
   ]
-  private static let usageCacheDuration: TimeInterval = 15 * 60
   private static let loginDeadline: Duration = .seconds(300)
   private static let logoutDeadline: Duration = .seconds(60)
 
@@ -41,7 +35,6 @@ actor ClaudeClient {
   nonisolated let sharedConfigFile: URL
   nonisolated let sharedRefreshLock: URL
   private var verifiedIdentities: [SHA256Digest: AccountIdentity] = [:]
-  private var usageCache: [UUID: ClaudeCachedUsage] = [:]
   private var retryAfter: [UUID: Date] = [:]
   private var lastCredential: ClaudeCredential?
   private var lastSelection: AccountIdentity?
@@ -59,7 +52,7 @@ actor ClaudeClient {
     let shared: ClaudeCredentialStore = Self.defaultStore(
       paths: paths, environment: environment, username: username)
     sharedConfigFile = shared.configFile
-    sharedRefreshLock = shared.directory.appending(path: ".oauth_refresh.lock")
+    sharedRefreshLock = ClaudeLock.refreshLockfile(in: shared.directory)
   }
 
   func settle(known: [Account]) async -> Result<Void, ClaudeFailure> {
@@ -110,11 +103,11 @@ actor ClaudeClient {
       let saved: Result<Void, ClaudeFailure> = await saveLastCredential(
         incoming: identity, known: known)
       lastSelection = identity
-      if case .success(.credential(let held)) = await shared.read(),
-        held.identity.isSameAccount(as: identity)
-      {
-        lastCredential = held
-      }
+      lastCredential =
+        switch await shared.read() {
+        case .success(.credential(let held)) where held.identity.isSameAccount(as: identity): held
+        case .success, .failure: lastCredential
+        }
       let match: Account? = known.first { account in
         account.provider == .claude && account.identity.isSameAccount(as: identity)
       }
@@ -153,7 +146,6 @@ actor ClaudeClient {
 
   func discardConnection(id: UUID) async -> Result<Void, ClaudeFailure> {
     let store: ClaudeCredentialStore = privateStore(id)
-    usageCache.removeValue(forKey: id)
     return await store.deleteItem().flatMap { _ in
       Result { try FileManager.default.removeItem(at: store.directory) }.flatMapError { error in
         (error as? CocoaError)?.code == .fileNoSuchFile
@@ -162,30 +154,17 @@ actor ClaudeClient {
     }
   }
 
-  func usage(
-    for account: Account, isSelected: Bool, fresh: Bool
-  ) async -> Result<AccountUsage, ClaudeFailure> {
-    let now: Date = Date()
-    if !fresh, let cached: ClaudeCachedUsage = usageCache[account.id], cached.until > now {
-      return .success(cached.usage)
-    }
-    if let limit: Date = retryAfter[account.id], limit > now {
+  func usage(for account: Account, isSelected: Bool) async -> Result<AccountUsage, ClaudeFailure> {
+    if let limit: Date = retryAfter[account.id], limit > Date() {
       return .failure(.rateLimited(until: limit))
     }
     return await credential(for: account, isSelected: isSelected).bind { stored in
       await request(for: account, isSelected: isSelected, credential: stored) { credential in
-        await fetchUsage(credential.token).map { usage in
-          usage.withSignInExpiry(credential.token.refreshTokenExpiresAt)
-        }
+        await fetchUsage(credential.token)
       }
     }
-    .map { usage in
-      usageCache[account.id] = ClaudeCachedUsage(
-        usage: usage, until: Date().addingTimeInterval(Self.usageCacheDuration))
-      return usage
-    }
     .mapError { error in
-      if case .rateLimited(let until) = error.cause { retryAfter[account.id] = until }
+      if case .rateLimited(.some(let until)) = error.cause { retryAfter[account.id] = until }
       return error
     }
   }
@@ -193,24 +172,17 @@ actor ClaudeClient {
   func startSession(
     for account: Account, isSelected: Bool
   ) async -> Result<AccountUsage, ClaudeFailure> {
-    await usage(for: account, isSelected: isSelected, fresh: false).bind { current in
+    await usage(for: account, isSelected: isSelected).bind { current in
       guard case .ready = current.availability(at: Date()) else { return .success(current) }
       return await credential(for: account, isSelected: isSelected).bind { stored in
         await greet(store: store(for: account, isSelected: isSelected), token: stored.token)
       }
       .bind { reset in
-        await usage(for: account, isSelected: isSelected, fresh: true).map { fresh in
-          started(fresh, reset: reset, for: account)
+        await usage(for: account, isSelected: isSelected).map { started in
+          started.settingSessionReset(reset)
         }
       }
     }
-  }
-
-  private func started(_ usage: AccountUsage, reset: Date?, for account: Account) -> AccountUsage {
-    let merged: AccountUsage = usage.settingSessionReset(reset)
-    usageCache[account.id] = ClaudeCachedUsage(
-      usage: merged, until: Date().addingTimeInterval(Self.usageCacheDuration))
-    return merged
   }
 
   func select(_ account: Account, outgoing: Account?) async -> Result<
@@ -231,7 +203,6 @@ actor ClaudeClient {
 
   func signOut(_ account: Account, isSelected: Bool) async -> Result<Void, ClaudeFailure> {
     let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
-    usageCache.removeValue(forKey: account.id)
     if isSelected { lastCredential = nil }
     return await logOut(store: store)
   }
@@ -314,7 +285,6 @@ actor ClaudeClient {
       .map { _ in
         lastCredential = credential
         lastSelection = credential.identity
-        usageCache.removeValue(forKey: account.id)
         return credential
       }
   }
@@ -419,7 +389,9 @@ actor ClaudeClient {
       headers: ["anthropic-beta": "oauth-2025-04-20", "Accept": "application/json"]
     )
     .flatMap { data in decode(ClaudeUsageResponse.self, from: data) }
-    .flatMap { usage in usage.usage(observedAt: Date()) }
+    .flatMap { usage in
+      usage.usage(observedAt: Date(), signInExpiresAt: token.refreshTokenExpiresAt)
+    }
   }
 
   private func fetch(
@@ -446,11 +418,11 @@ actor ClaudeClient {
       switch http.statusCode {
       case 200: return Task.isCancelled ? .failure(.cancelled) : .success(data)
       case 429:
-        let seconds: TimeInterval =
-          http.value(forHTTPHeaderField: "Retry-After").flatMap(TimeInterval.init) ?? 0
+        let wait: TimeInterval? = http.value(forHTTPHeaderField: "Retry-After")
+          .flatMap(TimeInterval.init)
+          .flatMap { seconds in seconds > 0 ? seconds : nil }
         return .failure(
-          .rateLimited(
-            until: Date().addingTimeInterval(seconds > 0 ? seconds : Self.usageCacheDuration)))
+          .rateLimited(until: wait.map { seconds in Date().addingTimeInterval(seconds) }))
       case let status: return .failure(.http(status))
       }
     }

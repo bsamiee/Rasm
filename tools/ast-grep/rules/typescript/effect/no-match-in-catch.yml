@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-match-in-catch
+language: tsx
+severity: error
+utils:
+    error-handler:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            pattern: $HANDLER
+            all:
+                - has: {field: property, regex: '^(catchAll|catchAllCause|catchIf|catchSome|tapError|tapErrorCause|mapError)$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream)$'}}}}
+    callback-parameter:
+        kind: arrow_function, function_expression
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $E}
+            - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $E}}}
+    selection:
+        any:
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^value$'}
+                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Match)?$'}, exported: {regex: '^Match$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $E}}
+            - kind: switch_statement
+              has: {field: value, has: {pattern: $E._tag}}
+            - kind: binary_expression
+              all:
+                - has: {field: left, pattern: $E._tag}
+                - has: {field: operator, regex: '^===?$'}
+rule:
+    matches: error-handler
+    has:
+        field: arguments
+        has:
+            matches: callback-parameter
+            has: {stopBy: {matches: syntax-function-boundary}, matches: selection}
+message: '`$HANDLER` selects the failure by hand inside its callback'
+note: '`Effect.catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` selects the failure by `_tag` or predicate ahead of the callback'

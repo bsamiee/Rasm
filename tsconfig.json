@@ -4,6 +4,7 @@
     "include": [
         "*.config.ts",
         "tools/nx/*.ts",
+        "tools/yak/*.ts",
         "infra/*.ts"
     ]
 }

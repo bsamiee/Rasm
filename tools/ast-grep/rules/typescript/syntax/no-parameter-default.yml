@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parameter-default
+language: tsx
+severity: error
+utils:
+    parameter-named:
+        matches: syntax-function-boundary
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $P}
+            - has: {field: parameters, has: {kind: 'required_parameter, optional_parameter', has: {field: pattern, kind: identifier, pattern: $P}}}
+rule:
+    any:
+        - kind: required_parameter
+          all:
+            - has: {field: pattern, pattern: $P}
+            - has: {field: value, pattern: $D}
+        - kind: 'assignment_pattern, object_assignment_pattern'
+          all:
+            - has: {field: left, pattern: $P}
+            - has: {field: right, pattern: $D}
+            - inside: {kind: 'required_parameter, optional_parameter', stopBy: {not: {kind: 'array_pattern, object_pattern, pair_pattern, assignment_pattern, object_assignment_pattern, rest_pattern'}}}
+        - kind: binary_expression
+          all:
+            - has:
+                field: left
+                any:
+                    - {kind: identifier, pattern: $P}
+                    - {kind: member_expression, has: {field: object, kind: identifier, pattern: $P}}
+            - has: {field: operator, regex: '^\?\?$'}
+            - has: {field: right, pattern: $D}
+            - inside: {stopBy: end, matches: parameter-named}
+message: 'Parameter `$P` accepts absence and resolves it to `$D`'
+note: 'Declare `$P` required and pass the value at each call, `Schema.optionalWith(schema, { default })` decodes an absent boundary input'

@@ -283,7 +283,7 @@
     },
     "nx": {
         "tags": ["language:typescript"],
-        "namedInputs": { "tooling": ["sharedGlobals", "typescript", "{workspaceRoot}/*", "{workspaceRoot}/infra/*.ts"] },
+        "namedInputs": { "tooling": ["sharedGlobals", "typescript", "{workspaceRoot}/*", "{workspaceRoot}/infra/*.ts", "{workspaceRoot}/tools/yak/*.ts"] },
         "targets": {
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
@@ -366,7 +366,8 @@
                     "python": { "commands": ["uv lock --upgrade"] },
                     "typescript": { "commands": ["ncu --workspaces --root --packageManager pnpm -u --target newest", "pnpm install"] },
                     "dotnet": { "commands": ["dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj"] },
-                    "tools": { "commands": ["mise upgrade"] }
+                    "tools": { "commands": ["mise upgrade"] },
+                    "rhino": { "commands": ["node tools/yak/rhino-mcp-platform.ts"] }
                 }
             }
         }

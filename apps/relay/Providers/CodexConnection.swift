@@ -4,9 +4,9 @@ import Synchronization
 
 actor CodexConnection {
   private enum PendingReply: Sendable {
-    case unclaimed
+    case unclaimed(method: String)
     case arrived(Result<JSONValue, CodexFailure>)
-    case awaited(CheckedContinuation<Result<JSONValue, CodexFailure>, Never>)
+    case awaited(method: String, CheckedContinuation<Result<JSONValue, CodexFailure>, Never>)
   }
 
   private struct NotificationWaiter: Sendable {
@@ -26,7 +26,6 @@ actor CodexConnection {
   private let execution: Execution<CustomWriteInput, SequenceOutput, DiscardedOutput>
   private let registry: Mutex<Registry> = Mutex(Registry())
   private var nextRequestID: Int = 0
-  private var methods: [String: String] = [:]
   private var serverVersion: String = "app-server"
   private var notifications: [String: [JSONValue]] = [:]
 
@@ -94,16 +93,12 @@ actor CodexConnection {
       let id: String = String(nextRequestID)
       var message: [String: JSONValue] = ["id": .string(id), "method": .string(method)]
       if let params { message["params"] = params }
-      registry.withLock { state in state.replies[id] = .unclaimed }
-      methods[id] = method
+      registry.withLock { state in state.replies[id] = .unclaimed(method: method) }
       if case .failure(let error) = await write(.object(message)) {
         registry.withLock { state in _ = state.replies.removeValue(forKey: id) }
-        methods.removeValue(forKey: id)
         return .failure(error)
       }
-      let answer: Result<JSONValue, CodexFailure> = await reply(to: id)
-      methods.removeValue(forKey: id)
-      return answer
+      return await reply(to: id)
     }
   }
 
@@ -132,8 +127,8 @@ actor CodexConnection {
     case .arrived(let reply):
       state.replies.removeValue(forKey: id)
       return reply
-    case .unclaimed where !Task.isCancelled:
-      state.replies[id] = .awaited(continuation)
+    case .unclaimed(let method) where !Task.isCancelled:
+      state.replies[id] = .awaited(method: method, continuation)
       return nil
     case .unclaimed, .awaited, .none:
       state.replies.removeValue(forKey: id)
@@ -207,7 +202,7 @@ actor CodexConnection {
     guard let pending else { return }
     updatesContinuation.finish()
     notifications.removeAll()
-    for case .awaited(let continuation) in pending.replies {
+    for case .awaited(_, let continuation) in pending.replies {
       continuation.resume(returning: .failure(failure))
     }
     for waiter: NotificationWaiter in pending.waiters {
@@ -229,7 +224,7 @@ actor CodexConnection {
   ) {
     let awaited: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>? = registry.withLock {
       state in
-      guard case .awaited(let continuation) = state.replies.removeValue(forKey: id) else {
+      guard case .awaited(_, let continuation) = state.replies.removeValue(forKey: id) else {
         return nil
       }
       return continuation
@@ -279,21 +274,23 @@ actor CodexConnection {
       return
     }
     if let id: String = message["id"]?.stringValue {
-      let reply: Result<JSONValue, CodexFailure> = Self.reply(
-        message, method: methods[id] ?? "request", server: serverVersion)
-      let awaited: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>? =
-        registry.withLock { state in
+      let server: String = serverVersion
+      let awaited:
+        (
+          reply: Result<JSONValue, CodexFailure>,
+          continuation: CheckedContinuation<Result<JSONValue, CodexFailure>, Never>
+        )? = registry.withLock { state in
           switch state.replies[id] {
-          case .unclaimed:
-            state.replies[id] = .arrived(reply)
+          case .unclaimed(let method):
+            state.replies[id] = .arrived(Self.reply(message, method: method, server: server))
             return nil
-          case .awaited(let continuation):
+          case .awaited(let method, let continuation):
             state.replies.removeValue(forKey: id)
-            return continuation
+            return (Self.reply(message, method: method, server: server), continuation)
           case .arrived, .none: return nil
           }
         }
-      awaited?.resume(returning: reply)
+      if let awaited { awaited.continuation.resume(returning: awaited.reply) }
       return
     }
     guard let method: String = message["method"]?.stringValue,

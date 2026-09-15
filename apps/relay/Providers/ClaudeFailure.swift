@@ -14,7 +14,7 @@ nonisolated enum ClaudeFailure: ProviderFailure {
   case invalidResponse
   case invalidQuota(ClaudeQuotaErrors)
   case http(Int)
-  case rateLimited(until: Date)
+  case rateLimited(until: Date?)
   case transport(any Error)
   case accountChanged
   case modelUnavailable
@@ -68,8 +68,9 @@ nonisolated enum ClaudeFailure: ProviderFailure {
     case .invalidCredentials: "Claude’s saved sign-in is incomplete"
     case .invalidIdentity: "Claude did not return a complete account identity"
     case .invalidResponse, .invalidQuota: "Claude returned usage Relay could not interpret"
-    case .rateLimited(let until):
+    case .rateLimited(.some(let until)):
       "Claude is limiting usage requests until \(UsagePresentation.weekday(until))"
+    case .rateLimited(.none): "Claude is limiting usage requests"
     case .http: "Claude could not provide current usage"
     case .transport: "Could not reach Claude"
     case .accountChanged: "Claude sign-in changed during this operation"

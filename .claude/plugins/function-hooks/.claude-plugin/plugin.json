@@ -5,6 +5,12 @@
         "name": "Bardia Samiee"
     },
     "userConfig": {
+        "walkPolicy": {
+            "type": "boolean",
+            "title": "Walk policy",
+            "description": "Refusal of a Bash walker with a start path under ~/Library/CloudStorage",
+            "default": false
+        },
         "editThreshold": {
             "type": "number",
             "title": "Edit threshold",

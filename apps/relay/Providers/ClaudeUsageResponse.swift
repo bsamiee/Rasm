@@ -70,7 +70,7 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
     case limits
   }
 
-  func usage(observedAt: Date) -> Result<AccountUsage, ClaudeFailure> {
+  func usage(observedAt: Date, signInExpiresAt: Date?) -> Result<AccountUsage, ClaudeFailure> {
     let session: Result<QuotaWindow?, ClaudeQuotaErrors> =
       fiveHour?.quotaWindow(kind: .session) ?? .success(nil)
     let weekly: Result<QuotaWindow?, ClaudeQuotaErrors> =
@@ -84,7 +84,9 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
       return windows.isEmpty
         ? .failure(.invalidResponse)
         : .success(
-          AccountUsage(windows: windows, includedUsageAllowed: nil, observedAt: observedAt))
+          AccountUsage(
+            windows: windows, includedUsageAllowed: nil, observedAt: observedAt,
+            signInExpiresAt: signInExpiresAt))
     }
   }
 

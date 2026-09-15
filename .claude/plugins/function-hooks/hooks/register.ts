@@ -2,10 +2,32 @@
 
 import type { ClassicHookEvent, ClassicHookInputs, ClassicResult, EngineInterface, Frozen, Next, ProcessRunInit, ProcessRunResult, Register, ToolCallInput, ToolCallResult } from 'claude-code';
 import { fromNullable, none, type Option } from './composition/option.ts';
-import { bind, fault, ok, type Result } from './composition/result.ts';
+import { bind, fault, map, ok, type Result } from './composition/result.ts';
 import { decide } from './events/tool-call.ts';
-import { type Candidate, categoryPrompt, context, DELIVER, due, dueCategories, held, LEDGER, type Lineage, lineageOf, listed, occupied, type Range, REPORT, REVOKE, rangePrompt, resolved,
-    type Settings, STATE, settings, state, status, type Task,
+import {
+    type Candidate,
+    categoryPrompt,
+    context,
+    DELIVER,
+    due,
+    dueCategories,
+    held,
+    LEDGER,
+    type Lineage,
+    lineageOf,
+    listed,
+    occupied,
+    type Range,
+    REPORT,
+    REVOKE,
+    rangePrompt,
+    resolved,
+    type Settings,
+    STATE,
+    settings,
+    state,
+    status,
+    type Task,
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
@@ -19,6 +41,13 @@ interface Sink {
     readonly argv: Argv;
     readonly root: string;
 }
+
+interface Stamped {
+    readonly sink: Sink;
+    readonly ts: number;
+}
+
+type Once = (attempt: () => Promise<Result<Sink>>) => Promise<Result<Sink>>;
 
 type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]>;
 
@@ -104,6 +133,10 @@ const _open = ($: EngineInterface): Promise<Result<Sink>> =>
             return opened;
         });
 
+const _paired = (sink: Result<Sink>, ts: number): Result<Stamped> => map(sink, (value) => ({ sink: value, ts }));
+
+const _stamped = ($: EngineInterface, once: Once): Promise<Result<Stamped>> => $.clock.now().then((ts) => once(() => _open($)).then((sink) => _paired(sink, ts)));
+
 // --- [RECORD] --------------------------------------------------------------------------
 
 const _write = ($: EngineInterface, sink: Sink, built: Row): Promise<void> =>
@@ -123,8 +156,8 @@ const _classic = ($: EngineInterface, sink: Sink, e: Classic, ts: number): Promi
         ? $.session.usage().then((usage) => record($, sink, e.hook_event_name, { ...e, usage }, CLASSIC, ts))
         : record($, sink, e.hook_event_name, e, CLASSIC, ts);
 
-const _denied = ($: EngineInterface, sink: Sink, e: Frozen<ToolCallInput>, next: Next<'tool.call'>, answer: ToolCallResult): Promise<ToolCallResult> =>
-    record($, sink, 'tool.call', { ...e, deny: answer.deny, trace: next.trace }, CALL, $.clock.now()).then(() => answer);
+const _denied = ($: EngineInterface, sink: Sink, e: Frozen<ToolCallInput>, next: Next<'tool.call'>, answer: ToolCallResult, ts: number): Promise<ToolCallResult> =>
+    record($, sink, 'tool.call', { ...e, deny: answer.deny, trace: next.trace }, CALL, ts).then(() => answer);
 
 // --- [DELIVERY] ------------------------------------------------------------------------
 
@@ -148,7 +181,7 @@ const _skip = ($: EngineInterface, reason: string): readonly string[] => {
 };
 
 const _claimed = ($: EngineInterface, sink: Sink, lineage: Lineage, range: Range, to: number, agent: string): Promise<void> =>
-    _run($, sink.argv, { stdin: LEDGER(lineage, range, to, agent, $.clock.now()), cwd: lineage.worktree }).then((written) => {
+    _run($, sink.argv, { stdin: LEDGER(lineage, range, to, agent), cwd: lineage.worktree }).then((written) => {
         if (written.kind === 'fault') {
             $.ui.log(`ledger row not written, ${written.reason}`);
         }
@@ -163,14 +196,14 @@ const _judge = ($: EngineInterface, sink: Sink, lineage: Lineage, to: number, ra
     }
 };
 
-const _delivered = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, now: number): Promise<readonly string[]> =>
-    _run($, sink.argv, { stdin: DELIVER(lineage, e.session_id, now), cwd: lineage.worktree }).then((rows) =>
+const _delivered = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number): Promise<readonly string[]> =>
+    _run($, sink.argv, { stdin: DELIVER(lineage, e.session_id, to), cwd: lineage.worktree }).then((rows) =>
         rows.kind === 'fault' ? _skip($, `delivery rows not written, ${rows.reason}`) : context(rows.value, lineage.branch),
     );
 
-const _revoked = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, now: number, launched: boolean): void => {
+const _revoked = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, launched: boolean): void => {
     if (!launched) {
-        _run($, sink.argv, { stdin: REVOKE(lineage, e.session_id, now), cwd: lineage.worktree }).then((taken) => {
+        _run($, sink.argv, { stdin: REVOKE(lineage, e.session_id, to), cwd: lineage.worktree }).then((taken) => {
             if (taken.kind === 'fault') {
                 $.ui.log(`report rows not revoked, ${taken.reason}`);
             }
@@ -178,7 +211,7 @@ const _revoked = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
     }
 };
 
-const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, now: number, candidate: Candidate, written: Result<string>): void => {
+const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, to: number, candidate: Candidate, written: Result<string>): void => {
     if (written.kind === 'fault') {
         environment.claims.delete(environment.chosen.categoryAgent);
         $.ui.log(`report rows not written, ${written.reason}`);
@@ -186,14 +219,14 @@ const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage
     }
     _spawn($, environment.chosen.categoryAgent, categoryPrompt(candidate.category, lineage), 'judge category', lineage.worktree, candidate.category).then((spawned) => {
         environment.claims.delete(environment.chosen.categoryAgent);
-        _revoked($, sink, e, lineage, now, spawned.kind === 'some');
+        _revoked($, sink, e, lineage, to, spawned.kind === 'some');
     });
 };
 
-const _handed = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, now: number, candidate: Candidate, delivering: boolean): Promise<readonly string[]> =>
-    _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, now), cwd: lineage.worktree })
-        .then((written) => _reported($, sink, e, lineage, environment, now, candidate, written))
-        .then(() => (delivering ? _delivered($, sink, e, lineage, now) : _NO_ENTRIES));
+const _handed = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, to: number, candidate: Candidate, delivering: boolean): Promise<readonly string[]> =>
+    _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, to), cwd: lineage.worktree })
+        .then((written) => _reported($, sink, e, lineage, environment, to, candidate, written))
+        .then(() => (delivering ? _delivered($, sink, e, lineage, to) : _NO_ENTRIES));
 
 const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, environment: Environment): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: STATE(lineage, to, environment.chosen), cwd: lineage.worktree }).then((read) => {
@@ -216,10 +249,10 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
         const delivering = stopping && seen.value.undelivered > 0 && quiet && !busy.includes(environment.chosen.edits.agent);
         const [candidate] = dueCategories(seen.value, environment.chosen, busy, quiet);
         if (candidate === undefined) {
-            return delivering ? _delivered($, sink, e, lineage, $.clock.now()) : _NO_ENTRIES;
+            return delivering ? _delivered($, sink, e, lineage, to) : _NO_ENTRIES;
         }
         environment.claims.add(environment.chosen.categoryAgent);
-        return _handed($, sink, e, lineage, environment, $.clock.now(), candidate, delivering);
+        return _handed($, sink, e, lineage, environment, to, candidate, delivering);
     });
 
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
@@ -238,16 +271,19 @@ const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Envi
         return _stopping(e) ? _boundary($, sink, e, to, environment) : _NO_ENTRIES;
     });
 
-const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult =>
-    entries.length === 0 ? result : { ...result, additionalContext: [...(result.additionalContext ?? _NO_ENTRIES), ...entries] };
+const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult => {
+    const earlier = fromNullable(result.additionalContext);
+    return entries.length === 0 ? result : { ...result, additionalContext: earlier.kind === 'some' ? [...earlier.value, ...entries] : [...entries] };
+};
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 
 const register: Register = (on, options) => {
     const claims: Set<string> = new Set();
     const environment: Environment = { chosen: settings(options), claims, footer: _memo() };
+    const walking = options['walkPolicy'] === true;
     let opening: Promise<Result<Sink>> | undefined;
-    const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
+    const once: Once = (attempt) => {
         opening ??= attempt();
         return opening;
     };
@@ -258,9 +294,12 @@ const register: Register = (on, options) => {
             (text: string) => _scan($, text),
             (path: string) => $.fs.exists(path),
             () => _place($),
+            walking,
         )
             .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason.replace(_CTRL, ' ') } : next(decision.e)))
-            .then<ToolCallResult>((answer) => (answer.deny === undefined ? answer : once(() => _open($)).then((sink) => (sink.kind === 'ok' ? _denied($, sink.value, e, next, answer) : answer)))),
+            .then<ToolCallResult>((answer) =>
+                answer.deny === undefined ? answer : _stamped($, once).then((found) => (found.kind === 'ok' ? _denied($, found.value.sink, e, next, answer, found.value.ts) : answer)),
+            ),
     );
 
     on(
@@ -285,15 +324,15 @@ const register: Register = (on, options) => {
         },
         ($, e, next) =>
             next.is('!classic.PreToolUse', e)
-                ? once(() => _open($))
-                      .then((sink) => (sink.kind === 'ok' ? _observed($, sink.value, e, environment, $.clock.now()) : _NO_ENTRIES))
+                ? _stamped($, once)
+                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, found.value.ts) : _NO_ENTRIES))
                       .then((entries) => next(e).then((result) => _answered(result, entries)))
                 : next(e),
     );
 
     on('turn.*', ($, e, next) =>
-        once(() => _open($))
-            .then((sink) => (sink.kind === 'ok' ? record($, sink.value, next.event, e, TURN, $.clock.now()) : undefined))
+        _stamped($, once)
+            .then((found) => (found.kind === 'ok' ? record($, found.value.sink, next.event, e, TURN, found.value.ts) : undefined))
             .then(() => next(e)),
     );
 

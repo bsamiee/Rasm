@@ -40,7 +40,7 @@ nonisolated enum QuotaKind: Hashable, Sendable {
 nonisolated struct QuotaWindow: Equatable, Sendable {
   let kind: QuotaKind
   let used: UsageAmount
-  let resetsAt: Date?
+  var resetsAt: Date?
   let rejected: Bool
 
   var blocks: Bool { used.isExhausted || rejected }
@@ -49,7 +49,13 @@ nonisolated struct QuotaWindow: Equatable, Sendable {
     guard resetsAt == nil, let previous, previous.kind == kind,
       let reset: Date = previous.resetsAt, reset > now
     else { return self }
-    return QuotaWindow(kind: kind, used: used, resetsAt: reset, rejected: rejected)
+    return withReset(reset)
+  }
+
+  func withReset(_ reset: Date) -> QuotaWindow {
+    var copy: QuotaWindow = self
+    copy.resetsAt = reset
+    return copy
   }
 }
 
@@ -61,7 +67,7 @@ nonisolated enum Availability: Equatable, Sendable {
 }
 
 nonisolated struct AccountUsage: Equatable, Sendable {
-  let windows: [QuotaWindow]
+  var windows: [QuotaWindow]
   let includedUsageAllowed: Bool?
   let observedAt: Date
   var signInExpiresAt: Date? = nil
@@ -83,19 +89,12 @@ nonisolated struct AccountUsage: Equatable, Sendable {
   }
 
   func keepingResets(from previous: AccountUsage?, at now: Date) -> AccountUsage {
-    AccountUsage(
-      windows: windows.map { window in
-        window.keepingReset(
-          from: previous?.windows.first { earlier in earlier.kind == window.kind }, at: now)
-      },
-      includedUsageAllowed: includedUsageAllowed, observedAt: observedAt,
-      signInExpiresAt: signInExpiresAt)
-  }
-
-  func withSignInExpiry(_ date: Date?) -> AccountUsage {
-    AccountUsage(
-      windows: windows, includedUsageAllowed: includedUsageAllowed, observedAt: observedAt,
-      signInExpiresAt: date)
+    var copy: AccountUsage = self
+    copy.windows = windows.map { window in
+      window.keepingReset(
+        from: previous?.windows.first { earlier in earlier.kind == window.kind }, at: now)
+    }
+    return copy
   }
 
   var nextReset: Date? {
@@ -104,15 +103,11 @@ nonisolated struct AccountUsage: Equatable, Sendable {
 
   func settingSessionReset(_ reset: Date?) -> AccountUsage {
     guard let reset, let session, session.resetsAt == nil else { return self }
-    return AccountUsage(
-      windows: windows.map { window in
-        window.kind == .session
-          ? QuotaWindow(
-            kind: .session, used: window.used, resetsAt: reset, rejected: window.rejected)
-          : window
-      },
-      includedUsageAllowed: includedUsageAllowed, observedAt: observedAt,
-      signInExpiresAt: signInExpiresAt)
+    var copy: AccountUsage = self
+    copy.windows = windows.map { window in
+      window.kind == .session ? window.withReset(reset) : window
+    }
+    return copy
   }
 }
 
