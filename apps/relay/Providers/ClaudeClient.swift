@@ -327,13 +327,15 @@ actor ClaudeClient {
     let store: ClaudeCredentialStore = store(for: account, isSelected: isSelected)
     return await refreshCredential(in: store, for: account.identity)
       .bind { renewed in await verify(renewed).bind(send) }
-      .mapError { retried in retried.unauthorized ? .signInRequired : retried }
   }
 
   private func refreshCredential(
     in store: ClaudeCredentialStore, for identity: AccountIdentity
   ) async -> Result<ClaudeCredential, ClaudeFailure> {
-    await runSession(store: store, action: .refreshCredentials, token: nil)
+    let rotation: Task<Result<Date?, ClaudeFailure>, Never> = Task(name: "Claude refresh") {
+      await runSession(store: store, action: .refreshCredentials, token: nil)
+    }
+    return await rotation.value
       .bind { _ in await store.read() }
       .flatMap { content in matched(content, to: identity) }
   }

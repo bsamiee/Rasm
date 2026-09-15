@@ -10,8 +10,10 @@ nonisolated struct ClaudeOAuthToken: Sendable {
 
   var fingerprint: SHA256Digest { SHA256.hash(data: Data(accessToken.utf8)) }
 
+  static let refreshMargin: TimeInterval = 600
+
   func needsRefresh(at now: Date) -> Bool {
-    expiresAt.map { expiry in expiry <= now.addingTimeInterval(300) } ?? true
+    expiresAt.map { expiry in expiry <= now.addingTimeInterval(Self.refreshMargin) } ?? true
   }
 
   static func make(_ value: JSONValue) -> Result<ClaudeOAuthToken?, ClaudeFailure> {

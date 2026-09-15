@@ -145,6 +145,13 @@ final class AccountStore {
 
   func startSession(_ id: UUID) {
     guard let model: AccountModel = model(id), model.isConnected else { return }
+    guard model.operation != .refreshing else {
+      Task(name: "Session start after refresh") { [self] in
+        await model.finish()
+        startSession(id)
+      }
+      return
+    }
     let account: Account = model.account
     let isSelected: Bool = model.isSelected
     model.run(.starting) { [self] in
@@ -170,7 +177,7 @@ final class AccountStore {
       other.account.provider == account.provider && other.isSelected && other.id != id
     }
     model.run(.selecting) { [self] in
-      for other: AccountModel in accounts where other.id != id { await other.finish() }
+      await outgoing?.finish()
       guard !Task.isCancelled else { return }
       let result: Result<AccountIdentity, ProviderError> =
         switch account.provider {
@@ -320,7 +327,7 @@ final class AccountStore {
       isStorageAvailable = true
     case .failure(let error):
       storageIssue = error.localizedDescription
-      logger.error("\(String(describing: error), privacy: .private)")
+      logger.error("\(String(describing: error), privacy: .public)")
     }
   }
 
@@ -333,18 +340,18 @@ final class AccountStore {
     switch locations.orphanAccountDirectories(excluding: Set(accounts.map(\.id))) {
     case .success(let found): orphans = found
     case .failure(let error):
-      logger.error("Orphan listing: \(String(describing: error), privacy: .private)")
+      logger.error("Orphan listing: \(String(describing: error), privacy: .public)")
       orphans = []
     }
     for id: UUID in orphans {
       if case .failure(let error) = await claude.discardConnection(id: id) {
         logger.error(
-          "Orphan \(id.uuidString, privacy: .public): \(String(describing: error), privacy: .private)"
+          "Orphan \(id.uuidString, privacy: .public): \(String(describing: error), privacy: .public)"
         )
       }
       if case .failure(let error) = await codex.discardConnection(id: id) {
         logger.error(
-          "Orphan \(id.uuidString, privacy: .public): \(String(describing: error), privacy: .private)"
+          "Orphan \(id.uuidString, privacy: .public): \(String(describing: error), privacy: .public)"
         )
       }
       removeAccountDirectory(id)
@@ -358,7 +365,7 @@ final class AccountStore {
     } catch let error as CocoaError where error.code == .fileNoSuchFile {
       return
     } catch {
-      logger.error("\(String(describing: error), privacy: .private)")
+      logger.error("\(String(describing: error), privacy: .public)")
     }
   }
 
@@ -414,7 +421,7 @@ final class AccountStore {
   private func report(_ error: ProviderError, provider: Provider) {
     guard !error.isCancellation else { return }
     providerIssues[provider] = error.localizedDescription
-    logger.error("\(String(describing: error), privacy: .private)")
+    logger.error("\(String(describing: error), privacy: .public)")
   }
 
   private func authenticate(id: UUID, provider: Provider, existing: AccountModel?) {
@@ -522,6 +529,7 @@ final class AccountStore {
       scheduleSave()
       reschedule()
       startAutomaticSessionIfNeeded(model)
+    case .failure(let error) where error.isCancellation: return
     case .failure(let error):
       model.usage = model.usage.usage.map(UsageState.stale) ?? .unavailable
       record(error, for: model)
@@ -593,7 +601,7 @@ final class AccountStore {
       }
     } catch {
       logger.error(
-        "Watch on \(file.path, privacy: .private): \(String(describing: error), privacy: .private)")
+        "Watch on \(file.path, privacy: .private): \(String(describing: error), privacy: .public)")
     }
   }
 
@@ -605,7 +613,7 @@ final class AccountStore {
       }
     } catch {
       logger.error(
-        "Watch on \(lock.path, privacy: .private): \(String(describing: error), privacy: .private)")
+        "Watch on \(lock.path, privacy: .private): \(String(describing: error), privacy: .public)")
     }
   }
 
@@ -661,7 +669,7 @@ final class AccountStore {
       model.authentication = .signInRequired
       model.isSelected = false
     }
-    logger.error("\(String(describing: error), privacy: .private)")
+    logger.error("\(String(describing: error), privacy: .public)")
   }
 
   private func scheduleSave() {
@@ -685,7 +693,7 @@ final class AccountStore {
     case .success: storageIssue = nil
     case .failure(let error):
       storageIssue = error.localizedDescription
-      logger.error("\(String(describing: error), privacy: .private)")
+      logger.error("\(String(describing: error), privacy: .public)")
     }
     return result
   }

@@ -29,11 +29,13 @@ Provider CLI and desktop app run as the selected account, Relay stores every oth
 - The CLI holds `.oauth_refresh.lock` in the store while it rotates a token, Relay re-reads the shared item when that directory vanishes
 - Refresh tokens are single use and the grant ends 30 days after the sign-in, no refresh extends it, the card shows the date as "Oct 12" at the trailing end of the account row with the full date on hover, "Login expired" as the note past it
 - Codex stores no login expiry, `auth.json` carries `last_refresh` and JWT `exp` alone and the app-server reports auth mode, email, and plan, so a Codex card shows no date
-- Access token is refreshed 5 minutes before expiry, a refresh-token expiry triggers nothing
+- Access token is refreshed 10 minutes before expiry, wider than the CLI's own 5-minute margin so a greeting child never rotates the token itself, a refresh-token expiry triggers nothing
+- Refresh tokens are single use, so the refresh child runs on its own task that no cancel or quit reaches, a rotation the server completed is persisted by the child or lost for good
 - Login outside Relay saves the outgoing account's last-read credential into its private item
 - Saved credential that rotated since its last read requires a new sign-in
 - `claude -p` in the account's store is the one credential refresh, run when the access token or refresh token nears expiry
-- 401 on a usage read refreshes once, a second 401 requires a new sign-in
+- 401 on a usage read refreshes once, a second 401 is reported and the account stays connected, sign-in required comes from the store alone
+- CLI that gets `invalid_grant` on a refresh blanks the item's access and refresh tokens and keeps its metadata, the blank item reads as signed out
 - Item with an empty `refreshToken` reads as signed out
 - Locked login keychain keeps the account connected
 - 429 waits `Retry-After`, a missing or zero value leaves the next scheduled read in place
@@ -70,7 +72,7 @@ Sessions are 5-hour usage windows, each started by one greeting on the least cos
 - Usage refreshes when `NWPathMonitor` reports the path satisfied, at launch and once the network returns after a wake, and on panel open, a dark wake with no network refreshes nothing
 - Refresh ticks every 60 s while the panel is open, every 5, 15, or 30 minutes by how recently it was open while closed, and at each known reset
 - Every refresh is a request, the schedule alone decides how often Claude usage is read
-- Claude session reset comes from the `rate_limit_event` the stream emits after the greeting turn, the usage endpoint reports the window later and a reading without a reset keeps the one already known
+- Claude session reset is `rate_limit_info.unifiedWindows.five_hour.resetsAt` of the `rate_limit_event` the stream emits after the greeting turn, the top-level `rateLimitType` names the limiting window alone and reads `seven_day` once weekly usage passes session usage, the usage endpoint reports the window later and a reading without a reset keeps the one already known
 - Session start reads usage again after the greeting and carries the event's reset into that reading
 - Session start control stays in place under a spinner overlay with its symbol hidden while the greeting runs, no elapsed counter
 
@@ -87,6 +89,7 @@ Sessions are 5-hour usage windows, each started by one greeting on the least cos
 - Login item status is read when the pane appears and each time Relay becomes active, `SMAppService` posts no status notification
 - Controls keep their label while their operation runs, the status line names the state
 - Sheet state belongs to the store, closing Settings mid-login cancels nothing
+- Error text in the unified log is public, provider failures name no token
 
 ## [04]-[STORAGE]
 
@@ -129,7 +132,8 @@ Every child runs under `Subprocess.run` from `swiftlang/swift-subprocess` in its
 - `CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, and `CODEX_HOME` come from `$SHELL -lc` once after launch, every other variable is launchd's
 - Stream children (`claude auth login`, `claude -p`, `codex app-server`) are read and written inside the `run` body closure
 - Cancel of any operation returns once the child is reaped, quit cancels every operation and waits 5 s at most
-- Per-account operations run on the account's one task, a switch waits for every other account's task before it starts
+- Per-account operations run on the account's one task, a switch waits for the outgoing account's task alone since every other account works in its private store
+- Session start clicked during a usage refresh starts once the refresh finishes, a cancelled operation keeps the usage it found
 
 ## [07]-[PROJECT]
 

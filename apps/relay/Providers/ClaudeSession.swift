@@ -89,8 +89,7 @@ nonisolated enum ClaudeSession {
     }
     if event["type"]?.stringValue == "rate_limit_event",
       let info: JSONValue = event["rate_limit_info"],
-      info["rateLimitType"]?.stringValue == "five_hour",
-      let seconds: Double = info["resetsAt"]?.doubleValue
+      let seconds: Double = Self.sessionResetSeconds(info)
     {
       return .success(
         .awaiting(phase, sessionReset: Date(timeIntervalSince1970: seconds)))
@@ -146,6 +145,11 @@ nonisolated enum ClaudeSession {
     case .greeting:
       return .failure(.protocolFailure)
     }
+  }
+
+  private static func sessionResetSeconds(_ info: JSONValue) -> Double? {
+    info["unifiedWindows"]?["five_hour"]?["resetsAt"]?.doubleValue
+      ?? (info["rateLimitType"]?.stringValue == "five_hour" ? info["resetsAt"]?.doubleValue : nil)
   }
 
   private static func sendControlRequest(
