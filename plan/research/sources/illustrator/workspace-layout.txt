@@ -1,0 +1,764 @@
+##### Workspaces_Default_Workspace
+workspace 
+  dock content=control-bar anchor=top is-closed=false
+    control-bar id=1 size=1783 31 origin=11 40 is-closed=true app-data=ControlBar
+  dock content=control-bar anchor=bottom is-closed=false
+  dock content=palette toolbar anchor=left is-closed=false
+    toolbar id=2 is-closed=true app-data=Getting Started
+    toolbar id=3 is-closed=true app-data=Basic
+    toolbar id=4 is-closed=true app-data=ToolBar
+    toolbar id=5 is-closed=false app-data=Default Toolbar
+  dock content=palette toolbar anchor=right is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=6 is-closed=false app-data=CSXSExtension_com.adobe.DesignLibraries.angular_0
+      tab-group is-closed=false
+        palette id=7 is-closed=false app-data=Transform
+      tab-group is-closed=false
+        palette id=8 is-closed=false app-data=Character
+        palette id=9 is-closed=false app-data=Paragraph
+        palette id=10 is-closed=false app-data=AdobeOpenTypeFont
+      tab-group is-closed=false
+        palette id=11 is-closed=false app-data=AdobeParaStyles
+        palette id=12 is-closed=false app-data=AdobeCharStyles
+      tab-group is-closed=false
+        palette id=13 is-closed=false app-data=AdobeAltGlyphsPanel
+      tab-group is-closed=false
+        palette id=14 is-closed=false app-data=AdobeBrush
+        palette id=15 is-closed=false app-data=NamedStyle
+        palette id=16 is-closed=false app-data=Symbols
+      tab-group is-closed=false
+        palette id=17 is-closed=false app-data=PatternOptionsPanel
+      tab-group is-closed=false
+        palette id=18 is-closed=true app-data=AdobeBlendOptionsPanel
+      tab-group is-closed=false
+        palette id=19 is-closed=false app-data=Vectorize
+        palette id=20 is-closed=false app-data=3D and Materials
+    tab-pane 
+      tab-group is-closed=false
+        palette id=21 is-closed=false app-data=Align
+        palette id=22 is-closed=false app-data=Pathfinder
+      tab-group is-closed=false
+        palette id=23 is-closed=false app-data=AdobePropertiesPanel
+        palette id=24 is-closed=false app-data=Appearance
+        palette id=25 is-closed=true app-data=Stroke
+        palette id=26 is-closed=true app-data=Transparency
+      tab-group is-closed=false
+        palette id=27 is-closed=false app-data=Artboards
+        palette id=28 is-closed=false app-data=Links
+    tab-pane 
+      tab-group is-closed=false
+        palette id=29 is-closed=false app-data=AdobeSwatch_
+        palette id=30 is-closed=false app-data=Color
+        palette id=31 is-closed=false app-data=AdobeGradientEditor
+      tab-group is-closed=false
+        palette id=32 is-closed=false app-data=Actions
+        palette id=33 is-closed=false app-data=History
+      tab-group is-closed=false
+        palette id=34 is-closed=false app-data=AdobeLayerPalette
+    tab-pane 
+      tab-group is-closed=false
+        palette id=35 is-closed=false app-data=Export
+      tab-group is-closed=false
+        palette id=36 is-closed=false app-data=Document Info
+        palette id=37 is-closed=false app-data=Navigator
+        palette id=38 is-closed=false app-data=Info
+      tab-group is-closed=false
+        palette id=39 is-closed=false app-data=AdobeSeparationPreview
+        palette id=40 is-closed=false app-data=AdobeObjectAttributes
+    tab-pane 
+      tab-group is-closed=false
+        palette id=41 is-closed=true app-data=AI Assistant
+  dock content=palette toolbar anchor=none origin=775 290 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=42 is-closed=true app-data=Concept to Vector Unified Panel
+  dock content=palette toolbar anchor=none origin=325 205 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=43 is-closed=true app-data=BetaFeedbackPanel
+  dock content=palette toolbar anchor=none origin=744 241 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=44 is-closed=true app-data=Retype
+  dock content=palette toolbar anchor=none origin=744 236 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=45 is-closed=true app-data=Reflow Viewer
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=46 is-closed=true app-data=GeneratedVariations
+  dock content=palette toolbar anchor=none origin=706 339 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=47 is-closed=true app-data=CSS
+  dock content=palette toolbar anchor=none origin=1235 94 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=48 is-closed=true app-data=Mockup
+  dock content=palette toolbar anchor=none origin=612 324 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=49 is-closed=true app-data=ccx-timeline
+  dock content=palette toolbar anchor=none origin=308 342 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=50 is-closed=true app-data=AdobeFlatteningPreview
+  dock content=palette toolbar anchor=none origin=415 372 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=51 is-closed=true app-data=SVGInteractivity
+        palette id=52 is-closed=true app-data=AdobeVariablesPanel
+  dock content=palette toolbar anchor=none origin=258 116 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=53 is-closed=true app-data=AdobeHorizontalTabPanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=54 is-closed=true app-data=AdobeVerticalTabPanel
+  dock content=palette toolbar anchor=none origin=90 402 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=55 is-closed=true app-data=Magic Wand
+  dock content=palette toolbar anchor=none origin=930 90 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=56 is-closed=true app-data=AdobeColorGuidePanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=true
+        palette id=57 is-closed=true app-data=CCX Commenting UXP Webview
+
+##### Modified_Workspaces_Default_Workspace
+workspace 
+  dock content=control-bar anchor=top is-closed=false
+    control-bar id=1 size=1783 31 origin=11 40 is-closed=true app-data=ControlBar
+  dock content=control-bar anchor=bottom is-closed=false
+  dock content=palette toolbar anchor=left is-closed=false
+    toolbar id=2 is-closed=true app-data=Getting Started
+    toolbar id=3 is-closed=true app-data=Basic
+    toolbar id=4 is-closed=true app-data=ToolBar
+    toolbar id=5 is-closed=false app-data=Default Toolbar
+  dock content=palette toolbar anchor=right is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=6 is-closed=false app-data=CSXSExtension_com.adobe.DesignLibraries.angular_0
+      tab-group is-closed=false
+        palette id=7 is-closed=false app-data=Transform
+      tab-group is-closed=false
+        palette id=8 is-closed=false app-data=Character
+        palette id=9 is-closed=false app-data=Paragraph
+        palette id=10 is-closed=false app-data=AdobeOpenTypeFont
+      tab-group is-closed=false
+        palette id=11 is-closed=false app-data=AdobeParaStyles
+        palette id=12 is-closed=false app-data=AdobeCharStyles
+      tab-group is-closed=false
+        palette id=13 is-closed=false app-data=AdobeAltGlyphsPanel
+      tab-group is-closed=false
+        palette id=14 is-closed=false app-data=AdobeBrush
+        palette id=15 is-closed=false app-data=NamedStyle
+        palette id=16 is-closed=false app-data=Symbols
+      tab-group is-closed=false
+        palette id=17 is-closed=false app-data=PatternOptionsPanel
+      tab-group is-closed=false
+        palette id=18 is-closed=true app-data=AdobeBlendOptionsPanel
+      tab-group is-closed=false
+        palette id=19 is-closed=false app-data=Vectorize
+        palette id=20 is-closed=false app-data=3D and Materials
+    tab-pane 
+      tab-group is-closed=false
+        palette id=21 is-closed=false app-data=Align
+        palette id=22 is-closed=false app-data=Pathfinder
+      tab-group is-closed=false
+        palette id=23 is-closed=false app-data=AdobePropertiesPanel
+        palette id=24 is-closed=false app-data=Appearance
+        palette id=25 is-closed=true app-data=Stroke
+        palette id=26 is-closed=true app-data=Transparency
+      tab-group is-closed=false
+        palette id=27 is-closed=false app-data=Artboards
+        palette id=28 is-closed=false app-data=Links
+    tab-pane 
+      tab-group is-closed=false
+        palette id=29 is-closed=false app-data=AdobeSwatch_
+        palette id=30 is-closed=false app-data=Color
+        palette id=31 is-closed=false app-data=AdobeGradientEditor
+      tab-group is-closed=false
+        palette id=32 is-closed=false app-data=Actions
+        palette id=33 is-closed=false app-data=History
+      tab-group is-closed=false
+        palette id=34 is-closed=false app-data=AdobeLayerPalette
+    tab-pane 
+      tab-group is-closed=false
+        palette id=35 is-closed=false app-data=Export
+      tab-group is-closed=false
+        palette id=36 is-closed=false app-data=Document Info
+        palette id=37 is-closed=false app-data=Navigator
+        palette id=38 is-closed=false app-data=Info
+      tab-group is-closed=false
+        palette id=39 is-closed=false app-data=AdobeSeparationPreview
+        palette id=40 is-closed=false app-data=AdobeObjectAttributes
+    tab-pane 
+      tab-group is-closed=false
+        palette id=41 is-closed=true app-data=AI Assistant
+  dock content=palette toolbar anchor=none origin=775 290 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=42 is-closed=true app-data=Concept to Vector Unified Panel
+  dock content=palette toolbar anchor=none origin=325 205 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=43 is-closed=true app-data=BetaFeedbackPanel
+  dock content=palette toolbar anchor=none origin=744 241 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=44 is-closed=true app-data=Retype
+  dock content=palette toolbar anchor=none origin=744 236 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=45 is-closed=true app-data=Reflow Viewer
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=46 is-closed=true app-data=GeneratedVariations
+  dock content=palette toolbar anchor=none origin=706 339 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=47 is-closed=true app-data=CSS
+  dock content=palette toolbar anchor=none origin=1235 94 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=48 is-closed=true app-data=Mockup
+  dock content=palette toolbar anchor=none origin=612 324 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=49 is-closed=true app-data=ccx-timeline
+  dock content=palette toolbar anchor=none origin=308 342 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=50 is-closed=true app-data=AdobeFlatteningPreview
+  dock content=palette toolbar anchor=none origin=415 372 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=51 is-closed=true app-data=SVGInteractivity
+        palette id=52 is-closed=true app-data=AdobeVariablesPanel
+  dock content=palette toolbar anchor=none origin=258 116 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=53 is-closed=true app-data=AdobeHorizontalTabPanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=54 is-closed=true app-data=AdobeVerticalTabPanel
+  dock content=palette toolbar anchor=none origin=90 402 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=55 is-closed=true app-data=Magic Wand
+  dock content=palette toolbar anchor=none origin=930 90 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=56 is-closed=true app-data=AdobeColorGuidePanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=true
+        palette id=57 is-closed=true app-data=CCX Commenting UXP Webview
+
+##### Modified_Workspaces_Essentials
+workspace 
+  dock content=control-bar anchor=top is-closed=false
+    control-bar id=1 size=1263 31 origin=11 40 is-closed=true app-data=ControlBar
+  dock content=control-bar anchor=bottom is-closed=false
+  dock content=palette toolbar anchor=left is-closed=false
+    toolbar id=2 is-closed=false app-data=Basic
+    toolbar id=3 is-closed=true app-data=ToolBar
+  dock content=palette toolbar anchor=right is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=4 is-closed=false app-data=AdobePropertiesPanel
+        palette id=5 is-closed=false app-data=AdobeLayerPalette
+        palette id=6 is-closed=false app-data=CSXSExtension_com.adobe.DesignLibraries.angular_0
+    tab-pane 
+      tab-group is-closed=false
+        palette id=7 is-closed=false app-data=AI Assistant
+  dock content=palette toolbar anchor=none origin=780 296 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=8 is-closed=true app-data=Reflow Viewer
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=9 is-closed=true app-data=Retype
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=10 is-closed=true app-data=GeneratedVariations
+  dock content=palette toolbar anchor=none origin=775 290 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=11 is-closed=true app-data=Concept to Vector Unified Panel
+  dock content=palette toolbar anchor=none origin=765 422 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=12 is-closed=true app-data=AdobeBlendOptionsPanel
+  dock content=palette toolbar anchor=none origin=200 100 is-closed=true
+    toolbar id=13 is-closed=true app-data=Default Toolbar
+  dock content=palette toolbar anchor=none origin=200 100 is-closed=true
+    toolbar id=14 is-closed=true app-data=Getting Started
+  dock content=palette toolbar anchor=none origin=325 205 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=15 is-closed=true app-data=BetaFeedbackPanel
+  dock content=palette toolbar anchor=none origin=706 339 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=16 is-closed=true app-data=CSS
+  dock content=palette toolbar anchor=none origin=776 516 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=17 is-closed=true app-data=History
+  dock content=palette toolbar anchor=none origin=1235 94 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=18 is-closed=false app-data=Mockup
+  dock content=palette toolbar anchor=none origin=794 80 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=19 is-closed=false app-data=3D and Materials
+  dock content=palette toolbar anchor=none origin=612 324 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=20 is-closed=true app-data=ccx-timeline
+  dock content=palette toolbar anchor=none origin=744 326 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=21 is-closed=true app-data=Appearance
+        palette id=22 is-closed=true app-data=NamedStyle
+  dock content=palette toolbar anchor=none origin=130 376 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=23 is-closed=false app-data=PatternOptionsPanel
+  dock content=palette toolbar anchor=none origin=82 116 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=24 is-closed=false app-data=AdobeAltGlyphsPanel
+  dock content=palette toolbar anchor=none origin=700 312 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=25 is-closed=false app-data=AdobeCharStyles
+        palette id=26 is-closed=false app-data=AdobeParaStyles
+  dock content=palette toolbar anchor=none origin=640 384 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=27 is-closed=false app-data=AdobeSeparationPreview
+  dock content=palette toolbar anchor=none origin=308 342 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=28 is-closed=false app-data=AdobeFlatteningPreview
+  dock content=palette toolbar anchor=none origin=375 494 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=29 is-closed=false app-data=Vectorize
+  dock content=palette toolbar anchor=none origin=415 372 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=30 is-closed=false app-data=SVGInteractivity
+        palette id=31 is-closed=false app-data=AdobeVariablesPanel
+  dock content=palette toolbar anchor=none origin=258 116 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=32 is-closed=false app-data=AdobeHorizontalTabPanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=33 is-closed=false app-data=AdobeVerticalTabPanel
+  dock content=palette toolbar anchor=none origin=102 486 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=34 is-closed=false app-data=Actions
+        palette id=35 is-closed=false app-data=Links
+  dock content=palette toolbar anchor=none origin=672 132 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=36 is-closed=false app-data=Character
+        palette id=37 is-closed=false app-data=Paragraph
+        palette id=38 is-closed=false app-data=AdobeOpenTypeFont
+  dock content=palette toolbar anchor=none origin=87 204 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=39 is-closed=false app-data=Document Info
+        palette id=40 is-closed=false app-data=AdobeObjectAttributes
+  dock content=palette toolbar anchor=none origin=82 342 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=41 is-closed=false app-data=Navigator
+        palette id=42 is-closed=false app-data=Info
+  dock content=palette toolbar anchor=none origin=90 402 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=43 is-closed=false app-data=Magic Wand
+  dock content=palette toolbar anchor=none origin=100 672 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=44 is-closed=false app-data=Transform
+        palette id=45 is-closed=false app-data=Align
+        palette id=46 is-closed=false app-data=Pathfinder
+  dock content=palette toolbar anchor=none origin=930 90 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=47 is-closed=false app-data=Color
+        palette id=48 is-closed=false app-data=AdobeColorGuidePanel
+  dock content=palette toolbar anchor=none origin=856 184 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=49 is-closed=false app-data=AdobeSwatch_
+        palette id=50 is-closed=false app-data=AdobeBrush
+        palette id=51 is-closed=false app-data=Symbols
+  dock content=palette toolbar anchor=none origin=930 468 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=52 is-closed=false app-data=Stroke
+        palette id=53 is-closed=false app-data=Transparency
+  dock content=palette toolbar anchor=none origin=672 319 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=54 is-closed=false app-data=Artboards
+        palette id=55 is-closed=false app-data=Export
+  dock content=palette toolbar anchor=none origin=714 571 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=56 is-closed=false app-data=AdobeGradientEditor
+  dock content=palette anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=57 is-closed=false app-data=CCX Commenting UXP Webview
+
+##### Modified_Workspaces_Layout
+workspace 
+  dock content=palette toolbar anchor=right is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=1 is-closed=false app-data=Character
+        palette id=2 is-closed=false app-data=Paragraph
+        palette id=3 is-closed=false app-data=AdobeOpenTypeFont
+      tab-group is-closed=false
+        palette id=4 is-closed=false app-data=AdobeCharStyles
+        palette id=5 is-closed=false app-data=AdobeParaStyles
+      tab-group is-closed=false
+        palette id=6 is-closed=false app-data=Export
+        palette id=7 is-closed=false app-data=Links
+      tab-group is-closed=false
+        palette id=8 is-closed=false app-data=CCX Commenting UXP Webview
+    tab-pane 
+      tab-group is-closed=false
+        palette id=9 is-closed=false app-data=Transform
+        palette id=10 is-closed=false app-data=Align
+      tab-group is-closed=false
+        palette id=11 is-closed=false app-data=Color
+        palette id=12 is-closed=false app-data=AdobeColorGuidePanel
+      tab-group is-closed=false
+        palette id=13 is-closed=false app-data=Stroke
+        palette id=14 is-closed=false app-data=AdobeGradientEditor
+      tab-group is-closed=false
+        palette id=15 is-closed=false app-data=Artboards
+        palette id=16 is-closed=false app-data=AdobeLayerPalette
+        palette id=17 is-closed=false app-data=CSXSExtension_com.adobe.DesignLibraries.angular_0
+    tab-pane 
+      tab-group is-closed=true
+        palette id=18 is-closed=false app-data=AI Assistant
+  dock content=palette toolbar anchor=left is-closed=false
+    toolbar id=19 is-closed=false app-data=Basic
+    toolbar id=20 is-closed=true app-data=ToolBar
+  dock content=control-bar anchor=bottom is-closed=false
+  dock content=control-bar anchor=top is-closed=false
+    control-bar id=21 size=2031 31 origin=11 40 is-closed=false app-data=ControlBar
+  dock content=palette toolbar anchor=none origin=775 290 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=22 is-closed=true app-data=Concept to Vector Unified Panel
+  dock content=palette toolbar anchor=none origin=325 205 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=23 is-closed=true app-data=BetaFeedbackPanel
+  dock content=palette toolbar anchor=none origin=744 241 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=24 is-closed=true app-data=Retype
+  dock content=palette toolbar anchor=none origin=744 236 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=25 is-closed=true app-data=Reflow Viewer
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=26 is-closed=true app-data=GeneratedVariations
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=27 is-closed=true app-data=AdobeBlendOptionsPanel
+    toolbar id=28 is-closed=true app-data=Default Toolbar
+    toolbar id=29 is-closed=true app-data=Getting Started
+  dock content=palette toolbar anchor=none origin=706 339 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=30 is-closed=true app-data=CSS
+  dock content=palette toolbar anchor=none origin=776 516 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=31 is-closed=true app-data=History
+  dock content=palette toolbar anchor=none origin=1231 135 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=32 is-closed=false app-data=Mockup
+  dock content=palette toolbar anchor=none origin=766 105 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=33 is-closed=false app-data=3D and Materials
+  dock content=palette toolbar anchor=none origin=612 324 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=34 is-closed=true app-data=ccx-timeline
+  dock content=palette toolbar anchor=none origin=80 118 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=35 is-closed=false app-data=PatternOptionsPanel
+  dock content=palette toolbar anchor=none origin=467 336 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=36 is-closed=false app-data=AdobeSeparationPreview
+  dock content=palette toolbar anchor=none origin=79 118 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=37 is-closed=false app-data=AdobeFlatteningPreview
+  dock content=palette toolbar anchor=none origin=415 200 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=38 is-closed=false app-data=Vectorize
+  dock content=palette toolbar anchor=none origin=240 118 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=39 is-closed=false app-data=AdobeHorizontalTabPanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=40 is-closed=false app-data=AdobeVerticalTabPanel
+  dock content=palette toolbar anchor=none origin=80 231 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=41 is-closed=false app-data=Document Info
+        palette id=42 is-closed=false app-data=AdobeObjectAttributes
+  dock content=palette toolbar anchor=none origin=472 84 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=43 is-closed=false app-data=Navigator
+        palette id=44 is-closed=false app-data=Info
+  dock content=palette toolbar anchor=none origin=90 411 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=45 is-closed=false app-data=Magic Wand
+  dock content=palette toolbar anchor=none origin=80 402 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=46 is-closed=false app-data=Actions
+  dock content=palette toolbar anchor=none origin=80 350 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=47 is-closed=false app-data=SVGInteractivity
+        palette id=48 is-closed=false app-data=AdobeVariablesPanel
+  dock content=palette toolbar anchor=none origin=71 146 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=49 is-closed=false app-data=AdobeAltGlyphsPanel
+  dock content=palette toolbar anchor=none origin=1447 720 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=50 is-closed=false app-data=AdobeBrush
+        palette id=51 is-closed=false app-data=Symbols
+  dock content=palette toolbar anchor=none origin=1458 624 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=52 is-closed=false app-data=Appearance
+  dock content=palette toolbar anchor=none origin=1267 668 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=53 is-closed=false app-data=Pathfinder
+        palette id=54 is-closed=false app-data=NamedStyle
+  dock content=palette toolbar anchor=none origin=1154 764 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=55 is-closed=false app-data=Transparency
+  dock content=palette toolbar anchor=none origin=1448 376 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=56 is-closed=false app-data=AdobePropertiesPanel
+  dock content=palette toolbar anchor=none origin=1764 268 is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=57 is-closed=false app-data=AdobeSwatch_
+
+##### Modified_Workspaces_Getting_Started
+workspace 
+  dock content=control-bar anchor=top is-closed=false
+    control-bar id=1 size=1263 31 origin=11 40 is-closed=true app-data=ControlBar
+  dock content=control-bar anchor=bottom is-closed=false
+  dock content=palette toolbar anchor=left is-closed=false
+    toolbar id=2 is-closed=true app-data=Getting Started
+    toolbar id=3 is-closed=true app-data=Basic
+    toolbar id=4 is-closed=false app-data=ToolBar
+  dock content=palette toolbar anchor=right is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=5 is-closed=true app-data=CCX Commenting UXP Webview
+      tab-group is-closed=false
+        palette id=6 is-closed=false app-data=AI Assistant
+    tab-pane 
+      tab-group is-closed=false
+        palette id=7 is-closed=false app-data=AdobePropertiesPanel
+        palette id=8 is-closed=false app-data=AdobeLayerPalette
+        palette id=9 is-closed=false app-data=CSXSExtension_com.adobe.DesignLibraries.angular_0
+  dock content=palette toolbar anchor=none origin=775 290 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=10 is-closed=true app-data=Concept to Vector Unified Panel
+  dock content=palette toolbar anchor=none origin=765 422 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=11 is-closed=true app-data=AdobeBlendOptionsPanel
+  dock content=palette toolbar anchor=none origin=325 205 is-closed=false
+    tab-pane 
+      tab-group is-closed=false
+        palette id=12 is-closed=true app-data=BetaFeedbackPanel
+  dock content=palette toolbar anchor=none origin=744 241 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=13 is-closed=true app-data=Retype
+  dock content=palette toolbar anchor=none origin=744 236 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=14 is-closed=true app-data=Reflow Viewer
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=15 is-closed=true app-data=GeneratedVariations
+  dock content=palette toolbar anchor=none origin=706 339 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=16 is-closed=true app-data=CSS
+  dock content=palette toolbar anchor=none origin=776 516 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=17 is-closed=true app-data=History
+  dock content=palette toolbar anchor=none origin=1235 94 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=18 is-closed=false app-data=Mockup
+  dock content=palette toolbar anchor=none origin=794 80 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=19 is-closed=false app-data=3D and Materials
+  dock content=palette toolbar anchor=none origin=612 324 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=20 is-closed=true app-data=ccx-timeline
+  dock content=palette toolbar anchor=none origin=744 326 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=21 is-closed=true app-data=Appearance
+        palette id=22 is-closed=true app-data=NamedStyle
+  dock content=palette toolbar anchor=none origin=130 376 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=23 is-closed=false app-data=PatternOptionsPanel
+  dock content=palette toolbar anchor=none origin=82 116 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=24 is-closed=false app-data=AdobeAltGlyphsPanel
+  dock content=palette toolbar anchor=none origin=700 312 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=25 is-closed=false app-data=AdobeCharStyles
+        palette id=26 is-closed=false app-data=AdobeParaStyles
+  dock content=palette toolbar anchor=none origin=640 384 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=27 is-closed=false app-data=AdobeSeparationPreview
+  dock content=palette toolbar anchor=none origin=308 342 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=28 is-closed=false app-data=AdobeFlatteningPreview
+  dock content=palette toolbar anchor=none origin=375 494 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=29 is-closed=false app-data=Vectorize
+  dock content=palette toolbar anchor=none origin=415 372 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=30 is-closed=false app-data=SVGInteractivity
+        palette id=31 is-closed=false app-data=AdobeVariablesPanel
+  dock content=palette toolbar anchor=none origin=258 116 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=32 is-closed=false app-data=AdobeHorizontalTabPanel
+  dock content=palette toolbar anchor=none origin=0 0 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=33 is-closed=false app-data=AdobeVerticalTabPanel
+  dock content=palette toolbar anchor=none origin=102 486 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=34 is-closed=false app-data=Actions
+        palette id=35 is-closed=false app-data=Links
+  dock content=palette toolbar anchor=none origin=672 132 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=36 is-closed=false app-data=Character
+        palette id=37 is-closed=false app-data=Paragraph
+        palette id=38 is-closed=false app-data=AdobeOpenTypeFont
+  dock content=palette toolbar anchor=none origin=87 204 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=39 is-closed=false app-data=Document Info
+        palette id=40 is-closed=false app-data=AdobeObjectAttributes
+  dock content=palette toolbar anchor=none origin=82 342 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=41 is-closed=false app-data=Navigator
+        palette id=42 is-closed=false app-data=Info
+  dock content=palette toolbar anchor=none origin=90 402 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=43 is-closed=false app-data=Magic Wand
+  dock content=palette toolbar anchor=none origin=100 672 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=44 is-closed=false app-data=Transform
+        palette id=45 is-closed=false app-data=Align
+        palette id=46 is-closed=false app-data=Pathfinder
+  dock content=palette toolbar anchor=none origin=930 90 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=47 is-closed=false app-data=Color
+        palette id=48 is-closed=false app-data=AdobeColorGuidePanel
+  dock content=palette toolbar anchor=none origin=856 184 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=49 is-closed=false app-data=AdobeSwatch_
+        palette id=50 is-closed=false app-data=AdobeBrush
+        palette id=51 is-closed=false app-data=Symbols
+  dock content=palette toolbar anchor=none origin=930 468 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=52 is-closed=false app-data=Stroke
+        palette id=53 is-closed=false app-data=Transparency
+  dock content=palette toolbar anchor=none origin=672 319 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=54 is-closed=false app-data=Artboards
+        palette id=55 is-closed=false app-data=Export
+  dock content=palette toolbar anchor=none origin=714 571 is-closed=true
+    tab-pane 
+      tab-group is-closed=false
+        palette id=56 is-closed=false app-data=AdobeGradientEditor
+  dock content=palette toolbar anchor=none origin=200 100 is-closed=false
+    toolbar id=57 is-closed=false app-data=Default Toolbar
+

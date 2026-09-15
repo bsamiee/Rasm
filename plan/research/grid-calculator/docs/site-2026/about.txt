@@ -1,0 +1,26 @@
+About — Designers Bookshop
+Products
+About
+Support
+About
+Built by a designer,
+for designers.
+Designers Bookshop is an independent studio making software tools that help professional designers work faster and smarter.
+The story
+Grid Calculator Publishing Edition (earlier called Pro Edition) started as my school graduation project at Berghs School of Communication and was launched in 2009. I wanted a way to solve the tedious, error-prone math of building professional grid systems inside InDesign. After years of refinement it became the product it is today: the fastest and smartest way to create grid-based layouts in Adobe InDesign.
+For years people told me that sooner or later Adobe would implement their own way to do what my plug-in does — but they never did, and most likely never will.
+Every feature exists because a real designer — myself or someone else — ran into a real problem. Nothing is added for the sake of a feature list. I am a third-party developer for Adobe.
+What's next
+Affinity is a product gaining a lot of attention, and designers have been asking me to bring Grid Calculator to it. At the time of writing, Affinity does not provide a way for developers to create plug-ins — but I have already figured out a very good method to get grids into Affinity, and I am developing a standalone desktop app for both Mac and very likely Windows. I am not affiliated with Affinity.
+My philosophy
+A good tool disappears — it should feel natural and fill a need. That's exactly what Grid Calculator PE does. It doesn't demand your attention — it amplifies your ability to do exactly what you set out to design. That is the standard every Designers Bookshop product is held to.
+Get in touch
+Questions, feedback, or just want to talk shop?
+Updates
+Knowledge Base
+Layout Wizard
+Terms
+Privacy
+Since 2008. © 
+2026
+ Designers Bookshop. All rights reserved.

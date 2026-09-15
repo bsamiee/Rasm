@@ -1,0 +1,434 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
+    "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd" >
+<html xmlns="http://www.w3.org/1999/xhtml">
+    <head>
+        <script type="text/javascript"> (function(a,b,c,d,e,f,g){e['ire_o']=c;e[c]=e[c]||function(){(e[c].a=e[c].a||[]).push(arguments)};f=d.createElement(b);g=d.getElementsByTagName(b)[0];f.async=1;f.src=a;g.parentNode.insertBefore(f,g);})('//d.impactradius-event.com/A225241-f2f9-40ea-a487-f7a4da0eba411.js','script','ire',document,window); ire('identify', {customerid: '' /*INSERT CUSTOMER ID*/, customeremail: '' /*INSERT SHA1 HASHED CUSTOMER EMAIL*/}); </script>
+    <!-- Global site tag (gtag.js) - Google Analytics -->
+<script async src="https://www.googletagmanager.com/gtag/js?id=UA-111561876-1"></script>
+<script>
+  window.dataLayer = window.dataLayer || [];
+  function gtag(){dataLayer.push(arguments);}
+  gtag('js', new Date());
+
+  gtag('config', 'UA-111561876-1');
+</script>
+
+
+	<meta name="description"  content=
+	      "The ultimate layout plug-in for Adobe InDesign for creating grid systems." />
+	<meta name="keywords" content= "grid, grids, grid system, grid systems, wim crouwel, crouwel, brockmann, josef muller-brockmann, otl aicher, aicher, proportion, rule of thirds, composition, golden ratio, golden section, divine proportions, structure, international typographic style" />
+	<meta http-equiv="Content-Type"  content="text/html; charset=UTF-8" />
+	<title>Grid Calculator Pro Edition, Plug-in for Adobe InDesign - Layout Wizard</title>
+	<link rel="canonical" href="https://www.designersbookshop.com/grid-calculator-pro-edition.html">
+    <link rel="stylesheet" href="./css/custom.css" />
+	</link>
+	<link href="protect.css" rel="stylesheet" type="text/css" />
+	     <script src= "js/redirect.js" type="text/javascript" language="Javascript"></script>
+<script  type="text/javascript">redirectTo();</script>
+	<script type="text/javascript" language="Javascript" src= "calculate.js"></script>
+	<script src="//use.typekit.net/tew2vgc.js"></script>
+	<script>try {
+	    Typekit.load();
+	} catch (e) {
+	}</script>
+	<script type="text/javascript" language="Javascript" src="./js/jquery.min.js"></script>
+	<script src= "js/cookies.js" type="text/javascript" language="Javascript"></script>
+	<script type="text/javascript" language="Javascript">
+	    $(document).ready(function () {
+		$('#section2 .radio_option').attr('disabled', true);
+		$('#section3 .radio_option').attr('disabled', true);
+		$('#section4 .radio_option').attr('disabled', true);
+
+		$("input[name=radio_1]").click(function () {
+		    $('#section2 .radio_option').prop('checked', false);
+		    $('#section3 .radio_option').attr('disabled', true);
+		    $('#section3 .radio_option').prop('checked', false);
+		    $('#section4 .radio_option').attr('disabled', true);
+		    $('#section4 .radio_option').prop('checked', false);
+		    if ($(this).attr('id') == "radio_1A") {
+			$('#radio_2A').attr('disabled', false);
+			$('#radio_2B').attr('disabled', false);
+			$('#radio_2C').attr('disabled', false);
+		    } else {
+			$('#radio_2A').attr('disabled', false);
+			$('#radio_2B').attr('disabled', false);
+			$('#radio_2C').attr('disabled', true);
+		    }
+		    $('#document_setup').hide();
+		});
+
+		$("input[name=radio_2]").click(function () {
+		    $('#section4 .radio_option').prop('checked', false);
+		    $('#section4 .radio_option').attr('disabled', true);
+		    $('#section3 .radio_option').prop('checked', false);
+		    if ($(this).attr('id') == "radio_2A") {
+			$('#radio_3A').attr('disabled', false);
+			$('#radio_3B').attr('disabled', false);
+			$('#radio_3C').attr('disabled', true);
+			$('#radio_3D').attr('disabled', false);
+			$('#radio_3E').attr('disabled', false);
+			$('#radio_3F').attr('disabled', false);
+		    } else if ($(this).attr('id') == "radio_2B") {
+			$('#radio_3A').attr('disabled', true);
+			$('#radio_3B').attr('disabled', true);
+			$('#radio_3C').attr('disabled', false);
+			$('#radio_3D').attr('disabled', true);
+			$('#radio_3E').attr('disabled', true);
+			$('#radio_3F').attr('disabled', true);
+		    } else {
+			$('#radio_3A').attr('disabled', false);
+			$('#radio_3B').attr('disabled', false);
+			$('#radio_3C').attr('disabled', true);
+			$('#radio_3D').attr('disabled', true);
+			$('#radio_3E').attr('disabled', true);
+			$('#radio_3F').attr('disabled', true);
+		    }
+		    if ($('input[id=radio_1A]').prop('checked') == true) {
+			$('#radio_3D').attr('disabled', true);
+			$('#radio_3F').attr('disabled', true);
+		    }
+		    $('#document_setup').hide();
+		});
+
+		$("input[name=radio_3]").click(function () {
+		    $('#section4 .radio_option').prop('checked', false);
+		    if ($(this).attr('id') == "radio_3A" || $(this).attr('id') == "radio_3B" || $(this).attr('id') == "radio_3C") {
+			$('#radio_4A').attr('disabled', false);
+			$('#radio_4B').attr('disabled', false);
+		    } else {
+			$('#radio_4A').attr('disabled', true);
+			$('#radio_4B').attr('disabled', false);
+		    }
+		    if ($('input[id=radio_2C]').prop('checked') == true) {
+			$('#radio_4A').attr('disabled', true);
+		    }
+		    if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && ($('input[id=radio_3A]').prop('checked') == true || $('input[id=radio_3B]').prop('checked') == true)) {
+			$('#radio_4A').attr('disabled', true);
+		    }
+		    if ($('input[id=radio_3C]').prop('checked') == true) {
+			$('#radio_4B').attr('disabled', true);
+		    }
+		    $('#document_setup').hide();
+		});
+
+		$("input[name=radio_4]").click(function () {
+		    if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2B]').prop('checked') == true && $('input[id=radio_3C]').prop('checked') == true && $('input[id=radio_4A]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Unchecked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Horizontal; Check 'Value' Option</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Columns, Custom Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3A]').prop('checked') == true && $('input[id=radio_4A]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Modular and Smart</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules and Subdivisions: Same for Vertical and Horizontal</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Apply via Smart Mode Document Setup</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Smart Mode Document Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3A]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick or Modular</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Checked (Quick Mode)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules and Subdivisions: Same for Vertical and Horizontal (Modular)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2C]').prop('checked') == true && $('input[id=radio_3A]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Modular and Smart</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules and Subdivisions: Same for Vertical and Horizontal</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Apply via Smart Mode Document Setup (Input Fields)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Smart Mode Document Setup (Dropdown)</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2C]').prop('checked') == true && $('input[id=radio_3B]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Modular and Smart</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules and Subdivisions: Different Values (use 'Grid Width' in Modular Mode)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Apply via Smart Mode Document Setup (Input Fields)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Smart Mode Document Setup (Dropdown)</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3A]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Unchecked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3B]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Unchecked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules: Use 'Grid Width' feature</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3D]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Unchecked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules: Use 'Grid Width' feature</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/><br/>");
+			$('#document_setup').append("<label class='ds_label'>Tip: Change unit to Points, edit grid width and enter same value as leading.</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3E]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Unchecked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Grid: Apply Square Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1B]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3F]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Unchecked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules: Use 'Grid Width' feature</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Image-lines: Use H. Mod. in Paragraph Styles Section (Body Copy #1)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/><br/>");
+			$('#document_setup').append("<label class='ds_label'>This is a highly advanced layout. </label>");
+			$('#document_setup').append("<a target='_blank' href='https://designersbookshop.tenderapp.com/kb/videos/video-advanced-square-grid-with-image-lines-via-quick-mode'>Watch video.</a><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3B]').prop('checked') == true && $('input[id=radio_4A]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Modular and Smart</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules and Subdivisions: Different Values (use 'Grid Width' in Modular Mode)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Apply via Smart Mode Document Setup</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Smart Mode Document Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3B]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick or Modular</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Modules and Subdivisions: Different Values (use 'Grid Width' in Quick or Modular Mode)</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Apply via Smart Mode Document Setup</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Smart Mode Document Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2A]').prop('checked') == true && $('input[id=radio_3E]').prop('checked') == true && $('input[id=radio_4B]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Checked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Grid: Apply Square Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Based on Document Grid</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Dropdown in Columns, Main Setup</label><br/>");
+			$('#document_setup').show();
+		    } else if ($('input[id=radio_1A]').prop('checked') == true && $('input[id=radio_2B]').prop('checked') == true && $('input[id=radio_3C]').prop('checked') == true && $('input[id=radio_4A]').prop('checked') == true) {
+			$('#document_setup').empty();
+			$('#document_setup').append("<label class='ds_label'>Mode: Quick</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Fit Leading: Checked</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Margins: Horizontal; Check 'Value' Option</label><br/>");
+			$('#document_setup').append("<label class='ds_label'>Columns: Apply via Columns, Custom Setup</label><br/><br/>");
+			$('#document_setup').show();
+		    }
+		});
+
+
+	    });
+	</script>
+	<style type="text/css">
+	    .lbl_section_heading{
+		font-weight: bold;
+		display: block;
+	    }
+	    .section{
+		margin: 0 0 0 0;
+	    }
+	    #document_setup{
+		display: none;
+	    }
+	    <!--
+
+	    input[type="text"] {
+		width:100%;
+		font-size: 10pt;
+		font-family:'Open Sans','sans-serif';
+	    }
+	    .gutter_calc{
+		margin-left: 178px;
+	    }
+	    .title_calc{
+		color: black;
+		font-family: 'Signika',sans-serif;
+		font-size: 24px;
+		font-weight: 700;
+		line-height: 26px;
+		margin: 0;
+		padding: 1px 0 0;
+	    }
+
+	    body{
+		color:black;
+	    }
+	    -->
+	</style>
+    </head>
+    <body class="">
+	<iframe src="./header.html" scrolling="no" frameborder="0" width="970" height="40"></iframe>
+	<div id="content" class=" _24cols ">
+	    <div class="innercontent ">
+		<div class="_20cols bodycopy bodycopy_wizard">
+		    <div class="header _22cols">
+			<img class="_2cols  horizontal" src="images/icons/products_gc_pro.gif" alt="logo" id="logo"/>
+
+			<div class="_14cols mleft1gut   horizontal ">
+			    <span class="spn_products"> <a href="https://www.designersbookshop.com/products/">Products</a> / <a href="https://www.designersbookshop.com/grid-calculator-pro-edition.html">Grid Calculator Pro Edition</a> / Layout Wizard</span>
+			    <br/>
+			    <span class='title'> Grid Calculator Pro Edition: Layout Wizard</span>
+			</div>
+			<div class="horizontal _6cols mleft1gut">
+			    <a class="a_partner_logo" target="_blank"
+			       href="http://www.adobe.com/sea/products/indesign/indepth.displayTab3.html#DesignersBookshop">
+				<img id="partner_logo"
+				    src="https://www.designersbookshop.com/images/table/adobe.gif"
+				    alt="adobe partner logo"/>
+			    </a>
+			</div>
+			<div class="clear">
+			    &nbsp;
+			</div>
+		    </div>
+		    <div class="_22cols" id="top_wrapper">
+			<div class="toplinks" >
+			    <ul class="_16cols">
+				<li>
+				    <a href="https://www.designersbookshop.com/grid-calculator-pro-edition.html">Introduction</a>
+				</li>
+
+				<li>
+				    <a href="https://www.designersbookshop.com/grid-calculator-pro-edition-videos.html">Video Library</a>
+				</li>
+
+				<li>
+				    <a href="https://www.designersbookshop.com/grid-calculator-pro-edition-questions.html">Questions and Answers </a>
+				</li>
+
+				<li>
+				    <a href="https://www.designersbookshop.com/grid-calculator-pro-edition-clients.html">Our Clients</a>
+				</li>
+
+			    <li>
+				<a href="https://www.designersbookshop.com/grid-calculator-pro-edition-knowledge-base.html">Knowledge Base</a>
+			    </li>
+                
+				<li>
+				    <a class="toplinksactive" href="https://www.designersbookshop.com/grid-calculator-pro-edition-layout-wizard.html" >Layout Wizard</a>
+				</li>
+
+				<li>
+				    <a id="menu_purchase_license" href="https://www.designersbookshop.com/grid-calculator-pro-edition-purchase.html" >Purchase License</a>
+				</li>
+			    </ul>
+			    <span></span>
+			</div>
+		    </div>
+		    <div class="_22cols " id="videos_wrapper">
+			<!-- 		<div class="_2cols_text  _20cols ">On this page you will see just how much time and money you can save/earn if you use Grid Calculator Pro Edition,
+			the numbers below might chock you. Go ahead and enter the following details mentioned below.
+			The test assumes that you are sketching before you create the layout, since that is the correct way
+			of working with layout. The grid system is the final touch to make everything fit perfect.
+			</div>
+			<br />
+			<br /> -->
+			<div class="_22cols videolist">
+			    <div class="videoclip">
+				<iframe src="https://player.vimeo.com/video/74815570" width="887" height="496" frameborder="0" webkitAllowFullScreen mozallowfullscreen allowFullScreen></iframe>
+				<br />
+
+			    </div>
+			</div>
+			<span class="intro title2 _22cols horizontal ">Layout Wizard takes your specific requirements and helps you turn it into functional layout. The following options, basically allows you to create  any type of layout. Give it a try, good luck!</span>
+			<div class="ruler _22cols horizontal" style="margin: 14px 0 8px 0;">
+			    &nbsp;
+			</div>
+			
+			<div id="table_wrapper">
+			    <div class="middle_table_wrapper">
+				<div class="inner_table_wrapper">
+				    <div class="section" id="section1">
+					<label class="lbl_section_heading">1. Leading | <a href="https://designersbookshop.com/video-library/grid-calculator-pro-edition/layout-wizard-leading/index.html" target="_blank">Watch Videos</a></label>
+					<input type="radio" class="radio_option" id="radio_1A" name="radio_1"/>
+					<label class="lbl_radio" id="lbl_radio_1A" for="radio_1A">Approximate Value</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_1B" name="radio_1"/>
+					<label class="lbl_radio" id="lbl_radio_1B" for="radio_1B">Fixed Value</label>
+				    </div>
+				</div>
+				<div class="inner_table_wrapper" id="margins_wrapper">
+				    <div class="section" id="section2">
+					<label class="lbl_section_heading">2. Margins (Inside and Outside) | <a href="https://designersbookshop.com/video-library/grid-calculator-pro-edition/layout-wizard-margins/index.html" target="_blank">Watch Videos</a></label>
+					<input type="radio" class="radio_option" id="radio_2A" name="radio_2"/>
+					<label class="lbl_radio" id="lbl_radio_2A" for="radio_2A">Based on Document Grid</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_2B" name="radio_2"/>
+					<label class="lbl_radio" id="lbl_radio_2B" for="radio_2B">Fixed Values</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_2C" name="radio_2"/>
+					<label class="lbl_radio" id="lbl_radio_2C" for="radio_2C">Close (or Exact if Possible) to Desired Values</label>
+				    </div>
+				</div>
+				<div class="inner_table_wrapper" id="document_wrapper">
+				    <div class="section" id="section5">
+					<label class="lbl_section_heading">Document Setup</label>
+					<div class="section_inner" id="document_setup">
+
+					</div>
+				    </div>
+				</div>
+			    </div>
+			    <div class="middle_table_wrapper">
+				<div class="inner_table_wrapper">
+				    <div class="section" id="section3">
+					<label class="lbl_section_heading">3. Document Grid | <a href="https://designersbookshop.com/video-library/grid-calculator-pro-edition/layout-wizard-document-grid/index.html" target="_blank">Watch Videos</a></label>
+					<input type="radio" class="radio_option" id="radio_3A" name="radio_3"/>
+					<label class="lbl_radio" id="lbl_radio_3A" for="radio_3A">Proportional</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_3B" name="radio_3"/>
+					<label class="lbl_radio" id="lbl_radio_3B" for="radio_3B">Non-proportional</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_3C" name="radio_3"/>
+					<label class="lbl_radio" id="lbl_radio_3C" for="radio_3C">Type Area Grid or No Grid</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_3D" name="radio_3"/>
+					<label class="lbl_radio" id="lbl_radio_3D" for="radio_3D">Square with Fixed Document Width</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_3E" name="radio_3"/>
+					<label class="lbl_radio" id="lbl_radio_3E" for="radio_3E">Square with Modified Document Width</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_3F" name="radio_3"/>
+					<label class="lbl_radio" id="lbl_radio_3F" for="radio_3F">Square Grid When Combined with Image-lines</label>
+				    </div>
+				    
+				</div>
+				<div class="inner_table_wrapper" id="columns_wrapper">
+				    <div class="section" id="section4">
+					<label class="lbl_section_heading">4. Columns | <a href="https://designersbookshop.com/video-library/grid-calculator-pro-edition/layout-wizard-columns/index.html" target="_blank">Watch Videos</a></label>
+					<input type="radio" class="radio_option" id="radio_4A" name="radio_4"/>
+					<label class="lbl_radio" id="lbl_radio_4A" for="radio_4A">Pre-determined Number</label>
+					<br/>
+					<input type="radio" class="radio_option" id="radio_4B" name="radio_4"/>
+					<label class="lbl_radio" id="lbl_radio_4B" for="radio_4B">Whatever Fits</label>
+				    </div>
+				</div>
+			    </div>
+			</div>
+			<div class="clear">
+			    &nbsp;
+			</div>
+
+		    </div>
+		</div>
+	    </div>
+	</div>
+	<div class="separator">
+	    &nbsp;
+	</div>
+	<iframe src="footer.html" scrolling="no" frameborder="0" width="970" height="40"></iframe>
+	<div class="bottom_padding">
+	    &nbsp;
+	</div>
+	<div id="modal_cookies">
+	    <iframe src="cookies.html" width="100%" height="100%"/>
+	</div>
+    </body>
+</html>

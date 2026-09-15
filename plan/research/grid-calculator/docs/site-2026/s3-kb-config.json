@@ -1,0 +1,15 @@
+{
+  "title": "Grid Calculator PE Knowledge Base",
+  "description": "Complete documentation for Grid Calculator PE",
+  "categories": [
+    {
+      "title": "Getting Started",
+      "articles": [
+        {
+          "title": "What is Grid Calculator PE?",
+          "file": "introduction.md"
+        }
+      ]
+    }
+  ]
+}

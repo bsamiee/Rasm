@@ -1,0 +1,277 @@
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Actions/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Actions/Default_Actions.aia
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Bristle.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Arrows/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Arrows/Arrows_Special.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Arrows/Arrows_Standard.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Arrows/Pattern Arrows.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/Artistic_Calligraphic.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/Artistic_ChalkCharcoalPencil.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/Artistic_Ink.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/Artistic_Paintbrush.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/Artistic_ScrollPen.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Artistic/Artistic_Watercolor.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Dashed.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Decorative.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Frames.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Geometric.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Indigenous.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Lines.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Borders/Borders_Novelty.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Bristle Brush/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Bristle Brush/Bristle Brush Library.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Decorative/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Decorative/Decorative_Banners and Seals.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Decorative/Decorative_Scatter.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Decorative/Decorative_Text Dividers.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Decorative/Elegant Curl & Floral Brush Set.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Image Brush/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Image Brush/Image Brush Library.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Vector Packs/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Vector Packs/Grunge brushes vector pack.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Vector Packs/Hand Drawn brushes vector pack.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Wacom 6D Brushes/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Brushes (Classic)/Wacom 6D Brushes/6d Art Pen Brushes.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Calligraphic.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Dry Media.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Engraving.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Images.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Ink.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Ornamental/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Ornamental/Arrows.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Ornamental/Decorative.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Ornamental/Flourish.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Paint.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Pressure sensitive.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Stipple.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Brushes/Watercolor.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Additive for Blob Brush.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Additive.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Bevel-and-emboss.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Dimension-and-depth.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Drop-shadow.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/3D Effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Artistic Effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Buttons and Rollovers.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Illuminate Styles.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Image Effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Neon Effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Scribble Effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Textures.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Type Effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Graphic Styles (Classic)/Vonster Pattern Styles.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Light-and-glow.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Materials.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Outer-glow.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Special-effects.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Stickers.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Graphic Styles/Texture.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Keyboard Shortcuts/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Keyboard Shortcuts/Illustrator Defaults.kys
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Color Tables/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Color Tables/Black & White.act
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Color Tables/Grayscale.act
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Color Tables/Mac OS.act
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Color Tables/Windows.act
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF 128 Dithered.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF 128 No Dither.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF 32 Dithered.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF 32 No Dither.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF 64 Dithered.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF 64 No Dither.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/GIF Web Palette.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/JPEG High.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/JPEG Low.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/JPEG Medium.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/PNG-24.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Save for Web Settings/Optimize/PNG-8 128 Dithered.irs
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Scripts/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Scripts/ImageTracing.jsx
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Scripts/SaveDocsAsPDF.jsx
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Scripts/SaveDocsAsSVG.jsx
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Ancient.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Baroque.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Impressionism.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Middle Ages.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Pop Art.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Prehistoric.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Renaissance.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Art History/Russian Poster Art.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Celebration.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/ANPA Color.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/DIC Color Guide.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/FOCOLTONE.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS E Process.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS E.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS K Process.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS K.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS N Process.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS N.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS Z Process.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/HKS Z.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/DIC Color Guide.acbl
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/HKS E.acbl
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/HKS K.acbl
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/HKS N.acbl
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/HKS Z.acbl
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/Legacy/TOYO Color Finder.acbl
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/TOYO 94 COLOR FINDER.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/TOYO COLOR FINDER.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Books/TRUMATCH.acb
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Bright.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Cool.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Dark.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Desaturated.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Light.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Saturated.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Soft.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Color Properties/Warm.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Corporate.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Default Swatches/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Default Swatches/Art & Illustration.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Default Swatches/Mobile.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Default Swatches/Print.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Default Swatches/Video and Film.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Default Swatches/Web.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Earthtone.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Foods/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Foods/Beverages.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Foods/Fruit.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Foods/Ice Cream.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Foods/Sweets.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Foods/Vegetables.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Earth.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Fades.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Brights.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Color Combinations.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Color Harmonies.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Earthtones.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Fades.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Foliage.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Fruits and Vegetables.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Gems and Jewels.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Metals.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Neutrals.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Pastels.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Seasons.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Simple Radial.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Skintones.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Sky.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Spectrums.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Stone and Brick.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Tints and Shades.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Vignettes.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Water.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Gradients (Classic)/Wood.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Holographic.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Metallic.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Monochrome.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Nature.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Neutral.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Pastel.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Radials.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Sky.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Spectrum.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Vibrant.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Gradients/Vignettes.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Kids Stuff.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Metal.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/Beach.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/Flowers.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/Foliage.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/Landscape.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/Seasons.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Nature/Stone and Brick.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Neutral.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Dither.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Dots.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Geometric.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Grids.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Hatching.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Illusions.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Lines.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Mapping.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Basic Graphics/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Basic Graphics/Basic Graphics_Dots.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Basic Graphics/Basic Graphics_Lines.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Basic Graphics/Basic Graphics_Textures.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Decorative/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Decorative/Decorative Legacy.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Decorative/Vonster Patterns.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Nature/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Nature/Nature_Animal Skins.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Patterns/Patterns (Classic)/Nature/Nature_Foliage.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Scientific/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Scientific/Analogous.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Scientific/Complementary.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Scientific/Split Complementary.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Scientific/Tetrad.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Scientific/Triad.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Skintones.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/System (Macintosh).ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/System (Windows).ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Textiles.ase
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/VisiBone2.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Swatches/Web.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/3D Symbols.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Arrows.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Artistic Textures.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Celebration.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Charts.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Communication.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Dot Pattern Vector Pack.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Fashion.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Florid Vector Pack.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Flowers.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Grime Vector Pack.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Hair and Fur.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Heirloom.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Illuminate Flow Charts.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Illuminate Org Charts.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Illuminate Ribbons.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Indigenous.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Logo Elements.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Mad Science.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Maps.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Mobile.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Nature.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Regal Vector Pack.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Retro.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Sushi.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Tiki.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Web Buttons and Bars.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Symbols/Web Icons.ai
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Tools/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Tools/Tools Panel Presets
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Automation
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Essentials
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Essentials Classic
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Essentials Classic@2x
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Getting Started
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Layout
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Painting
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Printing and Proofing
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Start
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Tracing
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Typography
+/Applications/Adobe Illustrator (Beta)/Presets.localized/en_US/Workspaces/Web

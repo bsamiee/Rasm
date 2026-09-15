@@ -1,0 +1,47 @@
+
+Layout Wizard — Grid Calculator Publishing Edition
+Products
+About
+Support
+← Grid Calculator Publishing Edition
+Layout Wizard
+Easily create your grid layout and export it into Grid Calculator Publishing Edition, our InDesign plug-in.
+Enter your document dimensions and desired layout values. The calculator finds the largest value that divides everything evenly — your grid unit. If a column or row height isn't a whole multiple, the margins are adjusted automatically to fit the grid perfectly.
+Document Settings
+Millimeters
+Inches
+ --> 
+Width (mm)
+Height (mm)
+Baseline Leading (pt)
+Horizontal Axis
+Single Page
+Spread
+Inside (mm)
+Outside (mm)
+Column Count
+Column Gutter (mm)
+Vertical Axis
+Top Margin (mm)
+Bottom Margin (mm)
+Row Count
+Row Gutter (mm)
+Calculator will find the best average and might not be exactly what you enter, it tries to find the best match taking all your values to generate a mathematically functional layout. For exact changes you can download preset after calculation and edit with plugin in Smart mode. 
+Kindly note that this is simply meant as a guide and it does not work perfect in every scenario due to the complexity.
+Calculate
+Reset
+Visual Preview
+Export as a 
+Grid Calculator PE
+ preset file (.txt). Load via 'Presets: Saved Projects' → Import.
+Download InDesign Plug-In
+Preset Name (optional):
+Export Preset
+Updates
+Knowledge Base
+Layout Wizard
+Terms
+Privacy
+Since 2008. © 
+2026
+ Designers Bookshop. All rights reserved.

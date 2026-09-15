@@ -1,0 +1,3052 @@
+11GCResponder
+22GCTreeNodeEventHandler
+17GCActionComponent
+17GCServiceProvider
+yE>ffffff
+29GCPreferencesDialogController
+31GCSubscriptionLicDialogObserver
+16GCImportListData
+10CPMUnknownI17IGCImportListDataE
+17IGCImportListData
+10IPMUnknown
+11NodeIDClass
+25GCAboutDialogEventHandler
+13GCTreeNodeTip
+10CPMUnknownI4ITipE
+25GCImportTreeViewWidgetMgr
+24GCImportTreeNodeObserver
+26GCGenericPanelEventHandler
+24GCStylesDialogController
+14GCSuppressedUI
+10CPMUnknownI13ISuppressedUIE
+13ISuppressedUI
+31GCChangeVersionDialogController
+14GCNudgeHandler
+10CPMUnknownI13INudgeHandlerE
+13INudgeHandler
+19GCPreDialogObserver
+32GCPrePurchaseLicDialogController
+18GCImportDataNodeID
+18GCStringDialogData
+10CPMUnknownI19IGCStringDialogDataE
+19IGCStringDialogData
+17GCStartupShutdown
+10CPMUnknownI23IStartupShutdownServiceE
+23IStartupShutdownService
+6NodeID
+26GCPurchaseLicDlgController
+30GCPrePurchaseLicDialogObserver
+25GCRealEditBoxEventHandler
+24GCIntEditBoxEventHandler
+26GCValueEditBoxEventHandler
+25GCTextEditBoxEventHandler
+29GCYMeasureEditBoxEventHandler
+29GCXMeasureEditBoxEventHandler
+32GCImportTreeViewHierarchyAdapter
+23GCAboutDialogController
+13SDKFileHelper
+18SDKFileOpenChooser
+N18SDKFileOpenChooser6FilterE
+18SDKFileSaveChooser
+N18SDKFileSaveChooser6FilterE
+21GCPreDialogController
+18GCDialogController
+27GCPreferencesDialogObserver
+15SDKLayoutHelper
+22GCImportDialogObserver
+24GCUpdateDialogController
+14GCActionFilter
+10CPMUnknownI13IActionFilterE
+13IActionFilter
+?fffffn
+16GCDialogObserver
+10GCDemoData
+10CPMUnknownI11IGCDemoDataE
+11IGCDemoData
+10GCIdleTask
+20GCDialogEventWatcher
+10CPMUnknownI13IEventWatcherE
+13IEventWatcher
+28GCTransparentTextControlView
+N5boost6detail17sp_counted_impl_pI10WideStringEE
+N5boost6detail15sp_counted_baseE
+N5boost6detail17sp_counted_impl_pI8PMStringEE
+17GCLearningModeTip
+19GCTreeViewWidgetMgr
+chmod -R 777 "
+rm -r -f "
+chmod -R 777 "
+rm -r -f "
+chmod -R 777 "
+rm -r -f "
+chmod -R 777 "
+rm -r -f "
+15GCMouseRollOver
+10CPMUnknownI14IMouseRollOverE
+14IMouseRollOver
+21GCAboutDialogObserver
+28GCRollOverIconButtonObserver
+18GCStylesDialogData
+10CPMUnknownI19IGCStylesDialogDataE
+19IGCStylesDialogData
+24GCImportDialogController
+18GCUpdateDialogData
+10CPMUnknownI19IGCUpdateDialogDataE
+19IGCUpdateDialogData
+22GCUpdateDialogObserver
+26GCTreeViewHierarchyAdapter
+24GCStringDialogController
+13GCDocObserver
+20GCCommandInterceptor
+10CPMUnknownI19ICommandInterceptorE
+19ICommandInterceptor
+9GCDocData
+10CPMUnknownI10IGCDocDataE
+10IGCDocData
+20GCRealTextValidation
+10CPMUnknownI19ITextDataValidationE
+19ITextDataValidation
+22AGMGraphicsContextWithI20DVAGMAcquireCoordSys16DVAGMAcquireClipE
+16IGraphicsContext
+20LazyNotificationData
+N5boost12noncopyable_11noncopyableE
+N5boost12noncopyable_10base_tokenE
+19IM2MMessageListener
+10CPMUnknownI25ITreeViewHierarchyAdapterE
+25ITreeViewHierarchyAdapter
+15MResourceAccess
+7IPlugIn
+6PlugIn
+Adobe InDesign 2026
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/vector:1393: assertion __n < size() failed: vector[] index out of bounds
+0x15d300kGCDeactivatePluginMenuKey
+0x15d300kGCActivatePluginMenuKey
+0x15d300kGCShowKey
+0x15d300kGCHideKey
+columns
+subcolumns
+sec. columns
+You have version 
+ installed. The latest version available is 
+Do you want to install the latest version? Updating takes a few minutes.
+Internet connection not found. Please note that demo and online license only works while being connected to the Internet. Connect to Internet and try again. If you have any firewall or anti-virus installed make sure that InDesign and the plug-in are allowed access to the Internet.
+Adobe InDesign CS3
+Adobe InDesign CS4
+Adobe InDesign CS5
+Adobe InDesign CS55
+Adobe InDesign CS6
+Adobe InDesign CC 2015
+A special setting has been set for another version of the plug-in and therefore you can not activate the demo for this version. Please contact technical support for further help.
+This license is being used
+ on another computer.
+Only one computer at a time can use the license.
+The serial number is deactivated!
+The serial number is no longer valid.
+The serial number is refunded!
+Information regarding editing of masters:
+Please know that the document grid is universal and that the settings applied in one master will be applied and updated in all masters. If you want to setup different layouts using masters, the only limitation is that the Baseline Grid (leading) value must be the same for all.
+A solution for creating different layouts (unless you want to base it on the document grid) is to break the document grid and setup your own grid by using the 'Value' option in the margins section combined with 'Type Area' grid feature (Custom Setup) when working in Quick Document Setup.
+0x15d300kGCDialogTitleKey
+[GC] Version 4.2
+[GC] Break Vertical
+Due to certain changes made in earlier plug-in version for correctly applying rows, the document you are about to edit will most likely not be edited correctly. Do you wish to continue?
+No Internet connection found,
+please connect to the Internet.
+You are running the latest version!
+open "http://www.designersbookshop.com/layout-wizard"
+open "https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/index.html"
+open "https://designersbookshop.s3.amazonaws.com/products/knowledgebase/grid_calculator_pe/index.html"
+open "http://www.designersbookshop.com/redirection/grid-calculator-pro-edition/forum/"
+To contact support please send an email to:
+support@designersbookshop.com
+Server Status: 
+Copy Email Address
+Email address copied to clipboard!
+support@designersbookshop.com
+echo '
+' | pbcopy
+open "https://designersbookshop.s3.amazonaws.com/products/redirection/gc-pe/license/monthly/index.html"
+open "https://designersbookshop.s3.amazonaws.com/products/redirection/gc-pe/license/yearly/index.html"
+open "http://www.designersbookshop.com/products/"
+Plug-in must manually be opened the first time via the menu bar. Once this has been done, then you can run the plug-in using the keyboard shortcut.
+Please note that when margins are edited in Smart Mode, they will maintain/move the type area and are therefore locked. To edit the margins freely please select Modular Mode and once done go back to Smart Mode. In Smart Mode, margins are set after the columns and rows are applied.
+Preset
+ Subcolumns
+ Secondary Columns
+ Subrows
+ Secondary Rows
+ Image-lines
+[Pro Ed.] Horz. Guides
+0x15d300kGCShowGuidesKey
+0x15d300kGCHideGuidesKey
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:953: assertion __s != nullptr failed: basic_string(const char*) detected nullptr
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:1838: assertion !__r_.first().__s.__is_long_ failed: String has to be short when trying to get the short size
+GridCalculator Responder Service
+vector
+[GC-1]
+0x15d300kGCHideGridKey
+0x15d300kGCEditKey
+Generic
+Applied Leading: 
+ - V. Subdiv: 
+0x15d300kGCMultiplicationKey
+ Body Copy Locked
+Custom Leading (pt)
+V. Subdiv. (
+ V. Subdiv. (
+[GC] CGS
+[GC] Smart Setup
+No Sec. Columns
+Custom Setting Applied
+ columns
+ Results
+0x15d300kGCWizardKey
+0x15d300kGCMillimetersKey
+0x15d300kGCInchesKey
+0x15d300kGCPointsPixelsKey
+0x15d300kGCSquareKey
+0x15d300kGCCalculateKey
+0x15d300kGCNoParagraphStyleKey
+[Pro Ed.
+0x15d300kGCMmKey
+0x15d300kGCInKey
+0x15d300kGCPtKey
+0x15d300kGCWidthColonKey
+0x15d300kGCHeightColonKey
+0x15d300kGCGreaterKey
+0x15d300kGCLockKey
+0x15d300kGCOptionsKey
+0x15d300kGCResetKey
+0x15d300kGCImageLinesMmColonKey
+0x15d300kGCImageLinesInColonKey
+0x15d300kGCImageLinesPtColonKey
+[GC] Body Copy
+Miscellaneous
+ lines
+gutter: 
+0x15d300kGCPointsKey
+ Horizontal Grid
+[Basic Paragraph]
+[GC] Body Copy #1
+0x15d300kGCUnlockKey
+Paragraph Styles
+Character Styles
+0x15d300kGCAddMasterDDItemKey
+0x15d300kGCCopyImportStyleKey
+NormalParagraphStyle
+Please note that the Page Tool is not available while Grid Calculator Publishing Edition is running. Also, know that
+Page Tool edited masters can not be edited.
+Millimeters
+Inches
+Points
+Override NodeID::GetDescription() to provide useful information here
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__iterator/next.h:33: assertion __n >= 0 || __has_bidirectional_iterator_category<_InputIter>::value failed: Attempt to next(it, n) with negative n on a non-bidirectional iterator
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__iterator/advance.h:70: assertion __n >= 0 || __has_bidirectional_iterator_category<_InputIter>::value failed: Attempt to advance(it, n) with negative n on a non-bidirectional iterator
++*_-(!
+Important: When working with image-lines, make sure to only edit Body Copy #1 through the plug-in, otherwise the setting for image-lines will be incorrect. Avoid editing the font, style, size and leading (Basic Character Formats) through the Paragraph Style Options dialog, instead edit these settings through the plug-in. Other settings can be edited just fine, please note that this only applies to Body Copy #1.
+Body Copy
+0x15d300kGCEditStyleKey
+Adobe InDesign CC 2026
+Adobe InDesign CC 2022
+Adobe InDesign CC 2020
+Adobe InDesign CC 2019
+Adobe InDesign CC 2018
+Adobe InDesign CC 2017
+Adobe InDesign CC
+Adobe InDesign CC 2014
+This computer is currently running Grid Calculator Publishing Edition in Online mode in Adobe InDesign 
+. Do you want to change it to this version (
+) instead?
+Online License Expires: 
+This computer is currently running Grid Calculator Publishing Edition in demo mode in Adobe InDesign 
+) instead? You have 
+ days left of your demo.
+Please select 'Open Folder' and run the 'Activator' application to activate or deactivate the plug-in.
+0x15d300kGCOpenFolderKey
+Internet connection not found (this registration can only run while being online, registered full/upgrade license can run both offline and online - requires Internet activation). Make sure you're connected to the Internet and that nothing is blocking the Internet connection like an anti-virus software or a firewall.
+Version successfully changed to 2026
+Version failed to change due to expired demo.
+Version failed to change due to special setting has been set for another version of the plug-in and therefore you can not activate the demo for this version, please contact technical support for further help.
+Version failed to change due to banned demo.
+Version failed to change.
+0x15d300kGCPurchaseOnlineLicenseKey
+Adobe InDesign 2020
+Adobe InDesign 2022
+Test Drive
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:1831: assertion __s < __min_cap failed: __s should never be greater than or equal to the short string capacity
+SafeReadFile: Reading: %s
+SafeReadFile: File does not exist: %s
+SafeReadFile: Failed to open file: %s (errno: %d)
+SafeReadFile: Invalid file size: %d
+SafeReadFile: Successfully read %d bytes
+SafeReadFile: Failed to read file content
+SafeReadFile: Unknown exception
+SafeReadFile: Exception: %s
+SafeWriteFile: Writing to: %s (%d bytes)
+SafeWriteFile: Failed to open file: %s (errno: %d)
+SafeWriteFile: Failed to write content
+SafeWriteFile: Successfully wrote file
+SafeWriteFile: Unknown exception
+SafeWriteFile: Exception: %s
+ Jan, 
+ Feb, 
+ Mar, 
+ Apr, 
+ May, 
+ Jun, 
+ Jul, 
+ Aug, 
+ Sep, 
+ Oct, 
+ Nov, 
+ Dec, 
+GetPresetDate: Using cached date for %s
+GetPresetDate: Reading date from %s
+Date: 
+GetPresetDate: Cached date for %s
+Columns: 
+Subcolumns: 
+Sec. Columns: 
+Secondary Rows: 
+subrows
+Subrows: 
+Rows: 
+Regular
+Font: 
+Style: 
+ is missing.
+Size (pt): 
+Style Leading: 
+Alignment: 
+Tracking: 
+Kerning: 
+Indent/Exdent: 
+Tabs: 
+Figure Style: 
+[GC] Rows
+[GC] Secondary Rows
+[GC] Subcolumns
+[GC] Secondary Columns
+[Pro Ed.] Sec./Sub Columns
+InitPresets: Starting preset initialization
+InitPresets: Failed to get IGCPreferences
+InitPresets: Successfully got preferences
+InitPresets: Failed to find presets tree view widget
+InitPresets: Found presets tree view widget
+InitPresets: Failed to get ITreeViewMgr
+InitPresets: Got tree view manager
+InitPresets: Failed to get ITreeViewController
+InitPresets: Got tree view controller
+InitPresets: Deselecting all tree items
+InitPresets: Failed to get IStringListData
+InitPresets: Got string list data
+InitPresets: Getting presets for client: %s
+InitPresets: No client set, defaulting to 'All'
+InitPresets: Retrieved %d presets
+InitPresets: Set string list data
+InitPresets: Clearing tree
+InitPresets: Changing root
+InitPresets: Successfully completed preset initialization
+GetPresetsFolder: FSFindFolder failed with error: %d
+GetPresetsFolder: FSRefMakePath failed with error: %d
+GetPresetsFolder: Documents path: %s
+Documents path: %s
+Failed to get Documents folder path
+Grid Calculator Publishing Edition
+Presets
+Presets folder path: %s
+Failed to create presets folder with error: %d
+Folder creation verification failed
+GetFilesInDir: Traversing directory: %s
+GetFilesInDir: Directory doesn't exist: %s
+DS_Store
+GetFilesInDir: Added item: %s (ext: %s)
+GetFilesInDir: Found %d valid items
+GetFilesInDir: Unknown exception
+GetFilesInDir: Exception: %s
+GetPresetsList called for client: %s, fullpath: %d
+GetPresetsList: Failed to get IGCDocData
+All clients mode - found %d clients
+Processing client: %s
+GetPresetsList: Presets folder doesn't exist for client: %s
+GetPresetsList: Failed to enumerate directory
+GetPresetsList: Added preset: %s
+GetPresetsList: Added full path: %s
+GetPresetsList returning %d presets
+GetPresetsList: Sorting %d presets with order %d (0=Last Saved, 1=First Saved)
+GetPresetsList: Pre-caching dates for %d presets...
+GetPresetsList: Cached date for preset %d: %s
+GetPresetsList: Date caching complete, now sorting...
+GetPresetsList: Sorting complete
+GetClientsList: Main presets folder doesn't exist
+GetClientsList: Failed to enumerate main presets directory
+.DS_Store
+GetClientsList: Found client: %s
+GetClientsList: Found %d clients
+GetClientsList: Unknown exception
+GetClientsList: Exception: %s
+Type: Grid Calculator Publishing Edition;
+Version: 
+Preset Name: 
+Date: 
+Document Setup: 
+Modular
+Number of Masters: 
+Facing Pages: 
+Unit: 
+Width: 
+Height: 
+Leading (pt): 
+Correct Leading (pt): 
+Desired Grid Width: 
+Applied Grid Width: 
+Square: 
+0x15d300kGCUnDoKey
+ Doc. Width: 
+[GC] Square: 
+Fit Leading: 
+Subdivision: 
+Width 4: 
+H. Module 2: 
+H. Module 3: 
+H. Subdiv 2: 
+H. Subdiv 3: 
+Height 4: 
+V. Module 2: 
+V. Module 3: 
+V. Subdiv 2: 
+V. Subdiv 3: 
+Leading: 
+Font: 
+Style: 
+Size (pt): 
+Style Leading: 
+Alignment: 
+Tracking: 
+Kerning: 
+Indent/Exdent: 
+Custom
+Tabs: 
+Figure Style: 
+Bleed (Chain): 
+false;
+Bleed (Top): 
+Bleed (Bottom): 
+Bleed (Inside): 
+Bleed (Outside): 
+Slug (Chain): 
+Slug (Top): 
+Slug (Bottom): 
+Slug (Inside): 
+Slug (Outside): 
+Vertical Value Mode: 
+No. of Master Pages: 
+Horizontal Value Mode: 
+Image-lines height (pt): 
+Image-lines: 
+ Smart Columns applied: 
+ Smart Rows applied: 
+ Desired Top Margin: 
+ Desired Bottom Margin: 
+ Desired Inside Margin: 
+ Desired Outside Margin: 
+Top margin (lines): 
+Bottom margin (lines): 
+Top margin: 
+Bottom margin: 
+Inside margin (lines): 
+Outside margin (lines): 
+Inside margin: 
+Outside margin: 
+ lines);
+ gutter: 
+Main Columns: 
+Custom Columns: Num: 
+, Width: 
+, Gutter: 
+Main Subcolumns: 
+Custom Subcolumns: Num: 
+Fit sec. columns: 
+Fit to margins
+Fit to page
+Main Secondary Columns: 
+Custom Secondary Columns: Num: 
+Fit rows: 
+Main Rows: 
+Custom Rows: Num: 
+Main Subrows: 
+Custom Subrows: Num: 
+Fit sec. rows: 
+Main Secondary Rows: 
+Custom Secondary Rows: Num: 
+Typearea Grid (Horizontal): 
+ lines - 
+Typearea Grid (Subleading): 
+/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/
+/*WARNING: Please do not change the format of this file, otherwise it can cause the application to malfunction*/
+Unit: 
+Leading (pt):
+Leading:
+Version: 
+ - Version 
+Correct Leading (pt): 
+Width: 
+Width (mm): 
+Width (in): 
+Width (pt): 
+Height: 
+Height (mm): 
+Height (in): 
+Height (pt): 
+Applied Grid Width (pt): 
+H. Subdivision: 
+ pt | 
+V. Subdivision: 
+Subdivision: 
+Applied 
+Proportion: 
+Custom Leading: 
+Fit Leading: 
+Width 4: 
+H. Module 2: 
+H. Module 3: 
+Modules: 
+H. Subdiv 2: 
+H. Subdiv 3: 
+Subdivisions: 
+Height 4: 
+V. Module 2: 
+V. Module 3: 
+V. Subdiv 2: 
+V. Subdiv 3: 
+Leading: 
+Size: 
+Image-lines: 
+Image-lines
+Image-lines height (pt): 
+Columns (lines): 
+Main Columns: 
+ columns, Gutter: 
+Custom Columns: Num: 
+Gutter: 
+Sec./Sub Columns (lines): 
+Secondary Columns: None
+Subcolumns: None
+Main Subcolumns: 
+Custom Subcolumns: Num: 
+Main Secondary Columns: 
+Secondary Columns: 
+Custom Secondary Columns: Num: 
+Rows (lines): 
+Main Rows: 
+ rows, Gutter: 
+Custom Rows: Num: 
+Main Subrows: 
+Custom Subrows: Num: 
+Main Secondary Rows: 
+Custom Secondary Rows: Num: 
+Typearea Grid (Horizontal): 
+H. Type Area: 
+H. Type Area: None
+Typearea Grid (Subleading): 
+Subleading: 
+Subleading: None
+HandleDblClk: Starting preset application for: %s
+HandleDblClk: ERROR - Failed to get IGCDocData
+HandleDblClk: ERROR - Failed to find dialog widget
+HandleDblClk: ERROR - Failed to get dialog observer
+HandleDblClk: Saved original observer state: %s
+enabled
+disabled
+Vertical Value Mode: 
+Due to certain changes made earlier for correctly applying rows, the preset you are about to apply will most likely not be applied correctly. Do you wish to continue?
+Number of Masters: 
+Document Setup: 
+Facing Pages: 
+Bleed (Chain): 
+Slug (Chain): 
+HandleDblClk: Switching to BGS mode
+HandleDblClk: Successfully cleared modular settings
+HandleDblClk: ERROR - Failed to get IWidgetUtils
+HandleDblClk: ERROR - Unknown exception during clear button simulation
+HandleDblClk: ERROR - Exception during clear button simulation: %s
+HandleDblClk: ERROR - Clear button event handler not found
+HandleDblClk: ERROR - Clear button widget not found
+HandleDblClk: WARNING - Clear operation failed, continuing with manual cleanup
+Leading (pt): 
+Square: 
+H. Module: 
+Desired Grid Width: 
+Applied Grid Width: 
+[GC] Desired Grid Width: 
+Bleed (Top): 
+Bleed (Bottom): 
+Bleed (Inside): 
+Bleed (Outside): 
+Slug (Top): 
+Slug (Bottom): 
+Slug (Inside): 
+Slug (Outside): 
+HandleDblClk: About to process %d master spreads
+HandleDblClk: ERROR - numOfMasters too high: %d
+HandleDblClk: === Processing master spread %d of %d ===
+HandleDblClk: Looking for spread: %s
+HandleDblClk: Spread %s not found in preset
+HandleDblClk: No end marker found for %s
+HandleDblClk: Invalid bounds for %s (start:%d, end:%d)
+HandleDblClk: Extracting content for %s (start:%d, end:%d, length:%d)
+HandleDblClk: Failed to extract content for %s
+HandleDblClk: Invalid extracted content for %s (length: %d)
+HandleDblClk: ERROR - Master spread UID not found for %s
+HandleDblClk: ERROR - Invalid master spread reference for %s
+HandleDblClk: ERROR - Failed to get spread preferences for %s
+No. of Master Pages: 
+Horizontal Value Mode: 
+Desired Top Margin: 
+Top margin (lines): 
+Bottom margin (lines): 
+Top margin: 
+Desired Bottom Margin: 
+Bottom margin: 
+Desired Inside Margin: 
+Inside margin (lines): 
+Outside margin (lines): 
+Inside margin: 
+Desired Outside Margin: 
+Outside margin: 
+f-height (pt): 
+x-height (pt): 
+l-height (pt): 
+H-height (pt): 
+The applied preset contains an old image-line setting and has been replaced with either x or H-height.
+Smart Columns applied: 
+HandleDblClk: ERROR - Exception during custom columns parsing
+Fit sec. columns: 
+Fit rows: 
+Smart Rows applied: 
+Fit sec. rows: 
+HandleDblClk: Set master spread dropdown to index %d
+HandleDblClk: WARNING - Dropdown index %d out of bounds (%d items)
+HandleDblClk: WARNING - Master spread index %d out of bounds (%d items)
+HandleDblClk: ERROR - Failed to get string list control data
+HandleDblClk: ERROR - Master spread dropdown widget not found
+HandleDblClk: Preset application completed successfully
+HandleDblClk: Restored observer state to: %s
+HandleDblClk: ERROR - Failed to restore observer state
+HandleDblClk: Function cleanup completed
+Enter all fields, apply all the document settings and try again.
+0x15d300kGCSavePresetTitleKey
+A preset with the name "
+" already exists in the "
+" folder.
+Do you want to overwrite it?
+Save failed: Unable to write preset file.
+HandleSave: Successfully saved preset: %s
+HandleSave: Updated client preference to: %s
+HandleSave: Refreshing presets tree view
+*** HANDLEIMPORT FUNCTION ENTRY ***
+=== STARTING IMPORT PROCESS ===
+HandleImport: Failed to get IGCDocData
+Import failed: Unable to access document data.
+HandleImport: Got IGCDocData successfully
+HandleImport: Failed to get IGCPreferences
+Import failed: Unable to access preferences.
+HandleImport: Got IGCPreferences successfully
+HandleImport: About to show file chooser
+Choose Presets File
+HandleImport: No file chosen
+HandleImport: File was chosen
+HandleImport: Selected file doesn't exist
+Import failed: The selected file doesn't exist.
+HandleImport: File exists and is valid
+HandleImport: File path: %s
+HandleImport: About to read file
+HandleImport: Failed to read file content
+Import failed: Unable to read the selected file.
+HandleImport: Successfully read file (%d bytes)
+HandleImport: Failed to convert file content to PMString
+Import failed: Unable to process file content.
+/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/
+=== SEPARATOR CHECK: Looking for '%s' in content length %d ===
+=== COUNT DETECTION START ===
+Content length: %d
+Separator: '%s'
+Found preset #%d
+FINAL COUNT: %d
+=== COUNT DETECTION END ===
+NO SEPARATORS - SINGLE PRESET
+=== COUNT DECISION POINT ===
+HandleImport: Count value is: %d
+HandleImport: About to check if count == 1
+HandleImport: TAKING SINGLE PRESET PATH
+Import
+0x15d300kGCImportPresetsKey
+HandleImport: No client specified
+HandleImport: Using client: %s
+HandleImport: Failed to create client directory
+Import failed: Unable to create client directory.
+HandleImport: Failed to find separator in content
+Import failed: Invalid preset format.
+HandleImport: Failed to extract preset content
+Import failed: Unable to extract preset content.
+Preset Name: 
+HandleImport: 'Preset Name' not found in content
+Import failed: Preset name not found in file.
+HandleImport: Preset name terminator not found
+HandleImport: Failed to extract preset name
+Import failed: Unable to extract preset name.
+HandleImport: Extracted preset name: %s
+HandleImport: Duplicate preset found
+Identical preset names were found.
+The new preset files were suffixed with: (Copy).
+(Copy).txt
+HandleImport: Target path: %s
+HandleImport: Failed to write preset file
+Import failed: Unable to write preset file.
+HandleImport: Successfully wrote preset file
+HandleImport: Single preset imported successfully
+HandleImport: TAKING MULTIPLE PRESET PATH
+HandleImport: Count = %d, should be multiple
+HandleImport: About to set import content
+HandleImport: Calling ShowImportDialog
+HandleImport: ShowImportDialog returned %d selected presets
+HandleImport: Selected preset %d: '%s'
+HandleImport: No presets selected
+HandleImport: Using client from prefs: '%s'
+No client specified for import!
+HandleImport: About to process %d selected presets
+HandleImport: Processing next preset...
+HandleImport: No separator found
+HandleImport: Failed to extract preset
+HandleImport: Found preset: '%s'
+HandleImport: Preset '%s' is selected
+HandleImport: Saving preset: %s
+HandleImport: File exists, adding (Copy)
+HandleImport: Saving to: %s
+HandleImport: SUCCESS - Saved: %s
+HandleImport: FAILED to save: %s
+HandleImport: Failed to get remaining content
+HandleImport: No more content
+HandleImport: Finished - saved %d presets
+HandleImport: Import process completed
+No preset selected. Select one or more presets (by holding Cmd/Ctrl) and try again.
+Do you really want to delete the preset:
+Do you really want to delete the selected presets?
+HandleDelete: Using direct path for 'All': %s
+HandleDelete: Constructed path for client '%s': %s
+HandleDelete: Successfully deleted: %s
+HandleDelete: Failed to delete: %s (errno: %d)
+HandleDelete: File doesn't exist: %s
+Export Presets
+TEXT File (*.txt)
+/*WARNING
+/*WARNING
+Export failed: Unable to write export file.
+Export Settings
+Export failed: Unable to write settings file.
+ShowImportDialog: Starting import dialog
+ShowImportDialog: Failed to get IApplication
+Import failed: Unable to access application.
+ShowImportDialog: Failed to get IDialogMgr
+Import failed: Unable to access dialog manager.
+ShowImportDialog: Failed to get IGCDocData
+ShowImportDialog: Presets content is empty
+Import failed: No content to import.
+ShowImportDialog: Setting import presets content (%d bytes)
+ShowImportDialog: Creating dialog
+ShowImportDialog: Failed to create import dialog
+Import failed: Unable to create import dialog.
+ShowImportDialog: Failed to get dialog panel
+Import failed: Unable to access dialog panel.
+ShowImportDialog: Failed to get IPanelControlData
+Import failed: Unable to access panel data.
+ShowImportDialog: Failed to find import tree view widget
+Import failed: Unable to access import tree view.
+ShowImportDialog: Failed to get IGCImportListData
+Import failed: Unable to access import list data.
+ShowImportDialog: Failed to get IStringListData
+Import failed: Unable to access string list data.
+ShowImportDialog: No unit selected, using default
+ShowImportDialog: Getting import data list with unit: %s
+ShowImportDialog: Retrieved %d import items
+ShowImportDialog: No import items found
+Import failed: No valid presets found.
+ShowImportDialog: Opening dialog
+ShowImportDialog: Dialog closed
+ShowImportDialog: User selected %d presets
+Applied Leading:
+Proportions: 
+ | Gutter: 
+ lines 
+Secondary Columns: None
+Subcolumns: None
+ secondary columns, Gutter: 
+Size: 
+x-height, 
+H-height,
+Custom,
+H. Subdiv: 
+V. Module: 
+V. Subdiv: 
+0 lines - 0
+H. Type Area: 
+ lines | 
+H. Type Area: None
+V. Type Area: 
+V. Type Area: None
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__memory/construct_at.h:66: assertion __loc != nullptr failed: null pointer given to destroy_at
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:1229: assertion __pos <= size() failed: string index out of bounds
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:283: assertion __root != nullptr failed: Root of the tree shouldn't be null
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:284: assertion __x != nullptr failed: Can't attach null node to a leaf
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:240: assertion __x != nullptr failed: node shouldn't be null
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:241: assertion __x->__right_ != nullptr failed: node should have a right child
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:259: assertion __x != nullptr failed: node shouldn't be null
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:260: assertion __x->__left_ != nullptr failed: node should have a left child
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/comp_ref_type.h:47: assertion !__comp_(__l, __r) failed: Comparator does not induce a strict weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:36: assertion (std::is_sorted<_RandomAccessIterator, _Comp_ref>(__first, __last, _Comp_ref(__comp))) failed: The range is not sorted after the sort, your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:50: assertion !__comp(*(__first + __a), *(__first + __b)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:52: assertion !__comp(*(__first + __b), *(__first + __a)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:59: assertion __comp(*(__first + __a), *(__first + __b)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:61: assertion !__comp(*(__first + __b), *(__first + __a)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:333: assertion __k != __leftmost failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/pop_heap.h:40: assertion __len > 0 failed: The heap given to pop_heap must be non-empty
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sift_down.h:88: assertion __len >= 2 failed: shouldn't be called unless __len >= 2
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:710: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:723: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:733: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:738: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:539: assertion __last - __first >= difference_type(3) failed: 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:552: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:565: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:631: assertion __last - __first >= difference_type(3) failed: 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:643: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:655: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:673: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:678: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+0x15d300kGCPurchaseFullLicDialogTitleKey
+0x15d300kGCPurchaseFullLicDescriptionKey
+0x15d300kGCPurchaseFullLicenseKey
+Upgrade
+0x15d300kGCPurchaseUpgradeLicDialogTitleKey
+0x15d300kGCPurchaseUpgradeLicDescriptionKey
+0x15d300kGCPurchaseUpgradeLicenseKey
+Online
+0x15d300kGCPurchaseOnlineLicDialogTitleKey
+0x15d300kGCPurchaseOnlineLicDescriptionKey
+open "https://www.designersbookshop.com/purchase/gc-pro-ed-cs6/"
+open "https://www.designersbookshop.com/purchase/gc-pro-ed-cs6u/"
+open "https://www.designersbookshop.com/purchase/gc-pro-ed-subscription/"
+DVControlEventHandler
+xml:lang
+/rss/GCProEditionCS3/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS4/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS5/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS55/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS6/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC13/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC14/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC15/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC17/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC18/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC19/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC20/Mac/GridCalculatorPublishingEdition
+/rss/GCProEditionCC22/Mac/GridCalculatorPublishingEdition
+/rss/GCProEditionCC26/Mac/GridCalculatorPublishingEdition
+v32@?0@"NSData"8@"NSURLResponse"16@"NSError"24
+Download failed: %@
+enclosure
+version
+Version
+/GCXMLSettings.txt
+Error reading XML settings file: %@
+https://designersbookshop.s3.us-east-1.amazonaws.com/products/updates/grid_calculator_pe/xml/gcpe.xml
+Version 
+ - Online License Expired
+ - Expires: 
+0x15d300kGCUseDemoKey
+ - Demo Expired
+0x15d300kGCActivateLicenseKey
+ Not Activated
+0x15d300kGCDemoLicenseKey
+ - Demo Not Available
+ - Expires in 
+ - Expires Today
+cclibraries
+Untitled
+Open a File
+All Readable Documents
+All Documents
+Save As
+PubFileFamily
+[Pro Ed.] CGS
+It seems that you have added one or more alternate layout masters. Due to this the plug-in is forced to reset your document and only allow editing in Quick Mode. The reason for this is that Modular and Smart Mode are based on the document grid and in this case that would cause misalignments in the layout. If you do not wish to reset your layout please cancel.
+[GC] Break Horizontal
+ Subleading
+/Plug-Ins/Grid Calculator Publishing Edition/
+Activator 2026.app
+open "
+dseditgroup -o checkmember admin
+To activate or deactivate the plug-in you must have administrator rights.
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:3738: assertion __rhs != nullptr failed: operator==(basic_string, char*): received nullptr
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:3362: assertion __s != nullptr failed: string::find(): received nullptr
+/Library/Application Support/.dbs/.framework_data
+CRITICAL: Decrypted UUID contains non-hex characters: '%@'. File: %@. User must reinstall.
+CRITICAL: Decrypted UUID has invalid length (length: %lu, expected: 12). Content: '%@'. File: %@. User must reinstall.
+CRITICAL: UUID decryption failed - empty result. File: %@. User must reinstall.
+CRITICAL: Encrypted UUID file error at %@. Error: %@. User must reinstall.
+File empty or unreadable
+ERROR_UUID_DECRYPT_FAILED
+The selected master can not be edited. This is because it has been modified with the Page Tool which is not supported by the plug-in.
+https://designersbookshop.s3.amazonaws.com/products/redirection/gc-pe/layout-wizard/index.html
+0x15d300kGCVerticalLinesKey
+0x15d300kGCVerticalSubcolumnLinesKey
+0x15d300kGCVerticalSecColumnLinesKey
+You are about to change the Document Setup to Quick Mode, this will reset the document. Do you wish to continue?
+Information: Modular and Smart Mode are synchronized. Changing from these to Quick Mode or vice versa will reset the document as different setup methods are used.
+Continue
+You are about to change the Document Setup to Modular Mode, this will reset the document. Do you wish to continue?
+Information: Modular and Smart Mode are synchronized. Changing from these to Quick Mode or vice versa will reset the document as different setup methods are used.
+You are about to change the Document Setup to Smart Mode, this will reset the document. Do you wish to continue?
+Information: Modular and Smart Mode are synchronized. Changing from these to Quick Mode or vice versa will reset the document as different setup methods are used.
+0x15d300kGCClearKey
+Please enter a value smaller than leading.
+0x15d300kGCPaletteKey
+0x15d300kGCHModKey
+We've modified how image-lines are applied when using the vertical 'Value' option when you add or currently have more then one existing master. In earlier versions you could decide which masters you wanted to apply image-lines to. Due to certain improvements, this is no longer possible. In order for your document to be properly setup, image-lines must be applied on all masters if image-lines are applied on master GC-1.
+Image-lines will therefore automatically be applied to new masters that you add. If you had existing masters before you applied image-lines, please make sure to select each one of them from the dropdown, in order for the image-lines to automatically be applied to them, which in turn will ensure that all masters are setup properly in terms of margins and rows. This is also recommended before saving your document as a preset.
+0x15d300kGCShowImageLinesKey
+0x15d300kGCHideImageLinesKey
+0x15d300kGCBaselineKey
+0x15d300kGCShowGridKey
+The minimum value is 1, please try again.
+The affected page(s) contains objects. Delete the page anyway?
+Cancel
+You are about to edit the number of master page(s). Do you want to continue?
+Continuing will reset all notification dialogs.
+Do you wish to do this?
+Do you really want to reset the entire document?
+[GC] Set Leading
+[GC] Subdivision: 
+ Break Horizontal
+0x15d300kGCSaveKey
+[GC] Text
+0x15d300kGCAddMasterConfirmationMsgKey
+[GC-1] Image-lines
+The value must be between 0.353 mm and
+5486.4 mm.
+The value must be between 0.0139 in and
+216 in.
+The value must be between 1 pt and
+15552 pt.
+The output value for the leading is either the same as the document height or greater, please reduce the value.
+The value for the leading is very large than the document height, please reduce the value.
+Please enter a minimum value of 1 pt or smaller than document height.
+[GC-1] Secondary Columns
+[GC-1] Subcolumns
+ Division
+ Multiplication
+If you are trying to match the document grid width to the document leading, work in unit: Points and Pixels. This will avoid any kind of confusion between different values and units. Leading is always shown in points and the Grid Width is always shown in the selected unit. To apply your entered leading value, uncheck Fit Leading.
+Choose a number greater than zero!
+The width must be between 0.353 mm and
+5486.4 mm.
+The width must be between 0.0139 inches and
+216 inches.
+The width must be between 1 pt and
+15552 pt.
+Times New Roman
+The font size is too small, minimum is 4 pt.
+No Row
+Please select a font and try again!
+Please enter a font size and try again!
+The value of the applied image-lines are greater than
+the leading, please be aware that this can cause
+misalignments with the document grid.
+(Imported)
+ (Imported)
+Center
+H. Subdiv.
+Indent
+Exdent
+Normal
+Small Caps
+All Caps
+Open Type All Small Caps
+0x15d300kGCImportStyleKey
+Superscript
+Subscript
+Open Type Superior/Superscript
+Open Type Inferior/Subscript
+Open Type Numerator
+Open Type Denominator
+0x15d300kGCApplyKey
+0x15d300kGCNoneKey
+0x15d300kGCAddNewStyleKey
+Do you really want to delete the style?
+This style does not exist.
+You are about to edit the paragraph style: Body Copy #1. Please know that masters such as GC-1 and A-Master are based on these settings. Any changes made to Body Copy #1 within this selected master might change the main master, except the image-lines which can be unique for each master. Since each master can have its own settings for image-lines, make sure to select the master for which the image-lines you want to edit.
+This feature is not available in Modular or Smart Mode. It's only available in Quick mode. This feature matches the image-line height to the document grid width, by setting the font size accordingly.
+This feature does not work when horizontal value option is applied.
+This feature is not available in combination with the subdivision option in Quick Document Setup. Please select the Applied Leading (top entry) in the subdivision dropdown and try again.
+Please enter leading and try again.
+The grid width is greater than the leading, therefore this feature can not be applied. Please edit the grid width to a smaller value.
+This feature is not available when image-lines setting is set to 'Custom'. Please select x or H and try again.
+The image-line height could not be matched to the document grid width, the closest font size has been set. For an exact match, please try to edit the document grid width to image-line height and then try again.
+Invalid numeric value.
+[Pro Ed.] Image-lines
+The lowest allowed value is 0.353 mm.
+The lowest allowed value is 0.0139 in.
+The lowest allowed value is 1 pt.
+You have entered a value of 2 lines or more in the leading field. This disables the synchronization with the height section in Smart Mode.
+Do you really want to clear the entered fields?
+ Vertical Column Lines
+ Vertical Subcolumn Lines
+ Vertical Secondary Column Lines
+Columns
+Subcolumns
+Sec. Columns
+Subrows
+Sec. Rows
+Please enter a whole value, for example: 3, 4 and 5 etc. Values like: 3,5 or 5.4 etc. can not be entered.
+The minimum value must be 2.
+Gutter too large for this number of columns.
+Gutter too large for this number of rows.
+ Edit Existing
+[GC] - 3.1
+[GC] Edit Existing
+[P] [GC] Body Copy #1
+This document has Horizontal Guides applied. This version of the plug-in no longer support that feature due to several issues. Therefore the Horizontal Guides layer will be deleted in order for you to edit this document. Pressing OK will delete the layer.
+[Pro Ed.] Rows
+/Applications/.GridCalculator/ActivationGCPE18.0.plist
+Your offline grace period has expired!
+It looks like the plug-in has not been able to reach our server
+for some time. Please connect to the Internet to continue
+using your license (if it's still valid) and to reset the offline timer.
+Server Status: 
+Need help? Email us at: support@designersbookshop.com.
+Your offline grace period will expire in 
+It looks like the plug-in has not been able to reach our
+server for some time. Please connect to the Internet to
+reset the offline timer and avoid interruption.
+Need help? Email us at: support@designersbookshop.com.
+Unable to verify your license with our server and your
+offline grace period has expired.
+Please try again in a few minutes. If the problem persists,
+our server might be temporarily unavailable, see status below.
+Server Status: 
+Your offline grace period has expired!
+It looks like the plug-in has not been able to reach our server
+for some time. Please connect to the Internet to continue using
+your license (if it's still valid) and to reset the offline timer.
+Before you email us: 1. Make sure your license is valid. 
+2. You are online. 3. Try to open the plug-in a few times,
+because it might take a little time for the license file to unlock.
+Server Status: 
+Online 
+Unreachable 
+<?xml version="1.0"?>
+<plist><dict><key>INVALIDATED</key><true/></dict></plist>
+/Applications/.GridCalculator/com.apple.agdbdactivation18.0.plist
+Horizontal Lines: 
+Vertical Lines: 
+0x15d300kGCSmallerKey
+Subleading: 
+You have already created 5 masters for this document which is the maximum amount possible.
+[GC-5]
+You have already created 
+ masters for this document which is the maximum amount possible.
+[Pro Ed.] Images
+[GC] Images
+[Pro Ed.] Text
+[Pro Ed. Paragraph]
+[GC-1] Columns
+[GC-1] Main Columns
+To edit alternate layout master please click the Edit button in the bottom of the plug-in.
+ %5.2f:%5.2f:%5.2f:%5.2f
+[Pro Ed.] Sec./Subcolumns
+Vertical lines are not applicable because no columns are applied.
+Vertical lines are not applicable because no subcolumns are applied.
+Vertical lines are not applicable because no secondary columns are applied.
+Vertical Lines can not be applied when stroke is set to 0, please edit value and try again.
+V. Subdiv.
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/vector:1400: assertion __n < size() failed: vector[] index out of bounds
+Quickly setup proportional layout, based on leading. Also square grid or desired grid width. Use any margins and leading.
+Layout based completely on the document grid. Horizontal and vertical grid independent of each other. Synchronized with Smart mode.
+Quick and easy layout when you know the number of columns and rows you want to apply. Synchronized with Modular mode.
+Hides all layers containing guides such as image-lines, subcolumns, secondary columns, rows, subrows, secondary rows and type area grid. Cmd/Ctrl = Hide image-lines.
+Shows all layers containing guides such as image-lines, subcolumns, secondary columns, rows, subrows, secondary rows and type area grid. Cmd/Ctrl = Show image-lines.
+Hides the document grid and shows the baseline grid. Cmd/Ctrl = Hide/Show baseline grid.
+Shows the document grid and hides the baseline grid. Cmd/Ctrl = Hide/Show baseline grid.
+Show or hide baseline grid.
+Show/Hide dialog. Cmd/Ctrl+Shift = Reset all notification dialogs.
+Select unit, changing will convert values.
+Facing Pages.
+Visit Layout Wizard web page. Cmd/Ctrl = Vertical lines for Main Columns. Cmd/Ctrl+Shift = Vertical Lines for Subcolumns. Shift = Vertical Lines for Secondary Columns.
+List of masters.
+Number of document pages.
+Number of pages in master.
+DIN sizes.
+ANSI and Arch sizes.
+Phone, Web and Tablet sizes.
+Document Width.
+Document Height.
+Change document proportion. Select Width or Height first, then enter desired proportion.
+Enter your desired leading, value will be recalculated.
+Enter leading in field above. If you wish to apply the exact leading value then uncheck Fit Leading. In doing so the bottom margin will adjust so that both the top and bottom margin jumps in increment of the entered leading value.
+Expands the document width in order to create square document grid.
+Changes document orientation to portrait or landscape.
+Base the document grid on existing paragraph style.
+Fine-tune your grid based on the applied grid. Great when you need to align texts of different leading values.
+Enter desired grid width value and press Calculate, closest fitting value will be applied. If value is updated it will automatically be reapplied. Value is always shown in selected unit.
+Enter desired document width.
+Split document width into modules.
+Split modules into subdivisions.
+Enter desired document height.
+Split document height into modules.
+After you have entered document width and height, select Width or Height and then edit to desired proportions value.
+Enter your desired grid width. Closest fitting value will be applied.
+Enter your desired grid height. Closest fitting value will be applied.
+Clear all fields.
+Proportions of modules.
+Proportions of subdivisions.
+Enter desired number of columns.
+Set column width based on document grid lines. Cmd/Ctrl = Points. Shift = Document grid lines.
+Space between columns. Cmd/Ctrl = Points. Shift = Document grid lines.
+Inside/left margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Outside/right margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Enter desired margin for inside/left and the closest fitting value will be applied (value shown in field to the right).
+Enter desired margin for outside/right and the closest fitting value will be applied (value shown in field to the right).
+Enter desired number of rows.
+Set row height based on document grid lines. Cmd/Ctrl = Points. Shift = Document grid lines.
+Space between rows. Cmd/Ctrl = Points. Shift = Document grid lines.
+Top margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Bottom margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Enter desired margin for top and the closest fitting value will be applied (value shown in field to the right).
+Enter desired margin for bottom and the closest fitting value will be applied (value shown in field to the right).
+Apply and browse the different available setups. Cmd/Ctrl = Previous. Shift = Clear.
+Select group for editing.
+Select style for editing.
+To add a new style click this button and then select group.
+Move your style to another group or edit style title.
+Give the style a unique name/suffix for easy identification.
+Select or type font.
+Select or type style.
+Select how you want the leading of the style to align with the document grid.
+Enter font size in points.
+Apply image-lines to easily align images to your text. Check the box to apply.
+Indents and Exdents are based on the font size, document grid width (H. Subdiv.) or custom value.
+Tabs are based on the font size or the document grid width (H. Subdiv.).
+0x15d300kGCDeleteKey
+Deletes current style.
+This button can be used to ensure that no accidental editing is done.
+Reset all settings for this entry. Cmd/Ctrl = Apply style to selected text frame. Shift = Clear style of selected text frame.
+Show style palette.
+Edit the paragraph style options. Cmd/Ctrl = Show palette.
+Edit the character style options. Cmd/Ctrl = Show palette.
+Lock mode reapplies the margins, rows, subrows and secondary rows.
+Lock mode reapplies the margins, columns, subcolumns and secondary columns.
+The value.
+Document proportion.
+Type area proportion.
+Type area width.
+Type area height.
+Create your own horizontal grid within the margins.
+Split the leading, great when aligning texts of different leading values. To be used when Value is checked in margins setup.
+Setup the top and bottom margins using your own values. Leading will be recalculated to fit inside the type area.
+Value is not available in Modular and Smart Document Setup.
+Setup the inside/left and outside/right margins using your own values.
+This fits the setup within the margins.
+This fits the setup within the page.
+Apply and browse the different available setups. Cmd/Ctrl = Previous.
+Select which client to browse.
+Save current setup as preset.
+Import preset(s) from file.
+Delete selected preset(s). Use Cmd/Ctrl to select multiple presets.
+Export selected preset(s). Use Cmd/Ctrl to select multiple presets. If none is selected, current document layout will be exported.
+Invalid preset path or file doesn't exist: %s
+Invalid Preset
+Trying to open preset file: %s
+Failed to read preset file: %s
+Unknown Date
+Successfully read preset file (%d bytes)
+Failed to find 'Date: ' in preset content
+Failed to find date terminator in preset content
+Failed to extract date substring
+/Applications/.GridCalculator/com.apple.gccscsthree.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS3.txt
+/Applications/Adobe InDesign CS3/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS3.txt
+/Applications/.GridCalculator/com.apple.gccscsfour.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS4.txt
+/Applications/Adobe InDesign CS4/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS4.txt
+/Applications/.GridCalculator/com.apple.gccscsfive.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS5.txt
+/Applications/Adobe InDesign CS5/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS5.txt
+/Applications/.GridCalculator/com.apple.gccscsfivefive.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS55.txt
+/Applications/Adobe InDesign CS5.5/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS55.txt
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS6.txt
+/Applications/Adobe InDesign CS6/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC13.txt
+/Applications/Adobe InDesign CC/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC14.txt
+/Applications/Adobe InDesign CC 2014/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC15.txt
+/Applications/Adobe InDesign CC 2015/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC17.txt
+/Applications/Adobe InDesign CC 2017/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC18.txt
+/Applications/Adobe InDesign CC 2018/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC19.txt
+/Applications/Adobe InDesign CC 2019/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPath2020.txt
+/Applications/Adobe InDesign 2020/Plug-Ins/Grid Calculator Publishing Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPath2022.txt
+/Applications/Adobe InDesign 2022/Plug-Ins/Grid Calculator Publishing Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPath2026.txt
+/Applications/Adobe InDesign 2026/Plug-Ins/Grid Calculator Publishing Edition
+/GridCalculatorUpdate
+%@%@%@
+GridCalculator.zip
+This is a regular file wrapper
+Contains multiple files
+GridCalculator.InDesignPlugin
+Activator CS3.app
+Activator CS4.app
+Activator CS5.app
+Activator CS5.5.app
+Activator CS6.app
+Activator CC13.app
+Activator CC14.app
+Activator CC15.app
+Activator CC 2017.app
+Activator CC 2018.app
+Activator CC 2019.app
+Activator 2020.app
+Activator 2022.app
+GridCalculatorUI.InDesignPlugin
+Error moving file: %@
+Error moving activator: %@
+%@%@%@%@%@%@%@
+Resources
+Info.plist
+Error reading property list: %@
+CFBundleVersion
+/GridCalculator.zip
+GridCalculatorUpdate
+Error writing zip data to file
+/usr/bin/ditto
+--rsrc
+Unzip operation failed with code: %d
+Error getting directory contents: %@
+No presets selected!
+This will import the selected presets.
+Do you want to continue?
+ValidateDialogFields: Set client to: %s
+open "https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/status_updates.html"
+Installation succeeded!
+Please restart Adobe InDesign.
+Installation failed!
+/Applications/.GridCalculator/GCrelInfo5.0.plist
+/Applications/.GridCalculator/ActivationGCPE5.0.plist
+/Library/Preferences/com.apple.gccscsthree.appdata.plist
+/Library/Preferences/GCrelInfo5.0.plist
+/Library/Preferences/ActivationGCPE5.0.plist
+/Applications/.GridCalculator/GCreleInfo6.0.plist
+/Applications/.GridCalculator/ActivationGCPE6.0.plist
+/Library/Preferences/com.apple.gccscsfour.appdata.plist
+/Library/Preferences/GCreleInfo6.0.plist
+/Library/Preferences/ActivationGCPE6.0.plist
+/Applications/.GridCalculator/GCreleInfo7.0.plist
+/Applications/.GridCalculator/ActivationGCPE7.0.plist
+/Library/Preferences/com.apple.gccscsfive.appdata.plist
+/Library/Preferences/GCreleInfo7.0.plist
+/Library/Preferences/ActivationGCPE7.0.plist
+/Applications/.GridCalculator/GCreleInfo7.5.plist
+/Applications/.GridCalculator/ActivationGCPE7.5.plist
+/Library/Preferences/com.apple.gccscsfivefive.appdata.plist
+/Library/Preferences/GCreleInfo7.5.plist
+/Library/Preferences/ActivationGCPE7.5.plist
+/Applications/.GridCalculator/com.apple.gccscssix.appdata.plist
+/Applications/.GridCalculator/GCreleInfo8.0.plist
+/Applications/.GridCalculator/ActivationGCPE8.0.plist
+/Applications/.GridCalculator/com.apple.gccsccthirteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo9.0.plist
+/Applications/.GridCalculator/ActivationGCPE9.0.plist
+/Applications/.GridCalculator/com.apple.gccsccfourteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo10.0.plist
+/Applications/.GridCalculator/ActivationGCPE10.0.plist
+/Applications/.GridCalculator/com.apple.gccsccfifteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo11.0.plist
+/Applications/.GridCalculator/ActivationGCPE11.0.plist
+/Applications/.GridCalculator/com.apple.gccsccseventeen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo12.0.plist
+/Applications/.GridCalculator/ActivationGCPE12.0.plist
+/Applications/.GridCalculator/com.apple.gccscceighteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo13.0.plist
+/Applications/.GridCalculator/ActivationGCPE13.0.plist
+/Applications/.GridCalculator/com.apple.gccsccnineteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo14.0.plist
+/Applications/.GridCalculator/ActivationGCPE14.0.plist
+/Applications/.GridCalculator/com.apple.gccscctwenty.appdata.plist
+/Applications/.GridCalculator/GCreleInfo15.0.plist
+/Applications/.GridCalculator/ActivationGCPE15.0.plist
+/Applications/.GridCalculator/com.apple.gccscctwentytwo.appdata.plist
+/Applications/.GridCalculator/GCreleInfo16.0.plist
+/Applications/.GridCalculator/ActivationGCPE16.0.plist
+/Applications/.GridCalculator/com.apple.gccscc2026.appdata.plist
+/Applications/.GridCalculator/GCreleInfo18.0.plist
+001EC953E433
+Adobe InDesign CS3-CS4U
+Adobe InDesign CS4-CS5U
+Adobe InDesign CS5-CS55U
+password
+DAINFO
+GPCS30
+GPCS40
+GPCS4U
+GPCS50
+GPCS5U
+GPCS55
+GPC55U
+GPCS60
+GPCS6U
+GCPSUB
+TDGCPX
+/Applications/.GridCalculator/com.apple.agdbdactivation5.0.plist
+/Library/Preferences/com.apple.agdbdactivation5.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation6.0.plist
+/Library/Preferences/com.apple.agdbdactivation6.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation7.0.plist
+/Library/Preferences/com.apple.agdbdactivation7.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation7.5.plist
+/Library/Preferences/com.apple.agdbdactivation7.5.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation8.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation9.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation10.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation11.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation12.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation13.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation14.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation15.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation16.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE5.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE6.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE7.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE7.5.plist
+/Applications/.GridCalculator/DemoActivationGCPE8.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE9.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE10.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE11.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE12.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE13.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE14.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE15.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE16.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE18.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE5.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE6.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE7.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE7.5.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE8.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE9.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE10.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE11.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE12.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE13.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE14.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE15.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE16.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE18.0.plist
+Please select where to import preset(s).
+Please enter name of new client or select existing client from the dropdown menu.
+0x15d300kGCSpecialCharactersMsg
+Blank entry is not allowed!
+Do you want to overwrite the existing preset?
+Please know that the only style that will be stored in the saved preset is: Body Copy #1 (paragraph style). Regarding the masters, only the ones created by the plug-in will be included in the preset. If you want to save all the styles and the masters (including those created outside the plug-in) it is recommended that you save the actual document itself instead of the preset.
+You just created an alternate layout master. Please know that, due to this you are forced to setup your document in Quick Mode. The reason for this is that Modular and Smart Mode are based on the document grid and in this case that would cause misalignments in the layout. To edit alternate master, please click the Edit button in the bottom of the plug-in dialog. To select alternate layout master please use the pages palette or the dropdown menu in the plug-in.
+Learn More
+open "http://www.designersbookshop.com/redirection/gc-pe/pages/alternatelayout/"
+The selected style can not be deleted as it is being used by Grid Calculator Publishing Edition.
+The selected master can not be deleted as it is being used by Grid Calculator Publishing Edition.
+The selected object style can not be deleted as it is being used by Grid Calculator Publishing Edition.
+The selected object style group can not be deleted as it is being used by Grid Calculator Publishing Edition.
+5F685F10
+57BB55D89593
+983E26D0
+4EBC55D89593
+%@%@%@%@%@
+?KeyD=
+?KeyTD=
+?DKeyD=
+?DKeyTD=
+/GCSettings.txt
+https://gcpe-activation-proxy.noisy-art-eee3.workers.dev
+?CanUse=
+?InUse=
+Demo has been Activated successfully
+/Applications/.GridCalculator
+Test Drive License successfully activated
+TDEXPOTH
+TDALREADYUSED
+TDACTIVATEDOTM
+INVALID_LICENSE
+Demo has been Deactivated successfully
+FAILED
+Test Drive License successfully Deactivated
+Invalid Host
+?AIKeyD=
+?AIKeyTD=
+?UseDemo=
+?CanUse=TEST
+0 is not a valid number. Please, enter a valid number.
+The value must be between 1 and 1000.
+The module value must be between 0.353 mm and 352.778 mm. Please update and enter valid values.
+The module value must be between 0.0139 in and 13.8889 in. Please update and enter valid values.
+The module value must be between 1 pt and 
+1000 pt. Please update and enter valid values.
+The width value must be between 0.353 mm
+and 5486.4 mm.
+The width value must be between 0.0139 in
+and 216 in.
+The width value must be between 1 pt
+and 15552 pt.
+The height value must be between 0.353 mm
+and 5486.4 mm.
+The height value must be between 0.0139 in
+and 216 in.
+The height value must be between 1 pt
+and 15552 pt.
+The leading is greater than the document height. Reduce the leading value or increase the V. Subdiv value to make the leading fit.
+The leading is the same value as the document height, which is not recommended. Increase the modules and/or the subdivisions or reduce leading.
+Please enter value greater than 0.
+The entered value is too large. Value must be less then the document width. Please try again.
+The entered value is too large. Value must be less then the document height. Please try again.
+Invalid value.
+containsObject:
+URLWithString:
+getBytes:range:
+addObject:
+requestWithURL:
+appendBytes:length:
+stringByAppendingPathComponent:
+uppercaseString
+URLQueryAllowedCharacterSet
+dateFromString:
+UTF8String
+initWithString:
+addRegularFileWithContents:preferredFilename:
+sharedWorkspace
+appendString:
+stringFromDate:
+arrayWithCapacity:
+arrayWithObjects:
+attributeForName:
+attributes
+characterAtIndex:
+characterIsMember:
+childAtIndex:
+children
+componentsSeparatedByString:
+contentsOfDirectoryAtPath:error:
+createDirectoryAtPath:withIntermediateDirectories:attributes:error:
+createDirectoryAtURL:withIntermediateDirectories:attributes:error:
+createFileAtPath:contents:attributes:
+dataTaskWithRequest:completionHandler:
+dataTaskWithURL:completionHandler:
+dataWithContentsOfFile:
+dataWithData:
+dataWithPropertyList:format:options:error:
+decimalDigitCharacterSet
+defaultManager
+dictionary
+doubleValue
+fileExistsAtPath:
+fileExistsAtPath:isDirectory:
+fileURLWithPath:
+fileURLWithPath:isDirectory:
+indexOfObject:
+initDirectoryWithFileWrappers:
+initRegularFileWithContents:
+initWithContentsOfFile:
+initWithContentsOfFile:encoding:error:
+initWithContentsOfURL:encoding:error:
+initWithData:options:error:
+initWithLocaleIdentifier:
+intValue
+isEqualToString:
+isNotEqualTo:
+isRegularFile
+isWritableFileAtPath:
+keyEnumerator
+lastPathComponent
+launch
+length
+localizedDescription
+moveItemAtPath:toPath:error:
+nextObject
+nextSibling
+nodesForXPath:error:
+numberWithUnsignedLong:
+objectAtIndex:
+objectEnumerator
+objectForKey:
+openURL:
+pathComponents
+preferredLocalizationsFromArray:
+propertyListWithData:options:format:error:
+rangeOfString:
+removeItemAtPath:error:
+replaceCharactersInRange:withString:
+replaceOccurrencesOfString:withString:options:range:
+resume
+setArguments:
+setDateFormat:
+setLaunchPath:
+setLength:
+setLocale:
+setObject:forKey:
+setTimeZone:
+setValue:forKey:
+sharedSession
+stringByAddingPercentEncodingWithAllowedCharacters:
+stringByAppendingString:
+stringByTrimmingCharactersInSet:
+stringValue
+stringWithCString:encoding:
+stringWithContentsOfFile:encoding:error:
+stringWithContentsOfURL:encoding:error:
+stringWithFormat:
+stringWithString:
+stringWithUTF8String:
+substringFromIndex:
+substringToIndex:
+substringWithRange:
+terminationStatus
+timeZoneWithName:
+valueForKey:
+waitUntilExit
+whitespaceAndNewlineCharacterSet
+writeToFile:atomically:
+writeToFile:atomically:encoding:error:
+SFBJYCAHMUVGINTLPQERZWKXOD
+11GCResponder
+22GCTreeNodeEventHandler
+17GCActionComponent
+17GCServiceProvider
+yE>ffffff
+29GCPreferencesDialogController
+31GCSubscriptionLicDialogObserver
+16GCImportListData
+10CPMUnknownI17IGCImportListDataE
+17IGCImportListData
+10IPMUnknown
+11NodeIDClass
+25GCAboutDialogEventHandler
+13GCTreeNodeTip
+10CPMUnknownI4ITipE
+25GCImportTreeViewWidgetMgr
+24GCImportTreeNodeObserver
+26GCGenericPanelEventHandler
+24GCStylesDialogController
+14GCSuppressedUI
+10CPMUnknownI13ISuppressedUIE
+13ISuppressedUI
+31GCChangeVersionDialogController
+14GCNudgeHandler
+10CPMUnknownI13INudgeHandlerE
+13INudgeHandler
+19GCPreDialogObserver
+32GCPrePurchaseLicDialogController
+18GCImportDataNodeID
+18GCStringDialogData
+10CPMUnknownI19IGCStringDialogDataE
+19IGCStringDialogData
+17GCStartupShutdown
+10CPMUnknownI23IStartupShutdownServiceE
+23IStartupShutdownService
+6NodeID
+26GCPurchaseLicDlgController
+30GCPrePurchaseLicDialogObserver
+25GCRealEditBoxEventHandler
+24GCIntEditBoxEventHandler
+26GCValueEditBoxEventHandler
+25GCTextEditBoxEventHandler
+29GCYMeasureEditBoxEventHandler
+29GCXMeasureEditBoxEventHandler
+32GCImportTreeViewHierarchyAdapter
+23GCAboutDialogController
+13SDKFileHelper
+18SDKFileOpenChooser
+N18SDKFileOpenChooser6FilterE
+18SDKFileSaveChooser
+N18SDKFileSaveChooser6FilterE
+21GCPreDialogController
+18GCDialogController
+27GCPreferencesDialogObserver
+15SDKLayoutHelper
+22GCImportDialogObserver
+24GCUpdateDialogController
+14GCActionFilter
+10CPMUnknownI13IActionFilterE
+13IActionFilter
+@@fffffn
+16GCDialogObserver
+10GCDemoData
+10CPMUnknownI11IGCDemoDataE
+11IGCDemoData
+10GCIdleTask
+20GCDialogEventWatcher
+10CPMUnknownI13IEventWatcherE
+13IEventWatcher
+28GCTransparentTextControlView
+N5boost6detail17sp_counted_impl_pI10WideStringEE
+N5boost6detail15sp_counted_baseE
+N5boost6detail17sp_counted_impl_pI8PMStringEE
+17GCLearningModeTip
+19GCTreeViewWidgetMgr
+chmod -R 777 "
+rm -r -f "
+chmod -R 777 "
+rm -r -f "
+chmod -R 777 "
+rm -r -f "
+chmod -R 777 "
+rm -r -f "
+15GCMouseRollOver
+10CPMUnknownI14IMouseRollOverE
+14IMouseRollOver
+21GCAboutDialogObserver
+28GCRollOverIconButtonObserver
+18GCStylesDialogData
+10CPMUnknownI19IGCStylesDialogDataE
+19IGCStylesDialogData
+24GCImportDialogController
+18GCUpdateDialogData
+10CPMUnknownI19IGCUpdateDialogDataE
+19IGCUpdateDialogData
+22GCUpdateDialogObserver
+26GCTreeViewHierarchyAdapter
+24GCStringDialogController
+13GCDocObserver
+20GCCommandInterceptor
+10CPMUnknownI19ICommandInterceptorE
+19ICommandInterceptor
+9GCDocData
+10CPMUnknownI10IGCDocDataE
+10IGCDocData
+20GCRealTextValidation
+10CPMUnknownI19ITextDataValidationE
+19ITextDataValidation
+22AGMGraphicsContextWithI20DVAGMAcquireCoordSys16DVAGMAcquireClipE
+16IGraphicsContext
+10CPMUnknownI25ITreeViewHierarchyAdapterE
+25ITreeViewHierarchyAdapter
+15MResourceAccess
+7IPlugIn
+6PlugIn
+Adobe InDesign 2026
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/vector:1393: assertion __n < size() failed: vector[] index out of bounds
+0x15d300kGCDeactivatePluginMenuKey
+0x15d300kGCActivatePluginMenuKey
+0x15d300kGCShowKey
+0x15d300kGCHideKey
+columns
+subcolumns
+sec. columns
+You have version 
+ installed. The latest version available is 
+Do you want to install the latest version? Updating takes a few minutes.
+Internet connection not found. Please note that demo and online license only works while being connected to the Internet. Connect to Internet and try again. If you have any firewall or anti-virus installed make sure that InDesign and the plug-in are allowed access to the Internet.
+Adobe InDesign CS3
+Adobe InDesign CS4
+Adobe InDesign CS5
+Adobe InDesign CS55
+Adobe InDesign CS6
+Adobe InDesign CC 2015
+A special setting has been set for another version of the plug-in and therefore you can not activate the demo for this version. Please contact technical support for further help.
+This license is being used
+ on another computer.
+Only one computer at a time can use the license.
+The serial number is deactivated!
+The serial number is no longer valid.
+The serial number is refunded!
+Information regarding editing of masters:
+Please know that the document grid is universal and that the settings applied in one master will be applied and updated in all masters. If you want to setup different layouts using masters, the only limitation is that the Baseline Grid (leading) value must be the same for all.
+A solution for creating different layouts (unless you want to base it on the document grid) is to break the document grid and setup your own grid by using the 'Value' option in the margins section combined with 'Type Area' grid feature (Custom Setup) when working in Quick Document Setup.
+0x15d300kGCDialogTitleKey
+[GC] Version 4.2
+[GC] Break Vertical
+Due to certain changes made in earlier plug-in version for correctly applying rows, the document you are about to edit will most likely not be edited correctly. Do you wish to continue?
+No Internet connection found,
+please connect to the Internet.
+You are running the latest version!
+open "http://www.designersbookshop.com/layout-wizard"
+open "https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/index.html"
+open "https://designersbookshop.s3.amazonaws.com/products/knowledgebase/grid_calculator_pe/index.html"
+open "http://www.designersbookshop.com/redirection/grid-calculator-pro-edition/forum/"
+To contact support please send an email to:
+support@designersbookshop.com
+Server Status: 
+Copy Email Address
+Email address copied to clipboard!
+support@designersbookshop.com
+echo '
+' | pbcopy
+open "https://designersbookshop.s3.amazonaws.com/products/redirection/gc-pe/license/monthly/index.html"
+open "https://designersbookshop.s3.amazonaws.com/products/redirection/gc-pe/license/yearly/index.html"
+open "http://www.designersbookshop.com/products/"
+Plug-in must manually be opened the first time via the menu bar. Once this has been done, then you can run the plug-in using the keyboard shortcut.
+Please note that when margins are edited in Smart Mode, they will maintain/move the type area and are therefore locked. To edit the margins freely please select Modular Mode and once done go back to Smart Mode. In Smart Mode, margins are set after the columns and rows are applied.
+Preset
+ Subcolumns
+ Secondary Columns
+ Subrows
+ Secondary Rows
+ Image-lines
+[Pro Ed.] Horz. Guides
+0x15d300kGCShowGuidesKey
+0x15d300kGCHideGuidesKey
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:953: assertion __s != nullptr failed: basic_string(const char*) detected nullptr
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:1838: assertion !__r_.first().__s.__is_long_ failed: String has to be short when trying to get the short size
+GridCalculator Responder Service
+vector
+[GC-1]
+0x15d300kGCHideGridKey
+0x15d300kGCEditKey
+Generic
+Applied Leading: 
+ - V. Subdiv: 
+0x15d300kGCMultiplicationKey
+ Body Copy Locked
+Custom Leading (pt)
+V. Subdiv. (
+ V. Subdiv. (
+[GC] CGS
+[GC] Smart Setup
+No Sec. Columns
+Custom Setting Applied
+ columns
+ Results
+0x15d300kGCWizardKey
+0x15d300kGCMillimetersKey
+0x15d300kGCInchesKey
+0x15d300kGCPointsPixelsKey
+0x15d300kGCSquareKey
+0x15d300kGCCalculateKey
+0x15d300kGCNoParagraphStyleKey
+[Pro Ed.
+0x15d300kGCMmKey
+0x15d300kGCInKey
+0x15d300kGCPtKey
+0x15d300kGCWidthColonKey
+0x15d300kGCHeightColonKey
+0x15d300kGCGreaterKey
+0x15d300kGCLockKey
+0x15d300kGCOptionsKey
+0x15d300kGCResetKey
+0x15d300kGCImageLinesMmColonKey
+0x15d300kGCImageLinesInColonKey
+0x15d300kGCImageLinesPtColonKey
+[GC] Body Copy
+Miscellaneous
+ lines
+gutter: 
+0x15d300kGCPointsKey
+ Horizontal Grid
+[Basic Paragraph]
+[GC] Body Copy #1
+0x15d300kGCUnlockKey
+Paragraph Styles
+Character Styles
+0x15d300kGCAddMasterDDItemKey
+0x15d300kGCCopyImportStyleKey
+NormalParagraphStyle
+Please note that the Page Tool is not available while Grid Calculator Publishing Edition is running. Also, know that
+Page Tool edited masters can not be edited.
+Millimeters
+Inches
+Points
+Override NodeID::GetDescription() to provide useful information here
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__iterator/next.h:33: assertion __n >= 0 || __has_bidirectional_iterator_category<_InputIter>::value failed: Attempt to next(it, n) with negative n on a non-bidirectional iterator
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__iterator/advance.h:70: assertion __n >= 0 || __has_bidirectional_iterator_category<_InputIter>::value failed: Attempt to advance(it, n) with negative n on a non-bidirectional iterator
++*_-(!
+Important: When working with image-lines, make sure to only edit Body Copy #1 through the plug-in, otherwise the setting for image-lines will be incorrect. Avoid editing the font, style, size and leading (Basic Character Formats) through the Paragraph Style Options dialog, instead edit these settings through the plug-in. Other settings can be edited just fine, please note that this only applies to Body Copy #1.
+Body Copy
+0x15d300kGCEditStyleKey
+Adobe InDesign CC 2026
+Adobe InDesign CC 2022
+Adobe InDesign CC 2020
+Adobe InDesign CC 2019
+Adobe InDesign CC 2018
+Adobe InDesign CC 2017
+Adobe InDesign CC
+Adobe InDesign CC 2014
+This computer is currently running Grid Calculator Publishing Edition in Online mode in Adobe InDesign 
+. Do you want to change it to this version (
+) instead?
+Online License Expires: 
+This computer is currently running Grid Calculator Publishing Edition in demo mode in Adobe InDesign 
+) instead? You have 
+ days left of your demo.
+Please select 'Open Folder' and run the 'Activator' application to activate or deactivate the plug-in.
+0x15d300kGCOpenFolderKey
+Internet connection not found (this registration can only run while being online, registered full/upgrade license can run both offline and online - requires Internet activation). Make sure you're connected to the Internet and that nothing is blocking the Internet connection like an anti-virus software or a firewall.
+Version successfully changed to 2026
+Version failed to change due to expired demo.
+Version failed to change due to special setting has been set for another version of the plug-in and therefore you can not activate the demo for this version, please contact technical support for further help.
+Version failed to change due to banned demo.
+Version failed to change.
+0x15d300kGCPurchaseOnlineLicenseKey
+Adobe InDesign 2020
+Adobe InDesign 2022
+Test Drive
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:1831: assertion __s < __min_cap failed: __s should never be greater than or equal to the short string capacity
+SafeReadFile: Reading: %s
+SafeReadFile: File does not exist: %s
+SafeReadFile: Failed to open file: %s (errno: %d)
+SafeReadFile: Invalid file size: %d
+SafeReadFile: Successfully read %d bytes
+SafeReadFile: Failed to read file content
+SafeReadFile: Unknown exception
+SafeReadFile: Exception: %s
+SafeWriteFile: Writing to: %s (%d bytes)
+SafeWriteFile: Failed to open file: %s (errno: %d)
+SafeWriteFile: Failed to write content
+SafeWriteFile: Successfully wrote file
+SafeWriteFile: Unknown exception
+SafeWriteFile: Exception: %s
+ Jan, 
+ Feb, 
+ Mar, 
+ Apr, 
+ May, 
+ Jun, 
+ Jul, 
+ Aug, 
+ Sep, 
+ Oct, 
+ Nov, 
+ Dec, 
+GetPresetDate: Using cached date for %s
+GetPresetDate: Reading date from %s
+Date: 
+GetPresetDate: Cached date for %s
+Columns: 
+Subcolumns: 
+Sec. Columns: 
+Secondary Rows: 
+subrows
+Subrows: 
+Rows: 
+Regular
+Font: 
+Style: 
+ is missing.
+Size (pt): 
+Style Leading: 
+Alignment: 
+Tracking: 
+Kerning: 
+Indent/Exdent: 
+Tabs: 
+Figure Style: 
+[GC] Rows
+[GC] Secondary Rows
+[GC] Subcolumns
+[GC] Secondary Columns
+[Pro Ed.] Sec./Sub Columns
+InitPresets: Starting preset initialization
+InitPresets: Failed to get IGCPreferences
+InitPresets: Successfully got preferences
+InitPresets: Failed to find presets tree view widget
+InitPresets: Found presets tree view widget
+InitPresets: Failed to get ITreeViewMgr
+InitPresets: Got tree view manager
+InitPresets: Failed to get ITreeViewController
+InitPresets: Got tree view controller
+InitPresets: Deselecting all tree items
+InitPresets: Failed to get IStringListData
+InitPresets: Got string list data
+InitPresets: Getting presets for client: %s
+InitPresets: No client set, defaulting to 'All'
+InitPresets: Retrieved %d presets
+InitPresets: Set string list data
+InitPresets: Clearing tree
+InitPresets: Changing root
+InitPresets: Successfully completed preset initialization
+GetPresetsFolder: FSFindFolder failed with error: %d
+GetPresetsFolder: FSRefMakePath failed with error: %d
+GetPresetsFolder: Documents path: %s
+Documents path: %s
+Failed to get Documents folder path
+Grid Calculator Publishing Edition
+Presets
+Presets folder path: %s
+Failed to create presets folder with error: %d
+Folder creation verification failed
+GetFilesInDir: Traversing directory: %s
+GetFilesInDir: Directory doesn't exist: %s
+DS_Store
+GetFilesInDir: Added item: %s (ext: %s)
+GetFilesInDir: Found %d valid items
+GetFilesInDir: Unknown exception
+GetFilesInDir: Exception: %s
+GetPresetsList called for client: %s, fullpath: %d
+GetPresetsList: Failed to get IGCDocData
+All clients mode - found %d clients
+Processing client: %s
+GetPresetsList: Presets folder doesn't exist for client: %s
+GetPresetsList: Failed to enumerate directory
+GetPresetsList: Added preset: %s
+GetPresetsList: Added full path: %s
+GetPresetsList returning %d presets
+GetPresetsList: Sorting %d presets with order %d (0=Last Saved, 1=First Saved)
+GetPresetsList: Pre-caching dates for %d presets...
+GetPresetsList: Cached date for preset %d: %s
+GetPresetsList: Date caching complete, now sorting...
+GetPresetsList: Sorting complete
+GetClientsList: Main presets folder doesn't exist
+GetClientsList: Failed to enumerate main presets directory
+.DS_Store
+GetClientsList: Found client: %s
+GetClientsList: Found %d clients
+GetClientsList: Unknown exception
+GetClientsList: Exception: %s
+Type: Grid Calculator Publishing Edition;
+Version: 
+Preset Name: 
+Date: 
+Document Setup: 
+Modular
+Number of Masters: 
+Facing Pages: 
+Unit: 
+Width: 
+Height: 
+Leading (pt): 
+Correct Leading (pt): 
+Desired Grid Width: 
+Applied Grid Width: 
+Square: 
+0x15d300kGCUnDoKey
+ Doc. Width: 
+[GC] Square: 
+Fit Leading: 
+Subdivision: 
+Width 4: 
+H. Module 2: 
+H. Module 3: 
+H. Subdiv 2: 
+H. Subdiv 3: 
+Height 4: 
+V. Module 2: 
+V. Module 3: 
+V. Subdiv 2: 
+V. Subdiv 3: 
+Leading: 
+Font: 
+Style: 
+Size (pt): 
+Style Leading: 
+Alignment: 
+Tracking: 
+Kerning: 
+Indent/Exdent: 
+Custom
+Tabs: 
+Figure Style: 
+Bleed (Chain): 
+false;
+Bleed (Top): 
+Bleed (Bottom): 
+Bleed (Inside): 
+Bleed (Outside): 
+Slug (Chain): 
+Slug (Top): 
+Slug (Bottom): 
+Slug (Inside): 
+Slug (Outside): 
+Vertical Value Mode: 
+No. of Master Pages: 
+Horizontal Value Mode: 
+Image-lines height (pt): 
+Image-lines: 
+ Smart Columns applied: 
+ Smart Rows applied: 
+ Desired Top Margin: 
+ Desired Bottom Margin: 
+ Desired Inside Margin: 
+ Desired Outside Margin: 
+Top margin (lines): 
+Bottom margin (lines): 
+Top margin: 
+Bottom margin: 
+Inside margin (lines): 
+Outside margin (lines): 
+Inside margin: 
+Outside margin: 
+ lines);
+ gutter: 
+Main Columns: 
+Custom Columns: Num: 
+, Width: 
+, Gutter: 
+Main Subcolumns: 
+Custom Subcolumns: Num: 
+Fit sec. columns: 
+Fit to margins
+Fit to page
+Main Secondary Columns: 
+Custom Secondary Columns: Num: 
+Fit rows: 
+Main Rows: 
+Custom Rows: Num: 
+Main Subrows: 
+Custom Subrows: Num: 
+Fit sec. rows: 
+Main Secondary Rows: 
+Custom Secondary Rows: Num: 
+Typearea Grid (Horizontal): 
+ lines - 
+Typearea Grid (Subleading): 
+/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/
+/*WARNING: Please do not change the format of this file, otherwise it can cause the application to malfunction*/
+Unit: 
+Leading (pt):
+Leading:
+Version: 
+ - Version 
+Correct Leading (pt): 
+Width: 
+Width (mm): 
+Width (in): 
+Width (pt): 
+Height: 
+Height (mm): 
+Height (in): 
+Height (pt): 
+Applied Grid Width (pt): 
+H. Subdivision: 
+ pt | 
+V. Subdivision: 
+Subdivision: 
+Applied 
+Proportion: 
+Custom Leading: 
+Fit Leading: 
+Width 4: 
+H. Module 2: 
+H. Module 3: 
+Modules: 
+H. Subdiv 2: 
+H. Subdiv 3: 
+Subdivisions: 
+Height 4: 
+V. Module 2: 
+V. Module 3: 
+V. Subdiv 2: 
+V. Subdiv 3: 
+Leading: 
+Size: 
+Image-lines: 
+Image-lines
+Image-lines height (pt): 
+Columns (lines): 
+Main Columns: 
+ columns, Gutter: 
+Custom Columns: Num: 
+Gutter: 
+Sec./Sub Columns (lines): 
+Secondary Columns: None
+Subcolumns: None
+Main Subcolumns: 
+Custom Subcolumns: Num: 
+Main Secondary Columns: 
+Secondary Columns: 
+Custom Secondary Columns: Num: 
+Rows (lines): 
+Main Rows: 
+ rows, Gutter: 
+Custom Rows: Num: 
+Main Subrows: 
+Custom Subrows: Num: 
+Main Secondary Rows: 
+Custom Secondary Rows: Num: 
+Typearea Grid (Horizontal): 
+H. Type Area: 
+H. Type Area: None
+Typearea Grid (Subleading): 
+Subleading: 
+Subleading: None
+HandleDblClk: Starting preset application for: %s
+HandleDblClk: ERROR - Failed to get IGCDocData
+HandleDblClk: ERROR - Failed to find dialog widget
+HandleDblClk: ERROR - Failed to get dialog observer
+HandleDblClk: Saved original observer state: %s
+enabled
+disabled
+Vertical Value Mode: 
+Due to certain changes made earlier for correctly applying rows, the preset you are about to apply will most likely not be applied correctly. Do you wish to continue?
+Number of Masters: 
+Document Setup: 
+Facing Pages: 
+Bleed (Chain): 
+Slug (Chain): 
+HandleDblClk: Switching to BGS mode
+HandleDblClk: Successfully cleared modular settings
+HandleDblClk: ERROR - Failed to get IWidgetUtils
+HandleDblClk: ERROR - Unknown exception during clear button simulation
+HandleDblClk: ERROR - Exception during clear button simulation: %s
+HandleDblClk: ERROR - Clear button event handler not found
+HandleDblClk: ERROR - Clear button widget not found
+HandleDblClk: WARNING - Clear operation failed, continuing with manual cleanup
+Leading (pt): 
+Square: 
+H. Module: 
+Desired Grid Width: 
+Applied Grid Width: 
+[GC] Desired Grid Width: 
+Bleed (Top): 
+Bleed (Bottom): 
+Bleed (Inside): 
+Bleed (Outside): 
+Slug (Top): 
+Slug (Bottom): 
+Slug (Inside): 
+Slug (Outside): 
+HandleDblClk: About to process %d master spreads
+HandleDblClk: ERROR - numOfMasters too high: %d
+HandleDblClk: === Processing master spread %d of %d ===
+HandleDblClk: Looking for spread: %s
+HandleDblClk: Spread %s not found in preset
+HandleDblClk: No end marker found for %s
+HandleDblClk: Invalid bounds for %s (start:%d, end:%d)
+HandleDblClk: Extracting content for %s (start:%d, end:%d, length:%d)
+HandleDblClk: Failed to extract content for %s
+HandleDblClk: Invalid extracted content for %s (length: %d)
+HandleDblClk: ERROR - Master spread UID not found for %s
+HandleDblClk: ERROR - Invalid master spread reference for %s
+HandleDblClk: ERROR - Failed to get spread preferences for %s
+No. of Master Pages: 
+Horizontal Value Mode: 
+Desired Top Margin: 
+Top margin (lines): 
+Bottom margin (lines): 
+Top margin: 
+Desired Bottom Margin: 
+Bottom margin: 
+Desired Inside Margin: 
+Inside margin (lines): 
+Outside margin (lines): 
+Inside margin: 
+Desired Outside Margin: 
+Outside margin: 
+f-height (pt): 
+x-height (pt): 
+l-height (pt): 
+H-height (pt): 
+The applied preset contains an old image-line setting and has been replaced with either x or H-height.
+Smart Columns applied: 
+HandleDblClk: ERROR - Exception during custom columns parsing
+Fit sec. columns: 
+Fit rows: 
+Smart Rows applied: 
+Fit sec. rows: 
+HandleDblClk: Set master spread dropdown to index %d
+HandleDblClk: WARNING - Dropdown index %d out of bounds (%d items)
+HandleDblClk: WARNING - Master spread index %d out of bounds (%d items)
+HandleDblClk: ERROR - Failed to get string list control data
+HandleDblClk: ERROR - Master spread dropdown widget not found
+HandleDblClk: Preset application completed successfully
+HandleDblClk: Restored observer state to: %s
+HandleDblClk: ERROR - Failed to restore observer state
+HandleDblClk: Function cleanup completed
+Enter all fields, apply all the document settings and try again.
+0x15d300kGCSavePresetTitleKey
+A preset with the name "
+" already exists in the "
+" folder.
+Do you want to overwrite it?
+Save failed: Unable to write preset file.
+HandleSave: Successfully saved preset: %s
+HandleSave: Updated client preference to: %s
+HandleSave: Refreshing presets tree view
+*** HANDLEIMPORT FUNCTION ENTRY ***
+=== STARTING IMPORT PROCESS ===
+HandleImport: Failed to get IGCDocData
+Import failed: Unable to access document data.
+HandleImport: Got IGCDocData successfully
+HandleImport: Failed to get IGCPreferences
+Import failed: Unable to access preferences.
+HandleImport: Got IGCPreferences successfully
+HandleImport: About to show file chooser
+Choose Presets File
+HandleImport: No file chosen
+HandleImport: File was chosen
+HandleImport: Selected file doesn't exist
+Import failed: The selected file doesn't exist.
+HandleImport: File exists and is valid
+HandleImport: File path: %s
+HandleImport: About to read file
+HandleImport: Failed to read file content
+Import failed: Unable to read the selected file.
+HandleImport: Successfully read file (%d bytes)
+HandleImport: Failed to convert file content to PMString
+Import failed: Unable to process file content.
+/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/
+=== SEPARATOR CHECK: Looking for '%s' in content length %d ===
+=== COUNT DETECTION START ===
+Content length: %d
+Separator: '%s'
+Found preset #%d
+FINAL COUNT: %d
+=== COUNT DETECTION END ===
+NO SEPARATORS - SINGLE PRESET
+=== COUNT DECISION POINT ===
+HandleImport: Count value is: %d
+HandleImport: About to check if count == 1
+HandleImport: TAKING SINGLE PRESET PATH
+Import
+0x15d300kGCImportPresetsKey
+HandleImport: No client specified
+HandleImport: Using client: %s
+HandleImport: Failed to create client directory
+Import failed: Unable to create client directory.
+HandleImport: Failed to find separator in content
+Import failed: Invalid preset format.
+HandleImport: Failed to extract preset content
+Import failed: Unable to extract preset content.
+Preset Name: 
+HandleImport: 'Preset Name' not found in content
+Import failed: Preset name not found in file.
+HandleImport: Preset name terminator not found
+HandleImport: Failed to extract preset name
+Import failed: Unable to extract preset name.
+HandleImport: Extracted preset name: %s
+HandleImport: Duplicate preset found
+Identical preset names were found.
+The new preset files were suffixed with: (Copy).
+(Copy).txt
+HandleImport: Target path: %s
+HandleImport: Failed to write preset file
+Import failed: Unable to write preset file.
+HandleImport: Successfully wrote preset file
+HandleImport: Single preset imported successfully
+HandleImport: TAKING MULTIPLE PRESET PATH
+HandleImport: Count = %d, should be multiple
+HandleImport: About to set import content
+HandleImport: Calling ShowImportDialog
+HandleImport: ShowImportDialog returned %d selected presets
+HandleImport: Selected preset %d: '%s'
+HandleImport: No presets selected
+HandleImport: Using client from prefs: '%s'
+No client specified for import!
+HandleImport: About to process %d selected presets
+HandleImport: Processing next preset...
+HandleImport: No separator found
+HandleImport: Failed to extract preset
+HandleImport: Found preset: '%s'
+HandleImport: Preset '%s' is selected
+HandleImport: Saving preset: %s
+HandleImport: File exists, adding (Copy)
+HandleImport: Saving to: %s
+HandleImport: SUCCESS - Saved: %s
+HandleImport: FAILED to save: %s
+HandleImport: Failed to get remaining content
+HandleImport: No more content
+HandleImport: Finished - saved %d presets
+HandleImport: Import process completed
+No preset selected. Select one or more presets (by holding Cmd/Ctrl) and try again.
+Do you really want to delete the preset:
+Do you really want to delete the selected presets?
+HandleDelete: Using direct path for 'All': %s
+HandleDelete: Constructed path for client '%s': %s
+HandleDelete: Successfully deleted: %s
+HandleDelete: Failed to delete: %s (errno: %d)
+HandleDelete: File doesn't exist: %s
+Export Presets
+TEXT File (*.txt)
+/*WARNING
+/*WARNING
+Export failed: Unable to write export file.
+Export Settings
+Export failed: Unable to write settings file.
+ShowImportDialog: Starting import dialog
+ShowImportDialog: Failed to get IApplication
+Import failed: Unable to access application.
+ShowImportDialog: Failed to get IDialogMgr
+Import failed: Unable to access dialog manager.
+ShowImportDialog: Failed to get IGCDocData
+ShowImportDialog: Presets content is empty
+Import failed: No content to import.
+ShowImportDialog: Setting import presets content (%d bytes)
+ShowImportDialog: Creating dialog
+ShowImportDialog: Failed to create import dialog
+Import failed: Unable to create import dialog.
+ShowImportDialog: Failed to get dialog panel
+Import failed: Unable to access dialog panel.
+ShowImportDialog: Failed to get IPanelControlData
+Import failed: Unable to access panel data.
+ShowImportDialog: Failed to find import tree view widget
+Import failed: Unable to access import tree view.
+ShowImportDialog: Failed to get IGCImportListData
+Import failed: Unable to access import list data.
+ShowImportDialog: Failed to get IStringListData
+Import failed: Unable to access string list data.
+ShowImportDialog: No unit selected, using default
+ShowImportDialog: Getting import data list with unit: %s
+ShowImportDialog: Retrieved %d import items
+ShowImportDialog: No import items found
+Import failed: No valid presets found.
+ShowImportDialog: Opening dialog
+ShowImportDialog: Dialog closed
+ShowImportDialog: User selected %d presets
+Applied Leading:
+Proportions: 
+ | Gutter: 
+ lines 
+Secondary Columns: None
+Subcolumns: None
+ secondary columns, Gutter: 
+Size: 
+x-height, 
+H-height,
+Custom,
+H. Subdiv: 
+V. Module: 
+V. Subdiv: 
+0 lines - 0
+H. Type Area: 
+ lines | 
+H. Type Area: None
+V. Type Area: 
+V. Type Area: None
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__memory/construct_at.h:66: assertion __loc != nullptr failed: null pointer given to destroy_at
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:1229: assertion __pos <= size() failed: string index out of bounds
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:283: assertion __root != nullptr failed: Root of the tree shouldn't be null
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:284: assertion __x != nullptr failed: Can't attach null node to a leaf
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:240: assertion __x != nullptr failed: node shouldn't be null
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:241: assertion __x->__right_ != nullptr failed: node should have a right child
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:259: assertion __x != nullptr failed: node shouldn't be null
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__tree:260: assertion __x->__left_ != nullptr failed: node should have a left child
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/comp_ref_type.h:47: assertion !__comp_(__l, __r) failed: Comparator does not induce a strict weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:36: assertion (std::is_sorted<_RandomAccessIterator, _Comp_ref>(__first, __last, _Comp_ref(__comp))) failed: The range is not sorted after the sort, your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:50: assertion !__comp(*(__first + __a), *(__first + __b)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:52: assertion !__comp(*(__first + __b), *(__first + __a)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:59: assertion __comp(*(__first + __a), *(__first + __b)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__debug_utils/strict_weak_ordering_check.h:61: assertion !__comp(*(__first + __b), *(__first + __a)) failed: Your comparator is not a valid strict-weak ordering
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:333: assertion __k != __leftmost failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/pop_heap.h:40: assertion __len > 0 failed: The heap given to pop_heap must be non-empty
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sift_down.h:88: assertion __len >= 2 failed: shouldn't be called unless __len >= 2
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:710: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:723: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:733: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:738: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:539: assertion __last - __first >= difference_type(3) failed: 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:552: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:565: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:631: assertion __last - __first >= difference_type(3) failed: 
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:643: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:655: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:673: assertion __first != __end failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/__algorithm/sort.h:678: assertion __last != __begin failed: Would read out of bounds, does your comparator satisfy the strict-weak ordering requirement?
+0x15d300kGCPurchaseFullLicDialogTitleKey
+0x15d300kGCPurchaseFullLicDescriptionKey
+0x15d300kGCPurchaseFullLicenseKey
+Upgrade
+0x15d300kGCPurchaseUpgradeLicDialogTitleKey
+0x15d300kGCPurchaseUpgradeLicDescriptionKey
+0x15d300kGCPurchaseUpgradeLicenseKey
+Online
+0x15d300kGCPurchaseOnlineLicDialogTitleKey
+0x15d300kGCPurchaseOnlineLicDescriptionKey
+open "https://www.designersbookshop.com/purchase/gc-pro-ed-cs6/"
+open "https://www.designersbookshop.com/purchase/gc-pro-ed-cs6u/"
+open "https://www.designersbookshop.com/purchase/gc-pro-ed-subscription/"
+DVControlEventHandler
+xml:lang
+/rss/GCProEditionCS3/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS4/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS5/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS55/Mac/GridCalculatorProEdition
+/rss/GCProEditionCS6/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC13/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC14/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC15/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC17/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC18/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC19/Mac/GridCalculatorProEdition
+/rss/GCProEditionCC20/Mac/GridCalculatorPublishingEdition
+/rss/GCProEditionCC22/Mac/GridCalculatorPublishingEdition
+/rss/GCProEditionCC26/Mac/GridCalculatorPublishingEdition
+v32@?0@"NSData"8@"NSURLResponse"16@"NSError"24
+Download failed: %@
+enclosure
+version
+Version
+/GCXMLSettings.txt
+Error reading XML settings file: %@
+https://designersbookshop.s3.us-east-1.amazonaws.com/products/updates/grid_calculator_pe/xml/gcpe.xml
+Version 
+ - Online License Expired
+ - Expires: 
+0x15d300kGCUseDemoKey
+ - Demo Expired
+0x15d300kGCActivateLicenseKey
+ Not Activated
+0x15d300kGCDemoLicenseKey
+ - Demo Not Available
+ - Expires in 
+ - Expires Today
+cclibraries
+Untitled
+Open a File
+All Readable Documents
+All Documents
+Save As
+PubFileFamily
+[Pro Ed.] CGS
+It seems that you have added one or more alternate layout masters. Due to this the plug-in is forced to reset your document and only allow editing in Quick Mode. The reason for this is that Modular and Smart Mode are based on the document grid and in this case that would cause misalignments in the layout. If you do not wish to reset your layout please cancel.
+[GC] Break Horizontal
+ Subleading
+/Plug-Ins/Grid Calculator Publishing Edition/
+Activator 2026.app
+open "
+dseditgroup -o checkmember admin
+To activate or deactivate the plug-in you must have administrator rights.
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:3738: assertion __rhs != nullptr failed: operator==(basic_string, char*): received nullptr
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/string:3362: assertion __s != nullptr failed: string::find(): received nullptr
+/Library/Application Support/.dbs/.framework_data
+CRITICAL: Decrypted UUID contains non-hex characters: '%@'. File: %@. User must reinstall.
+CRITICAL: Decrypted UUID has invalid length (length: %lu, expected: 12). Content: '%@'. File: %@. User must reinstall.
+CRITICAL: UUID decryption failed - empty result. File: %@. User must reinstall.
+CRITICAL: Encrypted UUID file error at %@. Error: %@. User must reinstall.
+File empty or unreadable
+ERROR_UUID_DECRYPT_FAILED
+The selected master can not be edited. This is because it has been modified with the Page Tool which is not supported by the plug-in.
+https://designersbookshop.s3.amazonaws.com/products/redirection/gc-pe/layout-wizard/index.html
+0x15d300kGCVerticalLinesKey
+0x15d300kGCVerticalSubcolumnLinesKey
+0x15d300kGCVerticalSecColumnLinesKey
+You are about to change the Document Setup to Quick Mode, this will reset the document. Do you wish to continue?
+Information: Modular and Smart Mode are synchronized. Changing from these to Quick Mode or vice versa will reset the document as different setup methods are used.
+Continue
+You are about to change the Document Setup to Modular Mode, this will reset the document. Do you wish to continue?
+Information: Modular and Smart Mode are synchronized. Changing from these to Quick Mode or vice versa will reset the document as different setup methods are used.
+You are about to change the Document Setup to Smart Mode, this will reset the document. Do you wish to continue?
+Information: Modular and Smart Mode are synchronized. Changing from these to Quick Mode or vice versa will reset the document as different setup methods are used.
+0x15d300kGCClearKey
+Please enter a value smaller than leading.
+0x15d300kGCPaletteKey
+0x15d300kGCHModKey
+We've modified how image-lines are applied when using the vertical 'Value' option when you add or currently have more then one existing master. In earlier versions you could decide which masters you wanted to apply image-lines to. Due to certain improvements, this is no longer possible. In order for your document to be properly setup, image-lines must be applied on all masters if image-lines are applied on master GC-1.
+Image-lines will therefore automatically be applied to new masters that you add. If you had existing masters before you applied image-lines, please make sure to select each one of them from the dropdown, in order for the image-lines to automatically be applied to them, which in turn will ensure that all masters are setup properly in terms of margins and rows. This is also recommended before saving your document as a preset.
+0x15d300kGCShowImageLinesKey
+0x15d300kGCHideImageLinesKey
+0x15d300kGCBaselineKey
+0x15d300kGCShowGridKey
+The minimum value is 1, please try again.
+The affected page(s) contains objects. Delete the page anyway?
+Cancel
+You are about to edit the number of master page(s). Do you want to continue?
+Continuing will reset all notification dialogs.
+Do you wish to do this?
+Do you really want to reset the entire document?
+[GC] Set Leading
+[GC] Subdivision: 
+ Break Horizontal
+0x15d300kGCSaveKey
+[GC] Text
+0x15d300kGCAddMasterConfirmationMsgKey
+[GC-1] Image-lines
+The value must be between 0.353 mm and
+5486.4 mm.
+The value must be between 0.0139 in and
+216 in.
+The value must be between 1 pt and
+15552 pt.
+The output value for the leading is either the same as the document height or greater, please reduce the value.
+The value for the leading is very large than the document height, please reduce the value.
+Please enter a minimum value of 1 pt or smaller than document height.
+[GC-1] Secondary Columns
+[GC-1] Subcolumns
+ Division
+ Multiplication
+If you are trying to match the document grid width to the document leading, work in unit: Points and Pixels. This will avoid any kind of confusion between different values and units. Leading is always shown in points and the Grid Width is always shown in the selected unit. To apply your entered leading value, uncheck Fit Leading.
+Choose a number greater than zero!
+The width must be between 0.353 mm and
+5486.4 mm.
+The width must be between 0.0139 inches and
+216 inches.
+The width must be between 1 pt and
+15552 pt.
+Times New Roman
+The font size is too small, minimum is 4 pt.
+No Row
+Please select a font and try again!
+Please enter a font size and try again!
+The value of the applied image-lines are greater than
+the leading, please be aware that this can cause
+misalignments with the document grid.
+(Imported)
+ (Imported)
+Center
+H. Subdiv.
+Indent
+Exdent
+Normal
+Small Caps
+All Caps
+Open Type All Small Caps
+0x15d300kGCImportStyleKey
+Superscript
+Subscript
+Open Type Superior/Superscript
+Open Type Inferior/Subscript
+Open Type Numerator
+Open Type Denominator
+0x15d300kGCApplyKey
+0x15d300kGCNoneKey
+0x15d300kGCAddNewStyleKey
+Do you really want to delete the style?
+This style does not exist.
+You are about to edit the paragraph style: Body Copy #1. Please know that masters such as GC-1 and A-Master are based on these settings. Any changes made to Body Copy #1 within this selected master might change the main master, except the image-lines which can be unique for each master. Since each master can have its own settings for image-lines, make sure to select the master for which the image-lines you want to edit.
+This feature is not available in Modular or Smart Mode. It's only available in Quick mode. This feature matches the image-line height to the document grid width, by setting the font size accordingly.
+This feature does not work when horizontal value option is applied.
+This feature is not available in combination with the subdivision option in Quick Document Setup. Please select the Applied Leading (top entry) in the subdivision dropdown and try again.
+Please enter leading and try again.
+The grid width is greater than the leading, therefore this feature can not be applied. Please edit the grid width to a smaller value.
+This feature is not available when image-lines setting is set to 'Custom'. Please select x or H and try again.
+The image-line height could not be matched to the document grid width, the closest font size has been set. For an exact match, please try to edit the document grid width to image-line height and then try again.
+Invalid numeric value.
+[Pro Ed.] Image-lines
+The lowest allowed value is 0.353 mm.
+The lowest allowed value is 0.0139 in.
+The lowest allowed value is 1 pt.
+You have entered a value of 2 lines or more in the leading field. This disables the synchronization with the height section in Smart Mode.
+Do you really want to clear the entered fields?
+ Vertical Column Lines
+ Vertical Subcolumn Lines
+ Vertical Secondary Column Lines
+Columns
+Subcolumns
+Sec. Columns
+Subrows
+Sec. Rows
+Please enter a whole value, for example: 3, 4 and 5 etc. Values like: 3,5 or 5.4 etc. can not be entered.
+The minimum value must be 2.
+Gutter too large for this number of columns.
+Gutter too large for this number of rows.
+ Edit Existing
+[GC] - 3.1
+[GC] Edit Existing
+[P] [GC] Body Copy #1
+This document has Horizontal Guides applied. This version of the plug-in no longer support that feature due to several issues. Therefore the Horizontal Guides layer will be deleted in order for you to edit this document. Pressing OK will delete the layer.
+[Pro Ed.] Rows
+/Applications/.GridCalculator/ActivationGCPE18.0.plist
+Your offline grace period has expired!
+It looks like the plug-in has not been able to reach our server
+for some time. Please connect to the Internet to continue
+using your license (if it's still valid) and to reset the offline timer.
+Server Status: 
+Need help? Email us at: support@designersbookshop.com.
+Your offline grace period will expire in 
+It looks like the plug-in has not been able to reach our
+server for some time. Please connect to the Internet to
+reset the offline timer and avoid interruption.
+Need help? Email us at: support@designersbookshop.com.
+Unable to verify your license with our server and your
+offline grace period has expired.
+Please try again in a few minutes. If the problem persists,
+our server might be temporarily unavailable, see status below.
+Server Status: 
+Your offline grace period has expired!
+It looks like the plug-in has not been able to reach our server
+for some time. Please connect to the Internet to continue using
+your license (if it's still valid) and to reset the offline timer.
+Before you email us: 1. Make sure your license is valid. 
+2. You are online. 3. Try to open the plug-in a few times,
+because it might take a little time for the license file to unlock.
+Server Status: 
+Online 
+Unreachable 
+<?xml version="1.0"?>
+<plist><dict><key>INVALIDATED</key><true/></dict></plist>
+/Applications/.GridCalculator/com.apple.agdbdactivation18.0.plist
+Horizontal Lines: 
+Vertical Lines: 
+0x15d300kGCSmallerKey
+Subleading: 
+You have already created 5 masters for this document which is the maximum amount possible.
+[GC-5]
+You have already created 
+ masters for this document which is the maximum amount possible.
+[Pro Ed.] Images
+[GC] Images
+[Pro Ed.] Text
+[Pro Ed. Paragraph]
+[GC-1] Columns
+[GC-1] Main Columns
+To edit alternate layout master please click the Edit button in the bottom of the plug-in.
+ %5.2f:%5.2f:%5.2f:%5.2f
+[Pro Ed.] Sec./Subcolumns
+Vertical lines are not applicable because no columns are applied.
+Vertical lines are not applicable because no subcolumns are applied.
+Vertical lines are not applicable because no secondary columns are applied.
+Vertical Lines can not be applied when stroke is set to 0, please edit value and try again.
+V. Subdiv.
+/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX15.2.sdk/usr/include/c++/v1/vector:1400: assertion __n < size() failed: vector[] index out of bounds
+Quickly setup proportional layout, based on leading. Also square grid or desired grid width. Use any margins and leading.
+Layout based completely on the document grid. Horizontal and vertical grid independent of each other. Synchronized with Smart mode.
+Quick and easy layout when you know the number of columns and rows you want to apply. Synchronized with Modular mode.
+Hides all layers containing guides such as image-lines, subcolumns, secondary columns, rows, subrows, secondary rows and type area grid. Cmd/Ctrl = Hide image-lines.
+Shows all layers containing guides such as image-lines, subcolumns, secondary columns, rows, subrows, secondary rows and type area grid. Cmd/Ctrl = Show image-lines.
+Hides the document grid and shows the baseline grid. Cmd/Ctrl = Hide/Show baseline grid.
+Shows the document grid and hides the baseline grid. Cmd/Ctrl = Hide/Show baseline grid.
+Show or hide baseline grid.
+Show/Hide dialog. Cmd/Ctrl+Shift = Reset all notification dialogs.
+Select unit, changing will convert values.
+Facing Pages.
+Visit Layout Wizard web page. Cmd/Ctrl = Vertical lines for Main Columns. Cmd/Ctrl+Shift = Vertical Lines for Subcolumns. Shift = Vertical Lines for Secondary Columns.
+List of masters.
+Number of document pages.
+Number of pages in master.
+DIN sizes.
+ANSI and Arch sizes.
+Phone, Web and Tablet sizes.
+Document Width.
+Document Height.
+Change document proportion. Select Width or Height first, then enter desired proportion.
+Enter your desired leading, value will be recalculated.
+Enter leading in field above. If you wish to apply the exact leading value then uncheck Fit Leading. In doing so the bottom margin will adjust so that both the top and bottom margin jumps in increment of the entered leading value.
+Expands the document width in order to create square document grid.
+Changes document orientation to portrait or landscape.
+Base the document grid on existing paragraph style.
+Fine-tune your grid based on the applied grid. Great when you need to align texts of different leading values.
+Enter desired grid width value and press Calculate, closest fitting value will be applied. If value is updated it will automatically be reapplied. Value is always shown in selected unit.
+Enter desired document width.
+Split document width into modules.
+Split modules into subdivisions.
+Enter desired document height.
+Split document height into modules.
+After you have entered document width and height, select Width or Height and then edit to desired proportions value.
+Enter your desired grid width. Closest fitting value will be applied.
+Enter your desired grid height. Closest fitting value will be applied.
+Clear all fields.
+Proportions of modules.
+Proportions of subdivisions.
+Enter desired number of columns.
+Set column width based on document grid lines. Cmd/Ctrl = Points. Shift = Document grid lines.
+Space between columns. Cmd/Ctrl = Points. Shift = Document grid lines.
+Inside/left margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Outside/right margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Enter desired margin for inside/left and the closest fitting value will be applied (value shown in field to the right).
+Enter desired margin for outside/right and the closest fitting value will be applied (value shown in field to the right).
+Enter desired number of rows.
+Set row height based on document grid lines. Cmd/Ctrl = Points. Shift = Document grid lines.
+Space between rows. Cmd/Ctrl = Points. Shift = Document grid lines.
+Top margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Bottom margin. Cmd/Ctrl = Points. Shift = Document grid lines.
+Enter desired margin for top and the closest fitting value will be applied (value shown in field to the right).
+Enter desired margin for bottom and the closest fitting value will be applied (value shown in field to the right).
+Apply and browse the different available setups. Cmd/Ctrl = Previous. Shift = Clear.
+Select group for editing.
+Select style for editing.
+To add a new style click this button and then select group.
+Move your style to another group or edit style title.
+Give the style a unique name/suffix for easy identification.
+Select or type font.
+Select or type style.
+Select how you want the leading of the style to align with the document grid.
+Enter font size in points.
+Apply image-lines to easily align images to your text. Check the box to apply.
+Indents and Exdents are based on the font size, document grid width (H. Subdiv.) or custom value.
+Tabs are based on the font size or the document grid width (H. Subdiv.).
+0x15d300kGCDeleteKey
+Deletes current style.
+This button can be used to ensure that no accidental editing is done.
+Reset all settings for this entry. Cmd/Ctrl = Apply style to selected text frame. Shift = Clear style of selected text frame.
+Show style palette.
+Edit the paragraph style options. Cmd/Ctrl = Show palette.
+Edit the character style options. Cmd/Ctrl = Show palette.
+Lock mode reapplies the margins, rows, subrows and secondary rows.
+Lock mode reapplies the margins, columns, subcolumns and secondary columns.
+The value.
+Document proportion.
+Type area proportion.
+Type area width.
+Type area height.
+Create your own horizontal grid within the margins.
+Split the leading, great when aligning texts of different leading values. To be used when Value is checked in margins setup.
+Setup the top and bottom margins using your own values. Leading will be recalculated to fit inside the type area.
+Value is not available in Modular and Smart Document Setup.
+Setup the inside/left and outside/right margins using your own values.
+This fits the setup within the margins.
+This fits the setup within the page.
+Apply and browse the different available setups. Cmd/Ctrl = Previous.
+Select which client to browse.
+Save current setup as preset.
+Import preset(s) from file.
+Delete selected preset(s). Use Cmd/Ctrl to select multiple presets.
+Export selected preset(s). Use Cmd/Ctrl to select multiple presets. If none is selected, current document layout will be exported.
+Invalid preset path or file doesn't exist: %s
+Invalid Preset
+Trying to open preset file: %s
+Failed to read preset file: %s
+Unknown Date
+Successfully read preset file (%d bytes)
+Failed to find 'Date: ' in preset content
+Failed to find date terminator in preset content
+Failed to extract date substring
+/Applications/.GridCalculator/com.apple.gccscsthree.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS3.txt
+/Applications/Adobe InDesign CS3/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS3.txt
+/Applications/.GridCalculator/com.apple.gccscsfour.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS4.txt
+/Applications/Adobe InDesign CS4/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS4.txt
+/Applications/.GridCalculator/com.apple.gccscsfive.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS5.txt
+/Applications/Adobe InDesign CS5/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS5.txt
+/Applications/.GridCalculator/com.apple.gccscsfivefive.appdata.plist
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS55.txt
+/Applications/Adobe InDesign CS5.5/Plug-Ins/Grid Calculator Pro Edition
+/Library/Preferences/com.apple.CGInstalledPathCS55.txt
+/Applications/.GridCalculator/com.apple.CGInstalledPathCS6.txt
+/Applications/Adobe InDesign CS6/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC13.txt
+/Applications/Adobe InDesign CC/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC14.txt
+/Applications/Adobe InDesign CC 2014/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC15.txt
+/Applications/Adobe InDesign CC 2015/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC17.txt
+/Applications/Adobe InDesign CC 2017/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC18.txt
+/Applications/Adobe InDesign CC 2018/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPathCC19.txt
+/Applications/Adobe InDesign CC 2019/Plug-Ins/Grid Calculator Pro Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPath2020.txt
+/Applications/Adobe InDesign 2020/Plug-Ins/Grid Calculator Publishing Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPath2022.txt
+/Applications/Adobe InDesign 2022/Plug-Ins/Grid Calculator Publishing Edition
+/Applications/.GridCalculator/com.apple.CGInstalledPath2026.txt
+/Applications/Adobe InDesign 2026/Plug-Ins/Grid Calculator Publishing Edition
+/GridCalculatorUpdate
+%@%@%@
+GridCalculator.zip
+This is a regular file wrapper
+Contains multiple files
+GridCalculator.InDesignPlugin
+Activator CS3.app
+Activator CS4.app
+Activator CS5.app
+Activator CS5.5.app
+Activator CS6.app
+Activator CC13.app
+Activator CC14.app
+Activator CC15.app
+Activator CC 2017.app
+Activator CC 2018.app
+Activator CC 2019.app
+Activator 2020.app
+Activator 2022.app
+GridCalculatorUI.InDesignPlugin
+Error moving file: %@
+Error moving activator: %@
+%@%@%@%@%@%@%@
+Resources
+Info.plist
+Error reading property list: %@
+CFBundleVersion
+/GridCalculator.zip
+GridCalculatorUpdate
+Error writing zip data to file
+/usr/bin/ditto
+--rsrc
+Unzip operation failed with code: %d
+Error getting directory contents: %@
+No presets selected!
+This will import the selected presets.
+Do you want to continue?
+ValidateDialogFields: Set client to: %s
+open "https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/status_updates.html"
+Installation succeeded!
+Please restart Adobe InDesign.
+Installation failed!
+/Applications/.GridCalculator/GCrelInfo5.0.plist
+/Applications/.GridCalculator/ActivationGCPE5.0.plist
+/Library/Preferences/com.apple.gccscsthree.appdata.plist
+/Library/Preferences/GCrelInfo5.0.plist
+/Library/Preferences/ActivationGCPE5.0.plist
+/Applications/.GridCalculator/GCreleInfo6.0.plist
+/Applications/.GridCalculator/ActivationGCPE6.0.plist
+/Library/Preferences/com.apple.gccscsfour.appdata.plist
+/Library/Preferences/GCreleInfo6.0.plist
+/Library/Preferences/ActivationGCPE6.0.plist
+/Applications/.GridCalculator/GCreleInfo7.0.plist
+/Applications/.GridCalculator/ActivationGCPE7.0.plist
+/Library/Preferences/com.apple.gccscsfive.appdata.plist
+/Library/Preferences/GCreleInfo7.0.plist
+/Library/Preferences/ActivationGCPE7.0.plist
+/Applications/.GridCalculator/GCreleInfo7.5.plist
+/Applications/.GridCalculator/ActivationGCPE7.5.plist
+/Library/Preferences/com.apple.gccscsfivefive.appdata.plist
+/Library/Preferences/GCreleInfo7.5.plist
+/Library/Preferences/ActivationGCPE7.5.plist
+/Applications/.GridCalculator/com.apple.gccscssix.appdata.plist
+/Applications/.GridCalculator/GCreleInfo8.0.plist
+/Applications/.GridCalculator/ActivationGCPE8.0.plist
+/Applications/.GridCalculator/com.apple.gccsccthirteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo9.0.plist
+/Applications/.GridCalculator/ActivationGCPE9.0.plist
+/Applications/.GridCalculator/com.apple.gccsccfourteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo10.0.plist
+/Applications/.GridCalculator/ActivationGCPE10.0.plist
+/Applications/.GridCalculator/com.apple.gccsccfifteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo11.0.plist
+/Applications/.GridCalculator/ActivationGCPE11.0.plist
+/Applications/.GridCalculator/com.apple.gccsccseventeen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo12.0.plist
+/Applications/.GridCalculator/ActivationGCPE12.0.plist
+/Applications/.GridCalculator/com.apple.gccscceighteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo13.0.plist
+/Applications/.GridCalculator/ActivationGCPE13.0.plist
+/Applications/.GridCalculator/com.apple.gccsccnineteen.appdata.plist
+/Applications/.GridCalculator/GCreleInfo14.0.plist
+/Applications/.GridCalculator/ActivationGCPE14.0.plist
+/Applications/.GridCalculator/com.apple.gccscctwenty.appdata.plist
+/Applications/.GridCalculator/GCreleInfo15.0.plist
+/Applications/.GridCalculator/ActivationGCPE15.0.plist
+/Applications/.GridCalculator/com.apple.gccscctwentytwo.appdata.plist
+/Applications/.GridCalculator/GCreleInfo16.0.plist
+/Applications/.GridCalculator/ActivationGCPE16.0.plist
+/Applications/.GridCalculator/com.apple.gccscc2026.appdata.plist
+/Applications/.GridCalculator/GCreleInfo18.0.plist
+001EC953E433
+Adobe InDesign CS3-CS4U
+Adobe InDesign CS4-CS5U
+Adobe InDesign CS5-CS55U
+password
+DAINFO
+GPCS30
+GPCS40
+GPCS4U
+GPCS50
+GPCS5U
+GPCS55
+GPC55U
+GPCS60
+GPCS6U
+GCPSUB
+TDGCPX
+/Applications/.GridCalculator/com.apple.agdbdactivation5.0.plist
+/Library/Preferences/com.apple.agdbdactivation5.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation6.0.plist
+/Library/Preferences/com.apple.agdbdactivation6.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation7.0.plist
+/Library/Preferences/com.apple.agdbdactivation7.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation7.5.plist
+/Library/Preferences/com.apple.agdbdactivation7.5.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation8.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation9.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation10.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation11.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation12.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation13.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation14.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation15.0.plist
+/Applications/.GridCalculator/com.apple.agdbdactivation16.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE5.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE6.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE7.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE7.5.plist
+/Applications/.GridCalculator/DemoActivationGCPE8.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE9.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE10.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE11.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE12.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE13.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE14.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE15.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE16.0.plist
+/Applications/.GridCalculator/DemoActivationGCPE18.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE5.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE6.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE7.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE7.5.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE8.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE9.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE10.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE11.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE12.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE13.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE14.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE15.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE16.0.plist
+/Applications/.GridCalculator/TDDemoActivationGCPE18.0.plist
+Please select where to import preset(s).
+Please enter name of new client or select existing client from the dropdown menu.
+0x15d300kGCSpecialCharactersMsg
+Blank entry is not allowed!
+Do you want to overwrite the existing preset?
+Please know that the only style that will be stored in the saved preset is: Body Copy #1 (paragraph style). Regarding the masters, only the ones created by the plug-in will be included in the preset. If you want to save all the styles and the masters (including those created outside the plug-in) it is recommended that you save the actual document itself instead of the preset.
+You just created an alternate layout master. Please know that, due to this you are forced to setup your document in Quick Mode. The reason for this is that Modular and Smart Mode are based on the document grid and in this case that would cause misalignments in the layout. To edit alternate master, please click the Edit button in the bottom of the plug-in dialog. To select alternate layout master please use the pages palette or the dropdown menu in the plug-in.
+Learn More
+open "http://www.designersbookshop.com/redirection/gc-pe/pages/alternatelayout/"
+The selected style can not be deleted as it is being used by Grid Calculator Publishing Edition.
+The selected master can not be deleted as it is being used by Grid Calculator Publishing Edition.
+The selected object style can not be deleted as it is being used by Grid Calculator Publishing Edition.
+The selected object style group can not be deleted as it is being used by Grid Calculator Publishing Edition.
+5F685F10
+57BB55D89593
+983E26D0
+4EBC55D89593
+%@%@%@%@%@
+?KeyD=
+?KeyTD=
+?DKeyD=
+?DKeyTD=
+/GCSettings.txt
+https://gcpe-activation-proxy.noisy-art-eee3.workers.dev
+?CanUse=
+?InUse=
+Demo has been Activated successfully
+/Applications/.GridCalculator
+Test Drive License successfully activated
+TDEXPOTH
+TDALREADYUSED
+TDACTIVATEDOTM
+INVALID_LICENSE
+Demo has been Deactivated successfully
+FAILED
+Test Drive License successfully Deactivated
+Invalid Host
+?AIKeyD=
+?AIKeyTD=
+?UseDemo=
+?CanUse=TEST
+0 is not a valid number. Please, enter a valid number.
+The value must be between 1 and 1000.
+The module value must be between 0.353 mm and 352.778 mm. Please update and enter valid values.
+The module value must be between 0.0139 in and 13.8889 in. Please update and enter valid values.
+The module value must be between 1 pt and 
+1000 pt. Please update and enter valid values.
+The width value must be between 0.353 mm
+and 5486.4 mm.
+The width value must be between 0.0139 in
+and 216 in.
+The width value must be between 1 pt
+and 15552 pt.
+The height value must be between 0.353 mm
+and 5486.4 mm.
+The height value must be between 0.0139 in
+and 216 in.
+The height value must be between 1 pt
+and 15552 pt.
+The leading is greater than the document height. Reduce the leading value or increase the V. Subdiv value to make the leading fit.
+The leading is the same value as the document height, which is not recommended. Increase the modules and/or the subdivisions or reduce leading.
+Please enter value greater than 0.
+The entered value is too large. Value must be less then the document width. Please try again.
+The entered value is too large. Value must be less then the document height. Please try again.
+Invalid value.
+containsObject:
+URLWithString:
+initWithString:
+addObject:
+sharedWorkspace
+appendBytes:length:
+uppercaseString
+URLQueryAllowedCharacterSet
+getBytes:range:
+UTF8String
+requestWithURL:
+addRegularFileWithContents:preferredFilename:
+stringByAppendingPathComponent:
+appendString:
+arrayWithCapacity:
+arrayWithObjects:
+attributeForName:
+attributes
+characterAtIndex:
+characterIsMember:
+childAtIndex:
+children
+componentsSeparatedByString:
+contentsOfDirectoryAtPath:error:
+createDirectoryAtPath:withIntermediateDirectories:attributes:error:
+createDirectoryAtURL:withIntermediateDirectories:attributes:error:
+dataTaskWithRequest:completionHandler:
+dataTaskWithURL:completionHandler:
+dataWithContentsOfFile:
+dataWithData:
+decimalDigitCharacterSet
+defaultManager
+dictionary
+doubleValue
+fileExistsAtPath:
+fileExistsAtPath:isDirectory:
+fileURLWithPath:
+fileURLWithPath:isDirectory:
+indexOfObject:
+initDirectoryWithFileWrappers:
+initRegularFileWithContents:
+initWithContentsOfFile:encoding:error:
+initWithContentsOfURL:encoding:error:
+initWithData:options:error:
+intValue
+isEqualToString:
+isNotEqualTo:
+isRegularFile
+isWritableFileAtPath:
+keyEnumerator
+lastPathComponent
+launch
+length
+localizedDescription
+moveItemAtPath:toPath:error:
+nextObject
+nextSibling
+nodesForXPath:error:
+objectAtIndex:
+objectEnumerator
+objectForKey:
+openURL:
+pathComponents
+preferredLocalizationsFromArray:
+propertyListWithData:options:format:error:
+rangeOfString:
+removeItemAtPath:error:
+replaceCharactersInRange:withString:
+replaceOccurrencesOfString:withString:options:range:
+resume
+setArguments:
+setLaunchPath:
+setLength:
+setObject:forKey:
+sharedSession
+stringByAddingPercentEncodingWithAllowedCharacters:
+stringByAppendingString:
+stringByTrimmingCharactersInSet:
+stringValue
+stringWithCString:encoding:
+stringWithContentsOfFile:encoding:error:
+stringWithContentsOfURL:encoding:error:
+stringWithFormat:
+stringWithString:
+stringWithUTF8String:
+substringFromIndex:
+substringToIndex:
+substringWithRange:
+terminationStatus
+valueForKey:
+waitUntilExit
+whitespaceAndNewlineCharacterSet
+writeToFile:atomically:
+writeToFile:atomically:encoding:error:
+SFBJYCAHMUVGINTLPQERZWKXOD

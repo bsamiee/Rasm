@@ -1,0 +1,57 @@
+Getting started with Grid Calculator PE — Grid Calculator Publishing Edition Knowledge Base — Designers Bookshop
+Products
+About
+Support
+Knowledge Base
+ /
+Grid Calculator Publishing Edition
+ /
+Getting started with Grid Calculator PE 
+Getting Started
+Getting started with Grid Calculator PE
+Install the plug-in and create your first grid layout in Adobe InDesign.
+Installation
+Download the installer from the 
+product page
+Quit InDesign if it is running
+Run the 
+.pkg
+ file and follow the prompts
+Launch InDesign — Grid Calculator Publishing Edition will appear under menu: 
+Designers Bookshop
+Activate plug-in
+Go to menu: 
+Designers Bookshop
+ – 
+Grid Calculator Publishing Edition
+ – 
+Activate Plug-In
+. Activate demo by entering: name and email. To activate license enter: name, email and license – 
+Activate
+.
+Creating your first grid
+Open or create an InDesign document
+Open the Grid Calculator Publishing Edition panel
+Enter your column count, gutter width, and margin values
+Click 
+Apply
+ — Grid Calculator Publishing Edition sets up your columns and baseline grid instantly, across all master pages
+Saving a preset
+Once you have a grid you like, click 
+Save Preset
+ and give it a name. Presets are stored locally and available across all your documents.
+Need help?
+If you run into any issues, check the 
+updates page
+ for known issues and fixes, or 
+contact support
+.
+← Back to Grid Calculator Publishing Edition Knowledge Base
+Updates
+Knowledge Base
+Layout Wizard
+Terms
+Privacy
+Since 2008. © 
+2026
+ Designers Bookshop. All rights reserved.

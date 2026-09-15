@@ -1,0 +1,73 @@
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:GridCalculator="www.designersbookshop.com/httpdocs/webadmin/Admin/Update/xml-namespaces/GridCalculator" xmlns:dc="http://purl.org/dc/elements/1.1/">
+       <GCProEditionCC20>
+    <Mac>
+        <GridCalculatorPublishingEdition>
+            <version Version="1.0"/>
+            <enclosure url="https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/mac/cc20/GridCalculator.zip"/>
+        </GridCalculatorPublishingEdition>
+    </Mac>
+     <Win>
+        <GridCalculatorPublishingEdition>
+            <version>1.0</version>
+            <enclosure>"https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/windows64/cc20/GridCalculator.zip"</enclosure>
+        </GridCalculatorPublishingEdition>
+    </Win>
+</GCProEditionCC20>
+           <GCProEditionCC21>
+    <Mac>
+        <GridCalculatorPublishingEdition>
+            <version Version="1.0"/>
+            <enclosure url="https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/mac/cc21/GridCalculator.zip"/>
+        </GridCalculatorPublishingEdition>
+    </Mac>
+     <Win>
+        <GridCalculatorPublishingEdition>
+            <version>1.0</version>
+            <enclosure>"https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/windows64/cc21/GridCalculator.zip"</enclosure>
+        </GridCalculatorPublishingEdition>
+    </Win>
+</GCProEditionCC21>
+<GCProEditionCC22>
+    <Mac>
+        <GridCalculatorPublishingEdition>
+            <version Version="1.0"/>
+            <enclosure url="https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/mac/cc22/GridCalculator.zip"/>
+        </GridCalculatorPublishingEdition>
+    </Mac>
+     <Win>
+        <GridCalculatorPublishingEdition>
+            <version>1.0</version>
+            <enclosure>"https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/windows64/cc22/GridCalculator.zip"</enclosure>
+        </GridCalculatorPublishingEdition>
+    </Win>
+</GCProEditionCC22>
+<GCProEditionCC25>
+    <Mac>
+        <GridCalculatorPublishingEdition>
+            <version Version="1.2"/>
+            <enclosure url="https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/mac/cc26/GridCalculator.zip"/>
+        </GridCalculatorPublishingEdition>
+    </Mac>
+     <Win>
+        <GridCalculatorPublishingEdition>
+            <version>1.2</version>
+            <enclosure>"https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/windows64/cc26/GridCalculator.zip"</enclosure>
+        </GridCalculatorPublishingEdition>
+    </Win>
+</GCProEditionCC25>
+    <GCProEditionCC26>
+    <Mac>
+        <GridCalculatorPublishingEdition>
+            <version Version="1.2"/>
+            <enclosure url="https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/mac/cc26/GridCalculator.zip"/>
+        </GridCalculatorPublishingEdition>
+    </Mac>
+     <Win>
+        <GridCalculatorPublishingEdition>
+            <version>1.2</version>
+            <enclosure>"https://designersbookshop.s3.amazonaws.com/products/updates/grid_calculator_pe/download/windows64/cc26/GridCalculator.zip"</enclosure>
+        </GridCalculatorPublishingEdition>
+    </Win>
+</GCProEditionCC26>
+</rss>

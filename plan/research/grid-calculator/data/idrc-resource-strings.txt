@@ -1,0 +1,2002 @@
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_CLST/500.idrc 100 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_FACT/550.idrc 20 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_IDPL/1.idrc 123 bytes
+A: http://www.adobe.com/partners.htmlP
+A: Third party developers can explain how to get hold of their missing plug-in here
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_ITAG/1.idrc 20 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_LOCR/300.idrc 24 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_LOCR/350.idrc 16 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_PMST/301.idrc 22 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_PMST/351.idrc 12 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_PVER/450.idrc 59 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_SCML/1.idrc 268 bytes
+A: Spread
+A: Points
+A: Points
+A: Spread
+A: Points
+A: Points
+A: Points
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_SCML/2.idrc 288 bytes
+A: Spread
+A: Points
+A: Points
+A: Points
+A: Millimeters
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_SCML/3.idrc 294 bytes
+A: Millimeters
+A: Millimeters
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_SCML/4.idrc 966 bytes
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_SCML/5.idrc 322 bytes
+A: Millimeters
+A: Millimeters
+--- GridCalculator.InDesignPlugin/Versions/A/Resources/idrc_SCML/6.idrc 984 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_ACTD/400.idrc 1937 bytes
+A: 0x15d300kGCOpenPluginMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCActivatePluginMenuKey
+A: KBSCE Other
+A: 0x15d300kGCCheckForUpdatesMenuKey
+A: KBSCE Other
+A: 0x15d300kGCUpdatesServerStatusMenuKey
+A: KBSCE Other
+A: 0x15d300kGCPreferencesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCAboutPluginMenuKey
+A: KBSCE Other
+A: 0x15d300kGCMonthlySubscriptionMenuKey
+A: KBSCE Other
+A: 0x15d300kGCYearlySubscriptionMenuKey
+A: KBSCE Other
+A: 0x15d300kGCKnowledgeBaseMenuKey
+A: KBSCE Other
+A: 0x15d300kGCContactSupportMenuKey
+A: KBSCE Other
+A: 0x15d300kGCDocumentSetupMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCParagraphCharacterStylesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCMarginsColumnsRowsMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCDocumentInfoExtrasMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCPresetsMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCHideShowGuidesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCHideShowImagelinesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCShowHideGridMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCShowHideDialogMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCVertColumnLinesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCVertSubcolumnLinesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+A: 0x15d300kGCVertSecColumnLinesMenuKey*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_CLST/500.idrc 1184 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_FACT/550.idrc 228 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_IDPL/1.idrc 123 bytes
+A: http://www.adobe.com/partners.htmlP
+A: Third party developers can explain how to get hold of their missing plug-in here
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1000.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1100.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1200.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1300.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1400.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1500.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1510.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1580.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1600.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1700.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1800.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/1900.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/2000.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/2100.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/250.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/300.idrc 24 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_LOCR/350.idrc 16 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_MENR/200.idrc 2202 bytes
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:0x15d300kGCPurchaseSubscriptionLicenseMenuKey:
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:0x15d300kGCPurchaseSubscriptionLicenseMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCGridCalculatorProEditionMenuKey:0x15d300kGCPurchaseSubscriptionLicenseMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCHelpMenuKey:
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCHelpMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCHelpMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCHelpMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCHelpMenuKey:-
+A: Main:0x15d300kGCDesignersBookshopMenuKey:0x15d300kGCHelpMenuKey
+A: Main:0x15d300kGCDesignersBookshopMenuKey:-
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_PLUG/750.idrc 34 bytes
+A: GridCalculator
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_PMST/301.idrc 11586 bytes
+A: 0x15d300kGCDesignersBookshopMenuKey
+A: &Designers Bookshop*
+A: 0x15d300kGCGridCalculatorProEditionMenuKey"
+A: Grid Calculator Publishing Edition
+A: 0x15d300kGCOpenPluginMenuKey
+A: Open Plug-in
+A: 0x15d300kGCLayoutWizardMenuKey
+A: Layout Wizard 
+A: 0x15d300kGCActivatePluginMenuKey
+A: Activate Plug-in"
+A: 0x15d300kGCDeactivatePluginMenuKey
+A: Deactivate Plug-in!
+A: 0x15d300kGCCheckForUpdatesMenuKey
+A: Check for Updates%
+A: 0x15d300kGCUpdatesServerStatusMenuKey
+A: Updates and Server Status
+A: 0x15d300kGCPreferencesMenuKey
+A: Preferences-
+A: 0x15d300kGCPurchaseSubscriptionLicenseMenuKey
+A: Purchase License%
+A: 0x15d300kGCMonthlySubscriptionMenuKey
+A: Monthly$
+A: 0x15d300kGCYearlySubscriptionMenuKey
+A: Yearly
+A: 0x15d300kGCAboutPluginMenuKey
+A: About Plug-in
+A: 0x15d300kGCHelpMenuKey
+A: Help and Contact
+A: 0x15d300kGCKnowledgeBaseMenuKey
+A: Knowledge Base
+A: 0x15d300kGCForumMenuKey
+A: Forum 
+A: 0x15d300kGCContactSupportMenuKey
+A: Contact Support
+A: 0x15d300kGCOurProductsMenuKey
+A: Our Products 
+A: 0x15d300kGCHideShowGuidesMenuKey
+A: Hide/Show Guides$
+A: 0x15d300kGCHideShowImagelinesMenuKey
+A: Hide/Show Image-lines
+A: 0x15d300kGCShowHideGridMenuKey
+A: Hide/Show Grid 
+A: 0x15d300kGCShowHideDialogMenuKey
+A: Hide/Show Plug-in
+A: 0x15d300kGCDocumentSetupMenuKey
+A: (01) Document Setup$
+A: 0x15d300kGCMarginsColumnsRowsMenuKey
+A: (02) Margins, Columns and Rows*
+A: 0x15d300kGCParagraphCharacterStylesMenuKey#
+A: (03) Paragraph and Character Styles$
+A: 0x15d300kGCDocumentInfoExtrasMenuKey%
+A: (04) Unit Conversion & Bleed and Slug
+A: 0x15d300kGCPresetsMenuKey
+A: (05) Presets: Saved Projects!
+A: 0x15d300kGCVertColumnLinesMenuKey
+A: Vertical Column Lines$
+A: 0x15d300kGCVertSubcolumnLinesMenuKey
+A: Vertical Subcolumn Lines$
+A: 0x15d300kGCVertSecColumnLinesMenuKey
+A: Vertical Secondary Column Lines
+A: 0x15d300kGCDialogTitleKey"
+A: Grid Calculator Publishing Edition
+A: 0x15d300kGCCancelKey
+A: Cancel
+A: 0x15d300kGCResetKey
+A: Reset
+A: 0x15d300kGCDoneKey
+A: 0x15d300kGCHideKey
+A: 0x15d300kGCShowKey
+A: 0x15d300kGCHideGuidesKey
+A: Hide Guides
+A: 0x15d300kGCShowGuidesKey
+A: Show Guides
+A: 0x15d300kGCHideImageLinesKey
+A: Hide Image-lines
+A: 0x15d300kGCShowImageLinesKey
+A: Show Image-lines
+A: 0x15d300kGCHideGridKey
+A: Hide Grid
+A: 0x15d300kGCShowGridKey
+A: Show Grid
+A: 0x15d300kGCBaselineKey
+A: Baseline
+A: 0x15d300kGCSpreadKey
+A: Spread
+A: 0x15d300kGCDocPagesColonKey
+A: Pages:
+A: 0x15d300kGCMasterPagesColonKey
+A: Master:
+A: 0x15d300kGCVerticalLinesKey
+A: Vertical Lines$
+A: 0x15d300kGCVerticalSubcolumnLinesKey
+A: Vertical Subl.$
+A: 0x15d300kGCVerticalSecColumnLinesKey
+A: Vertical Secl. 
+A: 0x15d300kGCDocumentInfoExtrasKey!
+A: Unit Conversion & Bleed and Slug &
+A: 0x15d300kGCParagraphCharacterStylesKey
+A: Paragraph and Character Styles 
+A: 0x15d300kGCMarginsColumnsRowsKey
+A: Margins, Columns and Rows
+A: 0x15d300kGCPresetsKey
+A: Presets: Saved Projects
+A: 0x15d300kGCPreferencesKey
+A: Preferences
+A: 0x15d300kGCMillimetersKey
+A: Millimeters
+A: 0x15d300kGCInchesKey
+A: Inches
+A: 0x15d300kGCPointsPixelsKey
+A: Points and Pixels
+A: 0x15d300kGCSetupModeColonKey
+A: Setup Mode:
+A: 0x15d300kGCQuickKey
+A: Quick
+A: 0x15d300kGCModularKey
+A: Modular
+A: 0x15d300kGCSmartKey
+A: Smart
+A: 0x15d300kGCUpdateKey
+A: Install Update
+A: 0x15d300kGCSeeDetailsKey
+A: See Details
+A: 0x15d300kGCDocumentSetupKey
+A: Document Setup
+A: 0x15d300kGCWidthColonKey
+A: Width:
+A: 0x15d300kGCHeightColonKey
+A: Height:
+A: 0x15d300kGCLeadColonKey
+A: Leading (pt):
+A: 0x15d300kGCFitLeadingKey
+A: Fit Leading:
+A: 0x15d300kGCSwitchKey
+A: Orientation
+A: 0x15d300kGCSquareKey
+A: Apply Square Grid
+A: 0x15d300kGCUnDoKey
+A: 0x15d300kGCActionsColonKey
+A: Actions:
+A: 0x15d300kGCNoParagraphStyleKey
+A: [No Paragraph Style]
+A: 0x15d300kGCSubdivisionColonKey
+A: Subdivision:
+A: 0x15d300kGCWidthKey
+A: Width
+A: 0x15d300kGCHeightKey
+A: Height
+A: 0x15d300kGCProportionsColonKey
+A: Proportions:
+A: 0x15d300kGCBleedSlugKey
+A: Bleed and Slug!
+A: 0x15d300kGCUnitGridCalculationKey
+A: Unit Conversion
+A: 0x15d300kGCBColonKey
+A: 0x15d300kGCSColonKey
+A: 0x15d300kGCTopColonKey
+A: 0x15d300kGCBottomColonKey
+A: Bottom:
+A: 0x15d300kGCInsideColonKey
+A: Inside:
+A: 0x15d300kGCOutsideColonKey
+A: Outside:
+A: 0x15d300kGCMmColonKey
+A: Millimeters:
+A: 0x15d300kGCInColonKey
+A: Inches:
+A: 0x15d300kGCPointsColonKey
+A: Points/Pixels:
+A: 0x15d300kGCUnitsColonKey
+A: Units: 
+A: 0x15d300kGCDocumentWidthColonKey
+A: Doc. Width:
+A: 0x15d300kGCModulesColonKey
+A: Modules:
+A: 0x15d300kGCSubdivisionsColonKey
+A: Subdivisions:!
+A: 0x15d300kGCDocumentHeightColonKey
+A: Doc. Height:
+A: 0x15d300kGCLeadingColonKey
+A: Leading:
+A: 0x15d300kGCActionsColonKey
+A: Actions:
+A: 0x15d300kGCClearKey
+A: Clear
+A: 0x15d300kGCGridWidthColonKey
+A: Grid Width:
+A: 0x15d300kGCGridHeightColonKey
+A: Grid Height:
+A: 0x15d300kGCApplyKey
+A: Apply
+A: 0x15d300kGCMultiplicationKey
+A: 0x15d300kGCDivisionKey
+A: 0x15d300kGCEqualKey
+A: 0x15d300kGCModulesPropColonKey
+A: Modules:
+A: 0x15d300kGCCalculateKey
+A: Calculate
+A: 0x15d300kGCGutterColonKey
+A: Gutter:
+A: 0x15d300kGCModColonKey
+A: 0x15d300kGCSubdivColonKey
+A: Subdiv:
+A: 0x15d300kGCColumnWidthColonKey
+A: Col. Width:
+A: 0x15d300kGCRowHeightColonKey
+A: Row Height:
+A: 0x15d300kGCSubColonKey
+A: 0x15d300kGCDesiredMarginsKey
+A: Desired Margins
+A: 0x15d300kGCAppliedColonKey
+A: Applied:
+A: 0x15d300kGCOptionsKey
+A: Options
+A: 0x15d300kGCHModKey
+A: H. Mod.
+A: 0x15d300kGCParagraphStylesKey
+A: Paragraph Styles
+A: 0x15d300kGCCharacterStylesKey
+A: Character Styles
+A: 0x15d300kGCAddNewStyleKey
+A: Add New Style
+A: 0x15d300kGCEditStyleKey
+A: Edit Style
+A: 0x15d300kGCSelectGroupColonKey
+A: Select Group:#
+A: 0x15d300kGCStyleWithinGroupColonKey
+A: Styles in Group:
+A: 0x15d300kGCGroupColonKey
+A: Group:
+A: 0x15d300kGCTitleColonKey
+A: Title:
+A: 0x15d300kGCEditKey
+A: 0x15d300kGCFontFamilyColonKey
+A: Font Family:
+A: 0x15d300kGCFontStyleColonKey
+A: Font Style:
+A: 0x15d300kGCSizeColonKey
+A: Size (pt):
+A: 0x15d300kGCImageLinesPtColonKey
+A: Image-lines (pt):
+A: 0x15d300kGCImageLinesMmColonKey
+A: Image-lines (mm):
+A: 0x15d300kGCImageLinesInColonKey
+A: Image-lines (in):"
+A: 0x15d300kGCTrackingKerningColonKey
+A: Tracking | Kerning:
+A: 0x15d300kGCTrackingCaseColonKey
+A: Tracking | Case:
+A: 0x15d300kGCKerningColonKey
+A: Kerning:
+A: 0x15d300kGCPositionColonKey
+A: Position:
+A: 0x15d300kGCLeadingSetupColonKey
+A: Leading Setup:
+A: 0x15d300kGCTabsIndentColonKey
+A: Indent | Tabs:
+A: 0x15d300kGCStyleTitleColonKey
+A: Style Title:
+A: 0x15d300kGCAddKey
+A: 0x15d300kGCBasedOnColonKey
+A: Based On:
+A: 0x15d300kGCFigureStyleColonKey
+A: Figure Style:
+A: 0x15d300kGCAlignmentColonKey
+A: Alignment:
+A: 0x15d300kGCDeleteStyleKey
+A: Delete Style
+A: 0x15d300kGCExtrasColonKey
+A: Extras:
+A: 0x15d300kGCImportStyleKey
+A: Add New Style (Copy | Import)
+A: 0x15d300kGCCopyImportStyleKey
+A: Copy or Import Style
+A: 0x15d300kGCPaletteKey
+A: Palette
+A: 0x15d300kGCLockKey
+A: 0x15d300kGCUnlockKey
+A: Unlock
+A: 0x15d300kGCCenterTabsKey
+A: Center Tabs: 4 Ems
+A: 0x15d300kGCPointsKey
+A: Points
+A: 0x15d300kGCNoneKey
+A: 0x15d300kGCTopMarginColonKey
+A: 0x15d300kGCBottomMarginColonKey
+A: Bottom:#
+A: 0x15d300kGCInsideLeftMarginColonKey
+A: In/Left:%
+A: 0x15d300kGCOutsideRightMarginColonKey
+A: Out/Right:
+A: 0x15d300kGCLinesKey
+A: Lines
+A: 0x15d300kGCValueKey
+A: Value
+A: 0x15d300kGCNoKey
+A: 0x15d300kGCGutterKey
+A: Gutter
+A: 0x15d300kGCMmKey
+A: 0x15d300kGCInKey
+A: 0x15d300kGCPtKey
+A: 0x15d300kGCSortByColonKey
+A: Sort Columns & Rows Based On:
+A: 0x15d300kGCColumnsColonKey
+A: Columns:
+A: 0x15d300kGCMainSetupKey
+A: Main Setup
+A: 0x15d300kGCSecondarySetupKey
+A: Secondary Setup
+A: 0x15d300kGCCustomSetupKey
+A: Custom Setup
+A: 0x15d300kGCSecColumnsColonKey
+A: Secondary Columns:
+A: 0x15d300kGCSecColumnsKey
+A: Sec. Columns
+A: 0x15d300kGCSecondaryColonKey
+A: Secondary:
+A: 0x15d300kGCSubColumnsColonKey
+A: Subcolumns:
+A: 0x15d300kGCRowsColonKey
+A: Rows:
+A: 0x15d300kGCSubrowsColonKey
+A: Subrows:
+A: 0x15d300kGCSecRowsColonKey
+A: Secondary Rows:
+A: 0x15d300kGCDescendingKey
+A: Descending
+A: 0x15d300kGCFitToMarginKey
+A: Margins
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCProportionsKey
+A: Doc. Prop:
+A: 0x15d300kGCTypeAreaColonKey
+A: Type Area:
+A: 0x15d300kGCDocKey
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCSmallerKey
+A: 0x15d300kGCHorizontalColonKey
+A: Horizontal:
+A: 0x15d300kGCSubleadingColonKey
+A: Subleading:
+A: 0x15d300kGCTypeAreaGridColonKey
+A: Type Area Grid:
+A: 0x15d300kGCDocumentGridColonKey
+A: Document Grid:
+A: 0x15d300kGCImagelinesColonKey
+A: Image-lines:
+A: 0x15d300kGCBaselineGridColonKey
+A: Baseline Grid:!
+A: 0x15d300kGCShowTipWindowsColonKey
+A: Show Tip Windows:$
+A: 0x15d300kGCSubcolumnsSubrowsColonkey
+A: Subcolumns & Subrows:
+A: 0x15d300kGCPrefVerticalLinesKey+
+A: Vertical Lines: Align to Top/Bottom Margins!
+A: 0x15d300kGCPrefResetImageLinesKey+
+A: Image-lines: Reset When Editing Font Family
+A: 0x15d300kGCPrefSmartGuidesKey!
+A: Enable Smart Guides in Value Mode
+A: 0x15d300kGCWizardKey
+A: Layout Wizard
+A: 0x15d300kGCPresetKey
+A: Preset Title
+A: 0x15d300kGCDateKey
+A: 0x15d300kGCSaveKey
+A: 0x15d300kGCImportKey
+A: Import
+A: 0x15d300kGCImportPresetsKey
+A: Import Presets
+A: 0x15d300kGCDeleteKey
+A: Delete
+A: 0x15d300kGCExpPresetsKey
+A: Export
+A: 0x15d300kGCSavePresetTitleKey
+A: Save Preset
+A: 0x15d300kGCSortPresetColonKey
+A: Sort Preset List By:
+A: 0x15d300kGCMiscellaneousKey
+A: Miscellaneous'
+A: 0x15d300kGCEditExistingDocumentColonKey
+A: Edit Existing Document:
+A: 0x15d300kGCCreateNewDocumentKey
+A: Create New Document
+A: 0x15d300kGCLockDocumentSizeKey
+A: Lock Document Size 
+A: 0x15d300kGCCreateDocumentCopyKey
+A: Create Document Copy+
+A: 0x15d300kGCEditExistingMasterSpreadColonKey 
+A: Edit Master (Add by Unchecking):
+A: 0x15d300kGCPurchaseLicenseKey
+A: Purchase Subscription License
+A: 0x15d300kGCUseDemoKey
+A: Use Demo
+A: 0x15d300kGCActivateLicenseKey
+A: Activate License
+A: 0x15d300kGCDemoLicenseKey
+A: Activate Demo or License
+A: 0x15d300kGCChangeVersionKey
+A: Change Version
+A: 0x15d300kGCImportDialogTitleKey
+A: Import Presets
+A: 0x15d300kGCSelectAllKey
+A: Select All
+A: 0x15d300kGCSelectNoneKey
+A: Select None
+A: 0x15d300kGCImportSelectedKey
+A: Import Selected
+A: 0x15d300kGCOpenFolderKey
+A: Open Folder 
+A: 0x15d300kGCPrePurchaseFullLicKey
+A: Full License#
+A: 0x15d300kGCPrePurchaseUpgradeLicKey
+A: Upgrade License'
+A: 0x15d300kGCPrePurchaseLicDescriptionKey|
+A: Please select which type of license you wish to purchase. To learn more about each type of license, click the buttons below.'
+A: 0x15d300kGCMonthlySubscriptionButtonKey
+A: Monthly&
+A: 0x15d300kGCYearlySubscriptionButtonKey
+A: Yearly(
+A: 0x15d300kGCPurchaseFullLicDescriptionKeyu
+A: Full license is only required by first time customer.
+A: If you have already purchased a full license for
+A: Grid Calculator Publishing Edition previously, purchase
+A: an upgrade license instead. One license can be
+A: used on two computers (not simultaneously).
+A: For more details please read our Terms and
+A: Conditions found within the product page of
+A: Grid Calculator Publishing Edition.!
+A: 0x15d300kGCPurchaseFullLicenseKey
+A: Full License+
+A: 0x15d300kGCPurchaseUpgradeLicDescriptionKey
+A: Upgrade license will only work together with a
+A: previous full license. One license can be used on
+A: two computers (not simultaneously).
+A: For more details please read our Terms and
+A: Conditions found within the product page of
+A: Grid Calculator Publishing Edition.$
+A: 0x15d300kGCPurchaseUpgradeLicenseKey
+A: Upgrade License*
+A: 0x15d300kGCPurchaseOnlineLicDescriptionKey{
+A: Subscription license is a flexible option instead of buying a license. With a subscription you can replace your license as you go. For full details regarding our replacement policy, please read our Terms and Conditions on the product page and any additional information in the shopping cart, before placing your order. By placing your order you agree to the provided information.'
+A: 0x15d300kGCPurchaseSubLicDescriptionKey%
+A: Please select your subscription plan.#
+A: 0x15d300kGCPurchaseOnlineLicenseKey
+A: Subscription License(
+A: 0x15d300kGCPurchaseFullLicDialogTitleKey
+A:      Full License+
+A: 0x15d300kGCPurchaseUpgradeLicDialogTitleKey
+A:    Upgrade License*
+A: 0x15d300kGCPurchaseOnlineLicDialogTitleKey
+A:     Subscription License
+A: 0x15d300kGCSpecialCharactersMsgD
+A: Special characters like 
+A:  etc. are not allowed, please try again.
+A: 0x15d300kGCAddMasterDDItemKey
+A: Add Master&
+A: 0x15d300kGCAddMasterConfirmationMsgKey 
+A: Do you wish to add a new master?
+A: 0x15d300kGCYesKey
+A: 0x15d300kGCNo2Key
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_PMST/351.idrc 1542 bytes
+A: ANSI A
+A: ANSI A
+A: ANSI B
+A: ANSI B
+A: ANSI C
+A: ANSI C
+A: ANSI D
+A: ANSI D
+A: ANSI E
+A: ANSI E
+A: Arch A
+A: Arch A
+A: Arch B
+A: Arch B
+A: Arch C
+A: Arch C
+A: Arch D
+A: Arch D
+A: Arch E
+A: Arch E
+A: Digital
+A: Digital
+A: 480 x 320 (Phone)
+A: 480 x 320 (Phone)
+A: 480 x 800 (Phone)
+A: 480 x 800 (Phone)
+A: 600 x 300 (Web)
+A: 600 x 300 (Web)
+A: 600 x 1024 (Tablet)
+A: 600 x 1024 (Tablet)
+A: 640 x 480 (Web)
+A: 640 x 480 (Web)
+A: 720 x 1280 (Phone)
+A: 720 x 1280 (Phone)
+A: 760 x 420 (Web)
+A: 760 x 420 (Web)
+A: 768 x 1024 (Tablet)
+A: 768 x 1024 (Tablet)
+A: 800 x 480 (Phone)
+A: 800 x 480 (Phone)
+A: 800 x 600 (Web)
+A: 800 x 600 (Web)
+A: 800 x 1280 (Tablet)
+A: 800 x 1280 (Tablet)
+A: 960 x 768 (Web)
+A: 960 x 768 (Web)
+A: 1024 x 600 (Tablet)
+A: 1024 x 600 (Tablet)
+A: 1024 x 768 (Tablet/Web)
+A: 1024 x 768 (Tablet/Web)
+A: 1152 x 864 (Web)
+A: 1152 x 864 (Web)
+A: 1240 x 620 (Web)
+A: 1240 x 620 (Web)
+A: 1280 x 720 (Phone)
+A: 1280 x 720 (Phone)
+A: 1280 x 800 (Tablet)
+A: 1280 x 800 (Tablet)
+A: 1280 x 1024 (Web)
+A: 1280 x 1024 (Web)
+A: 1600 x 1200 (Web)
+A: 1600 x 1200 (Web)
+A: 1536 x 2048 (Tablet)
+A: 1536 x 2048 (Tablet)
+A: 1920 x 1080 (HD)
+A: 1920 x 1080 (HD)>
+A: 2048 x 1536 (Tablet)2048 x 1536 (Tablet)Number of columns/rows
+A: Number of columns/rows
+A: Number of lines per column/row
+A: Number of lines per column/row
+A: Number of lines per gutter
+A: Number of lines per gutter
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_PNGA/1310.idrc 116840 bytes
+A: IDATx
+A: Ki_dG{
+A: .#hpq
+A: 8f4nj
+A: 1_c9<q
+A: awmGw$`Y
+A: Gi?;}V
+A: U|(/w
+A: ++auFWg
+A: fn^2P_
+A: inoE}+
+A: L7f1w
+A: Lmuw]
+A: gr]m)
+A: h?;ZU
+A: @aWGQ
+A: ]eQpE~
+A: #M$PGo
+A: c,xvL
+A: ';xot
+A: <O(5)
+A: @T%VZx
+A: 5IC}a
+A: ]N`rac
+A: t9Qpyt&
+A: $"o9&2FV4
+A: j,!pU
+A: x36jT
+A: :9!d~
+A: q\8PF
+A: {5nz}
+A: kg_w>
+A: 'v4wv
+A: WqMia
+A: ;=#?w4
+A: nw R%
+A: $v<s";l
+A: W4AE>.
+A: W_}e?
+A: `;>dU
+A: +NFj=T
+A: h) 8oo
+A: V?RA[
+A: =JKux
+A: Bn[-rp
+A: Ip%kOZ
+A: X~m0~<Vo
+A: 'V`:r`
+A: ">T%l2
+A: Z1wS_
+A: <otwk+}
+A: 2,G5v
+A: I8)$>
+A: DO@b?
+A: ISG\43
+A: B9b?]
+A: ~a,$TA
+A: #jnR+mw
+A: v<(I`
+A: kOL#p;@EJ
+A: CW(-'V
+A: .?IIX
+A: 8}L>*
+A: &.J[y@
+A: (d|oV
+A: Wu9)S
+A: bJN~k
+A: y$~0F
+A: Kv:uxN
+A: :N?eL
+A: 5/a/1N
+A: ^?~Kv
+A: H$~H<d
+A: ff_{c
+A: 58rf<
+A: &a?j{
+A: --$A}
+A: J~i)!
+A: U%}|9
+A: jP(o7
+A: AI&=fV
+A: k$a3Jz
+A: k%94;
+A: I^O&J
+A: "Q[+]
+A: rR,j7Ur
+A: 7p5)a|
+A: 6)NJ<
+A: #s"`V
+A: tNX3#
+A: Z2L`[Y
+A: I~Nif
+A: V$]vN
+A: |d~o}aF
+A: N_u<^
+A: w~0Fx
+A: w-on~
+A: 0(W$Y
+A: 8Fg36g
+A: SvT$l
+A: ccz)&x
+A: q#ok!Fb(bj[<
+A: (|p{;V
+A: _[v1b~>
+A: cYm1d
+A: ^vt3ZU%?P]
+A: >otXb
+A: 8Pd[2
+A: v$(9N
+A: ?*6`r
+A: ijt!GU
+A: JC'%U
+A: ;Mjb2
+A: 1'fMt
+A: %cLO~P
+A: k%G9vU
+A: uL2R"OY?Y
+A: d]v5j
+A: U1}OE
+A: oBgw4>U
+A: >v+S;[
+A: <Fd<t
+A: S^Z$b
+A: *~u]WHP
+A: #V!Ze
+A:  Td)<PspV`
+A: l~3W4
+A: 7Pl8^
+A: [A72y
+A: @p7P1
+A: ^;X'=
+A: 90`(`
+A: ?2~4Q
+A: @?\X?A
+A: gMdU?
+A: NvbPuC\[
+A: {|MS]
+A: w:A'<'
+A: |)X]u
+A: iz;|L
+A: W[+Zl
+A: ;$;FZx
+A: U$/13b:y
+A: =lZ1\WB
+A: {;}h]ms
+A: l)GCY
+A: ;I_NS=w
+A: |_x%lF
+A: /$gS/
+A: Il[r7k3
+A: `DnTb
+A: ugRirL
+A: |R\%7
+A: 0{;y 
+A: e7;gR}
+A: U^e[|B
+A: GL "P
+A: -x^J^
+A: %+>tu*>
+A: {q]tX
+A: N\YyL
+A: ?16zl
+A:  ^0NR?@
+A: e'xU|
+A: 2nLj 
+A: @KBaa
+A: k|mg`
+A: R,(h9n
+A: 8QN(a
+A: kPfwX^
+A: \;cM5F
+A: <xc0f
+A: L%GnWQ
+A: 9I87<U
+A: 5z/|}
+A: Zo|ot7
+A: sW3~k+
+A: #v7T!w
+A: mckfm
+A: .b/3x
+A: Ciq|R
+A: fl/![
+A: "1ble
+A: 7~Z?S
+A: x,u]T
+A: tXaOu
+A: AyC_<
+A: ]@^:xX
+A: #Y<h 
+A: ~4U_W
+A: D,`|A
+A: z\Q^?
+A: +~q<U?
+A: K[0/J
+A:  Fy{#
+A: Yw|b~7k
+A: !p'JC
+A: ~N}_fk|
+A: SYw~~
+A: ?Vk<1
+A: $a#0A
+A: 3iEp[
+A: h7qqM
+A: 3q<~^p
+A: _s<A0
+A: [_63t8n
+A: mm%bo
+A: rf]`?4
+A: c)>h&Z
+A: 7&]+(
+A: 9%K1h
+A: ;D:H.U
+A: ?C\"W
+A: &N4=f
+A: $8m&k*
+A: 2O'/n
+A: }&;az
+A: +.M>b
+A: )4Nm&
+A: e;*a&L
+A: b [$`
+A: UKa4a.
+A: %M%Cp
+A: 0v4\G
+A: >vz&`
+A: +9yp[~?O
+A: 0O8!D
+A: OGxm:
+A: zy^^\
+A: +D9Dy
+A: [22:u
+A: cpF#-
+A: 8MWx$W
+A: 9i+}L]
+A: $l+3^
+A: $,.o%g
+A: ?Apt|
+A: ulVk<
+A: G5QV&
+A: /gx}:
+A: 9'\~v
+A: gWwp3mZ
+A: )~"g8
+A: qMVx7
+A: +g8^opoZ
+A: SKZ&b
+A: -/"$]03Y
+A: /N}3]
+A: jp&dl
+A: 4!IY 
+A: 1'zN.
+A: r~IV$u
+A: nb/3v
+A: %Ap}^a{
+A: *MXAp
+A: e};mJ%
+A: 78Ikl
+A: bKA^l
+A: u@iTI[
+A: VglwV
+A: +$|3?
+A: B>^FiFZd
+A: VG!yZ|
+A: {R7o'[
+A: Ye2}k
+A: U\t6F1
+A: S9wQec
+A: pBy6!
+A: 5|vU6
+A: ML"@B
+A: w?l3NM'C"
+A: !#a5%l
+A: voy[}
+A: 8L+|~}
+A: O.Oq.;
+A: =NRGx
+A: 3>8~P
+A: c<I.q
+A: sPu"3CR.<H
+A: 5J8Pm_
+A: LXR_'R>
+A: n|T~H
+A: 6/b:V
+A: 0~rih
+A: :B0QC
+A: U"y*_
+A: m[Yi<-
+A: C0- }
+A: ;[ncx
+A: *Okok
+A: Pr"xQF
+A: MV%X:
+A: xab0\
+A: =k|Ldg
+A: Ky+3Y0$
+A: nxdGX
+A: W$r$<r
+A: m#/[?
+A: xNX[~
+A: >*o*~
+A: eBwTK
+A: MnUM}
+A: 16uDw
+A: fB8!1
+A: F</`S
+A: ?#-dg5
+A: t^e@E
+A: tG<n/
+A: U}#>6
+A: X;r&:r
+A: 41]*'x]p
+A: vZG">UW
+A: 1zL?tO0
+A: g_]T~E
+A: FL5PE
+A: @C>N0
+A: =1[nr
+A: SueldZ?
+A:  xP7n
+A: a3*Kn
+A: ;;NE}cL
+A: v"|Fu
+A: g/}P~U
+A: %.3x)J
+A: /s&vWuVy
+A: \O&k]
+A: jzwd8F
+A: Qh_>}
+A: mM/To
+A: .c|{J=
+A: e>r";
+A: Nwfhbi
+A: d0KR@I
+A: qFN}g
+A:  ^u@yg
+A: ^[ahpr
+A: z"Bx1
+A: A*~OXE
+A: ;Z6gZ
+A: EYW\'
+A: mC`dZ*~
+A: X_c kr&
+A: 3x-Ql
+A: anx+m
+A: Om6N0
+A: i:m3_uy
+A: Ag%=>Ss
+A: v[e :
+A: :.{dYl
+A: ,'`1`8~&
+A: pob%U
+A: LqHF[
+A: x>NB4
+A: &v/e8
+A: VAq^Lv
+A: %@3"&h7
+A: d{7g&^g
+A: iR.eJ
+A: BuA2b
+A: .a&LGdeZ
+A: ;KJ7a
+A: nYouyr
+A: o[k5B8
+A: >8ho]
+A: yc>:T
+A: 1?:bc
+A: dEcU%+N&
+A: \`k/=w
+A: dSy@k
+A: -;rN|
+A: 31^O=
+A: q8BG%*mt\
+A: oYq-9
+A: ~ztiy 
+A: ?9Q[^~
+A: 4/'V/
+A: ~z<up
+A: IT?s6Z
+A: ;vZ|O
+A: V7&c#
+A: $,!fm
+A: O*F}x
+A: eGWtl
+A: fp<]<{
+A: L_x9/7
+A: OJ|R`
+A: Gg&?~
+A: x]c\z
+A: ~y6b7
+A: n>p[[~
+A: f+>YS
+A: c@lc[
+A: ,Z,]|
+A: Aew=^
+A: #|G%n
+A: mTFpG6
+A: o+Fx*
+A: &s_b;
+A: gDx#X
+A: A|i `
+A: >RMJ&
+A: Nx>p]
+A: iA;&F
+A: vlK>q
+A: ||U_9*a9
+A: fZ"Nip
+A: 21H/)
+A: z`(V&
+A: &+Z7;
+A: d.ew7
+A: `(~>@%R`
+A: ouL>ht
+A: ;&$#|
+A: '2e63
+A: ,<EEf
+A: 3};R'Y=::n)
+A: mrx"8
+A: p{:lr0
+A: $NH,08
+A: )!%~K
+A: yrucaG
+A: G_igG
+A: 3=38fp
+A: ")Q^I
+A: L?TWWfVVu
+A: +;RX0F
+A: MxL;b
+A: E[c}]
+A: V*tGy 
+A: Iug55Vf
+A: \.Yr[
+A: :ST&H
+A: 0J^fR
+A: xoxwl
+A: z>g[+,
+A: A`p~UW'
+A: qh:uNz
+A: XX<2w
+A: 6kTk5b
+A: U;m"/ 
+A: Z~\~n
+A: ]D7O'
+A: @qlOCk
+A: Iznok
+A: /:6)nL:
+A: r4MsL
+A: -/jEzV!
+A: {QpOS|T'U
+A: <d~XT
+A: lTTteY
+A: 9Sz._B
+A: 4L4eJ
+A: 1B;cjg
+A: B~E^L
+A: ME&owSh
+A: xd:Y9
+A: Lmf62
+A: D$;`}
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_PVER/450.idrc 59 bytes
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1001.idrc 1256 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCPreDialog.fr/
+A: 0x15d300kGCDialogTitleKey33
+A: 0x15d300kGCCancelKey33
+A: 0x15d300kGCEditExistingDocumentColonKey8
+A: 0x15d300kGCCreateNewDocumentKey0
+A: 0x15d300kGCLockDocumentSizeKey33
+A: 0x15d300kGCCreateDocumentCopyKey33
+A: 0x15d300kGCEditExistingMasterSpreadColonKey33
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1101.idrc 463 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCDialog.fr
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1201.idrc 1241 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCStringDialog.fr/
+A: 0x15d300kGCSavePresetTitleKey33
+A: 0x15d300kGCCancelKey33
+A:  Save Preset As:33u
+A:  New Client:33u
+A:  Existing Client:33u
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1301.idrc 1136 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCAboutDialog.frI
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCAboutDialog.fr
+A: 0x15d300kGCCancelKey33
+A: 0x15d300kGCPurchaseLicenseKey(
+A: 0x15d300kGCUseDemoKey
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1401.idrc 578 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCChangeVersionDialog.fr/
+A: 0x15d300kGCDialogTitleKey33
+A: 0x15d300kGCChangeVersionKeyp
+A: 0x15d300kGCCancelKey33
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1501.idrc 1052 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCImportDialog.fr9
+A: 0x15d300kGCImportDialogTitleKey33
+A: 0x15d300kGCImportSelectedKeyp
+A: 0x15d300kGCCancelKey33
+A: 0x15d300kGCMillimetersKey
+A: 0x15d300kGCInchesKey
+A: 0x15d300kGCPointsPixelsKey
+A: 0x15d300kGCSelectAllKey@
+A: 0x15d300kGCSelectNoneKey
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1511.idrc 2885 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCImportDialog.fr
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1581.idrc 976 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCPrePurchaseLicenseDlg.fr/
+A: Grid Calculator Publishing Edition - Purchase License33
+A: 0x15d300kGCPrePurchaseLicDescriptionKey
+A: 0x15d300kGCPrePurchaseFullLicKey
+A: 0x15d300kGCPrePurchaseUpgradeLicKey
+A: 0x15d300kGCPurchaseOnlineLicenseKeyp
+A: 0x15d300kGCCancelKey33
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1601.idrc 632 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCPurchaseLicenseDlg.fr/
+A: Grid Calculator Publishing Edition33
+A: 0x15d300kGCPurchaseFullLicDescriptionKey
+A: 0x15d300kGCPurchaseFullLicenseKeyp
+A: 0x15d300kGCCancelKey33
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1701.idrc 7851 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCPreferencesDialog.fr/
+A: 0x15d300kGCPreferencesKey33
+A: 0x15d300kGCShowTipWindowsColonKey33u
+A: 0x15d300kGCYesKey
+A: 0x15d300kGCNo2Key
+A: 0x15d300kGCUnitsColonKey33u
+A: 0x15d300kGCMillimetersKey
+A: 0x15d300kGCInchesKey
+A: 0x15d300kGCPointsPixelsKey
+A: 0x15d300kGCDocumentGridColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCBaselineGridColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCImagelinesColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCSubcolumnsSubrowsColonkey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCSecColumnsColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCRowsColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCSecRowsColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCTypeAreaGridColonKey33u
+A: Light Blue
+A: Green
+A: Yellow
+A: Magenta
+A: Black
+A: Orange
+A: Dark Green
+A: Brown
+A: Violet
+A: Dark Blue
+A: Lavender
+A: Brick Red
+A: Olive Green
+A: Peach
+A: Burgundy
+A: Grass Green
+A: Ochre
+A: Purple
+A: Light Gray
+A: Charcoal
+A: Grid Blue
+A: Grid Orange
+A: Fiesta
+A: Light Olive
+A: Lipstick
+A: Cute Teal
+A: Sulphur
+A: Grid Green
+A: White
+A: 0x15d300kGCSortByColonKey33u
+A: Number of columns/rows
+A: Number of lines per column/row
+A: Number of lines per gutter
+A: 0x15d300kGCDescendingKey33
+A: 0x15d300kGCPrefResetImageLinesKey33
+A: 0x15d300kGCPrefVerticalLinesKey33
+A: 0x15d300kGCPrefSmartGuidesKey33
+A: 0x15d300kGCCancelKey33
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1801.idrc 1138 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCStylesDialog.fr/
+A: 0x15d300kGCCancelKey33
+A: 0x15d300kGCGroupColonKey33u
+A: Body Copy
+A: Caption | Info
+A: Headline
+A: Subhead
+A: Chapter
+A: Quote
+A: Header
+A: Footer
+A: Masthead
+A: Index | Appendix
+A: Nameplate
+A: Cover Lines
+A: Title | Spine
+A: Miscellaneous
+A: 0x15d300kGCTitleColonKey33u
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/1901.idrc 672 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCUpdateDialog.fr/
+A: 0x15d300kGCDialogTitleKey33
+A: 0x15d300kGCCancelKey33
+A: 0x15d300kGCSeeDetailsKey 
+A: 0x15d300kGCUpdateKey
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/2001.idrc 835 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCSubscriptionLicenseDlg.fr/
+A: Subscription License33
+A: 0x15d300kGCPurchaseSubLicDescriptionKey
+A: 0x15d300kGCMonthlySubscriptionButtonKey
+A: 0x15d300kGCYearlySubscriptionButtonKeyp
+A: 0x15d300kGCCancelKey33
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/2101.idrc 10417 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCWizardDialog.fr!
+A: 0x15d300kGCWizardDialogTitleKey33
+A: 0x15d300kGCWizardDialogTitleKey33u
+A: 0x15d300kGCWizQ1QuestionKey33u
+A: 0x15d300kGCWizQ1HintKey33u
+A: 0x15d300kGCWizQ1Opt0Key8
+A: 0x15d300kGCWizQ1Opt1KeyP
+A: 0x15d300kGCWizQ2QuestionKey33u
+A: 0x15d300kGCWizQ2HintKey33u
+A: 0x15d300kGCWizQ2Opt0Key8
+A: 0x15d300kGCWizQ2Opt1KeyP
+A: 0x15d300kGCWizQ3QuestionKey33u
+A: 0x15d300kGCWizQ3HintKey33u
+A: 0x15d300kGCWizQ3Opt0Key8
+A: 0x15d300kGCWizQ3Opt1KeyP
+A: 0x15d300kGCWizQ4QuestionKey33u
+A: 0x15d300kGCWizQ4HintKey33u
+A: 0x15d300kGCWizQ4Opt0Key8
+A: 0x15d300kGCWizQ4Opt1KeyP
+A: 0x15d300kGCWizQ5QuestionKey33u
+A: 0x15d300kGCWizQ5HintKey33u
+A: 0x15d300kGCWizQ5Opt0Key8
+A: 0x15d300kGCWizQ5Opt1KeyP
+A: 0x15d300kGCWizQ6QuestionKey33u
+A: 0x15d300kGCWizQ6HintKey33u
+A: 0x15d300kGCWizQ6Opt0Key8
+A: 0x15d300kGCWizQ6Opt1KeyP
+A: 0x15d300kGCWizQ7QuestionKey33u
+A: 0x15d300kGCWizQ7HintKey33u
+A: 0x15d300kGCWizQ7Opt0Key8
+A: 0x15d300kGCWizQ7Opt1Key
+A: 0x15d300kGCWizQ8QuestionKey33u
+A: 0x15d300kGCWizQ8HintKey33u
+A: 0x15d300kGCWizQ8QuickKeyP
+A: 0x15d300kGCWizQ8ModularKey@
+A: 0x15d300kGCWizQ8SmartKey
+A: 0x15d300kGCWizQCDIntroKey33u
+A: Horizontal33u
+A: Left33u
+A: Right33u
+A: Gutter33u
+A: Cols33u
+A: Vertical33u
+A: Top33u
+A: Bottom33u
+A: Row Gutter33u
+A: Rows33u
+A: Baseline grid (pt)33u
+A: Calculate 
+A: 0x15d300kGCWizBackKey(
+A: 0x15d300kGCWizNextKey
+--- GridCalculatorUI.InDesignPlugin/Versions/A/Resources/idrc_VIEW/251.idrc 62510 bytes
+A: /Users/dev/Documents/PluginSDKRoot/InDesign Plugin GC/2020to2025/gridcalculatorui/GCDialog.frH
+A: 0x15d300kGCDialogTitleKey33
+A: 0x15d300kGCCancelKey33
+A: 0x15d300kGCHideGuidesKey0
+A: 0x15d300kGCHideGridKey
+A: 0x15d300kGCHideKey
+A: 0x15d300kGCDoneKey
+A: 0x15d300kGCDocPagesColonKey33u
+A: 0x15d300kGCSpreadKey33
+A: 0x15d300kGCMillimetersKey
+A: 0x15d300kGCInchesKey
+A: 0x15d300kGCPointsPixelsKey
+A: 0x15d300kGCMasterPagesColonKey33u
+A: 0x15d300kGCSaveKey@
+A: ANSI A (Letter)
+A: ANSI B (Tabloid)
+A: ANSI C
+A: ANSI D
+A: ANSI E
+A: Arch A
+A: Arch B
+A: Arch C
+A: Arch D
+A: Arch E
+A: Legal
+A: Digital
+A: 480 x 320 (Phone)
+A: 480 x 800 (Phone)
+A: 600 x 300 (Web)
+A: 600 x 1024 (Tablet)
+A: 640 x 480 (Web)
+A: 640 x 1136 (Phone)
+A: 720 x 1280 (Phone)
+A: 760 x 420 (Web)
+A: 768 x 1024 (Tablet)
+A: 800 x 480 (Phone)
+A: 800 x 600 (Web)
+A: 800 x 1280 (Tablet)
+A: 960 x 768 (Web)
+A: 1024 x 600 (Tablet)
+A: 1024 x 768 (Tablet/Web)
+A: 1136 x 640 (Phone)
+A: 1152 x 864 (Web)
+A: 1240 x 620 (Web)
+A: 1280 x 720 (Phone)
+A: 1280 x 800 (Tablet)
+A: 1280 x 1024 (Web)
+A: 1600 x 1200 (Web)
+A: 1536 x 2048 (Tablet)
+A: 1920 x 1080 (HD)
+A: 2048 x 1536 (Tablet)
+A: 0x15d300kGCSetupModeColonKey33u
+A: 0x15d300kGCQuickKey
+A: 0x15d300kGCModularKey
+A: 0x15d300kGCSmartKey
+A: 0x15d300kGCDocumentSetupKey33u
+A: 0x15d300kGCMarginsColumnsRowsKey33u
+A: 0x15d300kGCParagraphCharacterStylesKey33u
+A: 0x15d300kGCDocumentInfoExtrasKey33u
+A: 0x15d300kGCPresetsKey33u
+A: 0x15d300kGCDocumentSetupKey33u
+A: 0x15d300kGCWidthColonKey33u
+A: 0x15d300kGCHeightColonKey33u
+A: 0x15d300kGCLeadColonKey33u
+A: 0x15d300kGCFitLeadingKey33
+A: 0x15d300kGCGridWidthColonKey33u
+A: 0x15d300kGCCalculateKey@
+A: 0x15d300kGCSubdivisionColonKey33u
+A: 0x15d300kGCProportionsColonKey33u
+A: 0x15d300kGCWidthKey
+A: 0x15d300kGCHeightKey
+A: 0x15d300kGCBasedOnColonKey33u
+A: 0x15d300kGCActionsColonKey33u
+A: 0x15d300kGCSquareKey 
+A: 0x15d300kGCSwitchKey
+A: 0x15d300kGCDocumentSetupKey33u
+A: 0x15d300kGCDocumentWidthColonKey33u
+A: 0x15d300kGCModulesColonKey33u
+A: 0x15d300kGCSubdivisionsColonKey33u
+A: 0x15d300kGCDivisionKey33u
+A: 0x15d300kGCDivisionKey33u
+A: 0x15d300kGCWidthColonKey33u
+A: 0x15d300kGCGridWidthColonKey33u
+A: 0x15d300kGCCalculateKey
+A: 0x15d300kGCDocumentHeightColonKey33u
+A: 0x15d300kGCModulesColonKey33u
+A: 0x15d300kGCSubdivisionsColonKey33u
+A: 0x15d300kGCDivisionKey33u
+A: 0x15d300kGCDivisionKey33u
+A: 0x15d300kGCHeightColonKey33u
+A: 0x15d300kGCGridHeightColonKey33u
+A: 0x15d300kGCCalculateKey
+A: 0x15d300kGCLeadingColonKey33u
+A: 0x15d300kGCMultiplicationKey33u
+A: 0x15d300kGCEqualKey33u
+A: 0x15d300kGCProportionsColonKey33u
+A: 0x15d300kGCWidthKey
+A: 0x15d300kGCHeightKey
+A: 0x15d300kGCModulesPropColonKey33u
+A: 0x15d300kGCSubdivColonKey33u
+A: 0x15d300kGCActionsColonKey33u
+A: 0x15d300kGCClearKey 
+A: 0x15d300kGCSwitchKey`
+A: 0x15d300kGCDocumentSetupKey33u
+A: 0x15d300kGCWidthColonKey33u
+A: 0x15d300kGCModColonKey33u
+A: 0x15d300kGCSubColonKey33u
+A: 0x15d300kGCColumnsColonKey33u
+A: 0x15d300kGCColumnWidthColonKey33u
+A: 0x15d300kGCSubdivColonKey33u
+A: 0x15d300kGCGutterColonKey33u
+A: 0x15d300kGCInsideColonKey33u
+A: 0x15d300kGCOutsideColonKey33u
+A: 0x15d300kGCInsideColonKey33u
+A: 0x15d300kGCAppliedColonKey33u
+A: 0x15d300kGCOutsideColonKey33u
+A: 0x15d300kGCAppliedColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCColumnsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCHeightColonKey33u
+A: 0x15d300kGCModColonKey33u
+A: 0x15d300kGCSubColonKey33u
+A: 0x15d300kGCRowsColonKey33u
+A: 0x15d300kGCRowHeightColonKey33u
+A: 0x15d300kGCSubdivColonKey33u
+A: 0x15d300kGCGutterColonKey33u
+A: 0x15d300kGCTopColonKey33u
+A: 0x15d300kGCBottomColonKey33u
+A: 0x15d300kGCTopColonKey33u
+A: 0x15d300kGCAppliedColonKey33u
+A: 0x15d300kGCBottomColonKey33u
+A: 0x15d300kGCAppliedColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCMarginsColumnsRowsKey33u
+A: 0x15d300kGCMainSetupKey33u
+A: 0x15d300kGCSecondarySetupKey33u
+A: 0x15d300kGCCustomSetupKey33u
+A: 0x15d300kGCLockKey33
+A: 0x15d300kGCValueKey33
+A: 0x15d300kGCLockKey33
+A: 0x15d300kGCValueKey33
+A: 0x15d300kGCTopMarginColonKey33u
+A: 0x15d300kGCInsideLeftMarginColonKey33u
+A: 0x15d300kGCBottomMarginColonKey33u
+A: 0x15d300kGCOutsideRightMarginColonKey33u
+A: 0.000
+A: 0.000
+A: 0.000
+A: 0.000
+A: 0x15d300kGCProportionsKey33u
+A: 0x15d300kGCTypeAreaColonKey33u
+A: 0x15d300kGCWidthColonKey33u
+A: 0x15d300kGCHeightColonKey33u
+A: 0x15d300kGCColumnsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCSubColumnsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCRowsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCSubrowsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCFitToMarginKey
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCSecColumnsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCFitToMarginKey
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCSecRowsColonKey33u
+A: 0x15d300kGCGreaterKey
+A: 0x15d300kGCFitToMarginKey
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCNoKey33u
+A: 0x15d300kGCWidthKey33u
+A: 0x15d300kGCGutterKey33u
+A: 0x15d300kGCColumnsColonKey33u
+A: 0x15d300kGCSubColumnsColonKey33u
+A: 0x15d300kGCSecondaryColonKey33u
+A: 0x15d300kGCFitToMarginKey
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCNoKey33u
+A: 0x15d300kGCHeightKey33u
+A: 0x15d300kGCGutterKey33u
+A: 0x15d300kGCRowsColonKey33u
+A: 0x15d300kGCSubrowsColonKey33u
+A: 0x15d300kGCFitToMarginKey
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCSecondaryColonKey33u
+A: 0x15d300kGCFitToMarginKey
+A: 0x15d300kGCFitToPageKey
+A: 0x15d300kGCTypeAreaColonKey33u
+A: 0x15d300kGCHorizontalColonKey33u
+A: 0x15d300kGCSubleadingColonKey33u
+A: 0x15d300kGCParagraphCharacterStylesKey33u
+A: 0x15d300kGCParagraphStylesKey33u
+A: 0x15d300kGCCharacterStylesKey33u
+A: 0x15d300kGCAddNewStyleKey0
+A: 0x15d300kGCSelectGroupColonKey33u
+A: 0x15d300kGCStyleWithinGroupColonKey33u
+A: Body Copy
+A: Caption | Info
+A: Headline
+A: Subhead
+A: Chapter
+A: Quote
+A: Header
+A: Footer
+A: Masthead
+A: Index | Appendix
+A: Nameplate
+A: Cover Lines
+A: Title | Spine
+A: Miscellaneous
+A: 0x15d300kGCStyleTitleColonKey33u
+A: 0x15d300kGCEditKey
+A: 0x15d300kGCFontFamilyColonKey33u
+A: 0x15d300kGCFontStyleColonKey33u
+A: 0x15d300kGCAlignmentColonKey33u
+A: Center
+A: Right
+A: Left Justify
+A: Center Justify
+A: Right Justify
+A: Full Justify
+A: Towards Spine
+A: Away From Spine
+A: 0x15d300kGCSizeColonKey33u
+A: 0x15d300kGCLeadingSetupColonKey33u
+A: x-Height
+A: H-Height
+A: Custom
+A: 0x15d300kGCTrackingKerningColonKey33u
+A: Kerning
+A: Optical
+A: Metrics
+A: Indent | Exdent
+A: Indent: 1 Em
+A: Indent: 2 Ems
+A: Indent: 3 Ems
+A: Indent: Custom
+A: Indent: H. Subdiv.
+A: Indent: x2 H. Subdiv.
+A: Indent: x3 H. Subdiv.
+A: Indent: x4 H. Subdiv.
+A: Indent: x5 H. Subdiv.
+A: Exdent: 1 Em
+A: Exdent: 2 Ems
+A: Exdent: 3 Ems
+A: Exdent: 4 Ems
+A: Exdent: 5 Ems
+A: Exdent: 6 Ems
+A: Exdent: 7 Ems
+A: Exdent: 8 Ems
+A: Exdent: 9 Ems
+A: Exdent: 10 Ems
+A: Exdent: 11 Ems
+A: Exdent: 12 Ems
+A: Exdent: Custom
+A: Exdent: H. Subdiv.
+A: Exdent: x2 H. Subdiv.
+A: Exdent: x3 H. Subdiv.
+A: Exdent: x4 H. Subdiv.
+A: Exdent: x5 H. Subdiv.
+A: 0x15d300kGCMillimetersKey
+A: 0x15d300kGCInchesKey
+A: 0x15d300kGCPointsKey
+A: Left Tab: 1 Em
+A: Left Tabs: 2 Ems
+A: Left Tabs: 3 Ems
+A: Left Tabs: 4 Ems
+A: Left Tabs: 5 Ems
+A: Left Tabs: H. Subdiv.
+A: Left Tabs: x2 H. Subdiv.
+A: Left Tabs: x3 H. Subdiv.
+A: Left Tabs: x4 H. Subdiv.
+A: Left Tabs: x5 H. Subdiv.
+A: Center Tab: 1 Em
+A: Center Tabs: 2 Ems
+A: Center Tabs: 3 Ems
+A: 0x15d300kGCCenterTabsKey
+A: Center Tabs: 5 Ems
+A: Center Tabs: H. Subdiv.
+A: Center Tabs: x2 H. Subdiv.
+A: Center Tabs: x3 H. Subdiv.
+A: Center Tabs: x4 H. Subdiv.
+A: Center Tabs: x5 H. Subdiv.
+A: Right Tab: 1 Em
+A: Right Tabs: 2 Ems
+A: Right Tabs: 3 Ems
+A: Right Tabs: 4 Ems
+A: Right Tabs: 5 Ems
+A: Right Tabs: H. Subdiv.
+A: Right Tabs: x2 H. Subdiv.
+A: Right Tabs: x3 H. Subdiv.
+A: Right Tabs: x4 H. Subdiv.
+A: Right Tabs: x5 H. Subdiv.
+A: Modified
+A: Tabular Lining
+A: Proportional Oldstyle
+A: Proportional Lining
+A: Tabular Oldstyle
+A: Default Figure Style
+A: 0x15d300kGCActionsColonKey33u
+A: 0x15d300kGCLockKey
+A: 0x15d300kGCResetKey(
+A: 0x15d300kGCOptionsKey
+A: 0x15d300kGCAddNewStyleKey0
+A: 0x15d300kGCSelectGroupColonKey33u
+A: 0x15d300kGCStyleWithinGroupColonKey33u
+A: Body Copy
+A: Caption | Info
+A: Headline
+A: Subhead
+A: Chapter
+A: Quote
+A: Header
+A: Footer
+A: Masthead
+A: Index | Appendix
+A: Nameplate
+A: Cover Lines
+A: Title | Spine
+A: Miscellaneous
+A: 0x15d300kGCStyleTitleColonKey33u
+A: 0x15d300kGCEditKey
+A: 0x15d300kGCFontFamilyColonKey33u
+A: 0x15d300kGCFontStyleColonKey33u
+A: 0x15d300kGCAlignmentColonKey33u
+A: Center
+A: Right
+A: Left Justify
+A: Center Justify
+A: Right Justify
+A: Full Justify
+A: Towards Spine
+A: Away From Spine
+A: 0x15d300kGCSizeColonKey33u
+A: 0x15d300kGCLeadingSetupColonKey33u
+A: 0x15d300kGCTrackingKerningColonKey33u
+A: Kerning
+A: Optical
+A: Metrics
+A: Indent | Exdent
+A: Indent: 1 Em
+A: Indent: 2 Ems
+A: Indent: 3 Ems
+A: Indent: Custom
+A: Indent: H. Subdiv.
+A: Indent: x2 H. Subdiv.
+A: Indent: x3 H. Subdiv.
+A: Indent: x4 H. Subdiv.
+A: Indent: x5 H. Subdiv.
+A: Exdent: 1 Em
+A: Exdent: 2 Ems
+A: Exdent: 3 Ems
+A: Exdent: 4 Ems
+A: Exdent: 5 Ems
+A: Exdent: 6 Ems
+A: Exdent: 7 Ems
+A: Exdent: 8 Ems
+A: Exdent: 9 Ems
+A: Exdent: 10 Ems
+A: Exdent: 11 Ems
+A: Exdent: 12 Ems
+A: Exdent: Custom
+A: Exdent: H. Subdiv.
+A: Exdent: x2 H. Subdiv.
+A: Exdent: x3 H. Subdiv.
+A: Exdent: x4 H. Subdiv.
+A: Exdent: x5 H. Subdiv.
+A: 0x15d300kGCMillimetersKey
+A: 0x15d300kGCInchesKey
+A: 0x15d300kGCPointsKey
+A: Left Tab: 1 Em
+A: Left Tabs: 2 Ems
+A: Left Tabs: 3 Ems
+A: Left Tabs: 4 Ems
+A: Left Tabs: 5 Ems
+A: Left Tabs: H. Subdiv.
+A: Left Tabs: x2 H. Subdiv.
+A: Left Tabs: x3 H. Subdiv.
+A: Left Tabs: x4 H. Subdiv.
+A: Left Tabs: x5 H. Subdiv.
+A: Center Tab: 1 Em
+A: Center Tabs: 2 Ems
+A: Center Tabs: 3 Ems
+A: 0x15d300kGCCenterTabsKey
+A: Center Tabs: 5 Ems
+A: Center Tabs: H. Subdiv.
+A: Center Tabs: x2 H. Subdiv.
+A: Center Tabs: x3 H. Subdiv.
+A: Center Tabs: x4 H. Subdiv.
+A: Center Tabs: x5 H. Subdiv.
+A: Right Tab: 1 Em
+A: Right Tabs: 2 Ems
+A: Right Tabs: 3 Ems
+A: Right Tabs: 4 Ems
+A: Right Tabs: 5 Ems
+A: Right Tabs: H. Subdiv.
+A: Right Tabs: x2 H. Subdiv.
+A: Right Tabs: x3 H. Subdiv.
+A: Right Tabs: x4 H. Subdiv.
+A: Right Tabs: x5 H. Subdiv.
+A: Modified
+A: Tabular Lining
+A: Proportional Oldstyle
+A: Proportional Lining
+A: Tabular Oldstyle
+A: Default Figure Style
+A: 0x15d300kGCActionsColonKey33u
+A: 0x15d300kGCDeleteKey
+A: 0x15d300kGCResetKey(
+A: 0x15d300kGCOptionsKey
+A: 0x15d300kGCAddNewStyleKey0
+A: 0x15d300kGCSelectGroupColonKey33u
+A: 0x15d300kGCStyleWithinGroupColonKey33u
+A: Body Copy
+A: Caption | Info
+A: Headline
+A: Subhead
+A: Chapter
+A: Quote
+A: Header
+A: Footer
+A: Masthead
+A: Index | Appendix
+A: Nameplate
+A: Cover Lines
+A: Title | Spine
+A: Miscellaneous
+A: 0x15d300kGCStyleTitleColonKey33u
+A: 0x15d300kGCEditKey
+A: 0x15d300kGCFontFamilyColonKey33u
+A: 0x15d300kGCFontStyleColonKey33u
+A: 0x15d300kGCKerningColonKey33u
+A: Kerning
+A: Optical
+A: Metrics
+A: 0x15d300kGCSizeColonKey33u
+A: 0x15d300kGCLeadingSetupColonKey33u
+A: 0x15d300kGCTrackingCaseColonKey33u
+A: Normal
+A: Small Caps
+A: All Caps
+A: Open Type All Small Caps
+A: 0x15d300kGCPositionColonKey33u
+A: Position
+A: Normal
+A: Superscript
+A: Subscript
+A: Open Type Superior/Superscript
+A: Open Type Inferior/Subscript
+A: Open Type Numerator
+A: Open Type Denominator
+A: 0x15d300kGCFigureStyleColonKey33u
+A: Tabular Lining
+A: Proportional Oldstyle
+A: Proportional Lining
+A: Tabular Oldstyle
+A: Default Figure Style
+A: 0x15d300kGCActionsColonKey33u
+A: 0x15d300kGCDeleteKey
+A: 0x15d300kGCResetKey(
+A: 0x15d300kGCOptionsKey
+A: 0x15d300kGCDocumentInfoExtrasKey33u
+A: 0x15d300kGCUnitGridCalculationKey33u
+A: 0x15d300kGCMmColonKey33u
+A: 0x15d300kGCInColonKey33u
+A: 0x15d300kGCPointsColonKey33u
+A: 0x15d300kGCBleedSlugKey33u
+A: 0x15d300kGCTopColonKey33u
+A: 0x15d300kGCBottomColonKey33u
+A: 0x15d300kGCInsideColonKey33u
+A: 0x15d300kGCOutsideColonKey33u
+A: 0x15d300kGCBColonKey33u
+A: 0x15d300kGCSColonKey33u
+A: 0x15d300kGCPresetsKey33u
+A: 0x15d300kGCPresetKey33u
+A: 0x15d300kGCDateKey33u
+A: Last Saved
+A: First Saved
+A: 0x15d300kGCSaveKey 
+A: 0x15d300kGCDeleteKey 
+A: 0x15d300kGCImportKey@
+A: 0x15d300kGCExpPresetsKey

@@ -1,0 +1,73 @@
+Type: Grid Calculator Publishing Edition;
+Version: 1.3;
+Preset Name: Web Export;
+Date: 12 Sept, 2026, 00 : 27 : 58;
+Document Setup: Smart;
+Number of Masters: 1;
+Facing Pages: false;
+Unit: Millimeters;
+Width 4: 8.5;
+H. Module 2: 85000;
+H. Module 3: 0;
+H. Subdiv 2: 1;
+H. Subdiv 3: 0;
+Height 4: 11;
+V. Module 2: 2;
+V. Module 3: 5.5;
+V. Subdiv 2: 1;
+V. Subdiv 3: 5.5;
+Leading: 5.5;
+Font: ;
+Style: ;
+Size (pt): ;
+Style Leading: 15.591 pt;
+Alignment: Left;
+Tracking: 0;
+Kerning: Kerning;
+Indent/Exdent: Indent | Exdent;
+Tabs: Tabs;
+Figure Style: Default Figure Style;
+Bleed (Chain): true;
+Bleed (Top): ;
+Bleed (Bottom): ;
+Bleed (Inside): ;
+Bleed (Outside): ;
+Slug (Chain): false;
+Slug (Top): ;
+Slug (Bottom): ;
+Slug (Inside): ;
+Slug (Outside): ;
+Vertical Value Mode: No;
+
+[GC-1]
+No. of Master Pages: 2;
+Horizontal Value Mode: No;
+Image-lines height (pt): ;
+Image-lines: ;
+ Smart Columns applied: Yes;
+ Smart Rows applied: Yes;
+ Desired Top Margin: 0;
+ Desired Bottom Margin: 0;
+ Desired Inside Margin: 0;
+ Desired Outside Margin: 0;
+Top margin (lines): 0;
+Bottom margin (lines): 2;
+Inside margin (lines): 7500;
+Outside margin (lines): 7500;
+Main Columns: 3 columns (22222 lines); gutter: 1667 lines;
+Custom Subcolumns: Num: 0, Width: 0.000, Gutter: 0.000;
+Fit sec. columns: Fit to margins;
+Custom Secondary Columns: Num: 0, Width: 0.000, Gutter: 0.000;
+Fit rows: Fit to margins;
+Main Rows: 4 rows (0 lines); gutter: 0 lines;
+Custom Subrows: Num: 0, Width: 0.000, Gutter: 0.000;
+Fit sec. rows: Fit to margins;
+Custom Secondary Rows: Num: 0, Width: 0.000, Gutter: 0.000;
+Typearea Grid (Horizontal): 0 lines - 0;
+Typearea Grid (Subleading): 0 lines - 0;
+
+
+/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/
+
+
+/*WARNING: Please do not change the format of this file, otherwise it can cause the application to malfunction*/

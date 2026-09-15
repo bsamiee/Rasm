@@ -1,0 +1,51 @@
+family,name,width,height,unit,source
+DIN,A0,841,1189,mm,ISO 216 (vendor dropdown family "DIN sizes." confirmed; entries computed by the plug-in, not stored as strings)
+DIN,A1,594,841,mm,ISO 216
+DIN,A2,420,594,mm,ISO 216
+DIN,A3,297,420,mm,ISO 216
+DIN,A4,210,297,mm,ISO 216 (vendor manual example: A4 with 12 pt leading fits as 12.027 pt)
+DIN,A5,148,210,mm,ISO 216
+DIN,A6,105,148,mm,ISO 216
+DIN,A7,74,105,mm,ISO 216
+DIN,B0,1000,1414,mm,ISO 216
+DIN,B1,707,1000,mm,ISO 216
+DIN,B2,500,707,mm,ISO 216
+DIN,B3,353,500,mm,ISO 216
+DIN,B4,250,353,mm,ISO 216
+DIN,B5,176,250,mm,ISO 216
+DIN,C4,229,324,mm,ISO 269
+DIN,C5,162,229,mm,ISO 269
+DIN,C6,114,162,mm,ISO 269
+ANSI,ANSI A,8.5,11,in,ANSI/ASME Y14.1 (vendor dropdown entry "ANSI A" confirmed in idrc_PMST/351.idrc)
+ANSI,ANSI B,11,17,in,ANSI/ASME Y14.1 (vendor entry confirmed)
+ANSI,ANSI C,17,22,in,ANSI/ASME Y14.1 (vendor entry confirmed)
+ANSI,ANSI D,22,34,in,ANSI/ASME Y14.1 (vendor entry confirmed)
+ANSI,ANSI E,34,44,in,ANSI/ASME Y14.1 (vendor entry confirmed)
+Arch,Arch A,9,12,in,ANSI/ASME Y14.1 architectural series (vendor entry confirmed)
+Arch,Arch B,12,18,in,vendor entry confirmed
+Arch,Arch C,18,24,in,vendor entry confirmed
+Arch,Arch D,24,36,in,vendor entry confirmed
+Arch,Arch E,36,48,in,vendor entry confirmed
+Digital,480 x 320 (Phone),480,320,px,vendor entry confirmed verbatim in idrc_PMST/351.idrc
+Digital,480 x 800 (Phone),480,800,px,vendor entry confirmed
+Digital,600 x 300 (Web),600,300,px,vendor entry confirmed
+Digital,600 x 1024 (Tablet),600,1024,px,vendor entry confirmed
+Digital,640 x 480 (Web),640,480,px,vendor entry confirmed
+Digital,720 x 1280 (Phone),720,1280,px,vendor entry confirmed
+Digital,760 x 420 (Web),760,420,px,vendor entry confirmed
+Digital,768 x 1024 (Tablet),768,1024,px,vendor entry confirmed
+Digital,800 x 480 (Phone),800,480,px,vendor entry confirmed
+Digital,800 x 600 (Web),800,600,px,vendor entry confirmed
+Digital,800 x 1280 (Tablet),800,1280,px,vendor entry confirmed
+Digital,960 x 768 (Web),960,768,px,vendor entry confirmed
+Digital,1024 x 600 (Tablet),1024,600,px,vendor entry confirmed
+Digital,1024 x 768 (Tablet/Web),1024,768,px,vendor entry confirmed
+Digital,1152 x 864 (Web),1152,864,px,vendor entry confirmed
+Digital,1240 x 620 (Web),1240,620,px,vendor entry confirmed
+Digital,1280 x 720 (Phone),1280,720,px,vendor entry confirmed
+Digital,1280 x 800 (Tablet),1280,800,px,vendor entry confirmed
+Digital,1280 x 1024 (Web),1280,1024,px,vendor entry confirmed
+Digital,1600 x 1200 (Web),1600,1200,px,vendor entry confirmed
+Digital,1536 x 2048 (Tablet),1536,2048,px,vendor entry confirmed
+Digital,1920 x 1080 (HD),1920,1080,px,vendor entry confirmed
+Digital,2048 x 1536 (Tablet),2048,1536,px,vendor entry confirmed

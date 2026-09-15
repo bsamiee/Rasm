@@ -1,0 +1,59 @@
+{
+  "id": "8ebe7f95",
+  "name": "Sidekick",
+  "version": "1.0.22",
+  "main": "index.html",
+  "manifestVersion": 5,
+  "host": {
+    "app": "ID",
+    "minVersion": "19.0"
+  },
+  "requiredPermissions": {
+    "localFileSystem": "fullAccess",
+    "network": {
+      "domains": ["ws://localhost:6001", "wss://localhost:6001"]
+    },
+    "launchProcess": {
+      "schemes": ["https"]
+    }
+  },
+  "icons": [
+    {
+      "width": 48,
+      "height": 48,
+      "path": "icons/plugin.png",
+      "scale": [1, 2],
+      "theme": ["darkest", "dark", "medium", "lightest", "light", "all"],
+      "species": ["pluginList"]
+    }
+  ],
+  "entrypoints": [
+    {
+      "type": "panel",
+      "id": "mcpPanel",
+      "label": {
+        "default": "Sidekick"
+      },
+      "minimumSize": {
+        "width": 200,
+        "height": 100
+      },
+      "icons": [
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/dark.png",
+          "scale": [1, 2],
+          "theme": ["darkest", "dark", "medium"]
+        },
+        {
+          "width": 23,
+          "height": 23,
+          "path": "icons/light.png",
+          "scale": [1, 2],
+          "theme": ["lightest", "light"]
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,76 @@
+Grid Calculator PE — Updates — Designers Bookshop
+Products
+About
+Support
+Updates
+ / Grid Calculator PE
+Grid Calculator PE
+Release notes for Grid Calculator Publishing Edition — the Adobe InDesign layout plugin.
+Apr 3, 2026
+Announcement
+v1.4
+Version 1.4: Layout Wizard & Presets
+We’re excited to announce version 1.4 of the Grid Calculator Publishing Edition!
+This update features our brand new 
+Layout Wizard
+. We have built a dedicated web page where you can easily build professional layouts interactively and then seamlessly download them as pre-configured presets to load straight into the plug-in. You will find the new Layout Wizard button located at the top right of the plug-in panel, just under the units dropdown.
+Mar 9, 2026
+Announcement
+v1.3
+Version 1.3 for new server available
+We have finally moved to a new server that is available 24/7. Due to this a new version is available that connects to that server.
+Action required:
+ To transfer to the new server please contact us. We aim to have everyone starting from version 2027 on the new server.
+Dec 16, 2025
+Announcement
+v1.2
+InDesign 2026 — Mac support released
+Grid Calculator PE is now fully compatible with Adobe InDesign 2026 on macOS. This version no longer requires InDesign 2025 to be installed alongside it.
+Please report any potential issues you encounter.
+Nov 18, 2025
+Notice
+v1.2
+InDesign 2026 BETA-1B compatibility notice
+Due to some issues that will be resolved in a later release, 
+InDesign 2025 must remain installed
+ alongside InDesign 2026 beta for the plugin to run correctly.
+This requirement will be lifted once full 2026 support is released.
+Jun 10, 2025
+Fix
+v1.2
+Preset overwriting — improved handling
+A confirmation dialog now appears when saving a preset with the same name as an existing one, preventing accidental overwrites.
+Jun 10, 2025
+Improvement
+v1.2
+Updated menu items
+Three new menu items added to the plugin menu:
+Updates and Server Status
+ — links to this updates page and displays current server status
+Knowledge Base
+ — links to the knowledge base (under construction)
+Contact Support
+ — opens a dialog with server status and the support email address
+Jun 5, 2025
+Fix
+v1.1
+Presets crash issue resolved
+Resolved multiple preset issues introduced in version 1.0:
+Crash when saving or importing presets
+Presets not loading correctly on startup
+Presets are now fully stable. Upgrade to 1.1 if you experienced any of these issues.
+May 26, 2025
+Notice
+v1.0
+macOS 15.4 and later — licensing fix (action required)
+Apple introduced changes in macOS 15.4 that broke the plugin’s licensing system. This update fixes the issue and ensures compatibility with current and future macOS versions.
+Action required:
+ If you installed the plugin before this date, download and run the latest installer from the top of the product page.
+Updates
+Knowledge Base
+Layout Wizard
+Terms
+Privacy
+Since 2008. © 
+2026
+ Designers Bookshop. All rights reserved.

@@ -1,0 +1,116 @@
+﻿
+ Grid Calculator Pro Edition, Plug-in for Adobe InDesign - Introduction
+ [IMG images/icons/products_gc_pro.gif]
+ [LINK https://www.designersbookshop.com/products/] Products /
+ Grid Calculator Pro Edition /
+ Introduction
+ Probably the world's fastest and smartest way of creating professional layouts in Adobe InDesign
+ [LINK http://www.adobe.com/sea/products/indesign/indepth.displayTab3.html#DesignersBookshop] 
+ [IMG https://www.designersbookshop.com/images/table/adobe.gif]
+ [LINK #] Introduction
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-videos.html] Video Library
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-questions.html] Questions and Answers 
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-clients.html] Our Clients
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-knowledge-base.html] Knowledge Base
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-layout-wizard.html] Layout Wizard
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-purchase.html] Purchase License
+ Good to know:
+ Used by leading experts in the industry.
+ Up to 100 times faster on certain tasks.
+ [LINK ./calculate/] 'The Time Test' - Calculate Time & Money
+ Subscribe a single month ... or more!
+ [LINK https://www.facebook.com/sharer/sharer.php?u=https://www.youtube.com/embed/jtJU8nYwBkQ?vq=hd1080] 
+ Share our amazing plug-in on Facebook.
+ View update history for:
+ [LINK https://www.designersbookshop.com/updates/grid-calculator-pro-edition-cc/] CC | [LINK https://www.designersbookshop.com/updates/grid-calculator-pro-edition/] CS
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-purchase.html] 
+ [IMG images/forms/buy-pro.gif]
+ Great for projects like:
+ Magazines, books and tablet/eBooks.
+ First Name:
+ Email Address:
+ Affiliate User Value
+ I consent to your [LINK https://www.designersbookshop.com/privacy_policy.html] Privacy Policy.
+ Experience Adobe InDesign ... on steroids! While many designers in the world are wasting hours after hours trying to create layouts that works, our clients only need to spend minutes. [LINK https://designersbookshop.com/video-library/grid-calculator-pro-edition/sketch-to-grid-based-layout/index.html] Watch a video on how to go from scratch to a finished layout!
+ Discover the tool that a former Swedish graphic design student once dreamed about, he searched everywhere
+ for it, until he realized that nobody had ever created it. He decided to change that — so that
+ designers just like himself would be able to create layouts blazing fast and with highest quality. This
+ powerful plug-in began as his final project in school and has gone on to change how designers from all over
+ the world, on a daily basis work with layouts. Abraham has some of the most well-known design agencies and
+ publishing companies in the world as his [LINK ./grid-calculator-pro-edition-clients.html] clients.
+ Create grid-based layouts in no-time, all settings are applied directly. Never again do you need to name
+ layers, measure margins, setup the body copy to fit the layouts or measure the x or H-height for
+ applying image-lines that are used to align text and images with killer-precision for the most beautiful
+ layouts and typography. You also never again have to do boring math (which was the starting point for
+ Abraham) which takes a lot of time when starting your project.
+ This software is designed to "hold-your-hand" from start to finish regardless if you're new to layouts
+ or a professional designer with many years of experience. Truth is that many designers are so busy that
+ they just don't have time to create the layouts they truly want, leaving many dissatisfied with the end
+ result or even worse reusing and being "stuck" with old layouts and never developing their layout skills
+ — all because they lack the time and also in many cases the knowledge. You no longer have to be an
+ expert to create layouts like one! Grid Calculator Pro Edition not only handles the layouts for you but
+ starting from version 3.0 it also handles your paragraph and character styles. Creating perfectly
+ synchronized texts for your layouts is a breeze and takes your text handling to a completely new level.
+ The plug-in can handle an unlimited number of styles and quickly sort them neatly in group folders in
+ the different palettes. The plug-in is not required in order to open InDesign documents created
+ with it (sending files to other InDesign users works perfectly fine, as the plug-in only uses native
+ settings already existing within InDesign).
+ The plug-in can also handle multiple masters which means that you can create totally different layouts
+ in the same document. With all the features of Grid Calculator Pro Edition, it makes the process of
+ creating layouts both fun and easy. Will you continue to struggle on your own — or will you get
+ this tool and finally enjoy creating layouts? The plug-in is loved by many designers and also featured
+ on [LINK http://www.lynda.com/InDesign-tutorials/Using-Grid-Calculator-Pro/141130/411101-4.html] Lynda.com (video only available for members but [LINK http://designersbookshop.s3.amazonaws.com/images/featured/lynda-gcproed.jpg] printscreen can be seen here). Plug-in was also used for the redesign of renowned magazine, Creative Review.
+ Top 10 reasons to use our plug-in:
+ Extremely fast setup/timesaving
+ Create and use/sell high quality templates
+ Dynamic settings (adjusts to your project)
+ You'll get really organized (layouts/layers/styles)
+ [LINK https://designersbookshop.tenderapp.com/kb/videos/video-bonus-export-grid-to-illustrator-or-photoshop-with-pdf-file] Illustrator/Photoshop grid (package
+ & branding).
+ Proportional layouts and smart text handling
+ Get more options and data than normally
+ Build a library of layouts with presets
+ Guides for aligning images to text
+ And last but not least — peace of mind
+ -->
+ • Extremely fast setup/timesaving 
+ • Create and use/sell high quality templates 
+ • Dynamic settings (adjusts to your project) 
+ • You'll get really organized (layouts/layers/styles) 
+ • Illustrator/Photoshop grid (package & branding).
+ • Proportional layouts and smart text handling 
+ • Get more options and data than normally 
+ • Build a library of layouts with presets 
+ • Guides for aligning images to text 
+ • And last but not least — peace of mind
+ Special thanks to my friend and former teacher [LINK http://www.bachgarde.com] 
+ Marcus
+ Gärde
+ for teaching me and many others this wonderful knowledge and for laying the foundation of
+ what I know today. Follow me on [LINK http://twitter.com/designersbshop] Twitter, [LINK https://www.instagram.com/designersbshop] Instagram and [LINK http://facebook.com/designersbshop] Facebook.
+ "Your approach is exactly the one I have been using for about 40 years, since the arrival of photosetting.
+ When programs like Quark and InDesign came out, my method got forgotten, but now it seems we can work like
+ this again."
+— Erik Spiekermann
+ "Once you understand Grid Calculator Pro Edition, you'll wish you had it years ago."
+ — InDesign Magazine
+ "A comprehensive tool for design pros creating grid-based layouts. It aims to take the pain out of
+ the maths involved in creating grid-based systems for books, mags, brochures or other layouts - leaving you
+ to focus on the creative part.
+ Essentially it enables you to create a grid, based on your leading, with the tool then working out
+ measurements of columns, indents,
+ margins and other attributes - making sure everything is accurate and lines up."
+— Computer Arts
+ Projects done with Grid Calculator Pro Edition
+ Project: Color Magazine (Redesign). Agency: [LINK http://www.wedgeandlever.com] Wedge & Lever.
+ Project: Color Magazine (Redesign). Agency: [LINK http://www.wedgeandlever.com] Wedge & Lever.
+ Project: Color Magazine (Redesign). Agency: [LINK http://www.wedgeandlever.com] Wedge & Lever.
+ Project/Agency: Creative Review Magazine (Redesign). [LINK https://www.creativereview.co.uk/cr-redesigned-2/] Read more.
+ Project/Agency: Creative Review Magazine (Redesign). [LINK https://www.creativereview.co.uk/cr-redesigned-2/] Read more.
+ Project/Agency: Creative Review Magazine (Redesign). [LINK https://www.creativereview.co.uk/cr-redesigned-2/] Read more.
+ Project: Wine with address (Book design). Agency: Lotta Kühlhorn. [LINK http://kuhlhorn.se/vinmedadress.html] Read more.
+ Project: Wine with address (Book design). Agency: Lotta Kühlhorn. [LINK http://kuhlhorn.se/vinmedadress.html] Read more.
+ Project: Wine with address (Book design). Agency: Lotta Kühlhorn. [LINK http://kuhlhorn.se/vinmedadress.html] Read more.
+ Want to be featured? Contact us!
+ Used and loved by some of the best Art Directors and Graphic Designers
+ [IMG images/table/clients-pro.jpg]

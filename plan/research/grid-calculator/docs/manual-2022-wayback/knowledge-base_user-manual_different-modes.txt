@@ -1,0 +1,41 @@
+Grid Calculator Pro Edition, Plug-in for Adobe InDesign - The Different Setup Modes
+ [IMG https://www.designersbookshop.com/images/icons/products_gc_pro.gif]
+ [LINK https://www.designersbookshop.com/products/] Products /
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition.html] Grid Calculator Pro Edition / 
+ [LINK ../../../grid-calculator-pro-edition-knowledge-base.html] Knowledge Base
+ User Manual: The Different Setup Modes
+ [LINK ../../../grid-calculator-pro-edition-knowledge-base.html] 
+ [IMG https://www.designersbookshop.com/images/table/back-knowledge-base.gif]
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition.html] Introduction
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-videos.html] Video Library
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-questions.html] Questions and Answers 
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-clients.html] Our Clients
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-knowledge-base.html] Knowledge Base
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-layout-wizard.html] Layout Wizard
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-purchase.html] Purchase License
+ Quick mode
+You can set your own margins not based on the document grid (via Value option in margins). This can be done both for the vertical and horizontal margins. Please note that vertical margins can only be set with Value option in GC-1 (master page 1), this is because the leading you entered in the document setup will adapt to fit perfectly within your vertical margins, since you can only have one baseline grid per document, this is set in GC-1.
+In the following masters, GC-2 and following you will only be able to use the arrow-based setup for vertical margins. which will be based on the document leading value.
+Quick mode is also great if you wish to setup a type area grid within margins you have set. If you wish to create a grid [LINK https://www.designersbookshop.com/video-library/grid-calculator-pro-edition/square-grid-image-lines-quick-mode/index.html] as seen here, you must use the Quick mode setup. 
+In version 4.0 and later Quick mode is very powerful and flexible and can create most layouts.
+Modular mode and Smart mode
+What is important to know is that Modular and Smart mode are synchronized with each other. When using any of these modes please know that you are tied to follow the document grid. You can not use the value option in these modes nor setup type area grid (as this can only be done when using the Value option for margins).
+The synchronization between Modular and Smart mode was done for the main reason of being able to set the document grid width and height before moving on to the Smart mode.
+If you setup a layout in Modular or Smart mode and then switch to Quick mode (or vice-versa) your layout will be reset, this is because they work in different ways, mainly it's because Quick mode can break the document grid and you can setup your own grid (type area grid, but it's also due to the ability to set your own leading/baseline grid value which can be done by unchecking Fit Leading in Quick mode). This is not supported in Modular and Smart mode.
+The two main differences between Modular and Smart mode
+Even though Modular and Smart mode are synchronized with each other you don't need to switch between the two. Modular mode works on it's own and so does Smart mode. 
+Modular mode has one powerful feature that can be used before going into Smart mode and that is, as mentioned earlier, the ability to set the grid width and height. The entire purpose of Smart mode is to reverse-engineer your layout. So basically you decide on the number of columns and rows, whatever areas are left over will be turned into margins.
+This is great if you're going to create, for example, a magazine where you know you want 12 columns. How does the grid width and height from Modular mode turn into great use before starting with Smart mode? Well, you might already know you want a certain gutter value for your columns, values for your margins and in- or exdent values for your text (if based on document grid). In those cases using the grid width and height feature are excellent as you dont personally need to know how many times the document has to be "sliced" in order
+to achieve those values.
+You will notice that in Modular and Smart mode there is no field to enter the leading value, but a smart and fast way is to select 'Points and Pixels' in the unit dropdown and then in the grid height field in Modular mode enter your desired leading value and click 'Calculate' and then you can select your desired unit again (if you prefer working in Millimeters or Inches).
+Smart mode is great when you already know how many columns and rows you want, as I mentioned the margins will be applied to whatever areas are left over. If you try to go to the margins section while in Smart mode, it can be a frustrating experience because Smart mode is not designed to set your margins manually, you can enter desired margin values in the document setup of Smart mode (and then you will select your columns or rows from the dropdown) but you will not be able to do so from the margins area.
+If you wish to follow the document grid and be able to setup your own margins (based on the document grid) then stick to the Modular mode. In that mode you have more freedom to play with the margins.
+These are the main differences between Modular and Smart mode
+• Forced to work with document grid - both
+• Ability to set the document grid width and height (Calculate feature) - Modular mode
+• Ability to set margins freely based on document grid - Modular mode
+• Setup your columns and rows based on numbers you've entered - Smart mode
+• Margins adapt and are set based on whatever areas left, once columns and rows are set - Smart mode
+Offering 3 different setup modes can be confusing for many new users. However these 3 setup modes are based on years of careful research on how different designers prefer to work and depending on what different projects require.
+Once you start to understand how the different modes work and use them you will most likely feel a sense of freedom that is not offered in Adobe InDesign and that requires you to spend hours of manual work to achieve the same results.
+Grid Calculator Pro Edition takes layout much further then InDesign does on its own. It allows you to truly customize your layout.

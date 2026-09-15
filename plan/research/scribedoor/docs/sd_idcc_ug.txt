@@ -1,0 +1,1368 @@
+
+===== PDF PAGE 1 =====
+by WinSoft International
+©2013 WinSoft International. All rights reserved. ScribeDOOR is a Trademark of WinSoft International. All other trademarks are the property of their respective owners.
+ScribeDOOR for Adobe® InDesign CC by WinSoft International
+USER GUIDE
+	
+	
+
+
+===== PDF PAGE 2 =====
+About ScribeDOOR
+ScribeDOOR adds the ability to edit and treat text in a 
+wide range of languages: Arabic, Azeri, Bengali, Farsi, 
+Georgian, Greek, Gujarati, Hebrew, Hindi, Kannada, 
+Kazakh, Khmer/Cambodian, Lao, Malayalam, Marathi, 
+Oriya, Punjabi, Tamil, Thai, Urdu, Vietnamese and Roman 
+languages (English, French, ...).
+ScribeDOOR can be installed in all Roman InDesign CC 
+versions (English, French, Italian, Czech, Polish,...). In 
+localized user interfaces (except French), only the English 
+user interface will be available for ScribeDOOR panel and 
+tools.
+
+
+===== PDF PAGE 3 =====
+3
+3
+TABLE OF CONTENTS
+About ScribeDOOR	
+2
+Activation process	
+4
+ScribeDOOR attributes	
+5
+Setting default	
+7
+Working with complex scripts	
+8
+WorldReady Composer	
+11
+Setting up a document	
+12
+Page & chapter numbering	
+14
+Paragraph numbering	
+15
+Footnote numbering	
+16
+Paragraph direction	
+17
+Table direction	
+19
+Story direction	
+20
+Character direction	
+21
+Justification for Arabic on CS5.x version	
+21
+Justification for Arabic on CC version	
+23 
+Kashidas	
+25
+Digits	
+25
+Diacritic positioning	
+26
+Defining character and paragraph styles	
+28
+Insert special characters	
+29
+Arabic spell checking	
+30
+Hebrew hyphenation	
+30
+Additional features	
+31
+Selection helper	
+31
+Reverse layout	
+32
+Known issues	
+34
+Support	
+34
+About WinSoft International	
+35
+
+
+===== PDF PAGE 4 =====
+4
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Activation process on ScribeDOOR for InDesign 
+Activation
+• 
+When launching InDesign CC after installing ScribeDOOR for InDesign, the 
+following dialog is displayed. 
+• 
+You have the choice to enter your license (serial number) and then to activate 
+permanently ScribeDOOR.
+• 
+You can also use ScribeDOOR for 7 days in trial mode. In trial mode, this 
+Welcome Screeen will be displayed at each launch of InDesign.
+• 
+To activate permanently ScribeDOOR, enter your serial number and click on 
+“Continue”.
+ 
+• 
+If your trial version has expired, you can display this window by selecting 
+Windows>ScribeDOOR>Activation>Activate ScribeDOOR
+
+
+===== PDF PAGE 5 =====
+5
+5
+ScribeDOOR attributes
+ (1)
+ (2)
+ (3)
+ (4)
+(5)
+Document 
+binding
+Text 
+Composer (1)
+Paragraph 
+direction
+Selection of 
+type of digits (3)
+Character 
+direction (2)
+Diacritic
+ fine tuning 
+positioning
+Table 
+direction
+Story 
+direction
+Type of Arabic 
+justification (4)
+Kashidas 
+option for 
+justified 
+text
+Diacritic 
+positioning 
+options (5) 
+Kashida 
+width
+
+
+===== PDF PAGE 6 =====
+6
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Contextual menu of ScribeDOOR Attributes
+ScribeDOOR in InDesign menu
+
+
+===== PDF PAGE 7 =====
+7
+7
+Setting defaults
+You can set default parameters which will be applied for any text frames you 
+create. The following example shows how to set the 3 attributes listed below:
+- WorldReady Paragrah Composer 
+- Right-to-left paragraph direction
+- Naskh justification
+1- Close all the InDesign opened documents
+2- Open Type> Paragraph style palette, double click on Basic Paragraph and select 
+ScribeDOOR Paragraph Format
+3- Select the attributes
+ - WorldReady Paragraph Composer 
+- Right-to-left paragraph direction
+- Naskh justification
+and click on Ok
+4- For all new documents, these settings will be applied by default.
+
+
+===== PDF PAGE 8 =====
+8
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Working with complex scripts
+In Windows Vista and Windows 7, support of complex scripts is included in 
+standard installation.
+In Windows XP, you must verify the option “Install files for complex scripts and 
+right-to-left languages” in Supplemental language support. You have to add this 
+option if you want to enable Arabic, Hebrew, and South Asian languages on your 
+system. 
+In Macintosh, due to a system limitation, the primary language in system 
+preferences>international or Language and Text (Snow Leopard) must be other 
+than Arabic, Hebrew or Farsi.
+Installing a language keyboard
+Whether you are working in Mac OS or Windows, you need to install the required 
+keyboards for the languages you want to work with in Adobe InDesign in your 
+Operating System.
+
+
+===== PDF PAGE 9 =====
+9
+9
+ScribeDOOR adds the following keyboards in Mac OS: Khmer, Lao, Sinhala, Urdu, 
+Telegu. These keyboards can be displayed in system preferences>international or 
+Language and Text (Snow Leopard).
+Mac OS 10.7 adds support for Kannada, Telugu, Bengali/Assamese, Malayalam, 
+Sinhala, Oriya, Lao, Khmer and Burmese. So, on Mac OSX 10.7, ScribeDOOR installs 
+only  Lao keyboard.
+Font considerations
+Ensure that you choose an appropriate font in the Font submenu of the Type 
+menu or in the font pop-up menu of the Character or Control Palette of InDesign. 
+An appropriate font means a font containing the character of the language in 
+which you would like to type. ScribeDOOR installs WinSoft Pro which supports 
+Roman, Arabic or Hebrew.
+You may also use the following fonts :
+Platform
+Arabic
+Hebrew
+Windows
+Traditional Arabic
+Simplified Arabic
+Arabic Transparent
+Simplified Arabic
+or multiscript fonts like
+Arial- Times New Roman
+Ahroni
+David
+FrankRuehl Regular
+Levenim MT
+or multiscript fonts like
+Arial- Times New Roman
+Macintosh
+Geezah Pro
+Baghdad
+Al bayan
+Arial  Hebrew
+Corsiva Hebrew
+New Penim MT
+Raanana
+
+
+===== PDF PAGE 10 =====
+10
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+South Asian fonts
+For each language, appropriate fonts must be installed.
+Below is the list of fonts that can be used with each language. We remind you that 
+the best results will be given with fonts provided with Windows Vista (unicode 
+5.0) and Windows 7 (unicode 5.1). 
+Thai
+Angsana
+Lao
+Dok Champa
+Devanagari
+Mangal
+Bengali
+Vrinda
+Gurmukhi
+Raavi
+Gujarati
+Shruti
+Orya
+Kalinga
+Tamil
+Latha
+Telugu
+Gautami
+Kannada
+Tunga
+Malayalam
+Kartika
+Tibetan
+Microsoft Himalaya
+Khmer
+DaunPenh
+Sample text in South Asian languages
+Thai: ภาษาไทย
+Lao: ປະເທດລາວ
+Hindi: हिन्दी इत्याह्।
+Bengali: বাংলা ভাষা
+Gurmukhi: ਰਜਿਸਟ੍ਰੇਸ਼ਨ
+Gujarati: આ પણ જુઓ
+Oriya: ରାଜ୍ୟର ଆନୁଷ୍ାନିକ ଭାଷା
+Tamil : சDொன்
+ொல்
+Telugu: ఇబ్బందులపాలవావాల్సి
+Kannada : ಸlೇರಿದವರಾಗಿದಾದಾರ
+Malayalam: വെളിച്ചങ്ങളായിരിക്കവടെ
+Tibetan: བོད་ཡུལ།
+Khmer: ព្រះរាជាណាចព្រ្រម្ពុជា - វិគីភីឌា
+
+
+===== PDF PAGE 11 =====
+11
+11
+WorldReady Composer
+Giving access to the “WorldReady Composer” is one of the key features of 
+ScribeDOOR. It uses WRServices technology (a component developed by 
+WinSoft International) which was integrated in most Adobe products for the 
+Arabic, Hebrew and Farsi languages. The default Composer (Adobe paragraph 
+Composer) only supports Roman, Central european, Greek and Cyrillic scripts. 
+With WorldReady Composer, you will have the ability to type in complex 
+languages like Arabic, Hebrew or South Asian languages (Hindi, Telugu, Lao, Thai, 
+...). WorldReady Paragraph Composer supports also the same languages as Adobe 
+Composer. If you try to type  Arabic or Hebrew text with Adobe Composer, it will 
+not work correctly.
+How to apply WorldReady Composer
+You have the possibility of either converting all of the text frames of an existing 
+document or working at the paragraph level.
+Apply WorldReady Composer for all text frames
+Select ‘Apply Adobe WorldReady Composers’ in the contextual menu of the 
+ScribeDOOR palette. You will now be able to type in complex script languages in 
+any text frames of your document.
+
+
+===== PDF PAGE 12 =====
+12
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Apply WorldReady Composer for a paragraph
+If you are in a normal text frame, you can switch any paragraph to a WorldReady 
+Composer paragraph. Select the pararaph you want to convert and select 
+WorldReady Paragraph Composer in the Composer pop-up.
+Apply WorldReady Composer by default
+cf section «Setting defaults» p 7
+Setting up a document
+Creating right-bound or left-bound documents
+In most text publications, documents are bound on the left. Conversely, in an 
+Arabic or Hebrew text publication, the binding is on the right edge of the 
+document. With ScribeDOOR you can create a document in which the pages are 
+bound on the left edge or on the right edge. 
+
+
+===== PDF PAGE 13 =====
+13
+13
+Pages Palette — Page Icons Display 
+Right-bound publication
+If your publication is right-bound, as in a Middle Eastern publication, the page 
+select­ion icons will be displayed in the Pages Palette, as in the figure below.
+Left-bound publication
+If your publication is left-bound, as in a Roman Publication, the page select­ion 
+icons will be displayed in the Pages Palette, as in the figure below.
+Pages palette  with different bindings
+Right-to-left
+Left-to-right
+
+
+===== PDF PAGE 14 =====
+14
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Page and chapter numbering
+Page Numbering now includes new formats for Arabic, Hebrew and South Asian 
+languages.
+You can choose to apply standard, Arabic (Arabic Abjad and Arabic Alif Ba Tah), 
+Hebrew (Hebrew Biblical Standard and Hebrew Non-Standard Decimal), as well 
+as South Asian styles.
+
+
+===== PDF PAGE 15 =====
+15
+15
+Paragraph numbering
+Paragraph numbering includes the same new format as page and chapter 
+numbering:
+- Select Bullet and Numbering in the contextual menu of the paragraph palette.
+
+
+===== PDF PAGE 16 =====
+16
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Footnote numbering
+Footnote numbering includes the same new formats as page and chapter 
+numbering.
+
+
+===== PDF PAGE 17 =====
+17
+17
+Paragraph direction
+It is important to understand and differentiate between “paragraph direction” 
+and “paragraph alignment”.  “Paragraph direction” controls the order of  text 
+and neutral characters (punctuation) inside a paragraph. “Paragraph alignment” 
+controls the placement of the whole line in reference to the left and right 
+boundaries of the text frame. Paragraph direction and alignment are independent 
+of each other. For example, if your text is in Arabic, Hebrew, Syriac, Thaana, Azeri, 
+... etc, use a “Right-to-Left” paragraph direction, otherwise, use the “Left-to-Right” 
+paragraph direction option.
+The paragraph direction can be set with the paragraph direction icon in the ScribeDOOR 
+palette. To see how the “Right-to-Left” option affects the appearance of the text, read 
+through the following examples.
+
+
+===== PDF PAGE 18 =====
+18
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Examples of paragraph direction applied to Arabic or Roman text
+( الليمونLemon)  ثمرة تنتمي إلى عائلة
+ احلمضيات، بيضاوية الشكل، صفراء اللون. نبتة
+ الليمون في العادة تكون صغيرة،أعلى طول ممكن
+ أمتار تقريباً. مذاق الليون6  أن تصل إليه هو
+ حامض. وعصير الليمون واللب شائع االستخدام
+ في الطبخ، باإلضافة إلى أن الليمون يستخدم
+ ألضافة النكهة إلى بعض املشروبات مثل
+ مشروب الليمون(الليمونادة) أو بعض
+.املشروبات الغازية
+The lemon ( )اللَّيْمُونis the common name 
+for Citrus limon. The reproductive tissue 
+surrounds the seed of the angiosperm 
+lemon tree. The lemon is used for culinary 
+and nonculinary purposes throughout the 
+world. 
+Left-to-Right paragraph direction 
+applied to Roman text: The alignment 
+is correct and neutral characters are 
+correctly situated. The Arabic text is 
+correctly situated inside the Roman text.
+Right-to-Left paragraph direction applied 
+to Arabic text: The alignment is correct and 
+neutral characters are correctly situated. 
+The Roman text is correctly situated inside 
+the Arabic text.
+When applying the wrong settings
+( الليمونLemon) ، ثمرة تنتمي إلى عائلة  احلمضيات
+ بيضاوية الشكل، صفراء اللون. نبتة الليمون في
+ العادة تكون صغيرة،أعلى طول ممكن أن تصل إليه هو
+ أمتار تقريباً. مذاق الليون حامض. وعصير الليمون6 
+ واللب شائع االستخدام في الطبخ، باإلضافة إلى
+ أن الليمون يستخدم ألضافة النكهة إلى بعض
+ املشروبات مثل مشروب الليمون(الليمونادة)
+.أو بعض املشروبات الغازية
+ is the common name ) (اللَّيْمُونThe lemon
+ for Citrus limon. The reproductive tissue
+ surrounds the seed of the angiosperm
+ lemon tree. The lemon is used for culinary
+ and nonculinary purposes throughout the
+ .world
+The text is not aligned correctly and the 
+flow of text is right-to-left. As a result, the 
+punctuation and the text in Arabic are 
+incorrectly situated.
+The text is not aligned correctly and the 
+flow of text is left-to-right. As a result, 
+the punctuation and the Roman text are 
+incorrectly situated.
+
+
+===== PDF PAGE 19 =====
+19
+19
+Table direction
+Table direction defines the order of the columns in a table as well as the paragraph 
+direction. When switching to right-to-left, the cursor is automatically inserted in 
+the top right cell of a right-to-left table. Pressing the tab key will move you from 
+the top right cell to the cell in the same row but to the left. Also, the right-most 
+column of the table gets treated as the first column of the table. In a left-to-
+right table the cursor automatically gets inserted in the top left cell of the table. 
+Pressing the tab key will move you from the top left cell to the cell in the same 
+row but on the right of it. Also, the left-most column of the table gets treated as 
+the first column of the table.
+Right-to-left table
+1
+2
+3
+4
+Left-to-right table
+1
+2
+3
+4
+
+
+===== PDF PAGE 20 =====
+20
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Story direction
+A story is any individual text frame or set of threaded text frames. The story direction 
+only affects the order in which multi-column text flows. This option will be set for the 
+whole story even if the story is split into multi-thread text frames. The “Story Direction” 
+must be set to Right-to-left for Arabic and Hebrew and vice versa for Roman text.
+Arabic text with default Right-to-Left story direction:
+ يعتبر فيتامني ج من أهم املواد
+الواقية من مرض االسقربوط، 
+كما يعمل على تقوية جدران 
+األوعية الدموية.
+يستعمل الليمون كدواء شاف 
+من االوبئة واالمراض كالكوليرا 
+والتيفوئيد والروماتيزم والنقرس 
+واالنتانات املعوية وامراض الكبد 
+واالنفلونزا والسعال.
+والليمون مفيد في تخلخل 
+االسنان وسقوطها وفي تضميد 
+اجلروح والقروح ونزيف االنف 
+وترميم االنسجة. ومن خصائصه 
+أيضا توفره على امالح وحوامض 
+عضوية تساعد على احتراق 
+الفضالت واالمالح, لذا يوصف 
+في حاالت الروماتيزم والنقرس 
+وارتفاع الضغط الشرياني 
+وتصلبها والدوالي وعرق النسا 
+واالالم العصبية اخملتلفة كما 
+يستعمل في احلمى وارتفاع 
+درجة احلرارة ويزيد في ادرار البول 
+ومقاومة التسممات وطرد 
+الديدان والغازات والتعفنات 
+املعوية, ويعتبر الليمون مرويا 
+للعطش ومنعشا في الصيف 
+سواء كان طبيعيا أو مغليا.
+1
+2
+3
+If  the wrong story direction is applied
+ يعتبر فيتامني ج من أهم املواد
+الواقية من مرض االسقربوط، 
+كما يعمل على تقوية جدران 
+األوعية الدموية.
+يستعمل الليمون كدواء شاف 
+من االوبئة واالمراض كالكوليرا 
+والتيفوئيد والروماتيزم والنقرس 
+واالنتانات املعوية وامراض الكبد 
+واالنفلونزا والسعال.
+والليمون مفيد في تخلخل 
+االسنان وسقوطها وفي تضميد 
+اجلروح والقروح ونزيف االنف 
+وترميم االنسجة. ومن خصائصه 
+أيضا توفره على امالح وحوامض 
+عضوية تساعد على احتراق 
+الفضالت واالمالح, لذا يوصف 
+في حاالت الروماتيزم والنقرس 
+وارتفاع الضغط الشرياني 
+وتصلبها والدوالي وعرق النسا 
+واالالم العصبية اخملتلفة كما 
+يستعمل في احلمى وارتفاع 
+درجة احلرارة ويزيد في ادرار البول 
+ومقاومة التسممات وطرد 
+الديدان والغازات والتعفنات 
+املعوية, ويعتبر الليمون مرويا 
+للعطش ومنعشا في الصيف 
+سواء كان طبيعيا أو مغليا.
+3
+2
+1
+
+
+===== PDF PAGE 21 =====
+21
+21
+Character direction
+InDesign automatically calculates the default character direction for the para­
+graph direction as well as to the surrounding characters according to the lan­
+guage and/or script of the character you have defined in the InDesign character 
+palette.
+In some very limited cases, some characters may not display in the right position. 
+Positioning the Right-to-Left or Left-to-Right character direction in the character 
+palette, in order to force the direction of the misplaced character, will correct this.
+Justification for Arabic on CS5.x version
+When working on full justified Arabic text, you can choose three types of 
+justification: Standard, Arabic or Naskh — allowing you the creative freedom to 
+choose the settings that give you the best results.
+• Standard
+Refers to usage of inter-word and inter-character spacings specified for the 
+
+
+===== PDF PAGE 22 =====
+22
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Paragraph Style Sheet to get justified paragraphs. In case ScribeDOOR is not able 
+to justify the paragraph with the settings in the Style Sheet, it will override them. 
+• Arabic
+ScribeDOOR will first try to justify a line with the settings in the style sheet, after 
+which the extra space left is divided by the number of character positions that 
+can accommodate a kashida. ScribeDOOR will add a number of kashidas equal 
+to the obtained result.
+• Naskh
+Allows you to apply the Naskh justification rules to any font whether or not it is a 
+Naskh font. Obviously the best results will be obtained when this setting is used 
+with WinSoft Naskh Pro or Deco Type Naskh fonts. The results with other types of 
+fonts will vary.
+Justification Types:
+Standard, Non-forced
+Standard, Justified
+Arabic, Justified, Kashida On 
+Naskh Justification
+Naskh Justification with Open Type 
+features applied to certain characters
+
+
+===== PDF PAGE 23 =====
+23
+23
+Justification for Arabic on CC version
+When working on full justified Arabic text, you can choose seven types of 
+justification: Standard (No kashida), Arabic (Legacy), Justification Alternates 
+(Naskh), Stylistic Flat Kashidas, Stylistic Kashidas, Flat Kashidas, Kashidas — 
+allowing you the creative freedom to choose the settings that give you the best 
+results.
+• Standard (No Kashida)
+Refers to usage of inter-word and inter-character spacings specified for the Para­
+graph Style Sheet to get justified paragraphs. In case ScribeDOOR is not able to 
+justify the paragraph with the settings in the Style Sheet, it will override them. 
+• Arabic (Legacy)
+ScribeDOOR will first try to justify a line with the settings in the style sheet, after 
+which the extra space left is divided by the number of character positions that 
+can accommodate a kashida. ScribeDOOR will add a number of kashidas equal 
+to the obtained result.
+• Justification Alternates (Naskh)
+Allows you to apply the Naskh justification rules to any font whether or not it is a 
+Naskh font. Obviously the best results will be obtained when this setting is used 
+with WinSoft Naskh Pro or Deco Type Naskh fonts. The results with other types of 
+fonts will vary.
+• Stylistic Flat Kashidas
+Similar to  style “Arabic (Legacy)” but add kashidas only on places allowed by the 
+style and not on most of glyphs connexion.
+• Stylistic Kashidas
+Apply Naskh justification rules to any font whether or not it is a Naskh font. Similar 
+to  style “Justification Alternates (Naskh)” but final glyphs or long form of glyph 
+are untouched. Obviously the best results will be obtained when this setting is 
+used with WinSoft Naskh Pro or Deco Type Naskh fonts. The results with other 
+types of fonts will vary.
+
+
+===== PDF PAGE 24 =====
+24
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+• Flat Kashidas
+Similar to  style “Stylistic Flat Kashidas” but number of kashidas can be not an 
+integer but can be  a decimal number of kashidas.
+• Kashidas
+Similar to  style “Stylistic Kashidas” but number of kashidas can be not an integer 
+but can be  a decimal number of kashidas.
+These types of justification are representing the width of kashidas used to fully 
+justify your text.
+أدوات التصميم القوية والتكاملة من ادوبي
+ادوبي
+من 
+والتكاملة 
+القوية 
+التصميم 
+أدوات 
+أدوات الــتــصــمــيــم الـــقـــويـــة والــتــكــامــلــة مـــن ادوبــــي
+أدوات التصميم القوية والتكاملة من ادوبي
+ادوبـي
+مـن 
+والتكاملـة 
+القويـة 
+التصميـم 
+أدوات 
+أدوات التصميم القوية والتكاملة من ادوبي
+ادوبـي
+مـن 
+والتكاملـة 
+القويـة 
+التصميـم 
+أدوات 
+أدوات التصميم القوية والتكاملة من ادوبي
+Justifications Types:
+Sandard, non forced
+Standard (No kashida)
+Arabic (Legacy) 
+Justification Alternates (Naskh)
+Stylistic Flat Kashidas
+Stylistic Kashidas
+Flat Kashidas
+Kashidas
+• Kashida width
+Allows to set a value determining the width of kashidas.
+This value could be set from 1 to 4 which can represent Short, Medium, Long 
+or Stylistic width of kashida used to fully justify your text.
+
+
+===== PDF PAGE 25 =====
+25
+25
+Kashidas
+Kashidas are a way of elongating Arabic characters and therefore decreasing 
+spaces between words, giving better full justification of the text.
+Kashidas can be turned on or off with the corresponding check box.
+، الليمون ثمرة تنتمــي إىل عائلة  الحمضيات
+ بيضاوية الشــكل، صفراء اللون. نبتة الليمون
+ يف العادة تكــون صغرية،أعىل طول ممكن أن
+ الليمون ثمرة تنتمي إىل عائلة  الحمضيات،
+ بيضاوية الشكل، صفراء اللون. نبتة الليمون
+ يف العادة تكون صغرية،أعىل طول ممكن أن
+With kashidas
+Without kashidas
+Digits
+You can choose the language in which you want your numeric digits to be typed. 
+The Default setting means that the numbers will be in the same language as that 
+of the previous character. Otherwise, you can choose between Arabic, Hindi, Farsi 
+and all South Asian numbers.
+
+
+===== PDF PAGE 26 =====
+26
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Arabic : 0123456789
+Farsi:  0123456789
+Hindi-arabic:  0123456789
+Digits for Arabic and Indic scripts
+Thai: 0123456789
+Lao: 0123456789
+Devanagari: 0123456789
+Bengali: 0123456789
+Gurmukhi: 0123456789
+Gujarati: 0123456789
+Oriya: 0123456789
+Tamil : 0123456789
+Telugu: 0123456789
+Kannada : 0123456789
+Malayalam: 0123456789
+Tibetan: 0123456789
+Khmer: 0123456789
+Digits can be set by  selecting text or defining paragraph or character styles.
+Diacritic positioning
+Short Arabic vowels are floating diacritics, written either over or under the 
+consonants. Therefore, it is important in desktop publishing that the diacritics be 
+properly placed over the consonants, both horizontally and vertically.
+When using an OpenType font in your layout you have to use the OpenType 
+setting to set the position specified by the font’s designer. This setting is 
+recommended for all recent opentype fonts.
+Whether your font has built-in diacritic information or not, you can force InDesign, 
+to use its own algorithm to position the diacritics.
+Digits for Arabic and South Asian languages
+
+
+===== PDF PAGE 27 =====
+27
+27
+Diacritic positionning
+ َ لِّلْمُتَّقِنيNone
+ َ لِّلْمُتَّقِنيNormal
+ َ لِّلْمُتَّقِنيLoose
+ َ لِّلْمُتَّقِنيTight
+ َ لِّلْمُتَّقِنيOpentype
+Fine tuning diacritic positioning
+
+
+===== PDF PAGE 28 =====
+28
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Defining ScribeDOOR attributes in character 
+and paragraph styles
+You can find paragraph style options for both ScribeDOOR characters and 
+paragraph formats. Like other options, changes are viewable using the preview 
+checkbox located on the bottom left of the ScribeDOOR screen.
+
+
+===== PDF PAGE 29 =====
+29
+29
+Insert special characters
+The contextual menu “Insert Special Character” gives you the ability to insert 
+four Hebrew characters (Geresh, Gershayim, Maqaf, Sof Pasuk) and one Arabic 
+character (Kashida), as well as a Right-to-Left or Left-to-Right dash. To insert these 
+characters just select them in the contextual menu of the ScribeDOOR palette.
+A Rupee sign, Armenian hyphen and Unicode markers have also been added.
+Usage of ZWJ and ZWNJ within complex scripts.
+The Unicode norm defines two special characters, that are especially useful for 
+complex scripts :
+The ZWJ (Zero Width Joiner, unicode 0x200D)
+The ZWNJ (Zero Width Non Joiner, unicode 0x200C)
+These two characters have the basic behaviours that are as follow :
+The ZWJ breaks a potential conjunction. It also acts as a combining character in 
+cursive scripts.
+For instance:
+In Arabic, you can get the medial form of a character by surrounding it with ZWJ :
+ ب becomes ب when surrounded by ZWJ
+In Hindi, the conjunct:
+ 
+क+ष+न = क्न becomes क्‍षन when a ZWJ is inserted after the first con­
+sonant.
+In Telugu, the conjunct:
+ 
+క్ + ష్ + ని = క్ష్ని becomes క్ + ష్ + ZWJ + ని = క్ష్‍ని or క్ + ZWJ + ష్ + ని = 
+క్‍ష్ని depending on the position of the ZWJ.
+
+
+===== PDF PAGE 30 =====
+30
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Besides these common usages, Unicode also defines special usage that are spe­
+cific to a particular script. For instance, in Bengali: র্ + য = র্য becomes র্ + ZWJ + 
+য = র‍্য
+The ZWNJ primary usage is to force the rupture of a syllable, for instance क्ष्नि 
+becomes क्‌ष्नि when a ZWNJ is inserted after the first consonant. The first con­
+sonant is then isolated from the rest of the syllable, allowing the i matra to come 
+after this first consonant.
+The ZWNJ also has a special usage specific to a particular script. For instance, in 
+Malayalam, ന്മ becomes ന്‌മ with the addition of a ZWNJ.
+Usage of ZWS for Thai, Lao and Khmer.
+For the languages which don’t use a space character between words, it is 
+recommended to use the character ZWS (Zero Width Space, unicode 0x200B) 
+between words to allow the Composer to work properly and produce correct 
+line-breaking.
+This character is usually easily available on the keyboards used for such languages 
+(for instance the Khmer keyboard provided for Macintosh maps this character to 
+the space bar).
+Arabic spell checking and Hebrew hyphenation
+In addition to the Western language hyphenation and spelling available in 
+InDesign, ScribeDOOR adds support for the following languages. These features 
+are implemented once the appropriate language is applied to the text.
+Languages
+Hyphenation
+Spelling
+Arabic *
+x
+Hebrew
+x
+* Arabic dictionnary Powered By ISIS Arabic NLP Technology”
+http://www.isisinternational.net/
+InDesign lets you specify a different language even for a single character of text. 
+You can customize language dictionaries to ensure that any unique vocabulary 
+you use is recognized and treated correctly. 
+To assign a language to selected text:
+In the Character and Control palette of InDesign, choose the appropriate 
+language in the pop-up.
+
+
+===== PDF PAGE 31 =====
+31
+31
+Additional features
+Selection helper
+ScribeDOOR’s “Selection Helper” is a simple and effective tool for editing complex 
+text. In this version of ScribeDOOR, this feature is only available in Arabic, 
+Hebrew and Roman text. By presenting each letter separately, the selection and 
+transformation is made extremely easy.
+Just move the  mouse over the letters you want to select in the “Selection Helper” 
+palette.
+
+
+===== PDF PAGE 32 =====
+32
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Reverse layout
+ScribeDOOR includes a very useful tool to revert/flip the layout of documents. 
+This option can be used when converting a Left-to-Right document (Roman) to 
+a Right-to-Left one (Arabic or Hebrew, etc) or vice versa. It is also helpful when 
+creating multilingual documents.
+The tool is accessible from the “Reverse Layout” tab in the “ScribeDOOR” menu.
+Pages: 
+You can choose to reverse the current page, the whole document or a range of 
+pages. You may also choose whether or not to affect Master Items. To reverse 
+Spreads or Island Spreads, select the corresponding page numbers and reverse 
+the document binding direction. 
+Binding: 
+This option always applies to the whole document even if you choose a selected 
+range of pages. By default it is set to reverse the binding direction (if the original 
+Document Setup is left-to-right, the binding option will be set to right-to-left 
+and vice versa). However, you can choose to reverse the layout without changing 
+the binding direction by selecting the binding direction similar to the set in the 
+Document Setup.
+
+
+===== PDF PAGE 33 =====
+33
+33
+By applying Reverse layout on a Roman publication, you are ready to input 
+your middle eastern text with a mirrored publication.
+
+
+===== PDF PAGE 34 =====
+34
+TABLE OF CONTENTS
+ABOUT SCRIBEDOOR
+TABLE OF CONTENTS
+ACTIVATION PROCESS
+SCRIBEDOOR ATTRIBUTES
+SETTING DEFAULTS
+WORKING WITH COMPLEX 
+SCRIPTS
+WORLDREADY COMPOSER
+SETTING UP A DOCUMENT
+PAGE AND CHAPTER NUMBERING
+PARAGRAPH NUMBERING
+FOOTNOTE NUMBERING
+PARAGRAPH DIRECTION
+TABLE DIRECTION
+STORY DIRECTION
+CHARACTER DIRECTION
+JUSTIFICATION FOR ARABI
+KASHIDAS
+DIGITS
+DIACRITIC POSITIONING
+CHARACTER & PARAGRAPH STYLES
+INSERT SPECIAL CHARACTERS
+SPELL CHECKING & HYPHENATION
+ADDITIONAL FEATURES
+SELECTION HELPER
+REVERSE LAYOUT
+KNOWN ISSUES
+SUPPORT
+ABOUT WINSOFT INTERNATIONAL
+Known issues
+Unicode markers
+Some unicode markers like :
+- left-to-right embedding
+- right-to-left embedding
+- pop directional formating
+- left-to-right override
+- right-to-left override
+should be displayed as hidden characters. Instead, they are displayed and 
+printed  as arrow. This issue is linked to InDesign US version.
+South Asian languages
+We strongly recommend to use Vista or Windows 7 with last fonts supplied with 
+this system to get correct results for text shaping, ligatures, etc.
+Support
+If you see any issues, contact us via this form: 
+http://support.winsoft-international.com/. 
+We will reply to you within 48 h and we will make changes and service 
+improvements based on your reports.
+
+
+===== PDF PAGE 35 =====
+©2013 WinSoft International. All rights reserved. ScribeDOOR is a Trademark of WinSoft International. All other trademarks are the property of their respective owners.
+WinSoft International ScribeDOOR for InDesign CC
+USER GUIDE
+ Version 3.0 - 06/2013
+	
+	
+About WinSoft International
+24 rue Gagnière, 38950 St Martin le Vinoux, Grenoble, FRANCE
+Phone: +33 (0)4 38 02 22 00
+Customer Care: http://support.winsoft-international.com/
+Sales: sales@winsoft-international.com
+www.winsoft-international.com
+WinSoft International
+ScribeDOOR Product Range
+ScribeDOOR
+for Adobe Illustrator CC
+ScribeDOOR
+for Adobe InDesign CC
+ScribeDOOR
+for Adobe InDesign CS6
+ScribeDOOR
+for Adobe Illustrator CS6

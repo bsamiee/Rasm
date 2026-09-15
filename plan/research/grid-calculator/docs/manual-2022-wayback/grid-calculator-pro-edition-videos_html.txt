@@ -1,0 +1,51 @@
+Grid Calculator Pro Edition, Plug-in for Adobe InDesign - Video Library
+ [IMG images/icons/products_gc_pro.gif]
+ [LINK https://www.designersbookshop.com/products/] Products /
+ Grid Calculator Pro Edition / 
+ Video Library 
+ Learn how to use Grid Calculator Pro Edition to create the most professional layouts possible
+ [LINK http://www.adobe.com/sea/products/indesign/indepth.displayTab3.html#DesignersBookshop] 
+ [IMG https://www.designersbookshop.com/images/table/adobe.gif]
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition.html] Introduction
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-videos.html] Video Library
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-questions.html] Questions and Answers 
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-clients.html] Our Clients
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-knowledge-base.html] Knowledge Base
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-layout-wizard.html] Layout Wizard
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-purchase.html] Purchase License
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-video-library.html] 
+ [IMG https://www.designersbookshop.com/images/forms/browse-video-library.gif]
+ 5 common questions
+ 1. Is the plug-in required, to open documents created by the plug-in?
+ 2. Can I activate a license on two computers?
+ 3. Why should I use
+ your plug-in instead of creating the layouts myself?
+ 4. Is it possible to setup my own grid within the type area and not follow the document grid?
+ 5. What does Adobe think about the plug-in? Do they know about this?
+ 01:56 min
+ Activate Demo/License
+ In this video I will show you how to activate your demo or license.
+ 01:02 min
+ Appelberg Publishing Group
+ In this short video interview you will hear what designers at Appelberg Publishing Group think about Grid Calculator Pro Edition. This was recorded shortly after a personal demonstration. Later Appelberg Publishing Group became clients, using Grid Calculator Pro Edition in their projects. Questions asked in this video were the following:
+ 1. What do you think about Grid Calculator Pro Edition?
+ 2. How would you compare the plug-in against manual setup?
+ 3. Why do you recommend others to try the plug-in?
+ [LINK http://www.appelberg.se] Visit Appelberg Publishing Group. 
+ 02:14 min
+ Fit/Unfit Leading
+ In Quick Mode there's a small little feature called 'Fit Leading'. Having it checked will calculate the perfect fitting leading, closest to the entered value. Unchecking it will instead adapt the margins after your margins. This feature will save you hours of manual calculations.
+ 01:02 min  
+ From Sketch to Grid-based Layout
+ In this 5-part series I take you from sketch to a finished layout. I highly recommend watching these videos to get a better understanding of how to work with grid systems.
+ Part 1: Introduction, 01:09 min
+ Part 2: Sketch and initial grid, 07:50 min
+ Part 3: Applying headline and subhead, 03:57 min
+ Part 4: Apply and work with image-lines, 02:36 min
+ Part 5: Advanced: Fine-tuning your grid, 14:28 min  
+ Modular and Smart Mode
+ Modular and Smart mode are synchronized with each other to offer the most complex layouts possible, in regards to following the document grid from edge to edge.
+ 06:31 min
+ Paragraph and Character Styles
+ Besides helping you create stunning layouts, the plug-in also helps you setup texts in an intelligent and dynamic way. For example if you edit the leading, the texts will update automatically and adjust to the new values.
+ 07:13 min

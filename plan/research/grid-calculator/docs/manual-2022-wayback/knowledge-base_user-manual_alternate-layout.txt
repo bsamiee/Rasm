@@ -1,0 +1,32 @@
+Grid Calculator Pro Edition, Plug-in for Adobe InDesign - Alternate Layout Master in 4.2+
+ [IMG https://www.designersbookshop.com/images/icons/products_gc_pro.gif]
+ [LINK https://www.designersbookshop.com/products/] Products /
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition.html] Grid Calculator Pro Edition / 
+ [LINK ../../../grid-calculator-pro-edition-knowledge-base.html] Knowledge Base
+ User Manual: Alternate Layout Master in 4.2+
+ [LINK ../../../grid-calculator-pro-edition-knowledge-base.html] 
+ [IMG https://www.designersbookshop.com/images/table/back-knowledge-base.gif]
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition.html] Introduction
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-videos.html] Video Library
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-questions.html] Questions and Answers 
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-clients.html] Our Clients
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-knowledge-base.html] Knowledge Base
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-layout-wizard.html] Layout Wizard
+ [LINK https://www.designersbookshop.com/grid-calculator-pro-edition-purchase.html] Purchase License
+ In version 4.2 of Grid Calculator Pro Edition we've made a lot of changes. One of those changes includes a fix to give rows the same height (the last row) when using vertical 'Value' mode combined with image-lines. In earlier versions the last row was of different height. To correct this we had to recode large parts of the plug-in, with that said, this article is aimed at users that work with Alternate Layout masters (for example with tablets etc.).
+Recommendations
+If you're going to be working with Alternate Layout master in your document then make sure to avoid combining vertical 'Value' mode with image-lines. The reason for this is that the margins and baseline grid both adapt, the top margin will be compensated for the image-lines height and the baseline grid will, unlike in normal scenarios, start from the top of the margin instead of top of the document. Taking this into consideration, an Alternate Layout master will also have a different page height.
+What happens, if you work with vertical 'Value' mode and image-lines in combination with Alternate Layout master, is for example that the baseline grid will be coincide with the image-lines (be placed directly under the image-lines). This scenario happens if you close the plug-in while the Alternate Layout master is selected, as mentioned the reason for this is that the plug-in "compensates" in a way that creates this problem, and once again, this is only when working with vertical 'Value' mode in combination with image-lines. A side effect is that, no matter how much you try, you will never get the baseline grid in your Alternate Layout master to align with your margins, this is because the margins are set for compensating the top margin with the image-line height (for example x- or H-height).
+Creating your Alternate Layout master
+Here's a simple, yet important tip when creating your layout master. Because of the way the plug-in works and some limitations, always make sure that a master is selected and active when you create your Alternate Layout. So for example if you're currently on page 10 of your document and you want to add an alternate master to it, double-click on GC-1 or any other master (as that is the important part, however if you have created your Alternate Layout master while you had a page selected you might encounter an issue with guides placed incorrect in your Alternate Layout master, there is a simple fix mentioned in following paragraph). Once you've double-clicked on GC-1, simply hover your mouse over the page you wish to add the Alternate Layout to (don't select it), then right-click and select Create Alternate Layout. When you do this, you will not get any guides placed incorrectly on your Alternate Layout master.
+Deleting misplaced guides in your Alternate Layout master
+If you create an Alternate Layout master while a page is selected, instead of a master, and you also work with either vertical or horizontal 'Value' mode and/or image-lines you will find that guides are incorrectly placed on your Alternate Layout master. The way to avoid this is to have a master selected when you create your Alternate Layout, however this is easy to fix. Unlock the layers which contains these guides (you can enable and disable layers to find out which ones), then select and delete the guides, once done lock the layers agan.
+Summary
+• Alternate Layout Master is only supported when working in Quick mode.
+• Avoid working with vertical value mode and image-lines in the same document when you plan on applying Alternate Layout master. 
+• Keep in mind to always have a master selected, and hover your mouse over a page (without selecting it ) when creating the Alternate Layout master.
+• If switching between masters via the plug-in does not work, simply select a master from the Pages palette, then try again, this can happen when navigating between pages.
+• When editing your margins (and columns) for your Alternate Layout master, have the actual master selected.
+• Margins for Alternate Layouts masters can be setup either via the button called 'Edit' at the bottom of the plug-in dialog when Alternate Layout master is selected or via the InDesign menu (Margins and Columns).
+More information:
+[LINK https://www.designersbookshop.com/video-library/grid-calculator-pro-edition/multiple-masters-layouts-alternate-layout/index.html] Video: Multiple and Alternate Masters.
