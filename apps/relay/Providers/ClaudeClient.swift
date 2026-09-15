@@ -38,6 +38,7 @@ actor ClaudeClient {
   private var retryAfter: [UUID: Date] = [:]
   private var lastCredential: ClaudeCredential?
   private var lastSelection: AccountIdentity?
+  private var rotations: Task<Void, Never>?
 
   init(paths: FileLocations, environment: [String: String]) {
     self.paths = paths
@@ -332,9 +333,12 @@ actor ClaudeClient {
   private func refreshCredential(
     in store: ClaudeCredentialStore, for identity: AccountIdentity
   ) async -> Result<ClaudeCredential, ClaudeFailure> {
+    let previous: Task<Void, Never>? = rotations
     let rotation: Task<Result<Date?, ClaudeFailure>, Never> = Task(name: "Claude refresh") {
-      await runSession(store: store, action: .refreshCredentials, token: nil)
+      await previous?.value
+      return await runSession(store: store, action: .refreshCredentials, token: nil)
     }
+    rotations = Task(name: "Claude rotation chain") { _ = await rotation.value }
     return await rotation.value
       .bind { _ in await store.read() }
       .flatMap { content in matched(content, to: identity) }

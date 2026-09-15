@@ -31,6 +31,7 @@ Provider CLI and desktop app run as the selected account, Relay stores every oth
 - Codex stores no login expiry, `auth.json` carries `last_refresh` and JWT `exp` alone and the app-server reports auth mode, email, and plan, so a Codex card shows no date
 - Access token is refreshed 10 minutes before expiry, wider than the CLI's own 5-minute margin so a greeting child never rotates the token itself, a refresh-token expiry triggers nothing
 - Refresh tokens are single use, so the refresh child runs on its own task that no cancel or quit reaches, a rotation the server completed is persisted by the child or lost for good
+- Refresh children run one at a time across stores, tokens refreshed in one batch expire in one batch and usage reads stay concurrent
 - Login outside Relay saves the outgoing account's last-read credential into its private item
 - Saved credential that rotated since its last read requires a new sign-in
 - `claude -p` in the account's store is the one credential refresh, run when the access token or refresh token nears expiry
