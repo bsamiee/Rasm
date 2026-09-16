@@ -32,6 +32,7 @@ Rasm/
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Vitest configuration each project config imports
 ├── biome.json                # TypeScript and JSON formatting and lint
+├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor settings and .NET analyzer severity
 ├── .swift-format             # Swift lint and format rules
@@ -53,6 +54,7 @@ flowchart LR
         mise_tools["mise.toml [tools], global.json"] --> binaries["Tool binaries"]
         mise_env["mise.toml [env]"] --> processes["Every process"]
         xcode["xcode-select"] --> apple_tools["Xcode toolchain and macOS SDK"]
+        brew["Homebrew formula ghidra"] --> ghidra_tool["Ghidra install"]
     end
 
     subgraph dependencies ["Dependencies"]
@@ -113,6 +115,7 @@ flowchart LR
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:up`                  |
 |  [10]   | Tool no target runs            | Machine profile                                                                       |
 |  [11]   | Rhino package                  | `nx run rasm:upgrade --configuration rhino` at the newest upstream development build  |
+|  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                          |
 
 - Package rows and `.editorconfig` rows hold a one-line purpose comment, every other file holds section dividers alone
 - Tool rows name a release candidate where `latest` resolves a development build
@@ -125,7 +128,7 @@ flowchart LR
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
 - Swift: warnings as errors and upcoming features, `swift-format lint --strict` at zero findings
-- Java: `google-java-format --dry-run --set-exit-if-changed` at zero findings, the formatter takes no configuration file
+- Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Tree: `yamllint`, `actionlint`, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
@@ -137,6 +140,7 @@ flowchart LR
 - `function-hooks` policies answer each tool call with deny or next, one policy per file under `.claude/plugins/function-hooks/hooks/policies/`
 - Skills hold knowledge of one subject, agents hold one role with its procedure and gate, memory holds facts no file covers
 - `nx run rasm:browsers` installs the Chromium build the Playwright commands launch
+- Use `ghidra` skill for reading or annotating a binary through Ghidra
 
 ## [07]-[STRUCTURE]
 

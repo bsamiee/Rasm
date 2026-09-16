@@ -1,0 +1,43 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ruleset name="rasm" xmlns="http://pmd.sourceforge.net/ruleset/2.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://pmd.sourceforge.net/ruleset/2.0.0 https://pmd.sourceforge.io/ruleset_2_0_0.xsd">
+    <description>Java rules</description>
+
+    <!-- [BEST_PRACTICES] -->
+    <rule ref="category/java/bestpractices.xml" />
+
+    <!-- [CODE_STYLE] -->
+    <rule ref="category/java/codestyle.xml">
+        <exclude name="AtLeastOneConstructor" />
+        <exclude name="CommentDefaultAccessModifier" />
+        <exclude name="LocalVariableCouldBeFinal" />
+        <exclude name="LongVariable" />
+        <exclude name="MethodArgumentCouldBeFinal" />
+        <exclude name="NoPackage" />
+        <exclude name="OnlyOneReturn" />
+        <exclude name="ShortClassName" />
+        <exclude name="ShortVariable" />
+        <exclude name="UseExplicitTypes" />
+    </rule>
+
+    <!-- [DESIGN] -->
+    <rule ref="category/java/design.xml">
+        <exclude name="ExcessiveImports" />
+        <exclude name="GodClass" />
+        <exclude name="LawOfDemeter" />
+        <exclude name="LoosePackageCoupling" />
+        <exclude name="SignatureDeclareThrowsException" />
+        <exclude name="TooManyMethods" />
+    </rule>
+
+    <!-- [ERROR_PRONE] -->
+    <rule ref="category/java/errorprone.xml" />
+
+    <!-- [MULTITHREADING] -->
+    <rule ref="category/java/multithreading.xml" />
+
+    <!-- [PERFORMANCE] -->
+    <rule ref="category/java/performance.xml" />
+
+    <!-- [SECURITY] -->
+    <rule ref="category/java/security.xml" />
+</ruleset>

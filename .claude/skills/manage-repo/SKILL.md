@@ -15,6 +15,9 @@ Covers manifests, targets, tools, workflows, and infra rows of a polyglot monore
 - Root files hold policy every project shares, a row one project consumes sits in the project's manifest
 - Rows restating a tool's documented default go, the default comes from a schema, release notes, or installed source
 - `check` of a row's consumers proves the removal, a source file importing `package.json` for `version` is a consumer
+- Skills couple to no project, a skill names the tools it drives and its own scripts, a target, manifest row, or repository path stays out
+- Scripts join the skill whose subject they serve, a script an app, target, or workflow consumes joins the repository
+- Root targets unify check, format, build, test, install, and release of the repository's own code, a wrapper over one tool mise supplies is no target
 
 ## [02]-[CHECKS]
 

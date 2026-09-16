@@ -322,7 +322,7 @@
                 "inputs": [
                     "{workspaceRoot}/**/*",
                     { "dependentTasksOutputFiles": "**/*.so" },
-                    { "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version && shellcheck --version && google-java-format --version" }
+                    { "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version && shellcheck --version && google-java-format --version && pmd --version" }
                 ],
                 "options": {
                     "commands": [
@@ -331,7 +331,8 @@
                         "ruff check",
                         "yamllint .",
                         "actionlint",
-                        "fd --extension java --exec-batch google-java-format --dry-run --set-exit-if-changed"
+                        "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
+                        "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-21 --cache .cache/pmd/java --no-progress"
                     ],
                     "parallel": true
                 }
@@ -345,7 +346,7 @@
                         "ruff check --fix",
                         "ruff format",
                         "yamlfmt .",
-                        "fd --extension java --exec-batch google-java-format --replace",
+                        "fd --hidden --extension java --exec-batch google-java-format --aosp --replace",
                         "dotnet format Workspace.slnx --no-restore"
                     ],
                     "parallel": false

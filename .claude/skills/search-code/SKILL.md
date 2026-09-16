@@ -66,6 +66,9 @@ rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' .venv/lib/python*/site-packages/<pk
 
 # [MSBUILD] Target with Condition, Inputs, and DependsOnTargets across the SDK global.json resolves, package targets under build/ or buildTransitive/
 rg -n -A3 '<Target Name="<target>"' "$(dotnet msbuild <project>.csproj -getProperty:MSBuildToolsPath)"
+
+# [JAVA] Members and signatures of classes from the jars on a classpath, several classes per call
+javap -cp '<jar>:<jar>' <package.Class> <package.Class>
 ```
 
 ## [02]-[USAGE]
