@@ -9,6 +9,7 @@ import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.decompiler.parallel.DecompilerCallback;
 import ghidra.app.decompiler.parallel.ParallelDecompiler;
 import ghidra.app.script.GhidraScript;
+import ghidra.program.model.address.Address;
 import ghidra.program.model.data.Array;
 import ghidra.program.model.data.Composite;
 import ghidra.program.model.data.DataType;
@@ -19,20 +20,20 @@ import ghidra.program.model.data.Pointer;
 import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.data.TypeDef;
 import ghidra.program.model.listing.Function;
+import ghidra.program.model.listing.FunctionTag;
 import ghidra.program.model.symbol.Reference;
+import ghidra.program.model.symbol.ReferenceManager;
 import ghidra.program.util.DefinedDataIterator;
 import ghidra.util.task.TaskMonitor;
 
 import util.CollectionUtils;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.io.Writer;
+import java.io.BufferedWriter;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.HashMap;
+import java.util.EnumMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -40,16 +41,12 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.SequencedMap;
+import java.util.Set;
 import java.util.SortedMap;
 import java.util.TreeMap;
-import java.util.TreeSet;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReentrantLock;
-import java.util.function.Consumer;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
-import java.util.stream.IntStream;
 import java.util.stream.Stream;
 
 // --- [SCRIPT] -----------------------------------------------------------------------------
@@ -60,87 +57,122 @@ public class Decompile extends GhidraScript {
             usage: Decompile.java <out> <seed>... [callers=<depth>] [callees=<depth>] [timeout=<seconds>]
             seed: all | 0x<hex> | <name> | <namespace>::<name> | re:<regex> | str:<needle> | tag:<tag>\
             """;
-    private static final Map<String, Integer> DEFAULTS =
-            Map.of("callers", 0, "callees", 0, "timeout", 60);
 
-    enum Direction {
+    enum Setting {
+        CALLERS(0),
+        CALLEES(0),
+        TIMEOUT(60);
+
+        private final int preset;
+
+        Setting(int preset) {
+            this.preset = preset;
+        }
+
+        String key() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+    }
+
+    enum Kind {
+        SEED,
+        ALL,
         CALLER,
         CALLEE
     }
 
-    sealed interface Result<T> permits Ok, Problem {}
+    record Role(Kind kind, int depth) {
+        String label() {
+            return kind.name().toLowerCase(Locale.ROOT) + (depth == 0 ? "" : ":" + depth);
+        }
+    }
+
+    sealed interface Result<T> permits Ok, Problem {
+        default Stream<T> values() {
+            return this instanceof Ok<T> ok ? Stream.of(ok.value()) : Stream.empty();
+        }
+
+        default Stream<String> problems() {
+            return this instanceof Problem<T> problem
+                    ? Stream.of(problem.message())
+                    : Stream.empty();
+        }
+    }
 
     record Ok<T>(T value) implements Result<T> {}
 
     record Problem<T>(String message) implements Result<T> {}
 
-    record Setting(String key, int value) {}
-
-    record Block(
-            Function function, String role, String text, boolean failed, List<DataType> types) {}
+    record Block(Function function, Role role, String text, boolean failed, List<DataType> types) {}
 
     @Override
     public void run() throws Exception {
-        var args = getScriptArgs();
+        String[] args = getScriptArgs();
         if (args.length == 0) {
             throw new IllegalArgumentException(USAGE);
         }
-        var rest = Arrays.asList(args).subList(1, args.length);
-        var seeds = rest.stream().filter(arg -> !arg.contains("=")).map(this::resolve).toList();
-        var settings =
+        List<String> rest = Arrays.asList(args).subList(1, args.length);
+        List<Result<List<Function>>> seeds =
+                rest.stream().filter(arg -> !arg.contains("=")).map(this::resolve).toList();
+        List<Result<Map.Entry<Setting, Integer>>> settings =
                 rest.stream().filter(arg -> arg.contains("=")).map(Decompile::setting).toList();
-        var problems =
+        List<String> problems =
                 Stream.concat(
                                 seeds.isEmpty()
                                         ? Stream.of("no seed given")
                                         : Stream.<String>empty(),
                                 Stream.concat(seeds.stream(), settings.stream())
-                                        .<String>mapMulti(
-                                                (result, sink) -> {
-                                                    if (result instanceof Problem<?> problem) {
-                                                        sink.accept(problem.message());
-                                                    }
-                                                }))
+                                        .flatMap(Result::problems))
                         .toList();
         if (!problems.isEmpty()) {
             throw new IllegalArgumentException(String.join("\n", problems) + "\n" + USAGE);
         }
-        var values = new HashMap<>(DEFAULTS);
-        settings.forEach(
-                result -> {
-                    if (result instanceof Ok<Setting> ok) {
-                        values.put(ok.value().key(), ok.value().value());
-                    }
-                });
-        var functions =
-                seeds.stream()
-                        .flatMap(
-                                result ->
-                                        result instanceof Ok<List<Function>> ok
-                                                ? ok.value().stream()
-                                                : Stream.empty())
-                        .distinct()
-                        .toList();
-        var role = rest.contains("all") ? "all" : "seed";
-        var picks = select(functions, role, values.get("callers"), values.get("callees"));
-        var out = Path.of(args[0]);
+        Map<Setting, Integer> values =
+                Stream.concat(
+                                Arrays.stream(Setting.values())
+                                        .map(setting -> Map.entry(setting, setting.preset)),
+                                settings.stream().flatMap(Result::values))
+                        .collect(
+                                Collectors.toMap(
+                                        Map.Entry::getKey,
+                                        Map.Entry::getValue,
+                                        (preset, given) -> given,
+                                        () -> new EnumMap<>(Setting.class)));
+        List<Function> functions =
+                seeds.stream().flatMap(Result::values).flatMap(List::stream).distinct().toList();
+        Role role = new Role(rest.contains("all") ? Kind.ALL : Kind.SEED, 0);
+        SequencedMap<Function, Role> picks =
+                select(functions, role, values.get(Setting.CALLERS), values.get(Setting.CALLEES));
+        Path out = Path.of(args[0]);
         println("decompiling " + picks.size() + " functions into " + out);
-        println(write(out, picks, values.get("timeout"), String.join(" ", rest)));
+        println(write(out, picks, values.get(Setting.TIMEOUT), String.join(" ", rest)));
     }
 
     // --- [ARGUMENTS] ----------------------------------------------------------------------
 
-    private static Result<Setting> setting(String arg) {
-        var key = arg.substring(0, arg.indexOf('='));
-        var value = arg.substring(arg.indexOf('=') + 1);
-        if (!DEFAULTS.containsKey(key)) {
-            return new Problem<>(
-                    arg + ": unknown setting, one of " + new TreeSet<>(DEFAULTS.keySet()));
-        }
+    private static Result<Map.Entry<Setting, Integer>> setting(String arg) {
+        String key = arg.substring(0, arg.indexOf('='));
+        String value = arg.substring(arg.indexOf('=') + 1);
+        return Arrays.stream(Setting.values())
+                .filter(candidate -> candidate.key().equals(key))
+                .findFirst()
+                .map(setting -> amount(arg, setting, value))
+                .orElseGet(
+                        () ->
+                                new Problem<>(
+                                        arg
+                                                + ": unknown setting, one of "
+                                                + Arrays.stream(Setting.values())
+                                                        .map(Setting::key)
+                                                        .toList()));
+    }
+
+    private static Result<Map.Entry<Setting, Integer>> amount(
+            String arg, Setting setting, String value) {
         try {
-            return new Ok<>(new Setting(key, Integer.parseInt(value)));
+            return new Ok<>(Map.entry(setting, Integer.parseInt(value)));
         } catch (NumberFormatException exception) {
-            return new Problem<>(arg + ": " + key + " takes an integer");
+            return new Problem<>(arg + ": " + setting.key() + " takes an integer");
         }
     }
 
@@ -162,8 +194,8 @@ public class Decompile extends GhidraScript {
 
     private Result<List<Function>> containing(String text) {
         try {
-            var address = toAddr(Long.parseUnsignedLong(text.substring(2), 16));
-            var function =
+            Address address = toAddr(Long.parseUnsignedLong(text.substring(2), 16));
+            Optional<Function> function =
                     Optional.ofNullable(getFunctionContaining(address))
                             .or(
                                     () -> {
@@ -182,7 +214,7 @@ public class Decompile extends GhidraScript {
 
     private Result<List<Function>> matching(String regex) {
         try {
-            var pattern = Pattern.compile(regex);
+            Pattern pattern = Pattern.compile(regex);
             return new Ok<>(
                     functions()
                             .filter(function -> pattern.matcher(function.getName(true)).find())
@@ -193,8 +225,8 @@ public class Decompile extends GhidraScript {
     }
 
     private List<Function> referencing(String needle) {
-        var lowered = needle.toLowerCase(Locale.ROOT);
-        var references = currentProgram.getReferenceManager();
+        String lowered = needle.toLowerCase(Locale.ROOT);
+        ReferenceManager references = currentProgram.getReferenceManager();
         return CollectionUtils.asStream(
                         DefinedDataIterator.byDataInstance(
                                 currentProgram, StringDataInstance::isString))
@@ -214,7 +246,8 @@ public class Decompile extends GhidraScript {
     }
 
     private Result<List<Function>> tagged(String name) {
-        var tag = currentProgram.getFunctionManager().getFunctionTagManager().getFunctionTag(name);
+        FunctionTag tag =
+                currentProgram.getFunctionManager().getFunctionTagManager().getFunctionTag(name);
         return tag == null
                 ? new Problem<>("tag:" + name + ": the program defines no such tag")
                 : new Ok<>(
@@ -236,41 +269,41 @@ public class Decompile extends GhidraScript {
 
     // --- [SELECTION] ----------------------------------------------------------------------
 
-    private SequencedMap<Function, String> select(
-            List<Function> seeds, String role, int callers, int callees) {
-        var picks = new LinkedHashMap<Function, String>();
+    private SequencedMap<Function, Role> select(
+            List<Function> seeds, Role role, int callers, int callees) {
+        SequencedMap<Function, Role> picks = new LinkedHashMap<>();
         seeds.forEach(function -> picks.put(function, role));
-        expand(picks, seeds, callees, Direction.CALLEE);
-        expand(picks, seeds, callers, Direction.CALLER);
+        expand(picks, seeds, 1, callees, Kind.CALLEE);
+        expand(picks, seeds, 1, callers, Kind.CALLER);
         return picks;
     }
 
     private void expand(
-            Map<Function, String> picks, List<Function> from, int depth, Direction direction) {
-        var frontier = from;
-        for (var level = 1; level <= depth && !frontier.isEmpty(); level++) {
-            var role = direction.name().toLowerCase(Locale.ROOT) + ":" + level;
-            var next =
-                    frontier.stream()
-                            .flatMap(function -> neighbors(function, direction))
-                            .filter(Decompile::decompilable)
-                            .filter(function -> !picks.containsKey(function))
-                            .distinct()
-                            .sorted(Comparator.comparing(Function::getEntryPoint))
-                            .toList();
-            next.forEach(function -> picks.put(function, role));
-            frontier = next;
+            Map<Function, Role> picks, List<Function> frontier, int level, int depth, Kind kind) {
+        if (level > depth || frontier.isEmpty()) {
+            return;
         }
+        Role role = new Role(kind, level);
+        List<Function> next =
+                frontier.stream()
+                        .flatMap(function -> neighbors(function, kind))
+                        .filter(Decompile::decompilable)
+                        .filter(function -> !picks.containsKey(function))
+                        .distinct()
+                        .sorted(Comparator.comparing(Function::getEntryPoint))
+                        .toList();
+        next.forEach(function -> picks.put(function, role));
+        expand(picks, next, level + 1, depth, kind);
     }
 
-    private Stream<Function> neighbors(Function function, Direction direction) {
-        return switch (direction) {
+    private Stream<Function> neighbors(Function function, Kind kind) {
+        return switch (kind) {
             case CALLER ->
                     function.getCallingFunctions(monitor).stream()
                             .flatMap(
                                     caller ->
                                             caller.isThunk()
-                                                    ? neighbors(caller, Direction.CALLER)
+                                                    ? neighbors(caller, Kind.CALLER)
                                                     : Stream.of(caller));
             case CALLEE ->
                     function.getCalledFunctions(monitor).stream()
@@ -279,6 +312,7 @@ public class Decompile extends GhidraScript {
                                             callee.isThunk()
                                                     ? callee.getThunkedFunction(true)
                                                     : callee);
+            case SEED, ALL -> Stream.empty();
         };
     }
 
@@ -288,15 +322,14 @@ public class Decompile extends GhidraScript {
 
     // --- [DECOMPILE] ----------------------------------------------------------------------
 
-    private String write(
-            Path out, SequencedMap<Function, String> picks, int timeout, String request)
+    private String write(Path out, SequencedMap<Function, Role> picks, int timeout, String request)
             throws Exception {
-        var options = new DecompileOptions();
+        DecompileOptions options = new DecompileOptions();
         options.grabFromProgram(currentProgram);
         options.setDefaultTimeout(timeout);
         options.setIndentWidth(4);
-        var callback =
-                new DecompilerCallback<Block>(
+        DecompilerCallback<Block> callback =
+                new DecompilerCallback<>(
                         currentProgram,
                         decompiler -> {
                             decompiler.setOptions(options);
@@ -308,91 +341,120 @@ public class Decompile extends GhidraScript {
                     }
                 };
         callback.setTimeout(timeout);
-        var part = out.resolveSibling(out.getFileName() + ".part");
-        Files.createDirectories(out.toAbsolutePath().getParent());
+        List<Block> decompiled;
         try {
-            Output output;
-            try (var writer = Files.newBufferedWriter(part)) {
-                output = new Output(writer, List.copyOf(picks.keySet()));
-                picks.entrySet().stream()
-                        .filter(pick -> !decompilable(pick.getKey()))
-                        .map(pick -> stub(pick.getKey(), pick.getValue()))
-                        .forEach(output);
-                ParallelDecompiler.decompileFunctions(
-                        callback,
-                        currentProgram,
-                        picks.keySet().stream().filter(Decompile::decompilable).iterator(),
-                        output,
-                        monitor);
-            }
-            try (var writer = Files.newBufferedWriter(out)) {
-                writer.write(
-                        "// ==== INDEX %s %s functions=%d failed=%d types=%d args=%s\n"
-                                .formatted(
-                                        currentProgram.getName(),
-                                        currentProgram.getLanguageID(),
-                                        picks.size(),
-                                        output.failed(),
-                                        output.types().size(),
-                                        request));
-                for (var row : output.rows()) {
-                    writer.write(row);
-                }
-                writer.write("\n");
-                try (var reader = Files.newBufferedReader(part)) {
-                    reader.transferTo(writer);
-                }
-                writer.write("// ==== TYPES " + output.types().size() + "\n");
-                new DataTypeWriter(currentProgram.getDataTypeManager(), writer, false)
-                        .write(List.copyOf(output.types().values()), monitor);
-            }
-            return "wrote %s: %d functions, %d failed, %d types"
-                    .formatted(out, picks.size(), output.failed(), output.types().size());
+            decompiled =
+                    ParallelDecompiler.decompileFunctions(
+                            callback,
+                            picks.keySet().stream().filter(Decompile::decompilable).toList(),
+                            monitor);
         } finally {
             callback.dispose();
-            Files.deleteIfExists(part);
         }
+        Map<Function, Block> byFunction =
+                Stream.concat(
+                                picks.entrySet().stream()
+                                        .filter(pick -> !decompilable(pick.getKey()))
+                                        .map(pick -> stub(pick.getKey(), pick.getValue())),
+                                decompiled.stream())
+                        .collect(Collectors.toMap(Block::function, block -> block));
+        List<Block> blocks = picks.keySet().stream().map(byFunction::get).toList();
+        long failed = blocks.stream().filter(Block::failed).count();
+        SortedMap<String, DataType> types =
+                blocks.stream()
+                        .flatMap(block -> block.types().stream())
+                        .collect(
+                                Collectors.toMap(
+                                        DataType::getPathName,
+                                        type -> type,
+                                        (first, second) -> first,
+                                        TreeMap::new));
+        Files.createDirectories(out.toAbsolutePath().getParent());
+        try (BufferedWriter writer = Files.newBufferedWriter(out)) {
+            writer.write(
+                    "// ==== INDEX %s %s functions=%d failed=%d types=%d args=%s\n"
+                            .formatted(
+                                    currentProgram.getName(),
+                                    currentProgram.getLanguageID(),
+                                    blocks.size(),
+                                    failed,
+                                    types.size(),
+                                    request));
+            long line = blocks.size() + 3L;
+            for (Block block : blocks) {
+                writer.write(row(block, line));
+                line += block.text().lines().count();
+            }
+            writer.write("\n");
+            for (Block block : blocks) {
+                writer.write(block.text());
+            }
+            writer.write("// ==== TYPES " + types.size() + "\n");
+            new DataTypeWriter(currentProgram.getDataTypeManager(), writer, false)
+                    .write(List.copyOf(types.values()), monitor);
+        }
+        return "wrote %s: %d functions, %d failed, %d types"
+                .formatted(out, blocks.size(), failed, types.size());
     }
 
-    private Block block(DecompileResults results, String role, int timeout) {
-        var function = results.getFunction();
-        var callers = function.getCallingFunctions(monitor);
-        var names =
-                "seed".equals(role)
+    private Block block(DecompileResults results, Role role, int timeout) {
+        Function function = results.getFunction();
+        Set<Function> callers = function.getCallingFunctions(monitor);
+        String names =
+                role.kind() == Kind.SEED
                         ? callers.stream()
                                 .sorted(Comparator.comparing(Function::getEntryPoint))
                                 .map(caller -> caller.getName(true))
                                 .collect(Collectors.joining(", ", ": ", ""))
                         : "";
-        var header =
+        String header =
                 "// ==== FUNC %s @ %s size=%d %s callers=%d%s\n"
                         .formatted(
                                 function.getName(true),
                                 function.getEntryPoint(),
                                 function.getBody().getNumAddresses(),
-                                role,
+                                role.label(),
                                 callers.size(),
                                 callers.isEmpty() ? "" : names);
         if (!results.decompileCompleted()) {
-            var cause =
+            String cause =
                     results.isTimedOut()
                             ? "timeout after " + timeout + " s"
                             : results.getErrorMessage();
             return new Block(
                     function, role, header + "// failed: " + cause.strip() + "\n", true, List.of());
         }
-        var code = results.getDecompiledFunction().getC().strip() + "\n";
+        String code = results.getDecompiledFunction().getC().strip() + "\n";
         return new Block(function, role, header + code, false, types(results.getCCodeMarkup()));
     }
 
-    private static Block stub(Function function, String role) {
-        var text =
-                "// ==== THUNK %s @ %s -> %s\n"
-                        .formatted(
-                                function.getName(true),
-                                function.getEntryPoint(),
-                                function.getThunkedFunction(true).getName(true));
+    private static Block stub(Function function, Role role) {
+        String text =
+                function.isThunk()
+                        ? "// ==== THUNK %s @ %s -> %s\n"
+                                .formatted(
+                                        function.getName(true),
+                                        function.getEntryPoint(),
+                                        function.getThunkedFunction(true).getName(true))
+                        : "// ==== EXTERNAL %s @ %s\n"
+                                .formatted(function.getName(true), function.getEntryPoint());
         return new Block(function, role, text, false, List.of());
+    }
+
+    private static String row(Block block, long line) {
+        Function function = block.function();
+        String status =
+                block.failed()
+                        ? " failed"
+                        : function.isThunk() ? " thunk" : function.isExternal() ? " external" : "";
+        return "// %s %s size=%d %s line=%d%s\n"
+                .formatted(
+                        function.getEntryPoint(),
+                        function.getName(true),
+                        function.getBody().getNumAddresses(),
+                        block.role().label(),
+                        line,
+                        status);
     }
 
     private static List<DataType> types(ClangTokenGroup markup) {
@@ -419,75 +481,5 @@ public class Decompile extends GhidraScript {
             case FunctionDefinition definition -> Optional.of(definition);
             default -> Optional.empty();
         };
-    }
-
-    // --- [OUTPUT] -------------------------------------------------------------------------
-
-    private static final class Output implements Consumer<Block> {
-        private final Lock lock = new ReentrantLock();
-        private final Writer writer;
-        private final Map<Function, Integer> positions;
-        private final SortedMap<Integer, Block> pending = new TreeMap<>();
-        private final SortedMap<String, DataType> namedTypes = new TreeMap<>();
-        private final String[] indexRows;
-        private int next;
-        private int failures;
-        private long line;
-
-        Output(Writer writer, List<Function> order) {
-            this.writer = writer;
-            this.positions =
-                    IntStream.range(0, order.size())
-                            .boxed()
-                            .collect(Collectors.toMap(order::get, position -> position));
-            this.indexRows = new String[order.size()];
-            this.line = order.size() + 3L;
-        }
-
-        @Override
-        public void accept(Block block) {
-            lock.lock();
-            try {
-                pending.put(positions.get(block.function()), block);
-                while (pending.containsKey(next)) {
-                    var ready = pending.remove(next);
-                    writer.write(ready.text());
-                    indexRows[next] = row(ready, line);
-                    line += ready.text().chars().filter(character -> character == '\n').count();
-                    failures += ready.failed() ? 1 : 0;
-                    ready.types().forEach(type -> namedTypes.put(type.getPathName(), type));
-                    next++;
-                }
-            } catch (IOException exception) {
-                throw new UncheckedIOException(exception);
-            } finally {
-                lock.unlock();
-            }
-        }
-
-        List<String> rows() {
-            return List.of(indexRows);
-        }
-
-        SortedMap<String, DataType> types() {
-            return namedTypes;
-        }
-
-        int failed() {
-            return failures;
-        }
-
-        private static String row(Block block, long line) {
-            var function = block.function();
-            var status = block.failed() ? " failed" : function.isThunk() ? " thunk" : "";
-            return "// %s %s size=%d %s line=%d%s\n"
-                    .formatted(
-                            function.getEntryPoint(),
-                            function.getName(true),
-                            function.getBody().getNumAddresses(),
-                            block.role(),
-                            line,
-                            status);
-        }
     }
 }

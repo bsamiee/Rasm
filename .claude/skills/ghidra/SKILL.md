@@ -61,12 +61,6 @@ Seeds are `all`, `0x<hex>`, `<name>`, `<namespace>::<name>`, `re:<regex>`, `str:
 - `0x<hex>` inside no function disassembles there and creates one
 - `str:<needle>` matches defined strings case-insensitively and takes the functions referencing them
 - Callers pass through thunks to the calling function, callees resolve a thunk to its target, thunks and externals never decompile
-- Seeded thunks print a `// ==== THUNK <name> @ <entry> -> <target>` line in place of a block
-- File opens with `// ==== INDEX <program> <language> functions= failed= types= args=`, one row per function follows
-- Rows read `// <entry> <name> size=<n> <role> line=<n>`, ending in `failed` for a timeout and `thunk` for a stub line
-- Roles are `seed`, `all`, `callee:<depth>`, and `caller:<depth>`
-- Blocks open with `// ==== FUNC <name> @ <entry> size=<n> <role> callers=<n>`, caller names follow the count on explicit seeds alone
-- `// ==== TYPES <n>` and the struct, enum, typedef, and function definitions the decompiled code names close the file
 
 ## [02]-[LOCATE]
 

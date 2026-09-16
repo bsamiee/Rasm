@@ -3,7 +3,14 @@
     <description>Java rules</description>
 
     <!-- [BEST_PRACTICES] -->
-    <rule ref="category/java/bestpractices.xml" />
+    <rule ref="category/java/bestpractices.xml">
+        <exclude name="UnusedFormalParameter" />
+    </rule>
+    <rule ref="category/java/bestpractices.xml/UnusedFormalParameter">
+        <properties>
+            <property name="checkAll" value="true" />
+        </properties>
+    </rule>
 
     <!-- [CODE_STYLE] -->
     <rule ref="category/java/codestyle.xml">
@@ -16,11 +23,11 @@
         <exclude name="OnlyOneReturn" />
         <exclude name="ShortClassName" />
         <exclude name="ShortVariable" />
-        <exclude name="UseExplicitTypes" />
     </rule>
 
     <!-- [DESIGN] -->
     <rule ref="category/java/design.xml">
+        <exclude name="CouplingBetweenObjects" />
         <exclude name="ExcessiveImports" />
         <exclude name="GodClass" />
         <exclude name="LawOfDemeter" />
@@ -30,7 +37,14 @@
     </rule>
 
     <!-- [ERROR_PRONE] -->
-    <rule ref="category/java/errorprone.xml" />
+    <rule ref="category/java/errorprone.xml">
+        <exclude name="EmptyCatchBlock" />
+    </rule>
+    <rule ref="category/java/errorprone.xml/EmptyCatchBlock">
+        <properties>
+            <property name="allowExceptionNameRegex" value="^$" />
+        </properties>
+    </rule>
 
     <!-- [MULTITHREADING] -->
     <rule ref="category/java/multithreading.xml" />

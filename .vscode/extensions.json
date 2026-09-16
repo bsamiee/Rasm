@@ -1,0 +1,22 @@
+{
+    "recommendations": [
+        "biomejs.biome",
+        "charliermarsh.ruff",
+        "astral-sh.ty",
+        "ms-python.mypy-type-checker",
+        "ms-python.python",
+        "ms-dotnettools.csdevkit",
+        "ms-dotnettools.csharp",
+        "swiftlang.swift-vscode",
+        "redhat.java",
+        "josevseb.google-java-format-for-vs-code"
+    ],
+    "unwantedRecommendations": [
+        "vscjava.vscode-java-pack",
+        "vscjava.vscode-gradle",
+        "vscjava.vscode-maven",
+        "vscjava.vscode-java-test",
+        "vscjava.vscode-java-dependency",
+        "vscjava.vscode-java-debug"
+    ]
+}

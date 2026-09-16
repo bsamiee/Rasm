@@ -28,7 +28,7 @@
         "*.tsx": "${capture}.spec.tsx, ${capture}.test.tsx",
         ".gitignore": ".gitattributes",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .yamlfmt, .yamllint.yaml, mise.toml, sgconfig.yml, .swift-format",
+        "nx.json": ".editorconfig, .yamlfmt, .yamllint.yaml, mise.toml, pmd.xml, sgconfig.yml, .swift-format",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },
@@ -43,5 +43,11 @@
     "[typescript][typescriptreact][javascript][javascriptreact][json][jsonc][css]": { "editor.defaultFormatter": "biomejs.biome" },
 
     // --- [DOTNET] ----------------------------------------------------------------------
-    "csharp.suppressBuildAssetsNotification": true
+    "csharp.suppressBuildAssetsNotification": true,
+
+    // --- [JAVA] ------------------------------------------------------------------------
+    "java.project.sourcePaths": [".claude/skills/ghidra/scripts"],
+    "java.project.referencedLibraries": ["${HOMEBREW_PREFIX:-/opt/homebrew}/opt/ghidra/libexec/Ghidra/**/lib/*.jar"],
+    "java.format.settings.google.extra": "--aosp",
+    "[java]": { "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code" }
 }
