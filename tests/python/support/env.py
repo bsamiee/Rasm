@@ -133,8 +133,10 @@ def _object_store(spec: ObjectStore) -> Iterator[Provisioned[s3fs.S3FileSystem]]
         _store().call_s3("create_bucket", Bucket=spec.bucket, **({"CreateBucketConfiguration": {"LocationConstraint": spec.region}} if spec.region != "us-east-1" else {}))
         yield Provisioned(url=endpoint, client=_store)
     finally:
-        httpx.post(f"{endpoint}/moto-api/reset")
-        server.stop()
+        try:
+            httpx.post(f"{endpoint}/moto-api/reset")
+        finally:
+            server.stop()
 
 
 @overload

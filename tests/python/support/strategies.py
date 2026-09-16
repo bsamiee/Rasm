@@ -33,6 +33,7 @@ class _Size(TypedDict):
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 _NUM_CEILING = 1_000_000
+_TEXT_CAP = 64
 
 _JSON: st.SearchStrategy[object] = st.recursive(
     st.none() | st.booleans() | st.integers(min_value=-1_000, max_value=1_000) | st.text(max_size=16),
@@ -44,7 +45,8 @@ _JSON: st.SearchStrategy[object] = st.recursive(
 
 
 def _size(mn: object, mx: object, cap: int) -> _Size:
-    return {"min_size": mn if isinstance(mn, int) else 0, "max_size": min(mx, cap) if isinstance(mx, int) else cap}
+    lo = mn if isinstance(mn, int) else 0
+    return {"min_size": lo, "max_size": max(lo, min(mx, cap) if isinstance(mx, int) else cap)}
 
 
 def _timezones(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ignore[boolean-type-hint-positional-argument]
@@ -60,11 +62,13 @@ def _timezones(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:
 def _multiples[N](lower: object, upper: object, step: object, convert: Callable[[Decimal], N], *, exclude_lower: bool = False, exclude_upper: bool = False) -> st.SearchStrategy[N]:
     """Return a strategy drawing the multiplier k directly, every value is a valid in-range multiple with zero rejection.
 
-    Fraction bounds are exact for int, float, and Decimal inputs, an exclusive bound equal to a multiple shrinks the k window by one and excludes the boundary itself.
+    Fraction bounds are exact for int, float, and Decimal inputs.
+    A None bound is the numeric ceiling on that side.
+    An exclusive bound equal to a multiple shrinks the k window by one and excludes the boundary itself.
     """
     decimal_step = Decimal(str(step))
-    lower_quotient = Fraction(str(lower)) / Fraction(decimal_step)
-    upper_quotient = Fraction(str(upper)) / Fraction(decimal_step)
+    lower_quotient = Fraction(str(-_NUM_CEILING if lower is None else lower)) / Fraction(decimal_step)
+    upper_quotient = Fraction(str(_NUM_CEILING if upper is None else upper)) / Fraction(decimal_step)
     lower_ceiling = ceil(lower_quotient)
     upper_floor = floor(upper_quotient)
     minimum_multiplier = lower_ceiling + (1 if exclude_lower and lower_quotient == lower_ceiling else 0)
@@ -76,9 +80,9 @@ def _multiples[N](lower: object, upper: object, step: object, convert: Callable[
     )
 
 
-def _text(mn: object, mx: object, pattern: object, cap: int = 64) -> st.SearchStrategy[str]:
+def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
     lo = mn if isinstance(mn, int) else 1
-    hi = min(mx, cap) if isinstance(mx, int) else cap
+    hi = min(mx, _TEXT_CAP) if isinstance(mx, int) else _TEXT_CAP
     if lo > hi:
         return st.nothing()
     return st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi) if isinstance(pattern, str) else st.text(min_size=lo, max_size=hi)
@@ -212,24 +216,13 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             lower = _integer_bound(schema, "ge", "gt", 1)
             upper = _integer_bound(schema, "le", "lt", -1)
             multiple_of = schema.get("multiple_of")
-            return (
-                _multiples(lower if lower is not None else -_NUM_CEILING, upper if upper is not None else _NUM_CEILING, multiple_of, int)
-                if isinstance(multiple_of, int)
-                else st.integers(min_value=lower, max_value=upper)
-            )
+            return _multiples(lower, upper, multiple_of, int) if isinstance(multiple_of, int) else st.integers(min_value=lower, max_value=upper)
         case "float":
             float_lower, exclude_lower = _numeric_bound(schema, "ge", "gt")
             float_upper, exclude_upper = _numeric_bound(schema, "le", "lt")
             multiple_of = schema.get("multiple_of")
             return (
-                _multiples(
-                    float_lower if float_lower is not None else -float(_NUM_CEILING),
-                    float_upper if float_upper is not None else float(_NUM_CEILING),
-                    multiple_of,
-                    float,
-                    exclude_lower=exclude_lower,
-                    exclude_upper=exclude_upper,
-                )
+                _multiples(float_lower, float_upper, multiple_of, float, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
                 if isinstance(multiple_of, int | float)
                 else st.floats(min_value=float_lower, max_value=float_upper, exclude_min=exclude_lower, exclude_max=exclude_upper, allow_nan=False, allow_infinity=False)
             )
@@ -256,14 +249,7 @@ def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.S
             effective_upper = decimal_upper if decimal_upper is not None else digit_upper
             multiple_of = schema.get("multiple_of")
             if isinstance(multiple_of, int | float | Decimal):
-                return _multiples(
-                    effective_lower if effective_lower is not None else -_NUM_CEILING,
-                    effective_upper if effective_upper is not None else _NUM_CEILING,
-                    multiple_of,
-                    lambda value: value,
-                    exclude_lower=exclude_lower,
-                    exclude_upper=exclude_upper,
-                )
+                return _multiples(effective_lower, effective_upper, multiple_of, lambda value: value, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
             values = st.decimals(min_value=effective_lower, max_value=effective_upper, places=dp, allow_nan=False, allow_infinity=False)
             return (
                 values.filter(lambda value: (not exclude_lower or effective_lower is None or value > effective_lower) and (not exclude_upper or effective_upper is None or value < effective_upper))

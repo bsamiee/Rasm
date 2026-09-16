@@ -5,6 +5,5 @@
         "types": ["node"]
     },
     "references": [{ "path": "../../../libs/typescript/typography" }],
-    "files": ["package.json"],
-    "include": ["*.ts", "*/*.ts"]
+    "files": ["package.json"]
 }

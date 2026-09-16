@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: import_statement
     all:
-        - has: {field: source, has: {kind: string_fragment, pattern: $MODULE, regex: '^(node:)?(fs(/promises)?|path(/(posix|win32))?|child_process|https?|url|worker_threads)$'}}
+        - has: {field: source, has: {kind: string_fragment, pattern: $MODULE, regex: '^(node:)?(fs(/promises)?|path(/(posix|win32))?|child_process|https?|worker_threads)$'}}
         - not: {has: {regex: '^type$'}}
 message: '`$MODULE` reaches the host outside the effect runtime'
-note: '`effect` supplies the service (`FileSystem`, `Path`, `Stdio`, `ChildProcessSpawner`, `HttpClient`, `HttpServer`), `NodeServices.layer` provides it at the entry point'
+note: '`effect` supplies the service (`FileSystem`, `Path`, `Stdio`, `ChildProcessSpawner`, `Worker`, `HttpClient`, `HttpServer`), `NodeServices.layer` provides the first four at the entry point and `NodeWorker.layer`, `NodeHttpClient.layer`, and `NodeHttpServer.layer` the rest'

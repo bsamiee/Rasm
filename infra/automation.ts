@@ -1,8 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { LocalWorkspace, type Stack } from '@pulumi/pulumi/automation/index.js';
-import { Cause, Console, Data, Effect, flow, Path, type PlatformError, Queue, Stdio, Stream } from 'effect';
+import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
+import { Cause, Console, Data, Effect, flow, Path, Queue, Stdio, Stream } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import { program } from './program.ts';
 
@@ -16,31 +16,27 @@ class StackError extends Data.TaggedError('StackError')<{ readonly operation: 's
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-type Operation = Exclude<StackError['operation'], 'select'>;
-
-const _output = (stack: Stack, operation: Operation, output: Queue.Queue<string, StackError | Cause.Done>): Effect.Effect<void, StackError> =>
-    Effect.andThen(
-        Effect.tryPromise({ try: () => stack[operation]({ onOutput: (text) => Queue.offerUnsafe(output, text) }), catch: (cause) => new StackError({ operation, cause }) }),
-        Queue.end(output),
-    );
-
-const _operation = (operation: Operation, adopt: boolean): Effect.Effect<void, StackError | PlatformError.PlatformError, Path.Path | Stdio.Stdio> =>
-    Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const stdio = yield* Stdio.Stdio;
-        const stack = yield* Effect.tryPromise({
-            try: () =>
-                LocalWorkspace.createOrSelectStack(
-                    { stackName: 'rasm', projectName: 'rasm-infra', program: () => Effect.runPromise(program(adopt)) },
-                    { pulumiHome: path.join(import.meta.dirname, '..', '.cache', 'pulumi') },
-                ),
-            catch: (cause) => new StackError({ operation: 'select', cause }),
-        });
-        yield* Stream.run(
-            Stream.callback<string, StackError>((output) => _output(stack, operation, output)),
-            stdio.stdout(),
-        );
+const _operation = Effect.fnUntraced(function* (operation: Exclude<StackError['operation'], 'select'>, adopt: boolean) {
+    const path = yield* Path.Path;
+    const stdio = yield* Stdio.Stdio;
+    const stack = yield* Effect.tryPromise({
+        try: () =>
+            LocalWorkspace.createOrSelectStack(
+                { stackName: 'rasm', projectName: 'rasm-infra', program: () => Effect.runPromise(program(adopt)) },
+                { pulumiHome: path.join(import.meta.dirname, '..', '.cache', 'pulumi') },
+            ),
+        catch: (cause) => new StackError({ operation: 'select', cause }),
     });
+    yield* Stream.run(
+        Stream.callback<string, StackError>((output) =>
+            Effect.andThen(
+                Effect.tryPromise({ try: () => stack[operation]({ onOutput: (text) => Queue.offerUnsafe(output, text) }), catch: (cause) => new StackError({ operation, cause }) }),
+                Queue.end(output),
+            ),
+        ),
+        stdio.stdout(),
+    );
+});
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 

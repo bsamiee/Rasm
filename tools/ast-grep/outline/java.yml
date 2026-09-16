@@ -1,0 +1,115 @@
+id: java-record
+language: java
+role: item
+symbolType: struct
+rule:
+    kind: record_declaration
+    pattern: $DECLARATION
+    inside: {kind: program}
+    has: {field: name, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {has: {kind: modifiers, has: {regex: '^public$'}}}
+
+---
+id: java-member-record-component
+language: java
+role: member
+parentRuleIds: [java-record]
+symbolType: field
+rule:
+    kind: formal_parameter
+    pattern: $DECLARATION
+    inside: {kind: formal_parameters, inside: {kind: record_declaration, inside: {kind: program}}}
+    has: {field: name, pattern: $NAME}
+name: $NAME
+signature: $DECLARATION
+isPublic: true
+
+---
+id: java-member-nested-type
+language: java
+role: member
+parentRuleIds: [java-class, java-interface, java-enum, java-record]
+symbolType: struct
+rule:
+    kind: 'class_declaration, record_declaration, interface_declaration, enum_declaration'
+    pattern: $DECLARATION
+    inside: {kind: 'class_body, interface_body, enum_body_declarations'}
+    has: {field: name, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
+
+---
+id: java-member-private-field
+language: java
+role: member
+parentRuleIds: [java-class, java-interface, java-enum, java-record]
+symbolType: field
+rule:
+    kind: field_declaration
+    pattern: $DECLARATION
+    all:
+        - has: {field: declarator, has: {field: name, pattern: $NAME}}
+        - has: {kind: modifiers, has: {regex: '^(private|protected)$'}}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*=[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: ';\s*$', by: ''}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: false
+
+---
+id: java-member-enum-constant
+language: java
+role: member
+parentRuleIds: [java-enum]
+symbolType: field
+rule:
+    kind: enum_constant
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+name: $NAME
+signature: $DECLARATION
+isPublic: true
+
+---
+id: java-member-record-method
+language: java
+role: member
+parentRuleIds: [java-record]
+symbolType: method
+rule:
+    kind: method_declaration
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
+
+---
+id: java-member-record-constructor
+language: java
+role: member
+parentRuleIds: [java-record]
+symbolType: constructor
+rule:
+    kind: 'constructor_declaration, compact_constructor_declaration'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}

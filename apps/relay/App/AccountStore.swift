@@ -588,8 +588,7 @@ final class AccountStore {
 
   private func observe(file: URL) async {
     do {
-      for try await _ in FileWatch.changes(of: file) {
-        guard !isSwitching else { continue }
+      for try await _ in FileWatch.changes(of: file) where !isSwitching {
         let before: [UUID: Bool] = Dictionary(
           uniqueKeysWithValues: accounts.map { model in (model.id, model.isSelected) })
         await readSelection()

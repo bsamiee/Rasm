@@ -66,6 +66,7 @@
                         "useLiteralKeys": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
+                    "correctness": { "useJsxKeyInIterable": "error" },
                     "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",
@@ -80,13 +81,9 @@
                 }
             }
         },
-        { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        { "includes": ["**/vitest.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
             "includes": [".claude/plugins/**"],
-            "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
-        },
-        {
-            "includes": ["apps/creative-cloud/indesign-plugin/**", "apps/creative-cloud/photoshop-plugin/**"],
             "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
         },
         {

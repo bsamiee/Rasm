@@ -9,7 +9,7 @@ import { parse } from 'yaml';
 
 const _ROOT = import.meta.dirname;
 const _ARTIFACTS = `${_ROOT}/.artifacts/typescript`;
-const _EXCLUDE = [...configDefaults.exclude, '**/dist/**', '**/.cache/**', '**/.artifacts/**', '**/.archive/**'];
+const _EXCLUDE = [...configDefaults.exclude, '**/.cache/**', '**/.artifacts/**', '**/.archive/**'];
 const _REPORTERS = { ci: ['dot', 'json', 'junit', 'github-actions', 'blob'], local: ['tree', 'blob'] } as const;
 
 // --- [CONFIGURATION] -------------------------------------------------------------------
@@ -32,6 +32,7 @@ const _project = Effect.fnUntraced(
             test: {
                 benchmark: { exclude: _EXCLUDE, include: ['**/*.bench.{ts,tsx}'] },
                 chaiConfig: { includeStack: true, truncateThreshold: 0 },
+                diff: { expand: true },
                 coverage: {
                     enabled: true,
                     exclude: [..._EXCLUDE, '**/*.config.*', '**/*.d.ts', '**/__mocks__/**', '**/__tests__/**', '**/gen/**', '**/test/**', '**/tests/**'],
@@ -41,14 +42,12 @@ const _project = Effect.fnUntraced(
                     reportsDirectory: `${_ARTIFACTS}/coverage/${name}`,
                     skipFull: true,
                 },
-                diff: { expand: true },
                 exclude: _EXCLUDE,
                 fakeTimers: { toFake: ['setTimeout', 'setInterval', 'Date', 'performance'] },
                 hideSkippedTests: ci,
                 include: ['**/*.{test,spec}.{ts,tsx,mts,cts}'],
                 maxWorkers: '50%',
                 name,
-                onConsoleLog: (log) => !log.includes('Download the React DevTools'),
                 outputFile: { blob: `${_ARTIFACTS}/test-results/.vitest-reports/${name}.json`, json: `${results}/results.json`, junit: `${results}/junit.xml` },
                 pool: 'threads',
                 reporters: Array.fromIterable(Boolean.match(ci, { onFalse: () => _REPORTERS.local, onTrue: () => _REPORTERS.ci })),

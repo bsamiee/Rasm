@@ -16,8 +16,8 @@
     },
     "nx": {
         "targets": {
-            "grid": { "executor": "nx:run-commands", "cache": false, "options": { "command": "node automation.ts grid", "cwd": "{projectRoot}" } },
-            "oracle": { "executor": "nx:run-commands", "cache": false, "options": { "command": "node automation.ts oracle", "cwd": "{projectRoot}" } }
+            "grid": { "command": "node automation.ts grid", "options": { "cwd": "{projectRoot}" } },
+            "oracle": { "command": "node automation.ts oracle", "options": { "cwd": "{projectRoot}" } }
         }
     }
 }

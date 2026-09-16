@@ -2,13 +2,15 @@
 
 import type { AgentSpawnResult, ClassicHookInputs, PluginOptions } from 'claude-code';
 import { all, fault, map, ok, type Result } from '../composition.ts';
-import { basename } from '../text/command.ts';
+import { basename } from '../path.ts';
 import { normalized, quoted } from './sql.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Kind = 'edit';
+
 interface Trigger {
-    readonly kind: 'edit';
+    readonly kind: Kind;
     readonly view: string;
     readonly threshold: number;
     readonly agent: string;
@@ -40,6 +42,10 @@ interface Task {
     readonly agentType: string;
 }
 
+type Head = readonly [string, string, string, string, string, string, string];
+
+type Category = readonly [string, string, string];
+
 interface Candidate {
     readonly category: string;
     readonly sites: number;
@@ -63,11 +69,25 @@ const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 
 
 // --- [SETTINGS] ------------------------------------------------------------------------
 
-const settings = (options: PluginOptions): Settings => ({
-    edits: { kind: 'edit', view: 'unjudged_edits', threshold: Number(options['editThreshold']), agent: String(options['editAgent']) },
-    categoryThreshold: Number(options['categoryThreshold']),
-    categoryAgent: String(options['categoryAgent']),
-});
+const _number = (options: PluginOptions, key: string): Result<number> => {
+    const value = options[key];
+    return typeof value === 'number' ? ok(value) : fault(`${key} is not a number`);
+};
+
+const _text = (options: PluginOptions, key: string): Result<string> => {
+    const value = options[key];
+    return typeof value === 'string' ? ok(value) : fault(`${key} is not a string`);
+};
+
+const _trigger = (options: PluginOptions, kind: Kind, view: string): Result<Trigger> =>
+    map(all([_number(options, `${kind}Threshold`), _text(options, `${kind}Agent`)]), ([threshold, agent]) => ({ kind, view, threshold, agent }));
+
+const settings = (options: PluginOptions): Result<Settings> =>
+    map(all([_trigger(options, 'edit', 'unjudged_edits'), _number(options, 'categoryThreshold'), _text(options, 'categoryAgent')]), ([edits, categoryThreshold, categoryAgent]) => ({
+        edits,
+        categoryThreshold,
+        categoryAgent,
+    }));
 
 const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ main, worktree, branch, key: `${worktree === main ? '.' : basename(worktree)}/${branch}` });
 
@@ -120,33 +140,22 @@ const DELIVER = (lineage: Lineage, session: string, now: number): string => {
 
 const _lines = (stdout: string): readonly string[] => stdout.split('\n').filter((text) => text !== '');
 
+const _cells = (stdout: string): readonly (readonly string[])[] => _lines(stdout).map((text) => text.split('\t'));
+
 const _integer = (text: string): Result<number> => (_INTEGER.test(text) ? ok(Number(text)) : fault(`${text} is not an integer`));
 
 const _flag = (text: string): Result<boolean> => (text === '0' || text === '1' ? ok(text === '1') : fault(`${text} is not 0 or 1`));
 
-const _candidate = (cells: readonly string[]): Result<Candidate> => {
-    const [category, sites, reported] = cells;
-    return category !== undefined && sites !== undefined && reported !== undefined && cells.length === _CATEGORY_CELLS
-        ? map(all([_integer(sites), _flag(reported)]), ([counted, told]) => ({ category, sites: counted, reported: told }))
-        : fault(`category line holds ${cells.length} cells`);
-};
+const _isHead = (cells: readonly string[]): cells is Head => cells.length === _CELLS;
 
-const state = (stdout: string, chosen: Settings): Result<State> => {
-    const [head = [], ...rest] = _lines(stdout).map((text) => text.split('\t'));
-    const [count, from, running, open, undelivered, categoryRunning, editors] = head;
-    if (
-        count === undefined ||
-        from === undefined ||
-        running === undefined ||
-        open === undefined ||
-        undelivered === undefined ||
-        categoryRunning === undefined ||
-        editors === undefined ||
-        head.length !== _CELLS
-    ) {
-        return fault(`state line holds ${head.length} cells`);
-    }
-    return map(
+const _isCategory = (cells: readonly string[]): cells is Category => cells.length === _CATEGORY_CELLS;
+
+const _candidateOf = ([category, sites, reported]: Category): Result<Candidate> => map(all([_integer(sites), _flag(reported)]), ([counted, told]) => ({ category, sites: counted, reported: told }));
+
+const _candidate = (cells: readonly string[]): Result<Candidate> => (_isCategory(cells) ? _candidateOf(cells) : fault(`category line holds ${cells.length} cells`));
+
+const _state = (chosen: Settings, [count, from, running, open, undelivered, categoryRunning, editors]: Head, rest: readonly (readonly string[])[]): Result<State> =>
+    map(
         all([_integer(count), _integer(from), _flag(running), _integer(open), _integer(undelivered), _flag(categoryRunning), all(rest.map(_candidate))]),
         ([counted, since, elsewhere, opened, waiting, categoryElsewhere, candidates]) => ({
             edits: { trigger: chosen.edits, count: counted, from: since, running: elsewhere, editors: editors === '' ? [] : editors.split(',') },
@@ -156,6 +165,10 @@ const state = (stdout: string, chosen: Settings): Result<State> => {
             candidates,
         }),
     );
+
+const state = (stdout: string, chosen: Settings): Result<State> => {
+    const [head = [], ...rest] = _cells(stdout);
+    return _isHead(head) ? _state(chosen, head, rest) : fault(`state line holds ${head.length} cells`);
 };
 
 // --- [DECISIONS] -----------------------------------------------------------------------

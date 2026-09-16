@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mixed-logical-operators
+language: tsx
+severity: error
+files: ['apps/creative-cloud/illustrator-scripts/*.ts']
+rule:
+    kind: binary_expression
+    any:
+        - all:
+            - has: {field: operator, regex: '^\|\|$'}
+            - has: {kind: binary_expression, stopBy: {not: {kind: parenthesized_expression}}, has: {field: operator, regex: '^&&$'}}
+        - all:
+            - has: {field: operator, regex: '^&&$'}
+            - has: {kind: binary_expression, stopBy: {not: {kind: parenthesized_expression}}, has: {field: operator, regex: '^\|\|$'}}
+message: 'Illustrator source mixes `||` and `&&` in one expression'
+note: 'swc strips the parentheses and ExtendScript evaluates `A || B && C` as `(A || B) && C`, the source binds the conjunction to a `const` first'

@@ -1,102 +1,105 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Data, Match, Option, Result, Schema, String } from 'effect';
-import { HostId, JobId } from './values.ts';
+import { Array, Match, Option, Schema, String } from 'effect';
+import { Autocorrections, HostId, JobId } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type HostRejection = Data.TaggedEnum<{
-    readonly scriptThrew: {
-        readonly name: string;
-        readonly message: string;
-        readonly line: Option.Option<number>;
-        readonly fileName: Option.Option<string>;
-        readonly number: Option.Option<number>;
-    };
-    readonly descriptorFailed: { readonly index: number; readonly result: number; readonly message: string };
-    readonly userCancelled: Record<never, never>;
-    readonly preferenceLocked: { readonly section: string; readonly key: string };
-    readonly modalDenied: { readonly holder: Option.Option<string> };
-    readonly notAllowed: { readonly method: string };
-    readonly menuItemNotListed: { readonly name: string };
-    readonly noActiveDocument: Record<never, never>;
-    readonly unknownMethod: { readonly method: string };
-    readonly malformedParams: { readonly reason: string };
-}>;
-
-type BridgeError = Data.TaggedEnum<{
-    readonly hostNotRunning: { readonly host: HostId };
-    readonly automationDenied: { readonly host: HostId };
-    readonly hostUnresponsive: { readonly host: HostId; readonly code: number };
-    readonly scriptNotCompiled: { readonly host: HostId; readonly code: number; readonly line: string };
-    readonly hostRejected: { readonly host: HostId; readonly code: number; readonly reason: string };
-    readonly deadlineExceeded: { readonly host: HostId; readonly jobId: JobId };
-    readonly hostNotAttached: { readonly host: HostId };
-    readonly hostBusy: { readonly host: HostId; readonly jobId: JobId; readonly startedAt: number };
-    readonly transportClosed: { readonly host: HostId; readonly code: number; readonly reason: string };
-    readonly resultNotDecodable: { readonly host: HostId; readonly text: string; readonly reason: string };
-    readonly hostThrew: { readonly host: HostId; readonly rejection: HostRejection };
-}>;
-
-type Probe = Result.Result<Schema.Json, BridgeError>;
+type HostRejection = (typeof HostRejection)['Type'];
+type BridgeError = (typeof BridgeError)['Type'];
+type NonZeroExit = (typeof NonZeroExit)['Type'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _optionalNumber = Schema.OptionFromOptionalKey(Schema.Number);
+const _optionalString = Schema.OptionFromOptionalKey(Schema.String);
 
-const HostRejection: Schema.Codec<HostRejection, unknown> = Schema.Union([
-    Schema.TaggedStruct('scriptThrew', { name: Schema.String, message: Schema.String, line: _optionalNumber, fileName: Schema.OptionFromOptionalKey(Schema.String), number: _optionalNumber }),
-    Schema.TaggedStruct('descriptorFailed', { index: Schema.Number, result: Schema.Number, message: Schema.String }),
-    Schema.TaggedStruct('userCancelled', {}),
-    Schema.TaggedStruct('preferenceLocked', { section: Schema.String, key: Schema.String }),
-    Schema.TaggedStruct('modalDenied', { holder: Schema.OptionFromNullOr(Schema.String) }),
-    Schema.TaggedStruct('notAllowed', { method: Schema.String }),
-    Schema.TaggedStruct('menuItemNotListed', { name: Schema.String }),
-    Schema.TaggedStruct('noActiveDocument', {}),
-    Schema.TaggedStruct('unknownMethod', { method: Schema.String }),
-    Schema.TaggedStruct('malformedParams', { reason: Schema.String }),
-]);
+const HostRejection: Schema.TaggedUnion<{
+    readonly scriptThrew: Schema.TaggedStruct<
+        'scriptThrew',
+        {
+            readonly name: Schema.String;
+            readonly message: Schema.String;
+            readonly stack: Schema.OptionFromOptionalKey<Schema.String>;
+            readonly line: Schema.OptionFromOptionalKey<Schema.Number>;
+            readonly fileName: Schema.OptionFromOptionalKey<Schema.String>;
+            readonly number: Schema.OptionFromOptionalKey<Schema.Number>;
+        }
+    >;
+    readonly descriptorFailed: Schema.TaggedStruct<'descriptorFailed', { readonly index: Schema.Number; readonly result: Schema.Number; readonly message: Schema.String }>;
+    readonly userCancelled: Schema.TaggedStruct<'userCancelled', Record<never, never>>;
+    readonly preferenceLocked: Schema.TaggedStruct<'preferenceLocked', { readonly section: Schema.String; readonly key: Schema.String }>;
+    readonly modalDenied: Schema.TaggedStruct<'modalDenied', { readonly holder: Schema.OptionFromNullOr<Schema.String> }>;
+    readonly notAllowed: Schema.TaggedStruct<'notAllowed', { readonly method: Schema.String }>;
+    readonly menuItemNotListed: Schema.TaggedStruct<'menuItemNotListed', { readonly name: Schema.String }>;
+    readonly noActiveDocument: Schema.TaggedStruct<'noActiveDocument', Record<never, never>>;
+    readonly unknownMethod: Schema.TaggedStruct<'unknownMethod', { readonly method: Schema.String }>;
+    readonly malformedParams: Schema.TaggedStruct<'malformedParams', { readonly reason: Schema.String }>;
+}> = Schema.TaggedUnion({
+    scriptThrew: { name: Schema.String, message: Schema.String, stack: _optionalString, line: _optionalNumber, fileName: _optionalString, number: _optionalNumber },
+    descriptorFailed: { index: Schema.Number, result: Schema.Number, message: Schema.String },
+    userCancelled: {},
+    preferenceLocked: { section: Schema.String, key: Schema.String },
+    modalDenied: { holder: Schema.OptionFromNullOr(Schema.String) },
+    notAllowed: { method: Schema.String },
+    menuItemNotListed: { name: Schema.String },
+    noActiveDocument: {},
+    unknownMethod: { method: Schema.String },
+    malformedParams: { reason: Schema.String },
+});
 
-const BridgeError: Schema.Codec<BridgeError, unknown> = Schema.Union([
-    Schema.TaggedStruct('hostNotRunning', { host: HostId }),
-    Schema.TaggedStruct('automationDenied', { host: HostId }),
-    Schema.TaggedStruct('hostUnresponsive', { host: HostId, code: Schema.Number }),
-    Schema.TaggedStruct('scriptNotCompiled', { host: HostId, code: Schema.Number, line: Schema.String }),
-    Schema.TaggedStruct('hostRejected', { host: HostId, code: Schema.Number, reason: Schema.String }),
-    Schema.TaggedStruct('deadlineExceeded', { host: HostId, jobId: JobId }),
-    Schema.TaggedStruct('hostNotAttached', { host: HostId }),
-    Schema.TaggedStruct('hostBusy', { host: HostId, jobId: JobId, startedAt: Schema.Number }),
-    Schema.TaggedStruct('transportClosed', { host: HostId, code: Schema.Number, reason: Schema.String }),
-    Schema.TaggedStruct('resultNotDecodable', { host: HostId, text: Schema.String, reason: Schema.String }),
-    Schema.TaggedStruct('hostThrew', { host: HostId, rejection: HostRejection }),
-]);
+const BridgeError: Schema.TaggedUnion<{
+    readonly hostNotRunning: Schema.TaggedStruct<'hostNotRunning', { readonly host: typeof HostId }>;
+    readonly automationDenied: Schema.TaggedStruct<'automationDenied', { readonly host: typeof HostId }>;
+    readonly hostUnresponsive: Schema.TaggedStruct<'hostUnresponsive', { readonly host: typeof HostId; readonly code: Schema.Number }>;
+    readonly scriptNotCompiled: Schema.TaggedStruct<'scriptNotCompiled', { readonly host: typeof HostId; readonly code: Schema.Number; readonly line: Schema.String }>;
+    readonly hostRejected: Schema.TaggedStruct<'hostRejected', { readonly host: typeof HostId; readonly code: Schema.Number; readonly reason: Schema.String }>;
+    readonly deadlineExceeded: Schema.TaggedStruct<'deadlineExceeded', { readonly host: typeof HostId; readonly jobId: typeof JobId }>;
+    readonly hostNotAttached: Schema.TaggedStruct<'hostNotAttached', { readonly host: typeof HostId }>;
+    readonly hostBusy: Schema.TaggedStruct<'hostBusy', { readonly host: typeof HostId; readonly jobId: typeof JobId; readonly startedAt: Schema.Number }>;
+    readonly hostSaturated: Schema.TaggedStruct<'hostSaturated', { readonly host: typeof HostId; readonly pid: Schema.Int; readonly cpu: Schema.Number }>;
+    readonly transportClosed: Schema.TaggedStruct<'transportClosed', { readonly host: typeof HostId; readonly code: Schema.Number; readonly reason: Schema.String }>;
+    readonly resultNotDecodable: Schema.TaggedStruct<'resultNotDecodable', { readonly host: typeof HostId; readonly text: Schema.String; readonly reason: Schema.String }>;
+    readonly hostThrew: Schema.TaggedStruct<'hostThrew', { readonly host: typeof HostId; readonly rejection: typeof HostRejection; readonly autocorrections: typeof Autocorrections }>;
+}> = Schema.TaggedUnion({
+    hostNotRunning: { host: HostId },
+    automationDenied: { host: HostId },
+    hostUnresponsive: { host: HostId, code: Schema.Number },
+    scriptNotCompiled: { host: HostId, code: Schema.Number, line: Schema.String },
+    hostRejected: { host: HostId, code: Schema.Number, reason: Schema.String },
+    deadlineExceeded: { host: HostId, jobId: JobId },
+    hostNotAttached: { host: HostId },
+    hostBusy: { host: HostId, jobId: JobId, startedAt: Schema.Number },
+    hostSaturated: { host: HostId, pid: Schema.Int, cpu: Schema.Number },
+    transportClosed: { host: HostId, code: Schema.Number, reason: Schema.String },
+    resultNotDecodable: { host: HostId, text: Schema.String, reason: Schema.String },
+    hostThrew: { host: HostId, rejection: HostRejection, autocorrections: Autocorrections },
+});
 
-const bridgeError: Data.TaggedEnum.Constructor<BridgeError> = Data.taggedEnum<BridgeError>();
+const NonZeroExit: Schema.TaggedStruct<'nonZeroExit', { readonly exitCode: Schema.Number; readonly stderr: Schema.String }> = Schema.TaggedStruct('nonZeroExit', {
+    exitCode: Schema.Number,
+    stderr: Schema.String,
+});
 
 const _Report = Schema.TemplateLiteralParser([Schema.String, ': ', Schema.Literals(['syntax', 'execution']), ' error: ', Schema.String, ' (', Schema.NumberFromString, ')']);
 const _report: (text: string) => Option.Option<typeof _Report.Type> = Schema.decodeUnknownOption(_Report);
 
 // --- [CLASSIFICATION] ------------------------------------------------------------------
 
-const classify = (host: HostId, reply: { readonly exitCode: number; readonly stdout: string; readonly stderr: string }): Result.Result<string, BridgeError> =>
-    reply.exitCode === 0
-        ? Result.succeed(String.trim(reply.stdout))
-        : Result.fail(
-              Option.match(Array.findFirst(String.linesIterator(reply.stderr), _report), {
-                  onNone: () => bridgeError.hostRejected({ host, code: reply.exitCode, reason: String.trim(reply.stderr) }),
-                  onSome: ([line, , phase, , message, , code]) =>
-                      Match.value({ phase, code }).pipe(
-                          Match.withReturnType<BridgeError>(),
-                          Match.when({ phase: 'syntax' }, () => bridgeError.scriptNotCompiled({ host, code, line })),
-                          Match.when({ code: -600 }, () => bridgeError.hostNotRunning({ host })),
-                          Match.whenOr({ code: -1743 }, { code: -1744 }, () => bridgeError.automationDenied({ host })),
-                          Match.when({ code: -1712 }, () => bridgeError.hostUnresponsive({ host, code })),
-                          Match.orElse(() => bridgeError.hostRejected({ host, code, reason: message })),
-                      ),
-              }),
-          );
+const classify = (host: HostId, exit: NonZeroExit): BridgeError =>
+    Option.match(Array.findFirst(String.linesIterator(exit.stderr), _report), {
+        onNone: () => BridgeError.cases.hostRejected.make({ host, code: exit.exitCode, reason: String.trim(exit.stderr) }),
+        onSome: ([line, , phase, , message, , code]) =>
+            Match.value({ phase, code }).pipe(
+                Match.withReturnType<BridgeError>(),
+                Match.when({ phase: 'syntax' }, () => BridgeError.cases.scriptNotCompiled.make({ host, code, line })),
+                Match.when({ code: -600 }, () => BridgeError.cases.hostNotRunning.make({ host })),
+                Match.whenOr({ code: -1743 }, { code: -1744 }, () => BridgeError.cases.automationDenied.make({ host })),
+                Match.when({ code: -1712 }, () => BridgeError.cases.hostUnresponsive.make({ host, code })),
+                Match.orElse(() => BridgeError.cases.hostRejected.make({ host, code, reason: message })),
+            ),
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Probe };
-export { BridgeError, bridgeError, classify, HostRejection };
+export { BridgeError, classify, HostRejection, NonZeroExit };

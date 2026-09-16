@@ -29,8 +29,6 @@ jobs:
                 filter: tree:0
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
-              with:
-                workflow-id: ci.yml
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
             - run: nx affected -t check --exclude=tag:host:macos
@@ -45,8 +43,6 @@ jobs:
                 filter: tree:0
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
-              with:
-                workflow-id: ci.yml
             - uses: ./.github/actions/setup
             - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
 

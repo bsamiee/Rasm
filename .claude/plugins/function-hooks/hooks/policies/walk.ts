@@ -1,7 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import { type Command, LAUNCHERS, strip } from '../command.ts';
 import { type Decision, deny, fromNullable, none, type Option, pass, some } from '../composition.ts';
-import { basename, type Command, LAUNCHERS, strip } from '../text/command.ts';
+import { basename } from '../path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -54,6 +55,7 @@ const _FD: readonly string[] = [
     '--path-separator',
     '--and',
 ];
+const _FD_COMMAND: readonly string[] = ['-x', '--exec', '-X', '--exec-batch'];
 const _RG: readonly string[] = [
     '-A',
     '--after-context',
@@ -105,6 +107,7 @@ const _RG: readonly string[] = [
     '--hyperlink-format',
     '--generate',
 ];
+const _RG_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '--files', '--type-list'];
 const _GREP: readonly string[] = [
     '-A',
     '--after-context',
@@ -153,6 +156,8 @@ const _GREP: readonly string[] = [
     '--from',
     '--config',
 ];
+const _GREP_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'];
+const _DU: readonly string[] = ['-B', '-I', '-d', '-t'];
 const _TREE: readonly string[] = [
     '-L',
     '--level',
@@ -175,6 +180,7 @@ const _TREE: readonly string[] = [
     '--hyperlink',
     '--time-style',
 ];
+const _LS: readonly string[] = ['-D'];
 
 // --- [WORDS] ---------------------------------------------------------------------------
 
@@ -238,7 +244,7 @@ const _WALKERS: Readonly<Record<string, (args: readonly string[]) => Option<read
             ..._afterPattern(
                 _FD,
                 [],
-                _until((word) => word.startsWith('-') && _option(_FD, word)[0].some((name) => ['-x', '--exec', '-X', '--exec-batch'].includes(name)), args),
+                _until((word) => word.startsWith('-') && _option(_FD, word)[0].some((name) => _FD_COMMAND.includes(name)), args),
             ),
             ..._values(_FD_STARTS, args),
         ]),
@@ -249,11 +255,11 @@ const _WALKERS: Readonly<Record<string, (args: readonly string[]) => Option<read
                 _until((word) => _PRIMARY.test(word), args),
             ).found,
         ),
-    rg: (args) => some(_afterPattern(_RG, ['-e', '--regexp', '-f', '--file', '--files', '--type-list'], args)),
-    grep: (args) => (_recurses(args) ? some(_afterPattern(_GREP, ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'], args)) : none),
-    du: (args) => some(_scan(['-B', '-I', '-d', '-t'], args).found),
+    rg: (args) => some(_afterPattern(_RG, _RG_PATTERNS, args)),
+    grep: (args) => (_recurses(args) ? some(_afterPattern(_GREP, _GREP_PATTERNS, args)) : none),
+    du: (args) => some(_scan(_DU, args).found),
     tree: (args) => some(_scan(_TREE, args).found),
-    ls: (args) => (args.some((word) => _LISTS.test(word)) ? some(_scan(['-D'], args).found) : none),
+    ls: (args) => (args.some((word) => _LISTS.test(word)) ? some(_scan(_LS, args).found) : none),
     lsof: (args) => (args.includes('+D') ? some(_values(['+D'], args)) : none),
 };
 

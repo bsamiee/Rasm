@@ -7,10 +7,7 @@
         "emitDeclarationOnly": false,
         "isolatedDeclarations": false,
         "noEmit": true,
-        "tsBuildInfoFile": "../../../.cache/typescript/out/.claude/plugins/function-hooks/tsconfig.tsbuildinfo",
-        "jsx": "react",
-        "jsxFactory": "h",
-        "jsxFragmentFactory": "Fragment"
+        "tsBuildInfoFile": "../../../.cache/typescript/out/.claude/plugins/function-hooks/tsconfig.tsbuildinfo"
     },
     "include": ["../../types/claude-code.d.ts", "hooks", "*.ts"]
 }

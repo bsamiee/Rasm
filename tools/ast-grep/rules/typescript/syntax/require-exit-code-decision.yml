@@ -104,7 +104,7 @@ rule:
         - kind: member_expression
           pattern: $STREAM
           all:
-            - has: {field: property, regex: '^(string|lines|streamString|streamLines|exitCode)$'}
+            - has: {field: property, regex: '^(string|lines|streamString|streamLines)$'}
             - has: {field: object, kind: identifier, pattern: $SPAWNER}
             - inside:
                 matches: scope

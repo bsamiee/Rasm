@@ -7,25 +7,28 @@ declare global {
         readonly uuid: string;
     }
 
+    interface Error {
+        readonly fileName: string;
+        readonly line: number;
+        readonly message: string;
+        readonly name: string;
+        readonly number: number;
+    }
+
     type Json = null | boolean | number | string | Json[] | JsonObject;
 
     interface JsonObject {
         [key: string]: Json;
     }
 
-    interface Unavailable extends JsonObject {
-        readonly path: string;
-        readonly reason: string;
-    }
-
     interface Reading<T> {
         readonly value: T;
-        readonly unavailable: Unavailable[];
+        readonly unavailable: JsonObject[];
     }
 
     interface Site {
         readonly path: string;
-        readonly chain: string;
+        readonly chain: string[];
     }
 
     type Reader = (at: Site) => Reading<Json>;
@@ -35,7 +38,9 @@ declare global {
         readonly dump: (value: unknown, at: Site) => Reading<Json>;
         readonly each: <T>(at: Site, items: T[], reader: (item: T, at: Site) => Reading<Json>) => Reading<Json[]>;
         readonly members: <T extends object>(object: T) => [string, Reader][];
-        readonly run: (tool: (request: JsonObject, at: Site) => Json) => string;
+        readonly reference: (value: unknown, at: Site) => Reading<Json>;
+        readonly run: <R extends JsonObject>(tool: (request: R, at: Site) => Reading<JsonObject>) => string;
+        readonly walk: <T extends object>(at: Site, object: T, extras: [string, Reader][]) => Reading<JsonObject>;
     }
 }
 
@@ -55,18 +60,32 @@ const collect = <T, R>(items: T[], map: (item: T, index: number) => R): R[] =>
         return list;
     });
 
+const select = <T>(items: T[], keep: (item: T) => boolean): T[] =>
+    fold(items, [] as T[], (kept, item): T[] => {
+        if (keep(item)) {
+            kept.push(item);
+        }
+        return kept;
+    });
+
+// --- [CLASSES] -------------------------------------------------------------------------
+
 const classOf = (value: unknown): string => Object.prototype.toString.call(new Object(value));
 
-const INHERITED = fold(Object.prototype.reflect.properties, '|', (names, info): string => `${names}${info.name}|`);
+const isArray = (value: unknown): value is unknown[] => classOf(value) === '[object Array]';
+
+const isString = (value: unknown): value is string => typeof value === 'string';
+
+const isNumber = (value: unknown): value is number => typeof value === 'number';
+
+const isObject = (value: unknown): value is JsonObject => value !== null && classOf(value) === '[object Object]';
+
+const INHERITED = Object.prototype.reflect;
 
 const properties = (object: object): ReflectionInfo[] => {
     try {
-        return fold(classOf(object.reflect) === '[object Reflection]' ? object.reflect.properties : [], [] as ReflectionInfo[], (own, info): ReflectionInfo[] => {
-            if (INHERITED.indexOf(`|${info.name}|`) < 0) {
-                own.push(info);
-            }
-            return own;
-        });
+        const reflection = object.reflect;
+        return classOf(reflection) === '[object Reflection]' ? select(reflection.properties, (info): boolean => INHERITED.find(info.name) === null) : [];
     } catch {
         return [];
     }
@@ -81,207 +100,196 @@ const unicodeEscape = (code: number): string => {
     return '\\u0000'.slice(0, -hex.length) + hex;
 };
 
-const quote = (text: string): string =>
-    `"${collect(text.split(''), (character): string => {
-        if (character === '"' || character === '\\') {
-            return `\\${character}`;
-        }
-        return character < ' ' ? unicodeEscape(character.charCodeAt(0)) : character;
-    }).join('')}"`;
-
 const encode = (value: Json): string => {
-    const kind = classOf(value);
-    if (kind === '[object Array]') {
-        return `[${collect(value as Json[], encode).join(',')}]`;
+    if (value === null) {
+        return 'null';
     }
-    if (kind === '[object String]') {
-        return quote(value as string);
+    if (isArray(value)) {
+        return `[${collect(value, encode).join(',')}]`;
     }
-    if (kind === '[object Number]') {
-        return (value as number) * 0 === 0 ? String(value) : 'null';
-    }
-    if (value !== null && kind === '[object Object]') {
-        const object = value as JsonObject;
-        return `{${collect(properties(object), (info): string => `${quote(info.name)}:${encode(object[info.name] as Json)}`).join(',')}}`;
-    }
-    return String(value);
-};
-
-const undecodable = (text: string, at: number, expected: string): Error => new Error(`expected ${expected} at ${at}, found ${at < text.length ? text.charAt(at) : 'end of text'}`);
-
-const skipSpace = (text: string, at: number): number => {
-    let cursor = at;
-    while (cursor < text.length && ' \t\n\r'.indexOf(text.charAt(cursor)) >= 0) {
-        cursor += 1;
-    }
-    return cursor;
-};
-
-const decodeEscape = (text: string, at: number): [string, number] => {
-    const single = '"\\/bfnrt'.indexOf(text.charAt(at));
-    if (single >= 0) {
-        return ['"\\/\b\f\n\r\t'.charAt(single), at + 1];
-    }
-    const form = text.slice(at - 1, at - 1 + unicodeEscape(0).length);
-    const code = Number(`0x${form.slice('\\u'.length)}`);
-    if (unicodeEscape(code) === form.toLowerCase()) {
-        return [String.fromCharCode(code), at - 1 + form.length];
-    }
-    throw undecodable(text, at, 'an escape');
-};
-
-const within = (character: string, first: string, last: string): boolean => character >= first && character <= last;
-
-const digits = (text: string, at: number): number => {
-    let cursor = at;
-    while (cursor < text.length && within(text.charAt(cursor), '0', '9')) {
-        cursor += 1;
-    }
-    return cursor;
-};
-
-const decodeNumber = (text: string, at: number): [number, number] => {
-    const integer = text.charAt(at) === '-' ? at + 1 : at;
-    const whole = text.charAt(integer) === '0' ? integer + 1 : digits(text, integer);
-    if (whole === integer) {
-        throw undecodable(text, integer, 'a digit');
-    }
-    const fraction = text.charAt(whole) === '.' ? digits(text, whole + 1) : whole;
-    if (fraction === whole + 1) {
-        throw undecodable(text, fraction, 'a digit');
-    }
-    const marker = text.charAt(fraction);
-    const mark = marker === 'e' || marker === 'E' ? fraction + 1 : fraction;
-    if (mark === fraction) {
-        return [Number(text.slice(at, fraction)), fraction];
-    }
-    const sign = text.charAt(mark);
-    const signed = sign === '+' || sign === '-' ? mark + 1 : mark;
-    const end = digits(text, signed);
-    if (end === signed) {
-        throw undecodable(text, signed, 'a digit');
-    }
-    return [Number(text.slice(at, end)), end];
-};
-
-const decodeString = (text: string, at: number): [string, number] => {
-    const parts: string[] = [];
-    let cursor = at + 1;
-    while (cursor < text.length && text.charAt(cursor) !== '"') {
-        const character = text.charAt(cursor);
-        const [piece, next]: [string, number] = character === '\\' ? decodeEscape(text, cursor + 1) : [character, cursor + 1];
-        parts.push(piece);
-        cursor = next;
-    }
-    if (cursor === text.length) {
-        throw undecodable(text, cursor, '"');
-    }
-    return [parts.join(''), cursor + 1];
-};
-
-const sequence = (text: string, at: number, close: string, element: (start: number) => number): number => {
-    let cursor = skipSpace(text, at);
-    if (text.charAt(cursor) === close) {
-        return cursor + 1;
-    }
-    while (cursor < text.length) {
-        cursor = skipSpace(text, element(cursor));
-        const separator = text.charAt(cursor);
-        if (separator === close) {
-            return cursor + 1;
+    if (isString(value)) {
+        let escaped = value.split('\\').join('\\\\').split('"').join('\\"');
+        for (let code = 0; code < ' '.charCodeAt(0); code += 1) {
+            escaped = escaped.split(String.fromCharCode(code)).join(unicodeEscape(code));
         }
-        if (separator !== ',') {
-            throw undecodable(text, cursor, `, or ${close}`);
-        }
-        cursor += 1;
+        return `"${escaped}"`;
     }
-    throw undecodable(text, cursor, close);
+    if (isNumber(value)) {
+        return value * 0 === 0 ? String(value) : 'null';
+    }
+    if (value === true || value === false) {
+        return String(value);
+    }
+    return `{${collect(properties(value), (info): string => `${encode(info.name)}:${encode(value[info.name] as Json)}`).join(',')}}`;
 };
 
-const decodeValue = (text: string, at: number): [Json, number] => {
-    const cursor = skipSpace(text, at);
-    const character = text.charAt(cursor);
-    if (character === '{') {
-        const object: JsonObject = {};
-        const end = sequence(text, cursor + 1, '}', (start): number => {
-            const opening = skipSpace(text, start);
-            if (text.charAt(opening) !== '"') {
-                throw undecodable(text, opening, 'a key');
+const decode = (text: string): Json => {
+    let cursor = 0;
+    const digits = '0123456789';
+    const literals: JsonObject = {};
+    literals['true'] = true;
+    literals['false'] = false;
+    literals['null'] = null;
+    const fail = (expected: string): Error => new Error(`expected ${expected} at ${cursor}, found ${cursor < text.length ? text.charAt(cursor) : 'end of text'}`);
+    const span = (characters: string): string => {
+        const start = cursor;
+        while (cursor < text.length && characters.indexOf(text.charAt(cursor)) >= 0) {
+            cursor += 1;
+        }
+        return text.slice(start, cursor);
+    };
+    const take = (character: string): boolean => {
+        span(' \t\n\r');
+        const taken = text.charAt(cursor) === character;
+        cursor += taken ? 1 : 0;
+        return taken;
+    };
+    const escaped = (): string => {
+        const single = '"\\/bfnrt'.indexOf(text.charAt(cursor));
+        const form = text.slice(cursor, cursor + unicodeEscape(0).length - 1);
+        const code = Number(`0x${form.slice(1)}`);
+        if (single >= 0) {
+            cursor += 1;
+            return '"\\/\b\f\n\r\t'.charAt(single);
+        }
+        if (`\\${form.toLowerCase()}` === unicodeEscape(code)) {
+            cursor += form.length;
+            return String.fromCharCode(code);
+        }
+        throw fail('an escape');
+    };
+    const quoted = (): string => {
+        const parts: string[] = [];
+        let quote = text.indexOf('"', cursor);
+        let slash = text.indexOf('\\', cursor);
+        while (slash >= 0 && slash < quote) {
+            parts.push(text.slice(cursor, slash));
+            cursor = slash + 1;
+            parts.push(escaped());
+            quote = text.indexOf('"', cursor);
+            slash = text.indexOf('\\', cursor);
+        }
+        if (quote < 0) {
+            throw fail('"');
+        }
+        parts.push(text.slice(cursor, quote));
+        cursor = quote + 1;
+        return parts.join('');
+    };
+    const number = (): number => {
+        const start = cursor;
+        cursor += text.charAt(cursor) === '-' ? 1 : 0;
+        const whole = span(digits);
+        const zeroLed = whole.length > 1 && whole.charAt(0) === '0';
+        if (whole === '' || zeroLed) {
+            throw fail('a digit');
+        }
+        if (text.charAt(cursor) === '.') {
+            cursor += 1;
+            if (span(digits) === '') {
+                throw fail('a digit');
             }
-            const [key, afterKey] = decodeString(text, opening);
-            const colon = skipSpace(text, afterKey);
-            if (text.charAt(colon) !== ':') {
-                throw undecodable(text, colon, ':');
+        }
+        const marker = text.charAt(cursor);
+        if (marker === 'e' || marker === 'E') {
+            cursor += 1;
+            const sign = text.charAt(cursor);
+            cursor += sign === '+' || sign === '-' ? 1 : 0;
+            if (span(digits) === '') {
+                throw fail('a digit');
             }
-            const [member, next] = decodeValue(text, colon + 1);
-            object[key] = member;
-            return next;
-        });
-        return [object, end];
+        }
+        return Number(text.slice(start, cursor));
+    };
+    const sequence = (close: string, element: () => void): void => {
+        if (take(close)) {
+            return;
+        }
+        element();
+        while (!take(close)) {
+            if (!take(',')) {
+                throw fail(`, or ${close}`);
+            }
+            element();
+        }
+    };
+    const value = (): Json => {
+        if (take('{')) {
+            const object: JsonObject = {};
+            sequence('}', (): void => {
+                if (!take('"')) {
+                    throw fail('a key');
+                }
+                const key = quoted();
+                if (!take(':')) {
+                    throw fail(':');
+                }
+                object[key] = value();
+            });
+            return object;
+        }
+        if (take('[')) {
+            const list: Json[] = [];
+            sequence(']', (): void => {
+                list.push(value());
+            });
+            return list;
+        }
+        if (take('"')) {
+            return quoted();
+        }
+        const leading = text.charAt(cursor);
+        const digit = leading >= '0' && leading <= '9';
+        if (leading === '-' || digit) {
+            return number();
+        }
+        const literal = literals[span('aeflnrstu')];
+        if (literal !== undefined) {
+            return literal;
+        }
+        throw fail('a value');
+    };
+    const decoded = value();
+    span(' \t\n\r');
+    if (cursor < text.length) {
+        throw fail('end of text');
     }
-    if (character === '[') {
-        const list: Json[] = [];
-        const end = sequence(text, cursor + 1, ']', (start): number => {
-            const [item, next] = decodeValue(text, start);
-            list.push(item);
-            return next;
-        });
-        return [list, end];
-    }
-    if (character === '"') {
-        return decodeString(text, cursor);
-    }
-    let stop = cursor;
-    while (stop < text.length && within(text.charAt(stop), 'a', 'z')) {
-        stop += 1;
-    }
-    if (stop === cursor) {
-        return decodeNumber(text, cursor);
-    }
-    const word = text.slice(cursor, stop);
-    const [literal, matched] = fold([true, false, null] as Json[], [null, false] as [Json, boolean], (found, candidate): [Json, boolean] => (encode(candidate) === word ? [candidate, true] : found));
-    if (matched) {
-        return [literal, stop];
-    }
-    throw undecodable(text, cursor, 'a value');
+    return decoded;
 };
 
 // --- [READINGS] ------------------------------------------------------------------------
 
-const reference = (value: unknown): Json => {
-    if (value === null) {
-        return value;
+const failure = (error: unknown): [JsonObject, { readonly file: string; readonly line: number }] => {
+    const thrown = error as Error;
+    const site = { file: File(thrown.fileName).name, line: thrown.line };
+    const marker = 'an Illustrator error occurred: ';
+    const opening = thrown.message.indexOf(marker);
+    if (opening < 0) {
+        return [{ name: thrown.name, message: thrown.message, number: thrown.number }, site];
     }
-    const kind = classOf(value);
-    if (kind === '[object Array]') {
-        return collect(value as unknown[], reference);
+    const start = opening + marker.length;
+    const code = Number(thrown.message.slice(start, thrown.message.indexOf(' ', start)));
+    const octet = HEXADECIMAL * HEXADECIMAL;
+    let tag = '';
+    for (let rest = code; rest > 0; rest = Math.floor(rest / octet)) {
+        tag = String.fromCharCode(rest % octet) + tag;
     }
-    if (kind === '[object Number]' || kind === '[object String]' || kind === '[object Boolean]') {
-        return value as number | string | boolean;
-    }
-    if (kind === '[object File]' || kind === '[object Folder]') {
-        return (value as File | Folder).fsName;
-    }
-    if (kind.indexOf('[object ') === 0 || kind.charAt(0) !== '[') {
-        return value === undefined ? reference(null) : String(value);
-    }
-    const host = value as { readonly typename: string; readonly name: string };
-    return kind === `[${host.typename}]` ? { typename: host.typename } : { typename: host.typename, name: host.name };
+    return [{ name: thrown.name, message: thrown.message, number: thrown.number, code, tag }, site];
 };
 
-const gather = <T, R>(items: T[], site: (item: T, index: number) => Site, reader: (item: T, at: Site) => Reading<R>, put: (value: R, item: T) => void): Unavailable[] =>
-    fold(items, [] as Unavailable[], (unavailable, item, index): Unavailable[] => {
+const present = <T>(value: T): Reading<T> => ({ value, unavailable: [] });
+
+const gather = <T, R>(items: T[], site: (item: T, index: number) => Site, reader: (item: T, at: Site) => Reading<R>, put: (value: R, item: T) => void): JsonObject[] =>
+    fold(items, [] as JsonObject[], (unavailable, item, index): JsonObject[] => {
         const at = site(item, index);
         try {
             const member = reader(item, at);
             put(member.value, item);
-            return fold(member.unavailable, unavailable, (rows, row): Unavailable[] => {
-                rows.push(row);
-                return rows;
-            });
+            return unavailable.concat(member.unavailable);
         } catch (error) {
-            unavailable.push({ path: at.path, reason: String(error) });
-            return unavailable;
+            const [row] = failure(error);
+            row['path'] = at.path;
+            return unavailable.concat([row]);
         }
     });
 
@@ -311,31 +319,68 @@ const all: Prelude['all'] = (at, readers) => {
     return { value, unavailable };
 };
 
+const reference: Prelude['reference'] = (value, at) => {
+    if (isArray(value)) {
+        return each(at, value, reference);
+    }
+    if (value === undefined || value === null) {
+        return present(null);
+    }
+    if (isString(value) || isNumber(value) || value === true || value === false) {
+        return present(value);
+    }
+    if (isObject(value)) {
+        return present({});
+    }
+    const kind = classOf(value);
+    if (kind === '[object File]' || kind === '[object Folder]') {
+        return present((value as File | Folder).fsName);
+    }
+    if (kind.indexOf('[object ') === 0 || kind.charAt(0) !== '[') {
+        return present(String(value));
+    }
+    const host = value as { readonly typename: string; readonly name: string; readonly length: unknown };
+    if (kind !== `[${host.typename}]`) {
+        return present({ typename: host.typename, name: host.name });
+    }
+    return present(isNumber(host.length) ? { typename: host.typename, length: host.length } : { typename: host.typename });
+};
+
 const members: Prelude['members'] = (object) =>
-    collect(properties(object), (info): [string, Reader] => {
-        const key = info.name as keyof typeof object;
-        return [info.name, info.type === 'readwrite' ? (at): Reading<Json> => dump(object[key], at) : (): Reading<Json> => ({ value: reference(object[key]), unavailable: [] })];
-    });
+    collect(
+        select(properties(object), (info): boolean => info.name !== 'parent'),
+        (info): [string, Reader] => {
+            const key = info.name as keyof typeof object;
+            const read = info.type === 'readwrite' ? dump : reference;
+            return [info.name, (at): Reading<Json> => read(object[key], at)];
+        },
+    );
+
+const walk: Prelude['walk'] = (at, object, extras) => all(at, members(object).concat(extras));
 
 const dump: Prelude['dump'] = (value, at) => {
-    const kind = classOf(value);
-    if (kind === '[object Array]') {
-        return each(at, value as unknown[], dump);
+    if (isArray(value)) {
+        return each(at, value, dump);
     }
-    const object = new Object(value);
+    const kind = classOf(value);
     const host = kind.indexOf('[object ') < 0;
     const own = host || kind === '[object Object]';
+    const object = new Object(value);
     const listed = object === value && own ? members(object) : [];
-    const chained = listed.length > 0 && host && `${at.chain}/`.indexOf(`/${object.reflect.name}/`) >= 0;
-    if (listed.length === 0 || chained) {
-        return { value: reference(value), unavailable: [] };
+    if (listed.length === 0) {
+        return reference(value, at);
     }
-    return all({ path: at.path, chain: host ? `${at.chain}/${object.reflect.name}` : at.chain }, listed);
+    if (!host) {
+        return all(at, listed);
+    }
+    const { name } = object.reflect;
+    const linked = fold<string, boolean>(at.chain, false, (found, link): boolean => found || link === name);
+    return linked ? reference(value, at) : all({ path: at.path, chain: at.chain.concat([name]) }, listed);
 };
 
 // --- [JOB] -----------------------------------------------------------------------------
 
-const through = <T>(path: string, mode: 'r' | 'w', act: (file: File) => T): T => {
+const withFile = <T>(path: string, mode: 'r' | 'w', act: (file: File) => T): T => {
     const file = new File(path);
     file.encoding = 'UTF-8';
     if (!file.open(mode)) {
@@ -348,33 +393,36 @@ const through = <T>(path: string, mode: 'r' | 'w', act: (file: File) => T): T =>
     }
 };
 
-const run: Prelude['run'] = (tool) => {
+const run = <R extends JsonObject>(tool: (request: R, at: Site) => Reading<JsonObject>): string => {
     const [request, response]: [string, string] = $.global.arguments;
-    const text = through(request, 'r', (file): string => file.read());
-    const start = skipSpace(text, 0);
-    if (text.charAt(start) !== '{') {
-        throw undecodable(text, start, 'an object');
-    }
-    const [decoded, next] = decodeValue(text, start);
-    const end = skipSpace(text, next);
-    if (end !== text.length) {
-        throw undecodable(text, end, 'end of text');
-    }
     const level = app.userInteractionLevel;
     app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
+    let output: string;
     try {
-        const output = encode(tool(decoded as JsonObject, { path: '', chain: '' }));
-        return String(
-            through(response, 'w', (file): File => {
-                file.write(output);
-                return file;
-            }).length,
-        );
+        const decoded = decode(withFile(request, 'r', (file): string => file.read()));
+        if (!isObject(decoded)) {
+            throw new Error('expected an object at 0');
+        }
+        const reading = tool(decoded as R, { path: '', chain: [] });
+        reading.value['unavailable'] = reading.unavailable;
+        output = encode(reading.value);
+    } catch (error) {
+        const [row, site] = failure(error);
+        row['kind'] = 'error';
+        row['file'] = site.file;
+        row['line'] = site.line;
+        output = encode(row);
     } finally {
         app.userInteractionLevel = level;
     }
+    return String(
+        withFile(response, 'w', (file): File => {
+            file.write(output);
+            return file;
+        }).length,
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-((): Prelude => ({ all, dump, each, members, run }))();
+((): Prelude => ({ all, dump, each, members, reference, run, walk }))();

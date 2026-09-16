@@ -1,13 +1,13 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ToolCallInput } from 'claude-code';
-import { type Decision, deny, fold, type Policy, pass, type Result } from '../composition.ts';
+import { type Command, parse, type Scanner } from '../command.ts';
+import { type Decision, deny, fold, type Policy, type Result, when } from '../composition.ts';
 import { gitPaths, gitPolicy, type WorktreeEvent, worktreePolicy } from '../policies/git.ts';
 import { type PathEvent, pathPolicy } from '../policies/paths.ts';
 import { scriptPolicy } from '../policies/script.ts';
 import { waitPolicy } from '../policies/shell.ts';
 import { type Place, walkPolicy } from '../policies/walk.ts';
-import { type Command, parse, type Scanner } from '../text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -60,12 +60,7 @@ const _decide = (e: Commanded, facts: Facts, walking: boolean): Decision<Command
 // --- [DECISION] ------------------------------------------------------------------------
 
 const decide = async (e: ToolCallInput, scan: Scanner, exists: (path: string) => Promise<boolean>, locate: () => Promise<Place>, walking: boolean): Promise<Decision<ToolCallInput>> =>
-    _hasCommand(e)
-        ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts, walking))
-        : fold<ToolCallInput>([
-              (event): Decision<ToolCallInput> => (_isPath(event) ? pathPolicy(event) : pass(event)),
-              (event): Decision<ToolCallInput> => (_isWorktree(event) ? worktreePolicy(event) : pass(event)),
-          ])(e);
+    _hasCommand(e) ? _facts(exists, locate, parse(scan, e.command)).then((facts) => _decide(e, facts, walking)) : fold([when(_isPath, pathPolicy), when(_isWorktree, worktreePolicy)])(e);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

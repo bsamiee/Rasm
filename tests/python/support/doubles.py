@@ -1,9 +1,10 @@
-"""Recording call stubs, the virtual-clock backend, fixture file writers, and the NDJSON oracle."""
+"""Recording call stubs, an autojumping virtual clock, fixture file writers, and an NDJSON decode oracle."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
 from collections.abc import Callable, Mapping
 from pathlib import Path
+from typing import assert_never
 
 import msgspec
 import msgspec.json
@@ -68,6 +69,8 @@ def install[R](monkeypatch: pytest.MonkeyPatch, target: object, member: str, stu
                 return call
 
             runner = factory
+        case never:
+            assert_never(never)
     monkeypatch.setattr(target, member, runner)
 
 

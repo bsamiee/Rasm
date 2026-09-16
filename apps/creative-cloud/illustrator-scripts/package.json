@@ -10,7 +10,8 @@
     "nx": {
         "targets": {
             "build": {
-                "options": { "command": "swc . -d ../../../.artifacts/creative-cloud/illustrator --out-file-extension jsx --strip-leading-paths --ignore '**/node_modules/**'", "cwd": "{projectRoot}" },
+                "command": "swc . -d ../../../.artifacts/creative-cloud/illustrator --out-file-extension jsx --strip-leading-paths --ignore '**/node_modules/**,**/*.d.ts'",
+                "options": { "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.artifacts/creative-cloud/illustrator/*.jsx"]
             }
         }

@@ -4,6 +4,5 @@
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/indesign-plugin",
         "types": ["@adobe-uxp-types/uxp"]
     },
-    "references": [{ "path": "../server" }],
-    "files": []
+    "references": [{ "path": "../server" }]
 }

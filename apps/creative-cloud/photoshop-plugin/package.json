@@ -10,17 +10,5 @@
         "effect": "catalog:",
         "vite": "catalog:",
         "vite-uxp-plugin": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "build": { "options": { "command": "vite build", "cwd": "{projectRoot}" }, "outputs": ["{workspaceRoot}/.artifacts/creative-cloud/photoshop-plugin"] },
-            "deploy": {
-                "executor": "nx:run-commands",
-                "cache": false,
-                "parallelism": false,
-                "dependsOn": ["build"],
-                "options": { "command": "node automation.ts deploy", "cwd": "{projectRoot}" }
-            }
-        }
     }
 }

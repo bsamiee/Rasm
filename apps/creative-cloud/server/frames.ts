@@ -3,7 +3,7 @@
 import { Schema } from 'effect';
 import { Rpc, RpcGroup, type RpcSchema } from 'effect/unstable/rpc';
 import { HostRejection } from './errors.ts';
-import { JobId } from './values.ts';
+import { Autocorrections, JobId } from './values.ts';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -35,20 +35,21 @@ const Job: Schema.Struct<{
     readonly jobId: Schema.Codec<JobId, string>;
     readonly kind: Schema.Literals<readonly ['execute']>;
     readonly body: Schema.Codec<Schema.Json>;
-    readonly suspendHistory: Schema.OptionFromNullOr<Schema.Struct<{ readonly documentId: Schema.Int; readonly name: Schema.String }>>;
-    readonly commandName: Schema.OptionFromNullOr<Schema.String>;
+    readonly suspendHistory: Schema.OptionFromOptionalKey<Schema.Struct<{ readonly documentId: Schema.Int; readonly name: Schema.String }>>;
+    readonly commandName: Schema.OptionFromOptionalKey<Schema.String>;
 }> = Schema.Struct({
     jobId: JobId,
     kind: Schema.Literals(['execute']),
     body: Schema.Json,
-    suspendHistory: Schema.OptionFromNullOr(Schema.Struct({ documentId: Schema.Int, name: Schema.String })),
-    commandName: Schema.OptionFromNullOr(Schema.String),
+    suspendHistory: Schema.OptionFromOptionalKey(Schema.Struct({ documentId: Schema.Int, name: Schema.String })),
+    commandName: _optionalString,
 });
 
-const Done: Schema.Struct<{ readonly value: Schema.Codec<Schema.Json>; readonly autocorrections: Schema.OptionFromOptionalKey<Schema.$Array<Schema.String>> }> = Schema.Struct({
-    value: Schema.Json,
-    autocorrections: Schema.OptionFromOptionalKey(Schema.Array(Schema.String)),
-});
+const Settle: Schema.Struct<{
+    readonly jobId: Schema.Codec<JobId, string>;
+    readonly autocorrections: typeof Autocorrections;
+    readonly result: Schema.Result<Schema.Codec<Schema.Json>, typeof HostRejection>;
+}> = Schema.Struct({ jobId: JobId, autocorrections: Autocorrections, result: Schema.Result(Schema.Json, HostRejection) });
 
 const AlreadyAttached: Schema.TaggedStruct<'alreadyAttached', Record<never, never>> = Schema.TaggedStruct('alreadyAttached', {});
 
@@ -59,26 +60,23 @@ const Link: Schema.Union<
 // --- [CONTRACT] ------------------------------------------------------------------------
 
 const Frames: RpcGroup.RpcGroup<
-    | Rpc.Rpc<'attach', typeof Identity, RpcSchema.Stream<typeof Job, typeof AlreadyAttached>, Schema.Never>
-    | Rpc.Rpc<'settle', Schema.Struct<{ readonly jobId: Schema.Codec<JobId, string>; readonly exit: Schema.Result<typeof Done, Schema.Codec<HostRejection, unknown>> }>>
-    | Rpc.Rpc<'state', typeof State>
-> = RpcGroup.make(
-    Rpc.make('attach', { payload: Identity, success: Job, error: AlreadyAttached, stream: true }),
-    Rpc.make('settle', { payload: { jobId: JobId, exit: Schema.Result(Done, HostRejection) } }),
-    Rpc.make('state', { payload: State }),
-);
+    Rpc.Rpc<'attach', typeof Identity, RpcSchema.Stream<typeof Job, typeof AlreadyAttached>, Schema.Never> | Rpc.Rpc<'settle', typeof Settle> | Rpc.Rpc<'state', typeof State>
+> = RpcGroup.make(Rpc.make('attach', { payload: Identity, success: Job, error: AlreadyAttached, stream: true }), Rpc.make('settle', { payload: Settle }), Rpc.make('state', { payload: State }));
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Identity = (typeof Identity)['Type'];
-type State = (typeof State)['Type'];
 type Job = (typeof Job)['Type'];
-type JobKind = Job['kind'];
-type Done = (typeof Done)['Type'];
+type Settle = (typeof Settle)['Type'];
 type AlreadyAttached = (typeof AlreadyAttached)['Type'];
 type Link = (typeof Link)['Type'];
 
+interface Done {
+    readonly value: Schema.Json;
+    readonly autocorrections: Autocorrections;
+}
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Done, Identity, Job, JobKind, State };
+export type { Done, Identity, Job, Settle };
 export { AlreadyAttached, Frames, Link };

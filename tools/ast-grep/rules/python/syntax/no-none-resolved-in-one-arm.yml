@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-none-resolved-in-one-arm
+language: python
+severity: error
+utils:
+    resolving:
+        kind: conditional_expression
+        any:
+            - pattern: $X if $X is not None else $_
+            - pattern: $_ if $X is None else $X
+    raw-use:
+        pattern: $X
+        all:
+            - not: {inside: {kind: comparison_operator, has: {kind: none}}}
+            - not: {inside: {matches: resolving, stopBy: {kind: conditional_expression}}}
+    holds-raw:
+        any:
+            - matches: raw-use
+            - has: {matches: raw-use, stopBy: end}
+    conditional-arm:
+        any:
+            - nthChild: 1
+              inside: {kind: conditional_expression, has: {nthChild: 3, matches: holds-raw}}
+            - nthChild: 3
+              inside: {kind: conditional_expression, has: {nthChild: 1, matches: holds-raw}}
+    branch:
+        any:
+            - kind: block
+              inside: {kind: if_statement}
+            - kind: elif_clause
+            - kind: else_clause
+    raw-branch:
+        all:
+            - matches: branch
+            - has: {matches: raw-use, stopBy: end}
+            - not: {has: {matches: resolving, stopBy: end}}
+    statement-arm:
+        matches: branch
+        inside:
+            kind: if_statement
+            any:
+                - has: {matches: raw-branch}
+                - precedes: {stopBy: end, matches: holds-raw}
+rule:
+    kind: conditional_expression
+    all:
+        - any:
+            - pattern: $X if $X is not None else $D
+            - pattern: $D if $X is None else $X
+        - any:
+            - matches: conditional-arm
+            - inside:
+                stopBy: {matches: python-function-boundary}
+                any:
+                    - matches: conditional-arm
+                    - matches: statement-arm
+message: '`$X` resolves None to `$D` in one arm and reaches the other arm as None'
+note: 'Resolve `$X` once before the branch, every consumer reads one meaning of absence'

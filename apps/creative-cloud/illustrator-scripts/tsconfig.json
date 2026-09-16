@@ -2,7 +2,6 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/illustrator-scripts",
-        "lib": [],
-        "types": []
+        "lib": []
     }
 }

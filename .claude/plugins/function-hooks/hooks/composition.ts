@@ -4,6 +4,8 @@ type Option<A> = { readonly kind: 'some'; readonly value: A } | { readonly kind:
 
 type Result<T> = { readonly kind: 'ok'; readonly value: T } | { readonly kind: 'fault'; readonly reason: string };
 
+type Values<R extends readonly Result<unknown>[]> = { readonly [K in keyof R]: R[K] extends Result<infer T> ? T : never };
+
 type Decision<E> = { readonly kind: 'pass'; readonly e: E } | { readonly kind: 'deny'; readonly reason: string };
 
 type Policy<E> = (e: E) => Decision<E>;
@@ -28,12 +30,17 @@ const deny = <E>(reason: string): Decision<E> => ({ kind: 'deny', reason });
 
 const map = <A, B>(result: Result<A>, f: (value: A) => B): Result<B> => (result.kind === 'ok' ? ok(f(result.value)) : result);
 
-const all = <R extends readonly Result<unknown>[]>(results: readonly [...R]): Result<{ readonly [K in keyof R]: R[K] extends Result<infer T> ? T : never }> => {
+const bind = <A, R extends Result<unknown> | Promise<Result<unknown>>>(result: Result<A>, f: (value: A) => R): R | Result<never> => (result.kind === 'ok' ? f(result.value) : result);
+
+const all = <R extends readonly Result<unknown>[]>(results: readonly [...R]): Result<Values<R>> => {
     const reasons = results.flatMap((result) => (result.kind === 'fault' ? [result.reason] : []));
-    return reasons.length === 0
-        ? ok(results.flatMap((result) => (result.kind === 'ok' ? [result.value] : [])) as { readonly [K in keyof R]: R[K] extends Result<infer T> ? T : never })
-        : fault(reasons.join(', '));
+    return reasons.length === 0 ? ok(results.flatMap((result) => (result.kind === 'ok' ? [result.value] : [])) as Values<R>) : fault(reasons.join(', '));
 };
+
+const when =
+    <E, N extends E>(refine: (e: E) => e is N, policy: Policy<N>): Policy<E> =>
+    (e: E): Decision<E> =>
+        refine(e) ? policy(e) : pass(e);
 
 const fold =
     <E>(policies: readonly Policy<E>[]): Policy<E> =>
@@ -43,4 +50,4 @@ const fold =
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Decision, Option, Policy, Result };
-export { all, deny, fault, fold, fromNullable, map, none, ok, pass, some };
+export { all, bind, deny, fault, fold, fromNullable, map, none, ok, pass, some, when };

@@ -1,8 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Cause, Clock, Context, Crypto, Effect, Encoding, Exit, Fiber, FileSystem, flow, identity, Option, Path, type PlatformError, Ref, Result, Schema } from 'effect';
-import { type BridgeError, bridgeError } from './errors.ts';
-import { AbsolutePath, type HostId, JobId, PROBE_MS } from './values.ts';
+import { Array, Cause, Clock, Context, Crypto, Deferred, Duration, Effect, Exit, flow, identity, Layer, Match, Option, Path, Queue, Record, Ref, Result, Schema, String } from 'effect';
+import { ChildProcess, type ChildProcessSpawner } from 'effect/unstable/process';
+import { BridgeError } from './errors.ts';
+import { Hosts } from './hosts.ts';
+import { reply } from './osascript.ts';
+import { type HostId, JobId, LOAD_CEILING, PROBE_MS, QUEUE_DEPTH } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -11,28 +14,51 @@ interface InFlight {
     readonly startedAt: number;
 }
 
+interface Process {
+    readonly pid: number;
+    readonly cpu: number;
+    readonly command: string;
+}
+
 interface Activity {
     readonly inFlight: Option.Option<InFlight>;
+    readonly wedged: Option.Option<{ readonly jobId: JobId; readonly at: number }>;
     readonly lastSuccessAt: Option.Option<number>;
     readonly lastError: Option.Option<{ readonly error: BridgeError; readonly count: number; readonly at: number }>;
 }
 
-type Jobs = Readonly<Record<HostId, Ref.Ref<Activity>>>;
+interface Entry {
+    readonly jobId: JobId;
+    readonly deadlineAt: number;
+    readonly settle: typeof _recorded;
+    readonly abandoned: Effect.Effect<boolean>;
+    readonly refuse: (error: BridgeError) => Effect.Effect<boolean>;
+    readonly perform: (remaining: Duration.Duration) => Effect.Effect<Exit.Exit<unknown, BridgeError>>;
+}
 
-type Spilled = { readonly kind: 'value'; readonly value: Schema.Json } | { readonly kind: 'file'; readonly path: AbsolutePath; readonly bytes: number; readonly sha256: string };
+interface Host {
+    readonly id: HostId;
+    readonly processName: string;
+    readonly queue: Queue.Queue<Entry>;
+    readonly activity: Ref.Ref<Activity>;
+}
+
+type Jobs = Readonly<Record<HostId, Host>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _SPILL_CHARACTERS = 200_000;
+const _IDLE: Activity = { inFlight: Option.none(), wedged: Option.none(), lastSuccessAt: Option.none(), lastError: Option.none() };
+
+const _PROCESSES = ChildProcess.make('ps', ['-A', '-o', 'pid=,%cpu=,comm=']);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const InFlight: Schema.Codec<InFlight, unknown> = Schema.Struct({ jobId: JobId, startedAt: Schema.Number });
 
-const Spilled: Schema.Codec<Spilled, unknown> = Schema.Union([
-    Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json }),
-    Schema.Struct({ kind: Schema.Literal('file'), path: AbsolutePath, bytes: Schema.Int, sha256: Schema.String }),
-]);
+const Process: Schema.Codec<Process, unknown> = Schema.Struct({ pid: Schema.Int, cpu: Schema.Number, command: Schema.String });
+
+const _Column = Schema.Struct({ pid: Schema.NumberFromString, cpu: Schema.NumberFromString, command: Schema.String });
+const _column: (line: unknown) => Option.Option<Process> = Schema.decodeUnknownOption(_Column);
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -40,84 +66,127 @@ const Jobs: Context.Service<Jobs, Jobs> = Context.Service<Jobs>('Jobs');
 
 // --- [STATE] ---------------------------------------------------------------------------
 
-const _failed =
-    (error: BridgeError, at: number) =>
-    (jobs: Activity): Activity => ({
-        ...jobs,
-        lastError: Option.some({ error, at, count: Option.match(jobs.lastError, { onNone: () => 1, onSome: (last) => (last.error._tag === error._tag ? last.count + 1 : 1) }) }),
+const _counted = (previous: Activity['lastError'], error: BridgeError): number => Option.match(previous, { onNone: () => 1, onSome: (last) => (last.error._tag === error._tag ? last.count + 1 : 1) });
+
+const _recorded = (jobs: Activity, exit: Exit.Exit<unknown, BridgeError>, at: number): Activity =>
+    Exit.match(exit, {
+        onSuccess: () => ({ ...jobs, lastSuccessAt: Option.some(at) }),
+        onFailure: (cause) =>
+            Option.match(Cause.findErrorOption(cause), {
+                onNone: () => jobs,
+                onSome: (error) => ({ ...jobs, lastError: Option.some({ error, at, count: _counted(jobs.lastError, error) }) }),
+            }),
     });
 
-const _recorded =
-    (exit: Exit.Exit<unknown, BridgeError>, at: number) =>
-    (jobs: Activity): Activity =>
-        Exit.match(exit, {
-            onSuccess: () => ({ ...jobs, lastSuccessAt: Option.some(at) }),
-            onFailure: (cause) => Option.match(Cause.findErrorOption(cause), { onNone: () => jobs, onSome: (error) => _failed(error, at)(jobs) }),
-        });
+const _wedged = (jobs: Activity, exit: Exit.Exit<unknown, BridgeError>, jobId: JobId, at: number): Activity['wedged'] =>
+    Option.match(Exit.match(exit, { onSuccess: Option.none, onFailure: Cause.findErrorOption }), {
+        onNone: () => Exit.match(exit, { onSuccess: Option.none, onFailure: () => jobs.wedged }),
+        onSome: (error) =>
+            Match.value(error).pipe(
+                Match.withReturnType<Activity['wedged']>(),
+                Match.tag('deadlineExceeded', 'hostUnresponsive', () => Option.some({ jobId, at })),
+                Match.tag('hostThrew', 'hostRejected', 'scriptNotCompiled', 'resultNotDecodable', () => Option.none()),
+                Match.orElse(() => jobs.wedged),
+            ),
+    });
 
-const _released = (jobs: Activity): Activity => ({ ...jobs, inFlight: Option.none() });
+const _transition = (jobs: Ref.Ref<Activity>, step: (state: Activity, at: number) => Activity): Effect.Effect<void> =>
+    Effect.flatMap(Clock.currentTimeMillis, (at) => Ref.update(jobs, (state) => step(state, at)));
 
-const _stamped = (jobs: Ref.Ref<Activity>, transition: (at: number) => (jobs: Activity) => Activity): Effect.Effect<void> =>
-    Effect.flatMap(Clock.currentTimeMillis, (at) => Ref.update(jobs, transition(at)));
+// --- [LIVENESS] ------------------------------------------------------------------------
+
+const _split = (text: string): readonly [string, string] =>
+    Option.match(String.indexOf(' ')(text), { onNone: () => [text, ''], onSome: (index) => [text.slice(0, index), String.trim(text.slice(index))] });
+
+const _process = (line: string): Option.Option<Process> => {
+    const [pid, rest] = _split(String.trim(line));
+    const [cpu, command] = _split(rest);
+    return _column({ pid, cpu, command });
+};
+
+const liveness: (host: Host) => Effect.Effect<Process, BridgeError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Effect.fnUntraced(function* (host: Host) {
+    const path = yield* Path.Path;
+    const listing = yield* Effect.orDie(reply(_PROCESSES));
+    const found = Array.findFirst(String.linesIterator(listing), (line) => Option.filter(_process(line), (process) => path.basename(process.command) === host.processName));
+    return yield* Option.match(found, {
+        onNone: () => Effect.fail(BridgeError.cases.hostNotRunning.make({ host: host.id })),
+        onSome: (process) => (process.cpu >= LOAD_CEILING ? Effect.fail(BridgeError.cases.hostSaturated.make({ host: host.id, pid: process.pid, cpu: process.cpu })) : Effect.succeed(process)),
+    });
+});
+
+// --- [WORKER] --------------------------------------------------------------------------
+
+const _dispatch = Effect.fnUntraced(function* (host: Host, entry: Entry) {
+    const abandoned = yield* entry.abandoned;
+    if (abandoned) {
+        return;
+    }
+    const process = yield* Effect.result(liveness(host));
+    const at = yield* Clock.currentTimeMillis;
+    const remaining = entry.deadlineAt - at;
+    const admitted = Result.flatMap(process, () => (remaining > 0 ? Result.void : Result.fail(BridgeError.cases.deadlineExceeded.make({ host: host.id, jobId: entry.jobId }))));
+    const exit = yield* Result.match(admitted, {
+        onFailure: (error) => Effect.as(entry.refuse(error), Exit.fail(error)),
+        onSuccess: () =>
+            Effect.andThen(
+                Ref.update(host.activity, (state) => ({ ...state, inFlight: Option.some({ jobId: entry.jobId, startedAt: at }) })),
+                entry.perform(Duration.millis(remaining)),
+            ),
+    });
+    yield* _transition(host.activity, (state, now) => ({ ...entry.settle(state, exit, now), inFlight: Option.none(), wedged: _wedged(state, exit, entry.jobId, now) }));
+});
+
+const _worker = (host: Host): Effect.Effect<never, never, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
+    Effect.forever(Effect.flatMap(Queue.take(host.queue), (entry) => _dispatch(host, entry)));
+
+const _host = (id: HostId, processName: string): Effect.Effect<Host> =>
+    Effect.map(Effect.all([Queue.bounded<Entry>(QUEUE_DEPTH), Ref.make<Activity>(_IDLE)]), ([queue, activity]) => ({ id, processName, queue, activity }));
+
+const layer: Layer.Layer<Jobs, never, Hosts | ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Layer.effect(
+    Jobs,
+    Effect.gen(function* () {
+        const hosts = yield* Hosts;
+        const jobs = yield* Effect.all(Record.map(hosts, (row) => _host(row.id, row.processName)));
+        yield* Effect.forEach(Record.values(jobs), flow(_worker, Effect.forkScoped));
+        return jobs;
+    }),
+);
 
 // --- [RUN] -----------------------------------------------------------------------------
 
-const _job = <A, R>(
-    host: HostId,
-    jobs: Ref.Ref<Activity>,
-    timeoutMs: number,
-    settle: typeof _recorded,
-    work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>,
-): Effect.Effect<A, BridgeError, R | Crypto.Crypto> =>
-    Effect.gen(function* () {
-        const jobId = yield* Effect.orDie(Crypto.Crypto.use((crypto) => Effect.flatMap(crypto.randomUUIDv4, Schema.decodeEffect(JobId))));
-        const startedAt = yield* Clock.currentTimeMillis;
-        yield* Effect.fromResult(
-            yield* Ref.modify(jobs, (state): readonly [Result.Result<void, BridgeError>, Activity] =>
-                Option.match(state.inFlight, {
-                    onNone: () => [Result.void, { ...state, inFlight: Option.some({ jobId, startedAt }) }],
-                    onSome: (running) => [Result.fail(bridgeError.hostBusy({ host, jobId: running.jobId, startedAt: running.startedAt })), state],
-                }),
+const _job = Effect.fnUntraced(function* <A, R>(host: Host, timeoutMs: number, settle: typeof _recorded, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>) {
+    const jobId = yield* Effect.orDie(Crypto.Crypto.use((crypto) => Effect.flatMap(crypto.randomUUIDv4, Schema.decodeEffect(JobId))));
+    const context = yield* Effect.context<R>();
+    const settled = yield* Deferred.make<A, BridgeError>();
+    const startedAt = yield* Clock.currentTimeMillis;
+    const deadline = BridgeError.cases.deadlineExceeded.make({ host: host.id, jobId });
+    const entry: Entry = {
+        jobId,
+        settle,
+        deadlineAt: startedAt + timeoutMs,
+        abandoned: Deferred.isDone(settled),
+        refuse: (error) => Deferred.fail(settled, error),
+        perform: (remaining) =>
+            Effect.flatMap(Effect.exit(Effect.timeoutOrElse(Effect.provideContext(work(jobId), context), { duration: remaining, orElse: () => Effect.fail(deadline) })), (exit) =>
+                Effect.as(Deferred.done(settled, exit), exit),
             ),
-        );
-        const fiber = yield* Effect.forkDetach(Effect.onExit(work(jobId), (exit) => _stamped(jobs, (at) => flow(settle(exit, at), _released))));
-        const deadline = bridgeError.deadlineExceeded({ host, jobId });
-        return yield* Effect.timeoutOrElse(Fiber.join(fiber), {
-            duration: timeoutMs,
-            orElse: () =>
-                Effect.andThen(
-                    _stamped(jobs, (at) => settle(Exit.fail(deadline), at)),
-                    Effect.fail(deadline),
-                ),
-        });
-    });
+    };
+    return yield* Effect.timeoutOrElse(Effect.andThen(Queue.offer(host.queue, entry), Deferred.await(settled)), {
+        duration: timeoutMs,
+        orElse: () => Effect.andThen(Deferred.fail(settled, deadline), Effect.fail(deadline)),
+    }).pipe(Effect.onInterrupt(() => Deferred.interrupt(settled)));
+});
 
-const run = <A, R>(host: HostId, jobs: Ref.Ref<Activity>, timeoutMs: number, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>): Effect.Effect<A, BridgeError, R | Crypto.Crypto> =>
-    _job(host, jobs, timeoutMs, _recorded, work);
+const run = <A, R>(host: Host, timeoutMs: number, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>): Effect.Effect<A, BridgeError, R | Crypto.Crypto> => _job(host, timeoutMs, _recorded, work);
 
-const probe = <A, R>(host: HostId, jobs: Ref.Ref<Activity>, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>): Effect.Effect<Result.Result<A, BridgeError>, never, R | Crypto.Crypto> =>
-    Effect.result(_job(host, jobs, PROBE_MS, () => identity, work));
-
-// --- [SPILL] ---------------------------------------------------------------------------
-
-const spill = (host: HostId, jobId: JobId, value: Schema.Json): Effect.Effect<Spilled, PlatformError.PlatformError, Crypto.Crypto | FileSystem.FileSystem | Path.Path> =>
-    Effect.gen(function* () {
-        const text = JSON.stringify(value);
-        if (text.length <= _SPILL_CHARACTERS) {
-            return { kind: 'value', value };
-        }
-        const fs = yield* FileSystem.FileSystem;
-        const path = yield* Path.Path;
-        const crypto = yield* Crypto.Crypto;
-        const directory = path.resolve(import.meta.dirname, '..', '..', '..', '.artifacts', 'creative-cloud', host, 'results');
-        const file = path.join(directory, `${jobId}.json`);
-        const bytes = new TextEncoder().encode(text);
-        yield* fs.makeDirectory(directory, { recursive: true });
-        yield* fs.writeFile(file, bytes);
-        return { kind: 'file', path: yield* Effect.orDie(Schema.decodeEffect(AbsolutePath)(file)), bytes: bytes.byteLength, sha256: Encoding.encodeHex(yield* crypto.digest('SHA-256', bytes)) };
-    });
+const probe = <A, R>(host: Host, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>): Effect.Effect<Result.Result<A, BridgeError>, never, R | Crypto.Crypto> =>
+    Effect.flatMap(Ref.get(host.activity), (state) =>
+        Option.match(state.inFlight, {
+            onNone: () => Effect.result(_job(host, PROBE_MS, identity, work)),
+            onSome: (running) => Effect.succeed(Result.fail(BridgeError.cases.hostBusy.make({ host: host.id, jobId: running.jobId, startedAt: running.startedAt }))),
+        }),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Activity };
-export { InFlight, Jobs, probe, run, Spilled, spill };
+export { InFlight, Jobs, layer, liveness, Process, probe, run };

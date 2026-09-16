@@ -1,12 +1,12 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Effect, Equal, flow } from 'effect';
+import { Array, Effect, flow, Schema } from 'effect';
 import { Arbitrary } from 'effect/unstable/arbitrary';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const uniqueArray = <A>(arbitrary: Arbitrary.Arbitrary<A>, length: number): Arbitrary.Arbitrary<readonly A[]> =>
-    Arbitrary.all(Array.replicate(arbitrary, length)).pipe(Arbitrary.filter((values) => Array.dedupeWith(values, Equal.equals).length === length));
+const uniqueArray = <S extends Schema.Constraint>(item: S, length: number): Arbitrary.Arbitrary<readonly S['Type'][]> =>
+    Arbitrary.schema(Schema.UniqueArray(item).pipe(Schema.check(Schema.isMinLength(length), Schema.isMaxLength(length))));
 
 const missingLabels = <A, const Label extends string>(
     arbitrary: Arbitrary.Arbitrary<A>,

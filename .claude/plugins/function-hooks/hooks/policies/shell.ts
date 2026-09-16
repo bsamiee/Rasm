@@ -1,7 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import { type Command, LAUNCHERS, pastAssignments, strip } from '../command.ts';
 import { type Decision, deny, pass } from '../composition.ts';
-import { basename, type Command, LAUNCHERS, pastAssignments, strip } from '../text/command.ts';
+import { basename } from '../path.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 

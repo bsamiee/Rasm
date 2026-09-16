@@ -34,6 +34,7 @@ Rasm/
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor settings and .NET analyzer severity
+├── .swift-format             # Swift lint and format rules
 ├── .yamllint.yaml, .yamlfmt  # YAML lint and format
 ├── .github/                  # Continuous integration and repository automation
 ├── .claude/                  # Agent harness knowledge and settings
@@ -124,8 +125,9 @@ flowchart LR
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
 - Swift: warnings as errors and upcoming features, `swift-format lint --strict` at zero findings
+- Java: `google-java-format --dry-run --set-exit-if-changed` at zero findings, the formatter takes no configuration file
 - Tree: `yamllint`, `actionlint`, and ast-grep rule families
-- Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `swift-format` per Xcode project
+- Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
 
 ## [06]-[HARNESS]
@@ -140,7 +142,8 @@ flowchart LR
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
 - `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
-- Manifests define projects, no `project.json`: `.csproj` in `Workspace.slnx`, `package.json` beside `tsconfig.json`, `pyproject.toml`, `.xcodeproj`
+- Manifests define projects, no `project.json`: `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, `.xcodeproj`
+- `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Project files sit at the project root, with no `src/` directory at any depth and no directory adding a level of nesting alone
 - Each language area builds and runs without another present

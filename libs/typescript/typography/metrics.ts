@@ -18,6 +18,10 @@ interface Metrics {
     readonly unitsPerEm: number;
     readonly ascent: number;
     readonly descent: number;
+    readonly lineGap: number;
+    readonly underlinePosition: number;
+    readonly underlineThickness: number;
+    readonly italicAngle: number;
     readonly capHeight: number;
     readonly xHeight: number;
     readonly fTop: number;
@@ -58,7 +62,7 @@ const _Index = Schema.fromJsonString(
 
 // --- [FACES] ---------------------------------------------------------------------------
 
-const roots: Effect.Effect<readonly string[], Config.ConfigError, Path.Path> = Effect.gen(function* () {
+const _roots: Effect.Effect<readonly string[], Config.ConfigError, Path.Path> = Effect.gen(function* () {
     const path = yield* Path.Path;
     const home = yield* Config.String('HOME');
     return [
@@ -79,20 +83,20 @@ const read: (file: string, postScriptName: string) => Effect.Effect<Metrics, Met
         () => MetricsError.faceNotInFile({ file, postScriptName }),
     );
     const os2 = Option.fromNullishOr(font['OS/2']);
-    const missing = Array.filterMap(
-        [
-            ['capHeight', Option.flatMap(os2, (table) => Option.fromNullishOr(table.capHeight))],
-            [
-                'xHeight',
-                Option.filter(
-                    Option.flatMap(os2, (table) => Option.fromNullishOr(table.xHeight)),
-                    (height) => height !== 0,
-                ),
-            ],
-        ] as const,
-        ([field, value]) => (Option.isNone(value) ? Result.succeed(field) : Result.failVoid),
+    const required = Record.map(
+        { capHeight: Option.flatMap(os2, (table) => Option.fromNullishOr(table.capHeight)), xHeight: Option.flatMap(os2, (table) => Option.fromNullishOr(table.xHeight)) },
+        Option.filter((height) => height !== 0),
     );
-    yield* Array.match(missing, { onEmpty: () => Effect.void, onNonEmpty: (fields) => Effect.fail(MetricsError.metricsMissing({ postScriptName, fields })) });
+    const { capHeight, xHeight } = yield* Option.match(Option.all(required), {
+        onSome: Effect.succeed,
+        onNone: () =>
+            Effect.fail(
+                MetricsError.metricsMissing({
+                    postScriptName,
+                    fields: Option.isSome(required.capHeight) ? ['xHeight'] : ['capHeight', ...(Option.isSome(required.xHeight) ? [] : ['xHeight' as const])],
+                }),
+            ),
+    });
     const glyphs = Record.map(_GLYPHS, (codePoint) => font.glyphForCodePoint(codePoint).bbox);
     return {
         postScriptName: font.postscriptName,
@@ -101,8 +105,12 @@ const read: (file: string, postScriptName: string) => Effect.Effect<Metrics, Met
         unitsPerEm: font.unitsPerEm,
         ascent: font.ascent,
         descent: font.descent,
-        capHeight: font.capHeight,
-        xHeight: font.xHeight,
+        lineGap: font.lineGap,
+        underlinePosition: font.underlinePosition,
+        underlineThickness: font.underlineThickness,
+        italicAngle: font.italicAngle,
+        capHeight,
+        xHeight,
         fTop: glyphs.f.maxY / font.unitsPerEm,
         bbox: font.bbox,
         glyphs,
@@ -124,7 +132,7 @@ const _entries: (root: string) => Effect.Effect<readonly string[], PlatformError
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     return Array.filterMap(yield* fs.readDirectory(root, { recursive: true }), (entry) =>
-        entry.split(path.sep).length <= _SCAN.depth && Array.some(_SCAN.extensions, (extension) => entry.toLowerCase().endsWith(extension)) ? Result.succeed(path.join(root, entry)) : Result.failVoid,
+        entry.split(path.sep).length <= _SCAN.depth && Array.contains(_SCAN.extensions, path.extname(entry).toLowerCase()) ? Result.succeed(path.join(root, entry)) : Result.failVoid,
     );
 });
 
@@ -149,7 +157,7 @@ const _scan: (file: string) => Effect.Effect<Result.Result<ReadonlyArray<readonl
 const _index: Effect.Effect<typeof _Index.Type, Config.ConfigError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const scanned = yield* roots;
+    const scanned = yield* _roots;
     const stamps = Record.fromEntries(Array.zip(scanned, yield* Effect.forEach(scanned, _mtime)));
     const file = path.resolve(import.meta.dirname, '..', '..', '..', '.cache', 'typography', 'font-index.json');
     const text = yield* fs.readFileString(file).pipe(
@@ -159,22 +167,16 @@ const _index: Effect.Effect<typeof _Index.Type, Config.ConfigError | PlatformErr
             () => Effect.succeedNone,
         ),
     );
-    const cached = yield* Effect.transposeOption(Option.map(text, Schema.decodeEffect(_Index)));
-    return yield* Option.match(
-        Option.filter(cached, (candidate) => Equal.equals(candidate.roots, stamps)),
-        {
-            onNone: () =>
-                Effect.gen(function* () {
-                    const files = Array.flatten(yield* Effect.forEach(scanned, _entries));
-                    const [unreadable, faces] = Array.separate(yield* Effect.forEach(files, _scan));
-                    const built = { roots: stamps, faces: Record.fromEntries(Array.flatten(faces)), unreadable };
-                    yield* fs.makeDirectory(path.dirname(file), { recursive: true });
-                    yield* fs.writeFileString(file, yield* Schema.encodeEffect(_Index)(built));
-                    return built;
-                }),
-            onSome: Effect.succeed,
-        },
-    );
+    const cached = Option.filter(yield* Effect.transposeOption(Option.map(text, Schema.decodeEffect(_Index))), (candidate) => Equal.equals(candidate.roots, stamps));
+    if (Option.isSome(cached)) {
+        return cached.value;
+    }
+    const files = Array.flatten(yield* Effect.forEach(scanned, _entries));
+    const [unreadable, faces] = Array.separate(yield* Effect.forEach(files, _scan));
+    const built = { roots: stamps, faces: Record.fromEntries(Array.flatten(faces)), unreadable };
+    yield* fs.makeDirectory(path.dirname(file), { recursive: true });
+    yield* fs.writeFileString(file, yield* Schema.encodeEffect(_Index)(built));
+    return built;
 });
 
 const resolve = (postScriptName: string): Effect.Effect<string, MetricsError | Config.ConfigError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path> =>
@@ -186,22 +188,22 @@ const metrics = (
     postScriptName: string,
     size: number,
 ): Effect.Effect<
-    Metrics & { readonly size: number; readonly x: number; readonly hCap: number; readonly f: number },
+    Metrics & { readonly file: string; readonly size: number; readonly x: number; readonly hCap: number; readonly f: number },
     MetricsError | Config.ConfigError | PlatformError.PlatformError | Schema.SchemaError,
     FileSystem.FileSystem | Path.Path
 > =>
-    Effect.map(
-        Effect.flatMap(resolve(postScriptName), (file) => read(file, postScriptName)),
-        (face) => ({
+    Effect.flatMap(resolve(postScriptName), (file) =>
+        Effect.map(read(file, postScriptName), (face) => ({
             ...face,
+            file,
             size,
             x: (size * face.xHeight) / face.unitsPerEm,
             hCap: (size * face.capHeight) / face.unitsPerEm,
             f: size * face.fTop,
-        }),
+        })),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Metrics };
-export { MetricsError, metrics, read, resolve, roots };
+export { MetricsError, metrics, read, resolve };

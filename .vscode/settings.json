@@ -28,7 +28,7 @@
         "*.tsx": "${capture}.spec.tsx, ${capture}.test.tsx",
         ".gitignore": ".gitattributes",
         "pyproject.toml": "uv.lock",
-        "nx.json": ".editorconfig, .yamlfmt, .yamllint.yaml, mise.toml, sgconfig.yml",
+        "nx.json": ".editorconfig, .yamlfmt, .yamllint.yaml, mise.toml, sgconfig.yml, .swift-format",
         "package.json": "biome.json, pnpm-workspace.yaml, pnpm-lock.yaml, tsconfig.base.json, tsconfig.json, vitest.config.ts",
         "*.json": "${capture}.schema.json"
     },

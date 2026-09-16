@@ -28,6 +28,7 @@
       "Bash(fd *)",
       "Bash(gh *)",
       "Bash(git *)",
+      "Bash(google-java-format *)",
       "Bash(hyperfine *)",
       "Bash(jq *)",
       "Bash(loc *)",

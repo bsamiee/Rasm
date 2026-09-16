@@ -179,11 +179,15 @@
         "@visx/scale": "catalog:",
         "@visx/shape": "catalog:",
         "@vitejs/devtools": "catalog:",
+        "@vitejs/devtools-kit": "catalog:",
         "@vitejs/plugin-react": "catalog:",
         "@vitest/coverage-v8": "catalog:",
         "@webgpu/types": "catalog:",
         "@xyflow/react": "catalog:",
+        "acorn": "catalog:",
+        "acorn-walk": "catalog:",
         "apache-arrow": "catalog:",
+        "astring": "catalog:",
         "avsc": "catalog:",
         "babel-plugin-react-compiler": "catalog:",
         "basic-ftp": "catalog:",
@@ -282,19 +286,14 @@
     },
     "nx": {
         "tags": ["language:typescript"],
-        "namedInputs": { "tooling": ["sharedGlobals", "typescript", "{workspaceRoot}/*", "{workspaceRoot}/infra/*.ts", "{workspaceRoot}/tools/yak/*.ts"] },
         "targets": {
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
                 "cache": true,
                 "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,libs,tests,tools}/**/*.csproj", "dotnet"],
-                "outputs": [
-                    "{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json",
-                    "{workspaceRoot}/.artifacts/dotnet/obj/*/project.nuget.cache",
-                    "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"
-                ]
+                "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"]
             },
-            "browsers": { "command": "playwright install chromium --no-shell", "cache": false, "parallelism": false },
+            "browsers": { "command": "playwright install chromium --no-shell", "parallelism": false },
             "grammar": {
                 "executor": "nx:run-commands",
                 "cache": true,
@@ -311,10 +310,9 @@
                     "parallel": true
                 }
             },
-            "rewrite": { "command": "ast-grep scan -U", "cache": false, "parallelism": false, "dependsOn": ["grammar"] },
+            "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
             "outline": {
-                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml",
-                "cache": false,
+                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml",
                 "dependsOn": ["grammar"]
             },
             "lint": {
@@ -324,46 +322,57 @@
                 "inputs": [
                     "{workspaceRoot}/**/*",
                     { "dependentTasksOutputFiles": "**/*.so" },
-                    { "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version" }
+                    { "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version && shellcheck --version && google-java-format --version" }
                 ],
                 "options": {
-                    "commands": ["ast-grep scan --no-ignore hidden", "biome check --error-on-warnings", "ruff check", "yamllint .", "actionlint"],
+                    "commands": [
+                        "ast-grep scan --no-ignore hidden",
+                        "biome check --error-on-warnings",
+                        "ruff check",
+                        "yamllint .",
+                        "actionlint",
+                        "fd --extension java --exec-batch google-java-format --dry-run --set-exit-if-changed"
+                    ],
                     "parallel": true
                 }
             },
             "format": {
                 "executor": "nx:run-commands",
-                "cache": false,
                 "dependsOn": ["restore"],
                 "options": {
-                    "commands": ["biome check --write --error-on-warnings", "ruff check --fix", "ruff format", "yamlfmt .", "dotnet format Workspace.slnx --no-restore"],
+                    "commands": [
+                        "biome check --write --error-on-warnings",
+                        "ruff check --fix",
+                        "ruff format",
+                        "yamlfmt .",
+                        "fd --extension java --exec-batch google-java-format --replace",
+                        "dotnet format Workspace.slnx --no-restore"
+                    ],
                     "parallel": false
                 }
             },
             "typecheck": {
-                "inputs": ["tooling", { "externalDependencies": ["typescript"] }],
+                "inputs": ["typescript", "{workspaceRoot}/tsconfig.json", "{workspaceRoot}/*.config.ts", "{workspaceRoot}/{infra,tools/nx,tools/yak}/*.ts", { "externalDependencies": ["typescript"] }],
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/root"]
             },
-            "check": { "executor": "nx:noop", "dependsOn": ["lint", "typecheck"] },
-            "up": { "command": "doppler run --project rasm --config dev_repo -- node infra/automation.ts up", "cache": false, "parallelism": false },
-            "refresh": { "command": "doppler run --project rasm --config dev_repo -- node infra/automation.ts refresh", "cache": false, "parallelism": false },
+            "check": { "dependsOn": ["lint", "typecheck"] },
+            "up": { "command": "doppler run --project rasm --config dev_repo -- node infra/automation.ts up", "parallelism": false },
+            "refresh": { "command": "doppler run --project rasm --config dev_repo -- node infra/automation.ts refresh", "parallelism": false },
             "upgrade": {
                 "executor": "nx:run-commands",
-                "cache": false,
                 "parallelism": false,
                 "options": {
                     "commands": [
-                        "uv lock --upgrade",
-                        "ncu --workspaces --root --packageManager pnpm -u --target newest",
-                        "pnpm install",
+                        "uv sync --upgrade",
+                        "ncu --workspaces --target newest --upgrade --install always",
                         "dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj",
                         "mise upgrade"
                     ],
                     "parallel": false
                 },
                 "configurations": {
-                    "python": { "commands": ["uv lock --upgrade"] },
-                    "typescript": { "commands": ["ncu --workspaces --root --packageManager pnpm -u --target newest", "pnpm install"] },
+                    "python": { "commands": ["uv sync --upgrade"] },
+                    "typescript": { "commands": ["ncu --workspaces --target newest --upgrade --install always"] },
                     "dotnet": { "commands": ["dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj"] },
                     "tools": { "commands": ["mise upgrade"] },
                     "rhino": { "commands": ["node tools/yak/rhino-mcp-platform.ts"] }

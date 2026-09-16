@@ -1,11 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Effect, Equal, flow, Match, Option, pipe, Result, Schema, SchemaGetter, SchemaIssue, Struct } from 'effect';
+import { Array, Option, Schema, SchemaGetter, String } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-type GlobalKey = (typeof GLOBAL_KEYS)[number];
-type MasterKey = (typeof MASTER_KEYS)[number];
 
 interface Entry<Key extends string> {
     readonly key: Key;
@@ -13,19 +10,19 @@ interface Entry<Key extends string> {
 }
 
 interface Preset {
-    readonly global: readonly Entry<GlobalKey>[];
-    readonly masters: readonly { readonly index: number; readonly entries: readonly Entry<MasterKey>[] }[];
-}
-
-interface Accumulator {
-    readonly preset: Preset;
-    readonly guards: readonly string[];
+    readonly global: readonly Entry<(typeof GLOBAL_KEYS)[number]>[];
+    readonly masters: readonly { readonly index: number; readonly entries: readonly Entry<(typeof MASTER_KEYS)[number]>[] }[];
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const SEPARATOR = '/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/';
-const WARNING = '/*WARNING: Please do not change the format of this file, otherwise it can cause the application to malfunction*/';
+const _GUARD = [
+    '\n\n\n',
+    '/*********** DO NOT REMOVE OR CHANGE THIS SEPARATOR ***********/',
+    '\n\n\n',
+    '/*WARNING: Please do not change the format of this file, otherwise it can cause the application to malfunction*/',
+    '\n',
+] as const;
 const GLOBAL_KEYS = [
     'Type',
     'Version',
@@ -120,6 +117,7 @@ const _CUSTOM_DECIMALS = 3;
 
 const _LevelKind = Schema.Literals(['columns', 'rows']);
 const _MeasureUnit = Schema.Literals(['pt', 'mm', 'in']);
+const _Fixed = Schema.String.pipe(Schema.decodeTo(Schema.Number, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform((amount: number) => amount.toFixed(_CUSTOM_DECIMALS)) }));
 
 const Level: Schema.Codec<{ readonly kind: 'columns' | 'rows'; readonly count: number; readonly lines: number; readonly gutter: number }, string> = Schema.TemplateLiteralParser([
     Schema.FiniteFromString,
@@ -148,9 +146,9 @@ const Custom: Schema.Codec<{ readonly count: number; readonly width: number; rea
     'Num: ',
     Schema.FiniteFromString,
     ', Width: ',
-    Schema.String.pipe(Schema.decodeTo(Schema.Number, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform((amount: number) => amount.toFixed(_CUSTOM_DECIMALS)) })),
+    _Fixed,
     ', Gutter: ',
-    Schema.String.pipe(Schema.decodeTo(Schema.Number, { decode: SchemaGetter.Number(), encode: SchemaGetter.transform((amount: number) => amount.toFixed(_CUSTOM_DECIMALS)) })),
+    _Fixed,
 ]).pipe(
     Schema.decodeTo(Schema.Struct({ count: Schema.Number, width: Schema.Number, gutter: Schema.Number }), {
         decode: SchemaGetter.transform(([_num, count, _width, width, _gutter, gutter]) => ({ count, width, gutter })),
@@ -165,112 +163,48 @@ const TypeareaGrid: Schema.Codec<{ readonly lines: number; readonly value: numbe
     }),
 );
 
-const Setup: Schema.Codec<'Quick' | 'Modular' | 'Smart'> = Schema.Literals(['Quick', 'Modular', 'Smart']);
-const UnitName: Schema.Codec<'Millimeters' | 'Inches' | 'Points and Pixels'> = Schema.Literals(['Millimeters', 'Inches', 'Points and Pixels']);
-
 // --- [GRAMMAR] -------------------------------------------------------------------------
 
-const _entry = <Tag extends string, Key extends string>(tag: Tag, keys: readonly Key[]): Schema.Codec<{ readonly _tag: Tag; readonly key: Key; readonly value: string }, string> => {
+const _entry = <Key extends string>(keys: readonly Key[]): Schema.Codec<Entry<Key>, string> => {
     const Keys = Schema.Literals(keys);
     return Schema.TemplateLiteralParser([Keys, ': ', Schema.String, ';']).pipe(
-        Schema.decodeTo(Schema.TaggedStruct(tag, { key: Keys, value: Schema.String }), {
-            decode: SchemaGetter.transform(([key, _colon, value]) => ({ _tag: tag, key, value })),
+        Schema.decodeTo(Schema.Struct({ key: Keys, value: Schema.String }), {
+            decode: SchemaGetter.transform(([key, _colon, value]) => ({ key, value })),
             encode: SchemaGetter.transform(({ key, value }) => [key, ': ', value, ';'] as const),
         }),
     );
 };
 
-const _Guard = Schema.Literals([SEPARATOR, WARNING]);
-const _Line = Schema.Union([
-    _entry('global', GLOBAL_KEYS),
-    _entry('master', MASTER_KEYS),
-    Schema.TemplateLiteralParser(['[GC-', Schema.FiniteFromString, ']']).pipe(
-        Schema.decodeTo(Schema.TaggedStruct('header', { index: Schema.Number }), {
-            decode: SchemaGetter.transform(([_open, index]) => ({ _tag: 'header' as const, index })),
-            encode: SchemaGetter.transform(({ index }) => ['[GC-', index, ']'] as const),
-        }),
-    ),
-    _Guard.pipe(
-        Schema.decodeTo(Schema.TaggedStruct('guard', { text: _Guard }), {
-            decode: SchemaGetter.transform((text) => ({ _tag: 'guard' as const, text })),
-            encode: SchemaGetter.transform(Struct.get('text')),
-        }),
-    ),
-    Schema.Literal('').pipe(
-        Schema.decodeTo(Schema.TaggedStruct('blank', {}), { decode: SchemaGetter.transform(() => ({ _tag: 'blank' as const })), encode: SchemaGetter.transform(() => '' as const) }),
-    ),
-]);
-
-const _Preset = Schema.Struct({
-    global: Schema.Array(Schema.Struct({ key: Schema.Literals(GLOBAL_KEYS), value: Schema.String })),
-    masters: Schema.Array(Schema.Struct({ index: Schema.Number, entries: Schema.Array(Schema.Struct({ key: Schema.Literals(MASTER_KEYS), value: Schema.String })) })),
-});
-
-const _reducer = (fold: Accumulator, line: typeof _Line.Type, index: number): Result.Result<Accumulator, SchemaIssue.Issue> =>
-    Match.value(line).pipe(
-        Match.withReturnType<Result.Result<Accumulator, SchemaIssue.Issue>>(),
-        Match.discriminatorsExhaustive('_tag')({
-            global: ({ key, value }) =>
-                Array.match(fold.preset.masters, {
-                    onEmpty: () => Result.succeed({ ...fold, preset: { ...fold.preset, global: Array.append(fold.preset.global, { key, value }) } }),
-                    onNonEmpty: () => Result.fail(new SchemaIssue.Pointer([index], new SchemaIssue.InvalidValue({ message: 'Key belongs to the global block' }, Option.some(line)))),
-                }),
-            master: ({ key, value }) =>
-                Array.match(fold.preset.masters, {
-                    onEmpty: () => Result.fail(new SchemaIssue.Pointer([index], new SchemaIssue.InvalidValue({ message: 'Key belongs to a master block' }, Option.some(line)))),
-                    onNonEmpty: (masters) =>
-                        Result.succeed({
-                            ...fold,
-                            preset: { ...fold.preset, masters: Array.modifyLastNonEmpty(masters, (last) => ({ ...last, entries: Array.append(last.entries, { key, value }) })) },
-                        }),
-                }),
-            header: (header) => Result.succeed({ ...fold, preset: { ...fold.preset, masters: Array.append(fold.preset.masters, { index: header.index, entries: [] }) } }),
-            guard: ({ text }) => Result.succeed({ ...fold, guards: Array.append(fold.guards, text) }),
-            blank: () => Result.succeed(fold),
-        }),
+const _lines = <Key extends string>(entry: Schema.Codec<Entry<Key>, string>): Schema.Codec<readonly Entry<Key>[], string> =>
+    Schema.String.pipe(
+        Schema.decodeTo(Schema.NonEmptyArray(Schema.String), { decode: SchemaGetter.transform(String.split('\n')), encode: SchemaGetter.transform(Array.join('\n')) }),
+        Schema.decodeTo(Schema.Array(entry)),
     );
 
-const _fold = (lines: readonly (typeof _Line.Type)[]): Result.Result<Preset, SchemaIssue.Issue> =>
-    pipe(
-        lines,
-        Array.reduce<Result.Result<Accumulator, SchemaIssue.Issue>, typeof _Line.Type>(Result.succeed({ preset: { global: [], masters: [] }, guards: [] }), (state, line, index) =>
-            Result.flatMap(state, (fold) => _reducer(fold, line, index)),
-        ),
-        Result.flatMap((fold) =>
-            Option.exists(Array.head(fold.preset.global), (entry) => entry.key === 'Type')
-                ? Result.succeed(fold)
-                : Result.fail(new SchemaIssue.Pointer([0], new SchemaIssue.InvalidValue({ message: '`Type` is the first key' }, Option.some(lines)))),
-        ),
-        Result.flatMap((fold) =>
-            Equal.equals(fold.guards, [SEPARATOR, WARNING])
-                ? Result.succeed(fold.preset)
-                : Result.fail(new SchemaIssue.InvalidValue({ message: 'Preset ends with the separator and the warning' }, Option.some(fold.guards))),
-        ),
-    );
+const _GlobalBlock = _lines(_entry(GLOBAL_KEYS)).pipe(Schema.check(Schema.makeFilter((entries) => Option.exists(Array.head(entries), (entry) => entry.key === 'Type') || '`Type` is the first key')));
 
-const _lines = (preset: Preset): readonly (typeof _Line.Type)[] => [
-    ...Array.map(preset.global, (entry) => ({ _tag: 'global' as const, ...entry })),
-    ...Array.flatMap(preset.masters, (master) => [
-        { _tag: 'blank' as const },
-        { _tag: 'header' as const, index: master.index },
-        ...Array.map(master.entries, (entry) => ({ _tag: 'master' as const, ...entry })),
-    ]),
-    { _tag: 'blank' },
-    { _tag: 'blank' },
-    { _tag: 'guard', text: SEPARATOR },
-    { _tag: 'blank' },
-    { _tag: 'blank' },
-    { _tag: 'guard', text: WARNING },
-    { _tag: 'blank' },
-];
+const _MasterEntries = _lines(_entry(MASTER_KEYS));
 
-const Preset: Schema.Codec<Preset, string> = Schema.String.pipe(
-    Schema.decodeTo(Schema.Array(Schema.String), { decode: SchemaGetter.split({ separator: '\n' }), encode: SchemaGetter.transform(Array.join('\n')) }),
-    Schema.decodeTo(Schema.Array(_Line)),
-    Schema.decodeTo(_Preset, { decode: SchemaGetter.transformEffect(flow(_fold, Effect.fromResult)), encode: SchemaGetter.transform(_lines) }),
+const _MasterBlock = Schema.TemplateLiteralParser(['[GC-', Schema.FiniteFromString, ']\n', _MasterEntries]).pipe(
+    Schema.decodeTo(Schema.Struct({ index: Schema.Number, entries: Schema.toType(_MasterEntries) }), {
+        decode: SchemaGetter.transform(([_open, index, _close, entries]) => ({ index, entries })),
+        encode: SchemaGetter.transform(({ index, entries }) => ['[GC-', index, ']\n', entries] as const),
+    }),
+);
+
+const Preset: Schema.Codec<Preset, string> = Schema.TemplateLiteralParser([Schema.String, ..._GUARD]).pipe(
+    Schema.decodeTo(Schema.String, {
+        decode: SchemaGetter.transform(([body]) => body),
+        encode: SchemaGetter.transform((body) => [body, ..._GUARD] as const),
+    }),
+    Schema.decodeTo(Schema.NonEmptyArray(Schema.String), { decode: SchemaGetter.transform(String.split('\n\n')), encode: SchemaGetter.transform(Array.join('\n\n')) }),
+    Schema.decodeTo(Schema.TupleWithRest(Schema.Tuple([_GlobalBlock]), [_MasterBlock])),
+    Schema.decodeTo(Schema.Struct({ global: Schema.toType(_GlobalBlock), masters: Schema.Array(Schema.toType(_MasterBlock)) }), {
+        decode: SchemaGetter.transform(([global, ...masters]) => ({ global, masters })),
+        encode: SchemaGetter.transform(({ global, masters }) => [global, ...masters] as const),
+    }),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Entry, GlobalKey, MasterKey };
-export { Custom, GLOBAL_KEYS, Level, MASTER_KEYS, Measure, Preset, SEPARATOR, Setup, TypeareaGrid, UnitName, WARNING };
+export { Custom, GLOBAL_KEYS, Level, MASTER_KEYS, Measure, Preset, TypeareaGrid };

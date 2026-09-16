@@ -17,8 +17,8 @@ from hypothesis.stateful import RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 import msgspec.json
 import msgspec.msgpack
+import numpy as np
 import pytest
-lazy import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -272,10 +272,23 @@ def assert_none(opt: Option[object]) -> None:
         AssertionError: The option is ``Some``.
     """
     match opt:
-        case Option(tag="some", some=v):
-            raise AssertionError(f"expected Nothing, got Some({v!r})")
-        case _:
+        case Option(tag="none"):
             return
+        case _:
+            raise AssertionError(f"expected Nothing, got {opt!r}")
+
+
+def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..., None], *args: object, **kwargs: object) -> None:
+    """Assert a property assertion rejects a known counterexample.
+
+    Raises:
+        AssertionError: The property accepts the counterexample.
+    """
+    try:
+        property_assertion(counterexample, *args, **kwargs)
+    except AssertionError:
+        return
+    raise AssertionError(f"property accepts its counterexample: {counterexample!r}")
 
 
 def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder = JSON_ENCODER) -> T:
@@ -328,6 +341,7 @@ __all__ = [
     "assert_error",
     "assert_some",
     "assert_none",
+    "rejects_counterexample",
     "assert_roundtrip",
     "run_state_machine",
 ]

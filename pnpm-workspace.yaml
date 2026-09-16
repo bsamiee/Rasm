@@ -1,13 +1,10 @@
 packages:
     - 'libs/typescript/*'
-    - 'libs/typescript/ui/*'
     - 'apps/*/*'
     - 'tests/typescript/*'
     - '.claude/plugins/*'
 catalogMode: strict
-linkWorkspacePackages: deep
 saveExact: true
-trustLockfile: true
 cacheDir: .cache/pnpm/cache
 storeDir: .cache/pnpm/store
 minimumReleaseAge: 0
@@ -136,12 +133,12 @@ catalog:
     '@opentelemetry/instrumentation-xml-http-request': 0.222.0
     '@pyroscope/nodejs': 0.6.3
     idb-keyval: 6.3.0
-    "nuqs": "2.10.2-beta.1"
+    nuqs: 2.10.2-beta.1
     workbox-build: 7.4.1
     workbox-window: 7.4.1
     # Web UI
-    "react": "19.3.0-canary-ff8f88fc-20260915"
-    "react-dom": "19.3.0-canary-ff8f88fc-20260915"
+    react: 19.3.0-canary-ff8f88fc-20260915
+    react-dom: 19.3.0-canary-ff8f88fc-20260915
     '@types/react': 19.3.0
     '@types/react-dom': 19.3.0
     react-aria: 3.52.1
@@ -167,12 +164,12 @@ catalog:
     clsx: 2.1.1
     tailwindcss: 4.3.3
     '@tailwindcss/typography': 0.5.20
-    "tailwindcss-react-aria-components": "3.0.0-nightly-4693fcc84-260915"
+    tailwindcss-react-aria-components: 3.0.0-nightly-4693fcc84-260915
     tailwind-merge: 3.7.0-dev.7fcb814ea439b749aa18b72415b0e21837811853
     tw-animate-css: 1.4.0
     colorjs.io: 0.7.1
     isomorphic-dompurify: 4.2.0
-    "tus-js-client": "5.0.0-pre2"
+    tus-js-client: 5.0.0-pre2
     react-resizable-panels: 4.12.4
     '@xyflow/react': 12.11.6
     elkjs: 0.12.0
@@ -269,7 +266,7 @@ catalog:
     '@stryker-mutator/core': 10.0.0
     '@stryker-mutator/vitest-runner': 10.0.0
     # Tooling
-    "typescript": "7.1.0-dev.20260915.1"
+    typescript: 7.1.0-dev.20260915.1
     '@effect/language-service': 0.87.2
     '@effect/docgen': 4.0.0-rc.115
     '@effect/openapi-generator': 4.0.0-rc.115
@@ -286,7 +283,7 @@ catalog:
     '@swc/cli': 0.8.1
     tslib: 2.8.1
     '@types/node': 26.4.1
-    "vite": "8.3.0"
+    vite: 8.3.0
     '@vitejs/plugin-react': 6.1.1
     '@tailwindcss/vite': 4.3.3
     '@rolldown/plugin-babel': 0.2.4
@@ -297,11 +294,12 @@ catalog:
     vite-plugin-csp-guard: 4.0.1
     vite-plugin-image-optimizer: 2.0.3
     vite-plugin-inspect: 12.0.2
-    '@vitejs/devtools': 0.7.4
+    '@vitejs/devtools': 0.7.5
+    '@vitejs/devtools-kit': 0.7.5
     vite-plugin-svgr: 5.2.0
     vite-plugin-webfont-dl: 3.13.1
     '@octokit/rest': 22.0.1
-    playwright: "1.64.0-alpha-2026-09-15"
+    playwright: "1.64.0-alpha-2026-09-16"
     # Stdio MCP client CLI whose per-method exit code gates the creative-cloud server
     '@modelcontextprotocol/inspector': 2.6.0
     hostinger-api-mcp: 1.60.1
@@ -316,8 +314,8 @@ overrides:
     '@derekstride/tree-sitter-sql>tree-sitter': '-'
     # Plugin peer range spans 7 and 8, auto-install takes the 7 release beside @babel/core 8 and its peer on core 7 goes unmet
     '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
-    # vite-plugin-inspect takes kit 0.4 with devframe 0.8, and json-render's peer on @devframes/hub 0.9 goes unmet
-    vite-plugin-inspect>@vitejs/devtools-kit: 0.7.4
+    # vite-plugin-inspect depends on kit ^0.4, whose devframe tree would sit beside the one the @vitejs/devtools row brings
+    vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
     # Peer ranges the catalog crosses on purpose, one row per consumer so no other package's regular dependency moves
     '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
     '@use-gesture/react>react': 'catalog:'
@@ -326,7 +324,6 @@ overrides:
     '@effect/docgen>typescript': 'catalog:'
     'tsconfck>typescript': 'catalog:'
     '@nx/vitest>vitest': 'catalog:'
-    '@effect/vitest>vitest': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
 allowBuilds:
     '@biomejs/biome': true
@@ -334,17 +331,14 @@ allowBuilds:
     '@derekstride/tree-sitter-sql': false
     '@modelcontextprotocol/inspector': true
     '@node-rs/argon2': true
-    '@parcel/watcher': true
     '@pulumi/command': true
     '@pulumi/docker': true
     '@pulumi/docker-build': true
     '@pulumi/kubernetes': true
     '@swc/core': true
     '@tree-sitter-grammars/tree-sitter-xml': false
-    better-sqlite3: true
     core-js: true
     esbuild: true
-    msgpackr-extract: true
     nx: true
     protobufjs: true
     sharp: true

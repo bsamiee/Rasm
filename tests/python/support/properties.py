@@ -15,7 +15,7 @@ from hypothesis import given as hyp_given
 import msgspec
 import pytest
 
-lazy from tests.python.support.strategies import strategy_for
+from tests.python.support.strategies import strategy_for
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -178,7 +178,7 @@ def register_package_tree(config: pytest.Config, source_root: Path, suite_root: 
 def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
     """Return package test modules that pytest did not import during collection, their coverage declarations were not recorded.
 
-    Collection imports every selected test module, a dotted name absent from ``sys.modules`` marks an uncollected module.
+    Collection imports every selected test module under the dotted name pytest's importlib mode assigns it, a name absent from ``sys.modules`` marks an uncollected module.
     """
     gaps = {
         package: tuple(

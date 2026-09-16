@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: for_statement
     all:
-        - has: {field: item, pattern: $ITEM}
+        - has: {field: item, pattern: $ITEM, not: {regex: '^_$'}}
         - has: {kind: where_clause, pattern: $WHERE}
         - not:
             has:

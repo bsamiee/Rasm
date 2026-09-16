@@ -10,10 +10,5 @@
         "@effect/platform-node": "catalog:",
         "@rasm/typography": "workspace:*",
         "effect": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "deploy": { "executor": "nx:run-commands", "cache": false, "parallelism": false, "options": { "command": "node automation.ts deploy", "cwd": "{projectRoot}" } }
-        }
     }
 }

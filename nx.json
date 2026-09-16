@@ -43,7 +43,6 @@
             },
             {
                 "filter": { "projects": ["tag:language:typescript"] },
-                "executor": "nx:run-commands",
                 "inputs": ["production", "^production", "typescript", { "externalDependencies": ["vite", "@swc/core", "@swc/cli"] }]
             }
         ],
@@ -51,7 +50,6 @@
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution install DSTROOT=/Applications INSTALL_PATH=/",
-                "cache": false,
                 "parallelism": false
             }
         ],
@@ -60,16 +58,10 @@
                 "filter": { "projects": ["tag:language:swift"] },
                 "command": "xcrun swift-format lint --strict --recursive {projectRoot}",
                 "cache": true,
-                "inputs": ["default", "xcode"]
+                "inputs": ["default", "xcode", "{workspaceRoot}/.swift-format"]
             }
         ],
-        "format": [
-            {
-                "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcrun swift-format format --in-place --recursive {projectRoot}",
-                "cache": false
-            }
-        ],
+        "format": [{ "filter": { "projects": ["tag:language:swift"] }, "command": "xcrun swift-format format --in-place --recursive {projectRoot}" }],
         "typecheck": [
             { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
             {

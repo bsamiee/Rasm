@@ -2,57 +2,43 @@
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { all, dump, each, members, run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { all, dump, each, reference, run, walk }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [READERS] -------------------------------------------------------------------------
 
-const readLayer = (layer: Layer, at: Site): Reading<Json> => all(at, members(layer).concat([['layers', (site): Reading<Json> => each(site, layer.layers, readLayer)]]));
+const readLayer = (layer: Layer, at: Site): Reading<Json> => walk(at, layer, [['layers', (site): Reading<Json> => each(site, layer.layers, readLayer)]]);
 
-const readGroup = (group: SwatchGroup, at: Site): Reading<Json> => all(at, members(group).concat([['swatches', (site): Reading<Json> => each(site, group.getAllSwatches(), dump)]]));
+const readSwatchGroup = (group: SwatchGroup, at: Site): Reading<Json> => walk(at, group, [['swatches', (site): Reading<Json> => each(site, group.getAllSwatches(), dump)]]);
 
-const readGradient = (gradient: Gradient, at: Site): Reading<Json> => all(at, members(gradient).concat([['gradientStops', (site): Reading<Json> => each(site, gradient.gradientStops, dump)]]));
+const readGradient = (gradient: Gradient, at: Site): Reading<Json> => walk(at, gradient, [['gradientStops', (site): Reading<Json> => each(site, gradient.gradientStops, dump)]]);
 
-const readCharacterStyle = (style: CharacterStyle, at: Site): Reading<Json> =>
-    all(at, members(style).concat([['characterAttributes', (site): Reading<Json> => dump(style.characterAttributes, site)]]));
+const readCharacterStyle = (style: CharacterStyle, at: Site): Reading<Json> => walk(at, style, [['characterAttributes', (site): Reading<Json> => dump(style.characterAttributes, site)]]);
 
 const readParagraphStyle = (style: ParagraphStyle, at: Site): Reading<Json> =>
-    all(
-        at,
-        members(style).concat([
-            ['characterAttributes', (site): Reading<Json> => dump(style.characterAttributes, site)],
-            ['paragraphAttributes', (site): Reading<Json> => dump(style.paragraphAttributes, site)],
-        ]),
-    );
+    walk(at, style, [
+        ['characterAttributes', (site): Reading<Json> => dump(style.characterAttributes, site)],
+        ['paragraphAttributes', (site): Reading<Json> => dump(style.paragraphAttributes, site)],
+    ]);
 
 const readItem = (item: PageItem, at: Site): Reading<Json> =>
-    dump(
-        {
-            typename: item.typename,
-            uuid: item.uuid,
-            name: item.name,
-            layer: item.layer.name,
-            geometricBounds: item.geometricBounds,
-            visibleBounds: item.visibleBounds,
-            hidden: item.hidden,
-            locked: item.locked,
-            opacity: item.opacity,
-            blendingMode: item.blendingMode,
-        },
-        at,
-    );
+    all(at, [
+        ['typename', (site): Reading<Json> => reference(item.typename, site)],
+        ['uuid', (site): Reading<Json> => reference(item.uuid, site)],
+        ['name', (site): Reading<Json> => reference(item.name, site)],
+        ['layer', (site): Reading<Json> => reference(item.layer.name, site)],
+    ]);
+
+const pageItems = (doc: Document, layer: string | undefined): PageItems => (layer === undefined ? doc.pageItems : doc.layers.getByName(layer).pageItems);
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-const inspect = (request: JsonObject, at: Site): Json => {
-    const source = request['document'];
-    if (source !== undefined && typeof source !== 'string') {
-        throw new Error('document: expected a path');
-    }
-    const doc = source === undefined ? app.activeDocument : app.open(new File(source));
-    const sections = all(at, [
-        ['kind', (site): Reading<Json> => dump('inspection', site)],
-        ['document', (site): Reading<Json> => all(site, members(doc).concat([['artboards', (inner): Reading<Json> => each(inner, doc.artboards, dump)]]))],
-        ['swatches', (site): Reading<Json> => each(site, doc.swatchGroups, readGroup)],
+const inspect = (request: { readonly document?: string; readonly items?: { readonly layer?: string; readonly offset: number; readonly limit: number } }, at: Site): Reading<JsonObject> => {
+    const doc = request.document === undefined ? app.activeDocument : app.open(new File(request.document));
+    const paging = request.items;
+    return all(at, [
+        ['kind', (site): Reading<Json> => reference('inspection', site)],
+        ['document', (site): Reading<Json> => walk(site, doc, [['artboards', (inner): Reading<Json> => each(inner, doc.artboards, dump)]])],
+        ['swatches', (site): Reading<Json> => each(site, doc.swatchGroups, readSwatchGroup)],
         ['gradients', (site): Reading<Json> => each(site, doc.gradients, readGradient)],
         ['patterns', (site): Reading<Json> => each(site, doc.patterns, dump)],
         ['brushes', (site): Reading<Json> => each(site, doc.brushes, dump)],
@@ -61,10 +47,16 @@ const inspect = (request: JsonObject, at: Site): Json => {
         ['characterStyles', (site): Reading<Json> => each(site, doc.characterStyles, readCharacterStyle)],
         ['paragraphStyles', (site): Reading<Json> => each(site, doc.paragraphStyles, readParagraphStyle)],
         ['layers', (site): Reading<Json> => each(site, doc.layers, readLayer)],
-        ['items', (site): Reading<Json> => each(site, doc.pageItems, readItem)],
+        ['itemCount', (site): Reading<Json> => reference(pageItems(doc, paging?.layer).length, site)],
+        [
+            'items',
+            (site): Reading<Json> => {
+                const items = pageItems(doc, paging?.layer);
+                const [offset, limit] = paging === undefined ? [0, items.length] : [paging.offset, paging.limit];
+                return each(site, Array.prototype.slice.call(items, offset, offset + limit), readItem);
+            },
+        ],
     ]);
-    sections.value['unavailable'] = sections.unavailable;
-    return sections.value;
 };
 
 run(inspect);

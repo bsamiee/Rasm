@@ -1,10 +1,9 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, type Crypto, Duration, Effect, Option, type Ref, Stream } from 'effect';
+import { Array, Duration, Effect, Option, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
-import { type BridgeError, classify, type Probe } from './errors.ts';
-import { type Activity, probe as probed } from './jobs.ts';
-import { type HostId, PROBE_MS } from './values.ts';
+import { type BridgeError, classify, NonZeroExit } from './errors.ts';
+import type { HostId } from './values.ts';
 
 // --- [TEMPLATE] ------------------------------------------------------------------------
 
@@ -14,18 +13,22 @@ const doScript = (javascript: string): string => `do script ${_literal(javascrip
 
 // --- [BOUNDARY] ------------------------------------------------------------------------
 
-const reply: (host: HostId, command: ChildProcess.Command) => Effect.Effect<string, BridgeError, ChildProcessSpawner.ChildProcessSpawner> = Effect.fnUntraced(
-    function* (host: HostId, command: ChildProcess.Command) {
+const reply: (command: ChildProcess.StandardCommand) => Effect.Effect<string, NonZeroExit, ChildProcessSpawner.ChildProcessSpawner> = Effect.fnUntraced(
+    function* (command: ChildProcess.StandardCommand) {
         const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
         const handle = yield* spawner.spawn(command);
         const [stdout, stderr, exitCode] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], {
             concurrency: 'unbounded',
         });
-        return classify(host, { exitCode, stdout, stderr });
+        return { exitCode, stdout, stderr };
     },
     Effect.scoped,
     Effect.orDie,
-    Effect.flatMap(Effect.fromResult),
+    Effect.filterOrFail(
+        (output) => output.exitCode === 0,
+        (output) => NonZeroExit.make({ exitCode: output.exitCode, stderr: output.stderr }),
+    ),
+    Effect.map((output) => String.trim(output.stdout)),
 );
 
 const read = (host: HostId, bundleId: string, timeoutMs: number, statement: string, file: Option.Option<string>): Effect.Effect<string, BridgeError, ChildProcessSpawner.ChildProcessSpawner> => {
@@ -39,12 +42,9 @@ const read = (host: HostId, bundleId: string, timeoutMs: number, statement: stri
         'end tell',
         'end timeout',
     ];
-    return reply(host, ChildProcess.make('osascript', ['-'], { stdin: Stream.encodeText(Stream.make(script.join('\n'))) }));
+    return Effect.mapError(reply(ChildProcess.make('osascript', ['-'], { stdin: Stream.encodeText(Stream.make(script.join('\n'))) })), (exit) => classify(host, exit));
 };
-
-const probe = (host: HostId, bundleId: string, jobs: Ref.Ref<Activity>): Effect.Effect<Probe, never, ChildProcessSpawner.ChildProcessSpawner | Crypto.Crypto> =>
-    probed(host, jobs, () => read(host, bundleId, PROBE_MS, 'get version', Option.none()));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { doScript, probe, read, reply };
+export { doScript, read, reply };

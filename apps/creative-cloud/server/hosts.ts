@@ -1,85 +1,37 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Config, Context, Data, Effect, FileSystem, Option, Path, Schema, SchemaGetter, String, Struct } from 'effect';
+import { Array, Config, Context, Data, Effect, FileSystem, identity, Match, Option, Path, type PlatformError, Record, Result, Schema, SchemaGetter, String } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/unstable/process';
-import type { BridgeError } from './errors.ts';
+import type { BridgeError, NonZeroExit } from './errors.ts';
 import { doScript, read, reply } from './osascript.ts';
-import { AbsolutePath, type HostId } from './values.ts';
+import { AbsolutePath, HOSTS, type HostId, type Row } from './values.ts';
 
 // --- [TABLE] ---------------------------------------------------------------------------
 
-const HOSTS = {
-    illustrator: {
-        id: 'illustrator',
-        bundleId: 'com.adobe.illustratorBeta',
-        processName: 'Adobe Illustrator',
-        channel: 'osascript',
-        prefs: ['Library', 'Preferences', 'Adobe Illustrator 30.9.0 Beta Settings'],
-        support: ['Library', 'Application Support', 'Adobe', 'Adobe Illustrator 30'],
-    },
-    photoshop: {
-        id: 'photoshop',
-        bundleId: 'com.adobe.Photoshop',
-        processName: 'Adobe Photoshop 2026',
-        channel: 'socket',
-        port: 39_217,
-        prefs: ['Library', 'Preferences', 'Adobe Photoshop (Beta) Settings'],
-        support: ['Library', 'Application Support', 'Adobe', 'Adobe Photoshop (Beta)'],
-    },
-    indesign: {
-        id: 'indesign',
-        bundleId: 'com.adobe.InDesign',
-        processName: 'Adobe InDesign 2026 (Beta)',
-        channel: 'socket',
-        port: 39_218,
-        prefs: ['Library', 'Preferences', 'Adobe InDesign (Beta)'],
-        support: ['Library', 'Preferences', 'Adobe InDesign (Beta)', 'Version 21.0-ME'],
-    },
-    acrobat: {
-        id: 'acrobat',
-        bundleId: 'com.adobe.Acrobat.Pro',
-        processName: 'AdobeAcrobat',
-        channel: 'osascript',
-        prefs: ['Library', 'Preferences', 'com.adobe.Acrobat.Pro.plist'],
-        support: ['Library', 'Application Support', 'Adobe', 'Acrobat'],
-    },
-} as const;
+const _LIBRARY = {
+    illustrator: { prefs: ['Preferences', 'Adobe Illustrator 30.9.0 Beta Settings'], support: ['Application Support', 'Adobe', 'Adobe Illustrator 30'] },
+    photoshop: { prefs: ['Preferences', 'Adobe Photoshop (Beta) Settings'], support: ['Application Support', 'Adobe', 'Adobe Photoshop (Beta)'] },
+    indesign: { prefs: ['Preferences', 'Adobe InDesign (Beta)'], support: ['Preferences', 'Adobe InDesign (Beta)', 'Version 21.0-ME'] },
+    acrobat: { prefs: ['Preferences', 'com.adobe.Acrobat.Pro.plist'], support: ['Application Support', 'Adobe', 'Acrobat'] },
+} as const satisfies Record<HostId, { readonly prefs: readonly string[]; readonly support: readonly string[] }>;
+
+const _UXP = { pluginsFolder: ['Plugins', 'External'], registry: ['PluginsInfo', 'v1', 'PS.json'], pluginData: ['PluginsStorage', 'PHSPBETA', '27', 'External'] } as const;
 
 const _LIVE_READ_MS = 10_000;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Row = (typeof HOSTS)[HostId];
-
-interface Common {
-    readonly bundleId: string;
-    readonly processName: string;
-    readonly bundlePath: AbsolutePath;
-    readonly version: string;
-    readonly prefsFolder: AbsolutePath;
-    readonly supportFolder: AbsolutePath;
-    readonly installFolder: AbsolutePath;
-}
-
-type Resolved =
-    | (Common & { readonly id: 'illustrator'; readonly channel: 'osascript'; readonly onDemandModulesFolder: AbsolutePath })
-    | (Common & {
-          readonly id: 'photoshop';
-          readonly channel: 'socket';
-          readonly port: number;
-          readonly pluginsFolder: AbsolutePath;
-          readonly registry: AbsolutePath;
-          readonly pluginData: AbsolutePath;
-      })
-    | (Common & { readonly id: 'indesign'; readonly channel: 'socket'; readonly port: number; readonly featureSet: Option.Option<'righttoleft'> })
-    | (Common & { readonly id: 'acrobat'; readonly channel: 'osascript'; readonly viewerVersion: Option.Option<number> });
+type Resolved = (typeof Resolved)['Type'];
 
 type Keys<T> = T extends unknown ? keyof T : never;
 
 type ResolvedKey = Exclude<Keys<Resolved>, Keys<Row>>;
 
+type Extras = { readonly [K in HostId]: Omit<Extract<Resolved, { readonly id: K }>, Exclude<keyof typeof _common, Keys<Row>>> }[HostId];
+
 type HostKeyError = Data.TaggedEnum<{
-    readonly unresolved: { readonly host: HostId; readonly key: ResolvedKey; readonly cause: BridgeError | Schema.SchemaError };
+    readonly unresolved: { readonly host: HostId; readonly key: ResolvedKey; readonly cause: BridgeError | NonZeroExit | PlatformError.PlatformError | Schema.SchemaError };
+    readonly missing: { readonly host: HostId; readonly key: ResolvedKey; readonly path: AbsolutePath };
 }>;
 
 type Hosts = Readonly<Record<HostId, Resolved>>;
@@ -88,7 +40,15 @@ type Hosts = Readonly<Record<HostId, Resolved>>;
 
 const HostKeyError: Data.TaggedEnum.Constructor<HostKeyError> = Data.taggedEnum<HostKeyError>();
 
-const _common = {
+const _common: {
+    readonly bundleId: Schema.String;
+    readonly processName: Schema.String;
+    readonly bundlePath: typeof AbsolutePath;
+    readonly version: Schema.String;
+    readonly prefsFolder: typeof AbsolutePath;
+    readonly supportFolder: typeof AbsolutePath;
+    readonly installFolder: typeof AbsolutePath;
+} = {
     bundleId: Schema.String,
     processName: Schema.String,
     bundlePath: AbsolutePath,
@@ -99,7 +59,30 @@ const _common = {
 };
 const _FeatureSet = Schema.Literal('righttoleft');
 
-const Resolved: Schema.Codec<Resolved, unknown> = Schema.Union([
+const Resolved: Schema.Union<
+    readonly [
+        Schema.Struct<typeof _common & { readonly id: Schema.Literal<'illustrator'>; readonly channel: Schema.Literal<'osascript'>; readonly onDemandModulesFolder: typeof AbsolutePath }>,
+        Schema.Struct<
+            typeof _common & {
+                readonly id: Schema.Literal<'photoshop'>;
+                readonly channel: Schema.Literal<'socket'>;
+                readonly port: Schema.Int;
+                readonly pluginsFolder: typeof AbsolutePath;
+                readonly registry: typeof AbsolutePath;
+                readonly pluginData: typeof AbsolutePath;
+            }
+        >,
+        Schema.Struct<
+            typeof _common & {
+                readonly id: Schema.Literal<'indesign'>;
+                readonly channel: Schema.Literal<'socket'>;
+                readonly port: Schema.Int;
+                readonly featureSet: Schema.OptionFromNullOr<Schema.Literal<'righttoleft'>>;
+            }
+        >,
+        Schema.Struct<typeof _common & { readonly id: Schema.Literal<'acrobat'>; readonly channel: Schema.Literal<'osascript'>; readonly viewerVersion: Schema.OptionFromNullOr<Schema.Number> }>,
+    ]
+> = Schema.Union([
     Schema.Struct({ ..._common, id: Schema.Literal('illustrator'), channel: Schema.Literal('osascript'), onDemandModulesFolder: AbsolutePath }),
     Schema.Struct({ ..._common, id: Schema.Literal('photoshop'), channel: Schema.Literal('socket'), port: Schema.Int, pluginsFolder: AbsolutePath, registry: AbsolutePath, pluginData: AbsolutePath }),
     Schema.Struct({ ..._common, id: Schema.Literal('indesign'), channel: Schema.Literal('socket'), port: Schema.Int, featureSet: Schema.OptionFromNullOr(_FeatureSet) }),
@@ -112,21 +95,23 @@ const Hosts: Context.Service<Hosts, Hosts> = Context.Service<Hosts>('Hosts');
 
 // --- [READS] ---------------------------------------------------------------------------
 
-const _existing = Schema.decodeEffect(
-    AbsolutePath.pipe(
-        Schema.decodeTo(AbsolutePath, {
-            decode: SchemaGetter.checkEffect((path) => Effect.orDie(FileSystem.FileSystem.use((fs) => fs.exists(path)))),
-            encode: SchemaGetter.passthroughSupertype(),
-        }),
-    ),
-);
+const _key = <A, R>(
+    host: HostId,
+    key: ResolvedKey,
+    reading: Effect.Effect<A, BridgeError | NonZeroExit | PlatformError.PlatformError | Schema.SchemaError, R>,
+): Effect.Effect<A, Array.NonEmptyArray<HostKeyError>, R> => Effect.mapError(reading, (cause) => Array.of(HostKeyError.unresolved({ host, key, cause })));
 
-const _bundles = Schema.decodeEffect(
-    Schema.String.pipe(Schema.decodeTo(Schema.NonEmptyArray(AbsolutePath), { decode: SchemaGetter.transform(String.split('\n')), encode: SchemaGetter.transform(Array.join('\n')) })),
-);
-
-const _key = <A, R>(host: HostId, key: ResolvedKey, reading: Effect.Effect<A, BridgeError | Schema.SchemaError, R>): Effect.Effect<A, HostKeyError, R> =>
-    Effect.mapError(reading, (cause) => HostKeyError.unresolved({ host, key, cause }));
+const _existing = (host: HostId, key: ResolvedKey, candidate: string): Effect.Effect<AbsolutePath, Array.NonEmptyArray<HostKeyError>, FileSystem.FileSystem> =>
+    Effect.flatMap(_key(host, key, Schema.decodeEffect(AbsolutePath)(candidate)), (path) =>
+        _key(
+            host,
+            key,
+            FileSystem.FileSystem.use((fs) => fs.exists(path)),
+        ).pipe(
+            Effect.filterOrFail(identity, () => Array.of(HostKeyError.missing({ host, key, path }))),
+            Effect.as(path),
+        ),
+    );
 
 const _live = <T>(host: Row, statement: string, schema: Schema.Codec<T, unknown>): Effect.Effect<Option.Option<T>, BridgeError | Schema.SchemaError, ChildProcessSpawner.ChildProcessSpawner> =>
     read(host.id, host.bundleId, _LIVE_READ_MS, statement, Option.none()).pipe(
@@ -135,66 +120,86 @@ const _live = <T>(host: Row, statement: string, schema: Schema.Codec<T, unknown>
         Effect.catchTag('hostNotRunning', () => Effect.succeedNone),
     );
 
-const _resolved = Effect.fnUntraced(function* <H extends Row, K extends Record<string, unknown>>(
-    host: H,
+const _validated = (results: Record.ReadonlyRecord<string, Result.Result<unknown, Array.NonEmptyReadonlyArray<HostKeyError>>>): Effect.Effect<void, Array.NonEmptyArray<HostKeyError>> =>
+    Effect.mapError(Effect.validate(Record.values(results), Effect.fromResult, { discard: true }), Array.flatten);
+
+const _extras = (
+    host: Row,
     home: string,
-    keys: (bundlePath: AbsolutePath) => Effect.Effect<K, HostKeyError, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem>,
-) {
+    bundlePath: AbsolutePath,
+    path: Path.Path,
+): Effect.Effect<Extras, Array.NonEmptyReadonlyArray<HostKeyError>, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem> =>
+    Match.value(host).pipe(
+        Match.discriminatorsExhaustive('id')({
+            illustrator: (illustrator) =>
+                Effect.map(
+                    _existing(illustrator.id, 'onDemandModulesFolder', path.join('/Library', 'Application Support', 'Adobe', path.basename(path.dirname(bundlePath)), 'OnDemandModules')),
+                    (onDemandModulesFolder) => ({ ...illustrator, onDemandModulesFolder }),
+                ),
+            photoshop: (photoshop) =>
+                Effect.all(
+                    Record.map(_UXP, (segments, key) => _existing(photoshop.id, key, path.join(home, 'Library', 'Application Support', 'Adobe', 'UXP', ...segments))),
+                    { mode: 'result' },
+                ).pipe(
+                    Effect.flatMap((folders) => Effect.andThen(_validated(folders), Effect.fromResult(Result.all(folders)))),
+                    Effect.map((folders) => ({ ...photoshop, ...folders })),
+                ),
+            indesign: (indesign) =>
+                Effect.map(_key(indesign.id, 'featureSet', _live(indesign, 'do script "app.featureSet" language javascript', _FeatureSet)), (featureSet) => ({ ...indesign, featureSet })),
+            acrobat: (acrobat) =>
+                Effect.map(
+                    _key(acrobat.id, 'viewerVersion', _live(acrobat, doScript('(function () { return JSON.stringify(app.viewerVersion); })()'), Schema.fromJsonString(Schema.Number))),
+                    (viewerVersion) => ({ ...acrobat, viewerVersion }),
+                ),
+        }),
+    );
+
+const _resolved = Effect.fnUntraced(function* (host: Row, home: string) {
     const path = yield* Path.Path;
     const bundlePath = yield* _key(
         host.id,
         'bundlePath',
-        reply(host.id, ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${host.bundleId}'`])).pipe(Effect.flatMap(_bundles), Effect.map(Array.headNonEmpty)),
+        reply(ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${host.bundleId}'`])).pipe(
+            Effect.flatMap(
+                Schema.decodeEffect(
+                    Schema.String.pipe(Schema.decodeTo(Schema.NonEmptyArray(AbsolutePath), { decode: SchemaGetter.transform(String.split('\n')), encode: SchemaGetter.transform(Array.join('\n')) })),
+                ),
+            ),
+            Effect.map(Array.headNonEmpty),
+        ),
     );
-    const plist = path.join(bundlePath, 'Contents', 'Info.plist');
-    const [common, extra] = yield* Effect.all([
-        Effect.all({
+    const results = yield* Effect.all(
+        {
             version: _key(
                 host.id,
                 'version',
-                Effect.flatMap(reply(host.id, ChildProcess.make('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', plist])), Schema.decodeEffect(Schema.NonEmptyString)),
+                Effect.flatMap(
+                    reply(ChildProcess.make('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', path.join(bundlePath, 'Contents', 'Info.plist')])),
+                    Schema.decodeEffect(Schema.NonEmptyString),
+                ),
             ),
-            prefsFolder: _key(host.id, 'prefsFolder', _existing(path.join(home, ...host.prefs))),
-            supportFolder: _key(host.id, 'supportFolder', _existing(path.join(home, ...host.support))),
-            installFolder: _key(host.id, 'installFolder', _existing(path.dirname(bundlePath))),
-        }),
-        keys(bundlePath),
-    ]);
-    return { ...Struct.omit(host, ['prefs', 'support']), bundlePath, ...common, ...extra };
+            prefsFolder: _existing(host.id, 'prefsFolder', path.join(home, 'Library', ..._LIBRARY[host.id].prefs)),
+            supportFolder: _existing(host.id, 'supportFolder', path.join(home, 'Library', ..._LIBRARY[host.id].support)),
+            installFolder: _existing(host.id, 'installFolder', path.dirname(bundlePath)),
+            row: _extras(host, home, bundlePath, path),
+        },
+        { mode: 'result' },
+    );
+    const { row, ...common } = yield* Effect.andThen(_validated(results), Effect.fromResult(Result.all(results)));
+    return { ...row, bundlePath, ...common };
 });
 
-const resolve: Effect.Effect<Hosts, HostKeyError | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
-    const home = yield* Config.String('HOME');
-    const path = yield* Path.Path;
-    const uxp = path.join(home, 'Library', 'Application Support', 'Adobe', 'UXP');
-    return yield* Effect.all({
-        illustrator: _resolved(HOSTS.illustrator, home, (bundlePath) =>
-            Effect.all({
-                onDemandModulesFolder: _key(
-                    'illustrator',
-                    'onDemandModulesFolder',
-                    _existing(path.join('/Library', 'Application Support', 'Adobe', path.basename(path.dirname(bundlePath)), 'OnDemandModules')),
-                ),
-            }),
-        ),
-        photoshop: _resolved(HOSTS.photoshop, home, () =>
-            Effect.all({
-                pluginsFolder: _key('photoshop', 'pluginsFolder', _existing(path.join(uxp, 'Plugins', 'External'))),
-                registry: _key('photoshop', 'registry', _existing(path.join(uxp, 'PluginsInfo', 'v1', 'PS.json'))),
-                pluginData: _key('photoshop', 'pluginData', _existing(path.join(uxp, 'PluginsStorage', 'PHSPBETA', '27', 'External'))),
-            }),
-        ),
-        indesign: _resolved(HOSTS.indesign, home, () =>
-            Effect.all({ featureSet: _key('indesign', 'featureSet', _live(HOSTS.indesign, 'do script "app.featureSet" language javascript', _FeatureSet)) }),
-        ),
-        acrobat: _resolved(HOSTS.acrobat, home, () =>
-            Effect.all({
-                viewerVersion: _key('acrobat', 'viewerVersion', _live(HOSTS.acrobat, doScript('(function () { return JSON.stringify(app.viewerVersion); })()'), Schema.fromJsonString(Schema.Number))),
-            }),
-        ),
-    });
-});
+const resolve: Effect.Effect<Hosts, Array.NonEmptyReadonlyArray<HostKeyError> | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path> = Effect.gen(
+    function* () {
+        const home = yield* Config.String('HOME');
+        const results = yield* Effect.all(
+            Record.map(HOSTS, (row) => _resolved(row, home)),
+            { mode: 'result' },
+        );
+        return yield* Effect.andThen(_validated(results), Effect.fromResult(Result.all(results)));
+    },
+);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { HOSTS, Hosts, Resolved, resolve };
+export { Hosts, Resolved, resolve };

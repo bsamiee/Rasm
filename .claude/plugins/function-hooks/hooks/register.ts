@@ -1,7 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ClassicHookEvent, ClassicHookInputs, ClassicResult, EngineInterface, Frozen, Next, ProcessRunInit, ProcessRunResult, Register, ToolCallInput, ToolCallResult } from 'claude-code';
-import { fault, fromNullable, map, none, type Option, ok, type Result } from './composition.ts';
+import { SCAN } from './command.ts';
+import { bind, fault, fromNullable, map, none, type Option, ok, type Result } from './composition.ts';
 import { decide } from './events/tool-call.ts';
 import {
     type Candidate,
@@ -30,8 +31,8 @@ import {
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
+import { basename } from './path.ts';
 import type { Place } from './policies/walk.ts';
-import { basename, SCAN } from './text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -49,15 +50,34 @@ type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]
 
 type Boundary = Frozen<ClassicHookInputs['Stop']> | Frozen<ClassicHookInputs['SubagentStop']>;
 
+interface Memo {
+    readonly text: () => string;
+    readonly set: (text: string) => boolean;
+}
+
 interface Environment {
     readonly chosen: Settings;
     readonly claims: Set<string>;
-    readonly footer: { readonly text: () => string; readonly set: (text: string) => boolean };
+    readonly footer: Memo;
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _CTRL = /\p{Cc}+/gu;
+
+// --- [MEMO] ----------------------------------------------------------------------------
+
+const _memo = (): Memo => {
+    let last = '';
+    return {
+        text: () => last,
+        set: (text: string): boolean => {
+            const changed = text !== last;
+            last = text;
+            return changed;
+        },
+    };
+};
 
 // --- [PROCESS] -------------------------------------------------------------------------
 
@@ -94,7 +114,7 @@ const _prepared = ($: EngineInterface, sqlite: Argv, root: string): Promise<Resu
     );
 
 const _located = ($: EngineInterface, root: string): Promise<Result<Sink>> =>
-    _run($, LOCATE, { cwd: root }).then((where) => (where.kind === 'fault' ? where : _prepared($, sqlite3(where.value.trim(), database(root)), root)));
+    _run($, LOCATE, { cwd: root }).then((where) => bind(where, (install) => _prepared($, sqlite3(install.trim(), database(root)), root)));
 
 const _open = ($: EngineInterface): Promise<Result<Sink>> =>
     $.session
@@ -199,7 +219,7 @@ const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage
 
 const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, environment: Environment): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: STATE(lineage, to, environment.chosen), cwd: lineage.worktree }).then((read) => {
-        const seen = read.kind === 'ok' ? state(read.value, environment.chosen) : read;
+        const seen = bind(read, (text) => state(text, environment.chosen));
         if (seen.kind === 'fault') {
             return _skip($, `state not read, ${seen.reason}`);
         }
@@ -235,12 +255,15 @@ const _boundary = ($: EngineInterface, sink: Sink, e: Boundary, to: number, envi
         worktree.kind === 'fault' ? _skip($, worktree.reason) : _branched($, sink, e, to, environment, worktree.value.trim()),
     );
 
-const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Environment, to: number): Promise<readonly string[]> =>
+const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Result<Environment>, footer: Memo, to: number): Promise<readonly string[]> =>
     _classic($, sink, e, to).then(() => {
-        if (e.hook_event_name === 'SessionEnd' && environment.footer.set('')) {
+        if (e.hook_event_name === 'SessionEnd' && footer.set('')) {
             $.ui.invalidate('ui.render');
         }
-        return _stopping(e) ? _boundary($, sink, e, to, environment) : [];
+        if (!_stopping(e)) {
+            return [];
+        }
+        return environment.kind === 'ok' ? _boundary($, sink, e, to, environment.value) : _skip($, `options not read, ${environment.reason}`);
     });
 
 const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult => {
@@ -251,20 +274,9 @@ const _answered = (result: ClassicResult, entries: readonly string[]): ClassicRe
 // --- [REGISTRATION] --------------------------------------------------------------------
 
 const register: Register = (on, options) => {
-    let last = '';
+    const footer = _memo();
     const claims: Set<string> = new Set();
-    const environment: Environment = {
-        chosen: settings(options),
-        claims,
-        footer: {
-            text: () => last,
-            set: (text: string): boolean => {
-                const changed = text !== last;
-                last = text;
-                return changed;
-            },
-        },
-    };
+    const environment = map(settings(options), (chosen): Environment => ({ chosen, claims, footer }));
     const walking = options['walkPolicy'] === true;
     let opening: Promise<Result<Sink>> | undefined;
     const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
@@ -309,7 +321,7 @@ const register: Register = (on, options) => {
         ($, e, next) =>
             next.is('!classic.PreToolUse', e)
                 ? _stamped($, once)
-                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, found.value.ts) : []))
+                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, footer, found.value.ts) : []))
                       .then((entries) => next(e).then((result) => _answered(result, entries)))
                 : next(e),
     );
@@ -320,7 +332,7 @@ const register: Register = (on, options) => {
             .then(() => next(e)),
     );
 
-    on('ui.render', { component: 'SessionMode' }, (_$, e, next) => (environment.footer.text() === '' ? next(e) : next({ ...e, props: { modes: [...e.props.modes, environment.footer.text()] } })));
+    on('ui.render', { component: 'SessionMode' }, (_$, e, next) => (footer.text() === '' ? next(e) : next({ ...e, props: { modes: [...e.props.modes, footer.text()] } })));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
