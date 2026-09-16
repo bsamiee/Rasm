@@ -47,16 +47,13 @@ class PointFrame(msgspec.Struct, frozen=True):
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _corners(box: BoundingBox) -> Frame:
-    return (box.Min.X, box.Min.Y, box.Min.Z), (box.Max.X, box.Max.Y, box.Max.Z)
-
-
 def capture(
     doc: RhinoDoc, name: str, frame: Frame | None = None, view: str = "Perspective", mode: str = "Shaded", size: tuple[int, int] = (1280, 720)
 ) -> Capture | UnknownView | UnknownMode | PointFrame:
     """Frame the given world bounding box, or every visible object, in one view and write the view as a JPEG."""
     box = doc.Objects.BoundingBoxVisible if frame is None else BoundingBox(Point3d(*frame[0]), Point3d(*frame[1]))
-    lower, upper = _corners(box)
+    lower: Corner = (box.Min.X, box.Min.Y, box.Min.Z)
+    upper: Corner = (box.Max.X, box.Max.Y, box.Max.Z)
     if (rhino_view := doc.Views.Find(view, compareCase=True)) is None:
         return UnknownView(view, tuple(known.ActiveViewport.Name for known in doc.Views))
     if (description := DisplayModeDescription.FindByName(mode)) is None:

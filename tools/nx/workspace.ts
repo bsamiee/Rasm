@@ -1,20 +1,12 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { FileSystem, Path } from '@effect/platform';
-import { NodeContext } from '@effect/platform-node';
+import { NodeServices } from '@effect/platform-node';
 import { type CreateNodes, type CreateNodesResultArray, createNodesFromFiles } from '@nx/devkit';
-import { Effect, Option, ParseResult, Schema, Struct } from 'effect';
+import { Effect, FileSystem, Option, Path, Schema, SchemaGetter, Struct } from 'effect';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _NAME = /^\[project\][ \t]*(?:#.*)?$(?:\r?\n(?!\[).*)*?\r?\nname[ \t]*=[ \t]*(?<quote>["'])(?<name>[A-Za-z0-9](?:[A-Za-z0-9._-]*[A-Za-z0-9])?)\k<quote>/mu;
-
-// --- [MODELS] --------------------------------------------------------------------------
-
-const _ProjectName = Schema.transformOrFail(Schema.String, Schema.String.pipe(Schema.brand('ProjectName')), {
-    decode: (text, _, ast) => ParseResult.fromOption(Option.fromNullable(_NAME.exec(text)?.groups?.['name']), () => new ParseResult.Type(ast, text, 'declares no name under [project]')),
-    encode: (name, _, ast) => ParseResult.fail(new ParseResult.Forbidden(ast, name, 'decodes alone')),
-});
 
 // --- [PROGRAM] -------------------------------------------------------------------------
 
@@ -32,7 +24,16 @@ const _project = Effect.fnUntraced(function* (file: string, root: string) {
             targets: { build: {}, install: {}, lint: {}, format: {}, check: {} },
         }),
         '.toml': fs.readFileString(path.join(root, file)).pipe(
-            Effect.flatMap(Schema.decode(_ProjectName)),
+            Effect.flatMap(
+                Schema.decodeEffect(
+                    Schema.String.pipe(
+                        Schema.decodeTo(Schema.String, {
+                            decode: SchemaGetter.transformOptional(Option.flatMap((text: string) => Option.fromNullishOr(_NAME.exec(text)?.groups?.['name']))),
+                            encode: SchemaGetter.forbidden(() => 'decodes alone'),
+                        }),
+                    ),
+                ),
+            ),
             Effect.map((name) => ({
                 root: directory,
                 name,
@@ -41,9 +42,9 @@ const _project = Effect.fnUntraced(function* (file: string, root: string) {
             })),
         ),
     };
-    const configuration = yield* configurations[yield* Schema.decodeUnknown(Schema.Literal(...Struct.keys(configurations)))(path.extname(file))];
+    const configuration = yield* configurations[yield* Schema.decodeUnknownEffect(Schema.Literals(Struct.keys(configurations)))(path.extname(file))];
     return { projects: { [configuration.root]: configuration } };
-}, Effect.provide(NodeContext.layer));
+}, Effect.provide(NodeServices.layer));
 
 // --- [REGISTRATION] --------------------------------------------------------------------
 

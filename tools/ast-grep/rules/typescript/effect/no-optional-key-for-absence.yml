@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-key-for-absence
+language: tsx
+severity: error
+utils:
+    optional-combinator:
+        any:
+            - kind: member_expression
+              pattern: $M.$FN
+              all:
+                  - has: {field: property, regex: '^optional(Key)?$'}
+                  - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+            - kind: identifier
+              pattern: $FN
+              all:
+                  - regex: '^optional(Key)?$'
+                  - matches: {syntax-import-reference: {source: {regex: '^effect/Schema$'}, exported: {regex: '^optional(Key)?$'}}}
+    decoding-default:
+        kind: call_expression
+        has: {field: function, has: {field: property, regex: '^withDecodingDefault(Type)?(Key)?$'}}
+    beside-default:
+        inside: {kind: arguments, has: {matches: decoding-default}}
+    chained-default:
+        inside: {kind: member_expression, inside: {kind: call_expression, has: {field: arguments, has: {matches: decoding-default}}}}
+rule:
+    any:
+        - kind: call_expression
+          all:
+              - has: {field: function, matches: optional-combinator}
+              - not: {any: [{matches: beside-default}, {matches: chained-default}]}
+        - kind: member_expression
+          all:
+              - matches: optional-combinator
+              - inside: {kind: arguments}
+              - not: {matches: beside-default}
+transform:
+    OPT: replace($FN, replace='^optional', by='OptionFromOptional')
+message: '`$FN` leaves absence as an optional key of the domain type, `$OPT` decodes it once into an Option'
+note: 'Decode absence once with `OptionFromOptionalKey` or `OptionFromOptional`, the Type-side declaration holds `Option.Option<T>` for the key, a `withDecodingDefault` chain keeps the optional key'

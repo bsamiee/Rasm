@@ -1,0 +1,201 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 110;
+	objects = {
+
+/* Begin PBXFileReference section */
+		5B928FEFD042529BBCB72801 /* WindowList */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = WindowList; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		5B928FEFD042529BBCB72803 /* Exceptions for "WindowList" folder in "WindowList" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				.lldbinit,
+				WindowList.xcodeproj,
+			);
+			target = 5B928FEFD042529BBCB72809 /* WindowList */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		5B928FEFD042529BBCB72804 /* WindowList */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				5B928FEFD042529BBCB72803 /* Exceptions for "WindowList" folder in "WindowList" target */,
+			);
+			name = WindowList;
+			path = .;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		5B928FEFD042529BBCB72805 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			files = (
+			);
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		5B928FEFD042529BBCB72806 = {
+			isa = PBXGroup;
+			children = (
+				5B928FEFD042529BBCB72804 /* WindowList */,
+				5B928FEFD042529BBCB72807 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		5B928FEFD042529BBCB72807 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				5B928FEFD042529BBCB72801 /* WindowList */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		5B928FEFD042529BBCB72809 /* WindowList */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5B928FEFD042529BBCB72812 /* Build configuration list for PBXNativeTarget "WindowList" */;
+			buildPhases = (
+				5B928FEFD042529BBCB7280B /* Sources */,
+				5B928FEFD042529BBCB72805 /* Frameworks */,
+			);
+			buildRules = (
+			);
+			fileSystemSynchronizedGroups = (
+				5B928FEFD042529BBCB72804 /* WindowList */,
+			);
+			name = WindowList;
+			productName = WindowList;
+			productReference = 5B928FEFD042529BBCB72801 /* WindowList */;
+			productType = "com.apple.product-type.tool";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		5B928FEFD042529BBCB72808 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+			};
+			buildConfigurationList = 5B928FEFD042529BBCB72811 /* Build configuration list for PBXProject "WindowList" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 5B928FEFD042529BBCB72806;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 110;
+			productRefGroup = 5B928FEFD042529BBCB72807 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				5B928FEFD042529BBCB72809 /* WindowList */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		5B928FEFD042529BBCB7280B /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			files = (
+			);
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		5B928FEFD042529BBCB7280C /* Debug configuration for PBXProject "WindowList" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		5B928FEFD042529BBCB7280D /* Release configuration for PBXProject "WindowList" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				DEAD_CODE_STRIPPING = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		5B928FEFD042529BBCB7280E /* Debug configuration for PBXNativeTarget "WindowList" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BBXB9R367P;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
+				SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		5B928FEFD042529BBCB7280F /* Release configuration for PBXNativeTarget "WindowList" */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_IDENTITY = "Apple Development";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BBXB9R367P;
+				ENABLE_HARDENED_RUNTIME = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_APPROACHABLE_CONCURRENCY = YES;
+				SWIFT_DEFAULT_ACTOR_ISOLATION = MainActor;
+				SWIFT_TREAT_WARNINGS_AS_ERRORS = YES;
+				SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES;
+				SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT = YES;
+				SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5B928FEFD042529BBCB72811 /* Build configuration list for PBXProject "WindowList" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B928FEFD042529BBCB7280C /* Debug configuration for PBXProject "WindowList" */,
+				5B928FEFD042529BBCB7280D /* Release configuration for PBXProject "WindowList" */,
+			);
+			defaultConfigurationName = Release;
+		};
+		5B928FEFD042529BBCB72812 /* Build configuration list for PBXNativeTarget "WindowList" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				5B928FEFD042529BBCB7280E /* Debug configuration for PBXNativeTarget "WindowList" */,
+				5B928FEFD042529BBCB7280F /* Release configuration for PBXNativeTarget "WindowList" */,
+			);
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 5B928FEFD042529BBCB72808 /* Project object */;
+}

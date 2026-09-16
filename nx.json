@@ -40,6 +40,11 @@
                 "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination 'platform=macOS,arch=arm64' -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution build",
                 "inputs": ["default", "xcode"],
                 "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug"]
+            },
+            {
+                "filter": { "projects": ["tag:language:typescript"] },
+                "executor": "nx:run-commands",
+                "inputs": ["production", "^production", "typescript", { "externalDependencies": ["vite", "@swc/core", "@swc/cli"] }]
             }
         ],
         "install": [
@@ -79,7 +84,7 @@
                 "executor": "nx:run-commands",
                 "cache": true,
                 "dependsOn": ["^typecheck"],
-                "inputs": ["default", "^production", "typescript", { "externalDependencies": ["typescript"] }],
+                "inputs": ["default", { "dependentTasksOutputFiles": "**/*.d.ts", "transitive": true }, "typescript", { "externalDependencies": ["typescript"] }],
                 "options": { "command": "tsc --build --pretty false", "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
             }

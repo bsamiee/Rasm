@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bind-by-conditional
+language: tsx
+severity: error
+utils:
+    fault-test:
+        kind: binary_expression
+        any:
+            - pattern: "$R.kind === 'fault'"
+            - pattern: "$R.kind !== 'ok'"
+    ok-test:
+        kind: binary_expression
+        any:
+            - pattern: "$R.kind === 'ok'"
+            - pattern: "$R.kind !== 'fault'"
+    own-parameter:
+        pattern: $G($R.value)
+        inside:
+            matches: syntax-function-boundary
+            stopBy: {matches: syntax-function-boundary}
+            has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $G}}}
+    continuation:
+        pattern: $F
+        not: {any: [{pattern: ok($$$_)}, {matches: own-parameter}]}
+    unchanged-return:
+        kind: return_statement
+        all:
+            - has: {nthChild: 1, pattern: $R}
+            - not: {has: {nthChild: 2}}
+rule:
+    any:
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, matches: fault-test}
+            - has: {field: consequence, pattern: $R}
+            - has: {field: alternative, matches: continuation}
+        - kind: ternary_expression
+          all:
+            - has: {field: condition, matches: ok-test}
+            - has: {field: alternative, pattern: $R}
+            - has: {field: consequence, matches: continuation}
+        - kind: if_statement
+          all:
+            - has: {field: condition, has: {matches: fault-test}}
+            - has:
+                field: consequence
+                any:
+                    - matches: unchanged-return
+                    - kind: statement_block
+                      all:
+                        - has: {matches: unchanged-return}
+                        - not: {has: {nthChild: 2}}
+            - any:
+                - has: {field: alternative, kind: else_clause}
+                - precedes: {pattern: $_}
+message: '`$R` is matched on `kind` by hand to return its fault and bind its value'
+note: '`bind(<result>, (<value>) => <continuation>)` skips the continuation on a fault, `map` where the continuation returns a plain value'

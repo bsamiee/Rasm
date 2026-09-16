@@ -7,7 +7,7 @@
     "json": { "formatter": { "enabled": false } },
     "assist": { "actions": { "source": { "organizeImports": "on", "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
-        "domains": { "project": "all", "react": "all", "test": "all", "types": "all" },
+        "domains": { "project": "all", "qwik": "none", "react": "all", "test": "all", "types": "all" },
         "rules": {
             "preset": "all",
             "a11y": "error",
@@ -80,12 +80,19 @@
                 }
             }
         },
-        { "includes": ["**/vitest.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
             "includes": [".claude/plugins/**"],
-            "linter": { "domains": { "qwik": "none" }, "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
+            "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
         },
-        { "includes": ["infra/automation.ts"], "linter": { "domains": { "qwik": "none" }, "rules": { "correctness": { "noProcessGlobal": "off" } } } },
+        {
+            "includes": ["apps/creative-cloud/indesign-plugin/**", "apps/creative-cloud/photoshop-plugin/**"],
+            "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
+        },
+        {
+            "includes": ["apps/creative-cloud/illustrator-scripts/**"],
+            "linter": { "rules": { "correctness": { "noUndeclaredVariables": "off" } } }
+        },
         {
             "includes": ["infra/program.ts"],
             "linter": {

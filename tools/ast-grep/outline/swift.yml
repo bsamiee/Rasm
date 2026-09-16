@@ -76,7 +76,6 @@ rule:
     has: {field: name, kind: simple_identifier, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
-isPublic: true
 
 ---
 id: swift-member-typealias
@@ -140,7 +139,6 @@ rule:
     has: {kind: type_identifier, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
-isPublic: true
 
 ---
 id: swift-member-protocol-property
@@ -154,7 +152,6 @@ rule:
     has: {field: name, kind: pattern, has: {kind: simple_identifier, pattern: $NAME}}
 name: $NAME
 signature: $DECLARATION
-isPublic: true
 
 ---
 id: swift-member-protocol-init
@@ -168,4 +165,3 @@ rule:
     inside: {kind: protocol_body}
 name: init
 signature: $DECLARATION
-isPublic: true

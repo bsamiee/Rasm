@@ -29,6 +29,14 @@ utils:
                         - has: {field: object, matches: process-run}
     scope:
         any: [{matches: syntax-function-boundary}, {kind: program}]
+    spawner-service:
+        any:
+            - kind: identifier
+              matches: {syntax-import-reference: {source: {regex: '^effect/unstable/process/ChildProcessSpawner$'}, exported: {regex: '^ChildProcessSpawner$'}}}
+            - kind: member_expression
+              all:
+                - has: {field: property, regex: '^ChildProcessSpawner$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect/unstable/process(/ChildProcessSpawner)?$'}, exported: {regex: '^ChildProcessSpawner$'}}}}
     decision-on-code:
         any:
             - kind: binary_expression, unary_expression
@@ -96,9 +104,24 @@ rule:
         - kind: member_expression
           pattern: $STREAM
           all:
-            - has: {field: property, regex: '^(string|lines|stream|streamLines)$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform(/Command)?$'}, exported: {regex: '^Command$'}}}}
+            - has: {field: property, regex: '^(string|lines|streamString|streamLines|exitCode)$'}
+            - has: {field: object, kind: identifier, pattern: $SPAWNER}
+            - inside:
+                matches: scope
+                stopBy: end
+                any:
+                    - has:
+                        stopBy: end
+                        kind: variable_declarator
+                        all:
+                            - has: {field: name, kind: identifier, pattern: $SPAWNER}
+                            - has: {field: value, kind: yield_expression, has: {matches: spawner-service}}
+                    - all:
+                        - any:
+                            - has: {field: parameter, kind: identifier, pattern: $SPAWNER}
+                            - has: {field: parameters, has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $SPAWNER}}}
+                        - inside: {kind: arguments, has: {nthChild: 1, matches: spawner-service}}
 message: '`$STREAM` reads process output with no decision on `exitCode`'
-note: 'Read `exitCode` from `Command.start` before the streams, a non-zero exit fails with `stderr` as its reason'
+note: 'Read `exitCode` from the handle `spawner.spawn` returns beside `stdout` and `stderr`, a non-zero exit fails with `stderr` as its reason'
 labels:
     STREAM: {style: primary}

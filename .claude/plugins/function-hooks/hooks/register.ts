@@ -1,8 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ClassicHookEvent, ClassicHookInputs, ClassicResult, EngineInterface, Frozen, Next, ProcessRunInit, ProcessRunResult, Register, ToolCallInput, ToolCallResult } from 'claude-code';
-import { fromNullable, none, type Option } from './composition/option.ts';
-import { bind, fault, map, ok, type Result } from './composition/result.ts';
+import { fault, fromNullable, map, none, type Option, ok, type Result } from './composition.ts';
 import { decide } from './events/tool-call.ts';
 import {
     type Candidate,
@@ -29,11 +28,10 @@ import {
     status,
     type Task,
 } from './observation/delivery.ts';
-import { CALL, CLASSIC, type Columns, type Event, type Row, row, session, TURN } from './observation/row.ts';
+import { CALL, CLASSIC, type Columns, type Event, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
 import type { Place } from './policies/walk.ts';
-import { SCAN } from './text/command.ts';
-import { basename } from './text/path.ts';
+import { basename, SCAN } from './text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -47,43 +45,19 @@ interface Stamped {
     readonly ts: number;
 }
 
-type Once = (attempt: () => Promise<Result<Sink>>) => Promise<Result<Sink>>;
-
 type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]>;
 
 type Boundary = Frozen<ClassicHookInputs['Stop']> | Frozen<ClassicHookInputs['SubagentStop']>;
 
-interface Memo {
-    readonly text: () => string;
-    readonly set: (text: string) => boolean;
-}
-
 interface Environment {
     readonly chosen: Settings;
     readonly claims: Set<string>;
-    readonly footer: Memo;
+    readonly footer: { readonly text: () => string; readonly set: (text: string) => boolean };
 }
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _CTRL = /\p{Cc}+/gu;
-const _WORKTREE: Argv = ['git', 'rev-parse', '--show-toplevel'];
-const _BRANCH: Argv = ['git', 'branch', '--show-current'];
-const _NO_ENTRIES: readonly string[] = [];
-
-// --- [MEMO] ----------------------------------------------------------------------------
-
-const _memo = (): Memo => {
-    let last = '';
-    return {
-        text: () => last,
-        set: (text: string): boolean => {
-            const changed = text !== last;
-            last = text;
-            return changed;
-        },
-    };
-};
 
 // --- [PROCESS] -------------------------------------------------------------------------
 
@@ -133,22 +107,22 @@ const _open = ($: EngineInterface): Promise<Result<Sink>> =>
             return opened;
         });
 
-const _paired = (sink: Result<Sink>, ts: number): Result<Stamped> => map(sink, (value) => ({ sink: value, ts }));
-
-const _stamped = ($: EngineInterface, once: Once): Promise<Result<Stamped>> => $.clock.now().then((ts) => once(() => _open($)).then((sink) => _paired(sink, ts)));
+const _stamped = ($: EngineInterface, once: (attempt: () => Promise<Result<Sink>>) => Promise<Result<Sink>>): Promise<Result<Stamped>> =>
+    $.clock.now().then((ts) => once(() => _open($)).then((sink) => map(sink, (value) => ({ sink: value, ts }))));
 
 // --- [RECORD] --------------------------------------------------------------------------
 
-const _write = ($: EngineInterface, sink: Sink, built: Row): Promise<void> =>
-    _run($, sink.argv, { stdin: script(built), cwd: sink.root }).then((ran) => {
-        if (ran.kind === 'fault') {
-            $.ui.log(`${built.event} row ${built.toolUseId.kind === 'some' ? built.toolUseId.value : built.sessionId} not written, ${ran.reason}`);
-        }
-    });
-
 const record = ($: EngineInterface, sink: Sink, event: Event, value: Readonly<Record<string, unknown>>, columns: Columns, ts: number): Promise<void> => {
+    const write = (id: string): Promise<void> => {
+        const built = row(event, value, columns, id, ts);
+        return _run($, sink.argv, { stdin: script(built), cwd: sink.root }).then((ran) => {
+            if (ran.kind === 'fault') {
+                $.ui.log(`${built.event} row ${built.toolUseId.kind === 'some' ? built.toolUseId.value : built.sessionId} not written, ${ran.reason}`);
+            }
+        });
+    };
     const own = session(value, columns);
-    return own.kind === 'some' ? _write($, sink, row(event, value, columns, own.value, ts)) : $.session.id().then((id) => _write($, sink, row(event, value, columns, id, ts)));
+    return own.kind === 'some' ? write(own.value) : $.session.id().then(write);
 };
 
 const _classic = ($: EngineInterface, sink: Sink, e: Classic, ts: number): Promise<void> =>
@@ -177,7 +151,7 @@ const _spawn = ($: EngineInterface, agent: string, prompt: string, description: 
 
 const _skip = ($: EngineInterface, reason: string): readonly string[] => {
     $.ui.log(`boundary skipped, ${reason}`);
-    return _NO_ENTRIES;
+    return [];
 };
 
 const _claimed = ($: EngineInterface, sink: Sink, lineage: Lineage, range: Range, to: number, agent: string): Promise<void> =>
@@ -223,14 +197,9 @@ const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage
     });
 };
 
-const _handed = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, to: number, candidate: Candidate, delivering: boolean): Promise<readonly string[]> =>
-    _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, to), cwd: lineage.worktree })
-        .then((written) => _reported($, sink, e, lineage, environment, to, candidate, written))
-        .then(() => (delivering ? _delivered($, sink, e, lineage, to) : _NO_ENTRIES));
-
 const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, environment: Environment): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: STATE(lineage, to, environment.chosen), cwd: lineage.worktree }).then((read) => {
-        const seen = bind(read, (stdout) => state(stdout, environment.chosen));
+        const seen = read.kind === 'ok' ? state(read.value, environment.chosen) : read;
         if (seen.kind === 'fault') {
             return _skip($, `state not read, ${seen.reason}`);
         }
@@ -245,30 +214,33 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
         const quiet = holding.length === 0;
         _judge($, sink, lineage, to, seen.value.edits, tasks.value, quiet, environment.claims);
         const busy = occupied(tasks.value, environment.claims);
-        const stopping = e.hook_event_name === 'Stop';
-        const delivering = stopping && seen.value.undelivered > 0 && quiet && !busy.includes(environment.chosen.edits.agent);
+        const delivering = e.hook_event_name === 'Stop' && seen.value.undelivered > 0 && quiet && !busy.includes(environment.chosen.edits.agent);
         const [candidate] = dueCategories(seen.value, environment.chosen, busy, quiet);
         if (candidate === undefined) {
-            return delivering ? _delivered($, sink, e, lineage, to) : _NO_ENTRIES;
+            return delivering ? _delivered($, sink, e, lineage, to) : [];
         }
         environment.claims.add(environment.chosen.categoryAgent);
-        return _handed($, sink, e, lineage, environment, to, candidate, delivering);
+        return _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, to), cwd: lineage.worktree })
+            .then((written) => _reported($, sink, e, lineage, environment, to, candidate, written))
+            .then(() => (delivering ? _delivered($, sink, e, lineage, to) : []));
     });
 
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
-    _run($, _BRANCH, { cwd: e.cwd }).then((branch) =>
+    _run($, ['git', 'branch', '--show-current'], { cwd: e.cwd }).then((branch) =>
         branch.kind === 'fault' ? _skip($, branch.reason) : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim().replace(_CTRL, ' ')), to, environment),
     );
 
 const _boundary = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment): Promise<readonly string[]> =>
-    _run($, _WORKTREE, { cwd: e.cwd }).then((worktree) => (worktree.kind === 'fault' ? _skip($, worktree.reason) : _branched($, sink, e, to, environment, worktree.value.trim())));
+    _run($, ['git', 'rev-parse', '--show-toplevel'], { cwd: e.cwd }).then((worktree) =>
+        worktree.kind === 'fault' ? _skip($, worktree.reason) : _branched($, sink, e, to, environment, worktree.value.trim()),
+    );
 
 const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Environment, to: number): Promise<readonly string[]> =>
     _classic($, sink, e, to).then(() => {
         if (e.hook_event_name === 'SessionEnd' && environment.footer.set('')) {
             $.ui.invalidate('ui.render');
         }
-        return _stopping(e) ? _boundary($, sink, e, to, environment) : _NO_ENTRIES;
+        return _stopping(e) ? _boundary($, sink, e, to, environment) : [];
     });
 
 const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult => {
@@ -279,11 +251,23 @@ const _answered = (result: ClassicResult, entries: readonly string[]): ClassicRe
 // --- [REGISTRATION] --------------------------------------------------------------------
 
 const register: Register = (on, options) => {
+    let last = '';
     const claims: Set<string> = new Set();
-    const environment: Environment = { chosen: settings(options), claims, footer: _memo() };
+    const environment: Environment = {
+        chosen: settings(options),
+        claims,
+        footer: {
+            text: () => last,
+            set: (text: string): boolean => {
+                const changed = text !== last;
+                last = text;
+                return changed;
+            },
+        },
+    };
     const walking = options['walkPolicy'] === true;
     let opening: Promise<Result<Sink>> | undefined;
-    const once: Once = (attempt) => {
+    const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
         opening ??= attempt();
         return opening;
     };
@@ -325,7 +309,7 @@ const register: Register = (on, options) => {
         ($, e, next) =>
             next.is('!classic.PreToolUse', e)
                 ? _stamped($, once)
-                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, found.value.ts) : _NO_ENTRIES))
+                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, found.value.ts) : []))
                       .then((entries) => next(e).then((result) => _answered(result, entries)))
                 : next(e),
     );

@@ -10,11 +10,11 @@
         "./telemetry": "./telemetry.ts"
     },
     "dependencies": {
-        "@effect/platform": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@effect/sql-pglite": "catalog:",
         "@effect/vitest": "catalog:",
-        "@electric-sql/pglite": "catalog:",
         "effect": "catalog:",
+        "fast-check": "catalog:",
         "vitest": "catalog:"
     }
 }

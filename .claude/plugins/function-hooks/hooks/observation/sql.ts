@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { Option } from '../composition/option.ts';
+import type { Option } from '../composition.ts';
 import type { Row } from './row.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -82,10 +82,6 @@ const _literal = (cell: Option<string>): string => (cell.kind === 'some' ? quote
 
 const _directory = (root: string): string => `${root}/.cache/observation`;
 
-const _delta = (root: string): string => `${_directory(root)}/delta.sql`;
-
-const _argument = (path: string): string => `"${path.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
-
 const keep = (root: string): string => `${_directory(root)}/.keep`;
 
 const database = (root: string): string => `${_directory(root)}/observation.db`;
@@ -107,7 +103,7 @@ const script = (built: Row): string =>
 // --- [SCRIPTS] -------------------------------------------------------------------------
 
 const open = (root: string): string => {
-    const delta = _argument(_delta(root));
+    const delta = `"${`${_directory(root)}/delta.sql`.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
     return [
         'pragma foreign_keys = off;',
         ...Object.entries(_TABLES).map(([name, body]) => `create temp table ${name}${body};`),

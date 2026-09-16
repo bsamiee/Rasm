@@ -1,16 +1,14 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { AgentSpawnResult, ClassicHookInputs, PluginOptions } from 'claude-code';
-import { all, fault, map, ok, type Result } from '../composition/result.ts';
-import { basename } from '../text/path.ts';
+import { all, fault, map, ok, type Result } from '../composition.ts';
+import { basename } from '../text/command.ts';
 import { normalized, quoted } from './sql.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Kind = 'edit';
-
 interface Trigger {
-    readonly kind: Kind;
+    readonly kind: 'edit';
     readonly view: string;
     readonly threshold: number;
     readonly agent: string;
@@ -42,10 +40,6 @@ interface Task {
     readonly agentType: string;
 }
 
-type Head = readonly [string, string, string, string, string, string, string];
-
-type Category = readonly [string, string, string];
-
 interface Candidate {
     readonly category: string;
     readonly sites: number;
@@ -69,25 +63,13 @@ const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 
 
 // --- [SETTINGS] ------------------------------------------------------------------------
 
-const _trigger = (options: PluginOptions, kind: Kind, view: string): Trigger => ({
-    kind,
-    view,
-    threshold: Number(options[`${kind}Threshold`]),
-    agent: String(options[`${kind}Agent`]),
-});
-
 const settings = (options: PluginOptions): Settings => ({
-    edits: _trigger(options, 'edit', 'unjudged_edits'),
+    edits: { kind: 'edit', view: 'unjudged_edits', threshold: Number(options['editThreshold']), agent: String(options['editAgent']) },
     categoryThreshold: Number(options['categoryThreshold']),
     categoryAgent: String(options['categoryAgent']),
 });
 
-const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({
-    main,
-    worktree,
-    branch,
-    key: `${worktree === main ? '.' : basename(worktree)}/${branch}`,
-});
+const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ main, worktree, branch, key: `${worktree === main ? '.' : basename(worktree)}/${branch}` });
 
 // --- [STATEMENTS] ----------------------------------------------------------------------
 
@@ -98,17 +80,12 @@ const _under = (column: string, worktree: string): string => {
 
 const _elsewhere = (agent: string, lineage: Lineage): string => `exists (select 1 from running_agents r where r.agent_type = ${quoted(agent)} and ${_under('r.cwd', lineage.worktree)})`;
 
-const _range = (trigger: Trigger, lineage: Lineage, to: number): string =>
-    `(select count(distinct v.file_path) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}), r.f, ${trigger.threshold > 0 ? _elsewhere(trigger.agent, lineage) : '0'}`;
-
-const _editors = (trigger: Trigger, lineage: Lineage, to: number): string =>
-    `(select group_concat(distinct v.agent_id) from ${trigger.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)} and v.agent_id is not null)`;
-
 const STATE = (lineage: Lineage, to: number, chosen: Settings): string => {
     const key = quoted(lineage.key);
+    const edited = `from ${chosen.edits.view} v where v.ts > r.f and v.ts <= ${to} and ${_under('v.cwd', lineage.worktree)}`;
     return [
         '.mode tabs',
-        `with r(f) as (select coalesce(max(to_ts), 0) from judged_range where kind = ${quoted(chosen.edits.kind)} and lineage_key = ${key}), o as (select delivered_on from open_findings where ${_PRESENT}) select ${_range(chosen.edits, lineage, to)}, (select count(1) from o), (select count(1) from o where not exists (select 1 from json_each(o.delivered_on) where value = ${key})), ${_elsewhere(chosen.categoryAgent, lineage)}, ${_editors(chosen.edits, lineage, to)} from r;`,
+        `with r(f) as (select coalesce(max(to_ts), 0) from judged_range where kind = ${quoted(chosen.edits.kind)} and lineage_key = ${key}), o as (select delivered_on from open_findings where ${_PRESENT}) select (select count(distinct v.file_path) ${edited}), r.f, ${chosen.edits.threshold > 0 ? _elsewhere(chosen.edits.agent, lineage) : '0'}, (select count(1) from o), (select count(1) from o where not exists (select 1 from json_each(o.delivered_on) where value = ${key})), ${_elsewhere(chosen.categoryAgent, lineage)}, (select group_concat(distinct v.agent_id) ${edited} and v.agent_id is not null) from r;`,
         `select category, sites, exists (select 1 from json_each(reported_on) where value = ${key}) from recurring_categories order by sites desc, category;`,
     ].join('\n');
 };
@@ -143,40 +120,42 @@ const DELIVER = (lineage: Lineage, session: string, now: number): string => {
 
 const _lines = (stdout: string): readonly string[] => stdout.split('\n').filter((text) => text !== '');
 
-const _cells = (stdout: string): readonly (readonly string[])[] => _lines(stdout).map((text) => text.split('\t'));
-
 const _integer = (text: string): Result<number> => (_INTEGER.test(text) ? ok(Number(text)) : fault(`${text} is not an integer`));
 
 const _flag = (text: string): Result<boolean> => (text === '0' || text === '1' ? ok(text === '1') : fault(`${text} is not 0 or 1`));
 
-const _rangeOf = (trigger: Trigger, count: string, from: string, running: string, editors: string): Result<Range> =>
-    map(all([_integer(count), _integer(from), _flag(running)]), ([counted, since, elsewhere]) => ({
-        trigger,
-        count: counted,
-        from: since,
-        running: elsewhere,
-        editors: editors === '' ? [] : editors.split(','),
-    }));
-
-const _isHead = (cells: readonly string[]): cells is Head => cells.length === _CELLS;
-
-const _isCategory = (cells: readonly string[]): cells is Category => cells.length === _CATEGORY_CELLS;
-
-const _candidateOf = ([category, sites, reported]: Category): Result<Candidate> => map(all([_integer(sites), _flag(reported)]), ([counted, told]) => ({ category, sites: counted, reported: told }));
-
-const _candidate = (cells: readonly string[]): Result<Candidate> => (_isCategory(cells) ? _candidateOf(cells) : fault(`category line holds ${cells.length} cells`));
-
-const _state = (chosen: Settings, head: Head, rest: readonly (readonly string[])[]): Result<State> => {
-    const [count, from, running, open, undelivered, categoryRunning, editors] = head;
-    return map(
-        all([_rangeOf(chosen.edits, count, from, running, editors), _integer(open), _integer(undelivered), _flag(categoryRunning), all(rest.map(_candidate))]),
-        ([edits, opened, waiting, elsewhere, candidates]) => ({ edits, open: opened, undelivered: waiting, categoryRunning: elsewhere, candidates }),
-    );
+const _candidate = (cells: readonly string[]): Result<Candidate> => {
+    const [category, sites, reported] = cells;
+    return category !== undefined && sites !== undefined && reported !== undefined && cells.length === _CATEGORY_CELLS
+        ? map(all([_integer(sites), _flag(reported)]), ([counted, told]) => ({ category, sites: counted, reported: told }))
+        : fault(`category line holds ${cells.length} cells`);
 };
 
 const state = (stdout: string, chosen: Settings): Result<State> => {
-    const [head = [], ...rest] = _cells(stdout);
-    return _isHead(head) ? _state(chosen, head, rest) : fault(`state line holds ${head.length} cells`);
+    const [head = [], ...rest] = _lines(stdout).map((text) => text.split('\t'));
+    const [count, from, running, open, undelivered, categoryRunning, editors] = head;
+    if (
+        count === undefined ||
+        from === undefined ||
+        running === undefined ||
+        open === undefined ||
+        undelivered === undefined ||
+        categoryRunning === undefined ||
+        editors === undefined ||
+        head.length !== _CELLS
+    ) {
+        return fault(`state line holds ${head.length} cells`);
+    }
+    return map(
+        all([_integer(count), _integer(from), _flag(running), _integer(open), _integer(undelivered), _flag(categoryRunning), all(rest.map(_candidate))]),
+        ([counted, since, elsewhere, opened, waiting, categoryElsewhere, candidates]) => ({
+            edits: { trigger: chosen.edits, count: counted, from: since, running: elsewhere, editors: editors === '' ? [] : editors.split(',') },
+            open: opened,
+            undelivered: waiting,
+            categoryRunning: categoryElsewhere,
+            candidates,
+        }),
+    );
 };
 
 // --- [DECISIONS] -----------------------------------------------------------------------
@@ -191,12 +170,10 @@ const occupied = (tasks: readonly Task[], claims: ReadonlySet<string>): readonly
 const due = (range: Range, busy: readonly string[], quiet: boolean): boolean =>
     range.trigger.threshold > 0 && range.count >= range.trigger.threshold && !range.running && quiet && !busy.includes(range.trigger.agent);
 
-const _idle = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): boolean => quiet && !seen.categoryRunning && !busy.includes(chosen.categoryAgent);
-
 const dueCategories = (seen: State, chosen: Settings, busy: readonly string[], quiet: boolean): readonly Candidate[] =>
-    chosen.categoryThreshold > 0 && _idle(seen, chosen, busy, quiet) ? seen.candidates.filter((candidate) => candidate.sites >= chosen.categoryThreshold && !candidate.reported) : [];
-
-const _awaiting = (seen: State): readonly Candidate[] => seen.candidates.filter((candidate) => !candidate.reported);
+    chosen.categoryThreshold > 0 && quiet && !seen.categoryRunning && !busy.includes(chosen.categoryAgent)
+        ? seen.candidates.filter((candidate) => candidate.sites >= chosen.categoryThreshold && !candidate.reported)
+        : [];
 
 // --- [TEXT] ----------------------------------------------------------------------------
 
@@ -214,7 +191,7 @@ const context = (stdout: string, branch: string): readonly string[] => {
 const _segment = (count: number, text: string): readonly string[] => (count === 0 ? [] : [text]);
 
 const status = (seen: State, holding: number): string => {
-    const waiting = _awaiting(seen).length;
+    const waiting = seen.candidates.filter((candidate) => !candidate.reported).length;
     return [
         ..._segment(seen.edits.count, `${_many(seen.edits.count, 'file', 'files')} unjudged`),
         ..._segment(holding, `${_many(holding, 'editor', 'editors')} running`),

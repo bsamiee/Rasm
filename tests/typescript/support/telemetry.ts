@@ -1,21 +1,16 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Data, Effect, type Exit, HashMap, Match, Metric, type MetricKey, type MetricPair, MetricState, MutableRef, Option, Tracer } from 'effect';
+import { Array, Effect, type Exit, HashMap, Match, Metric, MutableRef, Option, Tracer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type MetricKind = 'counter' | 'frequency' | 'gauge' | 'histogram' | 'summary';
-
-interface MetricSeries {
-    readonly key: MetricKey.MetricKey.Untyped;
-    readonly kind: MetricKind;
-    readonly occurrence: Option.Option<string>;
-}
-
-type MetricDataPoint = readonly [series: MetricSeries, value: number];
+type MetricDataPoint = readonly [
+    series: { readonly id: string; readonly attributes: Metric.Metric.AttributeSet | undefined; readonly kind: Metric.Metric.Type; readonly occurrence: Option.Option<string> },
+    value: number,
+];
 
 interface MetricChange {
-    readonly series: MetricSeries;
+    readonly series: MetricDataPoint[0];
     readonly before: Option.Option<number>;
     readonly value: number;
 }
@@ -30,15 +25,16 @@ interface Observation<A, E> {
 
 const snapshot: Effect.Effect<readonly MetricDataPoint[]> = Effect.map(
     Metric.snapshot,
-    Array.flatMap(({ metricKey: key, metricState: state }: MetricPair.MetricPair.Untyped) => {
-        const dataPoint = (kind: MetricKind, occurrence: Option.Option<string>, value: number): MetricDataPoint => [Data.struct({ key, kind, occurrence }), value];
-        return Match.value(state).pipe(
-            Match.when(MetricState.isCounterState, ({ count }) => [dataPoint('counter', Option.none(), Number(count))]),
-            Match.when(MetricState.isGaugeState, ({ value }) => [dataPoint('gauge', Option.none(), Number(value))]),
-            Match.when(MetricState.isFrequencyState, ({ occurrences }) => Array.map(Array.fromIterable(occurrences), ([occurrence, count]) => dataPoint('frequency', Option.some(occurrence), count))),
-            Match.when(MetricState.isHistogramState, ({ count }) => [dataPoint('histogram', Option.none(), count)]),
-            Match.when(MetricState.isSummaryState, ({ count }) => [dataPoint('summary', Option.none(), count)]),
-            Match.orElseAbsurd,
+    Array.flatMap((entry: Metric.Metric.Snapshot) => {
+        const dataPoint = (occurrence: Option.Option<string>, value: number): MetricDataPoint => [{ id: entry.id, attributes: entry.attributes, kind: entry.type, occurrence }, value];
+        return Match.value(entry).pipe(
+            Match.discriminatorsExhaustive('type')({
+                ['Counter']: ({ state }) => [dataPoint(Option.none(), Number(state.count))],
+                ['Gauge']: ({ state }) => [dataPoint(Option.none(), Number(state.value))],
+                ['Frequency']: ({ state }) => Array.map(Array.fromIterable(state.occurrences), ([occurrence, count]) => dataPoint(Option.some(occurrence), count)),
+                ['Histogram']: ({ state }) => [dataPoint(Option.none(), state.count)],
+                ['Summary']: ({ state }) => [dataPoint(Option.none(), state.count)],
+            }),
         );
     }),
 );
@@ -53,8 +49,8 @@ const capture = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<Observa
                 effect,
                 Tracer.make({
                     ...tracer,
-                    span: (...args) => {
-                        const span = tracer.span(...args);
+                    span: (options) => {
+                        const span = tracer.span(options);
                         MutableRef.update(spans, Array.append(span));
                         return span;
                     },
@@ -63,8 +59,9 @@ const capture = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<Observa
         );
         return {
             exit,
-            metricChanges: Array.filterMap(yield* snapshot, ([series, value]) =>
-                Option.liftPredicate({ series, before: HashMap.get(before, series), value }, (change) => !Option.contains(change.before, change.value)),
+            metricChanges: Array.filter(
+                Array.map(yield* snapshot, ([series, value]) => ({ series, before: HashMap.get(before, series), value })),
+                (change) => !Option.contains(change.before, change.value),
             ),
             spans: MutableRef.get(spans),
         };
@@ -72,4 +69,4 @@ const capture = <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<Observa
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { capture, type MetricChange, type MetricDataPoint, type MetricKind, type MetricSeries, type Observation, snapshot };
+export { capture, type MetricChange, type MetricDataPoint, type Observation, snapshot };

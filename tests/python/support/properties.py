@@ -3,7 +3,6 @@
 # --- [IMPORTS] --------------------------------------------------------------------------
 
 from collections.abc import Callable, Mapping
-from datetime import timedelta
 import enum
 import functools
 import importlib
@@ -12,7 +11,7 @@ from pathlib import Path
 import sys
 from typing import get_args, TypeAliasType, TypeForm, TypeIs
 
-from hypothesis import event as hyp_event, given as hyp_given, settings as hyp_settings
+from hypothesis import given as hyp_given
 import msgspec
 import pytest
 
@@ -27,14 +26,14 @@ class PropertyRecord(msgspec.Struct, frozen=True):
     subject: str
     property_name: str
     module: str
-    subject_module: str | None = None
+    subject_module: str | None
 
 
 class PackageUnderTest(msgspec.Struct, frozen=True):
     """Package registration with explicit exemptions and its test directory."""
 
-    exempt: frozenset[str] = frozenset()
-    suite: Path | None = None
+    exempt: frozenset[str]
+    suite: Path
 
 
 # --- [STASH] ----------------------------------------------------------------------------
@@ -45,8 +44,10 @@ PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def _qualname(subject: object) -> str:
-    return getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
+def _record(subject: object, property_name: str, module: str) -> PropertyRecord:
+    """Build the record of one subject under one property name in one test module."""
+    name = getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
+    return PropertyRecord(subject=name, property_name=property_name, module=module, subject_module=getattr(subject, "__module__", None))
 
 
 def _resolvable(subject: object) -> TypeIs[TypeForm[object]]:
@@ -61,7 +62,7 @@ def is_automatically_exempt(subject: object) -> bool:
             return True
         case type() if issubclass(subject, msgspec.Struct):
             declared = any(
-                callable(member) or isinstance(member, (property, classmethod, staticmethod, functools.cached_property))
+                callable(member) or isinstance(member, property | classmethod | staticmethod | functools.cached_property)
                 for klass in subject.__mro__
                 if klass not in {msgspec.Struct, object}
                 for name, member in vars(klass).items()
@@ -95,36 +96,22 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
     public_api: dict[str, object] = {}
     for mod in modules:
         all_names: object = getattr(mod, "__all__", None)
-        names = [n for n in all_names if isinstance(n, str)] if isinstance(all_names, (list, tuple)) else [n for n in dir(mod) if not n.startswith("_")]
+        names = [n for n in all_names if isinstance(n, str)] if isinstance(all_names, list | tuple) else [n for n in dir(mod) if not n.startswith("_")]
         for name in names:
             if not hasattr(mod, name):
-                failures.append((getattr(mod, "__name__", "<module>"), f"__all__ names {name!r} but the module never defines it"))
+                failures.append((mod.__name__, f"__all__ names {name!r} but the module never defines it"))
             elif not inspect.ismodule(member := getattr(mod, name)):
                 public_api.setdefault(name, member)
 
     return public_api, tuple(failures)
 
 
-def property_test[**P](
-    subject: object,
-    *,
-    given: bool = True,
-    profile: str | None = None,
-    markers: tuple[str, ...] = (),
-    timeout: float | None = None,
-    property_name: str | None = None,
-    events: tuple[Callable[[object], str], ...] = (),
-) -> Callable[[Callable[P, None]], Callable[P, None]]:
-    """Register a property test and optionally inject a Hypothesis strategy.
+def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Callable[P, None]], Callable[P, None]]:
+    """Register a property test and inject the subject's Hypothesis strategy.
 
     Args:
         subject: Type or callable covered by the property test.
-        given: True injects ``strategy_for(subject)`` as the rightmost positional argument.
-        profile: Registered Hypothesis profile name to pin, ``None`` follows the session-active profile.
-        markers: Extra pytest mark names to apply.
-        timeout: Hypothesis deadline in seconds, ``None`` inherits from the active profile.
-        property_name: Recorded property name, ``None`` uses the function name.
-        events: Drawn-value event taggers for Hypothesis statistics.
+        given: True injects ``strategy_for(subject)`` as the rightmost positional argument, the subject is then a type form.
 
     Returns:
         The decorator marking the test with its ``PropertyRecord``, collection records it.
@@ -133,37 +120,13 @@ def property_test[**P](
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
         if any(mark.name == "property" and "record" in mark.kwargs for mark in getattr(fn, "pytestmark", ())):
             raise TypeError(f"@property_test applied twice to {fn!r}, remove the duplicate decorator")
-
-        match given:
-            case True:
-                if not _resolvable(subject):
-                    raise TypeError(f"@property_test given=True requires a resolvable type form, got {subject!r}")
-                drawn = next(reversed(inspect.signature(fn).parameters), "")
-                target = functools.wraps(fn)(lambda *args, **kwargs: ([hyp_event(tag(kwargs[drawn] if drawn in kwargs else args[-1])) for tag in events], fn(*args, **kwargs))[-1]) if events else fn
-                with_given = hyp_given(strategy_for(subject))(target)
-            case _:
-                with_given = fn
-
-        pinned = hyp_settings.get_profile(profile) if profile is not None else None
-        deadline = timedelta(seconds=timeout) if timeout is not None else None
-        match (pinned, deadline):
-            case (None, None):
-                with_settings = with_given
-            case (None, ceiling):
-                with_settings = hyp_settings(deadline=ceiling)(with_given)
-            case (parent, None):
-                with_settings = hyp_settings(parent=parent)(with_given)
-            case (parent, ceiling):
-                with_settings = hyp_settings(parent=parent, deadline=ceiling)(with_given)
-
-        record = PropertyRecord(
-            subject=_qualname(subject),
-            property_name=property_name or getattr(fn, "__name__", repr(fn)),
-            module=getattr(fn, "__module__", "<unknown>"),
-            subject_module=getattr(subject, "__module__", None),
-        )
-        marked: Callable[P, None] = functools.reduce(lambda acc, m: getattr(pytest.mark, m)(acc), markers, with_settings)
-        return pytest.mark.property(record=record)(marked)
+        record = _record(subject, getattr(fn, "__name__", repr(fn)), getattr(fn, "__module__", ""))
+        if not given:
+            return pytest.mark.property(record=record)(fn)
+        if not _resolvable(subject):
+            raise TypeError(f"@property_test given=True requires a resolvable type form, got {subject!r}")
+        drawn: Callable[P, None] = hyp_given(strategy_for(subject))(fn)
+        return pytest.mark.property(record=record)(drawn)
 
     return _decorator
 
@@ -180,7 +143,7 @@ def record_coverage_declarations(module: object) -> tuple[PropertyRecord, ...]:
         case [value, *_]:
             raise TypeError(f"COVERS in {name} lists {value!r}: entries must be types or callables")
         case _:
-            return tuple(PropertyRecord(subject=_qualname(subject), property_name="covers", module=name, subject_module=getattr(subject, "__module__", None)) for subject in covers)
+            return tuple(_record(subject, "covers", name) for subject in covers)
 
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
@@ -192,40 +155,24 @@ def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: 
         suite: Package test directory.
         exempt: Public names explicitly exempt from the coverage requirement.
     """
-    packages = stash.get(PACKAGES_UNDER_TEST, frozendict())
-    prior = packages.get(package)
-    registration = PackageUnderTest(exempt=(prior.exempt if prior is not None else frozenset()) | exempt, suite=suite if prior is None or prior.suite is None else prior.suite)
+    packages = stash.setdefault(PACKAGES_UNDER_TEST, frozendict())
+    registration = PackageUnderTest(exempt | prior.exempt, prior.suite) if (prior := packages.get(package)) is not None else PackageUnderTest(exempt, suite)
     stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
-
-
-def _importable(folder: Path, config: pytest.Config) -> str:
-    """Return the import name of a package directory, its name under a ``pythonpath`` root and its rootdir-relative dotted path elsewhere."""
-    if folder.parent in config.getini("pythonpath") or not folder.is_relative_to(config.rootpath):
-        return folder.name
-    return ".".join(folder.relative_to(config.rootpath).parts)
 
 
 def register_package_tree(config: pytest.Config, source_root: Path, suite_root: Path) -> tuple[str, ...]:
     """Register each Python package directly beneath ``source_root`` under the name its modules import by, with the same-named folder under ``suite_root`` as the test directory.
 
+    A package under a ``pythonpath`` root or outside the rootdir imports by its folder name, any other by its rootdir-relative dotted path.
+
     Returns:
         The registered names, a directory without Python source does not register.
     """
-    children = sorted(p for p in source_root.iterdir() if p.is_dir()) if source_root.is_dir() else []
-    authored = tuple(child for child in children if any(child.rglob("*.py")))
-    names = tuple(_importable(child, config) for child in authored)
+    authored = tuple(child for child in sorted(source_root.iterdir()) if child.is_dir() and any(child.rglob("*.py"))) if source_root.is_dir() else ()
+    names = tuple(child.name if child.parent in config.getini("pythonpath") or not child.is_relative_to(config.rootpath) else ".".join(child.relative_to(config.rootpath).parts) for child in authored)
     for name, child in zip(names, authored, strict=True):
         register_package(config.stash, name, suite=suite_root / child.name)
     return names
-
-
-def _module_name(py: Path, rootpath: Path) -> str:
-    """Return the dotted name pytest importlib mode assigns a test module."""
-    return ".".join((py.relative_to(rootpath) if py.is_relative_to(rootpath) else py).with_suffix("").parts)
-
-
-def _test_modules(suite: Path, config: pytest.Config) -> frozenset[str]:
-    return frozenset(_module_name(py, config.rootpath) for pattern in config.getini("python_files") for py in suite.rglob(pattern))
 
 
 def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
@@ -234,7 +181,15 @@ def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, Packa
     Collection imports every selected test module, a dotted name absent from ``sys.modules`` marks an uncollected module.
     """
     gaps = {
-        package: tuple(sorted(name for name in _test_modules(registration.suite, config) if name not in sys.modules)) for package, registration in packages.items() if registration.suite is not None
+        package: tuple(
+            sorted(
+                name
+                for pattern in config.getini("python_files")
+                for py in registration.suite.rglob(pattern)
+                if (name := ".".join((py.relative_to(config.rootpath) if py.is_relative_to(config.rootpath) else py).with_suffix("").parts)) not in sys.modules
+            )
+        )
+        for package, registration in packages.items()
     }
     return {package: missing for package, missing in gaps.items() if missing}
 

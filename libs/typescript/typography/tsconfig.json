@@ -1,0 +1,7 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "../../../.cache/typescript/out/libs/typescript/typography",
+        "types": ["node"]
+    }
+}

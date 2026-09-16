@@ -1,29 +1,20 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Decision, deny, pass } from '../composition/decision.ts';
-import { type Command, LAUNCHERS, pastAssignments, strip } from '../text/command.ts';
-import { basename } from '../text/path.ts';
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _WAIT = 'waits';
-const _POLL = 'polls until its exit status changes';
+import { type Decision, deny, pass } from '../composition.ts';
+import { basename, type Command, LAUNCHERS, pastAssignments, strip } from '../text/command.ts';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _launched = (words: readonly string[]): readonly string[] => {
-    const [head] = strip(words);
-    return head !== undefined && LAUNCHERS.includes(basename(head)) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
-};
-
-const _heads = (words: readonly string[]): readonly string[] => [...pastAssignments(words).slice(0, 1), ...strip(words).slice(0, 1), ..._launched(words)].map(basename);
-
 const _reason = (command: Command): readonly string[] => {
-    const heads = _heads(command.words);
+    const { words } = command;
+    const stripped = strip(words);
+    const [head] = stripped;
+    const launched = head !== undefined && LAUNCHERS.includes(basename(head)) ? words.filter((_word, index) => index > 0 && words[index - 1] === '--') : [];
+    const heads = [...pastAssignments(words).slice(0, 1), ...stripped.slice(0, 1), ...launched].map(basename);
     if (heads.includes('sleep')) {
-        return [`${command.words.join(' ')} ${_WAIT}`];
+        return [`${words.join(' ')} waits`];
     }
-    return command.condition && !heads.includes('read') ? [`${command.words.join(' ')} ${_POLL}`] : [];
+    return command.condition && !heads.includes('read') ? [`${words.join(' ')} polls until its exit status changes`] : [];
 };
 
 // --- [POLICY] --------------------------------------------------------------------------

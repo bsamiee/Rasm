@@ -1,9 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Decision, deny, pass } from '../composition/decision.ts';
-import { fromNullable, none, type Option, some } from '../composition/option.ts';
-import { type Command, LAUNCHERS, strip } from '../text/command.ts';
-import { basename } from '../text/path.ts';
+import { type Decision, deny, fromNullable, none, type Option, pass, some } from '../composition.ts';
+import { basename, type Command, LAUNCHERS, strip } from '../text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -12,20 +10,15 @@ interface Place {
     readonly cwd: string;
 }
 
-type Relation = 'inside' | 'above' | 'apart';
-
 interface Scan {
     readonly found: readonly string[];
     readonly given: readonly string[];
 }
 
-type Walker = (args: readonly string[]) => Option<readonly string[]>;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _NAME = 'CloudStorage';
 const _CLOUD = `~/Library/${_NAME}`;
-const _WHY = `descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider`;
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _RECURSIVE = /^-[A-Za-z]*[rR]/u;
@@ -61,7 +54,6 @@ const _FD: readonly string[] = [
     '--path-separator',
     '--and',
 ];
-const _FD_COMMAND: readonly string[] = ['-x', '--exec', '-X', '--exec-batch'];
 const _RG: readonly string[] = [
     '-A',
     '--after-context',
@@ -113,7 +105,6 @@ const _RG: readonly string[] = [
     '--hyperlink-format',
     '--generate',
 ];
-const _RG_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '--files', '--type-list'];
 const _GREP: readonly string[] = [
     '-A',
     '--after-context',
@@ -162,8 +153,6 @@ const _GREP: readonly string[] = [
     '--from',
     '--config',
 ];
-const _GREP_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'];
-const _DU: readonly string[] = ['-B', '-I', '-d', '-t'];
 const _TREE: readonly string[] = [
     '-L',
     '--level',
@@ -186,7 +175,6 @@ const _TREE: readonly string[] = [
     '--hyperlink',
     '--time-style',
 ];
-const _LS: readonly string[] = ['-D'];
 
 // --- [WORDS] ---------------------------------------------------------------------------
 
@@ -235,10 +223,6 @@ const _afterPattern = (valued: readonly string[], patterns: readonly string[], a
     return scan.given.some((name) => patterns.includes(name)) ? scan.found : scan.found.slice(1);
 };
 
-const _command = (word: string): boolean => word.startsWith('-') && _option(_FD, word)[0].some((name) => _FD_COMMAND.includes(name));
-
-const _primary = (word: string): boolean => _PRIMARY.test(word);
-
 const _recurses = (args: readonly string[]): boolean =>
     args.some(
         (word, index) =>
@@ -248,14 +232,28 @@ const _recurses = (args: readonly string[]): boolean =>
             (word.endsWith('recurse') && (word.startsWith('--directories=') || args[index - 1] === '-d' || args[index - 1] === '--directories')),
     );
 
-const _WALKERS: Readonly<Record<string, Walker>> = {
-    fd: (args) => some([..._afterPattern(_FD, [], _until(_command, args)), ..._values(_FD_STARTS, args)]),
-    find: (args) => some(_scan([], _until(_primary, args)).found),
-    rg: (args) => some(_afterPattern(_RG, _RG_PATTERNS, args)),
-    grep: (args) => (_recurses(args) ? some(_afterPattern(_GREP, _GREP_PATTERNS, args)) : none),
-    du: (args) => some(_scan(_DU, args).found),
+const _WALKERS: Readonly<Record<string, (args: readonly string[]) => Option<readonly string[]>>> = {
+    fd: (args) =>
+        some([
+            ..._afterPattern(
+                _FD,
+                [],
+                _until((word) => word.startsWith('-') && _option(_FD, word)[0].some((name) => ['-x', '--exec', '-X', '--exec-batch'].includes(name)), args),
+            ),
+            ..._values(_FD_STARTS, args),
+        ]),
+    find: (args) =>
+        some(
+            _scan(
+                [],
+                _until((word) => _PRIMARY.test(word), args),
+            ).found,
+        ),
+    rg: (args) => some(_afterPattern(_RG, ['-e', '--regexp', '-f', '--file', '--files', '--type-list'], args)),
+    grep: (args) => (_recurses(args) ? some(_afterPattern(_GREP, ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'], args)) : none),
+    du: (args) => some(_scan(['-B', '-I', '-d', '-t'], args).found),
     tree: (args) => some(_scan(_TREE, args).found),
-    ls: (args) => (args.some((word) => _LISTS.test(word)) ? some(_scan(_LS, args).found) : none),
+    ls: (args) => (args.some((word) => _LISTS.test(word)) ? some(_scan(['-D'], args).found) : none),
     lsof: (args) => (args.includes('+D') ? some(_values(['+D'], args)) : none),
 };
 
@@ -263,48 +261,44 @@ const _WALKERS: Readonly<Record<string, Walker>> = {
 
 const _segments = (home: string, cwd: string, word: string): readonly string[] => {
     const expanded = word.replace(_HOME, () => home);
-    const kept: string[] = [];
-    for (const segment of (expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`).split('/')) {
+    return (expanded.startsWith('/') ? expanded : `${cwd}/${expanded}`).split('/').reduce<string[]>((kept, segment) => {
         if (segment === '..') {
             kept.pop();
         } else if (segment !== '' && segment !== '.') {
             kept.push(segment);
         }
-    }
-    return kept;
+        return kept;
+    }, []);
 };
 
 const _prefixes = (parent: readonly string[], child: readonly string[]): boolean => parent.length <= child.length && parent.every((segment, index) => segment === child[index]);
 
-const _relation = (cloud: readonly string[], path: readonly string[]): Relation => {
-    if (_prefixes(cloud, path)) {
-        return 'inside';
-    }
-    return _prefixes(path, cloud) ? 'above' : 'apart';
-};
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
-
-const _invoked = (words: readonly string[]): readonly string[] => {
-    const stripped = strip(words);
-    const [head] = stripped;
-    const at = stripped.indexOf('--');
-    return head !== undefined && LAUNCHERS.includes(basename(head)) && at > 0 ? stripped.slice(at + 1) : stripped;
-};
 
 const _refused = (home: string, cwd: string, starts: readonly string[], args: readonly string[]): boolean => {
     const cloud = _segments(home, cwd, _CLOUD);
-    const relate = (word: string): Relation => _relation(cloud, _segments(home, cwd, word));
+    const relate = (word: string): 'inside' | 'above' | 'apart' => {
+        const path = _segments(home, cwd, word);
+        if (_prefixes(cloud, path)) {
+            return 'inside';
+        }
+        return _prefixes(path, cloud) ? 'above' : 'apart';
+    };
     const relations = (starts.length === 0 ? [cwd] : starts).map(relate);
     const excluded = args.some((word) => word.includes(_NAME) && relate(word) !== 'above');
     return relations.includes('inside') || (relations.includes('above') && !excluded);
 };
 
 const _reason = (home: string, cwd: string, command: Command): readonly string[] => {
-    const [head, ...args] = _invoked(command.words);
-    const walker = head === undefined ? none : fromNullable(_WALKERS[basename(head)]);
+    const stripped = strip(command.words);
+    const [head] = stripped;
+    const at = stripped.indexOf('--');
+    const [name, ...args] = head !== undefined && LAUNCHERS.includes(basename(head)) && at > 0 ? stripped.slice(at + 1) : stripped;
+    const walker = name === undefined ? none : fromNullable(_WALKERS[basename(name)]);
     const starts = walker.kind === 'some' ? walker.value(args) : none;
-    return starts.kind === 'some' && _refused(home, cwd, starts.value, args) ? [`${command.words.join(' ')} ${_WHY}`] : [];
+    return starts.kind === 'some' && _refused(home, cwd, starts.value, args)
+        ? [`${command.words.join(' ')} descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider`]
+        : [];
 };
 
 // --- [POLICY] --------------------------------------------------------------------------

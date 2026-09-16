@@ -21,7 +21,7 @@ jobs:
                     - {language: csharp, build-mode: none}
                     - {language: javascript-typescript, build-mode: none}
                     - {language: python, build-mode: none}
-        runs-on: ubuntu-24.04
+        runs-on: ubuntu-26.04
         timeout-minutes: 120
         concurrency:
             group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.language }}

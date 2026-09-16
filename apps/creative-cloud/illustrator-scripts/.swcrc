@@ -1,0 +1,5 @@
+{
+    "$schema": "https://swc.rs/schema.json",
+    "jsc": { "parser": { "syntax": "typescript" }, "target": "es3", "loose": true },
+    "isModule": false
+}

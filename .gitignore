@@ -148,3 +148,17 @@ _tmp/
 !.claude/types/claude-code.d.ts
 .claude/worktrees/
 docs/research
+
+# --- [PLAN_MATERIAL] ----------------------------------------------------------
+
+plan/inputs/
+plan/research/**
+!plan/research/README.md
+!plan/research/*/
+!plan/research/*/README.md
+!plan/research/*/scripts/
+!plan/research/*/scripts/**
+!plan/research/*/decompiled/
+!plan/research/*/decompiled/**
+!plan/research/grid-calculator/data/
+!plan/research/grid-calculator/data/**

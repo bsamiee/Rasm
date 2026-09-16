@@ -1,0 +1,9 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "../../../.cache/typescript/out/apps/creative-cloud/photoshop-plugin",
+        "types": ["@adobe-uxp-types/uxp", "@adobe-uxp-types/photoshop"]
+    },
+    "references": [{ "path": "../server" }],
+    "files": []
+}

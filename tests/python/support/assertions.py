@@ -1,35 +1,30 @@
-"""Reusable assertions for algebraic properties, table-driven tests, results, and state machines."""
+"""Reusable assertions for algebraic properties, tables, tolerance, results, and state machines."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
 import cmath
 from collections.abc import Callable, Iterable, Mapping, Sequence
-from contextlib import nullcontext
 import dataclasses
 from decimal import Decimal
-import fractions
-import functools
+from fractions import Fraction
 import operator
-from typing import overload, Protocol, runtime_checkable, Self, TYPE_CHECKING
+from typing import Protocol, runtime_checkable, Self
 
 from expression import Option, Result
 from expression.collections import Block
-from hypothesis import settings as hyp_settings, target
-from hypothesis.stateful import Bundle, consumes, initialize, invariant, multiple, precondition, rule, RuleBasedStateMachine, run_state_machine_as_test
+from hypothesis import settings as hyp_settings
+from hypothesis.stateful import RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 import msgspec.json
 import msgspec.msgpack
+import pytest
 lazy import numpy as np
-
-from tests.python.support.runtime import PROFILE_STATEFUL
-
-if TYPE_CHECKING:
-    from contextlib import AbstractContextManager
-
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type _Equality[T] = Callable[[T, T], bool]
+type Case[I, O] = tuple[str, I, O]
+type Relation[T, R] = tuple[str, Callable[[T], T], Callable[[R, R], None]]
 
 
 class _Comparable(Protocol):
@@ -38,18 +33,9 @@ class _Comparable(Protocol):
     def __lt__(self, other: Self, /) -> bool: ...
 
 
-class SubtestReporter(Protocol):
-    """Protocol implemented by pytest's ``subtests`` fixture."""
-
-    def test(self, msg: str | None = None, **kwargs: object) -> AbstractContextManager[object]: ...
-
-
-type _Numeric = int | float | complex | Decimal | fractions.Fraction
-
-
 @runtime_checkable
-class _QuantityLike(Protocol):
-    """Protocol for quantity values exposing units and magnitude."""
+class _Quantity(Protocol):
+    """Structural shape of a quantity exposing units and magnitude."""
 
     @property
     def units(self) -> object: ...
@@ -57,65 +43,12 @@ class _QuantityLike(Protocol):
     def magnitude(self) -> object: ...
 
 
-# --- [MODELS] ---------------------------------------------------------------------------
+# --- [CONSTANTS] ------------------------------------------------------------------------
 
-
-class ValidityCase[T](msgspec.Struct, frozen=True, gc=False):
-    """Labeled input and expected result for ``validity_matrix``."""
-
-    label: str
-    value: T
-    expected: bool
-
-
-class ProjectionCase[I](msgspec.Struct, frozen=True, gc=False):
-    """Projection input with a fixed or computed expected result."""
-
-    label: str
-    value: I
-    expected: object
-    reference: Callable[[I], object] | None
-
-
-class MetamorphicRelation[T, R](msgspec.Struct, frozen=True, gc=False):
-    """Metamorphic transformation and its output relation assertion."""
-
-    name: str
-    transform: Callable[[T], T]
-    relate: Callable[[R, R], None]
-
-
-# --- [OPERATIONS] -----------------------------------------------------------------------
-
-
-def _assert_equal[T](left: T, right: T, equal: _Equality[T]) -> None:
-    """Assert structural or custom equality and report both values."""
-    assert equal(left, right), f"property failed: {left!r} != {right!r}"
-
+JSON_ENCODER = msgspec.json.Encoder(order="deterministic")
+MSGPACK_ENCODER = msgspec.msgpack.Encoder(order="deterministic")
 
 # --- [TOLERANCE_ORACLES] ----------------------------------------------------------------
-
-
-def _num_close(a: _Numeric, b: _Numeric, rel_tol: float, abs_tol: float) -> bool:
-    fa, fb = complex(a), complex(b)
-    if fa == fb or (cmath.isnan(fa) and cmath.isnan(fb)):
-        return True
-    return abs(fa - fb) <= max(rel_tol * max(abs(fa), abs(fb)), abs_tol)
-
-
-def _result_diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
-    """Compare Result or Option pairs and recurse into matching cases."""
-    match (a, b):
-        case (Result(tag="ok", ok=left), Result(tag="ok", ok=right)):
-            return _diverge(left, right, rel_tol, abs_tol, f"{path}.ok")
-        case (Result(tag="error", error=left), Result(tag="error", error=right)):
-            return _diverge(left, right, rel_tol, abs_tol, f"{path}.error")
-        case (Option(tag="some", some=left), Option(tag="some", some=right)):
-            return _diverge(left, right, rel_tol, abs_tol, f"{path}.some")
-        case (Option(tag="none"), Option(tag="none")):
-            return None
-        case _:
-            return f"{path}: result tags differ: {a!r} != {b!r}"
 
 
 def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:
@@ -132,14 +65,24 @@ def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) ->
                 return None
             index = tuple(int(i) for i in np.argwhere(~near)[0])
             return f"{path}{list(index)}: {np.atleast_1d(left)[index]!r} !~ {np.atleast_1d(right)[index]!r}"
-        case ((int() | float() | complex() | Decimal() | fractions.Fraction()) as num_a, (int() | float() | complex() | Decimal() | fractions.Fraction()) as num_b):
-            return None if _num_close(num_a, num_b, rel_tol, abs_tol) else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
-        case (_QuantityLike() as qty_a, _QuantityLike() as qty_b):
+        case ((int() | float() | complex() | Decimal() | Fraction()) as num_a, (int() | float() | complex() | Decimal() | Fraction()) as num_b):
+            fa, fb = complex(num_a), complex(num_b)
+            close_enough = fa == fb or (cmath.isnan(fa) and cmath.isnan(fb)) or cmath.isclose(fa, fb, rel_tol=rel_tol, abs_tol=abs_tol)
+            return None if close_enough else f"{path}: |{a!r} - {b!r}| exceeds rel_tol={rel_tol}, abs_tol={abs_tol}"
+        case (_Quantity() as qty_a, _Quantity() as qty_b):
             if qty_b.units != qty_a.units:
                 return f"{path}: units {qty_a.units!r} != {qty_b.units!r}"
             return _diverge(qty_a.magnitude, qty_b.magnitude, rel_tol, abs_tol, f"{path}.magnitude")
+        case (Result(tag="ok", ok=left), Result(tag="ok", ok=right)):
+            return _diverge(left, right, rel_tol, abs_tol, f"{path}.ok")
+        case (Result(tag="error", error=left), Result(tag="error", error=right)):
+            return _diverge(left, right, rel_tol, abs_tol, f"{path}.error")
+        case (Option(tag="some", some=left), Option(tag="some", some=right)):
+            return _diverge(left, right, rel_tol, abs_tol, f"{path}.some")
+        case (Option(tag="none"), Option(tag="none")):
+            return None
         case (Result(), Result()) | (Option(), Option()):
-            return _result_diverge(a, b, rel_tol, abs_tol, path)
+            return f"{path}: result tags differ: {a!r} != {b!r}"
         case (Block(), Block()):
             return _diverge(tuple(a), tuple(b), rel_tol, abs_tol, path)
         case (msgspec.Struct(), msgspec.Struct()) if type(a) is type(b):
@@ -173,7 +116,11 @@ def assert_close(actual: object, expected: object, *, rel_tol: float = 1e-9, abs
     assert divergence is None, f"tolerance violation at {divergence}"
 
 
-# --- [ALGEBRAIC_PROPERTIES] -------------------------------------------------------------
+# --- [ALGEBRAIC_LAWS] -------------------------------------------------------------------
+
+
+def _assert_equal[T](left: T, right: T, equal: _Equality[T]) -> None:
+    assert equal(left, right), f"property failed: {left!r} != {right!r}"
 
 
 def roundtrip[T, U](x: T, forward: Callable[[T], U], back: Callable[[U], T], *, eq: _Equality[T] = operator.eq) -> None:
@@ -246,166 +193,92 @@ def differential[T, R](value: T, implementation: Callable[[T], R], reference: Ca
     _assert_equal(implementation(value), reference(value), eq)
 
 
-def assert_metamorphic_relations[T, R](value: T, function: Callable[[T], R], *relations: MetamorphicRelation[T, R]) -> None:
-    """Assert every relation holds between ``function(value)`` and each follow-up output."""
-    assert relations, "assert_metamorphic_relations requires at least one relation"
+def metamorphic[T, R](value: T, function: Callable[[T], R], *relations: Relation[T, R]) -> None:
+    """Assert every relation ``(name, transform, relate)`` holds between ``function(value)`` and ``function(transform(value))``."""
+    assert relations, "metamorphic requires at least one relation"
     baseline = function(value)
-    functools.reduce(lambda _, relation: relation.relate(baseline, function(relation.transform(value))), relations, None)
+    for _, transform, relate in relations:
+        relate(baseline, function(transform(value)))
 
 
-def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..., None], *args: object, **kwargs: object) -> None:
-    """Assert a property assertion rejects a known counterexample.
-
-    Raises:
-        AssertionError: The property accepts the counterexample.
-    """
-    try:
-        property_assertion(counterexample, *args, **kwargs)
-    except AssertionError:
-        return
-    raise AssertionError(f"property accepts its counterexample: {counterexample!r}")
+# --- [TABLE_ASSERTIONS] -----------------------------------------------------------------
 
 
-# --- [TABLE_DRIVEN_ASSERTIONS] ----------------------------------------------------------
-
-
-def _subtest_context(subtests: SubtestReporter | None, label: str) -> AbstractContextManager[object]:
-    """Return an independent subtest context when the fixture is available."""
-    return nullcontext() if subtests is None else subtests.test(msg=label)
-
-
-@overload
-def validity_matrix[T](cases: Iterable[ValidityCase[T]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None: ...
-
-
-@overload
-def validity_matrix[T](cases: Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None: ...
-
-
-def validity_matrix[T](cases: Iterable[ValidityCase[T]] | Iterable[tuple[str, T, bool]], valid: Callable[[T], bool], *, subtests: SubtestReporter | None = None) -> None:
-    """Assert each case's expected validity as an independent subtest when available."""
-    count = 0
-    for raw in cases:
-        case_ = raw if isinstance(raw, ValidityCase) else ValidityCase(label=raw[0], value=raw[1], expected=raw[2])
-        count += 1
-        with _subtest_context(subtests, case_.label):
-            actual = valid(case_.value)
-            assert actual == case_.expected, f"validity_matrix[{case_.label!r}]: expected {case_.expected}, got {actual} for {case_.value!r}"
-    assert count, "validity_matrix requires at least one case"
-
-
-def capability_matrix(*rows: tuple[str, Callable[[], bool], bool], subtests: SubtestReporter | None = None) -> None:
-    """Assert labeled capability checks as independent subtests when available."""
-    assert rows, "capability_matrix requires at least one case"
-    for label, check, expected in rows:
-        with _subtest_context(subtests, label):
-            actual = check()
-            assert actual == expected, f"capability_matrix[{label!r}]: expected {expected}, got {actual}"
-
-
-def projection_matrix[I](cases: Iterable[ProjectionCase[I]], project: Callable[[I], object], *, subtests: SubtestReporter | None = None) -> None:
-    """Assert each projection result as an independent subtest when available."""
-    count = 0
-    for case_ in cases:
-        count += 1
-        with _subtest_context(subtests, case_.label):
-            actual = project(case_.value)
-            expected = case_.reference(case_.value) if case_.reference is not None else case_.expected
-            assert actual == expected, f"projection_matrix[{case_.label!r}]: expected {expected!r}, got {actual!r} (value={case_.value!r})"
-    assert count, "projection_matrix requires at least one case"
+def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], subtests: pytest.Subtests) -> None:
+    """Assert ``function(value) == expected`` for each ``(label, value, expected)`` row as an independent subtest."""
+    rows = tuple(cases)
+    assert rows, "assert_table requires at least one case"
+    for label, value, expected in rows:
+        with subtests.test(msg=label):
+            actual = function(value)
+            assert actual == expected, f"{label!r}: expected {expected!r}, got {actual!r} for {value!r}"
 
 
 # --- [RESULT_ASSERTIONS] ----------------------------------------------------------------
 
-_DEFAULT_ENCODER: msgspec.json.Encoder = msgspec.json.Encoder(order="deterministic")
-MSGPACK_ENCODER: msgspec.msgpack.Encoder = msgspec.msgpack.Encoder(order="deterministic")
-_STATEFUL_SETTINGS = hyp_settings.get_profile(PROFILE_STATEFUL)
 
-
-def assert_ok[T, E](result: Result[T, E], *, then: Callable[[T], None] | None = None) -> T:
-    """Assert ``Ok`` and run ``then`` over the inner value.
+def assert_ok[T, E](result: Result[T, E]) -> T:
+    """Assert ``Ok``.
 
     Returns:
         The inner value.
 
     Raises:
-        AssertionError: The result is ``Error`` or an unexpected variant.
+        AssertionError: The result is ``Error``.
     """
     match result:
         case Result(tag="ok", ok=v):
-            if then is not None:
-                then(v)
             return v
-        case Result(tag="error", error=e):
-            raise AssertionError(f"expected Ok, got Error({e!r})")
         case _:
-            raise AssertionError(f"unexpected Result variant: {result!r}")
+            raise AssertionError(f"expected Ok, got {result!r}")
 
 
-def assert_error[T, E](result: Result[T, E], *, then: Callable[[E], None] | None = None) -> E:
-    """Assert ``Error`` and run ``then`` over the error.
+def assert_error[T, E](result: Result[T, E]) -> E:
+    """Assert ``Error``.
 
     Returns:
         The error.
 
     Raises:
-        AssertionError: The result is ``Ok`` or an unexpected variant.
+        AssertionError: The result is ``Ok``.
     """
     match result:
         case Result(tag="error", error=e):
-            if then is not None:
-                then(e)
             return e
-        case Result(tag="ok", ok=v):
-            raise AssertionError(f"expected Error, got Ok({v!r})")
         case _:
-            raise AssertionError(f"unexpected Result variant: {result!r}")
+            raise AssertionError(f"expected Error, got {result!r}")
 
 
-def assert_error_status[T, E](result: Result[T, E], status: object, *, attr: str = "status") -> E:
-    """Assert ``Error`` with ``attr`` identical (``is``) to ``status`` and return the error."""
-    e = assert_error(result)
-    actual = getattr(e, attr)
-    assert actual is status, f"expected {attr}={status!r}, got {actual!r}"
-    return e
-
-
-def assert_some[T](opt: Option[T], *, then: Callable[[T], None] | None = None) -> T:
-    """Assert ``Some`` and run ``then`` over the inner value.
+def assert_some[T](opt: Option[T]) -> T:
+    """Assert ``Some``.
 
     Returns:
         The inner value.
 
     Raises:
-        AssertionError: The option is ``Nothing`` or an unexpected variant.
+        AssertionError: The option is ``Nothing``.
     """
     match opt:
         case Option(tag="some", some=v):
-            if then is not None:
-                then(v)
             return v
-        case Option(tag="none"):
-            raise AssertionError("expected Some, got None")
         case _:
-            raise AssertionError(f"unexpected Option variant: {opt!r}")
+            raise AssertionError("expected Some, got Nothing")
 
 
 def assert_none(opt: Option[object]) -> None:
     """Assert ``Nothing``.
 
     Raises:
-        AssertionError: The option is ``Some`` or an unexpected variant.
+        AssertionError: The option is ``Some``.
     """
     match opt:
-        case Option(tag="none"):
-            return
         case Option(tag="some", some=v):
-            raise AssertionError(f"expected None, got Some({v!r})")
+            raise AssertionError(f"expected Nothing, got Some({v!r})")
         case _:
-            raise AssertionError(f"unexpected Option variant: {opt!r}")
+            return
 
 
-def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder = _DEFAULT_ENCODER) -> T:
+def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder = JSON_ENCODER) -> T:
     """Assert encode then decode equality and re-encode byte identity, the re-encode step catches non-deterministic codecs that structural equality misses.
 
     Returns:
@@ -422,18 +295,17 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
 # --- [STATEFUL_TESTING] -----------------------------------------------------------------
 
 
-def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, settings: hyp_settings = _STATEFUL_SETTINGS) -> None:
-    """Run a Hypothesis state machine under explicit settings, the stateful profile by default."""
-    run_state_machine_as_test(machine_cls, settings=settings)  # type: ignore[no-untyped-call]
+def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, steps: int = 200) -> None:
+    """Run a Hypothesis state machine for ``steps`` rule applications per example under the active profile."""
+    run_state_machine_as_test(machine_cls, settings=hyp_settings(stateful_step_count=steps))  # type: ignore[no-untyped-call]
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "ValidityCase",
-    "ProjectionCase",
-    "MetamorphicRelation",
-    "SubtestReporter",
+    "Case",
+    "Relation",
+    "JSON_ENCODER",
     "MSGPACK_ENCODER",
     "close",
     "assert_close",
@@ -450,25 +322,12 @@ __all__ = [
     "monotone",
     "permutation_invariant",
     "differential",
-    "assert_metamorphic_relations",
-    "rejects_counterexample",
-    "validity_matrix",
-    "capability_matrix",
-    "projection_matrix",
+    "metamorphic",
+    "assert_table",
     "assert_ok",
     "assert_error",
-    "assert_error_status",
     "assert_some",
     "assert_none",
     "assert_roundtrip",
     "run_state_machine",
-    "Bundle",
-    "RuleBasedStateMachine",
-    "consumes",
-    "initialize",
-    "invariant",
-    "multiple",
-    "precondition",
-    "rule",
-    "target",
 ]

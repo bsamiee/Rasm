@@ -108,7 +108,6 @@ rule:
                             - matches: struct-import
 name: $NAME
 signature: $DECLARATION
-isPublic: true
 
 ---
 id: typescript-hook-registration
@@ -140,7 +139,6 @@ transform:
     NAME: {replace: {source: $EVENT, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
 name: $NAME
 signature: on($EVENT)
-isPublic: true
 
 ---
 id: typescript-test
@@ -214,4 +212,3 @@ transform:
     NAME: {replace: {source: $TITLE, replace: '^[''"`]([\s\S]*)[''"`]$', by: '$1'}}
 name: $NAME
 signature: $CALLEE($TITLE)
-isPublic: true

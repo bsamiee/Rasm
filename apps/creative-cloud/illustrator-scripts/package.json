@@ -1,0 +1,18 @@
+{
+    "name": "@rasm/illustrator-scripts",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@swc/cli": "catalog:",
+        "@swc/core": "catalog:",
+        "types-for-adobe": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build": {
+                "options": { "command": "swc . -d ../../../.artifacts/creative-cloud/illustrator --out-file-extension jsx --strip-leading-paths --ignore '**/node_modules/**'", "cwd": "{projectRoot}" },
+                "outputs": ["{workspaceRoot}/.artifacts/creative-cloud/illustrator/*.jsx"]
+            }
+        }
+    }
+}

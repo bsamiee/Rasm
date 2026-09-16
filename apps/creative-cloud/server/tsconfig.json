@@ -1,0 +1,10 @@
+{
+    "extends": "../../../tsconfig.base.json",
+    "compilerOptions": {
+        "outDir": "../../../.cache/typescript/out/apps/creative-cloud/server",
+        "types": ["node"]
+    },
+    "references": [{ "path": "../../../libs/typescript/typography" }],
+    "files": ["package.json"],
+    "include": ["*.ts", "*/*.ts"]
+}

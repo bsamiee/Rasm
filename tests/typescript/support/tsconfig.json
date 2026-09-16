@@ -2,6 +2,6 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/tests/typescript/support",
-        "types": ["node"]
+        "types": []
     }
 }

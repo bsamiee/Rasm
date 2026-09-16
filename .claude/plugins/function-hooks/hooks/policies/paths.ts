@@ -1,8 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ToolCallInput } from 'claude-code';
-import { type Decision, deny, pass } from '../composition/decision.ts';
-import { basename } from '../text/path.ts';
+import { type Decision, deny, pass } from '../composition.ts';
+import { basename } from '../text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 

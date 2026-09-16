@@ -51,7 +51,6 @@ rule:
                 has: {kind: Name, regex: "^PropertyGroup$"}
 name: $NAME
 signature: $PROPERTY
-isPublic: true
 
 ---
 id: msbuild-item
@@ -82,7 +81,6 @@ transform:
     LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: "$NAME $VALUE"
 signature: $LINE
-isPublic: true
 
 ---
 id: msbuild-target
@@ -112,7 +110,6 @@ transform:
     LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
 signature: $LINE
-isExported: true
 
 ---
 id: msbuild-task
@@ -148,7 +145,6 @@ transform:
     LINE: {replace: {source: $TAG, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
 signature: $LINE
-isPublic: true
 
 ---
 id: msbuild-target-group
@@ -175,4 +171,3 @@ rule:
                     has: {kind: STag, has: {kind: Name, regex: '^Project$'}}
 name: $NAME
 signature: $TAG
-isPublic: true

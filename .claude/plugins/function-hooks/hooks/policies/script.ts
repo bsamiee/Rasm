@@ -1,43 +1,31 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Decision, deny, pass } from '../composition/decision.ts';
-import { type Command, pastAssignments, strip } from '../text/command.ts';
-import { basename } from '../text/path.ts';
+import { type Decision, deny, pass } from '../composition.ts';
+import { basename, type Command, pastAssignments, strip } from '../text/command.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _TIMER = "hyperfine -N -r <runs> '<command>' times commands";
-const _DEVICE = '/dev/';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _authored = (command: Command): boolean => {
+const _writes = (command: Command): readonly string[] => {
     const [head, ...rest] = strip(command.words);
     if (head === undefined) {
-        return false;
+        return [];
     }
     const name = basename(head);
-    return name === 'echo' || name === 'printf' || (name === 'cat' && rest.length === 0);
-};
-
-const _writes = (command: Command): readonly string[] => (_authored(command) ? command.writes.filter((path) => !path.startsWith(_DEVICE)) : []);
-
-const _reads = (command: Command): readonly string[] => [...command.reads, ...strip(command.words)];
-
-const _timed = (command: Command): readonly string[] => {
-    const [head] = pastAssignments(command.words);
-    return head !== undefined && basename(head) === 'time' ? [`${command.words.join(' ')} times by hand, ${_TIMER}`] : [];
+    return name === 'echo' || name === 'printf' || (name === 'cat' && rest.length === 0) ? command.writes.filter((path) => !path.startsWith('/dev/')) : [];
 };
 
 const _reasons = (commands: readonly Command[]): readonly string[] =>
     commands.flatMap((command, index) => {
         const written = commands.slice(0, index).flatMap(_writes);
+        const [head] = pastAssignments(command.words);
         return [
-            ..._reads(command)
-                .filter((path) => written.includes(path))
-                .map((path) => `${path} written then read in one call`),
+            ...[...command.reads, ...strip(command.words)].filter((path) => written.includes(path)).map((path) => `${path} written then read in one call`),
             ...(command.looped ? _writes(command).map((path) => `${path} appended in a loop`) : []),
-            ..._timed(command),
+            ...(head !== undefined && basename(head) === 'time' ? [`${command.words.join(' ')} times by hand, ${_TIMER}`] : []),
             ...command.clocks.map((clock) => `${clock} times by hand, ${_TIMER}`),
         ];
     });

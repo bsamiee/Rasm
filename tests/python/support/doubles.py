@@ -1,209 +1,106 @@
-"""Reusable call stubs, loopback servers, fixture writers, and decode assertions."""
+"""Recording call stubs, the virtual-clock backend, fixture file writers, and the NDJSON oracle."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
-from collections.abc import Callable, Iterable
-from contextlib import asynccontextmanager
+from collections.abc import Callable, Mapping
 from pathlib import Path
-from types import TracebackType
-from typing import Protocol, Self, TYPE_CHECKING
 
 import msgspec
-lazy import pytest
-lazy import trio.testing
-
-if TYPE_CHECKING:
-    from collections.abc import AsyncGenerator, Awaitable, Mapping
-
+import msgspec.json
+import pytest
+import trio.testing
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type CallRecord = tuple[str, tuple[object, ...], dict[str, object]]
-type _Recorder = Callable[[tuple[object, ...], dict[str, object]], None]
-type _CallLog = Callable[[str, tuple[object, ...], dict[str, object]], None]
 
 
-class _AsyncServer(Protocol):
-    """Awaited server that enters as its own async context manager."""
-
-    async def __aenter__(self) -> Self: ...
-    async def __aexit__(self, exc_type: type[BaseException] | None, exc: BaseException | None, tb: TracebackType | None) -> object: ...
-
-
-# --- [CALL_RECORDING] -------------------------------------------------------------------
-
-
-def _no_projection[A](_args: tuple[object, ...]) -> tuple[A, ...]:
-    return ()
-
-
-class Sync[R](msgspec.Struct, frozen=True, gc=False):
-    """Synchronous double, ``(*args, **kwargs) -> value``, the append-only sink uses ``Sync(None)``."""
+class Sync[R](msgspec.Struct, frozen=True):
+    """Synchronous double, ``(*args, **kwargs) -> value``, an append-only sink is ``Sync(None)``."""
 
     value: R
 
-    def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
-        def run_sync(*args: object, **kwargs: object) -> R:
-            record(args, kwargs)
-            return self.value
 
-        return run_sync
-
-
-class Async[R](msgspec.Struct, frozen=True, gc=False):
+class Async[R](msgspec.Struct, frozen=True):
     """Awaited double, ``async (*args, **kwargs) -> value``, for a coroutine the subject awaits."""
 
     value: R
 
-    def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
-        async def run_async(*args: object, **kwargs: object) -> R:  # ruff:ignore[unused-async]
-            record(args, kwargs)
-            return self.value
 
-        return run_async
-
-
-class Batch[R](msgspec.Struct, frozen=True, gc=False):
-    """Batch stub returning a fixed result sequence and recording the input collection."""
-
-    values: tuple[R, ...]
-
-    def bind(self, record: _Recorder, _log: _CallLog) -> Callable[..., object]:
-        def run_batch(items: object, **kwargs: object) -> tuple[R, ...]:
-            record((items,), kwargs)
-            return self.values
-
-        return run_batch
-
-
-class Factory[R](msgspec.Struct, frozen=True, gc=False):
-    """Curried double: ``(bind...) -> (call...) -> value`` recording construction and invocation separately."""
+class Factory[R](msgspec.Struct, frozen=True):
+    """Curried double, ``(*bind) -> (*call) -> value``, the inner call records under ``<member>()``."""
 
     value: R
-    inner_label: str = "<factory>.run"
-
-    def bind(self, record: _Recorder, log: _CallLog) -> Callable[..., object]:
-        def run_factory(*bind_args: object, **bind_kwargs: object) -> Callable[..., R]:
-            record(bind_args, bind_kwargs)
-
-            def run_call(*call: object, **call_kwargs: object) -> R:
-                log(self.inner_label, call, call_kwargs)
-                return self.value
-
-            return run_call
-
-        return run_factory
 
 
-# Each behavior's bind builds the recording runner CallSpy.install sets on the target
-type StubBehavior[R] = Sync[R] | Async[R] | Batch[R] | Factory[R]
+type Stub[R] = Sync[R] | Async[R] | Factory[R]
+
+# --- [CALL_RECORDING] -------------------------------------------------------------------
 
 
-class CallSpy[A](msgspec.Struct, frozen=True, gc=False):
-    """Monkeypatch helper recording every call made to the installed stubs."""
+def install[R](monkeypatch: pytest.MonkeyPatch, target: object, member: str, stub: Stub[R], calls: list[CallRecord]) -> None:
+    """Replace ``target.member`` with a stub that appends ``(member, args, kwargs)`` to ``calls`` at every call."""
+    runner: Callable[..., object]
+    match stub:
+        case Sync(value):
 
-    project: Callable[[tuple[object, ...]], Iterable[A]] = _no_projection
-    calls: list[CallRecord] = msgspec.field(default_factory=list)
-    captured: list[A] = msgspec.field(default_factory=list)
+            def sync(*args: object, **kwargs: object) -> R:
+                calls.append((member, args, kwargs))
+                return value
 
-    def install[R](self, monkeypatch: pytest.MonkeyPatch, target: object, member: str, behavior: StubBehavior[R]) -> None:
-        """Replace ``target.member`` with a recording stub."""
+            runner = sync
+        case Async(value):
 
-        def record(args: tuple[object, ...], kwargs: dict[str, object]) -> None:
-            self.calls.append((member, args, kwargs))
-            self.captured.extend(self.project(args))
+            async def coroutine(*args: object, **kwargs: object) -> R:  # ruff:ignore[unused-async]
+                calls.append((member, args, kwargs))
+                return value
 
-        def log(label: str, args: tuple[object, ...], kwargs: dict[str, object]) -> None:
-            self.calls.append((label, args, kwargs))
+            runner = coroutine
+        case Factory(value):
 
-        monkeypatch.setattr(target, member, behavior.bind(record, log))
+            def factory(*args: object, **kwargs: object) -> Callable[..., R]:
+                calls.append((member, args, kwargs))
 
-    def projected[K](self, pick: Callable[[CallRecord], Iterable[K]]) -> list[K]:
-        return [item for call in self.calls for item in pick(call)]
+                def call(*call_args: object, **call_kwargs: object) -> R:
+                    calls.append((f"{member}()", call_args, call_kwargs))
+                    return value
 
+                return call
 
-# --- [NETWORK_LOOPBACK] -----------------------------------------------------------------
-
-
-class Loopback(msgspec.Struct, frozen=True, gc=False):
-    """Bound loopback host and port with connection-target formatting."""
-
-    host: str
-    port: int
-
-    def target(self, scheme: str = "ssh", user: str = "test-user") -> str:
-        return f"{scheme}://{user}@{self.host}:{self.port}"
-
-
-@asynccontextmanager
-async def loopback_server[S: _AsyncServer](listen: Callable[[], Awaitable[S]], port_of: Callable[[S], int], *, host: str = "127.0.0.1") -> AsyncGenerator[Loopback]:
-    """Bind a loopback server for the duration of the ``async with`` and yield its ``Loopback``."""
-    async with await listen() as server:
-        yield Loopback(host=host, port=port_of(server))
+            runner = factory
+    monkeypatch.setattr(target, member, runner)
 
 
 # --- [VIRTUAL_TIME] ---------------------------------------------------------------------
 
 
-def autojump_backend(threshold: float = 0.0) -> tuple[str, dict[str, object]]:
-    """Return an ``anyio_backend`` parameter using Trio's autojumping virtual clock.
-
-    Every ``anyio.sleep`` and deadline advances instantly once the loop idles past ``threshold``.
-    """
-    return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=threshold)})
+def autojump_backend() -> tuple[str, dict[str, object]]:
+    """Return the ``anyio_backend`` parameter for Trio's autojumping clock, every ``anyio.sleep`` and deadline advances once the loop idles."""
+    return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=0)})
 
 
 # --- [FIXTURE_WRITERS] ------------------------------------------------------------------
 
 
-class VariantWriter[V](msgspec.Struct, frozen=True, gc=False):
-    """Table-driven variant writer for raw bytes or encoded objects."""
-
-    directory: Path
-    names: "Mapping[V, str]"
-    contents: "Mapping[V, object]"
-    encode: Callable[[object], bytes] = msgspec.json.encode
-    absent: frozenset[V] = frozenset()
-
-    def path(self, variant: V) -> Path:
-        """Write a variant and return its path, ``absent`` variants are never written."""
-        target = self.directory / self.names[variant]
-        content = self.contents.get(variant)
-        return target if variant in self.absent else self._write(target, content if isinstance(content, bytes) else self.encode(content))
-
-    def write_all(self) -> dict[V, Path]:
-        return {variant: self.path(variant) for variant in self.names}
-
-    @staticmethod
-    def _write(target: Path, raw: bytes) -> Path:
-        target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(raw)
-        return target
+def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callable[[object], bytes] = msgspec.json.encode) -> dict[str, Path]:
+    """Write each named file under ``directory``, raw bytes as given and any other content through ``encode``, and return the paths by name."""
+    paths = {name: directory / name for name in files}
+    for name, path in paths.items():
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(content if isinstance(content := files[name], bytes) else encode(content))
+    return paths
 
 
 # --- [DECODE_ORACLES] -------------------------------------------------------------------
 
 
-class NdjsonOracle[T](msgspec.Struct, frozen=True, gc=False):
-    """NDJSON decoder that asserts the exact line count."""
-
-    decoder: msgspec.json.Decoder[T]
-    expect_lines: int = 1
-
-    def rows(self, raw: bytes) -> tuple[T, ...]:
-        lines = raw.splitlines()
-        assert len(lines) == self.expect_lines, f"expected exactly {self.expect_lines} NDJSON line(s), got {len(lines)}: {lines!r}"
-        return tuple(self.decoder.decode(line) for line in lines)
-
-    def one(self, raw: bytes) -> T:
-        assert self.expect_lines == 1, f"one() decodes a single-write line, expect_lines is {self.expect_lines}, use rows()"
-        return self.rows(raw)[0]
-
-    def from_capture(self, cap: pytest.CaptureFixture[bytes] | pytest.CaptureFixture[str]) -> T:
-        out = cap.readouterr().out
-        return self.one(out if isinstance(out, bytes) else out.encode())
+def decoded_lines[T](decoder: msgspec.json.Decoder[T], raw: bytes | str, count: int) -> list[T]:
+    """Decode newline-delimited JSON and assert the exact line count."""
+    rows = decoder.decode_lines(raw)
+    assert len(rows) == count, f"expected exactly {count} NDJSON line(s), got {len(rows)}: {raw!r}"
+    return rows
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Async", "Batch", "Factory", "Loopback", "NdjsonOracle", "CallSpy", "CallRecord", "StubBehavior", "Sync", "VariantWriter", "autojump_backend", "loopback_server"]
+__all__ = ["Async", "CallRecord", "Factory", "Stub", "Sync", "autojump_backend", "decoded_lines", "install", "write_fixtures"]

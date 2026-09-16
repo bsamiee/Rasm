@@ -1,0 +1,23 @@
+{
+    "name": "@rasm/typography",
+    "private": true,
+    "type": "module",
+    "exports": {
+        "./grid": "./grid.ts",
+        "./metrics": "./metrics.ts",
+        "./page-sizes": "./page-sizes.ts",
+        "./presets": "./presets.ts"
+    },
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "@types/fontkit": "catalog:",
+        "effect": "catalog:",
+        "fontkit": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "grid": { "executor": "nx:run-commands", "cache": false, "options": { "command": "node automation.ts grid", "cwd": "{projectRoot}" } },
+            "oracle": { "executor": "nx:run-commands", "cache": false, "options": { "command": "node automation.ts oracle", "cwd": "{projectRoot}" } }
+        }
+    }
+}

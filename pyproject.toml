@@ -579,7 +579,6 @@ ignore-variadic-names = true
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
-known-first-party = ["rasm"]
 order-by-type = false
 split-on-trailing-comma = false
 
@@ -723,7 +722,7 @@ source = ["libs/python", "tests/python/support"]
 [tool.coverage.report]
 show_missing = true
 skip_covered = true
-exclude_also = ["if TYPE_CHECKING:", "assert_never\\(", "\\.\\.\\.$", "if __name__ == .__main__.:"]
+exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"]
 
 [tool.coverage.xml]
 output = ".artifacts/python/coverage/coverage.xml"

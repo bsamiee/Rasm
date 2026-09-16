@@ -1,0 +1,28 @@
+{
+    "name": "@rasm/indesign-plugin",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@adobe-uxp-types/uxp": "catalog:",
+        "@effect/platform-node": "catalog:",
+        "@rasm/creative-cloud-server": "workspace:*",
+        "acorn": "catalog:",
+        "acorn-walk": "catalog:",
+        "astring": "catalog:",
+        "effect": "catalog:",
+        "vite": "catalog:",
+        "vite-uxp-plugin": "catalog:"
+    },
+    "nx": {
+        "targets": {
+            "build": { "options": { "command": "vite build", "cwd": "{projectRoot}" }, "outputs": ["{workspaceRoot}/.artifacts/creative-cloud/indesign-plugin"] },
+            "deploy": {
+                "executor": "nx:run-commands",
+                "cache": false,
+                "parallelism": false,
+                "dependsOn": ["build"],
+                "options": { "command": "node automation.ts deploy", "cwd": "{projectRoot}" }
+            }
+        }
+    }
+}

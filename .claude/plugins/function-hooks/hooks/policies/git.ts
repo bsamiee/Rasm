@@ -1,10 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import type { ToolCallInput } from 'claude-code';
-import { type Decision, deny, pass } from '../composition/decision.ts';
-import { fromNullable, none, type Option, some } from '../composition/option.ts';
-import { type Command, strip } from '../text/command.ts';
-import { basename } from '../text/path.ts';
+import { type Decision, deny, none, type Option, pass, some } from '../composition.ts';
+import { basename, type Command, strip } from '../text/command.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -28,11 +26,7 @@ type WorktreeEvent = Extract<ToolCallInput, { readonly tool: 'Agent' | 'EnterWor
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ALIAS = 'inline git alias can hide a refused subcommand';
 const _WORKTREE = 'creates a second checkout with its own metadata and sync cost';
-const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
-const _GIT_VALUE_OPTS: readonly string[] = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'];
-const _REFINED: readonly string[] = ['reset', 'checkout'];
 
 // --- [REFINEMENTS] ---------------------------------------------------------------------
 
@@ -59,7 +53,7 @@ const _config: Refinement = (args) => {
 
 const _checkout: Refinement = (args, existing) => {
     const [first, ...more] = args.filter((word) => word === '-' || !_isFlag(word));
-    if (!args.includes('--') && args.some((word) => _CHECKOUT_CREATE.includes(word))) {
+    if (!args.includes('--') && args.some((word) => ['-b', '--orphan', '-t', '--track', '--detach'].includes(word))) {
         return [];
     }
     if (args.includes('--') || more.length > 0 || first === '.' || first?.startsWith(':') === true) {
@@ -96,16 +90,13 @@ const _isKey = (candidate: string): candidate is Key => Object.hasOwn(GIT, candi
 
 const _skip = (words: readonly string[], index: number): number => {
     const word = words[index];
-    return word !== undefined && _isFlag(word) ? _skip(words, index + (_GIT_VALUE_OPTS.includes(word) ? 2 : 1)) : index;
+    return word !== undefined && _isFlag(word) ? _skip(words, index + (['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'].includes(word) ? 2 : 1)) : index;
 };
 
 const _head = (words: readonly string[]): Option<Head> => {
     const key = [words.slice(0, 2).join(' '), ...words.slice(0, 1)].find(_isKey);
     return key === undefined ? none : some({ key, args: words.slice(key.split(' ').length) });
 };
-
-const _hit = (row: GitRow, args: readonly string[]): Option<string> =>
-    fromNullable(args.find((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true));
 
 const _refusals = (head: Head, existing: readonly string[]): readonly string[] => {
     const row: GitRow = GIT[head.key];
@@ -116,14 +107,14 @@ const _refusals = (head: Head, existing: readonly string[]): readonly string[] =
     if (row.any === true) {
         return [`git ${head.key} ${row.why}`];
     }
-    const hit = _hit(row, head.args);
-    return hit.kind === 'some' ? [`git ${head.key} ${hit.value} ${row.why}`] : (row.refine?.(head.args, existing) ?? []);
+    const hit = head.args.find((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true);
+    return hit === undefined ? (row.refine?.(head.args, existing) ?? []) : [`git ${head.key} ${hit} ${row.why}`];
 };
 
 const _reason = (words: readonly string[], existing: readonly string[]): readonly string[] => {
     const index = _skip(words, 1);
     if (words.slice(1, index).some((word) => word.startsWith('alias.'))) {
-        return [_ALIAS];
+        return ['inline git alias can hide a refused subcommand'];
     }
     const head = _head(words.slice(index));
     return head.kind === 'some' ? _refusals(head.value, existing) : [];
@@ -137,7 +128,7 @@ const _gits = (commands: readonly Command[]): readonly (readonly string[])[] =>
 const gitPaths = (commands: readonly Command[]): readonly string[] =>
     _gits(commands).flatMap((words) => {
         const head = _head(words.slice(_skip(words, 1)));
-        return head.kind === 'some' && _REFINED.includes(head.value.key) ? head.value.args.filter((word) => !_isFlag(word)) : [];
+        return head.kind === 'some' && ['reset', 'checkout'].includes(head.value.key) ? head.value.args.filter((word) => !_isFlag(word)) : [];
     });
 
 const gitPolicy =
@@ -147,11 +138,8 @@ const gitPolicy =
         return distinct.size === 0 ? pass(e) : deny([...distinct].join(', '));
     };
 
-const _isolated = (e: WorktreeEvent): boolean => e.tool === 'EnterWorktree' || e.isolation === 'worktree';
-
-const _label = (e: WorktreeEvent): string => (e.tool === 'EnterWorktree' ? e.tool : `${e.tool} isolation worktree`);
-
-const worktreePolicy = (e: WorktreeEvent): Decision<WorktreeEvent> => (_isolated(e) ? deny(`${_label(e)} ${_WORKTREE}`) : pass(e));
+const worktreePolicy = (e: WorktreeEvent): Decision<WorktreeEvent> =>
+    e.tool === 'EnterWorktree' || e.isolation === 'worktree' ? deny(`${e.tool === 'EnterWorktree' ? e.tool : `${e.tool} isolation worktree`} ${_WORKTREE}`) : pass(e);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
