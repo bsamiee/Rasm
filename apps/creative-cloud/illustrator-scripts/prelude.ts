@@ -57,13 +57,20 @@ const collect = <T, R>(items: T[], map: (item: T, index: number) => R): R[] =>
 
 const classOf = (value: unknown): string => Object.prototype.toString.call(new Object(value));
 
-const properties = (object: object): ReflectionInfo[] =>
-    fold(classOf(object.reflect) === '[object Reflection]' ? object.reflect.properties : [], [] as ReflectionInfo[], (own, info): ReflectionInfo[] => {
-        if (info.name.indexOf('__') !== 0 && info.name !== 'reflect') {
-            own.push(info);
-        }
-        return own;
-    });
+const INHERITED = fold(Object.prototype.reflect.properties, '|', (names, info): string => `${names}${info.name}|`);
+
+const properties = (object: object): ReflectionInfo[] => {
+    try {
+        return fold(classOf(object.reflect) === '[object Reflection]' ? object.reflect.properties : [], [] as ReflectionInfo[], (own, info): ReflectionInfo[] => {
+            if (INHERITED.indexOf(`|${info.name}|`) < 0) {
+                own.push(info);
+            }
+            return own;
+        });
+    } catch {
+        return [];
+    }
+};
 
 // --- [JSON] ----------------------------------------------------------------------------
 
@@ -255,7 +262,11 @@ const reference = (value: unknown): Json => {
     if (kind === '[object File]' || kind === '[object Folder]') {
         return (value as File | Folder).fsName;
     }
-    return value === undefined ? reference(null) : String(value);
+    if (kind.indexOf('[object ') === 0 || kind.charAt(0) !== '[') {
+        return value === undefined ? reference(null) : String(value);
+    }
+    const host = value as { readonly typename: string; readonly name: string };
+    return kind === `[${host.typename}]` ? { typename: host.typename } : { typename: host.typename, name: host.name };
 };
 
 const gather = <T, R>(items: T[], site: (item: T, index: number) => Site, reader: (item: T, at: Site) => Reading<R>, put: (value: R, item: T) => void): Unavailable[] =>
@@ -312,10 +323,14 @@ const dump: Prelude['dump'] = (value, at) => {
         return each(at, value as unknown[], dump);
     }
     const object = new Object(value);
-    const listed = object === value && (kind === '[object Object]' || kind.indexOf('[object ') < 0) ? members(object) : [];
-    return listed.length === 0 || `${at.chain}/`.indexOf(`/${object.reflect.name}/`) >= 0
-        ? { value: reference(value), unavailable: [] }
-        : all({ path: at.path, chain: `${at.chain}/${object.reflect.name}` }, listed);
+    const host = kind.indexOf('[object ') < 0;
+    const own = host || kind === '[object Object]';
+    const listed = object === value && own ? members(object) : [];
+    const chained = listed.length > 0 && host && `${at.chain}/`.indexOf(`/${object.reflect.name}/`) >= 0;
+    if (listed.length === 0 || chained) {
+        return { value: reference(value), unavailable: [] };
+    }
+    return all({ path: at.path, chain: host ? `${at.chain}/${object.reflect.name}` : at.chain }, listed);
 };
 
 // --- [JOB] -----------------------------------------------------------------------------

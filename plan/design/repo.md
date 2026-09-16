@@ -6,7 +6,7 @@ Repository integration of the Creative Cloud work: catalog rows, project manifes
 
 `pnpm-workspace.yaml` `catalog:` holds every TypeScript version under `catalogMode: strict` and `saveExact: true`, root `package.json` `devDependencies` mirrors each row as `"<name>": "catalog:"`, and a row sits as `name: version` under its `# <group>` header.
 
-Added rows land in a new group `# Adobe hosts and fonts` after `# 3D and geospatial rendering`, except `@swc/cli` under `# Tooling` and `fast-check` under `# Testing`.
+Added rows land in a new group `# Adobe hosts and fonts` after `# 3D and geospatial rendering`, except `@swc/cli` under `# Tooling`, `fast-check` under `# Testing`, `cheerio` under `# Serialization and messaging` beside `fast-xml-parser`, and `@modelcontextprotocol/inspector` under `# Tooling` beside `hostinger-api-mcp`, the other MCP command row.
 
 | [INDEX] | [ROW]                     | [VERSION] | [REASON]                                                                     |
 | :-----: | :------------------------ | :-------- | :--------------------------------------------------------------------------- |
@@ -17,7 +17,16 @@ Added rows land in a new group `# Adobe hosts and fonts` after `# 3D and geospat
 |  [05]   | `fontkit`                 | 2.0.4     | Reads a font file by path for the metrics the grid formulas take             |
 |  [06]   | `@types/fontkit`          | 2.0.9     | `fontkit` declares no `types` field and no `types` export condition          |
 |  [07]   | `@swc/cli`                | 0.8.1     | `swc` binary that lowers the Illustrator entries to ES3                      |
-|  [08]   | `fast-check`              | 4.10.0    | `effect@4` re-exports `FastCheck` no longer and declares no dependency on it |
+|  [08]   | `fast-check`              | 4.10.1    | `effect@4` re-exports `FastCheck` no longer and declares no dependency on it; `tests/typescript/support/properties.ts` imports its default export for the `scheduler`, `commands`, and `modelRun` families |
+|  [09]   | `cheerio`                 | 1.2.0     | The tree's one HTML parser: Acrobat's accessibility report is HTML, not XML, so `fast-xml-parser` cannot read it; `acrobat_check_accessibility` selects its 32 rule rows by CSS selector (`acrobat.md` [04] row 14, unit 9) |
+|  [10]   | `@modelcontextprotocol/inspector` | 2.6.0 | Stdio MCP client CLI, one process per assertion with a stable exit code; the `--cli` mode takes a command as its target and `--method`, so unit 10's gate is a checked exit code instead of a hand-run `initialize` ([12] row 16) |
+|  [11]   | `ts-morph`                | 28.0.0    | Emits the generated host declarations: `indesign.d.ts` from the InDesign scripting dictionary (`indesign.md` [02]) and the Illustrator delta over `types-for-adobe` (`illustrator.md` [04] row 24), units 3 and 7 |
+
+One row moves: `jszip` 3.10.1 → 3.10.2, published 2026-09-08, the first release of that line since 2022.
+
+One row leaves. `@effect/doctest` has no consumer: `vitest.config.ts` declares no `plugins` entry, and `rg` over every `.ts` in `libs`, `apps`, `tests`, `tools`, and `infra` finds no `import.meta.vitest` fence and no `doctest` import. A catalog row with no consumer is removed rather than kept against a future one; it returns with the file that runs it.
+
+One candidate stays out. `@modelcontextprotocol/conformance` tests a server over HTTP alone: its `server` mode requires `--url <url>` and its scenarios drive an MCP endpoint, while `creative-cloud` is a stdio server, so no unit can run it. Its npm `latest` is 0.1.16 of 2026-03-30 and the line that moves is the `alpha` tag, 0.2.0-alpha.11 of 2026-08-07; neither reaches a stdio target.
 
 Rows move to `4.0.0-rc.115`, the newest `effect` release including prereleases (dist-tag `rc`, published 2026-09-11). One version number spans the ecosystem, so every package that still has a 4.x line sits at exactly that value.
 
@@ -64,8 +73,7 @@ Rows join at `4.0.0-rc.115`, each a first-party package with a 4.x line and a ro
 |  [03]   | `@effect/ai-openai-compat` | Runtime services and observability | Provider for OpenAI-compatible endpoints beside the three provider rows                                     |
 |  [04]   | `@effect/atom-react`       | Web UI                             | React bindings for `effect/unstable/reactivity` `Atom`, successor of `@effect-atom/atom-react`             |
 |  [05]   | `scheduler`                | Web UI                             | Peer of `@effect/atom-react` at the `react-dom` canary's own version, one copy through an override row     |
-|  [06]   | `@effect/doctest`          | Testing                            | Runs TypeScript documentation examples as Vitest tests, peers `vite >=8.1.5 <9` and `vitest >=5 <6`        |
-|  [07]   | `@effect/openapi-generator`| Tooling                            | `openapigen` writes `Schema` types, clients, and `HttpApi` modules from OpenAPI, peers `@effect/platform-node` |
+|  [06]   | `@effect/openapi-generator`| Tooling                            | `openapigen` writes `Schema` types, clients, and `HttpApi` modules from OpenAPI, peers `@effect/platform-node` |
 
 Rows stay out after the registry read:
 
@@ -80,7 +88,7 @@ Rows stay out after the registry read:
 
 `overrides` takes `'@effect/atom-react>scheduler': 'catalog:'` under the peer-range group. `tests/typescript/support/package.json` names `@effect/sql-pglite` in place of `@electric-sql/pglite`, which `@effect/sql-pglite` depends on.
 
-`@effect/language-service` keeps 0.87.2: it serves both majors and its `outdatedApi` diagnostic reports every removed v3 call, which makes it the migration's checker. `@swc/core` keeps 1.16.2, already the newest release. `overrides` takes one new row, `tsconfck>typescript: 'catalog:'`, under the peer-range group: `@effect/docgen@4.0.0-rc.115` depends on `tsconfck@3.1.6`, whose peer `typescript ^5.0.0` the catalog's `7.1.0-dev` crosses (`pnpm why tsconfck` on 2026-09-15). `@swc/cli` peers `@swc/core ^1.2.66` and `chokidar ^5.0.0`, both catalog rows, `@adobe-uxp-types/photoshop` peers `@adobe-uxp-types/uxp 0.1.4`, the catalog row, and `vite-uxp-plugin` declares no peer. `allowBuilds` takes no row: `@swc/core` reads `true` already and no added package runs a lifecycle script.
+`@effect/language-service` keeps 0.87.2: it serves both majors and its `outdatedApi` diagnostic reports every removed v3 call, which makes it the migration's checker. `@swc/core` sits at `1.16.4-nightly-20260913.1`, the newest published build, which `rasm:upgrade --configuration typescript` resolved on 2026-09-15. `overrides` takes one new row, `tsconfck>typescript: 'catalog:'`, under the peer-range group: `@effect/docgen@4.0.0-rc.115` depends on `tsconfck@3.1.6`, whose peer `typescript ^5.0.0` the catalog's `7.1.0-dev` crosses (`pnpm why tsconfck` on 2026-09-15). `@swc/cli` peers `@swc/core ^1.2.66` and `chokidar ^5.0.0`, both catalog rows, `@adobe-uxp-types/photoshop` peers `@adobe-uxp-types/uxp 0.1.4`, the catalog row, and `vite-uxp-plugin` declares no peer. `allowBuilds` takes one row, `'@modelcontextprotocol/inspector': true`: its `postinstall` runs `node scripts/install-clients.mjs`, which places the `mcp-inspector` binary the gate calls, and `pnpm install` refuses with `ERR_PNPM_IGNORED_BUILDS` until the row states it. `@swc/core` reads `true` already and no other added package runs a lifecycle script.
 
 ## [02]-[PROJECTS]
 
@@ -102,10 +110,10 @@ Projects join per manifest. Every TypeScript project is a `package.json` beside 
 | [INDEX] | [PROJECT]                     | [DEPENDENCIES]                                       | [NX_TARGETS]      |
 | :-----: | :---------------------------- | :--------------------------------------------------- | :---------------- |
 |  [01]   | `@rasm/typography`      | `fontkit`, `@types/fontkit`                          | `grid`, `oracle`  |
-|  [02]   | `@rasm/creative-cloud-server` | `@rasm/typography` as `workspace:*`            | `deploy`          |
-|  [03]   | `@rasm/indesign-plugin`       | `@rasm/creative-cloud-server` as `workspace:*`, `vite`, `vite-uxp-plugin`, `@adobe-uxp-types/uxp` | `build`, `deploy` |
-|  [04]   | `@rasm/photoshop-plugin`      | Row [03] rows, `@adobe-uxp-types/photoshop`          | `build`, `deploy` |
-|  [05]   | `@rasm/illustrator-scripts`   | `types-for-adobe`, `@swc/core`, `@swc/cli`           | `build`           |
+|  [02]   | `@rasm/creative-cloud-server` | `@rasm/typography` as `workspace:*`, `cheerio` | `deploy`          |
+|  [03]   | `@rasm/indesign-plugin`       | `@rasm/creative-cloud-server` as `workspace:*`, `vite`, `vite-uxp-plugin`, `@adobe-uxp-types/uxp`, `fast-xml-parser`, `ts-morph` | `build`, `deploy`, `generate` |
+|  [04]   | `@rasm/photoshop-plugin`      | Row [03] rows less `fast-xml-parser` and `ts-morph`, plus `@adobe-uxp-types/photoshop` | `build`, `deploy` |
+|  [05]   | `@rasm/illustrator-scripts`   | `types-for-adobe`, `@swc/core`, `@swc/cli`, `fast-xml-parser`, `ts-morph` | `build`, `generate` |
 |  [06]   | `WindowList`                  | None                                                 | None              |
 
 Each `tsconfig.json` extends `../../../tsconfig.base.json` and sets `outDir` to `.cache/typescript/out/<project root>` under the workspace root. `@rasm/creative-cloud-server` lists one `references` row, `../../../libs/typescript/typography`, and each plugin lists `../server`, each row matching a `workspace:*` row; no other project references a sibling.
@@ -114,17 +122,17 @@ Each `tsconfig.json` extends `../../../tsconfig.base.json` and sets `outDir` to 
 | :-----: | :---------------------------- | :------------------------------------------------- | :------------------------------------------ |
 |  [01]   | `@rasm/typography`      | `["node"]`                                         | None                                        |
 |  [02]   | `@rasm/creative-cloud-server` | `["node"]`                                         | `include` adds `*/*.ts` per host directory  |
-|  [03]   | `@rasm/indesign-plugin`       | `["@adobe-uxp-types/uxp"]`                         | `indesign.d.ts` declares module `indesign`  |
+|  [03]   | `@rasm/indesign-plugin`       | `["@adobe-uxp-types/uxp"]`                         | Generated `indesign.d.ts` declares module `indesign` |
 |  [04]   | `@rasm/photoshop-plugin`      | `["@adobe-uxp-types/uxp", "@adobe-uxp-types/photoshop"]` | None                                  |
-|  [05]   | `@rasm/illustrator-scripts`   | `[]`                                               | `lib: []`, the `/// <reference types="types-for-adobe/Illustrator/2022"/>` line in `prelude.ts`, `/// <reference path="./prelude.ts"/>` per entry, no `.d.ts` |
+|  [05]   | `@rasm/illustrator-scripts`   | `[]`                                               | `lib: []`, the `/// <reference types="types-for-adobe/Illustrator/2022"/>` line in `prelude.ts`, `/// <reference path="./prelude.ts"/>` per entry, one generated `.d.ts` |
 
 `node` sits in `types` only where a file reads `import.meta.dirname` or a `node:` module: `@types/node/web-globals/importmeta.d.ts:6`–`:12` is the one declaration of `ImportMeta.dirname`, and no `effect/dist/*.d.ts` references `node:`, `NodeJS`, or `Buffer`. Rows [01] and [02] read `import.meta.dirname`; rows [03] and [04] import `frames.ts`, which pulls `effect` alone, so they carry the UXP typings alone; `tests/typescript/support` carries `[]`.
 
 Row [02] overrides `include` because `tsconfig.base.json` sets `include: ["${configDir}/*.ts"]`, which reaches the project root alone, and the root `tsconfig.json` is the precedent for a project listing its own globs.
 
-Row [05] sets `lib: []` rather than `noLib: true`, which the base's `lib` row refuses with `TS5053`. With `lib: []` the compiler loads no default library, and `types-for-adobe/Illustrator/2022/index.d.ts` pulls `shared/global.d.ts` and through it `shared/JavaScript.d.ts`, the ES3 globals. `types-for-adobe@7.2.6` declares no `exports`, `types`, `typings`, or `main`, publishes `Illustrator/2015.3` and `Illustrator/2022` alone, and documents one consumer route, a `/// <reference types="types-for-adobe/Illustrator/2022"/>` line in the source; a `types` array entry resolves against `typeRoots`, where the package does not sit, so `types` stays empty and `prelude.ts` carries the reference line while each entry references `prelude.ts`. The project holds no `.d.ts`: the host members the typings omit sit in a `declare global` block at the top of `prelude.ts`, which is why the project keeps the base's `moduleDetection: "force"` (`plan/design/illustrator.md` [04] rows 03 to 06).
+Row [05] sets `lib: []` rather than `noLib: true`, which the base's `lib` row refuses with `TS5053`. With `lib: []` the compiler loads no default library, and `types-for-adobe/Illustrator/2022/index.d.ts` pulls `shared/global.d.ts` and through it `shared/JavaScript.d.ts`, the ES3 globals. `types-for-adobe@7.2.6` declares no `exports`, `types`, `typings`, or `main`, publishes `Illustrator/2015.3` and `Illustrator/2022` alone, and documents one consumer route, a `/// <reference types="types-for-adobe/Illustrator/2022"/>` line in the source; a `types` array entry resolves against `typeRoots`, where the package does not sit, so `types` stays empty and `prelude.ts` carries the reference line while each entry references `prelude.ts`. The project holds one `.d.ts`, the generated delta of `plan/design/illustrator.md` [04] row 24; the host members neither it nor the typings carry sit in a `declare global` block at the top of `prelude.ts`, which is why the project keeps the base's `moduleDetection: "force"` (`plan/design/illustrator.md` [04] rows 03 to 06).
 
-Rows [03] and [04] leave `DOM` out of `lib`, which Adobe's UXP TypeScript guide requires because UXP supplies `Document` and `HTMLElement` itself. No InDesign UXP typings exist from Adobe or from DefinitelyTyped, so row [03] hand-declares each member it calls.
+Rows [03] and [04] leave `DOM` out of `lib`, which Adobe's UXP TypeScript guide requires because UXP supplies `Document` and `HTMLElement` itself. No InDesign UXP typings exist from Adobe or from DefinitelyTyped, so row [03] compiles against `indesign.d.ts` generated from the host's scripting dictionary (`plan/design/indesign.md` [02]).
 
 `WindowList.xcodeproj/project.pbxproj` is the manifest `tools/nx/workspace.ts` reads. It holds one macOS command-line-tool target and one shared scheme, both named `WindowList`, with the project root at `apps/creative-cloud/window-list/` and the Swift sources beside the `.xcodeproj`.
 
@@ -142,6 +150,8 @@ One target calls one tool, arguments on the command and configuration in the too
 |  [06]   | `@rasm/typography`    | `grid`   | None                                                          |
 |  [07]   | `@rasm/creative-cloud-server` | `deploy` | None                                                        |
 |  [08]   | `@rasm/typography`    | `oracle` | None                                                          |
+|  [09]   | `@rasm/indesign-plugin`     | `generate` | `{projectRoot}/indesign.d.ts`                               |
+|  [10]   | `@rasm/illustrator-scripts` | `generate` | `{projectRoot}/illustrator.d.ts`                            |
 
 ```text
 [01] vite build
@@ -152,9 +162,11 @@ One target calls one tool, arguments on the command and configuration in the too
 [06] node automation.ts grid
 [07] node automation.ts deploy
 [08] node automation.ts oracle
+[09] node automation.ts generate
+[10] node automation.ts generate
 ```
 
-Rows [02], [04], and [07] carry `"cache": false` and `"parallelism": false`, and rows [02] and [04] `"dependsOn": ["build"]`: each writes a store the running host reads. Rows [06] and [08] carry `"cache": false`, and row [06] takes its arguments after `--`. Row [07] copies `acrobat/rasm-trusted.js` into `~/Library/Application Support/Adobe/Acrobat/DC/JavaScripts/` and `acrobat/actions/*.sequ` into `DC/Sequences/`, refusing with `HostRunning{pid}` while `pgrep -x <acrobat.processName>` answers a process.
+Rows [02], [04], and [07] carry `"cache": false` and `"parallelism": false`, and rows [02] and [04] `"dependsOn": ["build"]`: each writes a store the running host reads. Rows [06] and [08] carry `"cache": false`, and row [06] takes its arguments after `--`. Rows [09] and [10] read the host bundle, so each names the bundle path and the `sdef` reader's version among its `inputs` and its emitted declaration file among its `outputs`, and `build` and `typecheck` depend on it. Row [07] copies `acrobat/rasm-trusted.js` into `~/Library/Application Support/Adobe/Acrobat/DC/JavaScripts/` and `acrobat/actions/*.sequ` into `DC/Sequences/`, refusing with `HostRunning{pid}` while `pgrep -x <acrobat.processName>` answers a process.
 
 `WindowList` declares no body. `tools/nx/workspace.ts` gives a `.pbxproj` project empty `build`, `install`, `lint`, `format`, and `check` targets, and `nx.json` fills each for `tag:language:swift`: `xcodebuild … build` into `.cache/xcode/{projectRoot}`, `xcrun swift-format lint --strict --recursive`, `xcrun swift-format format --in-place --recursive`, and `check` over `build` and `lint`. `install` never runs; its `DSTROOT=/Applications` shape serves an app bundle.
 
@@ -192,7 +204,9 @@ Each entry emits one `.jsx` beside the prelude's `prelude.jsx` and loads it at r
 }
 ```
 
-`cache: true` comes from the first entry; commands and `outputs` sit in each project's `nx` block. No `deploy` or `grid` default exists: a target one project owns holds its body in that project.
+`cache: true` comes from the first entry; commands and `outputs` sit in each project's `nx` block. No `deploy`, `grid`, or `generate` default exists: a target one project owns holds its body in that project.
+
+`nx.json` `targetDefaults.typecheck`, the `tag:language:typescript` entry, replaces `"^production"` in `inputs` with `{ "dependentTasksOutputFiles": "**/*.d.ts", "transitive": true }`. The key is an `inputs` member of its own object form, `"dependentTasksOutputFiles"` of type `string` beside an optional `"transitive"` boolean, `node_modules/nx/schemas/nx-schema.json:758`–`:768`, and it matches the glob against the resolved outputs of the tasks this task depends on. `typecheck` emits declarations alone, so its output tree under `.cache/typescript/out/{projectRoot}` holds `.d.ts`, `.d.ts.map`, and `.tsbuildinfo` files; under `^production` any edit to a dependency's source invalidated every downstream `typecheck` even when the emitted declarations were byte-identical, and under this entry only a changed declaration does.
 
 `tools/nx/workspace.ts` needs no change. Its `configurations` record is keyed by extension (`.csproj`, `.json`, `.pbxproj`, `.toml`) and selected with `path.extname(file)`, and its glob already matches `{apps,libs,tests}/**/tsconfig.json` and `{apps,libs,tests,tools}/**/*.xcodeproj/project.pbxproj`. Every joining manifest is a `tsconfig.json` or a `project.pbxproj`, forms the record already holds.
 
@@ -409,3 +423,5 @@ Each row runs from the repository root under `mise exec --`, and the join closes
 |  [13]   | `node apps/creative-cloud/server/main.ts`              | `initialize` result naming `creative-cloud` on stdio             |
 |  [14]   | `nx run @rasm/typography:grid -- <w> <baseline>` | Grid rows for that pair on stdout                                |
 |  [15]   | `claude mcp list` in a fresh session                   | `creative-cloud` connects and `indesign-sidekick` is absent      |
+|  [16]   | `mcp-inspector --cli --method tools/list --format json -- node apps/creative-cloud/server/main.ts` | Every tool of `creative-cloud.md` [05] on stdout, exit 0         |
+|  [17]   | The same with `--method tools/call --tool-name health` | One `health` row per host, exit 0                                |

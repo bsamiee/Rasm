@@ -1,11 +1,10 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Data, Iterable, Match, Option, Order, pipe, Result, Schema, SchemaGetter, Struct } from 'effect';
+import { Array, Data, Iterable, Match, Option, Order, pipe, Result, Schema, SchemaGetter } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Unit = 'mm' | 'in' | 'pt' | 'px';
-type Canon = 'van-de-graaf' | 'tschichold';
 
 interface Fitted {
     readonly lines: number;
@@ -34,12 +33,6 @@ interface SquareSize {
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const POINTS: Readonly<Record<Unit, number>> = { mm: 2.834_646_464_646_465, in: 72, pt: 1, px: 1 };
-const CANON: Readonly<
-    Record<Canon, { readonly divisions: number; readonly inside: number; readonly top: number; readonly outside: number; readonly bottom: number; readonly vertical: 'width' | 'height' }>
-> = {
-    'van-de-graaf': { divisions: 9, inside: 1, top: 1, outside: 2, bottom: 2, vertical: 'height' },
-    tschichold: { divisions: 18, inside: 2, top: 3, outside: 4, bottom: 6, vertical: 'width' },
-};
 const _ROUNDING = { half: 0.5, precision: 1000, tolerance: 1e-8 } as const;
 const _LIMIT = { pageInches: { minimum: 0.0139, maximum: 216 }, modulePoints: { minimum: 1, maximum: 1000 }, columns: 2, entries: 41, sizeStart: 4, steps: 4 } as const;
 
@@ -71,7 +64,6 @@ const within = (left: number, right: number): boolean => Math.abs(left - right) 
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const Unit: Schema.Codec<Unit> = Schema.Literals(Struct.keys(POINTS));
 const Quantized: Schema.Codec<number> = Schema.Number.pipe(Schema.decodeTo(Schema.Number, { decode: SchemaGetter.passthrough(), encode: SchemaGetter.transform(quantize) }));
 const Points = (unit: Unit): Schema.Codec<number> =>
     Schema.Number.pipe(
@@ -89,19 +81,19 @@ const SubdivisionIndex: Schema.Codec<number> = Schema.Int.pipe(Schema.check(Sche
 const fitLeading = ({ height, leading }: { readonly height: number; readonly leading: number }): Result.Result<Fitted, GridError> => {
     const lines = round(height / leading);
     const applied = quantize(height / lines);
-    const refused = (reason: 'noLine' | 'belowOnePoint' | 'atOrAbovePage'): Result.Result<Fitted, GridError> => Result.fail(GridError.leadingOutOfRange({ span: height, leading, reason }));
-    return Match.value(lines).pipe(
-        Match.withReturnType<Result.Result<Fitted, GridError>>(),
-        Match.when(0, () => refused('noLine')),
-        Match.when(
-            () => !atLeast(applied, 1),
-            () => refused('belowOnePoint'),
+    return Option.match(
+        Array.findFirst(
+            [
+                ['noLine', lines === 0],
+                ['belowOnePoint', !atLeast(applied, 1)],
+                ['atOrAbovePage', atLeast(applied, quantize(height))],
+            ] as const,
+            ([, failed]) => failed,
         ),
-        Match.when(
-            () => atLeast(applied, quantize(height)),
-            () => refused('atOrAbovePage'),
-        ),
-        Match.orElse(() => Result.succeed({ lines, leading: applied })),
+        {
+            onNone: () => Result.succeed({ lines, leading: applied }),
+            onSome: ([reason]) => Result.fail(GridError.leadingOutOfRange({ span: height, leading, reason })),
+        },
     );
 };
 
@@ -130,7 +122,7 @@ const subdivision = ({
     const fit = fitSpan(height, multiplied);
     const applied = quantize(fit);
     return Result.flatMap(fitLeading({ height, leading }), () =>
-        greaterThan(fit, height)
+        step.kind !== 'division' && greaterThan(fit, height)
             ? Result.fail(GridError.leadingOutOfRange({ span: height, leading: multiplied, reason: 'atOrAbovePage' }))
             : Result.succeed({ ...step, lines: round(height / fit), leading: applied, fine: applied / step.factor }),
     );
@@ -214,10 +206,6 @@ const smartLevel =
         const field = rounding((lines - beforeLines - round(after / unit) - (count - 1) * gutterLines) / count);
         return { before: beforeLines, after: lines - beforeLines - count * field - (count - 1) * gutterLines, gutter: gutterLines, field };
     };
-
-const smartColumns: ReturnType<typeof smartLevel> = smartLevel(round);
-
-const smartRows: ReturnType<typeof smartLevel> = smartLevel(Math.floor);
 
 const combinations = ({
     span,
@@ -358,20 +346,12 @@ const squareSize = (measure: (size: number) => number, { gridWidth, leading }: {
     };
     const bisect = (low: number, high: number): SquareSize => {
         const size = quantize((low + high) / 2);
-        const midpoint = { size, height: measure(size) };
-        const bounds = greaterThan(target, midpoint.height) ? { low: size + 1 / _ROUNDING.precision, high } : { low, high: size - 1 / _ROUNDING.precision };
-        return Match.value(midpoint).pipe(
-            Match.withReturnType<SquareSize>(),
-            Match.when(
-                ({ height }) => within(height, target),
-                (exact) => ({ ...exact, match: 'exact' }),
-            ),
-            Match.when(
-                () => atLeast(bounds.high, bounds.low),
-                () => bisect(bounds.low, bounds.high),
-            ),
-            Match.orElse((closest) => ({ ...closest, match: 'closest' })),
-        );
+        const height = measure(size);
+        if (within(height, target)) {
+            return { size, height, match: 'exact' };
+        }
+        const bounds = greaterThan(target, height) ? { low: size + 1 / _ROUNDING.precision, high } : { low, high: size - 1 / _ROUNDING.precision };
+        return atLeast(bounds.high, bounds.low) ? bisect(bounds.low, bounds.high) : { size, height, match: 'closest' };
     };
     const reached = bracket(_LIMIT.sizeStart);
     return greaterThan(target, leading)
@@ -397,28 +377,15 @@ const basedOn = ({
 const lock = ({ sum, edited, other }: { readonly sum: number; readonly edited: number; readonly other: number }): { readonly edited: number; readonly other: number } =>
     atLeast(sum - edited, 0) ? { edited, other: sum - edited } : { edited: sum - other, other };
 
-const canonMargins = ({ width, height, canon }: { readonly width: number; readonly height: number; readonly canon: Canon }): Margins => {
-    const rule = CANON[canon];
-    const vertical = { width, height }[rule.vertical];
-    return {
-        inside: (rule.inside * width) / rule.divisions,
-        outside: (rule.outside * width) / rule.divisions,
-        top: (rule.top * vertical) / rule.divisions,
-        bottom: (rule.bottom * vertical) / rule.divisions,
-    };
-};
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Canon, Combination, Fitted, Margins, SquareSize };
+export type { Combination, Fitted, Margins, SquareSize, Unit };
 export {
     atLeast,
     basedOn,
     browse,
-    CANON,
     ColumnCount,
     Count,
-    canonMargins,
     columns,
     combinations,
     fitLeading,
@@ -441,13 +408,11 @@ export {
     round,
     Span,
     SubdivisionIndex,
-    smartColumns,
-    smartRows,
+    smartLevel,
     snappedSpan,
     squareGrid,
     squareSize,
     subdivision,
-    Unit,
     unfittedLeading,
     verticalValue,
     within,
