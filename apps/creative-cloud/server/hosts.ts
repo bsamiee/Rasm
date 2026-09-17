@@ -190,21 +190,20 @@ const _EXTRAS: { readonly [K in HostId]: (host: (typeof HOSTS)[K], site: Site) =
         ),
 };
 
+const bundle = (host: Row): Effect.Effect<AbsolutePath, NonZeroExit | Schema.SchemaError, ChildProcessSpawner.ChildProcessSpawner> =>
+    reply(ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${host.bundleId}'`])).pipe(
+        Effect.flatMap(
+            Schema.decodeEffect(
+                Schema.String.pipe(Schema.decodeTo(Schema.NonEmptyArray(AbsolutePath), { decode: SchemaGetter.transform(String.split('\n')), encode: SchemaGetter.transform(Array.join('\n')) })),
+            ),
+        ),
+        Effect.map(Array.headNonEmpty),
+    );
+
 const _resolved = Effect.fnUntraced(function* <K extends HostId>(id: K, home: string) {
     const host = HOSTS[id];
     const path = yield* Path.Path;
-    const bundlePath = yield* _key(
-        id,
-        'bundlePath',
-        reply(ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${host.bundleId}'`])).pipe(
-            Effect.flatMap(
-                Schema.decodeEffect(
-                    Schema.String.pipe(Schema.decodeTo(Schema.NonEmptyArray(AbsolutePath), { decode: SchemaGetter.transform(String.split('\n')), encode: SchemaGetter.transform(Array.join('\n')) })),
-                ),
-            ),
-            Effect.map(Array.headNonEmpty),
-        ),
-    );
+    const bundlePath = yield* _key(id, 'bundlePath', bundle(host));
     const results = yield* Effect.all(
         {
             version: _key(
@@ -239,4 +238,4 @@ const resolve: Effect.Effect<Hosts, Array.NonEmptyReadonlyArray<HostKeyError> | 
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Hosts, Resolved, resolve };
+export { bundle, Hosts, Resolved, resolve };

@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Config, Data, Effect, Equal, FileSystem, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Struct } from 'effect';
-import { type BBOX, type Font, openSync } from 'fontkit';
+import { Array, Config, Effect, Equal, FileSystem, Option, Path, type PlatformError, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { type Font, openSync } from 'fontkit';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -11,26 +11,9 @@ declare module 'fontkit' {
     }
 }
 
-interface Metrics {
-    readonly postScriptName: string;
-    readonly familyName: string;
-    readonly subfamilyName: string;
-    readonly unitsPerEm: number;
-    readonly ascent: number;
-    readonly descent: number;
-    readonly lineGap: number;
-    readonly underlinePosition: number;
-    readonly underlineThickness: number;
-    readonly italicAngle: number;
-    readonly capHeight: number;
-    readonly xHeight: number;
-    readonly fTop: number;
-    readonly bbox: BBOX;
-    readonly glyphs: Readonly<Record<keyof typeof _GLYPHS, BBOX>>;
-    readonly features: readonly string[];
-    readonly axes: Readonly<Record<string, NonNullable<Font['variationAxes'][string]>>>;
-    readonly namedVariations: Font['namedVariations'];
-}
+type Metrics = (typeof Metrics)['Type'];
+type Measured = (typeof Measured)['Type'];
+type MetricsError = (typeof MetricsError)['Type'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -39,16 +22,73 @@ const _SCAN = { depth: 3, extensions: ['.otf', '.ttf', '.ttc', '.dfont'] } as co
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-type MetricsError = Data.TaggedEnum<{
-    readonly fontNotFound: { readonly postScriptName: string; readonly scanned: readonly string[] };
-    readonly metricsMissing: { readonly postScriptName: string; readonly fields: Array.NonEmptyReadonlyArray<'capHeight' | 'xHeight'> };
-    readonly faceNotReadable: { readonly file: string; readonly cause: unknown };
-    readonly faceNotInFile: { readonly file: string; readonly postScriptName: string };
-}>;
-
-const MetricsError: Data.TaggedEnum.Constructor<MetricsError> = Data.taggedEnum<MetricsError>();
+const MetricsError: Schema.TaggedUnion<{
+    readonly fontNotFound: Schema.TaggedStruct<'fontNotFound', { readonly postScriptName: Schema.String; readonly scanned: Schema.$Array<Schema.String> }>;
+    readonly metricsMissing: Schema.TaggedStruct<
+        'metricsMissing',
+        { readonly postScriptName: Schema.String; readonly fields: Schema.NonEmptyArray<Schema.Literals<readonly ['capHeight', 'xHeight']>> }
+    >;
+    readonly faceNotReadable: Schema.TaggedStruct<'faceNotReadable', { readonly file: Schema.String; readonly cause: Schema.Defect }>;
+    readonly faceNotInFile: Schema.TaggedStruct<'faceNotInFile', { readonly file: Schema.String; readonly postScriptName: Schema.String }>;
+}> = Schema.TaggedUnion({
+    fontNotFound: { postScriptName: Schema.String, scanned: Schema.Array(Schema.String) },
+    metricsMissing: { postScriptName: Schema.String, fields: Schema.NonEmptyArray(Schema.Literals(['capHeight', 'xHeight'])) },
+    faceNotReadable: { file: Schema.String, cause: Schema.Defect() },
+    faceNotInFile: { file: Schema.String, postScriptName: Schema.String },
+});
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+const _Box: Schema.Struct<{ readonly minX: Schema.Number; readonly minY: Schema.Number; readonly maxX: Schema.Number; readonly maxY: Schema.Number }> = Schema.Struct({
+    minX: Schema.Number,
+    minY: Schema.Number,
+    maxX: Schema.Number,
+    maxY: Schema.Number,
+});
+
+const Metrics: Schema.Struct<{
+    readonly postScriptName: Schema.String;
+    readonly familyName: Schema.String;
+    readonly subfamilyName: Schema.String;
+    readonly unitsPerEm: Schema.Number;
+    readonly ascent: Schema.Number;
+    readonly descent: Schema.Number;
+    readonly lineGap: Schema.Number;
+    readonly underlinePosition: Schema.Number;
+    readonly underlineThickness: Schema.Number;
+    readonly italicAngle: Schema.Number;
+    readonly capHeight: Schema.Number;
+    readonly xHeight: Schema.Number;
+    readonly fTop: Schema.Number;
+    readonly bbox: typeof _Box;
+    readonly glyphs: Schema.$Record<Schema.Literals<Array<keyof typeof _GLYPHS>>, typeof _Box>;
+    readonly features: Schema.$Array<Schema.String>;
+    readonly axes: Schema.$Record<Schema.String, Schema.Struct<{ readonly name: Schema.String; readonly min: Schema.Number; readonly default: Schema.Number; readonly max: Schema.Number }>>;
+    readonly namedVariations: Schema.$Record<Schema.String, Schema.$Record<Schema.String, Schema.Number>>;
+}> = Schema.Struct({
+    postScriptName: Schema.String,
+    familyName: Schema.String,
+    subfamilyName: Schema.String,
+    unitsPerEm: Schema.Number,
+    ascent: Schema.Number,
+    descent: Schema.Number,
+    lineGap: Schema.Number,
+    underlinePosition: Schema.Number,
+    underlineThickness: Schema.Number,
+    italicAngle: Schema.Number,
+    capHeight: Schema.Number,
+    xHeight: Schema.Number,
+    fTop: Schema.Number,
+    bbox: _Box,
+    glyphs: Schema.Record(Schema.Literals(Struct.keys(_GLYPHS)), _Box),
+    features: Schema.Array(Schema.String),
+    axes: Schema.Record(Schema.String, Schema.Struct({ name: Schema.String, min: Schema.Number, default: Schema.Number, max: Schema.Number })),
+    namedVariations: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Number)),
+});
+
+const Measured: Schema.Struct<
+    (typeof Metrics)['fields'] & { readonly file: Schema.String; readonly size: Schema.Number; readonly x: Schema.Number; readonly hCap: Schema.Number; readonly f: Schema.Number }
+> = Schema.Struct({ ...Metrics.fields, file: Schema.String, size: Schema.Number, x: Schema.Number, hCap: Schema.Number, f: Schema.Number });
 
 const _Mtime = Schema.OptionFromNullOr(Schema.Number);
 const _Index = Schema.fromJsonString(
@@ -71,16 +111,17 @@ const _roots: Effect.Effect<readonly string[], Config.ConfigError, Path.Path> = 
         '/System/Library/Fonts/Supplemental',
         path.join(home, 'Library', 'Fonts'),
         path.join(home, 'Library', 'Application Support', 'Adobe', 'CoreSync', 'plugins', 'livetype', '.r'),
+        path.join(home, 'Library', 'Application Support', 'Adobe', 'CoreSync', 'plugins', 'livetype', '.w'),
     ];
 });
 
 const _faces = (file: string): Effect.Effect<readonly Font[], Extract<MetricsError, { readonly _tag: 'faceNotReadable' }>> =>
-    Effect.map(Effect.try({ try: () => openSync(file), catch: (cause) => MetricsError.faceNotReadable({ file, cause }) }), (opened) => ('fonts' in opened ? opened.fonts : [opened]));
+    Effect.map(Effect.try({ try: () => openSync(file), catch: (cause) => MetricsError.cases.faceNotReadable.make({ file, cause }) }), (opened) => ('fonts' in opened ? opened.fonts : [opened]));
 
 const read: (file: string, postScriptName: string) => Effect.Effect<Metrics, MetricsError> = Effect.fnUntraced(function* (file: string, postScriptName: string) {
     const font = yield* Effect.fromOption(
         Array.findFirst(yield* _faces(file), (face) => face.postscriptName === postScriptName),
-        () => MetricsError.faceNotInFile({ file, postScriptName }),
+        () => MetricsError.cases.faceNotInFile.make({ file, postScriptName }),
     );
     const os2 = Option.fromNullishOr(font['OS/2']);
     const required = Record.map(
@@ -91,7 +132,7 @@ const read: (file: string, postScriptName: string) => Effect.Effect<Metrics, Met
         onSome: Effect.succeed,
         onNone: () =>
             Effect.fail(
-                MetricsError.metricsMissing({
+                MetricsError.cases.metricsMissing.make({
                     postScriptName,
                     fields: Option.isSome(required.capHeight) ? ['xHeight'] : ['capHeight', ...(Option.isSome(required.xHeight) ? [] : ['xHeight' as const])],
                 }),
@@ -167,7 +208,7 @@ const _index: Effect.Effect<typeof _Index.Type, Config.ConfigError | PlatformErr
             () => Effect.succeedNone,
         ),
     );
-    const cached = Option.filter(yield* Effect.transposeOption(Option.map(text, Schema.decodeEffect(_Index))), (candidate) => Equal.equals(candidate.roots, stamps));
+    const cached = Option.filter(Option.flatMap(text, Schema.decodeUnknownOption(_Index)), (candidate) => Equal.equals(candidate.roots, stamps));
     if (Option.isSome(cached)) {
         return cached.value;
     }
@@ -181,17 +222,13 @@ const _index: Effect.Effect<typeof _Index.Type, Config.ConfigError | PlatformErr
 
 const resolve = (postScriptName: string): Effect.Effect<string, MetricsError | Config.ConfigError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path> =>
     Effect.flatMap(_index, ({ roots: scanned, faces }) =>
-        Effect.fromOption(Option.map(Record.get(faces, postScriptName), Struct.get('file')), () => MetricsError.fontNotFound({ postScriptName, scanned: Record.keys(scanned) })),
+        Effect.fromOption(Option.map(Record.get(faces, postScriptName), Struct.get('file')), () => MetricsError.cases.fontNotFound.make({ postScriptName, scanned: Record.keys(scanned) })),
     );
 
 const metrics = (
     postScriptName: string,
     size: number,
-): Effect.Effect<
-    Metrics & { readonly file: string; readonly size: number; readonly x: number; readonly hCap: number; readonly f: number },
-    MetricsError | Config.ConfigError | PlatformError.PlatformError | Schema.SchemaError,
-    FileSystem.FileSystem | Path.Path
-> =>
+): Effect.Effect<Measured, MetricsError | Config.ConfigError | PlatformError.PlatformError | Schema.SchemaError, FileSystem.FileSystem | Path.Path> =>
     Effect.flatMap(resolve(postScriptName), (file) =>
         Effect.map(read(file, postScriptName), (face) => ({
             ...face,
@@ -205,5 +242,4 @@ const metrics = (
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Metrics };
-export { MetricsError, metrics, read, resolve };
+export { Measured, Metrics, MetricsError, metrics, read, resolve };

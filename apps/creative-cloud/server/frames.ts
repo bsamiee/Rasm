@@ -31,17 +31,34 @@ const State: Schema.Struct<{ readonly modalState: Schema.Boolean; readonly activ
     modified: Schema.Boolean,
 });
 
+const HistoryState: Schema.Struct<{ readonly documentId: Schema.Int; readonly name: Schema.String }> = Schema.Struct({ documentId: Schema.Int, name: Schema.String });
+
 const Job: Schema.Struct<{
     readonly jobId: Schema.Codec<JobId, string>;
-    readonly kind: Schema.Literals<readonly ['execute']>;
+    readonly kind: Schema.Literals<
+        readonly ['execute', 'listEnums', 'snapshot', 'getLayout', 'findKeyStrings', 'getPreferences', 'setPreferences', 'setTextDefaults', 'batchPlay', 'getDocument', 'listPresets', 'runAction']
+    >;
     readonly body: Schema.Codec<Schema.Json>;
-    readonly suspendHistory: Schema.OptionFromOptionalKey<Schema.Struct<{ readonly documentId: Schema.Int; readonly name: Schema.String }>>;
+    readonly suspendHistory: Schema.OptionFromOptionalKey<typeof HistoryState>;
     readonly commandName: Schema.OptionFromOptionalKey<Schema.String>;
 }> = Schema.Struct({
     jobId: JobId,
-    kind: Schema.Literals(['execute']),
+    kind: Schema.Literals([
+        'execute',
+        'listEnums',
+        'snapshot',
+        'getLayout',
+        'findKeyStrings',
+        'getPreferences',
+        'setPreferences',
+        'setTextDefaults',
+        'batchPlay',
+        'getDocument',
+        'listPresets',
+        'runAction',
+    ]),
     body: Schema.Json,
-    suspendHistory: Schema.OptionFromOptionalKey(Schema.Struct({ documentId: Schema.Int, name: Schema.String })),
+    suspendHistory: Schema.OptionFromOptionalKey(HistoryState),
     commandName: _optionalString,
 });
 
@@ -83,4 +100,4 @@ interface Done {
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Done, Identity, Job, Settle, State };
-export { AlreadyAttached, Execute, Frames, Link };
+export { AlreadyAttached, Execute, Frames, HistoryState, Link };

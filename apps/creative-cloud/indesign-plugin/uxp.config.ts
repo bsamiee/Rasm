@@ -5,6 +5,8 @@ import type { UXP_Config, UXP_Manifest } from 'vite-uxp-plugin';
 
 // --- [MANIFEST] ------------------------------------------------------------------------
 
+const endpoint: `ws://localhost:${number}` = `ws://localhost:${HOSTS.indesign.port}`;
+
 const host: UXP_Manifest['host'][number] = { app: 'ID', minVersion: '21.6' };
 
 const panel: Extract<UXP_Manifest['entrypoints'][number], { readonly label: { readonly default: string } }> = {
@@ -19,16 +21,16 @@ const manifest: Omit<UXP_Manifest, 'host'> & { readonly host: UXP_Manifest['host
     manifestVersion: 5,
     id: 'rasm.indesign.bridge',
     name: 'Rasm InDesign Bridge',
-    version: '0.1.7',
+    version: '0.1.12',
     main: 'plugin-main.js',
     host,
     entrypoints: [panel],
     icons: [{ width: 48, height: 48, path: 'icons/plugin.png', scale: [1, 2], theme: ['all'], species: ['pluginList'] }],
-    requiredPermissions: { localFileSystem: 'fullAccess', network: { domains: [`ws://localhost:${HOSTS.indesign.port}`] }, allowCodeGenerationFromStrings: true },
+    requiredPermissions: { localFileSystem: 'fullAccess', network: { domains: [endpoint] }, allowCodeGenerationFromStrings: true },
 };
 
 const config: UXP_Config = { manifest: manifest as UXP_Manifest, hotReloadPort: 0, webviewUi: false, webviewReloadPort: 0, copyZipAssets: [] };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { config, host, manifest, panel };
+export { config, endpoint, host, manifest, panel };

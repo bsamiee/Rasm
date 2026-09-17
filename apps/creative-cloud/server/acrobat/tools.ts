@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { load } from 'cheerio';
-import { Array, Context, Crypto, DateTime, Duration, Effect, FileSystem, Layer, Match, Option, Order, Path, type PlatformError, Record, Result, Schema, Struct, Tuple } from 'effect';
+import { Array, Context, Crypto, DateTime, Duration, Effect, FileSystem, Filter, Layer, Match, Option, Order, Path, type PlatformError, Record, Result, Schema, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/unstable/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import { contract, Failure } from '../contract.ts';
@@ -236,20 +236,13 @@ const _matches = (channel: Channel, folder: AbsolutePath, pattern: string, exclu
 
 // --- [ACTIONS] -------------------------------------------------------------------------
 
-const _perFile = Effect.fnUntraced(function* (channel: Channel, renders: readonly ((output: string) => string)[], source: AbsolutePath, output: AbsolutePath) {
+const _perFile = Effect.fnUntraced(function* (channel: Channel, body: (output: string) => string, source: AbsolutePath, output: AbsolutePath) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const body = perFile(
-        source,
-        Array.join(
-            Array.map(renders, (render) => render(output)),
-            ' ',
-        ),
-    );
     const outcome = yield* Effect.result(
         Effect.andThen(
             Effect.mapError(fs.makeDirectory(path.dirname(output), { recursive: true }), _file(channel, output)),
-            Effect.as(_call(channel, TIMEOUT_MS, Schema.Struct({ saved: Schema.Literal(true) }), body), output),
+            Effect.as(_call(channel, TIMEOUT_MS, Schema.Struct({ saved: Schema.Literal(true) }), perFile(source, body(output))), output),
         ),
     );
     return { path: source, outcome };
@@ -257,16 +250,20 @@ const _perFile = Effect.fnUntraced(function* (channel: Channel, renders: readonl
 
 const _runAction = (channel: Channel, name: ActionName, targets: readonly (readonly [AbsolutePath, AbsolutePath])[]): Reply<'action' | 'needsWizard'> => {
     const steps = Array.flatMap(HOUSE[name].groups, Struct.get('steps'));
-    const renders = Array.filterMap(steps, script);
-    const ran = Array.filterMap(steps, (step, index) => Result.map(script(step), () => index));
+    const runnable = Array.filterMap(steps, (step, index) => Result.map(script(step), (render) => ({ index, render })));
+    const body = (output: string): string =>
+        Array.join(
+            Array.map(runnable, ({ render }) => render(output)),
+            ' ',
+        );
     return Array.match(
         Array.filterMap(steps, (step, index) => (step.op === 'command' && Option.isSome(step.items) ? Result.succeed(index) : Result.failVoid)),
         {
             onNonEmpty: (indices): Reply<'action' | 'needsWizard'> => Effect.succeed({ kind: 'needsWizard', name, steps: indices }),
             onEmpty: () =>
                 Effect.map(
-                    Effect.forEach(targets, ([source, output]) => _perFile(channel, renders, source, output)),
-                    (outcomes) => ({ kind: 'action' as const, name, ran, perFile: outcomes }),
+                    Effect.forEach(targets, ([source, output]) => _perFile(channel, body, source, output)),
+                    (outcomes) => ({ kind: 'action' as const, name, ran: Array.map(runnable, Struct.get('index')), perFile: outcomes }),
                 ),
         },
     );
@@ -294,21 +291,18 @@ const _targets = (channel: Channel, inputs: (typeof _Inputs)['Type'], output: Op
         });
     });
 
-const _batch = Effect.fnUntraced(function* (channel: Channel, { action, folder, pattern, output }: (typeof _BatchInput)['Type']) {
-    const [path, matches] = yield* Effect.all([Path.Path, _matches(channel, folder, pattern, [])]);
-    const ran = yield* _runAction(
-        channel,
-        action,
-        Array.map(matches, (match) => Tuple.make(AbsolutePath.make(path.join(folder, match)), AbsolutePath.make(path.join(output, match)))),
+const _batch = (channel: Channel, { action, folder, pattern, output }: (typeof _BatchInput)['Type']): Reply<'batch' | 'needsWizard'> =>
+    Effect.map(
+        Effect.flatMap(_targets(channel, { kind: 'glob', folder, pattern }, Option.some(output)), (targets) => _runAction(channel, action, targets)),
+        (ran) =>
+            ran.kind === 'needsWizard'
+                ? ran
+                : {
+                      kind: 'batch' as const,
+                      total: Array.length(ran.perFile),
+                      failed: Array.filterMap(ran.perFile, ({ path, outcome }) => Result.map(Result.flip(outcome), (error) => ({ path, error }))),
+                  },
     );
-    return ran.kind === 'needsWizard'
-        ? ran
-        : {
-              kind: 'batch' as const,
-              total: Array.length(ran.perFile),
-              failed: Array.filterMap(ran.perFile, ({ path: file, outcome }) => Result.map(Result.flip(outcome), (error) => ({ path: file, error }))),
-          };
-});
 
 // --- [COMBINE] -------------------------------------------------------------------------
 
@@ -416,7 +410,10 @@ const _preferences = Effect.fnUntraced(function* (channel: Channel, request: Sco
     yield* Effect.forEach([...Array.map(Array.flatMap(writes, Struct.get('commands')), buddy), ...ownership, ChildProcess.make('defaults', ['read', plist])], (command) => _command(channel, command), {
         discard: true,
     });
-    const [unchanged, applied] = Array.partition(writes, (row) => Array.match(row.commands, { onEmpty: () => Result.fail(row), onNonEmpty: () => Result.succeed(row) }));
+    const [unchanged, applied] = Array.partition(
+        writes,
+        Filter.fromPredicate((row) => row.commands.length > 0),
+    );
     return { kind: 'preferences' as const, applied: Array.map(applied, ({ path, from, to }) => ({ path, from, to })), unchanged: Array.map(unchanged, Struct.get('path')) };
 });
 
@@ -486,9 +483,9 @@ const layer: Layer.Layer<never, never, Hosts | Jobs | Services> = Layer.provide(
             Reply.cases.saved,
             false,
             (channel, { action }) =>
-                Effect.map(Effect.mapError(write(channel.row, action), _file(channel, `${action.name}.sequ`)), (target) => ({
+                Effect.map(Effect.mapError(write(channel.row, action), _file(channel, `${action.name}.sequ`)), (path) => ({
                     kind: 'saved' as const,
-                    path: AbsolutePath.make(target),
+                    path,
                     steps: Array.length(Array.flatMap(action.groups, Struct.get('steps'))),
                 })),
         ),

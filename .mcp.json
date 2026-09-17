@@ -34,10 +34,6 @@
             "command": "mise",
             "args": ["exec", "--", "playwright", "run-test-mcp-server", "--headless"]
         },
-        "indesign-sidekick": {
-            "command": "indesign-sidekick",
-            "args": ["start"]
-        },
         "github": {
             "type": "http",
             "url": "https://api.githubcopilot.com/mcp/",

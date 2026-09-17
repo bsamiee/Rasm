@@ -5,6 +5,7 @@ import { Cause, Console, Effect, FileSystem, flow, Option, Path, Record, Schema 
 import { Command } from 'effect/unstable/cli';
 import { HOUSE, write } from './acrobat/actions.ts';
 import { resolve } from './hosts.ts';
+import { generate } from './illustrator/generate.ts';
 import { processId } from './jobs.ts';
 import { HOSTS } from './values.ts';
 
@@ -25,7 +26,7 @@ const _deploy = Effect.gen(function* () {
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-Command.run(Command.make('automation').pipe(Command.withSubcommands([Command.make('deploy', {}, () => _deploy)])), { version: '' }).pipe(
+Command.run(Command.make('automation').pipe(Command.withSubcommands([Command.make('deploy', {}, () => _deploy), Command.make('generate', {}, () => generate())])), { version: '' }).pipe(
     Effect.tapError((error) => Console.error(Cause.pretty(Cause.fail(error)))),
     Effect.tapDefect(flow(Cause.die, Cause.pretty, Console.error)),
     Effect.provide(NodeServices.layer),

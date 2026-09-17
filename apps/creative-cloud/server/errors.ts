@@ -34,6 +34,10 @@ const HostRejection: Schema.TaggedUnion<{
     readonly documentNotOpen: Schema.TaggedStruct<'documentNotOpen', { readonly path: typeof AbsolutePath }>;
     readonly profileAbsent: Schema.TaggedStruct<'profileAbsent', { readonly profile: Schema.String }>;
     readonly noActiveDocument: Schema.TaggedStruct<'noActiveDocument', Record<never, never>>;
+    readonly pageOutOfRange: Schema.TaggedStruct<'pageOutOfRange', { readonly index: Schema.Int; readonly count: Schema.Int }>;
+    readonly itemNotFound: Schema.TaggedStruct<'itemNotFound', { readonly itemId: Schema.Int }>;
+    readonly documentNotFound: Schema.TaggedStruct<'documentNotFound', { readonly documentId: Schema.Int }>;
+    readonly actionNotFound: Schema.TaggedStruct<'actionNotFound', { readonly set: Schema.String; readonly action: Schema.String }>;
     readonly unknownMethod: Schema.TaggedStruct<'unknownMethod', { readonly method: Schema.String }>;
     readonly malformedParams: Schema.TaggedStruct<'malformedParams', { readonly cause: Schema.Defect }>;
     readonly resultNotJson: Schema.TaggedStruct<'resultNotJson', { readonly cause: Schema.Defect }>;
@@ -47,6 +51,10 @@ const HostRejection: Schema.TaggedUnion<{
     documentNotOpen: { path: AbsolutePath },
     profileAbsent: { profile: Schema.String },
     noActiveDocument: {},
+    pageOutOfRange: { index: Schema.Int, count: Schema.Int },
+    itemNotFound: { itemId: Schema.Int },
+    documentNotFound: { documentId: Schema.Int },
+    actionNotFound: { set: Schema.String, action: Schema.String },
     unknownMethod: { method: Schema.String },
     malformedParams: { cause: Schema.Defect() },
     resultNotJson: { cause: Schema.Defect() },

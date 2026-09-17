@@ -89,11 +89,11 @@ const _write = (root: PlistValue, scope: Scope['scope'], [path, value]: readonly
 
 const plan = (request: Scope, xml: Option.Option<string>): readonly Write[] => {
     const root = Option.match(xml, { onNone: (): PlistValue => ({}), onSome: parse });
-    return Scope.match(request, {
-        user: ({ rows }) => Array.map(Record.toEntries(Option.match(rows, { onNone: () => _ROWS.user, onSome: (names) => Struct.pick(_ROWS.user, names) })), (row) => _write(root, 'user', row)),
-        machine: ({ rows }) =>
-            Array.map(Record.toEntries(Option.match(rows, { onNone: () => _ROWS.machine, onSome: (names) => Struct.pick(_ROWS.machine, names) })), (row) => _write(root, 'machine', row)),
+    const rows: Readonly<Record<string, boolean>> = Scope.match(request, {
+        user: ({ rows: names }) => Option.match(names, { onNone: () => _ROWS.user, onSome: (picked) => Struct.pick(_ROWS.user, picked) }),
+        machine: ({ rows: names }) => Option.match(names, { onNone: () => _ROWS.machine, onSome: (picked) => Struct.pick(_ROWS.machine, picked) }),
     });
+    return Array.map(Record.toEntries(rows), (row) => _write(root, request.scope, row));
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

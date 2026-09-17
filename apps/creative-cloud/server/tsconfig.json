@@ -2,7 +2,8 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/server",
-        "types": ["node"]
+        "lib": ["esnext", "dom"],
+        "types": ["@adobe-uxp-types/photoshop", "node"]
     },
     "references": [{ "path": "../../../libs/typescript/typography" }],
     "include": ["*.ts", "*/*.ts"],

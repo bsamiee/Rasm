@@ -2,62 +2,31 @@
 
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { BridgeError } from '@rasm/creative-cloud-server/errors';
-import { Link } from '@rasm/creative-cloud-server/frames';
+import { bundle } from '@rasm/creative-cloud-server/hosts';
+import { Enums } from '@rasm/creative-cloud-server/indesign/jobs';
 import { doScript, read, reply } from '@rasm/creative-cloud-server/osascript';
+import { absent, camel, dictionary, fourcc, MANIPULATION, pascal, type SdefClass, type SdefEnumeration, type SdefProperty, sorted } from '@rasm/creative-cloud-server/sdef';
+import { attached, install, POLL, probed, protocol, relaunch, server, until } from '@rasm/creative-cloud-server/uxp';
 import { HOSTS } from '@rasm/creative-cloud-server/values';
-import {
-    Array,
-    Cause,
-    Clock,
-    Config,
-    Console,
-    Effect,
-    FileSystem,
-    Filter,
-    flow,
-    HashSet,
-    identity,
-    Layer,
-    Option,
-    Order,
-    Path,
-    type PlatformError,
-    Predicate,
-    pipe,
-    Queue,
-    Record,
-    Result,
-    Schedule,
-    Schema,
-    Stream,
-    String,
-    Struct,
-} from 'effect';
-import { McpProtocol, McpSchema } from 'effect/unstable/ai';
+import { Array, Cause, Clock, Console, Effect, FileSystem, Filter, flow, HashSet, identity, Option, Order, Path, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { Command } from 'effect/unstable/cli';
-import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
-import { RpcClient, RpcSerialization } from 'effect/unstable/rpc';
-import { Socket } from 'effect/unstable/socket';
-import { XMLParser } from 'fast-xml-parser';
+import { ChildProcess } from 'effect/unstable/process';
 import {
     type ClassDeclaration,
     type ExpressionWithTypeArguments,
     type GetAccessorDeclarationStructure,
-    IndentationText,
     type InterfaceDeclaration,
     type InterfaceDeclarationStructure,
     type MethodSignatureStructure,
-    NewLineKind,
+    Node,
     type OptionalKind,
     Project,
     type PropertySignatureStructure,
-    QuoteKind,
     type SetAccessorDeclarationStructure,
     StructureKind,
     VariableDeclarationKind,
     type WriterFunction,
 } from 'ts-morph';
-import { reflected } from './enums.ts';
 import { host, manifest, panel } from './uxp.config.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -87,7 +56,11 @@ type Enumerations = Readonly<Record<string, Readonly<Record<string, number>>>>;
 
 const _HOST = HOSTS.indesign;
 const _DECLARATIONS = ['Contents', 'Resources', 'UXP', 'com.adobe.indesign.creative-assistant', 'tsValidation', 'indesign.d.ts'] as const;
-const _ACRONYM = /^[A-Z][A-Z0-9]*$/u;
+const _OUTPUT = ['..', 'server', 'indesign', 'indesign.ts'] as const;
+const _ENUMERATIONS = 'enumerations.ts';
+const _UXP = '@adobe-uxp-types/uxp';
+const _UXP_TYPINGS = ['src', 'index.d.ts'] as const;
+const _UXP_MODULE = 'uxp';
 const _ENUMERATOR_DOC = /(?<name>[A-Z][A-Za-z0-9]*) enumerator/gu;
 const _PRIMITIVES: Readonly<Record<string, string>> = {
     any: 'any',
@@ -102,78 +75,29 @@ const _PRIMITIVES: Readonly<Record<string, string>> = {
     text: 'string',
     type: 'string',
 };
-const _BYTE = 256;
-const _QUIT_MS = 300_000;
-const _RUNNING_MS = 5000;
-const _POLL = Schedule.spaced('250 millis').pipe(Schedule.upTo({ duration: '120 seconds' }));
-const _PROTOCOL = McpProtocol.v2025_11_25.protocolVersion;
+const _DOCKED_MS = 5000;
+const _DOCKED = `${doScript(`var label = ${JSON.stringify(panel.label.default)}; var docked = app.panels.itemByName(label).isValid; if (!docked) app.menuActions.itemByName(label).invoke(); docked`)} language javascript`;
+const _SCOPE = 'return { TextEncoder: typeof TextEncoder, TextDecoder: typeof TextDecoder, queueMicrotask: typeof queueMicrotask, hrtimeBigint: typeof process.hrtime.bigint };';
+const _LIVE =
+    "const m = require('indesign'); const names = Object.getOwnPropertyNames(m); return { enumerations: names.filter((n) => { const v = m[n]; return typeof v === 'object' && v !== null && v.constructor.name === 'Enumeration'; }), functions: names.filter((n) => typeof m[n] === 'function') };";
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
 const _strings = Schema.Array(Schema.String);
+const _Live = Schema.Struct({ enumerations: _strings, functions: _strings });
 
 const AutomationError = Schema.TaggedUnion({
-    bundleNotFound: { bundleId: Schema.String },
-    notReady: { hosts: Schema.String },
-    toolFailed: { tool: Schema.String, text: Schema.String },
-    unreconciled: { undeclared: Schema.Struct({ enumerations: _strings, constants: _strings }) },
+    moduleNotDeclared: { typings: Schema.String, module: Schema.String },
+    unreconciled: { undeclared: Schema.Struct({ enumerations: _strings, constants: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)) }), unvalued: _strings },
 });
 
 // --- [DICTIONARY] ----------------------------------------------------------------------
 
-const _children = <S extends Schema.Top>(schema: S): Schema.withDecodingDefaultKey<Schema.$Array<S>> => Schema.Array(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
-const _optionalString = Schema.OptionFromOptionalKey(Schema.String);
-const _yes = Schema.OptionFromOptionalKey(Schema.Literal('yes'));
-const _named = { name: Schema.String, code: Schema.String, description: Schema.String };
-const _Property = Schema.Struct({
-    attributes: Schema.Struct({ ..._named, type: _optionalString, access: Schema.OptionFromOptionalKey(Schema.Literal('r')), hidden: _yes }),
-    type: _children(Schema.Struct({ attributes: Schema.Struct({ type: Schema.String, list: _yes }) })),
-});
-const _Class = Schema.Struct({ attributes: Schema.Struct({ ..._named, inherits: _optionalString, plural: _optionalString, hidden: _yes }), property: _children(_Property) });
-const _Enumeration = Schema.Struct({ attributes: Schema.Struct({ name: Schema.String, code: Schema.String }), enumerator: Schema.Array(Schema.Struct({ attributes: Schema.Struct(_named) })) });
-const _Dictionary = Schema.Struct({
-    dictionary: Schema.Struct({ attributes: Schema.Struct({ title: Schema.String }), suite: Schema.Array(Schema.Struct({ class: _children(_Class), enumeration: _children(_Enumeration) })) }),
-});
 const _Enum = Schema.Struct({ name: Schema.String, members: Schema.Array(Schema.Struct({ name: Schema.String, initializer: Schema.NumberFromString })) });
-
-type SdefProperty = (typeof _Property)['Type'];
-type SdefClass = (typeof _Class)['Type'];
-type SdefEnumeration = (typeof _Enumeration)['Type'];
-
-const _parser = new XMLParser({
-    ignoreAttributes: false,
-    attributeNamePrefix: '',
-    attributesGroupName: 'attributes',
-    ignoreDeclaration: true,
-    trimValues: false,
-    parseTagValue: false,
-    parseAttributeValue: false,
-    isArray: (tag): boolean => Array.contains(['suite', 'class', 'property', 'type', 'enumeration', 'enumerator'], tag),
-});
-
-const _bundle = Effect.orDie(reply(ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${_HOST.bundleId}'`]))).pipe(
-    Effect.flatMap(Schema.decodeEffect(Schema.NonEmptyString)),
-    Effect.mapError(() => AutomationError.cases.bundleNotFound.make({ bundleId: _HOST.bundleId })),
-);
 
 // --- [NAMES] ---------------------------------------------------------------------------
 
-const _words = (name: string): Array.NonEmptyReadonlyArray<string> => String.split(Array.headNonEmpty(String.split(name, '.')), ' ');
-
-const _capitalized = (word: string): string => (_ACRONYM.test(word) ? word : String.capitalize(word));
-
-const _pascal = (name: string): string => Array.join(Array.map(_words(name), _capitalized), '');
-
-const _camel = (name: string): string => {
-    const [head, ...rest] = _words(name);
-    return `${_ACRONYM.test(head) ? String.toLowerCase(head) : String.uncapitalize(head)}${Array.join(Array.map(rest, _capitalized), '')}`;
-};
-
-const _constant = (name: string): string => (name === 'default' ? 'DEFAULT_VALUE' : Array.join(Array.map(_words(name), String.toUpperCase), '_'));
-
-const _fourcc = (code: string): number => Array.reduce(code.split(''), 0, (total, character) => total * _BYTE + character.charCodeAt(0));
-
-const _sorted = (names: Iterable<string>): readonly string[] => Array.sort(Array.dedupe(Array.fromIterable(names)), Order.String);
+const _constant = (name: string): string => (name === 'default' ? 'DEFAULT_VALUE' : Array.join(Array.map(String.split(Array.headNonEmpty(String.split(name, '.')), ' '), String.toUpperCase), '_'));
 
 const _mentioned = (description: string): readonly string[] =>
     Array.filterMap(
@@ -200,6 +124,10 @@ const _declaration =
             const parts = String.split(_text(type), ' & ');
             return parts.length > 1 && Array.every(parts, (part) => HashSet.has(names, part)) ? Array.join(parts, ' | ') : _text(type);
         };
+        const accepted = (type: string | WriterFunction | undefined): string => {
+            const text = union(type);
+            return Array.contains(String.split(text, ' | '), 'File') ? `${text} | string` : text;
+        };
         return {
             kind: StructureKind.Interface,
             name,
@@ -216,14 +144,14 @@ const _declaration =
             }),
             setAccessors: Array.map(node.getSetAccessors(), (accessor) => {
                 const structure = accessor.getStructure();
-                return { ...structure, parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: union(parameter.type) })) };
+                return { ...structure, parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: accepted(parameter.type) })) };
             }),
             methods: Array.map(node.getMethods(), (method) => {
                 const structure = method.getStructure();
                 return {
                     ...Struct.pick(structure, ['docs', 'hasQuestionToken']),
                     name: method.getName(),
-                    parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: union(parameter.type) })),
+                    parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: accepted(parameter.type) })),
                     returnType: union(structure.returnType),
                 };
             }),
@@ -252,6 +180,24 @@ const _table = (row: Declaration): Readonly<Record<string, Slot>> =>
 
 const _lookup = (rows: Readonly<Record<string, Declaration>>): Lookup => ({ tables: Record.map(rows, _table), parents: Record.map(rows, Struct.get('extends')) });
 
+const _writable = (row: Declaration): Readonly<Record<string, boolean>> =>
+    Record.fromEntries([
+        ...Array.map(row.properties, (field) => [field.name, field.isReadonly !== true] as const),
+        ...Array.map(row.getAccessors, (getter) => [getter.name, false] as const),
+        ...Array.map(row.setAccessors, (setter) => [setter.name, true] as const),
+    ]);
+
+const _ancestors = (lookup: Lookup, name: string): readonly string[] => {
+    const parents = Option.getOrElse(Record.get(lookup.parents, name), () => []);
+    return Array.dedupe([...parents, ...Array.flatMap(parents, (parent) => _ancestors(lookup, parent))]);
+};
+
+const _flattened = (rows: Readonly<Record<string, Declaration>>, lookup: Lookup, name: string): Readonly<Record<string, boolean>> =>
+    Record.fromEntries([
+        ...Array.flatMap(Array.reverse(_ancestors(lookup, name)), (ancestor) => Record.toEntries(Option.match(Record.get(rows, ancestor), { onNone: () => ({}), onSome: _writable }))),
+        ...Record.toEntries(Option.match(Record.get(rows, name), { onNone: () => ({}), onSome: _writable })),
+    ]);
+
 const _find = (lookup: Lookup, name: string, member: string): Option.Option<Slot> =>
     Option.orElse(Option.flatMap(Record.get(lookup.tables, name), Record.get(member)), () =>
         Array.head(
@@ -265,7 +211,7 @@ const _find = (lookup: Lookup, name: string, member: string): Option.Option<Slot
 const _only = <A, B>(self: Readonly<Record<string, A>>, that: Readonly<Record<string, B>>): Record<string, A> => Record.filter(self, (_, key) => !Record.has(that, key));
 
 const _parent = (lookup: Lookup, row: Declaration, parent: string): string =>
-    Array.match(_sorted(Record.keys(Record.filter(_table(row), (own, name) => Option.exists(_find(lookup, parent, name), (inherited) => inherited.type !== own.type)))), {
+    Array.match(sorted(Record.keys(Record.filter(_table(row), (own, name) => Option.exists(_find(lookup, parent, name), (inherited) => inherited.type !== own.type)))), {
         onEmpty: () => parent,
         onNonEmpty: (names) =>
             `Omit<${parent}, ${Array.join(
@@ -277,7 +223,7 @@ const _parent = (lookup: Lookup, row: Declaration, parent: string): string =>
 const _candidates =
     (lookup: Lookup, adobeNames: readonly string[]) =>
     (pair: { readonly klass: SdefClass; readonly property: SdefProperty }): readonly string[] =>
-        Option.match(_find(lookup, _pascal(pair.klass.attributes.name), _camel(pair.property.attributes.name)), {
+        Option.match(_find(lookup, pascal(pair.klass.attributes.name), camel(pair.property.attributes.name)), {
             onNone: () => [],
             onSome: (slot) => Array.intersection([...Array.map(String.split(slot.type, '|'), String.trim), ..._mentioned(slot.description)], adobeNames),
         });
@@ -291,9 +237,9 @@ const _nameOf =
                     _identity(
                         adobe,
                         Array.match(candidates(row.attributes.code), { onEmpty: () => Record.keys(adobe), onNonEmpty: identity }),
-                        Array.map(row.enumerator, (member) => _fourcc(member.attributes.code)),
+                        Array.map(row.enumerator, (member) => fourcc(member.attributes.code)),
                     ),
-                    () => (HashSet.has(referenced, row.attributes.code) ? Option.some(_pascal(row.attributes.name)) : Option.none()),
+                    () => (HashSet.has(referenced, row.attributes.code) ? Option.some(pascal(row.attributes.name)) : Option.none()),
                 ),
                 (name) => ({ name, row }),
             ),
@@ -314,10 +260,10 @@ const _fields =
         Array.map(
             Array.filter(row.property, (property) => Option.isNone(property.attributes.hidden)),
             (property) => ({
-                name: _camel(property.attributes.name),
+                name: camel(property.attributes.name),
                 type: sdefType(property),
                 isReadonly: Option.isSome(property.attributes.access),
-                docs: Array.filter([property.attributes.description], String.isNonEmpty),
+                docs: Array.filter(Option.toArray(property.attributes.description), String.isNonEmpty),
             }),
         );
 
@@ -337,17 +283,46 @@ const _identity = (adobe: Enumerations, candidates: readonly string[], values: r
     );
 };
 
+// --- [UXP] -----------------------------------------------------------------------------
+
+const _uxp = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const packageDir = path.dirname(yield* path.fromFileUrl(new URL(import.meta.resolve(`${_UXP}/package.json`))));
+    const typings = path.join(packageDir, ..._UXP_TYPINGS);
+    const declared = new Project({ useInMemoryFileSystem: true, manipulationSettings: MANIPULATION }).createSourceFile('index.d.ts', yield* Effect.orDie(fs.readFileString(typings)));
+    const block = yield* Effect.fromOption(
+        Array.findFirst(declared.getModules(), (module) => {
+            const names = module.getNameNodes();
+            return !Array.isArray(names) && names.getLiteralValue() === _UXP_MODULE;
+        }),
+        () => AutomationError.cases.moduleNotDeclared.make({ typings, module: _UXP_MODULE }),
+    );
+    const packaged = (specifier: string): string => path.join(path.relative(import.meta.dirname, packageDir), Array.headNonEmpty(_UXP_TYPINGS), specifier);
+    const printed = Array.map(block.getStatements(), (statement) => {
+        if (Node.isImportDeclaration(statement) || (Node.isExportDeclaration(statement) && statement.hasModuleSpecifier())) {
+            statement.setModuleSpecifier(packaged(Option.getOrElse(Option.fromNullishOr(statement.getModuleSpecifierValue()), () => '')));
+        }
+        if (Node.isVariableStatement(statement)) {
+            statement.setHasDeclareKeyword(true);
+        }
+        return statement.getText();
+    });
+    yield* fs.writeFileString(path.join(import.meta.dirname, `${_UXP_MODULE}.ts`), `${Array.join(printed, '\n')}\n`);
+    return printed.length;
+});
+
 // --- [GENERATE] ------------------------------------------------------------------------
 
 const _generate = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const bundle = yield* _bundle;
-    const dictionary = yield* Effect.flatMap(Effect.orDie(reply(ChildProcess.make('sdef', [bundle]))), (xml) => Schema.decodeUnknownEffect(_Dictionary)(_parser.parse(xml)));
-    const project = new Project({ useInMemoryFileSystem: true, manipulationSettings: { indentationText: IndentationText.FourSpaces, newLineKind: NewLineKind.LineFeed, quoteKind: QuoteKind.Single } });
-    const adobe = project.createSourceFile('adobe.d.ts', yield* Effect.orDie(fs.readFileString(path.join(bundle, ..._DECLARATIONS))));
-    const classes = Array.filter(Array.flatMap(dictionary.dictionary.suite, Struct.get('class')), (row) => Option.isNone(row.attributes.hidden));
-    const enumerations = Record.values(Record.fromIterableBy(Array.flatMap(dictionary.dictionary.suite, Struct.get('enumeration')), (row) => row.attributes.code));
+    const bundlePath = yield* bundle(_HOST);
+    const parsed = yield* Effect.flatMap(Effect.orDie(reply(ChildProcess.make('sdef', [bundlePath]))), dictionary);
+    const project = new Project({ useInMemoryFileSystem: true, manipulationSettings: MANIPULATION });
+    const adobe = project.createSourceFile('adobe.d.ts', yield* Effect.orDie(fs.readFileString(path.join(bundlePath, ..._DECLARATIONS))));
+    const classes = Array.filter(Array.flatMap(parsed.dictionary.suite, Struct.get('class')), (row) => Option.isNone(row.attributes.hidden));
+    const enumerations = Record.values(Record.fromIterableBy(Array.flatMap(parsed.dictionary.suite, Struct.get('enumeration')), (row) => row.attributes.code));
     const adobeEnumerations: Enumerations = Record.fromIterableWith(yield* Schema.decodeUnknownEffect(Schema.Array(_Enum))(Array.map(adobe.getEnums(), (node) => node.getStructure())), (row) => [
         row.name,
         Record.fromIterableWith(row.members, (member) => [member.name, member.initializer]),
@@ -368,7 +343,7 @@ const _generate = Effect.gen(function* () {
         Array.map(
             enumerations,
             _nameOf(adobeEnumerations, HashSet.fromIterable(Array.flatMap(pairs, (pair) => _typeNames(pair.property))), (code) =>
-                _sorted(
+                sorted(
                     Array.flatMap(
                         Array.filter(pairs, (pair) => Array.contains(_typeNames(pair.property), code)),
                         candidates,
@@ -378,10 +353,10 @@ const _generate = Effect.gen(function* () {
         ),
     );
     const enumerationNames = Record.fromIterableWith(identified, ({ name, row }) => [row.attributes.code, name]);
-    const classNames = Record.fromIterableWith(classes, (row) => [row.attributes.name, _pascal(row.attributes.name)]);
+    const classNames = Record.fromIterableWith(classes, (row) => [row.attributes.name, pascal(row.attributes.name)]);
     const sdefTable: Enumerations = Record.fromIterableWith(identified, ({ name, row }) => [
         name,
-        Record.fromIterableWith(row.enumerator, (member) => [_constant(member.attributes.name), _fourcc(member.attributes.code)]),
+        Record.fromIterableWith(row.enumerator, (member) => [_constant(member.attributes.name), fourcc(member.attributes.code)]),
     ]);
     const phrases = Record.fromIterableWith(identified, ({ name, row }) => [name, Record.fromIterableWith(row.enumerator, (member) => [_constant(member.attributes.name), member.attributes.name])]);
     const shared = Record.toEntries(
@@ -407,12 +382,12 @@ const _generate = Effect.gen(function* () {
         ),
     );
     const additions = pipe(
-        Array.flatMap(classes, (row) => Array.map(fields(row), (field) => ({ owner: _pascal(row.attributes.name), field }))),
+        Array.flatMap(classes, (row) => Array.map(fields(row), (field) => ({ owner: pascal(row.attributes.name), field }))),
         Array.filter(({ owner, field }) => Record.has(declared, owner) && Option.isNone(_find(lookup, owner, field.name))),
         Array.dedupeWith((left, right) => left.owner === right.owner && left.field.name === right.field.name),
         Array.groupBy(Struct.get('owner')),
     );
-    const missing = Array.filter(classes, (row) => !Record.has(declared, _pascal(row.attributes.name)));
+    const missing = Array.filter(classes, (row) => !Record.has(declared, pascal(row.attributes.name)));
     const widened: Readonly<Record<string, Declaration>> = {
         ...Record.map(declared, (row) => ({ ...row, properties: [...row.properties, ...Array.map(Array.flatten(Option.toArray(Record.get(additions, row.name))), Struct.get('field'))] })),
         ...Record.fromIterableBy(
@@ -420,10 +395,10 @@ const _generate = Effect.gen(function* () {
                 missing,
                 (row): Declaration => ({
                     kind: StructureKind.Interface,
-                    name: _pascal(row.attributes.name),
+                    name: pascal(row.attributes.name),
                     isExported: true,
-                    docs: Array.filter([row.attributes.description], String.isNonEmpty),
-                    extends: Array.map(Option.toArray(row.attributes.inherits), _pascal),
+                    docs: Array.filter(Option.toArray(row.attributes.description), String.isNonEmpty),
+                    extends: Array.map(Option.toArray(row.attributes.inherits), pascal),
                     properties: fields(row),
                     getAccessors: [],
                     setAccessors: [],
@@ -435,11 +410,11 @@ const _generate = Effect.gen(function* () {
     };
     const widenedLookup = _lookup(widened);
     const properties = Record.map(Array.groupBy(Array.flatMap(Record.values(widened), _slots), Struct.get('name')), (group) => {
-        const types = _sorted(Array.flatMap(group, (slot) => Array.map(String.split(slot.type, '|'), String.trim)));
+        const types = sorted(Array.flatMap(group, (slot) => Array.map(String.split(slot.type, '|'), String.trim)));
         return {
             types,
             list: Array.some(types, String.endsWith('[]')),
-            enumerations: _sorted(Array.intersection([...types, ..._mentioned(Array.join(Array.map(group, Struct.get('description')), ' '))], Record.keys(completed))),
+            enumerations: sorted(Array.intersection([...types, ..._mentioned(Array.join(Array.map(group, Struct.get('description')), ' '))], Record.keys(completed))),
         };
     });
     const collections = Record.fromIterableWith(
@@ -447,8 +422,9 @@ const _generate = Effect.gen(function* () {
             classes,
             Filter.fromPredicateOption((row) => row.attributes.plural),
         ),
-        (plural) => [_camel(plural), _pascal(plural)],
+        (plural) => [camel(plural), pascal(plural)],
     );
+    const ancestors = Record.map(widened, (_, name) => _ancestors(widenedLookup, name));
     const out = project.createSourceFile('indesign.ts', {
         statements: [
             'declare const enumerationName: unique symbol;',
@@ -471,17 +447,43 @@ const _generate = Effect.gen(function* () {
             `export const phrases: Readonly<Record<string, Readonly<Record<string, string>>>> = ${JSON.stringify(phrases, null, 4)};`,
             `export const properties: Readonly<Record<string, { readonly types: readonly string[]; readonly list: boolean; readonly enumerations: readonly string[] }>> = ${JSON.stringify(properties, null, 4)};`,
             `export const collections: Readonly<Record<string, string>> = ${JSON.stringify(collections, null, 4)};`,
+            `export const members = ${JSON.stringify(
+                Record.map(widened, (_, name) => _flattened(widened, widenedLookup, name)),
+                null,
+                4,
+            )};`,
+            `export const ancestors: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(ancestors, null, 4)};`,
+            `export const preferences = ${JSON.stringify(
+                pipe(
+                    Record.get(widenedLookup.tables, 'Application'),
+                    Option.getOrElse((): Readonly<Record<string, Slot>> => ({})),
+                    Record.filter((slot) => slot.type === 'Preference' || Option.exists(Record.get(ancestors, slot.type), Array.contains('Preference'))),
+                    Record.map(Struct.get('type')),
+                ),
+                null,
+                4,
+            )};`,
         ],
     });
-    yield* fs.writeFileString(path.join(import.meta.dirname, 'indesign.ts'), out.getFullText());
+    yield* fs.writeFileString(path.join(import.meta.dirname, ..._OUTPUT), out.getFullText());
+    const registered = sorted(Record.keys(completed));
+    const table = project.createSourceFile(_ENUMERATIONS, {
+        statements: [
+            { kind: StructureKind.ImportDeclaration, moduleSpecifier: 'adobe:indesign', namedImports: Array.map(registered, (name) => ({ name })) },
+            `const registered: Readonly<Record<string, object>> = { ${Array.join(registered, ', ')} };`,
+            'export { registered };',
+        ],
+    });
+    yield* fs.writeFileString(path.join(import.meta.dirname, _ENUMERATIONS), table.getFullText());
+    const uxp = yield* _uxp;
     yield* Console.log(
         JSON.stringify(
             {
-                dictionary: dictionary.dictionary.attributes.title,
+                dictionary: Option.map(parsed.dictionary.attributes, Struct.get('title')),
                 classes: {
                     sdef: classes.length,
                     adobe: Record.size(declared),
-                    added: Array.map(missing, (row) => _pascal(row.attributes.name)),
+                    added: Array.map(missing, (row) => pascal(row.attributes.name)),
                     addedProperties: Array.reduce(Record.values(additions), 0, (total, group) => total + group.length),
                 },
                 enumerations: {
@@ -495,172 +497,70 @@ const _generate = Effect.gen(function* () {
                 },
                 properties: Record.size(properties),
                 collections: Record.size(collections),
+                uxp: { module: _UXP_MODULE, statements: uxp },
             },
             null,
             4,
         ),
     );
-});
-
-// --- [SERVER] --------------------------------------------------------------------------
-
-const _bytes = (chunk: Uint8Array | string): Uint8Array => (Predicate.isString(chunk) ? new TextEncoder().encode(chunk) : chunk);
-
-const _protocol: Layer.Layer<RpcClient.Protocol, PlatformError.PlatformError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Layer.unwrap(
-    Effect.gen(function* () {
-        const path = yield* Path.Path;
-        const spawner = yield* ChildProcessSpawner.ChildProcessSpawner;
-        const stdin = yield* Queue.make<Uint8Array, Cause.Done>();
-        const handle = yield* spawner.spawn(ChildProcess.make('node', ['main.ts'], { cwd: path.resolve(import.meta.dirname, '..', 'server'), stdin: Stream.fromQueue(stdin), stderr: 'inherit' }));
-        const socket = Socket.make({
-            reader: Effect.map(Stream.toPull(handle.stdout), (pull) => ({
-                pull: Effect.mapError(
-                    pull,
-                    (error) => new Socket.SocketError({ reason: Cause.isDone(error) ? new Socket.SocketCloseError({ code: 1000 }) : new Socket.SocketReadError({ cause: error }) }),
-                ),
-                upgrade: Socket.SocketUpgradeError.unsupported,
-            })),
-            writer: Effect.succeed({
-                write: (chunk: Uint8Array | string | Socket.CloseEvent) => Effect.asVoid(Socket.isCloseEvent(chunk) ? Queue.end(stdin) : Queue.offer(stdin, _bytes(chunk))),
-                writeAll: (chunks: Array.NonEmptyReadonlyArray<Uint8Array | string>) => Effect.asVoid(Queue.offerAll(stdin, Array.map(chunks, _bytes))),
-            }),
-        });
-        return RpcClient.layerProtocolSocket().pipe(Layer.provide(Layer.succeed(Socket.Socket, socket)), Layer.provide(RpcSerialization.layerNdJsonRpc()));
-    }),
-);
-
-const _Health = Schema.Struct({
-    hosts: Schema.Array(Schema.Struct({ host: Schema.Struct({ id: Schema.String }), link: Schema.OptionFromNullOr(Link), probe: Schema.toCodecJson(Schema.Result(Schema.Json, BridgeError)) })),
-});
-const _Answer = Schema.Struct({
-    result: Schema.Union([Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json }), Schema.Struct({ kind: Schema.Literal('error'), error: BridgeError })]).pipe(
-        Schema.toTaggedUnion('kind'),
-    ),
-});
-
-const _server = Effect.gen(function* () {
-    const protocol = yield* RpcClient.Protocol;
-    const client = yield* RpcClient.make(McpSchema.ClientRpcs);
-    yield* client.initialize({ protocolVersion: _PROTOCOL, capabilities: {}, clientInfo: { name: manifest.id, version: manifest.version } });
-    yield* protocol.send(0, { _tag: 'Request', id: '', tag: McpSchema.InitializedNotification._tag, payload: null, headers: [], isNotification: true });
-    const call = Effect.fnUntraced(function* <S extends Schema.Top>(tool: string, args: Readonly<Record<string, Schema.Json>>, schema: S) {
-        const answer = yield* client['tools/call']({ name: tool, arguments: args });
-        return yield* Effect.mapError(Schema.decodeUnknownEffect(schema)(answer.structuredContent), () => AutomationError.cases.toolFailed.make({ tool, text: JSON.stringify(answer.content) }));
-    });
-    return {
-        health: call('health', { host: _HOST.id }, _Health),
-        execute: (code: string) =>
-            Effect.retry(
-                Effect.flatMap(call('indesign_execute', { code }, _Answer), ({ result }) => (result.kind === 'value' ? Effect.succeed(result.value) : Effect.fail(result.error))),
-                { while: Predicate.isTagged('hostSaturated'), schedule: _POLL },
-            ),
-    };
 });
 
 // --- [DEPLOY] --------------------------------------------------------------------------
 
-const _Registry = Schema.fromJsonString(Schema.Struct({ plugins: Schema.Array(Schema.Record(Schema.String, Schema.Json)) }));
-
-type HealthRow = (typeof _Health)['Type']['hosts'][number];
-
-const _until = <E, R>(health: Effect.Effect<(typeof _Health)['Type'], E, R>, ready: Predicate.Predicate<HealthRow>): Effect.Effect<HealthRow, E | (typeof AutomationError)['Type'], R> =>
-    Effect.flatMap(health, (answer) => Effect.fromOption(Array.findFirst(answer.hosts, ready), () => AutomationError.cases.notReady.make({ hosts: JSON.stringify(answer.hosts) }))).pipe(
-        Effect.retry({ while: Predicate.isTagged('notReady'), schedule: _POLL }),
-    );
+const _Enumerated = Schema.Struct({ result: Schema.Union([Enums, Schema.Struct({ kind: Schema.Literal('error'), error: BridgeError })]).pipe(Schema.toTaggedUnion('kind')) });
 
 const _deploy = Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const uxp = path.join(yield* Config.String('HOME'), 'Library', 'Application Support', 'Adobe', 'UXP');
-    const external = path.join(uxp, 'Plugins', 'External');
-    const folder = `${manifest.id}_${manifest.version}`;
-    const root = path.resolve(import.meta.dirname, '..', '..', '..');
-    yield* Effect.forEach(Array.filter(yield* fs.readDirectory(external), String.startsWith(`${manifest.id}_`)), (entry) => fs.remove(path.join(external, entry), { recursive: true }));
-    yield* fs.copy(path.join(root, '.artifacts', path.relative(root, import.meta.dirname)), path.join(external, folder));
-    const registry = path.join(uxp, 'PluginsInfo', 'v1', 'ID.json');
-    const rows = yield* Schema.decodeEffect(_Registry)(yield* fs.readFileString(registry));
-    const row = {
-        hostMinVersion: host.minVersion,
-        name: manifest.name,
-        path: `$localPlugins/External/${folder}`,
-        pluginId: manifest.id,
-        status: 'enabled',
-        type: 'uxp',
-        versionString: manifest.version,
-    };
-    yield* fs.writeFileString(registry, yield* Schema.encodeEffect(_Registry)({ plugins: [...Array.filter(rows.plugins, (kept) => kept['pluginId'] !== manifest.id), row] }));
-    const server = yield* _server;
-    yield* Effect.asVoid(read(_HOST.id, _HOST.bundleId, _QUIT_MS, 'quit saving ask', Option.none())).pipe(Effect.catchTag('hostNotRunning', () => Effect.void));
-    yield* Effect.asVoid(Effect.repeat(read(_HOST.id, _HOST.bundleId, _RUNNING_MS, '', Option.none()), _POLL)).pipe(Effect.catchTag('hostNotRunning', () => Effect.void));
-    yield* Effect.orDie(reply(ChildProcess.make('open', ['-b', _HOST.bundleId])));
-    const launchedAt = yield* Clock.currentTimeMillis;
-    yield* read(
-        _HOST.id,
-        _HOST.bundleId,
-        _RUNNING_MS,
-        `${doScript(`var action = app.menuActions.itemByName(${JSON.stringify(panel.label.default)}); if (!action.checked) action.invoke(); action.checked`)} language javascript`,
-        Option.none(),
-    ).pipe(Effect.retry({ while: Predicate.or(Predicate.isTagged('hostNotRunning'), Predicate.isTagged('hostUnresponsive')), schedule: _POLL }));
-    const shownAt = yield* Clock.currentTimeMillis;
-    const attached = yield* _until(server.health, (entry) => Option.exists(entry.link, Predicate.isTagged('attached')));
+    const placed = yield* install({ ...manifest, host }, import.meta.dirname);
+    const mcp = yield* server(_HOST, manifest);
+    const launchedAt = yield* relaunch(_HOST, 'quit saving ask');
+    const docked = yield* read(_HOST.id, _HOST.bundleId, _DOCKED_MS, _DOCKED, Option.none()).pipe(
+        Effect.retry({ while: Predicate.or(Predicate.isTagged('hostNotRunning'), Predicate.isTagged('hostUnresponsive')), schedule: POLL }),
+        Effect.flatMap(Schema.decodeEffect(Schema.fromJsonString(Schema.Boolean))),
+    );
+    const link = yield* until(mcp.health, attached);
     const attachedAt = yield* Clock.currentTimeMillis;
-    const probed = yield* _until(server.health, (entry) => Result.isSuccess(entry.probe));
+    const probe = yield* until(mcp.health, probed);
     const probedAt = yield* Clock.currentTimeMillis;
-    const scope = yield* server.execute('return { TextEncoder: typeof TextEncoder, TextDecoder: typeof TextDecoder, queueMicrotask: typeof queueMicrotask };');
+    const scope = yield* mcp.execute(_SCOPE);
     yield* Console.log(
-        JSON.stringify(
-            {
-                folder,
-                registry: row,
-                panelShownAfterMs: shownAt - launchedAt,
-                attachedAfterPanelMs: attachedAt - shownAt,
-                probedAfterAttachMs: probedAt - attachedAt,
-                link: attached.link,
-                probe: probed.probe,
-                scope,
-            },
-            null,
-            4,
-        ),
+        JSON.stringify({ ...placed, docked, attachedAfterLaunchMs: attachedAt - launchedAt, probedAfterAttachMs: probedAt - attachedAt, link: link.link, probe: probe.probe, scope }, null, 4),
     );
 });
 
 // --- [RECONCILE] -----------------------------------------------------------------------
 
-const _Runtime = Schema.Struct({ enumerations: Schema.Array(Schema.Struct({ name: Schema.String, constants: _strings })), exports: _strings });
-
-const _missing: (self: readonly string[], that: readonly string[]) => readonly string[] = Array.difference;
-
-const _qualified = ([name, constants]: readonly [string, readonly string[]]): readonly string[] => Array.map(constants, (constant) => `${name}.${constant}`);
-
-const _absent = (
-    self: Readonly<Record<string, readonly string[]>>,
-    that: Readonly<Record<string, readonly string[]>>,
-): { readonly enumerations: readonly string[]; readonly constants: readonly string[] } => ({
-    enumerations: Array.difference(Record.keys(self), Record.keys(that)),
-    constants: Array.flatMap(Record.toEntries(Record.intersection(self, that, _missing)), _qualified),
-});
-
 const _reconcile = Effect.gen(function* () {
-    const server = yield* _server;
-    yield* _until(server.health, (entry) => Result.isSuccess(entry.probe));
-    const generated = yield* Effect.promise(() => import('./indesign.ts'));
-    const runtime = yield* Schema.decodeUnknownEffect(_Runtime)(
-        yield* server.execute(`return { enumerations: (${reflected.toString()})(require('indesign')), exports: Object.getOwnPropertyNames(require('indesign')) };`),
+    const mcp = yield* server(_HOST, manifest);
+    yield* until(mcp.health, probed);
+    const generated = yield* Effect.promise(() => import('../server/indesign/indesign.ts'));
+    const live = yield* Effect.flatMap(mcp.execute(_LIVE), Schema.decodeUnknownEffect(_Live));
+    const listed = yield* Effect.flatMap(mcp.call('indesign_list_enums', {}, _Enumerated), ({ result }) => (result.kind === 'enums' ? Effect.succeed(result.enums) : Effect.fail(result.error)));
+    const registered = Record.map(Record.fromIterableBy(listed, Struct.get('name')), (row) => sorted(Array.map(row.constants, Struct.get('name'))));
+    const declared = Record.map(generated.enumerations, flow(Record.keys, sorted));
+    const valued = (enumeration: string, constant: { readonly name: string; readonly value: Option.Option<number> }): boolean =>
+        Option.exists(constant.value, (value) => Option.contains(Option.flatMap(Record.get(generated.enumerations, enumeration), Record.get(constant.name)), value));
+    const unvalued = Array.flatMap(listed, (row) =>
+        Array.map(
+            Array.filter(
+                row.constants,
+                Predicate.not((constant) => valued(row.name, constant)),
+            ),
+            (constant) => `${row.name}.${constant.name}`,
+        ),
     );
-    const registered = Record.map(Record.fromIterableBy(runtime.enumerations, Struct.get('name')), (row) => _sorted(row.constants));
-    const declared = Record.map(generated.enumerations, flow(Record.keys, _sorted));
     const report = {
-        undeclared: _absent(registered, declared),
-        unregistered: _absent(declared, registered),
+        undeclared: { enumerations: Array.difference(live.enumerations, Record.keys(declared)), constants: absent(registered, declared) },
+        unregistered: absent(declared, registered),
+        unvalued,
         generated: Record.size(declared),
-        runtime: Record.size(registered),
-        exports: runtime.exports.length,
+        runtime: live.enumerations.length,
+        constants: Array.reduce(listed, 0, (total, row) => total + row.constants.length),
+        collections: { generated: Record.size(generated.collections), unconfirmed: Array.difference(Record.values(generated.collections), live.functions) },
     };
     yield* Console.log(JSON.stringify(report, null, 4));
-    return yield* report.undeclared.enumerations.length + report.undeclared.constants.length === 0
-        ? Console.log('Generated declarations cover every runtime enumeration and constant')
-        : Effect.fail(AutomationError.cases.unreconciled.make({ undeclared: report.undeclared }));
+    return yield* report.undeclared.enumerations.length === 0 && Record.isEmptyRecord(report.undeclared.constants) && unvalued.length === 0
+        ? Console.log('list_enums equals the generated table over every runtime enumeration, constant, and value')
+        : Effect.fail(AutomationError.cases.unreconciled.make({ undeclared: report.undeclared, unvalued }));
 });
 
 // --- [ENTRY] ---------------------------------------------------------------------------
@@ -669,8 +569,8 @@ Command.run(
     Command.make('automation').pipe(
         Command.withSubcommands([
             Command.make('generate', {}, () => _generate),
-            Command.make('deploy', {}, () => Effect.provide(Effect.scoped(_deploy), _protocol)),
-            Command.make('reconcile', {}, () => Effect.provide(Effect.scoped(_reconcile), _protocol)),
+            Command.make('deploy', {}, () => Effect.provide(Effect.scoped(_deploy), protocol)),
+            Command.make('reconcile', {}, () => Effect.provide(Effect.scoped(_reconcile), protocol)),
         ]),
     ),
     { version: manifest.version },

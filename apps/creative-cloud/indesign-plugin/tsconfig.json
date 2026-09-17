@@ -3,8 +3,8 @@
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/indesign-plugin",
         "lib": ["esnext", "dom"],
-        "paths": { "adobe:indesign": ["./indesign.ts"] },
-        "types": ["@adobe-uxp-types/uxp/with-protocol", "node"]
+        "paths": { "adobe:indesign": ["../server/indesign/indesign.ts"], "adobe:uxp": ["./uxp.ts"] },
+        "types": ["node"]
     },
     "references": [{ "path": "../server" }],
     "include": ["*.ts", "*/*.ts"]

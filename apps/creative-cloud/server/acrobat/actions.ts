@@ -426,13 +426,13 @@ const _render = (action: Action, folder: Folder): string =>
         ),
     ])}\n\n\n`;
 
-const write: (acrobat: Hosts['acrobat'], action: Action) => Effect.Effect<string, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> = Effect.fnUntraced(function* (
+const write: (acrobat: Hosts['acrobat'], action: Action) => Effect.Effect<AbsolutePath, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> = Effect.fnUntraced(function* (
     acrobat: Hosts['acrobat'],
     action: Action,
 ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const target = path.join(acrobat.sequencesFolder, `${action.name}.sequ`);
+    const target = AbsolutePath.make(path.join(acrobat.sequencesFolder, `${action.name}.sequ`));
     const device = Schema.encodeSync(DevicePath(acrobat.startupVolume));
     yield* fs.writeFileString(
         target,

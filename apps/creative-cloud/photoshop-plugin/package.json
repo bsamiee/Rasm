@@ -6,6 +6,7 @@
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@exodus/bytes": "catalog:",
         "@rasm/creative-cloud-server": "workspace:*",
         "effect": "catalog:",
         "vite": "catalog:",

@@ -1,10 +1,18 @@
 /// <reference types="types-for-adobe/Illustrator/2022"/>
 
+// --- [HOST] ----------------------------------------------------------------------------
+
+declare const $: $;
+declare const app: Application;
+
 // --- [CONTRACT] ------------------------------------------------------------------------
 
 declare global {
-    interface PageItem {
-        readonly uuid: string;
+    enum ColorModel {}
+    enum UserInteractionLevel {}
+
+    interface Color {
+        readonly typename: string;
     }
 
     interface Error {
@@ -33,40 +41,81 @@ declare global {
 
     type Reader = (at: Site) => Reading<Json>;
 
+    interface ColorSpec {
+        readonly model: 'RGB' | 'CMYK' | 'Gray';
+        readonly values: number[];
+    }
+
+    interface SwatchSpec extends ColorSpec {
+        readonly name: string;
+        readonly global: boolean;
+    }
+
+    interface SwatchGroupSpec {
+        readonly name: string;
+        readonly swatches: SwatchSpec[];
+    }
+
+    interface SwatchRows {
+        readonly applied: { readonly group: string; readonly swatch: string }[];
+        readonly rejected: { readonly group: string; readonly swatch: string; readonly reason: string }[];
+    }
+
     interface Prelude {
         readonly all: (at: Site, readers: [string, Reader][]) => Reading<JsonObject>;
+        readonly collect: <T, R>(list: T[], map: (item: T, index: number) => R) => R[];
+        readonly color: (spec: ColorSpec) => Color;
+        readonly contains: <T>(list: T[], value: T) => boolean;
+        readonly document: (path: string | undefined) => Document;
         readonly dump: (value: unknown, at: Site) => Reading<Json>;
-        readonly each: <T>(at: Site, items: T[], reader: (item: T, at: Site) => Reading<Json>) => Reading<Json[]>;
+        readonly each: <T>(at: Site, list: T[], reader: (item: T, at: Site) => Reading<Json>) => Reading<Json[]>;
+        readonly flatten: (list: PageItem[]) => PageItem[];
+        readonly fold: <T, A>(list: T[], initial: A, step: (accumulator: A, item: T, index: number) => A) => A;
+        readonly items: <T>(collection: { readonly length: number; readonly [index: number]: T }) => T[];
+        readonly layer: (doc: Document, name: string) => Layer;
         readonly members: <T extends object>(object: T) => [string, Reader][];
+        readonly names: (object: object) => string[];
         readonly reference: (value: unknown, at: Site) => Reading<Json>;
-        readonly run: <R extends JsonObject>(tool: (request: R, at: Site) => Reading<JsonObject>) => string;
+        readonly run: <R extends object>(tool: (request: R, at: Site) => Reading<JsonObject>) => string;
+        readonly select: <T>(list: T[], keep: (item: T) => boolean) => T[];
+        readonly swatches: (doc: Document, groups: SwatchGroupSpec[], replaceByName: boolean) => SwatchRows;
+        readonly visit: <T>(list: T[], act: (item: T, index: number) => void) => void;
         readonly walk: <T extends object>(at: Site, object: T, extras: [string, Reader][]) => Reading<JsonObject>;
     }
 }
 
 // --- [SEQUENCES] -----------------------------------------------------------------------
 
-const fold = <T, A>(items: T[], initial: A, step: (accumulator: A, item: T, index: number) => A): A => {
+const fold = <T, A>(list: T[], initial: A, step: (accumulator: A, item: T, index: number) => A): A => {
     let accumulator = initial;
-    for (let index = 0; index < items.length; index += 1) {
-        accumulator = step(accumulator, items[index] as T, index);
+    for (let index = 0; index < list.length; index += 1) {
+        accumulator = step(accumulator, list[index] as T, index);
     }
     return accumulator;
 };
 
-const collect = <T, R>(items: T[], map: (item: T, index: number) => R): R[] =>
-    fold(items, [] as R[], (list, item, index): R[] => {
-        list.push(map(item, index));
-        return list;
+const collect = <T, R>(list: T[], map: (item: T, index: number) => R): R[] =>
+    fold(list, [] as R[], (mapped, item, index): R[] => {
+        mapped.push(map(item, index));
+        return mapped;
     });
 
-const select = <T>(items: T[], keep: (item: T) => boolean): T[] =>
-    fold(items, [] as T[], (kept, item): T[] => {
+const select = <T>(list: T[], keep: (item: T) => boolean): T[] =>
+    fold(list, [] as T[], (kept, item): T[] => {
         if (keep(item)) {
             kept.push(item);
         }
         return kept;
     });
+
+const visit = <T>(list: T[], act: (item: T, index: number) => void): void => {
+    fold(list, 0, (visited, item, index): number => {
+        act(item, index);
+        return visited + 1;
+    });
+};
+
+const contains = <T>(list: T[], value: T): boolean => select(list, (item): boolean => item === value).length > 0;
 
 // --- [CLASSES] -------------------------------------------------------------------------
 
@@ -184,20 +233,19 @@ const decode = (text: string): Json => {
         if (whole === '' || zeroLed) {
             throw fail('digit');
         }
-        if (text.charAt(cursor) === '.') {
-            cursor += 1;
-            if (span(digits) === '') {
-                throw fail('digit');
-            }
+        const dotted = text.charAt(cursor) === '.';
+        cursor += dotted ? 1 : 0;
+        if (dotted && span(digits) === '') {
+            throw fail('digit');
         }
         const marker = text.charAt(cursor);
-        if (marker === 'e' || marker === 'E') {
-            cursor += 1;
-            const sign = text.charAt(cursor);
-            cursor += sign === '+' || sign === '-' ? 1 : 0;
-            if (span(digits) === '') {
-                throw fail('digit');
-            }
+        const exponent = marker === 'e' || marker === 'E';
+        cursor += exponent ? 1 : 0;
+        const sign = text.charAt(cursor);
+        const signed = sign === '+' || sign === '-';
+        cursor += exponent && signed ? 1 : 0;
+        if (exponent && span(digits) === '') {
+            throw fail('digit');
         }
         return Number(text.slice(start, cursor));
     };
@@ -213,18 +261,22 @@ const decode = (text: string): Json => {
             element();
         }
     };
+    const pair = (): [string, Json] => {
+        if (!take('"')) {
+            throw fail('key');
+        }
+        const key = quoted();
+        if (!take(':')) {
+            throw fail(':');
+        }
+        return [key, value()];
+    };
     const value = (): Json => {
         if (take('{')) {
             const object: JsonObject = {};
             sequence('}', (): void => {
-                if (!take('"')) {
-                    throw fail('key');
-                }
-                const key = quoted();
-                if (!take(':')) {
-                    throw fail(':');
-                }
-                object[key] = value();
+                const [key, member] = pair();
+                object[key] = member;
             });
             return object;
         }
@@ -279,24 +331,26 @@ const failure = (error: unknown): [JsonObject, { readonly file: string; readonly
 
 const present = <T>(value: T): Reading<T> => ({ value, unavailable: [] });
 
-const gather = <T, R>(items: T[], site: (item: T, index: number) => Site, reader: (item: T, at: Site) => Reading<R>, put: (value: R, item: T) => void): JsonObject[] =>
-    fold(items, [] as JsonObject[], (unavailable, item, index): JsonObject[] => {
+const gather = <T, R>(list: T[], site: (item: T, index: number) => Site, reader: (item: T, at: Site) => Reading<R>, put: (value: R, item: T) => void): JsonObject[] =>
+    fold(list, [] as JsonObject[], (unavailable, item, index): JsonObject[] => {
         const at = site(item, index);
         try {
             const member = reader(item, at);
             put(member.value, item);
             return unavailable.concat(member.unavailable);
         } catch (error) {
-            const [row] = failure(error);
+            const [row, thrown] = failure(error);
             row['path'] = at.path;
+            row['file'] = thrown.file;
+            row['line'] = thrown.line;
             return unavailable.concat([row]);
         }
     });
 
-const each: Prelude['each'] = (at, items, reader) => {
+const each: Prelude['each'] = (at, list, reader) => {
     const value: Json[] = [];
     const unavailable = gather(
-        items,
+        list,
         (_item, index): Site => ({ path: `${at.path}[${index}]`, chain: at.chain }),
         reader,
         (member): void => {
@@ -393,7 +447,7 @@ const withFile = <T>(path: string, mode: 'r' | 'w', act: (file: File) => T): T =
     }
 };
 
-const run = <R extends JsonObject>(tool: (request: R, at: Site) => Reading<JsonObject>): string => {
+const run = <R extends object>(tool: (request: R, at: Site) => Reading<JsonObject>): string => {
     const [request, response]: [string, string] = $.global.arguments;
     const level = app.userInteractionLevel;
     app.userInteractionLevel = UserInteractionLevel.DONTDISPLAYALERTS;
@@ -423,6 +477,110 @@ const run = <R extends JsonObject>(tool: (request: R, at: Site) => Reading<JsonO
     );
 };
 
+// --- [HOST] ----------------------------------------------------------------------------
+
+const items = <T>(collection: { readonly length: number; readonly [index: number]: T }): T[] => Array.prototype.slice.call(collection, 0);
+
+const names = (object: object): string[] => collect(properties(object), (info): string => info.name);
+
+const document: Prelude['document'] = (path) => (path === undefined ? app.activeDocument : app.open(new File(path)));
+
+const color: Prelude['color'] = (spec) => {
+    const [first, second, third, fourth] = spec.values;
+    if (spec.model === 'RGB') {
+        const rgb: RGBColor = new $.global[`${spec.model}Color`]();
+        rgb.red = first ?? 0;
+        rgb.green = second ?? 0;
+        rgb.blue = third ?? 0;
+        return rgb;
+    }
+    if (spec.model === 'CMYK') {
+        const cmyk: CMYKColor = new $.global[`${spec.model}Color`]();
+        cmyk.cyan = first ?? 0;
+        cmyk.magenta = second ?? 0;
+        cmyk.yellow = third ?? 0;
+        cmyk.black = fourth ?? 0;
+        return cmyk;
+    }
+    const gray: GrayColor = new $.global[`${spec.model}Color`]();
+    gray.gray = first ?? 0;
+    return gray;
+};
+
+const layer: Prelude['layer'] = (doc, name) => {
+    try {
+        return doc.layers.getByName(name);
+    } catch {
+        const added = doc.layers.add();
+        added.name = name;
+        return added;
+    }
+};
+
+const flatten: Prelude['flatten'] = (list) =>
+    fold(list, [] as PageItem[], (flat, item): PageItem[] => (item.typename === 'GroupItem' ? flat.concat(flatten(items((item as GroupItem).pageItems))) : flat.concat([item])));
+
+const named = <T>(collection: { getByName: (name: string) => T }, name: string): T[] => {
+    try {
+        return [collection.getByName(name)];
+    } catch {
+        return [];
+    }
+};
+
+const swatchGroup = (doc: Document, name: string): SwatchGroup | undefined => {
+    if (name === '') {
+        return undefined;
+    }
+    const [found] = named(doc.swatchGroups, name);
+    if (found !== undefined) {
+        return found;
+    }
+    const added = doc.swatchGroups.add();
+    added.name = name;
+    return added;
+};
+
+const placed = (doc: Document, group: SwatchGroup | undefined, swatch: SwatchSpec, replaceByName: boolean): string[] => {
+    const [existing] = named(doc.swatches, swatch.name);
+    if (existing !== undefined && !replaceByName) {
+        return ['nameCollision'];
+    }
+    if (existing !== undefined) {
+        existing.color = color(swatch);
+        return [];
+    }
+    if (swatch.global) {
+        const spot = doc.spots.add();
+        spot.name = swatch.name;
+        spot.colorType = ColorModel.PROCESS;
+        spot.color = color(swatch);
+        group?.addSpot(spot);
+        return [];
+    }
+    const added = doc.swatches.add();
+    added.name = swatch.name;
+    added.color = color(swatch);
+    group?.addSwatch(added);
+    return [];
+};
+
+const swatches: Prelude['swatches'] = (doc, groups, replaceByName) => {
+    const rows: SwatchRows = { applied: [], rejected: [] };
+    visit(groups, (spec): void => {
+        const group = swatchGroup(doc, spec.name);
+        visit(spec.swatches, (swatch): void => {
+            const [reason] = placed(doc, group, swatch, replaceByName);
+            if (reason === undefined) {
+                rows.applied.push({ group: spec.name, swatch: swatch.name });
+            } else {
+                rows.rejected.push({ group: spec.name, swatch: swatch.name, reason });
+            }
+        });
+    });
+    return rows;
+};
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-((): Prelude => ({ all, dump, each, members, reference, run, walk }))();
+((): Prelude => ({ all, collect, color, contains, document, dump, each, flatten, fold, items, layer, members, names, reference, run, select, swatches, visit, walk }))();

@@ -1,5 +1,10 @@
 /// <reference path="./prelude.ts"/>
 
+// --- [HOST] ----------------------------------------------------------------------------
+
+declare const $: $;
+declare const app: Application;
+
 // --- [PRELUDE] -------------------------------------------------------------------------
 
 const { all, dump, each, reference, run, walk }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
@@ -7,26 +12,6 @@ const { all, dump, each, reference, run, walk }: Prelude = $.evalFile(new File(`
 // --- [READERS] -------------------------------------------------------------------------
 
 const readLayer = (layer: Layer, at: Site): Reading<Json> => walk(at, layer, [['layers', (site): Reading<Json> => each(site, layer.layers, readLayer)]]);
-
-const readSwatchGroup = (group: SwatchGroup, at: Site): Reading<Json> => walk(at, group, [['swatches', (site): Reading<Json> => each(site, group.getAllSwatches(), dump)]]);
-
-const readGradient = (gradient: Gradient, at: Site): Reading<Json> => walk(at, gradient, [['gradientStops', (site): Reading<Json> => each(site, gradient.gradientStops, dump)]]);
-
-const readCharacterStyle = (style: CharacterStyle, at: Site): Reading<Json> => walk(at, style, [['characterAttributes', (site): Reading<Json> => dump(style.characterAttributes, site)]]);
-
-const readParagraphStyle = (style: ParagraphStyle, at: Site): Reading<Json> =>
-    walk(at, style, [
-        ['characterAttributes', (site): Reading<Json> => dump(style.characterAttributes, site)],
-        ['paragraphAttributes', (site): Reading<Json> => dump(style.paragraphAttributes, site)],
-    ]);
-
-const readItem = (item: PageItem, at: Site): Reading<Json> =>
-    all(at, [
-        ['typename', (site): Reading<Json> => reference(item.typename, site)],
-        ['uuid', (site): Reading<Json> => reference(item.uuid, site)],
-        ['name', (site): Reading<Json> => reference(item.name, site)],
-        ['layer', (site): Reading<Json> => reference(item.layer.name, site)],
-    ]);
 
 const pageItems = (doc: Document, layer: string | undefined): PageItems => (layer === undefined ? doc.pageItems : doc.layers.getByName(layer).pageItems);
 
@@ -38,14 +23,38 @@ const inspect = (request: { readonly document?: string; readonly items?: { reado
     return all(at, [
         ['kind', (site): Reading<Json> => reference('inspection', site)],
         ['document', (site): Reading<Json> => walk(site, doc, [['artboards', (inner): Reading<Json> => each(inner, doc.artboards, dump)]])],
-        ['swatches', (site): Reading<Json> => each(site, doc.swatchGroups, readSwatchGroup)],
-        ['gradients', (site): Reading<Json> => each(site, doc.gradients, readGradient)],
+        [
+            'swatches',
+            (site): Reading<Json> =>
+                each(site, doc.swatchGroups, (group, inner): Reading<Json> => walk(inner, group, [['swatches', (deeper): Reading<Json> => each(deeper, group.getAllSwatches(), dump)]])),
+        ],
+        [
+            'gradients',
+            (site): Reading<Json> =>
+                each(site, doc.gradients, (gradient, inner): Reading<Json> => walk(inner, gradient, [['gradientStops', (deeper): Reading<Json> => each(deeper, gradient.gradientStops, dump)]])),
+        ],
         ['patterns', (site): Reading<Json> => each(site, doc.patterns, dump)],
         ['brushes', (site): Reading<Json> => each(site, doc.brushes, dump)],
         ['symbols', (site): Reading<Json> => each(site, doc.symbols, dump)],
         ['graphicStyles', (site): Reading<Json> => each(site, doc.graphicStyles, dump)],
-        ['characterStyles', (site): Reading<Json> => each(site, doc.characterStyles, readCharacterStyle)],
-        ['paragraphStyles', (site): Reading<Json> => each(site, doc.paragraphStyles, readParagraphStyle)],
+        [
+            'characterStyles',
+            (site): Reading<Json> =>
+                each(site, doc.characterStyles, (style, inner): Reading<Json> => walk(inner, style, [['characterAttributes', (deeper): Reading<Json> => dump(style.characterAttributes, deeper)]])),
+        ],
+        [
+            'paragraphStyles',
+            (site): Reading<Json> =>
+                each(
+                    site,
+                    doc.paragraphStyles,
+                    (style, inner): Reading<Json> =>
+                        walk(inner, style, [
+                            ['characterAttributes', (deeper): Reading<Json> => dump(style.characterAttributes, deeper)],
+                            ['paragraphAttributes', (deeper): Reading<Json> => dump(style.paragraphAttributes, deeper)],
+                        ]),
+                ),
+        ],
         ['layers', (site): Reading<Json> => each(site, doc.layers, readLayer)],
         ['itemCount', (site): Reading<Json> => reference(pageItems(doc, paging?.layer).length, site)],
         [
@@ -53,7 +62,17 @@ const inspect = (request: { readonly document?: string; readonly items?: { reado
             (site): Reading<Json> => {
                 const items = pageItems(doc, paging?.layer);
                 const [offset, limit] = paging === undefined ? [0, items.length] : [paging.offset, paging.limit];
-                return each(site, Array.prototype.slice.call(items, offset, offset + limit), readItem);
+                return each(
+                    site,
+                    Array.prototype.slice.call(items, offset, offset + limit),
+                    (item: PageItem, inner): Reading<Json> =>
+                        all(inner, [
+                            ['typename', (deeper): Reading<Json> => reference(item.typename, deeper)],
+                            ['uuid', (deeper): Reading<Json> => reference(item.uuid, deeper)],
+                            ['name', (deeper): Reading<Json> => reference(item.name, deeper)],
+                            ['layer', (deeper): Reading<Json> => reference(item.layer.name, deeper)],
+                        ]),
+                );
             },
         ],
     ]);

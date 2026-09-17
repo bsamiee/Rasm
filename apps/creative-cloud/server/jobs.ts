@@ -1,11 +1,36 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Cause, Clock, Context, Crypto, Deferred, Duration, Effect, Exit, flow, identity, Layer, Match, Option, Path, Queue, Record, Ref, Result, Schema, String } from 'effect';
+import {
+    Array,
+    Cause,
+    Clock,
+    Context,
+    Crypto,
+    Deferred,
+    Duration,
+    Effect,
+    Encoding,
+    Exit,
+    FileSystem,
+    flow,
+    identity,
+    Layer,
+    Match,
+    Option,
+    Path,
+    type PlatformError,
+    Queue,
+    Record,
+    Ref,
+    Result,
+    Schema,
+    String,
+} from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/unstable/process';
 import { BridgeError } from './errors.ts';
 import { Hosts } from './hosts.ts';
 import { reply } from './osascript.ts';
-import { type HostId, JobId, LOAD_CEILING, PROBE_MS, QUEUE_DEPTH } from './values.ts';
+import { AbsolutePath, type HostId, JobId, LOAD_CEILING, PROBE_MS, QUEUE_DEPTH } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,9 +55,8 @@ interface Activity {
 interface Entry {
     readonly jobId: JobId;
     readonly deadlineAt: number;
-    readonly settle: typeof _recorded;
     readonly abandoned: Effect.Effect<boolean>;
-    readonly refuse: (error: BridgeError) => Effect.Effect<boolean>;
+    readonly refuse: (error: BridgeError) => Effect.Effect<Exit.Exit<unknown, BridgeError>>;
     readonly perform: (remaining: Duration.Duration) => Effect.Effect<Exit.Exit<unknown, BridgeError>>;
 }
 
@@ -51,9 +75,20 @@ const _IDLE: Activity = { inFlight: Option.none(), wedged: Option.none(), lastSu
 
 const _PROCESSES = ChildProcess.make('ps', ['-A', '-o', 'pid=,%cpu=,comm=']);
 
+const SPILL_CHARS = 200_000;
+
+const _RESULTS = ['..', '..', '..', '.artifacts', 'creative-cloud'] as const;
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const InFlight: Schema.Codec<InFlight, unknown> = Schema.Struct({ jobId: JobId, startedAt: Schema.Number });
+
+const Spilled: Schema.Struct<{ readonly kind: Schema.Literal<'file'>; readonly path: typeof AbsolutePath; readonly bytes: Schema.Int; readonly sha256: Schema.String }> = Schema.Struct({
+    kind: Schema.Literal('file'),
+    path: AbsolutePath,
+    bytes: Schema.Int,
+    sha256: Schema.String,
+});
 
 const Process: Schema.Codec<Process, unknown> = Schema.Struct({ pid: Schema.Int, cpu: Schema.Number, command: Schema.String });
 
@@ -134,15 +169,14 @@ const _dispatch = Effect.fnUntraced(function* (host: Host, entry: Entry) {
     const at = yield* Clock.currentTimeMillis;
     const remaining = entry.deadlineAt - at;
     const admitted = Result.flatMap(process, () => (remaining > 0 ? Result.void : Result.fail(BridgeError.cases.deadlineExceeded.make({ host: host.id, jobId: entry.jobId }))));
-    const exit = yield* Result.match(admitted, {
-        onFailure: (error) => Effect.as(entry.refuse(error), Exit.fail(error)),
+    yield* Result.match(admitted, {
+        onFailure: entry.refuse,
         onSuccess: () =>
             Effect.andThen(
                 Ref.update(host.activity, (state) => ({ ...state, inFlight: Option.some({ jobId: entry.jobId, startedAt: at }) })),
                 entry.perform(Duration.millis(remaining)),
             ),
     });
-    yield* _transition(host.activity, (state, now) => ({ ...entry.settle(state, exit, now), inFlight: Option.none(), wedged: _wedged(state, exit, entry.jobId, now) }));
 });
 
 const _worker = (host: Host): Effect.Effect<never, never, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
@@ -169,16 +203,17 @@ const _job = Effect.fnUntraced(function* <A, R>(host: Host, timeoutMs: number, s
     const settled = yield* Deferred.make<A, BridgeError>();
     const startedAt = yield* Clock.currentTimeMillis;
     const deadline = BridgeError.cases.deadlineExceeded.make({ host: host.id, jobId });
+    const conclude = (exit: Exit.Exit<A, BridgeError>): Effect.Effect<Exit.Exit<A, BridgeError>> =>
+        Effect.andThen(
+            _transition(host.activity, (state, now) => ({ ...settle(state, exit, now), inFlight: Option.none(), wedged: _wedged(state, exit, jobId, now) })),
+            Effect.as(Deferred.done(settled, exit), exit),
+        );
     const entry: Entry = {
         jobId,
-        settle,
         deadlineAt: startedAt + timeoutMs,
         abandoned: Deferred.isDone(settled),
-        refuse: (error) => Deferred.fail(settled, error),
-        perform: (remaining) =>
-            Effect.flatMap(Effect.exit(Effect.timeoutOrElse(Effect.provideContext(work(jobId), context), { duration: remaining, orElse: () => Effect.fail(deadline) })), (exit) =>
-                Effect.as(Deferred.done(settled, exit), exit),
-            ),
+        refuse: flow(Exit.fail, conclude),
+        perform: (remaining) => Effect.flatMap(Effect.exit(Effect.timeoutOrElse(Effect.provideContext(work(jobId), context), { duration: remaining, orElse: () => Effect.fail(deadline) })), conclude),
     };
     return yield* Effect.timeoutOrElse(Effect.andThen(Queue.offer(host.queue, entry), Deferred.await(settled)), {
         duration: timeoutMs,
@@ -196,6 +231,28 @@ const probe = <A, R>(host: Host, work: (jobId: JobId) => Effect.Effect<A, Bridge
         }),
     );
 
+// --- [SPILL] ---------------------------------------------------------------------------
+
+const _inaccessible =
+    (host: HostId, path: string) =>
+    (error: PlatformError.PlatformError): BridgeError =>
+        BridgeError.cases.fileNotAccessible.make({ host, path, reason: error.reason._tag });
+
+const spill: (host: HostId, jobId: JobId, text: string) => Effect.Effect<(typeof Spilled)['Type'], BridgeError, Crypto.Crypto | FileSystem.FileSystem | Path.Path> = Effect.fnUntraced(function* (
+    host: HostId,
+    jobId: JobId,
+    text: string,
+) {
+    const path = yield* Path.Path;
+    const fs = yield* FileSystem.FileSystem;
+    const directory = path.resolve(import.meta.dirname, ..._RESULTS, host, 'results');
+    const file = AbsolutePath.make(path.join(directory, `${jobId}.json`));
+    const bytes = new TextEncoder().encode(text);
+    yield* Effect.andThen(fs.makeDirectory(directory, { recursive: true }), fs.writeFile(file, bytes)).pipe(Effect.mapError(_inaccessible(host, file)));
+    const digest = yield* Crypto.Crypto.use((crypto) => crypto.digest('SHA-256', bytes)).pipe(Effect.mapError(_inaccessible(host, file)));
+    return { kind: 'file' as const, path: file, bytes: bytes.length, sha256: Encoding.encodeHex(digest) };
+});
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InFlight, Jobs, layer, liveness, Process, probe, processId, run };
+export { InFlight, Jobs, layer, liveness, Process, probe, processId, run, SPILL_CHARS, Spilled, spill };

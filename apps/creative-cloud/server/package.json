@@ -4,18 +4,29 @@
     "private": true,
     "type": "module",
     "exports": {
+        "./client": "./client.ts",
         "./errors": "./errors.ts",
         "./frames": "./frames.ts",
+        "./hosts": "./hosts.ts",
+        "./images": "./images.ts",
+        "./indesign": "./indesign/indesign.ts",
+        "./indesign/jobs": "./indesign/jobs.ts",
         "./osascript": "./osascript.ts",
+        "./photoshop/jobs": "./photoshop/jobs.ts",
+        "./sdef": "./sdef.ts",
+        "./uxp": "./uxp.ts",
         "./values": "./values.ts"
     },
     "dependencies": {
+        "@adobe-uxp-types/photoshop": "catalog:",
         "@effect/platform-node": "catalog:",
         "@rasm/typography": "workspace:*",
         "cheerio": "catalog:",
         "effect": "catalog:",
         "fast-xml-builder": "catalog:",
-        "plist": "catalog:"
-    },
-    "os": ["darwin"]
+        "fast-xml-parser": "catalog:",
+        "plist": "catalog:",
+        "ts-morph": "catalog:",
+        "types-for-adobe": "catalog:"
+    }
 }

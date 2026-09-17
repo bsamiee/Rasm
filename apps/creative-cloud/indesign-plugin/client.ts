@@ -2,24 +2,37 @@
 
 import { app, type Event, MeasurementUnits, UserInteractionLevels } from 'adobe:indesign';
 import { host, versions } from 'adobe:uxp';
-import type { HostRejection } from '@rasm/creative-cloud-server/errors';
-import { Frames, type Identity, type Job, type State } from '@rasm/creative-cloud-server/frames';
-import { HOSTS } from '@rasm/creative-cloud-server/values';
-import { Array, Cause, Effect, Layer, Option, Predicate, Queue, type Schema, Stream, Struct, SubscriptionRef } from 'effect';
-import { RpcClient, type RpcClientError, RpcSerialization } from 'effect/unstable/rpc';
-import { Socket } from 'effect/unstable/socket';
+import type { Client, Settled } from '@rasm/creative-cloud-server/client';
+import { HostRejection } from '@rasm/creative-cloud-server/errors';
+import type { Identity, Job, State } from '@rasm/creative-cloud-server/frames';
+import { Kind } from '@rasm/creative-cloud-server/indesign/jobs';
+import { Array, Effect, Option, Result, Schema, Stream, Struct } from 'effect';
+import { type Live, live } from './enums.ts';
 import { execute } from './jobs/execute.ts';
-import { manifest } from './uxp.config.ts';
+import { findKeyStrings } from './jobs/find-key-strings.ts';
+import { getLayout } from './jobs/get-layout.ts';
+import type { Handler } from './jobs/handler.ts';
+import { listEnums } from './jobs/list-enums.ts';
+import { getPreferences, setPreferences, setTextDefaults } from './jobs/preferences.ts';
+import { snapshot } from './jobs/snapshot.ts';
+import { endpoint, manifest } from './uxp.config.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _JOBS: { readonly [Kind in Job['kind']]: (body: Schema.Json) => Effect.Effect<Schema.Json, HostRejection> } = { execute };
-
 const _EVENTS = ['afterContextChanged', 'afterSelectionChanged', 'afterOpen', 'afterClose', 'afterNew', 'afterSave'];
 
-const _CLOSE_NORMAL = 1000;
-
 // --- [HOST] ----------------------------------------------------------------------------
+
+const _handlers = (table: Live): { readonly [K in Kind]: Handler } => ({
+    execute: execute(table),
+    listEnums: listEnums(table),
+    snapshot,
+    getLayout,
+    findKeyStrings,
+    getPreferences,
+    setPreferences: setPreferences(table),
+    setTextDefaults: setTextDefaults(table),
+});
 
 const _identity = (): Identity => ({
     plugin: manifest.id,
@@ -58,64 +71,24 @@ const _executor = Effect.acquireRelease(
         }),
 );
 
+const _known: (kind: unknown) => Option.Option<Kind> = Schema.decodeUnknownOption(Kind);
+
+const _perform = Effect.fnUntraced(function* (table: { readonly [K in Kind]: Handler }, job: Job) {
+    const kind = _known(job.kind);
+    if (Option.isNone(kind)) {
+        return { autocorrections: Option.none(), result: Result.fail(HostRejection.cases.unknownMethod.make({ method: job.kind })) } satisfies Settled;
+    }
+    yield* _executor;
+    return yield* table[kind.value](job);
+}, Effect.scoped);
+
 // --- [LINK] ----------------------------------------------------------------------------
 
-const _mark = (status: SubscriptionRef.SubscriptionRef<string>, text: string): Effect.Effect<void> => SubscriptionRef.set(status, `${manifest.version} › ${text}`);
-
-const _traced =
-    (status: SubscriptionRef.SubscriptionRef<string>, label: string) =>
-    <A, E, R>(effect: Effect.Effect<A, E, R>): Effect.Effect<A, E, R> =>
-        Effect.tapCauseIf(effect, Predicate.not(Cause.hasInterruptsOnly), (cause) => _mark(status, `${label}: ${Cause.pretty(cause)}`));
-
-const _attached = (client: RpcClient.FromGroup<typeof Frames, RpcClientError.RpcClientError>, status: SubscriptionRef.SubscriptionRef<string>): Effect.Effect<void> =>
-    _mark(status, 'Attached').pipe(
-        Effect.andThen(
-            Stream.runDrain(
-                Stream.merge(
-                    Stream.mapEffect(client.attach(_identity()), (job) =>
-                        Effect.scoped(
-                            Effect.flatMap(Effect.andThen(_executor, Effect.result(_JOBS[job.kind](job.body))), (result) =>
-                                client.settle({ jobId: job.jobId, autocorrections: Option.none(), result }),
-                            ),
-                        ),
-                    ),
-                    Stream.mapEffect(_states, (state) => client.state(state)),
-                ),
-            ),
-        ),
-        Effect.andThen(_mark(status, 'Detached')),
-        Effect.catchCause((cause) => _mark(status, Cause.hasInterruptsOnly(cause) ? 'Detached' : `Detached: ${Cause.pretty(cause)}`)),
-    );
-
-const run = (status: SubscriptionRef.SubscriptionRef<string>): Effect.Effect<void> =>
-    Effect.gen(function* () {
-        const connections = yield* Queue.unbounded<'connected' | 'disconnected'>();
-        const hooks = Layer.succeed(RpcClient.ConnectionHooks, {
-            onConnect: Effect.andThen(_mark(status, 'Connected'), Effect.asVoid(Queue.offer(connections, 'connected'))),
-            onDisconnect: Effect.andThen(_mark(status, 'Disconnected'), Effect.asVoid(Queue.offer(connections, 'disconnected'))),
-        });
-        const socket = Socket.fromWebSocket(
-            Effect.acquireRelease(
-                Effect.try({
-                    try: () => new WebSocket(`ws://localhost:${HOSTS.indesign.port}`),
-                    catch: (cause) => new Socket.SocketError({ reason: new Socket.SocketOpenError({ kind: 'Unknown', cause }) }),
-                }),
-                (ws) =>
-                    Effect.sync(() => {
-                        ws.close(_CLOSE_NORMAL);
-                    }),
-            ),
-        );
-        const protocol = RpcClient.layerProtocolSocket({ retryTransientErrors: true, onTransientError: (error) => _mark(status, `Retrying: ${error.message}`) }).pipe(
-            Layer.provide(hooks),
-            Layer.provide(Layer.effect(Socket.Socket, socket)),
-            Layer.provide(RpcSerialization.layerJson),
-        );
-        yield* Effect.flatMap(RpcClient.make(Frames), (client) =>
-            Stream.runDrain(Stream.switchMap(Stream.fromQueue(connections), (connection) => (connection === 'connected' ? Stream.fromEffect(_attached(client, status)) : Stream.empty))),
-        ).pipe(Effect.scoped, Effect.provide(protocol));
-    }).pipe(_traced(status, 'Stopped'));
+const client = (dom: object): Client => {
+    const table = _handlers(live(dom));
+    return { endpoint, version: manifest.version, identity: _identity, states: _states, perform: (job) => _perform(table, job) };
+};
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { run };
+export { client };

@@ -234,7 +234,7 @@ catalog:
     '@types/fontkit': 2.0.9
     # Emits the InDesign and Illustrator DOM declarations the generator builds from each host's scripting dictionary
     ts-morph: 28.0.0
-    # WHATWG TextEncoder and TextDecoder the InDesign plugin's encoding.ts places on the UXP 9.3.0 scope, which defines neither, before Effect's socket module constructs one at load
+    # WHATWG TextEncoder and TextDecoder each UXP plugin's runtime.ts places on the host scope, which defines neither, before Effect's socket module constructs one at load
     '@exodus/bytes': 1.15.1
     # Autocorrect over agent code in the InDesign plugin
     acorn: 8.18.0

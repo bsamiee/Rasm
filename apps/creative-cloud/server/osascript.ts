@@ -7,9 +7,11 @@ import type { HostId } from './values.ts';
 
 // --- [TEMPLATE] ------------------------------------------------------------------------
 
-const _literal = (text: string): string => `"${text.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
+const literal = (text: string): string => `"${text.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
 
-const doScript = (javascript: string): string => `do script ${_literal(javascript)}`;
+const doScript = (javascript: string): string => `do script ${literal(javascript)}`;
+
+const doJavascript = (javascript: string): string => `do javascript ${literal(javascript)}`;
 
 // --- [BOUNDARY] ------------------------------------------------------------------------
 
@@ -32,10 +34,10 @@ const reply: (command: ChildProcess.StandardCommand) => Effect.Effect<string, No
 );
 
 const read = (host: HostId, bundleId: string, timeoutMs: number, statement: string, file: Option.Option<string>): Effect.Effect<string, BridgeError, ChildProcessSpawner.ChildProcessSpawner> => {
-    const application = `application id ${_literal(bundleId)}`;
+    const application = `application id ${literal(bundleId)}`;
     const script = [
         `if not running of ${application} then error number -600`,
-        ...Array.fromOption(Option.map(file, (path) => `set f to POSIX file ${_literal(path)}`)),
+        ...Array.fromOption(Option.map(file, (path) => `set f to POSIX file ${literal(path)}`)),
         `with timeout of ${Math.ceil(Duration.toSeconds(Duration.millis(timeoutMs)))} seconds`,
         `tell ${application}`,
         statement,
@@ -47,4 +49,4 @@ const read = (host: HostId, bundleId: string, timeoutMs: number, statement: stri
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { doScript, read, reply };
+export { doJavascript, doScript, literal, read, reply };

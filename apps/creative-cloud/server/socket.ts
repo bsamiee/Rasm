@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Context, Deferred, Effect, Exit, Layer, Option, Queue, Ref, Result, Struct } from 'effect';
+import { Context, Deferred, Effect, Exit, Layer, Option, Queue, Result, Stream, Struct, SubscriptionRef } from 'effect';
 import { RpcSerialization, RpcServer } from 'effect/unstable/rpc';
 import type { SocketServer } from 'effect/unstable/socket';
 import { BridgeError } from './errors.ts';
@@ -21,7 +21,7 @@ type Link =
 
 interface Endpoint {
     readonly host: SocketHost;
-    readonly link: Ref.Ref<Link>;
+    readonly link: SubscriptionRef.SubscriptionRef<Link>;
 }
 
 type Links = Readonly<Record<SocketHost, Endpoint>>;
@@ -41,13 +41,13 @@ const _attach = Effect.fnUntraced(function* (endpoint: Endpoint, identity: Ident
     const attached: Link = { _tag: 'attached', identity, state: Option.none(), jobs, pending: Option.none() };
     yield* Effect.acquireRelease(
         Effect.flatMap(
-            Ref.modify(endpoint.link, (link): readonly [Result.Result<void, AlreadyAttached>, Link] =>
+            SubscriptionRef.modify(endpoint.link, (link): readonly [Result.Result<void, AlreadyAttached>, Link] =>
                 link._tag === 'listening' ? [Result.void, attached] : [Result.fail(AlreadyAttached.make({})), link],
             ),
             Effect.fromResult,
         ),
         () =>
-            Effect.flatMap(Ref.getAndSet(endpoint.link, { _tag: 'listening' }), (link) =>
+            Effect.flatMap(SubscriptionRef.getAndSet(endpoint.link, { _tag: 'listening' }), (link) =>
                 link._tag === 'listening'
                     ? Effect.void
                     : Option.match(link.pending, {
@@ -61,7 +61,7 @@ const _attach = Effect.fnUntraced(function* (endpoint: Endpoint, identity: Ident
 });
 
 const _settle = Effect.fnUntraced(function* (endpoint: Endpoint, { jobId, autocorrections, result }: Settle) {
-    const link = yield* Ref.get(endpoint.link);
+    const link = yield* SubscriptionRef.get(endpoint.link);
     return yield* Option.match(link._tag === 'listening' ? Option.none() : Option.filter(link.pending, (pending) => pending.jobId === jobId), {
         onNone: () => Effect.void,
         onSome: ({ settled }) =>
@@ -85,7 +85,7 @@ const serve = (host: SocketHost): Layer.Layer<never, never, Links | SocketServer
                     Frames.of({
                         attach: (identity) => _attach(links[host], identity),
                         settle: (payload) => _settle(links[host], payload),
-                        state: (state) => Ref.update(links[host].link, (link) => (link._tag === 'listening' ? link : { ...link, state: Option.some(state) })),
+                        state: (state) => SubscriptionRef.update(links[host].link, (link) => (link._tag === 'listening' ? link : { ...link, state: Option.some(state) })),
                     }),
                 ),
             ),
@@ -94,12 +94,15 @@ const serve = (host: SocketHost): Layer.Layer<never, never, Links | SocketServer
         Layer.provide(RpcSerialization.layerJson),
     );
 
-const linkState = (endpoint: Endpoint): Effect.Effect<LinkState> => Effect.map(Ref.get(endpoint.link), (link) => (link._tag === 'listening' ? link : Struct.omit(link, ['jobs', 'pending'])));
+const linkState = (endpoint: Endpoint): Effect.Effect<LinkState> =>
+    Effect.map(SubscriptionRef.get(endpoint.link), (link) => (link._tag === 'listening' ? link : Struct.omit(link, ['jobs', 'pending'])));
+
+const attached = (endpoint: Endpoint): Effect.Effect<void> => Effect.asVoid(Stream.runHead(Stream.filter(SubscriptionRef.changes(endpoint.link), (link) => link._tag === 'attached')));
 
 const dispatch: (endpoint: Endpoint, job: Job) => Effect.Effect<Done, BridgeError> = Effect.fnUntraced(function* (endpoint: Endpoint, job: Job) {
     const settled = yield* Deferred.make<Done, BridgeError>();
     const jobs = yield* Effect.flatMap(
-        Ref.modify(endpoint.link, (link): readonly [Result.Result<Queue.Queue<Job>, BridgeError>, Link] =>
+        SubscriptionRef.modify(endpoint.link, (link): readonly [Result.Result<Queue.Queue<Job>, BridgeError>, Link] =>
             link._tag === 'listening'
                 ? [Result.fail(BridgeError.cases.hostNotAttached.make({ host: endpoint.host })), link]
                 : [Result.succeed(link.jobs), { ...link, pending: Option.some({ jobId: job.jobId, settled }) }],
@@ -113,4 +116,4 @@ const dispatch: (endpoint: Endpoint, job: Job) => Effect.Effect<Done, BridgeErro
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Endpoint, Link, SocketHost };
-export { dispatch, Links, linkState, serve };
+export { attached, dispatch, Links, linkState, serve };

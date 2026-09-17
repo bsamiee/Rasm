@@ -2,7 +2,10 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/photoshop-plugin",
-        "types": ["@adobe-uxp-types/uxp", "@adobe-uxp-types/photoshop"]
+        "lib": ["esnext", "dom"],
+        "paths": { "adobe:photoshop": ["./photoshop.ts"], "adobe:uxp": ["./uxp.ts"] },
+        "types": ["@adobe-uxp-types/photoshop", "node"]
     },
-    "references": [{ "path": "../server" }]
+    "references": [{ "path": "../server" }],
+    "include": ["*.ts", "*/*.ts"]
 }
