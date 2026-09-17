@@ -140,6 +140,7 @@ flowchart LR
 - `function-hooks` policies answer each tool call with deny or next, one policy per file under `.claude/plugins/function-hooks/hooks/policies/`
 - Skills hold knowledge of one subject, agents hold one role with its procedure and gate, memory holds facts no file covers
 - `nx run rasm:browsers` installs the Chromium build the Playwright commands launch
+- `jdtls` plugin under `.claude/plugins/` runs the Java language server over the Ghidra scripts with the Ghidra jars and the mise JDK
 - Use `ghidra` skill for reading or annotating a binary through Ghidra
 
 ## [07]-[STRUCTURE]

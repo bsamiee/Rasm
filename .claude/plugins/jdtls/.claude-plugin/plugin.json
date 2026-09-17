@@ -1,0 +1,7 @@
+{
+    "name": "jdtls",
+    "description": "Eclipse JDT Language Server over the Ghidra script bundle, source path, Ghidra jars, and the mise JDK as its runtime",
+    "author": {
+        "name": "Bardia Samiee"
+    }
+}

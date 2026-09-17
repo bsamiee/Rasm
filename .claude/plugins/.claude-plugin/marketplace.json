@@ -13,6 +13,11 @@
             "name": "playwright",
             "source": "./playwright",
             "description": "Playwright CLI and trace skills from the playwright package, with the test planner, generator, and healer agents"
+        },
+        {
+            "name": "jdtls",
+            "source": "./jdtls",
+            "description": "Eclipse JDT Language Server over the Ghidra script bundle with the Ghidra jars and the mise JDK"
         }
     ]
 }

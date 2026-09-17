@@ -141,6 +141,7 @@
   "enabledPlugins": {
     "playwright@rasm": true,
     "function-hooks@rasm": true,
+    "jdtls@rasm": true,
     "swift-lsp@claude-plugins-official": false
   },
   "extraKnownMarketplaces": {
