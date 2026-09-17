@@ -1,10 +1,10 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import { type Handler, handler } from '@rasm/creative-cloud-server/client';
 import { enumerations } from '@rasm/creative-cloud-server/indesign';
 import { Enums, ListEnums } from '@rasm/creative-cloud-server/indesign/jobs';
 import { Array, Effect, Option, Record } from 'effect';
 import type { Live } from '../enums.ts';
-import { type Handler, handler } from './handler.ts';
 
 // --- [HANDLER] -------------------------------------------------------------------------
 
@@ -13,7 +13,7 @@ const listEnums = (live: Live): Handler =>
         Effect.succeed({
             kind: 'enums' as const,
             enums: Array.map(
-                Array.filter(Record.toEntries(live), ([enumeration]) => Option.match(name, { onNone: () => true, onSome: (wanted) => wanted === enumeration })),
+                Record.toEntries(Option.match(name, { onNone: () => live, onSome: (wanted) => Record.filter(live, (_, enumeration) => enumeration === wanted) })),
                 ([enumeration, constants]) => ({
                     name: enumeration,
                     constants: Array.map(Record.keys(constants), (constant) => ({ name: constant, value: Option.flatMap(Record.get(enumerations, enumeration), Record.get(constant)) })),

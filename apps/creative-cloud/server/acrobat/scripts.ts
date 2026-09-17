@@ -19,9 +19,9 @@ const _MENU_JS =
 
 // --- [MODELS] --------------------------------------------------------------------------
 
+const _NON_PRINT = [0, 1, 2] as const;
 const _optionalPage = Schema.OptionFromOptionalKey(PageIndex);
 const _optionalNumber = Schema.OptionFromOptionalKey(Schema.Number);
-const _NON_PRINT = [0, 1, 2] as const;
 
 const Color: Schema.$Array<Schema.Union<readonly [Schema.String, Schema.Number]>> = Schema.Array(Schema.Union([Schema.String, Schema.Number]));
 

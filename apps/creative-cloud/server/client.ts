@@ -1,6 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Cause, Effect, Fiber, Layer, Option, Queue, Ref, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import './runtime.ts';
+import { Cause, Effect, Fiber, Layer, Option, Queue, Record, Ref, Schema, Stream, Struct, SubscriptionRef } from 'effect';
 import { RpcClient, type RpcClientError, RpcSerialization } from 'effect/unstable/rpc';
 import { Socket } from 'effect/unstable/socket';
 import { HostRejection } from './errors.ts';
@@ -33,9 +34,7 @@ type Slot = Ref.Ref<Option.Option<Fiber.Fiber<void>>>;
 
 const _AsyncFunction: new (code: string) => () => Promise<unknown> = Object.getPrototypeOf(async () => undefined).constructor;
 
-const _CLOSE_NORMAL = 1000;
-
-const _numbered: (cause: unknown) => Option.Option<{ readonly number: number }> = Schema.decodeUnknownOption(Schema.Struct({ number: Schema.Number }));
+const _numbered = Schema.decodeUnknownOption(Schema.Struct({ number: Schema.Number }));
 
 // --- [REJECTIONS] ----------------------------------------------------------------------
 
@@ -63,6 +62,11 @@ const handler =
             Effect.flatMap((value) => Effect.mapError(Schema.encodeEffect(Schema.toCodecJson(output))(value), (cause) => HostRejection.cases.resultNotJson.make({ cause }))),
         );
 
+const handle = (handlers: Readonly<Record<string, Handler>>, job: Job): Effect.Effect<Schema.Json, HostRejection> =>
+    Option.match(Record.get(handlers, job.kind), { onNone: () => Effect.fail(HostRejection.cases.unknownMethod.make({ method: job.kind })), onSome: (found) => found(job.body) });
+
+const settle = (outcome: Effect.Effect<Schema.Json, HostRejection>): Effect.Effect<Settled> => Effect.map(Effect.result(outcome), (result) => ({ autocorrections: Option.none(), result }));
+
 // --- [LINK] ----------------------------------------------------------------------------
 
 const _line = (version: string, state: Status): string => `${version} › ${state}`;
@@ -88,25 +92,15 @@ const _attached = (client: Client, rpc: RpcClient.FromGroup<typeof Frames, RpcCl
 const run = (client: Client, status: SubscriptionRef.SubscriptionRef<string>): Effect.Effect<void> =>
     Effect.gen(function* () {
         const connections = yield* Queue.unbounded<'connected' | 'disconnected'>();
-        const hooks = Layer.succeed(RpcClient.ConnectionHooks, {
-            onConnect: Effect.asVoid(Queue.offer(connections, 'connected')),
-            onDisconnect: Effect.asVoid(Queue.offer(connections, 'disconnected')),
-        });
-        const socket = Socket.fromWebSocket(
-            Effect.acquireRelease(
-                Effect.try({
-                    try: () => new WebSocket(client.endpoint),
-                    catch: (cause) => new Socket.SocketError({ reason: new Socket.SocketOpenError({ kind: 'Unknown', cause }) }),
-                }),
-                (ws) =>
-                    Effect.sync(() => {
-                        ws.close(_CLOSE_NORMAL);
-                    }),
-            ),
-        );
         const protocol = RpcClient.layerProtocolSocket({ retryTransientErrors: true }).pipe(
-            Layer.provide(hooks),
-            Layer.provide(Layer.effect(Socket.Socket, socket)),
+            Layer.provide(
+                Layer.succeed(RpcClient.ConnectionHooks, {
+                    onConnect: Effect.asVoid(Queue.offer(connections, 'connected')),
+                    onDisconnect: Effect.asVoid(Queue.offer(connections, 'disconnected')),
+                }),
+            ),
+            Layer.provide(Socket.layerWebSocket(client.endpoint)),
+            Layer.provide(Socket.layerWebSocketConstructorGlobal),
             Layer.provide(RpcSerialization.layerJson),
         );
         yield* Effect.flatMap(RpcClient.make(Frames), (rpc) =>
@@ -145,7 +139,18 @@ const lifecycle = (client: Client, panel: string): Lifecycle => {
     };
 };
 
+// --- [HOST] ----------------------------------------------------------------------------
+
+const active = <D>(host: { readonly documents: { readonly length: number }; readonly activeDocument: D }): Option.Option<D> =>
+    Option.map(
+        Option.liftPredicate(host, (candidate) => candidate.documents.length > 0),
+        Struct.get('activeDocument'),
+    );
+
+const opened = <D>(host: { readonly documents: { readonly length: number }; readonly activeDocument: D }): Effect.Effect<D, HostRejection> =>
+    Effect.fromOption(active(host), () => HostRejection.cases.noActiveDocument.make({}));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Client, Handler, Lifecycle, Settled };
-export { evaluate, handler, json, lifecycle, run, thrown };
+export { active, evaluate, handle, handler, json, lifecycle, opened, run, settle, thrown };

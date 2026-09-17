@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Match, Option, Schema, String } from 'effect';
+import { Array, Match, Option, type PlatformError, Predicate, Schema, String } from 'effect';
 import { AbsolutePath, Autocorrections, HostId, JobId } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -70,9 +70,9 @@ const BridgeError: Schema.TaggedUnion<{
     readonly hostNotAttached: Schema.TaggedStruct<'hostNotAttached', { readonly host: typeof HostId }>;
     readonly hostBusy: Schema.TaggedStruct<'hostBusy', { readonly host: typeof HostId; readonly jobId: typeof JobId; readonly startedAt: Schema.Number }>;
     readonly hostSaturated: Schema.TaggedStruct<'hostSaturated', { readonly host: typeof HostId; readonly pid: Schema.Int; readonly cpu: Schema.Number }>;
-    readonly transportClosed: Schema.TaggedStruct<'transportClosed', { readonly host: typeof HostId; readonly code: Schema.Number; readonly reason: Schema.String }>;
-    readonly resultNotDecodable: Schema.TaggedStruct<'resultNotDecodable', { readonly host: typeof HostId; readonly text: Schema.String; readonly reason: Schema.String }>;
-    readonly fileNotAccessible: Schema.TaggedStruct<'fileNotAccessible', { readonly host: typeof HostId; readonly path: Schema.String; readonly reason: Schema.String }>;
+    readonly pluginDetached: Schema.TaggedStruct<'pluginDetached', { readonly host: typeof HostId; readonly jobId: typeof JobId }>;
+    readonly resultNotDecodable: Schema.TaggedStruct<'resultNotDecodable', { readonly host: typeof HostId; readonly value: Schema.Codec<Schema.Json>; readonly cause: Schema.Defect }>;
+    readonly fileNotAccessible: Schema.TaggedStruct<'fileNotAccessible', { readonly host: typeof HostId; readonly path: Schema.OptionFromNullOr<Schema.String>; readonly reason: Schema.String }>;
     readonly hostThrew: Schema.TaggedStruct<'hostThrew', { readonly host: typeof HostId; readonly rejection: typeof HostRejection; readonly autocorrections: typeof Autocorrections }>;
 }> = Schema.TaggedUnion({
     hostNotRunning: { host: HostId },
@@ -84,9 +84,9 @@ const BridgeError: Schema.TaggedUnion<{
     hostNotAttached: { host: HostId },
     hostBusy: { host: HostId, jobId: JobId, startedAt: Schema.Number },
     hostSaturated: { host: HostId, pid: Schema.Int, cpu: Schema.Number },
-    transportClosed: { host: HostId, code: Schema.Number, reason: Schema.String },
-    resultNotDecodable: { host: HostId, text: Schema.String, reason: Schema.String },
-    fileNotAccessible: { host: HostId, path: Schema.String, reason: Schema.String },
+    pluginDetached: { host: HostId, jobId: JobId },
+    resultNotDecodable: { host: HostId, value: Schema.Json, cause: Schema.Defect() },
+    fileNotAccessible: { host: HostId, path: Schema.OptionFromNullOr(Schema.String), reason: Schema.String },
     hostThrew: { host: HostId, rejection: HostRejection, autocorrections: Autocorrections },
 });
 
@@ -96,7 +96,7 @@ const NonZeroExit: Schema.TaggedStruct<'nonZeroExit', { readonly exitCode: Schem
 });
 
 const _Report = Schema.TemplateLiteralParser([Schema.String, ': ', Schema.Literals(['syntax', 'execution']), ' error: ', Schema.String, ' (', Schema.NumberFromString, ')']);
-const _report: (text: string) => Option.Option<typeof _Report.Type> = Schema.decodeUnknownOption(_Report);
+const _report: (text: string) => Option.Option<(typeof _Report)['Type']> = Schema.decodeUnknownOption(_Report);
 
 // --- [CLASSIFICATION] ------------------------------------------------------------------
 
@@ -114,6 +114,20 @@ const classify = (host: HostId, exit: NonZeroExit): BridgeError =>
             ),
     });
 
+const notDecodable =
+    (host: HostId, value: Schema.Json) =>
+    (cause: unknown): BridgeError =>
+        BridgeError.cases.resultNotDecodable.make({ host, value, cause });
+
+const inaccessible =
+    (host: HostId) =>
+    (error: PlatformError.PlatformError): BridgeError =>
+        BridgeError.cases.fileNotAccessible.make({
+            host,
+            path: Option.flatMap(Option.liftPredicate(error.reason, Predicate.hasProperty('pathOrDescriptor')), (reason) => Option.liftPredicate(reason.pathOrDescriptor, Predicate.isString)),
+            reason: error.reason._tag,
+        });
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { BridgeError, classify, HostRejection, NonZeroExit };
+export { BridgeError, classify, HostRejection, inaccessible, NonZeroExit, notDecodable };

@@ -19,12 +19,9 @@
                 "AST_GREP_CONFIG": "sgconfig.yml"
             }
         },
-        "hostinger": {
+        "creative-cloud": {
             "command": "mise",
-            "args": ["exec", "--", "hostinger-api-mcp"],
-            "env": {
-                "HOSTINGER_API_TOKEN": "${HOSTINGER_API_TOKEN}"
-            }
+            "args": ["exec", "--", "node", "apps/creative-cloud/server/main.ts"]
         },
         "playwright": {
             "command": "mise",

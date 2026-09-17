@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { enumerations, phrases } from '@rasm/creative-cloud-server/indesign';
-import { Array, Option, Predicate, Record } from 'effect';
+import { Array, Option, Predicate, Record, Tuple } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,7 +30,9 @@ const _enumeration = (value: unknown): Option.Option<Readonly<Record<string, unk
     );
 
 const live = (registered: object): Live =>
-    Record.fromEntries(Array.getSomes(Array.map(Object.getOwnPropertyNames(registered), (name) => Option.map(_enumeration(Reflect.get(registered, name)), (constants) => [name, constants] as const))));
+    Record.fromEntries(
+        Array.getSomes(Array.map(Object.getOwnPropertyNames(registered), (name) => Option.map(_enumeration(Reflect.get(registered, name)), (constants) => Tuple.make(name, constants)))),
+    );
 
 // --- [MATCHING] ------------------------------------------------------------------------
 
@@ -40,12 +42,12 @@ const _registered = (table: Live, candidates: readonly string[]): readonly Const
     Array.flatMap(candidates, (enumeration) => Array.map(Option.match(Record.get(table, enumeration), { onNone: () => [], onSome: Record.keys }), (constant) => ({ enumeration, constant })));
 
 const _one = (matches: readonly Constant[]): Option.Option<Constant> =>
-    Array.match(
-        Array.dedupeWith(matches, (left, right) => left.enumeration === right.enumeration && left.constant === right.constant),
-        {
-            onEmpty: Option.none,
-            onNonEmpty: (found) => (found.length === 1 ? Option.some(Array.headNonEmpty(found)) : Option.none()),
-        },
+    Option.flatMap(
+        Option.liftPredicate(
+            Array.dedupeWith(matches, (left, right) => left.enumeration === right.enumeration && left.constant === right.constant),
+            (found) => found.length === 1,
+        ),
+        Array.head,
     );
 
 const _phrased = ({ enumeration, constant }: Constant, text: string): boolean =>

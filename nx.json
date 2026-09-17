@@ -1,6 +1,5 @@
 {
     "$schema": "./node_modules/nx/schemas/nx-schema.json",
-    "defaultBase": "main",
     "cacheDirectory": ".cache/nx/cache",
     "neverConnectToCloud": true,
     "useDaemonProcess": false,
@@ -17,15 +16,7 @@
         ],
         "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }],
         "xcode": [{ "runtime": "xcodebuild -version" }],
-        "typescript": [
-            "{workspaceRoot}/biome.json",
-            "{workspaceRoot}/tsconfig.base.json",
-            "{workspaceRoot}/package.json",
-            "{workspaceRoot}/pnpm-workspace.yaml",
-            "{workspaceRoot}/pnpm-lock.yaml",
-            "{workspaceRoot}/vitest.config.ts",
-            { "runtime": "node --version" }
-        ]
+        "typescript": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/package.json", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/pnpm-lock.yaml", { "runtime": "node --version" }]
     },
     "targetDefaults": {
         "build": [
@@ -44,11 +35,12 @@
             { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
             {
                 "filter": { "projects": ["tag:host:uxp"] },
-                "command": "vite build",
+                "command": "vite build --config $NX_WORKSPACE_ROOT/vite.config.ts",
                 "options": { "cwd": "{projectRoot}" },
-                "inputs": ["...", { "externalDependencies": ["vite", "vite-uxp-plugin"] }],
+                "inputs": ["...", "{workspaceRoot}/vite.config.ts", { "externalDependencies": ["vite"] }],
                 "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
             },
+            { "filter": { "projects": ["tag:host:indesign"] }, "dependsOn": ["generate"], "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }] },
             {
                 "filter": { "projects": ["tag:host:extendscript"] },
                 "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**,**/illustrator.ts'",
@@ -64,7 +56,7 @@
                     "...",
                     "{projectRoot}/automation.ts",
                     "^production",
-                    { "runtime": "/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \"$(mdfind \"kMDItemCFBundleIdentifier == 'com.adobe.InDesign'\")/Contents/Info.plist\"" },
+                    { "runtime": "node apps/creative-cloud/server/automation.ts version indesign" },
                     { "runtime": "sw_vers -productVersion" },
                     { "externalDependencies": ["@adobe-uxp-types/uxp"] }
                 ],
@@ -82,14 +74,14 @@
                     "...",
                     "production",
                     { "dependentTasksOutputFiles": "**/*.jsx" },
-                    { "runtime": "/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \"$(mdfind \"kMDItemCFBundleIdentifier == 'com.adobe.illustratorBeta'\")/Contents/Info.plist\"" },
+                    { "runtime": "node apps/creative-cloud/server/automation.ts version illustrator" },
                     { "externalDependencies": ["types-for-adobe"] }
                 ],
                 "outputs": ["{workspaceRoot}/apps/creative-cloud/illustrator-scripts/illustrator.ts", "{projectRoot}/illustrator/dictionary.ts"]
             }
         ],
         "reconcile": [{ "filter": { "projects": ["tag:host:indesign"] }, "dependsOn": ["generate"], "parallelism": false }],
-        "deploy": [{ "filter": { "projects": ["tag:language:typescript"] }, "dependsOn": ["build"], "parallelism": false }],
+        "deploy": [{ "filter": { "projects": ["tag:host:uxp"] }, "dependsOn": ["build"], "parallelism": false }],
         "install": [
             {
                 "filter": { "projects": ["tag:language:swift"] },
@@ -117,11 +109,11 @@
             },
             {
                 "filter": { "projects": ["tag:language:typescript"] },
-                "executor": "nx:run-commands",
+                "command": "tsc --build --pretty false",
                 "cache": true,
                 "dependsOn": ["^typecheck"],
                 "inputs": ["default", { "dependentTasksOutputFiles": "**/*.d.ts", "transitive": true }, "typescript", { "externalDependencies": ["typescript"] }],
-                "options": { "command": "tsc --build --pretty false", "cwd": "{projectRoot}" },
+                "options": { "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
             },
             { "filter": { "projects": ["tag:host:indesign", "tag:host:photoshop"] }, "dependsOn": ["...", "generate"], "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }] },
@@ -145,17 +137,14 @@
             },
             {
                 "filter": { "projects": ["tag:language:python"] },
-                "executor": "nx:run-commands",
+                "command": "pytest {projectRoot} --cov",
                 "inputs": ["default", "python"],
                 "outputs": ["{workspaceRoot}/.artifacts/python/coverage/data/.coverage.{projectName}"],
-                "options": {
-                    "command": "pytest {projectRoot} --cov",
-                    "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" }
-                }
+                "options": { "env": { "COVERAGE_FILE": ".artifacts/python/coverage/data/.coverage.{projectName}" } }
             },
             {
                 "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" },
-                "inputs": ["...", "typescript", "{workspaceRoot}/tests/typescript/support/setup.ts"],
+                "inputs": ["...", "typescript", "{workspaceRoot}/vitest.config.ts", "{workspaceRoot}/tests/typescript/support/setup.ts"],
                 "outputs": ["{workspaceRoot}/.artifacts/typescript/test-results/{projectName}", "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"]
             }
         ],
@@ -167,9 +156,8 @@
             }
         ]
     },
-    "pluginsConfig": { "@nx/js": { "analyzeSourceFiles": false } },
     "plugins": [
-        { "plugin": "@nx/vitest", "exclude": ["vitest.config.ts"], "options": { "testMode": "run" } },
+        { "plugin": "@nx/vitest", "exclude": ["vitest.config.ts", "vite.config.ts"], "options": { "testMode": "run" } },
         {
             "plugin": "@nx/dotnet",
             "exclude": ["eng/**"],

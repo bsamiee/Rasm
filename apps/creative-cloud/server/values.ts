@@ -5,10 +5,10 @@ import { type Brand, Schema, SchemaGetter, Struct } from 'effect';
 // --- [TABLE] ---------------------------------------------------------------------------
 
 const HOSTS = {
-    illustrator: { id: 'illustrator', bundleId: 'com.adobe.illustratorBeta', processName: 'Adobe Illustrator', channel: 'osascript' },
-    photoshop: { id: 'photoshop', bundleId: 'com.adobe.Photoshop', processName: 'Adobe Photoshop 2026', channel: 'socket', port: 39_217 },
-    indesign: { id: 'indesign', bundleId: 'com.adobe.InDesign', processName: 'Adobe InDesign 2026 (Beta)', channel: 'socket', port: 39_218 },
-    acrobat: { id: 'acrobat', bundleId: 'com.adobe.Acrobat.Pro', processName: 'AdobeAcrobat', channel: 'osascript' },
+    illustrator: { id: 'illustrator', bundleId: 'com.adobe.illustratorBeta', channel: 'osascript' },
+    photoshop: { id: 'photoshop', bundleId: 'com.adobe.Photoshop', channel: 'socket', port: 39_217, uxp: { app: 'PS', minVersion: '27.11', data: { loadEvent: 'startup' } } },
+    indesign: { id: 'indesign', bundleId: 'com.adobe.InDesign', channel: 'socket', port: 39_218, uxp: { app: 'ID', minVersion: '21.6' } },
+    acrobat: { id: 'acrobat', bundleId: 'com.adobe.Acrobat.Pro', channel: 'osascript' },
 } as const;
 
 // --- [TYPES] ---------------------------------------------------------------------------

@@ -16,7 +16,7 @@ import { HOSTS } from './values.ts';
 
 // --- [ASSEMBLY] ------------------------------------------------------------------------
 
-const _server = { name: manifest.name, version: manifest.version };
+const _server = Struct.pick(manifest, ['name', 'version']);
 
 const _SOCKETS = Struct.pick(HOSTS, ['photoshop', 'indesign']);
 

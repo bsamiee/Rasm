@@ -4,6 +4,7 @@
 
 declare const $: $;
 declare const app: Application;
+declare const IllustratorSaveOptions: new () => IllustratorSaveOptions;
 
 declare global {
     enum Compatibility {}
@@ -13,7 +14,7 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { run, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { nth, run, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [ROWS] ----------------------------------------------------------------------------
 
@@ -28,7 +29,7 @@ const UNTITLED = 'Untitled-';
 
 const saved = (row: Size, raster: { readonly resolution: number; readonly antiAliasing: boolean; readonly padding: number }, outputDir: string, stationery: boolean): string => {
     const doc = app.documents.add(DocumentColorSpace[row.colorSpace], row.width, row.height, 1);
-    const artboard = doc.artboards[0] as Artboard;
+    const artboard = nth(doc.artboards, 0);
     artboard.artboardRect = [0, row.height, row.width, 0];
     artboard.name = row.name;
     const settings = doc.rasterEffectSettings;
@@ -36,17 +37,16 @@ const saved = (row: Size, raster: { readonly resolution: number; readonly antiAl
     settings.antiAliasing = raster.antiAliasing;
     settings.padding = raster.padding;
     doc.rasterEffectSettings = settings;
-    const options: IllustratorSaveOptions = new $.global.IllustratorSaveOptions();
+    const options = new IllustratorSaveOptions();
     options.embedICCProfile = true;
     options.pdfCompatible = true;
     options.compatibility = Compatibility.ILLUSTRATOR24;
     const file = new File(`${outputDir}/${row.name}.ai`);
     doc.saveAs(file, options);
     doc.close(SaveOptions.DONOTSAVECHANGES);
-    if (!stationery) {
-        return file.fsName;
+    if (stationery) {
+        file.rename(`${row.name}.ait`);
     }
-    file.rename(`${row.name}.ait`);
     return file.fsName;
 };
 
@@ -69,7 +69,7 @@ const buildSizeCatalog = (
         const reopened = app.open(new File(path));
         readback.push({
             name: row.name,
-            artboardRect: (reopened.artboards[0] as Artboard).artboardRect,
+            artboardRect: nth(reopened.artboards, 0).artboardRect,
             opensUntitled: reopened.name.indexOf(UNTITLED) === 0 && reopened.fullName.fsName.indexOf(`/${UNTITLED}`) === 0,
         });
         reopened.close(SaveOptions.DONOTSAVECHANGES);

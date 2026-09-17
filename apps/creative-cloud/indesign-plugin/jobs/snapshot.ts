@@ -16,24 +16,17 @@ import {
     SaveOptions,
     type Spread,
 } from 'adobe:indesign';
-import { thrown } from '@rasm/creative-cloud-server/client';
+import { type Handler, handler, thrown } from '@rasm/creative-cloud-server/client';
 import { HostRejection } from '@rasm/creative-cloud-server/errors';
 import { DPI, dpi, pixels } from '@rasm/creative-cloud-server/images';
 import { type Format, Image, Snapshot, type Target } from '@rasm/creative-cloud-server/indesign/jobs';
 import { AbsolutePath } from '@rasm/creative-cloud-server/values';
-import { Array, Effect, Match, Number, Option, Schema, type Scope, Struct } from 'effect';
-import { type Handler, handler } from './handler.ts';
+import { Array, Effect, Match, Number, Option, Record, Schema, type Scope, Struct } from 'effect';
+import { type Box, box, document } from '../document.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Rendered = Omit<(typeof Image)['Type'], 'kind' | 'path' | 'isolated' | 'overlaps' | 'effectivePpi'>;
-
-interface Box {
-    readonly top: number;
-    readonly left: number;
-    readonly bottom: number;
-    readonly right: number;
-}
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -44,8 +37,6 @@ const _JPEG = ['jpegQuality', 'exportResolution', 'pageString', 'jpegExportRange
 const _PNG = ['pngQuality', 'exportResolution', 'pageString', 'pngExportRange', 'exportingSpread', 'transparentBackground'] as const;
 
 // --- [GEOMETRY] ------------------------------------------------------------------------
-
-const _bounds: (input: unknown) => readonly [number, number, number, number] = Schema.decodeUnknownSync(Schema.Tuple([Schema.Number, Schema.Number, Schema.Number, Schema.Number]));
 
 const _points: (input: unknown) => Array.NonEmptyReadonlyArray<readonly [number, number]> = Schema.decodeUnknownSync(Schema.NonEmptyArray(Schema.Tuple([Schema.Number, Schema.Number])));
 
@@ -58,7 +49,7 @@ const _spreadBox = (item: Pick<PageItem, 'resolve'>): Box => {
     return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
 };
 
-const _disjoint = (box: Box, rect: Box): boolean => box.left >= rect.right || box.right <= rect.left || box.top >= rect.bottom || box.bottom <= rect.top;
+const _disjoint = (bounds: Box, rect: Box): boolean => bounds.left >= rect.right || bounds.right <= rect.left || bounds.top >= rect.bottom || bounds.bottom <= rect.top;
 
 const _backToFront = (container: Pick<Spread, 'allPageItems'>): readonly PageItem[] =>
     Array.filter(Array.reverse(container.allPageItems), (item) => Array.contains(_CONTAINERS, String(item.parent.constructor.name)));
@@ -71,11 +62,11 @@ const _full = (widthPt: number, heightPt: number, resolution: number): Rendered 
 
 // --- [EXPORT] --------------------------------------------------------------------------
 
-const _restored = <T extends object, K extends keyof T>(target: T, keys: readonly K[], values: Partial<T>): Effect.Effect<Pick<T, K>, HostRejection, Scope.Scope> =>
+const _restored = <T extends object, K extends keyof T & string>(target: T, keys: readonly K[], values: Partial<T>): Effect.Effect<Readonly<Record<string, T[K]>>, HostRejection, Scope.Scope> =>
     Effect.acquireRelease(
         Effect.try({
             try: () => {
-                const saved = Struct.pick(target, keys);
+                const saved = Record.fromIterableWith(keys, (key) => [key, target[key]]);
                 Object.assign(target, values);
                 return saved;
             },
@@ -131,15 +122,15 @@ const _placed = (list: readonly PageItem[], rect: Box, tmpSpread: Spread, pageTo
     Effect.forEach(
         Array.filter(
             Array.map(list, (item) => ({ item, box: _spreadBox(item) })),
-            ({ box }) => !_disjoint(box, rect),
+            ({ box: bounds }) => !_disjoint(bounds, rect),
         ),
-        ({ item, box }) => Effect.try({ try: () => _moved(item, tmpSpread, pageTopLeft.left + (box.left - rect.left), pageTopLeft.top + (box.top - rect.top)), catch: thrown }),
+        ({ item, box: bounds }) => Effect.try({ try: () => _moved(item, tmpSpread, pageTopLeft.left + (bounds.left - rect.left), pageTopLeft.top + (bounds.top - rect.top)), catch: thrown }),
         { discard: true },
     );
 
-const _masked = (tmpSpread: Spread, box: Box): void => {
+const _masked = (tmpSpread: Spread, bounds: Box): void => {
     const mask = tmpSpread.rectangles.add();
-    mask.geometricBounds = [`${box.top}pt`, `${box.left}pt`, `${box.bottom}pt`, `${box.right}pt`];
+    mask.geometricBounds = [`${bounds.top}pt`, `${bounds.left}pt`, `${bounds.bottom}pt`, `${bounds.right}pt`];
     mask.fillColor = 'Paper';
     mask.strokeColor = 'None';
 };
@@ -212,7 +203,7 @@ const _indexed = (index: number, count: number): Effect.Effect<void, HostRejecti
 
 const _page = Effect.fnUntraced(function* (doc: Document, { index, budget }: Extract<Target, { readonly kind: 'page' }>, format: Format, directory: string) {
     yield* _indexed(index, doc.pages.length);
-    const [top, left, bottom, right] = _bounds(doc.pages.item(index).bounds);
+    const { top, left, bottom, right } = box(doc.pages.item(index).bounds);
     const resolution = dpi(budget, right - left, bottom - top);
     const path = _file(directory, `page-${index}`, format);
     yield* _exported(doc, format, resolution, `+${index + 1}`, false, path);
@@ -223,9 +214,9 @@ const _spread = Effect.fnUntraced(function* (doc: Document, { index, budget }: E
     yield* _indexed(index, doc.spreads.length);
     const before = Array.reduce(Array.take(doc.spreads.everyItem().getElements(), index), 0, (total, spread) => total + spread.pages.length);
     const pages = doc.spreads.item(index).pages.everyItem().getElements();
-    const boxes = Array.map(pages, (page) => _bounds(page.bounds));
-    const width = Array.reduce(boxes, 0, (total, [, l, , r]) => total + (r - l));
-    const height = Array.reduce(boxes, 0, (tallest, [t, , b]) => Math.max(tallest, b - t));
+    const boxes = Array.map(pages, (page) => box(page.bounds));
+    const width = Array.reduce(boxes, 0, (total, bounds) => total + (bounds.right - bounds.left));
+    const height = Array.reduce(boxes, 0, (tallest, bounds) => Math.max(tallest, bounds.bottom - bounds.top));
     const resolution = dpi(budget, width, height);
     const path = _file(directory, `spread-${index}`, format);
     yield* _exported(doc, format, resolution, pages.length === 1 ? `+${before + 1}` : `+${before + 1}-+${before + pages.length}`, true, path);
@@ -235,10 +226,10 @@ const _spread = Effect.fnUntraced(function* (doc: Document, { index, budget }: E
 const _region = Effect.fnUntraced(function* (doc: Document, { index, region: [x0, y0, x1, y1] }: Extract<Target, { readonly kind: 'region' }>, format: Format, directory: string) {
     yield* _indexed(index, doc.pages.length);
     const page = doc.pages.item(index);
-    const box = _spreadBox(page);
-    const width = box.right - box.left;
-    const height = box.bottom - box.top;
-    const rect = { left: box.left + x0 * width, top: box.top + y0 * height, right: box.left + x1 * width, bottom: box.top + y1 * height };
+    const bounds = _spreadBox(page);
+    const width = bounds.right - bounds.left;
+    const height = bounds.bottom - bounds.top;
+    const rect = { left: bounds.left + x0 * width, top: bounds.top + y0 * height, right: bounds.left + x1 * width, bottom: bounds.top + y1 * height };
     const path = _file(directory, `region-${index}`, format);
     return _whole(yield* _composed(page.parent, rect, Option.none(), format, path), path);
 });
@@ -248,7 +239,10 @@ const _object = Effect.fnUntraced(function* (doc: Document, { itemId, isolate }:
         Array.getSomes(
             Array.map(doc.spreads.everyItem().getElements(), (candidate) => {
                 const direct = candidate.pageItems.itemByID(itemId);
-                const found = Option.orElse(direct.isValid ? Array.head(direct.getElements()) : Option.none(), () => Array.findFirst(candidate.allPageItems, (entry) => entry.id === itemId));
+                const found = Option.orElse(
+                    Option.flatMap(Option.liftPredicate(direct, Struct.get('isValid')), (specifier) => Array.head(specifier.getElements())),
+                    () => Array.findFirst(candidate.allPageItems, (entry) => entry.id === itemId),
+                );
                 return Option.map(found, (hit) => ({ item: hit, spread: candidate }));
             }),
         ),
@@ -259,7 +253,10 @@ const _object = Effect.fnUntraced(function* (doc: Document, { itemId, isolate }:
         Array.filter(spread.pageItems.everyItem().getElements(), (other) => other.id !== item.id && !_disjoint(_spreadBox(other), rect)),
         (other) => ({ id: other.id, name: other.name, type: String(other.constructor.name) }),
     );
-    const graphic = item.graphics.length > 0 ? Array.head(item.graphics.item(0).getElements()) : Option.none();
+    const graphic = Option.flatMap(
+        Option.liftPredicate(item.graphics, (graphics) => graphics.length > 0),
+        (graphics) => Array.head(graphics.item(0).getElements()),
+    );
     const raster = Option.map(
         Option.orElse(
             Option.flatMap(graphic, (placed) => _ppi(Reflect.get(placed, 'effectivePpi'))),
@@ -267,7 +264,7 @@ const _object = Effect.fnUntraced(function* (doc: Document, { itemId, isolate }:
         ),
         (values) => Math.max(...values),
     );
-    const cap = isolate || overlaps.length === 0 ? raster : Option.none();
+    const cap = Option.filter(raster, () => isolate || overlaps.length === 0);
     const path = _file(directory, `object-${itemId}`, format);
     const rendered = yield* isolate
         ? _rendered(format, path, rect.right - rect.left, rect.bottom - rect.top, cap, (tmpSpread, pageTopLeft) =>
@@ -280,16 +277,16 @@ const _object = Effect.fnUntraced(function* (doc: Document, { itemId, isolate }:
 // --- [HANDLER] -------------------------------------------------------------------------
 
 const snapshot: Handler = handler(Snapshot, Image, ({ target, format, directory }) =>
-    app.documents.length === 0
-        ? Effect.fail(HostRejection.cases.noActiveDocument.make({}))
-        : Match.value(target).pipe(
-              Match.discriminatorsExhaustive('kind')({
-                  page: (page) => _page(app.activeDocument, page, format, directory),
-                  spread: (spread) => _spread(app.activeDocument, spread, format, directory),
-                  region: (region) => _region(app.activeDocument, region, format, directory),
-                  object: (object) => _object(app.activeDocument, object, format, directory),
-              }),
-          ),
+    Effect.flatMap(document, (doc) =>
+        Match.value(target).pipe(
+            Match.discriminatorsExhaustive('kind')({
+                page: (page) => _page(doc, page, format, directory),
+                spread: (spread) => _spread(doc, spread, format, directory),
+                region: (region) => _region(doc, region, format, directory),
+                object: (object) => _object(doc, object, format, directory),
+            }),
+        ),
+    ),
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

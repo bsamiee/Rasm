@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-filter-or-fail-by-conditional
+language: tsx
+severity: error
+utils:
+    effect-module:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}
+    failing-arm:
+        kind: call_expression
+        has:
+            field: function
+            kind: member_expression
+            pattern: $M.$F
+            all:
+                - has: {field: property, regex: '^(fail|failSync)$'}
+                - has: {field: object, matches: effect-module}
+    terminal-arm:
+        any:
+            - kind: call_expression
+              has: {field: function, matches: terminal-member}
+            - matches: terminal-member
+    terminal-member:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(fail|failSync|failCause|failCauseSync|die|dieSync|dieMessage|interrupt)$'}
+            - has: {field: object, matches: effect-module}
+    discriminant-test:
+        kind: binary_expression
+        any:
+            - pattern: $_.kind === $_
+            - pattern: $_.kind !== $_
+            - pattern: $_._tag === $_
+            - pattern: $_._tag !== $_
+    declaration-of-tested:
+        kind: variable_declarator
+        has: {field: name, kind: identifier, pattern: $V}
+    generator-constant:
+        kind: identifier
+        pattern: $V
+        inside:
+            kind: generator_function
+            stopBy: end
+            has:
+                field: body
+                all:
+                    - has: {kind: lexical_declaration, has: {matches: declaration-of-tested}}
+                    - not:
+                        has:
+                            has: {kind: 'identifier, shorthand_property_identifier', pattern: $V, stopBy: end}
+                            not: {any: [{has: {matches: declaration-of-tested}}, {has: {kind: ternary_expression, pattern: $TERNARY, stopBy: end}}]}
+rule:
+    kind: ternary_expression
+    pattern: $TERNARY
+    all:
+        - has: {field: condition, has: {matches: generator-constant, stopBy: end}}
+        - not: {has: {field: condition, any: [{matches: discriminant-test}, {has: {matches: discriminant-test, stopBy: end}}]}}
+        - any:
+            - all:
+                - has: {field: alternative, matches: failing-arm}
+                - not: {has: {field: consequence, matches: terminal-arm}}
+            - all:
+                - has: {field: consequence, matches: failing-arm}
+                - not: {has: {field: alternative, matches: terminal-arm}}
+message: 'Conditional over `$V` selects `$M.$F` by hand'
+note: '`Effect.filterOrFail(effect, predicate, orFailWith)` over the effect yielding the tested value, `Effect.map` on it derives the value first, a `fail` in the consequence negates the predicate'

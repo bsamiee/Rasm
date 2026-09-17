@@ -4,10 +4,11 @@
 
 declare const $: $;
 declare const app: Application;
+declare const ImageCaptureOptions: new () => ImageCaptureOptions;
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { nth, run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [BUDGET] --------------------------------------------------------------------------
 
@@ -25,18 +26,18 @@ const resolution = (budget: { readonly longEdgePx: number; readonly pixels: numb
 const snapshot = (
     request: {
         readonly path: string;
-        readonly clipBounds?: [number, number, number, number];
+        readonly clip: { readonly bounds: [number, number, number, number] } | { readonly artboard: 'active' };
         readonly budget: { readonly longEdgePx: number; readonly pixels: number };
         readonly resolution: { readonly minimum: number; readonly maximum: number };
     },
     _at: Site,
 ): Reading<JsonObject> => {
     const doc = app.activeDocument;
-    const [left, top, right, bottom] = request.clipBounds ?? (doc.artboards[doc.artboards.getActiveArtboardIndex()] as Artboard).artboardRect;
+    const [left, top, right, bottom] = 'bounds' in request.clip ? request.clip.bounds : nth(doc.artboards, doc.artboards.getActiveArtboardIndex()).artboardRect;
     const widthPt = right - left;
     const heightPt = top - bottom;
     const dpi = resolution(request.budget, request.resolution, widthPt, heightPt);
-    const options: ImageCaptureOptions = new $.global.ImageCaptureOptions();
+    const options = new ImageCaptureOptions();
     options.resolution = dpi;
     options.antiAliasing = true;
     options.transparency = false;

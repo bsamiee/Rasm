@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Effect, Option, Order, Record, Schema, String } from 'effect';
+import { Array, Effect, Function, Option, Order, Record, Result, Schema, String } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { IndentationText, type ManipulationSettings, NewLineKind, QuoteKind } from 'ts-morph';
 
@@ -20,17 +20,49 @@ const MANIPULATION: Partial<ManipulationSettings> = { indentationText: Indentati
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _children = <S extends Schema.Top>(schema: S): Schema.withDecodingDefaultKey<Schema.$Array<S>> => Schema.Array(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
-const _optionalString = Schema.OptionFromOptionalKey(Schema.String);
-const _yes = Schema.OptionFromOptionalKey(Schema.Literal('yes'));
-const _named = { name: Schema.String, code: Schema.String, description: _optionalString, hidden: _yes };
-const _Named = Schema.Struct(_named);
-const Property = Schema.Struct({
-    attributes: Schema.Struct({ ..._named, type: _optionalString, access: Schema.OptionFromOptionalKey(Schema.Literal('r')) }),
-    type: _children(Schema.Struct({ attributes: Schema.Struct({ type: Schema.String, list: _yes }) })),
+const _optionalString: Schema.OptionFromOptionalKey<Schema.String> = Schema.OptionFromOptionalKey(Schema.String);
+const _named: {
+    readonly name: Schema.String;
+    readonly code: Schema.String;
+    readonly description: Schema.OptionFromOptionalKey<Schema.String>;
+    readonly hidden: Schema.OptionFromOptionalKey<Schema.Literal<'yes'>>;
+} = {
+    name: Schema.String,
+    code: Schema.String,
+    description: _optionalString,
+    hidden: Schema.OptionFromOptionalKey(Schema.Literal('yes')),
+};
+const _Named: Schema.Struct<typeof _named> = Schema.Struct(_named);
+const _Type: Schema.Struct<{ readonly attributes: Schema.Struct<{ readonly type: Schema.String; readonly list: Schema.OptionFromOptionalKey<Schema.Literal<'yes'>> }> }> = Schema.Struct({
+    attributes: Schema.Struct({ type: Schema.String, list: Schema.OptionFromOptionalKey(Schema.Literal('yes')) }),
 });
-const Class = Schema.Struct({ attributes: Schema.Struct({ ..._named, inherits: _optionalString, plural: _optionalString }), property: _children(Property) });
-const Enumeration = Schema.Struct({ attributes: _Named, enumerator: _children(Schema.Struct({ attributes: _Named })) });
-const Dictionary = Schema.Struct({
+const Property: Schema.Struct<{
+    readonly attributes: Schema.Struct<typeof _named & { readonly type: Schema.OptionFromOptionalKey<Schema.String>; readonly access: Schema.OptionFromOptionalKey<Schema.Literal<'r'>> }>;
+    readonly type: Schema.withDecodingDefaultKey<Schema.$Array<typeof _Type>>;
+}> = Schema.Struct({
+    attributes: Schema.Struct({ ..._named, type: _optionalString, access: Schema.OptionFromOptionalKey(Schema.Literal('r')) }),
+    type: _children(_Type),
+});
+const Class: Schema.Struct<{
+    readonly attributes: Schema.Struct<typeof _named & { readonly inherits: Schema.OptionFromOptionalKey<Schema.String>; readonly plural: Schema.OptionFromOptionalKey<Schema.String> }>;
+    readonly property: Schema.withDecodingDefaultKey<Schema.$Array<typeof Property>>;
+}> = Schema.Struct({
+    attributes: Schema.Struct({ ..._named, inherits: _optionalString, plural: _optionalString }),
+    property: _children(Property),
+});
+const Enumeration: Schema.Struct<{ readonly attributes: typeof _Named; readonly enumerator: Schema.withDecodingDefaultKey<Schema.$Array<Schema.Struct<{ readonly attributes: typeof _Named }>>> }> =
+    Schema.Struct({
+        attributes: _Named,
+        enumerator: _children(Schema.Struct({ attributes: _Named })),
+    });
+const Dictionary: Schema.Struct<{
+    readonly dictionary: Schema.Struct<{
+        readonly attributes: Schema.OptionFromOptionalKey<Schema.Struct<{ readonly title: Schema.String }>>;
+        readonly suite: Schema.$Array<
+            Schema.Struct<{ readonly class: Schema.withDecodingDefaultKey<Schema.$Array<typeof Class>>; readonly enumeration: Schema.withDecodingDefaultKey<Schema.$Array<typeof Enumeration>> }>
+        >;
+    }>;
+}> = Schema.Struct({
     dictionary: Schema.Struct({
         attributes: Schema.OptionFromOptionalKey(Schema.Struct({ title: Schema.String })),
         suite: Schema.Array(Schema.Struct({ class: _children(Class), enumeration: _children(Enumeration) })),
@@ -72,13 +104,14 @@ const sorted = (names: Iterable<string>): readonly string[] => Array.sort(Array.
 // --- [RECONCILIATION] ------------------------------------------------------------------
 
 const absent = (self: Readonly<Record<string, readonly string[]>>, that: Readonly<Record<string, readonly string[]>>): Readonly<Record<string, Array.NonEmptyReadonlyArray<string>>> =>
-    Record.getSomes(
-        Record.map(self, (members, name) =>
-            Option.liftPredicate(Array.isReadonlyArrayNonEmpty<string>)(
-                Array.difference(
-                    members,
-                    Option.getOrElse(Record.get(that, name), () => []),
-                ),
+    Record.filterMap(self, (members, name) =>
+        Result.liftPredicate(
+            Array.isReadonlyArrayNonEmpty<string>,
+            Function.constVoid,
+        )(
+            Array.difference(
+                members,
+                Option.getOrElse(Record.get(that, name), () => []),
             ),
         ),
     );

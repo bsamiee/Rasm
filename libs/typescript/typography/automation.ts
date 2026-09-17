@@ -295,7 +295,7 @@ const _check: (row: typeof _Row.Type) => Effect.Effect<readonly Option.Option<Fi
             const text = yield* _text('plan', 'research', 'grid-calculator', 'data', 'layout-wizard-samples', `${sample}-preset.txt`);
             const preset = yield* Schema.decodeEffect(Preset)(text);
             const artefact = yield* Schema.decodeUnknownEffect(_Artefact)(
-                Record.fromEntries(Array.map(Array.appendAll(preset.global, Array.flatMap(preset.masters, Struct.get('entries'))), ({ key, value }) => [key, value] as const)),
+                Record.fromIterableWith(Array.appendAll(preset.global, Array.flatMap(preset.masters, Struct.get('entries'))), ({ key, value }) => [key, value]),
             );
             const { preview } = yield* Schema.decodeEffect(_Result)(yield* _text('plan', 'research', 'grid-calculator', 'data', 'layout-wizard-samples', `${sample}-result.json`));
             const readout = yield* Schema.encodeUnknownEffect(_Readout)({

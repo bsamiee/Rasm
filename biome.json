@@ -8,11 +8,10 @@
     "formatter": { "indentStyle": "space", "indentWidth": 4, "lineWidth": 200 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
     "json": { "formatter": { "expand": "auto" } },
-    "assist": { "actions": { "source": { "organizeImports": "on", "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
+    "assist": { "actions": { "source": { "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
         "domains": { "project": "all", "qwik": "none", "react": "all", "test": "all", "types": "all" },
         "rules": {
-            "preset": "all",
             "a11y": "error",
             "complexity": "error",
             "correctness": "error",
@@ -73,7 +72,6 @@
                         "useLiteralKeys": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
-                    "correctness": { "useJsxKeyInIterable": "error" },
                     "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",

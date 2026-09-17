@@ -18,7 +18,6 @@ import {
     Match,
     Option,
     Path,
-    type PlatformError,
     Queue,
     Record,
     Ref,
@@ -27,7 +26,7 @@ import {
     String,
 } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/unstable/process';
-import { BridgeError } from './errors.ts';
+import { BridgeError, inaccessible } from './errors.ts';
 import { Hosts } from './hosts.ts';
 import { reply } from './osascript.ts';
 import { AbsolutePath, type HostId, JobId, LOAD_CEILING, PROBE_MS, QUEUE_DEPTH } from './values.ts';
@@ -75,6 +74,8 @@ const _IDLE: Activity = { inFlight: Option.none(), wedged: Option.none(), lastSu
 
 const _PROCESSES = ChildProcess.make('ps', ['-A', '-o', 'pid=,%cpu=,comm=']);
 
+const _PROCESS = /^\s*(?<pid>\d+)\s+(?<cpu>\d+(?:\.\d+)?)\s+(?<command>.+)$/u;
+
 const SPILL_CHARS = 200_000;
 
 const _RESULTS = ['..', '..', '..', '.artifacts', 'creative-cloud'] as const;
@@ -92,8 +93,7 @@ const Spilled: Schema.Struct<{ readonly kind: Schema.Literal<'file'>; readonly p
 
 const Process: Schema.Codec<Process, unknown> = Schema.Struct({ pid: Schema.Int, cpu: Schema.Number, command: Schema.String });
 
-const _Column = Schema.Struct({ pid: Schema.NumberFromString, cpu: Schema.NumberFromString, command: Schema.String });
-const _column: (line: unknown) => Option.Option<Process> = Schema.decodeUnknownOption(_Column);
+const _column = Schema.decodeUnknownOption(Schema.Struct({ pid: Schema.NumberFromString, cpu: Schema.NumberFromString, command: Schema.String }));
 
 // --- [SERVICES] ------------------------------------------------------------------------
 
@@ -130,25 +130,23 @@ const _transition = (jobs: Ref.Ref<Activity>, step: (state: Activity, at: number
 
 // --- [LIVENESS] ------------------------------------------------------------------------
 
-const _split = (text: string): readonly [string, string] =>
-    Option.match(String.indexOf(' ')(text), { onNone: () => [text, ''], onSome: (index) => [text.slice(0, index), String.trim(text.slice(index))] });
-
-const _process = (line: string): Option.Option<Process> => {
-    const [pid, rest] = _split(String.trim(line));
-    const [cpu, command] = _split(rest);
-    return _column({ pid, cpu, command });
-};
-
 const liveness: (host: Pick<Host, 'id' | 'processName'>) => Effect.Effect<Process, BridgeError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Effect.fnUntraced(function* (
     host: Pick<Host, 'id' | 'processName'>,
 ) {
     const path = yield* Path.Path;
     const listing = yield* Effect.orDie(reply(_PROCESSES));
-    const found = Array.findFirst(String.linesIterator(listing), (line) => Option.filter(_process(line), (process) => path.basename(process.command) === host.processName));
-    return yield* Option.match(found, {
-        onNone: () => Effect.fail(BridgeError.cases.hostNotRunning.make({ host: host.id })),
-        onSome: (process) => (process.cpu >= LOAD_CEILING ? Effect.fail(BridgeError.cases.hostSaturated.make({ host: host.id, pid: process.pid, cpu: process.cpu })) : Effect.succeed(process)),
-    });
+    return yield* Array.findFirst(String.linesIterator(listing), (line) =>
+        Option.filter(
+            Option.flatMap(String.match(_PROCESS)(line), (match) => _column(match.groups)),
+            (process) => path.basename(process.command) === host.processName,
+        ),
+    ).pipe(
+        Effect.fromOption(() => BridgeError.cases.hostNotRunning.make({ host: host.id })),
+        Effect.filterOrFail(
+            (process) => process.cpu < LOAD_CEILING,
+            (process) => BridgeError.cases.hostSaturated.make({ host: host.id, pid: process.pid, cpu: process.cpu }),
+        ),
+    );
 });
 
 const processId = (host: Pick<Host, 'id' | 'processName'>): Effect.Effect<Option.Option<number>, BridgeError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
@@ -165,16 +163,19 @@ const _dispatch = Effect.fnUntraced(function* (host: Host, entry: Entry) {
     if (abandoned) {
         return;
     }
-    const process = yield* Effect.result(liveness(host));
-    const at = yield* Clock.currentTimeMillis;
-    const remaining = entry.deadlineAt - at;
-    const admitted = Result.flatMap(process, () => (remaining > 0 ? Result.void : Result.fail(BridgeError.cases.deadlineExceeded.make({ host: host.id, jobId: entry.jobId }))));
+    const admitted = yield* Effect.result(
+        Effect.filterOrFail(
+            Effect.andThen(liveness(host), Clock.currentTimeMillis),
+            (at) => at < entry.deadlineAt,
+            () => BridgeError.cases.deadlineExceeded.make({ host: host.id, jobId: entry.jobId }),
+        ),
+    );
     yield* Result.match(admitted, {
         onFailure: entry.refuse,
-        onSuccess: () =>
+        onSuccess: (at) =>
             Effect.andThen(
                 Ref.update(host.activity, (state) => ({ ...state, inFlight: Option.some({ jobId: entry.jobId, startedAt: at }) })),
-                entry.perform(Duration.millis(remaining)),
+                entry.perform(Duration.millis(entry.deadlineAt - at)),
             ),
     });
 });
@@ -198,7 +199,7 @@ const layer: Layer.Layer<Jobs, never, Hosts | ChildProcessSpawner.ChildProcessSp
 // --- [RUN] -----------------------------------------------------------------------------
 
 const _job = Effect.fnUntraced(function* <A, R>(host: Host, timeoutMs: number, settle: typeof _recorded, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>) {
-    const jobId = yield* Effect.orDie(Crypto.Crypto.use((crypto) => Effect.flatMap(crypto.randomUUIDv4, Schema.decodeEffect(JobId))));
+    const jobId = yield* Effect.orDie(Crypto.Crypto.use((crypto) => Effect.map(crypto.randomUUIDv4, JobId.make)));
     const context = yield* Effect.context<R>();
     const settled = yield* Deferred.make<A, BridgeError>();
     const startedAt = yield* Clock.currentTimeMillis;
@@ -224,19 +225,18 @@ const _job = Effect.fnUntraced(function* <A, R>(host: Host, timeoutMs: number, s
 const run = <A, R>(host: Host, timeoutMs: number, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>): Effect.Effect<A, BridgeError, R | Crypto.Crypto> => _job(host, timeoutMs, _recorded, work);
 
 const probe = <A, R>(host: Host, work: (jobId: JobId) => Effect.Effect<A, BridgeError, R>): Effect.Effect<Result.Result<A, BridgeError>, never, R | Crypto.Crypto> =>
-    Effect.flatMap(Ref.get(host.activity), (state) =>
-        Option.match(state.inFlight, {
-            onNone: () => Effect.result(_job(host, PROBE_MS, identity, work)),
-            onSome: (running) => Effect.succeed(Result.fail(BridgeError.cases.hostBusy.make({ host: host.id, jobId: running.jobId, startedAt: running.startedAt }))),
-        }),
+    Effect.result(
+        Effect.flatMap(Ref.get(host.activity), (state) =>
+            Effect.andThen(
+                Effect.transposeOption(Option.map(state.inFlight, (running) => Effect.fail(BridgeError.cases.hostBusy.make({ host: host.id, jobId: running.jobId, startedAt: running.startedAt })))),
+                _job(host, PROBE_MS, identity, work),
+            ),
+        ),
     );
 
 // --- [SPILL] ---------------------------------------------------------------------------
 
-const _inaccessible =
-    (host: HostId, path: string) =>
-    (error: PlatformError.PlatformError): BridgeError =>
-        BridgeError.cases.fileNotAccessible.make({ host, path, reason: error.reason._tag });
+const artifacts = (path: Path.Path, ...segments: readonly string[]): string => path.resolve(import.meta.dirname, ..._RESULTS, ...segments);
 
 const spill: (host: HostId, jobId: JobId, text: string) => Effect.Effect<(typeof Spilled)['Type'], BridgeError, Crypto.Crypto | FileSystem.FileSystem | Path.Path> = Effect.fnUntraced(function* (
     host: HostId,
@@ -245,14 +245,14 @@ const spill: (host: HostId, jobId: JobId, text: string) => Effect.Effect<(typeof
 ) {
     const path = yield* Path.Path;
     const fs = yield* FileSystem.FileSystem;
-    const directory = path.resolve(import.meta.dirname, ..._RESULTS, host, 'results');
+    const directory = artifacts(path, host, 'results');
     const file = AbsolutePath.make(path.join(directory, `${jobId}.json`));
     const bytes = new TextEncoder().encode(text);
-    yield* Effect.andThen(fs.makeDirectory(directory, { recursive: true }), fs.writeFile(file, bytes)).pipe(Effect.mapError(_inaccessible(host, file)));
-    const digest = yield* Crypto.Crypto.use((crypto) => crypto.digest('SHA-256', bytes)).pipe(Effect.mapError(_inaccessible(host, file)));
+    yield* Effect.andThen(fs.makeDirectory(directory, { recursive: true }), fs.writeFile(file, bytes)).pipe(Effect.mapError(inaccessible(host)));
+    const digest = yield* Crypto.Crypto.use((crypto) => crypto.digest('SHA-256', bytes)).pipe(Effect.mapError(inaccessible(host)));
     return { kind: 'file' as const, path: file, bytes: bytes.length, sha256: Encoding.encodeHex(digest) };
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InFlight, Jobs, layer, liveness, Process, probe, processId, run, SPILL_CHARS, Spilled, spill };
+export { artifacts, InFlight, Jobs, layer, liveness, Process, probe, processId, run, SPILL_CHARS, Spilled, spill };

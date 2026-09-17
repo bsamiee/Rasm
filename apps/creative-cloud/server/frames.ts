@@ -35,28 +35,13 @@ const HistoryState: Schema.Struct<{ readonly documentId: Schema.Int; readonly na
 
 const Job: Schema.Struct<{
     readonly jobId: Schema.Codec<JobId, string>;
-    readonly kind: Schema.Literals<
-        readonly ['execute', 'listEnums', 'snapshot', 'getLayout', 'findKeyStrings', 'getPreferences', 'setPreferences', 'setTextDefaults', 'batchPlay', 'getDocument', 'listPresets', 'runAction']
-    >;
+    readonly kind: Schema.String;
     readonly body: Schema.Codec<Schema.Json>;
     readonly suspendHistory: Schema.OptionFromOptionalKey<typeof HistoryState>;
     readonly commandName: Schema.OptionFromOptionalKey<Schema.String>;
 }> = Schema.Struct({
     jobId: JobId,
-    kind: Schema.Literals([
-        'execute',
-        'listEnums',
-        'snapshot',
-        'getLayout',
-        'findKeyStrings',
-        'getPreferences',
-        'setPreferences',
-        'setTextDefaults',
-        'batchPlay',
-        'getDocument',
-        'listPresets',
-        'runAction',
-    ]),
+    kind: Schema.String,
     body: Schema.Json,
     suspendHistory: Schema.OptionFromOptionalKey(HistoryState),
     commandName: _optionalString,
@@ -72,9 +57,10 @@ const Execute: Schema.Struct<{ readonly code: Schema.String; readonly undoName: 
 
 const AlreadyAttached: Schema.TaggedStruct<'alreadyAttached', Record<never, never>> = Schema.TaggedStruct('alreadyAttached', {});
 
-const Link: Schema.Union<
-    readonly [Schema.TaggedStruct<'listening', Record<never, never>>, Schema.TaggedStruct<'attached', { readonly identity: typeof Identity; readonly state: Schema.OptionFromNullOr<typeof State> }>]
-> = Schema.Union([Schema.TaggedStruct('listening', {}), Schema.TaggedStruct('attached', { identity: Identity, state: Schema.OptionFromNullOr(State) })]);
+const Link: Schema.TaggedUnion<{
+    readonly listening: Schema.TaggedStruct<'listening', Record<never, never>>;
+    readonly attached: Schema.TaggedStruct<'attached', { readonly identity: typeof Identity; readonly state: Schema.OptionFromNullOr<typeof State> }>;
+}> = Schema.TaggedUnion({ listening: {}, attached: { identity: Identity, state: Schema.OptionFromNullOr(State) } });
 
 // --- [CONTRACT] ------------------------------------------------------------------------
 

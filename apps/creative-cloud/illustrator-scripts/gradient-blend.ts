@@ -9,11 +9,13 @@ declare global {
     enum ColorConvertPurpose {}
     enum DocumentColorSpace {}
     enum ImageColorSpace {}
+
+    type Triple = [number, number, number];
 }
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, color, flatten, fold, items, run, select, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, color, flatten, fold, items, pairs, range, run, select, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [REQUEST] -------------------------------------------------------------------------
 
@@ -50,6 +52,11 @@ const LAST_STOP = 100;
 
 const SRGB = { threshold: 0.040_45, offset: 0.055, slope: 12.92, gamma: 2.4, linearThreshold: 0.003_130_8 };
 const CUBE = 3;
+const HUE_SECTORS = 6;
+const HSL_SECTORS = 12;
+const HSL_RED = 0;
+const HSL_GREEN = 8;
+const HSL_BLUE = 4;
 const RADIANS = Math.PI / HALF_TURN;
 const LMS = {
     long: { red: 0.412_221_470_8, green: 0.536_332_536_3, blue: 0.051_445_992_9 },
@@ -84,72 +91,68 @@ const encoded = (channel: number): number => {
 
 const cubeRoot = (value: number): number => (value < 0 ? -((-value) ** (1 / CUBE)) : value ** (1 / CUBE));
 
-const toOklab = (rgb: number[]): number[] => {
-    const [r, g, b] = collect(rgb, linear) as [number, number, number];
-    const cone = (row: { readonly red: number; readonly green: number; readonly blue: number }): number => cubeRoot(row.red * r + row.green * g + row.blue * b);
-    const cones = [cone(LMS.long), cone(LMS.medium), cone(LMS.short)] as [number, number, number];
-    const mix = (row: { readonly long: number; readonly medium: number; readonly short: number }): number => row.long * cones[0] + row.medium * cones[1] + row.short * cones[2];
+const isTriple = (channels: number[]): channels is Triple => channels.length === CUBE;
+
+const triple = (channels: number[]): Triple => {
+    if (isTriple(channels)) {
+        return channels;
+    }
+    throw new Error(`Expected ${CUBE} channels, got ${channels.length}`);
+};
+
+const toOklab = ([r, g, b]: Triple): Triple => {
+    const [lr, lg, lb] = [linear(r), linear(g), linear(b)];
+    const cone = (row: { readonly red: number; readonly green: number; readonly blue: number }): number => cubeRoot(row.red * lr + row.green * lg + row.blue * lb);
+    const [cl, cm, cs] = [cone(LMS.long), cone(LMS.medium), cone(LMS.short)];
+    const mix = (row: { readonly long: number; readonly medium: number; readonly short: number }): number => row.long * cl + row.medium * cm + row.short * cs;
     return [mix(OKLAB.lightness), mix(OKLAB.a), mix(OKLAB.b)];
 };
 
-const fromOklab = (lab: number[]): number[] => {
-    const [l, a, b] = lab as [number, number, number];
+const fromOklab = ([l, a, b]: Triple): Triple => {
     const cone = (row: { readonly lightness: number; readonly a: number; readonly b: number }): number => (row.lightness * l + row.a * a + row.b * b) ** CUBE;
-    const cones = [cone(OKLAB_INVERSE.long), cone(OKLAB_INVERSE.medium), cone(OKLAB_INVERSE.short)] as [number, number, number];
-    const mix = (row: { readonly long: number; readonly medium: number; readonly short: number }): number => row.long * cones[0] + row.medium * cones[1] + row.short * cones[2];
-    return collect([mix(LMS_INVERSE.red), mix(LMS_INVERSE.green), mix(LMS_INVERSE.blue)], encoded);
+    const [cl, cm, cs] = [cone(OKLAB_INVERSE.long), cone(OKLAB_INVERSE.medium), cone(OKLAB_INVERSE.short)];
+    const mix = (row: { readonly long: number; readonly medium: number; readonly short: number }): number => row.long * cl + row.medium * cm + row.short * cs;
+    return [encoded(mix(LMS_INVERSE.red)), encoded(mix(LMS_INVERSE.green)), encoded(mix(LMS_INVERSE.blue))];
 };
 
-const polar = ([l, a, b]: number[]): number[] => {
-    const hue = (Math.atan2(b ?? 0, a ?? 0) / RADIANS + DEGREES) % DEGREES;
-    return [l ?? 0, (((a ?? 0) ** 2 + (b ?? 0) ** 2) ** HALF), hue];
-};
+const polar = ([l, a, b]: Triple): Triple => [l, (a ** 2 + b ** 2) ** HALF, (Math.atan2(b, a) / RADIANS + DEGREES) % DEGREES];
 
-const cartesian = ([l, c, h]: number[]): number[] => [l ?? 0, (c ?? 0) * Math.cos((h ?? 0) * RADIANS), (c ?? 0) * Math.sin((h ?? 0) * RADIANS)];
+const cartesian = ([l, c, h]: Triple): Triple => [l, c * Math.cos(h * RADIANS), c * Math.sin(h * RADIANS)];
 
 const sectorOf = (r: number, g: number, b: number, max: number, delta: number): number => {
     if (delta === 0) {
         return 0;
     }
     if (max === r) {
-        return ((g - b) / delta) % (CUBE * 2);
+        return ((g - b) / delta) % HUE_SECTORS;
     }
     return max === g ? (b - r) / delta + 2 : (r - g) / delta + 2 * 2;
 };
 
-const toHsl = (rgb: number[]): number[] => {
-    const [r, g, b] = collect(rgb, (channel): number => channel / CHANNEL) as [number, number, number];
+const toHsl = ([red, green, blue]: Triple): Triple => {
+    const [r, g, b] = [red / CHANNEL, green / CHANNEL, blue / CHANNEL];
     const max = Math.max(r, g, b);
     const min = Math.min(r, g, b);
     const delta = max - min;
     const l = (max + min) * HALF;
     const s = delta === 0 ? 0 : delta / (1 - Math.abs(2 * l - 1));
-    const hue = ((sectorOf(r, g, b, max, delta) * (DEGREES / (CUBE * 2))) + DEGREES) % DEGREES;
-    return [hue, s, l];
+    return [(sectorOf(r, g, b, max, delta) * (DEGREES / HUE_SECTORS) + DEGREES) % DEGREES, s, l];
 };
 
-const fromHsl = ([h, s, l]: number[]): number[] => {
-    const hue = h ?? 0;
-    const chroma = (1 - Math.abs(2 * (l ?? 0) - 1)) * (s ?? 0);
-    const x = chroma * (1 - Math.abs(((hue / (DEGREES / (CUBE * 2))) % 2) - 1));
-    const m = (l ?? 0) - chroma * HALF;
-    const sector = Math.floor(hue / (DEGREES / (CUBE * 2)));
-    const sectors: number[][] = [
-        [chroma, x, 0],
-        [x, chroma, 0],
-        [0, chroma, x],
-        [0, x, chroma],
-        [x, 0, chroma],
-        [chroma, 0, x],
-    ];
-    return collect(sectors[sector] ?? [0, 0, 0], (channel): number => (channel + m) * CHANNEL);
+const fromHsl = ([h, s, l]: Triple): Triple => {
+    const a = s * Math.min(l, 1 - l);
+    const channel = (n: number): number => {
+        const k = (n + h / (DEGREES / HSL_SECTORS)) % HSL_SECTORS;
+        return (l - a * Math.max(-1, Math.min(k - CUBE, HUE_SECTORS + CUBE - k, 1))) * CHANNEL;
+    };
+    return [channel(HSL_RED), channel(HSL_GREEN), channel(HSL_BLUE)];
 };
 
-const toLch = (rgb: number[]): number[] => polar(app.convertSampleColor(ImageColorSpace.RGB, rgb, ImageColorSpace.LAB, ColorConvertPurpose.defaultpurpose));
+const toLch = (rgb: Triple): Triple => polar(triple(app.convertSampleColor(ImageColorSpace.RGB, rgb, ImageColorSpace.LAB, ColorConvertPurpose.defaultpurpose)));
 
-const fromLch = (lch: number[]): number[] => app.convertSampleColor(ImageColorSpace.LAB, cartesian(lch), ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose);
+const fromLch = (lch: Triple): Triple => triple(app.convertSampleColor(ImageColorSpace.LAB, cartesian(lch), ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose));
 
-const forward = (space: Space, rgb: number[]): number[] => {
+const forward = (space: Space, rgb: Triple): Triple => {
     if (space === 'oklab') {
         return toOklab(rgb);
     }
@@ -159,7 +162,7 @@ const forward = (space: Space, rgb: number[]): number[] => {
     return space === 'lch' ? toLch(rgb) : toHsl(rgb);
 };
 
-const backward = (space: Space, value: number[]): number[] => {
+const backward = (space: Space, value: Triple): Triple => {
     if (space === 'oklab') {
         return fromOklab(value);
     }
@@ -168,8 +171,6 @@ const backward = (space: Space, value: number[]): number[] => {
     }
     return space === 'lch' ? fromLch(value) : fromHsl(value);
 };
-
-const hueIndex = (space: Space): number => (space === 'hsl' ? 0 : 2);
 
 const arced = (from: number, to: number, arc: HueArc): [number, number] => {
     const diff = to - from;
@@ -191,39 +192,43 @@ const arced = (from: number, to: number, arc: HueArc): [number, number] => {
     return diff > 0 ? [from + DEGREES, to] : [from, to];
 };
 
+const hued = (space: Space, a: Triple, b: Triple, arc: HueArc, t: number): Triple => {
+    if (space === 'oklab') {
+        return [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t];
+    }
+    const index = space === 'hsl' ? 0 : 2;
+    const [fromHue, toHue] = arced(a[index], b[index], arc);
+    const hue = (fromHue + (toHue - fromHue) * t + DEGREES) % DEGREES;
+    const [first, second] = space === 'hsl' ? [a[1] + (b[1] - a[1]) * t, a[2] + (b[2] - a[2]) * t] : [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    return space === 'hsl' ? [hue, first, second] : [first, second, hue];
+};
+
 // --- [ENDPOINTS] -----------------------------------------------------------------------
 
 interface Endpoint {
-    readonly rgb: number[];
+    readonly rgb: Triple;
     readonly black: number[];
 }
 
-const rgbOf = (value: Color): number[] => {
-    const rgb = value as RGBColor;
-    return [rgb.red, rgb.green, rgb.blue];
-};
-
-const cmykOf = (value: Color): number[] => {
-    const cmyk = value as CMYKColor;
-    return [cmyk.cyan, cmyk.magenta, cmyk.yellow, cmyk.black];
-};
-
 const endpoint = (value: Color): Endpoint => {
-    if (value.typename === 'SpotColor') {
-        const spot = value as SpotColor;
-        const base = endpoint(spot.spot.color);
-        const white = 1 - spot.tint / PERCENT;
-        return { rgb: collect(base.rgb, (channel): number => channel + (CHANNEL - channel) * white), black: base.black };
+    if (typed<SpotColor>('SpotColor')(value)) {
+        const base = endpoint(value.spot.color);
+        const white = 1 - value.tint / PERCENT;
+        const [r, g, b] = base.rgb;
+        return { rgb: [r + (CHANNEL - r) * white, g + (CHANNEL - g) * white, b + (CHANNEL - b) * white], black: base.black };
     }
-    if (value.typename === 'GrayColor') {
-        return { rgb: app.convertSampleColor(ImageColorSpace.GrayScale, [(value as GrayColor).gray], ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose), black: [] };
+    if (typed<GrayColor>('GrayColor')(value)) {
+        return { rgb: triple(app.convertSampleColor(ImageColorSpace.GrayScale, [value.gray], ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose)), black: [] };
     }
-    if (value.typename === 'CMYKColor') {
-        const [c, m, y, k] = cmykOf(value);
-        return { rgb: app.convertSampleColor(ImageColorSpace.CMYK, cmykOf(value), ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose), black: c === 0 && m === 0 && y === 0 ? [k ?? 0] : [] };
+    if (typed<CMYKColor>('CMYKColor')(value)) {
+        const cmyk = [value.cyan, value.magenta, value.yellow, value.black];
+        return {
+            rgb: triple(app.convertSampleColor(ImageColorSpace.CMYK, cmyk, ImageColorSpace.RGB, ColorConvertPurpose.defaultpurpose)),
+            black: value.cyan === 0 && value.magenta === 0 && value.yellow === 0 ? [value.black] : [],
+        };
     }
-    if (value.typename === 'RGBColor') {
-        return { rgb: rgbOf(value), black: [] };
+    if (typed<RGBColor>('RGBColor')(value)) {
+        return { rgb: [value.red, value.green, value.blue], black: [] };
     }
     throw new Error(`Gradient stop colour ${value.typename} cannot be blended`);
 };
@@ -234,92 +239,73 @@ const mixed = (doc: Document, from: Endpoint, to: Endpoint, t: number, space: Sp
     if (fromK !== undefined && toK !== undefined) {
         return color({ model: 'CMYK', values: [0, 0, 0, fromK + (toK - fromK) * t] });
     }
-    const a = forward(space, from.rgb);
-    const b = forward(space, to.rgb);
-    const index = hueIndex(space);
-    if (space !== 'oklab') {
-        const [fromHue, toHue] = arced(a[index] ?? 0, b[index] ?? 0, arc);
-        a[index] = fromHue;
-        b[index] = toHue;
-    }
-    const out = collect(a, (channel, position): number => channel + ((b[position] ?? 0) - channel) * t);
-    if (index < out.length && space !== 'oklab') {
-        out[index] = ((out[index] ?? 0) + DEGREES) % DEGREES;
-    }
-    const rgb = backward(space, out);
+    const rgb = backward(space, hued(space, forward(space, from.rgb), forward(space, to.rgb), arc, t));
     if (doc.documentColorSpace === DocumentColorSpace.CMYK) {
         return color({ model: 'CMYK', values: app.convertSampleColor(ImageColorSpace.RGB, rgb, ImageColorSpace.CMYK, ColorConvertPurpose.defaultpurpose) });
     }
-    return color({ model: 'RGB', values: collect(rgb, (channel): number => Math.round(channel)) });
+    return color({ model: 'RGB', values: collect(rgb, Math.round) });
 };
 
 // --- [GRADIENTS] -----------------------------------------------------------------------
 
-const gradientOf = (value: Color): Gradient[] => (value.typename === 'GradientColor' ? [(value as GradientColor).gradient] : []);
+const gradientOf = (value: Color): Gradient[] => (typed<GradientColor>('GradientColor')(value) ? [value.gradient] : []);
 
-const carrying = (item: PageItem, attributes: Blend['attributes']): Gradient[] => {
-    if (item.typename !== 'PathItem' && item.typename !== 'CompoundPathItem') {
-        return [];
+const carrier = (item: PageItem): PathItem[] => {
+    if (typed<PathItem>('PathItem')(item)) {
+        return [item];
     }
-    const path = item.typename === 'PathItem' ? (item as PathItem) : (items((item as CompoundPathItem).pathItems)[0] as PathItem | undefined);
-    if (path === undefined) {
-        return [];
-    }
-    return fold(attributes, [] as Gradient[], (list, attribute): Gradient[] => list.concat(gradientOf(attribute === 'fill' ? path.fillColor : path.strokeColor)));
+    return typed<CompoundPathItem>('CompoundPathItem')(item) ? items<PathItem>(item.pathItems).slice(0, 1) : [];
 };
 
+const carrying = (item: PageItem, attributes: Blend['attributes']): Gradient[] =>
+    fold<PathItem, Gradient[]>(carrier(item), [], (list, path): Gradient[] =>
+        fold(attributes, list, (found, attribute): Gradient[] => found.concat(gradientOf(attribute === 'fill' ? path.fillColor : path.strokeColor))),
+    );
+
+const merged = (list: Found[], gradient: Gradient, uuid: string): Found[] =>
+    select(list, (row): boolean => row.gradient.name === gradient.name).length === 0
+        ? list.concat([{ gradient, objects: [uuid] }])
+        : collect(list, (row): Found => (row.gradient.name === gradient.name ? { gradient: row.gradient, objects: row.objects.concat([uuid]) } : row));
+
 const collected = (doc: Document, attributes: Blend['attributes']): Found[] =>
-    fold(flatten(items<PageItem>(doc.selection)), [] as Found[], (found, item): Found[] =>
-        fold(carrying(item, attributes), found, (list, gradient): Found[] => {
-            const [known] = select(list, (row): boolean => row.gradient.name === gradient.name);
-            if (known === undefined) {
-                return list.concat([{ gradient, objects: [item.uuid] }]);
-            }
-            known.objects.push(item.uuid);
-            return list;
-        }),
+    fold<PageItem, Found[]>(flatten(items<PageItem>(doc.selection)), [], (found, item): Found[] =>
+        fold(carrying(item, attributes), found, (list, gradient): Found[] => merged(list, gradient, item.uuid)),
     );
 
 const blended = (doc: Document, gradient: Gradient, blend: Blend): number => {
     const stops = gradient.gradientStops;
     if (blend.removeIntermediateStops) {
-        for (let index = stops.length - 2; index > 0; index -= 1) {
-            (stops[index] as GradientStop).remove();
-        }
+        visit(items(stops).slice(1, -1), (stop): void => stop.remove());
     }
     const originals: Stop[] = collect(items(stops), (stop): Stop => ({ position: stop.rampPoint, opacity: stop.opacity, color: stop.color }));
     const added = (blend.precision - 1) * (originals.length - 1);
-    for (let count = 0; count < added; count += 1) {
+    visit(range(added), (): void => {
         stops.add();
-    }
-    const last = stops.length - 1;
-    (stops[last] as GradientStop).rampPoint = LAST_STOP;
-    let pair = 0;
-    let from = endpoint((originals[0] as Stop).color);
-    let to = endpoint((originals[1] as Stop).color);
-    for (let index = 0; index < stops.length; index += 1) {
-        const stop = stops[index] as GradientStop;
-        if (index % blend.precision === 0) {
-            const original = originals[index / blend.precision] as Stop;
-            stop.rampPoint = original.position;
-            stop.opacity = original.opacity;
-            stop.color = original.color;
-            pair = index / blend.precision;
-            if (pair + 1 < originals.length) {
-                from = endpoint((originals[pair] as Stop).color);
-                to = endpoint((originals[pair + 1] as Stop).color);
-            }
-        } else {
-            const previous = stops[index - 1] as GradientStop;
-            const current = originals[pair] as Stop;
-            const next = originals[pair + 1] as Stop;
-            stop.rampPoint = previous.rampPoint + (next.position - current.position) / blend.precision;
-            stop.opacity = previous.opacity + (next.opacity - current.opacity) / blend.precision;
-            stop.color = mixed(doc, from, to, (index % blend.precision) / blend.precision, blend.space, blend.hueArc);
-        }
-    }
-    const final = originals.length - 1;
-    (stops[last] as GradientStop).rampPoint = (originals[final] as Stop).position;
+    });
+    const listed = items(stops);
+    visit(listed.slice(-1), (last): void => {
+        const target = last;
+        target.rampPoint = LAST_STOP;
+    });
+    visit(pairs(originals), ([current, next], pair): void => {
+        const from = endpoint(current.color);
+        const to = endpoint(next.color);
+        visit(listed.slice(pair * blend.precision, (pair + 1) * blend.precision), (stop, step): void => {
+            const t = step / blend.precision;
+            const target = stop;
+            target.rampPoint = current.position + (next.position - current.position) * t;
+            target.opacity = current.opacity + (next.opacity - current.opacity) * t;
+            target.color = step === 0 ? current.color : mixed(doc, from, to, t, blend.space, blend.hueArc);
+        });
+    });
+    visit(listed.slice(-1), (last): void => {
+        visit(originals.slice(-1), (original): void => {
+            const target = last;
+            target.rampPoint = original.position;
+            target.opacity = original.opacity;
+            target.color = original.color;
+        });
+    });
     return added;
 };
 
@@ -334,7 +320,7 @@ const gradientBlend = (request: Blend, _at: Site): Reading<JsonObject> => {
         try {
             applied.push({ gradient: gradient.name, stopsAdded: blended(doc, gradient, request) });
         } catch (error) {
-            rejected.push({ gradient: gradient.name, reason: (error as Error).message });
+            rejected.push({ gradient: gradient.name, reason: error instanceof Error ? error.message : String(error) });
         }
     });
     app.redraw();

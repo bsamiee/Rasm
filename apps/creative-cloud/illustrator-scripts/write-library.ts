@@ -3,6 +3,7 @@
 // --- [HOST] ----------------------------------------------------------------------------
 
 declare const $: $;
+declare const app: Application;
 
 declare global {
     enum LibraryType {}
@@ -11,12 +12,12 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { document, run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
 const writeLibrary = (request: { readonly library: 'SWATCHES' | 'BRUSHES' | 'SYMBOLS' | 'GRAPHICSTYLES'; readonly source: string; readonly output: string }, _at: Site): Reading<JsonObject> => {
-    const doc = document(request.source);
+    const doc = app.open(new File(request.source));
     try {
         doc.writeAsLibrary(new File(request.output), LibraryType[request.library]);
     } finally {

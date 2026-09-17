@@ -1,11 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { load } from 'cheerio';
-import { Array, Context, Crypto, DateTime, Duration, Effect, FileSystem, Filter, Layer, Match, Option, Order, Path, type PlatformError, Record, Result, Schema, Struct, Tuple } from 'effect';
+import { Array, Context, Crypto, DateTime, Duration, Effect, FileSystem, Filter, Layer, Match, Option, Order, Path, Record, Result, Schema, Struct, Tuple } from 'effect';
 import { Tool } from 'effect/unstable/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import { contract, Failure } from '../contract.ts';
-import { BridgeError, classify, HostRejection } from '../errors.ts';
+import { BridgeError, classify, HostRejection, inaccessible, notDecodable } from '../errors.ts';
 import { Hosts } from '../hosts.ts';
 import { Jobs, processId, run } from '../jobs.ts';
 import { doScript, read, reply } from '../osascript.ts';
@@ -209,14 +209,9 @@ const _BatchInput = Schema.Struct({ action: ActionName, folder: AbsolutePath, pa
 
 // --- [CHANNEL] -------------------------------------------------------------------------
 
-const _notDecodable =
-    (channel: Channel, text: string) =>
-    (error: Schema.SchemaError): BridgeError =>
-        BridgeError.cases.resultNotDecodable.make({ host: channel.row.id, text, reason: error.message });
-
 const _call = <S extends Schema.Codec<unknown, unknown>>(channel: Channel, timeoutMs: number, schema: S, code: string): Effect.Effect<S['Type'], BridgeError, Services> =>
     run(channel.host, timeoutMs, () => read(channel.row.id, channel.row.bundleId, timeoutMs, doScript(envelope(code)), Option.none())).pipe(
-        Effect.flatMap((text) => Effect.mapError(Schema.decodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(schema, HostRejection))))(text), _notDecodable(channel, text))),
+        Effect.flatMap((text) => Effect.mapError(Schema.decodeEffect(Schema.fromJsonString(Schema.toCodecJson(Schema.Result(schema, HostRejection))))(text), notDecodable(channel.row.id, text))),
         Effect.flatMap((outcome) => Effect.fromResult(Result.mapError(outcome, (rejection) => BridgeError.cases.hostThrew.make({ host: channel.row.id, rejection, autocorrections: Option.none() })))),
     );
 
@@ -226,13 +221,8 @@ const _document = <S extends Schema.Codec<unknown, unknown>>(channel: Channel, d
 const _command = (channel: Channel, command: ChildProcess.StandardCommand): Effect.Effect<string, BridgeError, ChildProcessSpawner.ChildProcessSpawner> =>
     Effect.mapError(reply(command), (exit) => classify(channel.row.id, exit));
 
-const _file =
-    (channel: Channel, path: string) =>
-    (error: PlatformError.PlatformError): BridgeError =>
-        BridgeError.cases.fileNotAccessible.make({ host: channel.row.id, path, reason: error.reason._tag });
-
 const _matches = (channel: Channel, folder: AbsolutePath, pattern: string, exclude: readonly string[]): Effect.Effect<readonly string[], BridgeError, FileSystem.FileSystem> =>
-    FileSystem.FileSystem.use((fs) => Effect.map(Effect.mapError(fs.glob(pattern, { root: folder, exclude }), _file(channel, folder)), Array.sort(Order.String)));
+    FileSystem.FileSystem.use((fs) => Effect.map(Effect.mapError(fs.glob(pattern, { root: folder, exclude }), inaccessible(channel.row.id)), Array.sort(Order.String)));
 
 // --- [ACTIONS] -------------------------------------------------------------------------
 
@@ -241,7 +231,7 @@ const _perFile = Effect.fnUntraced(function* (channel: Channel, body: (output: s
     const path = yield* Path.Path;
     const outcome = yield* Effect.result(
         Effect.andThen(
-            Effect.mapError(fs.makeDirectory(path.dirname(output), { recursive: true }), _file(channel, output)),
+            Effect.mapError(fs.makeDirectory(path.dirname(output), { recursive: true }), inaccessible(channel.row.id)),
             Effect.as(_call(channel, TIMEOUT_MS, Schema.Struct({ saved: Schema.Literal(true) }), perFile(source, body(output))), output),
         ),
     );
@@ -361,7 +351,7 @@ const _request = (channel: Channel, request: (typeof _Combine)['Type']): Reply<'
 
 const _report = (channel: Channel, report: AbsolutePath): Reply<'accessibility'> =>
     Effect.flatMap(
-        FileSystem.FileSystem.use((fs) => Effect.mapError(fs.readFileString(report), _file(channel, report))),
+        FileSystem.FileSystem.use((fs) => Effect.mapError(fs.readFileString(report), inaccessible(channel.row.id))),
         (html) => {
             const $ = load(html);
             const rows = Array.filterMap($('table tr').toArray(), (tr) => {
@@ -370,7 +360,11 @@ const _report = (channel: Channel, report: AbsolutePath): Reply<'accessibility'>
                     ? Result.succeed({ category: $(tr).prevAll('tr:has(td.cattitle)').first().find('h3').text(), name: cells.first().text(), status: cells.eq(1).text() })
                     : Result.failVoid;
             });
-            return Effect.map(Effect.mapError(Schema.decodeUnknownEffect(_Rules)(rows), _notDecodable(channel, report)), (rules) => ({ kind: 'accessibility' as const, rules, reportPath: report }));
+            return Effect.map(Effect.mapError(Schema.decodeUnknownEffect(_Rules)(rows), notDecodable(channel.row.id, rows)), (rules) => ({
+                kind: 'accessibility' as const,
+                rules,
+                reportPath: report,
+            }));
         },
     );
 
@@ -386,7 +380,7 @@ const _preflight = Effect.fnUntraced(function* (channel: Channel, { document, pr
     );
     const reportPath = yield* Effect.transposeOption(
         Option.map(Option.all([report, value.report]), ([target, xml]) =>
-            FileSystem.FileSystem.use((fs) => Effect.as(Effect.mapError(fs.writeFileString(target, xml), _file(channel, target)), target)),
+            FileSystem.FileSystem.use((fs) => Effect.as(Effect.mapError(fs.writeFileString(target, xml), inaccessible(channel.row.id)), target)),
         ),
     );
     return { kind: 'preflight' as const, ...Struct.omit(value, ['report']), reportPath };
@@ -400,7 +394,7 @@ const _preferences = Effect.fnUntraced(function* (channel: Channel, request: Sco
     const plist = request.scope === 'user' ? channel.row.prefsFolder : `/Library/Preferences/${channel.row.bundleId}.plist`;
     const xml = yield* Effect.when(
         _command(channel, ChildProcess.make('plutil', ['-convert', 'xml1', '-o', '-', plist])),
-        FileSystem.FileSystem.use((fs) => Effect.mapError(fs.exists(plist), _file(channel, plist))),
+        FileSystem.FileSystem.use((fs) => Effect.mapError(fs.exists(plist), inaccessible(channel.row.id))),
     );
     const writes = plan(request, xml);
     const sudo = request.scope === 'machine';
@@ -483,7 +477,7 @@ const layer: Layer.Layer<never, never, Hosts | Jobs | Services> = Layer.provide(
             Reply.cases.saved,
             false,
             (channel, { action }) =>
-                Effect.map(Effect.mapError(write(channel.row, action), _file(channel, `${action.name}.sequ`)), (path) => ({
+                Effect.map(Effect.mapError(write(channel.row, action), inaccessible(channel.row.id)), (path) => ({
                     kind: 'saved' as const,
                     path,
                     steps: Array.length(Array.flatMap(action.groups, Struct.get('steps'))),

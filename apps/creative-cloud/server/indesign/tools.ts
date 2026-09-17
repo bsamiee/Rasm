@@ -1,13 +1,13 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { Measured, MetricsError, metrics } from '@rasm/typography/metrics';
-import { Context, Crypto, Duration, Effect, FileSystem, flow, Layer, Option, Path, type PlatformError, Schema, Struct } from 'effect';
+import { Context, Crypto, Effect, FileSystem, flow, Layer, Option, Path, Schema, Struct } from 'effect';
 import { contract, Failure } from '../contract.ts';
-import { BridgeError } from '../errors.ts';
+import { type BridgeError, inaccessible } from '../errors.ts';
 import type { Job } from '../frames.ts';
-import { Jobs, run } from '../jobs.ts';
-import { attached, dispatch, type Endpoint, Links } from '../socket.ts';
-import { AbsolutePath, type JobId, TIMEOUT_MS, TimeoutMs, Undo } from '../values.ts';
+import { artifacts, Jobs } from '../jobs.ts';
+import { answered, type Endpoint, Links } from '../socket.ts';
+import { AbsolutePath, HOSTS, type JobId, TIMEOUT_MS, TimeoutMs, Undo } from '../values.ts';
 import { FAMILIES, FamilyKey } from './families.ts';
 import {
     Applied,
@@ -39,16 +39,9 @@ interface Channel {
 
 type Services = Crypto.Crypto | FileSystem.FileSystem | Path.Path;
 
-interface Answer<Value> {
-    readonly value: Value;
-    readonly autocorrections: readonly string[];
-    readonly tookMs: number;
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _HOST = 'indesign';
-const _ARTIFACTS = ['..', '..', '..', '..', '.artifacts', 'creative-cloud', _HOST] as const;
+const _HOST = HOSTS.indesign.id;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -72,57 +65,25 @@ const _row = contract(Channel, [Crypto.Crypto, FileSystem.FileSystem, Path.Path]
 
 // --- [DISPATCH] ------------------------------------------------------------------------
 
-const _inaccessible = (error: PlatformError.PlatformError): BridgeError =>
-    BridgeError.cases.fileNotAccessible.make({ host: _HOST, path: 'pathOrDescriptor' in error.reason ? String(error.reason.pathOrDescriptor ?? '') : '', reason: error.reason._tag });
-
-const _undecodable =
-    (value: Schema.Json) =>
-    (error: Schema.SchemaError): BridgeError =>
-        BridgeError.cases.resultNotDecodable.make({ host: _HOST, text: JSON.stringify(value), reason: error.message });
-
 const _job =
     <K extends Kind>(kind: K, value: (typeof Bodies)['fields'][K]['Type']) =>
     (jobId: JobId): Job => ({ jobId, kind, body: Schema.encodeSync(Schema.toCodecJson(Bodies.fields[kind]))(value), suspendHistory: Option.none(), commandName: Option.none() });
 
-const _dispatched = <Result extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
-    channel: Channel,
-    timeoutMs: number,
-    result: Result,
-    job: (jobId: JobId) => Effect.Effect<Job, BridgeError, Services>,
-): Effect.Effect<Answer<Result['Type']>, BridgeError, Services> =>
-    Effect.flatMap(
-        Effect.timed(
-            run(channel.host, timeoutMs, (jobId) =>
-                Effect.andThen(
-                    attached(channel.link),
-                    Effect.flatMap(job(jobId), (built) => dispatch(channel.link, built)),
-                ),
-            ),
-        ),
-        ([took, done]) =>
-            Effect.map(Effect.mapError(Schema.decodeUnknownEffect(result)(done.value), _undecodable(done.value)), (value) => ({
-                value,
-                autocorrections: Option.getOrElse(done.autocorrections, () => []),
-                tookMs: Duration.toMillis(took),
-            })),
-    );
-
 const _captured = (channel: Channel, capture: (typeof Capture)['Type'], jobId: JobId): Effect.Effect<Job, BridgeError, Services> =>
     Effect.flatMap(Path.Path, (path) => {
         const directory = AbsolutePath.make(path.join(channel.artifacts, jobId));
-        return FileSystem.FileSystem.use((fs) => fs.makeDirectory(directory, { recursive: true })).pipe(Effect.mapError(_inaccessible), Effect.as(_job('snapshot', { ...capture, directory })(jobId)));
+        return FileSystem.FileSystem.use((fs) => fs.makeDirectory(directory, { recursive: true })).pipe(
+            Effect.mapError(inaccessible(_HOST)),
+            Effect.as(_job('snapshot', { ...capture, directory })(jobId)),
+        );
     });
 
-const _answer = <K extends Kind, Result extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
+const _answer = <K extends Kind, S extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
     channel: Channel,
     kind: K,
     value: (typeof Bodies)['fields'][K]['Type'],
-    result: Result,
-): Effect.Effect<Result['Type'], BridgeError, Services> =>
-    Effect.map(
-        _dispatched(channel, TIMEOUT_MS, result, (jobId) => Effect.succeed(_job(kind, value)(jobId))),
-        Struct.get('value'),
-    );
+    result: S,
+): Effect.Effect<S['Type'], BridgeError, Services> => Effect.map(answered(channel.link, channel.host, TIMEOUT_MS, result, flow(_job(kind, value), Effect.succeed)), Struct.get('value'));
 
 // --- [LAYER] ---------------------------------------------------------------------------
 
@@ -136,11 +97,12 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             false,
             (channel, { code, undoName, timeoutMs }) =>
                 Effect.map(
-                    _dispatched(
-                        channel,
+                    answered(
+                        channel.link,
+                        channel.host,
                         Option.getOrElse(timeoutMs, () => TIMEOUT_MS),
                         Schema.Json,
-                        (jobId) => Effect.succeed(_job('execute', { code, undoName })(jobId)),
+                        flow(_job('execute', { code, undoName }), Effect.succeed),
                     ),
                     ({ value, autocorrections, tookMs }) => ({
                         kind: 'value' as const,
@@ -167,7 +129,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             false,
             (channel, capture) =>
                 Effect.map(
-                    _dispatched(channel, TIMEOUT_MS, Image, (jobId) => _captured(channel, capture, jobId)),
+                    answered(channel.link, channel.host, TIMEOUT_MS, Image, (jobId) => _captured(channel, capture, jobId)),
                     Struct.get('value'),
                 ),
         ),
@@ -192,7 +154,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
                 metrics('family' in font ? FAMILIES[font.family].postScriptName : font.postScriptName, size).pipe(
                     Effect.map((measured) => ({ kind: 'metrics' as const, ...measured })),
                     Effect.catchTag(['fontNotFound', 'metricsMissing', 'faceNotReadable', 'faceNotInFile'], (error) => Effect.succeed({ kind: 'metricsError' as const, error })),
-                    Effect.catchTag('PlatformError', flow(_inaccessible, Effect.fail)),
+                    Effect.catchTag('PlatformError', flow(inaccessible(_HOST), Effect.fail)),
                     Effect.orDie,
                 ),
         ),
@@ -231,7 +193,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
     ),
     Layer.effect(
         Channel,
-        Effect.map(Effect.all([Links, Jobs, Path.Path]), ([links, jobs, path]) => ({ link: links.indesign, host: jobs.indesign, artifacts: path.resolve(import.meta.dirname, ..._ARTIFACTS) })),
+        Effect.map(Effect.all([Links, Jobs, Path.Path]), ([links, jobs, path]) => ({ link: links.indesign, host: jobs.indesign, artifacts: artifacts(path, _HOST) })),
     ),
 );
 

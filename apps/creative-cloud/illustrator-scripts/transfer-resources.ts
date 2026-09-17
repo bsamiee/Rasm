@@ -4,6 +4,7 @@
 
 declare const $: $;
 declare const app: Application;
+declare const PatternColor: new () => PatternColor;
 
 declare global {
     enum ElementPlacement {}
@@ -12,7 +13,7 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, contains, document, items, run, select, swatches, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, contains, fold, items, nth, run, select, swatches, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [CARRIERS] ------------------------------------------------------------------------
 
@@ -43,40 +44,23 @@ const present = (collection: { getByName: (name: string) => unknown }, name: str
     }
 };
 
-const rgbOf = (value: Color): number[] => {
-    const rgb = value as RGBColor;
-    return [rgb.red, rgb.green, rgb.blue];
-};
-
-const cmykOf = (value: Color): number[] => {
-    const cmyk = value as CMYKColor;
-    return [cmyk.cyan, cmyk.magenta, cmyk.yellow, cmyk.black];
-};
-
 const spec = (swatch: Swatch): SwatchSpec[] => {
     const value = swatch.color;
-    const global = value.typename === 'SpotColor';
-    const solid = global ? (value as SpotColor).spot.color : value;
-    if (solid.typename === 'RGBColor') {
-        return [{ name: swatch.name, model: 'RGB', values: rgbOf(solid), global }];
+    const global = typed<SpotColor>('SpotColor')(value);
+    const solid = global ? value.spot.color : value;
+    if (typed<RGBColor>('RGBColor')(solid)) {
+        return [{ name: swatch.name, model: 'RGB', values: [solid.red, solid.green, solid.blue], global }];
     }
-    if (solid.typename === 'CMYKColor') {
-        return [{ name: swatch.name, model: 'CMYK', values: cmykOf(solid), global }];
+    if (typed<CMYKColor>('CMYKColor')(solid)) {
+        return [{ name: swatch.name, model: 'CMYK', values: [solid.cyan, solid.magenta, solid.yellow, solid.black], global }];
     }
-    if (solid.typename === 'GrayColor') {
-        return [{ name: swatch.name, model: 'Gray', values: [(solid as GrayColor).gray], global }];
-    }
-    return [];
+    return typed<GrayColor>('GrayColor')(solid) ? [{ name: swatch.name, model: 'Gray', values: [solid.gray], global }] : [];
 };
 
 const structure = (source: Document, names: string[] | undefined): SwatchGroupSpec[] =>
     collect(items(source.swatchGroups), (group, index): SwatchGroupSpec => {
         const listed = select(chosen(group.getAllSwatches(), names), (swatch): boolean => swatch.name !== REGISTRATION && swatch.name !== NONE);
-        const specs: SwatchSpec[] = [];
-        visit(listed, (swatch): void => {
-            specs.push(...spec(swatch));
-        });
-        return { name: index === 0 ? '' : group.name, swatches: specs };
+        return { name: index === 0 ? '' : group.name, swatches: fold<Swatch, SwatchSpec[]>(listed, [], (flat, swatch): SwatchSpec[] => flat.concat(spec(swatch))) };
     });
 
 const carried = <T extends Named>(kind: Kind, rows: Rows, list: T[], collection: { getByName: (name: string) => unknown }, carry: (item: T) => PageItem, target: Document): void => {
@@ -86,7 +70,7 @@ const carried = <T extends Named>(kind: Kind, rows: Rows, list: T[], collection:
             return;
         }
         const carrier = carry(item);
-        const copy = carrier.duplicate(target.layers[0], ElementPlacement.PLACEATEND);
+        const copy = carrier.duplicate(nth(target.layers, 0), ElementPlacement.PLACEATEND);
         carrier.remove();
         copy.remove();
         if (present(collection, item.name)) {
@@ -105,13 +89,16 @@ const graphicStyles = (rows: Rows, source: Document, target: Document, names: st
         }
         const carrier = source.pathItems.rectangle(0, 0, SIDE, SIDE);
         style.applyTo(carrier);
-        const copy = carrier.duplicate(target.layers[0], ElementPlacement.PLACEATEND);
+        const copy = carrier.duplicate(nth(target.layers, 0), ElementPlacement.PLACEATEND);
         carrier.remove();
         app.activeDocument = target;
-        app.activeDocument.selection = [copy];
+        visit(items<PageItem>(target.selection), (item): void => {
+            const chosenItem = item;
+            chosenItem.selected = false;
+        });
+        copy.selected = true;
         app.executeMenuCommand(NEW_STYLE);
-        const last = target.graphicStyles.length - 1;
-        const added = target.graphicStyles[last] as ArtStyle;
+        const added = nth(target.graphicStyles, target.graphicStyles.length - 1);
         added.name = style.name;
         copy.remove();
         rows.applied.push({ kind: 'graphicStyles', name: style.name });
@@ -130,7 +117,7 @@ const brushCarrier = (source: Document, brush: Brush): PageItem => {
 
 const patternCarrier = (source: Document, pattern: Pattern): PageItem => {
     const rect = source.pathItems.rectangle(0, 0, SIDE, SIDE);
-    const fill: PatternColor = new $.global.PatternColor();
+    const fill = new PatternColor();
     fill.pattern = pattern;
     rect.fillColor = fill;
     return rect;
@@ -156,7 +143,7 @@ const transferred = (kind: Kind, rows: Rows, source: Document, target: Document,
 
 const transferResources = (request: { readonly source: string; readonly kinds: Kind[]; readonly names?: string[] }, _at: Site): Reading<JsonObject> => {
     const target = app.activeDocument;
-    const source = document(request.source);
+    const source = app.open(new File(request.source));
     const rows: Rows = { applied: [], rejected: [] };
     try {
         visit(request.kinds, (kind): void => transferred(kind, rows, source, target, request.names));

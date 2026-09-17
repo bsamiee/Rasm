@@ -3,9 +3,9 @@
 import { type Document, imaging, type PhotoshopImageData } from 'adobe:photoshop';
 import { type Handler, handler, thrown } from '@rasm/creative-cloud-server/client';
 import { HostRejection } from '@rasm/creative-cloud-server/errors';
-import { dpi, type PixelBudget, pixels, points, type Region } from '@rasm/creative-cloud-server/images';
-import { type Bounds, Jpeg, Snapshot } from '@rasm/creative-cloud-server/photoshop/jobs';
-import { Array, Effect, Match, Option, Predicate, Schema, Struct } from 'effect';
+import { Bounds, dpi, type PixelBudget, pixels, points, type Region } from '@rasm/creative-cloud-server/images';
+import { Jpeg, Snapshot } from '@rasm/creative-cloud-server/photoshop/jobs';
+import { Array, Effect, Match, Option, Predicate, Schema } from 'effect';
 import { document, flatten } from './get-document.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -25,19 +25,16 @@ type Size = (typeof _Size)['Type'];
 const _PROFILE = 'sRGB IEC61966-2.1';
 const _COMPONENTS = 3;
 const _COMPONENT_SIZE = 8;
-const _EDGES = ['left', 'top', 'right', 'bottom'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _Size = Schema.Struct({ width: Schema.Int, height: Schema.Int });
 
-const _Bounds = Schema.Struct({ left: Schema.Number, top: Schema.Number, right: Schema.Number, bottom: Schema.Number });
-
 const _pixels = Schema.encodeSync(
     Schema.Struct({
         documentId: Schema.Int,
         layerId: Schema.OptionFromOptionalKey(Schema.Int),
-        sourceBounds: _Bounds,
+        sourceBounds: Bounds,
         targetSize: _Size,
         colorSpace: Schema.Literal('RGB'),
         colorProfile: Schema.String,
@@ -46,7 +43,7 @@ const _pixels = Schema.encodeSync(
     }).pipe(Schema.encodeKeys({ documentId: 'documentID', layerId: 'layerID' })),
 );
 
-const _selection = Schema.encodeSync(Schema.Struct({ documentId: Schema.Int, sourceBounds: _Bounds, targetSize: _Size }).pipe(Schema.encodeKeys({ documentId: 'documentID' })));
+const _selection = Schema.encodeSync(Schema.Struct({ documentId: Schema.Int, sourceBounds: Bounds, targetSize: _Size }).pipe(Schema.encodeKeys({ documentId: 'documentID' })));
 
 // --- [GEOMETRY] ------------------------------------------------------------------------
 
@@ -65,12 +62,14 @@ const _fit = (budget: PixelBudget, bounds: Bounds, resolution: number): Size => 
 
 const _scaled = (bounds: Bounds, factor: number): Bounds => ({ left: bounds.left * factor, top: bounds.top * factor, right: bounds.right * factor, bottom: bounds.bottom * factor });
 
-const _layerBounds: (open: Document, capture: Capture) => Effect.Effect<Bounds, HostRejection> = Effect.fnUntraced(function* (open: Document, capture: Capture) {
-    const layerId = yield* Effect.fromOption(() => HostRejection.cases.malformedParams.make({ cause: 'layerId' }))(capture.layerId);
-    const placed = yield* Effect.fromOption(() => HostRejection.cases.itemNotFound.make({ itemId: layerId }))(
+const _layerBounds = Effect.fnUntraced(function* (open: Document, capture: Capture) {
+    const layerId = yield* Effect.fromOption(capture.layerId, () => HostRejection.cases.malformedParams.make({ cause: 'layerId' }));
+    const placed = yield* Effect.fromOption(
         Array.findFirst(flatten(open.layers, 0, Option.none()), ({ layer }) => layer.id === layerId),
+        () => HostRejection.cases.itemNotFound.make({ itemId: layerId }),
     );
-    return Struct.pick(placed.layer.boundsNoEffects, _EDGES);
+    const { left, top, right, bottom } = placed.layer.boundsNoEffects;
+    return { left, top, right, bottom };
 });
 
 // --- [PIXELS] --------------------------------------------------------------------------
@@ -116,7 +115,7 @@ const _composite = (open: Document, capture: Capture, sourceBounds: Bounds): Eff
             imaging.getPixels(
                 _pixels({
                     documentId: open.id,
-                    layerId: capture.target === 'layer' ? capture.layerId : Option.none(),
+                    layerId: Option.filter(capture.layerId, () => capture.target === 'layer'),
                     sourceBounds,
                     targetSize: _fit(capture.budget, sourceBounds, open.resolution),
                     colorSpace: 'RGB',
@@ -132,7 +131,8 @@ const _read = (open: Document, capture: Capture): Effect.Effect<Pixels, HostReje
     Match.value(capture.target).pipe(
         Match.when('selection', () => _mask(open, capture)),
         Match.when('layer', () => Effect.flatMap(_layerBounds(open, capture), (sourceBounds) => _composite(open, capture, sourceBounds))),
-        Match.orElse(() => _composite(open, capture, _region(open, capture.region))),
+        Match.when('document', () => _composite(open, capture, _region(open, capture.region))),
+        Match.exhaustive,
     );
 
 const _encoded = ({ imageData, sourceBounds, level }: Pixels): Effect.Effect<(typeof Jpeg)['Type'], HostRejection> =>

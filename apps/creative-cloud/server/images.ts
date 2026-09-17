@@ -11,6 +11,7 @@ const DPI = { minimum: 48, maximum: 600 } as const;
 
 type PixelBudget = (typeof PixelBudget)['Type'];
 type Region = (typeof Region)['Type'];
+type Bounds = (typeof Bounds)['Type'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -24,6 +25,12 @@ const _unit = Schema.Number.pipe(Schema.check(Schema.isBetween({ minimum: 0, max
 const Region: Schema.Tuple<readonly [Schema.Number, Schema.Number, Schema.Number, Schema.Number]> = Schema.Tuple([_unit, _unit, _unit, _unit]).pipe(
     Schema.check(Schema.makeFilter(([x0, y0, x1, y1]: readonly [number, number, number, number]) => x1 > x0 && y1 > y0, { title: 'region', description: 'x1 > x0 and y1 > y0' })),
 );
+const Bounds: Schema.Struct<{ readonly left: Schema.Number; readonly top: Schema.Number; readonly right: Schema.Number; readonly bottom: Schema.Number }> = Schema.Struct({
+    left: Schema.Number,
+    top: Schema.Number,
+    right: Schema.Number,
+    bottom: Schema.Number,
+});
 
 // --- [RESOLUTION] ----------------------------------------------------------------------
 
@@ -40,4 +47,4 @@ const points = (px: number, resolution: number): number => (px * _POINTS_PER_INC
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { BUDGET, DPI, Dpi, dpi, PixelBudget, pixels, points, Region };
+export { Bounds, BUDGET, DPI, Dpi, dpi, PixelBudget, pixels, points, Region };

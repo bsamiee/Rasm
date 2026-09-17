@@ -11,6 +11,7 @@
         "./images": "./images.ts",
         "./indesign": "./indesign/indesign.ts",
         "./indesign/jobs": "./indesign/jobs.ts",
+        "./manifest": "./manifest.ts",
         "./osascript": "./osascript.ts",
         "./photoshop/jobs": "./photoshop/jobs.ts",
         "./sdef": "./sdef.ts",
@@ -20,6 +21,7 @@
     "dependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@exodus/bytes": "catalog:",
         "@rasm/typography": "workspace:*",
         "cheerio": "catalog:",
         "effect": "catalog:",

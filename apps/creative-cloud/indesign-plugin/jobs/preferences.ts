@@ -1,13 +1,13 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { app, ScriptLanguage, UndoModes } from 'adobe:indesign';
-import { thrown } from '@rasm/creative-cloud-server/client';
+import { type Handler, handler, thrown } from '@rasm/creative-cloud-server/client';
 import { HostRejection } from '@rasm/creative-cloud-server/errors';
 import { members, preferences, properties } from '@rasm/creative-cloud-server/indesign';
 import { Applied, GetPreferences, Preferences, type Rejection, SetPreferences, SetTextDefaults, Settings } from '@rasm/creative-cloud-server/indesign/jobs';
-import { Array, Effect, Equal, flow, Match, Option, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Equal, flow, identity, Match, Option, Predicate, pipe, Record, Result, Schema, Struct } from 'effect';
+import { document } from '../document.ts';
 import { type Constant, coded, type Live, named } from '../enums.ts';
-import { type Handler, handler } from './handler.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -16,8 +16,6 @@ type Row = (typeof Applied)['Type']['applied'][number];
 type Refusal = (typeof Applied)['Type']['rejected'][number];
 
 type Section = (typeof GetPreferences)['Type']['sections'][number];
-
-type Read = (typeof Preferences)['Type'];
 
 interface Slot {
     readonly target: object;
@@ -66,27 +64,25 @@ const _resolved = (live: Live, key: string, value: Schema.Json): { readonly assi
         onSome: ({ enumeration, constant }) => ({ assigned: Option.getOrNull(Option.flatMap(Record.get(live, enumeration), Record.get(constant))), intended: constant }),
     });
 
-const _write = (live: Live, { slot, key, value }: Write): Result.Result<Row, Refusal> => {
-    const path = `${slot.label}.${key}`;
-    const refused = (reason: Rejection): Result.Result<Row, Refusal> => Result.fail({ path, reason });
-    return Option.match(Option.flatMap(Record.get(_MEMBERS, slot.klass), Record.get(key)), {
-        onNone: () => refused({ _tag: 'unknownKey' }),
-        onSome: (writable) => {
-            if (!writable) {
-                return refused({ _tag: 'readOnly' });
-            }
-            const from = _rendered(Reflect.get(slot.target, key));
-            const { assigned, intended } = _resolved(live, key, value);
-            const written: Result.Result<Row, Rejection> = Result.flatMap(
-                Result.try({ try: () => Reflect.set(slot.target, key, assigned), catch: (cause) => ({ _tag: 'threw' as const, cause }) }),
-                () => {
-                    const to = _rendered(Reflect.get(slot.target, key));
-                    return Equal.equals(to, intended) || !Equal.equals(to, from) ? Result.succeed({ path, from, to }) : Result.fail({ _tag: 'unchanged' as const });
-                },
-            );
-            return Result.mapError(written, (reason) => ({ path, reason }));
-        },
+const _assigned = (live: Live, { slot, key, value }: Write): Result.Result<Pick<Row, 'from' | 'to'>, Rejection> => {
+    const from = _rendered(Reflect.get(slot.target, key));
+    const { assigned, intended } = _resolved(live, key, value);
+    return Result.flatMap(Result.try({ try: () => Reflect.set(slot.target, key, assigned), catch: (cause): Rejection => ({ _tag: 'threw', cause }) }), () => {
+        const to = _rendered(Reflect.get(slot.target, key));
+        return Equal.equals(to, intended) || !Equal.equals(to, from) ? Result.succeed({ from, to }) : Result.fail({ _tag: 'unchanged' });
     });
+};
+
+const _write = (live: Live, write: Write): Result.Result<Row, Refusal> => {
+    const path = `${write.slot.label}.${write.key}`;
+    return pipe(
+        Record.get(_MEMBERS, write.slot.klass),
+        Option.flatMap(Record.get(write.key)),
+        Result.fromOption((): Rejection => ({ _tag: 'unknownKey' })),
+        Result.filterOrFail(identity, (): Rejection => ({ _tag: 'readOnly' })),
+        Result.flatMap(() => _assigned(live, write)),
+        Result.mapBoth({ onSuccess: (changed) => ({ path, ...changed }), onFailure: (reason) => ({ path, reason }) }),
+    );
 };
 
 const _applied = (live: Live, writes: readonly Write[]): (typeof Applied)['Type'] => {
@@ -108,7 +104,7 @@ const _undoable = <A>(name: string, result: Schema.Codec<A, unknown, never, neve
     );
 };
 
-const _section = (section: Section): { readonly section: Section; readonly values: Readonly<Record<string, Schema.Json>>; readonly unreadable: Read['unreadable'] } => {
+const _section = (section: Section): { readonly section: Section; readonly values: Readonly<Record<string, Schema.Json>>; readonly unreadable: (typeof Preferences)['Type']['unreadable'] } => {
     const target = app[section];
     const [unreadable, values] = Array.separate(
         Array.map(Record.keys(Option.getOrElse(Record.get(_MEMBERS, preferences[section]), () => ({}))), (key) =>
@@ -150,21 +146,18 @@ const setPreferences = (live: Live): Handler =>
 
 const setTextDefaults = (live: Live): Handler =>
     handler(SetTextDefaults, Applied, ({ scope, values }) =>
-        scope === 'document' && app.documents.length === 0
-            ? Effect.fail(HostRejection.cases.noActiveDocument.make({}))
-            : _undoable('set_text_defaults', Applied, () => {
-                  const slots: readonly Slot[] =
-                      scope === 'application'
-                          ? [
-                                { target: app.textDefaults, klass: 'TextDefault', label: 'textDefaults' },
-                                { target: app.paragraphStyles.itemByName(_BASIC_PARAGRAPH), klass: 'ParagraphStyle', label: _BASIC_PARAGRAPH },
-                            ]
-                          : [{ target: app.activeDocument.textDefaults, klass: 'TextDefault', label: 'textDefaults' }];
-                  return _applied(
-                      live,
-                      Array.cartesianWith(slots, values, (slot, { key, value }) => ({ slot, key, value })),
-                  );
-              }),
+        Match.value(scope).pipe(
+            Match.when('application', () =>
+                Effect.succeed<readonly Slot[]>([
+                    { target: app.textDefaults, klass: 'TextDefault', label: 'textDefaults' },
+                    { target: app.paragraphStyles.itemByName(_BASIC_PARAGRAPH), klass: 'ParagraphStyle', label: _BASIC_PARAGRAPH },
+                ]),
+            ),
+            Match.when('document', () => Effect.map(document, (doc): readonly Slot[] => [{ target: doc.textDefaults, klass: 'TextDefault', label: 'textDefaults' }])),
+            Match.exhaustive,
+            Effect.map((slots) => Array.cartesianWith(slots, values, (slot, { key, value }): Write => ({ slot, key, value }))),
+            Effect.flatMap((writes) => _undoable('set_text_defaults', Applied, () => _applied(live, writes))),
+        ),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

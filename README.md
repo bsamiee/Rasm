@@ -30,7 +30,8 @@ Rasm/
 ├── Workspace.slnx            # .NET solution
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
-├── vitest.config.ts          # Vitest configuration each project config imports
+├── vitest.config.ts          # Test and coverage options every project config imports
+├── vite.config.ts            # Bundling options every build target runs from its project directory
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
@@ -129,7 +130,7 @@ flowchart LR
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
 - Swift: warnings as errors and upcoming features, `swift-format lint --strict` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
-- Tree: `yamllint`, `actionlint`, and ast-grep rule families
+- Tree: `yamllint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
 

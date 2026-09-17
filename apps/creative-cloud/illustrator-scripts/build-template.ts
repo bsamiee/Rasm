@@ -4,6 +4,7 @@
 
 declare const $: $;
 declare const app: Application;
+declare const IllustratorSaveOptions: new () => IllustratorSaveOptions;
 
 declare global {
     enum Compatibility {}
@@ -35,7 +36,7 @@ const buildTemplate = (
     raster.padding = request.raster.padding;
     doc.rasterEffectSettings = raster;
     const rows = swatches(doc, request.groups, false);
-    const options: IllustratorSaveOptions = new $.global.IllustratorSaveOptions();
+    const options = new IllustratorSaveOptions();
     options.embedICCProfile = true;
     options.pdfCompatible = true;
     options.compatibility = Compatibility.ILLUSTRATOR24;

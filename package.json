@@ -76,8 +76,6 @@
         "@node-rs/argon2": "catalog:",
         "@nx/devkit": "catalog:",
         "@nx/dotnet": "catalog:",
-        "@nx/js": "catalog:",
-        "@nx/vite": "catalog:",
         "@nx/vitest": "catalog:",
         "@observablehq/plot": "catalog:",
         "@octokit/rest": "catalog:",
@@ -208,7 +206,6 @@
         "fast-xml-parser": "catalog:",
         "fontkit": "catalog:",
         "hash-wasm": "catalog:",
-        "hostinger-api-mcp": "catalog:",
         "hucre": "catalog:",
         "idb-keyval": "catalog:",
         "isomorphic-dompurify": "catalog:",
@@ -231,6 +228,7 @@
         "papaparse": "catalog:",
         "parquet-wasm": "catalog:",
         "playwright": "catalog:",
+        "plist": "catalog:",
         "prosemirror-collab": "catalog:",
         "prosemirror-commands": "catalog:",
         "prosemirror-dropcursor": "catalog:",
@@ -277,7 +275,6 @@
         "vite-plugin-pwa": "catalog:",
         "vite-plugin-svgr": "catalog:",
         "vite-plugin-webfont-dl": "catalog:",
-        "vite-uxp-plugin": "catalog:",
         "vitest": "catalog:",
         "watlas": "catalog:",
         "web-vitals": "catalog:",
@@ -321,9 +318,14 @@
                 "inputs": [
                     "{workspaceRoot}/**/*",
                     { "dependentTasksOutputFiles": "**/*.so" },
-                    {
-                        "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version && shellcheck --version && google-java-format --version && pmd --version"
-                    }
+                    { "runtime": "ast-grep --version" },
+                    { "runtime": "ruff --version" },
+                    { "runtime": "biome --version" },
+                    { "runtime": "yamllint --version" },
+                    { "runtime": "actionlint --version" },
+                    { "runtime": "shellcheck --version" },
+                    { "runtime": "google-java-format --version" },
+                    { "runtime": "pmd --version" }
                 ],
                 "options": {
                     "commands": [

@@ -13,11 +13,15 @@ declare global {
     enum Justification {}
     enum ParagraphDirectionType {}
     enum TextOrientation {}
+
+    interface TextFrame {
+        duplicate: (relativeObject?: object, insertionLocation?: ElementPlacement) => TextFrame;
+    }
 }
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, color, items, run, select, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, color, fold, items, only, run, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [REQUEST] -------------------------------------------------------------------------
 
@@ -46,6 +50,12 @@ interface Measured {
     readonly height: number;
 }
 
+interface Placement {
+    readonly top: number;
+    readonly left: number;
+    readonly rects: PathItem[];
+}
+
 const HALF = 0.5;
 const PERCENT = 100;
 const BASIS_GLYPH = { xHeight: 'x', capHeight: 'H' };
@@ -69,20 +79,18 @@ const advance = (line: TextRange): number => {
     return attributes.autoLeading ? (attributes.size * line.paragraphAttributes.autoLeadingAmount) / PERCENT : attributes.leading;
 };
 
-const aligned = (clone: TextFrame, frame: TextFrame, line: TextRange): void => {
-    const { justification } = line.paragraphAttributes;
-    const rightToLeft = line.paragraphAttributes.paragraphDirection === ParagraphDirectionType.RIGHT_TO_LEFT_DIRECTION;
-    const target = clone;
+const alignedLeft = (frame: TextFrame, line: TextRange, width: number): number => {
+    const { justification, paragraphDirection } = line.paragraphAttributes;
     if (justification === Justification.CENTER) {
-        target.left = frame.left + frame.width * HALF - clone.width * HALF;
-        return;
+        return frame.left + frame.width * HALF - width * HALF;
     }
-    const right = justification === Justification.RIGHT || (justification === Justification.LEFT && rightToLeft);
-    target.left = right ? frame.left + frame.width - clone.width : frame.left;
+    const leftReadsRight = justification === Justification.LEFT && paragraphDirection === ParagraphDirectionType.RIGHT_TO_LEFT_DIRECTION;
+    const right = justification === Justification.RIGHT || leftReadsRight;
+    return right ? frame.left + frame.width - width : frame.left;
 };
 
 const outlineBox = (clone: TextFrame, contents: string): Measured => {
-    const copy = clone.duplicate() as TextFrame;
+    const copy = clone.duplicate();
     copy.contents = contents;
     const outline = copy.createOutline();
     const box = { left: outline.left, top: outline.top, width: outline.width, height: outline.height };
@@ -91,13 +99,13 @@ const outlineBox = (clone: TextFrame, contents: string): Measured => {
 };
 
 const measured = (frame: TextFrame, line: TextRange, top: number, left: number, glyph: string): Measured => {
-    const clone = frame.duplicate() as TextFrame;
+    const clone = frame.duplicate();
     clone.contents = line.contents === '' ? glyph : line.contents;
     if (frame.orientation === TextOrientation.VERTICAL) {
         clone.left = left;
     } else {
         clone.top = top;
-        aligned(clone, frame, line);
+        clone.left = alignedLeft(frame, line, clone.width);
     }
     const box = outlineBox(clone, clone.contents);
     const rule = outlineBox(clone, glyph);
@@ -161,16 +169,24 @@ const drawn = (frame: TextFrame, dest: Measured, highlight: Highlight, fill: Col
     return rect;
 };
 
+const grouped = (frame: TextFrame, rects: PathItem[]): void => {
+    const group = frame.layer.groupItems.add();
+    group.move(frame, ElementPlacement.PLACEAFTER);
+    visit(rects, (rect): void => {
+        rect.move(group, ElementPlacement.PLACEATEND);
+    });
+};
+
 // --- [ENTRY] ---------------------------------------------------------------------------
 
 const framesOf = (doc: Document): { readonly frame: TextFrame; readonly lines: TextRange[] }[] => {
     const selected = items<PageItem | TextRange>(doc.selection);
-    const [range] = select(selected, (item): boolean => item.typename === 'TextRange') as TextRange[];
+    const [range] = only(selected, typed<TextRange>('TextRange'));
     if (range !== undefined) {
         const frame = (range.parent as { readonly parent: TextFrame }).parent;
         return [{ frame, lines: items(range.lines) }];
     }
-    return collect(select(selected, (item): boolean => item.typename === 'TextFrame') as TextFrame[], (frame): { readonly frame: TextFrame; readonly lines: TextRange[] } => ({ frame, lines: items(frame.lines) }));
+    return collect(only(selected, typed<TextFrame>('TextFrame')), (frame): { readonly frame: TextFrame; readonly lines: TextRange[] } => ({ frame, lines: items(frame.lines) }));
 };
 
 const text = (request: { readonly highlight: Highlight }, _at: Site): Reading<JsonObject> => {
@@ -178,24 +194,16 @@ const text = (request: { readonly highlight: Highlight }, _at: Site): Reading<Js
     const { highlight } = request;
     const glyph = highlight.heightBasis === 'glyph' ? highlight.glyph : BASIS_GLYPH[highlight.heightBasis];
     const fill = converted(doc, highlight.color);
-    const applied: JsonObject[] = [];
-    visit(framesOf(doc), ({ frame, lines }): void => {
-        let { top, left } = frame;
-        const rects = collect(lines, (line): PathItem => {
-            const dest = measured(frame, line, top, left, glyph);
+    const applied = collect(framesOf(doc), ({ frame, lines }): JsonObject => {
+        const { rects } = fold<TextRange, Placement>(lines, { top: frame.top, left: frame.left, rects: [] }, (state, line): Placement => {
+            const dest = measured(frame, line, state.top, state.left, glyph);
             const leading = advance(line);
-            top -= leading;
-            left -= leading;
-            return drawn(frame, dest, highlight, fill);
+            return { top: state.top - leading, left: state.left - leading, rects: state.rects.concat([drawn(frame, dest, highlight, fill)]) };
         });
         if (highlight.groupPerFrame) {
-            const group = frame.layer.groupItems.add();
-            group.move(frame, ElementPlacement.PLACEAFTER);
-            visit(rects, (rect): void => {
-                rect.move(group, ElementPlacement.PLACEATEND);
-            });
+            grouped(frame, rects);
         }
-        applied.push({ frame: frame.uuid, lines: rects.length });
+        return { frame: frame.uuid, lines: rects.length };
     });
     return { value: { kind: 'highlighted', applied }, unavailable: [] };
 };

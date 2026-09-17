@@ -4,8 +4,9 @@
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/photoshop-plugin",
         "lib": ["esnext", "dom"],
         "paths": { "adobe:photoshop": ["./photoshop.ts"], "adobe:uxp": ["./uxp.ts"] },
-        "types": ["@adobe-uxp-types/photoshop", "node"]
+        "types": ["@adobe-uxp-types/photoshop", "@adobe-uxp-types/uxp", "node"]
     },
     "references": [{ "path": "../server" }],
-    "include": ["*.ts", "*/*.ts"]
+    "include": ["*.ts", "*/*.ts"],
+    "files": ["package.json"]
 }

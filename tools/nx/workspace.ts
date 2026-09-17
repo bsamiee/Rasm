@@ -29,7 +29,8 @@ const _names = (pattern: RegExp): Schema.decodeTo<Schema.$Array<Schema.String>, 
         }),
     );
 
-const _hosts = (text: string): Effect.Effect<string[], Schema.SchemaError> => Effect.map(Schema.decodeEffect(_names(_HOST))(text), (names) => Array.map(Array.dedupe(names), (name) => `host:${name}`));
+const _hosts = (text: string): Effect.Effect<readonly string[], Schema.SchemaError> =>
+    Effect.map(Schema.decodeEffect(_names(_HOST))(text), (names) => Array.map(Array.dedupe(names), (name) => `host:${name}`));
 
 const _project = Effect.fnUntraced(function* (file: string, root: string) {
     const fs = yield* FileSystem.FileSystem;
@@ -43,7 +44,7 @@ const _project = Effect.fnUntraced(function* (file: string, root: string) {
             Effect.flatMap((text) => Effect.all({ hosts: _hosts(text), names: Schema.decodeEffect(_names(_SUBCOMMAND))(text) })),
             Effect.map(({ hosts, names }) => ({
                 root: directory,
-                tags: hosts,
+                tags: [...hosts],
                 targets: Record.fromIterableWith(names, (name) => [name, { command: `node automation.ts ${name}`, options: { cwd: '{projectRoot}' } }]),
             })),
         ),

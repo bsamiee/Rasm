@@ -6,6 +6,10 @@ import { HostRejection } from '@rasm/creative-cloud-server/errors';
 import { BatchPlay, Descriptors } from '@rasm/creative-cloud-server/photoshop/jobs';
 import { Array, Effect, Option, Schema } from 'effect';
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
+type Failed = (typeof Descriptors)['Type']['failed'][number];
+
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _USER_CANCEL = -128;
@@ -18,13 +22,15 @@ const _results = Schema.decodeUnknownEffect(Schema.Array(Schema.Json));
 
 // --- [FAILURES] ------------------------------------------------------------------------
 
-const _failed = (descriptor: unknown, index: number): Option.Option<{ readonly index: number; readonly result: number; readonly message: string }> =>
-    Option.map(_failure(descriptor), ({ result, message }) => ({ index, result, message }));
+const _failed = (descriptor: unknown, index: number): Option.Option<Failed> => Option.map(_failure(descriptor), ({ result, message }) => ({ index, result, message }));
 
-const _rejection = (failed: readonly { readonly index: number; readonly result: number; readonly message: string }[], continueOnError: boolean): Option.Option<HostRejection> =>
+const _rejection = (failed: readonly Failed[], continueOnError: boolean): Option.Option<HostRejection> =>
     Array.some(failed, ({ result }) => result === _USER_CANCEL)
         ? Option.some(HostRejection.cases.userCancelled.make({}))
-        : Option.map(continueOnError ? Option.none() : Array.head(failed), HostRejection.cases.descriptorFailed.make);
+        : Option.map(
+              Option.filter(Array.head(failed), () => !continueOnError),
+              HostRejection.cases.descriptorFailed.make,
+          );
 
 // --- [HANDLER] -------------------------------------------------------------------------
 

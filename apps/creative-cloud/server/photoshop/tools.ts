@@ -1,15 +1,15 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Context, Crypto, Duration, Effect, FileSystem, Layer, Option, Path, Schema, Struct } from 'effect';
+import { Context, Crypto, Effect, FileSystem, flow, Layer, Option, Path, Schema, Struct } from 'effect';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import { contract, Failure } from '../contract.ts';
-import { BridgeError } from '../errors.ts';
-import { Execute, HistoryState, type Job } from '../frames.ts';
-import { Jobs, probe, run, SPILL_CHARS, Spilled, spill } from '../jobs.ts';
+import type { BridgeError } from '../errors.ts';
+import { HistoryState, type Job } from '../frames.ts';
+import { Jobs, probe, SPILL_CHARS, Spilled, spill } from '../jobs.ts';
 import { doJavascript, read } from '../osascript.ts';
-import { attached, dispatch, type Endpoint, Links } from '../socket.ts';
+import { type Answer, answered, type Endpoint, Links } from '../socket.ts';
 import { HOSTS, type JobId, PROBE_MS, TIMEOUT_MS, TimeoutMs } from '../values.ts';
-import { Applied, BatchPlay, Descriptors, DocumentState, GetDocument, GetPreferences, Jpeg, ListPresets, Played, Preferences, Presets, RunAction, SetPreferences, Snapshot } from './jobs.ts';
+import { Applied, BatchPlay, Bodies, Descriptors, DocumentState, GetDocument, GetPreferences, Jpeg, type Kind, ListPresets, Played, Preferences, Presets, RunAction, Snapshot } from './jobs.ts';
 import { TARGET_ROWS, Writes } from './preferences.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -23,20 +23,12 @@ type Services = ChildProcessSpawner.ChildProcessSpawner | Crypto.Crypto | FileSy
 
 type Scope = Pick<Job, 'suspendHistory' | 'commandName'>;
 
-interface Answer<Value> {
-    readonly jobId: JobId;
-    readonly value: Value;
-    readonly tookMs: number;
-}
-
 type Capture = (typeof Jpeg)['Type'] | (typeof Spilled)['Type'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _HOST = HOSTS.photoshop;
 const _READ: Scope = { suspendHistory: Option.none(), commandName: Option.none() };
-const _APPLY = 'Apply preferences';
-const _timed = { tookMs: Schema.Number } as const;
 const _scoped = { suspendHistory: Schema.OptionFromOptionalKey(HistoryState), timeoutMs: Schema.OptionFromOptionalKey(TimeoutMs) } as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -44,8 +36,8 @@ const _scoped = { suspendHistory: Schema.OptionFromOptionalKey(HistoryState), ti
 const Channel: Context.Service<Channel, Channel> = Context.Service<Channel>('PhotoshopChannel');
 
 const Reply = Schema.Union([
-    Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json, ..._timed }),
-    Schema.Struct({ ...Descriptors.fields, ..._timed }),
+    Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json, tookMs: Schema.Number }),
+    Schema.Struct({ ...Descriptors.fields, tookMs: Schema.Number }),
     Jpeg,
     Spilled,
     DocumentState,
@@ -60,42 +52,25 @@ const _row = contract(Channel, [ChildProcessSpawner.ChildProcessSpawner, Crypto.
 
 // --- [DISPATCH] ------------------------------------------------------------------------
 
-const _undecodable =
-    (value: Schema.Json) =>
-    (error: Schema.SchemaError): BridgeError =>
-        BridgeError.cases.resultNotDecodable.make({ host: _HOST.id, text: JSON.stringify(value), reason: error.message });
-
 const _job =
-    <Body extends Schema.ConstraintCodec<unknown, unknown, never, never>>(kind: Job['kind'], body: Body, value: Body['Type'], scope: Scope) =>
-    (jobId: JobId): Job => ({ jobId, kind, body: Schema.encodeSync(Schema.toCodecJson(body))(value), ...scope });
+    <K extends Kind>(kind: K, value: (typeof Bodies)['fields'][K]['Type'], scope: Scope) =>
+    (jobId: JobId): Job => ({ jobId, kind, body: Schema.encodeSync(Schema.toCodecJson(Bodies.fields[kind]))(value), ...scope });
 
-const _dispatched = <Result extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
+const _answered = <K extends Kind, S extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
     channel: Channel,
     timeoutMs: number,
-    result: Result,
-    job: (jobId: JobId) => Job,
-): Effect.Effect<Answer<Result['Type']>, BridgeError, Services> =>
-    Effect.flatMap(
-        Effect.timed(
-            run(channel.host, timeoutMs, (jobId) =>
-                Effect.andThen(
-                    attached(channel.link),
-                    Effect.map(dispatch(channel.link, job(jobId)), (done) => ({ jobId, done })),
-                ),
-            ),
-        ),
-        ([took, { jobId, done }]) =>
-            Effect.map(Effect.mapError(Schema.decodeUnknownEffect(result)(done.value), _undecodable(done.value)), (value) => ({ jobId, value, tookMs: Duration.toMillis(took) })),
-    );
-
-const _answer = <Body extends Schema.ConstraintCodec<unknown, unknown, never, never>, Result extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
-    channel: Channel,
-    kind: Job['kind'],
-    body: Body,
-    value: Body['Type'],
-    result: Result,
+    kind: K,
+    value: (typeof Bodies)['fields'][K]['Type'],
+    result: S,
     scope: Scope,
-): Effect.Effect<Result['Type'], BridgeError, Services> => Effect.map(_dispatched(channel, TIMEOUT_MS, result, _job(kind, body, value, scope)), Struct.get('value'));
+): Effect.Effect<Answer<S['Type']>, BridgeError, Services> => answered(channel.link, channel.host, timeoutMs, result, flow(_job(kind, value, scope), Effect.succeed));
+
+const _value = <K extends Kind, S extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
+    channel: Channel,
+    kind: K,
+    value: (typeof Bodies)['fields'][K]['Type'],
+    result: S,
+): Effect.Effect<S['Type'], BridgeError, Services> => Effect.map(_answered(channel, TIMEOUT_MS, kind, value, result, _READ), Struct.get('value'));
 
 // --- [LAYER] ---------------------------------------------------------------------------
 
@@ -109,11 +84,13 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             false,
             (channel, { code, commandName, suspendHistory, timeoutMs }) =>
                 Effect.map(
-                    _dispatched(
+                    _answered(
                         channel,
                         Option.getOrElse(timeoutMs, () => TIMEOUT_MS),
+                        'execute',
+                        { code, undoName: Option.none() },
                         Schema.Json,
-                        _job('execute', Execute, { code, undoName: Option.none() }, { suspendHistory, commandName }),
+                        { suspendHistory, commandName },
                     ),
                     ({ value, tookMs }) => ({ kind: 'value' as const, value, tookMs }),
                 ),
@@ -126,11 +103,13 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             false,
             (channel, { descriptors, continueOnError, immediateRedraw, commandName, suspendHistory, timeoutMs }) =>
                 Effect.map(
-                    _dispatched(
+                    _answered(
                         channel,
                         Option.getOrElse(timeoutMs, () => TIMEOUT_MS),
+                        'batchPlay',
+                        { descriptors, continueOnError, immediateRedraw },
                         Descriptors,
-                        _job('batchPlay', BatchPlay, { descriptors, continueOnError, immediateRedraw }, { suspendHistory, commandName: Option.some(commandName) }),
+                        { suspendHistory, commandName: Option.some(commandName) },
                     ),
                     ({ value, tookMs }) => ({ ...value, tookMs }),
                 ),
@@ -142,7 +121,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             Schema.Union([Reply.cases.jpeg, Reply.cases.file]),
             true,
             (channel, capture) =>
-                Effect.flatMap(_dispatched(channel, TIMEOUT_MS, Jpeg, _job('snapshot', Snapshot, capture, _READ)), ({ jobId, value }): Effect.Effect<Capture, BridgeError, Services> => {
+                Effect.flatMap(_answered(channel, TIMEOUT_MS, 'snapshot', capture, Jpeg, _READ), ({ jobId, value }): Effect.Effect<Capture, BridgeError, Services> => {
                     const text = JSON.stringify(value);
                     return text.length > SPILL_CHARS ? spill(_HOST.id, jobId, text) : Effect.succeed(value);
                 }),
@@ -153,7 +132,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             GetDocument,
             Reply.cases.document,
             true,
-            (channel, input) => _answer(channel, 'getDocument', GetDocument, input, DocumentState, _READ),
+            (channel, input) => _value(channel, 'getDocument', input, DocumentState),
         ),
         _row(
             'photoshop_get_preferences',
@@ -161,7 +140,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             GetPreferences,
             Reply.cases.preferences,
             true,
-            (channel, input) => _answer(channel, 'getPreferences', GetPreferences, input, Preferences, _READ),
+            (channel, input) => _value(channel, 'getPreferences', input, Preferences),
         ),
         _row(
             'photoshop_set_preferences',
@@ -170,10 +149,13 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             Reply.cases.applied,
             false,
             (channel, { values }) =>
-                _answer(channel, 'setPreferences', SetPreferences, { values: Option.getOrElse(values, () => TARGET_ROWS) }, Applied, {
-                    suspendHistory: Option.none(),
-                    commandName: Option.some(_APPLY),
-                }),
+                Effect.map(
+                    _answered(channel, TIMEOUT_MS, 'setPreferences', { values: Option.getOrElse(values, () => TARGET_ROWS) }, Applied, {
+                        suspendHistory: Option.none(),
+                        commandName: Option.some('Apply preferences'),
+                    }),
+                    Struct.get('value'),
+                ),
         ),
         _row(
             'photoshop_list_presets',
@@ -181,7 +163,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             ListPresets,
             Reply.cases.presets,
             true,
-            (channel, input) => _answer(channel, 'listPresets', ListPresets, input, Presets, _READ),
+            (channel, input) => _value(channel, 'listPresets', input, Presets),
         ),
         _row(
             'photoshop_run_action',
@@ -189,7 +171,7 @@ const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
             RunAction,
             Reply.cases.value,
             false,
-            (channel, input) => Effect.map(_dispatched(channel, TIMEOUT_MS, Played, _job('runAction', RunAction, input, _READ)), ({ value, tookMs }) => ({ kind: 'value' as const, value, tookMs })),
+            (channel, input) => Effect.map(_answered(channel, TIMEOUT_MS, 'runAction', input, Played, _READ), ({ value, tookMs }) => ({ kind: 'value' as const, value, tookMs })),
         ),
         _row(
             'photoshop_system_report',

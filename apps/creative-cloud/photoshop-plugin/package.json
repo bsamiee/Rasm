@@ -1,15 +1,14 @@
 {
     "name": "@rasm/photoshop-plugin",
+    "version": "1.0.0",
     "private": true,
     "type": "module",
+    "main": "plugin-main.ts",
     "dependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
         "@effect/platform-node": "catalog:",
-        "@exodus/bytes": "catalog:",
         "@rasm/creative-cloud-server": "workspace:*",
-        "effect": "catalog:",
-        "vite": "catalog:",
-        "vite-uxp-plugin": "catalog:"
+        "effect": "catalog:"
     }
 }

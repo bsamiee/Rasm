@@ -13,16 +13,7 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { all, each, reference, run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
-
-interface Hosted {
-    readonly typename: string;
-    readonly length: unknown;
-    readonly reflect: Reflection;
-    readonly [name: string]: unknown;
-}
-
-const hosted = (value: unknown): value is Hosted => value !== null && value !== undefined && typeof (value as { readonly typename: unknown }).typename === 'string';
+const { all, each, fold, hosted, only, reference, run, typed }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 const listed = (value: unknown): value is unknown[] => Object.prototype.toString.call(new Object(value)) === '[object Array]';
 
@@ -83,7 +74,8 @@ const walk = (at: Site, seeds: unknown[], candidates: { readonly [name: string]:
     while (queue.length > 0) {
         const value = queue.shift();
         if (hosted(value) && classes[value.typename] === undefined) {
-            const [reading, found] = record({ path: `${at.path}.${value.typename}`, chain: at.chain }, value, candidates[value.typename] ?? []);
+            const probes = candidates[value.typename];
+            const [reading, found] = record({ path: `${at.path}.${value.typename}`, chain: at.chain }, value, probes === undefined ? [] : probes);
             classes[value.typename] = reading.value;
             unavailable = unavailable.concat(reading.unavailable);
             queue = queue.concat(found);
@@ -137,7 +129,15 @@ const reconcile = (
                                 return reference(frame.typename, inner);
                             },
                         ],
-                        ['textPath', (inner): Reading<Json> => keep((doc.textFrames.pathText(doc.pathItems.ellipse(0, 0, SIDE, SIDE)) as TextFrame).textPath, inner)],
+                        [
+                            'textPath',
+                            (inner): Reading<Json> =>
+                                fold<TextFrame, Reading<Json>>(
+                                    only(only([doc.textFrames.pathText(doc.pathItems.ellipse(0, 0, SIDE, SIDE))], hosted), typed<TextFrame>('TextFrame')),
+                                    reference(null, inner),
+                                    (_absent, frame): Reading<Json> => keep(frame.textPath, inner),
+                                ),
+                        ],
                         ['compoundPathItem', (inner): Reading<Json> => reference(doc.compoundPathItems.add().typename, inner)],
                         ['groupItem', (inner): Reading<Json> => reference(doc.groupItems.add().typename, inner)],
                         ['symbolItem', (inner): Reading<Json> => reference(doc.symbolItems.add(doc.symbols.add(rect)).typename, inner)],

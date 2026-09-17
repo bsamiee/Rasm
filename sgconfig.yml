@@ -4,12 +4,12 @@ ruleDirs:
 utilDirs:
     - tools/ast-grep/utils
 languageGlobs:
-    tsx: ["*.ts", "*.mts", "*.cts"]
+    tsx: ["*.ts"]
     xml: ["NuGet.config"]
 customLanguages:
     xml:
         libraryPath: .cache/ast-grep/xml.so
-        extensions: [xml, csproj, props, targets, slnx, nuspec, pubxml, proj]
+        extensions: [xml, csproj, props, targets, slnx]
         expandoChar: _
         outlineRules: tools/ast-grep/outline/msbuild.yml
     sql:

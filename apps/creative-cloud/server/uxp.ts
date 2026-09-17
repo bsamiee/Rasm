@@ -1,25 +1,19 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Cause, Clock, Config, Effect, FileSystem, Layer, Option, Path, type PlatformError, Predicate, Queue, Result, Schedule, Schema, type Scope, Stream, String } from 'effect';
+import { Array, Cause, Clock, Config, Effect, FileSystem, Filter, Layer, Option, Path, type PlatformError, Predicate, Queue, Result, Schedule, Schema, type Scope, Stream, String } from 'effect';
 import { McpProtocol, McpSchema } from 'effect/unstable/ai';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
 import { RpcClient, type RpcClientError, RpcSerialization } from 'effect/unstable/rpc';
 import { Socket } from 'effect/unstable/socket';
-import { Node, Project } from 'ts-morph';
+import { Project } from 'ts-morph';
 import { BridgeError } from './errors.ts';
 import { Link } from './frames.ts';
+import type { Manifest } from './manifest.ts';
 import { read, reply } from './osascript.ts';
 import { MANIPULATION } from './sdef.ts';
 import type { HostId } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-interface Manifest {
-    readonly id: string;
-    readonly name: string;
-    readonly version: string;
-    readonly host: { readonly app: string; readonly minVersion: string };
-}
 
 interface Host {
     readonly id: HostId;
@@ -85,23 +79,23 @@ const Health: Schema.Struct<{
     hosts: Schema.Array(Schema.Struct({ host: Schema.Struct({ id: Schema.String }), link: Schema.OptionFromNullOr(Link), probe: Schema.toCodecJson(Schema.Result(Schema.Json, BridgeError)) })),
 });
 
-const _Answer = Schema.Struct({
-    result: Schema.Union([Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json }), Schema.Struct({ kind: Schema.Literal('error'), error: BridgeError })]).pipe(
-        Schema.toTaggedUnion('kind'),
-    ),
-});
+const _Outcome = Schema.Union([Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json }), Schema.Struct({ kind: Schema.Literal('error'), error: BridgeError })]).pipe(
+    Schema.toTaggedUnion('kind'),
+);
+
+const _Answer = Schema.Struct({ result: _Outcome });
 
 const InstallError: Schema.TaggedUnion<{
-    readonly notReady: Schema.TaggedStruct<'notReady', { readonly hosts: Schema.String }>;
-    readonly toolFailed: Schema.TaggedStruct<'toolFailed', { readonly tool: Schema.String; readonly text: Schema.String }>;
+    readonly notReady: Schema.TaggedStruct<'notReady', { readonly hosts: (typeof Health)['fields']['hosts'] }>;
+    readonly toolFailed: Schema.TaggedStruct<'toolFailed', { readonly tool: Schema.String; readonly content: Schema.$Array<typeof McpSchema.ContentBlock>; readonly cause: Schema.Defect }>;
     readonly moduleNotDeclared: Schema.TaggedStruct<'moduleNotDeclared', { readonly typings: Schema.String; readonly module: Schema.String }>;
 }> = Schema.TaggedUnion({
-    notReady: { hosts: Schema.String },
-    toolFailed: { tool: Schema.String, text: Schema.String },
+    notReady: { hosts: Health.fields.hosts },
+    toolFailed: { tool: Schema.String, content: Schema.Array(McpSchema.ContentBlock), cause: Schema.Defect() },
     moduleNotDeclared: { typings: Schema.String, module: Schema.String },
 });
 
-const _Typings = Schema.fromJsonString(Schema.Struct({ types: Schema.String }));
+const _Typings = Schema.fromJsonString(Schema.Struct({ name: Schema.String, types: Schema.String }));
 
 // --- [TYPINGS] -------------------------------------------------------------------------
 
@@ -116,9 +110,9 @@ const declared: (
 ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const packageDir = path.dirname(yield* path.fromFileUrl(manifest));
-    const { types } = yield* Schema.decodeEffect(_Typings)(yield* fs.readFileString(path.join(packageDir, 'package.json')));
-    const typings = path.join(packageDir, types);
+    const manifestPath = yield* path.fromFileUrl(manifest);
+    const { name, types } = yield* Schema.decodeEffect(_Typings)(yield* fs.readFileString(manifestPath));
+    const typings = path.join(path.dirname(manifestPath), types);
     const source = new Project({ useInMemoryFileSystem: true, manipulationSettings: MANIPULATION }).createSourceFile(path.basename(typings), yield* fs.readFileString(typings));
     const block = yield* Effect.fromOption(
         Array.findFirst(source.getModules(), (candidate) => {
@@ -127,16 +121,17 @@ const declared: (
         }),
         () => InstallError.cases.moduleNotDeclared.make({ typings, module }),
     );
-    const packaged = (specifier: string): string => path.join(path.relative(directory, path.dirname(typings)), specifier);
-    const printed = Array.map(block.getStatements(), (statement) => {
-        if (Node.isImportDeclaration(statement) || (Node.isExportDeclaration(statement) && statement.hasModuleSpecifier())) {
-            statement.setModuleSpecifier(packaged(Option.getOrElse(Option.fromNullishOr(statement.getModuleSpecifierValue()), () => '')));
-        }
-        if (Node.isVariableStatement(statement)) {
-            statement.setHasDeclareKeyword(true);
-        }
-        return statement.getText();
-    });
+    const linked = path.join('node_modules', name, path.dirname(types));
+    yield* Effect.forEach(
+        Array.filterMap(
+            [...block.getImportDeclarations(), ...block.getExportDeclarations()],
+            Filter.fromPredicateOption((declaration) => Option.fromNullishOr(declaration.getModuleSpecifier())),
+        ),
+        (specifier) => Effect.sync(() => specifier.setLiteralValue(`./${path.join(linked, specifier.getLiteralValue())}`)),
+        { discard: true },
+    );
+    yield* Effect.forEach(block.getVariableStatements(), (statement) => Effect.sync(() => statement.setHasDeclareKeyword(true)), { discard: true });
+    const printed = Array.map(block.getStatements(), (statement) => statement.getText());
     yield* fs.writeFileString(path.join(directory, `${module}.ts`), `${Array.join(printed, '\n')}\n`);
     return printed.length;
 });
@@ -156,6 +151,7 @@ const install: (
         const root = path.resolve(import.meta.dirname, '..', '..', '..');
         yield* Effect.forEach(Array.filter(yield* fs.readDirectory(external), String.startsWith(`${manifest.id}_`)), (entry) => fs.remove(path.join(external, entry), { recursive: true }));
         yield* fs.copy(path.join(root, '.artifacts', path.relative(root, project)), path.join(external, folder));
+        yield* fs.writeFileString(path.join(external, folder, 'manifest.json'), JSON.stringify(manifest));
         const registry = path.join(uxp, 'PluginsInfo', 'v1', `${manifest.host.app}.json`);
         const rows = yield* Schema.decodeEffect(Registry)(yield* fs.readFileString(registry));
         const registration: Registration = {
@@ -214,13 +210,15 @@ const server: (host: Pick<Host, 'id'>, manifest: Pick<Manifest, 'id' | 'version'
     yield* transport.send(0, { _tag: 'Request', id: '', tag: McpSchema.InitializedNotification._tag, payload: null, headers: [], isNotification: true });
     const call = Effect.fnUntraced(function* <S extends Schema.Top>(tool: string, args: Readonly<Record<string, Schema.Json>>, schema: S) {
         const answer = yield* client['tools/call']({ name: tool, arguments: args });
-        return yield* Effect.mapError(Schema.decodeUnknownEffect(schema)(answer.structuredContent), () => InstallError.cases.toolFailed.make({ tool, text: JSON.stringify(answer.content) }));
+        return yield* Effect.mapError(Schema.decodeUnknownEffect(schema)(answer.structuredContent), (cause) => InstallError.cases.toolFailed.make({ tool, content: answer.content, cause }));
     });
     return {
         health: call('health', { host: host.id }, Health),
         execute: (code: string) =>
             Effect.retry(
-                Effect.flatMap(call(`${host.id}_execute`, { code }, _Answer), ({ result }) => (result.kind === 'value' ? Effect.succeed(result.value) : Effect.fail(result.error))),
+                Effect.flatMap(call(`${host.id}_execute`, { code }, _Answer), ({ result }) =>
+                    Effect.fromResult(_Outcome.match(result, { value: ({ value }) => Result.succeed(value), error: ({ error }) => Result.fail(error) })),
+                ),
                 { while: Predicate.isTagged('hostSaturated'), schedule: POLL },
             ),
         call,
@@ -228,7 +226,7 @@ const server: (host: Pick<Host, 'id'>, manifest: Pick<Manifest, 'id' | 'version'
 });
 
 const until = <E, R>(health: Effect.Effect<Health, E, R>, ready: Predicate.Predicate<HealthRow>): Effect.Effect<HealthRow, E | InstallError, R> =>
-    Effect.flatMap(health, (answer) => Effect.fromOption(Array.findFirst(answer.hosts, ready), () => InstallError.cases.notReady.make({ hosts: JSON.stringify(answer.hosts) }))).pipe(
+    Effect.flatMap(health, (answer) => Effect.fromOption(Array.findFirst(answer.hosts, ready), () => InstallError.cases.notReady.make({ hosts: answer.hosts }))).pipe(
         Effect.retry({ while: Predicate.isTagged('notReady'), schedule: POLL }),
     );
 
@@ -238,5 +236,5 @@ const probed = (row: HealthRow): boolean => Result.isSuccess(row.probe);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { HealthRow, Manifest, Server };
+export type { HealthRow, Server };
 export { attached, declared, InstallError, install, POLL, probed, protocol, relaunch, server, until };

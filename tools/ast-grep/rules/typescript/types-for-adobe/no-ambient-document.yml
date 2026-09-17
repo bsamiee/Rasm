@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ambient-document
+language: tsx
+severity: error
+utils:
+    document-binding:
+        kind: arrow_function, function_declaration, function_expression, method_definition
+        any:
+            - has:
+                field: parameters
+                has:
+                    kind: required_parameter
+                    all:
+                        - has: {field: pattern, kind: identifier, pattern: $DOC}
+                        - has: {field: type, has: {kind: type_identifier, regex: '^Document$'}}
+            - has:
+                field: body
+                has:
+                    kind: lexical_declaration
+                    has:
+                        kind: variable_declarator
+                        all:
+                            - has: {field: name, pattern: $DOC}
+                            - has: {field: value, pattern: app.activeDocument}
+rule:
+    all:
+        - pattern: app.activeDocument
+        - inside: {matches: document-binding, stopBy: end}
+        - not: {inside: {kind: assignment_expression, field: left}}
+        - not: {inside: {kind: variable_declarator, stopBy: end, has: {field: name, pattern: $DOC}}}
+        - not: {inside: {kind: program, stopBy: end, has: {pattern: 'app.activeDocument = $_', stopBy: end}}}
+fix: $DOC
+message: '`app.activeDocument` reads the ambient document beside `$DOC` in scope'
+note: 'Document binding in scope supplies the document the function acts on'

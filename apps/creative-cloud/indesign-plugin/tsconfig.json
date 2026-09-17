@@ -7,5 +7,6 @@
         "types": ["node"]
     },
     "references": [{ "path": "../server" }],
-    "include": ["*.ts", "*/*.ts"]
+    "include": ["*.ts", "*/*.ts"],
+    "files": ["package.json"]
 }

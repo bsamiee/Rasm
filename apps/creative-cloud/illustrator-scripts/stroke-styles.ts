@@ -7,7 +7,7 @@ declare const app: Application;
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, color, flatten, items, run, select, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { color, contains, flatten, items, run, select, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [STYLES] --------------------------------------------------------------------------
 
@@ -25,7 +25,14 @@ interface Style {
 }
 
 const targeted = (doc: Document, targets: Style['targets']): PageItem[] =>
-    flatten(targets === 'selection' ? items<PageItem>(doc.selection) : collect(targets, (uuid): PageItem => doc.getPageItemFromUuid(uuid) as PageItem));
+    targets === 'selection' ? flatten(items<PageItem>(doc.selection)) : select(flatten(items(doc.pageItems)), (item): boolean => contains(targets, item.uuid));
+
+const paths = (item: PageItem): PathItem[] => {
+    if (typed<PathItem>('PathItem')(item)) {
+        return [item];
+    }
+    return typed<CompoundPathItem>('CompoundPathItem')(item) ? items(item.pathItems) : [];
+};
 
 const styled = (item: PathItem, style: Style): void => {
     const path = item;
@@ -51,17 +58,11 @@ const strokeStyles = (request: { readonly styles: Style[] }, _at: Site): Reading
     const rejected: JsonObject[] = [];
     visit(request.styles, (style): void => {
         const reached = targeted(doc, style.targets);
-        const paths = select(reached, (item): boolean => item.typename === 'PathItem' || item.typename === 'CompoundPathItem');
-        visit(paths, (item): void => {
-            if (item.typename === 'PathItem') {
-                styled(item as PathItem, style);
-                return;
-            }
-            visit(items((item as CompoundPathItem).pathItems), (path): void => styled(path, style));
-        });
-        applied.push({ name: style.name, items: paths.length });
+        const carriers = select(reached, (item): boolean => paths(item).length > 0);
+        visit(carriers, (item): void => visit(paths(item), (path): void => styled(path, style)));
+        applied.push({ name: style.name, items: carriers.length });
         visit(
-            select(reached, (item): boolean => item.typename !== 'PathItem' && item.typename !== 'CompoundPathItem'),
+            select(reached, (item): boolean => paths(item).length === 0),
             (item): void => {
                 rejected.push({ name: style.name, uuid: item.uuid, typename: item.typename, reason: 'notAPath' });
             },

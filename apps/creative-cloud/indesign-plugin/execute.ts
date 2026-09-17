@@ -8,25 +8,10 @@ import { collections, properties } from '@rasm/creative-cloud-server/indesign';
 import { type AnyNode, type Expression, type Identifier, type ModuleDeclaration, type Node, type Pattern, type Program, parse, type Statement, type Super, type VariableDeclaration } from 'acorn';
 import { fullAncestor } from 'acorn-walk';
 import { generate } from 'astring';
-import { Array, Effect, Match, Option, Order, Predicate, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, Filter, Function, Match, Option, Order, Predicate, Record, Result, Schema, Struct } from 'effect';
 import { type Constant, coded, type Live, named } from './enums.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
-
-interface Corrected {
-    readonly code: string;
-    readonly autocorrections: readonly string[];
-}
-
-interface Prepared {
-    readonly autocorrections: readonly string[];
-    readonly run: Effect.Effect<unknown, HostRejection>;
-}
-
-interface Rewrite {
-    readonly note: string;
-    readonly enumeration: Option.Option<string>;
-}
 
 interface Names {
     readonly referenced: readonly string[];
@@ -53,37 +38,6 @@ const _marshalled: (text: unknown) => Effect.Effect<Schema.Json, Schema.SchemaEr
 const _source = (code: string, node: Node): string => code.slice(node.start, node.end);
 
 const _identifier = (name: string): Identifier => ({ type: 'Identifier', name, start: 0, end: 0 });
-
-const _require = (names: readonly string[]): VariableDeclaration => ({
-    type: 'VariableDeclaration',
-    kind: 'const',
-    declarations: [
-        {
-            type: 'VariableDeclarator',
-            id: {
-                type: 'ObjectPattern',
-                properties: Array.map(names, (name) => {
-                    const identifier = _identifier(name);
-                    return { type: 'Property', key: identifier, value: identifier, kind: 'init', method: false, shorthand: true, computed: false, start: 0, end: 0 };
-                }),
-                start: 0,
-                end: 0,
-            },
-            init: {
-                type: 'CallExpression',
-                callee: _identifier('require'),
-                arguments: [{ type: 'Literal', value: 'indesign', raw: "'indesign'", start: 0, end: 0 }],
-                optional: false,
-                start: 0,
-                end: 0,
-            },
-            start: 0,
-            end: 0,
-        },
-    ],
-    start: 0,
-    end: 0,
-});
 
 const _member = (node: Expression | Super, property: string): boolean => node.type === 'MemberExpression' && !node.computed && node.property.type === 'Identifier' && node.property.name === property;
 
@@ -135,23 +89,25 @@ const _same = (left: Classified, right: Classified): boolean => left.kind === ri
 
 const _variables = (program: Program): Readonly<Record<string, Classified>> => {
     const classify = _classify({});
-    const seen: Record<string, Classified[]> = {};
-    const record = (name: string, kind: Classified): void => {
-        seen[name] = [...(seen[name] ?? []), kind];
-    };
+    const seen: [string, Classified][] = [];
     fullAncestor(program, (node) => {
         if (node.type === 'VariableDeclarator' && node.id.type === 'Identifier' && node.init) {
-            record(node.id.name, classify(node.init));
+            seen.push([node.id.name, classify(node.init)]);
         }
         if (node.type === 'AssignmentExpression' && node.operator === '=' && node.left.type === 'Identifier') {
-            record(node.left.name, classify(node.right));
+            seen.push([node.left.name, classify(node.right)]);
         }
     });
-    return Record.filterMap(seen, (kinds) =>
-        Array.match(Array.dedupeWith(kinds, _same), {
-            onEmpty: () => Result.failVoid,
-            onNonEmpty: (distinct) => (distinct.length === 1 ? Result.succeed(Array.headNonEmpty(distinct)) : Result.failVoid),
-        }),
+    return Record.filterMap(
+        Array.groupBy(seen, ([name]) => name),
+        (pairs) =>
+            Result.fromOption(
+                Option.flatMap(
+                    Option.liftPredicate(Array.dedupeWith(Array.map(pairs, Struct.get(1)), _same), (distinct) => distinct.length === 1),
+                    Array.head,
+                ),
+                Function.constVoid,
+            ),
     );
 };
 
@@ -164,9 +120,9 @@ const _written = (node: AnyNode, parent: Option.Option<AnyNode>): boolean =>
             (above.type === 'UnaryExpression' && above.operator === 'delete' && above.argument === node),
     );
 
-const _collections = (code: string, program: Program): readonly Rewrite[] => {
+const _collections = (code: string, program: Program): readonly string[] => {
     const classify = _classify(_variables(program));
-    const rewrites: Rewrite[] = [];
+    const notes: string[] = [];
     fullAncestor(program, (node, _state, ancestors) => {
         if (node.type !== 'MemberExpression' || !node.computed || node.optional) {
             return;
@@ -179,8 +135,7 @@ const _collections = (code: string, program: Program): readonly Rewrite[] => {
         if (base.kind !== 'collection') {
             return;
         }
-        const replacement = `${_ITEM}(${_source(code, node.object)}, ${_source(code, index)}, ${JSON.stringify(base.klass)})`;
-        rewrites.push({ note: `${_source(code, node)} → ${replacement}`, enumeration: Option.none() });
+        notes.push(`${_source(code, node)} → ${_ITEM}(${_source(code, node.object)}, ${_source(code, index)}, ${JSON.stringify(base.klass)})`);
         Object.assign(node, {
             type: 'CallExpression',
             callee: _identifier(_ITEM),
@@ -188,7 +143,7 @@ const _collections = (code: string, program: Program): readonly Rewrite[] => {
             optional: false,
         });
     });
-    return rewrites;
+    return notes;
 };
 
 // --- [ENUMERATIONS] --------------------------------------------------------------------
@@ -201,8 +156,8 @@ const _constant = (live: Live, candidates: readonly string[], literal: unknown):
         () => Option.flatMap(Option.liftPredicate(literal, _integer), (code) => coded(live, candidates, code)),
     );
 
-const _enumerations = (live: Live, code: string, program: Program): readonly Rewrite[] => {
-    const rewrites: Rewrite[] = [];
+const _enumerations = (live: Live, code: string, program: Program): readonly { readonly note: string; readonly enumeration: string }[] => {
+    const rewrites: { readonly note: string; readonly enumeration: string }[] = [];
     fullAncestor(program, (node) => {
         if (node.type !== 'AssignmentExpression' || node.operator !== '=') {
             return;
@@ -213,7 +168,7 @@ const _enumerations = (live: Live, code: string, program: Program): readonly Rew
         }
         const candidates = Option.match(Record.get(properties, left.property.name), { onNone: () => [], onSome: Struct.get('enumerations') });
         Option.map(_constant(live, candidates, right.value), ({ enumeration, constant }) => {
-            rewrites.push({ note: `${_source(code, node)} → ${_source(code, left)} = ${enumeration}.${constant}`, enumeration: Option.some(enumeration) });
+            rewrites.push({ note: `${_source(code, node)} → ${_source(code, left)} = ${enumeration}.${constant}`, enumeration });
             Object.assign(right, { type: 'MemberExpression', object: _identifier(enumeration), property: _identifier(constant), computed: false, optional: false });
         });
     });
@@ -241,51 +196,46 @@ const _names = (live: Live, node: AnyNode): Names =>
         Match.orElse(() => _declares([])),
     );
 
-const _imports = (live: Live, program: Program, rewritten: readonly string[]): readonly string[] => {
+const _imports = (live: Live, program: Program, rewritten: readonly string[]): Option.Option<{ readonly needed: Array.NonEmptyReadonlyArray<string>; readonly line: string }> => {
     const seen: Names[] = [];
     fullAncestor(program, (node) => {
         seen.push(_names(live, node));
     });
     const needed = Array.difference(Array.dedupe([...Array.flatMap(seen, Struct.get('referenced')), ...rewritten]), Array.flatMap(seen, Struct.get('declared')));
-    if (needed.length === 0) {
-        return [];
-    }
-    const destructuring = Array.findFirst(program.body, _destructuring);
-    const existing = Option.match(destructuring, { onNone: () => [], onSome: (statement) => Array.flatMap(statement.declarations, (declarator) => _bound(declarator.id)) });
-    const replacement = _require(Array.sort(Array.dedupe([...existing, ...needed]), Order.String));
-    Option.match(destructuring, {
-        onNone: () => {
-            program.body.unshift(replacement);
-        },
-        onSome: (statement) => {
-            Object.assign(statement, replacement);
-        },
+    return Option.map(Option.liftPredicate(needed, Array.isArrayNonEmpty), (names) => {
+        const [rest, existing] = Array.partition(program.body, Filter.fromPredicate(_destructuring));
+        program.body.splice(0, program.body.length, ...rest);
+        const bound = Array.flatMap(existing, (statement) => Array.flatMap(statement.declarations, (declarator) => _bound(declarator.id)));
+        return { needed: names, line: `const { ${Array.join(Array.sort(Array.dedupe([...bound, ...names]), Order.String), ', ')} } = require('indesign');` };
     });
-    return [`imports ${Array.join(needed, ', ')} from require('indesign')`];
 };
 
 // --- [AUTOCORRECT] ---------------------------------------------------------------------
 
 const _capped = (notes: readonly string[]): readonly string[] => (notes.length <= _NOTES ? notes : [...Array.take(notes, _NOTES), `${notes.length - _NOTES} more`]);
 
-const autocorrect = (live: Live, code: string): Corrected =>
+const _autocorrect = (live: Live, code: string): { readonly code: string; readonly autocorrections: readonly string[] } =>
     Option.match(_parsed(code), {
         onNone: () => ({ code, autocorrections: [] }),
         onSome: (program) => {
             const indexing = _collections(code, program);
             const enumerations = _enumerations(live, code, program);
-            const imports = _imports(live, program, Array.getSomes(Array.map(enumerations, Struct.get('enumeration'))));
-            const helper = indexing.length > 0 ? [`prepends ${_ITEM} helper line`] : [];
-            const notes = Array.dedupe([...helper, ...Array.map(indexing, Struct.get('note')), ...Array.map(enumerations, Struct.get('note')), ...imports]);
-            const printed = indexing.length > 0 ? `${_ITEM_HELPER}\n${generate(program)}` : generate(program);
-            return { code: notes.length === 0 ? code : printed, autocorrections: _capped(notes) };
+            const imports = _imports(live, program, Array.map(enumerations, Struct.get('enumeration')));
+            const helper = Option.toArray(Option.liftPredicate(_ITEM_HELPER, () => indexing.length > 0));
+            const notes = Array.dedupe([
+                ...Array.map(helper, () => `prepends ${_ITEM} helper line`),
+                ...indexing,
+                ...Array.map(enumerations, Struct.get('note')),
+                ...Array.map(Option.toArray(imports), ({ needed }) => `imports ${Array.join(needed, ', ')} from require('indesign')`),
+            ]);
+            return { code: notes.length === 0 ? code : Array.join([...Array.map(Option.toArray(imports), Struct.get('line')), ...helper, generate(program)], '\n'), autocorrections: _capped(notes) };
         },
     });
 
 // --- [RUN] -----------------------------------------------------------------------------
 
-const execute = (live: Live, { code, undoName }: Execute): Prepared => {
-    const corrected = autocorrect(live, code);
+const execute = (live: Live, { code, undoName }: Execute): { readonly autocorrections: readonly string[]; readonly run: Effect.Effect<unknown, HostRejection> } => {
+    const corrected = _autocorrect(live, code);
     return {
         autocorrections: corrected.autocorrections,
         run: Option.match(undoName, {
@@ -311,5 +261,4 @@ const execute = (live: Live, { code, undoName }: Execute): Prepared => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Corrected, Prepared };
-export { autocorrect, execute };
+export { execute };

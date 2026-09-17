@@ -7,14 +7,20 @@ import { Array, Schema, Struct } from 'effect';
 type Host = import('photoshop').Preferences;
 type Class = Exclude<keyof Host, 'typename'>;
 type Key<C extends Class> = Exclude<keyof Host[C], 'typename'>;
-type Literal<Value> = Value extends string ? `${Value}` : Value;
+type Literal<Value> = Value extends string
+    ? `${Value}`
+    : Value extends readonly (infer Item)[]
+      ? readonly Literal<Item>[]
+      : Value extends object
+        ? { readonly [K in keyof Value]: Literal<Value[K]> }
+        : Value;
 type Target = { [C in Class]: { [K in Key<C>]: { readonly section: C; readonly key: K; readonly value: Literal<Host[C][K]>; readonly row: number } }[Key<C>] }[Class];
 type Section = (typeof Section)['Type'];
 type Write = (typeof Write)['Type'];
 
 // --- [TABLE] ---------------------------------------------------------------------------
 
-const TARGETS: readonly Target[] = [
+const TARGETS: Array.NonEmptyReadonlyArray<Target> = [
     { section: 'general', key: 'colorPicker', value: { type: 'photoshopPicker' }, row: 1 },
     { section: 'general', key: 'imageInterpolation', value: 'bicubicAutomatic', row: 3 },
     { section: 'general', key: 'autoUpdateOpenDocuments', value: false, row: 4 },
@@ -68,7 +74,7 @@ const Write: Schema.Struct<{ readonly section: typeof Section; readonly key: Sch
 
 const Writes: Schema.NonEmptyArray<typeof Write> = Schema.NonEmptyArray(Write);
 
-const TARGET_ROWS: (typeof Writes)['Type'] = Schema.decodeSync(Writes)(Array.map(TARGETS, Struct.pick(['section', 'key', 'value'])));
+const TARGET_ROWS: (typeof Writes)['Type'] = Array.map(TARGETS, Struct.pick(['section', 'key', 'value']));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

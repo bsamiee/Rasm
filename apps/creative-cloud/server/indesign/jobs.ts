@@ -2,7 +2,7 @@
 
 import { Effect, identity, Record, Schema, Struct } from 'effect';
 import { Execute } from '../frames.ts';
-import { Dpi, PixelBudget, Region } from '../images.ts';
+import { Bounds, Dpi, PixelBudget, Region } from '../images.ts';
 import { AbsolutePath, PageIndex } from '../values.ts';
 import { members, preferences } from './indesign.ts';
 
@@ -20,23 +20,17 @@ type Kind = (typeof Kind)['Type'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _box: { readonly top: Schema.Number; readonly left: Schema.Number; readonly bottom: Schema.Number; readonly right: Schema.Number } = {
-    top: Schema.Number,
-    left: Schema.Number,
-    bottom: Schema.Number,
-    right: Schema.Number,
-};
 const _named: { readonly path: Schema.String } = { path: Schema.String };
-const _Box: Schema.Struct<typeof _box> = Schema.Struct(_box);
-const _Item: Schema.Struct<{ readonly id: Schema.Int; readonly type: Schema.String; readonly name: Schema.String; readonly bounds: typeof _Box; readonly hasGraphic: Schema.Boolean }> = Schema.Struct({
-    id: Schema.Int,
-    type: Schema.String,
-    name: Schema.String,
-    bounds: _Box,
-    hasGraphic: Schema.Boolean,
-});
-const _cursor: Schema.withDecodingDefaultKey<Schema.Int> = PageIndex.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0)));
-const _next: Schema.OptionFromNullOr<Schema.Int> = Schema.OptionFromNullOr(Schema.Int);
+const _cursor = PageIndex.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0)));
+const _next = Schema.OptionFromNullOr(Schema.Int);
+const _Item: Schema.Struct<{ readonly id: Schema.Int; readonly type: Schema.String; readonly name: Schema.String; readonly bounds: typeof Bounds; readonly hasGraphic: Schema.Boolean }> =
+    Schema.Struct({
+        id: Schema.Int,
+        type: Schema.String,
+        name: Schema.String,
+        bounds: Bounds,
+        hasGraphic: Schema.Boolean,
+    });
 
 const Section: Schema.Literals<Array<keyof typeof preferences>> = Schema.Literals(Struct.keys(preferences));
 
@@ -82,8 +76,8 @@ const Snapshot: Schema.Struct<(typeof Capture)['fields'] & { readonly directory:
 
 const GetLayout: Schema.Struct<{
     readonly includeItems: Schema.withDecodingDefaultKey<Schema.Boolean>;
-    readonly pageCursor: typeof _cursor;
-    readonly itemCursor: typeof _cursor;
+    readonly pageCursor: Schema.withDecodingDefaultKey<Schema.Int>;
+    readonly itemCursor: Schema.withDecodingDefaultKey<Schema.Int>;
     readonly limit: Schema.withDecodingDefaultKey<Schema.Int>;
 }> = Schema.Struct({
     includeItems: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
@@ -152,17 +146,17 @@ const Layout: Schema.Struct<{
             readonly name: Schema.String;
             readonly documentOffset: Schema.Int;
             readonly side: Schema.String;
-            readonly bounds: typeof _Box;
+            readonly bounds: typeof Bounds;
             readonly margins: Schema.Struct<{ readonly top: Schema.Number; readonly bottom: Schema.Number; readonly inside: Schema.Number; readonly outside: Schema.Number }>;
-            readonly contentArea: typeof _Box;
+            readonly contentArea: typeof Bounds;
             readonly guides: Schema.$Array<Schema.Struct<{ readonly id: Schema.Int; readonly orientation: Schema.String; readonly location: Schema.Number }>>;
             readonly items: Schema.OptionFromOptionalKey<Schema.$Array<typeof _Item>>;
         }>
     >;
     readonly pageCount: Schema.Int;
-    readonly pageCursor: typeof _next;
+    readonly pageCursor: Schema.OptionFromNullOr<Schema.Int>;
     readonly itemCount: Schema.Int;
-    readonly itemCursor: typeof _next;
+    readonly itemCursor: Schema.OptionFromNullOr<Schema.Int>;
 }> = Schema.Struct({
     kind: Schema.Literal('layout'),
     facingPages: Schema.Boolean,
@@ -174,9 +168,9 @@ const Layout: Schema.Struct<{
             name: Schema.String,
             documentOffset: Schema.Int,
             side: Schema.String,
-            bounds: _Box,
+            bounds: Bounds,
             margins: Schema.Struct({ top: Schema.Number, bottom: Schema.Number, inside: Schema.Number, outside: Schema.Number }),
-            contentArea: _Box,
+            contentArea: Bounds,
             guides: Schema.Array(Schema.Struct({ id: Schema.Int, orientation: Schema.String, location: Schema.Number })),
             items: Schema.OptionFromOptionalKey(Schema.Array(_Item)),
         }),

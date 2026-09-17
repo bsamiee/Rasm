@@ -28,10 +28,7 @@ const _handle = <Channel, Input, Output, Requirements>(
     state: Channel,
     input: Input,
 ): Effect.Effect<{ readonly result: Output | (typeof Failure)['Type'] }, never, Requirements> =>
-    Effect.match(run(state, input), {
-        onSuccess: (value) => ({ result: value }),
-        onFailure: (error) => ({ result: { kind: 'error' as const, error } }),
-    });
+    Effect.match(run(state, input), { onSuccess: (value) => ({ result: value }), onFailure: (error) => ({ result: { kind: 'error' as const, error } }) });
 
 const contract =
     <Channel, Dependencies extends readonly Context.Key<unknown, unknown>[]>(channel: Context.Service<Channel, Channel>, dependencies: Dependencies): Row<Channel, Dependencies> =>

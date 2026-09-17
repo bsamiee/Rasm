@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { app, type Document, type Layer } from 'adobe:photoshop';
-import { type Handler, handler, thrown } from '@rasm/creative-cloud-server/client';
+import { active, type Handler, handler, opened, thrown } from '@rasm/creative-cloud-server/client';
 import { HostRejection } from '@rasm/creative-cloud-server/errors';
 import { type Active, DocumentState, GetDocument, type LayerRow } from '@rasm/creative-cloud-server/photoshop/jobs';
 import { Array, Effect, Option } from 'effect';
@@ -25,18 +25,17 @@ const _row = ({ layer, depth, parentId }: Placed): LayerRow => ({ id: layer.id, 
 
 // --- [DOCUMENTS] -----------------------------------------------------------------------
 
-const _summary = (open: Document): { readonly id: number; readonly name: string; readonly path: string; readonly saved: boolean } => ({
-    id: open.id,
-    name: open.name,
-    path: open.path,
-    saved: open.saved,
-});
+const _summary = (open: Document): (typeof DocumentState)['Type']['documents'][number] => ({ id: open.id, name: open.name, path: open.path, saved: open.saved });
 
-const _active = (): Option.Option<Document> => (app.documents.length === 0 ? Option.none() : Option.some(app.activeDocument));
+const found = (id: number): Effect.Effect<Document, HostRejection> =>
+    Effect.fromOption(
+        Array.findFirst(app.documents, (open) => open.id === id),
+        () => HostRejection.cases.documentNotFound.make({ documentId: id }),
+    );
 
 const document: (documentId: Option.Option<number>) => Effect.Effect<Document, HostRejection> = Option.match({
-    onNone: () => Effect.fromOption(() => HostRejection.cases.noActiveDocument.make({}))(_active()),
-    onSome: (id: number) => Effect.fromOption(() => HostRejection.cases.documentNotFound.make({ documentId: id }))(Array.findFirst(app.documents, (open) => open.id === id)),
+    onNone: () => opened(app),
+    onSome: found,
 });
 
 const _state = (open: Document, limit: number, cursor: number, depth: number): (typeof Active)['Type'] => {
@@ -54,7 +53,7 @@ const _state = (open: Document, limit: number, cursor: number, depth: number): (
         resolution: open.resolution,
         layers: Array.take(Array.drop(rows, cursor), limit),
         layerCount: rows.length,
-        layerCursor: cursor + limit < rows.length ? Option.some(cursor + limit) : Option.none(),
+        layerCursor: Option.liftPredicate(cursor + limit, (next) => next < rows.length),
     };
 };
 
@@ -62,9 +61,12 @@ const _state = (open: Document, limit: number, cursor: number, depth: number): (
 
 const getDocument: Handler = handler(GetDocument, DocumentState, ({ documentId, limit, cursor, depth }) =>
     Effect.gen(function* () {
-        const documents = yield* Effect.try({ try: () => Array.map(Array.fromIterable(app.documents), _summary), catch: thrown });
-        const active = yield* Option.match(documentId, { onNone: () => Effect.succeed(_active()), onSome: (id) => Effect.map(document(Option.some(id)), Option.some) });
-        return { kind: 'document' as const, documents, active: Option.map(active, (open) => _state(open, limit, cursor, depth)) };
+        const documents = yield* Effect.try({
+            try: () => Array.map(Array.fromIterable(app.documents), _summary),
+            catch: thrown,
+        });
+        const open = yield* Option.match(documentId, { onNone: () => Effect.succeed(active(app)), onSome: (id) => Effect.map(found(id), Option.some) });
+        return { kind: 'document' as const, documents, active: Option.map(open, (selected) => _state(selected, limit, cursor, depth)) };
     }),
 );
 

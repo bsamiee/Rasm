@@ -3,8 +3,6 @@
     "private": true,
     "type": "module",
     "dependencies": {
-        "@swc/cli": "catalog:",
-        "@swc/core": "catalog:",
         "types-for-adobe": "catalog:"
     }
 }

@@ -1,7 +1,8 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { Effect, Schema, Struct } from 'effect';
-import { PixelBudget, Region } from '../images.ts';
+import { Execute } from '../frames.ts';
+import { Bounds, PixelBudget, Region } from '../images.ts';
 import { Section, Writes } from './preferences.ts';
 
 // --- [TABLE] ---------------------------------------------------------------------------
@@ -28,22 +29,13 @@ type Rejection = (typeof Rejection)['Type'];
 type Target = (typeof Target)['Type'];
 type PresetKind = (typeof PresetKind)['Type'];
 type LayerRow = (typeof _LayerRow)['Type'];
-type Bounds = (typeof Bounds)['Type'];
+type Kind = (typeof Kind)['Type'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _optionalInt: Schema.OptionFromOptionalKey<Schema.Int> = Schema.OptionFromOptionalKey(Schema.Int);
-const _next: Schema.OptionFromNullOr<Schema.Int> = Schema.OptionFromNullOr(Schema.Int);
-const _off: Schema.withDecodingDefaultKey<Schema.Boolean> = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)));
 const _keyed: { readonly section: typeof Section; readonly key: Schema.String } = { section: Section, key: Schema.String };
-const _box: { readonly left: Schema.Number; readonly top: Schema.Number; readonly right: Schema.Number; readonly bottom: Schema.Number } = {
-    left: Schema.Number,
-    top: Schema.Number,
-    right: Schema.Number,
-    bottom: Schema.Number,
-};
-
-const Bounds: Schema.Struct<typeof _box> = Schema.Struct(_box);
+const _optionalInt = Schema.OptionFromOptionalKey(Schema.Int);
+const _off = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)));
 
 const Descriptor: Schema.StructWithRest<Schema.Struct<{ readonly _obj: Schema.String }>, readonly [Schema.$Record<Schema.String, Schema.Codec<Schema.Json>>]> = Schema.StructWithRest(
     Schema.Struct({ _obj: Schema.String }),
@@ -66,9 +58,9 @@ const _LayerRow: Schema.Struct<{
     readonly kind: Schema.String;
     readonly visible: Schema.Boolean;
     readonly depth: Schema.Int;
-    readonly parentId: typeof _next;
+    readonly parentId: Schema.OptionFromNullOr<Schema.Int>;
     readonly children: Schema.Int;
-}> = Schema.Struct({ id: Schema.Int, name: Schema.String, kind: Schema.String, visible: Schema.Boolean, depth: Schema.Int, parentId: _next, children: Schema.Int });
+}> = Schema.Struct({ id: Schema.Int, name: Schema.String, kind: Schema.String, visible: Schema.Boolean, depth: Schema.Int, parentId: Schema.OptionFromNullOr(Schema.Int), children: Schema.Int });
 
 // --- [BODIES] --------------------------------------------------------------------------
 
@@ -84,14 +76,14 @@ const BatchPlay: Schema.Struct<{
 
 const Snapshot: Schema.Struct<{
     readonly target: typeof Target;
-    readonly documentId: typeof _optionalInt;
-    readonly layerId: typeof _optionalInt;
+    readonly documentId: Schema.OptionFromOptionalKey<Schema.Int>;
+    readonly layerId: Schema.OptionFromOptionalKey<Schema.Int>;
     readonly region: Schema.OptionFromOptionalKey<typeof Region>;
     readonly budget: typeof PixelBudget;
 }> = Schema.Struct({ target: Target, documentId: _optionalInt, layerId: _optionalInt, region: Schema.OptionFromOptionalKey(Region), budget: PixelBudget });
 
 const GetDocument: Schema.Struct<{
-    readonly documentId: typeof _optionalInt;
+    readonly documentId: Schema.OptionFromOptionalKey<Schema.Int>;
     readonly limit: Schema.withDecodingDefaultKey<Schema.Int>;
     readonly cursor: Schema.withDecodingDefaultKey<Schema.Int>;
     readonly depth: Schema.withDecodingDefaultKey<Schema.Int>;
@@ -152,7 +144,7 @@ const Active: Schema.Struct<{
     readonly resolution: Schema.Number;
     readonly layers: Schema.$Array<typeof _LayerRow>;
     readonly layerCount: Schema.Int;
-    readonly layerCursor: typeof _next;
+    readonly layerCursor: Schema.OptionFromNullOr<Schema.Int>;
 }> = Schema.Struct({
     id: Schema.Int,
     mode: Schema.String,
@@ -163,7 +155,7 @@ const Active: Schema.Struct<{
     resolution: Schema.Number,
     layers: Schema.Array(_LayerRow),
     layerCount: Schema.Int,
-    layerCursor: _next,
+    layerCursor: Schema.OptionFromNullOr(Schema.Int),
 });
 
 const DocumentState: Schema.Struct<{
@@ -205,14 +197,38 @@ const Presets: Schema.Struct<{ readonly kind: Schema.Literal<'presets'>; readonl
     count: Schema.Int,
 });
 
+// --- [KINDS] ---------------------------------------------------------------------------
+
+const Bodies: Schema.Struct<{
+    readonly execute: typeof Execute;
+    readonly batchPlay: typeof BatchPlay;
+    readonly snapshot: typeof Snapshot;
+    readonly getDocument: typeof GetDocument;
+    readonly getPreferences: typeof GetPreferences;
+    readonly setPreferences: typeof SetPreferences;
+    readonly listPresets: typeof ListPresets;
+    readonly runAction: typeof RunAction;
+}> = Schema.Struct({
+    execute: Execute,
+    batchPlay: BatchPlay,
+    snapshot: Snapshot,
+    getDocument: GetDocument,
+    getPreferences: GetPreferences,
+    setPreferences: SetPreferences,
+    listPresets: ListPresets,
+    runAction: RunAction,
+});
+
+const Kind: Schema.Literals<Array<keyof (typeof Bodies)['fields']>> = Schema.Literals(Struct.keys(Bodies.fields));
+
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { LayerRow, PresetKind, Rejection, Target };
+export type { Kind, LayerRow, PresetKind, Rejection, Target };
 export {
     Active,
     Applied,
     BatchPlay,
-    Bounds,
+    Bodies,
     Descriptors,
     DocumentState,
     GetDocument,

@@ -11,7 +11,7 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, contains, document, fold, items, run, select, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, contains, fold, items, run, select, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [CHANNELS] ------------------------------------------------------------------------
 
@@ -23,18 +23,22 @@ interface Row {
 const REGISTRATION = '[Registration]';
 
 const channels = (value: Color, match: 'rgb' | 'cmyk'): number[] => {
-    const rgb = value as RGBColor;
-    const cmyk = value as CMYKColor;
-    return match === 'rgb' ? [rgb.red, rgb.green, rgb.blue] : [cmyk.cyan, cmyk.magenta, cmyk.yellow, cmyk.black];
+    if (match === 'rgb' && typed<RGBColor>('RGBColor')(value)) {
+        return [value.red, value.green, value.blue];
+    }
+    if (match === 'cmyk' && typed<CMYKColor>('CMYKColor')(value)) {
+        return [value.cyan, value.magenta, value.yellow, value.black];
+    }
+    return [];
 };
 
-const same = (left: number[], right: number[]): boolean => left.length === right.length && fold(left, true, (equal, value, index): boolean => equal && value === right[index]);
+const same = (left: number[], right: number[]): boolean => left.length > 0 && left.length === right.length && fold(left, true, (equal, value, index): boolean => equal && value === right[index]);
 
 const spots = (doc: Document): Spot[] => select(items(doc.spots), (spot): boolean => spot.name !== REGISTRATION);
 
 const opened = (path: string): Document => {
     const [open] = select(items(app.documents), (doc): boolean => doc.fullName.fsName === path);
-    return open ?? document(path);
+    return open === undefined ? app.open(new File(path)) : open;
 };
 
 // --- [ENTRY] ---------------------------------------------------------------------------

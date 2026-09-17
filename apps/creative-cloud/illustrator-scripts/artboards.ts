@@ -11,7 +11,7 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, flatten, items, run, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, flatten, fold, items, nth, range, run, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [CANVAS] --------------------------------------------------------------------------
 
@@ -46,7 +46,7 @@ interface Box {
 const measured = (doc: Document, rect: Rect): Box => {
     const probe = doc.pathItems.rectangle(0, 0, PROBE_SIDE, PROBE_SIDE);
     const [probeX, probeY] = probe.position;
-    const shift = 1 + ((probeX * 2 - (CANVAS_HALF_EXTENT + 1) - (probeY * 2 + CANVAS_HALF_EXTENT + 1)) / 2);
+    const shift = 1 + (probeX * 2 - (CANVAS_HALF_EXTENT + 1) - (probeY * 2 + CANVAS_HALF_EXTENT + 1)) / 2;
     probe.position = [probeX - shift, probeY + shift];
     const artboardRect = doc.pathItems.rectangle(rect[1], rect[0], rect[2] - rect[0], rect[1] - rect[3]);
     const left = Math.floor(artboardRect.position[0] - probe.position[0]);
@@ -63,10 +63,7 @@ const fits = (box: Box, duplicate: Duplicate): { readonly fitting: number; reado
     if (lastRight > CANVAS_HALF_EXTENT) {
         return [{ fitting: Math.floor((CANVAS_HALF_EXTENT - box.right) / stepX) + 1, reason: 'columnsExceedCanvas' }];
     }
-    let rowsUsed = 0;
-    for (let index = 0; index < duplicate.copies; index += 1) {
-        rowsUsed += (index + 1) % duplicate.columns === 0 ? 1 : 0;
-    }
+    const rowsUsed = Math.floor(duplicate.copies / duplicate.columns);
     const stepY = box.bottom - box.top + duplicate.spacing;
     if (box.bottom + stepY * rowsUsed > CANVAS_HALF_EXTENT) {
         return [{ fitting: duplicate.columns - 1 + duplicate.columns * Math.floor((CANVAS_HALF_EXTENT - box.bottom) / stepY), reason: 'rowsExceedCanvas' }];
@@ -74,18 +71,13 @@ const fits = (box: Box, duplicate: Duplicate): { readonly fitting: number; reado
     return [];
 };
 
-const placed = (ab: Rect, previous: Rect | undefined, n: number, duplicate: Duplicate): Rect => {
-    const wrap = n % duplicate.columns === 0;
+const placed = (ab: Rect, previous: Rect, n: number, duplicate: Duplicate): Rect => {
     const row = n / duplicate.columns;
     const h = ab[3] - ab[1];
     const w = ab[2] - ab[0];
-    if (wrap) {
-        return [ab[0], ab[1] - duplicate.spacing * row + h * row, ab[2], ab[3] - duplicate.spacing * row + h * row];
-    }
-    if (previous === undefined) {
-        return [ab[2] + duplicate.spacing, ab[1], ab[2] + duplicate.spacing + w, ab[3]];
-    }
-    return [previous[2] + duplicate.spacing, previous[1], previous[2] + duplicate.spacing + w, previous[3]];
+    return n % duplicate.columns === 0
+        ? [ab[0], ab[1] - duplicate.spacing * row + h * row, ab[2], ab[3] - duplicate.spacing * row + h * row]
+        : [previous[2] + duplicate.spacing, previous[1], previous[2] + duplicate.spacing + w, previous[3]];
 };
 
 const named = (template: string, source: string, n: number, copies: number): string =>
@@ -130,28 +122,35 @@ const copied = (doc: Document, sourceIndex: number, ab: Rect, target: Rect): num
     return selected.length;
 };
 
+const inserted = (collection: Artboards, rect: Rect, insertLast: boolean, index: number): Artboard => {
+    if (insertLast) {
+        return collection.add(rect);
+    }
+    collection.insert(rect, index);
+    return nth(collection, index);
+};
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 const duplicated = (doc: Document, sourceIndex: number, duplicate: Duplicate): JsonObject => {
-    const source = doc.artboards[sourceIndex] as Artboard;
+    const source = nth(doc.artboards, sourceIndex);
     const ab = source.artboardRect;
     const [refusal] = fits(measured(doc, ab), duplicate);
     if (refusal !== undefined) {
         return { kind: 'artboardsRejected', reason: refusal.reason, fitting: refusal.fitting };
     }
     const held = duplicate.copyArtwork ? released(doc) : [];
-    const applied: JsonObject[] = [];
-    let previous: Rect | undefined;
-    for (let n = 1; n <= duplicate.copies; n += 1) {
-        const rect = placed(ab, previous, n, duplicate);
+    const { rects } = fold<number, { readonly previous: Rect; readonly rects: Rect[] }>(range(duplicate.copies), { previous: ab, rects: [] }, ({ previous, rects: listed }, index) => {
+        const rect = placed(ab, previous, index + 1, duplicate);
+        return { previous: rect, rects: listed.concat([rect]) };
+    });
+    const applied = collect(rects, (rect, index): JsonObject => {
+        const n = index + 1;
         const name = named(duplicate.nameTemplate, source.name, n, duplicate.copies);
-        const added = duplicate.insertLast ? doc.artboards.add(rect) : doc.artboards.insert(rect, sourceIndex + n);
-        const artboard = added ?? (doc.artboards[sourceIndex + n] as Artboard);
+        const artboard = inserted(doc.artboards, rect, duplicate.insertLast, sourceIndex + n);
         artboard.name = name;
-        const copies = duplicate.copyArtwork ? copied(doc, sourceIndex, ab, rect) : 0;
-        applied.push({ name, rect, copiedItems: copies });
-        previous = rect;
-    }
+        return { name, rect, copiedItems: duplicate.copyArtwork ? copied(doc, sourceIndex, ab, rect) : 0 };
+    });
     visit(held, (row): void => {
         const restored = row.item;
         restored.locked = row.locked;
@@ -161,8 +160,8 @@ const duplicated = (doc: Document, sourceIndex: number, duplicate: Duplicate): J
     return { kind: 'artboardsApplied', applied };
 };
 
-const propertied = (artboard: Artboard, properties: Properties): JsonObject => {
-    const target = artboard;
+const propertied = (doc: Document, index: number, properties: Properties): JsonObject => {
+    const target = nth(doc.artboards, index);
     if (properties.rulerOrigin !== undefined) {
         target.rulerOrigin = properties.rulerOrigin;
     }
@@ -182,23 +181,33 @@ const propertied = (artboard: Artboard, properties: Properties): JsonObject => {
     return {
         kind: 'artboardsApplied',
         applied: [
-            { name: target.name, rulerOrigin: [x, y], rulerPixelAspectRatio: target.rulerPAR, showCenter: target.showCenter, showCrossHairs: target.showCrossHairs, showSafeAreas: target.showSafeAreas },
+            {
+                name: target.name,
+                rulerOrigin: [x, y],
+                rulerPixelAspectRatio: target.rulerPAR,
+                showCenter: target.showCenter,
+                showCrossHairs: target.showCrossHairs,
+                showSafeAreas: target.showSafeAreas,
+            },
         ],
     };
 };
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-const artboards = (request: { readonly index?: number; readonly properties?: Properties; readonly duplicate?: Duplicate }, _at: Site): Reading<JsonObject> => {
+const artboards = (
+    request: { readonly artboard: { readonly index: number } | { readonly active: true }; readonly change: { readonly duplicate: Duplicate } | { readonly properties: Properties } },
+    _at: Site,
+): Reading<JsonObject> => {
     const doc = app.activeDocument;
-    const index = request.index ?? doc.artboards.getActiveArtboardIndex();
+    const index = 'index' in request.artboard ? request.artboard.index : doc.artboards.getActiveArtboardIndex();
+    if (index < 0 || index >= doc.artboards.length) {
+        return { value: { kind: 'artboardsRejected', reason: 'artboardOutOfRange', count: doc.artboards.length }, unavailable: [] };
+    }
     const system = app.coordinateSystem;
     app.coordinateSystem = CoordinateSystem.DOCUMENTCOORDINATESYSTEM;
     try {
-        if (request.duplicate !== undefined) {
-            return { value: duplicated(doc, index, request.duplicate), unavailable: [] };
-        }
-        return { value: propertied(doc.artboards[index] as Artboard, request.properties ?? {}), unavailable: [] };
+        return { value: 'duplicate' in request.change ? duplicated(doc, index, request.change.duplicate) : propertied(doc, index, request.change.properties), unavailable: [] };
     } finally {
         app.coordinateSystem = system;
     }

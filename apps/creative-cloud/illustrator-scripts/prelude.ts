@@ -5,6 +5,10 @@
 declare const $: $;
 declare const app: Application;
 
+const rgbColor: new () => RGBColor = $.global.RGBColor;
+const cmykColor: new () => CMYKColor = $.global.CMYKColor;
+const grayColor: new () => GrayColor = $.global.GrayColor;
+
 // --- [CONTRACT] ------------------------------------------------------------------------
 
 declare global {
@@ -41,6 +45,14 @@ declare global {
 
     type Reader = (at: Site) => Reading<Json>;
 
+    interface Hosted {
+        readonly typename: string;
+        readonly name: string;
+        readonly length: unknown;
+        readonly reflect: Reflection;
+        readonly [name: string]: unknown;
+    }
+
     interface ColorSpec {
         readonly model: 'RGB' | 'CMYK' | 'Gray';
         readonly values: number[];
@@ -66,19 +78,24 @@ declare global {
         readonly collect: <T, R>(list: T[], map: (item: T, index: number) => R) => R[];
         readonly color: (spec: ColorSpec) => Color;
         readonly contains: <T>(list: T[], value: T) => boolean;
-        readonly document: (path: string | undefined) => Document;
         readonly dump: (value: unknown, at: Site) => Reading<Json>;
         readonly each: <T>(at: Site, list: T[], reader: (item: T, at: Site) => Reading<Json>) => Reading<Json[]>;
         readonly flatten: (list: PageItem[]) => PageItem[];
         readonly fold: <T, A>(list: T[], initial: A, step: (accumulator: A, item: T, index: number) => A) => A;
+        readonly has: (object: object, name: string) => boolean;
+        readonly hosted: (value: unknown) => value is Hosted;
         readonly items: <T>(collection: { readonly length: number; readonly [index: number]: T }) => T[];
         readonly layer: (doc: Document, name: string) => Layer;
         readonly members: <T extends object>(object: T) => [string, Reader][];
-        readonly names: (object: object) => string[];
+        readonly nth: <T>(collection: { readonly length: number; readonly [index: number]: T }, position: number) => T;
+        readonly only: <T, S extends T>(list: T[], keep: (item: T) => item is S) => S[];
+        readonly pairs: <T>(list: T[]) => [T, T][];
+        readonly range: (count: number) => number[];
         readonly reference: (value: unknown, at: Site) => Reading<Json>;
         readonly run: <R extends object>(tool: (request: R, at: Site) => Reading<JsonObject>) => string;
         readonly select: <T>(list: T[], keep: (item: T) => boolean) => T[];
         readonly swatches: (doc: Document, groups: SwatchGroupSpec[], replaceByName: boolean) => SwatchRows;
+        readonly typed: <S extends { readonly typename: string }>(typename: string) => (item: { readonly typename: string }) => item is S;
         readonly visit: <T>(list: T[], act: (item: T, index: number) => void) => void;
         readonly walk: <T extends object>(at: Site, object: T, extras: [string, Reader][]) => Reading<JsonObject>;
     }
@@ -94,28 +111,42 @@ const fold = <T, A>(list: T[], initial: A, step: (accumulator: A, item: T, index
     return accumulator;
 };
 
+const range = (count: number): number[] => {
+    const list: number[] = [];
+    for (let index = 0; index < count; index += 1) {
+        list.push(index);
+    }
+    return list;
+};
+
 const collect = <T, R>(list: T[], map: (item: T, index: number) => R): R[] =>
-    fold(list, [] as R[], (mapped, item, index): R[] => {
+    fold<T, R[]>(list, [], (mapped, item, index): R[] => {
         mapped.push(map(item, index));
         return mapped;
     });
 
-const select = <T>(list: T[], keep: (item: T) => boolean): T[] =>
-    fold(list, [] as T[], (kept, item): T[] => {
+const only = <T, S extends T>(list: T[], keep: (item: T) => item is S): S[] =>
+    fold<T, S[]>(list, [], (kept, item): S[] => {
         if (keep(item)) {
             kept.push(item);
         }
         return kept;
     });
 
-const visit = <T>(list: T[], act: (item: T, index: number) => void): void => {
-    fold(list, 0, (visited, item, index): number => {
-        act(item, index);
-        return visited + 1;
+const select = <T>(list: T[], keep: (item: T) => boolean): T[] =>
+    fold<T, T[]>(list, [], (kept, item): T[] => {
+        if (keep(item)) {
+            kept.push(item);
+        }
+        return kept;
     });
-};
+
+const visit = <T>(list: T[], act: (item: T, index: number) => void): void => fold<T, void>(list, undefined, (_visited, item, index): void => act(item, index));
 
 const contains = <T>(list: T[], value: T): boolean => select(list, (item): boolean => item === value).length > 0;
+
+const pairs = <T>(list: T[]): [T, T][] =>
+    fold<T, [T, T][]>(list.slice(1), [], (rows, next, index): [T, T][] => rows.concat(collect(list.slice(index, index + 1), (current): [T, T] => [current, next])));
 
 // --- [CLASSES] -------------------------------------------------------------------------
 
@@ -128,6 +159,21 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 const isNumber = (value: unknown): value is number => typeof value === 'number';
 
 const isObject = (value: unknown): value is JsonObject => value !== null && classOf(value) === '[object Object]';
+
+const isFileSystem = (value: unknown): value is File | Folder => {
+    const kind = classOf(value);
+    return kind === '[object File]' || kind === '[object Folder]';
+};
+
+const hosted = (value: unknown): value is Hosted => {
+    const kind = classOf(value);
+    return kind.charAt(0) === '[' && kind.indexOf('[object ') !== 0;
+};
+
+const typed =
+    <S extends { readonly typename: string }>(typename: string) =>
+    (item: { readonly typename: string }): item is S =>
+        item.typename === typename;
 
 const INHERITED = Object.prototype.reflect;
 
@@ -169,7 +215,11 @@ const encode = (value: Json): string => {
     if (value === true || value === false) {
         return String(value);
     }
-    return `{${collect(properties(value), (info): string => `${encode(info.name)}:${encode(value[info.name] as Json)}`).join(',')}}`;
+    const entries = only(
+        collect(properties(value), (info): [string, Json | undefined] => [info.name, value[info.name]]),
+        (entry): entry is [string, Json] => entry[1] !== undefined,
+    );
+    return `{${collect(entries, ([name, member]): string => `${encode(name)}:${encode(member)}`).join(',')}}`;
 };
 
 const decode = (text: string): Json => {
@@ -312,7 +362,7 @@ const decode = (text: string): Json => {
 // --- [READINGS] ------------------------------------------------------------------------
 
 const failure = (error: unknown): [JsonObject, { readonly file: string; readonly line: number }] => {
-    const thrown = error as Error;
+    const thrown = error instanceof Error ? error : new Error(String(error));
     const site = { file: File(thrown.fileName).name, line: thrown.line };
     const marker = 'an Illustrator error occurred: ';
     const opening = thrown.message.indexOf(marker);
@@ -332,7 +382,7 @@ const failure = (error: unknown): [JsonObject, { readonly file: string; readonly
 const present = <T>(value: T): Reading<T> => ({ value, unavailable: [] });
 
 const gather = <T, R>(list: T[], site: (item: T, index: number) => Site, reader: (item: T, at: Site) => Reading<R>, put: (value: R, item: T) => void): JsonObject[] =>
-    fold(list, [] as JsonObject[], (unavailable, item, index): JsonObject[] => {
+    fold<T, JsonObject[]>(list, [], (unavailable, item, index): JsonObject[] => {
         const at = site(item, index);
         try {
             const member = reader(item, at);
@@ -386,18 +436,16 @@ const reference: Prelude['reference'] = (value, at) => {
     if (isObject(value)) {
         return present({});
     }
-    const kind = classOf(value);
-    if (kind === '[object File]' || kind === '[object Folder]') {
-        return present((value as File | Folder).fsName);
+    if (isFileSystem(value)) {
+        return present(value.fsName);
     }
-    if (kind.indexOf('[object ') === 0 || kind.charAt(0) !== '[') {
+    if (!hosted(value)) {
         return present(String(value));
     }
-    const host = value as { readonly typename: string; readonly name: string; readonly length: unknown };
-    if (kind !== `[${host.typename}]`) {
-        return present({ typename: host.typename, name: host.name });
+    if (classOf(value) !== `[${value.typename}]`) {
+        return present({ typename: value.typename, name: value.name });
     }
-    return present(isNumber(host.length) ? { typename: host.typename, length: host.length } : { typename: host.typename });
+    return present(isNumber(value.length) ? { typename: value.typename, length: value.length } : { typename: value.typename });
 };
 
 const members: Prelude['members'] = (object) =>
@@ -428,8 +476,7 @@ const dump: Prelude['dump'] = (value, at) => {
         return all(at, listed);
     }
     const { name } = object.reflect;
-    const linked = fold<string, boolean>(at.chain, false, (found, link): boolean => found || link === name);
-    return linked ? reference(value, at) : all({ path: at.path, chain: at.chain.concat([name]) }, listed);
+    return contains(at.chain, name) ? reference(value, at) : all({ path: at.path, chain: at.chain.concat([name]) }, listed);
 };
 
 // --- [JOB] -----------------------------------------------------------------------------
@@ -481,28 +528,28 @@ const run = <R extends object>(tool: (request: R, at: Site) => Reading<JsonObjec
 
 const items = <T>(collection: { readonly length: number; readonly [index: number]: T }): T[] => Array.prototype.slice.call(collection, 0);
 
-const names = (object: object): string[] => collect(properties(object), (info): string => info.name);
+const nth = <T>(collection: { readonly length: number; readonly [index: number]: T }, position: number): T => Array.prototype.slice.call(collection, position, position + 1)[0];
 
-const document: Prelude['document'] = (path) => (path === undefined ? app.activeDocument : app.open(new File(path)));
+const has = (object: object, name: string): boolean => select(properties(object), (info): boolean => info.name === name).length > 0;
 
 const color: Prelude['color'] = (spec) => {
     const [first, second, third, fourth] = spec.values;
     if (spec.model === 'RGB') {
-        const rgb: RGBColor = new $.global[`${spec.model}Color`]();
+        const rgb = new rgbColor();
         rgb.red = first ?? 0;
         rgb.green = second ?? 0;
         rgb.blue = third ?? 0;
         return rgb;
     }
     if (spec.model === 'CMYK') {
-        const cmyk: CMYKColor = new $.global[`${spec.model}Color`]();
+        const cmyk = new cmykColor();
         cmyk.cyan = first ?? 0;
         cmyk.magenta = second ?? 0;
         cmyk.yellow = third ?? 0;
         cmyk.black = fourth ?? 0;
         return cmyk;
     }
-    const gray: GrayColor = new $.global[`${spec.model}Color`]();
+    const gray = new grayColor();
     gray.gray = first ?? 0;
     return gray;
 };
@@ -518,7 +565,7 @@ const layer: Prelude['layer'] = (doc, name) => {
 };
 
 const flatten: Prelude['flatten'] = (list) =>
-    fold(list, [] as PageItem[], (flat, item): PageItem[] => (item.typename === 'GroupItem' ? flat.concat(flatten(items((item as GroupItem).pageItems))) : flat.concat([item])));
+    fold<PageItem, PageItem[]>(list, [], (flat, item): PageItem[] => (typed<GroupItem>('GroupItem')(item) ? flat.concat(flatten(items(item.pageItems))) : flat.concat([item])));
 
 const named = <T>(collection: { getByName: (name: string) => T }, name: string): T[] => {
     try {
@@ -528,20 +575,20 @@ const named = <T>(collection: { getByName: (name: string) => T }, name: string):
     }
 };
 
-const swatchGroup = (doc: Document, name: string): SwatchGroup | undefined => {
+const swatchGroup = (doc: Document, name: string): SwatchGroup[] => {
     if (name === '') {
-        return undefined;
+        return [];
     }
-    const [found] = named(doc.swatchGroups, name);
-    if (found !== undefined) {
+    const found = named(doc.swatchGroups, name);
+    if (found.length > 0) {
         return found;
     }
     const added = doc.swatchGroups.add();
     added.name = name;
-    return added;
+    return [added];
 };
 
-const placed = (doc: Document, group: SwatchGroup | undefined, swatch: SwatchSpec, replaceByName: boolean): string[] => {
+const placed = (doc: Document, group: SwatchGroup[], swatch: SwatchSpec, replaceByName: boolean): string[] => {
     const [existing] = named(doc.swatches, swatch.name);
     if (existing !== undefined && !replaceByName) {
         return ['nameCollision'];
@@ -555,13 +602,17 @@ const placed = (doc: Document, group: SwatchGroup | undefined, swatch: SwatchSpe
         spot.name = swatch.name;
         spot.colorType = ColorModel.PROCESS;
         spot.color = color(swatch);
-        group?.addSpot(spot);
+        visit(group, (owner): void => {
+            owner.addSpot(spot);
+        });
         return [];
     }
     const added = doc.swatches.add();
     added.name = swatch.name;
     added.color = color(swatch);
-    group?.addSwatch(added);
+    visit(group, (owner): void => {
+        owner.addSwatch(added);
+    });
     return [];
 };
 
@@ -583,4 +634,4 @@ const swatches: Prelude['swatches'] = (doc, groups, replaceByName) => {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-((): Prelude => ({ all, collect, color, contains, document, dump, each, flatten, fold, items, layer, members, names, reference, run, select, swatches, visit, walk }))();
+((): Prelude => ({ all, collect, color, contains, dump, each, flatten, fold, has, hosted, items, layer, members, nth, only, pairs, range, reference, run, select, swatches, typed, visit, walk }))();

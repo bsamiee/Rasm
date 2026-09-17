@@ -6,9 +6,9 @@ import { bundle } from '@rasm/creative-cloud-server/hosts';
 import { Enums } from '@rasm/creative-cloud-server/indesign/jobs';
 import { doScript, read, reply } from '@rasm/creative-cloud-server/osascript';
 import { absent, camel, dictionary, fourcc, MANIPULATION, pascal, type SdefClass, type SdefEnumeration, type SdefProperty, sorted } from '@rasm/creative-cloud-server/sdef';
-import { attached, install, POLL, probed, protocol, relaunch, server, until } from '@rasm/creative-cloud-server/uxp';
+import { attached, declared, install, POLL, probed, protocol, relaunch, server, until } from '@rasm/creative-cloud-server/uxp';
 import { HOSTS } from '@rasm/creative-cloud-server/values';
-import { Array, Cause, Clock, Console, Effect, FileSystem, Filter, flow, HashSet, identity, Option, Order, Path, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
+import { Array, Cause, Clock, Console, Effect, FileSystem, Filter, flow, HashSet, identity, Match, Option, Order, Path, Predicate, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { Command } from 'effect/unstable/cli';
 import { ChildProcess } from 'effect/unstable/process';
 import {
@@ -18,7 +18,6 @@ import {
     type InterfaceDeclaration,
     type InterfaceDeclarationStructure,
     type MethodSignatureStructure,
-    Node,
     type OptionalKind,
     Project,
     type PropertySignatureStructure,
@@ -27,7 +26,7 @@ import {
     VariableDeclarationKind,
     type WriterFunction,
 } from 'ts-morph';
-import { host, manifest, panel } from './uxp.config.ts';
+import { bridge } from './uxp.config.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -58,9 +57,7 @@ const _HOST = HOSTS.indesign;
 const _DECLARATIONS = ['Contents', 'Resources', 'UXP', 'com.adobe.indesign.creative-assistant', 'tsValidation', 'indesign.d.ts'] as const;
 const _OUTPUT = ['..', 'server', 'indesign', 'indesign.ts'] as const;
 const _ENUMERATIONS = 'enumerations.ts';
-const _UXP = '@adobe-uxp-types/uxp';
-const _UXP_TYPINGS = ['src', 'index.d.ts'] as const;
-const _UXP_MODULE = 'uxp';
+const _TYPINGS = { uxp: '@adobe-uxp-types/uxp' } as const;
 const _ENUMERATOR_DOC = /(?<name>[A-Z][A-Za-z0-9]*) enumerator/gu;
 const _PRIMITIVES: Readonly<Record<string, string>> = {
     any: 'any',
@@ -76,7 +73,7 @@ const _PRIMITIVES: Readonly<Record<string, string>> = {
     type: 'string',
 };
 const _DOCKED_MS = 5000;
-const _DOCKED = `${doScript(`var label = ${JSON.stringify(panel.label.default)}; var docked = app.panels.itemByName(label).isValid; if (!docked) app.menuActions.itemByName(label).invoke(); docked`)} language javascript`;
+const _DOCKED = `${doScript(`var label = ${JSON.stringify(bridge.panel.label.default)}; var docked = app.panels.itemByName(label).isValid; if (!docked) app.menuActions.itemByName(label).invoke(); docked`)} language javascript`;
 const _SCOPE = 'return { TextEncoder: typeof TextEncoder, TextDecoder: typeof TextDecoder, queueMicrotask: typeof queueMicrotask, hrtimeBigint: typeof process.hrtime.bigint };';
 const _LIVE =
     "const m = require('indesign'); const names = Object.getOwnPropertyNames(m); return { enumerations: names.filter((n) => { const v = m[n]; return typeof v === 'object' && v !== null && v.constructor.name === 'Enumeration'; }), functions: names.filter((n) => typeof m[n] === 'function') };";
@@ -87,7 +84,6 @@ const _strings = Schema.Array(Schema.String);
 const _Live = Schema.Struct({ enumerations: _strings, functions: _strings });
 
 const AutomationError = Schema.TaggedUnion({
-    moduleNotDeclared: { typings: Schema.String, module: Schema.String },
     unreconciled: { undeclared: Schema.Struct({ enumerations: _strings, constants: Schema.Record(Schema.String, Schema.NonEmptyArray(Schema.String)) }), unvalued: _strings },
 });
 
@@ -283,35 +279,6 @@ const _identity = (adobe: Enumerations, candidates: readonly string[], values: r
     );
 };
 
-// --- [UXP] -----------------------------------------------------------------------------
-
-const _uxp = Effect.gen(function* () {
-    const fs = yield* FileSystem.FileSystem;
-    const path = yield* Path.Path;
-    const packageDir = path.dirname(yield* path.fromFileUrl(new URL(import.meta.resolve(`${_UXP}/package.json`))));
-    const typings = path.join(packageDir, ..._UXP_TYPINGS);
-    const declared = new Project({ useInMemoryFileSystem: true, manipulationSettings: MANIPULATION }).createSourceFile('index.d.ts', yield* Effect.orDie(fs.readFileString(typings)));
-    const block = yield* Effect.fromOption(
-        Array.findFirst(declared.getModules(), (module) => {
-            const names = module.getNameNodes();
-            return !Array.isArray(names) && names.getLiteralValue() === _UXP_MODULE;
-        }),
-        () => AutomationError.cases.moduleNotDeclared.make({ typings, module: _UXP_MODULE }),
-    );
-    const packaged = (specifier: string): string => path.join(path.relative(import.meta.dirname, packageDir), Array.headNonEmpty(_UXP_TYPINGS), specifier);
-    const printed = Array.map(block.getStatements(), (statement) => {
-        if (Node.isImportDeclaration(statement) || (Node.isExportDeclaration(statement) && statement.hasModuleSpecifier())) {
-            statement.setModuleSpecifier(packaged(Option.getOrElse(Option.fromNullishOr(statement.getModuleSpecifierValue()), () => '')));
-        }
-        if (Node.isVariableStatement(statement)) {
-            statement.setHasDeclareKeyword(true);
-        }
-        return statement.getText();
-    });
-    yield* fs.writeFileString(path.join(import.meta.dirname, `${_UXP_MODULE}.ts`), `${Array.join(printed, '\n')}\n`);
-    return printed.length;
-});
-
 // --- [GENERATE] ------------------------------------------------------------------------
 
 const _generate = Effect.gen(function* () {
@@ -329,14 +296,14 @@ const _generate = Effect.gen(function* () {
     ]);
     const adobeNames = Record.keys(adobeEnumerations);
     const declaration = _declaration(HashSet.fromIterable([...Array.map(adobe.getClasses(), (node) => node.getNameOrThrow()), ...Array.map(adobe.getInterfaces(), (node) => node.getName())]));
-    const declared: Readonly<Record<string, Declaration>> = Record.fromIterableBy(
+    const typed: Readonly<Record<string, Declaration>> = Record.fromIterableBy(
         [
             ...Array.map(adobe.getClasses(), (node) => declaration(node.getNameOrThrow(), Array.fromNullishOr(node.getExtends()), node)),
             ...Array.map(adobe.getInterfaces(), (node) => declaration(node.getName(), node.getExtends(), node)),
         ],
         Struct.get('name'),
     );
-    const lookup = _lookup(declared);
+    const lookup = _lookup(typed);
     const pairs = Array.flatMap(classes, (klass) => Array.map(klass.property, (property) => ({ klass, property })));
     const candidates = _candidates(lookup, adobeNames);
     const [unidentified, identified] = Array.separate(
@@ -383,13 +350,13 @@ const _generate = Effect.gen(function* () {
     );
     const additions = pipe(
         Array.flatMap(classes, (row) => Array.map(fields(row), (field) => ({ owner: pascal(row.attributes.name), field }))),
-        Array.filter(({ owner, field }) => Record.has(declared, owner) && Option.isNone(_find(lookup, owner, field.name))),
+        Array.filter(({ owner, field }) => Record.has(typed, owner) && Option.isNone(_find(lookup, owner, field.name))),
         Array.dedupeWith((left, right) => left.owner === right.owner && left.field.name === right.field.name),
         Array.groupBy(Struct.get('owner')),
     );
-    const missing = Array.filter(classes, (row) => !Record.has(declared, pascal(row.attributes.name)));
+    const missing = Array.filter(classes, (row) => !Record.has(typed, pascal(row.attributes.name)));
     const widened: Readonly<Record<string, Declaration>> = {
-        ...Record.map(declared, (row) => ({ ...row, properties: [...row.properties, ...Array.map(Array.flatten(Option.toArray(Record.get(additions, row.name))), Struct.get('field'))] })),
+        ...Record.map(typed, (row) => ({ ...row, properties: [...row.properties, ...Array.map(Array.flatten(Option.toArray(Record.get(additions, row.name))), Struct.get('field'))] })),
         ...Record.fromIterableBy(
             Array.map(
                 missing,
@@ -475,14 +442,14 @@ const _generate = Effect.gen(function* () {
         ],
     });
     yield* fs.writeFileString(path.join(import.meta.dirname, _ENUMERATIONS), table.getFullText());
-    const uxp = yield* _uxp;
+    const typings = yield* Effect.all(Record.map(_TYPINGS, (name, module) => declared(new URL(import.meta.resolve(`${name}/package.json`)), module, import.meta.dirname)));
     yield* Console.log(
         JSON.stringify(
             {
                 dictionary: Option.map(parsed.dictionary.attributes, Struct.get('title')),
                 classes: {
                     sdef: classes.length,
-                    adobe: Record.size(declared),
+                    adobe: Record.size(typed),
                     added: Array.map(missing, (row) => pascal(row.attributes.name)),
                     addedProperties: Array.reduce(Record.values(additions), 0, (total, group) => total + group.length),
                 },
@@ -497,7 +464,7 @@ const _generate = Effect.gen(function* () {
                 },
                 properties: Record.size(properties),
                 collections: Record.size(collections),
-                uxp: { module: _UXP_MODULE, statements: uxp },
+                typings,
             },
             null,
             4,
@@ -510,8 +477,8 @@ const _generate = Effect.gen(function* () {
 const _Enumerated = Schema.Struct({ result: Schema.Union([Enums, Schema.Struct({ kind: Schema.Literal('error'), error: BridgeError })]).pipe(Schema.toTaggedUnion('kind')) });
 
 const _deploy = Effect.gen(function* () {
-    const placed = yield* install({ ...manifest, host }, import.meta.dirname);
-    const mcp = yield* server(_HOST, manifest);
+    const placed = yield* install(bridge.manifest, import.meta.dirname);
+    const mcp = yield* server(_HOST, bridge.manifest);
     const launchedAt = yield* relaunch(_HOST, 'quit saving ask');
     const docked = yield* read(_HOST.id, _HOST.bundleId, _DOCKED_MS, _DOCKED, Option.none()).pipe(
         Effect.retry({ while: Predicate.or(Predicate.isTagged('hostNotRunning'), Predicate.isTagged('hostUnresponsive')), schedule: POLL }),
@@ -530,13 +497,15 @@ const _deploy = Effect.gen(function* () {
 // --- [RECONCILE] -----------------------------------------------------------------------
 
 const _reconcile = Effect.gen(function* () {
-    const mcp = yield* server(_HOST, manifest);
+    const mcp = yield* server(_HOST, bridge.manifest);
     yield* until(mcp.health, probed);
     const generated = yield* Effect.promise(() => import('../server/indesign/indesign.ts'));
     const live = yield* Effect.flatMap(mcp.execute(_LIVE), Schema.decodeUnknownEffect(_Live));
-    const listed = yield* Effect.flatMap(mcp.call('indesign_list_enums', {}, _Enumerated), ({ result }) => (result.kind === 'enums' ? Effect.succeed(result.enums) : Effect.fail(result.error)));
+    const listed = yield* Effect.flatMap(mcp.call('indesign_list_enums', {}, _Enumerated), ({ result }) =>
+        Match.value(result).pipe(Match.discriminatorsExhaustive('kind')({ enums: (row) => Effect.succeed(row.enums), error: (row) => Effect.fail(row.error) })),
+    );
     const registered = Record.map(Record.fromIterableBy(listed, Struct.get('name')), (row) => sorted(Array.map(row.constants, Struct.get('name'))));
-    const declared = Record.map(generated.enumerations, flow(Record.keys, sorted));
+    const tabled = Record.map(generated.enumerations, flow(Record.keys, sorted));
     const valued = (enumeration: string, constant: { readonly name: string; readonly value: Option.Option<number> }): boolean =>
         Option.exists(constant.value, (value) => Option.contains(Option.flatMap(Record.get(generated.enumerations, enumeration), Record.get(constant.name)), value));
     const unvalued = Array.flatMap(listed, (row) =>
@@ -549,10 +518,10 @@ const _reconcile = Effect.gen(function* () {
         ),
     );
     const report = {
-        undeclared: { enumerations: Array.difference(live.enumerations, Record.keys(declared)), constants: absent(registered, declared) },
-        unregistered: absent(declared, registered),
+        undeclared: { enumerations: Array.difference(live.enumerations, Record.keys(tabled)), constants: absent(registered, tabled) },
+        unregistered: absent(tabled, registered),
         unvalued,
-        generated: Record.size(declared),
+        generated: Record.size(tabled),
         runtime: live.enumerations.length,
         constants: Array.reduce(listed, 0, (total, row) => total + row.constants.length),
         collections: { generated: Record.size(generated.collections), unconfirmed: Array.difference(Record.values(generated.collections), live.functions) },
@@ -573,7 +542,7 @@ Command.run(
             Command.make('reconcile', {}, () => Effect.provide(Effect.scoped(_reconcile), protocol)),
         ]),
     ),
-    { version: manifest.version },
+    { version: bridge.manifest.version },
 ).pipe(
     Effect.tapError((error) => Console.error(Cause.pretty(Cause.fail(error)))),
     Effect.tapDefect(flow(Cause.die, Cause.pretty, Console.error)),

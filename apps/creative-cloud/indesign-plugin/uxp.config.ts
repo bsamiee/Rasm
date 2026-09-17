@@ -1,36 +1,20 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
+import { type Bridge, type Facts, plugin } from '@rasm/creative-cloud-server/manifest';
 import { HOSTS } from '@rasm/creative-cloud-server/values';
-import type { UXP_Config, UXP_Manifest } from 'vite-uxp-plugin';
+import manifest from './package.json' with { type: 'json' };
 
 // --- [MANIFEST] ------------------------------------------------------------------------
 
-const endpoint: `ws://localhost:${number}` = `ws://localhost:${HOSTS.indesign.port}`;
-
-const host: UXP_Manifest['host'][number] = { app: 'ID', minVersion: '21.6' };
-
-const panel: Extract<UXP_Manifest['entrypoints'][number], { readonly label: { readonly default: string } }> = {
-    type: 'panel',
-    id: 'bridge',
-    label: { default: 'Rasm' },
-    minimumSize: { width: 200, height: 60 },
-    preferredDockedSize: { width: 235, height: 80 },
-};
-
-const manifest: Omit<UXP_Manifest, 'host'> & { readonly host: UXP_Manifest['host'] | UXP_Manifest['host'][number] } = {
-    manifestVersion: 5,
+const facts: Facts = {
     id: 'rasm.indesign.bridge',
     name: 'Rasm InDesign Bridge',
-    version: '0.1.12',
-    main: 'plugin-main.js',
-    host,
-    entrypoints: [panel],
-    icons: [{ width: 48, height: 48, path: 'icons/plugin.png', scale: [1, 2], theme: ['all'], species: ['pluginList'] }],
-    requiredPermissions: { localFileSystem: 'fullAccess', network: { domains: [endpoint] }, allowCodeGenerationFromStrings: true },
+    panel: { label: { default: 'Rasm' }, minimumSize: { width: 200, height: 60 }, preferredDockedSize: { width: 235, height: 80 } },
+    permissions: { localFileSystem: 'fullAccess' },
 };
 
-const config: UXP_Config = { manifest: manifest as UXP_Manifest, hotReloadPort: 0, webviewUi: false, webviewReloadPort: 0, copyZipAssets: [] };
+const bridge: Bridge = plugin(HOSTS.indesign, manifest, facts);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { config, endpoint, host, manifest, panel };
+export { bridge };

@@ -229,7 +229,6 @@ catalog:
     types-for-adobe: 7.2.6
     '@adobe-uxp-types/uxp': 0.1.4
     '@adobe-uxp-types/photoshop': 0.1.8
-    vite-uxp-plugin: 1.3.8
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
     # Emits the InDesign and Illustrator DOM declarations the generator builds from each host's scripting dictionary
@@ -279,8 +278,6 @@ catalog:
     nx: 23.3.0-canary.20260915-071d621
     '@nx/devkit': 23.3.0-canary.20260915-071d621
     '@nx/dotnet': 23.3.0-canary.20260915-071d621
-    '@nx/js': 23.3.0-canary.20260915-071d621
-    '@nx/vite': 23.3.0-canary.20260915-071d621
     '@nx/vitest': 23.3.0-canary.20260915-071d621
     '@biomejs/biome': 2.5.14
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
@@ -308,7 +305,6 @@ catalog:
     playwright: "1.64.0-alpha-2026-09-16"
     # Stdio MCP client CLI whose per-method exit code gates the creative-cloud server
     '@modelcontextprotocol/inspector': 2.6.0
-    hostinger-api-mcp: 1.60.1
     npm-check-updates: 23.1.0
 overrides:
     # Providers' ^3 peer range excludes the catalog prerelease, and a second copy of the core fails resource registration
@@ -332,11 +328,9 @@ overrides:
     '@nx/vitest>vitest': 'catalog:'
     '@effect/atom-react>scheduler': 'catalog:'
 allowBuilds:
-    '@biomejs/biome': true
     '@datadog/pprof': true
     '@derekstride/tree-sitter-sql': false
     '@modelcontextprotocol/inspector': true
-    '@node-rs/argon2': true
     '@pulumi/command': true
     '@pulumi/docker': true
     '@pulumi/docker-build': true
@@ -347,4 +341,3 @@ allowBuilds:
     esbuild: true
     nx: true
     protobufjs: true
-    sharp: true

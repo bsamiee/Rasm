@@ -2,20 +2,18 @@
 
 import { app, type Event, MeasurementUnits, UserInteractionLevels } from 'adobe:indesign';
 import { host, versions } from 'adobe:uxp';
-import type { Client, Settled } from '@rasm/creative-cloud-server/client';
-import { HostRejection } from '@rasm/creative-cloud-server/errors';
+import { active, type Client, type Handler, handle, type Settled, settle } from '@rasm/creative-cloud-server/client';
 import type { Identity, Job, State } from '@rasm/creative-cloud-server/frames';
-import { Kind } from '@rasm/creative-cloud-server/indesign/jobs';
-import { Array, Effect, Option, Result, Schema, Stream, Struct } from 'effect';
+import type { Kind } from '@rasm/creative-cloud-server/indesign/jobs';
+import { Array, Effect, Option, Stream, Struct } from 'effect';
 import { type Live, live } from './enums.ts';
 import { execute } from './jobs/execute.ts';
 import { findKeyStrings } from './jobs/find-key-strings.ts';
 import { getLayout } from './jobs/get-layout.ts';
-import type { Handler } from './jobs/handler.ts';
 import { listEnums } from './jobs/list-enums.ts';
 import { getPreferences, setPreferences, setTextDefaults } from './jobs/preferences.ts';
 import { snapshot } from './jobs/snapshot.ts';
-import { endpoint, manifest } from './uxp.config.ts';
+import { bridge } from './uxp.config.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -23,8 +21,7 @@ const _EVENTS = ['afterContextChanged', 'afterSelectionChanged', 'afterOpen', 'a
 
 // --- [HOST] ----------------------------------------------------------------------------
 
-const _handlers = (table: Live): { readonly [K in Kind]: Handler } => ({
-    execute: execute(table),
+const _handlers = (table: Live): { readonly [K in Exclude<Kind, 'execute'>]: Handler } => ({
     listEnums: listEnums(table),
     snapshot,
     getLayout,
@@ -35,7 +32,7 @@ const _handlers = (table: Live): { readonly [K in Kind]: Handler } => ({
 });
 
 const _identity = (): Identity => ({
-    plugin: manifest.id,
+    plugin: bridge.manifest.id,
     version: versions.plugin,
     host: { name: host.name, version: host.version },
     uxp: versions.uxp,
@@ -44,8 +41,8 @@ const _identity = (): Identity => ({
 });
 
 const _state = (): State => {
-    const active = app.documents.length === 0 ? Option.none() : Option.some(app.activeDocument);
-    return { modalState: app.modalState, activeDocumentId: Option.map(active, Struct.get('id')), modified: Option.exists(active, Struct.get('modified')) };
+    const open = active(app);
+    return { modalState: app.modalState, activeDocumentId: Option.map(open, Struct.get('id')), modified: Option.exists(open, Struct.get('modified')) };
 };
 
 const _states: Stream.Stream<State> = Stream.map(
@@ -71,22 +68,15 @@ const _executor = Effect.acquireRelease(
         }),
 );
 
-const _known: (kind: unknown) => Option.Option<Kind> = Schema.decodeUnknownOption(Kind);
-
-const _perform = Effect.fnUntraced(function* (table: { readonly [K in Kind]: Handler }, job: Job) {
-    const kind = _known(job.kind);
-    if (Option.isNone(kind)) {
-        return { autocorrections: Option.none(), result: Result.fail(HostRejection.cases.unknownMethod.make({ method: job.kind })) } satisfies Settled;
-    }
-    yield* _executor;
-    return yield* table[kind.value](job);
-}, Effect.scoped);
+const _perform = (table: Live, handlers: Readonly<Record<string, Handler>>, job: Job): Effect.Effect<Settled> =>
+    Effect.scoped(Effect.andThen(_executor, job.kind === 'execute' ? execute(table, job) : settle(handle(handlers, job))));
 
 // --- [LINK] ----------------------------------------------------------------------------
 
 const client = (dom: object): Client => {
-    const table = _handlers(live(dom));
-    return { endpoint, version: manifest.version, identity: _identity, states: _states, perform: (job) => _perform(table, job) };
+    const table = live(dom);
+    const handlers = _handlers(table);
+    return { endpoint: bridge.endpoint, version: bridge.manifest.version, identity: _identity, states: _states, perform: (job) => _perform(table, handlers, job) };
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
