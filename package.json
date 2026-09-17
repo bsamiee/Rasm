@@ -297,10 +297,7 @@
             "grammar": {
                 "executor": "nx:run-commands",
                 "cache": true,
-                "inputs": [
-                    { "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "@derekstride/tree-sitter-sql"] },
-                    { "runtime": "tree-sitter --version" }
-                ],
+                "inputs": [{ "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "@derekstride/tree-sitter-sql"] }, { "runtime": "tree-sitter --version" }],
                 "outputs": ["{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so"],
                 "options": {
                     "commands": [
@@ -322,7 +319,9 @@
                 "inputs": [
                     "{workspaceRoot}/**/*",
                     { "dependentTasksOutputFiles": "**/*.so" },
-                    { "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version && shellcheck --version && google-java-format --version && pmd --version" }
+                    {
+                        "runtime": "ast-grep --version && ruff --version && biome --version && yamllint --version && actionlint --version && shellcheck --version && google-java-format --version && pmd --version"
+                    }
                 ],
                 "options": {
                     "commands": [

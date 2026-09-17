@@ -101,10 +101,7 @@
             {
                 "filter": { "projects": ["tag:language:typescript"], "plugin": "@nx/vitest" },
                 "inputs": ["...", "typescript", "{workspaceRoot}/tests/typescript/support/setup.ts"],
-                "outputs": [
-                    "{workspaceRoot}/.artifacts/typescript/test-results/{projectName}",
-                    "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"
-                ]
+                "outputs": ["{workspaceRoot}/.artifacts/typescript/test-results/{projectName}", "{workspaceRoot}/.artifacts/typescript/coverage/{projectName}"]
             }
         ],
         "check": [

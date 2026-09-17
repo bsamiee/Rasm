@@ -1,10 +1,9 @@
 {
     "$schema": "./node_modules/@biomejs/biome/configuration_schema.json",
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
-    "files": { "ignoreUnknown": true, "includes": ["**", "!**/pnpm-lock.yaml", "!**/uv.lock", "!**/*.html", "!.claude/types/claude-code.d.ts"] },
+    "files": { "ignoreUnknown": true, "includes": ["**", "!**/pnpm-lock.yaml", "!**/uv.lock", "!**/*.html", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts"] },
     "formatter": { "indentStyle": "space", "indentWidth": 4, "lineWidth": 200 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },
-    "json": { "formatter": { "enabled": false } },
     "assist": { "actions": { "source": { "organizeImports": "on", "useSortedAttributes": "on", "useSortedPackageJson": "on", "useSortedProperties": "on" } } },
     "linter": {
         "domains": { "project": "all", "qwik": "none", "react": "all", "test": "all", "types": "all" },
@@ -81,6 +80,7 @@
                 }
             }
         },
+        { "includes": ["**/package.json"], "json": { "formatter": { "expand": "auto" } } },
         { "includes": ["**/vitest.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
             "includes": [".claude/plugins/**"],

@@ -1,163 +1,153 @@
 {
-  "$schema": "https://json.schemastore.org/claude-code-settings.json",
-  "env": {
-    "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000",
-    "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "40000",
-    "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
-    "CLAUDE_CODE_THRIFTY_SONIC": "0",
-    "BASH_DEFAULT_TIMEOUT_MS": "600000",
-    "CLAUDE_CODE_SHELL": "bash",
-    "NO_COLOR": "1",
-    "FORCE_COLOR": "0"
-  },
-  "permissions": {
-    "allow": [
-      "Bash(/usr/libexec/PlistBuddy *)",
-      "Bash(actionlint *)",
-      "Bash(analyzeHeadless *)",
-      "Bash(ast-grep *)",
-      "Bash(biome *)",
-      "Bash(brew *)",
-      "Bash(claude *)",
-      "Bash(codex *)",
-      "Bash(curl *)",
-      "Bash(defaults *)",
-      "Bash(difft *)",
-      "Bash(doppler *)",
-      "Bash(dotnet *)",
-      "Bash(duckdb *)",
-      "Bash(esbuild *)",
-      "Bash(fd *)",
-      "Bash(gh *)",
-      "Bash(ghidra *)",
-      "Bash(git *)",
-      "Bash(google-java-format *)",
-      "Bash(hyperfine *)",
-      "Bash(jq *)",
-      "Bash(jshellRun *)",
-      "Bash(lipo *)",
-      "Bash(loc *)",
-      "Bash(magick *)",
-      "Bash(mise *)",
-      "Bash(mypy *)",
-      "Bash(ncu *)",
-      "Bash(nx *)",
-      "Bash(op *)",
-      "Bash(osascript *)",
-      "Bash(playwright *)",
-      "Bash(pmd *)",
-      "Bash(pnpm *)",
-      "Bash(pulumi *)",
-      "Bash(pytest *)",
-      "Bash(rg *)",
-      "Bash(ruff *)",
-      "Bash(screencapture *)",
-      "Bash(sd *)",
-      "Bash(security *)",
-      "Bash(sqlite3 *)",
-      "Bash(sudo *)",
-      "Bash(swc *)",
-      "Bash(tar *)",
-      "Bash(tree *)",
-      "Bash(tree-sitter *)",
-      "Bash(tsc *)",
-      "Bash(tvly *)",
-      "Bash(ty *)",
-      "Bash(unzip *)",
-      "Bash(uv *)",
-      "Bash(vite *)",
-      "Bash(vitest *)",
-      "Bash(yamlfmt *)",
-      "Bash(yamllint *)",
-      "Bash(yq *)",
-      "mcp__ast-grep__*",
-      "mcp__binlog__*",
-      "mcp__claudeCodeDocs__*",
-      "mcp__computer-use__*",
-      "mcp__context7__*",
-      "mcp__deepwiki__*",
-      "mcp__exa__*",
-      "mcp__github__*",
-      "mcp__illustrator__*",
-      "mcp__indesign-sidekick__*",
-      "mcp__lldb__*",
-      "mcp__nuget__*",
-      "mcp__openaiDeveloperDocs__*",
-      "mcp__playwright-test__*",
-      "mcp__playwright__*",
-      "mcp__rhino-mcp-platform__*",
-      "mcp__roslyn-codelens__*",
-      "mcp__xcode__*"
-    ],
-    "deny": [],
-    "ask": [],
-    "defaultMode": "bypassPermissions"
-  },
-  "enableAllProjectMcpServers": true,
-  "disabledMcpjsonServers": [
-    "greptile",
-    "hostinger",
-    "arena"
-  ],
-  "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-            "timeout": 30,
-            "statusMessage": "mise-env"
-          }
+    "$schema": "https://json.schemastore.org/claude-code-settings.json",
+    "env": {
+        "CLAUDE_CODE_MAX_SUBAGENTS_PER_SESSION": "1000",
+        "CLAUDE_CODE_FILE_READ_MAX_OUTPUT_TOKENS": "40000",
+        "CLAUDE_CODE_ENABLE_FUNCTION_HOOKS": "1",
+        "CLAUDE_CODE_THRIFTY_SONIC": "0",
+        "BASH_DEFAULT_TIMEOUT_MS": "600000",
+        "CLAUDE_CODE_SHELL": "bash",
+        "NO_COLOR": "1",
+        "FORCE_COLOR": "0"
+    },
+    "permissions": {
+        "allow": [
+            "Bash(/usr/libexec/PlistBuddy *)",
+            "Bash(actionlint *)",
+            "Bash(analyzeHeadless *)",
+            "Bash(ast-grep *)",
+            "Bash(biome *)",
+            "Bash(brew *)",
+            "Bash(claude *)",
+            "Bash(codex *)",
+            "Bash(curl *)",
+            "Bash(defaults *)",
+            "Bash(difft *)",
+            "Bash(doppler *)",
+            "Bash(dotnet *)",
+            "Bash(duckdb *)",
+            "Bash(esbuild *)",
+            "Bash(fd *)",
+            "Bash(gh *)",
+            "Bash(ghidra *)",
+            "Bash(git *)",
+            "Bash(google-java-format *)",
+            "Bash(hyperfine *)",
+            "Bash(jq *)",
+            "Bash(jshellRun *)",
+            "Bash(lipo *)",
+            "Bash(loc *)",
+            "Bash(magick *)",
+            "Bash(mise *)",
+            "Bash(mypy *)",
+            "Bash(ncu *)",
+            "Bash(nx *)",
+            "Bash(op *)",
+            "Bash(osascript *)",
+            "Bash(playwright *)",
+            "Bash(pmd *)",
+            "Bash(pnpm *)",
+            "Bash(pulumi *)",
+            "Bash(pytest *)",
+            "Bash(rg *)",
+            "Bash(ruff *)",
+            "Bash(screencapture *)",
+            "Bash(sd *)",
+            "Bash(security *)",
+            "Bash(sqlite3 *)",
+            "Bash(sudo *)",
+            "Bash(swc *)",
+            "Bash(tar *)",
+            "Bash(tree *)",
+            "Bash(tree-sitter *)",
+            "Bash(tsc *)",
+            "Bash(tvly *)",
+            "Bash(ty *)",
+            "Bash(unzip *)",
+            "Bash(uv *)",
+            "Bash(vite *)",
+            "Bash(vitest *)",
+            "Bash(yamlfmt *)",
+            "Bash(yamllint *)",
+            "Bash(yq *)",
+            "mcp__ast-grep__*",
+            "mcp__binlog__*",
+            "mcp__claudeCodeDocs__*",
+            "mcp__computer-use__*",
+            "mcp__context7__*",
+            "mcp__deepwiki__*",
+            "mcp__exa__*",
+            "mcp__github__*",
+            "mcp__illustrator__*",
+            "mcp__indesign-sidekick__*",
+            "mcp__lldb__*",
+            "mcp__nuget__*",
+            "mcp__openaiDeveloperDocs__*",
+            "mcp__playwright-test__*",
+            "mcp__playwright__*",
+            "mcp__rhino-mcp-platform__*",
+            "mcp__roslyn-codelens__*",
+            "mcp__xcode__*"
+        ],
+        "deny": [],
+        "ask": [],
+        "defaultMode": "bypassPermissions"
+    },
+    "enableAllProjectMcpServers": true,
+    "disabledMcpjsonServers": ["greptile", "hostinger", "arena"],
+    "hooks": {
+        "SessionStart": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
+                        "timeout": 30,
+                        "statusMessage": "mise-env"
+                    }
+                ]
+            }
+        ],
+        "CwdChanged": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
+                        "timeout": 30,
+                        "statusMessage": "mise-env"
+                    }
+                ]
+            }
+        ],
+        "FileChanged": [
+            {
+                "matcher": "mise.toml|global.json",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
+                        "timeout": 30,
+                        "statusMessage": "mise-env"
+                    }
+                ]
+            }
         ]
-      }
-    ],
-    "CwdChanged": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-            "timeout": 30,
-            "statusMessage": "mise-env"
-          }
-        ]
-      }
-    ],
-    "FileChanged": [
-      {
-        "matcher": "mise.toml|global.json",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "mise env -s bash > \"$CLAUDE_ENV_FILE\"",
-            "timeout": 30,
-            "statusMessage": "mise-env"
-          }
-        ]
-      }
-    ]
-  },
-  "enabledPlugins": {
-    "playwright@rasm": true,
-    "function-hooks@rasm": true,
-    "jdtls@rasm": true,
-    "swift-lsp@claude-plugins-official": false
-  },
-  "extraKnownMarketplaces": {
-    "rasm": {
-      "source": {
-        "source": "directory",
-        "path": "./.claude/plugins"
-      }
-    }
-  },
-  "effortLevel": "high",
-  "claudeMdExcludes": [
-    "**/.cache/**/CLAUDE.md",
-    "**/node_modules/**/CLAUDE.md",
-    "**/bin/**/CLAUDE.md",
-    "**/obj/**/CLAUDE.md",
-    "**/.artifacts/**/CLAUDE.md"
-  ]
+    },
+    "enabledPlugins": {
+        "playwright@rasm": true,
+        "function-hooks@rasm": true,
+        "jdtls@rasm": true,
+        "swift-lsp@claude-plugins-official": false
+    },
+    "extraKnownMarketplaces": {
+        "rasm": {
+            "source": {
+                "source": "directory",
+                "path": "./.claude/plugins"
+            }
+        }
+    },
+    "effortLevel": "high",
+    "claudeMdExcludes": ["**/.cache/**/CLAUDE.md", "**/node_modules/**/CLAUDE.md", "**/bin/**/CLAUDE.md", "**/obj/**/CLAUDE.md", "**/.artifacts/**/CLAUDE.md"]
 }
