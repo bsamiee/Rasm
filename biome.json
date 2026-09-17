@@ -28,13 +28,16 @@
                 "noLoopFunc": "error",
                 "noNegationInEqualityCheck": "error",
                 "noNonScalableViewport": "error",
+                "noObsoleteTags": "error",
                 "noRestrictedDependencies": "error",
+                "noReturnInFinally": "error",
                 "noThisOutsideOfClass": "error",
                 "noTopLevelLiterals": "error",
                 "noUnmodifiedLoopCondition": "error",
                 "noUnnecessaryTemplateExpression": "error",
                 "useArraySome": "error",
                 "useBaseline": "error",
+                "useConsistentObjectKeys": "error",
                 "useControlLabel": "error",
                 "useDomNodeTextContent": "error",
                 "useDomQuerySelector": "error",
@@ -50,7 +53,8 @@
                 "useRegexpTest": "error",
                 "useSortedClasses": "error",
                 "useThisInClassMethods": { "level": "error", "options": { "ignoreOverrideMethods": true } },
-                "useUnicodeRegex": "error"
+                "useUnicodeRegex": "error",
+                "useValidTestTitle": "error"
             }
         }
     },
