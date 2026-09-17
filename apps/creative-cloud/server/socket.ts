@@ -53,7 +53,7 @@ const _attach = Effect.fnUntraced(function* (endpoint: Endpoint, identity: Ident
                     : Option.match(link.pending, {
                           onNone: () => Effect.void,
                           onSome: ({ settled }) =>
-                              Deferred.fail(settled, BridgeError.cases.transportClosed.make({ host: endpoint.host, code: _CLOSE_NORMAL, reason: 'plugin detached while a job was in flight' })),
+                              Deferred.fail(settled, BridgeError.cases.transportClosed.make({ host: endpoint.host, code: _CLOSE_NORMAL, reason: 'Plugin detached before job settled' })),
                       }),
             ),
     );

@@ -95,7 +95,7 @@ flowchart LR
 - `nx run rasm:upgrade --configuration <language>` moves one catalog, `tools` the binaries, `rhino` the Rhino packages
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- Workspace plugin names each project's tags and empty targets by manifest, `@nx/dotnet` and `@nx/vitest` infer their own
+- Workspace plugin names each project's tags, empty targets, and `automation.ts` subcommands by manifest, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under `.cache/` and `.artifacts/`, each tool relocated through its own setting

@@ -130,7 +130,7 @@ const decode = (text: string): Json => {
     literals['true'] = true;
     literals['false'] = false;
     literals['null'] = null;
-    const fail = (expected: string): Error => new Error(`expected ${expected} at ${cursor}, found ${cursor < text.length ? text.charAt(cursor) : 'end of text'}`);
+    const fail = (expected: string): Error => new Error(`Expected ${expected} at ${cursor}, found ${cursor < text.length ? text.charAt(cursor) : 'end of text'}`);
     const span = (characters: string): string => {
         const start = cursor;
         while (cursor < text.length && characters.indexOf(text.charAt(cursor)) >= 0) {
@@ -156,7 +156,7 @@ const decode = (text: string): Json => {
             cursor += form.length;
             return String.fromCharCode(code);
         }
-        throw fail('an escape');
+        throw fail('escape');
     };
     const quoted = (): string => {
         const parts: string[] = [];
@@ -182,12 +182,12 @@ const decode = (text: string): Json => {
         const whole = span(digits);
         const zeroLed = whole.length > 1 && whole.charAt(0) === '0';
         if (whole === '' || zeroLed) {
-            throw fail('a digit');
+            throw fail('digit');
         }
         if (text.charAt(cursor) === '.') {
             cursor += 1;
             if (span(digits) === '') {
-                throw fail('a digit');
+                throw fail('digit');
             }
         }
         const marker = text.charAt(cursor);
@@ -196,7 +196,7 @@ const decode = (text: string): Json => {
             const sign = text.charAt(cursor);
             cursor += sign === '+' || sign === '-' ? 1 : 0;
             if (span(digits) === '') {
-                throw fail('a digit');
+                throw fail('digit');
             }
         }
         return Number(text.slice(start, cursor));
@@ -208,7 +208,7 @@ const decode = (text: string): Json => {
         element();
         while (!take(close)) {
             if (!take(',')) {
-                throw fail(`, or ${close}`);
+                throw fail(`${close} or ,`);
             }
             element();
         }
@@ -218,7 +218,7 @@ const decode = (text: string): Json => {
             const object: JsonObject = {};
             sequence('}', (): void => {
                 if (!take('"')) {
-                    throw fail('a key');
+                    throw fail('key');
                 }
                 const key = quoted();
                 if (!take(':')) {
@@ -247,7 +247,7 @@ const decode = (text: string): Json => {
         if (literal !== undefined) {
             return literal;
         }
-        throw fail('a value');
+        throw fail('value');
     };
     const decoded = value();
     span(' \t\n\r');
@@ -384,7 +384,7 @@ const withFile = <T>(path: string, mode: 'r' | 'w', act: (file: File) => T): T =
     const file = new File(path);
     file.encoding = 'UTF-8';
     if (!file.open(mode)) {
-        throw new Error(`${path}: ${file.error}`);
+        throw new Error(`File open failed at ${path}: ${file.error}`);
     }
     try {
         return act(file);
@@ -401,7 +401,7 @@ const run = <R extends JsonObject>(tool: (request: R, at: Site) => Reading<JsonO
     try {
         const decoded = decode(withFile(request, 'r', (file): string => file.read()));
         if (!isObject(decoded)) {
-            throw new Error('expected an object at 0');
+            throw new Error('Expected object at 0');
         }
         const reading = tool(decoded as R, { path: '', chain: [] });
         reading.value['unavailable'] = reading.unavailable;

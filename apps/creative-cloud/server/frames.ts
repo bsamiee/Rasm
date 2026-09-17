@@ -51,6 +51,8 @@ const Settle: Schema.Struct<{
     readonly result: Schema.Result<Schema.Codec<Schema.Json>, typeof HostRejection>;
 }> = Schema.Struct({ jobId: JobId, autocorrections: Autocorrections, result: Schema.Result(Schema.Json, HostRejection) });
 
+const Execute: Schema.Struct<{ readonly code: Schema.String; readonly undoName: Schema.OptionFromOptionalKey<Schema.String> }> = Schema.Struct({ code: Schema.String, undoName: _optionalString });
+
 const AlreadyAttached: Schema.TaggedStruct<'alreadyAttached', Record<never, never>> = Schema.TaggedStruct('alreadyAttached', {});
 
 const Link: Schema.Union<
@@ -66,7 +68,9 @@ const Frames: RpcGroup.RpcGroup<
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Identity = (typeof Identity)['Type'];
+type State = (typeof State)['Type'];
 type Job = (typeof Job)['Type'];
+type Execute = (typeof Execute)['Type'];
 type Settle = (typeof Settle)['Type'];
 type AlreadyAttached = (typeof AlreadyAttached)['Type'];
 type Link = (typeof Link)['Type'];
@@ -78,5 +82,5 @@ interface Done {
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Done, Identity, Job, Settle };
-export { AlreadyAttached, Frames, Link };
+export type { Done, Identity, Job, Settle, State };
+export { AlreadyAttached, Execute, Frames, Link };

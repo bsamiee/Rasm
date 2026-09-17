@@ -4,11 +4,18 @@
     "private": true,
     "type": "module",
     "exports": {
-        "./frames": "./frames.ts"
+        "./errors": "./errors.ts",
+        "./frames": "./frames.ts",
+        "./osascript": "./osascript.ts",
+        "./values": "./values.ts"
     },
     "dependencies": {
         "@effect/platform-node": "catalog:",
         "@rasm/typography": "workspace:*",
-        "effect": "catalog:"
-    }
+        "cheerio": "catalog:",
+        "effect": "catalog:",
+        "fast-xml-builder": "catalog:",
+        "plist": "catalog:"
+    },
+    "os": ["darwin"]
 }

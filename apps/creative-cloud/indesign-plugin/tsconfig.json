@@ -2,7 +2,10 @@
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/indesign-plugin",
-        "types": ["@adobe-uxp-types/uxp"]
+        "lib": ["esnext", "dom"],
+        "paths": { "adobe:indesign": ["./indesign.ts"] },
+        "types": ["@adobe-uxp-types/uxp/with-protocol", "node"]
     },
-    "references": [{ "path": "../server" }]
+    "references": [{ "path": "../server" }],
+    "include": ["*.ts", "*/*.ts"]
 }

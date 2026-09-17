@@ -12,6 +12,7 @@ __pycache__/
 **/.artifacts/
 .playwright-cli/
 .nx/*
+apps/creative-cloud/indesign-plugin/indesign.ts
 
 # --- [HOST_WRITES] ------------------------------------------------------------
 

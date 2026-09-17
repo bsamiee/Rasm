@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-entries-by-map
+language: tsx
+severity: error
+utils:
+    effect-record:
+        pattern: $R
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Record)?$'}, exported: {regex: '^Record$'}}}
+    effect-iterable:
+        pattern: $M
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Array|/Iterable)?$'}, exported: {regex: '^(Array|Iterable)$'}}}
+    key-pair:
+        kind: array
+        all:
+            - has: {nthChild: 1, pattern: $K}
+            - has: {nthChild: 2, kind: identifier, pattern: $P}
+            - not: {has: {nthChild: 3}}
+    any-pair:
+        kind: array
+        all:
+            - has: {nthChild: 1, pattern: $K}
+            - has: {nthChild: 2, pattern: $V}
+            - not: {has: {nthChild: 3}}
+    last-statement:
+        nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+    key-parameter:
+        kind: formal_parameters
+        has: {kind: required_parameter, has: {field: pattern, kind: identifier, pattern: $P}}
+    projection:
+        kind: arrow_function
+        all:
+            - has: {field: parameters, has: {nthChild: 1, kind: required_parameter}, not: {has: {nthChild: 2}}}
+            - not:
+                has:
+                    field: body
+                    kind: statement_block
+                    pattern: $BLOCK
+                    any:
+                        - not: {has: {kind: return_statement, matches: last-statement}}
+                        - has: {kind: return_statement, not: {matches: last-statement}}
+                        - has: {kind: return_statement, stopBy: {kind: 'arrow_function, function_expression, function_declaration, method_definition'}, not: {inside: {kind: statement_block, pattern: $BLOCK}}}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-record}}, {has: {field: property, regex: '^fromEntries$'}}]}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {kind: comment}}
+                - not: {has: {nthChild: 2}}
+                - has:
+                    nthChild: 1
+                    kind: call_expression
+                    all:
+                        - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: effect-iterable}}, {has: {field: property, regex: '^map$'}}]}
+                        - has:
+                            field: arguments
+                            all:
+                                - not: {has: {kind: comment}}
+                                - has: {nthChild: 1, pattern: $L}
+                                - has: {nthChild: 2, matches: projection, pattern: $FN}
+                                - not: {has: {nthChild: 3}}
+rewriters:
+    - id: by
+      rule:
+        kind: arrow_function
+        all:
+            - has: {field: parameters, matches: key-parameter}
+            - has:
+                field: body
+                any:
+                    - matches: key-pair
+                    - pattern: '$PAIR as const'
+                      has: {matches: key-pair, pattern: $PAIR}
+                    - kind: statement_block
+                      has: {kind: return_statement, matches: last-statement, has: {any: [{matches: key-pair}, {pattern: '$PAIR as const', has: {matches: key-pair, pattern: $PAIR}}]}}
+      fix: fromIterableBy
+    - id: with
+      rule: {kind: arrow_function}
+      fix: fromIterableWith
+    - id: key
+      rule:
+        all:
+            - any:
+                - matches: key-pair
+                - pattern: '$PAIR as const'
+                  has: {matches: key-pair, pattern: $PAIR}
+            - any:
+                - inside: {kind: arrow_function, field: body, pattern: $FN, has: {field: parameters, matches: key-parameter}}
+                - inside: {kind: return_statement, matches: last-statement, inside: {kind: statement_block, inside: {kind: arrow_function, field: body, pattern: $FN, has: {field: parameters, matches: key-parameter}}}}
+      fix: $K
+    - id: bare
+      rule:
+        all:
+            - pattern: '$PAIR as const'
+              has: {matches: any-pair, pattern: $PAIR}
+            - any:
+                - inside: {kind: arrow_function, field: body, pattern: $FN}
+                - inside: {kind: return_statement, matches: last-statement, inside: {kind: statement_block, inside: {kind: arrow_function, field: body, pattern: $FN}}}
+      fix: $PAIR
+transform:
+    OP: rewrite($FN, rewriters=[by, with])
+    BODY: rewrite($FN, rewriters=[key, bare])
+fix: $R.$OP($L, $BODY)
+message: '`$R.fromEntries` over `$M.map` rebuilds `$R.$OP`'
+note: '`Record.fromIterableWith(rows, f)` adds the pair `f` returns per element, `Record.fromIterableBy(rows, key)` adds each element under the key `key` returns'

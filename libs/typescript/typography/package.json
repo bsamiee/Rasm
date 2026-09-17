@@ -13,11 +13,5 @@
         "@types/fontkit": "catalog:",
         "effect": "catalog:",
         "fontkit": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "grid": { "command": "node automation.ts grid", "options": { "cwd": "{projectRoot}" } },
-            "oracle": { "command": "node automation.ts oracle", "options": { "cwd": "{projectRoot}" } }
-        }
     }
 }

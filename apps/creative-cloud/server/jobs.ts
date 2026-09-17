@@ -104,7 +104,9 @@ const _process = (line: string): Option.Option<Process> => {
     return _column({ pid, cpu, command });
 };
 
-const liveness: (host: Host) => Effect.Effect<Process, BridgeError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Effect.fnUntraced(function* (host: Host) {
+const liveness: (host: Pick<Host, 'id' | 'processName'>) => Effect.Effect<Process, BridgeError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Effect.fnUntraced(function* (
+    host: Pick<Host, 'id' | 'processName'>,
+) {
     const path = yield* Path.Path;
     const listing = yield* Effect.orDie(reply(_PROCESSES));
     const found = Array.findFirst(String.linesIterator(listing), (line) => Option.filter(_process(line), (process) => path.basename(process.command) === host.processName));
@@ -113,6 +115,13 @@ const liveness: (host: Host) => Effect.Effect<Process, BridgeError, ChildProcess
         onSome: (process) => (process.cpu >= LOAD_CEILING ? Effect.fail(BridgeError.cases.hostSaturated.make({ host: host.id, pid: process.pid, cpu: process.cpu })) : Effect.succeed(process)),
     });
 });
+
+const processId = (host: Pick<Host, 'id' | 'processName'>): Effect.Effect<Option.Option<number>, BridgeError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
+    liveness(host).pipe(
+        Effect.map((found) => Option.some(found.pid)),
+        Effect.catchTag('hostNotRunning', () => Effect.succeedNone),
+        Effect.catchTag('hostSaturated', ({ pid }) => Effect.succeed(Option.some(pid))),
+    );
 
 // --- [WORKER] --------------------------------------------------------------------------
 
@@ -189,4 +198,4 @@ const probe = <A, R>(host: Host, work: (jobId: JobId) => Effect.Effect<A, Bridge
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { InFlight, Jobs, layer, liveness, Process, probe, run };
+export { InFlight, Jobs, layer, liveness, Process, probe, processId, run };

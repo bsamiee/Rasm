@@ -24,8 +24,12 @@ catalog:
     '@msgpack/msgpack': 3.1.3
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.1
+    # XML builder behind the Acrobat .sequ renderer, the builder fast-xml-parser re-exports under a deprecation
+    fast-xml-builder: 1.3.1
     # HTML parser behind the Acrobat accessibility report's rule rows, which are HTML and not XML
     cheerio: 1.2.0
+    # Property-list parser behind the Acrobat preference read, dict pairs and typed leaves as one object tree
+    plist: 5.0.0
     yaml: 3.0.0-2
     avsc: 5.7.9
     cloudevents: 10.0.0
@@ -230,6 +234,8 @@ catalog:
     '@types/fontkit': 2.0.9
     # Emits the InDesign and Illustrator DOM declarations the generator builds from each host's scripting dictionary
     ts-morph: 28.0.0
+    # WHATWG TextEncoder and TextDecoder the InDesign plugin's encoding.ts places on the UXP 9.3.0 scope, which defines neither, before Effect's socket module constructs one at load
+    '@exodus/bytes': 1.15.1
     # Autocorrect over agent code in the InDesign plugin
     acorn: 8.18.0
     acorn-walk: 8.3.5

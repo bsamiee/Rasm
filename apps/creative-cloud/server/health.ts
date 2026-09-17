@@ -4,7 +4,7 @@ import { Clock, Crypto, Duration, Effect, Layer, Match, Option, Path, Queue, Rec
 import { McpServer, Tool, Toolkit } from 'effect/unstable/ai';
 import { ChildProcessSpawner } from 'effect/unstable/process';
 import { BridgeError } from './errors.ts';
-import { Link } from './frames.ts';
+import { Execute, Link } from './frames.ts';
 import { Hosts, Resolved } from './hosts.ts';
 import { InFlight, Jobs, liveness, Process, probe } from './jobs.ts';
 import { read } from './osascript.ts';
@@ -21,7 +21,7 @@ interface Server {
 // --- [TOOL] ----------------------------------------------------------------------------
 
 const _health = Tool.make('health', {
-    description: 'One row per host: the resolved host table row, the link state, the process and its load, a live probe over its channel, the queue depth, and the in-flight job',
+    description: 'Returns link, process, queue, and live probe status for every host, or for `host` alone',
     parameters: Schema.Struct({ host: Schema.OptionFromOptionalKey(HostId) }),
     success: Schema.Struct({
         server: Schema.Struct({ name: Schema.String, version: Schema.String, uptimeSeconds: Schema.Number }),
@@ -44,6 +44,8 @@ const _health = Tool.make('health', {
 
 const _toolkit = Toolkit.make(_health);
 
+const _probe = Schema.encodeSync(Schema.toCodecJson(Execute))({ code: '1', undoName: Option.none() });
+
 // --- [ROWS] ----------------------------------------------------------------------------
 
 const _row = Effect.fnUntraced(function* (links: Links, jobs: Jobs, host: Resolved, ago: (at: number) => number) {
@@ -52,7 +54,7 @@ const _row = Effect.fnUntraced(function* (links: Links, jobs: Jobs, host: Resolv
             osascript: (row) => ({ probe: probe(jobs[row.id], () => read(row.id, row.bundleId, PROBE_MS, 'get version', Option.none())), link: Effect.succeedNone }),
             socket: (row) => ({
                 probe: probe(jobs[row.id], (jobId) =>
-                    Effect.map(dispatch(links[row.id], { jobId, kind: 'execute', body: '1', suspendHistory: Option.none(), commandName: Option.none() }), Struct.get('value')),
+                    Effect.map(dispatch(links[row.id], { jobId, kind: 'execute', body: _probe, suspendHistory: Option.none(), commandName: Option.none() }), Struct.get('value')),
                 ),
                 link: Effect.map(linkState(links[row.id]), Option.some),
             }),
@@ -90,7 +92,7 @@ const layer = (server: Server): Layer.Layer<never, never, Hosts | Links | Jobs |
         McpServer.toolkit(_toolkit),
         _toolkit.toLayer(
             Effect.map(Effect.all([Clock.currentTimeMillis, Hosts, Links, Jobs]), ([startedAt, hosts, links, jobs]) =>
-                _toolkit.of({ health: (params) => _answer(server, startedAt, hosts, links, jobs, params.host) }),
+                _toolkit.of({ [_health.name]: (params) => _answer(server, startedAt, hosts, links, jobs, params.host) }),
             ),
         ),
     );

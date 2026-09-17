@@ -6,14 +6,5 @@
         "@swc/cli": "catalog:",
         "@swc/core": "catalog:",
         "types-for-adobe": "catalog:"
-    },
-    "nx": {
-        "targets": {
-            "build": {
-                "command": "swc . -d ../../../.artifacts/creative-cloud/illustrator --out-file-extension jsx --strip-leading-paths --ignore '**/node_modules/**,**/*.d.ts'",
-                "options": { "cwd": "{projectRoot}" },
-                "outputs": ["{workspaceRoot}/.artifacts/creative-cloud/illustrator/*.jsx"]
-            }
-        }
     }
 }

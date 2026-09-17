@@ -44,8 +44,30 @@
             {
                 "filter": { "projects": ["tag:language:typescript"] },
                 "inputs": ["production", "^production", "typescript", { "externalDependencies": ["vite", "@swc/core", "@swc/cli"] }]
+            },
+            { "filter": { "projects": ["tag:host:uxp"] }, "command": "vite build", "options": { "cwd": "{projectRoot}" }, "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"] },
+            {
+                "filter": { "projects": ["tag:host:extendscript"] },
+                "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**,**/*.d.ts'",
+                "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
             }
         ],
+        "generate": [
+            {
+                "filter": { "projects": ["tag:host:indesign"] },
+                "cache": true,
+                "inputs": [
+                    "{projectRoot}/automation.ts",
+                    "^production",
+                    "typescript",
+                    { "runtime": "/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' \"$(mdfind \"kMDItemCFBundleIdentifier == 'com.adobe.InDesign'\")/Contents/Info.plist\"" },
+                    { "runtime": "sw_vers -productVersion" }
+                ],
+                "outputs": ["{projectRoot}/indesign.ts"]
+            }
+        ],
+        "reconcile": [{ "filter": { "projects": ["tag:host:indesign"] }, "dependsOn": ["generate"], "parallelism": false }],
+        "deploy": [{ "filter": { "projects": ["tag:language:typescript"] }, "dependsOn": ["build"], "parallelism": false }],
         "install": [
             {
                 "filter": { "projects": ["tag:language:swift"] },
@@ -79,7 +101,8 @@
                 "inputs": ["default", { "dependentTasksOutputFiles": "**/*.d.ts", "transitive": true }, "typescript", { "externalDependencies": ["typescript"] }],
                 "options": { "command": "tsc --build --pretty false", "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
-            }
+            },
+            { "filter": { "projects": ["tag:host:indesign"] }, "dependsOn": ["...", "generate"], "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }] }
         ],
         "test": [
             { "cache": true },

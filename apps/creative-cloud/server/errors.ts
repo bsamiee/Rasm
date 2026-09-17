@@ -1,7 +1,7 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { Array, Match, Option, Schema, String } from 'effect';
-import { Autocorrections, HostId, JobId } from './values.ts';
+import { AbsolutePath, Autocorrections, HostId, JobId } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,22 +30,26 @@ const HostRejection: Schema.TaggedUnion<{
     readonly userCancelled: Schema.TaggedStruct<'userCancelled', Record<never, never>>;
     readonly preferenceLocked: Schema.TaggedStruct<'preferenceLocked', { readonly section: Schema.String; readonly key: Schema.String }>;
     readonly modalDenied: Schema.TaggedStruct<'modalDenied', { readonly holder: Schema.OptionFromNullOr<Schema.String> }>;
-    readonly notAllowed: Schema.TaggedStruct<'notAllowed', { readonly method: Schema.String }>;
     readonly menuItemNotListed: Schema.TaggedStruct<'menuItemNotListed', { readonly name: Schema.String }>;
+    readonly documentNotOpen: Schema.TaggedStruct<'documentNotOpen', { readonly path: typeof AbsolutePath }>;
+    readonly profileAbsent: Schema.TaggedStruct<'profileAbsent', { readonly profile: Schema.String }>;
     readonly noActiveDocument: Schema.TaggedStruct<'noActiveDocument', Record<never, never>>;
     readonly unknownMethod: Schema.TaggedStruct<'unknownMethod', { readonly method: Schema.String }>;
-    readonly malformedParams: Schema.TaggedStruct<'malformedParams', { readonly reason: Schema.String }>;
+    readonly malformedParams: Schema.TaggedStruct<'malformedParams', { readonly cause: Schema.Defect }>;
+    readonly resultNotJson: Schema.TaggedStruct<'resultNotJson', { readonly cause: Schema.Defect }>;
 }> = Schema.TaggedUnion({
     scriptThrew: { name: Schema.String, message: Schema.String, stack: _optionalString, line: _optionalNumber, fileName: _optionalString, number: _optionalNumber },
     descriptorFailed: { index: Schema.Number, result: Schema.Number, message: Schema.String },
     userCancelled: {},
     preferenceLocked: { section: Schema.String, key: Schema.String },
     modalDenied: { holder: Schema.OptionFromNullOr(Schema.String) },
-    notAllowed: { method: Schema.String },
     menuItemNotListed: { name: Schema.String },
+    documentNotOpen: { path: AbsolutePath },
+    profileAbsent: { profile: Schema.String },
     noActiveDocument: {},
     unknownMethod: { method: Schema.String },
-    malformedParams: { reason: Schema.String },
+    malformedParams: { cause: Schema.Defect() },
+    resultNotJson: { cause: Schema.Defect() },
 });
 
 const BridgeError: Schema.TaggedUnion<{
@@ -60,6 +64,7 @@ const BridgeError: Schema.TaggedUnion<{
     readonly hostSaturated: Schema.TaggedStruct<'hostSaturated', { readonly host: typeof HostId; readonly pid: Schema.Int; readonly cpu: Schema.Number }>;
     readonly transportClosed: Schema.TaggedStruct<'transportClosed', { readonly host: typeof HostId; readonly code: Schema.Number; readonly reason: Schema.String }>;
     readonly resultNotDecodable: Schema.TaggedStruct<'resultNotDecodable', { readonly host: typeof HostId; readonly text: Schema.String; readonly reason: Schema.String }>;
+    readonly fileNotAccessible: Schema.TaggedStruct<'fileNotAccessible', { readonly host: typeof HostId; readonly path: Schema.String; readonly reason: Schema.String }>;
     readonly hostThrew: Schema.TaggedStruct<'hostThrew', { readonly host: typeof HostId; readonly rejection: typeof HostRejection; readonly autocorrections: typeof Autocorrections }>;
 }> = Schema.TaggedUnion({
     hostNotRunning: { host: HostId },
@@ -73,6 +78,7 @@ const BridgeError: Schema.TaggedUnion<{
     hostSaturated: { host: HostId, pid: Schema.Int, cpu: Schema.Number },
     transportClosed: { host: HostId, code: Schema.Number, reason: Schema.String },
     resultNotDecodable: { host: HostId, text: Schema.String, reason: Schema.String },
+    fileNotAccessible: { host: HostId, path: Schema.String, reason: Schema.String },
     hostThrew: { host: HostId, rejection: HostRejection, autocorrections: Autocorrections },
 });
 

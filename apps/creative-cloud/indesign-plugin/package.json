@@ -5,11 +5,14 @@
     "dependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
         "@effect/platform-node": "catalog:",
+        "@exodus/bytes": "catalog:",
         "@rasm/creative-cloud-server": "workspace:*",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
         "astring": "catalog:",
         "effect": "catalog:",
+        "fast-xml-parser": "catalog:",
+        "ts-morph": "catalog:",
         "vite": "catalog:",
         "vite-uxp-plugin": "catalog:"
     }

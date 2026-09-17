@@ -153,6 +153,9 @@ catalogs:
     '@electric-sql/pglite-tools':
       specifier: 0.4.8
       version: 0.4.8
+    '@exodus/bytes':
+      specifier: 1.15.1
+      version: 1.15.1
     '@floating-ui/react':
       specifier: 0.27.20
       version: 0.27.20
@@ -603,6 +606,9 @@ catalogs:
     fast-check:
       specifier: 4.10.1
       version: 4.10.1
+    fast-xml-builder:
+      specifier: 1.3.1
+      version: 1.3.1
     fast-xml-parser:
       specifier: 5.11.1
       version: 5.11.1
@@ -681,6 +687,9 @@ catalogs:
     playwright:
       specifier: 1.64.0-alpha-2026-09-16
       version: 1.64.0-alpha-2026-09-16
+    plist:
+      specifier: 5.0.0
+      version: 5.0.0
     prosemirror-collab:
       specifier: 1.3.1
       version: 1.3.1
@@ -1011,6 +1020,9 @@ importers:
       '@electric-sql/pglite-tools':
         specifier: 'catalog:'
         version: 0.4.8(@electric-sql/pglite@0.5.8)
+      '@exodus/bytes':
+        specifier: 'catalog:'
+        version: 1.15.1(@noble/hashes@2.4.0)
       '@floating-ui/react':
         specifier: 'catalog:'
         version: 0.27.20(react-dom@19.3.0-canary-ff8f88fc-20260915(react@19.3.0-canary-ff8f88fc-20260915))(react@19.3.0-canary-ff8f88fc-20260915)
@@ -1464,6 +1476,9 @@ importers:
       fast-check:
         specifier: 'catalog:'
         version: 4.10.1
+      fast-xml-builder:
+        specifier: 'catalog:'
+        version: 1.3.1
       fast-xml-parser:
         specifier: 'catalog:'
         version: 5.11.1
@@ -1727,6 +1742,9 @@ importers:
       '@effect/platform-node':
         specifier: 'catalog:'
         version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1(@node-rs/xxhash@1.7.7)(@opentelemetry/api@1.9.1))
+      '@exodus/bytes':
+        specifier: 'catalog:'
+        version: 1.15.1(@noble/hashes@2.4.0)
       '@rasm/creative-cloud-server':
         specifier: workspace:*
         version: link:../server
@@ -1742,6 +1760,12 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
+      fast-xml-parser:
+        specifier: 'catalog:'
+        version: 5.11.1
+      ts-morph:
+        specifier: 'catalog:'
+        version: 28.0.0
       vite:
         specifier: 'catalog:'
         version: 8.3.0(@types/node@26.4.1)(@vitejs/devtools@0.7.5)(esbuild@0.28.2)(jiti@2.7.0)(terser@5.51.2)(tsx@4.23.13)(yaml@2.9.0)
@@ -1781,9 +1805,18 @@ importers:
       '@rasm/typography':
         specifier: workspace:*
         version: link:../../../libs/typescript/typography
+      cheerio:
+        specifier: 'catalog:'
+        version: 1.2.0
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
+      fast-xml-builder:
+        specifier: 'catalog:'
+        version: 1.3.1
+      plist:
+        specifier: 'catalog:'
+        version: 5.0.0
 
   libs/typescript/typography:
     dependencies:
@@ -7667,6 +7700,10 @@ packages:
     resolution: {integrity: sha512-y5ArHvQ7BVule/+L9yE2nYMhceiJhgsqo58lOfnisQ7bg+Kjfmkgr7JBuVFiTkl+ErdShpp829QstZQyLugl8g==}
     engines: {node: '>=20'}
 
+  '@xmldom/xmldom@0.9.12':
+    resolution: {integrity: sha512-5AXjrcMClTryPe9LgZrygpB1lj7s0S9E0+W+AHaVKAVyHanafK86iPSvG5xHVSp/jC+VH1UXu0TAEmY279xH7A==}
+    engines: {node: '>=14.6'}
+
   '@xyflow/react@12.11.6':
     resolution: {integrity: sha512-9XsEJNHjatKYndszKTF/bsU7FOP9dJ6V/EQwzy3oMdtqgBuUq7BjKSwkEo+C7s4qHstHQfwwoHA3E8QfpPxZZQ==}
     peerDependencies:
@@ -11334,6 +11371,10 @@ packages:
     engines: {node: '>=20'}
     hasBin: true
 
+  plist@5.0.0:
+    resolution: {integrity: sha512-20N+g1DvMm/DFRbsvER7tT4wDryq0WunK7VMkDaiJcKNapAnUMkTsAnacFYf8n420F4Hf6/hefgmJRkMb1M0fg==}
+    engines: {node: '>=18'}
+
   point-in-polygon-hao@1.2.4:
     resolution: {integrity: sha512-x2pcvXeqhRHlNRdhLs/tgFapAbSSe86wa/eqmj1G6pWftbEs5aVRJhRGM6FYSUERKu0PjekJzMq0gsI2XyiclQ==}
 
@@ -13290,6 +13331,10 @@ packages:
   xml-naming@0.3.0:
     resolution: {integrity: sha512-ghig2TBE/H11aOVgmahA3MhimvkBr6JIYknH/Dhdk10nXwdbIqBJsbfMxpvFPG8bAw77gN29aQWvKpmVoPlvPQ==}
     engines: {node: '>=16.0.0'}
+
+  xmlbuilder@15.1.1:
+    resolution: {integrity: sha512-yMqGBqtXyeN1e3TGYvgNgDVZ3j84W4cwkOXQswghol6APgZWaff9lnbvN7MHYJOiXsvGPXtjTYJEiC9J2wv9Eg==}
+    engines: {node: '>=8.0'}
 
   xmlchars@2.2.0:
     resolution: {integrity: sha512-JZnDKK8B0RCDw84FNdDAIpZK+JuJw+s7Lz8nksI7SIuU3UXJJslUthsi+uWBUYOwPFwW7W7PRLRfUKpxjtjFCw==}
@@ -21085,6 +21130,8 @@ snapshots:
     dependencies:
       system-architecture: 1.0.0
 
+  '@xmldom/xmldom@0.9.12': {}
+
   '@xyflow/react@12.11.6(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.0-canary-ff8f88fc-20260915(react@19.3.0-canary-ff8f88fc-20260915))(react@19.3.0-canary-ff8f88fc-20260915)':
     dependencies:
       '@xyflow/system': 0.0.82
@@ -25182,6 +25229,11 @@ snapshots:
     dependencies:
       playwright-core: 1.64.0-alpha-2026-09-16
 
+  plist@5.0.0:
+    dependencies:
+      '@xmldom/xmldom': 0.9.12
+      xmlbuilder: 15.1.1
+
   point-in-polygon-hao@1.2.4:
     dependencies:
       robust-predicates: 3.0.3
@@ -27434,6 +27486,8 @@ snapshots:
   xml-name-validator@5.0.0: {}
 
   xml-naming@0.3.0: {}
+
+  xmlbuilder@15.1.1: {}
 
   xmlchars@2.2.0: {}
 

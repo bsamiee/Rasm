@@ -31,7 +31,7 @@ jobs:
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
             - run: nx run rasm:check
-            - run: nx affected -t check --exclude=tag:host:macos
+            - run: nx affected -t check --exclude='tag:host:*'
 
     macos:
         runs-on: xcode-27

@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Config, Context, Data, Effect, FileSystem, identity, Match, Option, Path, type PlatformError, Record, Result, Schema, SchemaGetter, String } from 'effect';
+import { Array, Config, Context, Data, Effect, FileSystem, identity, Option, Path, type PlatformError, Record, Result, Schema, SchemaGetter, String } from 'effect';
 import { ChildProcess, type ChildProcessSpawner } from 'effect/unstable/process';
 import type { BridgeError, NonZeroExit } from './errors.ts';
 import { doScript, read, reply } from './osascript.ts';
@@ -27,14 +27,22 @@ type Keys<T> = T extends unknown ? keyof T : never;
 
 type ResolvedKey = Exclude<Keys<Resolved>, Keys<Row>>;
 
-type Extras = { readonly [K in HostId]: Omit<Extract<Resolved, { readonly id: K }>, Exclude<keyof typeof _common, Keys<Row>>> }[HostId];
+type Hosts = { readonly [K in HostId]: Extract<Resolved, { readonly id: K }> };
+
+type Extras = { readonly [K in HostId]: Omit<Hosts[K], Exclude<keyof typeof _common, Keys<Row>>> };
 
 type HostKeyError = Data.TaggedEnum<{
     readonly unresolved: { readonly host: HostId; readonly key: ResolvedKey; readonly cause: BridgeError | NonZeroExit | PlatformError.PlatformError | Schema.SchemaError };
     readonly missing: { readonly host: HostId; readonly key: ResolvedKey; readonly path: AbsolutePath };
 }>;
 
-type Hosts = Readonly<Record<HostId, Resolved>>;
+type Read<A> = Effect.Effect<A, Array.NonEmptyReadonlyArray<HostKeyError>, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem>;
+
+interface Site {
+    readonly home: string;
+    readonly bundlePath: AbsolutePath;
+    readonly path: Path.Path;
+}
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -80,13 +88,28 @@ const Resolved: Schema.Union<
                 readonly featureSet: Schema.OptionFromNullOr<Schema.Literal<'righttoleft'>>;
             }
         >,
-        Schema.Struct<typeof _common & { readonly id: Schema.Literal<'acrobat'>; readonly channel: Schema.Literal<'osascript'>; readonly viewerVersion: Schema.OptionFromNullOr<Schema.Number> }>,
+        Schema.Struct<
+            typeof _common & {
+                readonly id: Schema.Literal<'acrobat'>;
+                readonly channel: Schema.Literal<'osascript'>;
+                readonly viewerVersion: Schema.OptionFromNullOr<Schema.Number>;
+                readonly sequencesFolder: typeof AbsolutePath;
+                readonly startupVolume: Schema.String;
+            }
+        >,
     ]
 > = Schema.Union([
     Schema.Struct({ ..._common, id: Schema.Literal('illustrator'), channel: Schema.Literal('osascript'), onDemandModulesFolder: AbsolutePath }),
     Schema.Struct({ ..._common, id: Schema.Literal('photoshop'), channel: Schema.Literal('socket'), port: Schema.Int, pluginsFolder: AbsolutePath, registry: AbsolutePath, pluginData: AbsolutePath }),
     Schema.Struct({ ..._common, id: Schema.Literal('indesign'), channel: Schema.Literal('socket'), port: Schema.Int, featureSet: Schema.OptionFromNullOr(_FeatureSet) }),
-    Schema.Struct({ ..._common, id: Schema.Literal('acrobat'), channel: Schema.Literal('osascript'), viewerVersion: Schema.OptionFromNullOr(Schema.Number) }),
+    Schema.Struct({
+        ..._common,
+        id: Schema.Literal('acrobat'),
+        channel: Schema.Literal('osascript'),
+        viewerVersion: Schema.OptionFromNullOr(Schema.Number),
+        sequencesFolder: AbsolutePath,
+        startupVolume: Schema.String,
+    }),
 ]);
 
 // --- [SERVICES] ------------------------------------------------------------------------
@@ -123,41 +146,55 @@ const _live = <T>(host: Row, statement: string, schema: Schema.Codec<T, unknown>
 const _validated = (results: Record.ReadonlyRecord<string, Result.Result<unknown, Array.NonEmptyReadonlyArray<HostKeyError>>>): Effect.Effect<void, Array.NonEmptyArray<HostKeyError>> =>
     Effect.mapError(Effect.validate(Record.values(results), Effect.fromResult, { discard: true }), Array.flatten);
 
-const _extras = (
-    host: Row,
-    home: string,
-    bundlePath: AbsolutePath,
-    path: Path.Path,
-): Effect.Effect<Extras, Array.NonEmptyReadonlyArray<HostKeyError>, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem> =>
-    Match.value(host).pipe(
-        Match.discriminatorsExhaustive('id')({
-            illustrator: (illustrator) =>
-                Effect.map(
-                    _existing(illustrator.id, 'onDemandModulesFolder', path.join('/Library', 'Application Support', 'Adobe', path.basename(path.dirname(bundlePath)), 'OnDemandModules')),
-                    (onDemandModulesFolder) => ({ ...illustrator, onDemandModulesFolder }),
+const _startupVolume = (host: HostId, path: Path.Path): Effect.Effect<string, Array.NonEmptyArray<HostKeyError>, FileSystem.FileSystem> =>
+    Effect.flatMap(
+        _key(
+            host,
+            'startupVolume',
+            FileSystem.FileSystem.use((fs) =>
+                Effect.flatMap(
+                    fs.readDirectory('/Volumes'),
+                    Effect.findFirst((name) => Effect.map(fs.realPath(path.join('/Volumes', name)), (real) => real === '/')),
                 ),
-            photoshop: (photoshop) =>
-                Effect.all(
-                    Record.map(_UXP, (segments, key) => _existing(photoshop.id, key, path.join(home, 'Library', 'Application Support', 'Adobe', 'UXP', ...segments))),
-                    { mode: 'result' },
-                ).pipe(
-                    Effect.flatMap((folders) => Effect.andThen(_validated(folders), Effect.fromResult(Result.all(folders)))),
-                    Effect.map((folders) => ({ ...photoshop, ...folders })),
-                ),
-            indesign: (indesign) =>
-                Effect.map(_key(indesign.id, 'featureSet', _live(indesign, 'do script "app.featureSet" language javascript', _FeatureSet)), (featureSet) => ({ ...indesign, featureSet })),
-            acrobat: (acrobat) =>
-                Effect.map(
-                    _key(acrobat.id, 'viewerVersion', _live(acrobat, doScript('(function () { return JSON.stringify(app.viewerVersion); })()'), Schema.fromJsonString(Schema.Number))),
-                    (viewerVersion) => ({ ...acrobat, viewerVersion }),
-                ),
-        }),
+            ),
+        ),
+        Effect.fromOption(() => Array.of(HostKeyError.missing({ host, key: 'startupVolume', path: AbsolutePath.make('/Volumes') }))),
     );
 
-const _resolved = Effect.fnUntraced(function* (host: Row, home: string) {
+const _EXTRAS: { readonly [K in HostId]: (host: (typeof HOSTS)[K], site: Site) => Read<Extras[K]> } = {
+    illustrator: (illustrator, { bundlePath, path }) =>
+        Effect.map(
+            _existing(illustrator.id, 'onDemandModulesFolder', path.join('/Library', 'Application Support', 'Adobe', path.basename(path.dirname(bundlePath)), 'OnDemandModules')),
+            (onDemandModulesFolder) => ({ ...illustrator, onDemandModulesFolder }),
+        ),
+    photoshop: (photoshop, { home, path }) =>
+        Effect.all(
+            Record.map(_UXP, (segments, key) => _existing(photoshop.id, key, path.join(home, 'Library', 'Application Support', 'Adobe', 'UXP', ...segments))),
+            { mode: 'result' },
+        ).pipe(
+            Effect.flatMap((folders) => Effect.andThen(_validated(folders), Effect.fromResult(Result.all(folders)))),
+            Effect.map((folders) => ({ ...photoshop, ...folders })),
+        ),
+    indesign: (indesign) => Effect.map(_key(indesign.id, 'featureSet', _live(indesign, 'do script "app.featureSet" language javascript', _FeatureSet)), (featureSet) => ({ ...indesign, featureSet })),
+    acrobat: (acrobat, { home, path }) =>
+        Effect.all(
+            {
+                viewerVersion: _key(acrobat.id, 'viewerVersion', _live(acrobat, doScript('(function () { return JSON.stringify(app.viewerVersion); })()'), Schema.fromJsonString(Schema.Number))),
+                sequencesFolder: _existing(acrobat.id, 'sequencesFolder', path.join(home, 'Library', ..._LIBRARY.acrobat.support, 'DC', 'Sequences')),
+                startupVolume: _startupVolume(acrobat.id, path),
+            },
+            { mode: 'result' },
+        ).pipe(
+            Effect.flatMap((extras) => Effect.andThen(_validated(extras), Effect.fromResult(Result.all(extras)))),
+            Effect.map((extras) => ({ ...acrobat, ...extras })),
+        ),
+};
+
+const _resolved = Effect.fnUntraced(function* <K extends HostId>(id: K, home: string) {
+    const host = HOSTS[id];
     const path = yield* Path.Path;
     const bundlePath = yield* _key(
-        host.id,
+        id,
         'bundlePath',
         reply(ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${host.bundleId}'`])).pipe(
             Effect.flatMap(
@@ -171,17 +208,17 @@ const _resolved = Effect.fnUntraced(function* (host: Row, home: string) {
     const results = yield* Effect.all(
         {
             version: _key(
-                host.id,
+                id,
                 'version',
                 Effect.flatMap(
                     reply(ChildProcess.make('/usr/libexec/PlistBuddy', ['-c', 'Print :CFBundleShortVersionString', path.join(bundlePath, 'Contents', 'Info.plist')])),
                     Schema.decodeEffect(Schema.NonEmptyString),
                 ),
             ),
-            prefsFolder: _existing(host.id, 'prefsFolder', path.join(home, 'Library', ..._LIBRARY[host.id].prefs)),
-            supportFolder: _existing(host.id, 'supportFolder', path.join(home, 'Library', ..._LIBRARY[host.id].support)),
-            installFolder: _existing(host.id, 'installFolder', path.dirname(bundlePath)),
-            row: _extras(host, home, bundlePath, path),
+            prefsFolder: _existing(id, 'prefsFolder', path.join(home, 'Library', ..._LIBRARY[id].prefs)),
+            supportFolder: _existing(id, 'supportFolder', path.join(home, 'Library', ..._LIBRARY[id].support)),
+            installFolder: _existing(id, 'installFolder', path.dirname(bundlePath)),
+            row: _EXTRAS[id](host, { home, bundlePath, path }),
         },
         { mode: 'result' },
     );
@@ -193,7 +230,7 @@ const resolve: Effect.Effect<Hosts, Array.NonEmptyReadonlyArray<HostKeyError> | 
     function* () {
         const home = yield* Config.String('HOME');
         const results = yield* Effect.all(
-            Record.map(HOSTS, (row) => _resolved(row, home)),
+            { illustrator: _resolved('illustrator', home), photoshop: _resolved('photoshop', home), indesign: _resolved('indesign', home), acrobat: _resolved('acrobat', home) },
             { mode: 'result' },
         );
         return yield* Effect.andThen(_validated(results), Effect.fromResult(Result.all(results)));

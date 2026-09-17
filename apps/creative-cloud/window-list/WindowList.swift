@@ -41,12 +41,12 @@ nonisolated enum WindowListFailure: Error, CustomStringConvertible {
 
   var description: String {
     switch self {
-    case .usage: "usage: WindowList <pid>"
-    case .noWindowServer: "WindowList: no window server in this session"
-    case .propertyList(let error): "WindowList: window list is not a property list: \(error)"
-    case .decode(let error): "WindowList: window dictionary rejected: \(error)"
-    case .encode(let error): "WindowList: JSON encoding failed: \(error)"
-    case .write(let error): "WindowList: standard output write failed: \(error)"
+    case .usage: "Usage: WindowList <pid>"
+    case .noWindowServer: "Window server is unavailable in session"
+    case .propertyList(let error): "Window list serialization failed: \(error)"
+    case .decode(let error): "Window list decoding failed: \(error)"
+    case .encode(let error): "JSON encoding failed: \(error)"
+    case .write(let error): "Standard output write failed: \(error)"
     }
   }
 

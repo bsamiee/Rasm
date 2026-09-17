@@ -4,8 +4,10 @@ import { NodeRuntime, NodeServices, NodeSocketServer } from '@effect/platform-no
 import { Cause, Effect, Exit, Layer, Logger, Record, Ref, Runtime, Struct } from 'effect';
 import { McpProtocol, McpServer } from 'effect/unstable/ai';
 import type { SocketServer } from 'effect/unstable/socket';
+import { layer as acrobat } from './acrobat/tools.ts';
 import { layer as health } from './health.ts';
 import { Hosts, resolve } from './hosts.ts';
+import { layer as indesign } from './indesign/tools.ts';
 import { layer as jobs } from './jobs.ts';
 import manifest from './package.json' with { type: 'json' };
 import { type Endpoint, type Link, Links, type SocketHost, serve } from './socket.ts';
@@ -27,9 +29,10 @@ const _listener = (row: (typeof _SOCKETS)[SocketHost]): Layer.Layer<never, Socke
 // --- [ENTRY] ---------------------------------------------------------------------------
 
 Layer.launch(
-    Layer.provideMerge(McpServer.layerStdio({ ..._server, protocols: [McpProtocol.v2025_11_25] }), Layer.mergeAll(health(_server), ...Record.values(Record.map(_SOCKETS, _listener)))).pipe(
-        Layer.provide(Layer.mergeAll(_hosts, Layer.effect(Links, Effect.all(Record.map(_SOCKETS, (row) => _endpoint(row.id)))), Layer.provide(jobs, _hosts))),
-    ),
+    Layer.provideMerge(
+        McpServer.layerStdio({ ..._server, protocols: [McpProtocol.v2025_11_25] }),
+        Layer.mergeAll(health(_server), acrobat, indesign, ...Record.values(Record.map(_SOCKETS, _listener))),
+    ).pipe(Layer.provide(Layer.mergeAll(_hosts, Layer.effect(Links, Effect.all(Record.map(_SOCKETS, (row) => _endpoint(row.id)))), Layer.provide(jobs, _hosts)))),
 ).pipe(
     Effect.tapCause((cause) => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause))),
     Effect.provide(Layer.mergeAll(NodeServices.layer, Logger.layer([Logger.withConsoleError(Logger.formatJson)]))),
