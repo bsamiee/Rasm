@@ -276,7 +276,7 @@ catalog:
     '@nx/js': 23.3.0-canary.20260915-071d621
     '@nx/vite': 23.3.0-canary.20260915-071d621
     '@nx/vitest': 23.3.0-canary.20260915-071d621
-    '@biomejs/biome': 2.5.13
+    '@biomejs/biome': 2.5.14
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     '@derekstride/tree-sitter-sql': 0.3.11
     '@swc/core': 1.16.4-nightly-20260913.1

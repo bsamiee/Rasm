@@ -621,7 +621,11 @@ const _oracle: Effect.Effect<void, AutomationError | PlatformError.PlatformError
         Schema.decodeUnknownResult(_Csv)(line),
     );
     const standards = yield* Effect.forEach(listed, (row) => _verdict(`standard: ${row.name}`, _encode(row.listed), _encode(row.derived)));
-    const named = Array.getSomes(Array.map(_rows(design, '## [04]-[PAGE_SIZES]'), (line) => Option.fromNullishOr(_NAME.exec(line)?.groups?.['name'])));
+    const named = Array.getSomes(
+        Array.map(_rows(design, '## [04]-[PAGE_SIZES]'), (line) =>
+            Option.fromNullishOr(_NAME.exec(line)).pipe(Option.flatMapNullishOr(Struct.get('groups')), Option.flatMapNullishOr(Struct.get('name'))),
+        ),
+    );
     const verdicts = [
         ...Array.flatten(checks),
         ...standards,
