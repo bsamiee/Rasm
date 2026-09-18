@@ -7,7 +7,6 @@
     "dependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
         "@adobe-uxp-types/uxp": "catalog:",
-        "@effect/platform-node": "catalog:",
         "@rasm/creative-cloud-server": "workspace:*",
         "effect": "catalog:"
     }

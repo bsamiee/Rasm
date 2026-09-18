@@ -7,7 +7,7 @@ import { open } from './hooks/observation/sql.ts';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _VIEW = /create view (?<name>\w+) as/gu;
-const _COUNT = 21;
+const _COUNT = 22;
 const _SEGMENTS = 4;
 const _OLD_RANGE =
     'create table judged_range(kind text not null, lineage_key text not null, worktree text not null, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict;';

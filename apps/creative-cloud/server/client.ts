@@ -1,11 +1,12 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import './runtime.ts';
-import { Cause, Effect, Fiber, Layer, Option, Queue, Record, Ref, Schema, Stream, Struct, SubscriptionRef } from 'effect';
+import { Effect, Equal, Exit, FiberHandle, flow, Layer, Option, Predicate, pipe, Queue, Record, Result, Schema, Scope, Stream, Struct, SubscriptionRef } from 'effect';
 import { RpcClient, type RpcClientError, RpcSerialization } from 'effect/unstable/rpc';
 import { Socket } from 'effect/unstable/socket';
-import { HostRejection } from './errors.ts';
+import { faulted, HostRejection, WriteRejection } from './errors.ts';
 import { Frames, type Identity, type Job, type Settle, type State } from './frames.ts';
+import { OptionalNumber, OptionalString } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -28,22 +29,24 @@ interface Lifecycle {
 
 type Handler = (body: Schema.Json) => Effect.Effect<Schema.Json, HostRejection>;
 
-type Slot = Ref.Ref<Option.Option<Fiber.Fiber<void>>>;
+type Render = (raw: unknown) => Option.Option<Schema.Json>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _AsyncFunction: new (code: string) => () => Promise<unknown> = Object.getPrototypeOf(async () => undefined).constructor;
 
-const _numbered = Schema.decodeUnknownOption(Schema.Struct({ number: Schema.Number }));
+// --- [DECODERS] ------------------------------------------------------------------------
+
+const _Thrown = Schema.Struct({ number: OptionalNumber, line: OptionalNumber, fileName: OptionalString, code: OptionalNumber, tag: OptionalString });
+
+const _thrown = Schema.decodeUnknownOption(_Thrown);
 
 // --- [REJECTIONS] ----------------------------------------------------------------------
 
 const thrown = (cause: unknown): HostRejection =>
     HostRejection.cases.scriptThrew.make({
         ...(cause instanceof Error ? { name: cause.name, message: cause.message, stack: Option.fromNullishOr(cause.stack) } : { name: 'Error', message: String(cause), stack: Option.none() }),
-        line: Option.none(),
-        fileName: Option.none(),
-        number: Option.map(_numbered(cause), Struct.get('number')),
+        ...Option.getOrElse(_thrown(cause), () => ({ number: Option.none(), line: Option.none(), fileName: Option.none(), code: Option.none(), tag: Option.none() })),
     });
 
 // --- [JOBS] ----------------------------------------------------------------------------
@@ -65,18 +68,59 @@ const handler =
 const handle = (handlers: Readonly<Record<string, Handler>>, job: Job): Effect.Effect<Schema.Json, HostRejection> =>
     Option.match(Record.get(handlers, job.kind), { onNone: () => Effect.fail(HostRejection.cases.unknownMethod.make({ method: job.kind })), onSome: (found) => found(job.body) });
 
-const settle = (outcome: Effect.Effect<Schema.Json, HostRejection>): Effect.Effect<Settled> => Effect.map(Effect.result(outcome), (result) => ({ autocorrections: Option.none(), result }));
+const settle = (outcome: Effect.Effect<Schema.Json, HostRejection>): Effect.Effect<Settled> =>
+    Effect.map(Effect.result(Effect.catchDefect(outcome, flow(thrown, Effect.fail))), (result) => ({ autocorrections: Option.none(), result }));
+
+// --- [PREFERENCES] ---------------------------------------------------------------------
+
+const _descriptor = (host: object, key: string): Option.Option<PropertyDescriptor> =>
+    Option.orElse(Option.fromNullishOr(Object.getOwnPropertyDescriptor(host, key)), () =>
+        Option.flatMap(Option.fromNullishOr<object | null>(Object.getPrototypeOf(host)), (parent) => _descriptor(parent, key)),
+    );
+
+const read =
+    (render: Render) =>
+    (target: object, key: string): Result.Result<Schema.Json, unknown> =>
+        Result.flatMap(
+            Result.try(() => Reflect.get(target, key)),
+            (raw) => Result.fromOption(render(raw), () => raw),
+        );
+
+const written =
+    (render: Render) =>
+    (target: object, key: string, assigned: unknown, intended: Schema.Json): Result.Result<{ readonly from: Schema.Json; readonly to: Schema.Json }, WriteRejection> =>
+        pipe(
+            Result.liftPredicate(
+                target,
+                (host) => Reflect.has(host, key),
+                () => WriteRejection.cases.unknownKey.make({}),
+            ),
+            Result.filterOrFail(
+                (host) => Option.exists(_descriptor(host, key), (descriptor) => Predicate.isNotUndefined(descriptor.set) || descriptor.writable === true),
+                () => WriteRejection.cases.readOnly.make({}),
+            ),
+            Result.flatMap((host) =>
+                Result.mapError(
+                    Result.all({
+                        from: read(render)(host, key),
+                        to: Result.flatMap(
+                            Result.try(() => Reflect.set(host, key, assigned)),
+                            () => read(render)(host, key),
+                        ),
+                    }),
+                    (cause) => WriteRejection.cases.threw.make({ cause }),
+                ),
+            ),
+            Result.filterOrFail(
+                ({ from, to }) => Equal.equals(to, intended) || !Equal.equals(to, from),
+                () => WriteRejection.cases.unchanged.make({}),
+            ),
+        );
 
 // --- [LINK] ----------------------------------------------------------------------------
 
-const _line = (version: string, state: Status): string => `${version} › ${state}`;
-
-const _mark = (client: Client, status: SubscriptionRef.SubscriptionRef<string>, state: Status): Effect.Effect<void> => SubscriptionRef.set(status, _line(client.version, state));
-
-const _faulted = (cause: Cause.Cause<unknown>): Effect.Effect<void> => (Cause.hasInterruptsOnly(cause) ? Effect.void : Effect.logError(cause));
-
-const _attached = (client: Client, rpc: RpcClient.FromGroup<typeof Frames, RpcClientError.RpcClientError>, status: SubscriptionRef.SubscriptionRef<string>): Effect.Effect<void> =>
-    _mark(client, status, 'Attached').pipe(
+const _attached = (client: Client, rpc: RpcClient.FromGroup<typeof Frames, RpcClientError.RpcClientError>, status: SubscriptionRef.SubscriptionRef<Status>): Effect.Effect<void> =>
+    SubscriptionRef.set(status, 'Attached').pipe(
         Effect.andThen(
             Stream.runDrain(
                 Stream.merge(
@@ -85,11 +129,11 @@ const _attached = (client: Client, rpc: RpcClient.FromGroup<typeof Frames, RpcCl
                 ),
             ),
         ),
-        Effect.catchCause(_faulted),
-        Effect.ensuring(_mark(client, status, 'Redialing')),
+        Effect.catchCause(faulted),
+        Effect.ensuring(SubscriptionRef.set(status, 'Redialing')),
     );
 
-const run = (client: Client, status: SubscriptionRef.SubscriptionRef<string>): Effect.Effect<void> =>
+const run = (client: Client, status: SubscriptionRef.SubscriptionRef<Status>): Effect.Effect<void> =>
     Effect.gen(function* () {
         const connections = yield* Queue.unbounded<'connected' | 'disconnected'>();
         const protocol = RpcClient.layerProtocolSocket({ retryTransientErrors: true }).pipe(
@@ -106,36 +150,31 @@ const run = (client: Client, status: SubscriptionRef.SubscriptionRef<string>): E
         yield* Effect.flatMap(RpcClient.make(Frames), (rpc) =>
             Stream.runDrain(Stream.switchMap(Stream.fromQueue(connections), (connection) => (connection === 'connected' ? Stream.fromEffect(_attached(client, rpc, status)) : Stream.empty))),
         ).pipe(Effect.scoped, Effect.provide(protocol));
-    }).pipe(Effect.tapCause(_faulted));
+    }).pipe(Effect.tapCause(faulted));
 
 // --- [LIFECYCLE] -----------------------------------------------------------------------
 
-const _start = (slot: Slot, work: Effect.Effect<void>): Promise<void> => Effect.runPromise(Ref.set(slot, Option.some(Effect.runFork(work))));
-
-const _stop = (slot: Slot): Promise<void> => Effect.runPromise(Effect.flatMap(Ref.getAndSet(slot, Option.none()), Option.match({ onNone: () => Effect.void, onSome: Fiber.interrupt })));
-
-const _render = (status: SubscriptionRef.SubscriptionRef<string>, root: HTMLElement): Effect.Effect<void> =>
+const _render = (client: Client, status: SubscriptionRef.SubscriptionRef<Status>, root: HTMLElement): Effect.Effect<void> =>
     Effect.scoped(
         Effect.gen(function* () {
             const line = yield* Effect.acquireRelease(
                 Effect.sync(() => root.appendChild(document.createElement('p'))),
                 (appended) => Effect.sync(() => appended.remove()),
             );
-            yield* Stream.runForEach(SubscriptionRef.changes(status), (text) =>
+            yield* Stream.runForEach(SubscriptionRef.changes(status), (state) =>
                 Effect.sync(() => {
-                    line.textContent = text;
+                    line.textContent = `${client.version} › ${state}`;
                 }),
             );
         }),
     );
 
 const lifecycle = (client: Client, panel: string): Lifecycle => {
-    const status = Effect.runSync(SubscriptionRef.make(_line(client.version, 'Redialing')));
-    const link: Slot = Ref.makeUnsafe(Option.none());
-    const view: Slot = Ref.makeUnsafe(Option.none());
+    const scope = Scope.makeUnsafe();
+    const [status, link, view] = Effect.runSync(Effect.provideService(Effect.all([SubscriptionRef.make<Status>('Redialing'), FiberHandle.make<void>(), FiberHandle.make<void>()]), Scope.Scope, scope));
     return {
-        plugin: { create: () => _start(link, run(client, status)), destroy: () => _stop(link) },
-        panels: { [panel]: { create: (root) => _start(view, _render(status, root)), destroy: () => _stop(view) } },
+        plugin: { create: () => Effect.runPromise(Effect.asVoid(FiberHandle.run(link, run(client, status)))), destroy: () => Effect.runPromise(Scope.close(scope, Exit.void)) },
+        panels: { [panel]: { create: (root) => Effect.runPromise(Effect.asVoid(FiberHandle.run(view, _render(client, status, root)))), destroy: () => Effect.runPromise(FiberHandle.clear(view)) } },
     };
 };
 
@@ -152,5 +191,5 @@ const opened = <D>(host: { readonly documents: { readonly length: number }; read
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Client, Handler, Lifecycle, Settled };
-export { active, evaluate, handle, handler, json, lifecycle, opened, run, settle, thrown };
+export type { Client, Handler, Lifecycle, Render, Settled };
+export { active, evaluate, handle, handler, json, lifecycle, opened, read, run, settle, thrown, written };

@@ -1,0 +1,36 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-decode-for-literal
+language: tsx
+severity: error
+utils:
+    literal-tree:
+        any: [{kind: object}, {kind: array}, {kind: string}, {kind: number}, {kind: 'true'}, {kind: 'false'}, {kind: 'null'}, {kind: template_string}]
+        not:
+            has:
+                stopBy: end
+                any:
+                    - {kind: identifier}
+                    - {kind: shorthand_property_identifier}
+                    - {kind: call_expression}
+                    - {kind: new_expression}
+                    - {kind: member_expression}
+                    - {kind: subscript_expression}
+                    - {kind: spread_element}
+                    - {kind: template_substitution}
+                    - {kind: arrow_function}
+                    - {kind: function_expression}
+                    - {kind: comment}
+rule:
+    kind: call_expression
+    all:
+        - has: {field: function, kind: call_expression, pattern: $M.$FN($$$_)}
+        - has:
+            field: function
+            has:
+                field: function
+                all:
+                    - has: {field: property, regex: '^(decode|encode)(Unknown)?Sync$'}
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Schema)?$'}, exported: {regex: '^Schema$'}}}}
+        - has: {field: arguments, has: {nthChild: 1, matches: literal-tree}}
+message: '`$M.$FN` builds at load a constant the literal spells'
+note: 'Constant spelled as the value `$M.$FN` produces, `Option.none()` per optional key, replaces the codec run over a literal that never varies'

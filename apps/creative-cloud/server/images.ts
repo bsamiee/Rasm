@@ -1,11 +1,14 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Number, Schema, Struct } from 'effect';
+import { Number, Option, Schema, Struct } from 'effect';
 
 // --- [TABLE] ---------------------------------------------------------------------------
 
-const BUDGET = { detail: { longEdgePx: 1568, pixels: 1_150_000 }, preview: { longEdgePx: 768, pixels: 300_000 } } as const;
 const DPI = { minimum: 48, maximum: 600 } as const;
+const BUDGET: Readonly<Record<'detail' | 'preview', { readonly longEdgePx: number; readonly pixels: number; readonly dpi: Option.Option<typeof DPI> }>> = {
+    detail: { longEdgePx: 1568, pixels: 1_150_000, dpi: Option.some(DPI) },
+    preview: { longEdgePx: 768, pixels: 300_000, dpi: Option.none() },
+};
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -37,8 +40,9 @@ const Bounds: Schema.Struct<{ readonly left: Schema.Number; readonly top: Schema
 const dpi = (budget: PixelBudget, widthPt: number, heightPt: number): number => {
     const widthIn = widthPt / _POINTS_PER_INCH;
     const heightIn = heightPt / _POINTS_PER_INCH;
-    const fitted = Math.round(Math.min(BUDGET[budget].longEdgePx / Math.max(widthIn, heightIn), Math.sqrt(BUDGET[budget].pixels / (widthIn * heightIn))));
-    return budget === 'detail' ? Number.clamp(fitted, DPI) : fitted;
+    const row = BUDGET[budget];
+    const fitted = Math.round(Math.min(row.longEdgePx / Math.max(widthIn, heightIn), Math.sqrt(row.pixels / (widthIn * heightIn))));
+    return Option.match(row.dpi, { onNone: () => fitted, onSome: (range) => Number.clamp(fitted, range) });
 };
 
 const pixels = (pt: number, resolution: number): number => Math.round((pt * resolution) / _POINTS_PER_INCH);

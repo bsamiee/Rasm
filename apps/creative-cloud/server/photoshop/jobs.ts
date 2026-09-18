@@ -1,9 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { Effect, Schema, Struct } from 'effect';
+import { type AppliedReply, applied, type PreferencesReply, preferences } from '../errors.ts';
 import { Execute } from '../frames.ts';
 import { Bounds, PixelBudget, Region } from '../images.ts';
-import { Section, Writes } from './preferences.ts';
+import { OptionalInt } from '../values.ts';
+import { Section, TARGET_ROWS, Writes } from './preferences.ts';
 
 // --- [TABLE] ---------------------------------------------------------------------------
 
@@ -25,221 +27,175 @@ const _DEPTH = { minimum: 0, maximum: 8 } as const;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Rejection = (typeof Rejection)['Type'];
-type Target = (typeof Target)['Type'];
-type PresetKind = (typeof PresetKind)['Type'];
-type LayerRow = (typeof _LayerRow)['Type'];
-type Kind = (typeof Kind)['Type'];
+type Kind = keyof (typeof Bodies)['fields'];
+type Body<K extends Kind> = (typeof Bodies)['fields'][K]['Type'];
+type Reply<K extends Kind> = (typeof Results)['fields'][K]['Type'];
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _keyed: { readonly section: typeof Section; readonly key: Schema.String } = { section: Section, key: Schema.String };
-const _optionalInt = Schema.OptionFromOptionalKey(Schema.Int);
 const _off = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)));
+const _next = Schema.OptionFromNullOr(Schema.Int);
+const _keyed: { readonly section: typeof Section; readonly key: Schema.String } = { section: Section, key: Schema.String };
 
-const Descriptor: Schema.StructWithRest<Schema.Struct<{ readonly _obj: Schema.String }>, readonly [Schema.$Record<Schema.String, Schema.Codec<Schema.Json>>]> = Schema.StructWithRest(
-    Schema.Struct({ _obj: Schema.String }),
-    [Schema.Record(Schema.String, Schema.Json)],
-);
-
-const Target: Schema.Literals<readonly ['document', 'selection', 'layer']> = Schema.Literals(['document', 'selection', 'layer']);
-
-const PresetKind: Schema.Literals<Array<keyof typeof PRESET_CLASSES>> = Schema.Literals(Struct.keys(PRESET_CLASSES));
-
-const Rejection: Schema.TaggedUnion<{
-    readonly unknownKey: Schema.TaggedStruct<'unknownKey', Record<never, never>>;
-    readonly threw: Schema.TaggedStruct<'threw', { readonly cause: Schema.Defect }>;
-    readonly unchanged: Schema.TaggedStruct<'unchanged', Record<never, never>>;
-}> = Schema.TaggedUnion({ unknownKey: {}, threw: { cause: Schema.Defect() }, unchanged: {} });
-
-const _LayerRow: Schema.Struct<{
-    readonly id: Schema.Int;
-    readonly name: Schema.String;
-    readonly kind: Schema.String;
-    readonly visible: Schema.Boolean;
-    readonly depth: Schema.Int;
-    readonly parentId: Schema.OptionFromNullOr<Schema.Int>;
-    readonly children: Schema.Int;
-}> = Schema.Struct({ id: Schema.Int, name: Schema.String, kind: Schema.String, visible: Schema.Boolean, depth: Schema.Int, parentId: Schema.OptionFromNullOr(Schema.Int), children: Schema.Int });
-
-// --- [BODIES] --------------------------------------------------------------------------
-
-const BatchPlay: Schema.Struct<{
-    readonly descriptors: Schema.NonEmptyArray<typeof Descriptor>;
-    readonly continueOnError: Schema.withDecodingDefaultKey<Schema.Boolean>;
-    readonly immediateRedraw: Schema.withDecodingDefaultKey<Schema.Boolean>;
-}> = Schema.Struct({
-    descriptors: Schema.NonEmptyArray(Descriptor),
-    continueOnError: _off,
-    immediateRedraw: _off,
-});
-
-const Snapshot: Schema.Struct<{
-    readonly target: typeof Target;
-    readonly documentId: Schema.OptionFromOptionalKey<Schema.Int>;
-    readonly layerId: Schema.OptionFromOptionalKey<Schema.Int>;
-    readonly region: Schema.OptionFromOptionalKey<typeof Region>;
-    readonly budget: typeof PixelBudget;
-}> = Schema.Struct({ target: Target, documentId: _optionalInt, layerId: _optionalInt, region: Schema.OptionFromOptionalKey(Region), budget: PixelBudget });
-
-const GetDocument: Schema.Struct<{
-    readonly documentId: Schema.OptionFromOptionalKey<Schema.Int>;
-    readonly limit: Schema.withDecodingDefaultKey<Schema.Int>;
-    readonly cursor: Schema.withDecodingDefaultKey<Schema.Int>;
-    readonly depth: Schema.withDecodingDefaultKey<Schema.Int>;
-}> = Schema.Struct({
-    documentId: _optionalInt,
-    limit: Schema.Int.pipe(Schema.check(Schema.isBetween(_LIMIT)), Schema.withDecodingDefaultKey(Effect.succeed(_LIMIT.maximum))),
-    cursor: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.withDecodingDefaultKey(Effect.succeed(0))),
-    depth: Schema.Int.pipe(Schema.check(Schema.isBetween(_DEPTH)), Schema.withDecodingDefaultKey(Effect.succeed(_DEPTH.maximum))),
-});
-
-const GetPreferences: Schema.Struct<{ readonly sections: Schema.NonEmptyArray<typeof Section> }> = Schema.Struct({ sections: Schema.NonEmptyArray(Section) });
-
-const SetPreferences: Schema.Struct<{ readonly values: typeof Writes }> = Schema.Struct({ values: Writes });
-
-const ListPresets: Schema.Struct<{ readonly kind: typeof PresetKind }> = Schema.Struct({ kind: PresetKind });
-
-const RunAction: Schema.Struct<{ readonly set: Schema.String; readonly action: Schema.String }> = Schema.Struct({ set: Schema.String, action: Schema.String });
-
-// --- [RESULTS] -------------------------------------------------------------------------
-
-const Descriptors: Schema.Struct<{
-    readonly kind: Schema.Literal<'descriptors'>;
-    readonly results: Schema.$Array<Schema.Codec<Schema.Json>>;
-    readonly failed: Schema.$Array<Schema.Struct<{ readonly index: Schema.Int; readonly result: Schema.Number; readonly message: Schema.String }>>;
-}> = Schema.Struct({
-    kind: Schema.Literal('descriptors'),
-    results: Schema.Array(Schema.Json),
-    failed: Schema.Array(Schema.Struct({ index: Schema.Int, result: Schema.Number, message: Schema.String })),
-});
-
-const Jpeg: Schema.Struct<{
-    readonly kind: Schema.Literal<'jpeg'>;
-    readonly base64: Schema.String;
-    readonly widthPx: Schema.Int;
-    readonly heightPx: Schema.Int;
-    readonly level: Schema.Int;
-    readonly scale: Schema.Number;
-    readonly sourceBounds: typeof Bounds;
-    readonly colorProfile: Schema.String;
-}> = Schema.Struct({
-    kind: Schema.Literal('jpeg'),
-    base64: Schema.String,
-    widthPx: Schema.Int,
-    heightPx: Schema.Int,
-    level: Schema.Int,
-    scale: Schema.Number,
-    sourceBounds: Bounds,
-    colorProfile: Schema.String,
-});
-
-const Active: Schema.Struct<{
-    readonly id: Schema.Int;
-    readonly mode: Schema.String;
-    readonly bitsPerChannel: Schema.String;
-    readonly colorProfileName: Schema.String;
-    readonly width: Schema.Number;
-    readonly height: Schema.Number;
-    readonly resolution: Schema.Number;
-    readonly layers: Schema.$Array<typeof _LayerRow>;
-    readonly layerCount: Schema.Int;
-    readonly layerCursor: Schema.OptionFromNullOr<Schema.Int>;
-}> = Schema.Struct({
-    id: Schema.Int,
-    mode: Schema.String,
-    bitsPerChannel: Schema.String,
-    colorProfileName: Schema.String,
-    width: Schema.Number,
-    height: Schema.Number,
-    resolution: Schema.Number,
-    layers: Schema.Array(_LayerRow),
-    layerCount: Schema.Int,
-    layerCursor: Schema.OptionFromNullOr(Schema.Int),
-});
-
-const DocumentState: Schema.Struct<{
-    readonly kind: Schema.Literal<'document'>;
-    readonly documents: Schema.$Array<Schema.Struct<{ readonly id: Schema.Int; readonly name: Schema.String; readonly path: Schema.String; readonly saved: Schema.Boolean }>>;
-    readonly active: Schema.OptionFromNullOr<typeof Active>;
-}> = Schema.Struct({
-    kind: Schema.Literal('document'),
-    documents: Schema.Array(Schema.Struct({ id: Schema.Int, name: Schema.String, path: Schema.String, saved: Schema.Boolean })),
-    active: Schema.OptionFromNullOr(Active),
-});
-
-const Played: Schema.Struct<{ readonly played: Schema.String }> = Schema.Struct({ played: Schema.String });
-
-const Preferences: Schema.Struct<{
-    readonly kind: Schema.Literal<'preferences'>;
-    readonly values: Schema.$Record<Schema.String, Schema.$Record<Schema.String, Schema.Codec<Schema.Json>>>;
-    readonly unreadable: Schema.$Array<Schema.Struct<typeof _keyed & { readonly cause: Schema.Defect }>>;
-}> = Schema.Struct({
-    kind: Schema.Literal('preferences'),
-    values: Schema.Record(Schema.String, Schema.Record(Schema.String, Schema.Json)),
-    unreadable: Schema.Array(Schema.Struct({ ..._keyed, cause: Schema.Defect() })),
-});
-
-const Applied: Schema.Struct<{
-    readonly kind: Schema.Literal<'applied'>;
-    readonly applied: Schema.$Array<Schema.Struct<typeof _keyed & { readonly from: Schema.Codec<Schema.Json>; readonly to: Schema.Codec<Schema.Json> }>>;
-    readonly rejected: Schema.$Array<Schema.Struct<typeof _keyed & { readonly reason: typeof Rejection }>>;
-}> = Schema.Struct({
-    kind: Schema.Literal('applied'),
-    applied: Schema.Array(Schema.Struct({ ..._keyed, from: Schema.Json, to: Schema.Json })),
-    rejected: Schema.Array(Schema.Struct({ ..._keyed, reason: Rejection })),
-});
-
-const Presets: Schema.Struct<{ readonly kind: Schema.Literal<'presets'>; readonly groupIndex: Schema.Int; readonly names: Schema.$Array<Schema.String>; readonly count: Schema.Int }> = Schema.Struct({
-    kind: Schema.Literal('presets'),
-    groupIndex: Schema.Int,
-    names: Schema.Array(Schema.String),
-    count: Schema.Int,
-});
+const Target: Schema.toTaggedUnion<
+    'kind',
+    readonly [
+        Schema.Struct<{ readonly kind: Schema.Literal<'layer'>; readonly layerId: Schema.Int }>,
+        Schema.Struct<{ readonly kind: Schema.Literal<'document'> }>,
+        Schema.Struct<{ readonly kind: Schema.Literal<'selection'> }>,
+    ]
+> = Schema.Union([
+    Schema.Struct({ kind: Schema.Literal('layer'), layerId: Schema.Int }),
+    Schema.Struct({ kind: Schema.Literal('document') }),
+    Schema.Struct({ kind: Schema.Literal('selection') }),
+]).pipe(Schema.toTaggedUnion('kind'));
 
 // --- [KINDS] ---------------------------------------------------------------------------
 
 const Bodies: Schema.Struct<{
     readonly execute: typeof Execute;
-    readonly batchPlay: typeof BatchPlay;
-    readonly snapshot: typeof Snapshot;
-    readonly getDocument: typeof GetDocument;
-    readonly getPreferences: typeof GetPreferences;
-    readonly setPreferences: typeof SetPreferences;
-    readonly listPresets: typeof ListPresets;
-    readonly runAction: typeof RunAction;
+    readonly batchPlay: Schema.Struct<{
+        readonly descriptors: Schema.NonEmptyArray<Schema.StructWithRest<Schema.Struct<{ readonly _obj: Schema.String }>, readonly [Schema.$Record<Schema.String, Schema.Codec<Schema.Json>>]>>;
+        readonly continueOnError: Schema.withDecodingDefaultKey<Schema.Boolean>;
+        readonly immediateRedraw: Schema.withDecodingDefaultKey<Schema.Boolean>;
+    }>;
+    readonly snapshot: Schema.Struct<{
+        readonly target: typeof Target;
+        readonly documentId: Schema.OptionFromOptionalKey<Schema.Int>;
+        readonly region: Schema.OptionFromOptionalKey<typeof Region>;
+        readonly budget: typeof PixelBudget;
+    }>;
+    readonly getDocument: Schema.Struct<{
+        readonly documentId: Schema.OptionFromOptionalKey<Schema.Int>;
+        readonly limit: Schema.withDecodingDefaultKey<Schema.Int>;
+        readonly cursor: Schema.withDecodingDefaultKey<Schema.Int>;
+        readonly depth: Schema.withDecodingDefaultKey<Schema.Int>;
+    }>;
+    readonly getPreferences: Schema.Struct<{ readonly sections: Schema.NonEmptyArray<typeof Section> }>;
+    readonly setPreferences: Schema.Struct<{ readonly values: Schema.withDecodingDefaultKey<typeof Writes> }>;
+    readonly listPresets: Schema.Struct<{ readonly kind: Schema.Literals<Array<keyof typeof PRESET_CLASSES>> }>;
+    readonly runAction: Schema.Struct<{ readonly set: Schema.String; readonly action: Schema.String }>;
 }> = Schema.Struct({
     execute: Execute,
-    batchPlay: BatchPlay,
-    snapshot: Snapshot,
-    getDocument: GetDocument,
-    getPreferences: GetPreferences,
-    setPreferences: SetPreferences,
-    listPresets: ListPresets,
-    runAction: RunAction,
+    batchPlay: Schema.Struct({
+        descriptors: Schema.NonEmptyArray(Schema.StructWithRest(Schema.Struct({ _obj: Schema.String }), [Schema.Record(Schema.String, Schema.Json)])),
+        continueOnError: _off,
+        immediateRedraw: _off,
+    }),
+    snapshot: Schema.Struct({ target: Target, documentId: OptionalInt, region: Schema.OptionFromOptionalKey(Region), budget: PixelBudget }),
+    getDocument: Schema.Struct({
+        documentId: OptionalInt,
+        limit: Schema.Int.pipe(Schema.check(Schema.isBetween(_LIMIT)), Schema.withDecodingDefaultKey(Effect.succeed(_LIMIT.maximum))),
+        cursor: Schema.Int.pipe(Schema.check(Schema.isGreaterThanOrEqualTo(0)), Schema.withDecodingDefaultKey(Effect.succeed(0))),
+        depth: Schema.Int.pipe(Schema.check(Schema.isBetween(_DEPTH)), Schema.withDecodingDefaultKey(Effect.succeed(_DEPTH.maximum))),
+    }),
+    getPreferences: Schema.Struct({ sections: Schema.NonEmptyArray(Section) }),
+    setPreferences: Schema.Struct({ values: Writes.pipe(Schema.withDecodingDefaultKey(Effect.succeed(TARGET_ROWS))) }),
+    listPresets: Schema.Struct({ kind: Schema.Literals(Struct.keys(PRESET_CLASSES)) }),
+    runAction: Schema.Struct({ set: Schema.String, action: Schema.String }),
 });
 
-const Kind: Schema.Literals<Array<keyof (typeof Bodies)['fields']>> = Schema.Literals(Struct.keys(Bodies.fields));
+const Results: Schema.Struct<{
+    readonly execute: Schema.Codec<Schema.Json>;
+    readonly batchPlay: Schema.Struct<{
+        readonly kind: Schema.Literal<'descriptors'>;
+        readonly results: Schema.$Array<Schema.Codec<Schema.Json>>;
+        readonly failed: Schema.$Array<Schema.Struct<{ readonly index: Schema.Int; readonly result: Schema.Number; readonly message: Schema.String }>>;
+    }>;
+    readonly snapshot: Schema.Struct<{
+        readonly kind: Schema.Literal<'jpeg'>;
+        readonly base64: Schema.String;
+        readonly widthPx: Schema.Int;
+        readonly heightPx: Schema.Int;
+        readonly level: Schema.Int;
+        readonly scale: Schema.Number;
+        readonly sourceBounds: typeof Bounds;
+        readonly colorProfile: Schema.String;
+    }>;
+    readonly getDocument: Schema.Struct<{
+        readonly kind: Schema.Literal<'document'>;
+        readonly documents: Schema.$Array<Schema.Struct<{ readonly id: Schema.Int; readonly name: Schema.String; readonly path: Schema.String; readonly saved: Schema.Boolean }>>;
+        readonly active: Schema.OptionFromNullOr<
+            Schema.Struct<{
+                readonly id: Schema.Int;
+                readonly mode: Schema.String;
+                readonly bitsPerChannel: Schema.String;
+                readonly colorProfileName: Schema.String;
+                readonly width: Schema.Number;
+                readonly height: Schema.Number;
+                readonly resolution: Schema.Number;
+                readonly layers: Schema.$Array<
+                    Schema.Struct<{
+                        readonly id: Schema.Int;
+                        readonly name: Schema.String;
+                        readonly kind: Schema.String;
+                        readonly visible: Schema.Boolean;
+                        readonly depth: Schema.Int;
+                        readonly parentId: Schema.OptionFromNullOr<Schema.Int>;
+                        readonly children: Schema.Int;
+                    }>
+                >;
+                readonly layerCount: Schema.Int;
+                readonly layerCursor: Schema.OptionFromNullOr<Schema.Int>;
+            }>
+        >;
+    }>;
+    readonly getPreferences: PreferencesReply<typeof _keyed>;
+    readonly setPreferences: AppliedReply<typeof _keyed>;
+    readonly listPresets: Schema.Struct<{ readonly kind: Schema.Literal<'presets'>; readonly groupIndex: Schema.Int; readonly names: Schema.$Array<Schema.String>; readonly count: Schema.Int }>;
+    readonly runAction: Schema.Null;
+}> = Schema.Struct({
+    execute: Schema.Json,
+    batchPlay: Schema.Struct({
+        kind: Schema.Literal('descriptors'),
+        results: Schema.Array(Schema.Json),
+        failed: Schema.Array(Schema.Struct({ index: Schema.Int, result: Schema.Number, message: Schema.String })),
+    }),
+    snapshot: Schema.Struct({
+        kind: Schema.Literal('jpeg'),
+        base64: Schema.String,
+        widthPx: Schema.Int,
+        heightPx: Schema.Int,
+        level: Schema.Int,
+        scale: Schema.Number,
+        sourceBounds: Bounds,
+        colorProfile: Schema.String,
+    }),
+    getDocument: Schema.Struct({
+        kind: Schema.Literal('document'),
+        documents: Schema.Array(Schema.Struct({ id: Schema.Int, name: Schema.String, path: Schema.String, saved: Schema.Boolean })),
+        active: Schema.OptionFromNullOr(
+            Schema.Struct({
+                id: Schema.Int,
+                mode: Schema.String,
+                bitsPerChannel: Schema.String,
+                colorProfileName: Schema.String,
+                width: Schema.Number,
+                height: Schema.Number,
+                resolution: Schema.Number,
+                layers: Schema.Array(
+                    Schema.Struct({
+                        id: Schema.Int,
+                        name: Schema.String,
+                        kind: Schema.String,
+                        visible: Schema.Boolean,
+                        depth: Schema.Int,
+                        parentId: _next,
+                        children: Schema.Int,
+                    }),
+                ),
+                layerCount: Schema.Int,
+                layerCursor: _next,
+            }),
+        ),
+    }),
+    getPreferences: preferences(_keyed),
+    setPreferences: applied(_keyed),
+    listPresets: Schema.Struct({ kind: Schema.Literal('presets'), groupIndex: Schema.Int, names: Schema.Array(Schema.String), count: Schema.Int }),
+    runAction: Schema.Null,
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Kind, LayerRow, PresetKind, Rejection, Target };
-export {
-    Active,
-    Applied,
-    BatchPlay,
-    Bodies,
-    Descriptors,
-    DocumentState,
-    GetDocument,
-    GetPreferences,
-    Jpeg,
-    ListPresets,
-    Played,
-    PRESET_CLASSES,
-    Preferences,
-    Presets,
-    RunAction,
-    SetPreferences,
-    Snapshot,
-};
+export type { Body, Kind, Reply };
+export { Bodies, PRESET_CLASSES, Results };

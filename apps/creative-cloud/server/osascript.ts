@@ -22,13 +22,13 @@ const reply: (command: ChildProcess.StandardCommand) => Effect.Effect<string, No
         const [stdout, stderr, exitCode] = yield* Effect.all([Stream.mkString(Stream.decodeText(handle.stdout)), Stream.mkString(Stream.decodeText(handle.stderr)), handle.exitCode], {
             concurrency: 'unbounded',
         });
-        return { exitCode, stdout, stderr };
+        return { program: command.command, exitCode, stdout, stderr };
     },
     Effect.scoped,
     Effect.orDie,
     Effect.filterOrFail(
         (output) => output.exitCode === 0,
-        (output) => NonZeroExit.make({ exitCode: output.exitCode, stderr: output.stderr }),
+        (output) => NonZeroExit.make({ program: output.program, exitCode: output.exitCode, stderr: output.stderr }),
     ),
     Effect.map((output) => String.trim(output.stdout)),
 );

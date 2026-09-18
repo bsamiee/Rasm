@@ -1,12 +1,12 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Bridge, type Facts, plugin } from '@rasm/creative-cloud-server/manifest';
+import { type Bridge, plugin } from '@rasm/creative-cloud-server/manifest';
 import { HOSTS } from '@rasm/creative-cloud-server/values';
 import manifest from './package.json' with { type: 'json' };
 
 // --- [MANIFEST] ------------------------------------------------------------------------
 
-const facts: Facts = {
+const bridge: Bridge = plugin(HOSTS.photoshop, manifest, {
     id: 'rasm.photoshop.bridge',
     name: 'Rasm Photoshop Bridge',
     panel: {
@@ -21,9 +21,7 @@ const facts: Facts = {
         ],
     },
     permissions: {},
-};
-
-const bridge: Bridge = plugin(HOSTS.photoshop, manifest, facts);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

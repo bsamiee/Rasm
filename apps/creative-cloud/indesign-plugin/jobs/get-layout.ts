@@ -1,88 +1,75 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Document, type Page, type PageItems, PageSideOptions } from 'adobe:indesign';
-import { type Handler, handler, thrown } from '@rasm/creative-cloud-server/client';
-import { GetLayout, type Item, Layout } from '@rasm/creative-cloud-server/indesign/jobs';
-import { Array, Effect, Option, Schema } from 'effect';
-import { box, document } from '../document.ts';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Row = (typeof Layout)['Type']['pages'][number];
+import { app, type Document, type PageItems, PageSideOptions } from 'adobe:indesign';
+import { opened } from '@rasm/creative-cloud-server/client';
+import type { HostRejection } from '@rasm/creative-cloud-server/errors';
+import type { Body, Item, Reply } from '@rasm/creative-cloud-server/indesign/jobs';
+import { Array, Effect, identity, Option, Record, Struct } from 'effect';
 
 // --- [READS] ---------------------------------------------------------------------------
 
-const _number: (input: unknown) => number = Schema.decodeUnknownSync(Schema.Number);
-
 const _items = (container: { readonly pageItems: PageItems }): readonly Item[] =>
     Array.flatMap(container.pageItems.everyItem().getElements(), (item) => {
-        const type = item.constructor.name;
-        const row: Item = { id: item.id, type, name: item.name, bounds: box(item.geometricBounds), hasGraphic: item.graphics.length > 0 };
-        return type === 'Group' ? [row, ..._items(item)] : [row];
+        const [top, left, bottom, right] = item.geometricBounds;
+        return [
+            { id: item.id, type: item.constructor.name, name: item.name, bounds: { top, left, bottom, right }, hasGraphic: item.graphics.length > 0 },
+            ...Array.flatMap(Array.liftPredicate((candidate: typeof item) => candidate.constructor.name === 'Group')(item), _items),
+        ];
     });
 
-const _page = (page: Page, includeItems: boolean): Row => {
-    const bounds = box(page.bounds);
-    const width = bounds.right - bounds.left;
-    const height = bounds.bottom - bounds.top;
-    const preferences = page.marginPreferences;
-    const margins = { top: _number(preferences.top), bottom: _number(preferences.bottom), inside: _number(preferences.left), outside: _number(preferences.right) };
-    const side = String(page.side);
-    const [left, right] = side === String(PageSideOptions.LEFT_HAND) ? [margins.outside, width - margins.inside] : [margins.inside, width - margins.outside];
-    return {
-        index: page.documentOffset,
-        id: page.id,
-        name: page.name,
-        documentOffset: page.documentOffset,
-        side,
-        bounds: { top: 0, left: 0, bottom: height, right: width },
-        margins,
-        contentArea: { top: margins.top, left, bottom: height - margins.bottom, right },
-        guides: Array.map(page.guides.everyItem().getElements(), (guide) => ({ id: guide.id, orientation: String(guide.orientation), location: _number(guide.location) })),
-        items: Option.map(
-            Option.liftPredicate(page, () => includeItems),
-            _items,
-        ),
-    };
-};
-
-const _windowed = (pages: readonly Row[], itemCursor: number, limit: number): { readonly pages: readonly Row[]; readonly itemCount: number; readonly itemCursor: Option.Option<number> } => {
-    const counted = Array.map(pages, (page) => Option.match(page.items, { onNone: () => 0, onSome: Array.length }));
-    const itemCount = Array.reduce(counted, 0, (total, count) => total + count);
-    const end = Math.min(itemCount, itemCursor + limit);
-    const offsets = Array.scan(counted, 0, (total, count) => total + count);
-    return {
-        pages: Array.map(pages, (page, position) => {
-            const offset = Option.getOrElse(Array.get(offsets, position), () => 0);
-            const start = Math.max(0, itemCursor - offset);
-            const count = Math.max(0, end - offset) - start;
-            return { ...page, items: Option.map(page.items, (items) => Array.take(Array.drop(items, start), count)) };
-        }),
-        itemCount,
-        itemCursor: Option.liftPredicate(end, (next) => next < itemCount),
-    };
-};
-
-const _layout = (doc: Document, body: (typeof GetLayout)['Type']): (typeof Layout)['Type'] => {
+const _layout = (doc: Document, { includeItems, pageCursor, itemCursor, limit }: Body<'getLayout'>): Reply<'getLayout'> => {
     const pageCount = doc.pages.length;
-    const end = Math.min(pageCount, body.pageCursor + body.limit);
+    const reading = Option.as(Option.liftPredicate(includeItems, identity), _items);
+    const rows = Array.map(Array.take(Array.drop(doc.pages.everyItem().getElements(), pageCursor), limit), (page) => {
+        const [top, left, bottom, right] = page.bounds;
+        const { top: above, bottom: below, left: inside, right: outside } = page.marginPreferences;
+        const width = right - left;
+        const height = bottom - top;
+        const [contentLeft, contentRight] = page.side.equals(PageSideOptions.LEFT_HAND) ? [outside, width - inside] : [inside, width - outside];
+        return {
+            index: page.documentOffset,
+            id: page.id,
+            name: page.name,
+            documentOffset: page.documentOffset,
+            side: String(page.side),
+            bounds: { top: 0, left: 0, bottom: height, right: width },
+            margins: { top: above, bottom: below, inside, outside },
+            contentArea: { top: above, left: contentLeft, bottom: height - below, right: contentRight },
+            guides: Array.map(page.guides.everyItem().getElements(), (guide) => ({ id: guide.id, orientation: String(guide.orientation), location: guide.location })),
+            items: Option.map(reading, (read) => read(page)),
+        };
+    });
+    const flat = Array.flatMap(rows, (row) =>
+        Array.map(
+            Option.getOrElse(row.items, () => []),
+            (item) => ({ page: row.id, item }),
+        ),
+    );
+    const shown = Array.groupBy(Array.take(Array.drop(flat, itemCursor), limit), ({ page }) => String(page));
     return {
         kind: 'layout',
         facingPages: doc.documentPreferences.facingPages,
         measurementUnits: { horizontal: String(doc.viewPreferences.horizontalMeasurementUnits), vertical: String(doc.viewPreferences.verticalMeasurementUnits) },
-        ..._windowed(
-            Array.map(Array.take(Array.drop(doc.pages.everyItem().getElements(), body.pageCursor), body.limit), (page) => _page(page, body.includeItems)),
-            body.itemCursor,
-            body.limit,
-        ),
+        pages: Array.map(rows, (row) => ({
+            ...row,
+            items: Option.as(
+                row.items,
+                Array.map(
+                    Option.getOrElse(Record.get(shown, String(row.id)), () => []),
+                    Struct.get('item'),
+                ),
+            ),
+        })),
         pageCount,
-        pageCursor: Option.liftPredicate(end, (next) => next < pageCount),
+        pageCursor: Option.liftPredicate(pageCursor + limit, (next) => next < pageCount),
+        itemCount: flat.length,
+        itemCursor: Option.liftPredicate(itemCursor + limit, (next) => next < flat.length),
     };
 };
 
 // --- [HANDLER] -------------------------------------------------------------------------
 
-const getLayout: Handler = handler(GetLayout, Layout, (body) => Effect.flatMap(document, (doc) => Effect.try({ try: () => _layout(doc, body), catch: thrown })));
+const getLayout = (body: Body<'getLayout'>): Effect.Effect<Reply<'getLayout'>, HostRejection> => Effect.flatMap(opened(app), (doc) => Effect.sync(() => _layout(doc, body)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

@@ -1,33 +1,46 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import type { ClassicHookEvent, ClassicHookInputs, ClassicResult, EngineInterface, Frozen, Next, ProcessRunInit, ProcessRunResult, Register, ToolCallInput, ToolCallResult } from 'claude-code';
+import type {
+    ClassicHookEvent,
+    ClassicHookInputs,
+    ClassicResult,
+    EngineInterface,
+    Frozen,
+    Next,
+    ProcessRunInit,
+    ProcessRunResult,
+    Register,
+    ToolCallInput,
+    ToolCallResult,
+    TurnCompleteInput,
+} from 'claude-code';
 import { SCAN } from './command.ts';
-import { bind, fault, fromNullable, map, none, type Option, ok, type Result } from './composition.ts';
+import { bind, fault, fromNullable, map, none, type Option, ok, type Result, some } from './composition.ts';
 import { decide } from './events/tool-call.ts';
 import {
-    type Candidate,
-    categoryPrompt,
+    type Building,
     context,
     DELIVER,
+    delivering,
+    description,
     due,
     dueCategories,
-    held,
+    type Judging,
     LEDGER,
     type Lineage,
     lineageOf,
     listed,
     occupied,
-    type Range,
+    prompt,
     REPORT,
-    REVOKE,
-    rangePrompt,
     resolved,
     type Settings,
+    type Spawned,
     STATE,
     settings,
     state,
     status,
-    type Task,
+    subject,
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, row, session, TURN } from './observation/row.ts';
 import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
@@ -50,6 +63,8 @@ type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]
 
 type Boundary = Frozen<ClassicHookInputs['Stop']> | Frozen<ClassicHookInputs['SubagentStop']>;
 
+type Completed = Frozen<TurnCompleteInput>;
+
 interface Memo {
     readonly text: () => string;
     readonly set: (text: string) => boolean;
@@ -58,12 +73,17 @@ interface Memo {
 interface Environment {
     readonly chosen: Settings;
     readonly claims: Set<string>;
+    readonly spawned: Map<string, Spawned>;
     readonly footer: Memo;
 }
+
+type Awaited = readonly [string, Spawned, Map<string, Spawned>];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _CTRL = /\p{Cc}+/gu;
+const _PLACED: Argv = ['git', 'status', '--porcelain', 'tools/ast-grep'];
+const _PORCELAIN_PATH = 3;
 
 // --- [MEMO] ----------------------------------------------------------------------------
 
@@ -153,41 +173,92 @@ const _classic = ($: EngineInterface, sink: Sink, e: Classic, ts: number): Promi
 const _denied = ($: EngineInterface, sink: Sink, e: Frozen<ToolCallInput>, next: Next<'tool.call'>, answer: ToolCallResult, ts: number): Promise<ToolCallResult> =>
     record($, sink, 'tool.call', { ...e, deny: answer.deny, trace: next.trace }, CALL, ts).then(() => answer);
 
-// --- [DELIVERY] ------------------------------------------------------------------------
+// --- [SPAWN] ---------------------------------------------------------------------------
 
-const _stopping = (e: Classic): e is Boundary => (e.hook_event_name === 'Stop' && !e.stop_hook_active) || (e.hook_event_name === 'SubagentStop' && e.agent_type !== '' && !e.stop_hook_active);
-
-const _spawn = ($: EngineInterface, agent: string, prompt: string, description: string, cwd: string, subject: string): Promise<Option<string>> =>
-    $.agent.spawn({ prompt, subagentType: agent, description, cwd }).then(
+const _spawn = ($: EngineInterface, spawned: Spawned): Promise<Option<string>> =>
+    $.agent.spawn({ prompt: prompt(spawned), subagentType: spawned.agent, description: description(spawned), cwd: spawned.lineage.worktree }).then(
         (result) => {
-            $.ui.log(resolved(agent, subject, result));
+            $.ui.log(resolved(spawned, result));
             return fromNullable(result.agentId);
         },
         (cause: unknown) => {
-            $.ui.log(`${agent} did not spawn, ${String(cause)}`);
+            $.ui.log(`${spawned.agent} did not spawn, ${String(cause)}`);
             return none;
         },
     );
 
+const _launched = ($: EngineInterface, environment: Environment, spawned: Spawned): void => {
+    environment.claims.add(spawned.agent);
+    _spawn($, spawned).then((id) => {
+        environment.claims.delete(spawned.agent);
+        if (id.kind === 'some') {
+            environment.spawned.set(id.value, spawned);
+        }
+    });
+};
+
+// --- [SETTLEMENT] ----------------------------------------------------------------------
+
+const _awaited = (environment: Result<Environment>, agentId: string | undefined): Option<Awaited> => {
+    if (environment.kind === 'fault' || agentId === undefined) {
+        return none;
+    }
+    const found = fromNullable(environment.value.spawned.get(agentId));
+    return found.kind === 'some' ? some([agentId, found.value, environment.value.spawned]) : none;
+};
+
+const _judged = ($: EngineInterface, sink: Sink, e: Completed, [id, judging, spawned]: readonly [string, Judging, Map<string, Spawned>], ts: number): Promise<void> =>
+    record($, sink, 'turn.complete', e, TURN, ts)
+        .then(() => _run($, sink.argv, { stdin: LEDGER(judging, id, ts), cwd: judging.lineage.worktree }))
+        .then((written) => {
+            if (written.kind === 'ok' && written.value.trim() === '') {
+                $.ui.log(`${judging.agent} ${id} answered with no transition over ${subject(judging)}, range stays unjudged`);
+                return;
+            }
+            spawned.delete(id);
+            $.ui.log(written.kind === 'fault' ? `ledger row not written, ${written.reason}` : `${judging.agent} ${id} judged ${subject(judging)}`);
+        });
+
+const _placed = ($: EngineInterface, e: Completed, building: Building): Promise<Readonly<Record<string, unknown>>> =>
+    _run($, _PLACED, { cwd: building.lineage.worktree }).then((printed) => {
+        if (printed.kind === 'fault') {
+            $.ui.log(`placed rules not read, ${printed.reason}`);
+            return e;
+        }
+        return { ...e, placed: printed.value.split('\n').flatMap((line) => (line === '' ? [] : [line.slice(_PORCELAIN_PATH)])) };
+    });
+
+const _built = ($: EngineInterface, sink: Sink, e: Completed, [id, building, spawned]: readonly [string, Building, Map<string, Spawned>], ts: number): Promise<void> => {
+    spawned.delete(id);
+    return _placed($, e, building)
+        .then((value) => record($, sink, 'turn.complete', value, TURN, ts))
+        .then(() => _run($, sink.argv, { stdin: REPORT(building, id, ts), cwd: building.lineage.worktree }))
+        .then((written) => {
+            $.ui.log(written.kind === 'fault' ? `report rows not written, ${written.reason}` : `${building.agent} ${id} reported ${subject(building)}`);
+        });
+};
+
+const _settled = ($: EngineInterface, sink: Sink, e: Completed, [id, pending, spawned]: Awaited, ts: number): Promise<void> => {
+    if (e.reason !== 'answer') {
+        spawned.delete(id);
+        $.ui.log(`${pending.agent} ${id} ended on ${e.reason} over ${subject(pending)}, nothing recorded`);
+        return record($, sink, 'turn.complete', e, TURN, ts);
+    }
+    return pending.kind === 'range' ? _judged($, sink, e, [id, pending, spawned], ts) : _built($, sink, e, [id, pending, spawned], ts);
+};
+
+const _completed = ($: EngineInterface, sink: Sink, e: Completed, ts: number, environment: Result<Environment>): Promise<void> => {
+    const awaited = _awaited(environment, e.agentId);
+    return awaited.kind === 'some' ? _settled($, sink, e, awaited.value, ts) : record($, sink, 'turn.complete', e, TURN, ts);
+};
+
+// --- [DELIVERY] ------------------------------------------------------------------------
+
+const _stopping = (e: Classic): e is Boundary => (e.hook_event_name === 'Stop' && !e.stop_hook_active) || (e.hook_event_name === 'SubagentStop' && e.agent_type !== '' && !e.stop_hook_active);
+
 const _skip = ($: EngineInterface, reason: string): readonly string[] => {
     $.ui.log(`boundary skipped, ${reason}`);
     return [];
-};
-
-const _claimed = ($: EngineInterface, sink: Sink, lineage: Lineage, range: Range, to: number, agent: string): Promise<void> =>
-    _run($, sink.argv, { stdin: LEDGER(lineage, range, to, agent), cwd: lineage.worktree }).then((written) => {
-        if (written.kind === 'fault') {
-            $.ui.log(`ledger row not written, ${written.reason}`);
-        }
-    });
-
-const _judge = ($: EngineInterface, sink: Sink, lineage: Lineage, to: number, range: Range, tasks: readonly Task[], quiet: boolean, claims: Set<string>): void => {
-    if (due(range, occupied(tasks, claims), quiet)) {
-        claims.add(range.trigger.agent);
-        _spawn($, range.trigger.agent, rangePrompt(lineage, range.from, to), `judge ${range.trigger.kind}s`, lineage.worktree, `${range.from}..${to}`)
-            .then((spawned) => (spawned.kind === 'some' ? _claimed($, sink, lineage, range, to, spawned.value) : undefined))
-            .then(() => claims.delete(range.trigger.agent));
-    }
 };
 
 const _delivered = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number): Promise<readonly string[]> =>
@@ -195,54 +266,29 @@ const _delivered = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineag
         rows.kind === 'fault' ? _skip($, `delivery rows not written, ${rows.reason}`) : context(rows.value, lineage.branch),
     );
 
-const _revoked = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, launched: boolean): void => {
-    if (!launched) {
-        _run($, sink.argv, { stdin: REVOKE(lineage, e.session_id, to), cwd: lineage.worktree }).then((taken) => {
-            if (taken.kind === 'fault') {
-                $.ui.log(`report rows not revoked, ${taken.reason}`);
-            }
-        });
-    }
-};
-
-const _reported = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, environment: Environment, to: number, candidate: Candidate, written: Result<string>): void => {
-    if (written.kind === 'fault') {
-        environment.claims.delete(environment.chosen.categoryAgent);
-        $.ui.log(`report rows not written, ${written.reason}`);
-        return;
-    }
-    _spawn($, environment.chosen.categoryAgent, categoryPrompt(candidate.category, lineage), 'judge category', lineage.worktree, candidate.category).then((spawned) => {
-        environment.claims.delete(environment.chosen.categoryAgent);
-        _revoked($, sink, e, lineage, to, spawned.kind === 'some');
-    });
-};
-
 const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage, to: number, environment: Environment): Promise<readonly string[]> =>
     _run($, sink.argv, { stdin: STATE(lineage, to, environment.chosen), cwd: lineage.worktree }).then((read) => {
         const seen = bind(read, (text) => state(text, environment.chosen));
         if (seen.kind === 'fault') {
             return _skip($, `state not read, ${seen.reason}`);
         }
-        const tasks = listed(e.background_tasks);
-        const holding = tasks.kind === 'ok' ? held(seen.value.edits, tasks.value) : [];
-        if (environment.footer.set(status(seen.value, holding.length))) {
+        if (environment.footer.set(status(seen.value))) {
             $.ui.invalidate('ui.render');
         }
+        const tasks = listed(e.background_tasks);
         if (tasks.kind === 'fault') {
             return _skip($, tasks.reason);
         }
-        const quiet = holding.length === 0;
-        _judge($, sink, lineage, to, seen.value.edits, tasks.value, quiet, environment.claims);
+        const quiet = seen.value.edits.holding === 0;
         const busy = occupied(tasks.value, environment.claims);
-        const delivering = e.hook_event_name === 'Stop' && seen.value.undelivered > 0 && quiet && !busy.includes(environment.chosen.edits.agent);
-        const [candidate] = dueCategories(seen.value, environment.chosen, busy, quiet);
-        if (candidate === undefined) {
-            return delivering ? _delivered($, sink, e, lineage, to) : [];
+        if (due(seen.value.edits, busy, quiet)) {
+            _launched($, environment, { kind: 'range', agent: environment.chosen.edits.agent, lineage, range: seen.value.edits, to });
         }
-        environment.claims.add(environment.chosen.categoryAgent);
-        return _run($, sink.argv, { stdin: REPORT(lineage, e.session_id, candidate.category, to), cwd: lineage.worktree })
-            .then((written) => _reported($, sink, e, lineage, environment, to, candidate, written))
-            .then(() => (delivering ? _delivered($, sink, e, lineage, to) : []));
+        const [candidate] = dueCategories(seen.value, environment.chosen, busy, quiet);
+        if (candidate !== undefined) {
+            _launched($, environment, { kind: 'category', agent: environment.chosen.categoryAgent, lineage, session: e.session_id, category: candidate.category });
+        }
+        return e.hook_event_name === 'Stop' && delivering(seen.value, environment.chosen, busy, quiet) ? _delivered($, sink, e, lineage, to) : [];
     });
 
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
@@ -276,7 +322,8 @@ const _answered = (result: ClassicResult, entries: readonly string[]): ClassicRe
 const register: Register = (on, options) => {
     const footer = _memo();
     const claims: Set<string> = new Set();
-    const environment = map(settings(options), (chosen): Environment => ({ chosen, claims, footer }));
+    const spawned: Map<string, Spawned> = new Map();
+    const environment = map(settings(options), (chosen): Environment => ({ chosen, claims, spawned, footer }));
     const walking = options['walkPolicy'] === true;
     let opening: Promise<Result<Sink>> | undefined;
     const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
@@ -311,6 +358,7 @@ const register: Register = (on, options) => {
                 'SubagentStop',
                 'UserPromptSubmit',
                 'Stop',
+                'StopFailure',
                 'PreCompact',
                 'PostCompact',
                 'SessionEnd',
@@ -328,7 +376,12 @@ const register: Register = (on, options) => {
 
     on('turn.*', ($, e, next) =>
         _stamped($, once)
-            .then((found) => (found.kind === 'ok' ? record($, found.value.sink, next.event, e, TURN, found.value.ts) : undefined))
+            .then((found) => {
+                if (found.kind === 'fault') {
+                    return;
+                }
+                return next.is('turn.complete', e) ? _completed($, found.value.sink, e, found.value.ts, environment) : record($, found.value.sink, next.event, e, TURN, found.value.ts);
+            })
             .then(() => next(e)),
     );
 

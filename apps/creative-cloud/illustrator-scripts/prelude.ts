@@ -1,20 +1,8 @@
 /// <reference types="types-for-adobe/Illustrator/2022"/>
 
-// --- [HOST] ----------------------------------------------------------------------------
-
-declare const $: $;
-declare const app: Application;
-
-const rgbColor: new () => RGBColor = $.global.RGBColor;
-const cmykColor: new () => CMYKColor = $.global.CMYKColor;
-const grayColor: new () => GrayColor = $.global.GrayColor;
-
 // --- [CONTRACT] ------------------------------------------------------------------------
 
 declare global {
-    enum ColorModel {}
-    enum UserInteractionLevel {}
-
     interface Color {
         readonly typename: string;
     }
@@ -53,48 +41,81 @@ declare global {
         readonly [name: string]: unknown;
     }
 
-    interface ColorSpec {
-        readonly model: 'RGB' | 'CMYK' | 'Gray';
-        readonly values: number[];
+    interface Channels {
+        readonly RGB: [number, number, number];
+        readonly CMYK: [number, number, number, number];
+        readonly GRAY: [number];
     }
 
-    interface SwatchSpec extends ColorSpec {
+    type ProcessSpec = { readonly [M in keyof Channels]: { readonly model: M; readonly values: Channels[M] } }[keyof Channels];
+
+    type ColorSpec = ProcessSpec | { readonly model: 'Spot'; readonly name: string; readonly tint: number; readonly ink: ProcessSpec };
+
+    interface SwatchSpec {
         readonly name: string;
         readonly global: boolean;
+        readonly color: ProcessSpec;
     }
 
-    interface SwatchGroupSpec {
-        readonly name: string;
-        readonly swatches: SwatchSpec[];
+    interface SwatchPalette {
+        readonly root: SwatchSpec[];
+        readonly groups: { readonly name: string; readonly swatches: SwatchSpec[] }[];
     }
 
-    interface SwatchRows {
-        readonly applied: { readonly group: string; readonly swatch: string }[];
-        readonly rejected: { readonly group: string; readonly swatch: string; readonly reason: string }[];
+    interface RasterSpec {
+        readonly resolution: number;
+        readonly antiAliasing: boolean;
+        readonly padding: number;
+    }
+
+    interface PreferenceValue {
+        readonly bool: boolean;
+        readonly integer: number;
+        readonly real: number;
+        readonly string: string;
+    }
+
+    interface Applied extends JsonObject {
+        readonly kind: 'applied';
+        readonly applied: JsonObject[];
+        readonly rejected: JsonObject[];
     }
 
     interface Prelude {
         readonly all: (at: Site, readers: [string, Reader][]) => Reading<JsonObject>;
+        readonly assign: (target: object, name: string, value: unknown) => void;
         readonly collect: <T, R>(list: T[], map: (item: T, index: number) => R) => R[];
-        readonly color: (spec: ColorSpec) => Color;
+        readonly color: (doc: Document, spec: ColorSpec) => Color;
         readonly contains: <T>(list: T[], value: T) => boolean;
+        readonly created: (colorSpace: 'RGB' | 'CMYK', width: number, height: number, raster: RasterSpec) => Document;
         readonly dump: (value: unknown, at: Site) => Reading<Json>;
         readonly each: <T>(at: Site, list: T[], reader: (item: T, at: Site) => Reading<Json>) => Reading<Json[]>;
+        readonly flatMap: <T, R>(list: T[], map: (item: T, index: number) => R[]) => R[];
         readonly flatten: (list: PageItem[]) => PageItem[];
         readonly fold: <T, A>(list: T[], initial: A, step: (accumulator: A, item: T, index: number) => A) => A;
-        readonly has: (object: object, name: string) => boolean;
         readonly hosted: (value: unknown) => value is Hosted;
+        readonly isArray: (value: unknown) => value is unknown[];
         readonly items: <T>(collection: { readonly length: number; readonly [index: number]: T }) => T[];
-        readonly layer: (doc: Document, name: string) => Layer;
         readonly members: <T extends object>(object: T) => [string, Reader][];
+        readonly named: <T>(collection: { readonly getByName: (name: string) => T }, name: string) => T[];
         readonly nth: <T>(collection: { readonly length: number; readonly [index: number]: T }, position: number) => T;
-        readonly only: <T, S extends T>(list: T[], keep: (item: T) => item is S) => S[];
-        readonly pairs: <T>(list: T[]) => [T, T][];
+        readonly owned: <T extends { name: string }>(collection: { readonly getByName: (name: string) => T; readonly add: () => T }, name: string) => T;
+        readonly paths: (item: PageItem) => PathItem[];
+        readonly preference: { readonly [K in keyof PreferenceValue]: { readonly read: (key: string) => PreferenceValue[K]; readonly write: (key: string, value: PreferenceValue[K]) => void } };
+        readonly present: <T>(value: T) => Reading<T>;
+        readonly properties: (object: object) => ReflectionInfo[];
         readonly range: (count: number) => number[];
         readonly reference: (value: unknown, at: Site) => Reading<Json>;
+        readonly reflection: (object: object) => Reflection[];
         readonly run: <R extends object>(tool: (request: R, at: Site) => Reading<JsonObject>) => string;
-        readonly select: <T>(list: T[], keep: (item: T) => boolean) => T[];
-        readonly swatches: (doc: Document, groups: SwatchGroupSpec[], replaceByName: boolean) => SwatchRows;
+        readonly saved: (doc: Document, path: string) => File;
+        readonly select: {
+            <T, S extends T>(list: T[], keep: (item: T) => item is S): S[];
+            <T>(list: T[], keep: (item: T) => boolean): T[];
+        };
+        readonly spec: (value: Color) => ColorSpec[];
+        readonly split: (rows: JsonObject[]) => Applied;
+        readonly swatches: (doc: Document, palette: SwatchPalette, replaceByName: boolean) => JsonObject[];
         readonly typed: <S extends { readonly typename: string }>(typename: string) => (item: { readonly typename: string }) => item is S;
         readonly visit: <T>(list: T[], act: (item: T, index: number) => void) => void;
         readonly walk: <T extends object>(at: Site, object: T, extras: [string, Reader][]) => Reading<JsonObject>;
@@ -125,18 +146,12 @@ const collect = <T, R>(list: T[], map: (item: T, index: number) => R): R[] =>
         return mapped;
     });
 
-const only = <T, S extends T>(list: T[], keep: (item: T) => item is S): S[] =>
+const flatMap = <T, R>(list: T[], map: (item: T, index: number) => R[]): R[] => fold<T, R[]>(list, [], (flat, item, index): R[] => flat.concat(map(item, index)));
+
+const select: Prelude['select'] = <T, S extends T>(list: T[], keep: (item: T) => boolean): S[] =>
     fold<T, S[]>(list, [], (kept, item): S[] => {
         if (keep(item)) {
-            kept.push(item);
-        }
-        return kept;
-    });
-
-const select = <T>(list: T[], keep: (item: T) => boolean): T[] =>
-    fold<T, T[]>(list, [], (kept, item): T[] => {
-        if (keep(item)) {
-            kept.push(item);
+            kept.push(item as S);
         }
         return kept;
     });
@@ -144,9 +159,6 @@ const select = <T>(list: T[], keep: (item: T) => boolean): T[] =>
 const visit = <T>(list: T[], act: (item: T, index: number) => void): void => fold<T, void>(list, undefined, (_visited, item, index): void => act(item, index));
 
 const contains = <T>(list: T[], value: T): boolean => select(list, (item): boolean => item === value).length > 0;
-
-const pairs = <T>(list: T[]): [T, T][] =>
-    fold<T, [T, T][]>(list.slice(1), [], (rows, next, index): [T, T][] => rows.concat(collect(list.slice(index, index + 1), (current): [T, T] => [current, next])));
 
 // --- [CLASSES] -------------------------------------------------------------------------
 
@@ -159,6 +171,8 @@ const isString = (value: unknown): value is string => typeof value === 'string';
 const isNumber = (value: unknown): value is number => typeof value === 'number';
 
 const isObject = (value: unknown): value is JsonObject => value !== null && classOf(value) === '[object Object]';
+
+const isError = (value: unknown): value is Error => classOf(value) === '[object Error]';
 
 const isFileSystem = (value: unknown): value is File | Folder => {
     const kind = classOf(value);
@@ -177,14 +191,17 @@ const typed =
 
 const INHERITED = Object.prototype.reflect;
 
-const properties = (object: object): ReflectionInfo[] => {
+const reflection = (object: object): Reflection[] => {
     try {
-        const reflection = object.reflect;
-        return classOf(reflection) === '[object Reflection]' ? select(reflection.properties, (info): boolean => INHERITED.find(info.name) === null) : [];
+        const reflected = object.reflect;
+        return classOf(reflected) === '[object Reflection]' ? [reflected] : [];
     } catch {
         return [];
     }
 };
+
+const properties = (object: object): ReflectionInfo[] =>
+    fold<Reflection, ReflectionInfo[]>(reflection(object), [], (_none, reflected): ReflectionInfo[] => select(reflected.properties, (info): boolean => INHERITED.find(info.name) === null));
 
 // --- [JSON] ----------------------------------------------------------------------------
 
@@ -215,7 +232,7 @@ const encode = (value: Json): string => {
     if (value === true || value === false) {
         return String(value);
     }
-    const entries = only(
+    const entries = select(
         collect(properties(value), (info): [string, Json | undefined] => [info.name, value[info.name]]),
         (entry): entry is [string, Json] => entry[1] !== undefined,
     );
@@ -362,7 +379,7 @@ const decode = (text: string): Json => {
 // --- [READINGS] ------------------------------------------------------------------------
 
 const failure = (error: unknown): [JsonObject, { readonly file: string; readonly line: number }] => {
-    const thrown = error instanceof Error ? error : new Error(String(error));
+    const thrown = isError(error) ? error : new Error(String(error));
     const site = { file: File(thrown.fileName).name, line: thrown.line };
     const marker = 'an Illustrator error occurred: ';
     const opening = thrown.message.indexOf(marker);
@@ -460,6 +477,10 @@ const members: Prelude['members'] = (object) =>
 
 const walk: Prelude['walk'] = (at, object, extras) => all(at, members(object).concat(extras));
 
+const assign: Prelude['assign'] = (target, name, value) => {
+    (target as { [key: string]: unknown })[name] = value;
+};
+
 const dump: Prelude['dump'] = (value, at) => {
     if (isArray(value)) {
         return each(at, value, dump);
@@ -524,50 +545,11 @@ const run = <R extends object>(tool: (request: R, at: Site) => Reading<JsonObjec
     );
 };
 
-// --- [HOST] ----------------------------------------------------------------------------
-
 const items = <T>(collection: { readonly length: number; readonly [index: number]: T }): T[] => Array.prototype.slice.call(collection, 0);
 
 const nth = <T>(collection: { readonly length: number; readonly [index: number]: T }, position: number): T => Array.prototype.slice.call(collection, position, position + 1)[0];
 
-const has = (object: object, name: string): boolean => select(properties(object), (info): boolean => info.name === name).length > 0;
-
-const color: Prelude['color'] = (spec) => {
-    const [first, second, third, fourth] = spec.values;
-    if (spec.model === 'RGB') {
-        const rgb = new rgbColor();
-        rgb.red = first ?? 0;
-        rgb.green = second ?? 0;
-        rgb.blue = third ?? 0;
-        return rgb;
-    }
-    if (spec.model === 'CMYK') {
-        const cmyk = new cmykColor();
-        cmyk.cyan = first ?? 0;
-        cmyk.magenta = second ?? 0;
-        cmyk.yellow = third ?? 0;
-        cmyk.black = fourth ?? 0;
-        return cmyk;
-    }
-    const gray = new grayColor();
-    gray.gray = first ?? 0;
-    return gray;
-};
-
-const layer: Prelude['layer'] = (doc, name) => {
-    try {
-        return doc.layers.getByName(name);
-    } catch {
-        const added = doc.layers.add();
-        added.name = name;
-        return added;
-    }
-};
-
-const flatten: Prelude['flatten'] = (list) =>
-    fold<PageItem, PageItem[]>(list, [], (flat, item): PageItem[] => (typed<GroupItem>('GroupItem')(item) ? flat.concat(flatten(items(item.pageItems))) : flat.concat([item])));
-
-const named = <T>(collection: { getByName: (name: string) => T }, name: string): T[] => {
+const named: Prelude['named'] = (collection, name) => {
     try {
         return [collection.getByName(name)];
     } catch {
@@ -575,63 +557,199 @@ const named = <T>(collection: { getByName: (name: string) => T }, name: string):
     }
 };
 
-const swatchGroup = (doc: Document, name: string): SwatchGroup[] => {
-    if (name === '') {
-        return [];
-    }
-    const found = named(doc.swatchGroups, name);
-    if (found.length > 0) {
-        return found;
-    }
-    const added = doc.swatchGroups.add();
-    added.name = name;
-    return [added];
-};
-
-const placed = (doc: Document, group: SwatchGroup[], swatch: SwatchSpec, replaceByName: boolean): string[] => {
-    const [existing] = named(doc.swatches, swatch.name);
-    if (existing !== undefined && !replaceByName) {
-        return ['nameCollision'];
-    }
+const owned: Prelude['owned'] = (collection, name) => {
+    const [existing] = named(collection, name);
     if (existing !== undefined) {
-        existing.color = color(swatch);
-        return [];
+        return existing;
     }
-    if (swatch.global) {
-        const spot = doc.spots.add();
-        spot.name = swatch.name;
-        spot.colorType = ColorModel.PROCESS;
-        spot.color = color(swatch);
-        visit(group, (owner): void => {
-            owner.addSpot(spot);
-        });
-        return [];
-    }
-    const added = doc.swatches.add();
-    added.name = swatch.name;
-    added.color = color(swatch);
-    visit(group, (owner): void => {
-        owner.addSwatch(added);
-    });
-    return [];
+    const added = collection.add();
+    added.name = name;
+    return added;
 };
 
-const swatches: Prelude['swatches'] = (doc, groups, replaceByName) => {
-    const rows: SwatchRows = { applied: [], rejected: [] };
-    visit(groups, (spec): void => {
-        const group = swatchGroup(doc, spec.name);
-        visit(spec.swatches, (swatch): void => {
-            const [reason] = placed(doc, group, swatch, replaceByName);
-            if (reason === undefined) {
-                rows.applied.push({ group: spec.name, swatch: swatch.name });
-            } else {
-                rows.rejected.push({ group: spec.name, swatch: swatch.name, reason });
-            }
-        });
+const flatten: Prelude['flatten'] = (list) =>
+    fold<PageItem, PageItem[]>(list, [], (flat, item): PageItem[] => (typed<GroupItem>('GroupItem')(item) ? flat.concat(flatten(items(item.pageItems))) : flat.concat([item])));
+
+const paths: Prelude['paths'] = (item) => {
+    if (typed<PathItem>('PathItem')(item)) {
+        return [item];
+    }
+    return typed<CompoundPathItem>('CompoundPathItem')(item) ? items(item.pathItems) : [];
+};
+
+const split: Prelude['split'] = (rows) => ({
+    kind: 'applied',
+    applied: select(rows, (row): boolean => row['reason'] === undefined),
+    rejected: select(rows, (row): boolean => row['reason'] !== undefined),
+});
+
+// --- [COLOR] ---------------------------------------------------------------------------
+
+const built = (model: keyof Channels, values: number[]): Color => {
+    if (model === 'RGB') {
+        const rgb = new RGBColor();
+        rgb.red = nth(values, 0);
+        rgb.green = nth(values, 1);
+        rgb.blue = nth(values, 2);
+        return rgb;
+    }
+    if (model === 'CMYK') {
+        const cmyk = new CMYKColor();
+        cmyk.cyan = nth(values, 0);
+        cmyk.magenta = nth(values, 1);
+        cmyk.yellow = nth(values, 2);
+        cmyk.black = nth(values, values.length - 1);
+        return cmyk;
+    }
+    const gray = new GrayColor();
+    gray.gray = nth(values, 0);
+    return gray;
+};
+
+const definedSpot = (doc: Document, name: string, ink: ProcessSpec): Spot => {
+    const added = doc.spots.add();
+    added.name = name;
+    added.colorType = ColorModel.PROCESS;
+    added.color = color(doc, ink);
+    return added;
+};
+
+const color: Prelude['color'] = (doc, chosen) => {
+    if (chosen.model === 'Spot') {
+        const [existing] = named(doc.spots, chosen.name);
+        const tinted = new SpotColor();
+        tinted.spot = existing === undefined ? definedSpot(doc, chosen.name, chosen.ink) : existing;
+        tinted.tint = chosen.tint;
+        return tinted;
+    }
+    if (chosen.model === 'GRAY') {
+        return built(chosen.model, chosen.values);
+    }
+    const space = doc.documentColorSpace === DocumentColorSpace.CMYK ? 'CMYK' : 'RGB';
+    if (chosen.model === space) {
+        return built(chosen.model, chosen.values);
+    }
+    return built(space, app.convertSampleColor(ImageColorSpace[chosen.model], chosen.values, ImageColorSpace[space], ColorConvertPurpose.defaultpurpose));
+};
+
+const spec: Prelude['spec'] = (value) => {
+    if (typed<RGBColor>('RGBColor')(value)) {
+        return [{ model: 'RGB', values: [value.red, value.green, value.blue] }];
+    }
+    if (typed<CMYKColor>('CMYKColor')(value)) {
+        return [{ model: 'CMYK', values: [value.cyan, value.magenta, value.yellow, value.black] }];
+    }
+    if (typed<GrayColor>('GrayColor')(value)) {
+        return [{ model: 'GRAY', values: [value.gray] }];
+    }
+    if (!typed<SpotColor>('SpotColor')(value)) {
+        return [];
+    }
+    const { spot, tint } = value;
+    return collect(
+        select(spec(spot.color), (ink): ink is ProcessSpec => ink.model !== 'Spot'),
+        (ink): ColorSpec => ({ model: 'Spot', name: spot.name, tint, ink }),
+    );
+};
+
+const swatches: Prelude['swatches'] = (doc, palette, replaceByName) => {
+    const rooted = collect(palette.root, (swatch): { readonly owner: SwatchGroup[]; readonly row: JsonObject; readonly swatch: SwatchSpec } => ({ owner: [], row: { name: swatch.name }, swatch }));
+    const grouped = flatMap(palette.groups, (group): { readonly owner: SwatchGroup[]; readonly row: JsonObject; readonly swatch: SwatchSpec }[] => {
+        const owner = [owned(doc.swatchGroups, group.name)];
+        return collect(group.swatches, (swatch) => ({ owner, row: { group: group.name, name: swatch.name }, swatch }));
     });
-    return rows;
+    return collect(rooted.concat(grouped), ({ owner, row, swatch }): JsonObject => {
+        const [existing] = named(doc.swatches, swatch.name);
+        if (existing !== undefined && !replaceByName) {
+            row['reason'] = 'nameCollision';
+            return row;
+        }
+        if (existing !== undefined) {
+            existing.color = color(doc, swatch.color);
+            return row;
+        }
+        if (swatch.global) {
+            const spot = definedSpot(doc, swatch.name, swatch.color);
+            visit(owner, (holder): void => {
+                holder.addSpot(spot);
+            });
+            return row;
+        }
+        const added = doc.swatches.add();
+        added.name = swatch.name;
+        added.color = color(doc, swatch.color);
+        visit(owner, (holder): void => {
+            holder.addSwatch(added);
+        });
+        return row;
+    });
+};
+
+// --- [DOCUMENT] ------------------------------------------------------------------------
+
+const preference: Prelude['preference'] = {
+    bool: { read: (key): boolean => app.preferences.getBooleanPreference(key), write: (key, value): void => app.preferences.setBooleanPreference(key, value) },
+    integer: { read: (key): number => app.preferences.getIntegerPreference(key), write: (key, value): void => app.preferences.setIntegerPreference(key, value) },
+    real: { read: (key): number => app.preferences.getRealPreference(key), write: (key, value): void => app.preferences.setRealPreference(key, value) },
+    string: { read: (key): string => app.preferences.getStringPreference(key), write: (key, value): void => app.preferences.setStringPreference(key, value) },
+};
+
+const created: Prelude['created'] = (colorSpace, width, height, raster) => {
+    const doc = app.documents.add(DocumentColorSpace[colorSpace], width, height, 1);
+    const settings = doc.rasterEffectSettings;
+    settings.resolution = raster.resolution;
+    settings.antiAliasing = raster.antiAliasing;
+    settings.padding = raster.padding;
+    doc.rasterEffectSettings = settings;
+    return doc;
+};
+
+const saved: Prelude['saved'] = (doc, path) => {
+    const options = new IllustratorSaveOptions();
+    options.embedICCProfile = true;
+    options.pdfCompatible = true;
+    options.compatibility = Compatibility.ILLUSTRATOR24;
+    const file = new File(path);
+    doc.saveAs(file, options);
+    doc.close(SaveOptions.DONOTSAVECHANGES);
+    return file;
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-((): Prelude => ({ all, collect, color, contains, dump, each, flatten, fold, has, hosted, items, layer, members, nth, only, pairs, range, reference, run, select, swatches, typed, visit, walk }))();
+((): Prelude => ({
+    all,
+    assign,
+    collect,
+    color,
+    contains,
+    created,
+    dump,
+    each,
+    flatMap,
+    flatten,
+    fold,
+    hosted,
+    isArray,
+    items,
+    members,
+    named,
+    nth,
+    owned,
+    paths,
+    preference,
+    present,
+    properties,
+    range,
+    reference,
+    reflection,
+    run,
+    saved,
+    select,
+    spec,
+    split,
+    swatches,
+    typed,
+    visit,
+    walk,
+}))();

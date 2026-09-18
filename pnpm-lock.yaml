@@ -1712,9 +1712,6 @@ importers:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
         version: 0.1.4
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1(@node-rs/xxhash@1.7.7)(@opentelemetry/api@1.9.1))
       '@rasm/creative-cloud-server':
         specifier: workspace:*
         version: link:../server
@@ -1730,9 +1727,6 @@ importers:
       effect:
         specifier: 'catalog:'
         version: 4.0.0-rc.115
-      ts-morph:
-        specifier: 'catalog:'
-        version: 28.0.0
 
   apps/creative-cloud/photoshop-plugin:
     dependencies:
@@ -1742,9 +1736,6 @@ importers:
       '@adobe-uxp-types/uxp':
         specifier: 'catalog:'
         version: 0.1.4
-      '@effect/platform-node':
-        specifier: 'catalog:'
-        version: 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1(@node-rs/xxhash@1.7.7)(@opentelemetry/api@1.9.1))
       '@rasm/creative-cloud-server':
         specifier: workspace:*
         version: link:../server

@@ -47,19 +47,7 @@ Declarations of `hooks/observation/sql.ts` are the schema, applied as a delta at
 - WAL and the busy timeout serialize the processes and worktrees writing one file
 - Removing `.cache/observation/` is the reset
 
-## [04]-[BOUNDARY]
-
-Boundary runs after the row at `Stop` and at a `SubagentStop` with a non-empty `agent_type`, both with `stop_hook_active` false:
-- Lineage comes from the worktree and branch git reports at the event's `cwd`, statements and spawns run at the worktree
-- One state query per boundary event reads the counts, sets the footer label, and decides the spawns, no tool event costs a query
-- Spawn waits while a task under `background_tasks` edited the unjudged range or the agent runs on the worktree from another session
-- Unjudged count is distinct files edited in the tree since the lineage's last `to_ts`, the threshold counts files
-- Ledger row of an edit range is written when its spawn resolves with an agent id, the next range opens after that `to_ts` while the agent runs
-- Prompt a spawn passes is the range or the category with the lineage key alone, the agent derives the rest from rows
-- Category spawn that refuses takes its `report` delivery rows back
-- Boundary event with no `background_tasks` field reads state and sets the footer, skips spawn and delivery, and logs the absence
-
-## [05]-[EXTENSION]
+## [04]-[EXTENSION]
 
 New purpose takes a view, an agent, or a trigger pair, each touching its own owner:
 - View is one `_VIEWS` element of `sql.ts` with its reader in the skill and its count in `views.test.ts`
@@ -70,7 +58,7 @@ New purpose takes a view, an agent, or a trigger pair, each touching its own own
 - Options are read once at `register`, a changed value waits for the module's reload
 - Evidence no row holds is a gap at the module, one payload key or one matcher entry
 
-## [06]-[PROOF]
+## [05]-[PROOF]
 
 `claude plugin validate`, the typecheck, and the views test pass before a live session proves a module change:
 - `views.test.ts` prepares every view and rebuilds a changed table over rows through `node:sqlite`, run under target `check`

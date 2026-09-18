@@ -1,19 +1,14 @@
 /// <reference path="./prelude.ts"/>
 
-// --- [HOST] ----------------------------------------------------------------------------
-
-declare const $: $;
-declare const app: Application;
-
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { present, run }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-const runMenuCommand = (request: { readonly command: string }, _at: Site): Reading<JsonObject> => {
+const runMenuCommand = (request: { readonly command: string }): Reading<JsonObject> => {
     app.executeMenuCommand(request.command);
-    return { value: { kind: 'menuCommandRun', command: request.command }, unavailable: [] };
+    return present({ kind: 'applied', command: request.command });
 };
 
 run(runMenuCommand);

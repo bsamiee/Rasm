@@ -134,25 +134,14 @@ flowchart LR
 - Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
 
-## [06]-[HARNESS]
-
-- `.claude/settings.json` holds allow list, one entry per tool or server, and `mise env` hooks
-- `.mcp.json` and `.codex/config.toml` run each mise-installed server under `mise exec`
-- `function-hooks` policies answer each tool call with deny or next, one policy per file under `.claude/plugins/function-hooks/hooks/policies/`
-- Skills hold knowledge of one subject, agents hold one role with its procedure and gate, memory holds facts no file covers
-- `nx run rasm:browsers` installs the Chromium build the Playwright commands launch
-- `jdtls` plugin under `.claude/plugins/` runs the Java language server over the Ghidra scripts with the Ghidra jars and the mise JDK
-- Use `ghidra` skill for reading or annotating a binary through Ghidra
-
-## [07]-[STRUCTURE]
+## [06]-[STRUCTURE]
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
 - `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
 - Manifests define projects, no `project.json`: `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
-- Project files sit at the project root, with no `src/` directory at any depth and no directory adding a level of nesting alone
-- Each language area builds and runs without another present
+- Project have no `src/` directory or foler with a single file, folder architecture is driven by logical domain groupings per language
 - Python and TypeScript files declare their exports at the end
 - Changes replace structure in place, one commit holds change and removal, new structure keeps its predecessor's name
 - Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder

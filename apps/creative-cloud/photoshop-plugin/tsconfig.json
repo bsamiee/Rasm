@@ -3,8 +3,7 @@
     "compilerOptions": {
         "outDir": "../../../.cache/typescript/out/apps/creative-cloud/photoshop-plugin",
         "lib": ["esnext", "dom"],
-        "paths": { "adobe:photoshop": ["./photoshop.ts"], "adobe:uxp": ["./uxp.ts"] },
-        "types": ["@adobe-uxp-types/photoshop", "@adobe-uxp-types/uxp", "node"]
+        "types": ["@adobe-uxp-types/photoshop/with-protocol", "@adobe-uxp-types/uxp/with-protocol", "node"]
     },
     "references": [{ "path": "../server" }],
     "include": ["*.ts", "*/*.ts"],

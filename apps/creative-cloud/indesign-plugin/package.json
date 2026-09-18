@@ -6,12 +6,10 @@
     "main": "plugin-main.ts",
     "dependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
-        "@effect/platform-node": "catalog:",
         "@rasm/creative-cloud-server": "workspace:*",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
         "astring": "catalog:",
-        "effect": "catalog:",
-        "ts-morph": "catalog:"
+        "effect": "catalog:"
     }
 }

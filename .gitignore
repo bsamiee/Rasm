@@ -13,10 +13,6 @@ __pycache__/
 .playwright-cli/
 .nx/*
 apps/creative-cloud/server/indesign/indesign.ts
-apps/creative-cloud/indesign-plugin/uxp.ts
-apps/creative-cloud/indesign-plugin/enumerations.ts
-apps/creative-cloud/photoshop-plugin/uxp.ts
-apps/creative-cloud/photoshop-plugin/photoshop.ts
 apps/creative-cloud/server/illustrator/dictionary.ts
 apps/creative-cloud/illustrator-scripts/illustrator.ts
 

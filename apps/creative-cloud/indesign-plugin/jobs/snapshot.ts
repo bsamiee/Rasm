@@ -16,45 +16,29 @@ import {
     SaveOptions,
     type Spread,
 } from 'adobe:indesign';
-import { type Handler, handler, thrown } from '@rasm/creative-cloud-server/client';
+import { opened } from '@rasm/creative-cloud-server/client';
 import { HostRejection } from '@rasm/creative-cloud-server/errors';
-import { DPI, dpi, pixels } from '@rasm/creative-cloud-server/images';
-import { type Format, Image, Snapshot, type Target } from '@rasm/creative-cloud-server/indesign/jobs';
+import { type Bounds, BUDGET, DPI, dpi, pixels, points } from '@rasm/creative-cloud-server/images';
+import type { Body, Format, Reply, Target } from '@rasm/creative-cloud-server/indesign/jobs';
 import { AbsolutePath } from '@rasm/creative-cloud-server/values';
-import { Array, Effect, Match, Number, Option, Record, Schema, type Scope, Struct } from 'effect';
-import { type Box, box, document } from '../document.ts';
-
-// --- [TYPES] ---------------------------------------------------------------------------
-
-type Rendered = Omit<(typeof Image)['Type'], 'kind' | 'path' | 'isolated' | 'overlaps' | 'effectivePpi'>;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _MIN_PAGE_PT = 216;
-const _CORNERS = [AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.TOP_RIGHT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR, AnchorPoint.BOTTOM_LEFT_ANCHOR];
-const _CONTAINERS = ['Spread', 'MasterSpread'];
-const _JPEG = ['jpegQuality', 'exportResolution', 'pageString', 'jpegExportRange', 'exportingSpread'] as const;
-const _PNG = ['pngQuality', 'exportResolution', 'pageString', 'pngExportRange', 'exportingSpread', 'transparentBackground'] as const;
+import { Array, Effect, Match, Number, Option, Result, Schema, Struct } from 'effect';
+import { swapped } from '../host.ts';
 
 // --- [GEOMETRY] ------------------------------------------------------------------------
 
-const _points: (input: unknown) => Array.NonEmptyReadonlyArray<readonly [number, number]> = Schema.decodeUnknownSync(Schema.NonEmptyArray(Schema.Tuple([Schema.Number, Schema.Number])));
-
-const _ppi: (input: unknown) => Option.Option<Array.NonEmptyReadonlyArray<number>> = Schema.decodeUnknownOption(Schema.NonEmptyArray(Schema.Number));
-
-const _spreadBox = (item: Pick<PageItem, 'resolve'>): Box => {
-    const corners = Array.map(_CORNERS, (anchor) => Array.headNonEmpty(_points(item.resolve([anchor, BoundingBoxLimits.GEOMETRIC_PATH_BOUNDS], CoordinateSpaces.SPREAD_COORDINATES))));
-    const xs = Array.map(corners, ([x]) => x);
-    const ys = Array.map(corners, ([, y]) => y);
+const _spreadBox = (item: Pick<PageItem, 'resolve'>): Bounds => {
+    const corners = Array.map([AnchorPoint.TOP_LEFT_ANCHOR, AnchorPoint.TOP_RIGHT_ANCHOR, AnchorPoint.BOTTOM_RIGHT_ANCHOR, AnchorPoint.BOTTOM_LEFT_ANCHOR], (anchor) => {
+        const [[x, y]] = item.resolve([anchor, BoundingBoxLimits.GEOMETRIC_PATH_BOUNDS], CoordinateSpaces.SPREAD_COORDINATES);
+        return { x, y };
+    });
+    const xs = Array.map(corners, Struct.get('x'));
+    const ys = Array.map(corners, Struct.get('y'));
     return { left: Math.min(...xs), right: Math.max(...xs), top: Math.min(...ys), bottom: Math.max(...ys) };
 };
 
-const _disjoint = (bounds: Box, rect: Box): boolean => bounds.left >= rect.right || bounds.right <= rect.left || bounds.top >= rect.bottom || bounds.bottom <= rect.top;
+const _disjoint = (bounds: Bounds, rect: Bounds): boolean => bounds.left >= rect.right || bounds.right <= rect.left || bounds.top >= rect.bottom || bounds.bottom <= rect.top;
 
-const _backToFront = (container: Pick<Spread, 'allPageItems'>): readonly PageItem[] =>
-    Array.filter(Array.reverse(container.allPageItems), (item) => Array.contains(_CONTAINERS, String(item.parent.constructor.name)));
-
-const _full = (widthPt: number, heightPt: number, resolution: number): Rendered => {
+const _full = (widthPt: number, heightPt: number, resolution: number): Pick<Reply<'snapshot'>, 'widthPx' | 'heightPx' | 'contentWidthPx' | 'contentHeightPx' | 'dpi'> => {
     const widthPx = pixels(widthPt, resolution);
     const heightPx = pixels(heightPt, resolution);
     return { widthPx, heightPx, contentWidthPx: widthPx, contentHeightPx: heightPx, dpi: resolution };
@@ -62,78 +46,64 @@ const _full = (widthPt: number, heightPt: number, resolution: number): Rendered 
 
 // --- [EXPORT] --------------------------------------------------------------------------
 
-const _restored = <T extends object, K extends keyof T & string>(target: T, keys: readonly K[], values: Partial<T>): Effect.Effect<Readonly<Record<string, T[K]>>, HostRejection, Scope.Scope> =>
-    Effect.acquireRelease(
-        Effect.try({
-            try: () => {
-                const saved = Record.fromIterableWith(keys, (key) => [key, target[key]]);
-                Object.assign(target, values);
-                return saved;
-            },
-            catch: thrown,
-        }),
-        (saved) =>
-            Effect.sync(() => {
-                Object.assign(target, saved);
-            }),
-    );
-
 const _exported = (doc: Document, format: Format, resolution: number, pageString: string, spread: boolean, path: string): Effect.Effect<void, HostRejection> =>
     Effect.scoped(
-        Effect.andThen(
+        Effect.flatMap(
             Match.value(format).pipe(
                 Match.discriminatorsExhaustive('kind')({
                     jpg: () =>
-                        _restored(app.jpegExportPreferences, _JPEG, {
-                            jpegQuality: JPEGOptionsQuality.MAXIMUM,
-                            exportResolution: resolution,
-                            pageString,
-                            jpegExportRange: ExportRangeOrAllPages.EXPORT_RANGE,
-                            exportingSpread: spread,
-                        }),
+                        Effect.as(
+                            swapped(app.jpegExportPreferences, {
+                                jpegQuality: JPEGOptionsQuality.MAXIMUM,
+                                exportResolution: resolution,
+                                pageString,
+                                jpegExportRange: ExportRangeOrAllPages.EXPORT_RANGE,
+                                exportingSpread: spread,
+                            }),
+                            ExportFormat.JPG,
+                        ),
                     png: ({ transparent }) =>
-                        _restored(app.pngExportPreferences, _PNG, {
-                            pngQuality: PNGQualityEnum.MAXIMUM,
-                            exportResolution: resolution,
-                            pageString,
-                            pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
-                            exportingSpread: spread,
-                            transparentBackground: transparent,
-                        }),
+                        Effect.as(
+                            swapped(app.pngExportPreferences, {
+                                pngQuality: PNGQualityEnum.MAXIMUM,
+                                exportResolution: resolution,
+                                pageString,
+                                pngExportRange: PNGExportRangeEnum.EXPORT_RANGE,
+                                exportingSpread: spread,
+                                transparentBackground: transparent,
+                            }),
+                            ExportFormat.PNG_FORMAT,
+                        ),
                 }),
             ),
-            Effect.try({ try: () => doc.exportFile(format.kind === 'jpg' ? ExportFormat.JPG : ExportFormat.PNG_FORMAT, path), catch: thrown }),
+            (target) =>
+                Effect.sync(() => {
+                    doc.exportFile(target, path);
+                }),
         ),
     );
 
 const _file = (directory: string, name: string, format: Format): AbsolutePath => AbsolutePath.make(`${directory}/${name}.${format.kind}`);
 
-const _whole = (rendered: Rendered, path: AbsolutePath): (typeof Image)['Type'] => ({ kind: 'image', path, ...rendered, effectivePpi: Option.none(), isolated: false, overlaps: [] });
+const _whole = (rendered: ReturnType<typeof _full>, path: AbsolutePath): Reply<'snapshot'> => ({ kind: 'image', path, ...rendered, effectivePpi: Option.none(), isolated: false, overlaps: [] });
 
 // --- [ISOLATION] -----------------------------------------------------------------------
 
 const _moved = (item: PageItem, tmpSpread: Spread, targetLeft: number, targetTop: number): void => {
     const duplicate = item.duplicate(tmpSpread);
     const current = _spreadBox(duplicate);
-    duplicate.move(undefined, [`${targetLeft - current.left}pt`, `${targetTop - current.top}pt`]);
+    duplicate.move(undefined, [targetLeft - current.left, targetTop - current.top]);
 };
 
-const _placed = (list: readonly PageItem[], rect: Box, tmpSpread: Spread, pageTopLeft: Box): Effect.Effect<void, HostRejection> =>
+const _placed = (list: readonly PageItem[], rect: Bounds, tmpSpread: Spread, pageTopLeft: Bounds): Effect.Effect<void, HostRejection> =>
     Effect.forEach(
         Array.filter(
             Array.map(list, (item) => ({ item, box: _spreadBox(item) })),
-            ({ box: bounds }) => !_disjoint(bounds, rect),
+            ({ box }) => !_disjoint(box, rect),
         ),
-        ({ item, box: bounds }) => Effect.try({ try: () => _moved(item, tmpSpread, pageTopLeft.left + (bounds.left - rect.left), pageTopLeft.top + (bounds.top - rect.top)), catch: thrown }),
+        ({ item, box }) => Effect.sync(() => _moved(item, tmpSpread, pageTopLeft.left + (box.left - rect.left), pageTopLeft.top + (box.top - rect.top))),
         { discard: true },
     );
-
-const _masked = (tmpSpread: Spread, bounds: Box): void => {
-    const mask = tmpSpread.rectangles.add();
-    mask.geometricBounds = [`${bounds.top}pt`, `${bounds.left}pt`, `${bounds.bottom}pt`, `${bounds.right}pt`];
-    mask.fillColor = 'Paper';
-    mask.strokeColor = 'None';
-};
 
 const _rendered = Effect.fnUntraced(function* (
     format: Format,
@@ -141,69 +111,76 @@ const _rendered = Effect.fnUntraced(function* (
     widthPt: number,
     heightPt: number,
     cap: Option.Option<number>,
-    populate: (tmpSpread: Spread, pageTopLeft: Box) => Effect.Effect<void, HostRejection>,
+    populate: (tmpSpread: Spread, pageTopLeft: Bounds) => Effect.Effect<void, HostRejection>,
 ) {
-    const pageWidth = Math.max(widthPt, _MIN_PAGE_PT);
-    const pageHeight = Math.max(heightPt, _MIN_PAGE_PT);
+    const floor = points(BUDGET.detail.longEdgePx, DPI.maximum);
+    const pageWidth = Math.max(widthPt, floor);
+    const pageHeight = Math.max(heightPt, floor);
     const wanted = dpi('detail', pageWidth, pageHeight);
     const resolution = Option.match(
         Option.filter(cap, (ppi) => ppi < wanted),
         { onNone: () => wanted, onSome: (ppi) => Number.clamp(Math.round(ppi), DPI) },
     );
     const tmp = yield* Effect.acquireRelease(
-        Effect.try({
-            try: () => {
-                const opened = app.documents.add(false);
-                while (opened.pages.length > 1) {
-                    opened.pages.item(opened.pages.length - 1).remove();
-                }
-                opened.documentPreferences.facingPages = false;
-                Object.assign(opened.pages.item(0).marginPreferences, { top: '0pt', bottom: '0pt', left: '0pt', right: '0pt' });
-                opened.documentPreferences.pageWidth = `${pageWidth}pt`;
-                opened.documentPreferences.pageHeight = `${pageHeight}pt`;
-                return opened;
-            },
-            catch: thrown,
+        Effect.sync(() => {
+            const created = app.documents.add(false);
+            created.documentPreferences.properties = { facingPages: false, pagesPerDocument: 1, pageWidth, pageHeight };
+            return created;
         }),
-        (opened) =>
+        (created) =>
             Effect.sync(() => {
-                opened.close(SaveOptions.NO);
+                created.close(SaveOptions.NO);
             }),
     );
     const tmpSpread = tmp.spreads.item(0);
     yield* populate(tmpSpread, _spreadBox(tmp.pages.item(0)));
-    yield* Effect.try({
-        try: () => {
-            if (pageHeight > heightPt) {
-                _masked(tmpSpread, { top: heightPt, left: 0, bottom: pageHeight, right: pageWidth });
-            }
-            if (pageWidth > widthPt) {
-                _masked(tmpSpread, { top: 0, left: widthPt, bottom: pageHeight, right: pageWidth });
-            }
-        },
-        catch: thrown,
-    });
+    yield* Effect.forEach(
+        Array.filter(
+            [
+                { needed: pageHeight > heightPt, box: { top: heightPt, left: 0, bottom: pageHeight, right: pageWidth } },
+                { needed: pageWidth > widthPt, box: { top: 0, left: widthPt, bottom: pageHeight, right: pageWidth } },
+            ],
+            Struct.get('needed'),
+        ),
+        ({ box }) =>
+            Effect.sync(() => {
+                const mask = tmpSpread.rectangles.add();
+                mask.geometricBounds = [box.top, box.left, box.bottom, box.right];
+                mask.fillColor = 'Paper';
+                mask.strokeColor = 'None';
+            }),
+        { discard: true },
+    );
     yield* _exported(tmp, format, resolution, '+1', false, path);
     return { ..._full(pageWidth, pageHeight, resolution), contentWidthPx: pixels(widthPt, resolution), contentHeightPx: pixels(heightPt, resolution) };
 }, Effect.scoped);
 
-const _composed = (source: Spread | MasterSpread, rect: Box, cap: Option.Option<number>, format: Format, path: string): Effect.Effect<Rendered, HostRejection> =>
+const _composed = (source: Spread | MasterSpread, rect: Bounds, cap: Option.Option<number>, format: Format, path: string): Effect.Effect<ReturnType<typeof _full>, HostRejection> =>
     _rendered(format, path, rect.right - rect.left, rect.bottom - rect.top, cap, (tmpSpread, pageTopLeft) => {
-        const applied: readonly MasterSpread[] = Array.map(source.pages.everyItem().getElements(), Struct.get('appliedMaster'));
-        const masters = Array.dedupeWith(Array.filter(applied, Struct.get('isValid')), (left: MasterSpread, right: MasterSpread) => left.id === right.id);
+        const masters = Array.dedupeWith(
+            Array.filter(Array.map(source.pages.everyItem().getElements(), Struct.get('appliedMaster')), Struct.get('isValid')),
+            (left: MasterSpread, right: MasterSpread) => left.id === right.id,
+        );
         return Effect.andThen(
-            Effect.forEach(masters, (master) => _placed(_backToFront(master), rect, tmpSpread, pageTopLeft), { discard: true }),
-            _placed(_backToFront(source), rect, tmpSpread, pageTopLeft),
+            Effect.forEach(masters, (master) => _placed(Array.reverse(master.pageItems.everyItem().getElements()), rect, tmpSpread, pageTopLeft), { discard: true }),
+            _placed(Array.reverse(source.pageItems.everyItem().getElements()), rect, tmpSpread, pageTopLeft),
         );
     });
 
 // --- [TARGETS] -------------------------------------------------------------------------
 
-const _indexed = (index: number, count: number): Effect.Effect<void, HostRejection> => (index < count ? Effect.void : Effect.fail(HostRejection.cases.pageOutOfRange.make({ index, count })));
+const _indexed = (index: number, count: number): Effect.Effect<number, HostRejection> =>
+    Effect.fromResult(
+        Result.liftPredicate(
+            index,
+            (candidate) => candidate < count,
+            () => HostRejection.cases.pageOutOfRange.make({ index, count }),
+        ),
+    );
 
 const _page = Effect.fnUntraced(function* (doc: Document, { index, budget }: Extract<Target, { readonly kind: 'page' }>, format: Format, directory: string) {
     yield* _indexed(index, doc.pages.length);
-    const { top, left, bottom, right } = box(doc.pages.item(index).bounds);
+    const [top, left, bottom, right] = doc.pages.item(index).bounds;
     const resolution = dpi(budget, right - left, bottom - top);
     const path = _file(directory, `page-${index}`, format);
     yield* _exported(doc, format, resolution, `+${index + 1}`, false, path);
@@ -214,9 +191,12 @@ const _spread = Effect.fnUntraced(function* (doc: Document, { index, budget }: E
     yield* _indexed(index, doc.spreads.length);
     const before = Array.reduce(Array.take(doc.spreads.everyItem().getElements(), index), 0, (total, spread) => total + spread.pages.length);
     const pages = doc.spreads.item(index).pages.everyItem().getElements();
-    const boxes = Array.map(pages, (page) => box(page.bounds));
-    const width = Array.reduce(boxes, 0, (total, bounds) => total + (bounds.right - bounds.left));
-    const height = Array.reduce(boxes, 0, (tallest, bounds) => Math.max(tallest, bounds.bottom - bounds.top));
+    const sizes = Array.map(pages, (page) => {
+        const [top, left, bottom, right] = page.bounds;
+        return { width: right - left, height: bottom - top };
+    });
+    const width = Array.reduce(sizes, 0, (total, size) => total + size.width);
+    const height = Math.max(0, ...Array.map(sizes, Struct.get('height')));
     const resolution = dpi(budget, width, height);
     const path = _file(directory, `spread-${index}`, format);
     yield* _exported(doc, format, resolution, pages.length === 1 ? `+${before + 1}` : `+${before + 1}-+${before + pages.length}`, true, path);
@@ -235,49 +215,38 @@ const _region = Effect.fnUntraced(function* (doc: Document, { index, region: [x0
 });
 
 const _object = Effect.fnUntraced(function* (doc: Document, { itemId, isolate }: Extract<Target, { readonly kind: 'object' }>, format: Format, directory: string) {
-    const located = Array.head(
-        Array.getSomes(
-            Array.map(doc.spreads.everyItem().getElements(), (candidate) => {
-                const direct = candidate.pageItems.itemByID(itemId);
-                const found = Option.orElse(
-                    Option.flatMap(Option.liftPredicate(direct, Struct.get('isValid')), (specifier) => Array.head(specifier.getElements())),
-                    () => Array.findFirst(candidate.allPageItems, (entry) => entry.id === itemId),
-                );
-                return Option.map(found, (hit) => ({ item: hit, spread: candidate }));
-            }),
+    const { item, spread } = yield* Effect.fromOption(
+        Array.findFirst(
+            Array.flatMap(doc.spreads.everyItem().getElements(), (candidate) => Array.map(candidate.allPageItems, (entry) => ({ item: entry, spread: candidate }))),
+            (entry) => entry.item.id === itemId,
         ),
+        () => HostRejection.cases.itemNotFound.make({ itemId }),
     );
-    const { item, spread } = yield* Effect.fromOption(located, () => HostRejection.cases.itemNotFound.make({ itemId }));
     const rect = _spreadBox(item);
     const overlaps = Array.map(
         Array.filter(spread.pageItems.everyItem().getElements(), (other) => other.id !== item.id && !_disjoint(_spreadBox(other), rect)),
-        (other) => ({ id: other.id, name: other.name, type: String(other.constructor.name) }),
+        (other) => ({ id: other.id, name: other.name, type: other.constructor.name }),
     );
-    const graphic = Option.flatMap(
-        Option.liftPredicate(item.graphics, (graphics) => graphics.length > 0),
-        (graphics) => Array.head(graphics.item(0).getElements()),
-    );
+    const ppi = Schema.decodeUnknownOption(Schema.NonEmptyArray(Schema.Number));
     const raster = Option.map(
-        Option.orElse(
-            Option.flatMap(graphic, (placed) => _ppi(Reflect.get(placed, 'effectivePpi'))),
-            () => _ppi(Reflect.get(item, 'effectivePpi')),
-        ),
+        Option.firstSomeOf([Option.flatMap(Array.head(item.graphics.everyItem().getElements()), (placed) => ppi(Reflect.get(placed, 'effectivePpi'))), ppi(Reflect.get(item, 'effectivePpi'))]),
         (values) => Math.max(...values),
     );
-    const cap = Option.filter(raster, () => isolate || overlaps.length === 0);
+    const cap = Option.zipRight(
+        Option.liftPredicate(overlaps, (others) => isolate || Array.isReadonlyArrayEmpty(others)),
+        raster,
+    );
     const path = _file(directory, `object-${itemId}`, format);
     const rendered = yield* isolate
-        ? _rendered(format, path, rect.right - rect.left, rect.bottom - rect.top, cap, (tmpSpread, pageTopLeft) =>
-              Effect.try({ try: () => _moved(item, tmpSpread, pageTopLeft.left, pageTopLeft.top), catch: thrown }),
-          )
+        ? _rendered(format, path, rect.right - rect.left, rect.bottom - rect.top, cap, (tmpSpread, pageTopLeft) => Effect.sync(() => _moved(item, tmpSpread, pageTopLeft.left, pageTopLeft.top)))
         : _composed(spread, rect, cap, format, path);
     return { kind: 'image' as const, path, ...rendered, effectivePpi: raster, isolated: isolate, overlaps };
 });
 
 // --- [HANDLER] -------------------------------------------------------------------------
 
-const snapshot: Handler = handler(Snapshot, Image, ({ target, format, directory }) =>
-    Effect.flatMap(document, (doc) =>
+const snapshot = ({ target, format, directory }: Body<'snapshot'>): Effect.Effect<Reply<'snapshot'>, HostRejection> =>
+    Effect.flatMap(opened(app), (doc) =>
         Match.value(target).pipe(
             Match.discriminatorsExhaustive('kind')({
                 page: (page) => _page(doc, page, format, directory),
@@ -286,8 +255,7 @@ const snapshot: Handler = handler(Snapshot, Image, ({ target, format, directory 
                 object: (object) => _object(doc, object, format, directory),
             }),
         ),
-    ),
-);
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

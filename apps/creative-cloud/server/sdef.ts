@@ -1,8 +1,9 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Effect, Function, Option, Order, Record, Result, Schema, String } from 'effect';
+import { Array, Effect, Function, Option, Order, pipe, Record, Result, Schema, String, Struct } from 'effect';
 import { XMLParser } from 'fast-xml-parser';
 import { IndentationText, type ManipulationSettings, NewLineKind, QuoteKind } from 'ts-morph';
+import { OptionalString } from './values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -14,13 +15,24 @@ type SdefEnumeration = (typeof Enumeration)['Type'];
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _ACRONYM = /^[A-Z][A-Z0-9]*$/u;
-const _BYTE = 256;
 const MANIPULATION: Partial<ManipulationSettings> = { indentationText: IndentationText.FourSpaces, newLineKind: NewLineKind.LineFeed, quoteKind: QuoteKind.Single };
+const SDEF_TYPES: Readonly<Record<string, string>> = {
+    any: 'unknown',
+    boolean: 'boolean',
+    date: 'Date',
+    'file specification': 'File',
+    integer: 'number',
+    list: 'unknown[]',
+    real: 'number',
+    record: 'unknown',
+    specifier: 'unknown',
+    text: 'string',
+    type: 'string',
+};
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _children = <S extends Schema.Top>(schema: S): Schema.withDecodingDefaultKey<Schema.$Array<S>> => Schema.Array(schema).pipe(Schema.withDecodingDefaultKey(Effect.succeed([])));
-const _optionalString: Schema.OptionFromOptionalKey<Schema.String> = Schema.OptionFromOptionalKey(Schema.String);
 const _named: {
     readonly name: Schema.String;
     readonly code: Schema.String;
@@ -29,7 +41,7 @@ const _named: {
 } = {
     name: Schema.String,
     code: Schema.String,
-    description: _optionalString,
+    description: OptionalString,
     hidden: Schema.OptionFromOptionalKey(Schema.Literal('yes')),
 };
 const _Named: Schema.Struct<typeof _named> = Schema.Struct(_named);
@@ -40,21 +52,23 @@ const Property: Schema.Struct<{
     readonly attributes: Schema.Struct<typeof _named & { readonly type: Schema.OptionFromOptionalKey<Schema.String>; readonly access: Schema.OptionFromOptionalKey<Schema.Literal<'r'>> }>;
     readonly type: Schema.withDecodingDefaultKey<Schema.$Array<typeof _Type>>;
 }> = Schema.Struct({
-    attributes: Schema.Struct({ ..._named, type: _optionalString, access: Schema.OptionFromOptionalKey(Schema.Literal('r')) }),
+    attributes: Schema.Struct({ ..._named, type: OptionalString, access: Schema.OptionFromOptionalKey(Schema.Literal('r')) }),
     type: _children(_Type),
 });
 const Class: Schema.Struct<{
     readonly attributes: Schema.Struct<typeof _named & { readonly inherits: Schema.OptionFromOptionalKey<Schema.String>; readonly plural: Schema.OptionFromOptionalKey<Schema.String> }>;
     readonly property: Schema.withDecodingDefaultKey<Schema.$Array<typeof Property>>;
 }> = Schema.Struct({
-    attributes: Schema.Struct({ ..._named, inherits: _optionalString, plural: _optionalString }),
+    attributes: Schema.Struct({ ..._named, inherits: OptionalString, plural: OptionalString }),
     property: _children(Property),
 });
-const Enumeration: Schema.Struct<{ readonly attributes: typeof _Named; readonly enumerator: Schema.withDecodingDefaultKey<Schema.$Array<Schema.Struct<{ readonly attributes: typeof _Named }>>> }> =
-    Schema.Struct({
-        attributes: _Named,
-        enumerator: _children(Schema.Struct({ attributes: _Named })),
-    });
+const Enumeration: Schema.Struct<{
+    readonly attributes: typeof _Named;
+    readonly enumerator: Schema.withDecodingDefaultKey<Schema.$Array<Schema.Struct<{ readonly attributes: typeof _Named }>>>;
+}> = Schema.Struct({
+    attributes: _Named,
+    enumerator: _children(Schema.Struct({ attributes: _Named })),
+});
 const Dictionary: Schema.Struct<{
     readonly dictionary: Schema.Struct<{
         readonly attributes: Schema.OptionFromOptionalKey<Schema.Struct<{ readonly title: Schema.String }>>;
@@ -69,6 +83,17 @@ const Dictionary: Schema.Struct<{
     }),
 });
 
+const _LISTS = Array.difference(
+    [
+        ...Struct.keys(Dictionary.fields.dictionary.fields),
+        ...Struct.keys(Class.fields),
+        ...Struct.keys(Property.fields),
+        ...Struct.keys(Enumeration.fields),
+        ...Struct.keys(Dictionary.fields.dictionary.fields.suite.value.fields),
+    ],
+    ['attributes'],
+);
+
 const _parser = new XMLParser({
     ignoreAttributes: false,
     attributeNamePrefix: '',
@@ -77,7 +102,7 @@ const _parser = new XMLParser({
     trimValues: false,
     parseTagValue: false,
     parseAttributeValue: false,
-    isArray: (tag): boolean => Array.contains(['suite', 'class', 'property', 'type', 'enumeration', 'enumerator'], tag),
+    isArray: (tag): boolean => Array.contains(_LISTS, tag),
 });
 
 // --- [DICTIONARY] ----------------------------------------------------------------------
@@ -97,7 +122,9 @@ const camel = (name: string): string => {
     return `${_ACRONYM.test(head) ? String.toLowerCase(head) : String.uncapitalize(head)}${Array.join(Array.map(rest, _capitalized), '')}`;
 };
 
-const fourcc = (code: string): number => Array.reduce(code.split(''), 0, (total, character) => total * _BYTE + character.charCodeAt(0));
+const constant = (name: string): string => Array.join(Array.map(_words(name), String.toUpperCase), '_');
+
+const fourcc = (code: string): number => new DataView(new TextEncoder().encode(code).buffer).getUint32(0);
 
 const sorted = (names: Iterable<string>): readonly string[] => Array.sort(Array.dedupe(Array.fromIterable(names)), Order.String);
 
@@ -105,18 +132,16 @@ const sorted = (names: Iterable<string>): readonly string[] => Array.sort(Array.
 
 const absent = (self: Readonly<Record<string, readonly string[]>>, that: Readonly<Record<string, readonly string[]>>): Readonly<Record<string, Array.NonEmptyReadonlyArray<string>>> =>
     Record.filterMap(self, (members, name) =>
-        Result.liftPredicate(
-            Array.isReadonlyArrayNonEmpty<string>,
-            Function.constVoid,
-        )(
+        pipe(
             Array.difference(
                 members,
                 Option.getOrElse(Record.get(that, name), () => []),
             ),
+            Result.liftPredicate(Array.isReadonlyArrayNonEmpty<string>, Function.constVoid),
         ),
     );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Dictionary, SdefClass, SdefEnumeration, SdefProperty };
-export { absent, camel, dictionary, fourcc, MANIPULATION, pascal, sorted };
+export { absent, camel, constant, dictionary, fourcc, MANIPULATION, pascal, SDEF_TYPES, sorted };

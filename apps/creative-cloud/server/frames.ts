@@ -2,12 +2,15 @@
 
 import { Schema } from 'effect';
 import { Rpc, RpcGroup, type RpcSchema } from 'effect/unstable/rpc';
+import type { SocketServer } from 'effect/unstable/socket';
 import { HostRejection } from './errors.ts';
-import { Autocorrections, JobId } from './values.ts';
+import { Autocorrections, type Closed, JobId, OptionalString } from './values.ts';
+
+// --- [TABLES] --------------------------------------------------------------------------
+
+const _UNBOUND = ['SocketServerOpenError', 'SocketServerUnknownError'] as const;
 
 // --- [MODELS] --------------------------------------------------------------------------
-
-const _optionalString = Schema.OptionFromOptionalKey(Schema.String);
 
 const Identity: Schema.Struct<{
     readonly plugin: Schema.String;
@@ -21,8 +24,8 @@ const Identity: Schema.Struct<{
     version: Schema.String,
     host: Schema.Struct({ name: Schema.String, version: Schema.String }),
     uxp: Schema.String,
-    app: _optionalString,
-    dom: _optionalString,
+    app: OptionalString,
+    dom: OptionalString,
 });
 
 const State: Schema.Struct<{ readonly modalState: Schema.Boolean; readonly activeDocumentId: Schema.OptionFromNullOr<Schema.Int>; readonly modified: Schema.Boolean }> = Schema.Struct({
@@ -44,7 +47,7 @@ const Job: Schema.Struct<{
     kind: Schema.String,
     body: Schema.Json,
     suspendHistory: Schema.OptionFromOptionalKey(HistoryState),
-    commandName: _optionalString,
+    commandName: OptionalString,
 });
 
 const Settle: Schema.Struct<{
@@ -53,14 +56,25 @@ const Settle: Schema.Struct<{
     readonly result: Schema.Result<Schema.Codec<Schema.Json>, typeof HostRejection>;
 }> = Schema.Struct({ jobId: JobId, autocorrections: Autocorrections, result: Schema.Result(Schema.Json, HostRejection) });
 
-const Execute: Schema.Struct<{ readonly code: Schema.String; readonly undoName: Schema.OptionFromOptionalKey<Schema.String> }> = Schema.Struct({ code: Schema.String, undoName: _optionalString });
+const Execute: Schema.Struct<{ readonly code: Schema.String; readonly undoName: Schema.OptionFromOptionalKey<Schema.String> }> = Schema.Struct({
+    code: Schema.String,
+    undoName: OptionalString,
+});
 
 const AlreadyAttached: Schema.TaggedStruct<'alreadyAttached', Record<never, never>> = Schema.TaggedStruct('alreadyAttached', {});
 
 const Link: Schema.TaggedUnion<{
+    readonly unbound: Schema.TaggedStruct<
+        'unbound',
+        { readonly port: Schema.Int; readonly reason: Schema.Literals<Closed<SocketServer.SocketServerErrorReason['_tag'], typeof _UNBOUND>>; readonly cause: Schema.Defect }
+    >;
     readonly listening: Schema.TaggedStruct<'listening', Record<never, never>>;
     readonly attached: Schema.TaggedStruct<'attached', { readonly identity: typeof Identity; readonly state: Schema.OptionFromNullOr<typeof State> }>;
-}> = Schema.TaggedUnion({ listening: {}, attached: { identity: Identity, state: Schema.OptionFromNullOr(State) } });
+}> = Schema.TaggedUnion({
+    unbound: { port: Schema.Int, reason: Schema.Literals(_UNBOUND), cause: Schema.Defect() },
+    listening: {},
+    attached: { identity: Identity, state: Schema.OptionFromNullOr(State) },
+});
 
 // --- [CONTRACT] ------------------------------------------------------------------------
 
@@ -78,12 +92,7 @@ type Settle = (typeof Settle)['Type'];
 type AlreadyAttached = (typeof AlreadyAttached)['Type'];
 type Link = (typeof Link)['Type'];
 
-interface Done {
-    readonly value: Schema.Json;
-    readonly autocorrections: Autocorrections;
-}
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Done, Identity, Job, Settle, State };
-export { AlreadyAttached, Execute, Frames, HistoryState, Link };
+export type { Identity, Settle, State };
+export { AlreadyAttached, Execute, Frames, HistoryState, Job, Link };

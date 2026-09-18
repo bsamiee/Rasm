@@ -72,6 +72,7 @@
                         "useLiteralKeys": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }
                     },
+                    "correctness": { "noUndeclaredVariables": "off", "noUnresolvedImports": "off" },
                     "security": { "noSecrets": "off" },
                     "style": {
                         "noExcessiveClassesPerFile": "off",
@@ -80,6 +81,7 @@
                         "noParameterAssign": { "level": "error", "options": { "propertyAssignment": "deny" } },
                         "noTernary": "off",
                         "useDefaultSwitchClause": "off",
+                        "useNamingConvention": { "level": "error", "options": { "strictCase": false } },
                         "useReadonlyClassProperties": { "level": "error", "options": { "checkAllProperties": true } }
                     },
                     "suspicious": { "noShadowRestrictedNames": "off" }
@@ -89,7 +91,7 @@
         { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
         {
             "includes": [".claude/plugins/**"],
-            "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off", "noUnresolvedImports": "off" } } }
+            "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } }
         },
         {
             "includes": ["infra/program.ts"],

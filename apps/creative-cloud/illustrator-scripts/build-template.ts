@@ -1,51 +1,30 @@
 /// <reference path="./prelude.ts"/>
 
-// --- [HOST] ----------------------------------------------------------------------------
-
-declare const $: $;
-declare const app: Application;
-declare const IllustratorSaveOptions: new () => IllustratorSaveOptions;
-
 declare global {
-    enum Compatibility {}
-    enum DocumentColorSpace {}
     enum SaveOptions {}
 }
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { run, swatches }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { created, present, run, saved, split, swatches }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-const buildTemplate = (
-    request: {
-        readonly colorSpace: 'RGB' | 'CMYK';
-        readonly width: number;
-        readonly height: number;
-        readonly raster: { readonly resolution: number; readonly antiAliasing: boolean; readonly padding: number };
-        readonly groups: SwatchGroupSpec[];
-        readonly output: string;
-    },
-    _at: Site,
-): Reading<JsonObject> => {
-    const doc = app.documents.add(DocumentColorSpace[request.colorSpace], request.width, request.height, 1);
-    const raster = doc.rasterEffectSettings;
-    raster.resolution = request.raster.resolution;
-    raster.antiAliasing = request.raster.antiAliasing;
-    raster.padding = request.raster.padding;
-    doc.rasterEffectSettings = raster;
-    const rows = swatches(doc, request.groups, false);
-    const options = new IllustratorSaveOptions();
-    options.embedICCProfile = true;
-    options.pdfCompatible = true;
-    options.compatibility = Compatibility.ILLUSTRATOR24;
-    doc.saveAs(new File(request.output), options);
-    doc.close(SaveOptions.DONOTSAVECHANGES);
-    const reopened = app.open(new File(request.output));
+const buildTemplate = (request: {
+    readonly colorSpace: 'RGB' | 'CMYK';
+    readonly width: number;
+    readonly height: number;
+    readonly raster: RasterSpec;
+    readonly palette: SwatchPalette;
+    readonly output: string;
+}): Reading<JsonObject> => {
+    const doc = created(request.colorSpace, request.width, request.height, request.raster);
+    const rows = split(swatches(doc, request.palette, false));
+    const file = saved(doc, request.output);
+    const reopened = app.open(file);
     const readback = { colorSpace: String(reopened.documentColorSpace), rasterResolution: reopened.rasterEffectSettings.resolution, swatchCount: reopened.swatches.length };
     reopened.close(SaveOptions.DONOTSAVECHANGES);
-    return { value: { kind: 'templateSaved', path: request.output, readback, applied: rows.applied, rejected: rows.rejected }, unavailable: [] };
+    return present({ kind: 'saved', path: file.fsName, readback, applied: rows.applied, rejected: rows.rejected });
 };
 
 run(buildTemplate);

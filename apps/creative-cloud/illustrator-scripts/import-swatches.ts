@@ -1,19 +1,12 @@
 /// <reference path="./prelude.ts"/>
 
-// --- [HOST] ----------------------------------------------------------------------------
-
-declare const $: $;
-declare const app: Application;
-
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { run, swatches }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { present, run, split, swatches }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-const importSwatches = (request: { readonly groups: SwatchGroupSpec[]; readonly replaceByName: boolean }, _at: Site): Reading<JsonObject> => {
-    const rows = swatches(app.activeDocument, request.groups, request.replaceByName);
-    return { value: { kind: 'swatchesImported', applied: rows.applied, rejected: rows.rejected }, unavailable: [] };
-};
+const importSwatches = (request: { readonly palette: SwatchPalette; readonly replaceByName: boolean }): Reading<JsonObject> =>
+    present(split(swatches(app.activeDocument, request.palette, request.replaceByName)));
 
 run(importSwatches);

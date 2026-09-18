@@ -2,17 +2,20 @@
 
 import { Array, Effect, FileSystem, Match, Option, Order, Path, type PlatformError, Record, Result, Schema, Struct } from 'effect';
 import Builder, { type XmlBuilderOptions } from 'fast-xml-builder';
-import type { Hosts } from '../hosts.ts';
-import { AbsolutePath, DevicePath } from '../values.ts';
+import type { Host } from '../hosts.ts';
+import { artifacts } from '../jobs.ts';
+import { AbsolutePath, DevicePath, OptionalString } from '../values.ts';
+import { NAMES } from './scripts.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Element = '?xml' | 'Workflow' | 'Group' | 'Instruction' | 'Separator' | 'Command' | 'Items' | 'Item';
 type Step = (typeof Step)['Type'];
 type Items = (typeof Items)['Type'];
 type Action = (typeof Action)['Type'];
 type ActionName = (typeof ActionName)['Type'];
-type Folder = (text: string) => string;
-type Node = { readonly [K in (typeof _Element)['Type']]?: readonly Node[] } & { readonly ':@'?: Readonly<Record<string, string>> };
+type Folder = (segments: readonly string[]) => string;
+type Node = { readonly [K in Element]?: readonly Node[] } & { readonly ':@'?: Readonly<Record<string, string>> };
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
@@ -22,7 +25,6 @@ const _OPTIONS: XmlBuilderOptions & { readonly entities: readonly { readonly reg
     ignoreAttributes: false,
     indentBy: '\t',
     preserveOrder: true,
-    suppressBooleanAttributes: false,
     suppressEmptyNode: true,
     entities: [
         { regex: /&/gu, val: '&amp;' },
@@ -37,8 +39,6 @@ const _builder = new Builder(_OPTIONS);
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _optionalString = Schema.OptionFromOptionalKey(Schema.String);
-const _Element = Schema.Literals(['?xml', 'Workflow', 'Group', 'Instruction', 'Separator', 'Command', 'Items', 'Item']);
 const _Item: Schema.Struct<{
     readonly name: Schema.String;
     readonly value: Schema.Union<
@@ -49,7 +49,7 @@ const _Item: Schema.Struct<{
             Schema.Null,
             Schema.Struct<{ readonly string: Schema.String }>,
             Schema.Struct<{ readonly atom: Schema.String }>,
-            Schema.Struct<{ readonly folder: Schema.String }>,
+            Schema.Struct<{ readonly folder: Schema.$Array<Schema.String> }>,
         ]
     >;
 }> = Schema.Struct({
@@ -61,10 +61,12 @@ const _Item: Schema.Struct<{
         Schema.Null,
         Schema.Struct({ string: Schema.String }),
         Schema.Struct({ atom: Schema.String }),
-        Schema.Struct({ folder: Schema.String }),
+        Schema.Struct({ folder: Schema.Array(Schema.String) }),
     ]),
 });
-const Items = Schema.Array(Schema.Union([_Item, Schema.Struct({ name: Schema.String, items: Schema.Array(_Item) })]));
+const Items: Schema.$Array<Schema.Union<readonly [typeof _Item, Schema.Struct<{ readonly name: Schema.String; readonly items: Schema.$Array<typeof _Item> }>]>> = Schema.Array(
+    Schema.Union([_Item, Schema.Struct({ name: Schema.String, items: Schema.Array(_Item) })]),
+);
 
 const Step: Schema.toTaggedUnion<
     'op',
@@ -72,10 +74,8 @@ const Step: Schema.toTaggedUnion<
         Schema.Struct<{
             readonly op: Schema.Literal<'command'>;
             readonly name: Schema.String;
-            readonly prompt: Schema.OptionFromOptionalKey<Schema.Boolean>;
-            readonly items: Schema.OptionFromOptionalKey<
-                Schema.$Array<Schema.Union<readonly [typeof _Item, Schema.Struct<{ readonly name: Schema.String; readonly items: Schema.$Array<typeof _Item> }>]>>
-            >;
+            readonly prompt: Schema.OptionFromNullOr<Schema.Boolean>;
+            readonly items: Schema.OptionFromOptionalKey<typeof Items>;
         }>,
         Schema.Struct<{ readonly op: Schema.Literal<'instruction'>; readonly text: Schema.String; readonly pauseBefore: Schema.Boolean }>,
         Schema.Struct<{ readonly op: Schema.Literal<'separator'> }>,
@@ -86,15 +86,15 @@ const Step: Schema.toTaggedUnion<
             readonly fingerprint: Schema.OptionFromOptionalKey<Schema.String>;
             readonly fixups: Schema.Boolean;
         }>,
-        Schema.Struct<{ readonly op: Schema.Literal<'save'>; readonly folder: Schema.OptionFromOptionalKey<Schema.String> }>,
+        Schema.Struct<{ readonly op: Schema.Literal<'save'>; readonly folder: Schema.OptionFromOptionalKey<Schema.$Array<Schema.String>> }>,
         Schema.Struct<{ readonly op: Schema.Literal<'execJs'>; readonly code: Schema.String }>,
     ]
 > = Schema.Union([
-    Schema.Struct({ op: Schema.Literal('command'), name: Schema.String, prompt: Schema.OptionFromOptionalKey(Schema.Boolean), items: Schema.OptionFromOptionalKey(Items) }),
+    Schema.Struct({ op: Schema.Literal('command'), name: Schema.String, prompt: Schema.OptionFromNullOr(Schema.Boolean), items: Schema.OptionFromOptionalKey(Items) }),
     Schema.Struct({ op: Schema.Literal('instruction'), text: Schema.String, pauseBefore: Schema.Boolean }),
     Schema.Struct({ op: Schema.Literal('separator') }),
-    Schema.Struct({ op: Schema.Literal('preflight'), profile: Schema.String, dictKey: _optionalString, fingerprint: _optionalString, fixups: Schema.Boolean }),
-    Schema.Struct({ op: Schema.Literal('save'), folder: _optionalString }),
+    Schema.Struct({ op: Schema.Literal('preflight'), profile: Schema.String, dictKey: OptionalString, fingerprint: OptionalString, fixups: Schema.Boolean }),
+    Schema.Struct({ op: Schema.Literal('save'), folder: Schema.OptionFromOptionalKey(Schema.Array(Schema.String)) }),
     Schema.Struct({ op: Schema.Literal('execJs'), code: Schema.String }),
 ]).pipe(Schema.toTaggedUnion('op'));
 
@@ -104,7 +104,7 @@ const Action: Schema.Struct<{
     readonly description: Schema.String;
     readonly groups: Schema.$Array<Schema.Struct<{ readonly label: Schema.String; readonly steps: Schema.$Array<typeof Step> }>>;
 }> = Schema.Struct({
-    name: Schema.String,
+    name: Schema.String.pipe(Schema.check(Schema.isPattern(/^[a-z0-9-]+$/u))),
     title: Schema.String,
     description: Schema.String,
     groups: Schema.Array(Schema.Struct({ label: Schema.String, steps: Schema.Array(Step) })),
@@ -112,7 +112,15 @@ const Action: Schema.Struct<{
 
 // --- [HOUSE] ---------------------------------------------------------------------------
 
-const _HOUSE = {
+const ActionName: Schema.Literals<readonly ['rasm-accessible', 'rasm-print', 'rasm-digital', 'rasm-scan', 'rasm-redact']> = Schema.Literals([
+    'rasm-accessible',
+    'rasm-print',
+    'rasm-digital',
+    'rasm-scan',
+    'rasm-redact',
+]);
+
+const _HOUSE: Readonly<Record<ActionName, Omit<(typeof Action)['Encoded'], 'name'>>> = {
     'rasm-accessible': {
         title: 'Rasm Accessible',
         description: 'Sets document properties and initial view, tags document, detects form fields, sets tab order and alternate text, and writes full accessibility check report to reports folder',
@@ -162,7 +170,7 @@ const _HOUSE = {
             {
                 label: 'Tag',
                 steps: [
-                    { op: 'command', name: 'Adobe:MakeAccessible', prompt: true },
+                    { op: 'command', name: NAMES.makeAccessible, prompt: true },
                     { op: 'command', name: 'Adobe:FindsFormFields', prompt: false, items: [{ name: 'PromptUser', value: false }] },
                     { op: 'command', name: 'SetTabOrder', prompt: false },
                     { op: 'command', name: 'SetAlternateText', prompt: true },
@@ -173,14 +181,14 @@ const _HOUSE = {
                 steps: [
                     {
                         op: 'command',
-                        name: 'AccCheck:DoCheck',
+                        name: NAMES.accessibilityCheck,
                         prompt: false,
                         items: [
                             { name: 'AltText', value: true },
                             { name: 'AppletsPlugins', value: true },
                             { name: 'AttachAnnots', value: false },
                             { name: 'CharEnc', value: true },
-                            { name: 'ChosenPath', value: { folder: '.artifacts/creative-cloud/acrobat/reports' } },
+                            { name: 'ChosenPath', value: { folder: ['acrobat', 'reports'] } },
                             { name: 'ClientSideImageMaps', value: true },
                             { name: 'Color', value: true },
                             { name: 'ComplexTables', value: true },
@@ -266,7 +274,7 @@ const _HOUSE = {
                 label: 'Redact',
                 steps: [
                     { op: 'instruction', text: 'Mark text and images for redaction, then continue', pauseBefore: true },
-                    { op: 'command', name: 'Annots:Tool:RedactMenuItem' },
+                    { op: 'command', name: 'Annots:Tool:RedactMenuItem', prompt: null },
                     { op: 'command', name: 'Annots:Tool:ApplyRedactionsMenuItem', prompt: true },
                 ],
             },
@@ -296,9 +304,7 @@ const _HOUSE = {
             },
         ],
     },
-} as const;
-
-const ActionName: Schema.Literals<Array<keyof typeof _HOUSE>> = Schema.Literals(Struct.keys(_HOUSE));
+};
 
 const HOUSE: Readonly<Record<ActionName, Action>> = Record.map(Schema.decodeSync(Schema.Record(ActionName, Schema.Struct(Struct.omit(Action.fields, ['name']))))(_HOUSE), (body, name) => ({
     ...body,
@@ -307,39 +313,41 @@ const HOUSE: Readonly<Record<ActionName, Action>> = Record.map(Schema.decodeSync
 
 // --- [RENDERING] -----------------------------------------------------------------------
 
-const _node = (tag: (typeof _Element)['Type'], attributes: Readonly<Record<string, string>>, children: readonly Node[]): Node => ({ [tag]: children, ':@': attributes });
-
-const _leaf = ({ name, value }: (typeof _Item)['Type'], folder: Folder): Node =>
-    Match.value(value).pipe(
-        Match.withReturnType<Node>(),
-        Match.when(Match.boolean, (flag) => _node('Item', { name, type: 'boolean', value: String(flag) }, [])),
-        Match.when(Match.number, (integer) => _node('Item', { name, type: 'integer', value: String(integer) }, [])),
-        Match.when(Match.string, (text) => _node('Item', { name, type: 'text', value: text }, [])),
-        Match.when(null, () => _node('Item', { name, type: 'null' }, [])),
-        Match.when({ string: Match.string }, ({ string }) => _node('Item', { name, type: 'string', value: string }, [])),
-        Match.when({ atom: Match.string }, ({ atom }) => _node('Item', { name, type: 'atom', value: atom }, [])),
-        Match.when({ folder: Match.string }, (leaf) => _node('Item', { name, type: 'text', value: `${folder(leaf.folder)}/` }, [])),
-        Match.exhaustive,
-    );
+const _node = (tag: Element, attributes: Readonly<Record<string, string>>, children: readonly Node[]): Node => ({ [tag]: children, ':@': attributes });
 
 const _byName: Order.Order<{ readonly name: string }> = Order.mapInput(Order.String, Struct.get('name'));
 
-const _items = (items: Items, folder: Folder): readonly Node[] =>
-    Array.map(Array.sort(items, _byName), (item) =>
-        'items' in item
-            ? _node(
-                  'Items',
-                  { name: item.name },
-                  Array.map(Array.sort(item.items, _byName), (leaf) => _leaf(leaf, folder)),
-              )
-            : _leaf(item, folder),
+const _item = (row: Items[number], folder: Folder): Node =>
+    Match.value(row).pipe(
+        Match.withReturnType<Node>(),
+        Match.when({ items: Match.defined }, (group) =>
+            _node(
+                'Items',
+                { name: group.name },
+                Array.map(Array.sort(group.items, _byName), (leaf) => _item(leaf, folder)),
+            ),
+        ),
+        Match.when({ value: Match.boolean }, ({ name, value }) => _node('Item', { name, type: 'boolean', value: String(value) }, [])),
+        Match.when({ value: Match.number }, ({ name, value }) => _node('Item', { name, type: 'integer', value: String(value) }, [])),
+        Match.when({ value: Match.string }, ({ name, value }) => _node('Item', { name, type: 'text', value }, [])),
+        Match.when({ value: Match.is(null) }, ({ name }) => _node('Item', { name, type: 'null' }, [])),
+        Match.when({ value: { string: Match.string } }, ({ name, value }) => _node('Item', { name, type: 'string', value: value.string }, [])),
+        Match.when({ value: { atom: Match.string } }, ({ name, value }) => _node('Item', { name, type: 'atom', value: value.atom }, [])),
+        Match.when({ value: { folder: Match.defined } }, ({ name, value }) => _node('Item', { name, type: 'text', value: `${folder(value.folder)}/` }, [])),
+        Match.exhaustive,
     );
 
 const _command = (name: string, prompt: Option.Option<boolean>, items: Option.Option<Items>, folder: Folder): Node =>
     _node(
         'Command',
-        Record.getSomes({ name: Option.some(name), pauseBefore: Option.some('false'), promptUser: Option.map(prompt, String) }),
-        Array.fromOption(Option.map(items, (rows) => _node('Items', {}, _items(rows, folder)))),
+        { name, pauseBefore: 'false', ...Record.getSomes({ promptUser: Option.map(prompt, String) }) },
+        Array.map(Array.fromOption(items), (rows) =>
+            _node(
+                'Items',
+                {},
+                Array.map(Array.sort(rows, _byName), (row) => _item(row, folder)),
+            ),
+        ),
     );
 
 const _step = (step: Step, folder: Folder): Node =>
@@ -408,36 +416,29 @@ const _step = (step: Step, folder: Folder): Node =>
             ),
     });
 
-const _render = (action: Action, folder: Folder): string =>
-    `${_builder.build([
-        _node('?xml', { version: '1.0', encoding: 'UTF-8' }, []),
-        _node(
-            'Workflow',
-            { xmlns: 'http://ns.adobe.com/acrobat/workflow/2012', title: action.title, description: action.description, majorVersion: '1', minorVersion: '0' },
-            Array.map(
-                action.groups,
-                (group): Node =>
-                    _node(
-                        'Group',
-                        { label: group.label },
-                        Array.map(group.steps, (step) => _step(step, folder)),
-                    ),
-            ),
-        ),
-    ])}\n\n\n`;
-
-const write: (acrobat: Hosts['acrobat'], action: Action) => Effect.Effect<AbsolutePath, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> = Effect.fnUntraced(function* (
-    acrobat: Hosts['acrobat'],
+const write: (acrobat: Host<'acrobat'>, action: Action) => Effect.Effect<AbsolutePath, PlatformError.PlatformError, FileSystem.FileSystem | Path.Path> = Effect.fnUntraced(function* (
+    acrobat: Host<'acrobat'>,
     action: Action,
 ) {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
+    const base = yield* artifacts();
+    yield* fs.makeDirectory(acrobat.sequencesFolder, { recursive: true });
     const target = AbsolutePath.make(path.join(acrobat.sequencesFolder, `${action.name}.sequ`));
     const device = Schema.encodeSync(DevicePath(acrobat.startupVolume));
-    yield* fs.writeFileString(
-        target,
-        _render(action, (text) => device(AbsolutePath.make(path.resolve(import.meta.dirname, '..', '..', '..', '..', text)))),
+    const folder = (segments: readonly string[]): string => device(AbsolutePath.make(path.join(base, ...segments)));
+    const workflow = _node(
+        'Workflow',
+        { xmlns: 'http://ns.adobe.com/acrobat/workflow/2012', title: action.title, description: action.description, majorVersion: '1', minorVersion: '0' },
+        Array.map(action.groups, (group) =>
+            _node(
+                'Group',
+                { label: group.label },
+                Array.map(group.steps, (step) => _step(step, folder)),
+            ),
+        ),
     );
+    yield* fs.writeFileString(target, `${_builder.build([_node('?xml', { version: '1.0', encoding: 'UTF-8' }, []), workflow])}\n`);
     return target;
 });
 

@@ -1,10 +1,5 @@
 /// <reference path="./prelude.ts"/>
 
-// --- [HOST] ----------------------------------------------------------------------------
-
-declare const $: $;
-declare const app: Application;
-
 declare global {
     enum DocumentColorSpace {}
     enum SaveOptions {}
@@ -13,18 +8,7 @@ declare global {
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { all, each, fold, hosted, only, reference, run, typed }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
-
-const listed = (value: unknown): value is unknown[] => Object.prototype.toString.call(new Object(value)) === '[object Array]';
-
-const reflected = (object: Hosted): [ReflectionInfo[], ReflectionInfo[]] => {
-    try {
-        const reflection = object.reflect;
-        return Object.prototype.toString.call(reflection) === '[object Reflection]' ? [reflection.properties, reflection.methods] : [[], []];
-    } catch {
-        return [[], []];
-    }
-};
+const { all, each, fold, hosted, isArray, reference, reflection, run, select, typed }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 const read = (object: Hosted, name: string): unknown[] => {
     try {
@@ -46,7 +30,10 @@ const spelled = (container: { readonly [key: string]: unknown }, member: string,
 // --- [READERS] -------------------------------------------------------------------------
 
 const record = (at: Site, object: Hosted, candidates: string[]): [Reading<Json>, unknown[]] => {
-    const [properties, methods] = reflected(object);
+    const [properties, methods] = fold<Reflection, [ReflectionInfo[], ReflectionInfo[]]>(reflection(object), [[], []], (_none, reflected): [ReflectionInfo[], ReflectionInfo[]] => [
+        reflected.properties,
+        reflected.methods,
+    ]);
     let found: unknown[] = typeof object.length === 'number' && object.length > 0 ? read(object, '0') : [];
     const reading = all(at, [
         [
@@ -79,7 +66,7 @@ const walk = (at: Site, seeds: unknown[], candidates: { readonly [name: string]:
             classes[value.typename] = reading.value;
             unavailable = unavailable.concat(reading.unavailable);
             queue = queue.concat(found);
-        } else if (!hosted(value) && listed(value)) {
+        } else if (!hosted(value) && isArray(value)) {
             queue = queue.concat(value);
         }
     }
@@ -133,7 +120,7 @@ const reconcile = (
                             'textPath',
                             (inner): Reading<Json> =>
                                 fold<TextFrame, Reading<Json>>(
-                                    only(only([doc.textFrames.pathText(doc.pathItems.ellipse(0, 0, SIDE, SIDE))], hosted), typed<TextFrame>('TextFrame')),
+                                    select(select([doc.textFrames.pathText(doc.pathItems.ellipse(0, 0, SIDE, SIDE))], hosted), typed<TextFrame>('TextFrame')),
                                     reference(null, inner),
                                     (_absent, frame): Reading<Json> => keep(frame.textPath, inner),
                                 ),

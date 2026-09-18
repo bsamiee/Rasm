@@ -1,200 +1,133 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { Measured, MetricsError, metrics } from '@rasm/typography/metrics';
-import { Context, Crypto, Effect, FileSystem, flow, Layer, Option, Path, Schema, Struct } from 'effect';
-import { contract, Failure } from '../contract.ts';
-import { type BridgeError, inaccessible } from '../errors.ts';
-import type { Job } from '../frames.ts';
-import { artifacts, Jobs } from '../jobs.ts';
-import { answered, type Endpoint, Links } from '../socket.ts';
-import { AbsolutePath, HOSTS, type JobId, TIMEOUT_MS, TimeoutMs, Undo } from '../values.ts';
-import { FAMILIES, FamilyKey } from './families.ts';
-import {
-    Applied,
-    Bodies,
-    Capture,
-    Enums,
-    FindKeyStrings,
-    GetLayout,
-    GetPreferences,
-    Image,
-    Keys,
-    type Kind,
-    Layout,
-    ListEnums,
-    Preferences,
-    Rejected,
-    SetPreferences,
-    SetTextDefaults,
-    Settings,
-} from './jobs.ts';
+import { Crypto, Effect, FileSystem, flow, Layer, Match, Option, Path, Schema, Struct } from 'effect';
+import { Toolkit } from 'effect/unstable/ai';
+import { answering, forward, host, plain, tool, Value } from '../contract.ts';
+import { inaccessible } from '../errors.ts';
+import { artifacts, type Jobs } from '../jobs.ts';
+import { answer, type Links, prepared, READ, session } from '../socket.ts';
+import { AbsolutePath, type JobId, OptionalString, TIMEOUT_MS, TimeoutMs, type Undo } from '../values.ts';
+import { Bodies, FAMILIES, Results } from './jobs.ts';
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [SERVICES] ------------------------------------------------------------------------
 
-interface Channel {
-    readonly link: Endpoint;
-    readonly host: Jobs['indesign'];
-    readonly artifacts: string;
-}
+const _session = session('indesign');
 
-type Services = Crypto.Crypto | FileSystem.FileSystem | Path.Path;
+// --- [TOOLS] ---------------------------------------------------------------------------
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
+const _tool = tool([Crypto.Crypto, FileSystem.FileSystem, Path.Path]);
 
-const _HOST = HOSTS.indesign.id;
+const _plain = plain(Bodies, Results);
 
-// --- [MODELS] --------------------------------------------------------------------------
-
-const Channel: Context.Service<Channel, Channel> = Context.Service<Channel>('InDesignChannel');
-
-const Reply = Schema.Union([
-    Schema.Struct({ kind: Schema.Literal('value'), value: Schema.Json, autocorrections: Schema.Array(Schema.String), undo: Undo, tookMs: Schema.Number }),
-    Enums,
-    Image,
-    Layout,
-    Keys,
-    Preferences,
-    Applied,
-    Rejected,
-    Schema.Struct({ kind: Schema.Literal('metrics'), ...Measured.fields }),
-    Schema.Struct({ kind: Schema.Literal('metricsError'), error: MetricsError }),
-    Failure,
-]).pipe(Schema.toTaggedUnion('kind'));
-
-const _row = contract(Channel, [Crypto.Crypto, FileSystem.FileSystem, Path.Path]);
+const _toolkit = Toolkit.make(
+    _tool(
+        'indesign_execute',
+        'Runs `code` as a function body in InDesign UXP after the collection-index and enumeration autocorrect passes and returns its value as JSON. With `undoName` the body is synchronous and runs as one undo step, without it the body can `await`',
+        Schema.Struct({ code: Schema.String, undoName: OptionalString, timeoutMs: TimeoutMs.pipe(Schema.withDecodingDefaultKey(Effect.succeed(TIMEOUT_MS))) }),
+        Value,
+        false,
+    ),
+    _plain(
+        'indesign_list_enums',
+        'listEnums',
+        'Lists the enumerations the running InDesign registers with their constants and FourCC values, every enumeration or `name` alone, beside the names `require("indesign")` exports as functions',
+        true,
+    ),
+    _tool(
+        'indesign_snapshot',
+        'Renders a page, a spread, a normalized region of a page, or one page item of the active document to a JPEG or PNG under `.artifacts/` at the resolution the pixel budget gives, and answers the path with its pixel size',
+        Schema.Struct(Struct.omit(Bodies.fields.snapshot.fields, ['directory'])),
+        Results.fields.snapshot,
+        false,
+    ),
+    _plain(
+        'indesign_get_layout',
+        'getLayout',
+        "Reads the active document's pages in points: bounds, margins, the content area per page side, guides, and with `includeItems` every page item recursing into groups",
+        true,
+    ),
+    _tool(
+        'indesign_get_font_metrics',
+        "Reads a face's metrics from its font file through fontkit, resolved by family key or PostScript name over the font scan roots, with x-height, cap height, and f-height at `size` points",
+        Schema.Struct({
+            font: Schema.Union([
+                Schema.Struct({ kind: Schema.Literal('family'), family: Schema.Literals(Struct.keys(FAMILIES)) }),
+                Schema.Struct({ kind: Schema.Literal('postScriptName'), postScriptName: Schema.String }),
+            ]),
+            size: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))),
+        }),
+        Schema.Union([Schema.Struct({ kind: Schema.Literal('metrics'), ...Measured.fields }), Schema.Struct({ kind: Schema.Literal('metricsError'), error: MetricsError })]),
+        true,
+    ),
+    _plain('indesign_find_key_strings', 'findKeyStrings', 'Answers `app.findKeyStrings(text)`, the `$ID/` key strings behind a user-interface string, beside `app.translateKeyString(text)`', true),
+    _plain('indesign_get_preferences', 'getPreferences', 'Reads every member of the named `app.<section>` preference objects, enumerators rendered by constant name and DOM objects by name', true),
+    _plain(
+        'indesign_set_preferences',
+        'setPreferences',
+        'Writes `app.<section>.<key>` rows as one undo step while no document is open, resolving a constant name or FourCC to its enumerator, and reads each value back; a readback that neither changed nor matched is a rejected row',
+        false,
+    ),
+    _plain(
+        'indesign_set_text_defaults',
+        'setTextDefaults',
+        "Writes text default rows as one undo step to `app.textDefaults` and `[Basic Paragraph]` at application scope or to the active document's text defaults, each read back",
+        false,
+    ),
+);
 
 // --- [DISPATCH] ------------------------------------------------------------------------
 
-const _job =
-    <K extends Kind>(kind: K, value: (typeof Bodies)['fields'][K]['Type']) =>
-    (jobId: JobId): Job => ({ jobId, kind, body: Schema.encodeSync(Schema.toCodecJson(Bodies.fields[kind]))(value), suspendHistory: Option.none(), commandName: Option.none() });
+const _answer = answer(Bodies);
 
-const _captured = (channel: Channel, capture: (typeof Capture)['Type'], jobId: JobId): Effect.Effect<Job, BridgeError, Services> =>
-    Effect.flatMap(Path.Path, (path) => {
-        const directory = AbsolutePath.make(path.join(channel.artifacts, jobId));
-        return FileSystem.FileSystem.use((fs) => fs.makeDirectory(directory, { recursive: true })).pipe(
-            Effect.mapError(inaccessible(_HOST)),
-            Effect.as(_job('snapshot', { ...capture, directory })(jobId)),
-        );
-    });
+const _prepared = prepared(Bodies);
 
-const _answer = <K extends Kind, S extends Schema.ConstraintCodec<unknown, unknown, never, never>>(
-    channel: Channel,
-    kind: K,
-    value: (typeof Bodies)['fields'][K]['Type'],
-    result: S,
-): Effect.Effect<S['Type'], BridgeError, Services> => Effect.map(answered(channel.link, channel.host, TIMEOUT_MS, result, flow(_job(kind, value), Effect.succeed)), Struct.get('value'));
+const _forward = forward(Bodies, Results);
 
 // --- [LAYER] ---------------------------------------------------------------------------
 
-const layer: Layer.Layer<never, never, Links | Jobs | Services> = Layer.provide(
-    Layer.mergeAll(
-        _row(
-            'indesign_execute',
-            'Runs `code` as a function body in InDesign UXP after the collection-index and enumeration autocorrect passes and returns its value as JSON. With `undoName` the body is synchronous and runs as one undo step, without it the body can `await`',
-            Schema.Struct({ code: Schema.String, undoName: Schema.OptionFromOptionalKey(Schema.String), timeoutMs: Schema.OptionFromOptionalKey(TimeoutMs) }),
-            Reply.cases.value,
-            false,
-            (channel, { code, undoName, timeoutMs }) =>
+const layer: Layer.Layer<never, never, Links | Jobs | Crypto.Crypto | FileSystem.FileSystem | Path.Path> = Layer.provide(
+    host(_toolkit, _session.tag, (channel) =>
+        answering(_toolkit, {
+            [_toolkit.tools.indesign_execute.name]: ({ code, undoName, timeoutMs }) => {
+                const undo: Option.Option<(typeof Undo)['Type']> = Option.some(Option.match(undoName, { onNone: () => 'none', onSome: () => 'single' }));
+                return Effect.map(_answer(channel, timeoutMs, 'execute', { code, undoName }, Results.fields.execute, READ), ({ value, autocorrections, tookMs }) =>
+                    Value.make({ kind: 'value', value, tookMs, autocorrections: Option.some(autocorrections), undo }),
+                );
+            },
+            [_toolkit.tools.indesign_list_enums.name]: _forward(channel, 'listEnums', READ),
+            [_toolkit.tools.indesign_snapshot.name]: (capture) =>
                 Effect.map(
-                    answered(
-                        channel.link,
-                        channel.host,
-                        Option.getOrElse(timeoutMs, () => TIMEOUT_MS),
-                        Schema.Json,
-                        flow(_job('execute', { code, undoName }), Effect.succeed),
+                    _prepared(
+                        channel,
+                        TIMEOUT_MS,
+                        'snapshot',
+                        Effect.fnUntraced(function* (jobId: JobId) {
+                            const fs = yield* FileSystem.FileSystem;
+                            const directory = AbsolutePath.make(yield* artifacts(channel.link.host, jobId));
+                            yield* Effect.mapError(fs.makeDirectory(directory, { recursive: true }), inaccessible(channel.link.host));
+                            return { ...capture, directory };
+                        }),
+                        Results.fields.snapshot,
+                        READ,
                     ),
-                    ({ value, autocorrections, tookMs }) => ({
-                        kind: 'value' as const,
-                        value,
-                        autocorrections,
-                        undo: Option.match(undoName, { onNone: () => 'none' as const, onSome: () => 'single' as const }),
-                        tookMs,
-                    }),
-                ),
-        ),
-        _row(
-            'indesign_list_enums',
-            'Lists the enumerations the running InDesign registers with their constants and FourCC values, every enumeration or `name` alone',
-            ListEnums,
-            Reply.cases.enums,
-            true,
-            (channel, input) => _answer(channel, 'listEnums', input, Enums),
-        ),
-        _row(
-            'indesign_snapshot',
-            'Renders a page, a spread, a normalized region of a page, or one page item of the active document to a JPEG or PNG under `.artifacts/` at the resolution the pixel budget gives, and answers the path with its pixel size',
-            Capture,
-            Reply.cases.image,
-            false,
-            (channel, capture) =>
-                Effect.map(
-                    answered(channel.link, channel.host, TIMEOUT_MS, Image, (jobId) => _captured(channel, capture, jobId)),
                     Struct.get('value'),
                 ),
-        ),
-        _row(
-            'indesign_get_layout',
-            "Reads the active document's pages in points: bounds, margins, the content area per page side, guides, and with `includeItems` every page item recursing into groups, paged by `pageCursor`, `itemCursor`, and `limit`",
-            GetLayout,
-            Reply.cases.layout,
-            true,
-            (channel, input) => _answer(channel, 'getLayout', input, Layout),
-        ),
-        _row(
-            'indesign_get_font_metrics',
-            "Reads a face's metrics from its font file through fontkit, resolved by family key or PostScript name over the font scan roots, with x-height, cap height, and f-height at `size` points",
-            Schema.Struct({
-                font: Schema.Union([Schema.Struct({ family: FamilyKey }), Schema.Struct({ postScriptName: Schema.String })]),
-                size: Schema.Number.pipe(Schema.check(Schema.isGreaterThan(0))),
-            }),
-            Schema.Union([Reply.cases.metrics, Reply.cases.metricsError]),
-            true,
-            (_channel, { font, size }) =>
-                metrics('family' in font ? FAMILIES[font.family].postScriptName : font.postScriptName, size).pipe(
+            [_toolkit.tools.indesign_get_layout.name]: _forward(channel, 'getLayout', READ),
+            [_toolkit.tools.indesign_get_font_metrics.name]: ({ font, size }) =>
+                metrics(Match.value(font).pipe(Match.discriminatorsExhaustive('kind')({ family: ({ family }) => FAMILIES[family], postScriptName: Struct.get('postScriptName') })), size).pipe(
                     Effect.map((measured) => ({ kind: 'metrics' as const, ...measured })),
-                    Effect.catchTag(['fontNotFound', 'metricsMissing', 'faceNotReadable', 'faceNotInFile'], (error) => Effect.succeed({ kind: 'metricsError' as const, error })),
-                    Effect.catchTag('PlatformError', flow(inaccessible(_HOST), Effect.fail)),
-                    Effect.orDie,
+                    Effect.catchIf(Schema.is(MetricsError), (error) => Effect.succeed({ kind: 'metricsError' as const, error })),
+                    Effect.catchTag('PlatformError', flow(inaccessible(channel.link.host), Effect.fail)),
+                    Effect.catchTag(['ConfigError', 'SchemaError'], Effect.die),
                 ),
-        ),
-        _row(
-            'indesign_find_key_strings',
-            'Answers `app.findKeyStrings(text)`, the `$ID/` key strings behind a user-interface string, beside `app.translateKeyString(text)`',
-            FindKeyStrings,
-            Reply.cases.keys,
-            true,
-            (channel, input) => _answer(channel, 'findKeyStrings', input, Keys),
-        ),
-        _row(
-            'indesign_get_preferences',
-            'Reads every member of the named `app.<section>` preference objects, enumerators rendered by constant name and DOM objects by name',
-            GetPreferences,
-            Reply.cases.preferences,
-            true,
-            (channel, input) => _answer(channel, 'getPreferences', input, Preferences),
-        ),
-        _row(
-            'indesign_set_preferences',
-            'Writes `app.<section>.<key>` rows as one undo step while no document is open, resolving a constant name or FourCC to its enumerator, and reads each value back; a readback that neither changed nor matched is a rejected row',
-            SetPreferences,
-            Settings,
-            false,
-            (channel, input) => _answer(channel, 'setPreferences', input, Settings),
-        ),
-        _row(
-            'indesign_set_text_defaults',
-            "Writes text default rows as one undo step to `app.textDefaults` and `[Basic Paragraph]` at application scope or to the active document's text defaults, each read back",
-            SetTextDefaults,
-            Reply.cases.applied,
-            false,
-            (channel, input) => _answer(channel, 'setTextDefaults', input, Applied),
-        ),
+            [_toolkit.tools.indesign_find_key_strings.name]: _forward(channel, 'findKeyStrings', READ),
+            [_toolkit.tools.indesign_get_preferences.name]: _forward(channel, 'getPreferences', READ),
+            [_toolkit.tools.indesign_set_preferences.name]: _forward(channel, 'setPreferences', READ),
+            [_toolkit.tools.indesign_set_text_defaults.name]: _forward(channel, 'setTextDefaults', READ),
+        }),
     ),
-    Layer.effect(
-        Channel,
-        Effect.map(Effect.all([Links, Jobs, Path.Path]), ([links, jobs, path]) => ({ link: links.indesign, host: jobs.indesign, artifacts: artifacts(path, _HOST) })),
-    ),
+    _session.layer,
 );
 
 // --- [EXPORTS] -------------------------------------------------------------------------

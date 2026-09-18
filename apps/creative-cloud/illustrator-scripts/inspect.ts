@@ -1,10 +1,5 @@
 /// <reference path="./prelude.ts"/>
 
-// --- [HOST] ----------------------------------------------------------------------------
-
-declare const $: $;
-declare const app: Application;
-
 // --- [PRELUDE] -------------------------------------------------------------------------
 
 const { all, dump, each, items, reference, run, walk }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));

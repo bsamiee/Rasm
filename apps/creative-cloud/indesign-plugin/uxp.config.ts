@@ -1,19 +1,17 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Bridge, type Facts, plugin } from '@rasm/creative-cloud-server/manifest';
+import { type Bridge, plugin } from '@rasm/creative-cloud-server/manifest';
 import { HOSTS } from '@rasm/creative-cloud-server/values';
 import manifest from './package.json' with { type: 'json' };
 
 // --- [MANIFEST] ------------------------------------------------------------------------
 
-const facts: Facts = {
+const bridge: Bridge = plugin(HOSTS.indesign, manifest, {
     id: 'rasm.indesign.bridge',
     name: 'Rasm InDesign Bridge',
     panel: { label: { default: 'Rasm' }, minimumSize: { width: 200, height: 60 }, preferredDockedSize: { width: 235, height: 80 } },
     permissions: { localFileSystem: 'fullAccess' },
-};
-
-const bridge: Bridge = plugin(HOSTS.indesign, manifest, facts);
+});
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

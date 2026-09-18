@@ -42,8 +42,15 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 
 - Severity string on a group enables every rule of the group at that level, `preset` beside it adds none
 - `project` at `all` turns on the scanner its import rules read, a group severity alone leaves those rules silent
+- `noUnresolvedImports` is `off`, `tsc --build` reports unresolved specifiers and missing exports the rule repeats
+- Scanner skips ambient `declare module` declarations, `tsc --build` reads them
 - `none` on a domain silences rules of a package the tree lacks
 - `organizeImports` runs by default, every other source action is a row
+- `useNamingConvention` takes `strictCase: false` for a host's acronym class names
+- `noUndeclaredVariables` is `off`, `tsc --build` reports an undeclared name
+- Host typings declare every host global, a `declare` statement or an empty `enum` stub in a plugin file restates a typings declaration
 - `vcs.useIgnoreFile` and `!!` patterns in `files.includes` keep the scanner out of ignored trees
 - Copy of `biome.json` with one row deleted keeps the `vcs` row, `biome check --reporter=json` over the files `git ls-files` prints decides a formatter or severity row
-- Generated module a `paths` row names resolves an import for Biome, an ambient `declare module` resolves it for the compiler alone
+- `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
+- `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module
+- Host modules a `with-protocol` entry declares take no `paths` row and no generated module
