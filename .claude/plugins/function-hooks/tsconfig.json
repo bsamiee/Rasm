@@ -5,7 +5,6 @@
         "composite": false,
         "declarationMap": false,
         "emitDeclarationOnly": false,
-        "isolatedDeclarations": false,
         "noEmit": true,
         "tsBuildInfoFile": "../../../.cache/typescript/out/.claude/plugins/function-hooks/tsconfig.tsbuildinfo"
     },

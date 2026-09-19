@@ -8,7 +8,6 @@
         "emitDeclarationOnly": true,
         "erasableSyntaxOnly": true,
         "exactOptionalPropertyTypes": true,
-        "isolatedDeclarations": true,
         "lib": ["esnext"],
         "module": "preserve",
         "moduleDetection": "force",

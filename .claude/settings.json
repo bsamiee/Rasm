@@ -132,7 +132,7 @@
     },
     "enabledPlugins": {
         "playwright@rasm": true,
-        "function-hooks@rasm": true,
+        "function-hooks@rasm": false,
         "jdtls@rasm": true,
         "swift-lsp@claude-plugins-official": false
     },

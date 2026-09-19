@@ -16,8 +16,12 @@ catalog:
     '@effect/platform-browser': 4.0.0-rc.116
     '@effect/opentelemetry': 4.0.0-rc.116
     # Serialization and messaging
+    # JavaScript literals for native Acrobat scripts
+    jsesc: 3.1.0
+    # Types for native-script literal serialization
+    '@types/jsesc': 3.0.3
     # Bidirectional binary format declarations for Adobe palette exchange
-    '@solana/codecs': canary
+    '@solana/codecs': 8.4.0-canary-20260918134912
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.15.0
     '@bufbuild/protovalidate': 1.3.0
@@ -27,17 +31,13 @@ catalog:
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.1
     # Strict XML syntax validation for native Adobe shortcut files
-    fast-xml-validator: latest
+    fast-xml-validator: 1.4.2
     # Namespace-preserving XMP document updates
-    '@xmldom/xmldom': latest
-    # XML builder behind the Acrobat .sequ renderer, the builder fast-xml-parser re-exports under a deprecation
-    fast-xml-builder: 1.3.1
+    '@xmldom/xmldom': 0.9.12
     # HTML parser behind the Acrobat accessibility report's rule rows, which are HTML and not XML
     cheerio: 1.2.0
-    # Maintained HTML encoding decoder using the shared Exodus byte codecs
-    encoding-sniffer: latest
     # Programmatic MCP application document serialization
-    parse5: latest
+    parse5: 8.0.1
     # Property-list parser behind the Acrobat preference read, dict pairs and typed leaves as one object tree
     plist: 5.0.0
     yaml: 3.0.0-2
@@ -111,13 +111,13 @@ catalog:
     '@effect/ai-openrouter': 4.0.0-rc.116
     '@effect/ai-openai-compat': 4.0.0-rc.116
     # Current MCP SDK client, server and protocol ownership
-    '@modelcontextprotocol/client': latest
-    '@modelcontextprotocol/server': latest
-    '@modelcontextprotocol/core': latest
+    '@modelcontextprotocol/client': 2.0.0
+    '@modelcontextprotocol/server': 2.0.0
+    '@modelcontextprotocol/core': 2.0.0
     # Official MCP application protocol and browser client
-    '@modelcontextprotocol/ext-apps': latest
+    '@modelcontextprotocol/ext-apps': 2.0.0
     # Native pointer and gesture transforms for snapshot presentation
-    '@panzoom/panzoom': latest
+    '@panzoom/panzoom': 4.6.2
     '@openfeature/server-sdk': 1.23.0
     '@opentelemetry/api': 1.9.1
     '@opentelemetry/context-async-hooks': 2.11.0
@@ -248,26 +248,8 @@ catalog:
     '@adobe-uxp-types/photoshop': 0.1.8
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
-    # Lossless WOFF and WOFF2 decoding before OpenType shaping
-    fonteditor-core: latest
-    # Portable zlib decompression for WOFF font tables
-    fflate: latest
-    # OpenType shaping and variable-instance metrics for reusable typography measurement
+    # Variation-aware OpenType metrics and glyph extents for typography measurement, no shaping
     harfbuzzjs: 1.6.1
-    # Typed binary views over original font container bytes
-    '@ot-builder/bin-util': latest
-    # Original OpenType table maps and collection member offsets
-    '@ot-builder/io-bin-sfnt': latest
-    # Typed OpenType metadata readers for traits and named variations
-    '@ot-builder/io-bin-metadata': latest
-    # Owning OpenType metadata types and standard flags
-    '@ot-builder/ot-metadata': latest
-    # Standard OpenType name identifiers
-    '@ot-builder/ot-name': latest
-    # Owning SFNT table container type
-    '@ot-builder/ot-sfnt': latest
-    # Font catalogue discovery across hidden caches and symlinked font trees
-    fdir: 6.5.0
     # Emits the InDesign and Illustrator DOM declarations the generator builds from each host's scripting dictionary
     ts-morph: 28.0.0
     # WHATWG TextEncoder and TextDecoder for the shared UXP host-runtime boundary
@@ -308,7 +290,7 @@ catalog:
     '@stryker-mutator/core': 10.0.0
     '@stryker-mutator/vitest-runner': 10.0.0
     # Tooling
-    typescript: 7.1.0-dev.20260918.1
+    typescript: 7.1.0-dev.20260919.1
     '@effect/language-service': 0.87.2
     '@effect/docgen': 4.0.0-rc.116
     '@effect/openapi-generator': 4.0.0-rc.116
@@ -317,7 +299,9 @@ catalog:
     '@nx/dotnet': 23.3.0-canary.20260918-027a0b0
     '@nx/vitest': 23.3.0-canary.20260918-027a0b0
     # Structural command and host discovery for the workspace task graph
-    '@ast-grep/napi': latest
+    '@ast-grep/napi': 0.45.3
+    # TOML parser the workspace plugin reads a Python manifest with
+    smol-toml: 1.8.0
     '@biomejs/biome': 2.5.14
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     '@derekstride/tree-sitter-sql': 0.3.11
@@ -353,21 +337,35 @@ overrides:
     # Grammar packages misspell the optional marker of their tree-sitter peer, and the grammar target reads their C sources alone
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
     '@derekstride/tree-sitter-sql>tree-sitter': '-'
-    # Node strips this workspace's erasable TypeScript; Nx's optional legacy loader requires the removed TypeScript compiler API
-    'nx>@swc-node/register': '-'
-    # Current consumers support the workspace's newest compiler and test runner
+    # Plugin peer range spans 7 and 8, auto-install takes the 7 release beside @babel/core 8 and its peer on core 7 goes unmet
+    '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
+    # vite-plugin-inspect depends on kit ^0.4, whose devframe tree would sit beside the one the @vitejs/devtools row brings
+    vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
+    # Peer ranges the catalog crosses on purpose, one row per consumer so no other package's regular dependency moves
+    '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
+    '@use-gesture/react>react': 'catalog:'
+    '@google/model-viewer>three': 'catalog:'
     '@pulumi/pulumi>typescript': 'catalog:'
-    # Cheerio's decoder API is unchanged in the ESM release used by this Node workspace
-    'cheerio>encoding-sniffer': 'catalog:'
-    # Vite's PostCSS loader uses parse in both supported YAML 2 and the workspace's YAML 3 prerelease
-    'vite>yaml': '^2.4.2 || >=3.0.0-0'
+    '@effect/docgen>typescript': 'catalog:'
+    'tsconfck>typescript': 'catalog:'
     '@nx/vitest>vitest': 'catalog:'
+    '@effect/atom-react>scheduler': 'catalog:'
+peerDependencyRules:
+    # Peer ranges the catalog's newest rows step past, the consumer's declared range stays its own
+    allowedVersions:
+        'vite>yaml': '>=3.0.0-0'
+        '@loaders.gl/core': '>=4.4.0'
 allowBuilds:
+    '@datadog/pprof': true
     '@derekstride/tree-sitter-sql': false
+    '@modelcontextprotocol/inspector': true
+    '@pulumi/command': true
+    '@pulumi/docker': true
+    '@pulumi/docker-build': true
+    '@pulumi/kubernetes': true
     '@swc/core': true
     '@tree-sitter-grammars/tree-sitter-xml': false
+    core-js: true
     esbuild: true
     nx: true
     protobufjs: true
-patchedDependencies:
-    '@adobe-uxp-types/uxp': patches/@adobe-uxp-types__uxp.patch

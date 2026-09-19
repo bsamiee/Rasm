@@ -22,7 +22,7 @@ const _operation = Effect.fnUntraced(function* (operation: Exclude<StackError['o
     const stack = yield* Effect.tryPromise({
         try: () =>
             LocalWorkspace.createOrSelectStack(
-                { stackName: 'rasm', projectName: 'rasm-infra', program: () => Effect.runPromise(program(adopt)) },
+                { stackName: 'rasm', projectName: 'rasm-infra', program: async () => program(adopt) },
                 { pulumiHome: path.join(import.meta.dirname, '..', '.cache', 'pulumi') },
             ),
         catch: (cause) => new StackError({ operation: 'select', cause }),

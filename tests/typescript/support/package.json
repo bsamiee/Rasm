@@ -14,7 +14,6 @@
         "@effect/sql-pglite": "catalog:",
         "@effect/vitest": "catalog:",
         "effect": "catalog:",
-        "fast-check": "catalog:",
-        "vitest": "catalog:"
+        "fast-check": "catalog:"
     }
 }

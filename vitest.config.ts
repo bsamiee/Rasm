@@ -28,11 +28,9 @@ const _project = Effect.fnUntraced(
         return {
             root: directory,
             cacheDir: `${_ROOT}/.cache/vitest/${name}`,
-            optimizeDeps: { include: ['@effect/vitest', 'effect'] },
             test: {
                 benchmark: { exclude: _EXCLUDE, include: ['**/*.bench.{ts,tsx}'] },
                 chaiConfig: { includeStack: true, truncateThreshold: 0 },
-                diff: { expand: true },
                 coverage: {
                     enabled: true,
                     exclude: [..._EXCLUDE, '**/*.config.*', '**/*.d.ts', '**/__mocks__/**', '**/__tests__/**', '**/gen/**', '**/test/**', '**/tests/**'],
