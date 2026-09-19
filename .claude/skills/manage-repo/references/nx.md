@@ -7,7 +7,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - Plugins infer a project from each file matching their glob, a matching file that defines no project joins the plugin's `exclude`
 - `useDaemonProcess: false` computes the graph on every command
 - `cacheDirectory` relocates the task cache, `NX_WORKSPACE_DATA_DIRECTORY` the workspace data
-- Manifest `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
+- `package.json` `scripts` entries infer as `nx:run-script` targets with no inputs, outputs, or cache, `nx.targets` holds targets with them
 
 ## [02]-[TARGETS]
 

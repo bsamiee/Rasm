@@ -13,11 +13,11 @@ uv owns resolution, the lock, and the environment of the root project file.
 - `--locked` fails a command when `uv.lock` is missing or stale
 - `environments` restricts resolution to disjoint PEP 508 markers
 - `required-environments` names platforms a package without a source distribution must publish a wheel for
-- `[tool.uv.workspace] members` globs name package manifests one root lock covers
+- `[tool.uv.workspace] members` globs name the `pyproject.toml` files one root lock covers
 - Dependencies on a member take `{ workspace = true }` in `[tool.uv.sources]`
 
 ## [03]-[ENVIRONMENT]
 
 - `uv sync` installs the workspace root, `--all-packages` every member
 - `python-preference = "only-system"` excludes uv-managed interpreters, `UV_PYTHON` names the interpreter
-- Automation with control flow is a package with a `[project.scripts]` entry a target runs by name
+- Script with control flow is a package with a `[project.scripts]` entry a target runs by name

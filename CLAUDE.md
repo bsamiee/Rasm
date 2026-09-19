@@ -16,7 +16,7 @@
 - Skills, memories, and docs hold the principle that decides a case, a project's state is its files
 - Paths git ignores hold no project state, a file under one is read and never edited, checked, or created
 - Every tool, package, and server in the tree is a capability, its current docs decide a solution's form before one is written
-- Audits, security scans, supply-chain pins, and approval gates join a manifest, target, workflow, or program at the user's request alone
+- Audits, security scans, supply-chain pins, and approval gates join a project file, target, workflow, or program at the user's request alone
 
 ## [01]-[LANGUAGE_STANDARDS]
 
@@ -103,10 +103,10 @@ Navigate code through its language's skill and MCP server, or the ast-grep skill
 ## [03]-[DEPENDENCY_POLICY]
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
-- ALWAYS group .NET MSBuild and NuGet manifest entries by responsibility, order each group consistently, and keep maintenance notes to one line
-- ALWAYS record each package as one row of its central manifest with a one-line purpose comment
-- ALWAYS add a missing dependency record to its owning manifest instead of deleting the corresponding record
+- ALWAYS group .NET MSBuild items and NuGet package rows by responsibility, order each group consistently, and keep maintenance notes to one line
+- ALWAYS record each package as one row of its catalog with a one-line purpose comment
+- ALWAYS add a missing dependency record to its owning project file instead of deleting the corresponding record
 - ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
-- ALWAYS let a manifest, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
+- ALWAYS let a project file, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 - ALWAYS map every package id to one source in `NuGet.config`

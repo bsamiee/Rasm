@@ -14,13 +14,13 @@ Rasm/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines and rules per language
-│   ├── nx/                   # Nx plugin adding a project per manifest to the task graph
+│   ├── nx/                   # Nx plugin inferring a project from each project file
 │   ├── rhino/                # Tooling Rhino runs through the MCP router
 │   └── yak/                  # Rhino packages installed through the yak CLI
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
-├── package.json              # Development dependencies and root Nx targets
+├── package.json              # Catalog rows except tool plugins, root Nx targets
 ├── pnpm-workspace.yaml       # TypeScript workspace globs and dependency catalog
 ├── pyproject.toml            # Python dependency groups and tool tables
 ├── Directory.Packages.props  # .NET central package versions
@@ -38,7 +38,7 @@ Rasm/
 ├── .editorconfig             # Editor settings and .NET analyzer severity
 ├── .swift-format             # Swift lint and format rules
 ├── .yamllint.yaml, .yamlfmt  # YAML lint and format
-├── .github/                  # Continuous integration and repository automation
+├── .github/                  # Continuous integration and repository workflows
 ├── .claude/                  # Agent harness knowledge and settings
 ├── .mcp.json                 # Agent harness MCP servers
 ├── .codex/                   # Codex harness settings
@@ -69,7 +69,7 @@ flowchart LR
 
     subgraph taskgraph ["Task graph"]
         direction TB
-        plugins["nx.json plugins"] --> projects["Project per manifest: language and host tags, empty targets"]
+        plugins["nx.json plugins"] --> projects["Project per project file: language and host tags, empty targets"]
         target_defaults["nx.json targetDefaults by tag:language:*"] --> bodies["Target body per language"]
         root_nx["package.json nx"] --> root_targets["Root targets rasm:*"]
     end
@@ -96,7 +96,7 @@ flowchart LR
 - `nx run rasm:upgrade --configuration <language>` moves one catalog, `tools` the binaries, `rhino` the Rhino packages
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- Workspace plugin names each project's tags, empty targets, and `automation.ts` subcommands by manifest, `@nx/dotnet` and `@nx/vitest` infer theirs
+- Workspace plugin names each project's tags, empty targets, and `cli.ts` subcommands by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
 - Caches and outputs sit under `.cache/` and `.artifacts/`, each tool relocated through its own setting
@@ -138,7 +138,7 @@ flowchart LR
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
 - `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
-- Manifests define projects, no `project.json`: `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, `.xcodeproj`
+- Project files define projects, no `project.json`: `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Project have no `src/` directory, no foler with a single file, folder architecture is driven by logical domain groupings per language

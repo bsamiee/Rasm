@@ -8,24 +8,23 @@ import { parse as toml } from 'smol-toml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-interface Manifest {
+interface ProjectFile {
     readonly file: string;
     readonly directory: string;
     readonly text: string;
     readonly workspace: string;
 }
 
-type Configure = (manifest: Manifest) => Effect.Effect<ProjectConfiguration, ManifestError | Schema.SchemaError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path>;
+type Configure = (file: ProjectFile) => Effect.Effect<ProjectConfiguration, ProjectFileError | Schema.SchemaError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path>;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _Project = Schema.Struct({ project: Schema.Struct({ name: Schema.String }) });
-
 const _Pytest = Schema.Struct({ tool: Schema.Struct({ pytest: Schema.Struct({ pythonFiles: Schema.Array(Schema.String) }).pipe(Schema.encodeKeys({ pythonFiles: 'python_files' })) }) });
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
-class ManifestError extends Data.TaggedError('ManifestError')<{ readonly file: string; readonly cause: unknown }> {
+class ProjectFileError extends Data.TaggedError('ProjectFileError')<{ readonly file: string; readonly cause: unknown }> {
     override get message(): string {
         return `${this.file} does not define a project`;
     }
@@ -34,28 +33,22 @@ class ManifestError extends Data.TaggedError('ManifestError')<{ readonly file: s
 // --- [SYNTAX] --------------------------------------------------------------------------
 
 const _matches = (source: SgNode, pattern: string, variable: string): readonly SgNode[] => Array.flatMapNullishOr(source.findAll({ rule: { pattern } }), (node) => node.getMatch(variable));
-
+const _tsx = (text: string): SgNode => parse(Lang.Tsx, text).root();
+const _toml = (file: string, text: string): Effect.Effect<unknown, ProjectFileError> => Effect.try({ try: () => toml(text), catch: (cause) => new ProjectFileError({ file, cause }) });
 const _literals = (source: SgNode, pattern: string, variable: string): readonly string[] =>
     Array.flatMapNullishOr(_matches(source, pattern, variable), (literal) => literal.namedChildren()[0]?.text());
-
-const _tsx = (text: string): SgNode => parse(Lang.Tsx, text).root();
-
-const _toml = (file: string, text: string): Effect.Effect<unknown, ManifestError> => Effect.try({ try: () => toml(text), catch: (cause) => new ManifestError({ file, cause }) });
-
-const _hosts = (text: string): readonly string[] => Array.dedupe(Array.map(_matches(_tsx(text), 'HOSTS.$HOST', 'HOST'), (host) => `host:${host.text()}`));
 
 // --- [PROJECTS] ------------------------------------------------------------------------
 
 const _PROJECTS: Record<string, Configure> = {
     '*.csproj': ({ directory }) => Effect.succeed({ root: directory, tags: ['language:dotnet'], targets: { typecheck: {}, check: {} } }),
     '.swcrc': ({ directory }) => Effect.succeed({ root: directory, tags: ['host:extendscript'], targets: { build: {} } }),
-    'automation.ts': ({ directory, text }) =>
+    'cli.ts': ({ directory, text }) =>
         Effect.succeed({
             root: directory,
-            tags: [..._hosts(text)],
             targets: Record.fromIterableWith(_literals(_tsx(text), 'Command.make($NAME, $CONFIG, $HANDLER)', 'NAME'), (name) => [
                 name,
-                { command: `node automation.ts ${name}`, options: { cwd: '{projectRoot}' } },
+                { command: `node cli.ts ${name}`, options: { cwd: '{projectRoot}' } },
             ]),
         }),
     'project.pbxproj': ({ directory }) =>
@@ -80,11 +73,7 @@ const _PROJECTS: Record<string, Configure> = {
             };
         }),
     'tsconfig.json': ({ directory }) => Effect.succeed({ root: directory, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
-    'uxp.config.ts': ({ file, directory, text }) =>
-        Effect.map(
-            Effect.fromOption(Option.liftPredicate(_hosts(text), Array.isReadonlyArrayNonEmpty), () => new ManifestError({ file, cause: 'No HOSTS member identifies the UXP host' })),
-            (hosts) => ({ root: directory, tags: ['host:uxp', ...hosts], targets: { build: {} } }),
-        ),
+    'uxp.config.ts': ({ directory }) => Effect.succeed({ root: directory, tags: ['host:uxp'], targets: { build: {} } }),
 };
 
 const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
@@ -92,7 +81,7 @@ const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
     const path = yield* Path.Path;
     const configure = yield* Effect.fromOption(
         Option.orElse(Record.get(_PROJECTS, path.basename(file)), () => Record.get(_PROJECTS, `*${path.extname(file)}`)),
-        () => new ManifestError({ file, cause: 'No project kind reads this manifest' }),
+        () => new ProjectFileError({ file, cause: 'No project kind reads this file' }),
     );
     const configuration = yield* configure({ file, workspace, directory: path.dirname(file), text: yield* fs.readFileString(path.join(workspace, file)) });
     return { projects: { [configuration.root]: configuration } };
@@ -101,7 +90,6 @@ const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
 // --- [REGISTRATION] --------------------------------------------------------------------
 
 const _runtime = ManagedRuntime.make(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer));
-
 const createNodes: CreateNodes = [
     `{apps,libs,tests,tools,.claude/plugins}/**/{${Record.keys(_PROJECTS).join(',')}}`,
     (files, options, context): Promise<CreateNodesResultArray> => createNodesFromFiles((file) => _runtime.runPromise(_project(file, context.workspaceRoot)), files, options, context),

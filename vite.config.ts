@@ -11,8 +11,7 @@ const _HOST_MODULE = /^adobe:/u;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _Package = Schema.fromJsonString(Schema.Struct({ main: Schema.String }));
-
-const _Bridge = Schema.Struct({ bridge: Schema.Struct({ manifest: Schema.Struct({ main: Schema.String }) }) });
+const _Plugin = Schema.Struct({ plugin: Schema.Struct({ main: Schema.String }) });
 
 // --- [CONFIGURATION] -------------------------------------------------------------------
 
@@ -21,16 +20,16 @@ const _config = Effect.gen(function* () {
     const path = yield* Path.Path;
     const project = path.resolve('.');
     const { main } = yield* Schema.decodeEffect(_Package)(yield* fs.readFileString(path.join(project, 'package.json')));
-    const { bridge } = yield* Effect.flatMap(
+    const { plugin } = yield* Effect.flatMap(
         Effect.promise((): Promise<unknown> => import(path.join(project, 'uxp.config.ts'))),
-        Schema.decodeUnknownEffect(_Bridge),
+        Schema.decodeUnknownEffect(_Plugin),
     );
     return {
         resolve: { conditions: Array.intersection(defaultClientConditions, defaultServerConditions), mainFields: [...defaultServerMainFields] },
         build: {
             outDir: path.join(import.meta.dirname, '.artifacts', path.relative(import.meta.dirname, project)),
             emptyOutDir: true,
-            lib: { entry: main, formats: ['cjs'], fileName: (): string => bridge.manifest.main },
+            lib: { entry: main, formats: ['cjs'], fileName: (): string => plugin.main },
             minify: false,
             sourcemap: true,
             reportCompressedSize: false,

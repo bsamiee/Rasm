@@ -13,9 +13,8 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `pnpm patch <package>` extracts a package for editing, `pnpm patch-commit <dir>` writes the patch file and its `patchedDependencies` row
 - `minimumReleaseAge: 0` lifts the default 1440 minute release delay
 - `packages` globs match a directory on disk
-- Root manifest lists every catalog row as `catalog:`, a project manifest lists the rows its files import
-- Tools targets run take no project manifest row
-- `CI` set makes `pnpm install` frozen, a lock out of step with a manifest fails the install in place of rewriting the lock
+- Project `package.json` lists the catalog rows its files import as `catalog:`, tools targets run take no row
+- `CI` set makes `pnpm install` frozen, a lock out of step with a `package.json` fails the install in place of rewriting the lock
 
 ## [02]-[COMPILER]
 
@@ -34,8 +33,8 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `erasableSyntaxOnly` keeps every file strippable
 - Target running a file names `node <file>.ts` with `cwd` at the project
 - Workspace package's `exports` map to `.ts` files resolves through the pnpm link
-- `@nx/vitest` infers `test` from a `vitest.config.ts` beside a manifest
-- Root Vite config reads the manifest in `cwd`, a Vitest project config re-exports the root factory with its directory
+- `@nx/vitest` infers `test` from a `vitest.config.ts` beside a `package.json`
+- Root Vite config reads the `package.json` in `cwd`, a Vitest project config re-exports the root factory with its directory
 - Root Vitest config lists `projects` from the workspace globs
 
 ## [04]-[BIOME]

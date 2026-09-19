@@ -6,7 +6,7 @@ Derive rules from a refactor diff, existing code, or a project principle, and in
 
 Read the supplied evidence, then the dependencies deciding the correction:
 1. Git diff with its before and after context, the named code, or the stated principle with one conforming and one violating form
-2. Language skills, manifests, resolved versions, and installed sources of the packages the correction uses
+2. Language skills, project files, resolved versions, and installed sources of the packages the correction uses
 3. Exported functions and types of the internal packages the scope depends on
 4. Scoped checker rules (ruff, biome, analyzers)
 5. Surrounding logic and callers, enough to establish the correction's behavior and scope
@@ -39,7 +39,7 @@ Corrections earn a rule by one criterion and are refused by one, each a verdict 
 |  [02]   | `bad-logic`       |    1    | Bad logic pattern                                                         |
 |  [03]   | `indirection`     |    1    | Indirection layer                                                         |
 |  [04]   | `library-op`      |    1    | Hand-written counterpart of an installed library's operation              |
-|  [05]   | `repository-fact` |    0    | Repository fact, the manifest or owner file states it once                |
+|  [05]   | `repository-fact` |    0    | Repository fact, the project file or owner file states it once            |
 |  [06]   | `misparse`        |    0    | Form tree-sitter parses wrong, matched by the enclosing statement pattern |
 |  [07]   | `option-grammar`  |    0    | One tool's option grammar                                                 |
 

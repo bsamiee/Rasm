@@ -4,7 +4,7 @@ google-java-format owns formatting, PMD owns lint, the workspace plugin infers a
 
 ## [01]-[PROJECTS]
 
-- `settings.gradle.kts` is the manifest, `rootProject.name` names the project, a `build.gradle.kts` holds no name
+- `settings.gradle.kts` is the project file, `rootProject.name` names the project, a `build.gradle.kts` holds no name
 - `@nx/gradle` requires a root Gradle build file, a companion Gradle plugin, and the wrapper, target bodies sit in `nx.json` by tag
 - JDK and Gradle tool rows join with the first project when a `build` or `test` body runs them
 

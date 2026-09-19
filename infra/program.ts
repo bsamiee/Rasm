@@ -35,14 +35,14 @@ const _REPOSITORY = {
 
 // --- [PROGRAM] -------------------------------------------------------------------------
 
-const program = (adopt: boolean): Record.ReadonlyRecord<string, unknown> => {
-    const adoption = (id: string): CustomResourceOptions => (adopt ? { import: id } : {});
-    const project = new Project(_PROJECT.name, _PROJECT, adoption(_PROJECT.name));
+const program = (imports: boolean): Record.ReadonlyRecord<string, unknown> => {
+    const options = (id: string): CustomResourceOptions => (imports ? { import: id } : {});
+    const project = new Project(_PROJECT.name, _PROJECT, options(_PROJECT.name));
     const environments = Record.map(
         { dev: 'Development', prd: 'Production' } as const,
-        (name, slug) => new Environment(slug, { project: project.name, slug, name }, adoption(`${_PROJECT.name}.${slug}`)).slug,
+        (name, slug) => new Environment(slug, { project: project.name, slug, name }, options(`${_PROJECT.name}.${slug}`)).slug,
     );
-    const repository = new Repository(_REPOSITORY.name, _REPOSITORY, { protect: true, ...adoption(_REPOSITORY.name) });
+    const repository = new Repository(_REPOSITORY.name, _REPOSITORY, { protect: true, ...options(_REPOSITORY.name) });
     const vulnerabilityAlerts = new RepositoryVulnerabilityAlerts(`${_REPOSITORY.name}-vulnerability-alerts`, { repository: repository.name, enabled: true });
     return {
         repository: repository.fullName,
@@ -50,7 +50,7 @@ const program = (adopt: boolean): Record.ReadonlyRecord<string, unknown> => {
             ...environments,
             ...Record.map(
                 { dev_repo: 'dev' } as const satisfies { [K in `${keyof typeof environments}_${string}`]: K extends `${infer E}_${string}` ? E : never },
-                (environment, name) => new BranchConfig(name, { project: project.name, environment: environments[environment], name }, adoption(`${_PROJECT.name}.${environment}.${name}`)).name,
+                (environment, name) => new BranchConfig(name, { project: project.name, environment: environments[environment], name }, options(`${_PROJECT.name}.${environment}.${name}`)).name,
             ),
         }),
         vulnerabilityAlerts: vulnerabilityAlerts.enabled,

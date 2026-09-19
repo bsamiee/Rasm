@@ -16,13 +16,13 @@ class StackError extends Data.TaggedError('StackError')<{ readonly operation: 's
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _operation = Effect.fnUntraced(function* (operation: Exclude<StackError['operation'], 'select'>, adopt: boolean) {
+const _run = Effect.fnUntraced(function* (operation: Exclude<StackError['operation'], 'select'>, imports: boolean) {
     const path = yield* Path.Path;
     const stdio = yield* Stdio.Stdio;
     const stack = yield* Effect.tryPromise({
         try: () =>
             LocalWorkspace.createOrSelectStack(
-                { stackName: 'rasm', projectName: 'rasm-infra', program: async () => program(adopt) },
+                { stackName: 'rasm', projectName: 'rasm-infra', program: async () => program(imports) },
                 { pulumiHome: path.join(import.meta.dirname, '..', '.cache', 'pulumi') },
             ),
         catch: (cause) => new StackError({ operation: 'select', cause }),
@@ -41,14 +41,19 @@ const _operation = Effect.fnUntraced(function* (operation: Exclude<StackError['o
 // --- [ENTRY] ---------------------------------------------------------------------------
 
 Command.run(
-    Command.make('automation').pipe(
+    Command.make('infra').pipe(
         Command.withSubcommands([
             Command.make(
                 'up',
-                { adopt: Flag.Boolean('import').pipe(Flag.withDescription('Adopt the Doppler project, environments, branch configs, and repository'), Flag.withDefault(false)) },
-                ({ adopt }) => _operation('up', adopt),
+                {
+                    imports: Flag.Boolean('import').pipe(
+                        Flag.withDescription('Import the existing Doppler project, environments, branch configs, and repository into the stack'),
+                        Flag.withDefault(false),
+                    ),
+                },
+                ({ imports }) => _run('up', imports),
             ),
-            Command.make('refresh', {}, () => _operation('refresh', false)),
+            Command.make('refresh', {}, () => _run('refresh', false)),
         ]),
     ),
     { version: '' },

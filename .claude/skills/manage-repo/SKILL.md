@@ -1,11 +1,11 @@
 ---
 name: manage-repo
-description: "Use when adding or changing a manifest, target, tool, workflow, or infra row, covering owners, growth, targets, and checks."
+description: "Use when adding or changing a project file, target, tool, workflow, or infra row, covering owners, growth, targets, and checks."
 ---
 
 # [MANAGE_REPO]
 
-Covers manifests, targets, tools, workflows, and infra rows of a polyglot monorepo.
+Covers project files, targets, tools, workflows, and infra rows of a polyglot monorepo.
 
 ## [01]-[PLACEMENT]
 
@@ -13,14 +13,14 @@ Covers manifests, targets, tools, workflows, and infra rows of a polyglot monore
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
 - Row's consumer is a file importing the package, a command running the binary, or a tool reading the row
-- Rows naming a package, binary, or server point at one a manifest or tool row installs, a row pointing at none goes
-- Root files hold policy every project shares, a row one project consumes sits in the project's manifest
+- Rows naming a package, binary, or server point at one a project file or tool row installs, a row pointing at none goes
+- Root files hold policy every project shares, a row one project consumes sits in the project file
 - Project file extending a root file exists for a plugin discovering projects by the file, a tool taking `--config` reads the root file from any `cwd`
 - Rows restating a tool's documented default go, the default comes from a schema, release notes, or installed source
 - Row deleted with the tool's output and lock unchanged goes, a row that only cancels another row's effect goes with the canceled row
 - Rule, domain, and checker rows are decided by a file that violates them, a tree reporting nothing under the row deleted proves no row
 - `check` of a row's consumers proves the removal, a source file importing `package.json` for `version` is a consumer
-- Skills couple to no project, a skill names the tools it drives and its own scripts, a target, manifest row, or repository path stays out
+- Skills couple to no project, a skill names the tools it drives and its own scripts, a target, project file row, or repository path stays out
 - Scripts join the skill whose subject they serve, a script an app, target, or workflow consumes joins the repository
 - Root targets unify check, format, build, test, install, and release of the repository's own code, a wrapper over one tool mise supplies is no target
 
@@ -33,9 +33,9 @@ Covers manifests, targets, tools, workflows, and infra rows of a polyglot monore
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
 - [02]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, builds, patches, composite compiler projects, direct execution, Biome rows
-- [03]-[PYTHON](references/python.md): Dependency groups, lock, environments, interpreter, automation packages
+- [03]-[PYTHON](references/python.md): Dependency groups, lock, environments, interpreter, script packages
 - [04]-[DOTNET](references/dotnet.md): MSBuild skills, project file contents, central row upgrades
 - [05]-[TOOLING](references/tooling.md): Tool rows, release settings, version files, environment templates
 - [06]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
-- [07]-[JAVA](references/java.md): Manifest, formatter form, tool rows that wait for the first project
+- [07]-[JAVA](references/java.md): Project file, formatter form, tool rows that wait for the first project
 - [08]-[SWIFT](references/swift.md): Project file rows, build setting defaults, schemes, format configuration

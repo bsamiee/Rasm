@@ -63,9 +63,9 @@ Identifier and file renames update every reference:
 - WRONG: `The build runs the target, which copies the assets` (second fact hangs off noun as a relative clause)
 - WRONG: `The build runs the target that copies the assets` (same clause with `that`)
 
-- BEFORE (layout): `Root <manifest> owns resolution and the single lock file`
-- BEFORE (dependencies): `Every dependency resolves through the root <manifest>, and the lock file at the root is the only one`
-- AFTER (dependencies): `Every dependency resolves through root <manifest>. One lock file sits at root`
+- BEFORE (layout): `Root <project file> owns resolution and the single lock file`
+- BEFORE (dependencies): `Every dependency resolves through the root <project file>, and the lock file at the root is the only one`
+- AFTER (dependencies): `Every dependency resolves through root <project file>. One lock file sits at root`
 - AFTER (layout): (deleted)
 
 - BEFORE: `This file documents the collection types and how shared state works`
@@ -144,17 +144,17 @@ Identifier and file renames update every reference:
 - BEFORE: `Read in order before the first edit, with <agent> each file in scope and <dir> its agents directory`
 - AFTER: `Read in order before first edit, with <agent> each file in scope and <dir> its directory`
 
-- BEFORE: `` `<file>` and `<manifest>` whole, the layout, the store keys, the options, the events, the proof lines, and the known issues ``
-- AFTER: `` `<file>` and `<manifest>` whole `` (apposition restated headings of file)
+- BEFORE: `` `<file>` and `<project file>` whole, the layout, the store keys, the options, the events, the proof lines, and the known issues ``
+- AFTER: `` `<file>` and `<project file>` whole `` (apposition restated headings of file)
 
 - KEEP: `` `<check>`, parse state of every file in directory `` (one reading decides next step)
 
 ## [08]-[INSTRUCTIONS]
 
-- BEFORE: `Committed binaries, because the pipeline rebuilds every artifact from a pinned manifest` (item in a list of what a directory excludes)
-- AFTER: `Rebuilds every artifact from a pinned manifest` (fact, under pipeline's heading)
+- BEFORE: `Committed binaries, because the pipeline rebuilds every artifact from a lock file` (item in a list of what a directory excludes)
+- AFTER: `Rebuilds every artifact from a lock file` (fact, under pipeline's heading)
 - WRONG: `Never commit binaries, the pipeline rebuilds them` (forbidden form leads)
-- WRONG: `Every binary belongs to the pipeline, which rebuilds it from a pinned manifest` (ownership statement in place of fact)
+- WRONG: `Every binary belongs to the pipeline, which rebuilds it from a lock file` (ownership statement in place of fact)
 
 - BEFORE: `The script finds the repository root as the nearest ancestor directory holding the root lock file, never the working directory or an environment variable`
 - AFTER: `Find repository root as nearest ancestor directory with root lock file`
@@ -210,7 +210,7 @@ Identifier and file renames update every reference:
 
 ## [10]-[PARAPHRASED_CODE]
 
-- BEFORE: `` `<script>` reads `<manifest>`, downloads the pinned archive, checks its hash, and extracts it under `.cache/` `` (README line)
+- BEFORE: `` `<script>` reads `<project file>`, downloads the pinned archive, checks its hash, and extracts it under `.cache/` `` (README line)
 - AFTER: `` `<script>` places pinned archive under `.cache/` `` (steps stay in script)
 - WRONG: `` `<script>` downloads and extracts the pinned archives `` (steps shortened, purpose still unstated)
 
@@ -252,9 +252,9 @@ Identifier and file renames update every reference:
 ```
 
 ```xml
-<!-- BEFORE: pin manifest for the shared version guard; stops repo build inheritance -->
+<!-- BEFORE: pin list for the shared version guard; stops repo build inheritance -->
 
-<!-- AFTER: Version manifest for checking central package versions (inheritance claim was wrong) -->
+<!-- AFTER: Central package versions the check reads (inheritance claim was wrong) -->
 ```
 
 ```csharp

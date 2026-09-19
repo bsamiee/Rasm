@@ -40,7 +40,7 @@ Every value and every rename names the source that decides it:
 | :-----: | :------------------------------------- | :----------------------------------------------------------------------------------------- |
 |  [01]   | Real value of a flag, path, or name    | File on disk, then `<tool> --help`, then the tool's documentation                          |
 |  [02]   | Facts a rewrite dropped                | `git log -p --follow -- <file>`                                                            |
-|  [03]   | Declared value or run fact of a number | Declaration, manifest, or option that states it                                            |
+|  [03]   | Declared value or run fact of a number | Declaration, project file, or option that states it                                        |
 |  [04]   | Table row restating a file or a step   | `rg -n -F '<cell>'` over the file's steps and section text, and the file the row describes |
 |  [05]   | References of a code name              | `mcp__ast-grep__find_code`, `pattern` the identifier alone, `project_folder` `<worktree>`  |
 |  [06]   | References of a file or prose name     | `rg -n -F '<name>'`                                                                        |

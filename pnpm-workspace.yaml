@@ -300,7 +300,7 @@ catalog:
     '@nx/vitest': 23.3.0-canary.20260918-027a0b0
     # Structural command and host discovery for the workspace task graph
     '@ast-grep/napi': 0.45.3
-    # TOML parser the workspace plugin reads a Python manifest with
+    # TOML parser the workspace plugin reads `pyproject.toml` with
     smol-toml: 1.8.0
     '@biomejs/biome': 2.5.14
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0

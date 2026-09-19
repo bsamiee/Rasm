@@ -63,7 +63,7 @@ Identifiers and every other name in code, build, and rule files say what the thi
 
 Every word earns its place by deletion: remove it, reread the sentence, keep the remainder when nothing of value is lost. Words that narrow what a sentence permits (`only`, `alone`, `in place of`, `nothing else`) stay. Articles, conjunctions, qualifiers, and word map rows are common cases, clauses that followed a deleted connective continue after a comma with their verb. Additive markers tack a fact onto the previous sentence: fact joins list it belongs to or stands as its own statement, marker goes. `because` bolts a reason onto a claim through indirection, the same clause after a comma or reversed in front of instruction is same tail: clause goes whole, a reason the subject makes obvious or a reader does not act on is no fact, a reason that names a tool behavior or criterion becomes the condition before instruction or fact in its own sentence.
 
-Hedges and frequency words with a measured or real uncertainty stay as "can" or as condition. Real values stay in their original spelling, counts of items a reader can see go. Prose names a package, tool, or API at newest standard without a version, version stays in its manifest or where a fact holds for one version alone.
+Hedges and frequency words with a measured or real uncertainty stay as "can" or as condition. Real values stay in their original spelling, counts of items a reader can see go. Prose names a package, tool, or API at newest standard without a version, version stays in its project file or where a fact holds for one version alone.
 
 Facts one run produced are observations, and prose keeps the rule they showed:
 
@@ -74,7 +74,7 @@ Facts one run produced are observations, and prose keeps the rule they showed:
 |  [03]   | Release version, issue number, or defect of one release | Behavior, and retirement condition when one is known |
 |  [04]   | Path, key, or name of one proof, probe, or session      | Placeholder form (`<proof>`, `<session>`)            |
 
-Values a declaration, manifest, or option states (`timeout: 600000`) are facts and stay with their source named. Size, byte, duration, and count limits stay when a named tool enforces them, every other threshold goes. Examples stay when they are a command, a sequence, or a case of the file's subject, examples with no source on disk or in a tool's documentation go.
+Values a declaration, project file, or option states (`timeout: 600000`) are facts and stay with their source named. Size, byte, duration, and count limits stay when a named tool enforces them, every other threshold goes. Examples stay when they are a command, a sequence, or a case of the file's subject, examples with no source on disk or in a tool's documentation go.
 
 ## [03]-[SENTENCES]
 

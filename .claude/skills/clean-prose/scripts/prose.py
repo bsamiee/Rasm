@@ -514,7 +514,7 @@ SKIPPED = ("**/.claude/plugins/playwright/**", "**/pnpm-workspace.yaml")
 
 
 def files(paths: list[Path]) -> dict[Path, Marker]:
-    """Every owned file under the paths with its marker, generated plugin copies and the package manifest skipped, markdown files first."""
+    """Every owned file under the paths with its marker, generated plugin copies and the workspace file skipped, markdown files first."""
     found = sorted(f for p in paths for f in (p.rglob("*") if p.is_dir() else [p]) if not any(f.full_match(s) for s in SKIPPED))
     return {f: m for m in Marker for f in found if f.suffix in m.suffixes}
 

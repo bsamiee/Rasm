@@ -15,7 +15,7 @@ apps/
 ```
 
 - Apps couple through a published package alone, never through a shared parent
-- Language mix is an app decision, an app spans C#, Python, TypeScript, and Swift with a manifest per project
+- Language mix is an app decision, an app spans C#, Python, TypeScript, and Swift with a project file per project
 - Path segments hold app identity alone, host and deployment come from project configuration
 - Pulumi programs an app owns sit under the app directory with one stack per environment, and `infra/` holds the repository's own resources
 
@@ -31,14 +31,14 @@ Rhino 9, Grasshopper 2, and macOS are the current hosts. Host APIs belong at app
 
 ## [03]-[SHARED_CONFIGURATION]
 
-Root files own shared policy, project manifests own app configuration.
+Root files own shared policy, project files own app configuration.
 
 [MSBUILD]:
 - Root `Directory.Build.props` and `Directory.Build.targets` classify and configure every project by tree position
 - MSBuild stops at the nearest `Directory.Build.*` file, a nested one under an app directory imports the parent first
 
 [PYTHON]:
-- Root `pyproject.toml` owns resolution, dependency groups, and `uv.lock`, and an app project's manifest holds bare-name dependencies
+- Root `pyproject.toml` owns resolution, dependency groups, and `uv.lock`, and an app's `pyproject.toml` holds bare-name dependencies
 
 [TYPESCRIPT]:
 - `pnpm-workspace.yaml` lists app packages through the `apps/*/*` glob and its catalog holds every version
