@@ -11,24 +11,58 @@
         "./images": "./images.ts",
         "./indesign": "./indesign/indesign.ts",
         "./indesign/jobs": "./indesign/jobs.ts",
+        "./indesign/grid": "./indesign/grid.ts",
+        "./indesign/editorial": "./indesign/editorial.ts",
+        "./indesign/library": "./indesign/library.ts",
+        "./indesign/publishing": "./indesign/publishing.ts",
         "./manifest": "./manifest.ts",
         "./osascript": "./osascript.ts",
         "./photoshop/jobs": "./photoshop/jobs.ts",
+        "./photoshop/enumerations": "./photoshop/enumerations.ts",
         "./sdef": "./sdef.ts",
         "./uxp": "./uxp.ts",
         "./values": "./values.ts"
     },
     "dependencies": {
         "@adobe-uxp-types/photoshop": "catalog:",
+        "@adobe-uxp-types/uxp": "catalog:",
         "@effect/platform-node": "catalog:",
         "@exodus/bytes": "catalog:",
+        "@modelcontextprotocol/client": "catalog:",
+        "@modelcontextprotocol/ext-apps": "catalog:",
+        "@panzoom/panzoom": "catalog:",
         "@rasm/typography": "workspace:*",
+        "@solana/codecs": "catalog:",
+        "@swc/core": "catalog:",
+        "@xmldom/xmldom": "catalog:",
         "cheerio": "catalog:",
+        "chevrotain": "catalog:",
+        "colorjs.io": "catalog:",
         "effect": "catalog:",
         "fast-xml-builder": "catalog:",
         "fast-xml-parser": "catalog:",
+        "fast-xml-validator": "catalog:",
+        "parse5": "catalog:",
         "plist": "catalog:",
+        "sharp": "catalog:",
         "ts-morph": "catalog:",
-        "types-for-adobe": "catalog:"
+        "types-for-adobe": "catalog:",
+        "vite": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": ["NativeHost"],
+        "targets": {
+            "deploy": {
+                "dependsOn": [
+                    {
+                        "projects": ["NativeHost"],
+                        "target": "install"
+                    }
+                ]
+            }
+        }
     }
 }

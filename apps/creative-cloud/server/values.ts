@@ -12,6 +12,7 @@ const HOSTS = {
 } as const;
 
 const LOOPBACK = { dialed: 'localhost', bound: '127.0.0.1' } as const;
+const CHANNELS = { rgb: 255, percent: 100 } as const;
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -30,16 +31,34 @@ const PROBE_MS = 5000;
 const TIMEOUT_MS = 30_000;
 const TIMEOUT_CEILING_MS = 300_000;
 const QUEUE_DEPTH = 8;
-const LOAD_CEILING = 99;
 const VOLUMES = '/Volumes';
 const ARTIFACTS = '.artifacts';
 const _UUID_VERSION = 4;
+const _rgb: Schema.Finite = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: CHANNELS.rgb }));
+const _percent: Schema.Finite = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: CHANNELS.percent }));
+const _white: Schema.Finite = Schema.Finite.check(Schema.isBetween({ minimum: 0, maximum: 1 })).annotate({ description: 'Native normalized Gray white fraction: 0 is black and 1 is white.' });
 const SOCKETS: { readonly [K in SocketHost]: (typeof HOSTS)[K] } = Struct.pick(
     HOSTS,
     Array.filter(Struct.keys(HOSTS), (id) => HOSTS[id].transport === 'socket'),
 );
 
 // --- [MODELS] --------------------------------------------------------------------------
+
+const Ink: Schema.Union<
+    readonly [
+        Schema.Struct<{ readonly model: Schema.Literal<'RGB'>; readonly values: Schema.Tuple<readonly [Schema.Number, Schema.Number, Schema.Number]> }>,
+        Schema.Struct<{ readonly model: Schema.Literal<'CMYK'>; readonly values: Schema.Tuple<readonly [Schema.Number, Schema.Number, Schema.Number, Schema.Number]> }>,
+        Schema.Struct<{ readonly model: Schema.Literal<'GRAY'>; readonly values: Schema.Tuple<readonly [Schema.Number]> }>,
+        Schema.Struct<{ readonly model: Schema.Literal<'LAB'>; readonly values: Schema.Tuple<readonly [Schema.Number, Schema.Number, Schema.Number]> }>,
+    ]
+> = Schema.Union([
+    Schema.Struct({ model: Schema.Literal('RGB'), values: Schema.Tuple([_rgb, _rgb, _rgb]) }),
+    Schema.Struct({ model: Schema.Literal('CMYK'), values: Schema.Tuple([_percent, _percent, _percent, _percent]) }),
+    Schema.Struct({ model: Schema.Literal('GRAY'), values: Schema.Tuple([_white]) }),
+    Schema.Struct({ model: Schema.Literal('LAB'), values: Schema.Tuple([_percent, Schema.Finite, Schema.Finite]) }).annotate({
+        description: 'CIELAB lightness percentage with finite opponent coordinates; native host limits apply when assigning colors.',
+    }),
+]);
 
 const HostId: Schema.Literals<Array<keyof typeof HOSTS>> = Schema.Literals(Struct.keys(HOSTS));
 const JobId: Schema.Codec<JobId, string> = Schema.String.pipe(Schema.check(Schema.isUUID(_UUID_VERSION)), Schema.brand('JobId'));
@@ -79,11 +98,12 @@ export {
     AbsolutePath,
     ARTIFACTS,
     Autocorrections,
+    CHANNELS,
     DevicePath,
     HOSTS,
     HostId,
+    Ink,
     JobId,
-    LOAD_CEILING,
     LOOPBACK,
     OptionalInt,
     OptionalNumber,

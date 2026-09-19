@@ -1,10 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Effect, Schema, Struct } from 'effect';
+import { Array, Effect, Option, Schema, Struct } from 'effect';
 import { type AppliedReply, applied, type PreferencesReply, preferences } from '../errors.ts';
 import { Execute } from '../frames.ts';
 import { Bounds, PixelBudget, Region } from '../images.ts';
-import { OptionalInt } from '../values.ts';
+import { Ink, OptionalInt } from '../values.ts';
+import { constants } from './enumerations.ts';
 import { Section, TARGET_ROWS, Writes } from './preferences.ts';
 
 // --- [TABLE] ---------------------------------------------------------------------------
@@ -31,11 +32,159 @@ type Kind = keyof (typeof Bodies)['fields'];
 type Body<K extends Kind> = (typeof Bodies)['fields'][K]['Type'];
 type Reply<K extends Kind> = (typeof Results)['fields'][K]['Type'];
 
+interface TypeStyle {
+    readonly character: Partial<Omit<import('photoshop').CharacterStyle, 'color' | 'reset'>>;
+    readonly paragraph: Partial<Omit<import('photoshop').ParagraphStyle, 'reset'>>;
+    readonly color: Option.Option<(typeof Ink)['Type']>;
+}
+
 // --- [MODELS] --------------------------------------------------------------------------
 
 const _off = Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false)));
 const _next = Schema.OptionFromNullOr(Schema.Int);
 const _keyed: { readonly section: typeof Section; readonly key: Schema.String } = { section: Section, key: Schema.String };
+
+const TypeStyle: Schema.Codec<TypeStyle, { readonly character: TypeStyle['character']; readonly paragraph: TypeStyle['paragraph']; readonly color?: (typeof Ink)['Encoded'] }> = Schema.Struct({
+    character: Schema.Struct(
+        Struct.map(
+            {
+                font: Schema.NonEmptyString,
+                size: Schema.Number.check(Schema.isGreaterThan(0)),
+                horizontalScale: Schema.Number,
+                verticalScale: Schema.Number,
+                fauxBold: Schema.Boolean,
+                fauxItalic: Schema.Boolean,
+                useAutoLeading: Schema.Boolean,
+                leading: Schema.Number,
+                tracking: Schema.Number,
+                baselineShift: Schema.Number,
+                horizontalDiacriticPosition: Schema.Number,
+                verticalDiacriticPosition: Schema.Number,
+                autoKerning: Schema.Enum(constants.AutoKernType),
+                capitalization: Schema.Enum(constants.TextCase),
+                baseline: Schema.Enum(constants.Baseline),
+                strikeThrough: Schema.Enum(constants.StrikeThrough),
+                underline: Schema.Enum(constants.Underline),
+                ligatures: Schema.Boolean,
+                alternateLigatures: Schema.Boolean,
+                fractions: Schema.Boolean,
+                ordinals: Schema.Boolean,
+                swash: Schema.Boolean,
+                titlingAlternates: Schema.Boolean,
+                stylisticAlternates: Schema.Boolean,
+                language: Schema.Enum(constants.Language),
+                characterAlignment: Schema.Enum(constants.CharacterAlignment),
+                noBreak: Schema.Boolean,
+                kashidas: Schema.Boolean,
+                middleEasternTextDirection: Schema.Enum(constants.MiddleEasternTextDirection),
+                middleEasternDigitsType: Schema.Enum(constants.MiddleEasternDigitsType),
+                fractionalWidths: Schema.Boolean,
+                antiAliasMethod: Schema.Enum(constants.AntiAlias),
+            },
+            Schema.optionalKey,
+        ),
+    ),
+    paragraph: Schema.Struct(
+        Struct.map(
+            {
+                justification: Schema.Enum(constants.Justification),
+                justificationFeatures: Schema.Struct(
+                    Struct.map(
+                        {
+                            autoLeadingAmount: Schema.Number,
+                            wordSpacingMinimum: Schema.Number,
+                            wordSpacingDesired: Schema.Number,
+                            wordSpacingMaximum: Schema.Number,
+                            letterSpacingMinimum: Schema.Number,
+                            letterSpacingDesired: Schema.Number,
+                            letterSpacingMaximum: Schema.Number,
+                            glyphScalingMinimum: Schema.Number,
+                            glyphScalingDesired: Schema.Number,
+                            glyphScalingMaximum: Schema.Number,
+                        },
+                        Schema.optionalKey,
+                    ),
+                ),
+                leftIndent: Schema.Number,
+                rightIndent: Schema.Number,
+                firstLineIndent: Schema.Number,
+                spaceBefore: Schema.Number,
+                spaceAfter: Schema.Number,
+                kashidaWidth: Schema.Enum(constants.KashidaWidthType),
+                kinsoku: Schema.Enum(constants.Kinsoku),
+                mojikumi: Schema.Enum(constants.Mojikumi),
+                hyphenation: Schema.Boolean,
+                hyphenationFeatures: Schema.Struct(
+                    Struct.map(
+                        {
+                            wordsLongerThan: Schema.Int,
+                            afterFirst: Schema.Int,
+                            beforeLast: Schema.Int,
+                            limit: Schema.Int,
+                            zone: Schema.Number,
+                            capitalWords: Schema.Boolean,
+                        },
+                        Schema.optionalKey,
+                    ),
+                ),
+                layoutMode: Schema.Enum(constants.ParagraphLayout),
+                features: Schema.Enum(constants.TypeInterfaceFeatures),
+            },
+            Schema.optionalKey,
+        ),
+    ),
+    color: Schema.OptionFromOptionalKey(Ink),
+});
+
+const _labelColor = Schema.Enum(constants.LabelColors);
+const _styles = Schema.Record(Schema.String, TypeStyle);
+
+const LayerSpec: Schema.Struct<{
+    readonly name: Schema.NonEmptyString;
+    readonly parent: Schema.OptionFromOptionalKey<Schema.Int>;
+    readonly visible: Schema.Boolean;
+    readonly locked: Schema.Boolean;
+    readonly clipped: Schema.Boolean;
+    readonly opacity: Schema.Number;
+    readonly blendMode: Schema.Enum<typeof constants.BlendMode>;
+    readonly content: Schema.toTaggedUnion<
+        'kind',
+        readonly [
+            Schema.Struct<{ readonly kind: Schema.Literal<'group'>; readonly color: Schema.Enum<typeof constants.LabelColors> }>,
+            Schema.Struct<{ readonly kind: Schema.Literal<'pixel'>; readonly color: Schema.Enum<typeof constants.LabelColors> }>,
+            Schema.Struct<{
+                readonly kind: Schema.Literal<'text'>;
+                readonly color: Schema.Enum<typeof constants.LabelColors>;
+                readonly contents: Schema.String;
+                readonly position: Schema.Struct<{ readonly x: Schema.Number; readonly y: Schema.Number }>;
+                readonly style: Schema.NonEmptyString;
+            }>,
+            Schema.Struct<{ readonly kind: Schema.Literal<'source'>; readonly documentId: Schema.Int; readonly layerId: Schema.Int }>,
+        ]
+    >;
+}> = Schema.Struct({
+    name: Schema.NonEmptyString,
+    parent: Schema.OptionFromOptionalKey(Schema.Int.check(Schema.isGreaterThanOrEqualTo(0))),
+    visible: Schema.Boolean,
+    locked: Schema.Boolean,
+    clipped: Schema.Boolean,
+    opacity: Schema.Number.check(Schema.isBetween({ minimum: 0, maximum: 100 })),
+    blendMode: Schema.Enum(constants.BlendMode),
+    content: Schema.Union([
+        Schema.Struct({ kind: Schema.Literal('group'), color: _labelColor }),
+        Schema.Struct({ kind: Schema.Literal('pixel'), color: _labelColor }),
+        Schema.Struct({ kind: Schema.Literal('text'), color: _labelColor, contents: Schema.String, position: Schema.Struct({ x: Schema.Number, y: Schema.Number }), style: Schema.NonEmptyString }),
+        Schema.Struct({ kind: Schema.Literal('source'), documentId: Schema.Int, layerId: Schema.Int }),
+    ]).pipe(Schema.toTaggedUnion('kind')),
+});
+
+const LayerSet: Schema.NonEmptyArray<typeof LayerSpec> = Schema.NonEmptyArray(LayerSpec).check(
+    Schema.makeFilter(
+        (rows) =>
+            Array.every(rows, (row, index) => Option.isNone(row.parent) || (row.parent.value < index && rows[row.parent.value]?.content.kind === 'group')) ||
+            'Each parent must refer to an earlier group row',
+    ),
+);
 
 const Target: Schema.toTaggedUnion<
     'kind',
@@ -75,6 +224,12 @@ const Bodies: Schema.Struct<{
     readonly setPreferences: Schema.Struct<{ readonly values: Schema.withDecodingDefaultKey<typeof Writes> }>;
     readonly listPresets: Schema.Struct<{ readonly kind: Schema.Literals<Array<keyof typeof PRESET_CLASSES>> }>;
     readonly runAction: Schema.Struct<{ readonly set: Schema.String; readonly action: Schema.String }>;
+    readonly applyTypeStyles: Schema.Struct<{
+        readonly documentId: Schema.Int;
+        readonly styles: Schema.$Record<Schema.String, typeof TypeStyle>;
+        readonly targets: Schema.NonEmptyArray<Schema.Struct<{ readonly layerId: Schema.Int; readonly style: Schema.NonEmptyString }>>;
+    }>;
+    readonly composeLayers: Schema.Struct<{ readonly documentId: Schema.Int; readonly styles: Schema.$Record<Schema.String, typeof TypeStyle>; readonly layers: typeof LayerSet }>;
 }> = Schema.Struct({
     execute: Execute,
     batchPlay: Schema.Struct({
@@ -93,6 +248,12 @@ const Bodies: Schema.Struct<{
     setPreferences: Schema.Struct({ values: Writes.pipe(Schema.withDecodingDefaultKey(Effect.succeed(TARGET_ROWS))) }),
     listPresets: Schema.Struct({ kind: Schema.Literals(Struct.keys(PRESET_CLASSES)) }),
     runAction: Schema.Struct({ set: Schema.String, action: Schema.String }),
+    applyTypeStyles: Schema.Struct({
+        documentId: Schema.Int,
+        styles: _styles,
+        targets: Schema.NonEmptyArray(Schema.Struct({ layerId: Schema.Int, style: Schema.NonEmptyString })),
+    }),
+    composeLayers: Schema.Struct({ documentId: Schema.Int, styles: _styles, layers: LayerSet }),
 });
 
 const Results: Schema.Struct<{
@@ -144,6 +305,29 @@ const Results: Schema.Struct<{
     readonly setPreferences: AppliedReply<typeof _keyed>;
     readonly listPresets: Schema.Struct<{ readonly kind: Schema.Literal<'presets'>; readonly groupIndex: Schema.Int; readonly names: Schema.$Array<Schema.String>; readonly count: Schema.Int }>;
     readonly runAction: Schema.Null;
+    readonly applyTypeStyles: Schema.Struct<{
+        readonly kind: Schema.Literal<'typeStyles'>;
+        readonly documentId: Schema.Int;
+        readonly layers: Schema.$Array<Schema.Struct<{ readonly layerId: Schema.Int; readonly style: Schema.String; readonly values: typeof TypeStyle }>>;
+    }>;
+    readonly composeLayers: Schema.Struct<{
+        readonly kind: Schema.Literal<'layers'>;
+        readonly documentId: Schema.Int;
+        readonly layers: Schema.$Array<
+            Schema.Struct<{
+                readonly layerId: Schema.Int;
+                readonly parentId: Schema.OptionFromNullOr<Schema.Int>;
+                readonly name: Schema.String;
+                readonly kind: Schema.Enum<typeof constants.LayerKind>;
+                readonly color: Schema.Enum<typeof constants.LabelColors>;
+                readonly visible: Schema.Boolean;
+                readonly locked: Schema.Boolean;
+                readonly clipped: Schema.Boolean;
+                readonly opacity: Schema.Number;
+                readonly blendMode: Schema.Enum<typeof constants.BlendMode>;
+            }>
+        >;
+    }>;
 }> = Schema.Struct({
     execute: Schema.Json,
     batchPlay: Schema.Struct({
@@ -193,9 +377,32 @@ const Results: Schema.Struct<{
     setPreferences: applied(_keyed),
     listPresets: Schema.Struct({ kind: Schema.Literal('presets'), groupIndex: Schema.Int, names: Schema.Array(Schema.String), count: Schema.Int }),
     runAction: Schema.Null,
+    applyTypeStyles: Schema.Struct({
+        kind: Schema.Literal('typeStyles'),
+        documentId: Schema.Int,
+        layers: Schema.Array(Schema.Struct({ layerId: Schema.Int, style: Schema.String, values: TypeStyle })),
+    }),
+    composeLayers: Schema.Struct({
+        kind: Schema.Literal('layers'),
+        documentId: Schema.Int,
+        layers: Schema.Array(
+            Schema.Struct({
+                layerId: Schema.Int,
+                parentId: _next,
+                name: Schema.String,
+                kind: Schema.Enum(constants.LayerKind),
+                color: Schema.Enum(constants.LabelColors),
+                visible: Schema.Boolean,
+                locked: Schema.Boolean,
+                clipped: Schema.Boolean,
+                opacity: Schema.Number,
+                blendMode: Schema.Enum(constants.BlendMode),
+            }),
+        ),
+    }),
 });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Body, Kind, Reply };
-export { Bodies, PRESET_CLASSES, Results };
+export { Bodies, LayerSet, LayerSpec, PRESET_CLASSES, Results, TypeStyle };

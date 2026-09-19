@@ -89,6 +89,7 @@
             }
         },
         { "includes": ["**/vitest.config.ts", "**/vite.config.ts"], "linter": { "rules": { "style": { "noDefaultExport": "off" } } } },
+        { "includes": ["apps/creative-cloud/server/uxp.ts"], "linter": { "rules": { "correctness": { "noNodejsModules": "off" } } } },
         {
             "includes": [".claude/plugins/**"],
             "linter": { "rules": { "correctness": { "noUndeclaredDependencies": "off" } } }

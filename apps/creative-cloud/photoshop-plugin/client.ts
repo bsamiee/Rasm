@@ -6,7 +6,7 @@ import { active, type Client, type Handler, handle, handler, type Settled, settl
 import type { Identity, Job, State } from '@rasm/creative-cloud-server/frames';
 import { Bodies, type Kind, Results } from '@rasm/creative-cloud-server/photoshop/jobs';
 import { Effect, Option, Predicate, Queue, Stream, Struct } from 'effect';
-import { batchPlay, execute, getDocument, getPreferences, listPresets, modal, runAction, setPreferences, snapshot } from './jobs.ts';
+import { applyTypeStyles, batchPlay, composeLayers, execute, getDocument, getPreferences, listPresets, modal, runAction, setPreferences, snapshot } from './jobs.ts';
 import { bridge } from './uxp.config.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -24,6 +24,8 @@ const _jobs: { readonly [K in Kind]: Handler } = {
     setPreferences: handler(Bodies.fields.setPreferences, Results.fields.setPreferences, setPreferences),
     listPresets: handler(Bodies.fields.listPresets, Results.fields.listPresets, listPresets),
     runAction: handler(Bodies.fields.runAction, Results.fields.runAction, runAction),
+    applyTypeStyles: handler(Bodies.fields.applyTypeStyles, Results.fields.applyTypeStyles, applyTypeStyles),
+    composeLayers: handler(Bodies.fields.composeLayers, Results.fields.composeLayers, composeLayers),
 };
 
 // --- [HOST] ----------------------------------------------------------------------------
@@ -53,7 +55,7 @@ const _perform = (job: Job): Effect.Effect<Settled> =>
 
 // --- [CLIENT] --------------------------------------------------------------------------
 
-const client: Client = { endpoint: bridge.endpoint, version: bridge.manifest.version, identity: _identity, states: _states, perform: _perform };
+const client: Client = { endpoint: bridge.endpoint, identity: _identity, states: _states, perform: _perform };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

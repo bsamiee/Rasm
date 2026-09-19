@@ -91,7 +91,7 @@ flowchart LR
 - Targets call one tool, arguments on the command, configuration in the tool's own file
 - `nx run rasm:check` runs lint and root typecheck
 - `nx run <project>:<target>` runs one target of one project
-- `nx run <project>:install` places a macOS app's Release product under `/Applications`
+- `nx run <project>:install` places an Xcode project's Release product at its `INSTALL_PATH`
 - `nx run rasm:upgrade` moves every catalog and tool binary to its newest release
 - `nx run rasm:upgrade --configuration <language>` moves one catalog, `tools` the binaries, `rhino` the Rhino packages
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path

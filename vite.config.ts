@@ -1,12 +1,11 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
 import { NodeServices } from '@effect/platform-node';
-import { Effect, FileSystem, Path, Schema, String } from 'effect';
-import { defineConfig, type UserConfig, type UserConfigFnPromise } from 'vite';
+import { Array, Effect, FileSystem, Path, Schema, String } from 'effect';
+import { defaultClientConditions, defaultServerConditions, defaultServerMainFields, type UserConfig, type UserConfigFnPromise } from 'vite';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _ROOT = import.meta.dirname;
 const _HOST_MODULE = /^adobe:/u;
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -27,19 +26,20 @@ const _config = Effect.gen(function* () {
         Schema.decodeUnknownEffect(_Bridge),
     );
     return {
+        resolve: { conditions: Array.intersection(defaultClientConditions, defaultServerConditions), mainFields: [...defaultServerMainFields] },
         build: {
-            outDir: path.join(_ROOT, '.artifacts', path.relative(_ROOT, project)),
+            outDir: path.join(import.meta.dirname, '.artifacts', path.relative(import.meta.dirname, project)),
             emptyOutDir: true,
             lib: { entry: main, formats: ['cjs'], fileName: (): string => bridge.manifest.main },
             minify: false,
             sourcemap: true,
             reportCompressedSize: false,
-            rolldownOptions: { external: _HOST_MODULE, output: { paths: String.replace(_HOST_MODULE, ''), dynamicImportInCjs: false } },
+            rolldownOptions: { platform: 'neutral', external: _HOST_MODULE, output: { paths: String.replace(_HOST_MODULE, ''), dynamicImportInCjs: false } },
         },
     } satisfies UserConfig;
 });
 
-const userConfig: UserConfigFnPromise = defineConfig((): Promise<UserConfig> => Effect.runPromise(_config.pipe(Effect.orDie, Effect.provide(NodeServices.layer))));
+const userConfig: UserConfigFnPromise = (): Promise<UserConfig> => Effect.runPromise(_config.pipe(Effect.orDie, Effect.provide(NodeServices.layer)));
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

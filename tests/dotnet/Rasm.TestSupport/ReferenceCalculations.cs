@@ -5,10 +5,10 @@ namespace Rasm.TestSupport;
 // --- [TYPES] ---------------------------------------------------------------------------
 [SmartEnum]
 public sealed partial class MatrixNorm {
-    public static readonly MatrixNorm MaxAbsoluteEntry = new(static (rows, columns, at) => NumericOracles.MatrixIndices(rows, columns).Max(index => Math.Abs(at(index.Row, index.Col))));
+    public static readonly MatrixNorm MaxAbsoluteEntry = new(static (rows, columns, at) => ReferenceCalculations.MatrixIndices(rows, columns).Max(index => Math.Abs(at(index.Row, index.Col))));
     public static readonly MatrixNorm L1 = new(static (rows, columns, at) => Enumerable.Range(0, columns).Max(column => Enumerable.Range(0, rows).Sum(row => Math.Abs(at(row, column)))));
     public static readonly MatrixNorm LInfinity = new(static (rows, columns, at) => Enumerable.Range(0, rows).Max(row => Enumerable.Range(0, columns).Sum(column => Math.Abs(at(row, column)))));
-    public static readonly MatrixNorm Frobenius = new(static (rows, columns, at) => Math.Sqrt(NumericOracles.MatrixIndices(rows, columns).Sum(index => at(index.Row, index.Col) * at(index.Row, index.Col))));
+    public static readonly MatrixNorm Frobenius = new(static (rows, columns, at) => Math.Sqrt(ReferenceCalculations.MatrixIndices(rows, columns).Sum(index => at(index.Row, index.Col) * at(index.Row, index.Col))));
 
     [UseDelegateFromConstructor]
     public partial double Evaluate(int rows, int columns, Func<int, int, double> at);
@@ -19,8 +19,8 @@ public sealed partial class MatrixNorm {
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
-// Shapes the oracle cannot evaluate are test defects and throw, a NaN result fails the assertion under another name
-public static class NumericOracles {
+// Shapes the reference calculations cannot evaluate are test defects and throw, a NaN result fails the assertion under another name
+public static class ReferenceCalculations {
     // --- [SCALAR_OPERATIONS] -----------------------------------------------------------
     // Seq<double>.Sum() is ambiguous between the LanguageExt and LINQ extensions
     public static double Sum(Seq<double> values) => values.Fold(0.0, static (sum, value) => sum + value);
@@ -70,7 +70,7 @@ public static class NumericOracles {
         return Math.Sqrt(Enumerable.Range(0, left.Length).Sum(i => (left[i] - right[i]) * (left[i] - right[i])));
     }
 
-    // --- [GEOMETRY_ORACLES] ------------------------------------------------------------
+    // --- [GEOMETRY_CALCULATIONS] -------------------------------------------------------
     public static double SignedShoelaceArea(double[][] ring) {
         ArgumentNullException.ThrowIfNull(ring);
         Shape(ring.All(static point => point.Length >= 2), "every ring point needs two coordinates", nameof(ring));
@@ -111,7 +111,7 @@ public static class NumericOracles {
         return determinant.Sign;
     }
 
-    // --- [MATRIX_ORACLES] --------------------------------------------------------------
+    // --- [MATRIX_CALCULATIONS] ---------------------------------------------------------
     public static IEnumerable<(int Row, int Col)> MatrixIndices(int rows, int cols) =>
         Enumerable.Range(0, rows * cols).Select(idx => (Row: idx / cols, Col: idx % cols));
     public static double MatrixProductEntry(int width, Func<int, int, double> left, Func<int, int, double> right, int row, int column) =>
@@ -151,7 +151,7 @@ public static class NumericOracles {
             (row, col) => Dot(rows, k => at(k, row), k => at(k, col)),
             static (row, col) => row == col ? 1.0 : 0.0);
 
-    // --- [SPECTRAL_ORACLES] ------------------------------------------------------------
+    // --- [SPECTRAL_CALCULATIONS] -------------------------------------------------------
     public static double[][] PathGraphLaplacian(int n) {
         ArgumentOutOfRangeException.ThrowIfLessThan(n, 2);
         return [.. Enumerable.Range(0, n).Select(row => (double[])[.. Enumerable.Range(0, n).Select(col => (row, col) switch {
@@ -166,7 +166,7 @@ public static class NumericOracles {
         return Enumerable.Range(0, eigenvalues.Length).Sum(i => Math.Exp(-eigenvalues[i] * t) * eigenvectors(i, x) * eigenvectors(i, y));
     }
 
-    // --- [TOPOLOGY_ORACLES] ------------------------------------------------------------
+    // --- [TOPOLOGY_CALCULATIONS] -------------------------------------------------------
     public static int EulerCharacteristic(int vertices, int edges, int faces) => vertices - edges + faces;
 
     private static void Shape(bool valid, string message, string paramName) {

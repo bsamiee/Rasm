@@ -32,8 +32,10 @@ type HostKeyError = Data.TaggedEnum<{
 }>;
 
 interface Finding extends Struct.Lambda {
-    <R extends Row>(host: R): Effect.Effect<Discovered & { readonly id: R['id'] }, Array.NonEmptyArray<HostKeyError>>;
-    readonly '~lambda.out': this['~lambda.in'] extends { readonly id: infer Id extends HostId } ? Effect.Effect<Discovered & { readonly id: Id }, Array.NonEmptyArray<HostKeyError>> : never;
+    <R extends Row>(host: R): Effect.Effect<Discovered & { readonly id: R['id'] }, Array.NonEmptyArray<HostKeyError>, ChildProcessSpawner.ChildProcessSpawner | Path.Path>;
+    readonly '~lambda.out': this['~lambda.in'] extends { readonly id: infer Id extends HostId }
+        ? Effect.Effect<Discovered & { readonly id: Id }, Array.NonEmptyArray<HostKeyError>, ChildProcessSpawner.ChildProcessSpawner | Path.Path>
+        : never;
 }
 
 // --- [MODELS] --------------------------------------------------------------------------
@@ -85,64 +87,53 @@ const info = (bundlePath: string): Effect.Effect<Info, NonZeroExit | Schema.Sche
         Effect.flatMap(reply(ChildProcess.make('plutil', ['-convert', 'json', '-o', '-', path.join(bundlePath, 'Contents', 'Info.plist')])), Schema.decodeEffect(_Plist)),
     );
 
-const _identified = (bundlePath: AbsolutePath, details: Info): Option.Option<Discovered> =>
-    Array.findFirst(Record.values(HOSTS), (row) =>
-        pipe(
-            Option.liftPredicate(String.toLowerCase(details.bundleId), String.startsWith(String.toLowerCase(row.bundleId))),
-            Option.flatMap(flow(String.slice(row.bundleId.length), _suffix)),
-            Option.map((suffix) => ({
-                ...details,
-                bundlePath,
-                id: row.id,
-                channel: Option.getOrElse(
-                    Option.flatMap(_named(details.name), ([, , marked]) => _marked(marked)),
-                    () => suffix,
-                ),
-            })),
-        ),
-    );
-
-const _installed: Effect.Effect<readonly Discovered[], NonZeroExit | Schema.SchemaError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Effect.gen(function* () {
-    const listing = yield* reply(
-        ChildProcess.make('mdfind', [
-            `(${Array.join(
-                Array.map(Record.values(HOSTS), (row) => `kMDItemCFBundleIdentifier == '${row.bundleId}*'c`),
-                ' || ',
-            )}) && kMDItemContentType == 'com.apple.application-bundle'`,
-        ]),
-    );
-    const bundles = yield* Effect.forEach(
-        Array.filter(String.linesIterator(listing), String.isNonEmpty),
-        (line) => Effect.map(info(line), (details) => _identified(AbsolutePath.make(line), details)),
-        {
-            concurrency: 'unbounded',
-        },
-    );
-    return Array.getSomes(bundles);
-});
-
-const _located = <R>(
-    host: Pick<Row, 'id'>,
-    listing: Effect.Effect<readonly Discovered[], NonZeroExit | Schema.SchemaError, R>,
-    wanted: Option.Option<Channel>,
-): Effect.Effect<Discovered, Unresolved, R> =>
-    listing.pipe(
-        Effect.catchTag('nonZeroExit', flow(exited(host.id), Effect.fail)),
-        Effect.map(Array.filter((row) => row.id === host.id && (Option.isNone(wanted) || Option.contains(wanted, row.channel)))),
-        Effect.flatMap((rows) =>
-            Effect.fromOption(Array.match(rows, { onEmpty: Option.none, onNonEmpty: (found) => Option.some(Array.max(found, _newest)) }), () =>
-                BridgeError.cases.hostNotInstalled.make({ host: host.id, unresolved: ['bundlePath'] }),
+const _identified = (host: Row, bundlePath: AbsolutePath, details: Info): Option.Option<Discovered> =>
+    pipe(
+        Option.liftPredicate(String.toLowerCase(details.bundleId), String.startsWith(String.toLowerCase(host.bundleId))),
+        Option.flatMap(flow(String.slice(host.bundleId.length), _suffix)),
+        Option.map((suffix) => ({
+            ...details,
+            bundlePath,
+            id: host.id,
+            channel: Option.getOrElse(
+                Option.flatMap(_named(details.name), ([, , marked]) => _marked(marked)),
+                () => suffix,
             ),
-        ),
+        })),
     );
 
-const discoverOn = (host: Pick<Row, 'id'>, channel: Option.Option<Channel>): Effect.Effect<Discovered, Unresolved, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
-    _located(host, _installed, channel);
+const discoverOn: (host: Pick<Row, 'id'>, wanted: Option.Option<Channel>) => Effect.Effect<Discovered, Array.NonEmptyArray<HostKeyError>, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =
+    Effect.fnUntraced(function* (host: Pick<Row, 'id'>, wanted: Option.Option<Channel>) {
+        const owner = HOSTS[host.id];
+        const listing = yield* reply(ChildProcess.make('mdfind', [`kMDItemCFBundleIdentifier == '${owner.bundleId}*'c && kMDItemContentType == 'com.apple.application-bundle'`])).pipe(
+            Effect.mapError((error) => Array.of(HostKeyError.unresolved({ host: owner.id, key: 'bundlePath', cause: exited(owner.id)(error) }))),
+        );
+        const [failures, candidates] = yield* Effect.partition(
+            Array.filter(String.linesIterator(listing), String.isNonEmpty),
+            (line) =>
+                info(line).pipe(
+                    Effect.catchTag('nonZeroExit', flow(exited(owner.id), Effect.fail)),
+                    Effect.map((details) => _identified(owner, AbsolutePath.make(line), details)),
+                    Effect.mapError((cause) => HostKeyError.unresolved({ host: owner.id, key: 'bundlePath', cause })),
+                ),
+            { concurrency: 'unbounded' },
+        );
+        const found = Array.filter(Array.getSomes(candidates), (row) => Option.isNone(wanted) || Option.contains(wanted, row.channel));
+        if (Array.isArrayNonEmpty(found)) {
+            return Array.max(found, _newest);
+        }
+        if (Array.isArrayNonEmpty(failures)) {
+            return yield* Effect.fail(failures);
+        }
+        return yield* Effect.fail(
+            Array.of(HostKeyError.unresolved({ host: owner.id, key: 'bundlePath', cause: BridgeError.cases.hostNotInstalled.make({ host: owner.id, unresolved: ['bundlePath'] }) })),
+        );
+    });
 
-const discover = (host: Pick<Row, 'id'>): Effect.Effect<Discovered, Unresolved | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
+const discover = (host: Pick<Row, 'id'>): Effect.Effect<Discovered, Array.NonEmptyArray<HostKeyError> | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> =>
     Effect.flatMap(_wanted, (channel) => discoverOn(host, channel));
 
-const bundle: (host: Pick<Row, 'id'>) => Effect.Effect<AbsolutePath, Unresolved | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = flow(
+const bundle: (host: Pick<Row, 'id'>) => Effect.Effect<AbsolutePath, Array.NonEmptyArray<HostKeyError> | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = flow(
     discover,
     Effect.map(Struct.get('bundlePath')),
 );
@@ -197,12 +188,13 @@ const _folders = (acrobat: Discovered, home: string, path: Path.Path): Effect.Ef
 };
 
 const resolve: Effect.Effect<Hosts, Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
-    const [home, wanted, path, bundles] = yield* Effect.all([Config.String('HOME'), _wanted, Path.Path, Effect.result(_installed)]);
-    const found = Struct.lambda<Finding>((host) =>
-        Effect.map(Effect.mapError(_key(host.id, 'bundlePath', _located(host, Effect.fromResult(bundles), wanted)), Array.of), (row) => ({ ...row, id: host.id })),
-    );
+    const [home, wanted, path] = yield* Effect.all([Config.String('HOME'), _wanted, Path.Path]);
+    const found = Struct.lambda<Finding>((host) => Effect.map(discoverOn(host, wanted), (row) => ({ ...row, id: host.id })));
     const rows = Struct.map(HOSTS, found);
-    return yield* Effect.all({ ...rows, acrobat: Effect.flatMap(rows.acrobat, (acrobat) => Effect.map(_folders(acrobat, home, path), (folders) => ({ ...acrobat, ...folders }))) }, { mode: 'result' });
+    return yield* Effect.all(
+        { ...rows, acrobat: Effect.flatMap(rows.acrobat, (acrobat) => Effect.map(_folders(acrobat, home, path), (folders) => ({ ...acrobat, ...folders }))) },
+        { mode: 'result', concurrency: 'unbounded' },
+    );
 });
 
 // --- [LAYER] ---------------------------------------------------------------------------

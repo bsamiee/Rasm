@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
-        <Description>Generators, numeric oracles, property assertions, test doubles, and temporary directories for xUnit and CsCheck suites</Description>
+        <Description>Generators, numeric reference calculations, property assertions, test doubles, and temporary directories for xUnit and CsCheck suites</Description>
     </PropertyGroup>
 
     <ItemGroup Label="Test Dependencies">

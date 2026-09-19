@@ -32,19 +32,19 @@ Classify each test by scope, technique, and execution mode, and apply every clas
 |  [03]   | Technique | Property-based | Generated examples exercise an invariant    | `TestAssertions.ForAll`, `@property_test`, `it.effect.prop` |
 |  [04]   | Mode      | Benchmark      | Timing outside the functional test session  | `benchmark` fixture, Vitest `*.bench.ts` file               |
 
-## [03]-[ORACLES]
+## [03]-[EXPECTED_BEHAVIOR]
 
-Every test asserts observable behavior against an oracle independent of the implementation under test: closed-form calculations, invariants, metamorphic relations, reference models, fixtures, runtime observations, and documented external contracts.
+Every test asserts observable behavior against evidence independent of the implementation under test: closed-form calculations, invariants, metamorphic relations, reference models, fixtures, runtime observations, and documented external contracts.
 
 [REQUIREMENTS]:
 - Compilers, import checks, and type checkers verify symbols exist, runtime tests assert behavior
-- Expected values come from an independent oracle
+- Expected values come from an independent calculation, observation, or documented contract
 - Structural assertions on values the test constructs prove nothing, pair them with a behavioral assertion or delete them
 - Boundary tests supply invalid raw input through supported entry points, tests inside the boundary build every state through construction
 - Parameterized and property-based tests cover input classes and invariants
 - Properties defined from a predicate name a counterexample they must reject, a law that compares two evaluations needs none
 
-Treat a failing test as evidence until triage identifies a production defect, an obsolete requirement, or an invalid oracle. Fix a production defect in its code, retire the test of a retired requirement or invalid oracle.
+Treat a failing test as evidence until triage identifies a production defect, an obsolete requirement, or invalid reference evidence. Fix a production defect in its code, retire the test of a retired requirement or invalid reference evidence.
 
 ## [04]-[OWNERS]
 

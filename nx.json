@@ -46,6 +46,11 @@
                 "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
             },
             {
+                "filter": { "projects": ["tag:host:photoshop"] },
+                "dependsOn": [{ "projects": ["@rasm/creative-cloud-server"], "target": "generate-photoshop" }],
+                "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
+            },
+            {
                 "filter": { "projects": ["tag:host:extendscript"] },
                 "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**,**/illustrator.ts'",
                 "inputs": ["...", { "externalDependencies": ["@swc/core", "@swc/cli"] }],
@@ -69,12 +74,25 @@
             "inputs": ["typescript", "production", { "runtime": "node apps/creative-cloud/server/automation.ts version indesign" }, { "runtime": "sw_vers -productVersion" }],
             "outputs": ["{projectRoot}/indesign/indesign.ts"]
         },
+        "generate-photoshop": {
+            "cache": true,
+            "inputs": ["typescript", "production", { "externalDependencies": ["@adobe-uxp-types/photoshop"] }],
+            "outputs": ["{projectRoot}/photoshop/enumerations.ts"]
+        },
         "reconcile": [{ "filter": { "projects": ["tag:host:indesign"] }, "parallelism": false }],
         "deploy": [{ "filter": { "projects": ["tag:host:uxp"] }, "dependsOn": ["build"], "parallelism": false }],
         "install": [
             {
                 "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution install DSTROOT=/Applications INSTALL_PATH=/",
+                "executor": "nx:run-commands",
+                "options": {
+                    "commands": [
+                        "rm -rf .artifacts/{projectRoot}/install",
+                        "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution install DSTROOT=\"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\"",
+                        "sudo ditto .artifacts/{projectRoot}/install /"
+                    ],
+                    "parallel": false
+                },
                 "parallelism": false
             }
         ],
@@ -117,7 +135,7 @@
             },
             {
                 "filter": { "projects": ["@rasm/creative-cloud-server"] },
-                "dependsOn": ["...", "generate-illustrator", "generate-indesign"],
+                "dependsOn": ["...", "generate-illustrator", "generate-indesign", "generate-photoshop"],
                 "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
             }
         ],

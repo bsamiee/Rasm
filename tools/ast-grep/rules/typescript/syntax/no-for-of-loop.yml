@@ -2,6 +2,7 @@
 id: no-for-of-loop
 language: tsx
 severity: error
+ignores: ['apps/creative-cloud/server/acrobat/native.ts']
 rule:
     kind: for_in_statement
     has: {field: right, pattern: $ITERABLE}

@@ -7,9 +7,13 @@
     "dependencies": {
         "@adobe-uxp-types/uxp": "catalog:",
         "@rasm/creative-cloud-server": "workspace:*",
+        "@rasm/typography": "workspace:*",
         "acorn": "catalog:",
         "acorn-walk": "catalog:",
         "astring": "catalog:",
         "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
     }
 }

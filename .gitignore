@@ -14,6 +14,7 @@ __pycache__/
 .nx/*
 apps/creative-cloud/server/indesign/indesign.ts
 apps/creative-cloud/server/illustrator/dictionary.ts
+apps/creative-cloud/server/photoshop/enumerations.ts
 apps/creative-cloud/illustrator-scripts/illustrator.ts
 
 # --- [HOST_WRITES] ------------------------------------------------------------

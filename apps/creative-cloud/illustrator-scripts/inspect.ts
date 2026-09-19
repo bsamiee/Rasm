@@ -2,7 +2,7 @@
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { all, dump, each, items, reference, run, walk }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { all, dump, each, items, reference, run, visit, walk }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [READERS] -------------------------------------------------------------------------
 
@@ -15,7 +15,7 @@ const inspect = (request: { readonly document?: string; readonly items?: { reado
     const paging = request.items;
     const listed = paging === undefined || paging.layer === undefined ? doc.pageItems : doc.layers.getByName(paging.layer).pageItems;
     const [offset, limit] = paging === undefined ? [0, listed.length] : [paging.offset, paging.limit];
-    return all(at, [
+    const readers: [string, Reader][] = [
         ['kind', (site): Reading<Json> => reference('inspection', site)],
         ['document', (site): Reading<Json> => walk(site, doc, [['artboards', (inner): Reading<Json> => each(inner, doc.artboards, dump)]])],
         [
@@ -67,7 +67,21 @@ const inspect = (request: { readonly document?: string; readonly items?: { reado
                         ]),
                 ),
         ],
-    ]);
+    ];
+    const unreadable: JsonObject = {};
+    const result: Reading<JsonObject> = { value: { unreadable }, unavailable: [] };
+    visit(readers, ([scope, reader]): void => {
+        const reading = all(at, [[scope, reader]]);
+        const value = reading.value[scope];
+        if (value !== undefined) {
+            result.value[scope] = value;
+        }
+        if (reading.unavailable.length > 0) {
+            unreadable[scope] = reading.unavailable;
+        }
+        result.unavailable.push(...reading.unavailable);
+    });
+    return result;
 };
 
 run(inspect);

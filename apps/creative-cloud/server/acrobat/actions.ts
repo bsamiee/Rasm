@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Effect, FileSystem, Match, Option, Order, Path, type PlatformError, Record, Result, Schema, Struct } from 'effect';
+import { Array, Effect, FileSystem, Match, Option, Order, Path, type PlatformError, Record, Schema, Struct } from 'effect';
 import Builder, { type XmlBuilderOptions } from 'fast-xml-builder';
 import type { Host } from '../hosts.ts';
 import { artifacts } from '../jobs.ts';
@@ -442,23 +442,6 @@ const write: (acrobat: Host<'acrobat'>, action: Action) => Effect.Effect<Absolut
     return target;
 });
 
-// --- [RUN] -----------------------------------------------------------------------------
-
-const script = (step: Step): Result.Result<(output: string) => string, void> =>
-    Step.match(step, {
-        command: ({ name }) => Result.succeed(() => `app.execMenuItem(${JSON.stringify(name)}, d);`),
-        instruction: () => Result.failVoid,
-        separator: () => Result.failVoid,
-        preflight: ({ profile, fixups }) => {
-            const name = JSON.stringify(profile);
-            return Result.succeed(
-                () => `(function () { var p = Preflight.getProfileByName(${name}); if (p === undefined) { throw { _tag: 'profileAbsent', profile: ${name} }; } d.preflight(p, ${!fixups}); })();`,
-            );
-        },
-        save: () => Result.succeed((output: string) => `d.saveAs({ cPath: ${JSON.stringify(output)} });`),
-        execJs: ({ code }) => Result.succeed(() => `(function (d) { ${code} })(d);`),
-    });
-
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { Action, ActionName, HOUSE, script, write };
+export { Action, ActionName, HOUSE, write };

@@ -21,6 +21,7 @@ type Standard = Data.TaggedEnum<{
 interface StandardSheet extends Dimensions {
     readonly name: string;
     readonly unit: 'mm' | 'in';
+    readonly standard: Standard;
 }
 
 interface Sides {
@@ -35,6 +36,8 @@ interface Sheet extends Dimensions {
     readonly family: Family;
     readonly intent: Intent;
     readonly unit: 'pt' | 'px';
+    readonly sourceUnit: keyof typeof POINTS;
+    readonly standard: Option.Option<Standard>;
     readonly module: number;
 }
 
@@ -47,8 +50,6 @@ interface PageSize extends Sheet {
     readonly folio: Option.Option<number>;
     readonly footer: Option.Option<number>;
     readonly sheet: Option.Option<{ readonly border: Sides; readonly modules: { readonly columns: number; readonly rows: number }; readonly strip: number }>;
-    readonly parents: readonly (typeof _PARENTS)[keyof typeof _PARENTS][number][];
-    readonly swatchColumn: 'cmyk' | 'rgb';
 }
 
 interface ModuleRule {
@@ -61,25 +62,26 @@ interface ModuleRule {
 
 const Standard: Data.TaggedEnum.Constructor<Standard> = Data.taggedEnum<Standard>();
 const _UNIT = { pointsPerInch: 72, millimetresPerInch: 25.4, millimetresPerMetre: 1000 } as const;
-const _POINTS = { mm: _UNIT.pointsPerInch / _UNIT.millimetresPerInch, in: _UNIT.pointsPerInch, px: 1 } as const;
+const POINTS: Readonly<Record<'mm' | 'in' | 'pt' | 'px', number>> = { mm: _UNIT.pointsPerInch / _UNIT.millimetresPerInch, in: _UNIT.pointsPerInch, pt: 1, px: 1 };
 const _mean = (left: Dimensions, right: Dimensions): Dimensions => ({ width: Math.round(Math.sqrt(left.width * right.width)), height: Math.round(Math.sqrt(left.height * right.height)) });
-const _halve = (sheet: Dimensions): Dimensions => ({ width: Math.floor(sheet.height / 2), height: sheet.width });
 const _double = (sheet: Dimensions): Dimensions => ({ width: sheet.height, height: 2 * sheet.width });
 const _A0: Dimensions = { width: Math.round(_UNIT.millimetresPerMetre * Math.sqrt(Math.SQRT1_2)), height: Math.round(_UNIT.millimetresPerMetre * Math.sqrt(Math.SQRT2)) };
 const _B0: Dimensions = _mean(_A0, _double(_A0));
 const SERIES = ['A', 'B', 'C'] as const;
 const LETTERS = ['A', 'B', 'C', 'D', 'E'] as const;
 
-const _iso = (series: (typeof SERIES)[number], index: number): Dimensions =>
-    index === 0
-        ? Match.value(series).pipe(
-              Match.withReturnType<Dimensions>(),
-              Match.when('A', () => _A0),
-              Match.when('B', () => _B0),
-              Match.when('C', () => _mean(_A0, _B0)),
-              Match.exhaustive,
-          )
-        : _halve(_iso(series, index - 1));
+const _iso = (series: (typeof SERIES)[number], index: number): Dimensions => {
+    const base = Match.value(series).pipe(
+        Match.when('A', () => _A0),
+        Match.when('B', () => _B0),
+        Match.when('C', () => _mean(_A0, _B0)),
+        Match.exhaustive,
+    );
+    const divisor = 2 ** Math.floor(index / 2);
+    return index % 2 === 0
+        ? { width: Math.floor(base.width / divisor), height: Math.floor(base.height / divisor) }
+        : { width: Math.floor(base.height / (2 * divisor)), height: Math.floor(base.width / divisor) };
+};
 
 const _ladder = (base: Dimensions, size: (typeof LETTERS)[number]): Dimensions =>
     Array.reduce(
@@ -90,8 +92,8 @@ const _ladder = (base: Dimensions, size: (typeof LETTERS)[number]): Dimensions =
 
 const standardSheet = (standard: Standard): StandardSheet =>
     Standard.$match(standard, {
-        iso: ({ series, index }): StandardSheet => ({ name: `${series}${index}`, ..._iso(series, index), unit: 'mm' }),
-        ansi: ({ size }): StandardSheet => ({ name: `ANSI ${size}`, ...(size === 'F' ? { width: 28, height: 40 } : _ladder({ width: 8.5, height: 11 }, size)), unit: 'in' }),
+        iso: ({ series, index }): StandardSheet => ({ name: `${series}${index}`, ..._iso(series, index), unit: 'mm', standard }),
+        ansi: ({ size }): StandardSheet => ({ name: `ANSI ${size}`, ...(size === 'F' ? { width: 28, height: 40 } : _ladder({ width: 8.5, height: 11 }, size)), unit: 'in', standard }),
         arch: ({ size }): StandardSheet => ({
             name: `ARCH ${size}`,
             ...Match.value(size).pipe(
@@ -102,6 +104,7 @@ const standardSheet = (standard: Standard): StandardSheet =>
                 Match.orElse((letter) => _ladder({ width: 9, height: 12 }, letter)),
             ),
             unit: 'in',
+            standard,
         }),
     });
 
@@ -126,8 +129,6 @@ const _RULE = {
         columnModules: 4,
         footerLines: 2,
         footerBottomLines: 3,
-        deckColumns: 6,
-        deckRows: 4,
     },
 } as const;
 const _ISO_MODULES: readonly ModuleRule[] = [
@@ -139,11 +140,6 @@ const _ISO_MODULES: readonly ModuleRule[] = [
     { module: 8.5, rows: 5, gutterLines: 1 },
     { module: 7.5, rows: 5, gutterLines: 1 },
 ];
-const _PARENTS = {
-    sheet: ['B-Sheet'],
-    deck: ['A-Grid', 'B-Title', 'C-Section', 'D-Image-Led', 'E-Text-Led', 'F-Comparison', 'G-Diagram', 'H-Grid'],
-    title: ['A-Grid', 'B-Title', 'E-Text-Led'],
-} as const;
 const _SCREENS: readonly (Dimensions & { readonly label: string; readonly intent: Intent })[] = [
     { label: 'Web', width: 600, height: 300, intent: 'web' },
     { label: 'Web', width: 640, height: 480, intent: 'web' },
@@ -175,20 +171,22 @@ const _TECHNICAL: readonly Standard[] = [
     ...Array.makeBy(_RULE.technical.isoSheets, (index) => Standard.iso({ series: 'A', index })),
 ];
 
-const _sheet = (label: string, family: Family, intent: Intent, sheet: Dimensions & { readonly unit: keyof typeof _POINTS }): Omit<Sheet, 'module'> => ({
+const _sheet = (label: string, family: Family, intent: Intent, sheet: Dimensions & { readonly unit: keyof typeof POINTS; readonly standard?: Standard }): Omit<Sheet, 'module'> => ({
     name: `${label} ${sheet.width}x${sheet.height}`,
     family,
     intent,
     unit: sheet.unit === 'px' ? 'px' : 'pt',
-    width: sheet.width * _POINTS[sheet.unit],
-    height: sheet.height * _POINTS[sheet.unit],
+    sourceUnit: sheet.unit,
+    standard: Option.fromUndefinedOr(sheet.standard),
+    width: sheet.width * POINTS[sheet.unit],
+    height: sheet.height * POINTS[sheet.unit],
 });
 
-const _documents: readonly (Sheet & ModuleRule & Pick<PageSize, 'parents'>)[] = [
-    { ..._sheet('Letter', 'us', 'print', standardSheet(Standard.ansi({ size: 'A' }))), module: 15, rows: 5, gutterLines: 1, parents: [] },
-    { ..._sheet('Legal', 'us', 'print', { width: 8.5, height: 14, unit: 'in' }), module: 15, rows: 6, gutterLines: 1, parents: [] },
-    { ..._sheet('Tabloid', 'us', 'print', standardSheet(Standard.ansi({ size: 'B' }))), module: 12, rows: 6, gutterLines: 1, parents: [] },
-    { ..._sheet('Half Letter', 'us', 'print', { width: 5.5, height: 8.5, unit: 'in' }), module: 8.5, rows: 5, gutterLines: 1, parents: [] },
+const _documents: readonly (Sheet & ModuleRule)[] = [
+    { ..._sheet('Letter', 'us', 'print', standardSheet(Standard.ansi({ size: 'A' }))), module: 15, rows: 5, gutterLines: 1 },
+    { ..._sheet('Legal', 'us', 'print', { width: 8.5, height: 14, unit: 'in' }), module: 15, rows: 6, gutterLines: 1 },
+    { ..._sheet('Tabloid', 'us', 'print', standardSheet(Standard.ansi({ size: 'B' }))), module: 12, rows: 6, gutterLines: 1 },
+    { ..._sheet('Half Letter', 'us', 'print', { width: 5.5, height: 8.5, unit: 'in' }), module: 8.5, rows: 5, gutterLines: 1 },
     ...Array.flatMap(
         [
             { series: 'A', family: 'iso-a' },
@@ -197,12 +195,12 @@ const _documents: readonly (Sheet & ModuleRule & Pick<PageSize, 'parents'>)[] = 
         ({ series, family }) =>
             Array.map(_ISO_MODULES, (rule, index) => {
                 const sheet = standardSheet(Standard.iso({ series, index }));
-                return { ..._sheet(sheet.name, family, 'print', sheet), ...rule, parents: [] };
+                return { ..._sheet(sheet.name, family, 'print', sheet), ...rule };
             }),
     ),
-    { ..._sheet('Board', 'board', 'print', { width: 48, height: 24, unit: 'in' }), module: 12, rows: 3, gutterLines: 2, parents: [] },
-    { ..._sheet('Board A1', 'board', 'print', standardSheet(Standard.iso({ series: 'A', index: 1 }))), module: 11.5, rows: 6, gutterLines: 1, parents: _PARENTS.sheet },
-    { ..._sheet('Digital', 'digital', 'web', { width: 3840, height: 2160, unit: 'px' }), module: _RULE.screen.module, rows: 6, gutterLines: 2, parents: _PARENTS.deck },
+    { ..._sheet('Board', 'board', 'print', { width: 48, height: 24, unit: 'in' }), module: 12, rows: 3, gutterLines: 2 },
+    { ..._sheet('Board A1', 'board', 'print', standardSheet(Standard.iso({ series: 'A', index: 1 }))), module: 11.5, rows: 6, gutterLines: 1 },
+    { ..._sheet('Digital', 'digital', 'web', { width: 3840, height: 2160, unit: 'px' }), module: _RULE.screen.module, rows: 6, gutterLines: 2 },
 ];
 
 const _technical: readonly (Sheet & { readonly border: Pick<Sides, 'left' | 'right'> })[] = Array.map(_TECHNICAL, (standard) => {
@@ -211,7 +209,7 @@ const _technical: readonly (Sheet & { readonly border: Pick<Sides, 'left' | 'rig
     return {
         ..._sheet(sheet.unit === 'in' ? sheet.name : `${sheet.name} Sheet`, 'technical', 'print', { ...sheet, width: sheet.height, height: sheet.width }),
         module: _RULE.technical.module,
-        border: sheet.unit === 'in' ? { left: inchBorder, right: inchBorder } : { left: _RULE.technical.isoBorder.left * _POINTS.mm, right: _RULE.technical.isoBorder.right * _POINTS.mm },
+        border: sheet.unit === 'in' ? { left: inchBorder, right: inchBorder } : { left: _RULE.technical.isoBorder.left * POINTS.mm, right: _RULE.technical.isoBorder.right * POINTS.mm },
     };
 });
 
@@ -252,14 +250,14 @@ const _document = (sheet: (typeof _documents)[number]): PageSize => {
         bottomLines: digital ? _RULE.document.digitalBottomLines : _RULE.document.bottomLines,
     });
     const after = Option.some(grid.lastBaseline + (digital ? _RULE.document.footerLines : _RULE.document.folioLines) * sheet.module);
-    return { ...sheet, ...grid, folio: digital ? Option.none() : after, footer: digital ? after : Option.none(), sheet: Option.none(), swatchColumn: digital ? 'rgb' : 'cmyk' };
+    return { ...sheet, ...grid, folio: digital ? Option.none() : after, footer: digital ? after : Option.none(), sheet: Option.none() };
 };
 
 const _sheetGrid = (sheet: (typeof _technical)[number]): PageSize => {
     const { left, right } = sheet.border;
     const across = Math.floor((sheet.width - left - right) / _RULE.technical.drawingModule) - 1;
     const down = Math.floor((sheet.height - 2 * right) / _RULE.technical.drawingModule);
-    const vertical = (sheet.height - down * _RULE.technical.drawingModule) / 2;
+    const vertical = sheet.sourceUnit === 'mm' ? right : (sheet.height - down * _RULE.technical.drawingModule) / 2;
     return {
         ...Struct.omit(sheet, ['border']),
         margins: { bottom: vertical, left, right },
@@ -274,21 +272,16 @@ const _sheetGrid = (sheet: (typeof _technical)[number]): PageSize => {
             modules: { columns: across, rows: down },
             strip: sheet.width - left - right - across * _RULE.technical.drawingModule,
         }),
-        parents: _PARENTS.sheet,
-        swatchColumn: 'cmyk',
     };
 };
-
-const _band = <const Bands extends Array.NonEmptyReadonlyArray<unknown>>(bands: Bands, reached: (band: Bands[number]) => boolean): Bands[number] =>
-    Option.getOrElse(Array.findLast(bands, reached), () => Array.headNonEmpty(bands));
 
 const _screen = (format: (typeof _SCREENS)[number]): PageSize => {
     const sheet = { ..._sheet(format.label, 'screen', format.intent, { ...format, unit: 'px' }), module: _RULE.screen.module };
     const shorter = Math.min(sheet.width, sheet.height);
-    const sideModules = _band(_RULE.screen.sides, (band) => shorter >= band.shorter).modules;
+    const sideModules = Array.reduce(_RULE.screen.sides, _RULE.screen.sides[0].modules, (current: number, band) => (shorter >= band.shorter ? band.modules : current));
     const side = sideModules * sheet.module;
     const available = Math.floor((sheet.height - 2 * side) / sheet.module) + 1;
-    const rowRule = _band(_RULE.screen.rows, (band) => available >= band.lines);
+    const rowRule = Array.reduce(_RULE.screen.rows, _RULE.screen.rows[0], (current: (typeof _RULE.screen.rows)[number], band) => (available >= band.lines ? band : current));
     const count = pipe(
         Array.range(1, _RULE.document.columns),
         Array.filter((divisor) => _RULE.document.columns % divisor === 0),
@@ -303,8 +296,6 @@ const _screen = (format: (typeof _SCREENS)[number]): PageSize => {
         folio: Option.none(),
         footer: grid.margins.bottom >= _RULE.screen.footerBottomLines * sheet.module ? Option.some(grid.lastBaseline + _RULE.screen.footerLines * sheet.module) : Option.none(),
         sheet: Option.none(),
-        parents: count >= _RULE.screen.deckColumns && rowRule.rows >= _RULE.screen.deckRows ? _PARENTS.deck : _PARENTS.title,
-        swatchColumn: 'rgb',
     };
 };
 
@@ -313,4 +304,4 @@ const pageSizes: readonly PageSize[] = [...Array.map(_documents, _document), ...
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { PageSize, Sheet, Sides, StandardSheet };
-export { LETTERS, pageSizes, SERIES, Standard, standardSheet };
+export { LETTERS, POINTS, pageSizes, SERIES, Standard, standardSheet };

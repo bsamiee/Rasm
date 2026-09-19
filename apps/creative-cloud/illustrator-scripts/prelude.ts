@@ -45,17 +45,14 @@ declare global {
         readonly RGB: [number, number, number];
         readonly CMYK: [number, number, number, number];
         readonly GRAY: [number];
+        readonly LAB: [number, number, number];
     }
 
     type ProcessSpec = { readonly [M in keyof Channels]: { readonly model: M; readonly values: Channels[M] } }[keyof Channels];
 
-    type ColorSpec = ProcessSpec | { readonly model: 'Spot'; readonly name: string; readonly tint: number; readonly ink: ProcessSpec };
+    type ColorSpec = ProcessSpec | { readonly model: 'Spot'; readonly name: string; readonly colorType: 'PROCESS' | 'SPOT'; readonly tint: number; readonly ink: ProcessSpec };
 
-    interface SwatchSpec {
-        readonly name: string;
-        readonly global: boolean;
-        readonly color: ProcessSpec;
-    }
+    type SwatchSpec = { readonly name: string; readonly color: ProcessSpec } | { readonly color: ColorSpec & { readonly model: 'Spot' } };
 
     interface SwatchPalette {
         readonly root: SwatchSpec[];
@@ -84,29 +81,44 @@ declare global {
     interface Prelude {
         readonly all: (at: Site, readers: [string, Reader][]) => Reading<JsonObject>;
         readonly assign: (target: object, name: string, value: unknown) => void;
+        readonly channelScale: { readonly rgb: number; readonly percentage: number };
         readonly collect: <T, R>(list: T[], map: (item: T, index: number) => R) => R[];
-        readonly color: (doc: Document, spec: ColorSpec) => Color;
+        readonly colors: (
+            doc: Document,
+            specs: ColorSpec[],
+            replaceByName: boolean,
+            at: Site,
+        ) => Reading<{ readonly values: Color[] } | { readonly rejected: { readonly name: string; readonly reason: 'colorDefinitionConflict' | 'unsupportedColor' }[] }>;
         readonly contains: <T>(list: T[], value: T) => boolean;
-        readonly created: (colorSpace: 'RGB' | 'CMYK', width: number, height: number, raster: RasterSpec) => Document;
         readonly dump: (value: unknown, at: Site) => Reading<Json>;
-        readonly each: <T>(at: Site, list: T[], reader: (item: T, at: Site) => Reading<Json>) => Reading<Json[]>;
+        readonly each: <T, R extends Json>(at: Site, list: T[], reader: (item: T, at: Site) => Reading<R>) => Reading<R[]>;
+        readonly failure: (error: unknown, at: Site) => JsonObject;
         readonly flatMap: <T, R>(list: T[], map: (item: T, index: number) => R[]) => R[];
         readonly flatten: (list: PageItem[]) => PageItem[];
         readonly fold: <T, A>(list: T[], initial: A, step: (accumulator: A, item: T, index: number) => A) => A;
         readonly hosted: (value: unknown) => value is Hosted;
         readonly isArray: (value: unknown) => value is unknown[];
+        readonly ink: (spot: Spot) => ProcessSpec & { readonly model: 'RGB' | 'CMYK' | 'LAB' };
         readonly items: <T>(collection: { readonly length: number; readonly [index: number]: T }) => T[];
         readonly members: <T extends object>(object: T) => [string, Reader][];
         readonly named: <T>(collection: { readonly getByName: (name: string) => T }, name: string) => T[];
         readonly nth: <T>(collection: { readonly length: number; readonly [index: number]: T }, position: number) => T;
-        readonly owned: <T extends { name: string }>(collection: { readonly getByName: (name: string) => T; readonly add: () => T }, name: string) => T;
+        readonly owned: <T extends { name: string; readonly remove: () => void }>(collection: { readonly getByName: (name: string) => T; readonly add: () => T }, name: string) => T;
         readonly paths: (item: PageItem) => PathItem[];
         readonly preference: { readonly [K in keyof PreferenceValue]: { readonly read: (key: string) => PreferenceValue[K]; readonly write: (key: string, value: PreferenceValue[K]) => void } };
         readonly present: <T>(value: T) => Reading<T>;
         readonly properties: (object: object) => ReflectionInfo[];
         readonly range: (count: number) => number[];
+        readonly rasterOptions: (doc: Document, raster: RasterSpec) => RasterEffectOptions;
         readonly reference: (value: unknown, at: Site) => Reading<Json>;
         readonly reflection: (object: object) => Reflection[];
+        readonly replacement: (
+            doc: Document,
+            name: string,
+            value: Color | ColorSpec,
+            replaceByName: boolean,
+        ) => { readonly swatches: Swatch[] } | { readonly reason: 'nameCollision' | 'reservedColor' | 'resourceTypeConflict' | 'colorDefinitionConflict' };
+        readonly replaceStops: (gradient: Gradient, stops: Pick<GradientStop, 'rampPoint' | 'midPoint' | 'opacity' | 'color'>[]) => number;
         readonly run: <R extends object>(tool: (request: R, at: Site) => Reading<JsonObject>) => string;
         readonly saved: (doc: Document, path: string) => File;
         readonly select: {
@@ -115,7 +127,7 @@ declare global {
         };
         readonly spec: (value: Color) => ColorSpec[];
         readonly split: (rows: JsonObject[]) => Applied;
-        readonly swatches: (doc: Document, palette: SwatchPalette, replaceByName: boolean) => JsonObject[];
+        readonly swatches: (doc: Document, palette: SwatchPalette, replaceByName: boolean, at: Site) => Reading<JsonObject[]>;
         readonly typed: <S extends { readonly typename: string }>(typename: string) => (item: { readonly typename: string }) => item is S;
         readonly visit: <T>(list: T[], act: (item: T, index: number) => void) => void;
         readonly walk: <T extends object>(at: Site, object: T, extras: [string, Reader][]) => Reading<JsonObject>;
@@ -190,13 +202,17 @@ const typed =
         item.typename === typename;
 
 const INHERITED = Object.prototype.reflect;
+const NO_SUCH_ELEMENT = 1302;
 
 const reflection = (object: object): Reflection[] => {
     try {
         const reflected = object.reflect;
         return classOf(reflected) === '[object Reflection]' ? [reflected] : [];
-    } catch {
-        return [];
+    } catch (error) {
+        if (isError(error) && error.number === NO_SUCH_ELEMENT) {
+            return [];
+        }
+        throw error;
     }
 };
 
@@ -378,22 +394,9 @@ const decode = (text: string): Json => {
 
 // --- [READINGS] ------------------------------------------------------------------------
 
-const failure = (error: unknown): [JsonObject, { readonly file: string; readonly line: number }] => {
+const failure: Prelude['failure'] = (error, at) => {
     const thrown = isError(error) ? error : new Error(String(error));
-    const site = { file: File(thrown.fileName).name, line: thrown.line };
-    const marker = 'an Illustrator error occurred: ';
-    const opening = thrown.message.indexOf(marker);
-    if (opening < 0) {
-        return [{ name: thrown.name, message: thrown.message, number: thrown.number }, site];
-    }
-    const start = opening + marker.length;
-    const code = Number(thrown.message.slice(start, thrown.message.indexOf(' ', start)));
-    const octet = HEXADECIMAL * HEXADECIMAL;
-    let tag = '';
-    for (let rest = code; rest > 0; rest = Math.floor(rest / octet)) {
-        tag = String.fromCharCode(rest % octet) + tag;
-    }
-    return [{ name: thrown.name, message: thrown.message, number: thrown.number, code, tag }, site];
+    return { name: thrown.name, message: thrown.message, number: thrown.number, path: at.path, file: File(thrown.fileName).name, line: thrown.line };
 };
 
 const present = <T>(value: T): Reading<T> => ({ value, unavailable: [] });
@@ -406,16 +409,12 @@ const gather = <T, R>(list: T[], site: (item: T, index: number) => Site, reader:
             put(member.value, item);
             return unavailable.concat(member.unavailable);
         } catch (error) {
-            const [row, thrown] = failure(error);
-            row['path'] = at.path;
-            row['file'] = thrown.file;
-            row['line'] = thrown.line;
-            return unavailable.concat([row]);
+            return unavailable.concat([failure(error, at)]);
         }
     });
 
-const each: Prelude['each'] = (at, list, reader) => {
-    const value: Json[] = [];
+const each = <T, R extends Json>(at: Site, list: T[], reader: (item: T, at: Site) => Reading<R>): Reading<R[]> => {
+    const value: R[] = [];
     const unavailable = gather(
         list,
         (_item, index): Site => ({ path: `${at.path}[${index}]`, chain: at.chain }),
@@ -465,8 +464,8 @@ const reference: Prelude['reference'] = (value, at) => {
     return present(isNumber(value.length) ? { typename: value.typename, length: value.length } : { typename: value.typename });
 };
 
-const members: Prelude['members'] = (object) =>
-    collect(
+const members: Prelude['members'] = (object) => {
+    const readers = collect(
         select(properties(object), (info): boolean => info.name !== 'parent'),
         (info): [string, Reader] => {
             const key = info.name as keyof typeof object;
@@ -474,6 +473,11 @@ const members: Prelude['members'] = (object) =>
             return [info.name, (at): Reading<Json> => read(object[key], at)];
         },
     );
+    if (hosted(object) && typed<Spot>('Spot')(object)) {
+        readers.push(['ink', (at): Reading<Json> => (object.colorType === ColorModel.REGISTRATION ? present(null) : dump(ink(object), at))]);
+    }
+    return readers;
+};
 
 const walk: Prelude['walk'] = (at, object, extras) => all(at, members(object).concat(extras));
 
@@ -529,10 +533,8 @@ const run = <R extends object>(tool: (request: R, at: Site) => Reading<JsonObjec
         reading.value['unavailable'] = reading.unavailable;
         output = encode(reading.value);
     } catch (error) {
-        const [row, site] = failure(error);
+        const row = failure(error, { path: '', chain: [] });
         row['kind'] = 'error';
-        row['file'] = site.file;
-        row['line'] = site.line;
         output = encode(row);
     } finally {
         app.userInteractionLevel = level;
@@ -552,8 +554,11 @@ const nth = <T>(collection: { readonly length: number; readonly [index: number]:
 const named: Prelude['named'] = (collection, name) => {
     try {
         return [collection.getByName(name)];
-    } catch {
-        return [];
+    } catch (error) {
+        if (isError(error) && error.number === NO_SUCH_ELEMENT) {
+            return [];
+        }
+        throw error;
     }
 };
 
@@ -563,8 +568,13 @@ const owned: Prelude['owned'] = (collection, name) => {
         return existing;
     }
     const added = collection.add();
-    added.name = name;
-    return added;
+    try {
+        added.name = name;
+        return added;
+    } catch (error) {
+        added.remove();
+        throw error;
+    }
 };
 
 const flatten: Prelude['flatten'] = (list) =>
@@ -601,35 +611,155 @@ const built = (model: keyof Channels, values: number[]): Color => {
         cmyk.black = nth(values, values.length - 1);
         return cmyk;
     }
+    if (model === 'LAB') {
+        const lab = new LabColor();
+        lab.l = nth(values, 0);
+        lab.a = nth(values, 1);
+        lab.b = nth(values, 2);
+        return lab;
+    }
     const gray = new GrayColor();
-    gray.gray = nth(values, 0);
+    gray.gray = (1 - nth(values, 0)) * channelScale.percentage;
     return gray;
 };
 
-const definedSpot = (doc: Document, name: string, ink: ProcessSpec): Spot => {
-    const added = doc.spots.add();
-    added.name = name;
-    added.colorType = ColorModel.PROCESS;
-    added.color = color(doc, ink);
-    return added;
+const BINARY32 = { fraction: 23, exponent: 8 } as const;
+const channelScale = { rgb: 255, percentage: 100 } as const;
+
+const storedChannel = (value: number): number => {
+    const magnitude = Math.abs(value);
+    if (!magnitude) {
+        return value;
+    }
+    const limit = 2 ** (BINARY32.exponent - 1);
+    const minimum = 2 - limit - BINARY32.fraction;
+    let lower = minimum;
+    let upper = limit;
+    while (lower + 1 < upper) {
+        const middle = Math.floor((lower + upper) / 2);
+        if (magnitude < 2 ** middle) {
+            upper = middle;
+        } else {
+            lower = middle;
+        }
+    }
+    const unit = 2 ** Math.max(minimum, lower - BINARY32.fraction);
+    const significand = magnitude / unit;
+    const integer = Math.floor(significand);
+    const fraction = significand - integer;
+    const halfway = fraction === 1 / 2 && integer % 2 !== 0;
+    const stored = (integer + Number(fraction > 1 / 2 || halfway)) * unit;
+    const finite = stored < 2 ** limit ? stored : Number.POSITIVE_INFINITY;
+    return value < 0 ? -finite : finite;
 };
 
-const color: Prelude['color'] = (doc, chosen) => {
-    if (chosen.model === 'Spot') {
-        const [existing] = named(doc.spots, chosen.name);
-        const tinted = new SpotColor();
-        tinted.spot = existing === undefined ? definedSpot(doc, chosen.name, chosen.ink) : existing;
-        tinted.tint = chosen.tint;
-        return tinted;
+const sameInk = (left: ProcessSpec, right: ProcessSpec): boolean => {
+    const percentage = left.model === 'LAB' || left.model === 'GRAY' ? 1 : channelScale.percentage;
+    const scale = left.model === 'RGB' ? channelScale.rgb : percentage;
+    return (
+        left.model === right.model &&
+        left.values.length === right.values.length &&
+        fold(left.values, true, (same, value, index): boolean => same && storedChannel(value / scale) === storedChannel(nth(right.values, index) / scale))
+    );
+};
+
+const setInk = (doc: Document, name: string, value: ProcessSpec & { readonly model: 'RGB' | 'CMYK' | 'LAB' }, colorType: ColorModel): void => {
+    const spot = doc.spots.getByName(name);
+    if (value.model === 'LAB') {
+        spot.colorType = ColorModel.SPOT;
     }
-    if (chosen.model === 'GRAY') {
-        return built(chosen.model, chosen.values);
-    }
+    spot.color = built(value.model, value.values);
+    spot.colorType = colorType;
+};
+
+const colors: Prelude['colors'] = (doc, specs, replaceByName, at) => {
     const space = doc.documentColorSpace === DocumentColorSpace.CMYK ? 'CMYK' : 'RGB';
-    if (chosen.model === space) {
-        return built(chosen.model, chosen.values);
+    const definitions = flatMap(specs, (chosen): (ColorSpec & { readonly model: 'Spot' })[] => (chosen.model === 'Spot' ? [chosen] : []));
+    const planned = collect(definitions, (chosen) => {
+        let requested: ProcessSpec & { readonly model: 'RGB' | 'CMYK' | 'LAB' };
+        if (chosen.ink.model === 'GRAY') {
+            const converted = app.convertSampleColor(ImageColorSpace.GrayScale, [(1 - chosen.ink.values[0]) * channelScale.percentage], ImageColorSpace[space], ColorConvertPurpose.defaultpurpose);
+            requested =
+                space === 'RGB'
+                    ? { model: space, values: [nth(converted, 0), nth(converted, 1), nth(converted, 2)] }
+                    : { model: space, values: [nth(converted, 0), nth(converted, 1), nth(converted, 2), nth(converted, converted.length - 1)] };
+        } else {
+            requested = chosen.ink;
+        }
+        return { chosen, requested, held: collect(named(doc.spots, chosen.name), (spot) => ({ spot, colorType: spot.colorType, ink: ink(spot) })) };
+    });
+    const rejected = flatMap(planned, (plan): { readonly name: string; readonly reason: 'colorDefinitionConflict' | 'unsupportedColor' }[] => {
+        if (plan.chosen.colorType === 'PROCESS' && plan.requested.model === 'LAB') {
+            return [{ name: plan.chosen.name, reason: 'unsupportedColor' }];
+        }
+        const duplicates = select(planned, (other): boolean =>
+            other.chosen.name === plan.chosen.name ? other.chosen.colorType !== plan.chosen.colorType || !sameInk(other.requested, plan.requested) : false,
+        );
+        const occupied = select(plan.held, (before): boolean => before.colorType !== ColorModel[plan.chosen.colorType] || !sameInk(before.ink, plan.requested));
+        const retained = !replaceByName && occupied.length > 0;
+        return duplicates.length > 0 || retained ? [{ name: plan.chosen.name, reason: 'colorDefinitionConflict' }] : [];
+    });
+    if (rejected.length > 0) {
+        return present({ rejected });
     }
-    return built(space, app.convertSampleColor(ImageColorSpace[chosen.model], chosen.values, ImageColorSpace[space], ColorConvertPurpose.defaultpurpose));
+    const unique = fold(planned, [] as typeof planned, (found, plan): typeof planned =>
+        select(found, (before): boolean => before.chosen.name === plan.chosen.name).length === 0 ? found.concat([plan]) : found,
+    );
+    const created: Spot[] = [];
+    try {
+        visit(unique, ({ chosen, requested, held }): void => {
+            if (!replaceByName && held.length > 0) {
+                return;
+            }
+            const [before] = held;
+            const spot = before === undefined ? doc.spots.add() : before.spot;
+            if (before === undefined) {
+                created.push(spot);
+                spot.name = chosen.name;
+            }
+            setInk(doc, chosen.name, requested, ColorModel[chosen.colorType]);
+        });
+        return present({
+            values: collect(specs, (chosen): Color => {
+                if (chosen.model === 'Spot') {
+                    const value = new SpotColor();
+                    value.spot = doc.spots.getByName(chosen.name);
+                    value.tint = chosen.tint;
+                    return value;
+                }
+                const unconverted = chosen.model === 'GRAY' || chosen.model === space;
+                return unconverted
+                    ? built(chosen.model, chosen.values)
+                    : built(space, app.convertSampleColor(ImageColorSpace[chosen.model], chosen.values, ImageColorSpace[space], ColorConvertPurpose.defaultpurpose));
+            }),
+        });
+    } catch (error) {
+        const removed = each(at, created.reverse(), (spot): Reading<null> => {
+            spot.remove();
+            return present(null);
+        });
+        const restored = each(
+            at,
+            flatMap(unique, ({ held }) => held),
+            (before): Reading<null> => {
+                setInk(doc, before.spot.name, before.ink, before.colorType);
+                return present(null);
+            },
+        );
+        return { value: { rejected: [] }, unavailable: [failure(error, at)].concat(removed.unavailable, restored.unavailable) };
+    }
+};
+
+const ink: Prelude['ink'] = (spot) => {
+    const values = spot.getInternalColor();
+    switch (spot.spotKind) {
+        case SpotColorKind.SPOTRGB:
+            return { model: 'RGB', values: [nth(values, 0), nth(values, 1), nth(values, 2)] };
+        case SpotColorKind.SPOTCMYK:
+            return { model: 'CMYK', values: [nth(values, 0), nth(values, 1), nth(values, 2), nth(values, values.length - 1)] };
+        case SpotColorKind.SPOTLAB:
+            return { model: 'LAB', values: [nth(values, 0), nth(values, 1), nth(values, 2)] };
+    }
 };
 
 const spec: Prelude['spec'] = (value) => {
@@ -640,49 +770,106 @@ const spec: Prelude['spec'] = (value) => {
         return [{ model: 'CMYK', values: [value.cyan, value.magenta, value.yellow, value.black] }];
     }
     if (typed<GrayColor>('GrayColor')(value)) {
-        return [{ model: 'GRAY', values: [value.gray] }];
+        return [{ model: 'GRAY', values: [1 - value.gray / channelScale.percentage] }];
     }
-    if (!typed<SpotColor>('SpotColor')(value)) {
+    if (typed<LabColor>('LabColor')(value)) {
+        return [{ model: 'LAB', values: [value.l, value.a, value.b] }];
+    }
+    if (!typed<SpotColor>('SpotColor')(value) || value.spot.colorType === ColorModel.REGISTRATION) {
         return [];
     }
     const { spot, tint } = value;
-    return collect(
-        select(spec(spot.color), (ink): ink is ProcessSpec => ink.model !== 'Spot'),
-        (ink): ColorSpec => ({ model: 'Spot', name: spot.name, tint, ink }),
-    );
+    return [{ model: 'Spot', name: spot.name, colorType: spot.colorType === ColorModel.PROCESS ? 'PROCESS' : 'SPOT', tint, ink: ink(spot) }];
 };
 
-const swatches: Prelude['swatches'] = (doc, palette, replaceByName) => {
-    const rooted = collect(palette.root, (swatch): { readonly owner: SwatchGroup[]; readonly row: JsonObject; readonly swatch: SwatchSpec } => ({ owner: [], row: { name: swatch.name }, swatch }));
-    const grouped = flatMap(palette.groups, (group): { readonly owner: SwatchGroup[]; readonly row: JsonObject; readonly swatch: SwatchSpec }[] => {
-        const owner = [owned(doc.swatchGroups, group.name)];
-        return collect(group.swatches, (swatch) => ({ owner, row: { group: group.name, name: swatch.name }, swatch }));
+const replacement: Prelude['replacement'] = (doc, name, value, replaceByName) => {
+    const existing = named(doc.swatches, name);
+    const kinds = collect<Color | ColorSpec, string>([value].concat(collect(existing, ({ color }): Color => color)), (member): string => {
+        if ('model' in member) {
+            return member.model === 'Spot' ? 'SpotColor' : 'process';
+        }
+        const registration = typed<SpotColor>('SpotColor')(member) && member.spot.colorType === ColorModel.REGISTRATION;
+        if (member.typename === 'NoColor' || registration) {
+            return 'reserved';
+        }
+        return contains(['RGBColor', 'CMYKColor', 'GrayColor', 'LabColor'], member.typename) ? 'process' : member.typename;
     });
-    return collect(rooted.concat(grouped), ({ owner, row, swatch }): JsonObject => {
-        const [existing] = named(doc.swatches, swatch.name);
-        if (existing !== undefined && !replaceByName) {
-            row['reason'] = 'nameCollision';
-            return row;
+    const [incoming, previous] = kinds;
+    if (contains(kinds, 'reserved')) {
+        return { reason: 'reservedColor' };
+    }
+    const retained = !replaceByName || incoming === 'PatternColor';
+    if (previous !== undefined && retained) {
+        return { reason: 'nameCollision' };
+    }
+    if (previous !== undefined && previous !== incoming) {
+        return { reason: 'resourceTypeConflict' };
+    }
+    const stops = !('model' in value) && typed<GradientColor>('GradientColor')(value) ? items(value.gradient.gradientStops) : [];
+    const dependencies = flatMap(
+        select(
+            collect(stops, ({ color }): Color => color),
+            typed<SpotColor>('SpotColor'),
+        ),
+        ({ spot }) => collect(named(doc.spots, spot.name), (target) => ({ source: spot, target })),
+    );
+    const conflicting = select(dependencies, ({ source, target }): boolean =>
+        source.colorType === target.colorType ? source.colorType !== ColorModel.REGISTRATION && !sameInk(ink(source), ink(target)) : true,
+    );
+    return conflicting.length > 0 ? { reason: 'colorDefinitionConflict' } : { swatches: existing };
+};
+
+const swatches: Prelude['swatches'] = (doc, palette, replaceByName, at) => {
+    const rooted = collect(palette.root, (swatch): { readonly owner: string[]; readonly swatch: SwatchSpec } => ({ owner: [], swatch }));
+    const grouped = flatMap(palette.groups, (group) => collect(group.swatches, (swatch) => ({ owner: [group.name], swatch })));
+    const reading = each(at, rooted.concat(grouped), ({ owner, swatch }, site): Reading<JsonObject[]> => {
+        const name = 'name' in swatch ? swatch.name : swatch.color.name;
+        const [group] = owner;
+        const row: JsonObject = group === undefined ? { name } : { name, group };
+        const checked = replacement(doc, name, swatch.color, replaceByName);
+        if ('reason' in checked) {
+            row['reason'] = checked.reason;
+            return present([row]);
         }
-        if (existing !== undefined) {
-            existing.color = color(doc, swatch.color);
-            return row;
+        const [existing] = checked.swatches;
+        const resolved = colors(doc, [swatch.color], replaceByName, site);
+        if ('rejected' in resolved.value) {
+            return { value: collect(resolved.value.rejected, ({ reason }): JsonObject => (group === undefined ? { name, reason } : { name, group, reason })), unavailable: resolved.unavailable };
         }
-        if (swatch.global) {
-            const spot = definedSpot(doc, swatch.name, swatch.color);
-            visit(owner, (holder): void => {
-                holder.addSpot(spot);
-            });
-            return row;
-        }
-        const added = doc.swatches.add();
-        added.name = swatch.name;
-        added.color = color(doc, swatch.color);
+        const added = existing === undefined ? owned(doc.swatches, name) : existing;
+        added.color = nth(resolved.value.values, 0);
         visit(owner, (holder): void => {
-            holder.addSwatch(added);
+            owned(doc.swatchGroups, holder).addSwatch(added);
         });
-        return row;
+        row['name'] = added.name;
+        return present([row]);
     });
+    return { value: Array.prototype.concat.apply([], reading.value), unavailable: reading.unavailable };
+};
+
+const replaceStops: Prelude['replaceStops'] = (gradient, wanted) => {
+    const stops = gradient.gradientStops;
+    const added = Math.max(0, wanted.length - stops.length);
+    visit(range(added), (): void => {
+        stops.add();
+    });
+    visit(items(stops).slice(wanted.length).reverse(), (stop): void => {
+        stop.remove();
+    });
+    const indices = range(stops.length);
+    visit(indices, (index): void => {
+        const stop = nth(stops, index);
+        stop.rampPoint = Math.min(stop.rampPoint, nth(wanted, index).rampPoint);
+    });
+    visit(indices.reverse(), (index): void => {
+        const stop = nth(stops, index);
+        const chosen = nth(wanted, index);
+        stop.rampPoint = chosen.rampPoint;
+        stop.midPoint = chosen.midPoint;
+        stop.opacity = chosen.opacity;
+        stop.color = chosen.color;
+    });
+    return added;
 };
 
 // --- [DOCUMENT] ------------------------------------------------------------------------
@@ -694,24 +881,20 @@ const preference: Prelude['preference'] = {
     string: { read: (key): string => app.preferences.getStringPreference(key), write: (key, value): void => app.preferences.setStringPreference(key, value) },
 };
 
-const created: Prelude['created'] = (colorSpace, width, height, raster) => {
-    const doc = app.documents.add(DocumentColorSpace[colorSpace], width, height, 1);
+const rasterOptions: Prelude['rasterOptions'] = (doc, raster) => {
     const settings = doc.rasterEffectSettings;
     settings.resolution = raster.resolution;
     settings.antiAliasing = raster.antiAliasing;
     settings.padding = raster.padding;
-    doc.rasterEffectSettings = settings;
-    return doc;
+    return settings;
 };
 
 const saved: Prelude['saved'] = (doc, path) => {
     const options = new IllustratorSaveOptions();
     options.embedICCProfile = true;
     options.pdfCompatible = true;
-    options.compatibility = Compatibility.ILLUSTRATOR24;
     const file = new File(path);
     doc.saveAs(file, options);
-    doc.close(SaveOptions.DONOTSAVECHANGES);
     return file;
 };
 
@@ -720,16 +903,18 @@ const saved: Prelude['saved'] = (doc, path) => {
 ((): Prelude => ({
     all,
     assign,
+    channelScale,
     collect,
-    color,
+    colors,
     contains,
-    created,
     dump,
     each,
+    failure,
     flatMap,
     flatten,
     fold,
     hosted,
+    ink,
     isArray,
     items,
     members,
@@ -741,8 +926,11 @@ const saved: Prelude['saved'] = (doc, path) => {
     present,
     properties,
     range,
+    rasterOptions,
     reference,
     reflection,
+    replacement,
+    replaceStops,
     run,
     saved,
     select,

@@ -1,12 +1,8 @@
 /// <reference path="./prelude.ts"/>
 
-declare global {
-    enum ElementPlacement {}
-}
-
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, flatMap, flatten, items, present, run, select, split, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, contains, flatMap, flatten, items, nth, paths, present, run, select, split, typed }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
@@ -26,63 +22,73 @@ interface Commands {
 const cleanupPaths = (request: { readonly operations: (keyof Commands | 'trimMasks')[]; readonly keepFilledMask: boolean; readonly commands: Commands }): Reading<JsonObject> => {
     const doc = app.activeDocument;
     const { commands } = request;
-    const selected = items<PageItem>(doc.selection);
-    const groups = select(flatten(selected).concat(selected), (item): item is GroupItem => typed<GroupItem>('GroupItem')(item) && item.clipped);
-    return present(
-        split(
-            collect(request.operations, (operation): JsonObject => {
-                if (operation !== 'trimMasks') {
-                    doc.selection = selected;
-                    app.executeMenuCommand(commands[operation]);
-                    return { operation, count: selected.length };
+    const operations = collect(request.operations, (operation): JsonObject => {
+        if (operation !== 'trimMasks') {
+            const count = items<PageItem>(doc.selection).length;
+            app.executeMenuCommand(commands[operation]);
+            return { operation, count };
+        }
+        const selected = items<PageItem>(doc.selection);
+        const queued = selected.length > 0 ? selected : select(items<PageItem>(doc.pageItems), (item): boolean => item.parent === item.layer);
+        const groups: GroupItem[] = [];
+        for (let index = 0; index < queued.length; index += 1) {
+            const item = nth(queued, index);
+            if (typed<GroupItem>('GroupItem')(item) && !contains(groups, item)) {
+                groups.push(item);
+                queued.push(...items(item.pageItems));
+            }
+        }
+        const clipped = select(groups.reverse(), (group): boolean => group.clipped === true);
+        const output: string[] = [];
+        const cropped = collect(clipped, (group): JsonObject => {
+            const descendants = flatten(items(group.pageItems));
+            const prepared = flatMap(descendants, paths);
+            for (let index = 0; index < prepared.length; index += 1) {
+                const path = nth(prepared, index);
+                path.evenodd = false;
+            }
+            const frames = select(descendants, typed<TextFrame>('TextFrame'));
+            for (let index = 0; index < frames.length; index += 1) {
+                const frame = nth(frames, index);
+                const outlined = flatMap(flatten(items(frame.createOutline().pageItems)), paths);
+                for (let glyphIndex = 0; glyphIndex < outlined.length; glyphIndex += 1) {
+                    const glyph = nth(outlined, glyphIndex);
+                    glyph.evenodd = false;
                 }
-                visit(
-                    flatMap(groups, (group): PathItem[] => items(group.pathItems)),
-                    (path): void => {
-                        const member = path;
-                        member.evenodd = false;
-                    },
-                );
-                const glyphs = flatMap(
-                    flatMap(groups, (group): TextFrame[] => items(group.textFrames)),
-                    (frame): { readonly glyph: PathItem; readonly fill: Color }[] => {
-                        const fill = frame.textRange.characterAttributes.fillColor;
-                        return collect(items(frame.createOutline().pathItems), (glyph) => ({ glyph, fill }));
-                    },
-                );
-                visit(glyphs, ({ glyph, fill }): void => {
-                    const outlined = glyph;
-                    outlined.fillColor = fill;
-                });
-                visit(
-                    flatMap(groups, (group): CompoundPathItem[] => items(group.compoundPathItems)),
-                    (compound): void => {
-                        doc.selection = [compound];
-                        app.executeMenuCommand(commands.noCompoundPath);
-                        app.executeMenuCommand(commands.ungroup);
-                        app.executeMenuCommand(commands.compoundPath);
-                    },
-                );
-                const cropped = flatMap(groups, (group): { readonly item: PageItem; readonly opacity: number; readonly blendingMode: BlendModes }[] => {
-                    const [filledMask] = select(items(group.pathItems), (path): boolean => path.clipping && path.filled);
-                    if (request.keepFilledMask && filledMask !== undefined) {
-                        filledMask.duplicate(group, ElementPlacement.PLACEAFTER);
-                    }
-                    const { opacity, blendingMode } = group;
-                    doc.selection = [group];
-                    app.executeMenuCommand(commands.livePathfinderCrop);
-                    app.executeMenuCommand(commands.expandAppearance);
-                    return collect(items<PageItem>(doc.selection), (item) => ({ item, opacity, blendingMode }));
-                });
-                visit(cropped, ({ item, opacity, blendingMode }): void => {
-                    const result = item;
-                    result.opacity = opacity;
-                    result.blendingMode = blendingMode;
-                });
-                return { operation, count: groups.length };
-            }),
-        ),
-    );
+            }
+            const compounds = select(flatten(items(group.pageItems)), typed<CompoundPathItem>('CompoundPathItem'));
+            for (let index = 0; index < compounds.length; index += 1) {
+                doc.selection = [nth(compounds, index)];
+                app.executeMenuCommand(commands.noCompoundPath);
+                app.executeMenuCommand(commands.ungroup);
+                app.executeMenuCommand(commands.compoundPath);
+            }
+            const [filledMask] = select(items(group.pathItems), (path): boolean => path.clipping && path.filled);
+            const mask = request.keepFilledMask && filledMask !== undefined ? [filledMask.duplicate(group, ElementPlacement.PLACEAFTER)] : [];
+            const { opacity, blendingMode } = group;
+            try {
+                doc.selection = [group];
+                app.executeMenuCommand(commands.livePathfinderCrop);
+                app.executeMenuCommand(commands.expandAppearance);
+            } catch (error) {
+                for (let index = 0; index < mask.length; index += 1) {
+                    nth(mask, index).remove();
+                }
+                throw error;
+            }
+            const results = items<PageItem>(doc.selection);
+            for (let index = 0; index < results.length; index += 1) {
+                const item = nth(results, index);
+                item.opacity = opacity;
+                item.blendingMode = blendingMode;
+                output.push(item.uuid);
+            }
+            return { items: results.length };
+        });
+        doc.selection = select(items(doc.pageItems), (item): boolean => contains(output, item.uuid));
+        return { operation, count: cropped.length };
+    });
+    return present(split(operations));
 };
 
 run(cleanupPaths);

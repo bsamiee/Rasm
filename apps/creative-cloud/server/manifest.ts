@@ -1,6 +1,6 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Schema, String } from 'effect';
+import { Schema, SchemaGetter, String } from 'effect';
 import { LOOPBACK, type SOCKETS, type SocketHost } from './values.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
@@ -105,9 +105,22 @@ const Manifest: Schema.Struct<{
     featureFlags: Schema.Struct({ uncaughtException: Schema.Literal(true), unhandledRejection: Schema.Literal(true) }),
 });
 
-const Placed: Schema.Struct<(typeof Manifest)['fields'] & { readonly host: Schema.Struct<(typeof Host)['fields'] & { readonly minVersion: Schema.String }> }> = Schema.Struct({
+const _CompatibilityVersion: Schema.Codec<string> = Schema.TemplateLiteral([Schema.Int, '.', Schema.Int, '.', Schema.Int]);
+
+const Placed: Schema.Struct<(typeof Manifest)['fields'] & { readonly host: Schema.Struct<(typeof Host)['fields'] & { readonly minVersion: Schema.Codec<string> }> }> = Schema.Struct({
     ...Manifest.fields,
-    host: Schema.Struct({ ...Host.fields, minVersion: Schema.String }),
+    host: Schema.Struct({
+        ...Host.fields,
+        minVersion: Schema.String.pipe(
+            Schema.decodeTo(_CompatibilityVersion, {
+                decode: SchemaGetter.transform((version: string): string => {
+                    const [major, minor, patch] = String.split(version, '.');
+                    return `${major}.${minor}.${patch}`;
+                }),
+                encode: SchemaGetter.passthrough(),
+            }),
+        ),
+    }),
 });
 
 const _ICON: (typeof Icon)['Type'] = { width: 24, height: 24, path: 'icons/plugin.png', scale: [1, 2], species: ['pluginList'] };

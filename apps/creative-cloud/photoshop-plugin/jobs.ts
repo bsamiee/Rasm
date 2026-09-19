@@ -1,12 +1,13 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { action, app, core, type Document, type ExecutionContext, type GetPixelsResult, type ImagingBounds2, imaging, type Layer, type Size } from 'adobe:photoshop';
+import { action, app, constants, core, type Document, type ExecutionContext, type GetPixelsResult, type ImagingBounds2, imaging, type Layer, type Size, type SolidColor } from 'adobe:photoshop';
 import { active, evaluate, json, opened, read, thrown, written } from '@rasm/creative-cloud-server/client';
 import { HostRejection } from '@rasm/creative-cloud-server/errors';
-import { HistoryState, type Job } from '@rasm/creative-cloud-server/frames';
+import type { Job } from '@rasm/creative-cloud-server/frames';
 import { dpi, type PixelBudget, pixels, points } from '@rasm/creative-cloud-server/images';
-import { type Body, PRESET_CLASSES, type Reply } from '@rasm/creative-cloud-server/photoshop/jobs';
-import { Array, Effect, Exit, flow, Match, Option, Predicate, pipe, Record, Result, Schema, Struct, Tuple } from 'effect';
+import { type Body, PRESET_CLASSES, type Reply, type TypeStyle } from '@rasm/creative-cloud-server/photoshop/jobs';
+import { CHANNELS } from '@rasm/creative-cloud-server/values';
+import { Array, Effect, Exit, flow, Iterable, Match, MutableHashMap, Option, Predicate, Record, Result, Schema, Struct, Tuple } from 'effect';
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -19,27 +20,25 @@ const _COMPONENTS = 3;
 
 // --- [MODELS] --------------------------------------------------------------------------
 
-const _ids = Schema.encodeSync(
-    Schema.Struct({ documentId: Schema.Number, layerId: Schema.OptionFromOptionalKey(Schema.Number) }).pipe(Schema.encodeKeys({ documentId: 'documentID', layerId: 'layerID' })),
-);
-
-const _history = Schema.encodeSync(HistoryState.pipe(Schema.encodeKeys({ documentId: 'documentID' })));
-
 const _json: (input: unknown) => Option.Option<Schema.Json> = Schema.decodeUnknownOption(Schema.Json);
 
 // --- [SCOPE] ---------------------------------------------------------------------------
 
 const _suspended = <A>(context: ExecutionContext, work: Effect.Effect<A, HostRejection>, suspendHistory: Job['suspendHistory']): Effect.Effect<A, HostRejection> =>
     Effect.acquireUseRelease(
-        Effect.transposeOption(Option.map(suspendHistory, (held) => Effect.tryPromise({ try: () => context.hostControl.suspendHistory(_history(held)), catch: thrown }))),
-        () => work,
+        Effect.transposeOption(
+            Option.map(suspendHistory, ({ documentId, name }) => Effect.tryPromise({ try: () => context.hostControl.suspendHistory({ documentID: documentId, name }), catch: thrown })),
+        ),
+        () =>
+            work.pipe(
+                Effect.mapError((cause) => (context.isCancelled ? HostRejection.cases.userCancelled.make({}) : cause)),
+                Effect.filterOrFail(
+                    () => !context.isCancelled,
+                    () => HostRejection.cases.userCancelled.make({}),
+                ),
+            ),
         (suspension, exit) =>
             Effect.asVoid(Effect.transposeOption(Option.map(suspension, (held) => Effect.tryPromise({ try: () => context.hostControl.resumeHistory(held, Exit.isSuccess(exit)), catch: thrown })))),
-    ).pipe(
-        Effect.filterOrFail(
-            () => !context.isCancelled,
-            () => HostRejection.cases.userCancelled.make({}),
-        ),
     );
 
 const modal = <A>(work: Effect.Effect<A, HostRejection>, commandName: string, suspendHistory: Job['suspendHistory']): Effect.Effect<A, HostRejection> =>
@@ -65,15 +64,196 @@ const _found = (id: number): Effect.Effect<Document, HostRejection> =>
 
 const _flat = (
     layers: readonly Layer[],
+    maximum: number,
     depth: number,
     parentId: Option.Option<number>,
-): readonly { readonly layer: Layer; readonly depth: number; readonly parentId: Option.Option<number>; readonly children: number }[] =>
-    Array.flatMap(layers, (layer) =>
-        pipe(Option.getOrElse(Option.fromNullishOr(layer.layers), Array.empty), (children) => [
-            { layer, depth, parentId, children: children.length },
-            ..._flat(children, depth + 1, Option.some(layer.id)),
-        ]),
+): Iterable<{ readonly layer: Layer; readonly depth: number; readonly parentId: Option.Option<number>; readonly children: number }> =>
+    Iterable.flatMap(layers, (layer) => {
+        const children = Option.getOrElse(Option.fromNullishOr(layer.layers), Array.empty);
+        return Iterable.appendAll(Iterable.of({ layer, depth, parentId, children: children.length }), depth < maximum ? _flat(children, maximum, depth + 1, Option.some(layer.id)) : Iterable.empty());
+    });
+
+const _layer = (document: Document, id: number): Effect.Effect<Layer, HostRejection> =>
+    Effect.map(
+        Effect.fromOption(
+            Iterable.findFirst(_flat(document.layers, Number.POSITIVE_INFINITY, 0, Option.none()), ({ layer }) => layer.id === id),
+            () => HostRejection.cases.itemNotFound.make({ itemId: id }),
+        ),
+        Struct.get('layer'),
     );
+
+// --- [DESIGN] --------------------------------------------------------------------------
+
+const _color = (ink: Option.Option.Value<TypeStyle['color']>): SolidColor => {
+    const color = new app.SolidColor();
+    Match.value(ink).pipe(
+        Match.discriminator('model')('RGB', ({ values: [red, green, blue] }) => Object.assign(color.rgb, { red, green, blue })),
+        Match.discriminator('model')('CMYK', ({ values: [cyan, magenta, yellow, black] }) => Object.assign(color.cmyk, { cyan, magenta, yellow, black })),
+        Match.discriminator('model')('LAB', ({ values: [l, a, b] }) => Object.assign(color.lab, { l, a, b })),
+        Match.discriminator('model')('GRAY', ({ values: [white] }) => Object.assign(color.gray, { gray: (1 - white) * CHANNELS.percent })),
+        Match.exhaustive,
+    );
+    return color;
+};
+
+const _styled = (layer: Layer, { character, paragraph, color }: TypeStyle): Effect.Effect<TypeStyle, HostRejection> =>
+    Effect.try({
+        try: () => {
+            const text = layer.textItem;
+            Object.assign(text.characterStyle, character, Record.getSomes({ color: Option.map(color, _color) }));
+            Object.assign(text.paragraphStyle, paragraph);
+            return {
+                character: Struct.pick(text.characterStyle, Struct.keys(character)),
+                paragraph: Struct.pick(text.paragraphStyle, Struct.keys(paragraph)),
+                color: Option.map(color, (ink) =>
+                    Match.value(ink).pipe(
+                        Match.discriminator('model')('RGB', () => ({
+                            model: 'RGB' as const,
+                            values: [text.characterStyle.color.rgb.red, text.characterStyle.color.rgb.green, text.characterStyle.color.rgb.blue] as const,
+                        })),
+                        Match.discriminator('model')('CMYK', () => ({
+                            model: 'CMYK' as const,
+                            values: [text.characterStyle.color.cmyk.cyan, text.characterStyle.color.cmyk.magenta, text.characterStyle.color.cmyk.yellow, text.characterStyle.color.cmyk.black] as const,
+                        })),
+                        Match.discriminator('model')('LAB', () => ({
+                            model: 'LAB' as const,
+                            values: [text.characterStyle.color.lab.l, text.characterStyle.color.lab.a, text.characterStyle.color.lab.b] as const,
+                        })),
+                        Match.discriminator('model')('GRAY', () => ({ model: 'GRAY' as const, values: [1 - text.characterStyle.color.gray.gray / CHANNELS.percent] as const })),
+                        Match.exhaustive,
+                    ),
+                ),
+            };
+        },
+        catch: thrown,
+    });
+
+const applyTypeStyles = ({ documentId, styles, targets }: Body<'applyTypeStyles'>): Effect.Effect<Reply<'applyTypeStyles'>, HostRejection> =>
+    Effect.gen(function* () {
+        const document = yield* _found(documentId);
+        const resolved = yield* Effect.validate(targets, ({ layerId, style }) =>
+            Effect.all({
+                layer: _layer(document, layerId).pipe(
+                    Effect.filterOrFail(
+                        (layer) => layer.kind === constants.LayerKind.TEXT,
+                        () => HostRejection.cases.malformedParams.make({ cause: { layerId, expected: constants.LayerKind.TEXT } }),
+                    ),
+                ),
+                values: Effect.fromOption(Record.get(styles, style), () => HostRejection.cases.malformedParams.make({ cause: { style } })),
+                style: Effect.succeed(style),
+            }),
+        ).pipe(Effect.mapError((cause) => HostRejection.cases.malformedParams.make({ cause })));
+        const layers = yield* Effect.forEach(resolved, ({ layer, style, values }) => Effect.map(_styled(layer, values), (readback) => ({ layerId: layer.id, style, values: readback })));
+        return { kind: 'typeStyles', documentId, layers };
+    });
+
+const composeLayers: (input: Body<'composeLayers'>) => Effect.Effect<Reply<'composeLayers'>, HostRejection> = Effect.fn(function* ({
+    documentId,
+    layers,
+    styles,
+}: Body<'composeLayers'>): Effect.fn.Return<Reply<'composeLayers'>, HostRejection> {
+    const document = yield* _found(documentId);
+    const resolved = yield* Effect.validate(layers, (row) =>
+        Match.value(row.content).pipe(
+            Match.discriminator('kind')('source', (content) =>
+                Effect.map(
+                    Effect.flatMap(_found(content.documentId), (source) => _layer(source, content.layerId)),
+                    (source) => ({ ...row, content: { ...content, source } }),
+                ),
+            ),
+            Match.discriminator('kind')('text', (content) =>
+                Effect.map(
+                    Effect.fromOption(Record.get(styles, content.style), () => HostRejection.cases.malformedParams.make({ cause: { style: content.style } })),
+                    (values) => ({ ...row, content: { ...content, values } }),
+                ),
+            ),
+            Match.orElse((content) => Effect.succeed({ ...row, content })),
+        ),
+    ).pipe(Effect.mapError((cause) => HostRejection.cases.malformedParams.make({ cause })));
+    const parents = MutableHashMap.empty<number, Layer>();
+    const siblings = MutableHashMap.empty<Option.Option<number>, Layer>();
+    const created = yield* Effect.forEach(
+        resolved,
+        Effect.fn(function* (row: (typeof resolved)[number], index: number): Effect.fn.Return<Layer, HostRejection> {
+            const options = Struct.pick(row, ['name', 'opacity', 'blendMode']);
+            const result = yield* Effect.tryPromise({
+                try: () =>
+                    Match.value(row.content).pipe(
+                        Match.discriminator('kind')('group', ({ color }) => document.createLayerGroup({ ...options, color })),
+                        Match.discriminator('kind')('pixel', ({ color }) => document.createPixelLayer({ ...options, color })),
+                        Match.discriminator('kind')('text', ({ color, contents, position }) => document.createTextLayer({ ...options, color, contents, position })),
+                        Match.discriminator('kind')('source', ({ source }) => source.duplicate(document, constants.ElementPlacement.PLACEATBEGINNING, row.name)),
+                        Match.exhaustive,
+                    ),
+                catch: thrown,
+            });
+            const layer = yield* Effect.fromOption(Option.fromNullishOr(result), () => HostRejection.cases.resultNotJson.make({ cause: row }));
+            const preceding = MutableHashMap.get(siblings, row.parent);
+            const group = Option.flatMap(row.parent, (parent) => MutableHashMap.get(parents, parent));
+            const anchor = Option.orElse(preceding, () => group);
+            const placement = Option.isSome(preceding) ? constants.ElementPlacement.PLACEAFTER : constants.ElementPlacement.PLACEINSIDE;
+            yield* Effect.try({
+                try: () => {
+                    Object.assign(layer, { allLocked: false, pixelsLocked: false, positionLocked: false, transparentPixelsLocked: false });
+                    const [first] = document.layers;
+                    if (Option.isSome(anchor)) {
+                        layer.move(anchor.value, placement);
+                    } else if (first && first.id !== layer.id) {
+                        layer.move(first, constants.ElementPlacement.PLACEBEFORE);
+                    }
+                    Object.assign(layer, Struct.pick(row, ['name', 'opacity', 'blendMode', 'visible']));
+                },
+                catch: thrown,
+            });
+            if (row.content.kind === 'text') {
+                yield* _styled(layer, row.content.values);
+            }
+            MutableHashMap.set(siblings, row.parent, layer);
+            MutableHashMap.set(parents, index, layer);
+            return layer;
+        }),
+    );
+    yield* Effect.try({
+        try: () =>
+            Array.forEach(Array.reverse(Array.zip(created, layers)), ([layer, row]) => {
+                if (layer.isClippingMask !== row.clipped) {
+                    layer.isClippingMask = row.clipped;
+                }
+                layer.allLocked = row.locked;
+            }),
+        catch: thrown,
+    });
+    const { results } = yield* batchPlay({
+        descriptors: Array.map(layers, (_, index) => ({
+            _obj: 'get',
+            _target: [{ _property: 'color' }, { _ref: 'layer', _id: Array.getUnsafe(created, index).id }, { _ref: 'document', _id: documentId }],
+        })),
+        continueOnError: false,
+        immediateRedraw: false,
+    });
+    const colors = yield* Schema.decodeUnknownEffect(Schema.Array(Schema.Struct({ color: Schema.Struct({ _enum: Schema.Literal('color'), _value: Schema.Enum(constants.LabelColors) }) })))(
+        results,
+    ).pipe(Effect.mapError((cause) => HostRejection.cases.resultNotJson.make({ cause })));
+    return yield* Effect.try({
+        try: () => ({
+            kind: 'layers' as const,
+            documentId,
+            layers: Array.map(created, (layer, index) => ({
+                layerId: layer.id,
+                parentId: Option.map(Option.fromNullishOr(layer.parent), Struct.get('id')),
+                name: layer.name,
+                kind: layer.kind,
+                color: Array.getUnsafe(colors, index).color._value,
+                visible: layer.visible,
+                locked: layer.locked,
+                clipped: layer.isClippingMask,
+                opacity: layer.opacity,
+                blendMode: layer.blendMode,
+            })),
+        }),
+        catch: thrown,
+    });
+});
 
 // --- [PIXELS] --------------------------------------------------------------------------
 
@@ -87,7 +267,7 @@ const _fit = (resolution: number, budget: PixelBudget, { left, top, right, botto
 const _mask = (open: Document, budget: PixelBudget, bounds: ImagingBounds2): Effect.Effect<GetPixelsResult, HostRejection> =>
     Effect.acquireUseRelease(
         Effect.tryPromise({
-            try: () => imaging.getSelection({ ..._ids({ documentId: open.id, layerId: Option.none() }), sourceBounds: bounds, targetSize: _fit(open.resolution, budget, bounds) }),
+            try: () => imaging.getSelection({ documentID: open.id, sourceBounds: bounds, targetSize: _fit(open.resolution, budget, bounds) }),
             catch: thrown,
         }),
         (mask) =>
@@ -117,14 +297,15 @@ const _mask = (open: Document, budget: PixelBudget, bounds: ImagingBounds2): Eff
                 },
                 catch: thrown,
             }),
-        (mask) => Effect.promise(() => mask.imageData.dispose()),
+        (mask) => Effect.sync(() => mask.imageData.dispose()),
     );
 
 const _composite = (open: Document, budget: PixelBudget, layerId: Option.Option<number>, sourceBounds: ImagingBounds2): Effect.Effect<GetPixelsResult, HostRejection> =>
     Effect.tryPromise({
         try: () =>
             imaging.getPixels({
-                ..._ids({ documentId: open.id, layerId }),
+                documentID: open.id,
+                ...Record.getSomes({ layerID: layerId }),
                 sourceBounds,
                 targetSize: _fit(open.resolution, budget, sourceBounds),
                 colorSpace: 'RGB',
@@ -171,24 +352,33 @@ const snapshot = ({ documentId, target, region, budget }: Body<'snapshot'>): Eff
     Effect.acquireUseRelease(
         Effect.gen(function* () {
             const open = yield* Option.match(documentId, { onNone: () => opened(app), onSome: _found });
-            const bounds = Option.match(region, {
+            const selectedLayer = yield* target.kind === 'layer'
+                ? Effect.map(
+                      Effect.fromOption(
+                          Iterable.findFirst(_flat(open.layers, Number.POSITIVE_INFINITY, 0, Option.none()), ({ layer }) => layer.id === target.layerId),
+                          () => HostRejection.cases.itemNotFound.make({ itemId: target.layerId }),
+                      ),
+                      ({ layer }) => Option.some(layer),
+                  )
+                : Effect.succeed(Option.none<Layer>());
+            const source = Option.match(selectedLayer, {
                 onNone: () => ({ left: 0, top: 0, right: open.width, bottom: open.height }),
-                onSome: ([x0, y0, x1, y1]) => ({ left: Math.round(x0 * open.width), top: Math.round(y0 * open.height), right: Math.round(x1 * open.width), bottom: Math.round(y1 * open.height) }),
+                onSome: Struct.get('boundsNoEffects'),
             });
-            return yield* Match.value(target).pipe(
-                Match.discriminatorsExhaustive('kind')({
-                    layer: ({ layerId }) =>
-                        Effect.flatMap(
-                            Effect.fromOption(
-                                Array.findFirst(_flat(open.layers, 0, Option.none()), ({ layer }) => layer.id === layerId),
-                                () => HostRejection.cases.itemNotFound.make({ itemId: layerId }),
-                            ),
-                            ({ layer }) => _composite(open, budget, Option.some(layer.id), layer.boundsNoEffects),
-                        ),
-                    document: () => _composite(open, budget, Option.none(), bounds),
-                    selection: () => _mask(open, budget, bounds),
+            const bounds = Option.match(region, {
+                onNone: () => source,
+                onSome: ([x0, y0, x1, y1]) => ({
+                    left: Math.max(Math.round(x0 * open.width), source.left),
+                    top: Math.max(Math.round(y0 * open.height), source.top),
+                    right: Math.min(Math.round(x1 * open.width), source.right),
+                    bottom: Math.min(Math.round(y1 * open.height), source.bottom),
                 }),
+            });
+            yield* Effect.fromOption(
+                Option.liftPredicate(bounds, ({ left, top, right, bottom }) => left < right && top < bottom),
+                () => HostRejection.cases.malformedParams.make({ cause: bounds }),
             );
+            return yield* target.kind === 'selection' ? _mask(open, budget, bounds) : _composite(open, budget, Option.map(selectedLayer, Struct.get('id')), bounds);
         }),
         ({ imageData, sourceBounds, level }) =>
             Effect.map(
@@ -206,18 +396,12 @@ const snapshot = ({ documentId, target, region, budget }: Body<'snapshot'>): Eff
                     colorProfile: imageData.colorProfile,
                 }),
             ),
-        ({ imageData }) => Effect.promise(() => imageData.dispose()),
+        ({ imageData }) => Effect.sync(() => imageData.dispose()),
     );
 
 const getDocument = ({ documentId, limit, cursor, depth }: Body<'getDocument'>): Effect.Effect<Reply<'getDocument'>, HostRejection> =>
     Effect.map(Option.match(documentId, { onNone: () => Effect.succeed(active(app)), onSome: flow(_found, Effect.map(Option.some)) }), (open) => {
-        const rows = Option.map(
-            open,
-            flow(
-                (selected) => _flat(selected.layers, 0, Option.none()),
-                Array.filter((placed) => placed.depth <= depth),
-            ),
-        );
+        const rows = Option.map(open, (selected) => Array.fromIterable(_flat(selected.layers, depth, 0, Option.none())));
         const count = Option.map(rows, Array.length);
         const paged = Option.map(
             rows,
@@ -338,4 +522,4 @@ const runAction = ({ set, action: name }: Body<'runAction'>): Effect.Effect<Repl
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export { batchPlay, execute, getDocument, getPreferences, listPresets, modal, runAction, setPreferences, snapshot };
+export { applyTypeStyles, batchPlay, composeLayers, execute, getDocument, getPreferences, listPresets, modal, runAction, setPreferences, snapshot };

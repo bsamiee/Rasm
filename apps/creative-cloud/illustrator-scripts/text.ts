@@ -1,19 +1,8 @@
 /// <reference path="./prelude.ts"/>
 
-declare global {
-    enum ElementPlacement {}
-    enum Justification {}
-    enum ParagraphDirectionType {}
-    enum TextOrientation {}
-
-    interface TextFrame {
-        duplicate: (relativeObject?: object, insertionLocation?: ElementPlacement) => TextFrame;
-    }
-}
-
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { collect, color, fold, items, present, run, select, split, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { collect, colors, flatMap, flatten, fold, items, nth, present, run, select, split, typed, visit }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
 
 // --- [REQUEST] -------------------------------------------------------------------------
 
@@ -24,16 +13,9 @@ interface Highlight {
     readonly anchor: [number, number];
     readonly color: ColorSpec;
     readonly yOffset: number;
-    readonly dash: { readonly dash: number; readonly gap: number; readonly weight: number }[];
+    readonly dash: { readonly dash: number; readonly gap: number }[];
     readonly effect: string[];
     readonly groupPerFrame: boolean;
-}
-
-interface Measured {
-    readonly left: number;
-    readonly top: number;
-    readonly width: number;
-    readonly height: number;
 }
 
 const PERCENT = 100;
@@ -50,72 +32,116 @@ const alignedLeft = (frame: TextFrame, line: TextRange, width: number): number =
     return right ? frame.left + frame.width - width : frame.left;
 };
 
-const outlineBox = (clone: TextFrame, contents: string): Measured => {
+const outlineBox = (clone: TextFrame): Rect => {
     const copy = clone.duplicate();
-    copy.contents = contents;
-    const outline = copy.createOutline();
-    const box = { left: outline.left, top: outline.top, width: outline.width, height: outline.height };
-    outline.remove();
-    return box;
+    const acquired: PageItem[] = [copy];
+    try {
+        const outline = copy.createOutline();
+        acquired[0] = outline;
+        return outline.geometricBounds;
+    } finally {
+        visit(acquired, (item): void => item.remove());
+    }
 };
 
-const measured = (frame: TextFrame, line: TextRange, top: number, left: number, glyph: string): Measured => {
+const measured = (frame: TextFrame, line: TextRange, top: number, left: number, glyph: string): Rect => {
     const clone = frame.duplicate();
-    clone.contents = line.contents === '' ? glyph : line.contents;
-    if (frame.orientation === TextOrientation.VERTICAL) {
-        clone.left = left;
-    } else {
-        clone.top = top;
-        clone.left = alignedLeft(frame, line, clone.width);
+    try {
+        clone.contents = '';
+        line.duplicate(nth(clone.insertionPoints, 0), ElementPlacement.PLACEATBEGINNING);
+        if (clone.contents === '') {
+            clone.contents = glyph;
+        }
+        if (frame.orientation === TextOrientation.VERTICAL) {
+            clone.left = left;
+        } else {
+            clone.top = top;
+            clone.left = alignedLeft(frame, line, clone.width);
+        }
+        const box = outlineBox(clone);
+        clone.contents = glyph;
+        const rule = outlineBox(clone);
+        return [box[0], rule[1], box[2], rule[3]];
+    } finally {
+        clone.remove();
     }
-    const box = outlineBox(clone, clone.contents);
-    const rule = outlineBox(clone, glyph);
-    clone.remove();
-    return { left: box.left, top: rule.top, width: box.width, height: rule.height };
 };
 
 // --- [DRAWING] -------------------------------------------------------------------------
 
-const drawn = (frame: TextFrame, dest: Measured, highlight: Highlight, fill: Color): PathItem => {
+const drawn = (frame: TextFrame, dest: Rect, highlight: Highlight, fill: Color): PathItem => {
     const absW = highlight.width.kind === 'points';
     const absH = highlight.height.kind === 'points';
-    const boxW = absW ? highlight.width.value : dest.width;
-    const boxH = absH ? highlight.height.value : dest.height;
+    const measuredWidth = dest[2] - dest[0];
+    const measuredHeight = dest[1] - dest[3];
+    const boxW = absW ? highlight.width.value : measuredWidth;
+    const boxH = absH ? highlight.height.value : measuredHeight;
     const [horizontal, vertical] = highlight.anchor;
-    const left = absW ? dest.left - horizontal * (boxW - dest.width) : dest.left + horizontal * boxW * (1 - highlight.width.value);
-    const shifted = absH ? dest.top + vertical * (boxH - dest.height) : dest.top - vertical * boxH * (1 - highlight.height.value);
+    const left = absW ? dest[0] - horizontal * (boxW - measuredWidth) : dest[0] + horizontal * boxW * (1 - highlight.width.value);
+    const shifted = absH ? dest[1] + vertical * (boxH - measuredHeight) : dest[1] - vertical * boxH * (1 - highlight.height.value);
     const thickness = boxH * (absH ? 1 : highlight.height.value);
     const width = boxW * (absW ? 1 : highlight.width.value);
-    const rect = frame.layer.pathItems.rectangle(shifted + highlight.yOffset, left, width, thickness);
-    rect.filled = true;
-    rect.fillColor = fill;
-    rect.stroked = highlight.dash.length > 0;
-    visit(highlight.dash, (dash): void => {
-        rect.strokeColor = fill;
-        rect.strokeWidth = dash.weight;
-        rect.strokeDashes = [dash.dash, dash.gap];
-    });
-    visit(highlight.effect, (effect): void => {
-        rect.applyEffect(effect);
-    });
-    rect.move(frame, ElementPlacement.PLACEAFTER);
-    return rect;
+    const path = frame.layer.pathItems.add();
+    try {
+        const center = shifted + highlight.yOffset - thickness / 2;
+        path.setEntirePath([
+            [left, center],
+            [left + width, center],
+        ]);
+        path.filled = false;
+        path.stroked = true;
+        path.strokeColor = fill;
+        path.strokeWidth = thickness;
+        visit(highlight.dash, (dash): void => {
+            path.strokeDashes = [dash.dash, dash.gap];
+        });
+        visit(highlight.effect, (effect): void => {
+            path.applyEffect(effect);
+        });
+        path.move(frame, ElementPlacement.PLACEAFTER);
+        return path;
+    } catch (error) {
+        path.remove();
+        throw error;
+    }
 };
 
 // --- [ENTRY] ---------------------------------------------------------------------------
 
-const text = (request: { readonly highlight: Highlight }): Reading<JsonObject> => {
+const text = (request: { readonly highlight: Highlight }, at: Site): Reading<JsonObject> => {
     const doc = app.activeDocument;
     const { highlight } = request;
-    const fill = color(doc, highlight.color);
-    const selected = items<PageItem | TextRange>(doc.selection);
-    const [range] = select(selected, typed<TextRange>('TextRange'));
+    const ranges = flatMap(items(doc.stories), (story) =>
+        flatMap(story.textSelection, (range) =>
+            collect(items(story.textFrames), (frame) => ({
+                frame,
+                start: Math.max(range.start, frame.textRange.start),
+                end: Math.min(range.end, frame.textRange.end),
+            })),
+        ),
+    );
     const frames =
-        range === undefined
-            ? collect(select(selected, typed<TextFrame>('TextFrame')), (frame) => ({ frame, lines: items(frame.lines) }))
-            : [{ frame: (range.parent as { readonly parent: TextFrame }).parent, lines: items(range.lines) }];
-    return present(
-        split(
+        ranges.length === 0
+            ? collect(select(flatten(items<PageItem>(doc.selection)), typed<TextFrame>('TextFrame')), (frame) => ({ frame, lines: items(frame.lines) }))
+            : collect(
+                  select(ranges, ({ start, end }): boolean => end > start),
+                  ({ frame, start, end }) => {
+                      const range = frame.textRange;
+                      range.start = start;
+                      range.end = end;
+                      return { frame, lines: items(range.lines) };
+                  },
+              );
+    if (frames.length === 0) {
+        return present(split([]));
+    }
+    const paint = colors(doc, [highlight.color], false, at);
+    if ('rejected' in paint.value) {
+        return { value: split(collect(paint.value.rejected, ({ name, reason }): JsonObject => ({ color: name, reason }))), unavailable: paint.unavailable };
+    }
+    const fill = nth(paint.value.values, 0);
+    return {
+        value: split(
             collect(frames, ({ frame, lines }): JsonObject => {
                 const { rects } = fold<TextRange, { readonly top: number; readonly left: number; readonly rects: PathItem[] }>(
                     lines,
@@ -137,7 +163,8 @@ const text = (request: { readonly highlight: Highlight }): Reading<JsonObject> =
                 return { frame: frame.uuid, lines: rects.length };
             }),
         ),
-    );
+        unavailable: paint.unavailable,
+    };
 };
 
 run(text);

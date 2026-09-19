@@ -1,10 +1,32 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, type Config, Console, Effect, FileSystem, Filter, identity, Match, Number, Option, Order, Path, type PlatformError, pipe, Record, Schema, String, Struct } from 'effect';
+import {
+    Array,
+    Console,
+    type Crypto,
+    Effect,
+    Equivalence,
+    FileSystem,
+    Filter,
+    identity,
+    Match,
+    Number,
+    Option,
+    Order,
+    Path,
+    type PlatformError,
+    pipe,
+    Record,
+    Result,
+    Schema,
+    String,
+    Struct,
+} from 'effect';
 import type { ChildProcessSpawner } from 'effect/unstable/process';
 import {
     type BinaryExpression,
     type CallExpression,
+    type MethodSignatureStructure,
     ModuleDeclarationKind,
     Node,
     Project,
@@ -13,13 +35,31 @@ import {
     type StatementStructures,
     StructureKind,
     SyntaxKind,
+    type Type,
     ts,
     VariableDeclarationKind,
     Writers,
 } from 'ts-morph';
 import type { BridgeError } from '../errors.ts';
-import { root } from '../jobs.ts';
-import { absent, camel, dictionary, fourcc, MANIPULATION, pascal, SDEF_TYPES, type SdefClass, type SdefEnumeration, type SdefProperty, sorted } from '../sdef.ts';
+import type { Hosts } from '../hosts.ts';
+import { Jobs, root, run } from '../jobs.ts';
+import {
+    absent,
+    camel,
+    dictionary,
+    fourcc,
+    MANIPULATION,
+    pascal,
+    SDEF_TYPES,
+    type SdefClass,
+    type SdefCommand,
+    type SdefEnumeration,
+    type SdefProperty,
+    type SdefValue,
+    sorted,
+    type XmlError,
+} from '../sdef.ts';
+import { read, type ShortcutError } from '../shortcuts.ts';
 import { AbsolutePath, TimeoutMs } from '../values.ts';
 import { dispatch, type Site, site, Unavailable } from './channel.ts';
 
@@ -30,7 +70,7 @@ interface Slot {
     readonly access: Member['access'];
     readonly enumeration: Option.Option<string>;
     readonly literal: Option.Option<string>;
-    readonly parameters: readonly { readonly name: string; readonly type: string }[];
+    readonly parameters: readonly { readonly name: string; readonly type: string; readonly optional: boolean }[];
 }
 
 interface DomClass {
@@ -58,12 +98,16 @@ interface Table {
 
 interface Sources {
     readonly image: AbsolutePath;
+    readonly menuCommands: readonly string[];
+    readonly commandSources: readonly string[];
     readonly sdefClasses: readonly SdefClass[];
     readonly sdefEnumerations: readonly SdefEnumeration[];
+    readonly sdefCommands: readonly SdefCommand[];
     readonly dom: Readonly<Record<string, DomClass>>;
     readonly domEnumerations: Readonly<Record<string, { readonly id: number; readonly members: Readonly<Record<string, number>> }>>;
     readonly known: Readonly<Record<string, { readonly derived: readonly string[]; readonly members: readonly string[]; readonly types: Readonly<Record<string, string>> }>>;
     readonly knownEnumerations: Readonly<Record<string, readonly string[]>>;
+    readonly covariant: Readonly<Record<string, readonly Omit<MethodSignatureStructure, 'kind'>[]>>;
 }
 
 interface Names {
@@ -91,10 +135,13 @@ const _LIVE_TYPES: Readonly<Record<string, string>> = {
 // --- [ERRORS] --------------------------------------------------------------------------
 
 const GenerateError: Schema.TaggedUnion<{
-    readonly resourceNotFound: Schema.TaggedStruct<'resourceNotFound', { readonly resource: Schema.Literals<readonly ['sdef', 'image', 'script', 'typings']>; readonly count: Schema.Number }>;
+    readonly resourceNotFound: Schema.TaggedStruct<
+        'resourceNotFound',
+        { readonly resource: Schema.Literals<readonly ['sdef', 'image', 'script', 'typings', 'menuCommands']>; readonly count: Schema.Number }
+    >;
     readonly loweringHelper: Schema.TaggedStruct<'loweringHelper', { readonly helpers: Schema.$Record<Schema.String, Schema.$Array<Schema.String>> }>;
 }> = Schema.TaggedUnion({
-    resourceNotFound: { resource: Schema.Literals(['sdef', 'image', 'script', 'typings']), count: Schema.Number },
+    resourceNotFound: { resource: Schema.Literals(['sdef', 'image', 'script', 'typings', 'menuCommands']), count: Schema.Number },
     loweringHelper: { helpers: Schema.Record(Schema.String, Schema.Array(Schema.String)) },
 });
 
@@ -228,6 +275,7 @@ const _method = (node: BinaryExpression): Option.Option<readonly [string, Slot]>
                 parameters: Array.map(body.getParameters(), (parameter) => ({
                     name: parameter.getName(),
                     type: Option.getOrElse(_enumSpec(body, Option.some(parameter.getName())), () => 'unknown'),
+                    optional: true,
                 })),
             },
         ]),
@@ -294,25 +342,15 @@ const _domScript = (source: SourceFile): Pick<Sources, 'dom' | 'domEnumerations'
     );
     return {
         dom: Record.map(kinds, (kind, name): DomClass => ({ name, kind, slots: Array.map(Array.flatten(Array.fromOption(Record.get(slots, name))), ([, slot]) => slot) })),
-        domEnumerations: Record.fromEntries(
-            Array.filterMap(
-                _table(assignments, '_enumNameToId'),
-                Filter.fromPredicateOption(([name, right]) =>
-                    Option.map(Record.get(ids, name), (id) => [
-                        name,
-                        {
-                            id,
-                            members: Record.fromEntries(
-                                Array.filterMap(
-                                    right.getDescendantsOfKind(SyntaxKind.PropertyAssignment),
-                                    Filter.fromPredicateOption((property) => Option.all([_stringOf(property.getNameNode()), _numberOf(property.getInitializer())] as const)),
-                                ),
-                            ),
-                        },
-                    ]),
+        domEnumerations: Record.intersection(Record.fromEntries(_table(assignments, '_enumNameToId')), ids, (right, id) => ({
+            id,
+            members: Record.fromEntries(
+                Array.filterMap(
+                    right.getDescendantsOfKind(SyntaxKind.PropertyAssignment),
+                    Filter.fromPredicateOption((property) => Option.all([_stringOf(property.getNameNode()), _numberOf(property.getInitializer())] as const)),
                 ),
             ),
-        ),
+        })),
     };
 };
 
@@ -410,9 +448,9 @@ const _names = (sources: Sources, tables: Readonly<Record<string, Table>>, joine
 
 const _members = (sources: Sources, names: Names, joined: Readonly<Record<string, Table>>, inherited: readonly string[], row: DomClass, live: Live['classes'][string]): readonly Member[] => {
     const sdefMembers = Option.map(Record.get(joined, row.name), Struct.get('members'));
-    const sdefType = (table: Readonly<Record<string, string>>, property: SdefProperty): Option.Option<string> =>
+    const sdefType = (table: Readonly<Record<string, string>>, property: SdefValue): Option.Option<string> =>
         pipe(
-            Option.map(property.attributes.type, (name) => ({ name, list: false })),
+            Option.map(property.attributes.type, (name) => ({ name, list: Option.isSome(property.attributes.list) })),
             Option.orElse(() => Option.map(Array.head(property.type), (type) => ({ name: type.attributes.type, list: Option.isSome(type.attributes.list) }))),
             Option.flatMap(({ name, list }) => Option.map(Record.get(table, name), (text) => (list ? `${text}[]` : text))),
         );
@@ -432,6 +470,49 @@ const _members = (sources: Sources, names: Names, joined: Readonly<Record<string
             Option.orElse(() => Option.flatMap(slot, Struct.get('literal'))),
             Option.getOrElse(() => 'unknown'),
         );
+    const parameterNames = Array.map(({ name }: { readonly name: string }) => camel(name));
+    const parametersEqual = Equivalence.Array(Equivalence.String);
+    const types = { ...SDEF_TYPES, ...names.classes, ...names.enumerations };
+    const commands = pipe(
+        sources.sdefCommands,
+        Array.filter((command) => Option.exists(command['direct-parameter'], (owner) => Option.contains(sdefType(names.classes, owner), names.typings(row.name)))),
+        Array.map((command) => ({ command, parameters: parameterNames(Array.map(command.parameter, Struct.get('attributes'))) })),
+    );
+    const methods = Array.map(
+        Array.filter(row.slots, (slot) => slot.access === 'method' && Array.isReadonlyArrayNonEmpty(slot.parameters)),
+        (slot) => ({ slot, parameters: parameterNames(slot.parameters) }),
+    );
+    const signatures = pipe(
+        methods,
+        Array.filter(({ parameters }) => Array.filter(methods, (candidate) => parametersEqual(parameters, candidate.parameters)).length === 1),
+        Array.filterMap(
+            Filter.fromPredicateOption(({ slot, parameters }) =>
+                pipe(
+                    Array.filter(commands, (candidate) => parametersEqual(parameters, candidate.parameters)),
+                    Option.liftPredicate((matching) => matching.length === 1),
+                    Option.flatMap(Array.head),
+                    Option.map(({ command }) => ({ slot, command })),
+                ),
+            ),
+        ),
+        Array.map(
+            ({ slot, command }) =>
+                [
+                    slot.name,
+                    {
+                        type: Option.match(command.result, { onNone: () => 'void', onSome: (result) => Option.getOrElse(sdefType(types, result), () => 'unknown') }),
+                        parameters: Option.some(
+                            Array.zipWith(slot.parameters, command.parameter, (parameter, specification) => ({
+                                name: parameter.name,
+                                type: Option.getOrElse(sdefType(types, specification), () => parameter.type),
+                                optional: Option.isSome(specification.attributes.optional),
+                            })),
+                        ),
+                    },
+                ] as const,
+        ),
+        Record.fromEntries,
+    );
     const described = Array.map(live.properties, (property) => ({
         name: property.name,
         access: Match.value(property.type).pipe(
@@ -460,18 +541,15 @@ const _members = (sources: Sources, names: Names, joined: Readonly<Record<string
             return {
                 name: member.name,
                 access: member.access,
-                ...Match.value(member.access).pipe(
-                    Match.withReturnType<Pick<Member, 'type' | 'parameters'>>(),
-                    Match.when('method', () => ({
-                        type: 'unknown',
-                        parameters: Option.map(
-                            Option.filter(slot, (found) => found.access === 'method'),
-                            Struct.get('parameters'),
-                        ),
-                    })),
-                    Match.whenOr('readonly', 'readwrite', () => ({ type: resolve(slot, Option.flatMap(sdefMembers, Record.get(member.name)), member.dataType), parameters: Option.none() })),
-                    Match.exhaustive,
-                ),
+                ...(member.access === 'method'
+                    ? Option.getOrElse(Record.get(signatures, member.name), () => ({
+                          type: 'unknown',
+                          parameters: Option.map(
+                              Option.filter(slot, (found) => found.access === 'method'),
+                              Struct.get('parameters'),
+                          ),
+                      }))
+                    : { type: resolve(slot, Option.flatMap(sdefMembers, Record.get(member.name)), member.dataType), parameters: Option.none() }),
             };
         }),
     );
@@ -483,34 +561,39 @@ const _lifted = (
     joined: Readonly<Record<string, Table>>,
     names: Names,
     reached: Readonly<Record<string, readonly Member[]>>,
-): Readonly<Record<string, readonly Member[]>> =>
-    pipe(
-        Record.toEntries(sources.known),
-        Array.filterMap(
-            Filter.fromPredicateOption(([name, base]) => {
-                const children = Record.values(Record.filter(reached, (_, child) => Array.contains(base.derived, names.typings(child))));
-                const sdefBase = Option.map(
-                    Option.orElse(Record.get(joined, name), () => Record.get(tables, name)),
-                    Struct.get('members'),
-                );
-                return pipe(
-                    Option.liftPredicate(children, Array.isReadonlyArrayNonEmpty<readonly Member[]>),
-                    Option.filter((rows) => rows.length > 1),
-                    Option.map((rows) =>
-                        Array.reduce(
-                            rows,
-                            Array.headNonEmpty(rows),
-                            Array.intersectionWith<Member>((left, right) => left.name === right.name && left.type === right.type),
-                        ),
-                    ),
-                    Option.map(Array.filter((row) => !Array.contains(base.members, row.name) && Option.exists(sdefBase, Record.has(row.name)))),
-                    Option.flatMap(Option.liftPredicate(Array.isReadonlyArrayNonEmpty)),
-                    Option.map((rows) => [name, rows] as const),
-                );
-            }),
+): Readonly<Record<string, readonly Member[]>> => {
+    const equivalent: Equivalence.Equivalence<Member> = Equivalence.Struct({
+        name: Equivalence.String,
+        access: Equivalence.String,
+        type: Equivalence.String,
+        parameters: Option.makeEquivalence(Equivalence.Array(Equivalence.Struct({ name: Equivalence.String, type: Equivalence.String, optional: Equivalence.Boolean }))),
+    });
+    const lifted = Record.filterMap(sources.known, (base, name) => {
+        const children = Record.values(Record.filter(reached, (_, child) => Array.contains(base.derived, names.typings(child))));
+        const sdefBase = Option.map(
+            Option.orElse(Record.get(joined, name), () => Record.get(tables, name)),
+            Struct.get('members'),
+        );
+        return pipe(
+            Option.liftPredicate(children, Array.isReadonlyArrayNonEmpty<readonly Member[]>),
+            Option.filter((rows) => rows.length > 1),
+            Option.map((rows) => Array.reduce(rows, Array.headNonEmpty(rows), Array.intersectionWith<Member>(equivalent))),
+            Option.map(Array.filter((row) => !Array.contains(base.members, row.name) && Option.exists(sdefBase, Record.has(row.name)))),
+            Option.flatMap(Option.liftPredicate(Array.isReadonlyArrayNonEmpty)),
+            Result.fromOption(() => name),
+        );
+    });
+    const bases = Record.values(Record.intersection(lifted, sources.known, (members, { derived }) => ({ members, derived })));
+    return pipe(
+        Record.map(lifted, (members, name) =>
+            Array.differenceWith(equivalent)(
+                members,
+                Array.flatMap(bases, (base) => (Array.contains(base.derived, name) ? base.members : [])),
+            ),
         ),
-        Record.fromEntries,
+        Record.filter(Array.isReadonlyArrayNonEmpty),
     );
+};
 
 // --- [GENERATE] ------------------------------------------------------------------------
 
@@ -518,6 +601,16 @@ const _sources = Effect.fnUntraced(function* (at: Site, project: Project, script
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const resources = path.join(at.host.bundlePath, 'Contents', 'Resources');
+    const presets = path.join(path.dirname(at.host.bundlePath), 'Presets.localized');
+    const commandSources = sorted(Array.filter(yield* fs.readDirectory(presets, { recursive: true }), String.endsWith('.kys')));
+    // Factory presets preserve native spellings, including unassigned commands, but do not prove live availability or completeness.
+    const commands = yield* Effect.validate(commandSources, (name) => Effect.flatMap(fs.readFileString(path.join(presets, name)), (source) => read('illustrator', source)), {
+        concurrency: 'unbounded',
+    });
+    const menuCommands = sorted(Array.flatMap(Array.flatten(commands), ({ binding }) => (binding._tag === 'illustrator' && binding.target.section === 'Menus' ? [binding.target.command] : [])));
+    if (Array.isReadonlyArrayEmpty(menuCommands)) {
+        return yield* Effect.fail(GenerateError.cases.resourceNotFound.make({ resource: 'menuCommands', count: menuCommands.length }));
+    }
     const listing = yield* fs.readDirectory(resources);
     const sdef = yield* Effect.flatMap(_single('sdef', Array.filter(listing, String.endsWith('.sdef'))), (name) => Effect.flatMap(fs.readFileString(path.join(resources, name)), dictionary));
     const images = sorted(Array.filter(listing, String.endsWith('.png')));
@@ -532,15 +625,71 @@ const _sources = Effect.fnUntraced(function* (at: Site, project: Project, script
         Effect.flatMap(path.fromFileUrl(new URL(import.meta.resolve(`${directive.getFileName()}/index.d.ts`))), (file) => fs.readFileString(file)),
         (text) => project.createSourceFile('adobe.d.ts', text),
     );
+    const declarations = Array.map(typings.getClasses(), (node) => ({ node, name: node.getNameOrThrow(), derived: Array.map(node.getDerivedClasses(), (child) => child.getNameOrThrow()) }));
+    const methods = pipe(
+        Array.flatMap(declarations, (owner) => Array.map(owner.node.getMethods(), (method) => ({ owner, method }))),
+        Array.filter(
+            ({ owner, method }) =>
+                !(method.isStatic() || method.hasModifier(SyntaxKind.PrivateKeyword) || method.hasModifier(SyntaxKind.ProtectedKeyword)) &&
+                owner.node.getTypeParameters().length === 0 &&
+                method.getTypeParameters().length === 0 &&
+                !Array.some(method.getParameters(), (parameter) => parameter.getName() === 'this'),
+        ),
+        Array.map(({ owner, method }) => ({
+            owner,
+            method,
+            name: method.getName(),
+            optional: method.hasQuestionToken(),
+            parameters: Array.map(method.getParameters(), (parameter) => ({
+                optional: parameter.isOptional(),
+                rest: parameter.isRestParameter(),
+                type: parameter.getType(),
+            })),
+        })),
+    );
+    const equivalent = Equivalence.Struct({
+        name: Equivalence.String,
+        optional: Equivalence.Boolean,
+        parameters: Equivalence.Array(
+            Equivalence.Struct({
+                optional: Equivalence.Boolean,
+                rest: Equivalence.Boolean,
+                type: Equivalence.make<Type>((left, right) => left.isAny() === right.isAny() && left.isAssignableTo(right) && right.isAssignableTo(left)),
+            }),
+        ),
+    });
+    const covariant = pipe(
+        methods,
+        Array.filter(({ owner, method }) => method.getReturnType().getSymbol()?.getValueDeclaration() === owner.node),
+        Array.filter((base) => {
+            const children = Array.filter(methods, (child) => Array.contains(base.owner.derived, child.owner.name) && equivalent(base, child));
+            return Array.isReadonlyArrayNonEmpty(children) && Array.every(children, ({ owner, method }) => method.getReturnType().getSymbol()?.getValueDeclaration() === owner.node);
+        }),
+        Array.map(({ owner, method }) => ({
+            owner: owner.name,
+            signature: {
+                name: method.getName(),
+                hasQuestionToken: method.hasQuestionToken(),
+                typeParameters: [{ name: 'Self', constraint: 'this' }],
+                parameters: [{ name: 'this', type: 'Self' }, ...Array.map(method.getParameters(), (parameter) => parameter.getStructure())],
+                returnType: 'Self',
+            },
+        })),
+        Array.groupBy(Struct.get('owner')),
+        Record.map(Array.map(Struct.get('signature'))),
+    );
     return {
         image: AbsolutePath.make(path.join(resources, image)),
+        menuCommands,
+        commandSources,
         sdefClasses: Array.filter(Array.flatMap(sdef.dictionary.suite, Struct.get('class')), (row) => Option.isNone(row.attributes.hidden)),
         sdefEnumerations: Array.filter(Array.flatMap(sdef.dictionary.suite, Struct.get('enumeration')), (row) => Option.isNone(row.attributes.hidden)),
+        sdefCommands: Array.filter(Array.flatMap(sdef.dictionary.suite, Struct.get('command')), (row) => Option.isNone(row.attributes.hidden)),
         ..._domScript(project.createSourceFile('illustrator-dom.js', script)),
-        known: Record.fromIterableWith(typings.getClasses(), (node) => [
-            node.getNameOrThrow(),
+        known: Record.fromIterableWith(declarations, ({ node, name, derived }) => [
+            name,
             {
-                derived: Array.map(node.getDerivedClasses(), (child) => child.getNameOrThrow()),
+                derived,
                 members: Array.map(node.getType().getProperties(), (symbol) => symbol.getName()),
                 types: Record.fromEntries(
                     Array.filterMap(
@@ -551,19 +700,26 @@ const _sources = Effect.fnUntraced(function* (at: Site, project: Project, script
             },
         ]),
         knownEnumerations: Record.fromIterableWith(typings.getEnums(), (node) => [node.getName(), Array.map(node.getMembers(), (member) => member.getName())]),
+        covariant,
     } satisfies Sources;
 });
 
 const generate: () => Effect.Effect<
     void,
-    (typeof GenerateError)['Type'] | BridgeError | PlatformError.BadArgument | PlatformError.PlatformError | Schema.SchemaError | Config.ConfigError,
-    FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner
+    | (typeof GenerateError)['Type']
+    | BridgeError
+    | PlatformError.BadArgument
+    | PlatformError.PlatformError
+    | Schema.SchemaError
+    | (typeof XmlError)['Type']
+    | Array.NonEmptyArray<(typeof ShortcutError)['Type'] | Schema.SchemaError | PlatformError.PlatformError>,
+    Crypto.Crypto | FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner | Hosts | Jobs
 > = Effect.fnUntraced(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const at = yield* site;
     const scripts = path.join(yield* root, 'apps', 'creative-cloud', 'illustrator-scripts');
-    const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { lib: ['lib.es5.d.ts'], types: [] }, manipulationSettings: MANIPULATION });
+    const project = new Project({ useInMemoryFileSystem: true, compilerOptions: { strict: true, lib: ['lib.es5.d.ts'], types: [] }, manipulationSettings: MANIPULATION });
     yield* Effect.forEach(
         yield* fs.readDirectory(at.scripts),
         (name) =>
@@ -583,15 +739,23 @@ const generate: () => Effect.Effect<
         Record.union(sources.knownEnumerations, (mine, theirs) => [...mine, ...theirs]),
         Record.map(sorted),
     );
-    const live = yield* dispatch(at, TimeoutMs.make(_RECONCILE_MS), _RECONCILE, {
-        image: sources.image,
-        creatable: Array.map(
-            Array.filter(Record.values(sources.dom), (row) => row.kind === 'creatable'),
-            Struct.get('name'),
+    const live = yield* run((yield* Jobs).illustrator, _RECONCILE_MS, (jobId) =>
+        dispatch(
+            at,
+            TimeoutMs.make(_RECONCILE_MS),
+            _RECONCILE,
+            {
+                image: sources.image,
+                creatable: Array.map(
+                    Array.filter(Record.values(sources.dom), (row) => row.kind === 'creatable'),
+                    Struct.get('name'),
+                ),
+                classes: Record.map(sources.dom, (row) => Array.map(row.slots, Struct.get('name'))),
+                enumerations: Array.map(Record.toEntries(candidates), ([name, rows]) => ({ name, members: rows })),
+            },
+            jobId,
         ),
-        classes: Record.map(sources.dom, (row) => Array.map(row.slots, Struct.get('name'))),
-        enumerations: Array.map(Record.toEntries(candidates), ([name, rows]) => ({ name, members: rows })),
-    });
+    );
     const joined = _joined(sources.dom, tables);
     const names = _names(sources, tables, joined, live);
     const reached = Record.filterMap(
@@ -599,14 +763,19 @@ const generate: () => Effect.Effect<
         Filter.fromPredicateOption((row) => Option.map(Record.get(live.classes, row.name), (record) => _members(sources, names, joined, live.inherited, row, record))),
     );
     const lifted = _lifted(sources, tables, joined, names, reached);
-    const liftedNames = pipe(Record.values(lifted), Array.flatten, Array.map(Struct.get('name')), Array.dedupe);
     const own = pipe(
         Record.toEntries(reached),
         Array.filterMap(
             Filter.fromPredicateOption(([name, rows]) => {
                 const typed = names.typings(name);
                 const known = Record.get(sources.known, typed);
-                const excluded = Option.match(known, { onNone: () => liftedNames, onSome: (row) => [...row.members, ...liftedNames] });
+                const inherited = pipe(
+                    Record.filter(lifted, (_, ancestor) => ancestor === typed || Option.exists(Record.get(sources.known, ancestor), (base) => Array.contains(base.derived, typed))),
+                    Record.values,
+                    Array.flatten,
+                    Array.map(Struct.get('name')),
+                );
+                const excluded = [...Option.getOrElse(Option.map(known, Struct.get('members')), () => []), ...inherited];
                 return Option.map(
                     Option.liftPredicate(
                         Array.filter(rows, (member) => !Array.contains(excluded, member.name)),
@@ -618,29 +787,22 @@ const generate: () => Effect.Effect<
         ),
         Record.fromEntries,
     );
-    const deltas: Readonly<Record<string, Delta>> = Record.union(
-        Record.map(lifted, (rows): Delta => ({ kind: StructureKind.Interface, members: rows })),
-        own,
-        (lift, mine) => ({ kind: StructureKind.Interface, members: Array.appendAll(lift.members, mine.members) }),
-    );
-    const confirmedEnumerations = pipe(
-        Array.flatMap(live.enumerations, Record.toEntries),
-        Array.filterMap(
-            Filter.fromPredicateOption(([name, flags]) =>
-                Option.map(
-                    Record.get(candidates, name),
-                    (rows) =>
-                        [
-                            name,
-                            Array.map(
-                                Array.filter(Array.zip(rows, flags), ([, confirmed]) => confirmed),
-                                ([member]) => member,
-                            ),
-                        ] as const,
-                ),
-            ),
+    const deltas: Readonly<Record<string, Delta>> = pipe(
+        Record.union(
+            Record.map(lifted, (rows): Delta => ({ kind: StructureKind.Interface, members: rows })),
+            own,
+            (lift, mine): Delta => ({ kind: StructureKind.Interface, members: Array.appendAll(lift.members, mine.members) }),
         ),
-        Record.fromEntries,
+        Record.union(
+            Record.map(sources.covariant, (): Delta => ({ kind: StructureKind.Interface, members: [] })),
+            identity,
+        ),
+    );
+    const confirmedEnumerations = Record.intersection(Record.fromEntries(Array.flatMap(live.enumerations, Record.toEntries)), candidates, (flags, rows) =>
+        Array.map(
+            Array.filter(Array.zip(rows, flags), ([, confirmed]) => confirmed),
+            ([member]) => member,
+        ),
     );
     const enumerationDeltas = absent(confirmedEnumerations, sources.knownEnumerations);
     const delta = project.createSourceFile('illustrator.ts', {
@@ -657,8 +819,12 @@ const generate: () => Effect.Effect<
                         ([typed, entry]): StatementStructures => ({
                             kind: entry.kind,
                             name: typed,
+                            methods: [...Option.getOrElse(Record.get(sources.covariant, typed), () => [])],
                             properties: Array.map(entry.members, (member) => {
-                                const parameters = Array.join(Option.match(member.parameters, { onNone: () => ['...args: unknown[]'], onSome: Array.map((row) => `${row.name}?: ${row.type}`) }), ', ');
+                                const parameters = Array.join(
+                                    Option.match(member.parameters, { onNone: () => ['...args: unknown[]'], onSome: Array.map((row) => `${row.name}${row.optional ? '?' : ''}: ${row.type}`) }),
+                                    ', ',
+                                );
                                 return {
                                     name: member.name,
                                     type: Match.value(member.access).pipe(
@@ -676,6 +842,7 @@ const generate: () => Effect.Effect<
         ],
     });
     const dictionaries = {
+        menuCommands: sources.menuCommands,
         classes: Record.fromIterableWith(_byKey(reached), ([name, rows]) => [
             name,
             Record.fromIterableWith(Array.sortWith(rows, Struct.get('name'), Order.String), (member) => [member.name, { access: member.access, type: member.type }]),
@@ -727,6 +894,7 @@ const generate: () => Effect.Effect<
         ),
     );
     const report = {
+        factoryCommands: { sources: sources.commandSources, count: sources.menuCommands.length },
         sdef: {
             classes: sources.sdefClasses.length,
             enumerations: sources.sdefEnumerations.length,
@@ -778,8 +946,8 @@ const generate: () => Effect.Effect<
         delta: {
             interfaces: Record.size(Record.filter(deltas, (row) => row.kind === StructureKind.Interface)),
             classes: Record.size(Record.filter(deltas, (row) => row.kind === StructureKind.Class)),
-            lifted: Record.map(lifted, Array.map(Struct.get('name'))),
-            members: Array.flatMap(Record.values(deltas), Struct.get('members')).length,
+            ...Record.map({ lifted, covariant: sources.covariant }, Record.map(Array.map<readonly Pick<Member, 'name'>[], string>(Struct.get('name')))),
+            members: Array.flatMap(Record.values(deltas), Struct.get('members')).length + Array.flatten(Record.values(sources.covariant)).length,
             enumerations: Record.size(enumerationDeltas),
             enumerators: Array.flatten(Record.values(enumerationDeltas)).length,
         },

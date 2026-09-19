@@ -3,6 +3,7 @@
 import {
     Array,
     Console,
+    type Crypto,
     Effect,
     FileSystem,
     Filter,
@@ -21,6 +22,7 @@ import {
     Record,
     Result,
     Schema,
+    Stream,
     String,
     Struct,
 } from 'effect';
@@ -32,24 +34,31 @@ import {
     type InterfaceDeclaration,
     type InterfaceDeclarationStructure,
     type MethodSignatureStructure,
+    Node,
     type OptionalKind,
     Project,
+    type PropertyDeclaration,
+    type PropertySignature,
     type PropertySignatureStructure,
     type SetAccessorDeclarationStructure,
     StructureKind,
+    SyntaxKind,
+    ts,
     VariableDeclarationKind,
     type WriterFunction,
 } from 'ts-morph';
-import { NonZeroExit } from '../errors.ts';
-import { bundle } from '../hosts.ts';
+import { type BridgeError, classify, NonZeroExit, notDecodable } from '../errors.ts';
+import { Hosts, installed } from '../hosts.ts';
+import { Jobs, run } from '../jobs.ts';
 import { reply } from '../osascript.ts';
 import { camel, constant, dictionary, fourcc, MANIPULATION, pascal, SDEF_TYPES, type SdefClass, type SdefProperty, sorted } from '../sdef.ts';
-import { HOSTS } from '../values.ts';
+import { HOSTS, TIMEOUT_MS } from '../values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 interface Declaration extends InterfaceDeclarationStructure {
     readonly extends: string[];
+    readonly declared: OptionalKind<PropertySignatureStructure>[];
     readonly properties: OptionalKind<PropertySignatureStructure>[];
     readonly getAccessors: OptionalKind<GetAccessorDeclarationStructure>[];
     readonly setAccessors: OptionalKind<SetAccessorDeclarationStructure>[];
@@ -71,7 +80,12 @@ type GenerateError = (typeof GenerateError)['Type'];
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _TYPES: Readonly<Record<string, string>> = { ...SDEF_TYPES, any: 'any', file: 'File | string', number: 'number', record: 'object', specifier: 'any' };
+const _TYPES: Readonly<Record<string, string>> = { ...SDEF_TYPES, any: 'any', file: 'File', number: 'number', record: 'object', specifier: 'any' };
+const _MEASUREMENT = {
+    returns: /(?<=Can return: ).+?(?=\.(?:\s|$))/u,
+    union: /, | or /u,
+    unit: /^Unit(?: \((?:-?\d+(?:\.\d+)? - -?\d+(?:\.\d+)?|[<>]= -?\d+(?:\.\d+)?) points\))?$/u,
+};
 
 // --- [ERRORS] --------------------------------------------------------------------------
 
@@ -86,6 +100,18 @@ const GenerateError: Schema.TaggedUnion<{
     sdefNotDecodable: { cause: Schema.Defect() },
     typingsNotDecodable: { cause: Schema.Defect() },
 });
+
+// --- [NATIVE METADATA] -----------------------------------------------------------------
+
+const _Statics = Schema.NonEmptyArray(Schema.Tuple([Schema.String, Schema.Array(Schema.Tuple([Schema.String, Schema.String]))]));
+
+const _capture = (native: object, names: readonly string[]): readonly (readonly [string, readonly (readonly [string, unknown])[]])[] =>
+    names.flatMap((name) => {
+        const owner: object | undefined = Reflect.get(native, name);
+        return owner === undefined
+            ? []
+            : [[name, Object.entries(Object.getOwnPropertyDescriptors(owner)).flatMap(([member, descriptor]) => (descriptor.get === undefined ? [] : [[member, Reflect.get(owner, member)]]))]];
+    });
 
 // --- [NAMES] ---------------------------------------------------------------------------
 
@@ -126,52 +152,73 @@ const _union = (names: HashSet.HashSet<string>, type: string | WriterFunction | 
         Option.getOrElse(() => _text(type)),
     );
 
-const _accepted = (names: HashSet.HashSet<string>, type: string | WriterFunction | undefined): string =>
-    pipe(
-        _union(names, type),
-        Option.liftPredicate((text) => Array.contains(String.split(text, ' | '), 'File')),
-        Option.match({ onNone: () => _union(names, type), onSome: (text) => `${text} | string` }),
+// Adobe collapses mixed types to any but serializes their complete type expression in this clause.
+const _measurement = (vocabulary: Readonly<Record<string, string>>): ((description: string) => Option.Option<string>) =>
+    flow(
+        String.match(_MEASUREMENT.returns),
+        Option.map((found) => String.split(found[0], _MEASUREMENT.union)),
+        Option.map(Array.map(String.replace(_MEASUREMENT.unit, 'Unit'))),
+        Option.filter(Array.contains('Unit')),
+        Option.flatMap(
+            flow(
+                Array.map((name) => Record.get(vocabulary, name)),
+                Option.all,
+            ),
+        ),
+        Option.map(flow(Array.dedupe, Array.join(' | '))),
     );
 
 const _declaration =
     (names: HashSet.HashSet<string>) =>
-    (name: string, parents: readonly ExpressionWithTypeArguments[], node: ClassDeclaration | InterfaceDeclaration): Declaration => ({
-        kind: StructureKind.Interface,
-        name,
-        isExported: true,
-        docs: Array.map(node.getJsDocs(), (doc) => doc.getStructure()),
-        extends: Array.map(parents, (parent) => parent.getText()),
-        properties: Array.map(node.getProperties(), (property) => {
+    (name: string, parents: readonly ExpressionWithTypeArguments[], node: ClassDeclaration | InterfaceDeclaration): Declaration => {
+        const [declared, properties] = Array.partition(node.getProperties(), (property: PropertyDeclaration | PropertySignature) => {
             const structure = property.getStructure();
-            return { ...Struct.pick(structure, ['name', 'isReadonly', 'hasQuestionToken', 'docs']), type: _union(names, structure.type) };
-        }),
-        getAccessors: Array.map(node.getGetAccessors(), (accessor) => {
-            const structure = accessor.getStructure();
-            return { ...structure, returnType: _union(names, structure.returnType) };
-        }),
-        setAccessors: Array.map(node.getSetAccessors(), (accessor) => {
-            const structure = accessor.getStructure();
-            return { ...structure, parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: _accepted(names, parameter.type) })) };
-        }),
-        methods: Array.map(node.getMethods(), (method) => {
-            const structure = method.getStructure();
-            return {
-                ...Struct.pick(structure, ['docs', 'hasQuestionToken']),
-                name: method.getName(),
-                parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: _accepted(names, parameter.type) })),
-                returnType: _union(names, structure.returnType),
-            };
-        }),
-    });
+            const field = { ...Struct.pick(structure, ['name', 'isReadonly', 'hasQuestionToken', 'docs']), type: _union(names, structure.type) };
+            return property.hasModifier(SyntaxKind.DeclareKeyword) ? Result.fail(field) : Result.succeed(field);
+        });
+        return {
+            kind: StructureKind.Interface,
+            name,
+            isExported: true,
+            docs: Array.map(node.getJsDocs(), (doc) => doc.getStructure()),
+            extends: Array.map(parents, (parent) => parent.getText()),
+            declared,
+            properties,
+            getAccessors: Array.map(node.getGetAccessors(), (accessor) => {
+                const structure = accessor.getStructure();
+                return { ...structure, returnType: _union(names, structure.returnType) };
+            }),
+            setAccessors: Array.map(node.getSetAccessors(), (accessor) => {
+                const structure = accessor.getStructure();
+                return { ...structure, parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: _union(names, parameter.type) })) };
+            }),
+            methods: Array.map(node.getMethods(), (method) => {
+                const structure = method.getStructure();
+                return {
+                    ...Struct.pick(structure, ['docs', 'hasQuestionToken']),
+                    name: method.getName(),
+                    parameters: Array.map(Array.flatten(Array.fromNullishOr(structure.parameters)), (parameter) => ({ ...parameter, type: _union(names, parameter.type) })),
+                    returnType: _union(names, structure.returnType),
+                };
+            }),
+        };
+    };
 
 const _members = (row: Declaration): readonly Slot[] => [
     ...Array.map(row.properties, (field) => ({ name: field.name, type: _text(field.type), description: _description(field.docs) })),
     ...Array.map(row.getAccessors, (getter) => ({ name: getter.name, type: _text(getter.returnType), description: _description(getter.docs) })),
 ];
 
-const _fields = (named: (name: string) => string, row: SdefClass): OptionalKind<PropertySignatureStructure>[] =>
+const _fields = (named: (name: string) => string, row: SdefClass, statics: Readonly<Record<string, Readonly<Record<string, string>>>>): OptionalKind<PropertySignatureStructure>[] =>
     Array.map(
-        Array.filter(row.property, (property) => Option.isNone(property.attributes.hidden)),
+        Array.filter(
+            row.property,
+            (property) =>
+                Option.isNone(property.attributes.hidden) &&
+                !Option.exists(Record.get(statics, pascal(row.attributes.name)), (constants) =>
+                    Option.contains(Record.get(constants, _constant(property.attributes.name)), camel(property.attributes.name)),
+                ),
+        ),
         (property) => ({
             name: camel(property.attributes.name),
             type: Array.match(
@@ -211,21 +258,38 @@ const _find = (lookup: Lookup, name: string, member: string): Option.Option<Slot
         ),
     );
 
-const _only = <A, B>(self: Readonly<Record<string, A>>, that: Readonly<Record<string, B>>): Record<string, A> => Record.filter(self, (_, key) => !Record.has(that, key));
-
 // --- [GENERATE] ------------------------------------------------------------------------
 
-const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError, FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner> = Effect.gen(function* () {
+const generate: Effect.Effect<
+    void,
+    GenerateError | BridgeError | PlatformError.PlatformError,
+    Crypto.Crypto | FileSystem.FileSystem | Path.Path | ChildProcessSpawner.ChildProcessSpawner | Hosts | Jobs
+> = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
-    const bundlePath = yield* Effect.mapError(bundle(HOSTS.indesign), (cause) => GenerateError.cases.hostNotInstalled.make({ cause }));
-    const xml = yield* Effect.mapError(reply(ChildProcess.make('sdef', [bundlePath])), (cause) => GenerateError.cases.sdefNotGenerated.make({ cause }));
+    const host = yield* Effect.mapError(installed(HOSTS.indesign.id, (yield* Hosts).indesign), (cause) => GenerateError.cases.hostNotInstalled.make({ cause }));
+    const xml = yield* Effect.mapError(reply(ChildProcess.make('sdef', [host.bundlePath])), (cause) => GenerateError.cases.sdefNotGenerated.make({ cause }));
     const parsed = yield* Effect.mapError(dictionary(xml), (cause) => GenerateError.cases.sdefNotDecodable.make({ cause }));
     const project = new Project({ useInMemoryFileSystem: true, manipulationSettings: MANIPULATION });
     const adobe = project.createSourceFile(
         'adobe.d.ts',
-        yield* fs.readFileString(path.join(bundlePath, 'Contents', 'Resources', 'UXP', 'com.adobe.indesign.creative-assistant', 'tsValidation', 'indesign.d.ts')),
+        yield* fs.readFileString(path.join(host.bundlePath, 'Contents', 'Resources', 'UXP', 'com.adobe.indesign.creative-assistant', 'tsValidation', 'indesign.d.ts')),
     );
+    const constructors = Array.filter(adobe.getModuleOrThrow('global').getVariableDeclarations(), (node) =>
+        Option.exists(Option.liftPredicate(node.getTypeNode(), Node.isTypeLiteral), (type) => Array.isArrayNonEmpty(type.getConstructSignatures())),
+    );
+    const script = `require('uxp').script.setResult(JSON.stringify((${_capture.toString()})(require('indesign'), ${JSON.stringify(Array.map(constructors, (node) => node.getName()))})))`;
+    const reflected = yield* run((yield* Jobs).indesign, TIMEOUT_MS, () =>
+        reply(
+            ChildProcess.make('osascript', ['-l', 'JavaScript', '-'], {
+                stdin: Stream.encodeText(Stream.make(`Application(${JSON.stringify(host.bundleId)}).doScript(${JSON.stringify(script)}, { language: 'uxpscript' })`)),
+            }),
+        ).pipe(
+            Effect.mapError((cause) => classify(HOSTS.indesign.id, cause)),
+            Effect.flatMap((text) => Effect.mapError(Schema.decodeEffect(Schema.fromJsonString(_Statics))(text), notDecodable(HOSTS.indesign.id, text))),
+        ),
+    );
+    const statics = Record.fromIterableWith(reflected, ([name, entries]) => [name, Record.fromEntries(entries)]);
     const classes = Array.filter(Array.flatMap(parsed.dictionary.suite, Struct.get('class')), (row) => Option.isNone(row.attributes.hidden));
     const sdefEnumerations = Record.values(Record.fromIterableBy(Array.flatMap(parsed.dictionary.suite, Struct.get('enumeration')), (row) => row.attributes.code));
     const adobeEnumerations = Record.fromIterableWith(
@@ -298,7 +362,7 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
     const phrases = Record.fromIterableWith(identified, ({ name, row }) => [name, Record.fromIterableWith(row.enumerator, (member) => [_constant(member.attributes.name), member.attributes.name])]);
     const shared = Record.toEntries(
         Record.intersection(sdefTable, adobeEnumerations, (sdef, theirs) => ({
-            added: Record.keys(_only(sdef, theirs)),
+            added: Array.difference(Record.keys(sdef), Record.keys(theirs)),
             mismatched: Record.keys(
                 Record.filter(
                     Record.intersection(sdef, theirs, (value, known) => value !== known),
@@ -307,7 +371,25 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
             ),
         })),
     );
-    const completed = Record.union(adobeEnumerations, sdefTable, (theirs, sdef) => ({ ...theirs, ..._only(sdef, theirs) }));
+    const completed = Record.union(adobeEnumerations, sdefTable, (theirs, sdef) => Record.union(theirs, sdef, identity));
+    const adobeDocumentation = Record.fromIterableWith(adobe.getEnums(), (node) => [
+        node.getName(),
+        {
+            description: Array.filter([_description(node.getStructure().docs)], String.isNonEmpty),
+            members: Record.fromIterableWith(node.getMembers(), (member) => [member.getName(), Array.filter([_description(member.getStructure().docs)], String.isNonEmpty)]),
+        },
+    ]);
+    const sdefDocumentation = Record.fromIterableWith(identified, ({ name, row }) => [
+        name,
+        {
+            description: Array.filter(Option.toArray(row.attributes.description), String.isNonEmpty),
+            members: Record.fromIterableWith(row.enumerator, (member) => [_constant(member.attributes.name), Array.filter(Option.toArray(member.attributes.description), String.isNonEmpty)]),
+        },
+    ]);
+    const enumerationDocumentation = Record.union(adobeDocumentation, sdefDocumentation, (adobeDocs, sdefDocs) => ({
+        description: Array.dedupe([...adobeDocs.description, ...sdefDocs.description]),
+        members: Record.union(adobeDocs.members, sdefDocs.members, (adobeMember, sdefMember) => Array.dedupe([...adobeMember, ...sdefMember])),
+    }));
     const named = (name: string): string =>
         pipe(
             Record.get(enumerationNames, name),
@@ -315,15 +397,48 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
             Option.orElse(() => Record.get(_TYPES, name)),
             Option.getOrElse(() => 'any'),
         );
-    const additions = pipe(
-        Array.flatMap(classes, (row) => Array.map(_fields(named, row), (field) => ({ owner: pascal(row.attributes.name), field }))),
-        Array.filter(({ owner, field }) => Record.has(typed, owner) && Option.isNone(_find(lookup, owner, field.name))),
+    const nativeFields = pipe(
+        Array.flatMap(classes, (row) => Array.map(_fields(named, row, statics), (field) => ({ owner: pascal(row.attributes.name), field }))),
         Array.dedupeWith((left, right) => left.owner === right.owner && left.field.name === right.field.name),
+    );
+    const additions = pipe(
+        nativeFields,
+        Array.filter(({ owner, field }) => Record.has(typed, owner) && Option.isNone(_find(lookup, owner, field.name))),
         Array.groupBy(Struct.get('owner')),
     );
+    const concrete = pipe(
+        nativeFields,
+        Array.filter(({ field }) => !Array.some(String.split(_text(field.type), ' | '), (type) => type === 'any' || type === 'any[]')),
+        Array.groupBy(Struct.get('owner')),
+        Record.map((rows) => Record.fromIterableWith(rows, ({ field }) => [field.name, _text(field.type)])),
+    );
+    const measurements = Record.fromEntries([['Unit', 'number | string'], ...Array.map(adobeNames, (name) => [`${name} enumerator`, name] as const)]);
+    const refine =
+        (owner: string, member: string) =>
+        (type: string | WriterFunction | undefined): string => {
+            const current = _text(type);
+            return current === 'any'
+                ? pipe(
+                      Option.flatMap(Record.get(concrete, owner), Record.get(member)),
+                      Option.orElse(Function.constant(pipe(_find(lookup, owner, member), Option.map(Struct.get('description')), Option.flatMap(_measurement(measurements))))),
+                      Option.getOrElse(Function.constant(current)),
+                  )
+                : current;
+        };
     const missing = Array.filter(classes, (row) => !Record.has(typed, pascal(row.attributes.name)));
     const widened: Readonly<Record<string, Declaration>> = {
-        ...Record.map(typed, (row) => ({ ...row, properties: [...row.properties, ...Array.map(Array.flatten(Option.toArray(Record.get(additions, row.name))), Struct.get('field'))] })),
+        ...Record.map(typed, (row) => ({
+            ...row,
+            properties: [
+                ...Array.map(row.properties, (field) => Struct.evolve(field, { type: refine(row.name, field.name) })),
+                ...Array.map(Array.flatten(Option.toArray(Record.get(additions, row.name))), Struct.get('field')),
+            ],
+            getAccessors: Array.map(row.getAccessors, (getter) => Struct.evolve(getter, { returnType: refine(row.name, getter.name) })),
+            setAccessors: Array.map(row.setAccessors, (setter) => ({
+                ...setter,
+                parameters: Array.map(Array.flatten(Array.fromNullishOr(setter.parameters)), Struct.evolve({ type: refine(row.name, setter.name) })),
+            })),
+        })),
         ...Record.fromIterableBy(
             Array.map(
                 missing,
@@ -333,7 +448,8 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
                     isExported: true,
                     docs: Array.filter(Option.toArray(row.attributes.description), String.isNonEmpty),
                     extends: Array.map(Option.toArray(row.attributes.inherits), pascal),
-                    properties: _fields(named, row),
+                    declared: [],
+                    properties: _fields(named, row, statics),
                     getAccessors: [],
                     setAccessors: [],
                     methods: [],
@@ -354,26 +470,30 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
         },
     );
     const parents = Record.map(Array.groupBy(extended, Struct.get('name')), Array.map(Struct.get('parent')));
-    const properties = Record.map(
-        Array.groupBy(
-            Array.flatMap(Record.values(widened), (row) => [
-                ..._members(row),
-                ...Array.map(row.setAccessors, (setter) => ({
-                    name: setter.name,
-                    type: Option.match(Array.head(Array.flatten(Array.fromNullishOr(setter.parameters))), { onNone: Function.constant('any'), onSome: flow(Struct.get('type'), _text) }),
-                    description: _description(setter.docs),
-                })),
-            ]),
-            Struct.get('name'),
+    const fields = pipe(
+        Record.map(widened, (row) =>
+            Array.groupBy(
+                [
+                    ..._members(row),
+                    ...Array.map(row.setAccessors, (setter) => ({
+                        name: setter.name,
+                        type: Option.match(Array.head(Array.flatten(Array.fromNullishOr(setter.parameters))), { onNone: Function.constant('any'), onSome: flow(Struct.get('type'), _text) }),
+                        description: _description(setter.docs),
+                    })),
+                ],
+                Struct.get('name'),
+            ),
         ),
-        (group) => {
-            const types = sorted(Array.flatMap(group, (slot) => Array.map(String.split(slot.type, '|'), String.trim)));
-            return {
-                types,
-                list: Array.some(types, String.endsWith('[]')),
-                enumerations: sorted(Array.intersection([...types, ..._mentioned(Array.join(Array.map(group, Struct.get('description')), ' '))], Record.keys(completed))),
-            };
-        },
+        Record.map(
+            Record.map((group: readonly Slot[]) => {
+                const types = sorted(Array.flatMap(group, (slot) => Array.map(String.split(slot.type, '|'), String.trim)));
+                return {
+                    types,
+                    list: Array.some(types, String.endsWith('[]')),
+                    enumerations: sorted(Array.intersection([...types, ..._mentioned(Array.join(Array.map(group, Struct.get('description')), ' '))], Record.keys(completed))),
+                };
+            }),
+        ),
     );
     const collections = Record.fromIterableWith(
         Array.filterMap(
@@ -393,11 +513,49 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
     const members = Record.map(ancestors, (chain, name) =>
         Record.fromEntries(Array.flatMap(Array.getSomes(Array.map([...Array.reverse(chain), name], (ancestor) => Record.get(writable, ancestor))), Record.toEntries)),
     );
+    const properties = Record.map(ancestors, (chain, name) =>
+        Record.fromEntries(Array.flatMap(Array.getSomes(Array.map([...Array.reverse(chain), name], (ancestor) => Record.get(fields, ancestor))), Record.toEntries)),
+    );
     const preferences = pipe(
         Record.get(widenedLookup.tables, 'Application'),
         Option.getOrElse((): Readonly<Record<string, Slot>> => ({})),
         Record.filter((slot) => slot.type === 'Preference' || Option.exists(Record.get(ancestors, slot.type), Array.contains('Preference'))),
         Record.map(Struct.get('type')),
+    );
+    const printer = ts.createPrinter();
+    const definitions = Record.map(
+        statics,
+        flow(
+            Record.toEntries,
+            Array.map(([member, value]) =>
+                ts.factory.createPropertySignature(
+                    [ts.factory.createModifier(ts.SyntaxKind.ReadonlyKeyword)],
+                    ts.factory.createStringLiteral(member),
+                    undefined,
+                    ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral(value)),
+                ),
+            ),
+        ),
+    );
+    const declarations = Array.map(
+        Array.filter(constructors, (node) => Record.has(statics, node.getName())),
+        (node) => {
+            const type = node.getTypeNodeOrThrow().asKindOrThrow(SyntaxKind.TypeLiteral).compilerNode;
+            const signatures = Array.map(type.members, (member) => {
+                if (!(ts.isConstructSignatureDeclaration(member) && member.type && ts.isImportTypeNode(member.type) && member.type.qualifier)) {
+                    return member;
+                }
+                return ts.factory.updateConstructSignature(member, member.typeParameters, member.parameters, ts.factory.createTypeReferenceNode(member.type.qualifier, member.type.typeArguments));
+            });
+            return {
+                name: node.getName(),
+                type: printer.printNode(
+                    ts.EmitHint.Unspecified,
+                    ts.factory.updateTypeLiteralNode(type, ts.factory.createNodeArray([...signatures, ...Option.getOrElse(Record.get(definitions, node.getName()), () => [])])),
+                    adobe.compilerNode,
+                ),
+            };
+        },
     );
     const out = project.createSourceFile('indesign.ts', {
         statements: [
@@ -415,11 +573,23 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
             { kind: StructureKind.TypeAlias, name: 'Real', type: 'number' },
             { kind: StructureKind.TypeAlias, name: 'Strings', type: 'readonly string[]' },
             ...Array.map(adobe.getTypeAliases(), (node) => node.getStructure()),
-            ...Array.map(Record.toEntries(widened), ([name, row]) => ({ ...row, extends: Option.getOrElse(Record.get(parents, name), () => row.extends) })),
+            ...Array.map(Record.toEntries(widened), ([name, row]) => ({
+                ...Struct.omit(row, ['declared']),
+                extends: Option.getOrElse(Record.get(parents, name), () => row.extends),
+                properties: [...row.properties, ...row.declared],
+            })),
+            {
+                kind: StructureKind.VariableStatement,
+                declarationKind: VariableDeclarationKind.Const,
+                hasDeclareKeyword: true,
+                isExported: true,
+                declarations,
+            },
             { kind: StructureKind.VariableStatement, declarationKind: VariableDeclarationKind.Const, hasDeclareKeyword: true, isExported: true, declarations: [{ name: 'app', type: 'Application' }] },
-            `export const enumerations: Readonly<Record<string, Readonly<Record<string, number>>>> = ${JSON.stringify(completed, null, 4)};`,
+            `export const enumerations = ${JSON.stringify(completed, null, 4)} as const;`,
+            `export const enumerationDocumentation: Readonly<Record<string, { readonly description: readonly string[]; readonly members: Readonly<Record<string, readonly string[]>> }>> = ${JSON.stringify(enumerationDocumentation, null, 4)};`,
             `export const phrases: Readonly<Record<string, Readonly<Record<string, string>>>> = ${JSON.stringify(phrases, null, 4)};`,
-            `export const properties: Readonly<Record<string, { readonly types: readonly string[]; readonly list: boolean; readonly enumerations: readonly string[] }>> = ${JSON.stringify(properties, null, 4)};`,
+            `export const properties: Readonly<Record<string, Readonly<Record<string, { readonly types: readonly string[]; readonly list: boolean; readonly enumerations: readonly string[] }>>>> = ${JSON.stringify(properties, null, 4)};`,
             `export const collections: Readonly<Record<string, string>> = ${JSON.stringify(collections, null, 4)};`,
             `export const members = ${JSON.stringify(members, null, 4)};`,
             `export const ancestors: Readonly<Record<string, readonly string[]>> = ${JSON.stringify(ancestors, null, 4)};`,
@@ -429,7 +599,45 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
             )}, keyof typeof members>> = ${JSON.stringify(preferences, null, 4)};`,
         ],
     });
+    // The UXP ScriptData converter accepts File entries and returns getEntryWithUrl results.
+    yield* Effect.forEach(
+        Array.filter(
+            Array.flatMap(out.getInterfaces(), (row) => row.getProperties()),
+            (field) => !field.isReadonly() && Array.some(field.getDescendantsOfKind(SyntaxKind.TypeReference), (reference) => reference.getTypeName().getText() === 'File'),
+        ),
+        (field) =>
+            Effect.sync(() => {
+                const owner = field.getParentIfKindOrThrow(SyntaxKind.InterfaceDeclaration);
+                const type = field.getTypeNodeOrThrow().getText();
+                owner.addGetAccessor({ ...Struct.pick(field.getStructure(), ['name', 'docs']), returnType: type });
+                owner.addSetAccessor({ name: field.getName(), parameters: [{ name: 'value', type }] });
+                field.remove();
+            }),
+        { discard: true },
+    );
+    const uxp = ts.factory.createLiteralTypeNode(ts.factory.createStringLiteral('uxp'));
+    const file = ts.factory.createImportTypeNode(uxp, undefined, ts.factory.createIdentifier('File'));
+    const entry = ts.factory.createTypeReferenceNode('ReturnType', [
+        ts.factory.createImportTypeNode(
+            uxp,
+            undefined,
+            ts.factory.createQualifiedName(ts.factory.createQualifiedName(ts.factory.createIdentifier('storage'), 'localFileSystem'), 'getEntryWithUrl'),
+            undefined,
+            true,
+        ),
+    ]);
+    const settable = HashSet.fromIterable(Array.flatMap(Record.values(widened), (row) => Array.map(row.declared, (field) => _text(field.type))));
+    out.transform((traversal) => {
+        const node = traversal.visitChildren();
+        if (!(ts.isTypeReferenceNode(node) && ts.isIdentifier(node.typeName) && node.typeName.text === 'File')) {
+            return node;
+        }
+        return ts.findAncestor(traversal.currentNode, (ancestor) => ts.isParameter(ancestor) || (ts.isTypeAliasDeclaration(ancestor) && HashSet.has(settable, ancestor.name.text))) === undefined
+            ? entry
+            : file;
+    });
     yield* fs.writeFileString(path.join(import.meta.dirname, 'indesign.ts'), out.getFullText());
+    const sdefNames = Record.keys(sdefTable);
     yield* Console.log(
         JSON.stringify(
             {
@@ -441,15 +649,24 @@ const generate: Effect.Effect<void, GenerateError | PlatformError.PlatformError,
                     addedProperties: Number.sumAll(Array.map(Record.values(additions), Array.length)),
                 },
                 enumerations: {
-                    sdef: Record.size(sdefTable),
+                    sdef: sdefNames.length,
                     adobe: Record.size(adobeEnumerations),
-                    added: Record.keys(_only(sdefTable, adobeEnumerations)),
+                    added: Array.difference(sdefNames, adobeNames),
                     addedConstants: Array.flatMap(shared, ([name, row]) => Array.map(row.added, (member) => `${name}.${member}`)),
                     valueMismatches: Array.flatMap(shared, ([name, row]) => Array.map(row.mismatched, (member) => `${name}.${member}`)),
-                    adobeOnly: Array.difference(adobeNames, Record.keys(sdefTable)),
+                    adobeOnly: Array.difference(adobeNames, sdefNames),
                     unidentified,
                 },
-                properties: Record.size(properties),
+                properties: Number.sumAll(Array.map(Record.values(properties), Record.size)),
+                constructors: {
+                    declared: constructors.length,
+                    available: declarations.length,
+                    unavailable: Array.difference(
+                        Array.map(constructors, (node) => node.getName()),
+                        Record.keys(statics),
+                    ),
+                    statics: Number.sumAll(Array.map(Record.values(statics), Record.size)),
+                },
                 collections: Record.size(collections),
             },
             null,

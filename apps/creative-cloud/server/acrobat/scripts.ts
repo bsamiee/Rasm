@@ -1,13 +1,14 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { Array, Match, Option, Record, Schema, Struct } from 'effect';
+import { Compiler } from '@swc/core';
+import { Array, Effect, FileSystem, identity, Match, Option, Path, Record, Schema, Struct } from 'effect';
 import { AbsolutePath, OptionalInt, OptionalNumber, OptionalString, PageIndex } from '../values.ts';
+import type * as Native from './native.ts';
+import { FIELD_TYPES, literal } from './native.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Operation = (typeof Operation)['Type'];
-type Save = Option.Option<AbsolutePath>;
-type Property = Exclude<keyof (typeof Field)['fields'], 'name' | 'type' | 'page' | 'rect' | 'items'>;
 
 // --- [TABLES] --------------------------------------------------------------------------
 
@@ -16,28 +17,12 @@ const _TARGETS = {
     print: { profile: 'GRACoL2013_CRPC6.icc', preserveBlack: true },
 } as const;
 const _NON_PRINT = { flatten: 0, keep: 1, remove: 2 } as const;
-const _WIDGET: readonly Property[] = ['readonly', 'value', 'defaultValue', 'calcOrderIndex', 'textSize', 'lineWidth', 'textFont', 'strokeColor', 'fillColor', 'borderStyle'];
-const _PROPERTIES: Readonly<Record<(typeof _FieldType)['Type'], readonly Property[]>> = {
-    text: [..._WIDGET, 'required', 'multiline', 'charLimit', 'alignment'],
-    button: _WIDGET,
-    combobox: [..._WIDGET, 'required', 'numItems'],
-    listbox: [..._WIDGET, 'required', 'numItems'],
-    checkbox: [..._WIDGET, 'required', 'style', 'exportValues'],
-    radiobutton: [..._WIDGET, 'required', 'style', 'exportValues'],
-    signature: [..._WIDGET, 'required'],
-};
 
 const NAMES = {
     makeAccessible: 'Adobe:MakeAccessible',
     accessibilityCheck: 'AccCheck:DoCheck',
     pdfUa: 'Verify compliance with PDF/UA-1 (syntax checks only)',
 } as const;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _PDF_UA = JSON.stringify(NAMES.pdfUa);
-const _MENU_JS =
-    'var menu = []; var walk = function (items, depth) { for (var i = 0; i < items.length; i++) { menu.push({ cName: items[i].cName, depth: depth }); walk(items[i].oChildren, depth + 1); } }; walk(app.listMenuItems(), 0);';
 
 // --- [MODELS] --------------------------------------------------------------------------
 
@@ -64,15 +49,7 @@ const _optionalPage = Schema.OptionFromOptionalKey(PageIndex);
 
 const _Items: Schema.$Array<Schema.Struct<{ readonly label: Schema.String; readonly export: Schema.String }>> = Schema.Array(Schema.Struct({ label: Schema.String, export: Schema.String }));
 
-const _FieldType: Schema.Literals<readonly ['text', 'button', 'combobox', 'listbox', 'checkbox', 'radiobutton', 'signature']> = Schema.Literals([
-    'text',
-    'button',
-    'combobox',
-    'listbox',
-    'checkbox',
-    'radiobutton',
-    'signature',
-]);
+const _FieldType: Schema.Literals<Array<keyof typeof FIELD_TYPES>> = Schema.Literals(Struct.keys(FIELD_TYPES));
 
 const _Rect: Schema.Tuple<readonly [Schema.Number, Schema.Number, Schema.Number, Schema.Number]> = Schema.Tuple([Schema.Number, Schema.Number, Schema.Number, Schema.Number]);
 
@@ -183,7 +160,8 @@ const Sources: Schema.NonEmptyArray<
     }>
 > = Schema.NonEmptyArray(Schema.Struct({ path: AbsolutePath, start: _optionalPage, end: _optionalPage, label: OptionalString }));
 
-const Operation: Schema.Union<
+const Operation: Schema.toTaggedUnion<
+    'op',
     readonly [
         Schema.Struct<{ readonly op: Schema.Literal<'colorConvertPage'>; readonly page: Schema.Int; readonly target: Schema.Literals<Array<keyof typeof _TARGETS>> }>,
         Schema.Struct<{ readonly op: Schema.Literal<'embedOutputIntent'>; readonly profile: Schema.String }>,
@@ -222,101 +200,142 @@ const Operation: Schema.Union<
         end: _optionalPage,
     }),
     Schema.Struct({ op: Schema.Literal('applyRedactions') }),
-]);
+]).pipe(Schema.toTaggedUnion('op'));
 
-// --- [BODIES] --------------------------------------------------------------------------
+// --- [NATIVE BOUNDARY] -----------------------------------------------------------------
 
-const _FIELD_JS = `var properties = ${JSON.stringify(_PROPERTIES)}; var readField = function (f) { var row = { name: f.name, type: f.type, page: f.page, rect: f.rect }; var props = properties[f.type]; for (var i = 0; i < props.length; i++) { row[props[i]] = f[props[i]]; } if (row.numItems !== undefined) { row.items = []; for (var j = 0; j < f.numItems; j++) { row.items.push({ label: f.getItemAt(j, false), export: f.getItemAt(j, true) }); } } return row; };`;
+const compiled: Effect.Effect<string, never, FileSystem.FileSystem | Path.Path> = Effect.gen(function* () {
+    const fs = yield* FileSystem.FileSystem;
+    const path = yield* Path.Path;
+    const source = yield* fs.readFileString(yield* path.fromFileUrl(new URL('./native.ts', import.meta.url)));
+    const compiler = new Compiler();
+    const module = compiler.parseSync(source, { syntax: 'typescript' });
+    module.body = module.body.filter((statement) => statement.type !== 'ExportNamedDeclaration' && !(statement.type === 'ImportDeclaration' && statement.typeOnly));
+    return compiler.transformSync(module, { isModule: false, minify: true, jsc: { parser: { syntax: 'typescript' }, target: 'es3', assumptions: { iterableIsArray: true } } }).code;
+}).pipe(Effect.orDie);
 
-const _save: (save: Save) => string = Option.match({ onNone: () => '', onSome: (target: AbsolutePath) => `d.saveAs({ cPath: ${JSON.stringify(target)} });` });
+const call = <Name extends keyof typeof Native>(name: Name, ...args: Parameters<Extract<(typeof Native)[Name], (...values: never[]) => unknown>>): string => `${name}.apply(this, ${literal(args)})`;
 
-const envelope = (code: string): string =>
-    `(function () { try { var value = (function () { ${code} })(); return JSON.stringify({ _tag: 'Success', success: value === undefined ? null : value }); } catch (e) { return JSON.stringify({ _tag: 'Failure', failure: e._tag === undefined ? { _tag: 'scriptThrew', name: e.name, message: e.message, line: e.lineNumber, fileName: e.fileName } : e }); } })()`;
+const envelope = (program: string, code: string): string => `(function () { ${program} return run(function () { return ${code}; }); })()`;
 
-const withDocument = (device: string, document: AbsolutePath, code: string): string =>
-    `var docs = app.activeDocs; var d; for (var n = 0; n < docs.length; n++) { if (docs[n].path === ${JSON.stringify(device)}) { d = docs[n]; } } if (d === undefined) { throw { _tag: 'documentNotOpen', path: ${JSON.stringify(document)} }; } ${code}`;
+const withDocument = (device: string, document: AbsolutePath, code: string): string => `(function () { return ${code}; }).call(document(${literal(device)}, ${literal(document)}))`;
 
-const state: string =
-    "var docs = app.activeDocs; var rows = []; for (var i = 0; i < docs.length; i++) { rows.push({ path: docs[i].path, fileName: docs[i].documentFileName, numPages: docs[i].numPages, numFields: docs[i].numFields, dirty: docs[i].dirty }); } return { kind: 'state', viewerVersion: app.viewerVersion, viewerType: app.viewerType, language: app.language, platform: app.platform, documents: rows, converters: app.fromPDFConverters };";
+const setFields = (specs: (typeof Fields)['Type'], save: Option.Option<AbsolutePath>): string =>
+    call(
+        'setFields',
+        Array.map(specs, (spec) => {
+            const format = Option.getOrUndefined(spec.format);
+            const scripts = Match.value(format).pipe(
+                Match.withReturnType<readonly [string, string, string, string]>(),
+                Match.when(undefined, () => ['', '', '', '']),
+                Match.when({ kind: 'plain' }, () => ['', '', '', '']),
+                Match.whenOr({ kind: 'number' }, { kind: 'total' }, (number) => [
+                    `AFNumber_Format(${number.decimals}, 0, 0, 0, "", true);`,
+                    `AFNumber_Keystroke(${number.decimals}, 0, 0, 0, "", true);`,
+                    number.kind === 'number' ? Option.match(number.range, { onNone: () => '', onSome: ({ min, max }) => `AFRange_Validate(true, ${min}, true, ${max});` }) : '',
+                    number.kind === 'total' ? `AFSimple_Calculate("SUM", ${literal(number.operands)});` : '',
+                ]),
+                Match.when({ kind: 'percent' }, ({ decimals }) => [`AFPercent_Format(${decimals}, 0);`, `AFPercent_Keystroke(${decimals}, 0);`, 'AFRange_Validate(true, 0, true, 1);', '']),
+                Match.when({ kind: 'date' }, () => ['AFDate_FormatEx("yyyy-mm-dd");', 'AFDate_KeystrokeEx("yyyy-mm-dd");', '', '']),
+                Match.when({ kind: 'time' }, () => ['AFTime_Format(0);', 'AFTime_Keystroke(0);', '', '']),
+                Match.exhaustive,
+            );
+            const requested = Record.filter(
+                { ...Struct.pick(spec, ['required', 'defaultValue', 'exportValues', 'format', 'items', 'caption', 'mouseUp']), charLimit: format?.kind === 'plain' ? format.charLimit : Option.none() },
+                Option.isSome<unknown>,
+            );
+            const unsupported = Record.map(FIELD_TYPES, ({ read, configure }) => Array.difference(Struct.keys(requested), [...read, ...configure]));
+            const writes: Native.FieldWrite[] = [
+                ...(format === undefined ? [] : [['readonly', format.kind === 'total'] as const]),
+                ...Array.fromOption(Option.map(spec.exportValues, (value): Native.FieldWrite => ['exportValues', value])),
+            ];
+            const overrides: Native.FieldWrite[] = [
+                ...Array.fromOption(Option.map(spec.readOnly, (value): Native.FieldWrite => ['readonly', value])),
+                ...Array.fromOption(Option.map(spec.required, (value): Native.FieldWrite => ['required', value])),
+                ...Array.fromOption(Option.map(spec.defaultValue, (value): Native.FieldWrite => ['defaultValue', value])),
+            ];
+            const textWrites: Native.FieldWrite[] =
+                format === undefined
+                    ? []
+                    : [
+                          ['charLimit', format.kind === 'plain' ? Option.getOrElse(format.charLimit, () => 0) : 0],
+                          ['comb', false],
+                          ['doNotSpellCheck', true],
+                          ['doNotScroll', false],
+                          ['richText', false],
+                          ['alignment', format.kind === 'number' || format.kind === 'percent' || format.kind === 'total' ? 'right' : 'left'],
+                      ];
+            return {
+                ...Struct.omit(Schema.encodeSync(_Spec)(spec), ['format', 'readOnly', 'required', 'defaultValue', 'mouseUp', 'exportValues']),
+                ...Record.getSomes({
+                    mouseUp: Option.map(spec.mouseUp, (value) => (value === 'resetForm' ? 'this.resetForm();' : `this.submitForm(${literal(value.submitForm)});`)),
+                }),
+                unsupported,
+                overrides,
+                writes: Record.map(FIELD_TYPES, ({ defaults }, type): readonly Native.FieldWrite[] => [...defaults, ...(type === 'text' ? textWrites : []), ...writes]),
+                actions: format === undefined ? [] : Array.zip(['Format', 'Keystroke', 'Validate', 'Calculate'], scripts),
+                operands: format?.kind === 'total' ? format.operands : [],
+            };
+        }),
+        Option.getOrNull(save),
+    );
 
-const openDocument = (path: AbsolutePath, hidden: boolean): string => {
-    const target = JSON.stringify(path);
-    return `var d = app.openDoc({ cPath: ${target}, bHidden: ${hidden} }); return { kind: 'opened', path: d.path, fileName: d.documentFileName, numPages: d.numPages };`;
-};
+const printProduction = (operations: readonly Operation[], save: Option.Option<AbsolutePath>): string =>
+    call(
+        'printProduction',
+        Array.map(operations, (operation) =>
+            Match.value(operation).pipe(
+                Match.withReturnType<Parameters<typeof Native.printProduction>[0][number]>(),
+                Match.discriminatorsExhaustive('op')({
+                    colorConvertPage: identity,
+                    embedOutputIntent: ({ op, profile }) => ({ op, args: [profile] }),
+                    flattenPages: ({ op, start, end, nonPrint }) => ({ op, args: [{ nNonPrint: _NON_PRINT[nonPrint], ...Record.getSomes({ nStart: start, nEnd: end }) }] }),
+                    addWatermarkFromText: ({ op, ...watermark }) => ({
+                        op,
+                        args: [
+                            Schema.encodeSync(
+                                Schema.Struct(Struct.omit(Operation.cases.addWatermarkFromText.fields, ['op'])).pipe(
+                                    Schema.encodeKeys({
+                                        text: 'cText',
+                                        font: 'cFont',
+                                        size: 'nFontSize',
+                                        color: 'aColor',
+                                        opacity: 'nOpacity',
+                                        rotation: 'nRotation',
+                                        start: 'nStart',
+                                        end: 'nEnd',
+                                    }),
+                                ),
+                            )(watermark),
+                        ],
+                    }),
+                    applyRedactions: ({ op }) => ({ op, args: [] }),
+                }),
+            ),
+        ),
+        _TARGETS,
+        Option.getOrNull(save),
+    );
 
-const menu: string = `${_MENU_JS} return { kind: 'menu', items: menu };`;
+// --- [TEXT MATCHES] --------------------------------------------------------------------
 
-const execMenuItem = (name: string, scoped: boolean): string => {
-    const item = JSON.stringify(name);
-    return `${_MENU_JS} var listed = false; for (var m = 0; m < menu.length; m++) { if (menu[m].cName === ${item}) { listed = true; } } if (!listed) { throw { _tag: 'menuItemNotListed', name: ${item} }; } app.execMenuItem(${item}${scoped ? ', d' : ''}); return { kind: 'executed', name: ${item} };`;
-};
-
-const getFields = (names: Option.Option<Array.NonEmptyReadonlyArray<string>>): string =>
-    `${_FIELD_JS} var names = ${Option.match(names, { onNone: () => 'null', onSome: JSON.stringify })}; if (names === null) { names = []; for (var i = 0; i < d.numFields; i++) { names.push(d.getNthFieldName(i)); } } var fields = []; var absent = []; for (var j = 0; j < names.length; j++) { var f = d.getField(names[j]); if (f === null) { absent.push(names[j]); } else { fields.push(readField(f)); } } return { kind: 'fields', fields: fields, absent: absent };`;
-
-const setFields = (specs: (typeof Fields)['Type'], save: Save): string =>
-    `${_FIELD_JS} var applyFormat = function (f, fmt) { if (fmt.kind === 'plain') { if (fmt.charLimit !== undefined) { f.charLimit = fmt.charLimit; } f.comb = false; f.doNotSpellCheck = true; f.doNotScroll = false; f.richText = false; } if (fmt.kind === 'number' || fmt.kind === 'total') { f.setAction('Format', 'AFNumber_Format(' + fmt.decimals + ', 0, 0, 0, "", true);'); f.setAction('Keystroke', 'AFNumber_Keystroke(' + fmt.decimals + ', 0, 0, 0, "", true);'); f.alignment = 'right'; } if (fmt.kind === 'number' && fmt.range !== undefined) { f.setAction('Validate', 'AFRange_Validate(true, ' + fmt.range.min + ', true, ' + fmt.range.max + ');'); } if (fmt.kind === 'percent') { f.setAction('Format', 'AFPercent_Format(' + fmt.decimals + ', 0);'); f.setAction('Keystroke', 'AFPercent_Keystroke(' + fmt.decimals + ', 0);'); f.setAction('Validate', 'AFRange_Validate(true, 0, true, 1);'); f.alignment = 'right'; } if (fmt.kind === 'date') { f.setAction('Format', 'AFDate_FormatEx("yyyy-mm-dd");'); f.setAction('Keystroke', 'AFDate_KeystrokeEx("yyyy-mm-dd");'); } if (fmt.kind === 'time') { f.setAction('Format', 'AFTime_Format(0);'); f.setAction('Keystroke', 'AFTime_Keystroke(0);'); } if (fmt.kind === 'total') { f.setAction('Calculate', 'AFSimple_Calculate("SUM", new Array(' + fmt.operands.map(function (name) { return JSON.stringify(name); }).join(', ') + '));'); f.readonly = true; var top = -1; for (var k = 0; k < fmt.operands.length; k++) { var operand = d.getField(fmt.operands[k]); if (operand !== null && operand.calcOrderIndex > top) { top = operand.calcOrderIndex; } } f.calcOrderIndex = top + 1; } }; var specs = ${JSON.stringify(Schema.encodeSync(Schema.toCodecJson(Fields))(specs))}; var applied = []; var rejected = []; for (var i = 0; i < specs.length; i++) { var s = specs[i]; var f = d.getField(s.name); if (f === null && s.create === undefined) { rejected.push({ name: s.name, reason: { _tag: 'fieldAbsent' } }); continue; } var from = f === null ? null : readField(f); if (f === null) { f = d.addField(s.name, s.create.type, s.create.page, s.create.rect); } if (s.format !== undefined) { applyFormat(f, s.format); } if (f.type === 'checkbox') { f.exportValues = s.exportValues === undefined ? ['Yes'] : s.exportValues; f.style = 'check'; f.defaultIsChecked(0, false); } if (f.type === 'radiobutton') { f.style = 'circle'; f.radiosInUnison = false; if (s.exportValues !== undefined) { f.exportValues = s.exportValues; } } if (f.type === 'combobox' || f.type === 'listbox') { if (s.items !== undefined) { var rows = []; for (var k = 0; k < s.items.length; k++) { rows.push([s.items[k].label, s.items[k].export]); } f.setItems(rows); } f.commitOnSelChange = true; } if (f.type === 'combobox') { f.editable = false; } if (f.type === 'listbox') { f.multipleSelection = false; } if (f.type === 'button') { if (s.caption !== undefined) { f.buttonSetCaption(s.caption); } if (s.mouseUp !== undefined) { f.setAction('MouseUp', s.mouseUp === 'resetForm' ? 'this.resetForm();' : 'this.submitForm(' + JSON.stringify(s.mouseUp.submitForm) + ');'); } } if (s.readOnly !== undefined) { f.readonly = s.readOnly; } if (s.required !== undefined) { f.required = s.required; } if (s.defaultValue !== undefined) { f.defaultValue = s.defaultValue; } applied.push({ name: s.name, from: from }); } d.calculateNow(); for (var a = 0; a < applied.length; a++) { applied[a].to = readField(d.getField(applied[a].name)); } ${_save(save)} return { kind: 'fieldsApplied', applied: applied, rejected: rejected };`;
-
-const tabOrder = (pages: Option.Option<Array.NonEmptyReadonlyArray<number>>, order: 'rows' | 'columns' | 'structure', save: Save): string =>
-    `var pages = ${Option.match(pages, { onNone: () => 'null', onSome: JSON.stringify })}; if (pages === null) { pages = []; for (var i = 0; i < d.numPages; i++) { pages.push(i); } } for (var j = 0; j < pages.length; j++) { d.setPageTabOrder(pages[j], ${JSON.stringify(order)}); } ${_save(save)} return { kind: 'tabOrder', applied: pages };`;
-
-const autotag: string = `var p = Preflight.getProfileByName(${_PDF_UA}); if (p === undefined) { throw { _tag: 'profileAbsent', profile: ${_PDF_UA} }; } var before = d.preflight(p, true).numErrors; app.execMenuItem(${JSON.stringify(NAMES.makeAccessible)}, d); return { before: before };`;
-
-const tagged = (before: number, save: Save): string =>
-    `var after = d.preflight(Preflight.getProfileByName(${_PDF_UA}), true).numErrors; var dirty = d.dirty; ${_save(save)} return { kind: 'tagged', numErrors: { before: ${before}, after: after }, dirty: dirty };`;
-
-const preflight = (method: 'getProfileByName' | 'createComplianceProfile', profile: string, fixups: boolean, report: boolean, save: Save): string => {
-    const label = JSON.stringify(profile);
-    return `var p = Preflight.${method}(${label}); if (p === undefined) { throw { _tag: 'profileAbsent', profile: ${label} }; } var r = d.preflight(p, ${!fixups}); var out = { numErrors: r.numErrors, numWarnings: r.numWarnings, numInfos: r.numInfos, numFixed: r.numFixed, numNotFixed: r.numNotFixed }; ${report ? 'out.report = r.report();' : ''} ${_save(save)} return out;`;
-};
-
-const _operation: (operation: Operation) => string = Match.type<Operation>().pipe(
-    Match.discriminatorsExhaustive('op')({
-        colorConvertPage: ({ page, target }) =>
-            `var a = d.getColorConvertAction(); a.matchAttributesAny = -1; a.matchSpaceTypeAny = ~a.constants.spaceFlags.AlternateSpace; a.matchIntent = a.constants.renderingIntents.Any; a.action = a.constants.actions.Convert; a.convertProfile = ${JSON.stringify(_TARGETS[target].profile)}; a.convertIntent = a.constants.renderingIntents.RelativeColorimetric; a.embed = true; a.preserveBlack = ${_TARGETS[target].preserveBlack}; a.useBlackPointCompensation = true; d.colorConvertPage(${page}, [a], []);`,
-        embedOutputIntent: ({ profile }) => `d.embedOutputIntent(${JSON.stringify(profile)});`,
-        flattenPages: ({ start, end, nonPrint }) =>
-            `d.flattenPages(${JSON.stringify(Record.getSomes<string, Schema.Json>({ nStart: start, nEnd: end, nNonPrint: Option.some(_NON_PRINT[nonPrint]) }))});`,
-        addWatermarkFromText: ({ text, font, size, color, opacity, rotation, start, end }) =>
-            `d.addWatermarkFromText(${JSON.stringify(Record.getSomes<string, Schema.Json>({ cText: Option.some(text), cFont: font, nFontSize: size, aColor: color, nOpacity: opacity, nRotation: rotation, nStart: start, nEnd: end }))});`,
-        applyRedactions: () => 'd.applyRedactions();',
-    }),
-);
-
-const printProduction = (operations: readonly Operation[], save: Save): string =>
-    `var ops = [${Array.join(
-        Array.map(operations, (operation) => `function () { ${_operation(operation)} }`),
-        ', ',
-    )}]; var applied = []; var rejected = []; for (var i = 0; i < ops.length; i++) { try { ops[i](); applied.push(i); } catch (e) { rejected.push({ opIndex: i, reason: { name: e.name, message: e.message } }); } } ${_save(save)} return { kind: 'production', applied: applied, rejected: rejected };`;
-
-const combine = (sources: (typeof Sources)['Type'], output: AbsolutePath): string => {
-    const target = JSON.stringify(output);
-    return `var sources = ${JSON.stringify(Schema.encodeSync(Schema.toCodecJson(Sources))(sources))}; var d = app.newDoc(); try { var skipped = []; var marks = []; for (var i = 0; i < sources.length; i++) { var s = sources[i]; var first = d.numPages - 1; var args = { nPage: d.numPages - 1, cPath: s.path }; if (s.start !== undefined) { args.nStart = s.start; args.nEnd = s.end; } try { d.insertPages(args); marks.push({ label: s.label, page: first }); } catch (e) { skipped.push({ path: s.path, reason: { _tag: 'insertRefused', message: e.message } }); } } if (marks.length === 0) { return { kind: 'nothingInserted', skipped: skipped }; } d.deletePages(0); var count = 0; for (var j = 0; j < marks.length; j++) { if (marks[j].label !== undefined) { d.bookmarkRoot.createChild(marks[j].label, 'this.pageNum = ' + marks[j].page, count); count++; } } d.saveAs({ cPath: ${target} }); return { kind: 'combined', path: ${target}, numPages: d.numPages, bookmarks: count, skipped: skipped }; } finally { d.closeDoc(true); }`;
-};
-
-const perFile = (source: AbsolutePath, body: string): string => `var d = app.openDoc({ cPath: ${JSON.stringify(source)}, bHidden: true }); try { ${body} } finally { d.closeDoc(true); }`;
+const matches = (source: Native.DocumentResult['scan'], expression: RegExp): readonly (Native.DocumentRequest['redact']['matches'][number] & { readonly wordIndices: readonly number[] })[] =>
+    Array.flatMap(source.pages, ({ page, words }) => {
+        const [, spans] = Array.mapAccum(words, 0, (start, word) => [start + word.word.length, { ...word, start, end: start + word.word.length }]);
+        const text = Array.map(words, ({ word }) => word).join('');
+        const pattern = new RegExp(expression, expression.global ? expression.flags : `${expression.flags}g`);
+        return Array.flatMap(Array.fromIterable(text.matchAll(pattern)), (match) => {
+            const touched = match[0].length === 0 ? [] : Array.filter(spans, ({ start, end }) => start < match.index + match[0].length && end > match.index);
+            return Array.map(Array.take(touched, 1), ({ wordIndex }) => ({
+                page,
+                wordIndex,
+                wordIndices: Array.map(touched, Struct.get('wordIndex')),
+                text: match[0],
+                quads: Array.flatMap(touched, Struct.get('quads')),
+            }));
+        });
+    });
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export {
-    autotag,
-    combine,
-    envelope,
-    execMenuItem,
-    Field,
-    Fields,
-    getFields,
-    menu,
-    NAMES,
-    Operation,
-    openDocument,
-    perFile,
-    preflight,
-    printProduction,
-    Sources,
-    setFields,
-    state,
-    tabOrder,
-    tagged,
-    withDocument,
-};
+export { Color, call, compiled, envelope, Field, Fields, matches, NAMES, Operation, printProduction, Sources, setFields, withDocument };

@@ -1,12 +1,12 @@
 // --- [IMPORTS] -------------------------------------------------------------------------
 
-import { type Config, Effect, FileSystem, Option, Path, type PlatformError, Schema } from 'effect';
+import { Effect, FileSystem, Option, Path, Schema } from 'effect';
 import type { ChildProcessSpawner } from 'effect/unstable/process';
 import { BridgeError, HostRejection, inaccessible, notDecodable } from '../errors.ts';
-import { type Discovered, discover } from '../hosts.ts';
+import { type Discovered, Hosts, installed } from '../hosts.ts';
 import { artifacts, root } from '../jobs.ts';
 import { literal, read } from '../osascript.ts';
-import { ARTIFACTS, HOSTS, OptionalNumber, OptionalString, type TimeoutMs } from '../values.ts';
+import { ARTIFACTS, HOSTS, type JobId, OptionalNumber, OptionalString, type TimeoutMs } from '../values.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
@@ -44,8 +44,8 @@ const Unavailable: Schema.encodeKeys<
 
 // --- [SITE] ----------------------------------------------------------------------------
 
-const site: Effect.Effect<Site, BridgeError | PlatformError.PlatformError | Schema.SchemaError | Config.ConfigError, ChildProcessSpawner.ChildProcessSpawner | Path.Path> = Effect.map(
-    Effect.all([discover(HOSTS.illustrator), Path.Path, root, artifacts(HOSTS.illustrator.id, 'jobs')]),
+const site: Effect.Effect<Site, BridgeError, Hosts | Path.Path> = Effect.map(
+    Effect.all([Hosts.use((hosts) => installed(HOSTS.illustrator.id, hosts.illustrator)), Path.Path, root, artifacts(HOSTS.illustrator.id, 'jobs')]),
     ([host, path, base, jobs]) => ({ host, scripts: path.join(base, ARTIFACTS, 'apps', 'creative-cloud', 'illustrator-scripts'), jobs }),
 );
 
@@ -56,11 +56,12 @@ const dispatch = <Request extends Schema.Codec<unknown, unknown, never, never>, 
     timeoutMs: TimeoutMs,
     script: Script<Request, Response>,
     request: Request['Type'],
+    jobId: JobId,
 ): Effect.Effect<Response['Type'], BridgeError, ChildProcessSpawner.ChildProcessSpawner | FileSystem.FileSystem | Path.Path> =>
     Effect.gen(function* () {
         const fs = yield* FileSystem.FileSystem;
         const path = yield* Path.Path;
-        const job = path.join(at.jobs, script.entry);
+        const job = path.join(at.jobs, jobId);
         const requestPath = path.join(job, 'request.json');
         const responsePath = path.join(job, 'response.json');
         const encoded = yield* Effect.orDie(Schema.encodeEffect(Schema.fromJsonString(script.request))(request));
@@ -68,7 +69,7 @@ const dispatch = <Request extends Schema.Codec<unknown, unknown, never, never>, 
         const answered = yield* Effect.flatMap(
             read(
                 HOSTS.illustrator.id,
-                at.host.bundleId,
+                at.host.bundlePath,
                 timeoutMs,
                 `do javascript f with arguments {${literal(requestPath)}, ${literal(responsePath)}} show debugger never`,
                 Option.some(path.join(at.scripts, `${script.entry}.jsx`)),

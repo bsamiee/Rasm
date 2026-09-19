@@ -2,7 +2,7 @@
 
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
 import { LocalWorkspace } from '@pulumi/pulumi/automation/index.js';
-import { Cause, Console, Data, Effect, flow, Path, Queue, Stdio, Stream } from 'effect';
+import { Data, Effect, Path, Queue, Stdio, Stream } from 'effect';
 import { Command, Flag } from 'effect/unstable/cli';
 import { program } from './program.ts';
 
@@ -52,9 +52,4 @@ Command.run(
         ]),
     ),
     { version: '' },
-).pipe(
-    Effect.tapErrorTag(['StackError', 'PlatformError'], (error) => Console.error(Cause.pretty(Cause.fail(error)))),
-    Effect.tapDefect(flow(Cause.die, Cause.pretty, Console.error)),
-    Effect.provide(NodeServices.layer),
-    NodeRuntime.runMain({ disableErrorReporting: true }),
-);
+).pipe(Effect.provide(NodeServices.layer), NodeRuntime.runMain);

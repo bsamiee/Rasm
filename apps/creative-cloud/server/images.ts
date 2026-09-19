@@ -23,7 +23,7 @@ const _POINTS_PER_INCH = 72;
 // --- [MODELS] --------------------------------------------------------------------------
 
 const PixelBudget: Schema.Literals<Array<keyof typeof BUDGET>> = Schema.Literals(Struct.keys(BUDGET));
-const Dpi: Schema.Int = Schema.Int.pipe(Schema.check(Schema.isBetween(DPI)));
+const Dpi: Schema.Int = Schema.Int.pipe(Schema.check(Schema.isGreaterThan(0)));
 const _unit = Schema.Number.pipe(Schema.check(Schema.isBetween({ minimum: 0, maximum: 1 })));
 const Region: Schema.Tuple<readonly [Schema.Number, Schema.Number, Schema.Number, Schema.Number]> = Schema.Tuple([_unit, _unit, _unit, _unit]).pipe(
     Schema.check(Schema.makeFilter(([x0, y0, x1, y1]: readonly [number, number, number, number]) => x1 > x0 && y1 > y0, { title: 'region', description: 'x1 > x0 and y1 > y0' })),
@@ -41,7 +41,7 @@ const dpi = (budget: PixelBudget, widthPt: number, heightPt: number): number => 
     const widthIn = widthPt / _POINTS_PER_INCH;
     const heightIn = heightPt / _POINTS_PER_INCH;
     const row = BUDGET[budget];
-    const fitted = Math.round(Math.min(row.longEdgePx / Math.max(widthIn, heightIn), Math.sqrt(row.pixels / (widthIn * heightIn))));
+    const fitted = Math.max(1, Math.round(Math.min(row.longEdgePx / Math.max(widthIn, heightIn), Math.sqrt(row.pixels / (widthIn * heightIn)))));
     return Option.match(row.dpi, { onNone: () => fitted, onSome: (range) => Number.clamp(fitted, range) });
 };
 

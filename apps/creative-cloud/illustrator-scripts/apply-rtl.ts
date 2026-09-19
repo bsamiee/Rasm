@@ -2,7 +2,9 @@
 
 // --- [PRELUDE] -------------------------------------------------------------------------
 
-const { assign, collect, flatMap, fold, items, present, reference, reflection, run, select, split, typed }: Prelude = $.evalFile(new File(`${new File($.fileName).path}/prelude.jsx`));
+const { assign, collect, each, flatMap, flatten, fold, items, present, reference, reflection, run, select, split, typed, visit }: Prelude = $.evalFile(
+    new File(`${new File($.fileName).path}/prelude.jsx`),
+);
 
 // --- [WRITES] --------------------------------------------------------------------------
 
@@ -14,14 +16,14 @@ interface Write {
 
 const written = (frame: number, range: TextRange, write: Write, at: Site): JsonObject => {
     const attributes = write.scope === 'character' ? range.characterAttributes : range.paragraphAttributes;
-    if (!fold(reflection(attributes), false, (_none, reflected): boolean => reflected.find(write.property) !== null)) {
+    if (!fold(reflection(attributes), false, (found, reflected): boolean => found || reflected.find(write.property) !== null)) {
         return { frame, scope: write.scope, property: write.property, reason: 'absentFromReflect' };
     }
     const value = 'enumeration' in write.value ? $.global[write.value.enumeration][write.value.member] : write.value.literal;
     assign(attributes, write.property, value);
     const readback = attributes[write.property as keyof typeof attributes];
     const rendered = reference(readback, at).value;
-    return String(readback) === String(value)
+    return readback === value
         ? { frame, scope: write.scope, property: write.property, value: rendered }
         : { frame, scope: write.scope, property: write.property, value: rendered, reason: 'readbackDiffers' };
 };
@@ -30,8 +32,16 @@ const written = (frame: number, range: TextRange, write: Write, at: Site): JsonO
 
 const applyRtl = (request: { readonly target: 'selection' | 'document'; readonly writes: Write[] }, at: Site): Reading<JsonObject> => {
     const doc = app.activeDocument;
-    const frames = request.target === 'document' ? items<TextFrame>(doc.textFrames) : select(items<PageItem>(doc.selection), typed<TextFrame>('TextFrame'));
-    return present(split(flatMap(frames, (frame, index): JsonObject[] => collect(request.writes, (write): JsonObject => written(index, frame.textRange, write, at)))));
+    const ranges = request.target === 'selection' ? fold<Story, TextRange[]>(items(doc.stories), [], (selected, story): TextRange[] => selected.concat(story.textSelection)) : [];
+    if (ranges.length === 0) {
+        const frames = request.target === 'document' ? items<TextFrame>(doc.textFrames) : select(flatten(items<PageItem>(doc.selection)), typed<TextFrame>('TextFrame'));
+        visit(frames, (frame): void => {
+            ranges.push(frame.textRange);
+        });
+    }
+    const writes = flatMap(ranges, (range, index) => collect(request.writes, (write) => ({ index, range, write })));
+    const reading = each(at, writes, ({ index, range, write }, site): Reading<JsonObject> => present(written(index, range, write, site)));
+    return { value: split(reading.value), unavailable: reading.unavailable };
 };
 
 run(applyRtl);

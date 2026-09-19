@@ -129,13 +129,13 @@ const BridgeError: Schema.TaggedUnion<{
     readonly hostNotRunning: Schema.TaggedStruct<'hostNotRunning', { readonly host: typeof HostId }>;
     readonly automationDenied: Schema.TaggedStruct<'automationDenied', { readonly host: typeof HostId }>;
     readonly hostUnresponsive: Schema.TaggedStruct<'hostUnresponsive', { readonly host: typeof HostId; readonly code: Schema.Number }>;
+    readonly scriptTimedOut: Schema.TaggedStruct<'scriptTimedOut', { readonly host: typeof HostId; readonly timeoutMs: Schema.Number }>;
     readonly scriptNotCompiled: Schema.TaggedStruct<'scriptNotCompiled', { readonly host: typeof HostId; readonly code: Schema.Number; readonly line: Schema.String }>;
     readonly hostRejected: Schema.TaggedStruct<'hostRejected', { readonly host: typeof HostId; readonly code: Schema.Number; readonly reason: Schema.String }>;
     readonly deadlineExceeded: Schema.TaggedStruct<'deadlineExceeded', { readonly host: typeof HostId; readonly jobId: typeof JobId }>;
     readonly hostNotAttached: Schema.TaggedStruct<'hostNotAttached', { readonly host: typeof HostId }>;
     readonly portNotBound: Schema.TaggedStruct<'portNotBound', { readonly host: typeof HostId; readonly port: Schema.Int; readonly cause: Schema.Defect }>;
     readonly hostBusy: Schema.TaggedStruct<'hostBusy', { readonly host: typeof HostId; readonly jobId: typeof JobId; readonly startedAt: Schema.Number }>;
-    readonly hostSaturated: Schema.TaggedStruct<'hostSaturated', { readonly host: typeof HostId; readonly pid: Schema.Int; readonly cpu: Schema.Number }>;
     readonly pluginDetached: Schema.TaggedStruct<'pluginDetached', { readonly host: typeof HostId; readonly jobId: typeof JobId }>;
     readonly resultNotDecodable: Schema.TaggedStruct<'resultNotDecodable', { readonly host: typeof HostId; readonly value: Schema.Codec<Schema.Json>; readonly cause: Schema.Defect }>;
     readonly fileNotAccessible: Schema.TaggedStruct<
@@ -149,13 +149,13 @@ const BridgeError: Schema.TaggedUnion<{
     hostNotRunning: { host: HostId },
     automationDenied: { host: HostId },
     hostUnresponsive: { host: HostId, code: Schema.Number },
+    scriptTimedOut: { host: HostId, timeoutMs: Schema.Number },
     scriptNotCompiled: { host: HostId, code: Schema.Number, line: Schema.String },
     hostRejected: { host: HostId, code: Schema.Number, reason: Schema.String },
     deadlineExceeded: { host: HostId, jobId: JobId },
     hostNotAttached: { host: HostId },
     portNotBound: { host: HostId, port: Schema.Int, cause: Schema.Defect() },
     hostBusy: { host: HostId, jobId: JobId, startedAt: Schema.Number },
-    hostSaturated: { host: HostId, pid: Schema.Int, cpu: Schema.Number },
     pluginDetached: { host: HostId, jobId: JobId },
     resultNotDecodable: { host: HostId, value: Schema.Json, cause: Schema.Defect() },
     fileNotAccessible: { host: HostId, path: Schema.OptionFromNullOr(Schema.String), reason: Schema.Literals(_INACCESSIBLE) },

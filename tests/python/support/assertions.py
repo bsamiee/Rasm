@@ -48,7 +48,7 @@ class _Quantity(Protocol):
 JSON_ENCODER = msgspec.json.Encoder(order="deterministic")
 MSGPACK_ENCODER = msgspec.msgpack.Encoder(order="deterministic")
 
-# --- [TOLERANCE_ORACLES] ----------------------------------------------------------------
+# --- [TOLERANCE_ASSERTIONS] -------------------------------------------------------------
 
 
 def _diverge(a: object, b: object, rel_tol: float, abs_tol: float, path: str) -> str | None:

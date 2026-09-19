@@ -1,4 +1,4 @@
-"""Recording call stubs, an autojumping virtual clock, fixture file writers, and an NDJSON decode oracle."""
+"""Recording call stubs, an autojumping virtual clock, fixture file writers, and NDJSON line-count assertions."""
 
 # --- [IMPORTS] --------------------------------------------------------------------------
 
@@ -94,7 +94,7 @@ def write_fixtures(directory: Path, files: Mapping[str, object], encode: Callabl
     return paths
 
 
-# --- [DECODE_ORACLES] -------------------------------------------------------------------
+# --- [DECODE_ASSERTIONS] ----------------------------------------------------------------
 
 
 def decoded_lines[T](decoder: msgspec.json.Decoder[T], raw: bytes | str, count: int) -> list[T]:

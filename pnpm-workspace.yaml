@@ -10,30 +10,40 @@ storeDir: .cache/pnpm/store
 minimumReleaseAge: 0
 catalog:
     # Effect runtime
-    effect: 4.0.0-rc.115
-    '@effect/platform-node': 4.0.0-rc.115
-    '@effect/platform-bun': 4.0.0-rc.115
-    '@effect/platform-browser': 4.0.0-rc.115
-    '@effect/opentelemetry': 4.0.0-rc.115
+    effect: 4.0.0-rc.116
+    '@effect/platform-node': 4.0.0-rc.116
+    '@effect/platform-bun': 4.0.0-rc.116
+    '@effect/platform-browser': 4.0.0-rc.116
+    '@effect/opentelemetry': 4.0.0-rc.116
     # Serialization and messaging
+    # Bidirectional binary format declarations for Adobe palette exchange
+    '@solana/codecs': canary
     hash-wasm: 4.12.0
     '@bufbuild/protobuf': 2.15.0
-    '@bufbuild/protovalidate': 1.2.0
+    '@bufbuild/protovalidate': 1.3.0
     '@connectrpc/connect': 2.2.0
     '@connectrpc/connect-web': 2.2.0
     '@msgpack/msgpack': 3.1.3
     rfc6902: 5.3.0
     fast-xml-parser: 5.11.1
+    # Strict XML syntax validation for native Adobe shortcut files
+    fast-xml-validator: latest
+    # Namespace-preserving XMP document updates
+    '@xmldom/xmldom': latest
     # XML builder behind the Acrobat .sequ renderer, the builder fast-xml-parser re-exports under a deprecation
     fast-xml-builder: 1.3.1
     # HTML parser behind the Acrobat accessibility report's rule rows, which are HTML and not XML
     cheerio: 1.2.0
+    # Maintained HTML encoding decoder using the shared Exodus byte codecs
+    encoding-sniffer: latest
+    # Programmatic MCP application document serialization
+    parse5: latest
     # Property-list parser behind the Acrobat preference read, dict pairs and typed leaves as one object tree
     plist: 5.0.0
     yaml: 3.0.0-2
     avsc: 5.7.9
     cloudevents: 10.0.0
-    mqtt: 5.15.2
+    mqtt: 5.16.0
     '@electric-sql/d2mini': 0.1.8
     '@electric-sql/d2ts': 0.1.8
     '@opentelemetry/semantic-conventions': 1.43.0
@@ -49,26 +59,26 @@ catalog:
     '@oslojs/encoding': 1.1.0
     '@dopplerhq/node-sdk': 1.3.0
     # Data access and storage
-    '@effect/sql-pg': 4.0.0-rc.115
-    '@effect/sql-sqlite-node': 4.0.0-rc.115
-    '@effect/sql-sqlite-bun': 4.0.0-rc.115
-    '@effect/sql-sqlite-wasm': 4.0.0-rc.115
-    '@effect/sql-libsql': 4.0.0-rc.115
-    '@effect/sql-d1': 4.0.0-rc.115
-    '@effect/sql-mysql2': 4.0.0-rc.115
-    '@effect/sql-mssql': 4.0.0-rc.115
-    '@effect/sql-clickhouse': 4.0.0-rc.115
-    '@effect/sql-pglite': 4.0.0-rc.115
-    '@effect/sql-sqlite-do': 4.0.0-rc.115
+    '@effect/sql-pg': 4.0.0-rc.116
+    '@effect/sql-sqlite-node': 4.0.0-rc.116
+    '@effect/sql-sqlite-bun': 4.0.0-rc.116
+    '@effect/sql-sqlite-wasm': 4.0.0-rc.116
+    '@effect/sql-libsql': 4.0.0-rc.116
+    '@effect/sql-d1': 4.0.0-rc.116
+    '@effect/sql-mysql2': 4.0.0-rc.116
+    '@effect/sql-mssql': 4.0.0-rc.116
+    '@effect/sql-clickhouse': 4.0.0-rc.116
+    '@effect/sql-pglite': 4.0.0-rc.116
+    '@effect/sql-sqlite-do': 4.0.0-rc.116
     '@electric-sql/pglite': 0.5.8
     '@electric-sql/pglite-tools': 0.4.8
     '@duckdb/node-api': 1.5.5-r.5
     '@duckdb/duckdb-wasm': "1.33.1-dev64.0"
     '@qualithm/arrow-flight-client': 0.2.0
-    parquet-wasm: 0.7.2
-    '@aws-sdk/client-s3': 3.1133.0
-    '@aws-sdk/s3-request-presigner': 3.1133.0
-    '@aws-sdk/lib-storage': 3.1133.0
+    parquet-wasm: 0.8.0
+    '@aws-sdk/client-s3': 3.1136.0
+    '@aws-sdk/s3-request-presigner': 3.1136.0
+    '@aws-sdk/lib-storage': 3.1136.0
     '@tus/server': 2.4.5
     '@tus/s3-store': 2.0.6
     sharp: 0.35.4
@@ -96,11 +106,18 @@ catalog:
     jszip: 3.10.2
     papaparse: 5.7.0
     '@types/papaparse': 5.5.2
-    '@effect/ai-anthropic': 4.0.0-rc.115
-    '@effect/ai-openai': 4.0.0-rc.115
-    '@effect/ai-openrouter': 4.0.0-rc.115
-    '@effect/ai-openai-compat': 4.0.0-rc.115
-    '@modelcontextprotocol/sdk': 1.30.0
+    '@effect/ai-anthropic': 4.0.0-rc.116
+    '@effect/ai-openai': 4.0.0-rc.116
+    '@effect/ai-openrouter': 4.0.0-rc.116
+    '@effect/ai-openai-compat': 4.0.0-rc.116
+    # Current MCP SDK client, server and protocol ownership
+    '@modelcontextprotocol/client': latest
+    '@modelcontextprotocol/server': latest
+    '@modelcontextprotocol/core': latest
+    # Official MCP application protocol and browser client
+    '@modelcontextprotocol/ext-apps': latest
+    # Native pointer and gesture transforms for snapshot presentation
+    '@panzoom/panzoom': latest
     '@openfeature/server-sdk': 1.23.0
     '@opentelemetry/api': 1.9.1
     '@opentelemetry/context-async-hooks': 2.11.0
@@ -146,14 +163,14 @@ catalog:
     '@types/react': 19.3.0
     '@types/react-dom': 19.3.0
     react-aria: 3.52.1
-    react-aria-components: 3.0.0-nightly-4693fcc84-260915
+    react-aria-components: 3.0.0-nightly-90ff0c6d6-260918
     react-stately: 3.50.0
     '@react-aria/live-announcer': 3.5.1
     babel-plugin-react-compiler: 1.0.0
     react-compiler-runtime: 1.0.0
     react-error-boundary: 6.1.5
     scheduler: "0.28.0-canary-ff8f88fc-20260915"
-    '@effect/atom-react': 4.0.0-rc.115
+    '@effect/atom-react': 4.0.0-rc.116
     '@floating-ui/react': 0.27.20
     '@radix-ui/react-slot': "1.4.0-rc.1785512840124"
     '@radix-ui/react-visually-hidden': "1.2.12-rc.1785512840124"
@@ -163,12 +180,12 @@ catalog:
     '@use-gesture/react': 10.3.1
     cmdk: 1.1.1
     vaul: 1.1.2
-    lucide-react: 1.46.0
+    lucide-react: 1.47.0
     class-variance-authority: 0.7.1
     clsx: 2.1.1
     tailwindcss: 4.3.3
     '@tailwindcss/typography': 0.5.20
-    tailwindcss-react-aria-components: 3.0.0-nightly-4693fcc84-260915
+    tailwindcss-react-aria-components: 3.0.0-nightly-90ff0c6d6-260918
     tailwind-merge: 3.7.0-dev.7fcb814ea439b749aa18b72415b0e21837811853
     tw-animate-css: 1.4.0
     colorjs.io: 0.7.1
@@ -179,7 +196,7 @@ catalog:
     elkjs: 0.12.0
     prosemirror-model: 1.25.11
     prosemirror-state: 1.4.4
-    prosemirror-view: 1.42.3
+    prosemirror-view: 1.42.4
     prosemirror-transform: 1.12.1
     prosemirror-commands: 1.7.2
     prosemirror-keymap: 1.2.3
@@ -189,7 +206,7 @@ catalog:
     prosemirror-gapcursor: 1.4.1
     prosemirror-dropcursor: 1.8.3
     prosemirror-collab: 1.3.1
-    motion: 13.3.0
+    motion: 13.4.0
     d3: 7.9.0
     uplot: 1.6.32
     '@observablehq/plot': 0.6.17
@@ -198,10 +215,10 @@ catalog:
     '@visx/axis': 4.0.0
     '@visx/group': 4.0.0
     '@visx/responsive': 4.0.0
-    '@perspective-dev/client': 5.5.0
-    '@perspective-dev/viewer': 5.5.0
-    '@perspective-dev/viewer-datagrid': 5.5.0
-    '@perspective-dev/viewer-charts': 5.5.0
+    '@perspective-dev/client': 5.5.1
+    '@perspective-dev/viewer': 5.5.1
+    '@perspective-dev/viewer-datagrid': 5.5.1
+    '@perspective-dev/viewer-charts': 5.5.1
     web-vitals: 6.2.2
     # 3D and geospatial rendering
     three: 0.186.0
@@ -231,54 +248,76 @@ catalog:
     '@adobe-uxp-types/photoshop': 0.1.8
     fontkit: 2.0.4
     '@types/fontkit': 2.0.9
+    # Lossless WOFF and WOFF2 decoding before OpenType shaping
+    fonteditor-core: latest
+    # Portable zlib decompression for WOFF font tables
+    fflate: latest
+    # OpenType shaping and variable-instance metrics for reusable typography measurement
+    harfbuzzjs: 1.6.1
+    # Typed binary views over original font container bytes
+    '@ot-builder/bin-util': latest
+    # Original OpenType table maps and collection member offsets
+    '@ot-builder/io-bin-sfnt': latest
+    # Typed OpenType metadata readers for traits and named variations
+    '@ot-builder/io-bin-metadata': latest
+    # Owning OpenType metadata types and standard flags
+    '@ot-builder/ot-metadata': latest
+    # Standard OpenType name identifiers
+    '@ot-builder/ot-name': latest
+    # Owning SFNT table container type
+    '@ot-builder/ot-sfnt': latest
+    # Font catalogue discovery across hidden caches and symlinked font trees
+    fdir: 6.5.0
     # Emits the InDesign and Illustrator DOM declarations the generator builds from each host's scripting dictionary
     ts-morph: 28.0.0
-    # WHATWG TextEncoder and TextDecoder each UXP plugin's runtime.ts places on the host scope, which defines neither, before Effect's socket module constructs one at load
+    # WHATWG TextEncoder and TextDecoder for the shared UXP host-runtime boundary
     '@exodus/bytes': 1.15.1
     # Autocorrect over agent code in the InDesign plugin
     acorn: 8.18.0
     acorn-walk: 8.3.5
     astring: 1.9.0
     # Infrastructure as code
-    '@pulumi/pulumi': "3.263.0-alpha.x0cc2714"
-    '@pulumi/kubernetes': "4.35.0-alpha.1789453750"
-    '@pulumi/aws': "7.47.0-alpha.1789129079"
-    '@pulumi/awsx': "3.10.0-alpha.1789105953"
+    '@pulumi/pulumi': "3.264.0-alpha.xbc2b300"
+    '@pulumi/kubernetes': "4.35.0-alpha.1789768163"
+    '@pulumi/aws': "7.48.0-alpha.1789731918"
+    '@pulumi/awsx': "3.10.0-alpha.1789710984"
     '@pulumi/gcp': "9.37.0"
-    '@pulumi/cloudflare': "6.21.0-alpha.1789107838"
+    '@pulumi/cloudflare': "6.21.0"
     '@pulumi/postgresql': "3.19.0-alpha.1789108219"
-    '@pulumi/tls': "5.7.0-alpha.1789109424"
-    '@pulumi/random': "4.22.0-alpha.1789108526"
-    '@pulumi/command': "1.3.0-alpha.1789111377"
-    '@pulumi/docker': "5.3.0-alpha.1789105842"
-    '@pulumi/docker-build': "0.1.0-alpha.1789475706"
+    '@pulumi/tls': "5.7.0-alpha.1789714025"
+    '@pulumi/random': "4.22.0-alpha.1789713131"
+    '@pulumi/command': "1.3.0-alpha.1789709727"
+    '@pulumi/docker': "5.3.0-alpha.1789710587"
+    '@pulumi/docker-build': "0.1.0-alpha.1789770030"
     '@pulumi/policy': "1.22.0-alpha.1787747072"
     '@pulumiverse/doppler': 0.9.0
-    '@pulumiverse/grafana': 2.39.1
+    '@pulumiverse/grafana': 2.40.0
     '@grafana/grafana-foundation-sdk': 0.0.20
-    '@pulumi/eks': "4.4.0-alpha.1789110063"
-    '@pulumi/cloudinit': "1.7.0-alpha.1789104672"
-    '@pulumi/github': "6.16.0-alpha.1789106132"
+    '@pulumi/eks': "4.4.0-alpha.1789714775"
+    '@pulumi/cloudinit': "1.7.0-alpha.1789709503"
+    '@pulumi/github': "6.16.0-alpha.1789734146"
     '@pulumi/synced-folder': 0.12.4
     '@pulumi/esc-sdk': 0.14.0
-    '@pulumi/pulumiservice': "1.4.0-alpha.1789488673"
+    '@pulumi/pulumiservice': "1.4.0-alpha.1789765444"
     '@pulumiverse/acme': "0.17.0"
     # Testing
     vitest: 5.0.1
-    '@effect/vitest': 4.0.0-rc.115
+    '@effect/vitest': 4.0.0-rc.116
     fast-check: 4.10.1
     '@vitest/coverage-v8': 5.0.1
     '@stryker-mutator/core': 10.0.0
     '@stryker-mutator/vitest-runner': 10.0.0
     # Tooling
-    typescript: 7.1.0-dev.20260915.1
+    typescript: 7.1.0-dev.20260918.1
     '@effect/language-service': 0.87.2
-    '@effect/docgen': 4.0.0-rc.115
-    '@effect/openapi-generator': 4.0.0-rc.115
-    nx: 23.3.0-canary.20260915-071d621
-    '@nx/devkit': 23.3.0-canary.20260915-071d621
-    '@nx/dotnet': 23.3.0-canary.20260915-071d621
-    '@nx/vitest': 23.3.0-canary.20260915-071d621
+    '@effect/docgen': 4.0.0-rc.116
+    '@effect/openapi-generator': 4.0.0-rc.116
+    nx: 23.3.0-canary.20260918-027a0b0
+    '@nx/devkit': 23.3.0-canary.20260918-027a0b0
+    '@nx/dotnet': 23.3.0-canary.20260918-027a0b0
+    '@nx/vitest': 23.3.0-canary.20260918-027a0b0
+    # Structural command and host discovery for the workspace task graph
+    '@ast-grep/napi': latest
     '@biomejs/biome': 2.5.14
     '@tree-sitter-grammars/tree-sitter-xml': 0.7.0
     '@derekstride/tree-sitter-sql': 0.3.11
@@ -304,7 +343,7 @@ catalog:
     '@octokit/rest': 22.0.1
     playwright: "1.64.0-alpha-2026-09-16"
     # Stdio MCP client CLI whose per-method exit code gates the creative-cloud server
-    '@modelcontextprotocol/inspector': 2.6.0
+    '@modelcontextprotocol/inspector': 2.7.0
     npm-check-updates: 23.1.0
 overrides:
     # Providers' ^3 peer range excludes the catalog prerelease, and a second copy of the core fails resource registration
@@ -314,30 +353,21 @@ overrides:
     # Grammar packages misspell the optional marker of their tree-sitter peer, and the grammar target reads their C sources alone
     '@tree-sitter-grammars/tree-sitter-xml>tree-sitter': '-'
     '@derekstride/tree-sitter-sql>tree-sitter': '-'
-    # Plugin peer range spans 7 and 8, auto-install takes the 7 release beside @babel/core 8 and its peer on core 7 goes unmet
-    '@rolldown/plugin-babel>@babel/plugin-transform-runtime': 8.0.1
-    # vite-plugin-inspect depends on kit ^0.4, whose devframe tree would sit beside the one the @vitejs/devtools row brings
-    vite-plugin-inspect>@vitejs/devtools-kit: 'catalog:'
-    # Peer ranges the catalog crosses on purpose, one row per consumer so no other package's regular dependency moves
-    '@qualithm/arrow-flight-client>apache-arrow': 'catalog:'
-    '@use-gesture/react>react': 'catalog:'
-    '@google/model-viewer>three': 'catalog:'
+    # Node strips this workspace's erasable TypeScript; Nx's optional legacy loader requires the removed TypeScript compiler API
+    'nx>@swc-node/register': '-'
+    # Current consumers support the workspace's newest compiler and test runner
     '@pulumi/pulumi>typescript': 'catalog:'
-    '@effect/docgen>typescript': 'catalog:'
-    'tsconfck>typescript': 'catalog:'
+    # Cheerio's decoder API is unchanged in the ESM release used by this Node workspace
+    'cheerio>encoding-sniffer': 'catalog:'
+    # Vite's PostCSS loader uses parse in both supported YAML 2 and the workspace's YAML 3 prerelease
+    'vite>yaml': '^2.4.2 || >=3.0.0-0'
     '@nx/vitest>vitest': 'catalog:'
-    '@effect/atom-react>scheduler': 'catalog:'
 allowBuilds:
-    '@datadog/pprof': true
     '@derekstride/tree-sitter-sql': false
-    '@modelcontextprotocol/inspector': true
-    '@pulumi/command': true
-    '@pulumi/docker': true
-    '@pulumi/docker-build': true
-    '@pulumi/kubernetes': true
     '@swc/core': true
     '@tree-sitter-grammars/tree-sitter-xml': false
-    core-js: true
     esbuild: true
     nx: true
     protobufjs: true
+patchedDependencies:
+    '@adobe-uxp-types/uxp': patches/@adobe-uxp-types__uxp.patch

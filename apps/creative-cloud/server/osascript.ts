@@ -2,8 +2,8 @@
 
 import { Array, Duration, Effect, Option, Stream, String } from 'effect';
 import { ChildProcess, ChildProcessSpawner } from 'effect/unstable/process';
-import { type BridgeError, classify, NonZeroExit } from './errors.ts';
-import type { HostId } from './values.ts';
+import { BridgeError, classify, NonZeroExit } from './errors.ts';
+import type { AbsolutePath, HostId } from './values.ts';
 
 // --- [TEMPLATE] ------------------------------------------------------------------------
 
@@ -33,18 +33,26 @@ const reply: (command: ChildProcess.StandardCommand) => Effect.Effect<string, No
     Effect.map((output) => String.trim(output.stdout)),
 );
 
-const read = (host: HostId, bundleId: string, timeoutMs: number, statement: string, file: Option.Option<string>): Effect.Effect<string, BridgeError, ChildProcessSpawner.ChildProcessSpawner> => {
-    const application = `application id ${literal(bundleId)}`;
+const read = (
+    host: HostId,
+    bundlePath: AbsolutePath,
+    timeoutMs: number,
+    statement: string,
+    file: Option.Option<string>,
+): Effect.Effect<string, BridgeError, ChildProcessSpawner.ChildProcessSpawner> => {
+    const application = `application ${literal(bundlePath)}`;
     const script = [
+        `with timeout of ${Math.ceil(Duration.toSeconds(Duration.millis(timeoutMs)))} seconds`,
         `if not running of ${application} then error number -600`,
         ...Array.fromOption(Option.map(file, (path) => `set f to POSIX file ${literal(path)}`)),
-        `with timeout of ${Math.ceil(Duration.toSeconds(Duration.millis(timeoutMs)))} seconds`,
         `tell ${application}`,
         statement,
         'end tell',
         'end timeout',
     ];
-    return Effect.mapError(reply(ChildProcess.make('osascript', ['-'], { stdin: Stream.encodeText(Stream.make(script.join('\n'))) })), (exit) => classify(host, exit));
+    return Effect.mapError(reply(ChildProcess.make('osascript', ['-'], { stdin: Stream.encodeText(Stream.make(script.join('\n'))) })), (exit) => classify(host, exit)).pipe(
+        Effect.timeoutOrElse({ duration: timeoutMs, orElse: () => Effect.fail(BridgeError.cases.scriptTimedOut.make({ host, timeoutMs })) }),
+    );
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------
