@@ -141,7 +141,7 @@ flowchart LR
 - Manifests define projects, no `project.json`: `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
-- Project have no `src/` directory or foler with a single file, folder architecture is driven by logical domain groupings per language
+- Project have no `src/` directory, no foler with a single file, folder architecture is driven by logical domain groupings per language
 - Python and TypeScript files declare their exports at the end
 - Changes replace structure in place, one commit holds change and removal, new structure keeps its predecessor's name
 - Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder

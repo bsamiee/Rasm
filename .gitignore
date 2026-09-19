@@ -12,11 +12,6 @@ __pycache__/
 **/.artifacts/
 .playwright-cli/
 .nx/*
-apps/creative-cloud/server/indesign/indesign.ts
-apps/creative-cloud/server/illustrator/dictionary.ts
-apps/creative-cloud/server/photoshop/enumerations.ts
-apps/creative-cloud/illustrator-scripts/illustrator.ts
-apps/creative-cloud/acrobat-scripts/acrobat.d.ts
 
 # --- [HOST_WRITES] ------------------------------------------------------------
 
@@ -62,7 +57,6 @@ Thumbs.db
 .claude/agent-memory-local/
 .claude/settings.local.json
 .claude/types/*
-.claude/scratch
 !.claude/types/claude-code.d.ts
 .claude/worktrees/
 docs/research

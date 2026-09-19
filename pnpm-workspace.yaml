@@ -326,7 +326,7 @@ catalog:
     vite-plugin-webfont-dl: 3.13.1
     '@octokit/rest': 22.0.1
     playwright: "1.64.0-alpha-2026-09-16"
-    # Stdio MCP client CLI whose per-method exit code gates the creative-cloud server
+    # Stdio MCP client CLI whose per-method exit code gates an MCP server target
     '@modelcontextprotocol/inspector': 2.7.0
     npm-check-updates: 23.1.0
 overrides:

@@ -1,8 +1,0 @@
-{
-    "name": "@rasm/illustrator-scripts",
-    "private": true,
-    "type": "module",
-    "dependencies": {
-        "types-for-adobe": "catalog:"
-    }
-}

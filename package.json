@@ -23,6 +23,7 @@
         "npm-check-updates": "catalog:",
         "nx": "catalog:",
         "playwright": "catalog:",
+        "smol-toml": "catalog:",
         "typescript": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:",

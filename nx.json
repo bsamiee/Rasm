@@ -41,45 +41,12 @@
                 "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
             },
             {
-                "filter": { "projects": ["tag:host:indesign"] },
-                "dependsOn": [{ "projects": ["@rasm/creative-cloud-server"], "target": "generate-indesign" }],
-                "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
-            },
-            {
-                "filter": { "projects": ["tag:host:photoshop"] },
-                "dependsOn": [{ "projects": ["@rasm/creative-cloud-server"], "target": "generate-photoshop" }],
-                "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
-            },
-            {
                 "filter": { "projects": ["tag:host:extendscript"] },
-                "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**,**/illustrator.ts'",
+                "command": "swc {projectRoot} -d .artifacts --out-file-extension jsx --ignore '**/node_modules/**'",
                 "inputs": ["...", { "externalDependencies": ["@swc/core", "@swc/cli"] }],
                 "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
             }
         ],
-        "generate-illustrator": {
-            "cache": true,
-            "dependsOn": [{ "projects": ["tag:host:extendscript"], "target": "build" }],
-            "inputs": [
-                "typescript",
-                "production",
-                { "dependentTasksOutputFiles": "**/*.jsx" },
-                { "runtime": "node apps/creative-cloud/server/automation.ts version illustrator" },
-                { "externalDependencies": ["types-for-adobe"] }
-            ],
-            "outputs": ["{workspaceRoot}/apps/creative-cloud/illustrator-scripts/illustrator.ts", "{projectRoot}/illustrator/dictionary.ts"]
-        },
-        "generate-indesign": {
-            "cache": true,
-            "inputs": ["typescript", "production", { "runtime": "node apps/creative-cloud/server/automation.ts version indesign" }, { "runtime": "sw_vers -productVersion" }],
-            "outputs": ["{projectRoot}/indesign/indesign.ts"]
-        },
-        "generate-photoshop": {
-            "cache": true,
-            "inputs": ["typescript", "production", { "externalDependencies": ["@adobe-uxp-types/photoshop"] }],
-            "outputs": ["{projectRoot}/photoshop/enumerations.ts"]
-        },
-        "reconcile": [{ "filter": { "projects": ["tag:host:indesign"] }, "parallelism": false }],
         "deploy": [{ "filter": { "projects": ["tag:host:uxp"] }, "dependsOn": ["build"], "parallelism": false }],
         "install": [
             {
@@ -122,21 +89,6 @@
                 "inputs": ["default", { "dependentTasksOutputFiles": "**/*.d.ts", "transitive": true }, "typescript", { "externalDependencies": ["typescript"] }],
                 "options": { "cwd": "{projectRoot}" },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/{projectRoot}"]
-            },
-            {
-                "filter": { "projects": ["tag:host:indesign"] },
-                "dependsOn": ["...", { "projects": ["@rasm/creative-cloud-server"], "target": "generate-indesign" }],
-                "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
-            },
-            {
-                "filter": { "projects": ["tag:host:extendscript"] },
-                "dependsOn": ["...", { "projects": ["@rasm/creative-cloud-server"], "target": "generate-illustrator" }],
-                "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
-            },
-            {
-                "filter": { "projects": ["@rasm/creative-cloud-server"] },
-                "dependsOn": ["...", "generate-illustrator", "generate-indesign", "generate-photoshop"],
-                "inputs": ["...", { "dependentTasksOutputFiles": "**/*.ts" }]
             }
         ],
         "test": [

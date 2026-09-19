@@ -19,10 +19,6 @@
                 "AST_GREP_CONFIG": "sgconfig.yml"
             }
         },
-        "creative-cloud": {
-            "command": "mise",
-            "args": ["exec", "--", "node", "apps/creative-cloud/server/main.ts"]
-        },
         "playwright": {
             "command": "mise",
             "args": ["exec", "--", "playwright", "mcp", "--headless", "--caps=config,network,pdf,storage,testing,vision,devtools"]
