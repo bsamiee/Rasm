@@ -1,5 +1,9 @@
 {
     "mcpServers": {
+        "adobe": {
+            "command": "mise",
+            "args": ["exec", "--", "node", "apps/creative-cloud/mcp/main.ts"]
+        },
         "roslyn-codelens": {
             "command": "mise",
             "args": ["exec", "--", "dotnet", "dnx", "RoslynCodeLens.Mcp", "Workspace.slnx"]

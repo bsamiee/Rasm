@@ -290,7 +290,7 @@ catalog:
     '@stryker-mutator/core': 10.0.0
     '@stryker-mutator/vitest-runner': 10.0.0
     # Tooling
-    typescript: 7.1.0-dev.20260919.1
+    typescript: 7.1.0-dev.20260920.1
     '@effect/language-service': 0.87.2
     '@effect/docgen': 4.0.0-rc.116
     '@effect/openapi-generator': 4.0.0-rc.116

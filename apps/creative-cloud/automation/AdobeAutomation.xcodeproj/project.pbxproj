@@ -1,0 +1,23 @@
+// !$*UTF8*$!
+{
+archiveVersion = 1;
+classes = {};
+objectVersion = 110;
+objects = {
+83270135FA504D0BA90CC2D7 = {isa = PBXProject; attributes = {LastUpgradeCheck = 2700; LastSwiftUpdateCheck = 2700; BuildIndependentTargetsInParallel = 1;}; buildConfigurationList = 1E6CDC889A8B4FC8B31F8FD9; compatibilityVersion = "Xcode 16.0"; developmentRegion = en; knownRegions = (en, Base); mainGroup = 3874B437F8F7494EB4CAA701; productRefGroup = 085E33C6B4394937BC69F035; projectDirPath = ""; projectRoot = ""; targets = (9DD1FABB5D4B42719173E08B);};
+3874B437F8F7494EB4CAA701 = {isa = PBXGroup; children = (F5C6E1D9E5274F2FBEC9B7DD, 085E33C6B4394937BC69F035); sourceTree = "<group>";};
+F5C6E1D9E5274F2FBEC9B7DD = {isa = PBXFileSystemSynchronizedRootGroup; path = .; sourceTree = "<group>"; exceptions = (51A142EA9DF34C0789C2EBD5);};
+51A142EA9DF34C0789C2EBD5 = {isa = PBXFileSystemSynchronizedBuildFileExceptionSet; membershipExceptions = (AdobeAutomation.xcodeproj); target = 9DD1FABB5D4B42719173E08B;};
+085E33C6B4394937BC69F035 = {isa = PBXGroup; children = (917C099D5AE4414EA80932BF); name = Products; sourceTree = "<group>";};
+917C099D5AE4414EA80932BF = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.executable"; includeInIndex = 0; path = AdobeAutomation; sourceTree = BUILT_PRODUCTS_DIR;};
+9DD1FABB5D4B42719173E08B = {isa = PBXNativeTarget; buildConfigurationList = 3EB738E5BBEE4924AC7563D3; buildPhases = (1A64F35A5A99488690F53FBE); buildRules = (); dependencies = (); fileSystemSynchronizedGroups = (F5C6E1D9E5274F2FBEC9B7DD); name = AdobeAutomation; productName = AdobeAutomation; productReference = 917C099D5AE4414EA80932BF; productType = "com.apple.product-type.tool";};
+1A64F35A5A99488690F53FBE = {isa = PBXSourcesBuildPhase; files = ();};
+1E6CDC889A8B4FC8B31F8FD9 = {isa = XCConfigurationList; buildConfigurations = (FC08C46D96AB4A579535DE46, 04DDC93903C04F808FBAE551); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+FC08C46D96AB4A579535DE46 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; MACOSX_DEPLOYMENT_TARGET = 26.0; SWIFT_VERSION = 6.0; SWIFT_TREAT_WARNINGS_AS_ERRORS = YES; SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES; SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT = YES; SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES; ONLY_ACTIVE_ARCH = YES; SWIFT_OPTIMIZATION_LEVEL = "-Onone";}; name = Debug;};
+04DDC93903C04F808FBAE551 = {isa = XCBuildConfiguration; buildSettings = {ALWAYS_SEARCH_USER_PATHS = NO; MACOSX_DEPLOYMENT_TARGET = 26.0; SWIFT_VERSION = 6.0; SWIFT_TREAT_WARNINGS_AS_ERRORS = YES; SWIFT_UPCOMING_FEATURE_EXISTENTIAL_ANY = YES; SWIFT_UPCOMING_FEATURE_INTERNAL_IMPORTS_BY_DEFAULT = YES; SWIFT_UPCOMING_FEATURE_MEMBER_IMPORT_VISIBILITY = YES;}; name = Release;};
+3EB738E5BBEE4924AC7563D3 = {isa = XCConfigurationList; buildConfigurations = (7B085E0EE9FD4D01B916ED20, 225ED4B69A10472CB7FB8A37); defaultConfigurationIsVisible = 0; defaultConfigurationName = Release;};
+7B085E0EE9FD4D01B916ED20 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = app.rasm.adobe-automation; GENERATE_INFOPLIST_FILE = YES; CREATE_INFOPLIST_SECTION_IN_BINARY = YES; INFOPLIST_KEY_NSAppleEventsUsageDescription = "Execute requested commands in Adobe applications.";}; name = Debug;};
+225ED4B69A10472CB7FB8A37 = {isa = XCBuildConfiguration; buildSettings = {PRODUCT_NAME = "$(TARGET_NAME)"; PRODUCT_BUNDLE_IDENTIFIER = app.rasm.adobe-automation; GENERATE_INFOPLIST_FILE = YES; CREATE_INFOPLIST_SECTION_IN_BINARY = YES; INFOPLIST_KEY_NSAppleEventsUsageDescription = "Execute requested commands in Adobe applications.";}; name = Release;};
+};
+rootObject = 83270135FA504D0BA90CC2D7;
+}

@@ -1,0 +1,16 @@
+{
+    "name": "@rasm/adobe-mcp",
+    "version": "0.1.0",
+    "private": true,
+    "type": "module",
+    "dependencies": {
+        "@effect/platform-node": "catalog:",
+        "effect": "catalog:"
+    },
+    "devDependencies": {
+        "@types/node": "catalog:"
+    },
+    "nx": {
+        "implicitDependencies": ["AdobeAutomation"]
+    }
+}
