@@ -12,6 +12,7 @@ __pycache__/
 **/.artifacts/
 .playwright-cli/
 .nx/*
+.vs/
 
 # --- [HOST_WRITES] ------------------------------------------------------------
 
@@ -39,12 +40,17 @@ credentials.json
 
 # --- [LOGS] -------------------------------------------------------------------
 
+*.binlog
 *.log
 pnpm-debug.log*
 
 # --- [MACHINE] ----------------------------------------------------------------
 
 mise.local.toml
+*.sln.docstates
+*.suo
+*.user
+*.userosscache
 *.orig
 .DS_Store
 .AppleDouble

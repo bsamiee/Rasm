@@ -1,4 +1,10 @@
 <Solution>
+    <Folder Name="/apps/arches/">
+        <Project Path="apps/arches/Arches/Arches.csproj" />
+        <Project Path="apps/arches/Rhino.Arches.Core/Rhino.Arches.Core.csproj" />
+        <Project Path="apps/arches/Rhino.Arches.Interaction/Rhino.Arches.Interaction.csproj" />
+        <Project Path="apps/arches/Rhino.Arches.Plugin/Rhino.Arches.Plugin.csproj" />
+    </Folder>
     <Folder Name="/tests/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
     </Folder>

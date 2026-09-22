@@ -1,0 +1,10 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RhinoHost>common</RhinoHost>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Arches/Arches.csproj" />
+        <ProjectReference Include="../Rhino.Arches.Core/Rhino.Arches.Core.csproj" />
+    </ItemGroup>
+</Project>

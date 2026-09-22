@@ -1,0 +1,15 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <RhinoHost>common</RhinoHost>
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <TargetExt>.rhp</TargetExt>
+        <Version>1.0</Version>
+        <Title>Rhino.Arches.Plugin</Title>
+        <Company>Rhino.Arches.Plugin Authors</Company>
+        <Description>Architectural arch geometry commands for Rhino.</Description>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="../Rhino.Arches.Interaction/Rhino.Arches.Interaction.csproj" />
+    </ItemGroup>
+</Project>
