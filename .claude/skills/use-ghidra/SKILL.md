@@ -1,5 +1,5 @@
 ---
-name: ghidra
+name: use-ghidra
 description: "Use when reading or annotating a binary through Ghidra, covering ghidra-cli, catalog, decompile, call site, stub, and header scripts."
 ---
 
@@ -55,20 +55,20 @@ analyzeHeadless "$GHIDRA_PROJECT_DIR" <name> -import <file> -loader BinaryLoader
 # 1. Function count against the import stubs, a stub-only count takes `ghidra analyze --project <name>` in run_in_background
 ghidra program list --project <name>
 # 2. Stub names `objc_msgSend$<selector>` from the message each sends, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/Stubs.java --project <name> --expect <out> -- <out>
+ghidra script run .claude/skills/use-ghidra/scripts/Stubs.java --project <name> --expect <out> -- <out>
 # 3. Catalog of strings, imports, and functions, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/Catalog.java --project <name> --expect <out> -- <out>
+ghidra script run .claude/skills/use-ghidra/scripts/Catalog.java --project <name> --expect <out> -- <out>
 # 4. Seeds with neighborhood into one file under a directory the script creates, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/Decompile.java --project <name> --expect <out> -- <out> 'str:<needle>' 0x<hex> callees=1 callers=1
+ghidra script run .claude/skills/use-ghidra/scripts/Decompile.java --project <name> --expect <out> -- <out> 'str:<needle>' 0x<hex> callees=1 callers=1
 # 5. Block dividers with line numbers, then Read <out> at the line of one function
 rg -n '^// --- \[' <out>
 # 6. Failed blocks, seeded again with timeout=<seconds> after a timeout and payload=<megabytes> after `Response buffer size exceeded`
 rg -n '^// failed:' <out>
 
 # [ALL] Whole program as the seed, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/Decompile.java --project <name> --expect <out> -- <out> 're:.'
+ghidra script run .claude/skills/use-ghidra/scripts/Decompile.java --project <name> --expect <out> -- <out> 're:.'
 # [CALLS] Call sites of the seeds, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/CallSites.java --project <name> --expect <out> -- <out> <seed>...
+ghidra script run .claude/skills/use-ghidra/scripts/CallSites.java --project <name> --expect <out> -- <out> <seed>...
 ```
 
 Seeds come from the catalog:
@@ -109,7 +109,7 @@ Marks that persist in the project and sharpen every later read:
 # 1. Predefined macros of the target from clang, one file of #define lines
 clang -dM -E -x c /dev/null -target <triple> > <macros>
 # 2. Headers parsed under the macros, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/Headers.java --project <name> --expect <report> -- <report> <header>... -I<dir>... -imacros <macros>
+ghidra script run .claude/skills/use-ghidra/scripts/Headers.java --project <name> --expect <report> -- <report> <header>... -I<dir>... -imacros <macros>
 
 # [BULK] Subcommands from a file in one connection, one per line without `ghidra` and `#` comments, split on whitespace with no quoting
 ghidra batch <file> --project <name>
@@ -169,11 +169,11 @@ Each new traversal is one `GhidraScript` file in the bundle, seeds through `Argu
 
 ```bash
 # 1. Bundle compiled against the install's jars with every warning on
-javac -d <dir> -Xlint:all,-path -cp "$(find "$GHIDRA_INSTALL_DIR/Ghidra" -path '*/lib/*.jar' | tr '\n' ':')" .claude/skills/ghidra/scripts/*.java
+javac -d <dir> -Xlint:all,-path -cp "$(find "$GHIDRA_INSTALL_DIR/Ghidra" -path '*/lib/*.jar' | tr '\n' ':')" .claude/skills/use-ghidra/scripts/*.java
 # 2. Format and lint over the tree
 nx run rasm:lint
 # 3. Run on a resident program with the file proven, run_in_background
-ghidra script run .claude/skills/ghidra/scripts/<Script>.java --project <name> --expect <out> -- <out> <seed>...
+ghidra script run .claude/skills/use-ghidra/scripts/<Script>.java --project <name> --expect <out> -- <out> <seed>...
 ```
 
 - Bundle: Edited bundles recompile on the next `script run` without a bridge restart

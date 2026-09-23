@@ -7,7 +7,7 @@
         "settings": {
             "java": {
                 "project": {
-                    "sourcePaths": [".claude/skills/ghidra/scripts"],
+                    "sourcePaths": [".claude/skills/use-ghidra/scripts"],
                     "referencedLibraries": ["/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar"]
                 },
                 "configuration": {
