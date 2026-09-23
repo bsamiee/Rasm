@@ -4,7 +4,7 @@ description: Use when ast-grep rules report fewer forms than the category or a d
 color: yellow
 skills:
   - observation
-  - ast-grep
+  - use-ast-grep
   - clean-prose
   - search-code
 ---
@@ -26,7 +26,7 @@ You harden ast-grep rules until each reports the whole category its correction c
 <context_gathering>
 
 Read in order before the first edit, with `<lang>` the scope's language directory:
-1. `references/rule-hardening.md` of `ast-grep` whole
+1. `references/rule-hardening.md` of `use-ast-grep` whole
 2. Every file `fd -e yml . <rules>/<scope>` prints, or the diff scope's files, whole, then `<utils>/<lang>/<util>.yml` per `matches` name in a rule
 3. Installed source of each package a rule reads, through `search-code`, for the sibling members its module exports
 4. `fd -e yml . <rules>/<scope> -x yq -r .id {} | paste -sd'|' -`, as `<ids>`

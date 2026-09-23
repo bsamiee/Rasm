@@ -4,9 +4,10 @@ mise owns tool binaries and the process environment.
 
 ## [01]-[TOOLS]
 
-- `[tools]` rows name a registry short name or a backend (`github:<owner>/<repo>`, `pipx:<package>`, `npm:<package>`)
+- `[tools]` rows name a registry short name or a backend (`github:<owner>/<repo>`, `pypi:<package>`, `npm:<package>`)
 - `prereleases = true` includes prereleases in `latest`, `minimum_release_age = "0s"` removes the 24h delay on a new release
 - `idiomatic_version_file_enable_tools` names the tools with a version file mise reads, `global.json` for `dotnet`
+- `mise upgrade` moves each `latest` row, a `pypi:` row from a GitHub repository with no release stays at the branch HEAD it installed
 - `mise exec -- <command>` runs a command under the configured tools and environment outside an activated shell
 
 ## [02]-[ENVIRONMENT]

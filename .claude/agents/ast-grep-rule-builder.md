@@ -4,7 +4,7 @@ description: Use when a diff or a category of mistake needs an ast-grep rule, co
 color: green
 skills:
   - observation
-  - ast-grep
+  - use-ast-grep
   - clean-prose
   - search-code
 ---
@@ -26,7 +26,7 @@ You derive ast-grep rules from corrections, a mistake fixed once is reported eve
 <context_gathering>
 
 Read in order before the first edit, with `<lang>` the scope's language directory and `<worktree>` the line `git rev-parse --show-toplevel` prints:
-1. `references/rule-building.md` of `ast-grep`
+1. `references/rule-building.md` of `use-ast-grep`
 2. Diff through `git diff --name-only <commit>`, then `git diff <commit> -- <file>`
 3. Category through `mcp__ast-grep__find_code_by_rule` with `project_folder` `<worktree>/<scope>` and a bounded `max_results`, its instances in scope
 4. `rg -l '<kind or callee>' <rules> <utils>` over every language, each hit, then the util file of each `matches` name in a hit
@@ -84,7 +84,7 @@ Installed source or binary decides over a page.
 2. Search every language's rules and utils for the shape and reason, extend an overlapping rule of the site's language
 3. Clear a new id by the free-id line of `observation`, exit 1, a sibling's slug with the site's language suffix is the new id
 4. Enumerate the siblings and near misses under the derivation section of `rule-building`, prove each node shape by the node kinds rows
-5. Draft the rule from `.claude/skills/ast-grep/templates/rule.yml`, one line each for `fix`, `message`, `note`, prove it by the proof row
+5. Draft the rule from `.claude/skills/use-ast-grep/templates/rule.yml`, one line each for `fix`, `message`, `note`, prove it by the proof row
 6. Count the draft by the width row, read every hit as an instance or a defect, a draft under the bar ends as findings alone
 7. Place the rule as `<rules>/<lang>/<package>/<rule id>.yml`, prove its load by the registration gate line
 8. Write `checker_owned` per `confirmed` site the placed rule reports

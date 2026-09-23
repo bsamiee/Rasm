@@ -15,6 +15,7 @@ Covers project files, targets, tools, workflows, and infra rows of a polyglot mo
 - Row's consumer is a file importing the package, a command running the binary, or a tool reading the row
 - Rows naming a package, binary, or server point at one a project file or tool row installs, a row pointing at none goes
 - Root files hold policy every project shares, a row one project consumes sits in the project file
+- Project files are written by hand as the file set the language's init command produces
 - Project file extending a root file exists for a plugin discovering projects by the file, a tool taking `--config` reads the root file from any `cwd`
 - Rows restating a tool's documented default go, the default comes from a schema, release notes, or installed source
 - Row deleted with the tool's output and lock unchanged goes, a row that only cancels another row's effect goes with the canceled row
@@ -38,4 +39,4 @@ Covers project files, targets, tools, workflows, and infra rows of a polyglot mo
 - [05]-[TOOLING](references/tooling.md): Tool rows, release settings, version files, environment templates
 - [06]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
 - [07]-[JAVA](references/java.md): Project file, formatter form, tool rows that wait for the first project
-- [08]-[SWIFT](references/swift.md): Project file rows, build setting defaults, schemes, format configuration
+- [08]-[SWIFT](references/swift.md): Project file rows, build setting defaults, schemes, icons, signing, format configuration

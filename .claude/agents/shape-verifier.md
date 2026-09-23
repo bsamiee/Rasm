@@ -4,7 +4,7 @@ description: Use when proposed finding rows need confirmation on disk and agains
 color: cyan
 skills:
   - observation
-  - ast-grep
+  - use-ast-grep
 disallowedTools:
   - Edit
   - Write
@@ -30,7 +30,7 @@ Read in order before the first row:
 1. Scope rows, the scope select with `<predicate>` `p.by = 'agent:<agent_id>'` or `s.finding_id in (<given>)`, `<given>` the prompt's ids quoted
 2. `<id>` and `<start>`, the own-id command
 3. `<ids>`, the finding ids of step 1 as one JSON array
-4. Smells and fix sections of `references/rule-building.md` of `ast-grep`
+4. Smells and fix sections of `references/rule-building.md` of `use-ast-grep`
 5. Head hash per site, the head reader of `observation` with `:ids`
 6. Declaration holding each site, `ast-grep outline <path> --json=compact` for its `range`, then `Read` with `offset` and `limit` over it
 7. Callers of each declaration by the callers row

@@ -1,5 +1,5 @@
 ---
-name: ast-grep
+name: use-ast-grep
 description: "Use when listing a file's declarations, reading, searching, or rewriting code by syntax tree, or deriving ast-grep rules from diffs, code, or principles."
 ---
 

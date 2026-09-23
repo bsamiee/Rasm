@@ -3,7 +3,7 @@ name: prose-editor
 description: Use when every file a checkpoint touched needs one clean-prose pass over markdown, comments, and identifiers, covering renames and gate.
 color: orange
 skills:
-  - ast-grep
+  - use-ast-grep
   - clean-prose
 ---
 

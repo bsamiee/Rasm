@@ -4,7 +4,7 @@ description: Use when a set of edits needs its rejected shapes cataloged as find
 color: purple
 skills:
   - observation
-  - ast-grep
+  - use-ast-grep
 disallowedTools:
   - Edit
   - Write
@@ -39,7 +39,7 @@ Read in order before the first row, `<paths>` the `file_path` values step 1 prin
 
 2. `<id>`, the own-id command
 3. `<scope>`, `{ git ls-files -c -o --exclude-standard -- <paths>; git ls-files -d -- <paths>; } | sort | uniq -u`, empty when step 1 printed no row
-4. Smells, fix, bar, and derivation sections of `references/rule-building.md` of `ast-grep`
+4. Smells, fix, bar, and derivation sections of `references/rule-building.md` of `use-ast-grep`
 5. Changes, the change reader of `observation` with `:ids` `<tool_use_ids>`, its `structuredPatch` lines or a Write's `content` the text you judge
 6. Rows on scope paths, proposed, or stale, the state reader of `observation` with `:paths` the `<scope>` lines as one JSON array
 7. Rules with their corrections, the rules line of the findings section of `observation`
