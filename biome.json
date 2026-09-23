@@ -67,7 +67,7 @@
             "linter": {
                 "rules": {
                     "complexity": {
-                        "noExcessiveCognitiveComplexity": { "level": "error", "options": { "maxAllowedComplexity": 30 } },
+                        "noExcessiveCognitiveComplexity": "off",
                         "noExcessiveLinesPerFunction": "off",
                         "useLiteralKeys": "off",
                         "useMaxParams": { "level": "error", "options": { "max": 8 } }

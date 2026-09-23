@@ -48,7 +48,7 @@
 
     // --- [JAVA] ------------------------------------------------------------------------
     "java.jdt.ls.java.home": "/Users/bardiasamiee/.local/share/mise/installs/java/27.0.0",
-    "java.project.sourcePaths": [".claude/skills/ghidra/scripts"],
+    "java.project.sourcePaths": [".claude/skills/use-ghidra/scripts"],
     "java.project.referencedLibraries": ["/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar"],
     "java.format.settings.google.extra": "--aosp",
     "[java]": { "editor.defaultFormatter": "josevseb.google-java-format-for-vs-code" }

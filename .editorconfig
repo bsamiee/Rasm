@@ -118,6 +118,7 @@ dotnet_diagnostic.MA0051.severity = none                                      # 
 dotnet_diagnostic.CS0169.severity = error                                     # Unused private fields
 dotnet_diagnostic.CA1021.severity = error                                     # Off under latest-all: no out parameters
 dotnet_diagnostic.CA1045.severity = error                                     # Off under latest-all: no ref parameters
+dotnet_diagnostic.CA1062.severity = none                                      # Non-nullable parameters carry the null contract
 dotnet_diagnostic.CA1516.severity = error                                     # Off under latest-all: cross-platform intrinsics over x86-only or Arm-only ones
 dotnet_diagnostic.CS0649.severity = error                                     # Fields that are never assigned
 dotnet_diagnostic.CA1307.severity = none                                      # Covered by MA0001 and MA0074, which skip expression trees

@@ -91,7 +91,7 @@ def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
 # --- [MSGSPEC_SCHEMAS] ------------------------------------------------------------------
 
 
-def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
+def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]:
     """Return a bounded strategy for a ``msgspec.inspect`` schema.
 
     Raises:
@@ -209,7 +209,7 @@ def _numeric_bound(schema: _Schema, inclusive_key: str, exclusive_key: str) -> t
             return None, False
 
 
-def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.SearchStrategy[object]:  # ruff:ignore[complex-structure]
+def _pydantic_strategy(schema: _Schema, definitions: dict[str, _Schema]) -> st.SearchStrategy[object]:
     """Return a constraint-aware strategy for a ``pydantic-core`` schema and its definitions."""
     match schema.get("type"):
         case "int":

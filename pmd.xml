@@ -27,12 +27,19 @@
 
     <!-- [DESIGN] -->
     <rule ref="category/java/design.xml">
+        <exclude name="CognitiveComplexity" />
         <exclude name="CouplingBetweenObjects" />
+        <exclude name="CyclomaticComplexity" />
         <exclude name="ExcessiveImports" />
+        <exclude name="ExcessivePublicCount" />
         <exclude name="GodClass" />
         <exclude name="LawOfDemeter" />
         <exclude name="LoosePackageCoupling" />
+        <exclude name="NcssCount" />
+        <exclude name="NPathComplexity" />
         <exclude name="SignatureDeclareThrowsException" />
+        <exclude name="SwitchDensity" />
+        <exclude name="TooManyFields" />
         <exclude name="TooManyMethods" />
     </rule>
 

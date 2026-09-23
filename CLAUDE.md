@@ -5,22 +5,17 @@
 - Every language uses functional programming: domain logic stays pure and expression-oriented, imperative code stays at system boundaries
 - Data dependency decides composition: dependent operations bind and short-circuit, independent operations combine and accumulate every error
 - Language idioms differ but the composition rules do not, define a result type when a language lacks one instead of adding another error mechanism
-- Use established, context-appropriate domain terminology in file names, directory names, identifiers, and prose
-- Fix a defect at its cause, a wrapper, fallback, guard, or retry around it is the defect
-- Test files exist when the user asks for a test
-- Checks, rules, and tests stay read-only during a code change, editing one is its own task the user asks for
+- Fix defects at root cause, a wrapper, fallback, guard, or retry around it is a defect
+- Tests are made at the user's request alone
 - Checks run over the files a change touched, never the full tree
 - Removals delete every mention and adjust each consumer to the absence, nothing stands in for removed content
 - Languages join in one change with toolchain, tag, targets and inputs, checker, writer, parser, rules, outline, CI runner, and README sections
 - Refactors become ast-grep rules, before form as pattern and after form as fix, once a second instance exists and no checker reports it
-- Skills, memories, and docs hold the principle that decides a case, a project's state is its files
-- Paths git ignores hold no project state, a file under one is read and never edited, checked, or created
-- Every tool, package, and server in the tree is a capability, its current docs decide a solution's form before one is written
-- Audits, security scans, supply-chain pins, and approval gates join a project file, target, workflow, or program at the user's request alone
+- Audits, security scans, supply-chain pins, and approval gates are added on user request alone
 
 ## [01]-[LANGUAGE_STANDARDS]
 
-Navigate code through its language's skill and MCP server, or the ast-grep skill and MCP for every other language, then project CLI tooling
+Navigate code through its language's skill and MCP server, or the `use-ast-grep` skill and `ast-grep` MCP for every other language, then project CLI tooling
 
 [TOOL_ROUTING]:
 - ALWAYS use `search-web` skill for a question the open web answers
@@ -39,7 +34,8 @@ Navigate code through its language's skill and MCP server, or the ast-grep skill
 - ALWAYS use `playwright:playwright-cli` skill for a browser, run as `playwright cli`, `playwright` MCP when each step depends on the last snapshot
 - ALWAYS use `computer-use` MCP for a native application window, its wait and screenshot tools stand where a shell would sleep
 - ALWAYS use `xcode` MCP for Apple documentation and Xcode, `lldb` MCP for a debug session `xcode` MCP did not start
-- ALWAYS use `rhino-mcp` skill for Rhino and Grasshopper
+- ALWAYS use `use-rhino` skill for Rhino and Grasshopper
+- ALWAYS use `use-blender` skill for Blender
 - ALWAYS read a foreground command's exit code or the completion notification of a background command or agent, no sleep, poll, or monitor loop waits
 
 [CLI_TOOLING]:
@@ -107,6 +103,50 @@ Navigate code through its language's skill and MCP server, or the ast-grep skill
 - ALWAYS record each package as one row of its catalog with a one-line purpose comment
 - ALWAYS add a missing dependency record to its owning project file instead of deleting the corresponding record
 - ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
-- ALWAYS let a project file, a lock, or a check state a fact once, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
+- ALWAYS state a fact once in a project file, lock, or check, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 - ALWAYS map every package id to one source in `NuGet.config`
+
+## [04]-[FILE_ORGANIZATION]
+
+Source files group declarations into sections under full dividers, a subsection divider inside an owner splits its section into operation families, and `<marker>` is the language's line comment:
+
+```text
+<marker> --- [<SECTION>] -----------------------------------------------------------------
+<owner>
+    <marker> --- [<FAMILY>]
+    <member>
+```
+
+[SECTIONS]: Sections follow table order, and a file omits a section it holds no declaration for
+
+| [INDEX] | [LABEL]         | [HOLDS]                                                 |
+| :-----: | :-------------- | :------------------------------------------------------ |
+|  [01]   | `[TYPES]`       | Aliases, interfaces, protocols, delegates, enums        |
+|  [02]   | `[CONSTANTS]`   | Dependency-free literals, limits, error codes           |
+|  [03]   | `[MODELS]`      | Records, unions, value objects, schemas, data classes   |
+|  [04]   | `[ERRORS]`      | Error variants                                          |
+|  [05]   | `[SERVICES]`    | Types owning a resource, handle, or host dependency     |
+|  [06]   | `[OPERATIONS]`  | Pure transforms, effects, and algorithms over models    |
+|  [07]   | `[COMPOSITION]` | Host entry points, command registration, layers, wiring |
+|  [08]   | `[EXPORTS]`     | Export lists, `__all__`                                 |
+
+[DIVIDERS]: One label names one concept in every file
+- ALWAYS open a section with a full divider: comment marker, `---`, one `[UPPER_SNAKE]` label, dashes to column 90
+- ALWAYS open a subsection with a divider without dashes, indented with its members, when one section holds more than one operation family
+- ALWAYS place every declaration under a divider, the preamble (imports, namespace, shebang, `set` flags, assembly attributes) precedes the first one
+- ALWAYS place every member of a subdivided section under a `[<FAMILY>]` subsection that names what its members do
+- ALWAYS add a `[<SECTION>]` label outside the table after its closest core section when it names what its declarations own
+- ALWAYS keep a type's members, nested types, union cases, and companion factories in the section of the type
+- ALWAYS order inside a section by owner, then dependency, then domain order (lifecycle, severity, case order), then public before private
+- ALWAYS place a registry, lookup table, or decoder that reads a later declaration in a section after it, `[CONSTANTS]` holds no such value
+
+[LANGUAGES]: Each language maps its constructs to the same labels
+- C#: a static class of extension or IO functions is `[OPERATIONS]`, a `PlugIn` or `Command` subclass `[COMPOSITION]`
+- C#: static fields keep declaration order when a later initializer reads an earlier field
+- Python: `TYPE_CHECKING` blocks and import-time gates join the preamble, `__all__` closes the file under `[EXPORTS]`
+- TypeScript: runtime schemas and classes are `[MODELS]`, Effect services `[SERVICES]`, `Layer` values `[COMPOSITION]`
+- Swift: `@main` types are `[COMPOSITION]`, an `extension` sits in the section of the type it extends
+- Bash: `readonly` values are `[CONSTANTS]`, `declare -Ar` maps `[TABLES]`, `main` `[COMPOSITION]`
+- SQL: types and domains are `[TYPES]`, tables `[MODELS]`, functions `[OPERATIONS]`, indexes, triggers, and grants `[COMPOSITION]`
+- Configuration files: sections name the tool or table they configure (`[RUFF]`, `[TOOLS]`)

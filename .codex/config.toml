@@ -21,3 +21,19 @@ command = "xcrun"
 args = ["lldb-mcp"]
 startup_timeout_sec = 20
 tool_timeout_sec = 120
+
+[mcp_servers.blender]
+command = "mise"
+args = ["exec", "--", "blender-mcp"]
+env = { BLENDER_MCP_PORT = "9877", BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender" }
+startup_timeout_sec = 30
+tool_timeout_sec = 300
+default_tools_approval_mode = "approve"
+
+[mcp_servers.mcp-for-blender]
+command = "mise"
+args = ["exec", "--", "mcp-for-blender"]
+env = { DISABLE_TELEMETRY = "true", BLENDER_MCP_SAFE_MODE = "0" }
+startup_timeout_sec = 30
+tool_timeout_sec = 300
+default_tools_approval_mode = "approve"

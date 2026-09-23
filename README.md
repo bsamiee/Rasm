@@ -6,8 +6,11 @@ Rasm is a polyglot monorepo with macOS-first development and portable code and t
 
 ```text
 Rasm/
-├── apps/                     # One product per directory
+├── apps/                     # One directory per app or group of related apps
 ├── libs/                     # Packages, one directory per language
+│   ├── dotnet/
+│   ├── python/
+│   └── typescript/
 ├── tests/                    # Shared test support per language and suites outside libs/
 ├── eng/                      # Engineering projects per language, outside `Workspace.slnx` and the task graph
 │   └── dotnet/               # Catalog project referencing every central package row
@@ -15,7 +18,6 @@ Rasm/
 ├── tools/
 │   ├── ast-grep/             # Outlines and rules per language
 │   ├── nx/                   # Nx plugin inferring a project from each project file
-│   ├── rhino/                # Tooling Rhino runs through the MCP router
 │   └── yak/                  # Rhino packages installed through the yak CLI
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
@@ -137,11 +139,12 @@ flowchart LR
 ## [06]-[STRUCTURE]
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
-- `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages, the bundle serves launch alone
-- Project files define projects, no `project.json`: `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, `.xcodeproj`
+- `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages as compile references, the installed Rhino application supplies the runtime
+- Project files define projects, never `project.json`
+- Project files are `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, and `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
-- Project have no `src/` directory, no foler with a single file, folder architecture is driven by logical domain groupings per language
+- Projects hold no `src/` directory and no folder with one file, folders group by domain per language
 - Python and TypeScript files declare their exports at the end
 - Changes replace structure in place, one commit holds change and removal, new structure keeps its predecessor's name
 - Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder

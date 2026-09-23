@@ -312,6 +312,8 @@ dev = [
     "brotli-stubs",
     "coverage",
     "dirty-equals",
+    "fake-bpy-module-5.2",                                # bpy, bmesh, mathutils, and gpu stubs matching the installed Blender for skill scripts
+    "rhino-stubs-typed",                                  # RhinoCommon and .NET System stubs for the use-rhino skill scripts that run in Rhino's Python
     "hypothesis",
     "moto[server]",
     "mypy",
@@ -341,6 +343,9 @@ dev = [
     "types-reportlab",
     "types-shapely",
 ]
+mcp = [
+    "blender-mcp",                                        # Blender Lab MCP server from the [tool.uv.sources] git row, PyPI holds the community server under this name
+]
 
 # --- [UV] -------------------------------------------------------------------------------
 
@@ -364,6 +369,9 @@ python-preference = "only-system"
 
 [tool.uv.workspace]
 members = ["tests/python/support"]
+
+[tool.uv.sources]
+blender-mcp = { git = "https://projects.blender.org/lab/blender_mcp.git", subdirectory = "mcp" }
 
 [tool.uv.extra-build-variables]
 manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }
@@ -445,6 +453,7 @@ cache-dir = ".cache/ruff"
 preview = true
 line-length = 200
 src = [".", "libs/python"]
+per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313" }
 
 [tool.ruff.format]
 line-ending = "lf"
@@ -460,6 +469,9 @@ ignore = [
     "too-many-branches",
     "too-many-locals",
     "too-many-statements",
+    "complex-structure",
+    "too-many-public-methods",
+    "too-many-boolean-expressions",
     "raw-string-in-exception",
     "f-string-in-exception",
     "raise-vanilla-args",
@@ -582,9 +594,6 @@ force-sort-within-sections = true
 order-by-type = false
 split-on-trailing-comma = false
 
-[tool.ruff.lint.mccabe]
-max-complexity = 20
-
 [tool.ruff.lint.pep8-naming]
 classmethod-decorators = ["pydantic.field_validator", "pydantic.model_validator"]
 
@@ -606,7 +615,6 @@ allow-dunder-method-names = ["__get_pydantic_core_schema__", "__get_pydantic_jso
 allow-magic-value-types = ["str", "bytes", "int"]
 max-args = 8
 max-nested-blocks = 3
-max-public-methods = 10
 
 # --- [TY] -------------------------------------------------------------------------------
 
@@ -622,7 +630,6 @@ all = "error"
 dynamic-function-decorator-return = "ignore"
 unsound-assignment = "ignore"
 unsound-return-statement = "ignore"
-
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]

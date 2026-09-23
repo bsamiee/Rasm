@@ -96,6 +96,22 @@
         "rhino-mcp-platform": {
             "command": "${HOME}/Library/Application Support/McNeel/Rhinoceros/packages/9.0/Rhino-MCP-Platform/0.2.1-wip/router/osx-arm64/rhino-mcp-router",
             "args": ["--default-version", "9"]
+        },
+        "blender": {
+            "command": "mise",
+            "args": ["exec", "--", "blender-mcp"],
+            "env": {
+                "BLENDER_MCP_PORT": "9877",
+                "BLENDER_PATH": "/Applications/Blender.app/Contents/MacOS/Blender"
+            }
+        },
+        "mcp-for-blender": {
+            "command": "mise",
+            "args": ["exec", "--", "mcp-for-blender"],
+            "env": {
+                "DISABLE_TELEMETRY": "true",
+                "BLENDER_MCP_SAFE_MODE": "0"
+            }
         }
     }
 }
