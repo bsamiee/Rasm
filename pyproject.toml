@@ -453,7 +453,7 @@ cache-dir = ".cache/ruff"
 preview = true
 line-length = 200
 src = [".", "libs/python"]
-per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313" }
+per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", "tools/blender/**/*.py" = "py313" }
 
 [tool.ruff.format]
 line-ending = "lf"

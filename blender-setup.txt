@@ -1,0 +1,193 @@
+BLENDER SETUP, 2026-09-22, Blender 5.2.2 LTS on macOS arm64, cask owned by Parametric Forge casks.nix
+
+[MCP_SERVERS]
+blender            Blender Lab MCP server, uv.lock git source (projects.blender.org/lab/blender_mcp, subdirectory mcp), .venv/bin/blender-mcp
+mcp-for-blender    community server, mise pypi:mcp-for-blender 2.0.3, ~/.local/share/mise/installs/pypi-mcp-for-blender
+harness rows       .mcp.json and .codex/config.toml, both servers, official row BLENDER_MCP_PORT=9877 BLENDER_PATH=<Blender binary>
+harness rows       community row DISABLE_TELEMETRY=true BLENDER_MCP_SAFE_MODE=0, Codex default_tools_approval_mode=approve on both
+
+[ADD_ONS_MCP]
+bl_ext.blender_lab.mcp   official extension 1.0.0 from repository blender_lab (https://lab.blender.org/), port 9877, log on, autostart 0 s
+blender_mcp              community add-on 1.7 protocol 9 in scripts/addons/blender_mcp.py, port 9876, autostart, every asset toggle on
+
+[EXTENSIONS_INSTALLED]  id  source  gap
+node_to_python           blender_org  node trees to reproducible Python, ntp.export
+tree_clipper             blender_org  node trees as JSON strings, diffable and importable
+blendiff                 blender_org  semantic .blend diff, snapshots, three-way merge, CLI pip blendiff
+blendguard               blender_org  static scan of what a .blend auto-runs before opening downloaded assets
+scenetrace               blender_org  depsgraph evaluation baselines and regression detection, optional Rust CLI
+attrio_csv               blender_org  evaluated attributes to CSV and back
+formula_to_nodes         blender_org  text formula to Geometry Nodes groups
+pohlke                   blender_org  axonometric and oblique cameras, bpy.pohlke API
+sun_position             blender_org  sun from latitude, longitude, date, time, HDRI sync
+stb_section_toolbox      blender_org  section box and planar sections with SVG and DXF export
+measureit                blender_org  measurement overlays rendered into images
+dimensions               blender_org  persistent dimensions and scale-correct SVG and PDF sheets
+Industrial_AOV_Connector blender_org  compositor File Output tree for multilayer EXR passes and AOVs
+ambientcg_material_importer blender_org  CC0 PBR material library, material.fetch_and_create, cache ~/.cache/ambientcg
+rendercue                blender_org  render queue in detached background Blender processes
+batch_camera_render      blender_org  stills or animations from every selected camera
+thebetterbaker           blender_org  one-call PBR bake of a whole object into one texture set
+macblend                 blender_org  ColorChecker color calibration, compositor nodes, .cube LUT export
+dynamic_sky              blender_org  procedural sky world with HDRI bake and export
+pin_solver               blender_org  camera matching by OpenCV PnP from 2D-3D pins, ICP alignment
+light_it_up              blender_org  studio lighting rigs as operators
+bonsai                   blender_org  IFC authoring, import, export, drawings, bundled ifcopenshell 0.8.5
+stepper_reborn           blender_org  STEP and IGES import, bundled cadquery-ocp kernel, import OCP
+step_importer            blender_org  second STEP importer with per-part re-tessellation and cleanup, bundled cascadio
+cad_helper               blender_org  instance detection and linking for imported CAD assemblies
+CAD_Sketcher             blender_org  constraint-based parametric sketching, SolveSpace, view3d.slvs_* operators
+surfacepsycho            blender_org  NURBS modeling through Geometry Nodes assets, STEP export
+point_cloud_io           blender_org  LAS, LAZ, E57, PCD, XYZ, PTS, PLY point clouds as PointCloud geometry
+cad2cube                 blender_org  DXF import with layers, blocks, hatches, terrain faces
+ThreeMF_io               blender_org  3MF import and export with a public Python API
+bool_tool                blender_org  destructive and modifier booleans with cutter management
+hardflow                 blender_org  hard-surface booleans with metric grid snap and arrays
+print3d_toolbox          blender_org  mesh validity checks, repair, volume, hollow, scale to bounds
+mmgpy                    blender_org  adaptive surface remeshing through MMG
+arch_generator           blender_org  15 procedural arch profiles, 11 pillar styles, arrays
+curve_profile_creator    blender_org  parametric architectural profiles swept along edges
+extra_mesh_objects       blender_org  parametric primitives, gears, pipe joints, honeycomb
+extra_curve_objectes     blender_org  parametric curve primitives, spirals, torus knots
+latex_text_generator     blender_org  LaTeX to 3D text
+export_paper_model       blender_org  mesh unfolding to printable nets
+home_builder_5           blender_org  parametric interiors with elevations and sheets
+Bagapie                  blender_org  walls, windows, doors, stairs, columns, beams, floors, fences, scattering
+struct_topo_opt          blender_org  SIMP topology optimization on a voxelized domain, macOS arm64 build
+import_3dm               user_default  Rhino .3dm import, bundled rhino3dm 8.17, github.com/jesterKing/import_3dm 0.0.18
+jupyter_blender          user_default  in-process JupyterLab kernel on 127.0.0.1:10462, github.com/kolibril13/jupyter-blender 0.1.11
+up3date                  user_default  CityJSON import and export, github.com/cityjson/Up3date 0.1.0, re-zipped with manifest at root
+ladybug_tools            user_default  EPW weather, sun path, direct sun hours, incident radiation, github.com/lpaganelli/ladybug-blender 0.4.0
+sverchok-master          legacy add-on  node-based parametric geometry, NURBS, DXF, IFC nodes, github.com/nortikin/sverchok master
+BlenderGIS-2215          legacy add-on  GeoTIFF, DEM, shapefile, OSM import, SRTM, basemaps, github.com/domlysz/BlenderGIS 2.2.15
+MeasureIt_ARCH-development legacy add-on  architectural dimensions, hatches, views, sheets, SVG and DXF, github.com/kevancress/MeasureIt_ARCH
+vi-suite07-master        legacy add-on  Radiance daylight and EnergyPlus nodes with bundled arm64 binaries, github.com/rgsouthall/vi-suite07
+
+[BLENDER_PREFERENCES_CHANGED]  saved in ~/Library/Application Support/Blender/5.2/config/userpref.blend
+system.use_online_access True                  extensions sync and both MCP add-ons need it
+filepaths.use_scripts_auto_execute True        scripts and drivers in opened files run without a prompt
+filepaths.use_extension_online_access_handled True, extensions.use_online_access_handled True
+filepaths.save_version 3, auto_save_time 1, save_modified_images ALWAYS_SAVE, use_load_ui False
+filepaths.temporary_directory, render_output_directory, render_cache_directory  ~/Library/Caches/rasm/blender/{temp,render,render-cache}
+edit.undo_steps 256
+view.show_developer_ui True, show_tooltips_python True, show_splash False, use_save_prompt False
+view.use_reduce_motion True, smooth_view 0, show_playback_fps False, show_statusbar_stats True
+view.render_display_type NONE, filebrowser_display_type SCREEN, preferences_display_type SCREEN
+system.scrollback 32768
+extensions.repos blender_lab  remote https://lab.blender.org/, use_sync_on_startup True, blender_org also syncs on startup
+system.memory_cache_limit 16384                sequencer and clip editor cache, manual recommends high values, 64 GB unified memory
+cycles prefs kept  compute_device_type METAL, GPU on, CPU off, metalrt AUTO resolves to hardware ray tracing on M4 (APPLE_UNKNOWN >= APPLE_M3)
+
+[STARTUP_SCENE_CHANGED]  saved in ~/Library/Application Support/Blender/5.2/config/startup.blend
+scene.cycles.device GPU                        manual: configure each scene to use the GPU Compute device
+scene.cycles.denoising_use_gpu True            manual: GPU denoising significantly faster than CPU, available on Apple Silicon
+scene.render.use_persistent_data True          manual: faster re-renders and animation renders at the cost of memory
+
+[INTERFACE_AND_LAYOUT_CHANGED]  applied by tools/blender/ui-layout.py in a GUI-mode run on 2026-09-22, saved in userpref.blend and startup.blend, refined by tools/blender/ui-refine.py on 2026-09-23 (section [INTERFACE_REFINED])
+workspaces         Sculpting and Texture Paint removed (Add Workspace menu restores them), every right column stacks Properties over Outliner
+right column       Outliner 475 px at the bottom, Properties 1518 px above, column 635 px wide, on the 3600x2338 panel
+sizes              secondary areas rounded to multiples of 5 (side columns 540, 1045, 1475, dope sheet 840, console 900), Timeline 100 since the refinement
+sizes              Blender refused the Geometry Nodes spreadsheet row edge (stays 919), main editors absorb the rest
+viewports          perspective views share the factory rotation (0.712, 0.441, 0.287, 0.464) on the origin, distance 18 large and 15 small
+viewports          Drafting Top Orthographic at 30 m, Animation left viewport Camera view, BIM left as Bonsai ships it
+Layout             3D Viewport over a 98 px Timeline, right column Properties over Outliner
+Modeling           3D Viewport full height, right column Properties over Outliner
+Drafting           Modeling duplicate in Object Mode opening on a top orthographic view at 30 m, for CAD Sketcher, MeasureIt_ARCH, Bonsai drawings
+BIM                Bonsai's own workspace from its workspace.blend, Outliner left, 3D Viewport center, Properties right, left as Bonsai ships it
+Geometry Nodes     Node Editor over Spreadsheet and 3D Viewport, Timeline at the bottom, right column Properties over Outliner
+Shading            File Browser and Image Editor left, Node Editor over 3D Viewport center, right column Properties over Outliner
+UV Editing         Image Editor and 3D Viewport side by side, right column Properties over Outliner
+Rendering          Image Editor over Timeline, Properties full height right, Blender default
+Compositing        Node Editor with Image Editor and Properties above, Timeline strip, Blender default
+Animation          two 3D Viewports over Dope Sheet, right column Properties over Outliner
+Scripting          Info editor tall over Console over a small 3D Viewport, Text Editor center, two Outliners over Properties right
+bonsai prefs       activate_workspace False so a new session opens on Layout, should_setup_workspace stays True
+view.ui_scale 0.9, ui_line_width THIN, border_width 1 (see [INTERFACE_REFINED]), header_align TOP, show_navigate_ui False, mini_axis_type GIZMO, show_object_info True, show_view_name True
+view.show_statusbar_memory True, show_statusbar_version True, show_statusbar_scene_duration False, show_statusbar_vram read-only on unified memory
+system.use_region_overlap False              toolbar and sidebar sit beside the viewport, screenshots never hide geometry under a panel
+inputs  use_mouse_emulate_3_button False (modifier OSKEY if enabled), use_emulate_numpad True, use_multitouch_gestures True, use_mouse_continuous True
+inputs  view_rotate_method TURNTABLE, use_rotate_around_active False, use_auto_perspective True, use_mouse_depth_navigate True, use_zoom_to_mouse True
+inputs  view_zoom_method DOLLY, view_zoom_axis VERTICAL
+edit.object_align WORLD, use_enter_edit_mode False
+keymap  Blender keyconfig spacebar_action SEARCH, Space opens Menu Search, F3 stays
+theme   Blender_Dark preset applied explicitly, then the Radix overrides of [INTERFACE_REFINED] (the preset click wipes them, ui-refine.py -- --theme restores them)
+asset library  Projects at ~/Documents/Blender/Assets/Projects, import method APPEND
+viewport (every 3D Viewport in the startup file)  lens 35 mm, clip_start 0.05 m, clip_end 10000 m
+shading  SOLID, STUDIO light, color MATERIAL, cavity BOTH with ridge and valley 1.0, object outline on, shadows off, specular on, THEME background
+overlay  statistics, text info, floor, ortho grid, axes X Y Z on, reference spheres off, outline selected on
+scene    units IMPERIAL, feet and inches separate, pounds, Fahrenheit, unit scale 1.0 (lengths stored in meters, converted at display)
+scene    fps 24, view transform Khronos PBR Neutral, Workbench display shading matches the viewport
+
+[INTERFACE_REFINED]  applied by tools/blender/ui-refine.py on 2026-09-23 in a GUI-mode run on the files above, saved by save_userpref and save_homefile, verified after a relaunch
+scale      view.ui_scale 0.9, ui_line_width THIN, border_width 1: wm_window.cc dpi = auto_dpi * ui_scale * 72 / 96 = 144 * 0.9 = 129, pixel_size = max(1, 129 // 64 + THIN(-1)) = 1, one device pixel per line
+scale      text 11 pt draws at 19.8 px on the 3600x2338 panel, widget_unit 34, header 44, panel header 42; background Blender never sets DPI (WM_window_dpi_set_userdef needs a window), reads 72 and 1.0
+tabs       system.show_panel_tabs_compact True (5.2 release note), icons where a strip of tools is the content, workspace tabs stay text (WorkSpace has no icon property)
+headers    SpaceView3D.show_region_tool_header False on every 3D Viewport except BIM, SpaceImageEditor.show_region_tool_header False everywhere, one header row per editor
+overlays   overlay.show_stats False except Drafting; Drafting overlay.show_wireframes True with wireframe_threshold 0.5
+properties SpaceProperties.show_properties_particles, _physics, _effects, _strip, _strip_modifier False except BIM; Outliner show_restrict_column_select True
+timeline   100 px in Layout, Geometry Nodes, Rendering, Compositing: area switched to OUTLINER, screen.area_move(x, y, delta=100 - height) on the top edge, switched back to TIMELINE
+timeline   screen_ops.cc area_snap_calc_location snaps a Dope Sheet area to header 44 plus scrub 41 (the 85 stop at this scale), an Outliner carries no scrub snap; a later manual edge drag snaps to 85 again, and 5.2 moves aligned edges together only with Shift
+theme      themes[0] Radix Colors 3.0.0 dark scales, hex over 255 rounded to four places, Blender stores channels as bytes (alpha 0.5 reads back 0.502, 0.235 reads 0.2353)
+theme      field view_3d.space.gradients.background_type SINGLE_COLOR, high_gradient 0.302 (#4D4D4D, the one non-Radix value, gray-7 #484848 falls under Rhino's 30 percent switching floor)
+theme      grid view_3d.grid and grid_major 0.3765 alpha 0.502 (gray-8 #606060); text view_3d.space.text 0.9333 (gray-12 #EEEEEE); wires, vertices, camera, empty stay black
+theme      selected cyan-11 #4CCCE6 (0.298, 0.8, 0.902): object_selected, edge_select, gp_vertex_select, outliner.selected_object, node_editor.node_selected, sequence_editor.selected_strip, nla_editor.strips_selected, clip_editor.selected_marker, image_editor.edge_select, graph_editor.vertex_select, face_select alpha 0.2, image_editor.face_select alpha 0.2353
+theme      active cyan-12 #B6ECF7 (0.7137, 0.9255, 0.9686): object_active, vertex_select, edge_mode_select, face_mode_select alpha 0.2, outliner.active_object, image_editor.vertex_select
+theme      transform and gizmo_primary plum-11 #E796F3 (0.9059, 0.5882, 0.9529); gizmo_secondary plum-10 #B658C4 (0.7137, 0.3451, 0.7686); sharp orange-11 #FFA057 (1.0, 0.6275, 0.3412)
+theme      axis_x red-9 #E5484D (0.898, 0.2824, 0.302), axis_y grass-9 #46A758 (0.2745, 0.6549, 0.3451), axis_z blue-9 #0090FF (0.0, 0.5647, 1.0), the same triad as Rhino
+theme      edge_width 1, outline_width 1, vertex_size 4; editmesh_active, gizmo_hi, gizmo_view_align, bone_pose, bevel, crease, seam, freestyle, panel blue unchanged; space.title, header_text, header_text_hi never written (removed in 5.3)
+theme      no knob exists for constraint lines, the ruler, the 3D cursor, or the snap gizmo target
+keymap     keyconfigs.user: in the 19 viewport mode keymaps (Object Mode, Mesh, Curve, Curves, Armature, Metaball, Lattice, Particle, Font, Pose, Sculpt, Image Paint, Vertex Paint, Weight Paint, Grease Pencil Draw Mode, Edit Mode, Sculpt Mode, Weight Paint, Vertex Paint) the wm.call_menu or wm.call_panel item on RIGHTMOUSE PRESS is CLICK, a still right click opens the menu
+keymap     3D View gains view3d.rotate then view3d.move on RIGHTMOUSE CLICK_DRAG and view3d.move on TRACKPADPAN ANY after the stock view3d.rotate TRACKPADPAN item; drag_threshold_mouse stays 3
+keymap     3D View view3d.view_axis, view_persportho, view_camera items point at rasm.view_axis, rasm.view_persportho, rasm.view_camera with their type, align_active, and relative properties kept (an idname write resets properties)
+keymap     paint.grab_clone and brush.stencil_control keep RIGHTMOUSE PRESS in Image Paint, Vertex Paint, and Sculpt
+add-on     bl_ext.user_default.rasm_navigation, extension directory ~/Library/Application Support/Blender/5.2/extensions/user_default/rasm_navigation symlinked to tools/blender/rasm_navigation
+add-on     SpaceView3D draw handler keeps RegionView3D.lock_rotation == (view_perspective != PERSP) with a guarded write (the set fires NC_SPACE | ND_SPACE_VIEW3D); view3d.rotate polls false under the lock and passes the event to the next item
+add-on     rasm.orbit on Ctrl+Shift+RMB PRESS in keyconfigs.addon clears the lock and invokes view3d.rotate; the wrappers clear the lock, run the stock view operator, and the handler re-locks
+add-on     an add-on keymap item added in the same event-loop pass as a user keymap edit is recorded as removed by the user diff (wm_keymap.cc wm_keymap_diff_update), ui-refine.py yields one tick between the two
+live test  2026-09-23 with Quartz pointer events: still right click opens the Object menu; Top pans on right drag and on a pixel-precise scroll (TRACKPADPAN); perspective orbits on right drag; camera view pans its frame (view_camera_offset); Numpad 7 then right drag stays Top; Numpad 1 from locked Top gives Front; Numpad 5 reaches PERSP; Ctrl+Shift+RMB orbits out of Top; idle CPU 0.8 to 1.4 percent
+left alone viewport and top bar show_menus, gizmo set, region overlap, text hinting, roundness, grid_subdivisions, Properties pin and breadcrumbs, third-party tab managers, Hardflow and GIS header menus, BIM workspace, Outliner use_filter_object_content, show_extensions_updates
+panels     stored Panel records win over bl_options and bl_order on an existing startup file, so the add-on panels were collapsed with OCR-located clicks (screencapture, tesseract, Quartz) in every workspace but BIM and saved with save_homefile
+panels     Object tab: MeasureIt_ARCH (OBJECT_PT_Panel) and VI-Suite Object collapsed, both already sat below Visibility; Scene tab: Bonsai's tab strip (BIM_PT_tabs, HIDE_HEADER) replaces the core Scene panels, New Project Wizard and Project Setup collapsed, MeasureIt_ARCH's scene panel does not draw there
+panels     Material tab: MeasureIt_ARCH Hatch (MATERIAL_PT_UIHatch) collapsed below the core panels, Bonsai Style (BIM_PT_style) polls false without an IFC project; Output tab MeasureIt_ARCH Render has HIDE_HEADER and cannot collapse
+panels     a screenshot taken within a second of a header click shows the region blank below the header, a later capture shows the settled state
+wheel      Blender zooms a fixed 1.2 per wheel event, LinearMouse row for org.blenderfoundation.blender on the MX Master 3S (Parametric Forge modules/home/programs/apps/linearmouse/default.nix) sends one event per detent, smoothing off; pinch is hard-coded
+restore    quit Blender, copy .artifacts/ui-refine/userpref.blend and startup.blend (2026-09-23 backups) into ~/Library/Application Support/Blender/5.2/config/, relaunch; Keymap Restore drops the keymap diffs, the backup restores them
+
+[MACOS_MENU_BAR]  no Blender 5.x release renders its menus in the macOS menu bar, no preference, flag, or add-on exists
+GHOST builds only the app menu (About, Hide, Quit) and Window menu (Minimize, Zoom, Full Screen, Close) in GHOST_SystemCocoa.mm
+devtalk 2026-04 proof of concept declined, maintainers reject a toggle, menus are Python-defined and add-ons extend them
+top bar cannot be hidden (SPACE_TOPBAR excluded from region toggles), right-click the top bar and untick Show Menus collapses it to one icon
+Focus Mode Ctrl-Alt-Space hides top bar, status bar, and secondary regions, Window > Toggle Window Fullscreen uses native fullscreen
+macOS integration present  Metal only, Retina native pixels, trackpad pinch rotate momentum, Quick Look thumbnailer, .blend association, iCloud Drive
+macOS integration absent   Touch Bar, Handoff, native menus, multi-display dimensions (main display only)
+
+[MCP_ADD_ON_PREFERENCES]
+official  host localhost, port 9877, use_autostart True, autostart_delay 0.0, timer_interval_active 0.05, timer_interval_idle 0.1
+official  timer_interval_idle_delay 60.0, use_log True
+community prefs  telemetry_consent False, sketchfab_api_key, polypizza_api_key, hyper3d_api_key set
+community scene  blendermcp_port 9876, auto_start_server True, use_polyhaven, use_sketchfab, use_polypizza, use_hyper3d, use_hunyuan3d True
+community scene  hyper3d_mode MAIN_SITE, hunyuan3d_mode OFFICIAL_API, hunyuan3d_intl_pro True, hunyuan3d_texture True, saved in startup.blend
+weak sandbox     official add-on blocks wm.quit_blender, read_factory_settings, read_factory_userpref, read_userpref, sys.exit, hard-coded
+
+[FURTHER_CONFIGURATION_PER_EXTENSION]
+BlenderGIS         set: overpassServer https://overpass.kumi.systems/api/interpreter (default fails on 5.2), cacheFolder ~/Library/Caches/rasm/blender/gis
+BlenderGIS         free OpenTopography API key for SRTM downloads, MapTiler key only for CRS search
+ladybug_tools      needs EPW files, EnergyPlus panel needs a local EnergyPlus, Honeybee IFC uses Bonsai's ifcopenshell
+vi-suite07         done at enable: PySide6, matplotlib, scipy, pyroomacoustics, psutil, netgen into Blender's Python, set EPW folder
+jupyter_blender    N panel "Install Python Modules" pip-installs jupyterlab and ipykernel, then drive the kernel with jupyter_client
+sverchok           optional scipy, geomdl, shapely, FreeCAD lib from its preferences, solids nodes need the FreeCAD lib
+scenetrace         optional CLI needs BLENDER_PATH or --blender-path, .scenetrace/config.json per project
+node_to_python     output directory in preferences or per export
+ambientcg          downloads on first use into cache_dir, default ~/.cache/ambientcg
+rendercue          image sequences only, FFmpeg video output unsupported, optional webhook needs online access
+MeasureIt_ARCH     set View paper size and scale before vector render
+bonsai             130 MB, first IFC load slow on large files, daily builds through repository bonsai_unstable if wanted
+pin_solver         geometry at true scale for PnP solves
+import_3dm         breps import through render meshes saved in the .3dm
+
+[KNOWN_ISSUES]
+sverchok           NODE_OT_tree_importer fails to register on 5.2 (io_panel_properties PointerProperty), the rest loads
+curve_profile_creator  load-state warning "_RestrictData has no attribute objects" at startup, harmless
+latex_text_generator   SyntaxWarning invalid escape sequences at import
+MeasureIt_ARCH     registers only in GUI mode, background enable fails on gpu.init
+bonsai             viewport handler traceback "SpaceInfo has no attribute shading" when an area changes type, harmless

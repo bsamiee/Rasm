@@ -17,7 +17,9 @@ Rasm/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines and rules per language
+│   ├── blender/              # Interface scripts run inside Blender's GUI and the rasm_navigation extension
 │   ├── nx/                   # Nx plugin inferring a project from each project file
+│   ├── rhino/                # Rhino display mode, window layout, and options exports
 │   └── yak/                  # Rhino packages installed through the yak CLI
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
@@ -149,3 +151,4 @@ flowchart LR
 - Changes replace structure in place, one commit holds change and removal, new structure keeps its predecessor's name
 - Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder
 - Schema libraries apply the delta from owning types to the live database, with no migration file or history table
+- Displays, documents, and defaults show imperial units, domain values hold SI quantities converted at the boundary
