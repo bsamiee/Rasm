@@ -22,4 +22,4 @@ rule:
             - has: {kind: switch_entry, has: {matches: control-arm}}
     inside: {matches: swift-view-builder, stopBy: end}
 message: '`$SPINNER` stands in for `$CONTROL` while its operation runs'
-note: 'Keep `$CONTROL` in place under `.disabled(<condition>).overlay { if <condition> { ProgressView() } }`'
+note: 'Keep `<control>` in place under `.disabled(<condition>).overlay { if <condition> { ProgressView() } }`'

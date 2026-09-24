@@ -1,0 +1,107 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mirrored-member-reads
+language: csharp
+severity: error
+utils:
+    file-record:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: record_declaration
+                all:
+                    - has: {field: name, pattern: $TYPE}
+                    - not: {matches: csharp-error-record}
+    record-parameter:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: record_declaration
+                all:
+                    - has: {field: name, pattern: $TYPE}
+                    - has: {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $NAME}}}
+    any-read:
+        matches: {csharp-member-read: {member: {kind: identifier}, source: {pattern: $SRC}}}
+    source-read:
+        any:
+            - matches: any-read
+            - kind: member_access_expression
+              has:
+                field: expression
+                kind: member_access_expression
+                all:
+                    - not: {has: {stopBy: end, pattern: $_, not: {kind: 'member_access_expression, identifier'}}}
+                    - has: {stopBy: end, field: expression, kind: identifier, pattern: $SRC}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{kind: identifier}, {kind: member_access_expression, has: {field: expression, regex: '^[A-Z]'}}]}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, has: {matches: any-read}}}
+    same-name-argument:
+        kind: argument
+        all:
+            - has: {nthChild: {position: 1, reverse: true}, matches: {csharp-member-read: {member: {pattern: $NAME}, source: {pattern: $SRC}}}}
+            - matches: record-parameter
+    same-name-assignment:
+        kind: assignment_expression
+        all:
+            - has: {field: left, kind: identifier, pattern: $NAME}
+            - has: {field: right, matches: {csharp-member-read: {member: {pattern: $NAME}, source: {pattern: $SRC}}}}
+    source-binding:
+        matches: {csharp-member-read: {member: {kind: identifier}, source: {kind: identifier, regex: '^[a-z_@]', pattern: $SRC}}}
+    built-record:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, kind: identifier, pattern: $TYPE}
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, kind: qualified_name, has: {field: name, pattern: $TYPE}}
+                - inside: {stopBy: end, kind: switch_expression_arm, has: {kind: declaration_pattern, has: {field: name, pattern: $SRC}}}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, kind: identifier, pattern: $TYPE}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        any:
+                            - kind: method_declaration
+                              has: {field: returns, kind: identifier, pattern: $TYPE}
+                            - kind: local_function_statement
+                              has: {field: type, kind: identifier, pattern: $TYPE}
+    tuple-source:
+        kind: 'from_clause, variable_declarator'
+        all:
+            - has: {field: name, pattern: $SRC}
+            - has: {stopBy: end, kind: tuple_expression}
+rule:
+    all:
+        - matches: built-record
+        - matches: file-record
+        - any:
+            - has:
+                kind: argument_list
+                all:
+                    - has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: source-binding}}
+                    - has: {kind: argument, nthChild: 2}
+                    - not: {has: {kind: argument, not: {has: {nthChild: {position: 1, reverse: true}, matches: source-read}}}}
+                    - has: {kind: argument, matches: same-name-argument}
+            - all:
+                - not: {has: {kind: argument_list, has: {kind: argument}}}
+                - has:
+                    field: initializer
+                    all:
+                        - has: {kind: assignment_expression, has: {field: right, matches: source-binding}}
+                        - has: {kind: assignment_expression, nthChild: 2}
+                        - not: {has: {pattern: $_, not: {kind: assignment_expression, has: {field: right, matches: source-read}}}}
+                        - has: {matches: same-name-assignment}
+        - not:
+            inside:
+                stopBy: end
+                kind: 'method_declaration, local_function_statement, constructor_declaration, accessor_declaration'
+                has: {stopBy: end, matches: tuple-source}
+message: '`$TYPE` is built member by member from `$SRC`'
+note: Use a Mapperly new-instance mapping `partial <record> To<record>(<host> source)`, a renamed or nested member takes `[MapProperty]`, a converted member a `[UserMapping]` method

@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino display conduits, modes, attributes, gumballs, widgets, and rendering as IO effects over RhinoCommon</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Dependencies">
+        <PackageReference Include="System.Drawing.Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
+        <ProjectReference Include="../Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
+    </ItemGroup>
+</Project>

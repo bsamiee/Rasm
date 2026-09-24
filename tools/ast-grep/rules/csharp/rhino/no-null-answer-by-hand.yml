@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-null-answer-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    optional-chain:
+        kind: invocation_expression
+        has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+        any:
+            - all: [{has: {field: function, regex: '^Optional(\s*<.+>)?$'}}, {has: {field: arguments, has: {kind: argument, pattern: $VALUE}}}]
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map(\s*<.+>)?$'}}, {has: {field: expression, matches: optional-chain}}]}
+rewriters:
+    - id: unchanged-arguments
+      rule: {kind: argument_list, pattern: $ARGUMENTS}
+      fix: $ARGUMENTS
+    - id: owner
+      rule:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^Optional(\s*<.+>)?$', pattern: $LIFT}
+            - has: {field: arguments, has: {kind: argument, pattern: $LIFTED}}
+      transform:
+        UNLESS: {replace: {source: $LIFT, replace: '^Optional', by: Missing.Unless}}
+      fix: $UNLESS($LIFTED, $MEMBER)
+rule:
+    kind: invocation_expression
+    pattern: $ANSWER.ToFin(new $RECORD($MEMBER))
+    has: {field: function, has: {field: expression, matches: optional-chain}}
+    not: {matches: {csharp-owner-body: {type: {regex: '^Missing$'}, member: {regex: '^Unless$'}}}}
+constraints:
+    RECORD: {regex: '^(Missing|Refused)$'}
+transform:
+    OWNED: {rewrite: {source: $ANSWER, rewriters: [unchanged-arguments, owner]}}
+fix: $OWNED
+message: Null answer of `$VALUE` becomes a `$RECORD` failure by hand
+note: Use `Missing.Unless(<value>, <member>)` and chain each `Map` after it

@@ -25,9 +25,6 @@ rule:
                         - has: {field: alias, pattern: $BOUND}
                         - has: {field: name, not: {matches: module}}
                     - kind: import_from_statement
-                      has: {kind: wildcard_import}
-                      not: {has: {field: module_name, matches: module}}
-                    - kind: import_from_statement
                       all:
                         - any:
                             - has: {kind: dotted_name, pattern: $BOUND, not: {inside: {field: module_name, kind: import_from_statement}}}

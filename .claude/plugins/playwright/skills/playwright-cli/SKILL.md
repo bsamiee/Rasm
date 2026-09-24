@@ -8,18 +8,15 @@ allowed-tools: Bash(playwright-cli:*) Bash(npx:*) Bash(npm:*)
 
 ## Quick start
 
+Snapshots serve most page reads, `screenshot` is rarely needed.
+
 ```bash
-# open new browser
 playwright-cli open
-# navigate to a page
 playwright-cli goto https://playwright.dev
-# interact with the page using refs from the snapshot
 playwright-cli click e15
 playwright-cli type "page.click"
 playwright-cli press Enter
-# take a screenshot (rarely used, as snapshot is more common)
 playwright-cli screenshot
-# close the browser
 playwright-cli close
 ```
 
@@ -27,18 +24,19 @@ playwright-cli close
 
 ### Core
 
+- `fill --submit` presses Enter after filling the element
+- `drop` delivers files or data to an element from outside the page
+- `eval` with a ref reads an element's id, class, or any attribute the snapshot omits
+
 ```bash
 playwright-cli open
-# open and navigate right away
 playwright-cli open https://example.com/
 playwright-cli goto https://playwright.dev
 playwright-cli type "search query"
 playwright-cli click e3
 playwright-cli dblclick e7
-# --submit presses Enter after filling the element
 playwright-cli fill e5 "user@example.com"  --submit
 playwright-cli drag e2 e8
-# drop files or data onto an element (from outside the page)
 playwright-cli drop e4 --path=./image.png
 playwright-cli drop e4 --data="text/plain=hello world"
 playwright-cli hover e4
@@ -47,14 +45,11 @@ playwright-cli upload ./document.pdf
 playwright-cli check e12
 playwright-cli uncheck e12
 playwright-cli snapshot
-# search the snapshot for text or a regexp, returns matching nodes with surrounding context
 playwright-cli find "Sign in"
 playwright-cli find --regex "Sign (in|up)"
-# wrap the regexp in slashes to add flags, e.g. /i for case-insensitive
 playwright-cli find --regex "/sign (in|up)/i"
 playwright-cli eval "document.title"
 playwright-cli eval "el => el.textContent" e5
-# get element id, class, or any attribute not visible in the snapshot
 playwright-cli eval "el => el.id" e5
 playwright-cli eval "el => el.getAttribute('data-testid')" e5
 playwright-cli dialog-accept
@@ -94,12 +89,14 @@ playwright-cli mousewheel 0 100
 
 ### Save as
 
+Unnamed files and traces go to `$PLAYWRIGHT_MCP_OUTPUT_DIR`, relative file names resolve against the current directory.
+
 ```bash
 playwright-cli screenshot
 playwright-cli screenshot e5
-playwright-cli screenshot --filename=page.png
+playwright-cli screenshot --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/page.png
 playwright-cli screenshot --hires
-playwright-cli pdf --filename=page.pdf
+playwright-cli pdf --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/page.pdf
 ```
 
 ### Tabs
@@ -117,10 +114,9 @@ playwright-cli tab-select 0
 
 ```bash
 playwright-cli state-save
-playwright-cli state-save auth.json
-playwright-cli state-load auth.json
+playwright-cli state-save $PLAYWRIGHT_MCP_OUTPUT_DIR/auth.json
+playwright-cli state-load $PLAYWRIGHT_MCP_OUTPUT_DIR/auth.json
 
-# Cookies
 playwright-cli cookie-list
 playwright-cli cookie-list --domain=example.com
 playwright-cli cookie-get session_id
@@ -129,14 +125,12 @@ playwright-cli cookie-set session_id abc123 --domain=example.com --httpOnly --se
 playwright-cli cookie-delete session_id
 playwright-cli cookie-clear
 
-# LocalStorage
 playwright-cli localstorage-list
 playwright-cli localstorage-get theme
 playwright-cli localstorage-set theme dark
 playwright-cli localstorage-delete theme
 playwright-cli localstorage-clear
 
-# SessionStorage
 playwright-cli sessionstorage-list
 playwright-cli sessionstorage-get step
 playwright-cli sessionstorage-set step 3
@@ -156,6 +150,11 @@ playwright-cli unroute
 
 ### DevTools
 
+- `recording-start` records user actions in the browser, `recording-stop` prints them as Playwright code
+- `video-show-actions` marks each later action with a callout naming the action and highlighting its target
+- `generate-locator` builds a Playwright locator for an element from its ref or selector
+- `highlight` keeps an overlay on an element, `--style` sets its CSS, `--hide` clears the target's highlight or, without a target, every highlight
+
 ```bash
 playwright-cli console
 playwright-cli console warning
@@ -166,28 +165,22 @@ playwright-cli run-code --filename=script.js
 playwright-cli tracing-start
 playwright-cli tracing-stop
 
-# record user actions in the browser, print them as Playwright code on stop
 playwright-cli recording-start
 playwright-cli recording-stop
 
-playwright-cli video-start video.webm
+playwright-cli video-start $PLAYWRIGHT_MCP_OUTPUT_DIR/video.webm
 playwright-cli video-chapter "Chapter Title" --description="Details" --duration=2000
 playwright-cli video-stop
 
-# annotate each subsequent action (click, type, ...) with a callout naming the action and highlighting the target
 playwright-cli video-show-actions --duration=600 --position=top-right
 playwright-cli video-hide-actions
 
-# launch the dashboard for UI review / design feedback — user annotates the page, you receive the annotated screenshot, snapshot, and notes
 playwright-cli show --annotate
 
-# generate a Playwright locator for an element from its ref or selector
 playwright-cli generate-locator e5 --raw
 
-# show a persistent highlight overlay for an element, optionally with a custom style
 playwright-cli highlight e5
 playwright-cli highlight e5 --style="outline: 3px dashed red"
-# hide a single element highlight, or all page highlights when no target is given
 playwright-cli highlight e5 --hide
 playwright-cli highlight --hide
 ```
@@ -213,42 +206,36 @@ playwright-cli list --json
 ```
 
 ## Open parameters
+
+- `--mobile` emulates a generic mobile device, Pixel 10 on Chromium and iPhone 17 on WebKit
+- Prefer `--mobile` when a mobile layout is acceptable, mobile pages can give smaller snapshots
+- Profiles are in-memory by default, `--persistent` persists one, `--profile` sets its directory when the user requests one
+- `attach --extension` connects through the Playwright Extension, `attach --cdp` to a running Chrome or Edge channel or a CDP endpoint
+- `detach` leaves an attached browser running
+
 ```bash
-# Use specific browser when creating session
 playwright-cli open --browser=chrome
 playwright-cli open --browser=firefox
 playwright-cli open --browser=webkit
 playwright-cli open --browser=msedge
 
-# Emulate a generic mobile device (Pixel 10 for Chromium, iPhone 17 for WebKit).
-# Prefer this when a mobile layout is acceptable: mobile pages are usually
-# lighter, so snapshots are smaller and cheaper.
 playwright-cli open --mobile
 playwright-cli open --device="iPhone 15"
 
-# Use persistent profile (by default profile is in-memory)
 playwright-cli open --persistent
-# Use persistent profile with custom directory
 playwright-cli open --profile=/path/to/profile
 
-# Connect to browser via Playwright Extension
 playwright-cli attach --extension=chrome
 
-# Connect to a running Chrome or Edge by channel name
 playwright-cli attach --cdp=chrome
 playwright-cli attach --cdp=msedge
 
-# Connect to a running browser via CDP endpoint
 playwright-cli attach --cdp=http://localhost:9222
 
-# Start with config file
 playwright-cli open --config=my-config.json
 
-# Close the browser
 playwright-cli close
-# Detach from an attached browser (leaves the external browser running)
 playwright-cli -s=msedge detach
-# Delete user data for the default session
 playwright-cli delete-data
 ```
 
@@ -274,30 +261,29 @@ After each command, playwright-cli provides a snapshot of the current browser st
 - Page URL: https://example.com/
 - Page Title: Example Domain
 ### Snapshot
-[Snapshot](.playwright-cli/page-2026-02-14T19-22-42-679Z.yml)
+[Snapshot](.artifacts/playwright/page-2026-02-14T19-22-42-679Z.yml)
 ```
 
-You can also take a snapshot on demand using `playwright-cli snapshot` command. All the options below can be combined as needed.
+`playwright-cli snapshot` takes a snapshot on demand, and its options combine:
+- `snapshot` saves to a file with a timestamp-based name, `--filename` names it when the snapshot is part of the workflow result
+- A selector or ref snapshots one element in place of the whole page
+- `--depth` limits snapshot depth, a ref snapshot afterwards reads one subtree
+- `--boxes` adds each element's bounding box as `[box=x,y,width,height]`
+- `find` searches a large snapshot in place of capturing it whole, and returns each matching node with 3 lines of context
+- `find --regex` takes flags when the pattern sits in slashes, `/i` for case-insensitive
 
 ```bash
-# default - save to a file with timestamp-based name
 playwright-cli snapshot
 
-# save to file, use when snapshot is a part of the workflow result
-playwright-cli snapshot --filename=after-click.yaml
+playwright-cli snapshot --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/after-click.yaml
 
-# snapshot an element instead of the whole page
 playwright-cli snapshot "#main"
 
-# limit snapshot depth for efficiency, take a partial snapshot afterwards
 playwright-cli snapshot --depth=4
 playwright-cli snapshot e34
 
-# include each element's bounding box as [box=x,y,width,height]
 playwright-cli snapshot --boxes
 
-# search a large snapshot instead of capturing it all — returns matching nodes
-# with 3 lines of context around each match (like grep -C)
 playwright-cli find "Add to cart"
 playwright-cli find --regex "\\$[0-9]+\\.[0-9]{2}"
 ```
@@ -307,41 +293,35 @@ playwright-cli find --regex "\\$[0-9]+\\.[0-9]{2}"
 By default, use refs from the snapshot to interact with page elements.
 
 ```bash
-# get snapshot with refs
 playwright-cli snapshot
 
-# interact using a ref
 playwright-cli click e15
 ```
 
 You can also use css selectors or Playwright locators.
 
 ```bash
-# css selector
 playwright-cli click "#main > button.submit"
 
-# role locator
 playwright-cli click "getByRole('button', { name: 'Submit' })"
 
-# test id
 playwright-cli click "getByTestId('submit-button')"
 ```
 
 ## Browser Sessions
 
+- `-s=<name>` names a session, `delete-data` deletes its user data, the default session's without `-s`
+- `kill-all` force-kills every browser process
+
 ```bash
-# create new browser session named "mysession" with persistent profile
 playwright-cli -s=mysession open example.com --persistent
-# same with manually specified profile directory (use when requested explicitly)
 playwright-cli -s=mysession open example.com --profile=/path/to/profile
 playwright-cli -s=mysession click e6
-playwright-cli -s=mysession close  # stop a named browser
-playwright-cli -s=mysession delete-data  # delete user data for persistent session
+playwright-cli -s=mysession close
+playwright-cli -s=mysession delete-data
 
 playwright-cli list
-# Close all browsers
 playwright-cli close-all
-# Forcefully kill all browser processes
 playwright-cli kill-all
 ```
 

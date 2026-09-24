@@ -3,15 +3,28 @@ id: no-heterogeneous-enum-value
 language: python
 severity: error
 utils:
+    enum-base:
+        any:
+            - matches: {python-member-use: {module: {regex: '^enum$'}, name: {regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}}
+            - kind: identifier
+              pattern: $BASE
+              inside: {kind: module, stopBy: end, has: {kind: class_definition, all: [{has: {field: name, pattern: $BASE}}, {has: {field: superclasses, has: {matches: enum-base}}}]}}
     enum-class:
         kind: class_definition
-        has: {field: superclasses, has: {regex: '^(enum\.)?(Enum|IntEnum|StrEnum|Flag|IntFlag)$'}}
+        has: {field: superclasses, has: {matches: enum-base}}
     unpacking-init:
         kind: function_definition
         has: {field: name, regex: '^(__init__|__new__)$'}
+    text:
+        kind: string, concatenated_string
+        not: {regex: '^[rRuU]?[bB]'}
+    data:
+        kind: string, concatenated_string
+        regex: '^[rR]?[bB]'
     homogeneous:
         any:
-            - not: {has: {pattern: $_, not: {kind: string}}}
+            - not: {has: {pattern: $_, not: {matches: text}}}
+            - not: {has: {pattern: $_, not: {matches: data}}}
             - not: {has: {pattern: $_, not: {kind: 'integer, unary_operator'}}}
             - not: {has: {pattern: $_, not: {kind: 'float, unary_operator'}}}
             - not: {has: {pattern: $_, not: {kind: 'integer, float, unary_operator'}}}
@@ -19,6 +32,9 @@ utils:
             - not: {has: {pattern: $_, not: {kind: identifier}}}
             - not: {has: {pattern: $_, not: {kind: attribute}}}
             - not: {has: {pattern: $_, not: {kind: 'true, false'}}}
+            - all:
+                - has: {nthChild: 1, kind: call, has: {field: function, pattern: $CALLEE}}
+                - not: {has: {pattern: $_, not: {kind: call, has: {field: function, pattern: $CALLEE}}}}
 rule:
     kind: assignment
     pattern: $MEMBER

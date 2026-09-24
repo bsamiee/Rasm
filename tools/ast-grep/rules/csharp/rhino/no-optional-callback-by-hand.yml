@@ -1,0 +1,208 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-callback-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    answer-call:
+        kind: invocation_expression
+        all:
+            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Answer$'}}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}]}
+    succeeded-call:
+        kind: invocation_expression
+        all:
+            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Succeeded$'}}}
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}, {not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}]}
+    owner-answer:
+        any:
+            - matches: answer-call
+            - matches: succeeded-call
+    answering:
+        kind: invocation_expression
+        all:
+            - has: {field: function, pattern: $ANSWER}
+            - any:
+                - matches: owner-answer
+                - all:
+                    - has: {field: function, kind: identifier, pattern: $HELPER}
+                    - inside:
+                        stopBy: end
+                        kind: compilation_unit
+                        has:
+                            stopBy: end
+                            kind: method_declaration
+                            all:
+                                - has: {field: name, pattern: $HELPER}
+                                - has: {field: body, kind: arrow_expression_clause, has: {stopBy: end, matches: owner-answer}}
+    answer-value:
+        any:
+            - matches: answering
+            - kind: 'cast_expression, parenthesized_expression'
+              has: {matches: answer-value}
+    some-arm:
+        kind: 'lambda_expression, anonymous_method_expression'
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                    - kind: parameter_list
+                      has: {kind: parameter, nthChild: 1}
+                      not: {has: {kind: parameter, nthChild: 2}}
+            - any:
+                - has: {field: body, matches: answer-value}
+                - has:
+                    kind: block
+                    all:
+                        - has: {kind: return_statement, nthChild: 1, has: {matches: answer-value}}
+                        - not: {has: {nthChild: 2}}
+                - has:
+                    kind: block
+                    all:
+                        - has: {kind: local_declaration_statement, nthChild: 1, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD_ANSWER}}, {has: {nthChild: 2, matches: answer-value}}]}}}
+                        - has: {kind: return_statement, nthChild: 2, has: {pattern: $HELD_ANSWER}}
+                        - not: {has: {nthChild: 3}}
+    first-argument:
+        kind: argument
+        nthChild: {position: 1, ofRule: {kind: argument}}
+        not: {has: {field: name, pattern: $_}}
+    second-argument:
+        kind: argument
+        nthChild: {position: 2, ofRule: {kind: argument}}
+        not: {has: {field: name, pattern: $_}}
+    arms:
+        kind: argument_list
+        any:
+            - all:
+                - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
+                - has: {kind: argument, has: {field: name, regex: '^None$'}}
+            - all:
+                - has: {matches: first-argument, has: {matches: some-arm}}
+                - has: {matches: second-argument}
+                - not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}
+    option-match:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match$'}}, {has: {field: expression, pattern: $OPTION}}]}
+            - has: {field: arguments, matches: arms}
+    prelude-match:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
+            - has:
+                field: arguments
+                all:
+                    - has: {matches: first-argument, has: {pattern: $OPTION}}
+                    - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: some-arm}}]}
+                    - has: {kind: argument, has: {field: name, regex: '^None$'}}
+    mapped-fallback:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^IfNone$'}
+                    - has:
+                        field: expression
+                        kind: invocation_expression
+                        all:
+                            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map$'}}, {has: {field: expression, pattern: $OPTION}}]}
+                            - has: {field: arguments, all: [{has: {matches: first-argument, has: {matches: some-arm}}}, {not: {has: {matches: second-argument}}}]}
+            - has: {field: arguments, all: [{has: {matches: first-argument}}, {not: {has: {matches: second-argument}}}]}
+    combinator-answer:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Iter|Exists|ForAll|Bind)$'}}, {has: {field: expression, kind: 'identifier, member_access_expression', pattern: $OPTION}}]}
+            - has: {field: arguments, all: [{has: {matches: first-argument, has: {matches: some-arm}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    run-parameter:
+        any:
+            - kind: implicit_parameter
+              pattern: $RUN
+            - kind: parameter_list
+              has: {kind: parameter, has: {field: name, pattern: $RUN}}
+    one-fallback-answer:
+        kind: invocation_expression
+        all:
+            - matches: answer-call
+            - has: {field: function, pattern: $CALLEE}
+            - has:
+                field: arguments
+                all:
+                    - has: {matches: first-argument, has: {pattern: $EFFECT}}
+                    - has: {matches: second-argument, has: {pattern: $REJECT}}
+                    - has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}, not: {has: {field: name, pattern: $_}}, has: {pattern: $FALLBACK, not: {any: [{kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, assignment_expression, await_expression'}, {has: {stopBy: end, kind: 'invocation_expression, object_creation_expression, implicit_object_creation_expression, assignment_expression, await_expression'}}]}}}
+    one-fallback-some:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, matches: run-parameter}
+            - has: {field: body, matches: one-fallback-answer}
+    one-fallback-none:
+        kind: lambda_expression
+        pattern: $NONE
+        all:
+            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+            - has: {field: body, pattern: $FALLBACK}
+    succeeded-some:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, matches: run-parameter}
+            - has:
+                field: body
+                matches: succeeded-call
+                all:
+                    - has: {field: function, pattern: $CALLEE}
+                    - has: {field: arguments, all: [{has: {matches: first-argument, has: {pattern: $EFFECT}}}, {has: {matches: second-argument, has: {pattern: $REJECT}}}]}
+    lambda-none:
+        kind: 'lambda_expression, anonymous_method_expression'
+        pattern: $NONE
+    fixable-arms:
+        kind: argument_list
+        any:
+            - all:
+                - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: one-fallback-some}}]}
+                - has: {kind: argument, all: [{has: {field: name, regex: '^None$'}}, {has: {matches: one-fallback-none}}]}
+            - all:
+                - has: {matches: first-argument, has: {matches: one-fallback-some}}
+                - has: {matches: second-argument, has: {matches: one-fallback-none}}
+            - all:
+                - has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: succeeded-some}}]}
+                - has: {kind: argument, all: [{has: {field: name, regex: '^None$'}}, {has: {matches: lambda-none}}]}
+            - all:
+                - has: {matches: first-argument, has: {matches: succeeded-some}}
+                - has: {matches: second-argument, has: {matches: lambda-none}}
+rewriters:
+    - id: optional-run
+      rule:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match$'}}, {has: {field: expression, pattern: $SOURCE}}]}
+            - has: {field: arguments, matches: fixable-arms}
+            - has: {field: arguments, has: {stopBy: end, matches: owner-answer, has: {field: arguments, has: {matches: first-argument, has: {pattern: $RUN}}}}}
+            - not: {has: {stopBy: end, kind: comment}}
+      fix: $CALLEE($SOURCE, $REJECT, $NONE)
+    - id: optional-answer
+      rule:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Match$'}}, {has: {field: expression, pattern: $SOURCE}}]}
+            - has: {field: arguments, matches: fixable-arms}
+            - not: {has: {stopBy: end, kind: comment}}
+      fix: $CALLEE($SOURCE.Map($RUN => $EFFECT), $REJECT, $NONE)
+rule:
+    kind: invocation_expression
+    pattern: $CALL
+    all:
+        - any:
+            - matches: option-match
+            - matches: prelude-match
+            - matches: mapped-fallback
+            - matches: combinator-answer
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^(Answer|Succeeded)$'}}}}
+transform:
+    ANSWERED:
+        rewrite: {source: $CALL, rewriters: [optional-run, optional-answer]}
+fix: $ANSWERED
+message: '`$OPTION` answers an optional callback through `$ANSWER` by hand'
+note: 'Use `Answers.Answer(<option>.Map(<run> => <effect>), <reject>, refused: <failure fallback>, <none arm>)` with `<none arm>` answering what `Match`, `Iter`, `Exists`, `ForAll`, or `Bind` answered for `None`, the 3-argument form where both fallbacks are one value, `Answers.Succeeded(<option>.Map(<run> => <effect>), <reject>, <none arm>)` for a `Succeeded` arm, and `<option>` alone where the `Some` arm answers its value unchanged'

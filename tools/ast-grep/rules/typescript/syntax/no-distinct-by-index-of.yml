@@ -48,4 +48,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[dedupe])
 fix: $FIXED$KEPT
 message: '`$L.filter` keeps the first of each value by a quadratic `indexOf` scan'
-note: '`Array.dedupe($L)` keeps the first of each value by `Equal`'
+note: '`Array.dedupe(<list>)` keeps the first of each value by `Equal`'

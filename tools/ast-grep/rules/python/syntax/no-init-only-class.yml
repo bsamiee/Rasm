@@ -6,6 +6,8 @@ utils:
     field-value:
         any:
             - kind: identifier, integer, float, true, false, none
+            - kind: unary_operator
+              has: {kind: 'integer, float'}
             - kind: string
               not: {has: {kind: interpolation}}
             - kind: list, tuple, set, dictionary, expression_list, pair
@@ -30,8 +32,7 @@ rule:
     kind: class_definition
     all:
         - has: {field: name, pattern: $NAME}
-        - not: {has: {field: superclasses, kind: argument_list}}
-        - not: {inside: {kind: decorated_definition}}
+        - matches: python-plain-class
         - not: {has: {field: body, has: {kind: function_definition, not: {has: {field: name, regex: '^__init__$'}}}}}
         - not:
             has:
@@ -43,7 +44,7 @@ rule:
                         kind: expression_statement
                         has:
                             kind: assignment
-                            has: {field: right, not: {kind: "integer, float, string, true, false, none, tuple, list"}}
+                            has: {field: right, not: {kind: "integer, float, string, true, false, none, tuple, list, unary_operator"}}
         - has:
             field: body
             has:
@@ -56,6 +57,6 @@ rule:
                             - has: {matches: self-assignment}
                             - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: self-assignment}]}}}
 message: '`__init__` of `$NAME` assigns self attributes alone'
-note: 'Declare the fields on a `msgspec.Struct` with `frozen=True`'
+note: 'Declare the fields on a frozen `msgspec.Struct`, or an `attrs.frozen` class where the interpreter lacks msgspec'
 labels:
     NAME: {style: primary, message: Init-only class}

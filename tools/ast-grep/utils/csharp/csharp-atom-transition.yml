@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-atom-transition
+language: csharp
+rule:
+    kind: invocation_expression
+    any:
+        - matches:
+            csharp-atom-call:
+                member: {regex: '^(Swap|SwapIO|SwapMaybe|SwapMaybeIO|SwapKey|AddOrUpdate|MapInPlace|FilterInPlace|BindInPlace|Commute)$'}
+        - all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(swap|commute)$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: csharp-atom-cell}}}

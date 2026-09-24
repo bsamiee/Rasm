@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-atom-cell
+language: csharp
+utils:
+    atom-type:
+        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\??$'
+    atom-element-type:
+        regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\[\s*\]$|[<,]\s*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<'
+    owner-member:
+        kind: 'method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, property_declaration, indexer_declaration, field_declaration, event_declaration, global_statement'
+    owner-type:
+        kind: 'class_declaration, struct_declaration, record_declaration, interface_declaration'
+    callback-owner:
+        kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
+    declared-name:
+        any:
+            - kind: parameter
+              has: {field: name, pattern: $CELL}
+              not: {inside: {kind: parameter_list, inside: {matches: callback-owner}}}
+            - kind: 'variable_declarator, from_clause'
+              has: {field: name, pattern: $CELL}
+            - kind: let_clause
+              has: {kind: identifier, nthChild: 1, pattern: $CELL}
+    callback-parameter:
+        kind: identifier
+        inside:
+            stopBy: end
+            matches: callback-owner
+            has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}
+    atom-local:
+        any:
+            - kind: parameter
+              all:
+                - has: {field: type, matches: atom-type}
+                - has: {field: name, pattern: $CELL}
+            - kind: variable_declaration
+              all:
+                - has: {field: type, matches: atom-type}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}
+            - kind: variable_declarator
+              all:
+                - has: {field: name, pattern: $CELL}
+                - has: {nthChild: 2, any: [{matches: csharp-atom-creation}, {matches: csharp-atom-cell}]}
+            - kind: from_clause
+              all:
+                - has: {field: name, pattern: $CELL}
+                - any:
+                    - has: {field: type, matches: atom-type}
+                    - has: {matches: csharp-atom-creation}
+            - kind: let_clause
+              all:
+                - has: {kind: identifier, nthChild: 1, pattern: $CELL}
+                - has: {matches: csharp-atom-creation}
+    atom-member:
+        any:
+            - kind: field_declaration
+              has: {kind: variable_declaration, matches: atom-local}
+            - kind: property_declaration
+              all:
+                - has: {field: type, matches: atom-type}
+                - has: {field: name, pattern: $CELL}
+            - kind: parameter
+              matches: atom-local
+              inside: {kind: parameter_list, inside: {matches: owner-type}}
+    plain-member:
+        any:
+            - kind: field_declaration
+              has: {kind: variable_declaration, all: [{not: {has: {field: type, matches: atom-type}}}, {has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}}]}
+            - kind: property_declaration
+              all:
+                - not: {has: {field: type, matches: atom-type}}
+                - has: {field: name, pattern: $CELL}
+            - kind: parameter
+              all:
+                - not: {has: {field: type, matches: atom-type}}
+                - has: {field: name, pattern: $CELL}
+              inside: {kind: parameter_list, inside: {matches: owner-type}}
+    atom-elements:
+        any:
+            - kind: 'parameter, property_declaration'
+              all:
+                - has: {field: type, matches: atom-element-type}
+                - has: {field: name, pattern: $ELEMENTS}
+            - kind: variable_declaration
+              all:
+                - has: {field: type, matches: atom-element-type}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $ELEMENTS}}
+    elements-name:
+        any:
+            - kind: identifier
+              pattern: $ELEMENTS
+            - kind: member_access_expression
+              has: {field: name, pattern: $ELEMENTS}
+    elements:
+        matches: elements-name
+        inside: {stopBy: {matches: owner-type}, matches: owner-type, has: {stopBy: {matches: owner-type}, matches: atom-elements}}
+    own-name:
+        any:
+            - kind: identifier
+              pattern: $CELL
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, pattern: $CELL}
+    own-cell:
+        all:
+            - matches: own-name
+            - any:
+                - inside: {stopBy: {matches: owner-member}, matches: owner-member, has: {stopBy: end, matches: atom-local}}
+                - all:
+                    - not: {inside: {stopBy: {matches: owner-member}, matches: owner-member, has: {stopBy: end, matches: declared-name}}}
+                    - not: {kind: identifier, matches: callback-parameter}
+                    - inside:
+                        stopBy: {matches: owner-type}
+                        matches: owner-type
+                        any:
+                            - has: {field: body, has: {matches: atom-member}}
+                            - has: {kind: parameter_list, has: {matches: atom-member}}
+    element-parameter:
+        kind: identifier
+        pattern: $CELL
+        inside:
+            stopBy: end
+            kind: lambda_expression
+            has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}
+            inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: elements}}}
+rule:
+    any:
+        - matches: own-cell
+        - matches: element-parameter
+        - kind: member_access_expression
+          all:
+            - not: {has: {field: expression, regex: '^this$'}}
+            - has: {field: name, pattern: $CELL}
+            - inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: atom-member}}
+            - not: {inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: plain-member}}}
+        - kind: element_access_expression
+          has: {field: expression, matches: elements}
+        - kind: parenthesized_expression
+          has: {matches: csharp-atom-cell}

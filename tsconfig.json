@@ -1,5 +1,5 @@
 {
     "extends": "./tsconfig.base.json",
     "compilerOptions": { "outDir": ".cache/typescript/out/root", "types": ["node"] },
-    "include": ["*.config.ts", "tools/nx/*.ts", "tools/yak/*.ts", "infra/*.ts"]
+    "include": ["*.config.ts", "tools/nx/*.ts", "tools/yak/*.ts", "tools/interface/*.ts", "infra/*.ts"]
 }

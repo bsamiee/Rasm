@@ -10,4 +10,4 @@ rule:
         - pattern: 'String(bytes: $D, encoding: String.Encoding.utf8)'
 fix: 'String(validating: $D, as: UTF8.self)'
 message: '`String(data:encoding:)` with `.utf8` round-trips through Foundation'
-note: '`String(validating: $D, as: UTF8.self)` of the standard library returns the same optional'
+note: '`String(validating: <data>, as: UTF8.self)` of the standard library returns the same optional'

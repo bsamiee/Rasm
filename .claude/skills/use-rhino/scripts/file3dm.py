@@ -4,7 +4,7 @@
 # requires-python = ">=3.13"
 # dependencies = ["msgspec", "rhino3dm"]
 # ///
-"""Describe `.3dm` files on disk through openNURBS, with no Rhino running and no document opened, one JSON line per file."""
+"""Describe `.3dm` files on disk through openNURBS without Rhino."""
 
 from collections import Counter
 from datetime import datetime
@@ -20,7 +20,7 @@ from rhino3dm import ActiveSpace, BoundingBox, File3dm, ObjectMode, ObjectType, 
 
 
 class FileRecord(Record, frozen=True):
-    """One `.3dm` file's archive version, last editor, lock holder, units, tolerances, model objects, layers, materials, blocks, and views."""
+    """`.3dm` file contents in the shape `describe(doc)` gives an open document."""
 
     path: str
     version: int
@@ -47,9 +47,8 @@ class FileRecord(Record, frozen=True):
 
 
 def describe(path: Path) -> FileRecord | Fault:
-    """Read one `.3dm` file's contents as the record `describe(doc)` gives an open document, model-space objects outside block definitions counted."""
-    model = File3dm.Read(str(path))
-    if model is None:
+    """Read one `.3dm` file, counting model-space objects outside block definitions."""
+    if (model := File3dm.Read(str(path))) is None:
         return Fault(File3dm, str(path))
     objects = [item for item in model.Objects if not item.Attributes.IsInstanceDefinitionObject and item.Attributes.ActiveSpace == ActiveSpace.ModelSpace]
     materials = list(model.Materials)
@@ -92,7 +91,7 @@ def describe(path: Path) -> FileRecord | Fault:
         materials=tuple(
             {
                 material.RenderMaterialInstanceId: MaterialRecord(
-                    material.Name, html(*(round(channel * 255) for channel in surface.BaseColor[:3])), surface.Roughness, surface.Metallic, surface.Opacity
+                    material.Name, html(*(round(channel * 255) for channel in surface.BaseColor[:3])), surface.Roughness, surface.Metallic, surface.Opacity, surface.OpacityIOR
                 )
                 for material in materials
                 for surface in (material.PhysicallyBased,)
@@ -109,15 +108,15 @@ def describe(path: Path) -> FileRecord | Fault:
 
 
 def main() -> None:
-    """Print one JSON line per `.3dm` file each argument names, a folder naming every `.3dm` under it, and exit 1 when any file fails to read."""
+    """Print one JSON line per `.3dm` file under each argument, exiting 1 when any file fails to read."""
     results = [describe(path.resolve()) for argument in map(Path, sys.argv[1:]) for path in (sorted(argument.rglob("*.3dm")) if argument.is_dir() else (argument,))]
     sys.stdout.buffer.write(msgspec.json.Encoder(enc_hook=lambda value: value.__name__ if isinstance(value, type) else value.name).encode_lines(results))
     sys.exit(any(isinstance(result, Fault) for result in results))
 
 
+if __name__ == "__main__":
+    main()
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = ["FileRecord", "describe", "main"]
-
-if __name__ == "__main__":
-    main()

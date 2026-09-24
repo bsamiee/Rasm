@@ -1,0 +1,92 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rule-in-error-record
+language: csharp
+severity: error
+utils:
+    limit-literal:
+        kind: 'integer_literal, real_literal'
+        not: {regex: '^0+(\.0+)?[dDfFmM]?$'}
+    argument-name:
+        kind: identifier
+        pattern: $NAME
+        inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $NAME}}}}
+    limit-name:
+        any:
+            - kind: identifier
+              not: {matches: argument-name}
+            - kind: member_access_expression
+              has: {field: expression, kind: identifier, not: {matches: argument-name}}
+    limit-comparison:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(<|<=|>|>=)$'}
+            - any:
+                - has: {stopBy: end, matches: limit-literal}
+                - has: {field: left, matches: limit-name}
+                - has: {field: right, matches: limit-name}
+    own-error:
+        kind: object_creation_expression
+        has: {field: type, pattern: $SELF}
+    guarded-value:
+        any:
+            - regex: '^unit$'
+            - kind: identifier
+              pattern: $VALUE
+              inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $VALUE}}}}
+    guard-factory:
+        kind: method_declaration
+        any:
+            - all:
+                - has: {field: name, regex: '^Unless$'}
+                - has: {field: returns, regex: '^(global::)?(LanguageExt\.)?Fin\s*<.+>$'}
+                - has:
+                    field: body
+                    kind: arrow_expression_clause
+                    has:
+                        any:
+                            - kind: conditional_expression
+                              all:
+                                - has: {field: condition, not: {any: [{matches: limit-comparison}, {has: {stopBy: end, matches: limit-comparison}}]}}
+                                - not: {has: {stopBy: end, matches: limit-literal}}
+                                - any:
+                                    - all:
+                                        - has: {field: consequence, matches: guarded-value}
+                                        - has: {field: alternative, matches: own-error}
+                                    - all:
+                                        - has: {field: consequence, matches: own-error}
+                                        - has: {field: alternative, matches: guarded-value}
+                            - kind: invocation_expression
+                              all:
+                                - not: {has: {stopBy: end, matches: limit-literal}}
+                                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToFin$'}}, {has: {field: expression, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?Optional$'}}, {has: {field: arguments, has: {kind: argument, has: {matches: guarded-value}}, not: {has: {kind: argument, nthChild: 2}}}}]}}]}
+                                - has: {field: arguments, has: {kind: argument, has: {matches: own-error}}, not: {has: {kind: argument, nthChild: 2}}}
+                - inside: {stopBy: end, kind: record_declaration, has: {field: name, pattern: $SELF}}
+            - all:
+                - has: {field: name, regex: '^Create$'}
+                - has: {field: parameters, regex: '^\(\s*string\s+\w+\s*\)$'}
+    inherited:
+        has: {kind: modifier, regex: '^(override|abstract)$'}
+rule:
+    any:
+        - kind: field_declaration
+          all:
+            - has: {kind: modifier, regex: '^(const|static)$'}
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $MEMBER}}}
+        - kind: property_declaration
+          all:
+            - has: {field: name, pattern: $MEMBER}
+            - any:
+                - has: {kind: modifier, regex: '^static$'}
+                - has: {field: value, kind: arrow_expression_clause}
+            - not: {matches: inherited}
+        - kind: operator_declaration
+          has: {field: operator, pattern: $$MEMBER}
+        - kind: conversion_operator_declaration
+          has: {field: type, pattern: $MEMBER}
+        - kind: method_declaration
+          all:
+            - has: {field: name, pattern: $MEMBER}
+            - not: {any: [{matches: guard-factory}, {matches: inherited}]}
+    inside: {kind: declaration_list, inside: {matches: csharp-error-record}}
+message: '`$MEMBER` declares a limit or an operation on an error record'
+note: Use the raising operations class, the constant under its `[LIMITS]` and the rule as its member, the record holding its fields and `Unless`

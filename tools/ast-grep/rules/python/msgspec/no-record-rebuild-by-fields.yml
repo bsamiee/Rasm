@@ -8,65 +8,128 @@ utils:
         has:
             kind: assignment
             all:
-                - has: {field: left, kind: identifier, pattern: $A}
-                - has: {field: type, kind: type}
-    own-struct:
+                - has: {field: left, kind: identifier}
+                - has: {field: type, kind: type, not: {regex: '^(typing\.)?ClassVar\b'}}
+    struct-class:
         kind: class_definition
         all:
             - has: {field: name, pattern: $C}
             - has: {field: superclasses, has: {regex: '^(msgspec\.)?Struct$'}}
             - has: {field: body, has: {matches: struct-field}}
+    frozen-struct:
+        matches: struct-class
+        has: {field: superclasses, has: {kind: keyword_argument, regex: '^frozen\s*=\s*True$'}}
+    first-field:
+        matches: struct-field
+        has: {kind: assignment, has: {field: left, pattern: $FIRST}}
+        not: {follows: {stopBy: end, matches: struct-field}}
+    next-field:
+        matches: struct-field
+        has: {kind: assignment, has: {field: left, pattern: $PREVIOUS}}
+        precedes: {stopBy: {not: {kind: comment}}, matches: struct-field, has: {kind: assignment, has: {field: left, pattern: $NEXT}}}
+    typed-record:
+        matches: {python-typed-parameter: {type: {pattern: $C}}}
+    built-record:
+        matches: {python-assigned-name: {value: {kind: call, has: {field: function, pattern: $C}}}}
+    record:
+        kind: identifier
+        pattern: $X
+        any:
+            - regex: '^self$'
+              inside: {kind: class_definition, stopBy: end, has: {field: name, pattern: $C}}
+            - matches: typed-record
+            - matches: built-record
+            - inside:
+                kind: module, function_definition
+                stopBy: end
+                has:
+                    stopBy: {kind: "function_definition, class_definition, lambda"}
+                    kind: assignment
+                    all:
+                        - has: {field: left, pattern: $X}
+                        - has: {field: type, pattern: $C}
     field-read:
         kind: attribute
+        has: {field: object, matches: record}
+    uncovered-field:
         all:
-            - has: {field: object, kind: identifier, pattern: $X}
-            - has: {field: attribute, pattern: $A}
-            - inside: {kind: module, stopBy: end, has: {matches: own-struct}}
-            - any:
-                - all:
-                    - has: {field: object, regex: '^self$'}
-                    - inside: {kind: class_definition, stopBy: end, has: {field: name, pattern: $C}}
-                - inside:
-                    kind: function_definition
+            - matches: struct-field
+            - has: {kind: assignment, has: {field: left, pattern: $F}}
+            - not:
+                inside:
+                    kind: module
                     stopBy: end
                     has:
-                        field: parameters
-                        has:
-                            kind: typed_parameter
-                            all:
-                                - has: {kind: identifier, pattern: $X}
-                                - has: {field: type, kind: type, pattern: $C}
-    replace-import:
-        any:
-            - kind: import_from_statement
-              all:
-                - has: {field: module_name, regex: '^copy$'}
-                - any:
-                    - has: {kind: dotted_name, regex: '^replace$', pattern: $REPLACE}
-                    - has: {kind: aliased_import, all: [{has: {field: name, regex: '^replace$'}}, {has: {field: alias, pattern: $REPLACE}}]}
-            - kind: import_statement
-              any:
-                - has: {kind: dotted_name, regex: '^copy$', pattern: $COPY}
-                - has: {kind: aliased_import, all: [{has: {field: name, regex: '^copy$'}}, {has: {field: alias, pattern: $COPY}}]}
+                        stopBy: end
+                        pattern: $CALL
+                        has: {field: arguments, has: {any: [{pattern: $X.$F}, {kind: keyword_argument, has: {field: name, pattern: $F}}]}}
+    complete:
+        all:
+            - not: {matches: python-commented}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {any: [{kind: keyword_argument}, {pattern: $X.$_}]}}}}
+            - any:
+                - has: {field: arguments, has: {nthChild: 1, kind: keyword_argument}}
+                - all:
+                    - has: {field: arguments, has: {nthChild: 1, pattern: $X.$FIRST}}
+                    - inside: {kind: module, stopBy: end, has: {matches: struct-class, has: {field: body, has: {matches: first-field}}}}
+            - not:
+                has:
+                    field: arguments
+                    has:
+                        all:
+                            - pattern: $X.$PREVIOUS
+                            - precedes: {stopBy: {pattern: $_}, pattern: $X.$NEXT}
+                            - not: {inside: {kind: module, stopBy: end, has: {matches: struct-class, has: {field: body, has: {matches: next-field}}}}}
+            - not: {inside: {kind: module, stopBy: end, has: {matches: struct-class, has: {field: body, has: {matches: uncovered-field}}}}}
+    unchanged:
+        not: {has: {field: arguments, has: {kind: keyword_argument, not: {all: [{has: {field: name, pattern: $K}}, {has: {field: value, pattern: $X.$K}}]}}}}
+    replace-function:
+        kind: import_from_statement
+        all:
+            - has: {field: module_name, regex: '^copy$'}
+            - any:
+                - has: {kind: dotted_name, regex: '^replace$', has: {kind: identifier, pattern: $REPLACE}}
+                - has: {kind: aliased_import, all: [{has: {field: name, regex: '^replace$'}}, {has: {field: alias, pattern: $REPLACE}}]}
+    replace-shadowed:
+        inside:
+            kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+            stopBy: end
+            has:
+                stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                matches: {python-binding: {name: {pattern: $REPLACE}}}
+    copy-shadowed:
+        inside:
+            kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+            stopBy: end
+            has:
+                stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                matches: {python-binding: {name: {pattern: $COPY}}}
+    copy-module:
+        matches: {python-module-import: {module: {regex: '^copy$'}, binding: {pattern: $COPY}}}
 rule:
     kind: call
+    pattern: $CALL
     all:
         - has: {field: function, kind: identifier, pattern: $C}
-        - has:
-            field: arguments
-            all:
-                - has:
-                    any:
-                        - matches: field-read
-                        - kind: keyword_argument
-                          has: {field: value, matches: field-read}
-                - has: {pattern: $_, not: {pattern: $X.$_}}
+        - inside: {kind: module, stopBy: end, has: {matches: struct-class}}
+        - has: {field: arguments, kind: argument_list, has: {any: [{matches: field-read}, {kind: keyword_argument, has: {field: value, matches: field-read}}]}}
+        - not: {has: {field: arguments, has: {kind: 'list_splat, dictionary_splat'}}}
         - any:
-            - pattern: $FIXABLE
-              all:
-                - inside: {kind: module, stopBy: end, has: {matches: replace-import}}
-                - has: {field: arguments, pattern: $ARGS, not: {has: {pattern: $_, not: {any: [{pattern: $X.$_}, {kind: keyword_argument}, {kind: comment}]}}}}
-                - has: {field: arguments, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $RECORD}]}}
+            - all:
+                - matches: complete
+                - matches: unchanged
+                - inside: {kind: module, stopBy: end, has: {matches: frozen-struct}}
+                - has: {field: arguments, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $SAME}]}}
+            - all:
+                - matches: complete
+                - inside: {kind: module, stopBy: end, has: {matches: replace-function}}
+                - not: {matches: replace-shadowed}
+                - has: {field: arguments, pattern: $CHANGED, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $RECORD}]}}
+            - all:
+                - matches: complete
+                - inside: {kind: module, stopBy: end, has: {matches: copy-module}}
+                - not: {matches: copy-shadowed}
+                - has: {field: arguments, pattern: $CHANGED, has: {stopBy: end, kind: identifier, all: [{pattern: $X}, {pattern: $RECORD}]}}
             - pattern: $UNFIXED
 rewriters:
     - id: changed-keyword
@@ -76,10 +139,11 @@ rewriters:
         not: {all: [{has: {field: name, pattern: $K}}, {has: {field: value, pattern: $X.$K}}]}
       fix: $KEYWORD
 transform:
-    KEPT: rewrite($ARGS, rewriters=[changed-keyword], joinBy=', ')
+    KEPT: rewrite($CHANGED, rewriters=[changed-keyword], joinBy=', ')
+    CHANGES: {replace: {source: $KEPT, replace: '(?s)^(.+)$', by: ', $1'}}
     MODULE_CALLEE: {replace: {source: $COPY, replace: '^(.+)$', by: '$1.replace'}}
-    PREFIX: {replace: {source: $RECORD, replace: '^(.+)$', by: '($1, '}}
-    TAIL: {replace: {source: $RECORD, replace: '^.+$', by: ')'}}
-fix: $REPLACE$MODULE_CALLEE$PREFIX$KEPT$TAIL$UNFIXED
+    OPEN: {replace: {source: $RECORD, replace: '^(.+)$', by: '($1'}}
+    CLOSE: {replace: {source: $RECORD, replace: '^.+$', by: ')'}}
+fix: $SAME$REPLACE$MODULE_CALLEE$OPEN$CHANGES$CLOSE$UNFIXED
 message: '`$C(...)` rebuilds `$X` by spelling its fields'
-note: 'Use `replace(<record>, <field>=<value>)` from `copy`'
+note: 'Use `replace(<record>, <field>=<value>)` from `copy`, or the record itself when no field changes'

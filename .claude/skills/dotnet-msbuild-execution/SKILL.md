@@ -49,18 +49,25 @@ dotnet msbuild <project>.csproj -targets
 
 Extend the SDK chain from a target naming an SDK target in `BeforeTargets` or `AfterTargets`, or from a `DependsOn` property a `.targets` file appends to after the SDK assigned it. `BeforeBuild`, `AfterBuild`, `BeforeCompile`, `AfterCompile`, `BeforeResolveReferences`, `AfterResolveReferences`, `BeforeClean`, `AfterClean`, `BeforePublish`, and `AfterPublish` are empty SDK targets the implicit `Sdk.targets` import defines after the project body, a same-named target in a project file loses silently.
 
+BAD:
+
 ```xml
-<!-- BAD -->
 <Target Name="AfterBuild">
   <Message Importance="high" Text="built" />
 </Target>
+```
 
-<!-- GOOD -->
+GOOD:
+
+```xml
 <Target Name="ReportBuild" AfterTargets="Build">
   <Message Importance="high" Text="built $(TargetPath)" />
 </Target>
+```
 
-<!-- GOOD: Directory.Build.targets -->
+GOOD in `Directory.Build.targets`:
+
+```xml
 <PropertyGroup>
   <CompileDependsOn>$(CompileDependsOn);ReportCompile</CompileDependsOn>
 </PropertyGroup>
@@ -178,7 +185,7 @@ Tasks inside a target run at execution time with the current properties and item
 - Task batching leaves the target running once
 - `PropertyGroup` lines that batch finish every batch before the next line reads the property, the property holds the last batch value
 - Target batching gives each batch its own copy of the properties and items, a batched `ItemGroup` runs once per target batch
-- Two item types in one expression batch separately, each batch sees the other type empty, batch on one type and pass the other as a property
+- Item types in one expression batch separately, each batch sees every other type empty, batch on one type and pass the rest as properties
 - `;`-delimited properties with leading and trailing separators test membership through `Contains(';%(Item.Meta);')`, batching over the item
 
 ```xml
@@ -206,7 +213,7 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 - `-warnaserror` promotes every warning to an error, the target keeps running as for a warning
 - `-warnaserror:CODE` promotes a list, `-warnnotaserror:CODE` exempts a list under `-warnaserror`, `-warnasmessage:CODE` demotes a list
 - `MSBuildTreatWarningsAsErrors`, `MSBuildWarningsAsErrors`, `MSBuildWarningsNotAsErrors`, and `MSBuildWarningsAsMessages` are the property forms
-- `WarningsAsErrors`, `WarningsNotAsErrors`, and `NoWarn` feed the last three per project
+- Per project, `WarningsAsErrors` and `WarningsNotAsErrors` feed `MSBuild`-prefixed forms and `NoWarn` feeds `MSBuildWarningsAsMessages`
 - `MSBuildWarningsNotAsErrors` exempts a code from `MSBuildTreatWarningsAsErrors` and from `-warnaserror` in that project
 
 ```xml

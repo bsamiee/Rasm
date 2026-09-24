@@ -224,6 +224,8 @@ Solutions named on the server's command line are trusted for that session, every
 
 Analyzers run with no analyzer options: `.editorconfig` severities apply, its option values do not. Style analyzers that read an option (`IDE0055` formatting) report against Roslyn defaults, their items from `get_diagnostics` are no finding, and `dotnet format --verify-no-changes` is the formatting verdict.
 
+Analyzer assemblies built against a newer Roslyn than the server bundles do not load, and the server's startup log names each one as `ReferencesNewerCompiler`. Under a preview SDK, its `CodeStyle` assemblies (`IDE*`) fall in that set, `get_diagnostics` omits their diagnostics, and the build is the verdict until a server release bundles the SDK's Roslyn.
+
 When a call returns `SolutionNotTrusted`, call `trust_solution` and retry. `scope` defaults to `session`. `persistent` writes the path to the trust store, `addRoot` with a directory trusts every solution below it. `list_trusted_paths` reports the current state, `revoke_trust` removes an entry.
 
 ### [03.5]-[EXCEPTION_ANALYSIS]

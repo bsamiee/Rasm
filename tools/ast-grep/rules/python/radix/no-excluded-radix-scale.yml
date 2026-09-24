@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-excluded-radix-scale
+language: python
+severity: error
+files: ['tools/interface/**/*.py']
+ignores: ['tools/interface/radix.py']
+rule:
+    kind: 'identifier, string_content'
+    pattern: $STEP
+    regex: '(^|\.)(amber|brown|bronze|gold|olive|sand)\d+$'
+message: '`$STEP` names a Radix scale the color language excludes'
+note: 'Take the role its meaning needs from `theme.py`'

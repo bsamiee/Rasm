@@ -2,23 +2,19 @@ using System.Globalization;
 
 namespace Rasm.TestSupport;
 
-// --- [TYPES] ---------------------------------------------------------------------------
-public delegate bool VectorComparison(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance);
-
 // --- [MODELS] --------------------------------------------------------------------------
-public readonly record struct Tolerance(double AbsoluteError, double RelativeError, long Ulps = 0L) {
+public readonly record struct Tolerance(double AbsoluteError, double RelativeError, Option<long> Ulps = default) {
     public static Tolerance Absolute(double epsilon) => new(epsilon, RelativeError: 0.0);
     public static Tolerance Relative(double epsilon) => new(AbsoluteError: 0.0, epsilon);
     public static Tolerance Combined(double absolute, double relative) => new(absolute, relative);
-    public static Tolerance WithinUlps(long units) => new(AbsoluteError: 0.0, RelativeError: 0.0, units);
+    public static Tolerance WithinUlps(long units) => new(AbsoluteError: 0.0, RelativeError: 0.0, Some(units));
     public static Tolerance Default { get; } = Combined(absolute: 1.0e-12, relative: 1.0e-9);
 
-    // Equals covers NaN against NaN and an infinity against itself, the bounds apply to finite values, an infinite magnitude makes the relative bound infinite
     public bool Matches(double left, double right) =>
         left.Equals(right)
         || (double.IsFinite(left) && double.IsFinite(right)
             && (Math.Abs(left - right) <= AbsoluteError + (RelativeError * Math.Max(Math.Abs(left), Math.Abs(right)))
-                || (Ulps > 0L && UlpDistance(left, right) <= Ulps)));
+                || Ulps.Exists(ulps => UlpDistance(left, right) <= ulps)));
 
     public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"absolute={AbsoluteError:R}, relative={RelativeError:R}, ulps={Ulps}");
 
@@ -30,52 +26,36 @@ public readonly record struct Tolerance(double AbsoluteError, double RelativeErr
     }
 }
 
-public sealed record NumericComparison(string Name, VectorComparison Matches) {
-    public static readonly NumericComparison Elementwise = new(nameof(Elementwise), static (left, right, tolerance) => CompareElements(left, right, tolerance, negate: false));
-    public static readonly NumericComparison SignInvariant = new(nameof(SignInvariant), static (left, right, tolerance) =>
-        CompareElements(left, right, tolerance, negate: false) || CompareElements(left, right, tolerance, negate: true));
+[Union(ConversionFromValue = ConversionOperatorsGeneration.None)]
+public abstract partial record NumericComparison {
+    public abstract bool Matches(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance);
 
-    public static NumericComparison Periodic(double period) {
-        _ = double.IsFinite(period) && period > 0.0 ? period : throw new ArgumentOutOfRangeException(nameof(period), period, "period must be finite and positive");
-        return new NumericComparison(string.Create(CultureInfo.InvariantCulture, $"Periodic({period:R})"), (left, right, tolerance) => {
-            if (left.Length != right.Length) return false;
-            for (int i = 0; i < left.Length; i++) if (!tolerance.Matches(Math.Abs(Math.IEEERemainder(left[i] - right[i], period)), 0.0)) return false;
-            return true;
-        });
-    }
-
-    private static bool CompareElements(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, bool negate) {
+    private static bool Pairwise(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Func<double, double, bool> close) {
         if (left.Length != right.Length) return false;
-        for (int i = 0; i < left.Length; i++) if (!tolerance.Matches(left[i], negate ? -right[i] : right[i])) return false;
+        for (int i = 0; i < left.Length; i++)
+            if (!close(left[i], right[i])) return false;
         return true;
     }
-}
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
-public static class Approximate {
-    public static bool Equal(double left, double right, Tolerance tolerance, NumericComparison? comparison = null) =>
-        (comparison ?? NumericComparison.Elementwise).Matches([left], [right], tolerance);
-    public static bool Equal(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, NumericComparison? comparison = null) =>
-        (comparison ?? NumericComparison.Elementwise).Matches(left, right, tolerance);
-    public static bool Equal(Seq<double> left, Seq<double> right, Tolerance tolerance, NumericComparison? comparison = null) =>
-        Equal(left.ToArray(), right.ToArray(), tolerance, comparison);
-}
-
-// --- [ASSERTIONS] ----------------------------------------------------------------------
-public static partial class TestAssertions {
-    public static void Equal(double left, double right, Tolerance tolerance, NumericComparison? comparison = null, string? label = null) =>
-        Assert.True(Approximate.Equal(left, right, tolerance, comparison),
-             string.Create(CultureInfo.InvariantCulture, $"{label ?? "Equal"} ({(comparison ?? NumericComparison.Elementwise).Name}): {left:R} vs {right:R} exceed ({tolerance})"));
-    public static void Equal(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance, NumericComparison? comparison = null, string? label = null) {
-        Assert.True(left.Length == right.Length, string.Create(CultureInfo.InvariantCulture, $"{label ?? "Equal"}: length {left.Length} != {right.Length}"));
-        Assert.True(Approximate.Equal(left, right, tolerance, comparison),
-             $"{label ?? "Equal"} ({(comparison ?? NumericComparison.Elementwise).Name}): {Render(left)} vs {Render(right)} exceed ({tolerance})");
+    public sealed record Elementwise() : NumericComparison {
+        public override bool Matches(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance) =>
+            Pairwise(left, right, tolerance.Matches);
     }
-    public static void Equal(Seq<double> left, Seq<double> right, Tolerance tolerance, NumericComparison? comparison = null, string? label = null) =>
-        Equal(left.ToArray(), right.ToArray(), tolerance, comparison, label);
 
-    private static string Render(ReadOnlySpan<double> values) {
-        string head = string.Join(", ", values[..Math.Min(8, values.Length)].ToArray().Select(static x => x.ToString("R", CultureInfo.InvariantCulture)));
-        return values.Length > 8 ? $"[{head}, .. {values.Length} total]" : $"[{head}]";
+    public sealed record SignInvariant() : NumericComparison {
+        public override bool Matches(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance) =>
+            Pairwise(left, right, tolerance.Matches) || Pairwise(left, right, (l, r) => tolerance.Matches(l, -r));
+    }
+
+    public sealed record Periodic : NumericComparison {
+        public Periodic(double period) =>
+            Period = double.IsFinite(period) && period > 0.0 ? period : throw new ArgumentOutOfRangeException(nameof(period), period, "period must be finite and positive");
+
+        public double Period { get; }
+
+        public override bool Matches(ReadOnlySpan<double> left, ReadOnlySpan<double> right, Tolerance tolerance) =>
+            Pairwise(left, right, (l, r) => tolerance.Matches(Math.Abs(Math.IEEERemainder(l - r, Period)), 0.0));
+
+        public override string ToString() => string.Create(CultureInfo.InvariantCulture, $"Periodic({Period:R})");
     }
 }

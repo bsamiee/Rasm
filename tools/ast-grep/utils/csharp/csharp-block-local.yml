@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-block-local
+language: csharp
+arguments: [declarator]
+rule:
+    kind: identifier
+    pattern: $LOCAL
+    inside:
+        stopBy: end
+        kind: 'block, switch_section'
+        has:
+            kind: local_declaration_statement
+            has:
+                kind: variable_declaration
+                has:
+                    kind: variable_declarator
+                    all:
+                        - has: {field: name, pattern: $LOCAL}
+                        - matches: declarator

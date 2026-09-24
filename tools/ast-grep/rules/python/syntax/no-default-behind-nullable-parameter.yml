@@ -3,31 +3,33 @@ id: no-default-behind-nullable-parameter
 language: python
 severity: error
 utils:
-    local-binding:
-        any:
-            - matches: {python-parameter: {name: {pattern: $ROOT}}}
-              inside: {kind: "parameters, lambda_parameters"}
-            - kind: assignment, augmented_assignment, for_statement, for_in_clause
-              has: {field: left, kind: identifier, pattern: $ROOT}
     local-shadow:
         inside:
             kind: function_definition, lambda
             stopBy: end
-            has: {matches: local-binding, stopBy: {kind: "function_definition, lambda, class_definition"}}
+            has: {stopBy: {kind: "function_definition, lambda, class_definition"}, matches: {python-binding: {name: {pattern: $ROOT}}}}
     class-shadow:
         inside: {kind: class_definition, stopBy: end, has: {field: name, pattern: $ROOT}}
     module-binding:
         any:
             - kind: expression_statement
               has: {kind: assignment, has: {field: left, kind: identifier, pattern: $ROOT}}
-            - kind: import_statement
+            - kind: import_statement, import_from_statement
               has: {kind: identifier, pattern: $ROOT, stopBy: end}
-            - kind: import_from_statement
-              has: {kind: identifier, pattern: $ROOT, stopBy: end}
-            - kind: function_definition
+            - kind: function_definition, class_definition
               has: {field: name, pattern: $ROOT}
-            - kind: class_definition
-              has: {field: name, pattern: $ROOT}
+            - kind: decorated_definition
+              has: {kind: 'function_definition, class_definition', has: {field: name, pattern: $ROOT}}
+    top-statement:
+        kind: function_definition, class_definition, decorated_definition, expression_statement
+        inside: {kind: module}
+    module-constant:
+        all:
+            - not: {matches: local-shadow}
+            - not: {matches: class-shadow}
+            - inside: {matches: top-statement, stopBy: end, follows: {stopBy: end, matches: module-binding}}
+            - not: {inside: {matches: top-statement, stopBy: end, precedes: {stopBy: end, matches: module-binding}}}
+            - not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: global_statement, has: {kind: identifier, pattern: $ROOT}}}}
     nullable-type:
         kind: type
         any:
@@ -38,6 +40,11 @@ utils:
                 all:
                     - has: {kind: identifier, regex: '^Union$'}
                     - has: {kind: type_parameter, has: {kind: type, has: {kind: none}}}
+            - has:
+                kind: generic_type
+                all:
+                    - has: {kind: identifier, regex: '^Annotated$'}
+                    - has: {kind: type_parameter, has: {kind: type, nthChild: 1, matches: nullable-type}}
             - has: {kind: subscript, has: {field: value, regex: '\.Optional$'}}
             - has:
                 kind: subscript
@@ -59,16 +66,37 @@ utils:
               not: {has: {pattern: $_}}
             - kind: identifier
               pattern: $ROOT
-              all:
-                - not: {matches: local-shadow}
-                - not: {matches: class-shadow}
-                - inside: {kind: module, stopBy: end, has: {matches: module-binding}}
+              matches: module-constant
             - kind: attribute
               all:
-                - has: {field: object, stopBy: end, kind: identifier, pattern: $ROOT}
-                - not: {matches: local-shadow}
-                - not: {matches: class-shadow}
-                - inside: {kind: module, stopBy: end, has: {matches: module-binding}}
+                - has: {field: object, stopBy: end, kind: identifier, pattern: $ROOT, not: {inside: {kind: attribute, field: attribute}}}
+                - matches: module-constant
+    resolution:
+        any:
+            - pattern: $P if $P is not None else $D
+            - pattern: $D if $P is None else $P
+            - pattern: $P or $D
+            - kind: if_statement
+              all:
+                - has: {field: condition, any: [{pattern: $P is None}, {pattern: not $P}]}
+                - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
+                - not: {has: {kind: "else_clause, elif_clause"}}
+    top-resolution:
+        any:
+            - matches: resolution
+            - kind: expression_statement, return_statement
+              has:
+                stopBy: {kind: 'lambda, function_definition, conditional_expression, boolean_operator, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                matches: resolution
+    rebinding:
+        kind: assignment, augmented_assignment, for_statement, named_expression
+        any:
+            - has: {field: left, pattern: $P}
+            - has: {field: name, pattern: $P}
+        not:
+            any:
+                - has: {stopBy: end, matches: resolution}
+                - inside: {kind: if_statement, stopBy: end, has: {field: condition, any: [{pattern: $P is None}, {pattern: not $P}]}}
 rule:
     any:
         - kind: typed_default_parameter
@@ -77,27 +105,23 @@ rule:
             - has: {field: value, kind: none}
         - kind: typed_parameter
           all:
-            - has: {kind: identifier, pattern: $P}
+            - has: {kind: identifier, nthChild: 1, pattern: $P}
             - has: {field: type, matches: nullable-type}
+            - not: {precedes: {stopBy: {kind: 'keyword_separator, list_splat_pattern'}, kind: 'identifier, typed_parameter'}}
         - kind: default_parameter
           all:
             - has: {field: name, pattern: $P}
             - has: {field: value, kind: none}
     inside:
-        kind: function_definition
+        kind: function_definition, lambda
         stopBy: {matches: python-function-boundary}
-        has:
-            field: body
-            has:
-                stopBy: {matches: python-function-boundary}
+        all:
+            - has:
+                field: body
                 any:
-                    - pattern: $P if $P is not None else $D
-                    - pattern: $D if $P is None else $P
-                    - kind: if_statement
-                      all:
-                        - has: {field: condition, pattern: $P is None}
-                        - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $P = $D}}, not: {has: {nthChild: 2}}}
-                        - not: {has: {kind: "else_clause, elif_clause"}}
+                    - matches: resolution
+                    - has: {matches: top-resolution}
+            - not: {has: {field: body, has: {stopBy: {matches: python-function-boundary}, matches: rebinding}}}
 constraints:
     D: {matches: signature-default}
 message: 'Parameter `$P` accepts None and the body resolves None to `$D`'

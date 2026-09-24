@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-closing-export-list
+language: python
+severity: error
+utils:
+    export-list:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, kind: identifier, regex: '^__all__$'}
+                - has:
+                    field: right
+                    kind: 'list, tuple'
+                    not: {has: {kind: 'list_splat, parenthesized_list_splat, list_comprehension, generator_expression, identifier, call, attribute, binary_operator'}}
+rule:
+    kind: 'expression_statement, function_definition, class_definition, decorated_definition, if_statement, import_statement, import_from_statement, future_import_statement, for_statement, while_statement, try_statement, with_statement, match_statement, assert_statement, pass_statement, delete_statement, raise_statement, global_statement, nonlocal_statement, type_alias_statement'
+    pattern: $LAST
+    inside: {kind: module}
+    nthChild: {position: 1, reverse: true, ofRule: {not: {kind: comment}}}
+    not: {matches: export-list}
+message: Module closes with a statement in place of its `__all__` export list
+note: Close the file with `__all__ = [<names>]` under `[EXPORTS]`, a literal list of the public names, `[]` when the module exports none

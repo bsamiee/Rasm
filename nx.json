@@ -121,11 +121,7 @@
     },
     "plugins": [
         { "plugin": "@nx/vitest", "exclude": ["vitest.config.ts", "vite.config.ts"], "options": { "testMode": "run" } },
-        {
-            "plugin": "@nx/dotnet",
-            "exclude": ["eng/**"],
-            "options": { "clean": false, "pack": false, "publish": false, "restore": false }
-        },
+        { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false } },
         { "plugin": "./tools/nx/workspace.ts" }
     ]
 }

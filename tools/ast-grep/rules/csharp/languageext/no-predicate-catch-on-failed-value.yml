@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-predicate-catch-on-failed-value
+language: csharp
+severity: error
+utils:
+    fin-type:
+        regex: '^((global::)?LanguageExt\.)?(Fin\s*<.+>|Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,.+>)$'
+    fin-name:
+        kind: identifier
+        pattern: $VALUE
+        inside:
+            stopBy: end
+            kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration, property_declaration'
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter
+                      all: [{has: {field: type, matches: fin-type}}, {has: {field: name, pattern: $VALUE}}]
+                    - kind: variable_declaration
+                      all: [{has: {field: type, matches: fin-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $VALUE}}}]
+    evaluated:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.lift(\s*<.+>)?$'}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {kind: argument, nthChild: 2}}
+                        - has:
+                            kind: argument
+                            has:
+                                any:
+                                    - matches: fin-name
+                                    - kind: 'invocation_expression, conditional_expression, switch_expression, object_creation_expression'
+            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.fail(\s*<.+>)?$'}
+    failed-source:
+        any:
+            - matches: evaluated
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Bind|Select|SelectMany|MapFail|As)(\s*<.+>)?$'}}, {has: {field: expression, matches: failed-source}}]}
+            - kind: parenthesized_expression
+              has: {matches: failed-source}
+            - kind: identifier
+              pattern: $HELD
+              inside:
+                stopBy: end
+                kind: block
+                has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {nthChild: 2, matches: failed-source}}]}}}
+    predicate-arguments:
+        kind: argument_list
+        has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, pattern: $NAME, regex: '^(Catch|CatchIO)(\s*<.+>)?$'}}, {has: {field: expression, pattern: $SOURCE, matches: failed-source}}]}
+            - has: {field: arguments, matches: predicate-arguments}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\|$'}
+            - has: {field: left, pattern: $SOURCE, matches: failed-source}
+            - has: {field: right, kind: invocation_expression, all: [{has: {field: function, pattern: $NAME, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}}, {has: {field: arguments, matches: predicate-arguments}}]}
+message: '`$NAME` on the failed effect `$SOURCE` runs its handler for every error and ignores its predicate'
+note: Use `Catch` on the `Fin` before `IO.lift`, or `IO.lift(() => <fin>)` where the effect stays deferred

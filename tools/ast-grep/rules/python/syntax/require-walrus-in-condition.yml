@@ -18,24 +18,30 @@ utils:
             - inside: {kind: call, field: function, matches: first-operand}
             - inside: {kind: unary_operator, field: argument, matches: first-operand}
             - inside: {kind: await, matches: first-operand}
+    binding-statement:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, kind: identifier, pattern: $N}
+                - has: {field: right, pattern: $V, not: {kind: 'assignment, expression_list, yield'}}
+                - not: {has: {field: type, kind: type}}
 rule:
     kind: if_statement
     pattern: $IF
     all:
-        - follows:
-            kind: expression_statement
-            has:
-                kind: assignment
-                all:
-                    - has: {field: left, kind: identifier, pattern: $N}
-                    - has: {field: right, pattern: $V, not: {kind: 'assignment, expression_list, yield'}}
-                    - not: {has: {field: type, kind: type}}
+        - follows: {stopBy: {not: {kind: comment}}, matches: binding-statement}
         - has:
             field: condition
             any:
                 - kind: identifier
                   pattern: $N
                 - has: {kind: identifier, pattern: $N, matches: first-operand, stopBy: end}
+        - any:
+            - pattern: $ADJACENT
+              follows: {matches: binding-statement}
+            - pattern: $COMMENTED
+              follows: {kind: comment}
 constraints:
     V: {not: {regex: '\n'}}
 rewriters:
@@ -43,9 +49,9 @@ rewriters:
       rule: {kind: identifier, pattern: $N, matches: first-operand}
       fix: "($N := $V)"
 transform:
-    OUT: rewrite($IF, rewriters=[bind-first-operand])
+    OUT: rewrite($ADJACENT, rewriters=[bind-first-operand])
 fix:
-    template: $OUT
+    template: $OUT$COMMENTED
     expandStart: {kind: expression_statement}
 message: 'Assignment to `$N` precedes the `if` condition that evaluates it first'
-note: 'Bind `(<name> := <value>)` in the condition'
+note: 'Bind `(<name> := <value>)` in the condition, a comment between the two statements moves above the `if`'

@@ -1,0 +1,132 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throwing-settings-getter-csharp
+language: csharp
+severity: error
+utils:
+    settings-type:
+        any:
+            - regex: '^((global::)?Rhino\.)?PersistentSettings$'
+            - kind: identifier
+              pattern: $ALIAS
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: using_directive
+                    all:
+                        - has: {field: name, pattern: $ALIAS}
+                        - has: {nthChild: 2, regex: '^((global::)?Rhino\.)?PersistentSettings$'}
+    host-owner:
+        kind: class_declaration
+        has: {kind: base_list, regex: '^:\s*((global::)?Rhino\.(PlugIns|Commands)\.)?(PlugIn|Command|FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|UtilityPlugIn)\b'}
+    settings-node:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^RhinoAppSettings$'}
+                - has: {field: expression, matches: settings-type}
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      has: {field: name, regex: '^(AddChild|GetChild|CommandSettings)$'}
+                    - kind: member_access_expression
+                      all:
+                        - has: {field: name, regex: '^FromPlugInId$'}
+                        - has: {field: expression, matches: settings-type}
+                    - regex: '^((global::)?Rhino\.PlugIns\.)?PlugIn\.GetPluginSettings$'
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(Settings|WindowPositionSettings)$'}
+                - has:
+                    field: expression
+                    any:
+                        - regex: '^this$'
+                          inside: {stopBy: end, matches: host-owner}
+                        - kind: member_access_expression
+                          has: {field: expression, kind: identifier, pattern: $HOST}
+                          inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: host-owner, has: {field: name, pattern: $HOST}}}
+                        - kind: identifier
+                          pattern: $OWNER
+                          inside:
+                            stopBy: end
+                            kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, class_declaration, record_declaration
+                            has:
+                                stopBy: end
+                                kind: parameter, variable_declaration, property_declaration
+                                all:
+                                    - has: {field: type, regex: '^((global::)?Rhino\.(PlugIns|Commands)\.)?(PlugIn|Command)$'}
+                                    - any:
+                                        - has: {field: name, pattern: $OWNER}
+                                        - has: {kind: variable_declarator, has: {field: name, pattern: $OWNER}}
+            - kind: identifier
+              regex: '^(Settings|WindowPositionSettings)$'
+              not: {inside: {kind: member_access_expression, field: name}}
+              inside: {stopBy: end, matches: host-owner}
+            - kind: identifier
+              pattern: $NODE
+              inside:
+                stopBy: end
+                kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, class_declaration, record_declaration
+                has:
+                    stopBy: end
+                    any:
+                        - kind: 'parameter, property_declaration, declaration_expression'
+                          all:
+                            - has: {field: type, matches: settings-type}
+                            - has: {field: name, pattern: $NODE}
+                        - kind: variable_declaration
+                          all:
+                            - has: {field: type, matches: settings-type}
+                            - has: {kind: variable_declarator, has: {field: name, pattern: $NODE}}
+                        - kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $NODE}
+                            - has: {nthChild: 2, matches: settings-node}
+    key:
+        any:
+            - kind: string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal
+            - kind: invocation_expression
+              has: {field: function, regex: '^nameof$'}
+            - kind: identifier
+              pattern: $KEY
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    any:
+                        - kind: parameter
+                          all: [{has: {field: name, pattern: $KEY}}, {has: {field: type, regex: '^((global::)?System\.)?(string|String)\??$'}}]
+                        - kind: variable_declaration
+                          all:
+                            - has: {field: type, regex: '^((global::)?System\.)?(string|String)\??$'}
+                            - has: {kind: variable_declarator, has: {field: name, pattern: $KEY}}
+    one-argument:
+        has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+rule:
+    kind: invocation_expression
+    pattern: $CALL
+    all:
+        - has:
+            field: function
+            any:
+                - kind: member_access_expression
+                  has: {field: expression, matches: settings-node}
+                - kind: conditional_access_expression
+                  all:
+                    - has: {field: condition, matches: settings-node}
+                    - has: {kind: member_binding_expression}
+        - any:
+            - all:
+                - has: {field: function, regex: '\.\s*Get(Child|Bool|Byte|Integer|UnsignedInteger|Double|Char|String|StringDictionary|StringList|Date|Color|Guid|Point|Point3d|Size|Rectangle|SettingType|SettingIsReadOnly)$'}
+                - matches: one-argument
+            - has: {field: function, regex: '\.\s*GetSettingIsHiddenFromUserInterface$'}
+            - all:
+                - has: {field: function, regex: '\.\s*GetEnumValue\s*<.+>$'}
+                - matches: one-argument
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: key}}}
+message: '`$CALL` throws when the settings key or child is missing'
+note: Use `TryGet<Name>(<key>, out <value>)` and select on its found flag, and get or create a child for writing with `AddChild(<key>)`

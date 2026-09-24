@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stop-iteration-default
+language: python
+severity: error
+rule:
+    kind: try_statement
+    all:
+        - has: {field: body, kind: block, has: {kind: return_statement, pattern: return next($IT)}, not: {has: {nthChild: 2}}}
+        - has:
+            kind: except_clause
+            all:
+                - has: {field: value, regex: '^StopIteration$'}
+                - has: {kind: block, has: {kind: return_statement, pattern: return $D}, not: {has: {nthChild: 2}}}
+        - not: {has: {kind: 'else_clause, finally_clause'}}
+    any:
+        - pattern: $FIXABLE
+          not: {has: {kind: except_clause, not: {has: {field: value, regex: '^StopIteration$'}}}}
+        - pattern: $KEPT
+rewriters:
+    - id: default-argument
+      rule: {kind: try_statement}
+      fix: return next($IT, $D)
+transform:
+    OUT: rewrite($FIXABLE, rewriters=[default-argument])
+fix: $OUT$KEPT
+message: '`next($IT)` catches `StopIteration` to return `$D`'
+note: 'Use `next(<iterator>, <default>)`'

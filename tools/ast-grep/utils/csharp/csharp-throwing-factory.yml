@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-throwing-factory
+language: csharp
+rule:
+    kind: member_access_expression
+    any:
+        - all:
+            - has:
+                field: expression
+                regex: '^((global::)?[A-Z]|(bool|byte|sbyte|char|short|ushort|int|uint|long|ulong|float|double|decimal)$)'
+                not: {regex: '^(global::)?(System\.)?(Collections\.(Immutable|Frozen)\.)?(KeyValuePair|Tuple|ValueTuple|String|Immutable[A-Z]\w*|Frozen[A-Z]\w*)$'}
+            - has: {field: name, regex: '^(Create|Parse|ParseExact|Get)(<.+>)?$'}
+        - all:
+            - has: {field: expression, regex: '^(global::)?(System\.)?Convert$'}
+            - has: {field: name, regex: '^To[A-Z]\w*$'}

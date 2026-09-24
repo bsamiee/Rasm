@@ -30,4 +30,4 @@ rule:
             - has: {field: right, pattern: $D}
             - inside: {stopBy: end, matches: parameter-named}
 message: 'Parameter `$P` accepts absence and resolves it to `$D`'
-note: 'Declare `$P` required and pass the value at each call, `Schema.optionalWith(schema, { default })` decodes an absent boundary input'
+note: 'Declare `<parameter>` required and pass the value at each call, `Schema.optionalWith(schema, { default })` decodes an absent boundary input'

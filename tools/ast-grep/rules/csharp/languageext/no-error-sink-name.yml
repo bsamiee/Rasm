@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-sink-name
+language: csharp
+severity: error
+utils:
+    sink-type:
+        regex: '^((global::)?(System\.)?Action\s*<\s*(global::)?(LanguageExt\.Common\.)?(Error|Expected)\s*>|(global::)?(System\.)?Func\s*<\s*(global::)?(LanguageExt\.Common\.)?(Error|Expected)\s*,\s*(global::)?(LanguageExt\.)?Unit\s*>)\s*\??$'
+    required-sink-type:
+        matches: sink-type
+        not: {regex: '\?$'}
+    declared:
+        any:
+            - inside: {kind: 'parameter, property_declaration, tuple_element', field: name, has: {field: type, matches: sink-type}}
+            - inside: {kind: variable_declarator, field: name, inside: {kind: variable_declaration, has: {field: type, matches: sink-type}}}
+    declared-required:
+        any:
+            - inside: {kind: 'parameter, property_declaration, tuple_element', field: name, has: {field: type, matches: required-sink-type}}
+            - inside: {kind: variable_declarator, field: name, inside: {kind: variable_declaration, has: {field: type, matches: required-sink-type}}}
+rule:
+    kind: identifier
+    pattern: $NAME
+    not: {regex: '^[Rr]eject$'}
+    any:
+        - all:
+            - regex: '(?i)(err|fault|fail|sink|report|handle|rej|log|notify|warn|emit|raise|publish|problem|issue)'
+            - matches: declared
+        - matches: declared-required
+message: '`$NAME` names an `Action<Error>` sink outside the `reject` convention'
+note: Use `reject` for a parameter or private field and `Reject` for a property, record field, or public field

@@ -82,7 +82,9 @@ Identifier and file renames update every reference:
 - BEFORE: `Facts of <server> 2.18.0 the arm works under and of <host> 2.1.263 the declarations work under, each issue with the release change that retires it`
 - AFTER: `Defects of <server> release arm works under and <host> release declarations work under, each with release change that retires it`
 
-- KEEP: `` `<method>()` returns at most 4096 rows `` (declared limit), `` `timeout: 600000` `` (value hook sets), `at least 2 nameservers` (real value)
+- KEEP: `` `<method>()` returns at most 4096 rows `` (declared limit)
+- KEEP: `` `timeout: 600000` `` (value hook sets)
+- KEEP: `at least 2 nameservers` (real value)
 
 ## [05]-[FACT_PRESERVATION]
 
@@ -95,19 +97,19 @@ Identifier and file renames update every reference:
 ## [06]-[JOINED_SENTENCES]
 
 - BEFORE: `<tool> creates the <dir> directory at the root. This directory cannot be relocated. The gitignore excludes it. Reports still go to the configured artifact directory.`
-- AFTER: `<tool> creates <dir> at root with no relocation option, .gitignore excludes it, reports go to configured artifact directory` (one fact, exception around directory)
+- AFTER: `<tool> creates <dir> at root with no relocation option, .gitignore excludes it, reports go to configured artifact directory` (one fact)
 - WRONG: `<tool> creates <dir>. It is fixed. Gitignore excludes it. Reports go to artifacts.` (fragments, dropped facts)
 - WRONG: `<tool> creates <dir>, it cannot be relocated, .gitignore excludes it, and reports go to the artifact directory` (joined, intent unstated)
 
 - BEFORE: `Language-specific idioms may differ, but the composition rules do not; define a result type when a language has no suitable one instead of introducing another error mechanism`
-- AFTER: `Language idioms differ but composition rules do not. When a language lacks a result type, define one` (forbidden alternative moves to an anti-pattern entry)
+- AFTER: `Language idioms differ but composition rules do not. When a language lacks a result type, define one` (forbidden form joins anti-patterns)
 
 - BEFORE: `` `get_diagnostics` with `includeAnalyzers=true` once. That result is the baseline. ``
 - AFTER: `` `get_diagnostics` with `includeAnalyzers=true` once, as the baseline ``
 
-- BEFORE: `Statements, list items, and table cells open with the subject, instructions open with the verb, a subject that needs "a" or "an" is pluralized or takes "the", and a run of items with one article and noun opener restructures around the verb or the category noun` (four rules in one list item)
-- AFTER: `Statements and entries open with a subject noun, plural when generic, or with an instruction verb` (one rule, run of one noun opener is rule seen across items)
-- WRONG: three items, `Statements, list items, and table cells open with the noun that names their subject`, `Generic singular subjects become the plural`, `Runs of list items with one noun opener restructure around the verb` (sentence sheared into parts, each restating rule)
+- BEFORE: `Statements, list items, and table cells open with the subject, instructions open with the verb, a subject that needs "a" or "an" is pluralized or takes "the", and a run of items with one article and noun opener restructures around the verb or the category noun` (rules in one list item)
+- AFTER: `Statements and entries open with a subject noun, plural when generic, or with an instruction verb` (one rule covers runs of one noun opener)
+- WRONG: `Statements, list items, and table cells open with the noun that names their subject`, `Generic singular subjects become the plural`, `Runs of list items with one noun opener restructure around the verb` (sentence sheared into list items, each restating rule)
 
 - BEFORE: `` `<rule>` raises a foreground call with a slow leaf (`<a>`, `<b>`) to `timeout: 600000` silently when the call sets none or a smaller one, and runs `<target>` with `run_in_background: true` and a context line naming its completion notification ``
 - AFTER: `` `<rule>` raises a foreground call with a slow leaf (`<a>`, `<b>`) to `timeout: 600000` with no context line when call sets none or a smaller one. `<rule>` runs `<target>` with `run_in_background: true` and a context line naming completion notification ``
@@ -139,7 +141,7 @@ Identifier and file renames update every reference:
 
 - BEFORE: `The composition, text, and host modules export the carriers, the text operations, and the boundary values the policies and events build on`
 - AFTER: `Composition, text, and host modules export carriers, text operations, and boundary values that policies and events build on`
-- WRONG: `Each composition, text, and host module exports its carriers, its text operations, and its boundary values` (article swapped for a possessive)
+- WRONG: `Each composition, text, and host module exports its carriers, its text operations, and its boundary values` (article swapped for possessive)
 
 - BEFORE: `Read in order before the first edit, with <agent> each file in scope and <dir> its agents directory`
 - AFTER: `Read in order before first edit, with <agent> each file in scope and <dir> its directory`
@@ -160,7 +162,7 @@ Identifier and file renames update every reference:
 - AFTER: `Find repository root as nearest ancestor directory with root lock file`
 
 - BEFORE: `The target sets cache: false and parallelism: false, provisioning mutates shared directories`
-- AFTER: `` When provisioning mutates shared directories, set `cache: false` and `parallelism: false` `` (reason as condition, reader decides same for next target that mutates a shared directory)
+- AFTER: `` When provisioning mutates shared directories, set `cache: false` and `parallelism: false` `` (reason becomes condition for later targets)
 - WRONG: `Set cache: false and parallelism: false on the target, because provisioning mutates shared directories` (reason bolted on after instruction)
 
 - BEFORE: `Confidence comes from tests, not from inspecting the implementation`
@@ -206,7 +208,7 @@ Identifier and file renames update every reference:
 - AFTER: `` ALWAYS use `<skill>` skill for any fact about a dependency `` (`ALWAYS use` excludes every other source)
 - WRONG: `` ALWAYS use `<skill>` skill for a fact about a dependency, never from training data `` (one source tail swapped for another)
 
-- KEEP: `` ALWAYS use `<server>` MCP for a known repository's issues, pull requests, and runs `` (no term covers the three)
+- KEEP: `` ALWAYS use `<server>` MCP for a known repository's issues, pull requests, and runs `` (no term covers list members)
 
 ## [10]-[PARAPHRASED_CODE]
 
@@ -219,10 +221,10 @@ Identifier and file renames update every reference:
 - BEFORE: `` | `<module>` | Operations | `map`, `flatMap`, `getOrElse`, `toArray` | `` (README table over every export)
 - AFTER: (deleted) layout line `` `<module>` # Option with constructors and data-last operations `` names file, outline prints exports
 
-- BEFORE: `` | Description of each file in scope | `[07]-[DESCRIPTION]` of the skill, graded by a fresh agent | `` (role table row, with grading as procedure step 9)
+- BEFORE: `` | Description of each file in scope | `[07]-[DESCRIPTION]` of the skill, graded by a fresh agent | `` (role row, procedure step 9 grades)
 - AFTER: (deleted) procedure step names grading, role sentence names skill
 
-- BEFORE: `` | Whether the description matches the form | `sed -n 's/^description: //p' <agent> \| wc -w` | `` (sources row, same command as a gate line)
+- BEFORE: `` | Whether the description matches the form | `sed -n 's/^description: //p' <agent> \| wc -w` | `` (sources row repeats gate command)
 - AFTER: (deleted) gate line holds command
 
 - BEFORE: `| Roslyn analyzers detecting common correctness and performance coding issues. |`

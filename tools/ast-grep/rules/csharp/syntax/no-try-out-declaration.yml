@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-out-declaration
+language: csharp
+severity: error
+utils:
+    bool-type:
+        regex: '^(bool|((global::)?System\.)?Boolean)\??$'
+    interface-member:
+        has: {field: name, regex: '^(TryFormat|TryGetValue|TryParse)$'}
+        inside: {kind: declaration_list, inside: {has: {kind: base_list, regex: '\bI(ReadOnly)?Dictionary\s*<|\bI(Utf8)?(Span)?(Parsable|Formattable)\b'}}}
+    answer-parameter:
+        kind: parameter
+        has: {kind: modifier, regex: '^out$'}
+    flag-parameter:
+        kind: parameter
+        all:
+            - has: {kind: modifier, regex: '^out$'}
+            - has: {field: type, matches: bool-type}
+rule:
+    all:
+        - any:
+            - kind: 'delegate_declaration, local_function_statement'
+              any:
+                - all: [{has: {field: type, matches: bool-type}}, {has: {field: parameters, has: {matches: answer-parameter}}}]
+                - has: {field: parameters, has: {matches: flag-parameter}}
+            - kind: method_declaration
+              any:
+                - all: [{has: {field: returns, matches: bool-type}}, {has: {field: parameters, has: {matches: answer-parameter}}}]
+                - has: {field: parameters, has: {matches: flag-parameter}}
+              not:
+                any:
+                    - has: {kind: modifier, regex: '^(override|extern)$'}
+                    - has: {kind: explicit_interface_specifier}
+                    - matches: interface-member
+        - has: {field: name, pattern: $NAME}
+message: '`$NAME` answers through a `bool` and an `out` parameter'
+note: Return `Option<T>` or `Fin<T>`

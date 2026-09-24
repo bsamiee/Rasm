@@ -1,0 +1,162 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-result-conversion-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    host-success:
+        regex: '^((global::)?Rhino\.Commands\.)?Result\.Success$'
+    host-failure:
+        regex: '^((global::)?Rhino\.Commands\.)?Result\.Failure$'
+    success:
+        any:
+            - kind: lambda_expression
+              any:
+                - has: {field: body, matches: host-success}
+                - has: {field: body, kind: block, all: [{has: {kind: return_statement, nthChild: 1, has: {matches: host-success}}}, {not: {has: {nthChild: 2}}}]}
+            - kind: identifier
+              pattern: $SUCCEEDED
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: method_declaration
+                    all:
+                        - has: {field: name, pattern: $SUCCEEDED}
+                        - has: {field: body, kind: arrow_expression_clause, has: {matches: host-success}}
+    reported-failure:
+        kind: block
+        all:
+            - has: {kind: expression_statement, nthChild: 1, has: {kind: invocation_expression}}
+            - has: {kind: return_statement, nthChild: 2, has: {matches: host-failure}}
+            - not: {has: {nthChild: 3}}
+    to-result:
+        any:
+            - kind: member_access_expression
+              regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\.ToResult$'
+            - matches: host-failure
+            - kind: lambda_expression
+              any:
+                - has: {field: body, matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^ToResult$'}}}}
+                - has: {field: body, matches: host-failure}
+                - has: {field: body, matches: reported-failure}
+                - has:
+                    field: body
+                    kind: conditional_expression
+                    regex: '\bResult\.Failure\s*$'
+                    has: {field: consequence, regex: '^((global::)?Rhino\.Commands\.)?Result\.\w+$'}
+    success-map:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^Map$'}
+                    - has: {field: expression, pattern: $SOURCE}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: success}}}
+            - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
+    run-success:
+        any:
+            - matches: success-map
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^RunSafe$'}}, {has: {field: expression, matches: success-map}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    fin-match:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^Match$'}
+                    - has: {field: expression, pattern: $SOURCE}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 3}}
+                    - any:
+                        - all:
+                            - has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: success}}]}
+                            - has: {kind: argument, all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: to-result}}]}
+                        - all:
+                            - has: {kind: argument, nthChild: 1, not: {has: {field: name, kind: identifier}}, has: {matches: success}}
+                            - has: {kind: argument, nthChild: 2, not: {has: {field: name, kind: identifier}}, has: {matches: to-result}}
+    fin-fold:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^IfFail$'}
+                    - has: {field: expression, matches: run-success}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: to-result}}}
+            - not: {has: {field: arguments, has: {kind: argument, nthChild: 2}}}
+    fin-test:
+        kind: conditional_expression
+        any:
+            - all:
+                - has: {field: condition, pattern: $SOURCE.IsSucc}
+                - has: {field: consequence, matches: host-success}
+                - has: {field: alternative, matches: host-failure}
+            - all:
+                - has: {field: condition, pattern: $SOURCE.IsFail}
+                - has: {field: consequence, matches: host-failure}
+                - has: {field: alternative, matches: host-success}
+    kept-results:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^Catch$'}
+                    - has: {field: expression, matches: success-map}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, has: {stopBy: end, matches: to-result}}
+                    - has: {kind: argument, nthChild: 2, has: {stopBy: end, matches: to-result}}
+                    - not: {has: {kind: argument, nthChild: 3}}
+    answered:
+        any:
+            - matches: success-map
+            - matches: kept-results
+    effect-answer:
+        kind: invocation_expression
+        all:
+            - matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^Answer$'}}}
+            - not: {has: {field: arguments, has: {kind: argument, nthChild: 5}}}
+            - any:
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: argument, nthChild: 1, has: {matches: answered}}
+                        - has: {kind: argument, nthChild: 3, regex: '^(fallback\s*:\s*)?((global::)?Rhino\.Commands\.)?Result\.Failure$'}
+                        - not: {has: {kind: argument, nthChild: 4}}
+                - has:
+                    field: arguments
+                    all:
+                        - has:
+                            kind: argument
+                            nthChild: 1
+                            has:
+                                kind: invocation_expression
+                                all:
+                                    - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Map$'}}
+                                    - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: lambda_expression, has: {field: body, matches: answered}}}}
+                        - any:
+                            - not: {has: {kind: argument, nthChild: 4}}
+                            - has: {kind: argument, nthChild: 3, regex: '^(refused\s*:\s*)?((global::)?Rhino\.Commands\.)?Result\.Failure$'}
+rule:
+    any:
+        - matches: fin-match
+        - matches: fin-fold
+        - matches: fin-test
+        - matches: effect-answer
+    not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^ToResult$'}}}}
+message: '`$SOURCE` converts to a host `Result` by hand'
+note: Use `Answers.ToResult(<fin>, <reject>)`, with `<effect>.RunSafe()` as the `Fin` of an effect and the caller's reject sink where a `Match` or `IfFail` passes none

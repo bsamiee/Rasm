@@ -252,4 +252,4 @@ Load and registration share one stack, the lookup is an `OptionT<IO, EntityProce
 - Make message types express intent (`Debit`, `Increment`)
 - Return immutable snapshots or derived results, even through a reply
 - Keeping every process alive loads its state at most once and grows memory with the resident processes, plan the lifecycle
-- An agent serializes ownership and models no object, orchestration unrelated to owned state stays in the caller's workflow
+- Agents serialize ownership and model no object, orchestration unrelated to owned state stays in the caller's workflow

@@ -12,10 +12,9 @@ Package and project files of a repository, from project set to CI build properti
 
 ## [01]-[PROJECT_SET]
 
-Project files hold what differs from root `Directory.Build.props`: `Sdk` attribute, `PackageReference` and `ProjectReference` items, and properties that vary per project.
+Project files hold what differs from root `Directory.Build.props`: `Sdk` attribute, `PackageReference` and `ProjectReference` items, and properties that vary per project. `Library/Library.csproj` holds:
 
 ```xml
-<!-- Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Description>Domain model for the Item aggregate</Description>
@@ -47,7 +46,6 @@ Files with no place in the project set:
 - `dotnet msbuild <project> -getProperty:OutputPath` shows the composed path
 
 ```xml
-<!-- Directory.Build.props -->
 <PropertyGroup>
   <UseArtifactsOutput>true</UseArtifactsOutput>
   <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
@@ -108,7 +106,6 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 `Directory.Build.targets` evaluates after the project's own properties and `PackageReference` items, a reference depending on a project property belongs there:
 
 ```xml
-<!-- Directory.Build.targets -->
 <ItemGroup>
   <PackageReference Include="Contoso.Testing.TrxReport" Condition="'$(ProjectRole)' == 'tests'" />
 </ItemGroup>
@@ -124,17 +121,17 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 |  [06]   | `dotnet package update [<id>@<version>] --project <csproj>`   | Newest version, `--vulnerable` narrows, no prerelease switch          |
 |  [07]   | `dotnet add package`                                          | Verb-first spelling of `dotnet package add`                           |
 
-`dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore <project>` moves every referenced row to its newest release, prereleases included:
-- `dnx` downloads the tool package to the NuGet cache and runs it, arguments after `--` reach the tool
-- `dotnet-outdated` restores the project and reads `project.assets.json`, a project that fails restore reports no row
-- `--no-restore` makes the tool write each `PackageVersion` row under CPM itself, without it `dotnet add package` runs per row with a restore each
-- Rows with an exact range (`[x.y.z]`) stay, the candidate satisfies the row's range
-- Candidate versions have a dependency group the project's target framework accepts, a release for a later framework alone moves no row
+SemVer precedence misorders the prerelease builds a CI labels by branch or by build number:
+- Alphanumeric identifiers compare as text, `<n>-<branch>-<build>` outranks `<n>-dev-<build>` when `<branch>` sorts after `dev`
+- Digits inside an alphanumeric identifier compare as text, `<n>-alpha9` outranks `<n>-alpha13`
+- Search API `version` and floating `*-*` return the SemVer maximum
+- Registration leaves carry `published` and `listed`, an unlisted leaf reads `published` as `1900-01-01`
+- Compatible versions have a dependency group `FrameworkReducer.GetNearest` accepts for the project's target framework
+- `VersionRange.TryParse` with `allowFloating` reads an exact range (`[x.y.z]`) and a floating version (`1.*`)
 
-Catalog projects reference every central row, the tool then reads rows no other project references:
+Catalog projects reference every central row, rows no other project references included:
 
 ```xml
-<!-- Catalog/Catalog.csproj -->
 <Project Sdk="Microsoft.Build.NoTargets">
   <ItemGroup>
     <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" ExcludeAssets="build;buildMultitargeting;buildTransitive" />
@@ -201,10 +198,9 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 
 ## [04]-[PACKAGE_AUTHORING]
 
-`dotnet pack` reads every value from the project, a package project sets `Version`, `Description`, and `PackageLicenseExpression`, the `Directory.Build.props` of a packaging directory owns the shared layout. `IsPackable=false` in the root props keeps every other project out of `dotnet pack`.
+`dotnet pack` reads every value from the project, a package project sets `Version`, `Description`, and `PackageLicenseExpression`, the `Directory.Build.props` of a packaging directory owns the shared layout. `IsPackable=false` in the root props keeps every other project out of `dotnet pack`. `packaging/Directory.Build.props` holds:
 
 ```xml
-<!-- packaging/Directory.Build.props -->
 <Project>
   <PropertyGroup>
     <RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</RepositoryRoot>
@@ -224,8 +220,9 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 </Project>
 ```
 
+`packaging/Contoso.Native.Item/Contoso.Native.Item.csproj` holds:
+
 ```xml
-<!-- packaging/Contoso.Native.Item/Contoso.Native.Item.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <Version>1.0.0</Version>
@@ -310,13 +307,13 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - `.slnx` builds import `before.<name>.sln.targets` and `after.<name>.sln.targets` beside the file, the name keeps `.sln` for both formats
 - `.slnf` filters name a `.slnx` in `path`, `dotnet build Filter.slnf` builds the listed projects and their references
 - `dotnet build Library/Library.csproj` builds one project and its references
+- Duplicate `Project` rows fail every solution command with an error naming the duplicate path
 
 ## [06]-[CI_BUILD_PROPERTIES]
 
 Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` under a condition on a property the pipeline passes with `-p:CI=true` or exports as the `CI` environment variable, switches sit on the pipeline command lines.
 
 ```xml
-<!-- Directory.Build.props -->
 <PropertyGroup Label="Continuous integration" Condition="'$(CI)' == 'true'">
   <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
   <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
@@ -334,8 +331,8 @@ Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` un
 
 ```bash
 dotnet restore Product.slnx -p:CI=true
-dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -nodeReuse:false -bl:.artifacts/logs/build-{}.binlog
-dotnet test --solution Product.slnx --no-build --report-trx --results-directory .artifacts/test-results
+dotnet build Product.slnx --no-restore -p:CI=true -warnaserror -nodeReuse:false
+dotnet test --solution Product.slnx --no-build --report-trx
 ```
 
 | [INDEX] | [SWITCH]                        | [EFFECT]                                                                               |
@@ -369,7 +366,7 @@ dotnet test --solution Product.slnx --no-build --report-trx --results-directory 
 | [INDEX] | [SMELL]                                                     | [CORRECT_FORM]                                                           |
 | :-----: | :---------------------------------------------------------- | :----------------------------------------------------------------------- |
 |  [01]   | `Reference` with a `HintPath` into `~/.nuget`               | `PackageReference` with `GeneratePathProperty` when a path is needed     |
-|  [02]   | `PackageVersion` with `1.*`                                 | Exact version, `dotnet-outdated` moves it                                |
+|  [02]   | `PackageVersion` with `1.*`                                 | Exact version, the upgrade moves it                                      |
 |  [03]   | `VersionOverride` in more than one project                  | One `PackageVersion` item, or a nested file with `PackageVersion Update` |
 |  [04]   | `PackageReference` with `Version` under CPM                 | `PackageVersion` in `Directory.Packages.props`                           |
 |  [05]   | `NuGet.config` without `<clear />`                          | `<clear />` first, then the named sources and their mappings             |

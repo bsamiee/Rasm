@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nullable-record-field
+language: csharp
+severity: error
+utils:
+    serializer-attributes:
+        kind: attribute_list
+        has:
+            kind: attribute
+            has:
+                field: name
+                regex: |-
+                    (?x)^(global::)?((System\.(Text\.Json\.Serialization|Runtime\.Serialization|Xml\.Serialization)|MessagePack|Newtonsoft\.Json)\.)?
+                    (Json\w*|DataMember|Key|Xml\w*)(Attribute)?$
+                not: {regex: 'Ignore'}
+rule:
+    matches: csharp-record-member
+    all:
+        - has:
+            field: type
+            pattern: $TYPE
+            any:
+                - kind: nullable_type
+                - kind: 'generic_name, qualified_name'
+                  regex: '^(global::)?(System\.)?Nullable\s*<'
+        - not:
+            any:
+                - has: {matches: serializer-attributes}
+                - inside: {kind: field_declaration, has: {matches: serializer-attributes}}
+                - inside: {kind: 'parameter_list, declaration_list', inside: {matches: csharp-error-record}}
+                - inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {matches: csharp-error-record}}}
+message: 'Field of type `$TYPE` states absence with null'
+note: Hold `Option<T>` and convert the nullable value once at the boundary with `Optional`

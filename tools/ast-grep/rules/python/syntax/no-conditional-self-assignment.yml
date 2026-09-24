@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-self-assignment
+language: python
+severity: error
+utils:
+    target: {kind: 'attribute, subscript', pattern: $T}
+rule:
+    kind: expression_statement
+    pattern: $STMT
+    has:
+        kind: assignment
+        all:
+            - has: {field: left, matches: target}
+            - not: {has: {field: type, kind: type}}
+            - has:
+                field: right
+                kind: conditional_expression
+                any:
+                    - pattern: $T if $C else $V
+                    - pattern: $V if $C else $T
+rewriters:
+    - id: written-when-not-none
+      rule: {kind: expression_statement, has: {kind: assignment, has: {field: right, pattern: $T if $X is None else $V}}}
+      fix: |-
+        if $X is not None:
+            $T = $V
+    - id: written-when-none
+      rule: {kind: expression_statement, has: {kind: assignment, has: {field: right, pattern: $T if $X is not None else $V}}}
+      fix: |-
+        if $X is None:
+            $T = $V
+    - id: written-when-compound-false
+      rule: {kind: expression_statement, has: {kind: assignment, has: {field: right, pattern: $T if $C else $V}}}
+      constraints: {C: {kind: 'boolean_operator, conditional_expression, lambda, named_expression'}}
+      fix: |-
+        if not ($C):
+            $T = $V
+    - id: written-when-false
+      rule: {kind: expression_statement, has: {kind: assignment, has: {field: right, pattern: $T if $C else $V}}}
+      fix: |-
+        if not $C:
+            $T = $V
+    - id: written-when-true
+      rule: {kind: expression_statement, has: {kind: assignment, has: {field: right, pattern: $V if $C else $T}}}
+      fix: |-
+        if $C:
+            $T = $V
+transform:
+    OUT: rewrite($STMT, rewriters=[written-when-not-none, written-when-none, written-when-compound-false, written-when-false, written-when-true])
+fix: $OUT
+message: '`$T` is written with its own value in one arm of the conditional'
+note: 'Write `<target>` under an `if` on the arm that changes it'

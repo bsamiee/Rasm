@@ -49,7 +49,8 @@ pnpm resolves every version through the workspace catalog, `tsc --build` checks 
 - `noUndeclaredVariables` is `off`, `tsc --build` reports an undeclared name
 - Host typings declare every host global, a `declare` statement or an empty `enum` stub in a plugin file restates a typings declaration
 - `vcs.useIgnoreFile` and `!!` patterns in `files.includes` keep the scanner out of ignored trees
-- Copy of `biome.json` with one row deleted keeps the `vcs` row, `biome check --reporter=json` over the files `git ls-files` prints decides a formatter or severity row
+- `files.ignoreUnknown` silences unknown file types in a directory walk, `files.includes` negations name tracked files of a type Biome processes
+- `biome.json` copy without a formatter or severity row keeps `vcs`, `biome check --reporter=json` over `git ls-files` proves the row
 - `adobe:` host modules of a UXP plugin resolve through the `with-protocol` entry of a host typings package named in `types`
 - `paths` row maps a host module no `with-protocol` entry declares (`adobe:indesign`) to a generated module
 - Host modules a `with-protocol` entry declares take no `paths` row and no generated module

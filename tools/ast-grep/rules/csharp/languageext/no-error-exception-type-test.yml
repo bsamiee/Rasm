@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-exception-type-test
+language: csharp
+severity: error
+utils:
+    type-name:
+        kind: identifier, qualified_name, generic_name, member_access_expression, alias_qualified_name
+    type-pattern:
+        any:
+            - kind: constant_pattern
+              has: {matches: type-name}
+            - kind: declaration_pattern
+              all:
+                - has: {field: type, matches: type-name}
+                - has: {kind: discard}
+            - kind: or_pattern
+              all:
+                - has: {field: left, matches: type-pattern}
+                - has: {field: right, matches: type-pattern}
+            - kind: parenthesized_pattern
+              has: {matches: type-pattern}
+    type-test:
+        any:
+            - pattern: $THROWN.GetType() == typeof($TYPE)
+            - pattern: typeof($TYPE) == $THROWN.GetType()
+            - pattern: $THROWN.GetType().Equals(typeof($TYPE))
+            - pattern: typeof($TYPE).Equals($THROWN.GetType())
+            - pattern: typeof($TYPE).IsInstanceOfType($THROWN)
+            - pattern: typeof($TYPE).IsAssignableFrom($THROWN.GetType())
+            - pattern: ($THROWN as $TYPE) != null
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $THROWN}
+                - has: {field: pattern, matches: type-pattern}
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: $THROWN}
+                - has: {field: right, matches: type-name}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, kind: as_expression, has: {field: left, pattern: $THROWN}}
+                - has: {field: pattern, regex: '^(not\s+null|\{\s*\})$'}
+    type-test-result:
+        any:
+            - matches: type-test
+            - kind: block
+              has:
+                kind: return_statement
+                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                has: {matches: type-test}
+    thrown-value:
+        any:
+            - pattern: {context: 'class C { object F() => $ERROR.ToException(); }', selector: invocation_expression, strictness: cst}
+            - pattern: {context: 'class C { object F() => $ERROR.Exception.Case; }', selector: member_access_expression, strictness: cst}
+    thrown:
+        any:
+            - matches: thrown-value
+            - kind: identifier
+              inside:
+                stopBy: end
+                kind: block
+                has:
+                    kind: local_declaration_statement
+                    has:
+                        kind: variable_declaration
+                        has:
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $THROWN}
+                                - has: {matches: thrown-value}
+    predicate-lambda:
+        kind: lambda_expression, anonymous_method_expression
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      pattern: $THROWN
+                    - kind: parameter_list
+                      has: {kind: parameter, has: {field: name, pattern: $THROWN}}
+                      not: {has: {kind: parameter, nthChild: 2}}
+            - any: [{has: {field: body, matches: type-test-result}}, {has: {kind: block, matches: type-test-result}}]
+    predicate-method:
+        kind: identifier
+        pattern: $PREDICATE
+        inside:
+            stopBy: end
+            kind: class_declaration, struct_declaration, record_declaration
+            has:
+                field: body
+                has:
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $PREDICATE}
+                        - has:
+                            field: parameters
+                            has: {kind: parameter, has: {field: name, pattern: $THROWN}}
+                            not: {has: {kind: parameter, nthChild: 2}}
+                        - has:
+                            field: body
+                            any:
+                                - kind: arrow_expression_clause
+                                  has: {matches: type-test}
+                                - matches: type-test-result
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - pattern: {context: 'class C { object F() => $ERROR.Exception.$METHOD($$$ARGUMENTS); }', selector: invocation_expression, strictness: cst}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    has: {any: [{matches: predicate-lambda}, {matches: predicate-method}]}
+        - kind: is_pattern_expression, is_expression, binary_expression, invocation_expression
+          all:
+            - matches: type-test
+            - has: {stopBy: end, pattern: $THROWN, matches: thrown}
+message: Exception inside the `Error` `$ERROR` is type-tested by hand
+note: Use `<error>.HasException<E>()` to match the type, its subtypes, and every `ManyErrors` leaf

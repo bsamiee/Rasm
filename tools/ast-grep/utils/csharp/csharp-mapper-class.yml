@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-mapper-class
+language: csharp
+rule:
+    kind: class_declaration
+    has:
+        kind: attribute_list
+        has:
+            kind: attribute
+            has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?Mapper(Attribute)?$'}

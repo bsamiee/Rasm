@@ -31,8 +31,8 @@ internal sealed partial class Code {
     public int Length => _value.Length;
 
     static partial void ValidateFactoryArguments(ref InvalidCode? validationError, ref string value) {
-        string? trimmed = value.TrimOrNullify(maxLength: 16);
-        if (trimmed is null) {
+        string? trimmed = value.TrimOrNullify();
+        if (trimmed is not { Length: <= 16 }) {
             validationError = new InvalidCode();
             return;
         }
@@ -179,7 +179,7 @@ internal sealed partial class Kind {
 
 Generator emits one private constructor per base constructor with parameters in a fixed order: the key, the own fields and properties in declaration order, the base constructor parameters, and one delegate per `[UseDelegateFromConstructor]` method last. Declaration rules the analyzer and generator enforce:
 - Items are `public static readonly` fields (002), static properties are not items (101), a set without items is 100, non-public items are rejected
-- Two items with one key throw `ArgumentException` on the first lookup
+- Items sharing one key throw `ArgumentException` on the first lookup
 - Instance fields and properties are read-only (001, 003, and 034, 035 on a plain base class), `[IgnoreMember]` hides a member from the generator
 - Type has no primary constructor (043), and the generator seals a smart enum that declares no derived class
 - `ValidateConstructorArguments` receives the key, the own members, and the base arguments by `ref`, not the delegates, and rejects by throwing
@@ -321,7 +321,7 @@ internal static class Transitions {
 - `ConversionFromValue = None` on `[Union]` removes the operators
 - Class cases with `[Union]` become nested unions with their own cases, records cannot nest a union
 - Outer `Switch` prefixes nested arm names with the parent (`failureNotFound`)
-- `NestedUnionParameterNames = Simple` drops the prefix and collides when two nested unions declare a case with one name
+- `NestedUnionParameterNames = Simple` drops the prefix and collides when nested unions share a case name
 - `[UnionSwitchMapOverload(StopAt = [typeof(Nested)])]` adds a non-exhaustive overload that delegates the nested union to its own `Switch`
 - Cases can be value objects or smart enums, the union names the kind and each case owns its value and rules
 - `Unknown` cases are a `[ComplexValueObject(SkipFactoryMethods = true)]` with one `Instance` in place of `null`

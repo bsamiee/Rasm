@@ -12,4 +12,4 @@ rule:
             - inside: {kind: source_file}
             - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, not: {has: {kind: inheritance_specifier}}}}
 message: '`$ALIAS` is another name for `$TARGET`'
-note: 'Spell `$TARGET` where `$ALIAS` is used'
+note: 'Spell `<target>` where `<alias>` is used'

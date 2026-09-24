@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-undivided-declaration
+language: csharp
+severity: error
+rule:
+    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, delegate_declaration
+    has: {field: name, pattern: $NAME}
+    matches: csharp-file-level
+    not:
+        any:
+            - follows: {stopBy: end, matches: csharp-section-divider}
+            - follows: {stopBy: end, kind: preproc_if, has: {stopBy: end, matches: csharp-section-divider}}
+            - inside: {kind: preproc_if, stopBy: end, follows: {stopBy: end, matches: csharp-section-divider}}
+message: Declaration `$NAME` sits above every section divider
+note: Open the section of its kind with `// --- [<SECTION>] ` dashed to column 90 above it

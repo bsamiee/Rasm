@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-coined-identifier
+language: csharp
+severity: error
+utils:
+    declaration:
+        kind: class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, enum_member_declaration, delegate_declaration, method_declaration, property_declaration, event_declaration, parameter, variable_declarator, local_function_statement, tuple_element, type_parameter, catch_declaration, declaration_pattern, recursive_pattern, declaration_expression, from_clause
+    declared:
+        any:
+            - kind: implicit_parameter
+            - kind: identifier
+              any:
+                - inside: {matches: declaration, field: name}
+                - inside: {kind: foreach_statement, field: left}
+                - inside: {kind: tuple_pattern}
+                - inside: {kind: let_clause}
+                  precedes: {regex: '^=$'}
+                - inside: {kind: join_clause}
+                  precedes: {regex: '^in$'}
+                - inside: {kind: join_into_clause}
+                - inside: {kind: query_expression}
+                  follows: {regex: '^into$'}
+    primitive-typed:
+        any:
+            - inside: {field: name, kind: 'parameter, property_declaration', has: {field: type, any: [{kind: predefined_type}, {kind: nullable_type, has: {kind: predefined_type}}]}}
+            - inside: {field: name, kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, any: [{kind: predefined_type}, {kind: nullable_type, has: {kind: predefined_type}}]}}}
+    transform-typed:
+        any:
+            - inside: {field: name, kind: 'parameter, property_declaration', has: {field: type, regex: '^(global::)?(Rhino\.Geometry\.)?Transform$'}}
+            - inside: {field: name, kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, regex: '^(global::)?(Rhino\.Geometry\.)?Transform$'}}}
+rule:
+    all:
+        - matches: declared
+        - pattern: $NAME
+    not: {regex: '(?i)(Const|Native|Base|Cpp|Unmanaged|Unmanged|Array|PlugIn|Ui|Page|Doc|Object|Geometry)Pointer|Pointer(Mask|Wrapper|Func)|(From|On)Pointer|FamilyName|FamilyPlusFaceName|BandColor|TopBand|SheenTint|SpecularTint|LightProbe|BooleanOutcome|SetHooks|PageHooks|SettingsHooks'}
+    any:
+        - regex: '(^T?|[a-z0-9])(Admission|Admit|Admits|Admitted|Amend|Band|Beacon|Bespoke|Blanket|Blessed|Borrow|Cancelled|Canon|Census|Charter|Colour|Custodian|Custody|Doctrine|Estate|Evidence|Expunge|Fact|Facts|Families|Family|Fidelity|Guardrail|Harmless|Harvested|Hooked|Hooks|Inert|Knobs|Ladder|Lane|Lanes|Law|Materialize|Materialized|Millimetres|Mint|Minted|Mount|Mounted|Outcome|Payload|Pluggable|Pointer|Posture|Pristine|Probe|Products|Realm|Rebadge|Rebind|Reclaim|Regime|Regrow|Retire|Retired|Revive|Roster|Rung|Seat|Settled|Ship|Shipped|Shipping|Shim|Sow|Sown|Strata|Stratum|Substrate|Tint|Toolkit|Tuned|Tuning|Twin|Verb|Verbs|Verdict|Veto|Weave|Wired|Wiring)([A-Z0-9_]|$)|[a-z0-9]Program([A-Z0-9_]|$)|^_?(admission|admit|admitted|amend|band|borrow|cancelled|census|colour|custody|evidence|expunge|fact|facts|families|family|fidelity|hooks|knobs|lane|lanes|law|millimetres|mint|minted|mount|outcome|payload|pointer|probe|regime|retire|roster|seat|settled|tint|tuning|verb|verdict|veto|wired)([A-Z0-9_]|$)|(?i)rasm'
+        - regex: '(^T?|[a-z0-9])(Moment|Seed|Seeds)([A-Z0-9_]|$)|^_?moment([A-Z0-9_]|$)'
+          not: {matches: primitive-typed}
+        - regex: '^(Host|HostDefault)$'
+          any:
+            - inside: {field: name, kind: enum_member_declaration}
+            - inside: {field: name, kind: 'class_declaration, record_declaration', inside: {kind: declaration_list, inside: {kind: 'class_declaration, record_declaration, struct_declaration'}}}
+            - inside: {field: name, kind: property_declaration, has: {kind: modifier, regex: '^static$'}}
+            - inside: {field: name, kind: variable_declarator, inside: {kind: variable_declaration, inside: {kind: field_declaration, has: {kind: modifier, regex: '^static$'}}}}
+        - regex: '(Info|Summary)$'
+          inside: {field: name, kind: record_declaration}
+        - regex: '^([Mm]otion|[Pp]lacement|[Mm]apping)$'
+          matches: transform-typed
+message: Declared name `$NAME` holds a coined term
+note: Use the RhinoCommon member or .NET term the declaration matches, or the decided domain word

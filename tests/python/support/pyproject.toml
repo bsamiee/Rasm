@@ -16,6 +16,7 @@ dependencies = [
     "opentelemetry-sdk",
     "psutil",
     "pydantic",
+    "pydantic-core",
     "pytest",
     "pytest-benchmark",
     "s3fs",

@@ -1,0 +1,117 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unzipped-rows
+language: csharp
+severity: error
+utils:
+    rows:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $ROWS}}, {has: {field: name, regex: '^(AsIterable|AsEnumerable|ToSeq|ToArray|ToList|Strict)$'}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - pattern: $ROWS
+    projection:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: rows}}, {has: {field: name, regex: '^(Map|Select)$'}}]}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - kind: query_expression
+              all:
+                - has: {kind: from_clause, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: rows}}
+                - not: {has: {kind: 'from_clause, join_clause', nthChild: 2}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: identifier, pattern: $WRAPPER}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: rows}}}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        kind: method_declaration
+                        all:
+                            - has: {field: name, pattern: $WRAPPER}
+                            - has: {field: body, kind: arrow_expression_clause, has: {kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Map|Select)$'}}}}
+    materialized:
+        any:
+            - matches: projection
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: projection}}, {has: {field: name, regex: '^(Strict|ToArray|ToSeq|ToList|ToArr|ToLst|ToImmutableArray)$'}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^(global::)?(LanguageExt\.)?(Prelude\.)?(toSeq|toArray|toList|Seq)$'}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: projection}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - kind: collection_expression
+              all:
+                - has: {kind: collection_element, nthChild: 1, has: {kind: spread_element, has: {matches: projection}}}
+                - not: {has: {kind: collection_element, nthChild: 2}}
+            - kind: 'cast_expression, parenthesized_expression'
+              has: {matches: materialized}
+    staged:
+        kind: variable_declarator
+        has: {nthChild: 2, matches: materialized}
+    first-projection:
+        any:
+            - has: {matches: materialized}
+            - has:
+                kind: identifier
+                pattern: $FIRST
+                inside: {stopBy: end, kind: block, has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {matches: staged, has: {field: name, pattern: $FIRST}}}}}
+    second-projection:
+        any:
+            - has: {matches: materialized}
+            - has:
+                kind: identifier
+                pattern: $SECOND
+                inside: {stopBy: end, kind: block, has: {kind: local_declaration_statement, has: {kind: variable_declaration, has: {matches: staged, has: {field: name, pattern: $SECOND}}}}}
+    paired-projection:
+        kind: argument
+        matches: second-projection
+        follows: {stopBy: end, kind: argument, matches: first-projection}
+    paired-initializer:
+        kind: initializer_expression
+        has:
+            kind: assignment_expression
+            has: {field: right, matches: materialized}
+            follows: {stopBy: end, kind: assignment_expression, has: {field: right, matches: materialized}}
+    declared-type:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, kind: 'record_declaration, class_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}
+    published-tuple:
+        kind: tuple_expression
+        any:
+            - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, not: {has: {kind: modifier, regex: '^private$'}}}}
+            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: method_declaration, not: {has: {kind: modifier, regex: '^private$'}}}}}
+rule:
+    any:
+        - kind: object_creation_expression
+          all:
+            - has: {field: type, pattern: $TYPE}
+            - matches: declared-type
+            - any:
+                - has: {kind: argument_list, has: {matches: paired-projection}}
+                - has: {matches: paired-initializer}
+        - kind: implicit_object_creation_expression
+          all:
+            - any:
+                - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, has: {field: returns, pattern: $TYPE}}}
+                - inside: {kind: return_statement, inside: {stopBy: end, kind: method_declaration, has: {field: returns, pattern: $TYPE}}}
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, pattern: $TYPE}}}
+            - matches: declared-type
+            - any:
+                - has: {kind: argument_list, has: {matches: paired-projection}}
+                - has: {matches: paired-initializer}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $TYPE}}
+            - matches: declared-type
+            - has: {field: arguments, has: {matches: paired-projection}}
+        - matches: published-tuple
+          has: {matches: paired-projection}
+message: 'Construction splits `$ROWS` into one projection per argument'
+note: Use one `Seq` of the rows as the field or the result, and read the member each consumer needs from it

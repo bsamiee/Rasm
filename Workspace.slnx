@@ -1,11 +1,25 @@
 <Solution>
-    <Folder Name="/apps/arches/">
-        <Project Path="apps/arches/Arches/Arches.csproj" />
-        <Project Path="apps/arches/Rhino.Arches.Core/Rhino.Arches.Core.csproj" />
-        <Project Path="apps/arches/Rhino.Arches.Interaction/Rhino.Arches.Interaction.csproj" />
-        <Project Path="apps/arches/Rhino.Arches.Plugin/Rhino.Arches.Plugin.csproj" />
+    <Folder Name="/apps/rhino/">
+        <Project Path="apps/rhino/Arches/Arches.csproj" />
     </Folder>
-    <Folder Name="/tests/">
+    <Folder Name="/eng/dotnet/">
+        <Project Path="eng/dotnet/Rasm.Upgrade/Rasm.Upgrade.csproj" />
+    </Folder>
+    <Folder Name="/libs/dotnet/rhino/">
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Annotation/Rasm.Rhino.Annotation.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Blocks/Rasm.Rhino.Blocks.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Commands/Rasm.Rhino.Commands.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Display/Rasm.Rhino.Display.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Objects/Rasm.Rhino.Objects.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Persistence/Rasm.Rhino.Persistence.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Plugin/Rasm.Rhino.Plugin.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Render/Rasm.Rhino.Render.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Ui/Rasm.Rhino.Ui.csproj" />
+        <Project Path="libs/dotnet/rhino/Rasm.Rhino.Viewport/Rasm.Rhino.Viewport.csproj" />
+    </Folder>
+    <Folder Name="/tests/dotnet/">
         <Project Path="tests/dotnet/Rasm.TestSupport/Rasm.TestSupport.csproj" />
     </Folder>
 </Solution>

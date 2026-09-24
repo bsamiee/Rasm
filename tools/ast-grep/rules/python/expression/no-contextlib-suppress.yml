@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-contextlib-suppress
-language: python
-severity: error
-rule:
-    pattern: $NAME
-    matches: {python-member-use: {module: {regex: '^contextlib$'}, name: {regex: '^suppress$'}}}
-message: '`$NAME` hides the failure it catches'
-note: 'Return an `expression.Result` from the suppressed call'

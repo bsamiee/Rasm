@@ -1,0 +1,67 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-run-safe-by-hand
+language: csharp
+severity: error
+utils:
+    tried:
+        any:
+            - pattern: {context: 'class C { object F() => $EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
+            - pattern: {context: 'class C { object F() => $EFFECT.Try().As(); }', selector: invocation_expression, strictness: cst}
+            - kind: parenthesized_expression
+              has: {matches: tried}
+    tried-shape:
+        any:
+            - pattern: {context: 'class C { object F() => $_EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
+            - pattern: {context: 'class C { object F() => $_EFFECT.Try().As(); }', selector: invocation_expression, strictness: cst}
+            - kind: parenthesized_expression
+              has: {matches: tried-shape}
+    tried-local:
+        kind: identifier
+        pattern: $LOCAL
+        inside:
+            stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration'}
+            kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration
+            has:
+                stopBy: {kind: 'local_function_statement, lambda_expression, anonymous_method_expression'}
+                kind: variable_declarator
+                all:
+                    - has: {field: name, pattern: $LOCAL}
+                    - has: {nthChild: 2, matches: tried-shape}
+    unwrapped:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^runFin$'}
+                - has: {field: expression, pattern: $BASE}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, pattern: $BASE}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: unwrapped}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: parenthesized_expression
+              has: {matches: unwrapped}
+rule:
+    kind: invocation_expression
+    all:
+        - pattern: {context: 'class C { object F() => $IO.$RUN($$$ENV); }', selector: invocation_expression, strictness: cst}
+        - has: {field: function, has: {field: expression, matches: unwrapped}}
+        - any:
+            - all:
+                - has: {stopBy: end, pattern: $BASE, matches: tried}
+                - has: {field: function, has: {field: name, pattern: $DIRECT}}
+            - all:
+                - has: {stopBy: end, pattern: $BASE, matches: tried-local}
+                - has: {field: function, has: {field: name, pattern: $KEPT}}
+                - has: {field: function, has: {field: expression, pattern: $KEPT_IO}}
+constraints:
+    RUN: {regex: '^Run(Async)?$'}
+transform:
+    SAFE: {replace: {source: $DIRECT, replace: '^Run', by: 'RunSafe'}}
+    RECEIVER: {replace: {source: $EFFECT, replace: '(?s)^(.+)$', by: '${1}.'}}
+    KEPT_RECEIVER: {replace: {source: $KEPT_IO, replace: '(?s)^(.+)$', by: '${1}.'}}
+fix: $RECEIVER$SAFE$KEPT_RECEIVER$KEPT($$$ENV)
+message: '`$BASE` run by hand restates `RunSafe`'
+note: Use `RunSafe()` or `RunSafeAsync()` on the effect with the same environment, and delete a `Try()` local no other expression reads

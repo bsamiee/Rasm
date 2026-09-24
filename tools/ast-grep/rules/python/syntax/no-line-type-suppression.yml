@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-line-type-suppression
+language: python
+severity: error
+files: ['.claude/skills/*/scripts/**/*.py', 'tools/interface/**/*.py']
+rule:
+    kind: comment
+    regex: '^#\s*((type|ty|pyright|ruff):\s*ignore|noqa)\b'
+    any:
+        - follows: {stopBy: end, not: {kind: comment}}
+        - not: {inside: {kind: module}}
+message: 'Checker suppression sits on one line of a host or skill script'
+note: 'State the code in the file-level `# ty: ignore[<code>]`, `# mypy: disable-error-code="<code>"`, or `# ruff: file-ignore[<name>]` directive at the top of the file'

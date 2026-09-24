@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-generic-divider-label
+language: csharp
+severity: error
+rule:
+    pattern: $DIVIDER
+    matches: csharp-labeled-divider
+    any:
+        - regex: '^// --- \[([A-Z0-9_]+_)?(HELPERS?|UTILS?|UTILITY|UTILITIES|MISC|MISCELLANEOUS|OTHERS?|COMMON|GENERAL|GENERIC|INTERNALS?|PRIVATES?|PUBLIC|PROTECTED|STATICS?|MEMBERS|METHODS|FUNCTIONS|SUPPORT|SUPPORTING|IMPLEMENTATIONS?|EXTRAS?|SHARED|STUFF|VARIOUS|ETC|TODO|UNSORTED|UNCATEGORIZED|AUX|AUXILIARY)\]'
+        - regex: '^// --- \[(TYPES|CONSTANTS|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\]$'
+          matches: csharp-owner-level
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+message: Divider label `$LABEL` names nothing its members do or own
+note: Use a label naming the operation family inside an owner, or the owned concept at file level

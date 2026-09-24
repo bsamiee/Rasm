@@ -1,0 +1,158 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throwing-element-access
+language: csharp
+severity: error
+utils:
+    sequence-type:
+        any:
+            - kind: array_type
+            - kind: 'generic_name, qualified_name'
+              regex: |-
+                (?x)^(global::)?((System\.Collections\.(Generic|Immutable)|LanguageExt)\.)?
+                (Seq|Arr|Lst|Iterable|Set|HashSet|IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|ImmutableArray
+                |ImmutableList|Span|ReadOnlySpan)\s*<
+    sequence-operator:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            any:
+                - has:
+                    field: name
+                    regex: |-
+                        (?x)^(Where|Select|SelectMany|OrderBy|OrderByDescending|ThenBy|ThenByDescending|Order|OrderDescending|Skip|SkipLast
+                        |SkipWhile|Take|TakeLast|TakeWhile|Distinct|DistinctBy|Reverse|Concat|Union|UnionBy|Intersect|IntersectBy|Except
+                        |ExceptBy|Zip|GroupBy|Cast|OfType|AsEnumerable|ToList|ToArray|Chunk|Append|Prepend|Filter|Choose|Somes|Rev|ToSeq
+                        |AsIterable|Flatten|Strict|DefaultIfEmpty|AsSpan|AsMemory)$
+                - all:
+                    - has: {field: name, regex: '^(Map|Bind)$'}
+                    - has: {field: expression, matches: sequence-receiver}
+    sequence-constructor:
+        kind: invocation_expression
+        has:
+            field: function
+            regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(toSeq|Seq|List|Array|Range)(<[^()]*>)?$|^((global::)?System\.)?(Linq\.)?Enumerable\.(Range|Repeat|Empty)(<[^()]*>)?$'
+    sequence-declarator:
+        kind: variable_declarator
+        any:
+            - inside: {kind: variable_declaration, has: {field: type, matches: sequence-type}}
+            - all:
+                - inside: {kind: variable_declaration, has: {field: type, kind: implicit_type}}
+                - has: {any: [{matches: sequence-operator}, {matches: sequence-constructor}, {kind: 'collection_expression, array_creation_expression, implicit_array_creation_expression'}]}
+    sequence-declaration:
+        any:
+            - kind: 'parameter, property_declaration'
+              all:
+                - has: {field: name, pattern: $RECEIVER}
+                - has: {field: type, matches: sequence-type}
+            - kind: variable_declaration
+              has: {kind: variable_declarator, all: [{has: {field: name, pattern: $RECEIVER}}, {matches: sequence-declarator}]}
+    sequence-local:
+        kind: identifier
+        pattern: $RECEIVER
+        any:
+            - inside:
+                kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
+                stopBy: end
+                has: {field: parameters, has: {kind: parameter, matches: sequence-declaration}}
+            - matches: {csharp-block-local: {declarator: {matches: sequence-declarator}}}
+            - inside: {stopBy: end, kind: query_expression, has: {stopBy: end, kind: from_clause, has: {field: name, pattern: $RECEIVER}}}
+    sequence-member:
+        inside:
+            kind: 'class_declaration, record_declaration, struct_declaration'
+            stopBy: end
+            any:
+                - has: {kind: parameter_list, has: {matches: sequence-declaration}}
+                - has: {kind: declaration_list, has: {kind: 'field_declaration, property_declaration', any: [{matches: sequence-declaration}, {has: {matches: sequence-declaration}}]}}
+    sequence-field:
+        any:
+            - kind: identifier
+              pattern: $RECEIVER
+              matches: sequence-member
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, pattern: $RECEIVER}
+                - matches: sequence-member
+    sequence-receiver:
+        any:
+            - matches: sequence-operator
+            - matches: sequence-constructor
+            - kind: 'collection_expression, array_creation_expression, implicit_array_creation_expression'
+            - kind: parenthesized_expression
+              has: {kind: query_expression}
+            - matches: sequence-local
+            - matches: sequence-field
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(Tail|Init)$'}
+                - has: {field: expression, matches: sequence-receiver}
+    arity-read:
+        kind: member_access_expression
+        all: [{has: {field: expression, pattern: $INDEXED}}, {has: {field: name, regex: '^(Count|Length)$'}}]
+    literal-index:
+        kind: bracketed_argument_list
+        all:
+            - has:
+                kind: argument
+                has:
+                    any:
+                        - kind: integer_literal
+                        - kind: identifier
+                          pattern: $CONSTANT
+                          inside:
+                            kind: compilation_unit
+                            stopBy: end
+                            has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $CONSTANT}}, {has: {kind: integer_literal}}], inside: {kind: variable_declaration, inside: {has: {kind: modifier, regex: '^const$'}}}}
+                        - kind: prefix_unary_expression
+                          regex: '^\^\s*\d+$'
+                        - kind: binary_expression
+                          all:
+                            - has: {field: operator, regex: '^-$'}
+                            - has: {field: left, kind: member_access_expression, all: [{has: {field: name, regex: '^(Length|Count)$'}}, {has: {field: expression, pattern: $INDEXED}}]}
+                            - has: {field: right, kind: integer_literal}
+            - not: {has: {kind: argument, nthChild: 2}}
+rule:
+    any:
+        - kind: invocation_expression
+          has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^(First|Last|Single|ElementAt)(OrDefault)?$', pattern: $NAME}
+                - has: {field: expression, matches: sequence-receiver}
+        - kind: invocation_expression
+          has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: expression, regex: '^((global::)?System\.)?(Linq\.)?Enumerable$'}
+                - has: {field: name, regex: '^(First|Last|Single|ElementAt)(OrDefault)?$', pattern: $NAME}
+        - kind: element_access_expression
+          pattern: $NAME
+          all:
+            - has: {field: expression, kind: identifier, pattern: $INDEXED}
+            - has: {field: subscript, matches: literal-index}
+            - inside:
+                stopBy: end
+                kind: 'conditional_expression, if_statement'
+                has: {field: condition, any: [{matches: arity-read}, {has: {stopBy: end, matches: arity-read}}]}
+        - kind: element_access_expression
+          pattern: $NAME
+          all:
+            - has: {field: expression, pattern: $INDEXED, matches: sequence-receiver}
+            - has: {field: subscript, matches: literal-index}
+            - not:
+                any:
+                    - inside: {kind: assignment_expression, field: left}
+                    - inside:
+                        kind: 'method_declaration, constructor_declaration, local_function_statement, accessor_declaration, operator_declaration'
+                        stopBy: end
+                        has:
+                            stopBy: end
+                            kind: element_access_expression
+                            all:
+                                - has: {field: expression, pattern: $INDEXED}
+                                - has: {field: subscript, not: {matches: literal-index}}
+message: '`$NAME` throws when the sequence lacks the element or answers it with a default sentinel'
+note: Use `Head`, `Find(<predicate>)`, `Last`, or `At(<index>)`, and bind a known arity with a list pattern `[var first, .. var rest]`, `Single()` becomes `[var only]`

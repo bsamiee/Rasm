@@ -6,4 +6,4 @@ rule:
     kind: for_in_statement
     has: {field: right, pattern: $ITERABLE}
 message: '`for` loop over `$ITERABLE` iterates by statement'
-note: '`Array.map`, `Array.reduce`, or `Effect.forEach` over `$ITERABLE` returns the results, `Effect.forEach` with `discard` runs a side effect'
+note: '`Array.map`, `Array.reduce`, or `Effect.forEach` over `<iterable>` returns the results, `Effect.forEach` with `discard` runs a side effect'

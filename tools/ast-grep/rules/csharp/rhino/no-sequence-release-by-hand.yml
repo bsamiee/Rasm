@@ -1,0 +1,182 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sequence-release-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    held:
+        any:
+            - pattern: $ITEM
+            - kind: member_access_expression
+              has: {field: expression, pattern: $ITEM}
+    dispose:
+        kind: invocation_expression
+        all:
+            - has: {field: arguments, not: {has: {kind: argument}}}
+            - has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      all:
+                        - has: {field: name, regex: '^Dispose$'}
+                        - has: {field: expression, matches: held}
+                    - kind: conditional_access_expression
+                      all:
+                        - has: {field: condition, matches: held}
+                        - has: {kind: member_binding_expression, has: {field: name, regex: '^Dispose$'}}
+    dispose-body:
+        any:
+            - matches: dispose
+            - kind: expression_statement
+              has: {matches: dispose}
+            - kind: block
+              all:
+                - has: {kind: expression_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: dispose}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    element-lambda:
+        kind: lambda_expression
+        has:
+            field: parameters
+            any:
+                - kind: implicit_parameter
+                  pattern: $ITEM
+                - kind: parameter_list
+                  all:
+                    - has: {kind: parameter, has: {field: name, pattern: $ITEM}}
+                    - not: {has: {kind: parameter, nthChild: 2}}
+    element-release:
+        kind: argument
+        has:
+            matches: element-lambda
+            has: {field: body, matches: dispose-body}
+    release-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*Release(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $ITEM}}
+    release-callback:
+        kind: argument
+        any:
+            - has: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*Release$'}
+            - has:
+                matches: element-lambda
+                has: {field: body, any: [{matches: release-call}, {has: {stopBy: end, matches: release-call}}]}
+    option-factory:
+        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Optional|Some)(\s*<.+>)?$'
+    option-declaration:
+        any:
+            - kind: parameter, property_declaration
+              all:
+                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
+                - has: {field: name, pattern: $OPTION}
+            - kind: variable_declaration
+              all:
+                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}
+    option-method:
+        kind: method_declaration, local_function_statement
+        all:
+            - has: {field: returns, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}
+            - has: {field: name, pattern: $OPTION_METHOD}
+    option-value:
+        any:
+            - kind: invocation_expression
+              has: {field: function, matches: option-factory}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select|Filter|Where|Bind|SelectMany|Do|Flatten)$'}}, {has: {field: expression, matches: option-value}}]}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bind$'}}
+                - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: option-value}}}}
+            - kind: invocation_expression
+              has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, regex: '^(None|Option\s*<.+>\s*\.\s*None)$'}}}}
+            - kind: invocation_expression
+              has: {field: function, kind: identifier, pattern: $OPTION_METHOD}
+              inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, matches: option-method}}
+            - kind: identifier
+              pattern: $OPTION
+              inside:
+                stopBy: end
+                any:
+                    - kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration
+                      has: {stopBy: end, matches: option-declaration}
+                    - kind: declaration_list
+                      has: {kind: property_declaration, matches: option-declaration}
+                    - kind: class_declaration, record_declaration, struct_declaration
+                      has: {kind: parameter_list, has: {kind: parameter, matches: option-declaration}}
+            - kind: identifier
+              pattern: $SCOPED
+              inside:
+                stopBy: end
+                kind: lambda_expression
+                has: {field: parameters, any: [{kind: implicit_parameter, pattern: $SCOPED}, {has: {kind: parameter, has: {field: name, pattern: $SCOPED}}}]}
+                inside:
+                    kind: argument
+                    nthChild: 2
+                    inside:
+                        kind: argument_list
+                        has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}
+                        inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}
+            - kind: parenthesized_expression
+              has: {matches: option-value}
+    option-acquire:
+        any:
+            - matches: option-value
+            - kind: lambda_expression
+              has: {field: body, matches: option-value}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*(lift|pure)(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: option-acquire}}}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Iter|ForEach|Do)$'}
+                    - has: {field: expression, pattern: $SEQ, not: {matches: option-value}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has: {matches: element-release}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '^((global::)?System\s*\.\s*)?Array\s*\.\s*ForEach(\s*<.+>)?$'}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, has: {pattern: $SEQ, not: {matches: option-value}}}
+                    - has: {nthChild: 2, matches: element-release}
+                    - not: {has: {kind: argument, nthChild: 3}}
+        - kind: foreach_statement
+          all:
+            - has: {field: left, pattern: $ITEM}
+            - has: {field: right, pattern: $SEQ, not: {matches: option-value}}
+            - has: {field: body, matches: dispose-body}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, pattern: $SEQ}
+                    - has: {kind: argument, nthChild: 2, matches: release-callback}
+                    - not: {has: {kind: argument, nthChild: 3}}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, pattern: $SEQ}}]}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    matches: release-callback
+                    any:
+                        - has: {field: name, regex: '^Fin$'}
+                        - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+    not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^(Using|Release)$'}}}}
+message: '`$SEQ` releases each element by hand'
+note: Use `Disposal.Using(<acquire>, <body>)` where a `use` or `Bracket` scope releases the sequence, and `Disposal.Release(<seq>)` elsewhere, with each element mapped to its disposable first

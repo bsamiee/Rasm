@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-builtin-name
+language: python
+arguments: [name]
+utils:
+    imported:
+        matches: {python-conflicting-import: {module: {regex: '^builtins$'}, name: {matches: name}}}
+rule:
+    kind: identifier
+    matches: name
+    not:
+        any:
+            - matches: python-shadowed-name
+            - matches: imported

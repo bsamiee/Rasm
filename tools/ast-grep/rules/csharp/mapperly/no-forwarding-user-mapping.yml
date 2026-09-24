@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-user-mapping
+language: csharp
+severity: error
+utils:
+    forward:
+        pattern: $OWNER.$MEMBER($SOURCE)
+rule:
+    kind: method_declaration
+    all:
+        - has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?UserMapping(Attribute)?$'}}}
+        - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SOURCE}}, not: {has: {kind: parameter, nthChild: 2}}}
+        - has:
+            field: body
+            any:
+                - kind: arrow_expression_clause
+                  has: {matches: forward}
+                - kind: block
+                  has: {kind: return_statement, nthChild: 1, has: {matches: forward}}
+                  not: {has: {nthChild: 2}}
+constraints:
+    OWNER: {regex: '^(global::)?([A-Z]\w*\.)*[A-Z]\w*$'}
+message: '`[UserMapping]` method passes `$SOURCE` to `$OWNER.$MEMBER` unchanged'
+note: 'Mark the owner member `[UserMapping]` and add `[assembly: UseStaticMapper(typeof(<owner>))]`'

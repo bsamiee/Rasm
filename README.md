@@ -12,14 +12,13 @@ Rasm/
 │   ├── python/
 │   └── typescript/
 ├── tests/                    # Shared test support per language and suites outside libs/
-├── eng/                      # Engineering projects per language, outside `Workspace.slnx` and the task graph
-│   └── dotnet/               # Catalog project referencing every central package row
+├── eng/                      # Repository engineering projects, one directory per language
+│   └── dotnet/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
 │   ├── ast-grep/             # Outlines and rules per language
-│   ├── blender/              # Interface scripts run inside Blender's GUI and the rasm_navigation extension
+│   ├── interface/            # Desktop application interfaces, one directory per application
 │   ├── nx/                   # Nx plugin inferring a project from each project file
-│   ├── rhino/                # Rhino display mode, window layout, and options exports
 │   └── yak/                  # Rhino packages installed through the yak CLI
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
@@ -67,7 +66,7 @@ flowchart LR
         catalog_ts["pnpm-workspace.yaml catalog"] --> lock_ts["pnpm-lock.yaml"]
         catalog_py["pyproject.toml groups"] --> lock_py["uv.lock, .venv/bin on PATH"]
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
-        catalog_net --> catalog_project["eng/dotnet/Rasm.Catalog"] --> upgrade["rasm:upgrade"]
+        catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
         yak["tools/yak"] --> upgrade
     end
 
@@ -100,10 +99,11 @@ flowchart LR
 - `nx run rasm:upgrade --configuration <language>` moves one catalog, `tools` the binaries, `rhino` the Rhino packages
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
+- `nx run rasm:interface` applies the interface to each application directory holding an `apply.py`, `-- <app>` to one
 - Workspace plugin names each project's tags, empty targets, and `cli.ts` subcommands by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
-- Caches and outputs sit under `.cache/` and `.artifacts/`, each tool relocated through its own setting
+- Caches and outputs sit under root `.cache/` and `.artifacts/`, each tool relocated through its own setting
 
 ## [04]-[OWNERS]
 
@@ -118,7 +118,7 @@ flowchart LR
 |  [07]   | Checker configuration          | Tool's own file, `pyproject.toml` `[tool.*]` for every Python tool                    |
 |  [08]   | Secret                         | Doppler, read through `doppler run` around the command                                |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:up`                  |
-|  [10]   | Tool no target runs            | Machine profile                                                                       |
+|  [10]   | Tool no target runs            | Machine setup                                                                         |
 |  [11]   | Rhino package                  | `nx run rasm:upgrade --configuration rhino` at the newest upstream development build  |
 |  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                          |
 
@@ -141,7 +141,8 @@ flowchart LR
 ## [06]-[STRUCTURE]
 
 - Every `libs/` package is independently consumable, references siblings through declared dependencies, and points down an acyclic graph
-- `RhinoHost` tokens add the `RhinoCommon` and `Grasshopper2` packages as compile references, the installed Rhino application supplies the runtime
+- Projects under a `rhino` folder compile against `RhinoCommon`, `RhinoHost` token `grasshopper` adds `Grasshopper2`
+- Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`
 - Project files are `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, and `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`

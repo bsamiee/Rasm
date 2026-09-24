@@ -6,8 +6,12 @@ utils:
     socket-member:
         regex: '^(socket|create_connection|create_server|getaddrinfo|getnameinfo|gethostbyname|gethostbyname_ex|gethostbyaddr|getfqdn)$'
 rule:
-    kind: call
-    pattern: $CALL
-    has: {field: function, matches: {python-member-use: {module: {regex: '^socket$'}, name: {matches: socket-member}}}}
-message: '`$CALL` uses the blocking socket module'
+    kind: identifier, attribute
+    pattern: $USE
+    matches: {python-member-use: {module: {regex: '^socket$'}, name: {matches: socket-member}}}
+    not:
+        any:
+            - inside: {kind: 'import_statement, import_from_statement', stopBy: end}
+            - inside: {kind: type, stopBy: end}
+message: '`$USE` uses the blocking socket module'
 note: 'Use the anyio networking function'

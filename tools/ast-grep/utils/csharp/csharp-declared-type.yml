@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-declared-type
+language: csharp
+arguments: [type]
+rule:
+    kind: identifier
+    pattern: $DECLARED
+    inside:
+        stopBy: end
+        any:
+            - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration
+              has:
+                field: parameters
+                has:
+                    kind: parameter
+                    all:
+                        - has: {field: name, pattern: $DECLARED}
+                        - has: {field: type, matches: type}
+            - kind: block
+              has:
+                kind: local_declaration_statement
+                has:
+                    kind: variable_declaration
+                    all:
+                        - has: {field: type, matches: type}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}

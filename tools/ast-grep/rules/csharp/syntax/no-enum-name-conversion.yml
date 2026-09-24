@@ -1,0 +1,138 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enum-name-conversion
+language: csharp
+severity: error
+utils:
+    text-type:
+        regex: '^(var|string|((global::)?System\.)?String|((global::)?System\.Text\.)?StringBuilder|((global::)?System\.)?(ReadOnly)?Span\s*<\s*char\s*>)\??$'
+    function-owner:
+        kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
+    declared-receiver:
+        kind: identifier
+        pattern: $RECEIVER
+        inside:
+            matches: function-owner
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: parameter
+                      all:
+                        - has: {field: name, pattern: $RECEIVER}
+                        - has: {field: type, not: {any: [{matches: text-type}, {kind: predefined_type}]}}
+                    - kind: variable_declaration
+                      all:
+                        - has: {field: type, not: {any: [{matches: text-type}, {kind: predefined_type}]}}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $RECEIVER}}
+    name-format:
+        kind: argument_list
+        any:
+            - not: {has: {kind: argument}}
+            - all:
+                - has: {kind: argument, has: {kind: string_literal, regex: '^"[GgFf]"$'}}
+                - not: {has: {kind: argument, nthChild: 2}}
+    name-string:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: declared-receiver}}]
+                    - kind: conditional_access_expression
+                      all: [{has: {field: condition, matches: declared-receiver}}, {has: {kind: member_binding_expression, has: {field: name, regex: '^ToString$'}}}]
+            - has: {field: arguments, kind: argument_list, matches: name-format}
+    member-name:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?System\.)?Enum\.GetName(<[^()]*>)?$'}
+            - matches: name-string
+            - kind: invocation_expression
+              has: {field: function, regex: '^nameof$'}
+            - kind: interpolated_string_expression
+              all:
+                - has: {kind: interpolation, has: {matches: declared-receiver}}
+                - not: {has: {kind: string_content}}
+                - not: {has: {kind: interpolation, nthChild: {position: 2, ofRule: {kind: interpolation}}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?System\.)?Convert\.ToString$'}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: declared-receiver}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?System\.)?(string|String)\.Format$'}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, regex: '^"\{0(:[GgFf])?\}"$'}}, {has: {kind: argument, nthChild: 2, has: {matches: declared-receiver}}}, {not: {has: {kind: argument, nthChild: 3}}}]}
+    name-value:
+        any:
+            - matches: member-name
+            - kind: postfix_unary_expression
+              has: {matches: name-value}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\?\?$'}
+                - has: {field: left, matches: name-value}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|ToUpper|ToLower|Trim|AsSpan|AsMemory)$'}
+                    - has: {field: expression, matches: name-value}
+            - kind: identifier
+              pattern: $RELAY
+              inside: {matches: function-owner, stopBy: end, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {all: [{not: {kind: identifier}}, {matches: name-value}]}}]}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: identifier, pattern: $HELPER}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: 'method_declaration, local_function_statement'
+                        all:
+                            - has: {field: name, pattern: $HELPER}
+                            - has: {field: body, kind: arrow_expression_clause, has: {matches: member-name}}
+    any-name:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ToString$'}}
+                - has: {field: arguments, matches: name-format}
+            - matches: member-name
+    name-equality:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - has: {field: left, matches: any-name}
+                - has: {field: right, matches: any-name}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Equals$'}}, {has: {field: expression, matches: any-name}}]}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: any-name}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?System\.)?(string|String)\.Equals$'}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: any-name}}}, {has: {kind: argument, nthChild: 2, has: {matches: any-name}}}]}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '^((global::)?System\.)?Enum\.(TryParse|Parse)(<[^()]*>)?$'}
+            - has: {field: arguments, has: {kind: argument, has: {matches: name-value}}}
+        - kind: invocation_expression
+          all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(First|FirstOrDefault|Single|SingleOrDefault|Last|LastOrDefault|Find|Where|Filter)$'}
+                    - has: {field: expression, regex: '^((global::)?System\.)?Enum\.GetValues'}
+            - has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, matches: name-equality}}}}
+        - kind: switch_expression
+          all:
+            - has: {nthChild: 1, matches: name-value}
+            - has: {kind: switch_expression_arm, has: {nthChild: 1, kind: constant_pattern, has: {kind: string_literal}}}
+message: Enum converts to another enum through its member name
+note: Map each member in an exhaustive `switch` over the source enum, or hold the source enum value

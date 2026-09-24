@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bracket-over-several-uses
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    use-call:
+        kind: invocation_expression
+        has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}
+    bracket:
+        pattern: $_.Bracket()
+rule:
+    pattern: $_.Bracket()
+    any:
+        - has:
+            stopBy: {matches: bracket}
+            matches: use-call
+            inside: {stopBy: {matches: bracket}, kind: argument, inside: {kind: argument_list, inside: {has: {field: function, has: {field: name, regex: '^(Traverse|TraverseM|Map|Select)$'}}}}}
+        - all:
+            - has: {stopBy: end, matches: use-call, pattern: $USE}
+            - has: {stopBy: end, matches: use-call, not: {pattern: $USE}}
+message: '`Bracket` releases more than one `use` registration by hand'
+note: Use one `Disposal.Using` per resource, nested in acquisition order, and `Disposal.AcquireAll` over a traversal

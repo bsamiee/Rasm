@@ -2,48 +2,173 @@
 id: no-lifted-fin-bind
 language: csharp
 severity: error
+utils:
+    relift:
+        any:
+            - pattern: {context: 'class C { object F() => $IO.lift($VALUE); }', selector: invocation_expression, strictness: cst}
+            - pattern: {context: 'class C { object F() => $IO.lift<$_TYPE>($VALUE); }', selector: invocation_expression, strictness: cst}
+            - pattern: {context: 'class C { object F() => $IO.lift(() => $VALUE); }', selector: invocation_expression, strictness: cst}
+            - pattern: {context: 'class C { object F() => $IO.lift<$_TYPE>(() => $VALUE); }', selector: invocation_expression, strictness: cst}
+    lift-group:
+        regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*lift(\s*<[^()]+>)?$'
+    pure-group:
+        regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*pure(\s*<[^()]+>)?$'
+    fail-group:
+        regex: '^(global::)?(LanguageExt\.)?IO\s*\.\s*fail\s*<[^()]+>$'
+    returned:
+        any:
+            - matches: relift
+            - matches: case-relift
+            - kind: block
+              all:
+                - has:
+                    kind: return_statement
+                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                    has: {any: [{matches: relift}, {matches: case-relift}]}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    succ-arm:
+        any:
+            - matches: pure-group
+            - matches:
+                csharp-unary-callback:
+                    parameter: {pattern: $SUCC}
+                    body: {pattern: {context: 'class C { object F() => IO.pure($SUCC); }', selector: invocation_expression, strictness: cst}}
+    fail-arm:
+        any:
+            - matches: fail-group
+            - matches:
+                csharp-unary-callback:
+                    parameter: {pattern: $FAILED}
+                    body: {kind: invocation_expression, all: [{has: {field: function, matches: fail-group}}, {has: {field: arguments, has: {kind: argument, pattern: $FAILED}, not: {has: {kind: argument, nthChild: 2}}}}]}
+    case-relift:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $VALUE}}, {has: {field: name, regex: '^Match$'}}]}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, any: [{all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: succ-arm}}]}, {all: [{nthChild: 1}, {not: {has: {field: name, pattern: $_}}}, {has: {matches: succ-arm}}]}]}
+                    - has: {kind: argument, any: [{all: [{has: {field: name, regex: '^Fail$'}}, {has: {matches: fail-arm}}]}, {all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}, {has: {matches: fail-arm}}]}]}
+                    - not: {has: {kind: argument, nthChild: 3}}
+    relay:
+        kind: identifier
+        all:
+            - pattern: $RELAY
+            - inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $RELAY}
+                        - not: {has: {field: type_parameters, pattern: $_}}
+                        - has:
+                            field: parameters
+                            has:
+                                kind: parameter
+                                has: {field: name, pattern: $VALUE}
+                                not: {has: {kind: 'modifier, attribute_list'}}
+                            not: {has: {kind: parameter, nthChild: 2}}
+                        - has:
+                            field: body
+                            any:
+                                - kind: arrow_expression_clause
+                                  has: {any: [{matches: relift}, {matches: case-relift}]}
+                                - kind: block
+                                  matches: returned
+    lifted-source:
+        pattern: {context: 'class C { object F() => from $VALUE in $IO.lift<$FIN>($THUNK) select 0; }', selector: from_clause, strictness: cst}
+    relift-clause:
+        kind: from_clause
+        all:
+            - has: {field: name, pattern: $X}
+            - has: {kind: invocation_expression, matches: relift}
+    lifted-fin:
+        kind: invocation_expression
+        has: {field: function, regex: '(?s)^(global::)?(LanguageExt\.)?IO\s*\.\s*lift\s*<\s*((global::)?LanguageExt\.)?(Fin\s*<.+>|Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,.+>)\s*>$'}
+    lifted-local:
+        kind: identifier
+        pattern: $LIFTED
+        inside:
+            stopBy: end
+            kind: block
+            has:
+                kind: local_declaration_statement
+                has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $LIFTED}}, {has: {matches: lifted-fin}}]}}
+    held-receiver:
+        any:
+            - matches: lifted-fin
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: lifted-fin}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - matches: lifted-local
+    held-bind:
+        kind: argument
+        any:
+            - has: {matches: relay}
+            - all:
+                - has: {kind: member_access_expression, matches: lift-group}
+                - inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, has: {field: expression, matches: lifted-local}}}}
+            - all:
+                - matches: {csharp-unary-callback: {parameter: {pattern: $VALUE}, body: {matches: returned}}}
+                - inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, has: {field: expression, matches: lifted-local}}}}
 rule:
     any:
+        - kind: invocation_expression
+          pattern: $HELD
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind$'}}, {has: {field: expression, matches: held-receiver}}]}
+            - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+            - not: {not: {has: {field: arguments, has: {kind: argument, matches: held-bind}}}}
         - pattern:
             context: 'class C { object F() => $IO.lift<$FIN>($THUNK).Bind($BIND); }'
             selector: invocation_expression
             strictness: cst
         - pattern:
-            context: 'class C { object F() => from $ITEM in $IO.lift<$FIN>($THUNK) from $X in $IO.lift($ITEM) select $X; }'
-            selector: query_expression
+            context: 'class C { object F() => $IO.lift<$FIN>($THUNK).As().Bind($BIND); }'
+            selector: invocation_expression
             strictness: cst
-        - pattern:
-            context: 'class C { object F() => from $ITEM in $IO.lift<$FIN>($THUNK) from $X in $IO.lift<$_TYPE>($ITEM) select $X; }'
-            selector: query_expression
-            strictness: cst
+        - kind: query_expression
+          all:
+            - has: {kind: from_clause, nthChild: 1, matches: lifted-source}
+            - has: {kind: from_clause, nthChild: 2, matches: relift-clause}
+            - has: {kind: select_clause, nthChild: 3, has: {pattern: $X}}
+            - not: {has: {nthChild: 4}}
+        - kind: from_clause
+          all:
+            - matches: lifted-source
+            - precedes:
+                matches: relift-clause
+                has: {field: name, pattern: $NEXT}
+                not: {precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $VALUE}}}
+            - not:
+                all:
+                    - nthChild: 1
+                    - inside: {kind: query_expression, not: {has: {nthChild: 4}}, has: {kind: select_clause, nthChild: 3, has: {pattern: $X}}}
 constraints:
     IO: {regex: '^(global::)?(LanguageExt\.)?IO$'}
-    FIN: {regex: '(?s)^(global::)?(LanguageExt\.)?Fin\s*<.+>$'}
+    FIN: {regex: '(?s)^((global::)?LanguageExt\.)?(Fin\s*<.+>|Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,.+>)$'}
     BIND:
         any:
             - kind: argument
-              has: {pattern: $IO.lift}
+              has: {kind: member_access_expression, matches: lift-group}
             - matches:
                 csharp-unary-callback:
                     parameter: {pattern: $VALUE}
-                    body:
-                        any:
-                            - pattern:
-                                context: 'class C { object F() => $IO.lift($VALUE); }'
-                                selector: invocation_expression
-                                strictness: cst
-                            - pattern:
-                                context: 'class C { object F() => $IO.lift<$_TYPE>($VALUE); }'
-                                selector: invocation_expression
-                                strictness: cst
-                            - pattern:
-                                context: 'class C { object F() => $IO.lift(() => $VALUE); }'
-                                selector: invocation_expression
-                                strictness: cst
-                            - pattern:
-                                context: 'class C { object F() => $IO.lift<$_TYPE>(() => $VALUE); }'
-                                selector: invocation_expression
-                                strictness: cst
-fix: '$IO.lift($THUNK)'
-message: "`$IO.lift` over a Fin thunk binds a second lift of the Fin value"
-note: "Use `IO.lift(<thunk>)` alone"
+                    body: {matches: returned}
+transform:
+    VALUE_TYPE:
+        replace:
+            source: $FIN
+            replace: '(?s)^(?:(?:global::)?LanguageExt\.)?(?:Fin\s*<\s*(.+?)\s*>|Either\s*<\s*(?:(?:global::)?LanguageExt\.(?:Common\.)?)?Error\s*,\s*(.+?)\s*>)$'
+            by: '${1}${2}'
+    HEAD: {replace: {source: $NEXT, replace: '(?s)^(.*)$', by: 'from ${1} in '}}
+    LIFT: {replace: {source: $IO, replace: '(?s)^(.*)$', by: '${1}.lift<'}}
+    ARGUMENT: {replace: {source: $THUNK, replace: '(?s)^(.*)$', by: '>(${1})'}}
+fix:
+    template: '$HELD$HEAD$LIFT$VALUE_TYPE$ARGUMENT'
+    expandEnd: {kind: from_clause}
+message: "`IO.lift` over a `Fin` or `Either` thunk binds a second lift of the result"
+note: "Use `IO.lift<A>(<thunk>)` alone, and delete a lifted local or relay member nothing else reads"

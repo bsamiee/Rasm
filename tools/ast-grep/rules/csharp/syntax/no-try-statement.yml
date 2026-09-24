@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-try-statement
+language: csharp
+severity: error
+rule:
+    kind: try_statement
+message: '`try` statement handles an exception inline'
+note: Capture the throwing call with `Try.lift` or `IO.lift` at its boundary and release through `use` or `Bracket`, a test asserts an expected throw with `Assert.ThrowsAny<E>`

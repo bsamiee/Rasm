@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-above-family
+language: csharp
+severity: error
+rule:
+    kind: field_declaration, method_declaration, property_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, event_field_declaration, event_declaration, indexer_declaration, class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, delegate_declaration, enum_member_declaration
+    inside: {matches: csharp-member-list}
+    precedes: {stopBy: end, matches: csharp-labeled-divider}
+    not: {follows: {stopBy: end, matches: csharp-labeled-divider}}
+message: Member of a subdivided owner sits above its first family divider
+note: Use the `// --- [<FAMILY>]` divider that names what the member does above it

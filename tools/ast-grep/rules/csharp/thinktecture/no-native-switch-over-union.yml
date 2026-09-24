@@ -1,0 +1,268 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-native-switch-over-union
+language: csharp
+severity: error
+utils:
+    union-name:
+        any:
+            - kind: identifier
+              pattern: $UNION
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, pattern: $UNION}
+            - kind: qualified_name, alias_qualified_name, member_access_expression
+              has: {field: name, matches: union-name}
+    declared-type:
+        any:
+            - matches: union-name
+            - kind: nullable_type
+              has: {matches: union-name}
+    arm-pattern:
+        kind: declaration_pattern, recursive_pattern, type_pattern, constant_pattern, or_pattern, and_pattern, negated_pattern, parenthesized_pattern
+    outside-property:
+        not: {inside: {kind: property_pattern_clause, stopBy: {kind: 'switch_expression_arm, switch_section'}}}
+    type-case:
+        kind: qualified_name
+        all:
+            - has: {field: qualifier, matches: union-name}
+            - inside: {kind: 'declaration_pattern, type_pattern, recursive_pattern, declaration_expression'}
+            - matches: outside-property
+    constant-case:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, matches: union-name}
+            - any:
+                - inside: {kind: constant_pattern}
+                - inside: {kind: argument, inside: {kind: tuple_expression}}
+            - matches: outside-property
+    typed-case:
+        any:
+            - matches: type-case
+            - matches: constant-case
+              has: {field: expression, regex: '>$'}
+    any-case:
+        any:
+            - matches: type-case
+            - matches: constant-case
+    typed-arm:
+        kind: switch_expression_arm, switch_section
+        has: {matches: arm-pattern, has: {stopBy: end, matches: typed-case, has: {field: name, pattern: $CASE}}}
+    simple-typed-arm:
+        kind: switch_expression_arm, switch_section
+        has:
+            matches: arm-pattern
+            has:
+                stopBy: end
+                matches: typed-case
+                all:
+                    - has: {field: name, pattern: $CASE}
+                    - any:
+                        - has: {field: qualifier, kind: 'identifier, generic_name'}
+                        - has: {field: expression, kind: 'identifier, generic_name'}
+    case-arm:
+        kind: switch_expression_arm, switch_section
+        has: {matches: arm-pattern, has: {stopBy: end, matches: any-case}}
+    other-case-arm:
+        kind: switch_expression_arm, switch_section
+        has: {matches: arm-pattern, has: {stopBy: end, matches: any-case, not: {has: {field: name, pattern: $CASE}}}}
+    own-case:
+        kind: switch_expression_arm, switch_section
+        has:
+            matches: arm-pattern
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $CASE
+                inside: {kind: 'declaration_pattern, recursive_pattern, type_pattern, constant_pattern, declaration_expression'}
+    typed-parameter:
+        kind: parameter
+        all:
+            - has: {field: name, pattern: $VAR}
+            - has: {field: type, matches: declared-type}
+    typed-variable:
+        kind: variable_declaration
+        all:
+            - has: {kind: variable_declarator, has: {field: name, pattern: $VAR}}
+            - has: {field: type, matches: declared-type}
+    typed-local:
+        pattern: $VAR
+        inside:
+            stopBy: end
+            kind: method_declaration, local_function_statement, constructor_declaration, lambda_expression, anonymous_method_expression, accessor_declaration
+            any:
+                - has: {field: parameters, has: {matches: typed-parameter}}
+                - has: {stopBy: end, matches: typed-variable, inside: {kind: local_declaration_statement}}
+    typed-member:
+        pattern: $VAR
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: property_declaration
+                      all:
+                        - has: {field: name, pattern: $VAR}
+                        - has: {field: type, matches: declared-type}
+                    - matches: typed-variable
+                      inside: {kind: field_declaration}
+                    - matches: typed-parameter
+                      inside: {kind: parameter_list, inside: {kind: 'record_declaration, class_declaration, struct_declaration'}}
+    governed:
+        any:
+            - kind: identifier
+              any:
+                - matches: typed-local
+                - matches: typed-member
+            - kind: member_access_expression
+              has:
+                field: name
+                any:
+                    - matches: typed-member
+                    - pattern: $UNION
+            - kind: parenthesized_expression, postfix_unary_expression
+              has: {matches: governed}
+            - kind: cast_expression
+              has: {field: value, matches: governed}
+            - kind: tuple_expression
+              has: {kind: argument, has: {matches: governed}}
+    governed-key:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, matches: governed}
+            - has: {field: name, regex: '^Key$'}
+    governed-value:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, matches: governed}
+            - has: {field: name, regex: '^Value$'}
+    declared-union:
+        kind: class_declaration, record_declaration, struct_declaration
+        has: {field: name, pattern: $UNION}
+    union-switch:
+        any:
+            - all:
+                - any: [{has: {matches: case-arm}}, {has: {field: body, has: {matches: case-arm}}}]
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        matches:
+                            csharp-file-union:
+                                name: {pattern: $UNION}
+            - all:
+                - any: [{has: {matches: typed-arm}}, {has: {field: body, has: {matches: typed-arm}}}]
+                - has: {nthChild: 1, matches: governed}
+            - all:
+                - any: [{has: {matches: simple-typed-arm}}, {has: {field: body, has: {matches: simple-typed-arm}}}]
+                - any: [{has: {matches: other-case-arm}}, {has: {field: body, has: {matches: other-case-arm}}}]
+            - all:
+                - any: [{has: {matches: own-case}}, {has: {field: body, has: {matches: own-case}}}]
+                - inside:
+                    stopBy: end
+                    all:
+                        - matches:
+                            csharp-file-union:
+                                name: {pattern: $UNION}
+                        - has:
+                            kind: declaration_list
+                            has:
+                                kind: record_declaration, class_declaration
+                                has: {field: name, pattern: $CASE}
+            - all:
+                - has: {nthChild: 1, matches: governed}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        matches: declared-union
+                        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(SmartEnum|Union|AdHocUnion)(Attribute)?(<.+>)?$'}}}
+            - all:
+                - has: {nthChild: 1, matches: governed-key}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        matches: declared-union
+                        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?SmartEnum(Attribute)?(<.+>)?$'}}}
+            - all:
+                - has: {nthChild: 1, matches: governed-value}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        matches: declared-union
+                        has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^(global::)?(Thinktecture\.)?(Union(Attribute)?<.+>|AdHocUnion(Attribute)?)$'}}}
+    catch-all-pattern:
+        any:
+            - kind: discard, var_pattern
+            - kind: declaration_pattern
+              has: {field: type, kind: implicit_type}
+            - kind: declaration_pattern, type_pattern
+              has:
+                field: type
+                any:
+                    - regex: '^object$'
+                    - matches: union-name
+            - kind: constant_pattern
+              has:
+                any:
+                    - kind: predefined_type
+                      regex: '^object$'
+                    - kind: identifier, generic_name, qualified_name, alias_qualified_name
+                      matches: union-name
+            - kind: negated_pattern
+              has: {kind: constant_pattern, has: {kind: null_literal}}
+            - kind: recursive_pattern
+              all:
+                - not: {has: {field: type, not: {any: [{regex: '^object$'}, {matches: union-name}]}}}
+                - any:
+                    - has: {kind: property_pattern_clause, not: {has: {kind: subpattern}}}
+                    - has:
+                        kind: positional_pattern_clause
+                        not: {has: {kind: subpattern, not: {has: {matches: element-catch-all}}}}
+            - kind: parenthesized_pattern
+              has: {matches: catch-all-pattern}
+            - kind: or_pattern
+              any:
+                - has: {field: left, matches: catch-all-pattern}
+                - has: {field: right, matches: catch-all-pattern}
+                - all:
+                    - has: {field: left, pattern: $COMPLEMENT}
+                    - has: {field: right, kind: negated_pattern, has: {pattern: $COMPLEMENT}}
+                - all:
+                    - has: {field: right, pattern: $COMPLEMENT}
+                    - has: {field: left, kind: negated_pattern, has: {pattern: $COMPLEMENT}}
+            - kind: and_pattern
+              all:
+                - has: {field: left, matches: catch-all-pattern}
+                - has: {field: right, matches: catch-all-pattern}
+    element-catch-all:
+        any:
+            - matches: catch-all-pattern
+            - kind: type_pattern, declaration_pattern
+              has: {field: type, kind: predefined_type}
+    catch-all:
+        any:
+            - kind: switch_expression_arm
+              has: {nthChild: 1, matches: catch-all-pattern}
+              not: {has: {kind: when_clause}}
+            - kind: switch_section
+              any:
+                - regex: '^default\s*:'
+                - has: {nthChild: 1, matches: catch-all-pattern}
+              not: {has: {kind: when_clause}}
+rule:
+    kind: switch_expression_arm, switch_section
+    all:
+        - any:
+            - inside: {kind: switch_expression, matches: union-switch}
+            - inside: {kind: switch_body, inside: {kind: switch_statement, matches: union-switch}}
+        - matches: catch-all
+constraints:
+    UNION: {not: {regex: '^(Fin|Either|Edit|Iterator|IteratorAsync|TrieMap|TrieSet)$'}}
+message: "Catch-all arm in a native switch over `$UNION` hides every case the switch omits"
+note: Use the generated exhaustive `Switch` or `Map`

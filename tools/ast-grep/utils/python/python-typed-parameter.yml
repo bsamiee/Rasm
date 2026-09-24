@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-typed-parameter
+language: python
+arguments: [type]
+rule:
+    kind: identifier
+    pattern: $PARAMETER
+    inside:
+        kind: function_definition
+        stopBy: end
+        has:
+            field: parameters
+            has:
+                kind: typed_parameter, typed_default_parameter
+                all:
+                    - any: [{has: {kind: identifier, nthChild: 1, pattern: $PARAMETER}}, {has: {field: name, pattern: $PARAMETER}}]
+                    - has: {field: type, matches: type}

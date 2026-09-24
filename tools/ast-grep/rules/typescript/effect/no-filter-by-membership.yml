@@ -49,4 +49,4 @@ transform:
     OPERANDS: rewrite($ARGS, rewriters=[other])
 fix: $MODULE.$OPERATION$OPERANDS$KEPT
 message: '`filter` tests each element for membership in `$SEEN` by hand'
-note: '`Array.difference` keeps the elements absent from `$SEEN`, `Array.intersection` the elements present, both by `Equal`'
+note: '`Array.difference` keeps the elements absent from `<seen>`, `Array.intersection` the elements present, both by `Equal`'

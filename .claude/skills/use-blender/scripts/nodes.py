@@ -1,23 +1,22 @@
-# ast-grep-ignore: no-stdlib-record
-# mypy: disable-error-code="unreachable"
+# mypy: disable-error-code="unreachable, arg-type, attr-defined"
+# ty: ignore[invalid-argument-type, unresolved-attribute]
 """Digest one node tree as its interface, non-default nodes, and links by socket identifier, run inside Blender through `runpy.run_path`."""
 
 from collections import ChainMap
 from collections.abc import Iterable
-from dataclasses import asdict, dataclass
-from typing import cast, Literal
 
+import attrs
 import bpy
 from mathutils import Color, Euler, Matrix, Quaternion, Vector
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Outcome = Digest | UnknownTree
+type Outcome = Digest | UnknownTree | Unset
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
+@attrs.frozen
 class Socket:
     """Interface socket with the values that differ from a fresh socket of its type."""
 
@@ -28,7 +27,7 @@ class Socket:
     values: dict[str, object]
 
 
-@dataclass(frozen=True, slots=True)
+@attrs.frozen
 class Node:
     """Node with the settings, unlinked inputs, and outputs that differ from a fresh node of its type."""
 
@@ -39,7 +38,7 @@ class Node:
     outputs: dict[str, object]
 
 
-@dataclass(frozen=True, slots=True)
+@attrs.frozen
 class Link:
     """Link from an output to an input, each named by node name and socket identifier."""
 
@@ -50,7 +49,7 @@ class Link:
     is_muted: bool
 
 
-@dataclass(frozen=True, slots=True)
+@attrs.frozen
 class Digest:
     """Tree with the RNA type of its owner, interface sockets, nodes, and links."""
 
@@ -64,11 +63,18 @@ class Digest:
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True, slots=True)
+@attrs.frozen
 class UnknownTree:
     """Name matching no node group, node tree owner, or scene compositor."""
 
     name: str
+
+
+@attrs.frozen
+class Unset:
+    """RNA pointer the digest reads that holds no value, by its path."""
+
+    path: str
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -84,7 +90,7 @@ def trees() -> dict[str, tuple[str, bpy.types.NodeTree]]:
     return dict(ChainMap(groups, *({owner.name: (type(owner).__name__, owner.node_tree) for owner in ids if owner.node_tree} for ids in owners), compositors))
 
 
-def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
+def record(owner: str, tree: bpy.types.NodeTree) -> Digest | Unset:
     """Interface, nodes, and links of a tree, each interface socket and node holding the values that differ from a fresh one made in a scratch tree of the same type."""
     layout = {p.identifier for p in bpy.types.Node.bl_rna.properties} - {"mute"}
 
@@ -128,11 +134,11 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
         return {k: v for k in keys if (v := plain(getattr(item, k))) != plain(getattr(fresh, k))}
 
     def socket_values(items: Iterable[bpy.types.NodeSocket]) -> dict[str, object]:
-        """Values of the sockets that hold one, by identifier."""
-        return {s.identifier: plain(s.default_value) for s in items if hasattr(s, "default_value")}
+        """Values of the sockets whose RNA type declares `default_value`, by identifier."""
+        return {s.identifier: plain(s.default_value) for s in items if "default_value" in s.bl_rna.properties}
 
     def node(item: bpy.types.Node, fresh: bpy.types.Node) -> Node:
-        """Settings of `item` that differ from `fresh`, then its sockets against `fresh` holding the same IDs, so a group node's sockets compare with its group's defaults."""
+        """Settings, enabled unlinked inputs, and outputs of `item` that differ from `fresh`, which takes `item`'s ID settings first to hold a group node's group defaults."""
         values = changed(item, fresh, layout)
         for key, value in ((k, getattr(item, k)) for k in values):
             if isinstance(value, bpy.types.ID):
@@ -151,18 +157,21 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
             case _:
                 raise TypeError(f"{tree.name} holds a link without both ends")
 
-    scratch = bpy.data.node_groups.new("digest", cast('Literal["GeometryNodeTree", "CompositorNodeTree", "ShaderNodeTree", "TextureNodeTree"]', tree.bl_idname))
-    declared, blank = cast("bpy.types.NodeTreeInterface", tree.interface), cast("bpy.types.NodeTreeInterface", scratch.interface)
+    scratch = bpy.data.node_groups.new("digest", tree.bl_idname)
     try:
-        nodes = tuple(node(item, scratch.nodes.new(item.bl_idname)) for item in tree.nodes)
-        interface = tuple(
-            Socket(i.identifier, i.name, i.in_out, i.socket_type, changed(i, blank.new_socket(i.name, in_out=i.in_out, socket_type=i.socket_type), set()))
-            for i in declared.items_tree
-            if isinstance(i, bpy.types.NodeTreeInterfaceSocket)
-        )
+        match tree.interface, scratch.interface:
+            case bpy.types.NodeTreeInterface() as declared, bpy.types.NodeTreeInterface() as blank:
+                nodes = tuple(node(item, scratch.nodes.new(item.bl_idname)) for item in tree.nodes)
+                interface = tuple(
+                    Socket(i.identifier, i.name, i.in_out, i.socket_type, changed(i, blank.new_socket(i.name, in_out=i.in_out, socket_type=i.socket_type), set()))
+                    for i in declared.items_tree
+                    if isinstance(i, bpy.types.NodeTreeInterfaceSocket)
+                )
+                return Digest(tree.name, owner, interface, nodes, tuple(link(k) for k in tree.links))
+            case _:
+                return Unset(f"{tree.name}.interface")
     finally:
         bpy.data.node_groups.remove(scratch)
-    return Digest(tree.name, owner, interface, nodes, tuple(link(k) for k in tree.links))
 
 
 def digest(name: str) -> Outcome:
@@ -173,9 +182,9 @@ def digest(name: str) -> Outcome:
 
 def as_result(value: Outcome) -> dict[str, object]:
     """`result` dict for `execute_blender_code`, the case name under `kind`."""
-    return {"kind": type(value).__name__, **asdict(value)}
+    return {"kind": type(value).__name__, **attrs.asdict(value)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Digest", "Link", "Node", "Outcome", "Socket", "UnknownTree", "as_result", "digest", "record", "trees"]
+__all__ = ["Digest", "Link", "Node", "Outcome", "Socket", "UnknownTree", "Unset", "as_result", "digest", "record", "trees"]

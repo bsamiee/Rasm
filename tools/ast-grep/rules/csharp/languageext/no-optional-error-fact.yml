@@ -1,0 +1,53 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-error-fact
+language: csharp
+severity: error
+utils:
+    optional-name:
+        regex: '^(global::)?(LanguageExt\.)?Option\s*<|\?$'
+    optional:
+        any:
+            - matches: optional-name
+            - kind: nullable_type
+            - kind: tuple_type
+              has: {kind: tuple_element, has: {field: type, matches: optional-name}}
+            - kind: identifier
+              pattern: $HOLDER
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: record_declaration
+                    all:
+                        - has: {field: name, pattern: $HOLDER}
+                        - has: {kind: parameter_list, has: {kind: parameter, has: {field: type, matches: optional-name}}}
+    error-members:
+        kind: declaration_list
+        inside: {kind: record_declaration, matches: csharp-error-record, has: {field: name, pattern: $RECORD}}
+    inner-error:
+        kind: parameter
+        all:
+            - has: {field: name, pattern: $FACT}
+            - inside:
+                kind: parameter_list
+                inside: {kind: record_declaration, has: {kind: base_list, has: {kind: primary_constructor_base_type, has: {kind: argument_list, has: {kind: argument, has: {kind: identifier, pattern: $FACT}}}}}}
+rule:
+    any:
+        - kind: parameter
+          all:
+            - has: {field: type, matches: optional}
+            - has: {field: name, pattern: $FACT}
+            - not: {matches: inner-error}
+            - inside: {kind: parameter_list, inside: {kind: record_declaration, matches: csharp-error-record, has: {field: name, pattern: $RECORD}}}
+        - kind: property_declaration
+          all:
+            - has: {field: type, matches: optional}
+            - has: {field: name, pattern: $FACT}
+            - inside: {matches: error-members}
+        - kind: field_declaration
+          all:
+            - has: {kind: variable_declaration, all: [{has: {field: type, matches: optional}}, {has: {kind: variable_declarator, has: {field: name, pattern: $FACT}}}]}
+            - inside: {matches: error-members}
+message: 'Error record `$RECORD` holds the optional fact `$FACT`'
+note: Use one error record or case per fact present, each holding its fact as a required field

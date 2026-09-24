@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-error-owner
+language: csharp
+arguments: [name, type]
+utils:
+    typed:
+        any:
+            - matches: type
+            - kind: nullable_type
+              has: {field: type, matches: type}
+    element-typed:
+        any:
+            - kind: generic_name
+              has: {kind: type_argument_list, has: {matches: typed}, not: {has: {nthChild: 2}}}
+            - kind: array_type
+              has: {field: type, matches: typed}
+            - kind: nullable_type
+              has: {field: type, matches: element-typed}
+    single-parameter:
+        has:
+            field: parameters
+            any:
+                - kind: implicit_parameter
+                  matches: name
+                - kind: parameter_list
+                  has: {kind: parameter, has: {field: name, matches: name}, not: {has: {field: type, pattern: $_}}}
+                  not: {has: {kind: parameter, nthChild: 2}}
+    element-source:
+        any:
+            - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration
+              has:
+                field: parameters
+                has:
+                    kind: parameter
+                    all:
+                        - has: {field: name, pattern: $ELEMENT_SOURCE}
+                        - has: {field: type, matches: element-typed}
+            - kind: block
+              has:
+                kind: local_declaration_statement
+                has:
+                    kind: variable_declaration
+                    all:
+                        - has: {field: type, matches: element-typed}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $ELEMENT_SOURCE}}
+rule:
+    any:
+        - kind: lambda_expression, anonymous_method_expression
+          all:
+            - matches: single-parameter
+            - inside:
+                kind: argument
+                any:
+                    - has: {field: name, regex: '^Fail$'}
+                    - inside:
+                        kind: argument_list
+                        inside:
+                            kind: invocation_expression
+                            has:
+                                field: function
+                                regex: '(^|\.)(Catch|CatchIO|@catch|IfFail|MapFail|BindFail|Retry(While|Until)(IO)?|retry(While|Until))(\s*<.+>)?$'
+        - kind: lambda_expression, anonymous_method_expression
+          all:
+            - matches: single-parameter
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        kind: invocation_expression
+                        all:
+                            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $ELEMENT_SOURCE}}
+                            - inside: {stopBy: end, matches: element-source}
+        - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration, operator_declaration
+          has:
+            field: parameters
+            has:
+                kind: parameter
+                all:
+                    - has: {field: name, matches: name}
+                    - has: {field: type, matches: typed}
+        - kind: block
+          has:
+            kind: local_declaration_statement
+            has:
+                kind: variable_declaration
+                all:
+                    - has: {field: type, matches: typed}
+                    - has: {kind: variable_declarator, has: {field: name, matches: name}}
+        - kind: foreach_statement
+          all:
+            - has: {field: type, matches: typed}
+            - has: {field: left, matches: name}
+        - kind: binary_expression, conditional_expression, if_statement, while_statement, switch_expression_arm, switch_section, arrow_expression_clause, return_statement, expression_statement
+          has:
+            stopBy: end
+            kind: declaration_pattern
+            all:
+                - has: {field: type, matches: type}
+                - has: {field: name, matches: name}

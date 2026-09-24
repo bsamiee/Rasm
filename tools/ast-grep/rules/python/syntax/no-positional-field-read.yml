@@ -1,0 +1,356 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-positional-field-read
+language: python
+severity: error
+utils:
+    integer:
+        any:
+            - kind: integer
+            - kind: unary_operator
+              has: {field: argument, kind: integer}
+    position:
+        any:
+            - matches: integer
+            - kind: attribute
+              all:
+                - has: {field: object, kind: identifier, pattern: $OWNER}
+                - has: {field: attribute, pattern: $MEMBER}
+                - inside:
+                    kind: module
+                    stopBy: end
+                    has:
+                        kind: class_definition
+                        all:
+                            - has: {field: name, pattern: $OWNER}
+                            - has: {field: body, has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $MEMBER}}, {has: {field: right, matches: integer}}]}}}
+            - kind: identifier
+              pattern: $AT
+              all:
+                - inside:
+                    kind: 'module, function_definition'
+                    stopBy: end
+                    has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: position-binding}
+                - not:
+                    inside:
+                        kind: 'module, function_definition'
+                        stopBy: end
+                        has:
+                            stopBy: {kind: 'function_definition, class_definition, lambda'}
+                            matches: {python-binding: {name: {pattern: $AT}}}
+                            not: {matches: position-binding}
+            - kind: identifier
+              pattern: $AT
+              inside:
+                kind: function_definition
+                stopBy: end
+                all:
+                    - has: {field: name, pattern: $SITE}
+                    - any:
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 1, kind: identifier, pattern: $AT}}
+                            - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, pattern: $SITE}}, {has: {field: arguments, has: {nthChild: 1, matches: integer}}}]}}
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $AT}}
+                            - inside:
+                                kind: module
+                                stopBy: end
+                                has:
+                                    stopBy: end
+                                    kind: call
+                                    any:
+                                        - all: [{has: {field: function, pattern: $SITE}}, {has: {field: arguments, has: {nthChild: 2, matches: integer}}}]
+                                        - all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $SITE}}}, {has: {field: arguments, has: {nthChild: 1, matches: integer}}}]
+                        - all:
+                            - has: {field: parameters, has: {nthChild: 3, kind: identifier, pattern: $AT}}
+                            - inside:
+                                kind: module
+                                stopBy: end
+                                has:
+                                    stopBy: end
+                                    kind: call
+                                    any:
+                                        - all: [{has: {field: function, pattern: $SITE}}, {has: {field: arguments, has: {nthChild: 3, matches: integer}}}]
+                                        - all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $SITE}}}, {has: {field: arguments, has: {nthChild: 2, matches: integer}}}]
+    aliased-constant:
+        kind: identifier
+        pattern: $ALIASED
+        inside: {kind: module, stopBy: end, has: {kind: import_from_statement, has: {kind: aliased_import, all: [{has: {field: name, regex: '^_?[A-Z][A-Z0-9_]*$'}}, {has: {field: alias, pattern: $ALIASED}}]}}}
+    constant:
+        any: [{matches: python-module-constant}, {matches: aliased-constant}]
+    substitution-callback:
+        any:
+            - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '(^|\.)subn?$'}}}
+            - inside: {kind: keyword_argument, inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '(^|\.)subn?$'}}}}
+    position-binding:
+        any:
+            - kind: assignment
+              all: [{has: {field: left, kind: identifier, pattern: $AT}}, {has: {field: right, matches: integer}}]
+            - kind: 'default_parameter, typed_default_parameter'
+              all: [{has: {field: name, pattern: $AT}}, {has: {field: value, matches: integer}}]
+    bounded-slice:
+        kind: slice
+        regex: '^(\d*\s*:\s*\d+|-\d+\s*:\s*-\d+)$'
+    itemgetter:
+        kind: 'identifier, attribute'
+        any:
+            - regex: '(^|\.)itemgetter$'
+            - kind: identifier
+              pattern: $GETTER
+              any:
+                - inside:
+                    kind: module
+                    stopBy: end
+                    has:
+                        kind: import_from_statement
+                        all:
+                            - has: {field: module_name, regex: '^operator$'}
+                            - has: {kind: aliased_import, all: [{has: {field: name, regex: '^itemgetter$'}}, {has: {field: alias, pattern: $GETTER}}]}
+                - inside:
+                    kind: 'module, block'
+                    stopBy: end
+                    has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $GETTER}}, {has: {field: right, regex: '(^|\.)itemgetter$'}}]}}
+    match-source:
+        kind: call
+        has: {field: function, regex: '(^|\.)finditer$'}
+    fixed-tuple:
+        kind: type
+        any:
+            - has: {kind: generic_type, matches: tuple-arity}
+            - has: {kind: identifier, matches: tuple-name}
+            - has: {kind: union_type, has: {kind: type, has: {kind: generic_type, matches: tuple-arity}}}
+    tuple-arity:
+        all:
+            - has: {kind: identifier, regex: '^tuple$'}
+            - has: {kind: type_parameter, not: {has: {kind: type, has: {kind: ellipsis}}}}
+    tuple-name:
+        kind: identifier
+        pattern: $SHAPE
+        inside:
+            kind: module
+            stopBy: end
+            has:
+                any:
+                    - kind: type_alias_statement
+                      all: [{has: {field: left, has: {kind: identifier, pattern: $SHAPE}}}, {has: {field: right, has: {kind: generic_type, matches: tuple-arity}}}]
+                    - kind: expression_statement
+                      has: {kind: assignment, all: [{has: {field: left, pattern: $SHAPE}}, {has: {field: right, matches: fixed-tuple-value}}]}
+                    - kind: class_definition
+                      all: [{has: {field: name, pattern: $SHAPE}}, {has: {field: superclasses, has: {regex: '(^|\.)NamedTuple$'}}}]
+    fixed-tuple-value:
+        any:
+            - kind: subscript
+              all: [{has: {field: value, regex: '^tuple$'}}, {not: {has: {kind: ellipsis}}}]
+            - kind: string
+              all: [{regex: '^[''"]tuple\['}, {not: {regex: '\.\.\.'}}]
+    row-value:
+        any:
+            - matches: constant
+            - kind: subscript
+              all:
+                - has: {field: value, matches: constant}
+                - not: {has: {field: subscript, any: [{matches: position}, {kind: slice}]}}
+            - matches: row-literal
+    row-literal:
+        any:
+            - kind: tuple
+              not: {has: {kind: list_splat}}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(max|min|next)$'}
+                - has:
+                    field: arguments
+                    any:
+                        - {kind: generator_expression, has: {field: body, kind: tuple}}
+                        - has: {kind: 'generator_expression, list_comprehension', has: {field: body, kind: tuple}}
+            - kind: call
+              all:
+                - has: {field: function, regex: '(^|\.)cast$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: fixed-tuple-value}}
+            - kind: conditional_expression
+              has: {matches: row-value}
+            - kind: call
+              all:
+                - has: {field: function, kind: identifier, pattern: $MAKER}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $MAKER}}, {has: {field: return_type, matches: fixed-tuple}}]}}
+    element-loop:
+        all:
+            - not: {has: {field: right, matches: match-source}}
+            - any:
+                - has: {field: left, kind: identifier, pattern: $ROW}
+                - all:
+                    - has: {field: right, kind: call, has: {field: function, regex: '^zip$'}}
+                    - has: {field: left, kind: 'pattern_list, tuple_pattern', has: {kind: identifier, pattern: $ROW}}
+                - all:
+                    - has: {field: right, kind: call, has: {field: function, regex: '^enumerate$|\.items$'}}
+                    - has: {field: left, kind: 'pattern_list, tuple_pattern', has: {kind: identifier, pattern: $ROW, not: {nthChild: 1}}}
+    row-binding:
+        any:
+            - kind: assignment
+              any:
+                - all:
+                    - has: {field: left, kind: identifier, pattern: $ROW}
+                    - any: [{has: {field: right, matches: row-value}}, {has: {field: type, matches: fixed-tuple}}]
+                - all: [{has: {field: left, kind: pattern_list, has: {kind: identifier, pattern: $ROW, nthChild: 1}}}, {has: {field: right, kind: expression_list, has: {matches: row-value, nthChild: 1}}}]
+                - all: [{has: {field: left, kind: pattern_list, has: {kind: identifier, pattern: $ROW, nthChild: 2}}}, {has: {field: right, kind: expression_list, has: {matches: row-value, nthChild: 2}}}]
+                - all: [{has: {field: left, kind: pattern_list, has: {kind: identifier, pattern: $ROW, nthChild: 3}}}, {has: {field: right, kind: expression_list, has: {matches: row-value, nthChild: 3}}}]
+                - all: [{has: {field: left, kind: pattern_list, has: {kind: identifier, pattern: $ROW, nthChild: 4}}}, {has: {field: right, kind: expression_list, has: {matches: row-value, nthChild: 4}}}]
+            - kind: named_expression
+              all:
+                - has: {field: name, pattern: $ROW}
+                - has: {field: value, matches: row-value}
+    getter-read:
+        kind: subscript
+        all: [{has: {field: value, pattern: $ROW}}, {has: {field: subscript, matches: position}}]
+    getter-body:
+        any:
+            - matches: getter-read
+            - kind: 'tuple, expression_list'
+              all: [{has: {matches: getter-read}}, {not: {has: {pattern: $_, not: {matches: getter-read}}}}]
+    row-ref:
+        kind: 'identifier, attribute, subscript'
+        pattern: $ROW
+        all:
+            - any:
+                - matches: constant
+                - kind: subscript
+                  all:
+                    - has: {field: value, matches: constant}
+                    - not: {has: {field: subscript, any: [{matches: position}, {kind: slice}]}}
+                - kind: identifier
+                  any:
+                    - inside: {kind: for_statement, stopBy: end, matches: element-loop}
+                    - inside:
+                        kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+                        stopBy: end
+                        has: {kind: for_in_clause, matches: element-loop}
+                    - inside:
+                        kind: lambda
+                        stopBy: end
+                        has: {field: parameters, has: {kind: identifier, pattern: $ROW}}
+                        any:
+                            - inside: {kind: keyword_argument, has: {field: name, regex: '^key$'}, not: {inside: {kind: argument_list, has: {matches: match-source}}}}
+                            - all:
+                                - nthChild: 1
+                                - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^(map|filter)$'}}, not: {has: {matches: match-source}}}
+                            - all:
+                                - not: {has: {field: parameters, has: {nthChild: 2}}}
+                                - has: {field: body, matches: getter-body}
+                                - not: {inside: {kind: argument_list, has: {matches: match-source}}}
+                                - not: {matches: substitution-callback}
+                    - inside:
+                        kind: function_definition
+                        stopBy: end
+                        any:
+                            - has: {stopBy: end, matches: row-binding}
+                            - has: {field: parameters, has: {kind: 'typed_parameter, typed_default_parameter', all: [{has: {kind: identifier, pattern: $ROW}}, {has: {field: type, matches: fixed-tuple}}]}}
+                            - all:
+                                - has: {field: parameters, has: {kind: identifier, pattern: $ROW}}
+                                - has:
+                                    field: body
+                                    all:
+                                        - has: {kind: return_statement, has: {matches: getter-body}}
+                                        - not: {has: {pattern: $_, not: {any: [{kind: return_statement}, {kind: comment}, {kind: expression_statement, has: {kind: string}}]}}}
+                    - inside: {kind: module, stopBy: end, has: {kind: expression_statement, has: {matches: row-binding}}}
+            - not:
+                inside:
+                    kind: 'function_definition, module'
+                    stopBy: {kind: function_definition}
+                    has: {stopBy: end, kind: call, pattern: len($ROW)}
+    untyped-parameter:
+        any:
+            - kind: identifier
+              pattern: $PARAM
+            - kind: default_parameter
+              has: {field: name, pattern: $PARAM}
+    call-slot:
+        any:
+            - all:
+                - has: {field: parameters, has: {nthChild: 1, matches: untyped-parameter}}
+                - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: call, all: [{has: {field: function, pattern: $HELPER}}, {has: {field: arguments, has: {nthChild: 1, matches: row-ref}}}]}}
+            - all:
+                - has: {field: parameters, has: {nthChild: 2, matches: untyped-parameter}}
+                - inside:
+                    kind: module
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: call
+                        any:
+                            - all: [{has: {field: function, pattern: $HELPER}}, {has: {field: arguments, has: {nthChild: 2, matches: row-ref}}}]
+                            - all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $HELPER}}}, {has: {field: arguments, has: {nthChild: 1, matches: row-ref}}}]
+            - all:
+                - has: {field: parameters, has: {nthChild: 3, matches: untyped-parameter}}
+                - inside:
+                    kind: module
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: call
+                        any:
+                            - all: [{has: {field: function, pattern: $HELPER}}, {has: {field: arguments, has: {nthChild: 3, matches: row-ref}}}]
+                            - all: [{has: {field: function, kind: attribute, has: {field: attribute, pattern: $HELPER}}}, {has: {field: arguments, has: {nthChild: 2, matches: row-ref}}}]
+            - all:
+                - has: {field: parameters, has: {matches: untyped-parameter}}
+                - inside:
+                    kind: module
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: call
+                        all:
+                            - has: {field: function, any: [{pattern: $HELPER}, {kind: attribute, has: {field: attribute, pattern: $HELPER}}]}
+                            - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, pattern: $PARAM}}, {has: {field: value, matches: row-ref}}]}}
+    helper-parameter:
+        kind: identifier
+        pattern: $PARAM
+        inside:
+            kind: function_definition
+            stopBy: end
+            all:
+                - has: {field: name, pattern: $HELPER}
+                - not: {has: {field: body, has: {stopBy: end, kind: call, pattern: len($PARAM)}}}
+                - matches: call-slot
+    row-operand:
+        any:
+            - matches: row-ref
+            - matches: row-literal
+            - matches: helper-parameter
+            - kind: parenthesized_expression
+              has: {matches: row-operand}
+            - kind: 'list, tuple'
+              all: [{has: {kind: list_splat, has: {matches: row-ref}}}, {not: {has: {nthChild: 2}}}]
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(list|tuple)$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: row-ref}}
+                - not: {has: {field: arguments, has: {nthChild: 2}}}
+rule:
+    pattern: $READ
+    any:
+        - kind: call
+          all:
+            - has: {field: arguments, has: {kind: 'integer, unary_operator, identifier, attribute'}}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {kind: 'integer, unary_operator, identifier, attribute'}}}}
+            - has: {field: function, matches: itemgetter}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {matches: position}}}}
+        - kind: subscript
+          all:
+            - has: {field: subscript, any: [{matches: position}, {matches: bounded-slice}]}
+            - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
+            - has: {field: value, matches: row-operand}
+        - kind: call
+          all:
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^__getitem__$'}}, {has: {field: object, matches: row-operand}}]}
+            - has: {field: arguments, all: [{has: {matches: position}}, {not: {has: {nthChild: 2}}}]}
+        - kind: call
+          all:
+            - has: {field: function, regex: '(^|\.)(getitem|islice)$'}
+            - has: {field: arguments, has: {nthChild: 1, matches: row-operand}}
+            - has: {field: arguments, has: {nthChild: 2, matches: position}}
+            - not: {has: {field: arguments, has: {pattern: $_, not: {any: [{nthChild: 1}, {matches: position}, {kind: none}]}}}}
+        - kind: call
+          all:
+            - has: {field: function, regex: '^next$'}
+            - has: {field: arguments, has: {nthChild: 1, kind: call, all: [{has: {field: function, regex: '^(iter|reversed)$'}}, {has: {field: arguments, has: {nthChild: 1, matches: row-operand}}}]}}
+message: '`$READ` reads a field of a row by position'
+note: 'Unpack the row into named targets or a sequence pattern, or hold it as a record with named fields'

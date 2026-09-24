@@ -1,0 +1,96 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throwing-settings-getter-python
+language: python
+severity: error
+utils:
+    getter-name:
+        regex: '^Get(Child|Bool|Byte|Integer|UnsignedInteger|Double|Char|String|StringDictionary|StringList|Date|Color|Guid|Point|Point3d|Size|Rectangle|SettingType|SettingIsReadOnly|SettingIsHiddenFromUserInterface)$'
+    settings-node:
+        any:
+            - kind: attribute
+              regex: '\.RhinoAppSettings$'
+            - kind: call
+              has: {field: function, kind: attribute, has: {field: attribute, regex: '^(GetChild|AddChild|FromPlugInId|GetPluginSettings|CommandSettings)$'}}
+            - kind: attribute
+              all:
+                - has: {field: attribute, regex: '^(Settings|WindowPositionSettings)$'}
+                - has:
+                    field: object
+                    any:
+                        - kind: call
+                          has: {field: function, regex: '(^|\.)PlugIn\.Find$'}
+                        - kind: identifier
+                          matches: {python-typed-parameter: {type: {regex: '(^|\.)(PlugIn|Command)$'}}}
+            - kind: identifier
+              matches: {python-typed-parameter: {type: {regex: '(^|\.)PersistentSettings$'}}}
+            - kind: named_expression
+              has: {field: value, matches: settings-node}
+            - kind: parenthesized_expression
+              has: {matches: settings-node}
+            - kind: identifier, attribute
+              pattern: $NODE
+              inside:
+                kind: module
+                stopBy: end
+                has:
+                    stopBy: end
+                    any:
+                        - kind: assignment
+                          all:
+                            - has: {field: left, pattern: $NODE}
+                            - has: {field: right, matches: settings-node}
+                        - kind: assignment
+                          all:
+                            - has: {field: left, kind: pattern_list, has: {pattern: $NODE}}
+                            - has: {field: right, has: {stopBy: end, matches: settings-node}}
+                        - kind: named_expression
+                          all:
+                            - has: {field: name, pattern: $NODE}
+                            - has: {field: value, matches: settings-node}
+                        - kind: for_in_clause
+                          all:
+                            - has: {field: left, pattern: $NODE}
+                            - has: {field: right, any: [{matches: settings-node}, {kind: generator_expression, has: {field: body, matches: settings-node}}]}
+    getter:
+        any:
+            - kind: attribute
+              all:
+                - has: {field: attribute, matches: getter-name}
+                - has: {field: object, matches: settings-node}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^getattr$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {nthChild: 1, matches: settings-node}
+                        - has: {nthChild: 2, kind: string, has: {kind: string_content, matches: getter-name}}
+    enum-getter:
+        kind: subscript
+        has:
+            field: value
+            kind: attribute
+            all:
+                - has: {field: attribute, regex: '^GetEnumValue$'}
+                - has: {field: object, matches: settings-node}
+    key:
+        any:
+            - kind: string, concatenated_string
+            - kind: identifier
+              matches: {python-typed-parameter: {type: {regex: '^str$'}}}
+rule:
+    kind: call
+    pattern: $CALL
+    any:
+        - all:
+            - has: {field: function, matches: getter}
+            - has: {field: arguments, has: {nthChild: 1}, not: {has: {nthChild: 2}}}
+        - all:
+            - has: {field: function, matches: enum-getter}
+            - has: {field: arguments, has: {nthChild: 1, matches: key}, not: {has: {nthChild: 2}}}
+        - all:
+            - has: {field: function, matches: functools-partial-callee}
+            - has: {field: arguments, has: {nthChild: 1, matches: getter}, not: {has: {nthChild: 3}}}
+            - has: {field: arguments, has: {nthChild: 2}}
+message: '`$CALL` raises when the settings key or child is missing'
+note: Use `TryGet<Name>(<key>)` and select on the found flag of its `(<found>, <value>)` tuple, and get or create a child for writing with `AddChild(<key>)`

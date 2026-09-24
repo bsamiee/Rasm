@@ -1,0 +1,69 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-path-mapping-method
+language: csharp
+severity: error
+utils:
+    path:
+        any:
+            - kind: identifier
+              pattern: $SOURCE
+            - kind: identifier
+              pattern: $LOCAL
+              inside:
+                stopBy: end
+                kind: block
+                has:
+                    kind: local_declaration_statement
+                    has:
+                        kind: variable_declaration
+                        has:
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $LOCAL}
+                                - has: {nthChild: 2, matches: member-path}
+            - kind: member_access_expression
+              has: {field: expression, matches: path}
+            - kind: conditional_access_expression
+              all:
+                - has: {field: condition, matches: path}
+                - has: {kind: member_binding_expression}
+            - kind: postfix_unary_expression
+              regex: '!$'
+              has: {matches: path}
+            - kind: parenthesized_expression
+              has: {matches: path}
+    member-path:
+        any:
+            - kind: member_access_expression, conditional_access_expression
+              matches: path
+            - kind: postfix_unary_expression, parenthesized_expression
+              has: {matches: member-path}
+    path-local:
+        kind: local_declaration_statement
+        has:
+            kind: variable_declaration
+            all:
+                - has: {kind: variable_declarator, has: {nthChild: 2, matches: member-path}}
+                - not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+    path-body:
+        any:
+            - kind: arrow_expression_clause
+              has: {matches: member-path, pattern: $PATH}
+            - kind: block
+              all:
+                - has: {kind: return_statement, has: {matches: member-path, pattern: $PATH}}
+                - not: {has: {pattern: $_, not: {any: [{kind: return_statement}, {matches: path-local}]}}}
+rule:
+    kind: method_declaration
+    all:
+        - matches: csharp-mapping-method
+        - not: {has: {kind: modifier, regex: '^partial$'}}
+        - not: {has: {kind: attribute_list, has: {kind: attribute, not: {has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?NamedMapping(Attribute)?$'}}}}}
+        - has:
+            field: parameters
+            all:
+                - has: {kind: parameter, has: {field: name, pattern: $SOURCE}}
+                - not: {has: {kind: parameter, nthChild: 2}}
+        - has: {matches: path-body}
+message: "Mapping method returns `$PATH`, one member path of its source"
+note: "Use `[MapProperty(nameof(@<Source>.<Path>), nameof(<Target>.<Member>))]` in place of the method and its `Use` reference"

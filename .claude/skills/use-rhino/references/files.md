@@ -10,6 +10,7 @@ Files on disk read through openNURBS outside Rhino, open as documents through ma
 - `open_by` holds user, computer, and time from the `<file>.rhl` lock Rhino writes beside a file a document holds open
 - Locks outlive a crashed Rhino, `list_slots` and `describe(doc)` confirm which document holds the file
 - Layer linetypes read `None`, rhino3dm crashes the interpreter on releasing a model whose linetype table it read
+- `rhino3dm` exposes no view display mode, render settings walk, or section style, those read through `File3dm` inside Rhino
 - `Fault` lines name files openNURBS cannot read, and Rhino opens none of them
 
 ```bash
@@ -31,12 +32,19 @@ uv run --script <skill>/scripts/file3dm.py <file> | jq -c '.layers[] | {path, ob
 - STEP, IGES, SAT, and Parasolid targets leave out the object types their exporter drops and list those ids in `File.detail`
 - Subsets, typed formats, and dropped types write from a headless copy holding the document's layers, materials, and blocks
 - Blocks holding a dropped type write as their pieces, layout details stay out of every copy
-- STEP writes keep an overwritten file as `<name>.<suffix>bak`
+- Saves keep an overwritten `.3dm` as `<name>.3dmbak` under `FileSettings.CreateBackupFiles`
+- Exports keep an overwritten file as `<name>.<suffix>bak` under `FileSettings.CreateOtherBackupFiles`
+- `FileWriteOptions` with `IncludeRenderMeshes` and `IncludeBitmapTable` True embeds render meshes and the textures of render content
+- Materials reach Blender through `.glb`, OBJ, FBX, and USD lose materials or units
+- `.3dm` gives Blender the layers, layer materials, and the texture files it embeds
+- `.glb` exports write materials double-sided with their IOR, and Blender reads specular at half and emission in display values
 - `.3dm` sources convert with their own units, other formats read into `doc`'s units, STEP scaled by the units it stores
 - Missing, unreadable, and same-path sources fault alone, the rest of the batch converts
 - Conversions run on Rhino's UI thread under the router's 5 minute limit, a large batch splits across calls
+- Exports and headless copies leave document user text (`doc.Strings`) out while `Options/Advanced/ExportDocumentUserText` holds False
+- Per-format export defaults sit in each export plugin's settings file and remember the last dialog choice
 
-`load(doc, path, "<A>")` imports a file into the working document under layer `<A>`, the file's layers as its sublayers.
+`load(doc, path, "<A>")` imports a file into the working document under layer `<A>`, the file's layers as its sublayers, unless `-_Options _Files _LayerImport` matches short names and merges them into same-named layers.
 
 ## [04]-[HEADLESS]
 
@@ -44,4 +52,6 @@ uv run --script <skill>/scripts/file3dm.py <file> | jq -c '.layers[] | {path, ob
 - Headless documents write no lock file, stay out of `list_slots` and `documents()`, and leave the active document as it was
 - `command` refuses a headless document, RhinoCommon and typed writers work in it
 - `Dispose()` in a `finally` closes it
+- Headless documents list no render environment of their file and take no named view, `File3dm.Read(path).RenderEnvironments` lists the file's
+- `RhinoDoc.Create(None)` makes a document with views and no window that no close removes, work without a window takes `CreateHeadless`
 - Headless opens of an unreadable `.3dm` crash the Rhino process, `convert` and `load` refuse one through `File3dm.Read` first

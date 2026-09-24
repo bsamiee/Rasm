@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-scope-over-values
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    held:
+        kind: identifier, member_access_expression, binary_expression
+    value:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*pure(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: held}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*lift(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: value}}}
+            - kind: lambda_expression
+              all:
+                - not: {has: {field: parameters, has: {kind: parameter}}}
+                - has: {field: body, matches: held}
+    value-scope:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*Using(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: value}}}
+rule:
+    kind: invocation_expression
+    all:
+        - matches: value-scope
+        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $VALUES}}}
+    inside:
+        stopBy: end
+        kind: argument
+        nthChild: 2
+        inside: {kind: argument_list, inside: {matches: value-scope}}
+message: '`$VALUES` opens a second scope inside a scope over acquired values'
+note: Use one `Disposal.Using(IO.pure(<first>.Map<IDisposable>(...) + <second>.Map<IDisposable>(...)), <body>)`, or `Disposal.Release` over that sequence where no body follows

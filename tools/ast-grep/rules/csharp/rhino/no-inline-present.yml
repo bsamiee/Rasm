@@ -1,0 +1,309 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-present
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    tested:
+        kind: is_pattern_expression
+        has: {field: expression, pattern: $V}
+    guid-present:
+        any:
+            - pattern: $V != Guid.Empty
+            - pattern: Guid.Empty != $V
+            - pattern: '!$V.Equals(Guid.Empty)'
+            - pattern: '!Guid.Empty.Equals($V)'
+            - pattern: $V != default(Guid)
+    guid-present-default:
+        any:
+            - pattern: $V != default
+            - pattern: default != $V
+    guid-absent:
+        any:
+            - pattern: $V == Guid.Empty
+            - pattern: Guid.Empty == $V
+            - pattern: $V.Equals(Guid.Empty)
+            - pattern: Guid.Empty.Equals($V)
+            - pattern: $V == default(Guid)
+    guid-absent-default:
+        any:
+            - pattern: $V == default
+            - pattern: default == $V
+    string-present:
+        any:
+            - pattern: $V != ""
+            - pattern: '"" != $V'
+            - pattern: $V != string.Empty
+            - pattern: string.Empty != $V
+            - pattern: '!string.IsNullOrEmpty($V)'
+            - matches: tested
+              has: {field: pattern, regex: '^\{\s*Length\s*:\s*(>\s*0|not\s+0)\s*\}$'}
+    string-present-length:
+        any:
+            - pattern: $V.Length > 0
+            - pattern: $V.Length != 0
+            - pattern: 0 < $V.Length
+            - pattern: 0 != $V.Length
+            - pattern: $V.Length is > 0
+            - pattern: $V.Length is not 0
+    string-absent:
+        any:
+            - pattern: $V == ""
+            - pattern: '"" == $V'
+            - pattern: $V == string.Empty
+            - pattern: string.Empty == $V
+            - pattern: string.IsNullOrEmpty($V)
+            - matches: tested
+              has: {field: pattern, regex: '^(null\s+or\s+""|""\s+or\s+null|null\s+or\s+\{\s*Length\s*:\s*0\s*\})$'}
+    string-absent-length:
+        any:
+            - pattern: $V.Length == 0
+            - pattern: 0 == $V.Length
+            - pattern: $V.Length is 0
+    int-present:
+        any:
+            - pattern: $V >= 0
+            - pattern: 0 <= $V
+            - pattern: $V > -1
+            - pattern: -1 < $V
+            - matches: tested
+              has: {field: pattern, regex: '^(>=\s*0|>\s*-1|not\s+<\s*0)$'}
+    int-absent:
+        any:
+            - pattern: $V < 0
+            - pattern: 0 > $V
+            - pattern: $V <= -1
+            - pattern: -1 >= $V
+            - matches: tested
+              has: {field: pattern, regex: '^(<\s*0|<=\s*-1)$'}
+    uint-present:
+        any:
+            - pattern: $V != 0u
+            - pattern: 0u != $V
+            - pattern: $V > 0u
+            - pattern: 0u < $V
+            - pattern: $V != 0
+            - pattern: 0 != $V
+            - pattern: $V > 0
+            - pattern: 0 < $V
+            - matches: tested
+              has: {field: pattern, regex: '^(not\s+0[uU]?|>\s*0[uU]?)$'}
+    uint-absent:
+        any:
+            - pattern: $V == 0u
+            - pattern: 0u == $V
+            - pattern: $V == 0
+            - pattern: 0 == $V
+            - matches: tested
+              has: {field: pattern, regex: '^0[uU]?$'}
+    site:
+        any:
+            - kind: conditional_expression
+            - kind: query_expression
+            - kind: invocation_expression
+              has: {field: function, has: {field: name, regex: '^(Filter|Where)$'}}
+    named:
+        any:
+            - kind: parameter, declaration_expression, variable_declarator
+              has: {field: name, any: [{pattern: $X}, {pattern: $V}]}
+            - kind: foreach_statement
+              has: {field: left, any: [{pattern: $X}, {pattern: $V}]}
+    guid-named:
+        matches: named
+        any:
+            - has: {field: type, regex: '^((global::)?System\.)?Guid$'}
+            - inside: {kind: variable_declaration, has: {field: type, regex: '^((global::)?System\.)?Guid$'}}
+    guid-nullable-named:
+        matches: named
+        any:
+            - has: {field: type, regex: '^(((global::)?System\.)?Guid\s*\?|((global::)?System\.)?Nullable\s*<\s*((global::)?System\.)?Guid\s*>)$'}
+            - inside: {kind: variable_declaration, has: {field: type, regex: '^(((global::)?System\.)?Guid\s*\?|((global::)?System\.)?Nullable\s*<\s*((global::)?System\.)?Guid\s*>)$'}}
+    string-named:
+        matches: named
+        any:
+            - has: {field: type, regex: '^((global::)?System\.)?(string|String)\s*\??$'}
+            - inside: {kind: variable_declaration, has: {field: type, regex: '^((global::)?System\.)?(string|String)\s*\??$'}}
+    int-named:
+        matches: named
+        any:
+            - has: {field: type, regex: '^((global::)?System\.)?(int|Int32)$'}
+            - inside: {kind: variable_declaration, has: {field: type, regex: '^((global::)?System\.)?(int|Int32)$'}}
+    uint-named:
+        matches: named
+        any:
+            - has: {field: type, regex: '^((global::)?System\.)?(uint|UInt32)$'}
+            - inside: {kind: variable_declaration, has: {field: type, regex: '^((global::)?System\.)?(uint|UInt32)$'}}
+    scope:
+        kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration, block, arrow_expression_clause, switch_section, query_expression
+    guid-proof:
+        any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: guid-named}}
+            - inside: {stopBy: end, kind: foreach_statement, matches: guid-named}
+            - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?Guid\s*>$'}}
+    guid-nullable:
+        any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: guid-nullable-named}}
+            - inside: {stopBy: end, kind: foreach_statement, matches: guid-nullable-named}
+    string-proof:
+        any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: string-named}}
+            - inside: {stopBy: end, kind: foreach_statement, matches: string-named}
+            - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(string|String)\s*\??\s*>$'}}
+    int-proof:
+        any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: int-named}}
+            - inside: {stopBy: end, kind: foreach_statement, matches: int-named}
+            - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(int|Int32)\s*>$'}}
+    uint-proof:
+        any:
+            - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: uint-named}}
+            - inside: {stopBy: end, kind: foreach_statement, matches: uint-named}
+            - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(uint|UInt32)\s*>$'}}
+    negation:
+        any:
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {kind: parenthesized_expression, pattern: $NEGATED}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $NEGATED}
+                - has: {field: pattern, regex: '^false$'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - has: {field: left, pattern: $NEGATED}
+                - has: {field: right, regex: '^false$'}
+    present:
+        any:
+            - all: [{matches: guid-present}, {not: {matches: guid-nullable}}]
+            - all: [{matches: guid-present-default}, {matches: guid-proof}]
+            - matches: string-present
+            - all: [{matches: string-present-length}, {matches: string-proof}]
+            - all: [{matches: int-present}, {matches: int-proof}]
+            - all: [{matches: uint-present}, {matches: uint-proof}]
+            - matches: negation
+              has: {stopBy: end, pattern: $NEGATED, any: [{matches: absent}, {kind: parenthesized_expression, has: {matches: absent}}]}
+            - kind: parenthesized_expression
+              has: {matches: present}
+    absent:
+        any:
+            - all: [{matches: guid-absent}, {not: {matches: guid-nullable}}]
+            - all: [{matches: guid-absent-default}, {matches: guid-proof}]
+            - matches: string-absent
+            - all: [{matches: string-absent-length}, {matches: string-proof}]
+            - all: [{matches: int-absent}, {matches: int-proof}]
+            - all: [{matches: uint-absent}, {matches: uint-proof}]
+            - matches: negation
+              has: {stopBy: end, pattern: $NEGATED, any: [{matches: present}, {kind: parenthesized_expression, has: {matches: present}}]}
+            - kind: parenthesized_expression
+              has: {matches: absent}
+    held:
+        kind: identifier
+        pattern: $FLAG
+    held-present:
+        matches: held
+        inside: {stopBy: end, kind: return_statement, follows: {kind: local_declaration_statement, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $FLAG}}, {has: {nthChild: {position: 1, reverse: true}, matches: present}}]}}}
+    held-absent:
+        matches: held
+        inside: {stopBy: end, kind: return_statement, follows: {kind: local_declaration_statement, has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $FLAG}}, {has: {nthChild: {position: 1, reverse: true}, matches: absent}}]}}}
+    explicit-lift:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Some|Optional)(\s*<.+>)?$'}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1, regex: '^(value\s*:\s*)?[^:]', has: {nthChild: {position: 1, reverse: true}, pattern: $X}}
+                    - not: {has: {kind: argument, nthChild: 2}}
+    lift:
+        any:
+            - matches: explicit-lift
+            - kind: identifier
+              pattern: $X
+            - kind: parenthesized_expression
+              has: {matches: lift}
+    lift-of-value:
+        any:
+            - matches: explicit-lift
+              has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, pattern: $V}}}
+            - kind: identifier
+              pattern: $V
+            - kind: parenthesized_expression
+              has: {matches: lift-of-value}
+    lifted-query:
+        kind: query_expression
+        all:
+            - has: {kind: from_clause, nthChild: 1, all: [{has: {field: name, pattern: $V}}, {has: {nthChild: {position: 1, reverse: true}, matches: explicit-lift}}]}
+            - has: {kind: where_clause, nthChild: 2, has: {matches: present}}
+            - has: {kind: select_clause, nthChild: 3, has: {kind: identifier, pattern: $V}}
+            - not: {has: {nthChild: 4}}
+    ternary:
+        kind: conditional_expression
+        any:
+            - all:
+                - has: {field: consequence, matches: lift}
+                - has: {field: alternative, matches: csharp-none-value}
+                - has: {field: condition, any: [{matches: present}, {matches: held-present}]}
+                - has: {field: consequence, matches: lift-of-value}
+            - all:
+                - has: {field: alternative, matches: lift}
+                - has: {field: consequence, matches: csharp-none-value}
+                - has: {field: condition, any: [{matches: absent}, {matches: held-absent}]}
+                - has: {field: alternative, matches: lift-of-value}
+rule:
+    kind: invocation_expression, conditional_expression, query_expression, return_statement
+    all:
+        - any:
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^(Filter|Where)$'}
+                        - has: {field: expression, matches: explicit-lift}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {kind: argument, nthChild: 2}}
+                        - has:
+                            kind: argument
+                            not: {has: {field: name, kind: identifier}}
+                            has:
+                                kind: lambda_expression
+                                all:
+                                    - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $V}, {kind: parameter_list, all: [{has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $V}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}]}
+                                    - has: {field: body, matches: present}
+            - kind: query_expression
+              matches: lifted-query
+            - kind: conditional_expression
+              all:
+                - matches: ternary
+                - not: {has: {field: condition, kind: identifier}}
+            - kind: return_statement
+              has: {kind: conditional_expression, matches: ternary, has: {field: condition, kind: identifier}}
+        - not: {has: {stopBy: end, kind: comment}}
+        - not: {inside: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Present$'}}}}
+transform:
+    OPEN:
+        replace:
+            source: $FLAG
+            replace: '(?s)^.+$'
+            by: 'return '
+    CLOSE:
+        replace:
+            source: $FLAG
+            replace: '(?s)^.+$'
+            by: ';'
+    PRESENT:
+        replace:
+            source: $X
+            replace: '(?s)^.+$'
+            by: Answers.Present(
+fix:
+    template: $OPEN$PRESENT$X)$CLOSE
+    expandStart: {kind: local_declaration_statement}
+message: Sentinel test lifts `$X` into an `Option` by hand
+note: Use `Answers.Present(<value>)`

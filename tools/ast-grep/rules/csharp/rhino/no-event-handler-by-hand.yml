@@ -1,0 +1,183 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-event-handler-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    answer-call:
+        matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^(Answer|Succeeded)$'}}}
+    unit-value:
+        any:
+            - kind: identifier
+              regex: '^unit$'
+            - kind: member_access_expression
+              regex: '^((global::)?(LanguageExt\.)?Unit\s*\.\s*Default|(global::)?(LanguageExt\.)?Prelude\s*\.\s*unit)$'
+            - kind: default_expression
+              any:
+                - regex: '^default$'
+                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Unit$'}
+    lazy-unit:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+            - has: {field: body, matches: unit-value}
+    answer:
+        matches: answer-call
+        any:
+            - all:
+                - has: {field: function, regex: 'Answer$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: argument, nthChild: 1, pattern: $EFFECT}
+                        - any:
+                            - has: {kind: argument, nthChild: 3, has: {nthChild: {position: 1, reverse: true}, matches: unit-value}}
+                            - all:
+                                - has: {kind: argument, nthChild: 3, has: {nthChild: {position: 1, reverse: true}, matches: lazy-unit}}
+                                - has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'}}}
+                        - not: {has: {kind: argument, nthChild: 4}}
+            - all:
+                - has: {field: function, regex: 'Succeeded$'}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: argument, nthChild: 1, pattern: $EFFECT}
+                        - not: {has: {kind: argument, nthChild: 3}}
+    discard:
+        kind: assignment_expression
+        all:
+            - has: {field: left, regex: '^_$'}
+            - has: {field: right, matches: answer}
+    answered:
+        any:
+            - matches: answer
+            - matches: discard
+    single:
+        any:
+            - matches: answered
+            - kind: block
+              all:
+                - has: {nthChild: 1, kind: expression_statement, has: {matches: answered}}
+                - any:
+                    - not: {has: {nthChild: 2}}
+                    - all:
+                        - has: {nthChild: 2, kind: return_statement, not: {has: {pattern: $_}}}
+                        - not: {has: {nthChild: 3}}
+                - not: {has: {kind: comment}}
+    relay:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - kind: identifier
+                      pattern: $RELAY
+                    - kind: member_access_expression
+                      regex: '^this\s*\.'
+                      has: {field: name, pattern: $RELAY}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $RELAY}
+                        - has: {field: returns, regex: '^void$'}
+                        - has: {field: body, any: [{kind: arrow_expression_clause, has: {matches: answered}}, {kind: block, matches: single}]}
+    handler-body:
+        any:
+            - has: {field: body, matches: single}
+            - has: {field: body, matches: relay}
+            - has: {field: body, kind: arrow_expression_clause, has: {any: [{matches: answered}, {matches: relay}]}}
+            - has: {kind: block, matches: single}
+    sender-unused:
+        any:
+            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, regex: '^_$'}}}
+            - not: {has: {stopBy: end, kind: identifier, pattern: $SENDER, not: {inside: {kind: parameter}}}}
+    two-parameters:
+        has:
+            field: parameters
+            kind: parameter_list
+            all:
+                - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $SENDER}}
+                - has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $ARGS}}
+                - not: {has: {kind: parameter, nthChild: 3}}
+    generic-type:
+        regex: '^((global::)?System\.)?EventHandler\s*<'
+    subscription:
+        kind: assignment_expression
+        all:
+            - has: {field: operator, regex: '^\+=$'}
+            - has:
+                field: left
+                any:
+                    - kind: identifier
+                      pattern: $EVENT
+                    - kind: member_access_expression
+                      has: {field: name, pattern: $EVENT}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    any:
+                        - kind: event_field_declaration
+                          has: {kind: variable_declaration, all: [{has: {field: type, matches: generic-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $EVENT}}}]}
+                        - kind: event_declaration
+                          all: [{has: {field: type, matches: generic-type}}, {has: {field: name, pattern: $EVENT}}]
+    typed-position:
+        any:
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        kind: object_creation_expression
+                        has: {field: type, matches: generic-type}
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        kind: invocation_expression
+                        has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Events\s*\.\s*Attach\s*<\s*((global::)?System\.)?EventHandler\s*<'}
+            - inside:
+                kind: variable_declarator
+                inside: {kind: variable_declaration, has: {field: type, matches: generic-type}}
+            - inside:
+                kind: arrow_expression_clause
+                inside:
+                    any:
+                        - {kind: method_declaration, has: {field: returns, matches: generic-type}}
+                        - {kind: local_function_statement, has: {field: type, matches: generic-type}}
+            - inside:
+                kind: return_statement
+                inside:
+                    kind: block
+                    inside:
+                        any:
+                            - {kind: method_declaration, has: {field: returns, matches: generic-type}}
+                            - {kind: local_function_statement, has: {field: type, matches: generic-type}}
+rule:
+    kind: lambda_expression, anonymous_method_expression, local_function_statement
+    all:
+        - matches: two-parameters
+        - matches: handler-body
+        - matches: sender-unused
+        - any:
+            - kind: lambda_expression, anonymous_method_expression
+              matches: typed-position
+            - kind: local_function_statement
+              all:
+                - has: {field: name, pattern: $LOCAL}
+                - inside:
+                    stopBy: end
+                    kind: block
+                    has:
+                        stopBy: end
+                        matches: subscription
+                        has: {field: right, kind: identifier, pattern: $LOCAL}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Handler$'}}}}
+message: Event handler over `$ARGS` runs its effect through `Answers.Answer` by hand
+note: Use `Answers.Handler<TArgs>(<args> => <effect>, <reject>)`, with `TArgs` the event argument type the delegate names

@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-run-python-script
+language: python
+severity: error
+rule:
+    kind: string
+    pattern: $MACRO
+    has: {kind: string_content, regex: '(?i)runpythonscript'}
+    not: {inside: {kind: comparison_operator}}
+message: '`$MACRO` runs a file through `_-RunPythonScript`, which Rhino runs on IronPython 2.7'
+note: 'Run the file through `_-ScriptEditor _Run "<file>"`'

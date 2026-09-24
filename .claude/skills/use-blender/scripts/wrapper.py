@@ -1,21 +1,25 @@
-# ast-grep-ignore: no-stdlib-record, no-json-codec
-# ruff: file-ignore[mutable-class-default]
+# mypy: disable-error-code="attr-defined, union-attr"
+# ty: ignore[unresolved-attribute, invalid-context-manager]
+# ruff: file-ignore[mutable-class-default, private-member-access]
 # /// script
 # requires-python = ">=3.13"
+# dependencies = ["attrs", "msgspec"]
 # ///
-"""PreToolUse hook sending agent code to Blender inside `agent_call` from this file, which reports unfinished operators on every host, runs in the file's window in background, and closes a live call with one grouped undo step."""
+"""PreToolUse hook wrapping agent code in this file's `agent_call`, which reports unfinished operators on every host, runs background calls in the file's window, and closes a live call with one grouped undo step."""
 
-from collections.abc import Callable, Iterator
-from contextlib import AbstractContextManager, contextmanager
-from dataclasses import dataclass
-import json
+from collections.abc import Iterator
+from contextlib import contextmanager
 from pathlib import Path
 import symtable
 import sys
-from typing import cast, override, Protocol, TYPE_CHECKING
+from typing import override, Protocol, TYPE_CHECKING
+
+import attrs
 
 if TYPE_CHECKING or "bpy" in sys.modules:
     import bpy
+if TYPE_CHECKING or "bpy" not in sys.modules:
+    import msgspec
 if TYPE_CHECKING:
     from bpy.stub_internal.rna_enums import OperatorReturnItems
 
@@ -37,7 +41,7 @@ class BPyOpFunction(Protocol):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Reported:
     """Operator function that prints `bpy.ops.<op> returned [...]` for a return set without `FINISHED`, reading every other attribute from the function."""
 
@@ -75,7 +79,7 @@ def agent_call() -> Iterator[None]:
                 """Undo step closing agent calls, consecutive calls in one mode sharing it."""
 
                 bl_idname = f"mcp.{name}"
-                bl_label = f"Agent ({cast('bpy.types.EnumProperty', bpy.types.Context.bl_rna.properties['mode']).enum_items[mode].name})"
+                bl_label = f"Agent ({bpy.types.UILayout.enum_item_name(bpy.context, 'mode', mode)})"
                 bl_options = {"INTERNAL", "UNDO_GROUPED"}
 
                 @override
@@ -87,15 +91,13 @@ def agent_call() -> Iterator[None]:
             undo = True
             create("mcp", name)("EXEC_DEFAULT", undo)
 
-    namespace = vars(bpy.ops)
-    create: Callable[[str, str], BPyOpFunction] = namespace["_op_create_function"]
-    window = cast("bpy.types.WindowManager", bpy.context.window_manager).windows[0]
-    with cast("AbstractContextManager[None]", bpy.context.temp_override(window=window, screen=window.screen)) if bpy.app.background else undo_step():
-        namespace["_op_create_function"] = lambda module, name: Reported(create(module, name))
+    create, window = bpy.ops._op_create_function, bpy.data.window_managers[0].windows[0]
+    with bpy.context.temp_override(window=window, screen=window.screen) if bpy.app.background else undo_step():
+        bpy.ops._op_create_function = lambda module, name: Reported(create(module, name))
         try:
             yield
         finally:
-            namespace["_op_create_function"] = create
+            bpy.ops._op_create_function = create
 
 
 def wrap(code: str) -> str | None:
@@ -114,9 +116,9 @@ def wrap(code: str) -> str | None:
 
 def main() -> None:
     """Answer `updatedInput` with the wrapped code, nothing when the code runs as sent."""
-    match json.load(sys.stdin):
+    match msgspec.json.decode(sys.stdin.buffer.read()):
         case {"tool_input": {"code": str() as code} as tool_input} if (updated := wrap(code)) is not None:
-            json.dump({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {**tool_input, "code": updated}}}, sys.stdout)
+            sys.stdout.buffer.write(msgspec.json.encode({"hookSpecificOutput": {"hookEventName": "PreToolUse", "updatedInput": {**tool_input, "code": updated}}}))
 
 
 if __name__ == "__main__":

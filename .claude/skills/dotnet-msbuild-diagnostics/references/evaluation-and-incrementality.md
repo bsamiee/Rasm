@@ -34,8 +34,8 @@ Change a glob, an import, or a property function when the measured evaluation co
 - `EnableDefaultItems` and `EnableDefaultCompileItems` include `**/*.cs` minus `DefaultItemExcludes` and `DefaultExcludesInProjectFolder`
 - `None` and `EmbeddedResource` follow the same pattern
 - `DefaultItemExcludes` holds `$(BaseOutputPath)/**`, `$(BaseIntermediateOutputPath)/**`, `**/*.user`, and the project and solution file patterns
-- A large directory no item type reads appends to `DefaultItemExcludes`
-- A custom `Include` takes `Exclude` on the same element
+- Large directories no item type reads append to `DefaultItemExcludes`
+- Custom `Include` attributes take `Exclude` on the same element
 - Disable a default item type when the project declares every item of that type
 
 ```xml
@@ -45,8 +45,8 @@ Change a glob, an import, or a property function when the measured evaluation co
 ```
 
 [REPEATED_EVALUATIONS]:
-- The restore pass, the outer build, and each inner build of a multi-targeting project are expected evaluations
-- A difference in the global-property sets the requested build does not need is the finding
+- Restore pass, outer build, and each inner build of a multi-targeting project are expected evaluations
+- Differences in global-property sets the requested build does not need are the finding
 
 [PROPERTY_FUNCTIONS]:
 - Property functions inside a property or item expression run on every evaluation, design-time builds and `-getProperty` queries included
@@ -54,7 +54,7 @@ Change a glob, an import, or a property function when the measured evaluation co
 
 ## [02]-[INCREMENTALITY]
 
-The workflow finds the target that breaks incremental rules. Use `dotnet-msbuild-execution` for `Inputs`, `Outputs`, and `FileWrites`.
+Diagnosis finds targets that break incremental rules. Use `dotnet-msbuild-execution` for `Inputs`, `Outputs`, and `FileWrites`.
 
 ### [02.1]-[BINLOG_DIAGNOSIS]
 
@@ -73,8 +73,8 @@ Analyze the second binlog:
 6. Run `binlog_expensive_targets` to order the rebuilt targets by cost
 7. Run `binlog_search_files` for the target declaration when its `Inputs` and `Outputs` are in question
 
-- A target without `Inputs` and `Outputs` runs on every build and logs no up-to-date reason
-- A file in `incrementalCleanDeletions` vanishes on every second build
+- Targets without `Inputs` and `Outputs` run on every build and log no up-to-date reason
+- Files in `incrementalCleanDeletions` vanish on every second build
 
 ### [02.2]-[COMPILATION]
 
@@ -82,13 +82,13 @@ Analyze the second binlog:
 - `Deterministic` is `true` by default, identical inputs produce an identical assembly
 - `ProduceReferenceAssembly` is `true` by default, `Csc` writes `obj/<config>/<tfm>/refint/<name>.dll`
 - `CopyRefAssembly` updates `ref/<name>.dll` when the public surface changes
-- A change inside a method body recompiles the library and leaves every consumer's `CoreCompile` skipped
-- A new public type rewrites the reference assembly and recompiles every consumer, `CoreCompile` shows `skipped: false` in each dependent
+- Changes inside a method body recompile the library and leave every consumer's `CoreCompile` skipped
+- New public types rewrite the reference assembly and recompile every consumer, `CoreCompile` shows `skipped: false` in each dependent
 
 ### [02.3]-[COMMON_DEFECTS]
 
 - Output paths contain a timestamp, build number, or random value
-- The target writes a file `Outputs` does not declare
-- The declared inputs omit a file that affects the output
+- Targets write a file `Outputs` does not declare
+- Declared inputs omit a file that affects the output
 - Changed properties alter a declared input or output path
 - Tasks rewrite unchanged output content and change its timestamp

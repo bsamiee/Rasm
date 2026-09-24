@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-mapping-method
+language: csharp
+utils:
+    user-mapping:
+        has:
+            kind: attribute_list
+            has:
+                kind: attribute
+                has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?(User|Named)Mapping(Attribute)?$'}
+    generated-mapping:
+        all:
+            - has: {kind: modifier, regex: '^partial$'}
+            - not: {has: {field: body, pattern: $_}}
+            - inside: {kind: declaration_list, inside: {matches: csharp-mapper-class}}
+    use-helper:
+        all:
+            - has: {field: name, pattern: $HELPER}
+            - inside:
+                kind: declaration_list
+                inside:
+                    matches: csharp-mapper-class
+                    has:
+                        stopBy: end
+                        kind: attribute_argument
+                        all:
+                            - has: {field: name, regex: '^Use$'}
+                            - has:
+                                any:
+                                    - pattern: nameof($HELPER)
+                                    - kind: string_literal
+                                      has: {kind: string_literal_content, pattern: $HELPER}
+rule:
+    kind: method_declaration
+    any:
+        - matches: user-mapping
+        - matches: generated-mapping
+        - matches: use-helper

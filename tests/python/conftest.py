@@ -14,3 +14,8 @@ from tests.python.support.properties import register_package_tree
 def pytest_configure(config: pytest.Config) -> None:
     """Register every package under libs/python for public-API coverage on the session stash."""
     register_package_tree(config, config.rootpath / "libs" / "python", Path(__file__).resolve().parent / "libs")
+
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__: list[str] = []

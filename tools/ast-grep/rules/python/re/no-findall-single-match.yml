@@ -5,51 +5,65 @@ severity: error
 utils:
     first-element:
         kind: subscript
-        has: {field: subscript, regex: '^-?[01]$'}
-    compiled-binding:
-        kind: assignment
-        all:
-            - has: {field: left, pattern: $RX}
-            - has: {field: right, kind: call, has: {field: function, matches: {python-member-use: {module: {regex: '^re$'}, name: {regex: '^compile$'}}}}}
+        has: {field: subscript, regex: '^0$'}
+    compile-call:
+        kind: call
+        has: {field: function, matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^compile$'}}}}
+    typed-pattern:
+        matches: {python-typed-parameter: {type: {regex: '^((re|regex)\.)?Pattern(\[.*\])?$'}}}
+    compiled-name:
+        matches: {python-assigned-name: {value: {matches: compile-call}}}
     compiled-pattern:
         any:
             - kind: identifier
-              pattern: $RX
-              any:
-                - inside: {kind: 'module, function_definition', stopBy: end, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: compiled-binding}}
-                - inside:
-                    kind: function_definition
-                    stopBy: end
-                    has:
-                        field: parameters
-                        has:
-                            kind: 'typed_parameter, typed_default_parameter'
-                            all:
-                                - has: {kind: identifier, pattern: $RX}
-                                - has: {field: type, regex: '^(re\.)?Pattern(\[.*\])?$'}
+              any: [{matches: compiled-name}, {matches: typed-pattern}]
             - kind: attribute
               pattern: $RX
               has: {field: object, regex: '^self$'}
-              inside: {kind: class_definition, stopBy: end, has: {stopBy: end, matches: compiled-binding}}
+              inside: {kind: class_definition, stopBy: end, has: {stopBy: end, kind: assignment, all: [{has: {field: left, pattern: $RX}}, {has: {field: right, matches: compile-call}}]}}
     regex-callee:
         any:
-            - matches: {python-member-use: {module: {regex: '^re$'}, name: {regex: '^(findall|finditer)$'}}}
+            - matches: {python-member-use: {module: {regex: '^(re|regex)$'}, name: {regex: '^(findall|finditer)$'}}}
             - kind: attribute
-              has: {field: object, matches: compiled-pattern}
+              all:
+                - has: {field: attribute, regex: '^(findall|finditer)$'}
+                - has: {field: object, matches: compiled-pattern}
+    match-list:
+        kind: call
+        any:
+            - has: {field: function, regex: '(^|\.)findall$', matches: regex-callee}
+            - all:
+                - has: {field: function, regex: '^(list|tuple)$'}
+                - has: {field: arguments, has: {nthChild: 1, kind: call, has: {field: function, regex: '(^|\.)finditer$', matches: regex-callee}}, not: {has: {nthChild: 2}}}
+    first-read:
+        kind: identifier
+        any:
+            - inside: {kind: subscript, field: value, matches: first-element}
+            - inside: {kind: not_operator}
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+    bound-list:
+        kind: assignment
+        all:
+            - has: {field: left, kind: identifier, pattern: $MATCHES}
+            - inside:
+                kind: expression_statement
+                inside:
+                    kind: block, module
+                    all:
+                        - has: {stopBy: end, kind: identifier, pattern: $MATCHES, inside: {kind: subscript, field: value, matches: first-element}}
+                        - not: {has: {stopBy: end, kind: identifier, pattern: $MATCHES, not: {any: [{matches: first-read}, {inside: {kind: assignment, field: left}}]}}}
 rule:
     kind: call
     pattern: $CALL
     any:
+        - pattern: next(iter($FINDALL($$$)))
         - pattern: next($FINDITER($$$))
         - pattern: next($FINDITER($$$), $$$)
-        - pattern: next(iter($FINDALL($$$)))
-        - pattern: list($FINDITER($$$))
-          inside: {matches: first-element, field: value}
-        - pattern: $FINDALL($$$)
+        - matches: match-list
           any:
             - inside: {matches: first-element, field: value}
-            - inside: {kind: assignment, field: right, has: {field: left, kind: 'pattern_list, tuple_pattern, list_pattern'}}
             - inside: {kind: match_statement, field: subject}
+            - inside: {matches: bound-list, field: right}
 constraints:
     FINDITER: {regex: '(^|\.)finditer$', matches: regex-callee}
     FINDALL: {regex: '(^|\.)findall$', matches: regex-callee}

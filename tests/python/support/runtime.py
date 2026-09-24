@@ -13,7 +13,7 @@ import pytest
 from structlog.testing import capture_logs
 from structlog.types import EventDict, Processor
 
-from tests.python.support.properties import PROPERTY_RECORDS, PropertyRecord, record_coverage_declarations
+from tests.python.support.properties import PROPERTY_RECORDS, PropertyRecord
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
@@ -21,14 +21,13 @@ hyp_settings.register_profile("default", deadline=None, suppress_health_check=(H
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Apply the network marker and record the property tests and each module's ``COVERS`` declarations once."""
-    for item in items:
-        if "socket_enabled" in getattr(item, "fixturenames", ()):
-            item.add_marker(pytest.mark.network, append=False)
-    config.stash[PROPERTY_RECORDS] = (
-        *(record for item in items for mark in item.iter_markers("property") if isinstance(record := mark.kwargs.get("record"), PropertyRecord)),
-        *(record for module in dict.fromkeys(getattr(item, "module", None) for item in items) for record in record_coverage_declarations(module)),
-    )
+    """Apply the network marker, reject a test function carrying two property marks, and record each property mark once."""
+    for function in (item for item in items if isinstance(item, pytest.Function)):
+        if "socket_enabled" in function.fixturenames:
+            function.add_marker(pytest.mark.network, append=False)
+        if sum(mark.name == "property" for mark in function.own_markers) > 1:
+            raise pytest.UsageError(f"@property_test applied twice to {function.nodeid}, remove the duplicate decorator")
+    config.stash[PROPERTY_RECORDS] = tuple(dict.fromkeys(record for item in items for mark in item.iter_markers("property") if isinstance(record := mark.kwargs.get("record"), PropertyRecord)))
 
 
 @pytest.fixture(scope="session")

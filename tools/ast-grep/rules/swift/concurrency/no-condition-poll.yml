@@ -7,7 +7,6 @@ utils:
         kind: navigation_expression
         all:
             - has: {field: suffix, regex: '^\.(isTerminated|isRunning|isFinished|isCancelled|isExecuting)$'}
-            # `!Task.isCancelled` parses as `(!Task).isCancelled`, the target regex accepts the `!`
             - not: {has: {field: target, regex: '^!?Task$'}}
     sleep-call:
         any:

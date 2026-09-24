@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-seeded-capture
+language: csharp
+severity: error
+utils:
+    seed:
+        kind: variable_declarator
+        regex: '^\w+\s*='
+        not: {regex: '=\s*((global::)?(LanguageExt\.)?(Prelude\.)?None|(global::)?(LanguageExt\.)?Option\s*<.+>\.None)\s*$'}
+    transition:
+        kind: 'lambda_expression, anonymous_method_expression'
+        inside: {kind: argument, inside: {kind: argument_list, inside: {matches: csharp-atom-transition}}}
+    writing-callback:
+        kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
+        has: {stopBy: end, matches: captured-write}
+    captured-write:
+        not: {inside: {stopBy: end, matches: transition}}
+        any:
+            - kind: assignment_expression
+              all:
+                - has: {field: left, pattern: $LOCAL}
+                - has: {field: operator, regex: '^=$'}
+            - kind: assignment_expression
+              all:
+                - has: {field: left, kind: tuple_expression, has: {stopBy: end, kind: identifier, pattern: $LOCAL}}
+                - has: {field: operator, regex: '^=$'}
+            - kind: argument
+              all:
+                - has: {regex: '^out$'}
+                - has: {kind: identifier, pattern: $LOCAL}
+    overwritten:
+        kind: 'expression_statement, local_declaration_statement'
+        precedes:
+            stopBy: end
+            any:
+                - matches: writing-callback
+                - has: {stopBy: end, matches: writing-callback}
+rule:
+    any:
+        - kind: expression_statement
+          all:
+            - has:
+                kind: assignment_expression
+                all:
+                    - has: {field: left, kind: identifier, pattern: $LOCAL}
+                    - has: {field: operator, regex: '^=$'}
+                    - not: {has: {field: right, regex: '^((global::)?(LanguageExt\.)?(Prelude\.)?None|(global::)?(LanguageExt\.)?Option\s*<.+>\.None)$'}}
+            - follows:
+                stopBy: end
+                kind: local_declaration_statement
+                has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $LOCAL}, not: {regex: '='}}}
+            - matches: overwritten
+        - kind: variable_declarator
+          all:
+            - has: {field: name, pattern: $LOCAL}
+            - matches: seed
+            - inside:
+                kind: variable_declaration
+                not: {has: {field: type, regex: '^(global::)?(LanguageExt\.)?Option\s*<'}}
+                inside: {kind: local_declaration_statement, matches: overwritten}
+message: '`$LOCAL` holds a placeholder seed that a callback overwrites'
+note: Use `Option<T> <local> = None` with `Some(...)` in the callback and `<local>.IfNone(<error>)` after it, or the `out` declaration inside each arm that reads it

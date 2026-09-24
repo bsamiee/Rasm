@@ -1,0 +1,78 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-host-thread-invoke
+language: csharp
+severity: error
+utils:
+    eto-application:
+        regex: '^((global::)?Eto\.Forms\.)?Application\s*\.\s*Instance\s*!?$'
+    sync-context:
+        regex: '^((global::)?System\.Threading\.)?SynchronizationContext\s*\.\s*Current\s*!?$'
+    relayed:
+        any:
+            - kind: identifier
+              pattern: $HOLDER
+            - kind: member_access_expression
+              regex: '^this\s*\.'
+              has: {field: name, pattern: $HOLDER}
+            - kind: postfix_unary_expression
+              regex: '!$'
+              has: {nthChild: 1, matches: relayed}
+    eto-receiver:
+        any:
+            - matches: eto-application
+            - all:
+                - matches: relayed
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $HOLDER}}, {has: {matches: eto-application}}]}
+    context-receiver:
+        any:
+            - matches: sync-context
+            - all:
+                - matches: relayed
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        any:
+                            - kind: variable_declarator
+                              all: [{has: {field: name, pattern: $HOLDER}}, {has: {matches: sync-context}}]
+                            - kind: parameter, property_declaration
+                              all:
+                                - has: {field: name, pattern: $HOLDER}
+                                - has: {field: type, regex: '^((global::)?System\.Threading\.)?SynchronizationContext\s*\??$'}
+                            - kind: variable_declaration
+                              all:
+                                - has: {field: type, regex: '^((global::)?System\.Threading\.)?SynchronizationContext\s*\??$'}
+                                - has: {kind: variable_declarator, has: {field: name, pattern: $HOLDER}}
+    eto-invoke:
+        regex: '^(Invoke|AsyncInvoke|InvokeAsync)(\s*<.+>)?$'
+    context-invoke:
+        regex: '^(Post|Send)$'
+rule:
+    kind: member_access_expression, conditional_access_expression
+    pattern: $CALL
+    any:
+        - kind: member_access_expression
+          regex: '^((global::)?Rhino\.)?RhinoApp\s*\.\s*(InvokeAndWait|InvokeOnUiThread)$'
+        - kind: member_access_expression
+          all:
+            - has: {field: name, matches: eto-invoke}
+            - has: {field: expression, matches: eto-receiver}
+        - kind: member_access_expression
+          all:
+            - has: {field: name, matches: context-invoke}
+            - has: {field: expression, matches: context-receiver}
+        - kind: conditional_access_expression
+          all:
+            - has: {kind: member_binding_expression, has: {field: name, matches: eto-invoke}}
+            - has: {field: condition, matches: eto-receiver}
+        - kind: conditional_access_expression
+          all:
+            - has: {kind: member_binding_expression, has: {field: name, matches: context-invoke}}
+            - has: {field: condition, matches: context-receiver}
+    not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
+message: '`$CALL` marshals one call to the UI thread'
+note: Return to the UI thread once where the chain leaves it, with `IO<A>.Post()` at the fork

@@ -1,0 +1,8 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: anyio-runner-name
+language: python
+rule:
+    any:
+        - regex: '(^|\.)run(_sync)?$'
+        - kind: identifier
+          inside: {kind: 'module, block', stopBy: end, has: {kind: import_from_statement, regex: '(?s)^from\s+anyio(\.\w+)?\s+import\b.*\brun(_sync)?\s+as\b'}}

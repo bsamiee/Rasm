@@ -53,4 +53,4 @@ fix:
     template: $M.$OPT($$$ARGS)$APP
     expandStart: {matches: result-decoder, stopBy: {pattern: $_}, precedes: {pattern: $G, stopBy: {pattern: $_}}}
 message: '`$G` over `$M.$FN` rebuilds `$M.$OPT`'
-note: '`$M.$OPT(schema)` returns `Option.none()` for the schema issues `$M.$FN` fails with and throws the same defects'
+note: '`Schema.<operation>Option(<schema>)` returns `Option.none()` for the schema issues `Schema.<operation>Result` fails with and throws the same defects'

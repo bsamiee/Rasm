@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-member-field-name
+language: csharp
+severity: error
+rule:
+    kind: identifier
+    pattern: $NAME
+    any:
+        - regex: '^@?(Expected|Count|Message|Code|Inner|Head|Tail)$'
+          inside:
+            field: name
+            any:
+                - kind: parameter
+                  inside: {kind: parameter_list, inside: {kind: 'record_declaration, class_declaration, struct_declaration'}}
+                - kind: property_declaration
+                  not:
+                    any:
+                        - has: {kind: modifier, regex: '^override$'}
+                        - has: {kind: explicit_interface_specifier}
+                - kind: variable_declarator
+                  inside: {kind: variable_declaration, inside: {kind: field_declaration}}
+                - kind: tuple_element
+                - kind: argument
+                  inside: {kind: tuple_expression}
+        - regex: '^@?(IsEmpty|IsExpected|IsExceptional|Exception)$'
+          inside:
+            field: name
+            kind: parameter
+            inside: {kind: parameter_list, inside: {matches: csharp-error-record}}
+message: 'Field `$NAME` takes a name LanguageExt `Error` declares'
+note: Name the field for its domain fact

@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-public-type
+language: csharp
+severity: error
+utils:
+    closed:
+        kind: class_declaration, record_declaration
+        all:
+            - has: {kind: modifier, regex: '^abstract$'}
+            - has: {kind: declaration_list, has: {kind: constructor_declaration, has: {kind: modifier, regex: '^private$'}}}
+rule:
+    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, delegate_declaration
+    all:
+        - has: {field: name, pattern: $NAME}
+        - has: {kind: modifier, regex: '^(public|protected)$'}
+        - not: {has: {kind: modifier, regex: '^private$'}}
+        - inside:
+            kind: declaration_list
+            stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+            inside:
+                kind: class_declaration, record_declaration, struct_declaration, interface_declaration
+                has: {field: name, pattern: $OWNER}
+                not: {matches: {csharp-file-union: {name: {pattern: $_}}}}
+        - not:
+            all:
+                - has: {kind: base_list, has: {stopBy: end, pattern: $OWNER}}
+                - inside:
+                    kind: declaration_list
+                    stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+                    inside: {matches: closed}
+message: Public type `$NAME` nests inside `$OWNER` outside a `[Union]` or a closed hierarchy
+note: Declare `<name>` at file level under the section of its kind, nesting holds the cases of a `[Union]` or of an abstract owner with private constructors alone

@@ -1,0 +1,93 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-statement-as-value
+language: csharp
+severity: error
+utils:
+    unit-call:
+        kind: invocation_expression
+        any:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc)$'}}
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(iter|ignore)(\s*<.+>)?$'}
+    unit-term:
+        any:
+            - matches: unit-call
+            - kind: 'identifier, member_access_expression'
+              regex: '^((global::)?(LanguageExt\.)?Prelude\.)?unit$'
+            - matches: unit-sum
+            - kind: parenthesized_expression
+              has: {matches: unit-term}
+    text:
+        kind: 'string_literal, interpolated_string_expression, verbatim_string_literal, raw_string_literal'
+    unit-sum:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - any:
+                - all: [{has: {field: left, matches: unit-term}}, {has: {field: right, matches: unit-term}}]
+                - all:
+                    - any: [{has: {field: left, matches: unit-call}}, {has: {field: right, matches: unit-call}}]
+                    - not: {has: {matches: text}}
+    unit-sequence:
+        all:
+            - any:
+                - matches: unit-sum
+                - kind: assignment_expression
+                  all:
+                    - has: {field: operator, regex: '^\+=$'}
+                    - has: {field: right, matches: unit-term}
+                - kind: invocation_expression
+                  has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Return(\s*<.+>)?$'}}, {has: {field: expression, matches: unit-term}}]}
+                - kind: tuple_expression
+                  all:
+                    - has: {kind: argument, nthChild: 1, has: {matches: unit-term}}
+                    - has: {kind: argument, nthChild: 2, has: {matches: unit-term}}
+            - has: {stopBy: end, matches: unit-call}
+            - not:
+                any:
+                    - inside: {kind: binary_expression, matches: unit-sum}
+                    - inside: {kind: parenthesized_expression, inside: {kind: binary_expression, matches: unit-sum}}
+    branching:
+        any:
+            - kind: conditional_expression
+            - kind: parenthesized_expression
+              has: {matches: branching}
+    discarded-branch:
+        kind: assignment_expression
+        all:
+            - has: {field: left, regex: '^_$'}
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: right, matches: branching}
+            - any:
+                - inside: {kind: expression_statement}
+                - inside: {kind: lambda_expression, field: body}
+    assignment:
+        any:
+            - kind: assignment_expression
+            - kind: parenthesized_expression
+              has: {matches: assignment}
+    ignored-write:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?ignore(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, has: {matches: assignment}}}
+    invoked-action:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?fun(\s*<.+>)?$'}}
+            - has: {field: arguments, not: {has: {kind: argument}}}
+    reread-write:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^(==|!=)$'}
+            - has: {field: left, kind: parenthesized_expression, has: {kind: assignment_expression, all: [{has: {field: left, pattern: $TARGET}}, {has: {field: operator, regex: '^=$'}}]}}
+            - has: {field: right, pattern: $TARGET}
+rule:
+    pattern: $VALUE
+    any:
+        - matches: unit-sequence
+        - matches: discarded-branch
+        - matches: ignored-write
+        - matches: invoked-action
+        - matches: reread-write
+message: '`$VALUE` spells statements as a value'
+note: Use a block body of host statements, an `if` statement for a discarded branch, and the write before the read that checks it

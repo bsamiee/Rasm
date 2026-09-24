@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: anyio-in-place-callee
+language: python
+utils:
+    thread-module:
+        matches: {python-submodule: {parent: {regex: '^anyio$'}, child: {regex: '^(to_thread|from_thread)$'}}}
+rule:
+    any:
+        - regex: '(^|\.)(to_thread\.run_sync|from_thread\.run(_sync)?)$'
+        - {regex: '\.call$', matches: anyio-importing-module}
+        - kind: attribute
+          all:
+            - has: {field: attribute, regex: '^run(_sync)?$'}
+            - has: {field: object, matches: thread-module}
+        - all:
+            - matches: anyio-runner-name
+            - any:
+                - matches: {python-member-use: {module: {regex: '^anyio$'}, name: {regex: '^run$'}}}
+                - matches: {python-member-use: {module: {regex: '^anyio\.from_thread$'}, name: {regex: '^run(_sync)?$'}}}
+                - matches: {python-member-use: {module: {regex: '^anyio\.to_thread$'}, name: {regex: '^run_sync$'}}}

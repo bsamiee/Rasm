@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-stdlib-logger
+language: python
+utils:
+    base-factory:
+        kind: call
+        has: {field: function, matches: {python-member-use: {module: {regex: '^logging$'}, name: {regex: '^(getLogger|Logger|RootLogger|LoggerAdapter)$'}}}}
+    assigned-base:
+        matches: {python-assigned-name: {value: {matches: base-factory}}}
+    logger-factory:
+        any:
+            - matches: base-factory
+            - kind: call
+              has:
+                field: function
+                kind: attribute
+                all:
+                    - has: {field: attribute, regex: '^getChild$'}
+                    - has: {field: object, any: [{matches: logger-factory}, {kind: identifier, matches: assigned-base}]}
+    root-logger:
+        matches: {python-member-use: {module: {regex: '^logging$'}, name: {regex: '^root$'}}}
+    produced:
+        any: [{matches: logger-factory}, {matches: root-logger}]
+    assigned-logger:
+        matches: {python-assigned-name: {value: {matches: produced}}}
+    typed-logger:
+        matches: {python-typed-parameter: {type: {regex: '^(logging\.)?(Logger|LoggerAdapter)$'}}}
+    attribute-logger:
+        kind: attribute
+        pattern: $FIELD
+        has: {field: object, regex: '^self$'}
+        inside:
+            kind: class_definition
+            stopBy: end
+            has: {stopBy: end, kind: assignment, all: [{has: {field: left, pattern: $FIELD}}, {has: {field: right, matches: produced}}]}
+rule:
+    any:
+        - matches: produced
+        - kind: identifier
+          any: [{matches: assigned-logger}, {matches: typed-logger}]
+        - matches: attribute-logger

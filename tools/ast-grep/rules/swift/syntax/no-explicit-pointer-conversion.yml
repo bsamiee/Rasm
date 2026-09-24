@@ -92,4 +92,4 @@ transform:
     CALL: {rewrite: {source: $BODY, rewriters: [unwrapped-base, base, argument]}}
 fix: $CALL
 message: 'Closure hands `$TARGET` to a call as a pointer the call converts to on its own'
-note: 'Pass `$TARGET` directly, a `String`, `[Element]`, or `&value` argument converts to its parameter''s pointer type for the call'
+note: 'Pass `<target>` directly, a `String`, `[Element]`, or `&value` argument converts to its parameter''s pointer type for the call'

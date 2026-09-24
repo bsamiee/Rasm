@@ -1,17 +1,15 @@
-# ast-grep-ignore: no-stdlib-record
 # mypy: disable-error-code="arg-type, index"
 # ruff: file-ignore[suspicious-xml-etree-import, subprocess-without-shell-equals-true]
 """Write the Line Art strokes seen through an orthographic camera as an SVG and PDF sheet at scale to `.artifacts/blender/<name>.svg` and `.pdf`, run inside Blender through `runpy.run_path`."""
 
-from dataclasses import asdict, dataclass
 from enum import StrEnum
 from itertools import pairwise
 from pathlib import Path
 import shutil
 import subprocess
-from typing import cast
 import xml.etree.ElementTree as ET
 
+import attrs
 import bpy
 from mathutils import Color
 import numpy as np
@@ -24,6 +22,7 @@ type Outcome = Sheet | Rejected | NoPdf
 class Rejection(StrEnum):
     """Scene state no sheet draws from, each value the `kind` its result reports."""
 
+    NO_SCENE = "NoScene"
     UNKNOWN_OBJECTS = "UnknownObjects"
     NO_CAMERA = "NoCamera"
     NOT_CAMERA = "NotCamera"
@@ -35,7 +34,7 @@ class Rejection(StrEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Sheet:
     """Written SVG and PDF, paper size in millimeters, scale denominator, camera, and drawn stroke count per Grease Pencil object."""
 
@@ -50,7 +49,7 @@ class Sheet:
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Rejected:
     """Scene state the sheet refused, with the object, camera, or scene names it concerns."""
 
@@ -58,7 +57,7 @@ class Rejected:
     names: tuple[str, ...]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class NoPdf:
     """SVG written, `typst` absent from the process's `PATH` or `typst compile` failed with its diagnostics."""
 
@@ -72,7 +71,8 @@ class NoPdf:
 def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, ...] = ()) -> Outcome:
     """Project the strokes of the named Grease Pencil objects, or of every one with a Line Art modifier, through the scene camera onto a 1:`scale` sheet."""
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    scene = cast("bpy.types.Scene", depsgraph.scene)
+    if (scene := depsgraph.scene) is None:
+        return Rejected(Rejection.NO_SCENE, ())
     if missing := tuple(n for n in (objects if camera is None else (camera, *objects)) if n not in scene.objects):
         return Rejected(Rejection.UNKNOWN_OBJECTS, missing)
     match scene.camera if camera is None else scene.objects[camera]:
@@ -90,7 +90,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
     if foreign := tuple(o.name for o in drawn if not isinstance(o.data, bpy.types.GreasePencil)):
         return Rejected(Rejection.NOT_GREASE_PENCIL, foreign)
     to_view = view.matrix_world.normalized().inverted()
-    frame = np.array([(to_view @ view.matrix_world @ corner).xy for corner in lens.view_frame(scene=scene)])
+    frame = np.array([corner.xy for corner in lens.view_frame(scene=scene)])
     low, high = frame.min(axis=0), frame.max(axis=0)
     mm = scene.unit_settings.scale_length / bpy.utils.units.to_value("METRIC", "LENGTH", "1mm") / scale
 
@@ -166,7 +166,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
 
 def as_result(value: Outcome) -> dict[str, object]:
     """`result` dict for `execute_blender_code`, the case name, or a rejection's own kind, under `kind`."""
-    return {"kind": type(value).__name__, **asdict(value)}
+    return {"kind": type(value).__name__, **attrs.asdict(value)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

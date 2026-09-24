@@ -211,15 +211,15 @@ Framework entry points stay thin while the behavior they invoke arrives as narro
 
 ## [06]-[END_TO_END_FLOW]
 
-Compositional programs are sequences of typed transformations, each step's effect on the value and its enclosing structure stays visible. Reusable operations hold the iteration, branching, and enumeration mechanics, a terminal operation evaluates the preceding lazy sequence:
+Compositional programs are sequences of typed transformations, each step's effect on the value and its enclosing structure stays visible. Reusable operations hold the iteration, branching, and enumeration mechanics, a terminal operation evaluates the preceding lazy sequence. `OrderByDescending` reorders and preserves elements, `Take` reduces cardinality, and `Average` projects and collapses to a scalar:
 
 ```csharp
 internal static class DataFlow {
     public static decimal AverageOfTopQuartile(Seq<Entry> population) =>
         population
-            .OrderByDescending(static e => e.Amount) // reorder, preserve elements
-            .Take(population.Count / 4)              // reduce cardinality
-            .Average(static e => e.Amount);          // project and collapse to a scalar
+            .OrderByDescending(static e => e.Amount)
+            .Take(population.Count / 4)
+            .Average(static e => e.Amount);
 }
 ```
 
@@ -294,6 +294,6 @@ internal sealed class Handler(IRepository<State> states, INotifier notifier) {
 `Get` can find no state and `Workflow.Handle` can reject the command, `Handle` binds both on one `IO` error channel in place of nested result types. `Save` and `Send` run only when both succeed as visible steps of the query, and the host runs `Handle` with `RunSafe`, which returns `Fin<Unit>` with the typed error. Expressions move effects to explicit boundaries in order: receive external input, transform and validate through expressions, compute the new domain state with pure functions, then persist or communicate at the effect boundary. A terminal step with more than one effect keeps each one visible. Composition has limits:
 - `Option` short-circuits and discards the reason, a missing state and an insufficient balance read the same, `Fin` keeps the reason
 - Composition does not make distributed effects atomic, saving a state and sending a notification can fail between the operations
-- A database transaction cannot protect an external call from a process failure after the call and before the commit
-- A multi-system flow persists the combined work atomically, processes it until every effect completes, and makes repeat execution idempotent
+- Database transactions cannot protect an external call from a process failure after the call and before the commit
+- Multi-system flows persist the combined work atomically, process it until every effect completes, and make repeat execution idempotent
 - Confidence comes from tests

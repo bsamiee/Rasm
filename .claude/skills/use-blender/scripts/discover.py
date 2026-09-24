@@ -1,23 +1,22 @@
-# ast-grep-ignore: no-parenthesized-except-tuple, no-stdlib-record
-# mypy: disable-error-code="unreachable"
+# mypy: disable-error-code="unreachable, attr-defined"
+# ty: ignore[unresolved-attribute, invalid-context-manager]
 """Find operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on, run inside Blender through `runpy.run_path`."""
 
 import ast
-from contextlib import AbstractContextManager
-from dataclasses import asdict, dataclass, fields
 from enum import auto, StrEnum
 import inspect
 from itertools import accumulate
-from operator import itemgetter
 from pathlib import Path
 import sys
 import textwrap
-from typing import cast
 
+import attrs
 import bpy
 import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
+
+type Outcome = Discovery | Unset
 
 
 class Tool(StrEnum):
@@ -30,7 +29,7 @@ class Tool(StrEnum):
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Operator:
     """Registered operator with the facts that decide its call."""
 
@@ -46,7 +45,7 @@ class Operator:
     next: Tool
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Type:
     """Registered RNA type outside operators, with the add-on and file defining it."""
 
@@ -57,7 +56,7 @@ class Type:
     next: Tool
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Setting:
     """Runtime property an add-on registered on an ID type, with its fields' values on the context's instance of that type."""
 
@@ -67,50 +66,52 @@ class Setting:
     next: Tool
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Discovery:
-    """Every hit for the words, one tuple per surface."""
+    """Every hit for the words, grouped by what it is."""
 
     operators: tuple[Operator, ...]
     types: tuple[Type, ...]
     settings: tuple[Setting, ...]
 
 
+# --- [ERRORS] ---------------------------------------------------------------------------
+
+
+@attrs.frozen
+class Unset:
+    """RNA pointer the search reads that holds no value, by its path."""
+
+    path: str
+
+
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def discover(*words: str) -> Discovery:
-    """Operators, RNA types, and add-on settings whose text holds every word, polls answered in the timer context and in the largest 3D Viewport."""
+def discover(*words: str) -> Outcome:
+    """Operators, RNA types, and add-on settings with every word in their text, polls answered in the timer context and in the largest 3D Viewport."""
+    if (preferences := bpy.context.preferences) is None:
+        return Unset("context.preferences")
     needles = tuple(word.lower() for word in words)
-    addons = {key: addon.module for addon in cast("bpy.types.Preferences", bpy.context.preferences).addons for key in {addon.module, addon.module.rpartition(".")[2]}}
+    addons = {key: addon.module for addon in preferences.addons for key in {addon.module, addon.module.rpartition(".")[2]}}
     resources = Path(bpy.utils.resource_path("LOCAL"))
     members = tuple(bpy.context.copy().values())
-    create = vars(bpy.ops)["_ops_module"].create_function
     arguments = set(bpy.types.OperatorProperties.bl_rna.properties.keys())
     inherited = set(bpy.types.PropertyGroup.bl_rna.properties.keys())
     methods = {name for name in dir(bpy.types.Context) if callable(getattr(bpy.types.Context, name))}
-    viewports = (
-        (area.width * area.height, window, area, region)
-        for manager in bpy.data.window_managers
-        for window in manager.windows
-        for area in window.screen.areas
-        if isinstance(area.spaces.active, bpy.types.SpaceView3D)
-        for region in area.regions
-        if region.type == "WINDOW"
-    )
-    match max(viewports, key=itemgetter(0), default=None):
-        case (_, window, area, region):
-            override = bpy.context.temp_override(window=window, area=area, region=region)
+    areas = {area: window for manager in bpy.data.window_managers for window in manager.windows for area in window.screen.areas if isinstance(area.spaces.active, bpy.types.SpaceView3D)}
+    match max(areas, key=lambda area: area.width * area.height, default=None):
+        case bpy.types.Area() as area:
+            view = bpy.context.temp_override(window=areas[area], area=area, region=next(region for region in area.regions if region.type == "WINDOW"))
         case None:
-            override = bpy.context.temp_override()
-    view = cast("AbstractContextManager[None]", override)
+            view = bpy.context.temp_override()
 
     def matches(text: str) -> bool:
         lowered = text.lower()
         return all(needle in lowered for needle in needles)
 
     def owner(cls: type) -> str | None:
-        """Enabled add-on whose module or extension id names a package holding the class, none for Blender's own and agent code."""
+        """Enabled add-on with a module or extension id naming the package holding the class, none for Blender's own and agent code."""
         packages = (sys.modules.get(package) for package in accumulate(cls.__module__.split("."), lambda head, part: f"{head}.{part}"))
         return next((addons[package.__name__] for package in packages if package and package.__name__ in addons), None)
 
@@ -126,11 +127,13 @@ def discover(*words: str) -> Discovery:
         bundled = cls.__module__ == bpy.types.__name__ or (file is not None and Path(file).is_relative_to(resources))
         return Tool.GET_PYTHON_API_DOCS if who is None and bundled else Tool.BPY_API_LOOKUP
 
-    def reads(cls: type) -> tuple[str, ...]:
-        """Deepest context chains up to two members the class's source reads, none for a class whose source Python cannot find."""
+    def reads(cls: type, file: str | None) -> tuple[str, ...]:
+        """Deepest context chains up to two members the class's source reads, none for a class without a source file or with lines Python cannot find."""
+        if file is None:
+            return ()
         try:
             tree = ast.parse(textwrap.dedent(inspect.getsource(cls)))
-        except (OSError, TypeError):
+        except OSError:
             return ()
         dotted = (ast.unparse(node).removeprefix("bpy.").split(".")[:3] for node in ast.walk(tree) if isinstance(node, ast.Attribute))
         chains = {".".join(parts) for parts in dotted if len(parts) > 1 and parts[0] == "context" and parts[1] not in methods and all(map(str.isidentifier, parts))}
@@ -153,14 +156,14 @@ def discover(*words: str) -> Discovery:
                 return np.asarray(raw).tolist()
 
     def operator(category: str, name: str) -> Operator | None:
-        entry = create(category, name)
+        entry = getattr(getattr(bpy.ops, category), name)
         rna, call = entry.get_rna_type(), f"bpy.ops.{category}.{name}"
         if not matches(f"{call} {rna.name} {rna.description}"):
             return None
         match bpy.types.Operator.bl_rna_get_subclass_py(entry.idname()):
             case type() as cls:
-                who, chains, file = owner(cls), reads(cls), source(cls)
-                following = tool(cls, who, file)
+                who, file = owner(cls), source(cls)
+                chains, following = reads(cls, file), tool(cls, who, file)
             case _:
                 who, chains, file, following = None, (), None, Tool.GET_PYTHON_API_DOCS
         with view:
@@ -169,7 +172,7 @@ def discover(*words: str) -> Discovery:
         return Operator(call, rna.name, rna.description, who, params, entry.poll(), poll_in_view, chains, file, following)
 
     def rna_type(identifier: str, cls: type[bpy.types.bpy_struct]) -> Type | None:
-        rna = cast("bpy.types.Struct", cls.bl_rna)
+        rna = cls.bl_rna
         if issubclass(cls, bpy.types.Operator) or not matches(f"{identifier} {rna.name} {rna.description}"):
             return None
         who, file = owner(cls), source(cls)
@@ -194,11 +197,15 @@ def discover(*words: str) -> Discovery:
     return Discovery(tuple(o for o in operators if o), tuple(t for t in types if t), tuple(s for s in settings if s))
 
 
-def as_result(value: Discovery) -> dict[str, object]:
-    """`result` dict for `execute_blender_code`, the case name under `kind` and a count per surface."""
-    return {"kind": type(value).__name__, "counts": {f.name: len(getattr(value, f.name)) for f in fields(value)}, **asdict(value)}
+def as_result(value: Outcome) -> dict[str, object]:
+    """`result` dict for `execute_blender_code`, the case name under `kind` and a count per group of a discovery."""
+    match value:
+        case Discovery():
+            return {"kind": type(value).__name__, "counts": {f.name: len(getattr(value, f.name)) for f in attrs.fields(Discovery)}, **attrs.asdict(value)}
+        case Unset():
+            return {"kind": type(value).__name__, **attrs.asdict(value)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Discovery", "Operator", "Setting", "Tool", "Type", "as_result", "discover"]
+__all__ = ["Discovery", "Operator", "Outcome", "Setting", "Tool", "Type", "Unset", "as_result", "discover"]

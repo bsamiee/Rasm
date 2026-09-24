@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-binding
+language: python
+arguments: [name]
+rule:
+    any:
+        - kind: identifier
+          matches: name
+          inside: {kind: 'parameters, lambda_parameters'}
+        - kind: typed_parameter, list_splat_pattern, dictionary_splat_pattern
+          has:
+            nthChild: 1
+            any:
+                - kind: identifier
+                  matches: name
+                - kind: list_splat_pattern, dictionary_splat_pattern
+                  has: {kind: identifier, matches: name}
+        - kind: default_parameter, typed_default_parameter
+          has: {field: name, matches: name}
+        - kind: assignment, augmented_assignment, for_statement, for_in_clause
+          has:
+            field: left
+            any:
+                - kind: identifier
+                  matches: name
+                - kind: pattern_list, tuple_pattern, list_pattern, list_splat_pattern
+                  has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}
+        - kind: named_expression
+          has: {field: name, matches: name}
+        - kind: as_pattern
+          has: {field: alias, has: {stopBy: end, kind: identifier, matches: name}}
+        - kind: function_definition, class_definition
+          has: {field: name, matches: name}
+        - kind: identifier
+          matches: name
+          inside:
+            any:
+                - kind: dotted_name
+                  not: {has: {nthChild: 2}}
+                  inside: {kind: "case_pattern, keyword_pattern"}
+                - kind: splat_pattern
+                - kind: as_pattern
+                  inside: {kind: case_pattern}

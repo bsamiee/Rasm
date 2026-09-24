@@ -1,27 +1,30 @@
-# ast-grep-ignore: no-json-codec, no-stdlib-record
 # mypy: disable-error-code="truthy-bool"
 """Write the evaluated state of the scene to `.artifacts/blender/<name>.json` and name what changed since an earlier snapshot, run inside Blender through `runpy.run_path`."""
 
 from collections.abc import Mapping
-from dataclasses import asdict, dataclass
 import hashlib
-import json
 from pathlib import Path
 import runpy
-from typing import cast
+from typing import Final
 
+import attrs
 import bpy
 from bpy_extras import anim_utils
+from cattrs.preconf.json import make_converter
 import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Outcome = Snapshot | UnknownObjects | MissingSnapshot
+type Outcome = Snapshot | UnknownObjects | MissingSnapshot | Unset
+
+# --- [CONSTANTS] ------------------------------------------------------------------------
+
+JSON: Final = make_converter()
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Geometry:
     """Hash over realized positions and instance transforms, with the element counts of the evaluated geometry set."""
 
@@ -33,7 +36,7 @@ class Geometry:
     instances: int
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Channel:
     """Key count, interpolations, and a hash over key coordinates of one F-curve."""
 
@@ -42,7 +45,7 @@ class Channel:
     digest: str
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Animated:
     """Action and slot animating the object, with its channels by data path and array index."""
 
@@ -51,15 +54,15 @@ class Animated:
     channels: dict[str, Channel]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Unassigned:
-    """Action on an object whose slot is unset, with the slots that would animate it."""
+    """Action on an object with no slot assigned, with the slots that can animate it."""
 
     action: str
     suitable: list[str]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Modifier:
     """Modifier name, type, and visibility."""
 
@@ -69,7 +72,7 @@ class Modifier:
     show_render: bool
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Constraint:
     """Constraint name, type, and whether it is enabled."""
 
@@ -78,7 +81,7 @@ class Constraint:
     enabled: bool
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class ObjectState:
     """World transform, evaluated bounds with instances, geometry, stacks, animation, and drivers of one object."""
 
@@ -100,9 +103,9 @@ class ObjectState:
     drivers: dict[str, str]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class SceneState:
-    """Scene settings, orphan count, linked library files, and missing file paths."""
+    """Scene settings, color management, orphan count, linked library files, and missing file paths."""
 
     name: str
     frame: int
@@ -111,22 +114,26 @@ class SceneState:
     unit_system: str
     length_unit: str
     scale_length: float
+    display_device: str
+    view_transform: str
+    look: str
+    exposure: float
     orphans: int
     library_files: list[str]
     missing: list[str]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class State:
     """JSON a snapshot file holds: the scene, one record per object, the count per `bpy.data` collection, and one hash per node tree."""
 
-    scene: dict[str, object]
-    objects: dict[str, dict[str, object]]
+    scene: SceneState
+    objects: dict[str, ObjectState]
     datablocks: dict[str, int]
     trees: dict[str, str]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Comparison:
     """Objects present in one snapshot alone, and before and after of each changed object field, scene field, datablock count, and tree hash."""
 
@@ -139,7 +146,7 @@ class Comparison:
     trees: dict[str, tuple[str | None, str | None]]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class Snapshot:
     """Written file, object count, hash of the file, and the comparison when `since` named an earlier snapshot."""
 
@@ -152,18 +159,25 @@ class Snapshot:
 # --- [ERRORS] ---------------------------------------------------------------------------
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class UnknownObjects:
     """Object names absent from the scene."""
 
     names: tuple[str, ...]
 
 
-@dataclass(frozen=True)
+@attrs.frozen
 class MissingSnapshot:
     """Snapshot name with no file under `.artifacts/blender/`."""
 
     name: str
+
+
+@attrs.frozen
+class Unset:
+    """RNA pointer the snapshot reads that holds no value, by its path."""
+
+    path: str
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -172,7 +186,12 @@ class MissingSnapshot:
 def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None) -> Outcome:
     """Write the state of the named or every object with the scene, datablocks, and node trees, then compare with `since`."""
     path = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists()) / ".artifacts" / "blender" / f"{name}.json"
-    scene = cast("bpy.types.Scene", bpy.context.scene)
+    if (scene := bpy.context.scene) is None:
+        return Unset("context.scene")
+    if (view_settings := scene.view_settings) is None:
+        return Unset("scene.view_settings")
+    if (display_settings := scene.display_settings) is None:
+        return Unset("scene.display_settings")
     if missing := tuple(n for n in objects if n not in scene.objects):
         return UnknownObjects(missing)
     if since is not None and not path.with_stem(since).is_file():
@@ -193,17 +212,16 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
     def indexed(curve: bpy.types.FCurve) -> str:
         return f"{curve.data_path}[{curve.array_index}]"
 
-    table = np.array(
+    solid = np.rec.fromrecords(
         [
-            (owner.name, np.array(i.matrix_world), np.array(body.bound_box))
+            (owner.name, np.array(i.matrix_world), box)
             for i in depsgraph.object_instances
-            if (body := i.object) is not None and (owner := i.parent if i.is_instance else body) is not None
+            if (body := i.object) is not None and (owner := i.parent if i.is_instance else body) is not None and np.ptp(box := np.array(body.bound_box), axis=0).any()
         ],
         dtype=[("owner", object), ("matrix", np.float64, (4, 4)), ("box", np.float64, (8, 3))],
     )
-    solid = table[np.ptp(table["box"], axis=1).any(axis=1)]
-    corners = solid["box"] @ solid["matrix"][:, :3, :3].mT + solid["matrix"][:, None, :3, 3]
-    owners, index = np.unique(solid["owner"], return_inverse=True)
+    corners = solid.box @ solid.matrix[:, :3, :3].mT + solid.matrix[:, None, :3, 3]
+    owners, index = np.unique(solid.owner, return_inverse=True)
     low, high = np.full(((count := len(owners)), 3), np.inf), np.full((count, 3), -np.inf)
     np.minimum.at(low, index, corners.min(axis=1))
     np.maximum.at(high, index, corners.max(axis=1))
@@ -267,43 +285,48 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
         )
 
     def delta[V](a: Mapping[str, V], b: Mapping[str, V]) -> dict[str, tuple[V | None, V | None]]:
-        return {k: (a.get(k), b.get(k)) for k in sorted(a.keys() | b.keys()) if a.get(k) != b.get(k)}
+        return {k: (old, new) for k in sorted(a.keys() | b.keys()) if (old := a.get(k)) != (new := b.get(k))}
 
     nodes = runpy.run_path(str(Path(__file__).with_name("nodes.py")))
+    records = {n: nodes["record"](owner, tree) for n, (owner, tree) in nodes["trees"]().items()}
+    if (unset := next((r for r in records.values() if isinstance(r, nodes["Unset"])), None)) is not None:
+        return Unset(unset.path)
     now = State(
-        asdict(
-            SceneState(
-                scene.name,
-                scene.frame_current,
-                scene.render.engine,
-                scene.camera.name if scene.camera else None,
-                scene.unit_settings.system,
-                scene.unit_settings.length_unit,
-                scene.unit_settings.scale_length,
-                sum(block.users == 0 for block in bpy.data.all_ids),
-                sorted(library.filepath for library in bpy.data.libraries),
-                sorted(p for p in bpy.utils.blend_paths(absolute=True) if not Path(p).exists()),
-            )
+        SceneState(
+            scene.name,
+            scene.frame_current,
+            scene.render.engine,
+            scene.camera.name if scene.camera else None,
+            scene.unit_settings.system,
+            scene.unit_settings.length_unit,
+            round(scene.unit_settings.scale_length, 5),
+            display_settings.display_device,
+            view_settings.view_transform,
+            view_settings.look,
+            round(view_settings.exposure, 5),
+            sum(block.users == 0 for block in bpy.data.all_ids),
+            sorted(library.filepath for library in bpy.data.libraries),
+            sorted(p for p in bpy.utils.blend_paths(absolute=True) if not Path(p).exists()),
         ),
-        {o.name: asdict(state(o)) for o in ([scene.objects[n] for n in objects] or scene.objects)},
+        {o.name: state(o) for o in ([scene.objects[n] for n in objects] or scene.objects)},
         {p.identifier: len(getattr(bpy.data, p.identifier)) for p in bpy.data.bl_rna.properties if isinstance(p, bpy.types.CollectionProperty)},
-        {n: digest(json.dumps(asdict(nodes["record"](owner, tree)), sort_keys=True).encode()) for n, (owner, tree) in nodes["trees"]().items()},
+        {n: digest(JSON.dumps(r, sort_keys=True).encode()) for n, r in records.items()},
     )
 
     def compare(label: str) -> Comparison:
-        before = State(**json.loads(path.with_stem(label).read_text(encoding="utf-8")))
+        before = JSON.loads(path.with_stem(label).read_text(encoding="utf-8"), State)
         return Comparison(
             label,
             tuple(sorted(now.objects.keys() - before.objects.keys())),
             tuple(sorted(before.objects.keys() - now.objects.keys())),
-            {n: delta(before.objects[n], now.objects[n]) for n in sorted(before.objects.keys() & now.objects.keys()) if before.objects[n] != now.objects[n]},
-            delta(before.scene, now.scene),
+            {n: fields for n in sorted(before.objects.keys() & now.objects.keys()) if (fields := delta(attrs.asdict(before.objects[n]), attrs.asdict(now.objects[n])))},
+            delta(attrs.asdict(before.scene), attrs.asdict(now.scene)),
             delta(before.datablocks, now.datablocks),
             delta(before.trees, now.trees),
         )
 
     comparison = None if since is None else compare(since)
-    text = json.dumps(asdict(now), sort_keys=True, indent=1)
+    text = JSON.dumps(now, sort_keys=True, indent=1)
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return Snapshot(str(path), len(now.objects), digest(text.encode()), comparison)
@@ -311,7 +334,7 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
 
 def as_result(value: Outcome) -> dict[str, object]:
     """`result` dict for `execute_blender_code`, the case name under `kind`."""
-    return {"kind": type(value).__name__, **asdict(value)}
+    return {"kind": type(value).__name__, **attrs.asdict(value)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
@@ -331,6 +354,7 @@ __all__ = [
     "State",
     "Unassigned",
     "UnknownObjects",
+    "Unset",
     "as_result",
     "snapshot",
 ]

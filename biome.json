@@ -3,7 +3,7 @@
     "vcs": { "enabled": true, "clientKind": "git", "useIgnoreFile": true },
     "files": {
         "ignoreUnknown": true,
-        "includes": ["**", "!**/pnpm-lock.yaml", "!**/uv.lock", "!**/*.html", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts"]
+        "includes": ["**", "!**/*.xcassets", "!**/*.icon", "!.claude/types/claude-code.d.ts"]
     },
     "formatter": { "indentStyle": "space", "indentWidth": 4, "lineWidth": 200 },
     "javascript": { "formatter": { "quoteStyle": "single" }, "resolver": { "experimentalPnpmCatalogs": true } },

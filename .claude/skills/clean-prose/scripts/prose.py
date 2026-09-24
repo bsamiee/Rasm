@@ -171,7 +171,7 @@ def opaque(fn: Callable[[str], str]) -> Callable[[str], str]:
     return lambda s: regex.sub(r"`[^`]*`|\]\([^)]*\)|(?P<prose>(?:[^`\]]|\](?!\())+)", lambda m: fn(m["prose"]) if m["prose"] else m[0], s)
 
 
-def text(fn: Callable[[str], str]) -> Callable[[Ctx, list[Block]], list[Block]]:
+def lift_text(fn: Callable[[str], str]) -> Callable[[Ctx, list[Block]], list[Block]]:
     """Lift a text transform over every `t` span of every masked block, code spans and link targets opaque."""
 
     def over(block: Block) -> Block:
@@ -180,12 +180,12 @@ def text(fn: Callable[[str], str]) -> Callable[[Ctx, list[Block]], list[Block]]:
     return lambda mask, blocks: [over(b) if b.ctx in mask else b for b in blocks]
 
 
-def block(fn: Callable[[Block], Block]) -> Callable[[Ctx, list[Block]], list[Block]]:
+def lift_block(fn: Callable[[Block], Block]) -> Callable[[Ctx, list[Block]], list[Block]]:
     """Lift a block transform over every masked block."""
     return lambda mask, blocks: [fn(b) if b.ctx in mask else b for b in blocks]
 
 
-def doc(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Ctx, list[Block]], list[Block]]:
+def lift_sequence(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Ctx, list[Block]], list[Block]]:
     """Lift a whole-sequence transform, for rules that read neighbors or count, the mask selecting the files alone."""
     return lambda _, blocks: fn(blocks)
 
@@ -304,10 +304,10 @@ def header(block: Block) -> Block:
 
 
 def index(block: Block) -> Block:
-    """A first `[INDEX]` column with `[NN]` cells for two or more rows, a column under another index name renamed and renumbered."""
+    """A first `[INDEX]` column with `[NN]` cells for two or more rows, a numbered column under another index name renamed and renumbered."""
     grid = _grid(block)
     match grid:
-        case [[name, *head], marks, *body] if regex.fullmatch(r"\[(INDEX|IDX|NN|NO|NUM|ROW)\]", name):
+        case [[name, *head], marks, *body] if regex.fullmatch(r"\[(INDEX|IDX|NN|NO|NUM|ROW)\]", name) and all(regex.fullmatch(r"\[?\d+\]?", first) for first, *_ in body):
             body = [row[1:] for row in body]
         case [head, marks, *body] if len(body) > 1:
             marks = [Align.CENTER.mark, *marks]
@@ -422,8 +422,8 @@ def wide(d: Doc) -> list[Line]:
 
 
 def counted(d: Doc) -> list[Line]:
-    """Lines of text spans holding an enumeration word of the word map, code spans opaque, each named by the word."""
-    words = r"(?i)\b(?:two|three|four|five|six|seven|eight|nine|ten|several|various|multiple|numerous|a number of|a couple of|a few)\b"
+    """Lines of text spans holding an enumeration word of the word map, code spans and hyphenated compounds opaque, each named by the word."""
+    words = r"(?i)\b(?:two|three|four|five|six|seven|eight|nine|ten|several|various|multiple|numerous|a number of|a couple of|a few)\b(?!-\w)"
     return [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in regex.finditer(words, regex.sub(r"`[^`]*`", "", line.text))]
 
 
@@ -457,22 +457,22 @@ def orphans(d: Doc) -> list[Line]:
 # --- [REGISTRY] -------------------------------------------------------------------------
 
 RULES: tuple[Fix | Report, ...] = (
-    Fix(TEXT | Ctx.BLANK, block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
-    Fix(TEXT & MARKDOWN, text(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s))),
-    Fix(TEXT, text(emoji)),
-    Fix(Ctx.ENTRY, block(leader)),
-    Fix(Ctx.ENTRY, doc(cards)),
-    Fix(Ctx.TABLE, block(header)),
-    Fix(Ctx.DIVIDER, block(content)),
-    Fix(Ctx.DIVIDER, block(divider)),
-    Fix(Ctx.HEADING, block(chain)),
-    Fix(Ctx.HEADING, doc(headings)),
-    Fix(Ctx.LABEL, doc(labels)),
-    Fix(Ctx.PARAGRAPH | Ctx.ENTRY, block(wrap)),
-    Fix(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, text(lambda s: regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s))),
-    Fix(Ctx.TABLE, block(index)),
-    Fix(Ctx.TABLE, block(render)),
-    Fix(MARKDOWN, doc(spacing)),
+    Fix(TEXT | Ctx.BLANK, lift_block(lambda b: b.rewrite(line.text.rstrip(" \t") for line in b.lines))),
+    Fix(TEXT & MARKDOWN, lift_text(lambda s: regex.sub(r"(?<!\w)(\*\*|__|\*|_)(?=\S)(.+?)(?<=\S)\1(?!\w)", r"\2", s))),
+    Fix(TEXT, lift_text(emoji)),
+    Fix(Ctx.ENTRY, lift_block(leader)),
+    Fix(Ctx.ENTRY, lift_sequence(cards)),
+    Fix(Ctx.TABLE, lift_block(header)),
+    Fix(Ctx.DIVIDER, lift_block(content)),
+    Fix(Ctx.DIVIDER, lift_block(divider)),
+    Fix(Ctx.HEADING, lift_block(chain)),
+    Fix(Ctx.HEADING, lift_sequence(headings)),
+    Fix(Ctx.LABEL, lift_sequence(labels)),
+    Fix(Ctx.PARAGRAPH | Ctx.ENTRY, lift_block(wrap)),
+    Fix(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, lift_text(lambda s: regex.sub(r"(?<=[^\s.,;!?])[.,;!?]+$", "", s))),
+    Fix(Ctx.TABLE, lift_block(index)),
+    Fix(Ctx.TABLE, lift_block(render)),
+    Fix(MARKDOWN, lift_sequence(spacing)),
     Report(Ctx.HEADING, "`{}` is not the one `[TOKEN]` H1", h1s),
     Report(TEXT, "Text opens with an article", probe(r"(?i)(?:a|an|the)\s+\S")),
     Report(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, "Text opens with a lowercase letter", probe(r"\p{Ll}")),
@@ -515,7 +515,7 @@ SKIPPED = ("**/.claude/plugins/playwright/**", "**/pnpm-workspace.yaml")
 
 def files(paths: list[Path]) -> dict[Path, Marker]:
     """Every owned file under the paths with its marker, generated plugin copies and the workspace file skipped, markdown files first."""
-    found = sorted(f for p in paths for f in (p.rglob("*") if p.is_dir() else [p]) if not any(f.full_match(s) for s in SKIPPED))
+    found = sorted(f for p in paths for f in ((f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p]) if not any(f.full_match(s) for s in SKIPPED))
     return {f: m for m in Marker for f in found if f.suffix in m.suffixes}
 
 
@@ -558,3 +558,7 @@ def main() -> int:
 
 if __name__ == "__main__":
     sys.exit(main())
+
+# --- [EXPORTS] --------------------------------------------------------------------------
+
+__all__ = ["check", "fix", "main"]

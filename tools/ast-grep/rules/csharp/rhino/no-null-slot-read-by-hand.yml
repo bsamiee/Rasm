@@ -1,0 +1,204 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-null-slot-read-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    element:
+        any:
+            - kind: predefined_type
+              regex: '^string$'
+            - kind: identifier
+              pattern: $ELEMENT
+              inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: class_declaration, record_declaration
+                    has: {field: name, pattern: $ELEMENT}
+                    not: {has: {regex: '^struct$'}}
+            - kind: qualified_name
+              has: {field: name, matches: element}
+            - kind: nullable_type
+              has: {field: type, matches: element}
+    sequence-type:
+        any:
+            - kind: array_type
+              has: {field: type, matches: element}
+            - kind: generic_name
+              all:
+                - has: {kind: identifier, regex: '^(IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|Seq|Lst|Arr|Iterable)$'}
+                - has: {kind: type_argument_list, has: {matches: element}, not: {has: {nthChild: 2}}}
+            - kind: nullable_type
+              has: {field: type, matches: sequence-type}
+    declaration:
+        any:
+            - kind: parameter
+              all:
+                - has: {field: type, matches: sequence-type}
+                - has: {field: name, pattern: $DECLARED}
+            - kind: variable_declaration
+              all:
+                - has: {field: type, matches: sequence-type}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $DECLARED}}
+    reference-items:
+        any:
+            - kind: identifier
+              pattern: $DECLARED
+              inside:
+                stopBy: end
+                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+                has: {stopBy: end, matches: declaration}
+            - kind: parenthesized_expression
+              has: {matches: reference-items}
+    option:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(Optional|Some)(\s*<.+>)?$'}
+            - kind: identifier
+              pattern: $OPTION
+              inside:
+                stopBy: end
+                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration, operator_declaration
+                has:
+                    stopBy: end
+                    any:
+                        - kind: parameter
+                          all: [{has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}}, {has: {field: name, pattern: $OPTION}}]
+                        - kind: variable_declaration
+                          all: [{has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<'}}, {has: {kind: variable_declarator, has: {field: name, pattern: $OPTION}}}]
+    to-seq:
+        regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?toSeq(\s*<.+>)?$'
+    empty:
+        any:
+            - kind: collection_expression
+              not: {has: {kind: expression_element}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?System\.)?((Linq\.)?Enumerable\s*\.\s*Empty|Array\s*\.\s*Empty)\s*<.+>$'}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    items:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: to-seq}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, has: {kind: binary_expression, all: [{has: {field: operator, regex: '^\?\?$'}}, {has: {field: right, matches: empty}}]}}}
+                - has: {field: arguments, has: {kind: argument, has: {kind: binary_expression, has: {field: left, pattern: $COALESCED}}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, matches: to-seq}
+                - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+                - has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {pattern: $UNWRAPPED}}}
+            - pattern: $RECEIVER
+              not: {matches: option}
+    slot-lambda:
+        kind: lambda_expression
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      pattern: $SLOT
+                    - kind: parameter_list
+                      all:
+                        - has: {kind: parameter, has: {field: name, pattern: $SLOT}}
+                        - not: {has: {kind: parameter, nthChild: 2}}
+            - not: {has: {field: type, pattern: $_}}
+    lift:
+        kind: argument
+        any:
+            - has: {regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Optional$'}
+            - has:
+                matches: slot-lambda
+                has:
+                    field: body
+                    kind: invocation_expression
+                    all:
+                        - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Optional(\s*<.+>)?$'}
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, pattern: $SLOT}, not: {has: {kind: argument, nthChild: 2}}}
+    null-test:
+        any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $SLOT}
+                - has: {field: pattern, any: [{regex: '^not\s+null$'}, {regex: '^\{\s*\}$'}]}
+            - kind: is_expression
+              all:
+                - has: {field: left, pattern: $SLOT}
+                - has: {field: right, regex: '^((global::)?System\.)?(object|Object)$'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^!=$'}
+                - any:
+                    - all: [{has: {field: left, pattern: $SLOT}}, {has: {field: right, kind: null_literal}}]
+                    - all: [{has: {field: left, kind: null_literal}}, {has: {field: right, pattern: $SLOT}}]
+            - kind: prefix_unary_expression
+              all:
+                - regex: '^!'
+                - has: {kind: parenthesized_expression, has: {kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SLOT}}, {has: {field: pattern, regex: '^null$'}}]}}
+            - kind: parenthesized_expression
+              has: {matches: null-test}
+    receiver:
+        any:
+            - kind: member_access_expression
+              has: {field: expression, matches: items}
+            - kind: conditional_access_expression
+              has: {field: condition, matches: items}
+    slot-read:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Somes$'}}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has:
+                    field: function
+                    has:
+                        field: expression
+                        kind: invocation_expression
+                        all:
+                            - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^Map$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^Map$'}}}]}
+                            - has: {field: arguments, all: [{has: {matches: lift}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+                            - has: {field: function, matches: receiver}
+            - all:
+                - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^Choose$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^Choose$'}}}]}
+                - has: {field: arguments, all: [{has: {matches: lift}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+                - has: {field: function, matches: receiver}
+            - all:
+                - has: {field: function, any: [{kind: member_access_expression, has: {field: name, regex: '^(Filter|Where)$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^(Filter|Where)$'}}}]}
+                - has:
+                    field: arguments
+                    all:
+                        - not: {has: {kind: argument, nthChild: 2}}
+                        - has: {kind: argument, has: {matches: slot-lambda, has: {field: body, matches: null-test}}}
+                - has: {field: function, matches: receiver}
+    null-slot-read:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Strict$'}}, {has: {field: expression, matches: slot-read}}]}
+            - all:
+                - matches: slot-read
+                - not: {inside: {kind: member_access_expression, field: expression, has: {field: name, regex: '^Strict$'}, inside: {kind: invocation_expression, field: function, has: {field: arguments, not: {has: {kind: argument}}}}}}
+        not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Present$'}}}}
+rule:
+    pattern: $READ
+    matches: null-slot-read
+transform:
+    PRESENT:
+        rewrite:
+            source: $READ
+            rewriters: [present]
+rewriters:
+    - id: present
+      rule: {matches: null-slot-read}
+      constraints:
+        COALESCED: {matches: reference-items}
+        UNWRAPPED: {matches: reference-items}
+        RECEIVER: {matches: reference-items}
+      fix: Answers.Present($COALESCED$UNWRAPPED$RECEIVER)
+fix: $PRESENT
+message: Null slots of `$COALESCED$UNWRAPPED$RECEIVER` drop by hand
+note: Use `Answers.Present(<items>)` where the element type is a class, and no null test for a value type

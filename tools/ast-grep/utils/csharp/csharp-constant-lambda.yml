@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-constant-lambda
+language: csharp
+arguments: [value]
+utils:
+    literal:
+        any:
+            - kind: boolean_literal
+            - kind: default_expression
+              not: {has: {field: type, not: {regex: '^((global::)?System\.)?(bool|Boolean)$'}}}
+    bare:
+        any:
+            - matches: literal
+            - kind: parenthesized_expression
+              has: {matches: bare}
+    pure-operand:
+        not:
+            has:
+                stopBy: end
+                kind: invocation_expression, assignment_expression, postfix_unary_expression, object_creation_expression, implicit_object_creation_expression, await_expression, throw_expression
+    constant:
+        any:
+            - matches: literal
+              all:
+                - matches: value
+            - kind: prefix_unary_expression
+              all:
+                - regex: '^!'
+                - has: {matches: bare}
+                - has: {stopBy: end, matches: literal, not: {matches: value}}
+            - kind: binary_expression
+              matches: pure-operand
+              any:
+                - all:
+                    - has: {field: operator, regex: '^\|\|$'}
+                    - has: {kind: boolean_literal, regex: '^true$', matches: value}
+                - all:
+                    - has: {field: operator, regex: '^&&$'}
+                    - has: {kind: boolean_literal, regex: '^false$', matches: value}
+            - kind: parenthesized_expression
+              has: {matches: constant}
+    result:
+        any:
+            - matches: constant
+            - kind: block
+              has:
+                kind: return_statement
+                nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                has: {matches: constant}
+            - kind: arrow_expression_clause
+              has: {matches: constant}
+    function:
+        any:
+            - kind: lambda_expression
+              has: {field: body, matches: result}
+            - kind: anonymous_method_expression
+              has: {kind: block, matches: result}
+    constant-member:
+        kind: method_declaration, local_function_statement
+        all:
+            - has: {field: name, pattern: $CONSTANT_GROUP}
+            - has: {field: body, matches: result}
+    constant-variable:
+        kind: variable_declarator
+        all:
+            - has: {field: name, pattern: $CONSTANT_GROUP}
+            - has: {matches: function}
+    other-declaration:
+        any:
+            - kind: method_declaration, local_function_statement
+              all:
+                - has: {field: name, pattern: $CONSTANT_GROUP}
+                - not: {has: {field: body, matches: result}}
+            - kind: variable_declarator
+              all:
+                - has: {field: name, pattern: $CONSTANT_GROUP}
+                - not: {has: {matches: function}}
+            - kind: parameter, property_declaration, event_declaration
+              has: {field: name, pattern: $CONSTANT_GROUP}
+            - kind: foreach_statement
+              has: {field: left, pattern: $CONSTANT_GROUP}
+            - kind: declaration_pattern, var_pattern, recursive_pattern
+              has: {stopBy: end, kind: identifier, pattern: $CONSTANT_GROUP}
+            - kind: assignment_expression
+              has: {field: left, pattern: $CONSTANT_GROUP}
+    group:
+        kind: identifier
+        pattern: $CONSTANT_GROUP
+        any:
+            - inside:
+                stopBy: {kind: 'method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration, property_declaration, indexer_declaration, field_declaration'}
+                kind: method_declaration, constructor_declaration, destructor_declaration, operator_declaration, conversion_operator_declaration, accessor_declaration, property_declaration, indexer_declaration
+                all:
+                    - has: {stopBy: end, matches: constant-variable}
+                    - not: {has: {stopBy: end, matches: other-declaration}}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                all:
+                    - has: {stopBy: end, any: [{matches: constant-member}, {kind: field_declaration, has: {kind: variable_declaration, has: {matches: constant-variable}}}]}
+                    - not: {has: {stopBy: end, matches: other-declaration}}
+rule:
+    any:
+        - matches: function
+        - kind: argument
+          any:
+            - has: {matches: function}
+            - has: {matches: group, not: {inside: {kind: argument, field: name}}}
+          not: {has: {kind: comment}}

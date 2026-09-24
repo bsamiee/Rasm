@@ -1,0 +1,173 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-null-guard-on-non-nullable
+language: csharp
+severity: error
+utils:
+    guarded:
+        kind: identifier
+        pattern: $PARAMETER
+    null-literal:
+        kind: null_literal
+    reference-test:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^(((global::)?System\.)?(Object|object)\.)?ReferenceEquals$'}
+            - has:
+                field: arguments
+                any:
+                    - all: [{has: {kind: argument, nthChild: 1, has: {matches: guarded}}}, {has: {kind: argument, nthChild: 2, has: {matches: null-literal}}}]
+                    - all: [{has: {kind: argument, nthChild: 1, has: {matches: null-literal}}}, {has: {kind: argument, nthChild: 2, has: {matches: guarded}}}]
+    null-test:
+        any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: guarded}
+                - has:
+                    field: pattern
+                    any:
+                        - kind: constant_pattern
+                          regex: '^null$'
+                        - kind: negated_pattern
+                          has: {kind: recursive_pattern, not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, matches: guarded}}, {has: {field: right, matches: null-literal}}]
+                    - all: [{has: {field: left, matches: null-literal}}, {has: {field: right, matches: guarded}}]
+            - matches: reference-test
+            - kind: parenthesized_expression
+              has: {matches: null-test}
+    present-test:
+        any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: guarded}
+                - has:
+                    field: pattern
+                    any:
+                        - kind: negated_pattern
+                          has: {kind: constant_pattern, regex: '^null$'}
+                        - kind: recursive_pattern
+                          not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^!=$'}
+                - any:
+                    - all: [{has: {field: left, matches: guarded}}, {has: {field: right, matches: null-literal}}]
+                    - all: [{has: {field: left, matches: null-literal}}, {has: {field: right, matches: guarded}}]
+            - kind: prefix_unary_expression
+              has: {matches: reference-test}
+            - kind: parenthesized_expression
+              has: {matches: present-test}
+    exit-branch:
+        any:
+            - kind: 'throw_statement, return_statement'
+            - kind: block
+              has: {kind: 'throw_statement, return_statement'}
+              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    statement-position:
+        any:
+            - inside: {kind: 'block, switch_section, global_statement'}
+            - inside: {kind: if_statement, field: alternative}
+            - pattern: $EMBEDDED
+    guard:
+        any:
+            - kind: expression_statement
+              matches: statement-position
+              has:
+                kind: invocation_expression
+                all:
+                    - has: {field: function, regex: '^((global::)?System\.)?ArgumentNullException\.ThrowIfNull$'}
+                    - has:
+                        field: arguments
+                        has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: guarded}}
+            - kind: if_statement
+              matches: statement-position
+              all:
+                - has: {field: condition, matches: null-test}
+                - has: {field: consequence, matches: exit-branch}
+                - not: {has: {field: alternative, pattern: $_}}
+            - kind: binary_expression
+              all:
+                - has: {field: left, matches: guarded, pattern: $KEPT}
+                - has: {field: operator, regex: '^\?\?$'}
+                - has: {field: right, kind: throw_expression}
+            - kind: conditional_expression
+              any:
+                - all:
+                    - has: {field: condition, matches: null-test}
+                    - has: {field: consequence, kind: throw_expression}
+                    - has: {field: alternative, pattern: $KEPT}
+                - all:
+                    - has: {field: condition, matches: present-test}
+                    - has: {field: alternative, kind: throw_expression}
+                    - has: {field: consequence, pattern: $KEPT}
+    open-type-parameter:
+        kind: identifier
+        pattern: $OPEN
+        inside:
+            stopBy: end
+            kind: 'method_declaration, class_declaration, record_declaration, struct_declaration, interface_declaration, local_function_statement, delegate_declaration'
+            all:
+                - has:
+                    kind: type_parameter_list
+                    has: {kind: type_parameter, has: {kind: identifier, pattern: $OPEN}}
+                - not:
+                    has:
+                        kind: type_parameter_constraints_clause
+                        all:
+                            - has: {kind: identifier, pattern: $OPEN}
+                            - has: {kind: type_parameter_constraint, regex: '^(class|notnull|struct|unmanaged|[A-Z][\w.<>, ]*)$'}
+    non-nullable-type:
+        not:
+            any:
+                - kind: nullable_type
+                - matches: open-type-parameter
+    declared-parameter:
+        kind: parameter_list
+        any:
+            - has:
+                kind: parameter
+                all:
+                    - has: {field: name, pattern: $PARAMETER}
+                    - has: {field: type, matches: non-nullable-type}
+            - all:
+                - has: {field: name, pattern: $PARAMETER}
+                - has: {field: type, matches: non-nullable-type}
+    shadowing-parameter:
+        any:
+            - kind: implicit_parameter
+              pattern: $PARAMETER
+            - kind: parameter_list
+              has:
+                kind: parameter
+                all:
+                    - has: {field: name, pattern: $PARAMETER}
+                    - not: {has: {field: type, matches: non-nullable-type}}
+rule:
+    matches: guard
+    all:
+        - inside:
+            stopBy: end
+            kind: 'method_declaration, constructor_declaration, local_function_statement, operator_declaration, conversion_operator_declaration, lambda_expression, anonymous_method_expression, class_declaration, record_declaration, struct_declaration'
+            has: {kind: parameter_list, matches: declared-parameter}
+        - not:
+            inside:
+                stopBy: end
+                kind: 'method_declaration, constructor_declaration, local_function_statement, operator_declaration, conversion_operator_declaration, lambda_expression, anonymous_method_expression'
+                has: {field: parameters, matches: shadowing-parameter}
+        - not:
+            inside:
+                stopBy: end
+                kind: 'method_declaration, indexer_declaration'
+                all:
+                    - any: [{has: {kind: modifier, regex: '^override$'}}, {has: {kind: explicit_interface_specifier}}]
+                    - has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $PARAMETER}}}
+transform:
+    EMPTY_BODY: {replace: {source: $EMBEDDED, replace: '(?s)^.*$', by: '{ }'}}
+fix:
+    template: $KEPT$EMPTY_BODY
+    expandStart: {regex: '^else$'}
+message: 'Null guard on `$PARAMETER` repeats the null contract of its non-nullable type'
+note: Delete the guard statement, a `??` or conditional `throw` keeps the parameter value

@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-acquire-in-traversal
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    element:
+        any:
+            - pattern: $ELEMENT
+            - kind: lambda_expression
+              all:
+                - not: {has: {field: parameters, has: {kind: parameter}}}
+                - has: {field: body, pattern: $ELEMENT}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*(pure|lift)(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}
+    acquire:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '(^|\.)\s*Acquire(\s*<.+>)?$'}
+            - not: {inside: {stopBy: {kind: lambda_expression}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}}
+    element-scope:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.(Document|Modeling)\.)?(Disposal\s*\.\s*(Using|Bracketed)|GeometryOps\s*\.\s*WithCopy)(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}
+    sequence-type:
+        regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?(Seq|Lst|Arr|IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List)\s*<|\[\]\??$)'
+    sequence:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(toSeq|Seq)(\s*<.+>)?$'}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Map|Filter|Where|Select|Rev|Take|Skip|Append|Concat|Strict|Distinct)$'}
+                    - has: {field: expression, matches: sequence}
+            - kind: identifier
+              pattern: $HELD
+              inside:
+                stopBy: end
+                kind: method_declaration, local_function_statement, lambda_expression, constructor_declaration, accessor_declaration
+                has:
+                    stopBy: end
+                    any:
+                        - kind: parameter
+                          all: [{has: {field: type, matches: sequence-type}}, {has: {field: name, pattern: $HELD}}]
+                        - kind: variable_declaration
+                          all: [{has: {field: type, matches: sequence-type}}, {has: {kind: variable_declarator, has: {field: name, pattern: $HELD}}}]
+    per-element:
+        kind: argument
+        any:
+            - has: {kind: member_access_expression, regex: '\.\s*Acquire$'}
+            - has:
+                kind: lambda_expression
+                all:
+                    - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $ELEMENT}, {has: {kind: parameter, has: {field: name, pattern: $ELEMENT}}}]}
+                    - has:
+                        field: body
+                        any:
+                            - matches: acquire
+                            - has: {stopBy: {kind: lambda_expression}, matches: acquire}
+                            - matches: element-scope
+    traversal:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Traverse|TraverseM)$'}}, {has: {field: expression, pattern: $SEQ, matches: sequence}}]}
+                - has: {field: arguments, all: [{has: {matches: per-element}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - kind: invocation_expression
+              all:
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^(Sequence|SequenceM)$'}
+                        - has:
+                            field: expression
+                            kind: invocation_expression
+                            all:
+                                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Map|Select)$'}}, {has: {field: expression, pattern: $SEQ, matches: sequence}}]}
+                                - has: {field: arguments, all: [{has: {matches: per-element}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+rule:
+    kind: invocation_expression
+    matches: traversal
+message: '`$SEQ` acquires a disposable per element of a traversal'
+note: Use `Disposal.AcquireAll(<items>.Map(<acquire>))` to release the earlier handles on a failure, or `Disposal.Using(<IO<Seq<T>>>, <body>)` over the whole sequence

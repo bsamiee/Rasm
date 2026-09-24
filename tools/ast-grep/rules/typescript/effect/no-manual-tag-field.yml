@@ -52,4 +52,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[tagged])
 fix: $FIXED$KEPT
 message: '`$NAME` sets `_tag` by hand on `$DATA.$BASE`'
-note: '`Data.Tagged$BASE($TAG)` sets `_tag`, `Data.taggedEnum` or `Data.tagged` builds a variant with no class'
+note: '`Data.TaggedClass(<tag>)` or `Data.TaggedError(<tag>)` sets `_tag`, `Data.taggedEnum` or `Data.tagged` builds a variant with no class'

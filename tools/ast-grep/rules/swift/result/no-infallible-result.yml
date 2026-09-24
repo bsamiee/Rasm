@@ -38,4 +38,4 @@ transform:
     UNWRAPPED: {rewrite: {source: $DECLARATION, rewriters: [return-type, unwrap-success]}}
 fix: $UNWRAPPED
 message: '`$NAME` returns `Result<$T, $E>` and constructs `.success` alone'
-note: 'Return `$T`'
+note: 'Return `<success type>`'

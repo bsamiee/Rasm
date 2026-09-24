@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-attribute-docstring
+language: python
+severity: error
+utils:
+    literal:
+        any:
+            - kind: string, concatenated_string
+            - kind: parenthesized_expression
+              has: {matches: literal}
+rule:
+    kind: expression_statement
+    all:
+        - any:
+            - has: {matches: literal}
+            - has: {kind: assignment, all: [{has: {field: left, regex: '^_$'}}, {has: {field: right, matches: literal}}]}
+        - not: {has: {pattern: $_, nthChild: 2}}
+        - follows:
+            stopBy: {not: {any: [{kind: comment}, {regex: '^;$'}]}}
+            any:
+                - kind: expression_statement
+                  has: {kind: assignment, has: {field: left, pattern: $NAME}}
+                - kind: type_alias_statement
+                  has: {field: left, pattern: $NAME}
+        - any:
+            - follows: {pattern: $PREV}
+            - pattern: $_
+fix:
+    template: $PREV
+    expandStart: {pattern: $PREV}
+message: 'String statement after `$NAME` documents that name'
+note: 'Delete the string'

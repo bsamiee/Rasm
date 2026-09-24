@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: require-abstract-host-subclass
+language: csharp
+severity: error
+files: ['libs/**/*.cs']
+utils:
+    host-type:
+        kind: 'identifier, qualified_name'
+        pattern: $HOST
+        regex: |-
+            (?x)^(global::)?(Rhino\.[\w.]*\.)?
+            (Custom(Brep|Curve|Mesh|Point)Object|CustomObjectGrips|UserData|UserDictionary|SnapShotsClient|EtoCollapsibleSection3?
+            |CollapsibleSection|ObjectPropertiesPage|PostEffect|VisualAnalysisMode|ObjectManagerExtension|UICommand|FactoryBase
+            |RenderContent|RenderMaterial|RenderTexture|TwoColorRenderTexture|RenderEnvironment|RenderMeshProvider
+            |CustomRenderMeshProvider2?|RealtimeDisplayMode|RealtimeDisplayModeClassInfo|LightManagerSupport|Skin|PlugIn
+            |FileImportPlugIn|FileExportPlugIn|RenderPlugIn|DigitizerPlugIn|Command|SelCommand|TransformCommand)$
+    first-base:
+        nthChild: 1
+        inside: {kind: base_list}
+    host-base:
+        any:
+            - matches: host-type
+            - kind: identifier
+              pattern: $BASE
+              inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    any:
+                        - kind: using_directive
+                          all:
+                            - has: {field: name, pattern: $BASE}
+                            - has: {nthChild: 2, matches: host-type}
+                        - kind: class_declaration
+                          all:
+                            - has: {field: name, pattern: $BASE}
+                            - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-type}]}}
+rule:
+    kind: class_declaration
+    pattern: $DECL
+    all:
+        - has: {field: name, pattern: $NAME}
+        - not: {has: {kind: modifier, regex: '^abstract$'}}
+        - has: {kind: base_list, has: {matches: first-base, all: [{matches: host-base}]}}
+transform:
+    ABSTRACT:
+        replace:
+            source: $DECL
+            replace: '^((?:\[(?:[^\[\]"]|"(?:[^"\\]|\\.)*"|\[[^\]]*\])*\]\s*)*(?:(?:public|internal|protected|private|file|unsafe|new)\s+)*)(?:sealed\s+)?'
+            by: '${1}abstract '
+fix: $ABSTRACT
+message: 'Library class `$NAME` derives from `$HOST`, a type Rhino constructs or identifies by type, and stays instantiable'
+note: Declare the class `abstract`, the application subclass supplies the public parameterless constructor

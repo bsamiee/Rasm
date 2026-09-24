@@ -2,28 +2,44 @@
 
 IFC work runs on Bonsai with its bundled `ifcopenshell`: the IFC file is the model, Blender objects are views of its entities that Bonsai writes back on save.
 
-## [01]-[MODEL]
+## [01]-[LOAD]
+
+Bonsai acts on every file load through `load_post`, before any agent code runs on the file:
+- `activate_workspace` preference switches the window to the BIM workspace at every load, `should_setup_workspace` appends that workspace to the file
+- `should_use_snap` preference forces Bonsai's own snap settings at every load
+- `setup_tabs` writes 20 `BIMAreaProperties` entries onto every screen, a Properties area reads `tab` (`PROJECT`, `BLENDER`) at its area index
+- `override_scene_panel` re-registers every non-Bonsai `bl_context == "scene"` panel, stock ones included, in class-name order once per session
+- Re-registered Scene panels reorder the Scene tab and lose the owner id of every class that declares no `bl_owner_id`
+- Bonsai imports as `bonsai` from the shared wheel folder, `bl_ext.blender_org.bonsai.tool` raises `ModuleNotFoundError` and `bonsai.tool` imports
+- Bonsai camera, unit, georeference, and drawing properties raise from their enum callbacks until an IFC project loads
+- `BIMSolarProperties.shadow_mode = "SHADING"` switches `render.engine` to `BLENDER_WORKBENCH`, ID item writes (`props["latitude"]`) skip every update
+
+## [02]-[MODEL]
 
 - `bim.load_project(filepath=, should_start_fresh_session=False)` loads an IFC into the open file, spatial elements as empties
 - `should_start_fresh_session` defaults true and runs `wm.read_homefile()`, the open file's objects and path gone with no prompt
+- `bim.new_project(preset="imperial_ft")` starts a feet project after the same `wm.read_homefile()`, `metric_m` and `metric_mm` metric ones
 - Loaded objects take the name `<IfcClass>/<Name>`
 - `bonsai.tool.Ifc.get()` returns the open `ifcopenshell.file`, `bonsai.tool.Ifc.get_entity(<object>)` the entity behind an object
 - `ifcopenshell.util.element` reads psets (`get_psets`), container (`get_container`), and type (`get_type`) from an entity
 - `bim.save_project(filepath=)` writes the file, object transforms reach `ObjectPlacement` on save
 - Mesh edits stay in Blender until `bim.update_representation()` runs on the active and selected object, a save without it writes the old shape
+- `BIMProperties` imperial unit items are lower-case words (`square foot`, `cubic foot`), SI items upper-case IFC names (`SQUARE_METRE`, `KILO/GRAM`)
+- Startup camera carries `BIMCameraProperties` (`target_view`, `diagram_scale`, `dpi`), read once the camera becomes an IFC drawing
 
-## [02]-[AUTHORING]
+## [03]-[AUTHORING]
 
 `ifcopenshell.api` builds a valid project outside the UI, with lengths in meters and the file unit converting on write:
 
 ```python
-# [HEADLESS_CALL] New IFC4 project with a wall on its storey, written to <path>
+# [HEADLESS_CALL] New IFC4 project in feet with a wall on its storey, written to <path>
 import ifcopenshell.api as api
 import ifcopenshell.util.unit
 
+feet = {"is_metric": False, "raw": "FEET"}
 f = api.run("project.create_file", version="IFC4")
 project = api.run("root.create_entity", f, ifc_class="IfcProject", name="<project>")
-api.run("unit.assign_unit", f)
+api.run("unit.assign_unit", f, length=feet, area=feet, volume=feet)
 model = api.run("context.add_context", f, context_type="Model")
 body = api.run("context.add_context", f, context_type="Model", context_identifier="Body", target_view="MODEL_VIEW", parent=model)
 site, building, storey = (api.run("root.create_entity", f, ifc_class=c, name=n) for c, n in (("IfcSite", "<site>"), ("IfcBuilding", "<building>"), ("IfcBuildingStorey", "<storey>")))
@@ -37,10 +53,11 @@ f.write("<path>")
 result = {"unit_scale": ifcopenshell.util.unit.calculate_unit_scale(f)}
 ```
 
-- `unit.assign_unit` with no arguments sets millimeters, `calculate_unit_scale` answers `0.001` and representation arguments stay meters
+- `unit.assign_unit` with no arguments sets millimeters, `feet` as `length`, `area`, and `volume` sets feet, square feet, and cubic feet
+- `calculate_unit_scale` answers `0.3048` for feet and `0.001` for millimeters, and representation arguments stay meters under either
 - `bim.load_project` of the written file then gives the Blender view, a 5 m wall measures `(5.0, 0.2, 3.0)` as `IfcWall/<wall>`
 
-## [03]-[DRAWINGS]
+## [04]-[DRAWINGS]
 
 Bonsai drawings are scaled SVG views cut from the IFC model and sheets place them, in a headless session:
 1. `scene.DocProperties.target_view` takes `PLAN_VIEW`, `ELEVATION_VIEW`, `SECTION_VIEW`, `REFLECTED_PLAN_VIEW`, or `MODEL_VIEW`
@@ -54,6 +71,6 @@ Bonsai drawings are scaled SVG views cut from the IFC model and sheets place the
 
 - Drawings carry `data-scale="1:100"` and millimeter `width` and `height`, a 5 m wall draws 50 mm long
 - `drawings/cache/` holds linework and annotation layers, `drawings/assets/` holds symbols, markers, and patterns
-- `create_sheets` converts to PDF through the add-on's `svg2pdf_command` preference, Inkscape by default and absent here
+- `create_sheets` converts to PDF through the add-on's `svg2pdf_command` preference, empty by default
 - `typst compile --root / <sheet>.typ <pdf>` writes a sheet PDF with its stylesheet line weights
 - `<sheet>.typ` sets `page(width: <w>mm, height: <h>mm, margin: 0pt)` and holds `#image("<sheet>.svg", width: 100%, height: 100%)`

@@ -1,6 +1,6 @@
 # [EXECUTION_PERFORMANCE]
 
-Target execution, project scheduling, and task cost in build duration. Every finding is a delta between two captures taken under the same conditions.
+Target execution, project scheduling, and task cost in build duration. Every finding is a delta between captures taken under the same conditions.
 
 ## [01]-[COMPARABLE_CAPTURES]
 
@@ -17,7 +17,7 @@ Change the input or setting under measurement alone. Hold the command, propertie
 - `-nr:false` stops node reuse, the next capture starts its worker nodes again
 - Record the chosen state of each with the capture, a warm server and reused nodes remove process startup from the measured duration
 - Restore and capture both under `--artifacts-path <dir>`, a build another session runs into the shared `ArtifactsPath` changes the measured work
-- `binlog_compare` shows property and package drift between two captures
+- `binlog_compare` shows property and package drift between captures
 - Compare the build against its own captures
 
 ## [02]-[BINLOG_DIAGNOSIS]
@@ -31,7 +31,7 @@ Change the input or setting under measurement alone. Hold the command, propertie
 
 ## [03]-[CRITICAL_PATH_AND_NODES]
 
-The critical path is the duration-weighted chain of project dependencies setting the minimum build time, work outside that chain delays it through contention for nodes and disks.
+Critical path is the duration-weighted chain of project dependencies setting minimum build time, off-path work delays it through contention for nodes and disks.
 
 - `dotnet build` passes `-maxcpucount`, the `MSBuildNodeCount` property in the binlog records the node count
 - Each node builds one project at a time, targets inside a project run one after another
@@ -41,12 +41,12 @@ The critical path is the duration-weighted chain of project dependencies setting
 
 ## [04]-[PROJECT_GRAPH]
 
-A `ProjectReference` is an ordering edge and an output dependency.
+`ProjectReference` items are ordering edges and output dependencies.
 
 - Remove the reference when the consumer needs neither the output nor the ordering edge
 - Set `ReferenceOutputAssembly="false"` when the build needs the ordering edge and the compiler does not consume the output
 - Replace a project reference with a package when the dependency is a prebuilt artifact
-- A solution filter reduces the graph
+- Reduce the graph with a solution filter
 
 After each graph change, capture the same build again and run `binlog_build_graph` for the new critical path.
 
@@ -67,13 +67,13 @@ dotnet build Solution.slnx --no-restore -graph -isolate -bl:<dir>/graph-{}.binlo
 
 ## [06]-[MSBUILD_TASK_PARALLELISM]
 
-The `<MSBuild>` task submits the whole project list to the engine at once when one call receives the list and `BuildInParallel` is `true`, and builds each project alone in turn when it is `false`.
+`<MSBuild>` submits the whole project list to the engine at once when one call receives the list and `BuildInParallel` is `true`, and builds each project alone in turn when it is `false`.
 
 ```xml
 <MSBuild Projects="@(IndependentProjects)" Targets="Build" BuildInParallel="true" />
 ```
 
-- A task batched with `%(IndependentProjects.Identity)` makes one call per project, each call finishes before the next starts
+- `<MSBuild>` batched with `%(IndependentProjects.Identity)` makes one call per project, each call finishes before the next starts
 - `BuildInParallel` defaults to `true` in `Microsoft.Common.CurrentVersion.targets`, an explicit `false` on a call serializes the referenced projects
 
 ## [07]-[MULTITHREADED_MODE]

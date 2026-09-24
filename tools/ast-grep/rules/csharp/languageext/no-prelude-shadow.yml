@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-prelude-shadow
+language: csharp
+severity: error
+rule:
+    pattern: $NAME
+    regex: '^(unit|None)$'
+    any:
+        - kind: implicit_parameter
+        - kind: identifier
+          any:
+            - inside: {kind: 'variable_declarator, parameter, from_clause, join_clause, join_into_clause, declaration_pattern, declaration_expression, local_function_statement', field: name}
+            - inside: {kind: let_clause}
+            - inside: {kind: foreach_statement, field: left}
+message: '`$NAME` declares a name that hides the `Prelude` value `$NAME`'
+note: Name the value for what it holds

@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutable-member
+language: csharp
+severity: error
+utils:
+    member-owner:
+        inside: {kind: declaration_list, inside: {kind: 'record_declaration, class_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}}
+    record-owner:
+        inside: {kind: declaration_list, inside: {kind: record_declaration, has: {field: name, pattern: $TYPE}}}
+    single-declarator:
+        has:
+            kind: variable_declaration
+            not: {has: {kind: variable_declarator, nthChild: {position: 2, ofRule: {kind: variable_declarator}}}}
+rule:
+    any:
+        - kind: accessor_declaration
+          pattern: $ACCESSOR
+          all:
+            - has: {field: name, regex: '^set$'}
+            - inside:
+                kind: accessor_list
+                inside:
+                    kind: 'property_declaration, indexer_declaration'
+                    not:
+                        any:
+                            - has: {kind: modifier, regex: '^(override|static)$'}
+                            - has: {kind: explicit_interface_specifier}
+                    matches: member-owner
+        - kind: field_declaration
+          pattern: $FIELD
+          all:
+            - not: {has: {kind: modifier, regex: '^(readonly|const|required)$'}}
+            - matches: record-owner
+        - kind: field_declaration
+          pattern: $FIELD
+          all:
+            - has: {kind: modifier, regex: '^(public|internal|protected)$'}
+            - not: {has: {kind: modifier, regex: '^(readonly|const|required|private|static)$'}}
+            - inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration', has: {field: name, pattern: $TYPE}}}
+        - kind: field_declaration
+          pattern: $REQUIRED
+          all:
+            - has: {kind: modifier, regex: '^required$'}
+            - matches: single-declarator
+            - matches: member-owner
+        - kind: record_declaration
+          pattern: $DECLARATION
+          all:
+            - has: {regex: '^struct$'}
+            - has: {field: name, pattern: $TYPE}
+            - has: {kind: parameter_list, has: {kind: parameter}}
+            - not: {has: {kind: modifier, regex: '^readonly$'}}
+transform:
+    INIT: {replace: {source: $ACCESSOR, replace: '(?s)^(.*?)\bset\b', by: '${1}init'}}
+    READONLY_FIELD:
+        replace:
+            source: $FIELD
+            replace: '^((?:\[(?:[^\[\]"]|"(?:[^"\\]|\\.)*"|\[[^\]]*\])*\]\s*)*(?:(?:public|internal|protected|private|file|static|new|unsafe)\s+)*)(?:volatile\s+)?'
+            by: '${1}readonly '
+    REQUIRED_ACCESSORS: {replace: {source: $REQUIRED, replace: '\s*;\s*$', by: ' { get; init; }'}}
+    REQUIRED_PROPERTY: {replace: {source: $REQUIRED_ACCESSORS, replace: '(?s)^(.*?)\s*(=\s*[^{]+?)\s*(\{ get; init; \})$', by: '${1} ${3} ${2};'}}
+    READONLY: {replace: {source: $DECLARATION, replace: '(?s)^(.*?)\b(partial\s+)?record(\s+struct)\b', by: '${1}readonly ${2}record${3}'}}
+fix: $INIT$READONLY_FIELD$REQUIRED_PROPERTY$READONLY
+message: '`$TYPE` holds a member that changes after construction'
+note: Use `init` accessors, `readonly` fields, `required` members as `{ get; init; }` properties, and `readonly record struct` for a positional record struct, a later change goes through `with` or a transition that returns the next value

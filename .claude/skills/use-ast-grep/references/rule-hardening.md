@@ -22,6 +22,7 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 |  [12]   | Kind chain standing for a role in a depth or count rule         | `inside` with the parent kind, `has` on its field, near misses valid |
 |  [13]   | Function exposed through more modules than the rule covers      | Exporting-module `regex` on `field: object`, a case per module       |
 |  [14]   | Expensive clauses before a cheap independent `has`              | Explicit `all:` ordered by capture dependency, then cost             |
+|  [15]   | Form that silences the rule and keeps its cause                 | Arm per spelling, relayed value, restated type, rename, wrapper      |
 
 ## [02]-[PATTERN]
 

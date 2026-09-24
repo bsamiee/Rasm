@@ -1,0 +1,129 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-enum-fallback-branch
+language: csharp
+severity: error
+utils:
+    member-access:
+        kind: member_access_expression
+        has:
+            field: expression
+            any:
+                - kind: identifier
+                  pattern: $ENUM
+                - kind: member_access_expression
+                  has: {field: name, pattern: $ENUM}
+    single-enum:
+        kind: enum_declaration
+        all:
+            - has: {field: name, pattern: $ENUM}
+            - not: {has: {kind: attribute_list, has: {kind: attribute, has: {field: name, regex: '^((global::)?System\.)?Flags(Attribute)?$'}}}}
+    file-enum:
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has: {stopBy: end, matches: single-enum}
+    two-member-file-enum:
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has:
+                stopBy: end
+                matches: single-enum
+                has:
+                    kind: enum_member_declaration_list
+                    all:
+                        - has: {kind: enum_member_declaration, nthChild: {position: 2, ofRule: {kind: enum_member_declaration}}}
+                        - not: {has: {kind: enum_member_declaration, nthChild: {position: 3, ofRule: {kind: enum_member_declaration}}}}
+    member-pattern:
+        any:
+            - kind: constant_pattern
+              has: {matches: member-access}
+            - has: {stopBy: end, kind: constant_pattern, has: {matches: member-access}}
+    catch-all-pattern:
+        any:
+            - kind: discard
+            - kind: declaration_pattern
+              has: {field: type, kind: implicit_type}
+            - kind: negated_pattern
+              matches: member-pattern
+            - kind: declaration_pattern
+              has: {field: type, pattern: $ENUM}
+            - kind: constant_pattern
+              has: {kind: identifier, pattern: $ENUM}
+            - kind: recursive_pattern
+              not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}
+    fallback-arm:
+        kind: switch_expression_arm
+        all:
+            - has: {nthChild: 1, matches: catch-all-pattern}
+            - not: {has: {kind: when_clause}}
+    member-test:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^[=!]=$'}
+                - any:
+                    - all: [{has: {field: right, matches: member-access}}, {has: {field: left, pattern: $SUBJECT}}]
+                    - all: [{has: {field: left, matches: member-access}}, {has: {field: right, pattern: $SUBJECT}}]
+            - kind: is_pattern_expression
+              all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, matches: member-pattern}}]
+            - kind: member_access_expression
+              has: {field: expression, kind: is_pattern_expression, all: [{has: {field: expression, pattern: $SUBJECT}}, {has: {field: pattern, any: [{kind: constant_pattern, has: {kind: identifier, pattern: $ENUM}}, {kind: negated_pattern, has: {kind: constant_pattern, has: {kind: identifier, pattern: $ENUM}}}]}}]}
+            - kind: parenthesized_expression
+              has: {matches: member-test}
+    else-chain:
+        kind: if_statement
+        all:
+            - has: {field: condition, matches: member-test}
+            - any:
+                - all:
+                    - has: {field: alternative, pattern: $_}
+                    - not: {has: {field: alternative, kind: if_statement, not: {matches: else-chain}}}
+                - all:
+                    - not: {has: {field: alternative, pattern: $_}}
+                    - has: {field: consequence, matches: returning}
+                    - inside: {stopBy: end, kind: if_statement, not: {inside: {kind: if_statement, field: alternative}}, precedes: {kind: return_statement}}
+    returning:
+        any:
+            - kind: return_statement
+            - kind: block
+              has: {kind: return_statement}
+rule:
+    any:
+        - matches: fallback-arm
+          inside:
+            kind: switch_expression
+            all:
+                - has: {kind: switch_expression_arm, has: {nthChild: 1, matches: member-pattern}}
+                - matches: file-enum
+        - kind: conditional_expression
+          all:
+            - has: {field: condition, matches: member-test}
+            - not: {has: {field: alternative, kind: conditional_expression}}
+            - matches: two-member-file-enum
+        - kind: conditional_expression
+          all:
+            - has: {field: condition, matches: member-test}
+            - has: {field: alternative, kind: conditional_expression, has: {field: condition, matches: member-test}}
+            - matches: file-enum
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: member-test}
+            - has: {field: alternative, matches: else-chain}
+            - not: {inside: {kind: if_statement, field: alternative}}
+            - matches: file-enum
+        - kind: if_statement
+          all:
+            - has: {field: condition, matches: member-test}
+            - not: {inside: {kind: if_statement, field: alternative}}
+            - any:
+                - all:
+                    - has: {field: alternative, pattern: $_}
+                    - not: {has: {field: alternative, kind: if_statement}}
+                - all:
+                    - not: {has: {field: alternative, pattern: $_}}
+                    - has: {field: consequence, matches: returning}
+                    - precedes: {kind: return_statement}
+            - matches: two-member-file-enum
+message: 'Fallback branch over `$ENUM` sends a member the code never names to another member''s result'
+note: Switch over the enum with one arm per member and no catch-all arm

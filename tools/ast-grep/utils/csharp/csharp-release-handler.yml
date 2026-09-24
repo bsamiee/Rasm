@@ -1,0 +1,135 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-release-handler
+language: csharp
+utils:
+    fail:
+        regex: '^((global::)?(LanguageExt\.)?IO\.fail\s*<.+>|((global::)?(LanguageExt\.)?Prelude\.)?(error\s*<|fail\s*<\s*(global::)?(LanguageExt\.Common\.)?Error\s*,)\s*(global::)?(LanguageExt\.)?IO\s*,.+>)$'
+    combined:
+        kind: binary_expression
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: left, pattern: $ERROR}
+    refail:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: fail}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    has:
+                        any:
+                            - pattern: $ERROR
+                            - matches: combined
+                            - kind: conditional_expression
+                              all:
+                                - has: {field: consequence, pattern: $ERROR}
+                                - has: {field: alternative, matches: combined}
+    error-read:
+        kind: identifier
+        pattern: $ERROR
+        not:
+            inside:
+                kind: binary_expression
+                field: left
+                has: {field: operator, regex: '^\+$'}
+    silent-release:
+        not: {any: [{matches: error-read}, {has: {stopBy: end, matches: error-read}}]}
+    release-then-refail:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind(\s*<.+>)?$'}}, {has: {field: expression, matches: silent-release}}]}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: argument, nthChild: 1, has: {kind: 'lambda_expression, anonymous_method_expression', has: {field: body, any: [{matches: refail}, {kind: block, has: {kind: return_statement, nthChild: 1, has: {matches: refail}}, not: {has: {nthChild: 2}}}]}}}
+                        - not: {has: {kind: argument, nthChild: 2}}
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^Bind(\s*<.+>)?$'}
+                        - has:
+                            field: expression
+                            kind: invocation_expression
+                            all:
+                                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Map$'}}, {has: {field: expression, matches: silent-release}}]}
+                                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: lambda_expression, has: {field: body, pattern: $ERROR}}}}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: fail}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - kind: query_expression
+              all:
+                - has: {kind: from_clause, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: silent-release}}
+                - has: {kind: from_clause, nthChild: 2, has: {nthChild: {position: 1, reverse: true}, matches: refail}}
+                - not: {has: {kind: from_clause, nthChild: 3}}
+                - has: {kind: select_clause}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{kind: identifier, pattern: $RELAY}, {kind: generic_name, has: {kind: identifier, nthChild: 1, pattern: $RELAY}}]}
+                - has: {field: arguments, has: {kind: argument, has: {pattern: $ERROR}}}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        kind: 'method_declaration, local_function_statement'
+                        all:
+                            - has: {field: name, pattern: $RELAY}
+                            - has: {field: parameters, has: {kind: parameter, all: [{has: {field: type, regex: '^((global::)?LanguageExt\.Common\.)?Error$'}}, {has: {field: name, pattern: $RELAYED}}]}}
+                            - has:
+                                field: body
+                                has:
+                                    kind: invocation_expression
+                                    all:
+                                        - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind(\s*<.+>)?$'}}, {has: {field: expression, not: {any: [{pattern: $RELAYED}, {has: {stopBy: end, pattern: $RELAYED}}]}}}]}
+                                        - has: {field: arguments, has: {stopBy: end, kind: invocation_expression, has: {field: function, matches: fail}}}
+    narrowed:
+        any:
+            - matches: release-then-refail
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As(\s*<.+>)?$'}}, {has: {field: expression, matches: release-then-refail}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    body:
+        any:
+            - matches: narrowed
+            - kind: block
+              all:
+                - has: {kind: return_statement, nthChild: 1, has: {matches: narrowed}}
+                - not: {has: {nthChild: 2}}
+            - kind: block
+              all:
+                - has: {kind: expression_statement, nthChild: 1}
+                - has: {kind: return_statement, nthChild: {position: 1, reverse: true}, has: {matches: refail}}
+                - not: {has: {pattern: $_, not: {kind: 'expression_statement, return_statement, comment'}}}
+                - not: {has: {kind: expression_statement, has: {stopBy: end, pattern: $ERROR}}}
+    error-parameters:
+        any:
+            - kind: implicit_parameter
+              pattern: $ERROR
+            - kind: parameter_list
+              has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $ERROR}}
+              not: {has: {kind: parameter, nthChild: 2}}
+rule:
+    any:
+        - kind: 'lambda_expression, anonymous_method_expression'
+          all:
+            - has: {field: parameters, matches: error-parameters}
+            - any:
+                - has: {field: body, matches: body}
+                - has: {kind: block, matches: body}
+        - kind: identifier
+          pattern: $HANDLER
+          not: {inside: {kind: member_access_expression}}
+          inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: 'method_declaration, local_function_statement'
+                all:
+                    - has: {field: name, pattern: $HANDLER}
+                    - has: {field: parameters, matches: error-parameters}
+                    - has: {field: body, any: [{kind: arrow_expression_clause, has: {matches: body}}, {matches: body}]}

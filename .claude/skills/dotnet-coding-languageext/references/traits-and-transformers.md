@@ -37,7 +37,7 @@ internal static class OutcomeExtensions {
 }
 ```
 
-`As` keeps the downcast in one place, and the cast relies on an invariant: exactly one concrete type derives from `K<Outcome, A>`, and a second representation for the same `F` and `A` makes the downcast fail on use. Every type that implements `K<F, A>` with a witness `F : Functor<F>` gains the same generic `Map` extension, the result stays `K<F, B>` and composes in that form, and one `.As()` recovers the concrete type where it is needed. Abstraction over type constructors removes the duplication that ordinary generics remove over value types: an operation over two constructors (`T<F<A>>` with `T` traversable and `F` applicative) has no general form in C#, and the encoding `K<T, K<F, A>>` gives it one, a user-defined traversable or applicative composes with the library types instead of needing a cross-product of specialized functions.
+`As` keeps the downcast in one place, and the cast relies on an invariant: exactly one concrete type derives from `K<Outcome, A>`, and a second representation for the same `F` and `A` makes the downcast fail on use. Every type that implements `K<F, A>` with a witness `F : Functor<F>` gains the same generic `Map` extension, the result stays `K<F, B>` and composes in that form, and one `.As()` recovers the concrete type where it is needed. Abstraction over type constructors removes the duplication that ordinary generics remove over value types: an operation over nested constructors (`T<F<A>>` with `T` traversable and `F` applicative) has no general form in C#, and the encoding `K<T, K<F, A>>` gives it one, a user-defined traversable or applicative composes with the library types instead of needing a cross-product of specialized functions.
 
 ## [03]-[FOLDABLES]
 

@@ -26,6 +26,7 @@ Nx infers projects through plugins, orders targets through `dependsOn`, caches o
 - `params: forward` on a `dependsOn` entry passes the arguments to the dependency
 - Commands that run `nx` inside a target name a dependency, `dependsOn` holds it
 - `configurations` holds named option sets merged over `options`, `--configuration <name>` selects one, `defaultConfiguration` the default
+- `args` in `options` appends to the command, configurations differing in arguments alone set `args` over one `command`
 - `cache: true` alone caches a target, `cache: false` overrides a `targetDefaults` entry setting it for the name
 - Plugin source states each option's default (`testMode ??= 'watch'` in `@nx/vitest`), an option restating the default goes
 - `parallelism: false` marks targets writing a shared file or directory

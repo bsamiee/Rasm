@@ -29,6 +29,7 @@
     <ItemGroup Label="Rhino Host Packages" Condition="'$(HostCommon)' == 'true'">
         <PackageReference Include="RhinoCommon" ExcludeAssets="runtime" />
         <PackageReference Include="Grasshopper2" ExcludeAssets="runtime" Condition="'$(HostGrasshopper)' == 'true'" />
+        <PackageReference Update="System.Drawing.Common" ExcludeAssets="runtime" />
         <Using Include="Rhino.Geometry" />
         <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(HostGrasshopper)' == 'true'" />
     </ItemGroup>
@@ -48,7 +49,6 @@
         <ItemGroup>
             <_ProjectReference Include="@(ProjectReference->'%(FullPath)')" Condition="'%(ProjectReference.ReferenceOutputAssembly)' != 'false'" />
             <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'libs' and !$([System.String]::Copy('%(Identity)').StartsWith('$(LibsRoot)'))" />
-            <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'tools' and !$([System.String]::Copy('%(Identity)').StartsWith('$(LibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(ToolsRoot)'))" />
             <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'tests' and $([System.String]::Copy('%(Identity)').StartsWith('$(AppsRoot)'))" />
             <_InvalidProjectReference Include="@(_ProjectReference)" Condition="'$(ProjectRole)' == 'apps' and !$([System.String]::Copy('%(Identity)').StartsWith('$(LibsRoot)')) and !$([System.String]::Copy('%(Identity)').StartsWith('$(_ProjectDir)'))" />
         </ItemGroup>

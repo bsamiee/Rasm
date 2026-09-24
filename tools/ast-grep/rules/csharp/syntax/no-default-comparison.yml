@@ -1,0 +1,101 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-default-comparison
+language: csharp
+severity: error
+utils:
+    function-owner:
+        kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
+    type-parameter:
+        kind: identifier
+        pattern: $TP
+        inside:
+            stopBy: end
+            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {kind: identifier, pattern: $TP}}}
+            not: {has: {kind: type_parameter_constraints_clause, all: [{has: {kind: identifier, pattern: $TP}}, {has: {kind: type_parameter_constraint, regex: '^I(Number|NumberBase|BinaryInteger|BinaryNumber|FloatingPoint\w*|SignedNumber|UnsignedNumber|AdditiveIdentity)\b'}}]}}
+    struct-parameter:
+        matches: type-parameter
+        inside:
+            stopBy: end
+            has: {kind: type_parameter_constraints_clause, all: [{has: {kind: identifier, pattern: $TP}}, {has: {kind: type_parameter_constraint, regex: '^struct$'}}]}
+    generic-operand:
+        any:
+            - kind: postfix_unary_expression
+              has: {matches: generic-operand}
+            - matches: generic-local
+            - kind: identifier
+              pattern: $OPERAND
+              inside:
+                kind: 'class_declaration, record_declaration, struct_declaration'
+                stopBy: end
+                has: {kind: declaration_list, has: {kind: 'field_declaration, property_declaration', any: [{all: [{has: {field: type, matches: type-parameter}}, {has: {field: name, pattern: $OPERAND}}]}, {has: {kind: variable_declaration, all: [{has: {field: type, matches: type-parameter}}, {has: {kind: variable_declarator, has: {field: name, pattern: $OPERAND}}}]}}]}}
+    generic-local:
+        kind: identifier
+        pattern: $OPERAND
+        any:
+            - inside:
+                matches: function-owner
+                stopBy: end
+                has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $OPERAND}}, {has: {field: type, matches: type-parameter}}]}}
+            - matches: {csharp-block-local: {declarator: {inside: {kind: variable_declaration, has: {field: type, matches: type-parameter}}}}}
+    default-value:
+        any:
+            - kind: default_expression
+            - kind: 'postfix_unary_expression, parenthesized_expression'
+              has: {matches: default-value}
+            - kind: cast_expression
+              has: {field: value, matches: default-value}
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {has: {not: {kind: identifier}, matches: default-value}}}}
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, matches: struct-parameter}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{kind: identifier, pattern: $HELPER}, {kind: generic_name, has: {kind: identifier, pattern: $HELPER}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has: {stopBy: end, kind: 'method_declaration, local_function_statement', all: [{has: {field: name, pattern: $HELPER}}, {has: {field: body, kind: arrow_expression_clause, has: {matches: default-value}}}]}
+    default-argument:
+        kind: argument
+        has: {nthChild: {position: 1, reverse: true}, matches: default-value}
+    comparer:
+        kind: 'generic_name, qualified_name, member_access_expression'
+        regex: '^((global::)?System\.Collections\.Generic\.)?(EqualityComparer|Comparer)\s*<'
+        has: {stopBy: end, kind: type_argument_list, has: {matches: type-parameter}}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: arguments, has: {matches: default-argument}}
+            - any:
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^(Equals|Compare)$'}
+                        - has:
+                            field: expression
+                            kind: member_access_expression
+                            all:
+                                - has: {field: name, regex: '^Default$'}
+                                - has: {field: expression, matches: comparer}
+                - all:
+                    - has: {field: function, regex: '^(((global::)?System\.)?(Object|object)\.)?(Equals|ReferenceEquals)$'}
+                    - has: {field: arguments, has: {kind: argument, has: {matches: generic-operand}}}
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^Equals$'}
+                        - has: {field: expression, matches: generic-operand}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^[=!]=$'}
+            - any:
+                - all: [{has: {field: left, matches: generic-operand}}, {has: {field: right, matches: default-value}}]
+                - all: [{has: {field: left, matches: default-value}}, {has: {field: right, matches: generic-operand}}]
+message: Comparison with `default` reads a sentinel as absence
+note: Return absence as `Option<A>` from the producer

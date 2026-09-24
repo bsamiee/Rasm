@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-qualified-path
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    io-call:
+        kind: invocation_expression
+        regex: '^((global::)?(LanguageExt\.)?IO\s*\.\s*)(lift|liftAsync|pure|fail)\b'
+    effect:
+        any:
+            - matches: io-call
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(when|unless)$'}
+            - kind: conditional_expression
+              any:
+                - has: {field: consequence, matches: io-call}
+                - has: {field: alternative, matches: io-call}
+            - kind: query_expression
+              has: {stopBy: end, matches: io-call}
+    check:
+        kind: invocation_expression
+        all:
+            - pattern: $CHECK($PATH)
+            - has: {field: function, regex: '^((global::)?System\.IO\.)?Path\s*\.\s*IsPathFullyQualified$'}
+    member:
+        kind: method_declaration, local_function_statement, constructor_declaration, accessor_declaration, operator_declaration, lambda_expression, query_expression
+    affirmed:
+        any:
+            - matches: check
+            - kind: parenthesized_expression
+              has: {matches: affirmed}
+            - kind: is_pattern_expression
+              all: [{has: {field: expression, matches: check}}, {has: {field: pattern, regex: '^true$'}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^==$'}}, {has: {field: left, matches: check}}, {has: {field: right, regex: '^true$'}}]
+    held-declaration:
+        any:
+            - kind: variable_declarator
+              all: [{has: {field: name, pattern: $FLAG}}, {has: {nthChild: {position: 1, reverse: true}, matches: affirmed}}]
+            - kind: let_clause
+              all: [{has: {kind: identifier, nthChild: 1, pattern: $FLAG}}, {has: {nthChild: {position: 1, reverse: true}, matches: affirmed}}]
+    held:
+        kind: identifier
+        pattern: $FLAG
+        inside:
+            stopBy: end
+            kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration, block, arrow_expression_clause, switch_section, query_expression
+            has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: held-declaration}
+    truthy:
+        any:
+            - matches: affirmed
+            - matches: held
+    falsy:
+        any:
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {nthChild: 1, matches: truthy}
+            - kind: is_pattern_expression
+              all: [{has: {field: expression, matches: truthy}}, {has: {field: pattern, regex: '^false$'}}]
+            - kind: binary_expression
+              all: [{has: {field: operator, regex: '^==$'}}, {has: {field: left, matches: truthy}}, {has: {field: right, regex: '^false$'}}]
+            - kind: parenthesized_expression
+              has: {matches: falsy}
+    failure:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?(IO\s*\.\s*fail|Fin(\s*<.+>)?\s*\.\s*Fail|Prelude\s*\.\s*FinFail|FinFail)(\s*<.+>)?$'}
+            - kind: parenthesized_expression
+              has: {matches: failure}
+    requires:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^(\w+\s*\.\s*Unless|((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(unless|guard)(\s*<.+>)?)$'}
+                - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: truthy}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?(when|guardnot)(\s*<.+>)?$'}
+                - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: falsy}}}
+            - kind: conditional_expression
+              any:
+                - all: [{has: {field: condition, matches: truthy}}, {has: {field: alternative, matches: failure}}]
+                - all: [{has: {field: condition, matches: falsy}}, {has: {field: consequence, matches: failure}}]
+rule:
+    kind: invocation_expression, conditional_expression
+    all:
+        - matches: requires
+        - any:
+            - matches: effect
+            - inside: {stopBy: end, matches: effect}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^QualifiedPath$'}}}}
+message: "`$CHECK($PATH)` requires a qualified path inside an effect by hand"
+note: Bind `Answers.QualifiedPath(<path>)`

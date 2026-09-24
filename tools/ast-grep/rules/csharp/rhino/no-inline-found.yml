@@ -1,0 +1,148 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-found
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    member:
+        kind: method_declaration, local_function_statement, constructor_declaration, accessor_declaration, operator_declaration, lambda_expression, anonymous_method_expression
+    out-argument:
+        kind: argument
+        regex: '^(\w+\s*:\s*)?out\s'
+        all:
+            - has:
+                nthChild: {position: 1, reverse: true}
+                any:
+                    - kind: declaration_expression
+                      has: {field: name, pattern: $V}
+                    - kind: identifier
+                      pattern: $V
+            - not: {inside: {stopBy: {matches: member}, kind: binary_expression, has: {field: operator, regex: '^(&&|\|\||\?\?)$'}}}
+            - not: {inside: {stopBy: {matches: member}, kind: conditional_expression, not: {has: {field: condition, has: {stopBy: end, pattern: $V}}}}}
+    statement:
+        kind: expression_statement, return_statement, local_declaration_statement, if_statement, yield_statement, throw_statement, using_statement, foreach_statement, for_statement, while_statement, switch_statement, try_statement, lock_statement, block
+    out-bound:
+        any:
+            - has: {field: condition, has: {stopBy: {matches: member}, matches: out-argument}}
+            - inside:
+                stopBy: end
+                kind: if_statement, conditional_expression, while_statement, for_statement
+                has: {field: condition, has: {stopBy: {matches: member}, matches: out-argument}}
+            - inside:
+                stopBy: end
+                matches: statement
+                follows: {stopBy: end, matches: statement, has: {stopBy: {matches: member}, matches: out-argument}}
+    some:
+        any:
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    all:
+                        - any:
+                            - regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Some(\s*<.+>)?$'
+                            - regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>\s*\.\s*Some$'
+                        - any:
+                            - has: {stopBy: end, kind: type_argument_list, pattern: $TYPES}
+                            - not: {has: {stopBy: end, kind: type_argument_list}}
+                - has:
+                    field: arguments
+                    all:
+                        - has: {kind: argument, nthChild: 1, regex: '^(value\s*:\s*)?\w+$', has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $V}}
+                        - not: {has: {kind: argument, nthChild: 2}}
+            - kind: cast_expression
+              all:
+                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Option\s*<.+>$', has: {stopBy: end, kind: type_argument_list, pattern: $TYPES}}
+                - has: {field: value, kind: identifier, pattern: $V}
+            - kind: identifier
+              pattern: $V
+            - kind: parenthesized_expression
+              has: {matches: some}
+    negated:
+        any:
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {nthChild: 1, pattern: $INNER}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, pattern: $INNER}}, {has: {field: right, regex: '^false$'}}]
+                    - all: [{has: {field: right, pattern: $INNER}}, {has: {field: left, regex: '^false$'}}]
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^!=$'}
+                - any:
+                    - all: [{has: {field: left, pattern: $INNER}}, {has: {field: right, regex: '^true$'}}]
+                    - all: [{has: {field: right, pattern: $INNER}}, {has: {field: left, regex: '^true$'}}]
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $INNER}
+                - has: {field: pattern, regex: '^false$'}
+    reversed:
+        any:
+            - matches: negated
+            - kind: identifier, invocation_expression, member_access_expression, element_access_expression
+              pattern: $FLAG
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, pattern: $SUBJECT}
+                - has: {field: pattern, not: {regex: '^not\s'}, pattern: $TESTED}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - has: {field: left, pattern: $LEFT}
+                - has: {field: right, pattern: $EQUAL}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^!=$'}
+                - has: {field: left, pattern: $LEFT}
+                - has: {field: right, pattern: $UNEQUAL}
+            - not: {any: [{matches: negated}, {kind: 'identifier, invocation_expression, member_access_expression, element_access_expression, is_pattern_expression'}, {kind: binary_expression, regex: '^[^=!]*[=!]='}]}
+              pattern: $TEST
+rule:
+    kind: conditional_expression
+    all:
+        - any:
+            - all:
+                - has: {field: consequence, matches: some}
+                - has: {field: alternative, matches: csharp-none-value}
+                - has: {field: condition, pattern: $COND}
+            - all:
+                - has: {field: alternative, matches: some}
+                - has: {field: consequence, matches: csharp-none-value}
+                - has: {field: condition, matches: reversed}
+        - matches: out-bound
+        - not: {has: {stopBy: end, kind: comment}}
+        - not: {inside: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Found$'}}}}
+transform:
+    NOT_FLAG:
+        replace:
+            source: $FLAG
+            replace: '(?s)^(.+)$'
+            by: '!$1'
+    NOT_TESTED:
+        replace:
+            source: $TESTED
+            replace: '(?s)^(.+)$'
+            by: ' is not $1'
+    NOT_EQUAL:
+        replace:
+            source: $EQUAL
+            replace: '(?s)^(.+)$'
+            by: ' != $1'
+    NOT_UNEQUAL:
+        replace:
+            source: $UNEQUAL
+            replace: '(?s)^(.+)$'
+            by: ' == $1'
+    NOT_TEST:
+        replace:
+            source: $TEST
+            replace: '(?s)^(.+)$'
+            by: '!($1)'
+fix: Answers.Found$TYPES($COND$INNER$NOT_FLAG$SUBJECT$NOT_TESTED$LEFT$NOT_EQUAL$NOT_UNEQUAL$NOT_TEST, $V)
+message: Out answer `$V` lifts into an `Option` by hand
+note: Use `Answers.Found(<found>, <out value>)`

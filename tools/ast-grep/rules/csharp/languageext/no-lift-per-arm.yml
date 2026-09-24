@@ -1,0 +1,166 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-lift-per-arm
+language: csharp
+severity: error
+utils:
+    direct-lift:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO\.(lift|liftAsync)(\s*<.+>)?$'}
+            - has:
+                field: arguments
+                all:
+                    - has: {kind: argument, nthChild: 1}
+                    - not: {has: {kind: argument, nthChild: 2}}
+    lift-thunk:
+        any:
+            - matches: direct-lift
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: identifier, pattern: $WRAPPER}
+                - inside:
+                    stopBy: end
+                    kind: compilation_unit
+                    has:
+                        stopBy: end
+                        kind: 'method_declaration, local_function_statement'
+                        all:
+                            - has: {field: name, pattern: $WRAPPER}
+                            - has: {field: body, kind: arrow_expression_clause, has: {matches: direct-lift, has: {field: arguments, has: {kind: argument, has: {kind: identifier, pattern: $PARAM}}}}}
+                            - has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $PARAM}}}
+    statement-lift:
+        matches: direct-lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                has:
+                    any:
+                        - kind: 'member_access_expression, identifier'
+                        - kind: 'lambda_expression, anonymous_method_expression'
+                          has: {kind: block, not: {has: {stopBy: end, kind: return_statement, has: {pattern: $_}}}}
+    unit-pure:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(pure|Pure)(\s*<.+>)?$'}
+            - has: {field: arguments, regex: '^\(\s*((global::)?(LanguageExt\.)?Prelude\.)?unit\s*\)$'}
+    member-lift:
+        matches: direct-lift
+        has: {field: arguments, has: {kind: argument, has: {kind: lambda_expression, has: {field: body, kind: invocation_expression, has: {field: function, kind: member_access_expression, regex: '^@?[a-z_]\w*(\.@?\w+)+$'}}}}}
+    void-arm:
+        any:
+            - matches: statement-lift
+            - matches: member-lift
+    fin-arm:
+        any:
+            - kind: invocation_expression
+              has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(fail|Fail)(\s*<.+>)?$'}
+            - matches: direct-lift
+              not: {matches: void-arm}
+    mixed-arms:
+        all:
+            - has: {stopBy: end, matches: void-arm}
+            - has: {stopBy: end, matches: fin-arm}
+    void-switch-expression:
+        kind: switch_expression
+        has: {stopBy: end, matches: void-arm}
+    when-shape:
+        kind: conditional_expression
+        any:
+            - all: [{has: {field: consequence, matches: lift-thunk}}, {has: {field: alternative, matches: unit-pure}}]
+            - all: [{has: {field: consequence, matches: unit-pure}}, {has: {field: alternative, matches: lift-thunk}}]
+    lifted:
+        any:
+            - matches: lift-thunk
+            - kind: invocation_expression
+              has: {field: function, regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(pure|Pure|fail|Fail)(\s*<.+>)?$'}
+            - kind: member_access_expression
+              regex: '^(global::)?(LanguageExt\.)?IO(\s*<.+>)?\.(pure|Pure)$'
+            - matches: lifted-conditional
+            - matches: lifted-switch-expression
+            - matches: lifted-call
+            - kind: parenthesized_expression
+              has: {matches: lifted}
+            - kind: identifier
+              pattern: $HELD
+              inside:
+                stopBy: end
+                kind: block
+                has:
+                    kind: local_declaration_statement
+                    has: {kind: variable_declaration, has: {kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {nthChild: 2, matches: lifted}}]}}
+    lifted-return:
+        kind: block
+        all:
+            - has: {kind: return_statement, nthChild: 1, has: {matches: lifted}}
+            - not: {has: {nthChild: 2}}
+    lifted-branch:
+        any:
+            - kind: return_statement
+              has: {matches: lifted}
+            - matches: lifted-return
+    lifted-arm:
+        kind: argument
+        any:
+            - has: {matches: lifted}
+            - has: {kind: lambda_expression, has: {field: body, any: [{matches: lifted}, {matches: lifted-return}]}}
+            - has: {kind: anonymous_method_expression, has: {matches: lifted-return}}
+    state-argument:
+        kind: argument
+        any:
+            - has: {field: name, regex: '^state$'}
+            - all:
+                - nthChild: 1
+                - not: {has: {field: name, pattern: $_}}
+                - not: {has: {kind: 'lambda_expression, anonymous_method_expression'}}
+    lifted-conditional:
+        kind: conditional_expression
+        all:
+            - has: {field: consequence, matches: lifted}
+            - has: {field: alternative, matches: lifted}
+    lifted-if:
+        kind: if_statement
+        all:
+            - has: {field: consequence, matches: lifted-branch}
+            - any:
+                - has: {field: alternative, matches: lifted-branch}
+                - all:
+                    - not: {has: {field: alternative, pattern: $_}}
+                    - precedes: {kind: return_statement, has: {matches: lifted}}
+    lifted-switch-expression:
+        kind: switch_expression
+        all:
+            - has: {kind: switch_expression_arm, nthChild: {position: 2, ofRule: {kind: switch_expression_arm}}}
+            - not: {has: {kind: switch_expression_arm, not: {has: {matches: lifted}}}}
+    lifted-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|SwitchPartially|Match|Map|MapPartially)(\s*<.+>)?$'}}
+            - has: {field: arguments, has: {matches: lifted-arm, nthChild: {position: 2, ofRule: {matches: lifted-arm}}}}
+            - not: {has: {field: arguments, has: {kind: argument, not: {any: [{matches: lifted-arm}, {matches: state-argument}]}}}}
+    call-arm:
+        kind: argument
+        inside: {kind: argument_list, inside: {matches: lifted-call}}
+    arm-body:
+        any:
+            - inside: {kind: argument, matches: call-arm}
+            - inside: {kind: lambda_expression, field: body, inside: {matches: call-arm}}
+            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: 'lambda_expression, anonymous_method_expression', inside: {matches: call-arm}}}}
+            - inside: {kind: conditional_expression, matches: lifted-conditional}
+            - inside: {kind: switch_expression_arm, inside: {matches: lifted-switch-expression}}
+            - inside: {kind: parenthesized_expression, matches: arm-body}
+rule:
+    any:
+        - matches: when-shape
+        - all:
+            - any:
+                - matches: lifted-call
+                - matches: lifted-conditional
+                - matches: lifted-switch-expression
+                - matches: lifted-if
+            - not: {any: [{matches: mixed-arms}, {matches: void-switch-expression}]}
+    all:
+        - has: {stopBy: end, matches: lift-thunk, has: {field: function, pattern: $CALL}}
+        - not: {matches: arm-body}
+message: 'Branch arms build separate effects around `$CALL`'
+note: Use one `IO.lift(() => <branching expression>)` with each arm returning its `Fin` or value, one `IO.lift` over the `Action` overload of `Switch` where every arm is a statement, one `IO.liftAsync` where the arms await, `when(<flag>, <effect>).As()` or `unless` where the other arm is `IO.pure(unit)`, and `Switch` in place of a value-arm `Map`

@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-misplaced-declaration
+language: csharp
+severity: error
+utils:
+    host-entry:
+        kind: class_declaration
+        has: {kind: base_list, regex: '^:\s*([\w.:]+\.)?\w*(PlugIn|Command)\b', not: {regex: '^:\s*([\w.:]+\.)?I(PlugIn|Command)\b'}}
+rule:
+    kind: class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, delegate_declaration
+    has: {field: name, pattern: $NAME}
+    inside: {kind: compilation_unit}
+    any:
+        - kind: class_declaration, record_declaration, struct_declaration
+          follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, regex: '^// --- \[TYPES\] '}
+        - kind: class_declaration, record_declaration, struct_declaration
+          not: {has: {kind: modifier, regex: '^static$'}}
+          follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, regex: '^// --- \[CONSTANTS\] '}
+        - kind: class_declaration
+          all:
+            - has: {kind: modifier, regex: '^static$'}
+            - has: {field: name, pattern: $OWNER}
+            - follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, regex: '^// --- \[(MODELS|ERRORS)\] '}
+            - not:
+                follows:
+                    stopBy: {matches: csharp-section-divider}
+                    kind: class_declaration, record_declaration, struct_declaration
+                    all: [{has: {field: name, pattern: $OWNER}}, {has: {kind: type_parameter_list}}]
+        - kind: record_declaration, struct_declaration
+          not: {matches: csharp-error-record}
+          follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, regex: '^// --- \[(OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - kind: interface_declaration, enum_declaration, delegate_declaration
+          follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, regex: '^// --- \[(CONSTANTS|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - matches: csharp-error-record
+          follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, not: {regex: '^// --- \[ERRORS\] '}}
+        - matches: host-entry
+          follows: {stopBy: {matches: csharp-section-divider}, matches: csharp-section-divider, not: {regex: '^// --- \[COMPOSITION\] '}}
+message: Declaration `$NAME` sits under a section its kind does not belong to
+note: Use the section of its kind, `[TYPES]` for interfaces, enums, and delegates, `[MODELS]` for records and value types, `[ERRORS]` for error records, `[OPERATIONS]` for static classes of functions, `[COMPOSITION]` for `PlugIn` and `Command` subclasses

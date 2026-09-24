@@ -1,0 +1,19 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino document handles, tables, layers, queries, mutations, events, and undo records as IO effects over RhinoCommon</Description>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Mapperly">
+        <MapperlyAbstractionsScope>runtime</MapperlyAbstractionsScope>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Dependencies">
+        <PackageReference Include="System.Drawing.Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="compile;contentfiles;analyzers;build" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+</Project>

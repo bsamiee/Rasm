@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-dashed-subsection-divider
+language: csharp
+severity: error
+rule:
+    pattern: $DIVIDER
+    all:
+        - matches: csharp-dashed-divider
+        - matches: csharp-owner-level
+transform:
+    FAMILY: {replace: {source: $DIVIDER, replace: '\s+-+$', by: ''}}
+message: Family divider `$DIVIDER` inside an owner holds the dashes of a section divider
+note: Use `// --- [<FAMILY>]` inside an owner
+fix: $FAMILY

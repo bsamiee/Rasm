@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: anyio-importing-module
+language: python
+rule:
+    inside: {kind: module, stopBy: end, has: {kind: 'import_statement, import_from_statement', regex: '^(import|from)\s+anyio\b', stopBy: end}}

@@ -4,8 +4,22 @@ language: python
 severity: error
 utils:
     rendered-digit:
-        kind: call
-        has: {field: function, regex: '^str$'}
+        any:
+            - kind: call
+              has: {field: function, regex: '^str$'}
+            - kind: string
+              regex: '^[fF]'
+              has: {kind: interpolation}
+              not: {has: {kind: 'string_content, interpolation', nthChild: {position: 2, ofRule: {kind: 'string_content, interpolation'}}}}
+    joined-source:
+        any:
+            - kind: generator_expression
+              has: {field: body, matches: rendered-digit}
+            - kind: argument_list
+              has: {kind: 'list_comprehension, generator_expression', has: {field: body, matches: rendered-digit}}
+            - kind: argument_list
+              has: {kind: call, pattern: 'map(str, $_)'}
+              not: {has: {nthChild: 2}}
     joined-string:
         kind: assignment
         all:
@@ -15,24 +29,32 @@ utils:
                 kind: call
                 all:
                     - has: {field: function, regex: '^"{2}\.join$|^''{2}\.join$'}
-                    - has:
-                        field: arguments
-                        any:
-                            - kind: generator_expression
-                              has: {field: body, matches: rendered-digit}
-                            - kind: argument_list
-                              has: {kind: 'list_comprehension, generator_expression', has: {field: body, matches: rendered-digit}}
+                    - has: {field: arguments, matches: joined-source}
     digit:
         kind: string
         regex: '^["'']\d["'']$'
+    indexed-string:
+        kind: subscript
+        has: {field: value, kind: identifier, pattern: $S}
 rule:
-    kind: call
     pattern: $READ
     any:
-        - pattern: int($S[$I])
-        - all:
-            - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{kind: identifier, pattern: $S}, {kind: subscript, has: {field: value, kind: identifier, pattern: $S}}]}}, {has: {field: attribute, regex: '^(count|find|rfind|index|rindex)$'}}]}
-            - has: {field: arguments, has: {matches: digit}}
+        - kind: call
+          any:
+            - pattern: int($S[$I])
+            - all:
+                - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{kind: identifier, pattern: $S}, {matches: indexed-string}]}}, {has: {field: attribute, regex: '^(count|find|rfind|index|rindex)$'}}]}
+                - has: {field: arguments, has: {matches: digit}}
+        - kind: comparison_operator
+          all:
+            - has: {matches: digit}
+            - any:
+                - all:
+                    - has: {field: operators, regex: '^(not\s+)?in$'}
+                    - has: {kind: identifier, pattern: $S, nthChild: 2}
+                - all:
+                    - has: {field: operators, regex: '^[!=]=$'}
+                    - has: {matches: indexed-string}
     inside:
         kind: function_definition
         stopBy: end

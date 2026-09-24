@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-throw-in-validation-hook
+language: csharp
+severity: error
+utils:
+    throw-callee:
+        kind: member_access_expression
+        has: {field: name, regex: '^Throw(If[A-Za-z]*)?(<.+>)?$'}
+    error-factory:
+        kind: invocation_expression
+        all:
+            - has: {field: function, has: {field: name, regex: '^Create$'}}
+            - inside: {kind: assignment_expression, field: right, has: {field: left, regex: '^validationError$'}}
+    throwing-body:
+        has:
+            stopBy: end
+            any:
+                - kind: throw_statement, throw_expression
+                - kind: invocation_expression
+                  has: {field: function, matches: throw-callee}
+    relay:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - kind: identifier
+                      pattern: $HELPER
+                    - kind: member_access_expression
+                      has: {field: name, kind: identifier, pattern: $HELPER}
+            - inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $HELPER}
+                        - not: {has: {field: name, regex: '^ValidateFactoryArguments$'}}
+                        - matches: throwing-body
+    string-method:
+        regex: '^(Trim|TrimStart|TrimEnd|TrimOrNullify|ToUpper|ToUpperInvariant|ToLower|ToLowerInvariant|Normalize|Replace|ReplaceLineEndings|Substring|Remove|Insert|PadLeft|PadRight)$'
+    key-path:
+        any:
+            - kind: identifier
+              pattern: $KEY
+              inside:
+                stopBy: end
+                matches: csharp-validation-hook
+                has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $KEY}}, {has: {field: type, regex: '^string\??$'}}]}}
+            - kind: identifier
+              pattern: $LOCAL
+              inside:
+                stopBy: end
+                matches: csharp-validation-hook
+                has:
+                    stopBy: end
+                    any:
+                        - kind: variable_declarator
+                          all:
+                            - has: {field: name, pattern: $LOCAL}
+                            - has: {nthChild: 2, matches: key-path}
+                        - kind: is_pattern_expression
+                          all:
+                            - has: {field: expression, matches: key-path}
+                            - has: {field: pattern, has: {field: name, pattern: $LOCAL}}
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - kind: member_access_expression
+                      all:
+                        - has: {field: expression, matches: key-path}
+                        - has: {field: name, matches: string-method}
+                    - kind: conditional_access_expression
+                      all:
+                        - has: {field: condition, matches: key-path}
+                        - has: {kind: member_binding_expression, has: {field: name, matches: string-method}}
+            - kind: postfix_unary_expression, parenthesized_expression
+              has: {matches: key-path}
+rule:
+    kind: throw_statement, throw_expression, invocation_expression, cast_expression
+    all:
+        - inside: {stopBy: end, matches: csharp-validation-hook}
+        - any:
+            - kind: throw_statement, throw_expression
+            - kind: invocation_expression
+              has:
+                field: function
+                any:
+                    - matches: throw-callee
+                    - matches: csharp-throwing-factory
+              not: {matches: error-factory}
+            - matches: relay
+            - kind: cast_expression
+              all:
+                - has: {field: type, kind: 'identifier, generic_name, qualified_name'}
+                - has: {field: value, matches: key-path}
+            - kind: cast_expression
+              has:
+                field: value
+                kind: invocation_expression
+                has: {field: function, regex: '(^|\.)From(<.+>)?$'}
+message: "`ValidateFactoryArguments` throws in place of the typed error `TryCreate`, `Validate`, and the framework converters return"
+note: Assign `validationError` and return, a nested value validates through its non-throwing `Validate`

@@ -21,4 +21,4 @@ rule:
                       has: {field: operator, kind: keyword_not}
 fix: count(1) filter (where $COND)
 message: '`$AGG` adds the truth values of `$COND`'
-note: 'Use `count(1) filter (where $COND)`'
+note: 'Use `count(1) filter (where <condition>)`'

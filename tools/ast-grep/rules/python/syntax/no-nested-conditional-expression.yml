@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: conditional_expression
     all:
-        - has: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}
-        - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: parenthesized_expression}}}}
+        - has: {kind: conditional_expression, stopBy: {not: {kind: 'parenthesized_expression, not_operator, unary_operator'}}}
+        - not: {inside: {kind: conditional_expression, stopBy: {not: {kind: 'parenthesized_expression, not_operator, unary_operator'}}}}
 message: 'Conditional expression nests a conditional'
-note: 'Select with `match`, one `case` per branch'
+note: 'Select with an `if` statement per test, or a `match` when every test compares one subject against a pattern'

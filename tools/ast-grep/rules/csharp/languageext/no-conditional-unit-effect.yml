@@ -1,0 +1,201 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-unit-effect
+language: csharp
+severity: error
+utils:
+    unit-value:
+        any:
+            - regex: '^(((global::)?LanguageExt\.)?(Prelude\.)?unit|((global::)?LanguageExt\.)?Unit\.Default|default)$'
+            - kind: default_expression
+              has: {field: type, regex: '^((global::)?LanguageExt\.)?Unit$'}
+    single-argument:
+        has: {field: arguments, has: {kind: argument}, not: {has: {kind: argument, nthChild: 2}}}
+    unit-argument:
+        has: {field: arguments, has: {kind: argument, has: {matches: unit-value}}, not: {has: {kind: argument, nthChild: 2}}}
+    unit-success:
+        any:
+            - regex: '^((global::)?(LanguageExt\.)?Prelude\.)?unit(IO|Eff)$'
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    regex: '^(((global::)?LanguageExt\.)?(IO\s*\.\s*pure|Fin\s*\.\s*Succ|Eff\s*<.+>\s*\.\s*Pure)|((global::)?(LanguageExt\.)?Prelude\.)?(Pure|FinSucc|SuccessEff|Success))(\s*<.+>)?$'
+                - matches: unit-argument
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Fin\s*<\s*Unit\s*>\s*\.\s*Succ$'}
+                - matches: unit-argument
+    unit-failure:
+        any:
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    regex: '^(((global::)?LanguageExt\.)?(IO\s*\.\s*fail\s*<\s*Unit\s*>|Fin\s*\.\s*Fail\s*<\s*Unit\s*>|Eff\s*<\s*(.+,\s*)?Unit\s*>\s*\.\s*Fail)|((global::)?(LanguageExt\.)?Prelude\.)?(FinFail\s*<\s*Unit\s*>|FailEff\s*<\s*(.+,\s*)?Unit\s*>|Fail(\s*<.+>)?))$'
+                - matches: single-argument
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Fin\s*<\s*Unit\s*>\s*\.\s*Fail$'}
+                - matches: single-argument
+    success-arm:
+        any:
+            - matches: unit-success
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: success-arm}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: cast_expression
+              has: {field: value, matches: success-arm}
+            - kind: parenthesized_expression
+              has: {matches: success-arm}
+    failure-arm:
+        any:
+            - matches: unit-failure
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: failure-arm}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: cast_expression
+              has: {field: value, matches: failure-arm}
+            - kind: parenthesized_expression
+              has: {matches: failure-arm}
+    success-return:
+        any:
+            - kind: return_statement
+              has: {matches: success-arm}
+            - kind: block
+              all:
+                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: success-arm}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    failure-return:
+        any:
+            - kind: return_statement
+              has: {matches: failure-arm}
+            - kind: block
+              all:
+                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: failure-arm}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    effect-success:
+        any:
+            - regex: '^((global::)?(LanguageExt\.)?Prelude\.)?unit(IO|Eff)$'
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?LanguageExt\.)?(IO\s*\.\s*pure|Eff\s*<.+>\s*\.\s*Pure)(\s*<.+>)?$|^((global::)?(LanguageExt\.)?Prelude\.)?SuccessEff(\s*<.+>)?$'}
+                - matches: unit-argument
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: effect-success}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: cast_expression
+              has: {field: value, matches: effect-success}
+            - kind: parenthesized_expression
+              has: {matches: effect-success}
+    other-effect:
+        pattern: $_
+        not:
+            any:
+                - matches: success-arm
+                - kind: throw_expression
+    effect-success-return:
+        any:
+            - kind: return_statement
+              has: {matches: effect-success}
+            - kind: block
+              all:
+                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: effect-success}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    other-effect-return:
+        any:
+            - kind: return_statement
+              has: {matches: other-effect}
+            - kind: block
+              all:
+                - has: {kind: return_statement, nthChild: {position: 1, ofRule: {not: {kind: comment}}}, has: {matches: other-effect}}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    bool-arm:
+        kind: switch_expression_arm
+        not: {has: {kind: when_clause}}
+    ternary-pair:
+        any:
+            - all: [{has: {field: consequence, matches: success-arm}}, {has: {field: alternative, matches: failure-arm}}]
+            - all: [{has: {field: consequence, matches: failure-arm}}, {has: {field: alternative, matches: success-arm}}]
+            - all: [{has: {field: consequence, matches: effect-success}}, {has: {field: alternative, matches: other-effect}}]
+            - all: [{has: {field: consequence, matches: other-effect}}, {has: {field: alternative, matches: effect-success}}]
+    fallthrough:
+        not: {has: {field: alternative, pattern: $_}}
+    statement-pair:
+        any:
+            - all:
+                - has: {field: consequence, matches: success-return}
+                - any: [{has: {field: alternative, matches: failure-return}}, {all: [{matches: fallthrough}, {precedes: {matches: failure-return}}]}]
+            - all:
+                - has: {field: consequence, matches: failure-return}
+                - any: [{has: {field: alternative, matches: success-return}}, {all: [{matches: fallthrough}, {precedes: {matches: success-return}}]}]
+            - all:
+                - has: {field: consequence, matches: effect-success-return}
+                - any: [{has: {field: alternative, matches: other-effect-return}}, {all: [{matches: fallthrough}, {precedes: {matches: other-effect-return}}]}]
+            - all:
+                - has: {field: consequence, matches: other-effect-return}
+                - any: [{has: {field: alternative, matches: effect-success-return}}, {all: [{matches: fallthrough}, {precedes: {matches: effect-success-return}}]}]
+    switch-pair:
+        any:
+            - all:
+                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: success-arm}}
+                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: failure-arm}}
+            - all:
+                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: failure-arm}}
+                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: success-arm}}
+            - all:
+                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: effect-success}}
+                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: other-effect}}
+            - all:
+                - has: {matches: bool-arm, nthChild: 2, has: {nthChild: 2, matches: other-effect}}
+                - has: {matches: bool-arm, nthChild: 3, has: {nthChild: 2, matches: effect-success}}
+    option-branch:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Iter$'}}
+            - has:
+                field: function
+                has:
+                    field: expression
+                    kind: invocation_expression
+                    all:
+                        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Filter|Where)$'}}
+                        - has: {field: function, has: {field: expression, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?(Prelude|Option)\.)?Some(\s*<.+>)?$'}}}
+                        - has: {field: arguments, has: {kind: argument, pattern: $CONDITION}, not: {has: {kind: argument, nthChild: 2}}}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, regex: '^((global::)?LanguageExt\.)?IO\s*\.\s*lift$'}
+            - has:
+                field: arguments
+                not: {has: {kind: argument, nthChild: 2}}
+                has:
+                    kind: argument
+                    has:
+                        kind: lambda_expression
+                        all:
+                            - has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+                            - has: {field: body, matches: option-branch}
+        - kind: conditional_expression
+          has: {field: condition, pattern: $CONDITION}
+          matches: ternary-pair
+        - kind: if_statement
+          has: {field: condition, pattern: $CONDITION}
+          matches: statement-pair
+        - kind: switch_expression
+          all:
+            - has: {nthChild: 1, pattern: $CONDITION}
+            - not: {has: {kind: switch_expression_arm, nthChild: 4}}
+            - any:
+                - all:
+                    - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, regex: '^true$'}}
+                    - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(false|_)$'}}
+                - all:
+                    - has: {matches: bool-arm, nthChild: 2, has: {kind: constant_pattern, regex: '^false$'}}
+                    - has: {matches: bool-arm, nthChild: 3, has: {kind: 'constant_pattern, discard', regex: '^(true|_)$'}}
+            - matches: switch-pair
+message: Branch on `$CONDITION` pairs a unit success with a failure or another effect
+note: "Use `unless(<condition>, <effect>)` with the success arm first or `when(<condition>, <effect>)` with it second on an `IO` or `Eff`, with `.As()` where the type is `IO<Unit>` or `Eff<Unit>`, and `<condition> ? unit : <error>` on a `Fin` or `Validation`"

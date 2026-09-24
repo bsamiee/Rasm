@@ -1,0 +1,154 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mirrored-member-setters
+language: csharp
+severity: error
+utils:
+    bundle-type:
+        regex: '(Parameters|Settings|Options|Info)$'
+    bundle-creation:
+        kind: object_creation_expression
+        has: {field: type, matches: bundle-type}
+    bundle-binding:
+        any:
+            - kind: variable_declaration
+              all:
+                - has: {field: type, matches: bundle-type}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $TARGET}}
+            - matches: created-bundle
+    created-bundle:
+        any:
+            - kind: variable_declaration
+              has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TARGET}}, {has: {matches: bundle-creation}}]}
+            - kind: variable_declaration
+              all:
+                - has: {field: type, matches: bundle-type}
+                - has: {kind: variable_declarator, all: [{has: {field: name, pattern: $TARGET}}, {has: {kind: implicit_object_creation_expression}}]}
+            - kind: from_clause
+              all:
+                - has: {field: name, pattern: $TARGET}
+                - has: {stopBy: end, matches: bundle-creation}
+    function-owner:
+        kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration'
+    returned-bundle:
+        inside:
+            kind: 'arrow_expression_clause, return_statement'
+            inside:
+                stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                any:
+                    - kind: method_declaration
+                      has: {field: returns, matches: bundle-type}
+                    - kind: local_function_statement
+                      has: {field: type, matches: bundle-type}
+    bundle-initializer:
+        kind: initializer_expression
+        inside:
+            any:
+                - matches: bundle-creation
+                - kind: implicit_object_creation_expression
+                  any:
+                    - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: bundle-type}}}
+                    - matches: returned-bundle
+    mirrored-write:
+        kind: assignment_expression
+        all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, pattern: $TARGET}}, {has: {field: name, pattern: $FIELD}}]}
+            - has: {field: right, kind: identifier, pattern: $VALUE}
+    mirrored-branch:
+        any:
+            - matches: mirrored-write
+            - kind: expression_statement
+              has: {matches: mirrored-write}
+            - kind: block
+              has: {kind: expression_statement, has: {matches: mirrored-write}}
+              not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    mirrored-callback:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $VALUE}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $VALUE}}, not: {has: {kind: parameter, nthChild: 2}}}]}
+            - has: {field: body, matches: mirrored-branch}
+    mirrored-sibling:
+        kind: expression_statement
+        has:
+            kind: assignment_expression
+            all:
+                - has: {field: operator, regex: '^=$'}
+                - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, pattern: $TARGET}}, {has: {field: name, pattern: $SIBLING}}]}
+                - has: {field: right, matches: {csharp-member-read: {member: {pattern: $SIBLING}, source: {pattern: $SRC}}}}
+    bundle-owner:
+        inside: {stopBy: end, matches: function-owner, has: {stopBy: end, matches: bundle-binding}}
+    target-read:
+        kind: member_access_expression
+        all:
+            - has: {field: expression, pattern: $TARGET}
+            - has: {field: name, pattern: $FIELD}
+            - any:
+                - inside: {kind: variable_declarator}
+                - inside: {kind: argument, inside: {kind: tuple_expression}}
+    source-addressed:
+        kind: 'from_clause, variable_declarator'
+        all:
+            - has: {field: name, pattern: $TARGET}
+            - has: {stopBy: end, kind: member_access_expression, has: {field: expression, pattern: $SRC}}
+    same-type-pair:
+        kind: parameter_list
+        all:
+            - has: {kind: parameter, all: [{has: {field: type, pattern: $SAME}}, {has: {field: name, pattern: $SRC}}]}
+            - has: {kind: parameter, all: [{has: {field: type, pattern: $SAME}}, {has: {field: name, pattern: $TARGET}}]}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Iter|IfSome|Map|Do|Match)$'}
+                    - has: {field: expression, kind: member_access_expression, has: {field: name, pattern: $FIELD}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: mirrored-callback}}}
+            - any:
+                - inside: {kind: 'expression_statement, arrow_expression_clause'}
+                - inside: {kind: assignment_expression, has: {field: left, regex: '^_$'}, inside: {kind: expression_statement}}
+            - matches: bundle-owner
+        - kind: if_statement
+          all:
+            - has:
+                field: condition
+                kind: is_pattern_expression
+                all:
+                    - has: {field: expression, kind: member_access_expression, all: [{has: {field: name, regex: '^Case$'}}, {has: {field: expression, kind: member_access_expression, has: {field: name, pattern: $FIELD}}}]}
+                    - has: {field: pattern, kind: declaration_pattern, has: {field: name, pattern: $VALUE}}
+            - has: {field: consequence, matches: mirrored-branch}
+            - not: {has: {field: alternative, pattern: $_}}
+            - matches: bundle-owner
+        - kind: assignment_expression
+          all:
+            - has: {field: operator, regex: '^=$'}
+            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, kind: identifier, regex: '^[a-z_@]', pattern: $TARGET}}, {has: {field: name, pattern: $FIELD}}]}
+            - has: {field: right, matches: {csharp-member-read: {member: {pattern: $FIELD}, source: {pattern: $SRC}}}}
+            - any:
+                - matches: bundle-owner
+                - inside:
+                    kind: expression_statement
+                    all:
+                        - inside: {kind: 'block, switch_section'}
+                        - any:
+                            - follows: {stopBy: end, matches: mirrored-sibling}
+                            - precedes: {stopBy: end, matches: mirrored-sibling}
+            - not:
+                inside:
+                    stopBy: end
+                    matches: function-owner
+                    has:
+                        stopBy: end
+                        any:
+                            - matches: target-read
+                            - matches: source-addressed
+                            - matches: same-type-pair
+        - kind: assignment_expression
+          all:
+            - has: {field: left, kind: identifier, pattern: $FIELD}
+            - has: {field: right, matches: {csharp-member-read: {member: {pattern: $FIELD}, source: {pattern: $SRC}}}}
+            - inside: {matches: bundle-initializer}
+message: 'Record field `$FIELD` is copied by hand onto the host member of the same name'
+note: Use a Mapperly existing-target mapping `partial void Update(<record> source, <host> target)` under `[MapperRequiredMapping(RequiredMappingStrategy.Source)]`, or take the host object itself where the record adds no constraint the host lacks

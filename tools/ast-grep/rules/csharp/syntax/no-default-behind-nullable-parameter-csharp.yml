@@ -1,0 +1,144 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-default-behind-nullable-parameter-csharp
+language: csharp
+severity: error
+utils:
+    read:
+        kind: identifier
+        pattern: $PARAMETER
+    unshadowed:
+        not:
+            inside:
+                stopBy: {kind: 'method_declaration, constructor_declaration, local_function_statement'}
+                kind: 'lambda_expression, anonymous_method_expression'
+                has: {field: parameters, any: [{kind: implicit_parameter, pattern: $PARAMETER}, {has: {kind: parameter, has: {field: name, pattern: $PARAMETER}}}]}
+    kept:
+        any:
+            - matches: read
+            - kind: member_access_expression
+              all: [{has: {field: expression, matches: read}}, {has: {field: name, regex: '^Value$'}}]
+            - kind: 'postfix_unary_expression, parenthesized_expression'
+              has: {matches: kept}
+    null-literal:
+        kind: 'null_literal, default_expression'
+    absent-test:
+        any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: read}
+                - has: {field: pattern, kind: constant_pattern, regex: '^null$'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^==$'}
+                - any:
+                    - all: [{has: {field: left, matches: read}}, {has: {field: right, matches: null-literal}}]
+                    - all: [{has: {field: left, matches: null-literal}}, {has: {field: right, matches: read}}]
+            - kind: prefix_unary_expression
+              has: {kind: member_access_expression, all: [{has: {field: expression, matches: read}}, {has: {field: name, regex: '^HasValue$'}}]}
+            - kind: parenthesized_expression
+              has: {matches: absent-test}
+    present-test:
+        any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: read}
+                - has:
+                    field: pattern
+                    any:
+                        - kind: negated_pattern
+                          has: {kind: constant_pattern, regex: '^null$'}
+                        - kind: recursive_pattern
+                          not: {has: {kind: property_pattern_clause, has: {kind: subpattern}}}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^!=$'}
+                - any:
+                    - all: [{has: {field: left, matches: read}}, {has: {field: right, matches: null-literal}}]
+                    - all: [{has: {field: left, matches: null-literal}}, {has: {field: right, matches: read}}]
+            - kind: member_access_expression
+              all: [{has: {field: expression, matches: read}}, {has: {field: name, regex: '^HasValue$'}}]
+            - kind: parenthesized_expression
+              has: {matches: present-test}
+    resolution:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: left, any: [{matches: read}, {kind: conditional_access_expression, has: {field: condition, matches: read}}]}
+                - has: {field: operator, regex: '^\?\?$'}
+                - has: {field: right, pattern: $DEFAULT}
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: name, regex: '^(IfNone|IfNoneUnsafe)$'}
+                        - has: {field: expression, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?LanguageExt\.)?(Prelude\.)?Optional$'}}, {has: {field: arguments, has: {kind: argument, has: {matches: read}}}}]}
+                - has: {field: arguments, has: {kind: argument, has: {pattern: $DEFAULT}}}
+            - kind: conditional_expression
+              all:
+                - has: {field: condition, kind: is_pattern_expression, all: [{has: {field: expression, matches: read}}, {has: {field: pattern, kind: 'declaration_pattern, recursive_pattern', has: {field: name, pattern: $BOUND}}}]}
+                - has: {field: consequence, kind: identifier, pattern: $BOUND}
+                - has: {field: alternative, pattern: $DEFAULT}
+            - kind: assignment_expression
+              all:
+                - has: {field: left, matches: read}
+                - has: {field: operator, regex: '^\?\?=$'}
+                - has: {field: right, pattern: $DEFAULT}
+            - kind: conditional_expression
+              any:
+                - all: [{has: {field: condition, matches: absent-test}}, {has: {field: consequence, pattern: $DEFAULT}}, {has: {field: alternative, matches: kept}}]
+                - all: [{has: {field: condition, matches: present-test}}, {has: {field: alternative, pattern: $DEFAULT}}, {has: {field: consequence, matches: kept}}]
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: read}}, {has: {field: name, regex: '^GetValueOrDefault$'}}]}
+                - has: {field: arguments, has: {kind: argument, has: {pattern: $DEFAULT}}}
+            - kind: if_statement
+              all:
+                - has: {field: condition, matches: absent-test}
+                - has:
+                    field: consequence
+                    any:
+                        - kind: expression_statement
+                          has: {kind: assignment_expression, all: [{has: {field: left, matches: read}}, {has: {field: operator, regex: '^=$'}}, {has: {field: right, pattern: $DEFAULT}}]}
+                        - kind: block
+                          not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+                          has: {kind: expression_statement, has: {kind: assignment_expression, all: [{has: {field: left, matches: read}}, {has: {field: operator, regex: '^=$'}}, {has: {field: right, pattern: $DEFAULT}}]}}
+                - not: {has: {field: alternative, pattern: $_}}
+            - kind: switch_expression
+              all:
+                - has: {nthChild: 1, matches: read}
+                - has: {kind: switch_expression_arm, all: [{has: {nthChild: 1, kind: constant_pattern, regex: '^null$'}}, {has: {nthChild: {position: 1, reverse: true}, pattern: $DEFAULT}}]}
+                - has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, matches: kept}}
+    relayed:
+        kind: invocation_expression
+        all:
+            - has: {field: function, any: [{kind: identifier, pattern: $HELPER}, {kind: generic_name, has: {kind: identifier, pattern: $HELPER}}]}
+            - has: {field: arguments, has: {kind: argument, has: {nthChild: {position: 1, reverse: true}, matches: read}}}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: 'method_declaration, local_function_statement'
+                    all:
+                        - has: {field: name, pattern: $HELPER}
+                        - has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $PARAMETER}}, {has: {field: type, kind: nullable_type}}]}}
+                        - has: {field: body, has: {stopBy: end, matches: resolution}}
+rule:
+    kind: parameter
+    all:
+        - has: {field: type, any: [{kind: nullable_type}, {kind: 'generic_name, qualified_name', regex: '^(global::)?(System\.)?Nullable\s*<'}]}
+        - has: {field: name, pattern: $PARAMETER}
+        - has: {nthChild: {position: 1, reverse: true}, matches: null-literal}
+        - inside:
+            kind: parameter_list
+            inside:
+                kind: 'method_declaration, constructor_declaration, local_function_statement, class_declaration, struct_declaration'
+                not:
+                    any:
+                        - has: {kind: modifier, regex: '^(override|abstract|extern)$'}
+                        - has: {kind: explicit_interface_specifier}
+                has: {field: body, has: {stopBy: end, any: [{matches: resolution}, {matches: relayed}], all: [{matches: unshadowed}]}}
+message: 'Parameter `$PARAMETER` accepts null and the body resolves null to `$DEFAULT`'
+note: Declare a constant default in the signature, otherwise take `Option<T>` resolved with `IfNone` at the boundary or declare one overload per case

@@ -31,4 +31,4 @@ rule:
                         - has: {pattern: $B}
                         - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
 message: '`for` over `$BYTES` splits lines by comparing `$B` to a newline by hand'
-note: 'Iterate `$BYTES.lines`, `FileHandle.AsyncBytes` and swift-subprocess `AsyncBufferSequence` supply it'
+note: 'Iterate `<bytes>.lines`, `FileHandle.AsyncBytes` and swift-subprocess `AsyncBufferSequence` supply it'

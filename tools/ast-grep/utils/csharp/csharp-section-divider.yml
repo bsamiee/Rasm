@@ -1,0 +1,7 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-section-divider
+language: csharp
+rule:
+    all:
+        - matches: csharp-dashed-divider
+        - matches: csharp-file-level

@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-independent-step
+language: csharp
+severity: error
+utils:
+    step:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, pattern: $STEP, regex: '^(Bind|Map|Select|SelectMany|Filter|Where)(\s*<.+>)?$'}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has:
+                        kind: argument
+                        pattern: $CONTINUATION
+                        has: {kind: 'lambda_expression, anonymous_method_expression, identifier, member_access_expression, generic_name'}
+                        not: {has: {stopBy: end, kind: identifier, pattern: $VALUE}}
+    step-return:
+        kind: block
+        all:
+            - has: {kind: return_statement, nthChild: 1, has: {matches: step}}
+            - not: {has: {nthChild: 2}}
+rewriters:
+    - id: continuation-receiver
+      rule:
+        kind: invocation_expression
+        pattern: $STEP_RECEIVER.$_NAME($_ARGUMENT)
+        any:
+            - inside: {kind: lambda_expression, field: body}
+            - inside: {kind: return_statement, inside: {kind: block, inside: {kind: 'lambda_expression, anonymous_method_expression'}}}
+      fix: $STEP_RECEIVER
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, pattern: $RECEIVER}}, {has: {field: name, pattern: $BIND, regex: '^(Bind|SelectMany)(\s*<.+>)?$'}}]}
+        - has:
+            field: arguments
+            all:
+                - not: {has: {kind: argument, nthChild: 2}}
+                - has:
+                    kind: argument
+                    pattern: $CALLBACK
+                    all:
+                        - any:
+                            - matches:
+                                csharp-unary-callback:
+                                    parameter: {pattern: $VALUE}
+                                    body: {any: [{matches: step}, {matches: step-return}]}
+                            - has:
+                                kind: anonymous_method_expression
+                                all:
+                                    - has: {field: parameters, all: [{has: {kind: parameter, has: {field: name, pattern: $VALUE}}}, {not: {has: {kind: parameter, nthChild: 2}}}]}
+                                    - has: {matches: step-return}
+                        - has: {stopBy: end, matches: step}
+transform:
+    OUTER:
+        rewrite:
+            source: $CALLBACK
+            rewriters: [continuation-receiver]
+    BIND_NAME:
+        replace:
+            source: $BIND
+            replace: '\s*<.*>$'
+            by: ''
+fix: '$RECEIVER.$BIND_NAME($OUTER).$STEP($CONTINUATION)'
+message: '`$STEP` nested in a `$BIND` callback reads nothing the callback bound'
+note: Use `<source>.<Bind>(<value> => <step>).<Step>(<continuation>)` with each step at one level of the chain

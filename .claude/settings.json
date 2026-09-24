@@ -129,6 +129,30 @@
                     }
                 ]
             }
+        ],
+        "PreToolUse": [
+            {
+                "matcher": "^mcp__rhino-mcp-platform__(run_python|run_command)$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "uv",
+                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-rhino/scripts/hook.py"],
+                        "timeout": 10
+                    }
+                ]
+            },
+            {
+                "matcher": "^mcp__(blender|mcp-for-blender)__execute_blender_code$",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "uv",
+                        "args": ["run", "--script", "${CLAUDE_PROJECT_DIR}/.claude/skills/use-blender/scripts/wrapper.py"],
+                        "timeout": 10
+                    }
+                ]
+            }
         ]
     },
     "enabledPlugins": {

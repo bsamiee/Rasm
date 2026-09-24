@@ -1,0 +1,83 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-effect-in-swap
+language: csharp
+severity: error
+utils:
+    transition-scope:
+        kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'
+        any:
+            - pattern: $TRANSITION
+            - inside: {stopBy: end, pattern: $TRANSITION}
+    declared-local:
+        kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'
+        matches: transition-scope
+        has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $LOCAL}}
+    transition-local:
+        kind: 'lambda_expression, anonymous_method_expression, local_function_statement, method_declaration'
+        any:
+            - matches: declared-local
+            - all:
+                - matches: transition-scope
+                - has: {field: parameters, any: [{pattern: $LOCAL}, {has: {kind: parameter, has: {field: name, pattern: $LOCAL}}}]}
+    local-write:
+        all:
+            - any:
+                - kind: assignment_expression
+                  has: {field: left, kind: identifier, pattern: $LOCAL}
+                - kind: 'postfix_unary_expression, prefix_unary_expression'
+                  has: {kind: identifier, pattern: $LOCAL}
+            - inside: {stopBy: end, matches: transition-local}
+    local-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $LOCAL}}
+            - inside: {stopBy: end, matches: declared-local}
+    effect:
+        any:
+            - kind: expression_statement
+              not: {has: {any: [{matches: local-write}, {matches: local-call}]}}
+            - kind: assignment_expression
+              all:
+                - not: {inside: {kind: 'expression_statement, initializer_expression'}}
+                - not: {matches: local-write}
+            - kind: local_declaration_statement
+              has:
+                kind: variable_declaration
+                all:
+                    - has: {kind: variable_declarator, has: {nthChild: 2, kind: 'invocation_expression, await_expression'}}
+                    - any:
+                        - has: {field: type, regex: '^((global::)?(LanguageExt\.)?)?Unit$'}
+                        - has: {kind: variable_declarator, has: {field: name, regex: '^_$'}}
+    effect-member:
+        kind: identifier
+        pattern: $GROUP
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: 'method_declaration, local_function_statement'
+                pattern: $TRANSITION
+                all:
+                    - has: {field: name, pattern: $GROUP}
+                    - has: {stopBy: end, matches: effect}
+rule:
+    kind: invocation_expression
+    all:
+        - matches: csharp-atom-transition
+        - has: {field: function, pattern: $SWAP}
+        - has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has:
+                        kind: 'lambda_expression, anonymous_method_expression'
+                        pattern: $TRANSITION
+                        has: {stopBy: end, matches: effect}
+                    - has: {kind: identifier, matches: effect-member}
+                    - has:
+                        kind: 'lambda_expression, anonymous_method_expression'
+                        has: {stopBy: end, kind: invocation_expression, has: {field: function, matches: effect-member}}
+message: '`$SWAP` transition runs a statement or write that each conflict reruns'
+note: Return the next state from the transition and act on the value `Swap` returns

@@ -37,4 +37,4 @@ rule:
                         not: {nthChild: 1}
                         has: {kind: statements, has: {kind: control_transfer_statement, regex: '^break$'}}
 message: '`$GUARD` reads `$STATE` from the previous iteration and awaits one more `$L` before the exit'
-note: 'Test the exit after the statement that sets `$STATE`, `if <finished> { break }` as the last statement of the body, or close the input to end the sequence'
+note: 'Test the exit after the statement that sets `<state>`, `if <finished> { break }` as the last statement of the body, or close the input to end the sequence'

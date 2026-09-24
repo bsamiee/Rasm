@@ -11,14 +11,14 @@ initial state = Create(first event)
 current state = remaining events.Fold(initial state, Apply)
 ```
 
-Two snapshots show that state changed and not why, while the event with the prior state decides the next state. Keeping every historical snapshot repeats every unchanged value and still needs a comparison to explain a change, and the event history records the transition itself and derives whichever snapshot is needed.
+Compared snapshots show that state changed and not why, while the event with the prior state decides the next state. Keeping every historical snapshot repeats every unchanged value and still needs a comparison to explain a change, and the event history records the transition itself and derives whichever snapshot is needed.
 
 ## [02]-[EVENTS]
 
 Events are immutable, serializable data objects holding the minimum information about something that already happened:
-- The name is past tense (`Created`, `Credited`, `Debited`, `Frozen`)
-- The event cannot be rejected or changed
-- The payload describes the occurrence, not a mutable entity snapshot
+- Names are past tense (`Created`, `Credited`, `Debited`, `Frozen`)
+- Events cannot be rejected or changed
+- Payloads describe the occurrence, not a mutable entity snapshot
 - Events that cause state transitions belong in the persistent history, and transient notifications stay distinct from them
 
 Each event is a sealed record case nested in one abstract partial base that `[Union]` closes, and the shared identity sits on the base through a private constructor that the cases pass it to:

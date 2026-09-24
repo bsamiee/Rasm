@@ -3,21 +3,56 @@ id: no-index-literal-by-code
 language: python
 severity: error
 utils:
-    truth-code:
+    literal-table:
         any:
-            - kind: 'comparison_operator, not_operator'
+            - kind: tuple, list
+              has: {pattern: $_}
+              not: {has: {kind: list_splat}}
+            - kind: dictionary
+              has: {kind: pair}
+              not: {has: {pattern: $_, not: {kind: pair, has: {field: key, kind: 'integer, unary_operator'}}}}
+    named-table:
+        matches: {python-assigned-name: {value: {matches: literal-table}}}
+    counter-target:
+        any:
+            - pattern: $I
+            - kind: pattern_list, tuple_pattern
+              has: {nthChild: 1, pattern: $I}
+    counter:
+        kind: identifier
+        pattern: $I
+        inside:
+            kind: for_statement, for_in_clause, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+            stopBy: end
+            any:
+                - has: {field: left, matches: counter-target}
+                - has: {kind: for_in_clause, has: {field: left, matches: counter-target}}
+            has:
+                stopBy: {kind: 'block, function_definition, lambda'}
+                kind: call
+                has: {field: function, kind: identifier, regex: '^(range|enumerate)$'}
+    positional-index:
+        any:
+            - kind: 'integer, slice, string, unary_operator'
+            - matches: python-truth-value
             - kind: call
-              has: {field: function, regex: '^bool$'}
+              pattern: int($B)
+              has: {field: arguments, has: {matches: python-truth-value}}
+            - kind: binary_operator
+              has: {field: operator, regex: '^%$'}
+            - matches: counter
 rule:
     kind: subscript
     all:
-        - has: {field: subscript, pattern: $CODE, not: {kind: 'integer, slice, string, unary_operator'}}
+        - not: {inside: {kind: 'assignment, augmented_assignment', field: left}}
+        - not: {inside: {kind: delete_statement}}
+        - has: {field: subscript, pattern: $CODE, not: {matches: positional-index}}
         - has:
             field: value
             pattern: $TABLE
             any:
-                - kind: 'tuple, list'
-                - kind: string
-                  inside: {kind: subscript, has: {field: subscript, matches: truth-code}}
+                - matches: literal-table
+                - kind: identifier
+                  matches: named-table
 message: 'Literal `$TABLE` is read at the computed index `$CODE`'
 note: 'Select the value by `match` over the case, or by an enum member holding it'

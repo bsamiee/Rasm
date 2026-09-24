@@ -4,6 +4,11 @@ language: python
 severity: error
 utils:
     init: {kind: function_definition, has: {field: name, regex: '^__init__$'}}
+    method:
+        kind: function_definition
+        any:
+            - not: {has: {field: name, regex: '^__.*__$'}}
+            - has: {field: name, regex: '^__call__$'}
     static-method:
         kind: decorated_definition
         has: {kind: decorator, regex: '^@staticmethod$'}
@@ -11,20 +16,19 @@ utils:
 rule:
     kind: class_definition
     all:
+        - matches: python-plain-class
         - has: {field: name, pattern: $NAME}
-        - not: {inside: {kind: decorated_definition}}
         - not: {has: {kind: identifier, regex: '^__class__$', stopBy: end}}
-        - not: {has: {field: superclasses, kind: argument_list}}
         - has:
             field: body
             any:
                 - all:
-                    - has: {kind: function_definition, not: {has: {field: name, regex: '^__.*__$'}}}
+                    - has: {matches: method}
                     - not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{matches: python-docstring-or-comment}, {matches: init}]}}}}}
                 - all:
                     - has: {matches: static-method}
                     - not: {has: {not: {any: [{matches: python-docstring-or-comment}, {matches: static-method}]}}}
 message: '`$NAME` holds one instance method or static methods alone'
-note: 'Write the operation as a function and its state as a `msgspec.Struct`'
+note: 'Write the operation as a function and its state as a frozen `msgspec.Struct`, or an `attrs.frozen` class where the interpreter lacks msgspec'
 labels:
     NAME: {style: primary, message: Class with one method}

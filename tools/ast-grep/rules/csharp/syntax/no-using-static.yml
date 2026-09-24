@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-using-static
+language: csharp
+severity: error
+rule:
+    kind: using_directive
+    pattern: $DIRECTIVE
+    any:
+        - has: {regex: '^static$'}
+        - all:
+            - has: {field: name, pattern: $ALIAS}
+            - not: {has: {nthChild: 2, any: [{kind: identifier, pattern: $ALIAS}, {kind: 'qualified_name, generic_name', has: {field: name, pattern: $ALIAS}}]}}
+message: '`$DIRECTIVE` hides the owning type name at every use'
+note: Qualify each call with its owning type, an alias stays only under the type's own name to resolve a collision, and the MSBuild global using supplies `LanguageExt.Prelude`

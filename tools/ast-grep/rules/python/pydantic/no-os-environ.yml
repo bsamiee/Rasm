@@ -2,30 +2,29 @@
 id: no-os-environ
 language: python
 severity: error
+ignores: ['.claude/skills/use-blender/scripts/*.py', '.claude/skills/use-rhino/scripts/*.py', 'tools/interface/**']
 utils:
     mapping: {matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^environb?$'}}}}
+    written:
+        any:
+            - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^(update|clear)$'}}
+            - inside:
+                kind: subscript
+                field: value
+                any:
+                    - inside:
+                        kind: 'assignment, augmented_assignment'
+                        field: left
+                        stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}
+                    - inside: {kind: delete_statement}
+            - inside: {kind: augmented_assignment, field: left}
+            - inside: {kind: keyword_argument, stopBy: end, has: {field: name, regex: '^env$'}}
 rule:
     any:
         - kind: call
-          has:
-            field: function
-            any:
-                - matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}
-                - kind: attribute
-                  all:
-                    - has: {field: object, matches: mapping}
-                    - has: {field: attribute, regex: '^(get|items|keys|values)$'}
-        - kind: comparison_operator
-          regex: '\s(not\s+)?in\s+[\w.]+$'
-          has: {matches: mapping, nthChild: 2}
-        - kind: subscript
-          has: {field: value, matches: mapping}
-          not:
-            any:
-                - inside:
-                    kind: 'assignment, augmented_assignment'
-                    field: left
-                    stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern'}}
-                - inside: {kind: delete_statement}
+          has: {field: function, matches: {python-member-use: {module: {regex: '^os$'}, name: {regex: '^getenvb?$'}}}}
+        - kind: identifier, attribute
+          matches: mapping
+          not: {matches: written}
 message: 'Environment read bypasses typed settings'
 note: 'Declare the value as a `BaseSettings` field loaded at the application boundary'

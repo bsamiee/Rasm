@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino commands drawing historical arch profiles from picked span, apex, and foil inputs</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Commands/Rasm.Rhino.Commands.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Display/Rasm.Rhino.Display.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Modeling/Rasm.Rhino.Modeling.csproj" />
+        <ProjectReference Include="../../../libs/dotnet/rhino/Rasm.Rhino.Viewport/Rasm.Rhino.Viewport.csproj" />
+    </ItemGroup>
+</Project>

@@ -1,0 +1,97 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bracketed-pair-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    action:
+        any:
+            - kind: identifier, member_access_expression
+            - kind: lambda_expression
+              all:
+                - not: {has: {field: parameters, has: {kind: parameter}}}
+                - has:
+                    field: body
+                    any:
+                        - kind: block
+                          not: {has: {stopBy: {kind: lambda_expression}, kind: return_statement, has: {pattern: $_}}}
+                        - kind: assignment_expression, postfix_unary_expression, object_creation_expression
+                        - kind: invocation_expression
+                          not: {has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless$'}}}
+    lift:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?)?IO\s*\.\s*lift$'}
+            - has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+    begin:
+        matches: lift
+        has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: action, pattern: $BEGIN}}}
+    end:
+        matches: lift
+        has: {field: arguments, has: {kind: argument, not: {has: {field: name, pattern: $_}}, has: {matches: action, pattern: $END}}}
+    use-arm:
+        any:
+            - has: {field: name, regex: '^Use$'}
+            - all: [{nthChild: 1}, {not: {has: {field: name, pattern: $_}}}]
+    fin-arm:
+        any:
+            - has: {field: name, regex: '^Fin$'}
+            - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+    finally:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Finally$'}}, {has: {field: expression, pattern: $BODY}}]}
+            - has: {field: arguments, has: {kind: argument, has: {matches: end}}, not: {has: {kind: argument, nthChild: 2}}}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bracket$'}}, {has: {field: expression, matches: begin}}]}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 3}}
+                    - has:
+                        kind: argument
+                        matches: use-arm
+                        has:
+                            matches:
+                                csharp-unary-callback:
+                                    parameter: {pattern: $USED}
+                                    body: {pattern: $BODY, not: {has: {stopBy: end, kind: identifier, pattern: $USED}}}
+                    - has:
+                        kind: argument
+                        all:
+                            - matches: fin-arm
+                            - has:
+                                matches:
+                                    csharp-unary-callback:
+                                        parameter: {pattern: $HELD}
+                                        body: {matches: end, not: {has: {stopBy: end, kind: identifier, pattern: $HELD}}}
+                            - has: {stopBy: end, matches: end}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Bind$'}}, {has: {field: expression, matches: begin}}]}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has:
+                        kind: argument
+                        all:
+                            - has:
+                                matches:
+                                    csharp-unary-callback:
+                                        parameter: {pattern: $USED}
+                                        body: {matches: finally, not: {has: {stopBy: end, kind: identifier, pattern: $USED}}}
+                            - has: {stopBy: end, matches: finally}
+        - kind: query_expression
+          all:
+            - has: {kind: from_clause, nthChild: 1, all: [{has: {field: name, pattern: $USED}}, {has: {matches: begin}}]}
+            - has: {kind: from_clause, nthChild: 2, all: [{has: {field: name, pattern: $VALUE}}, {has: {matches: finally}}]}
+            - has: {kind: select_clause, nthChild: 3, has: {pattern: $VALUE}}
+            - not: {has: {nthChild: 4}}
+            - not: {has: {kind: from_clause, nthChild: 2, has: {stopBy: end, kind: identifier, pattern: $USED}}}
+    not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Bracketed$'}}}}
+message: '`$BEGIN` and `$END` bracket `$BODY` by hand'
+note: Use `Disposal.Bracketed(<begin>, <end>, <body>)` where `<begin>` and `<end>` return no result and building `<body>` reads no state `<begin>` changes

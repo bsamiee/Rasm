@@ -3,16 +3,25 @@ id: no-none-resolved-in-one-arm
 language: python
 severity: error
 utils:
-    resolving:
+    resolving-expression:
         kind: conditional_expression
         any:
-            - pattern: $X if $X is not None else $_
-            - pattern: $_ if $X is None else $X
+            - pattern: $X if $X is not None else $D
+            - pattern: $D if $X is None else $X
+    resolving-statement:
+        kind: if_statement
+        all:
+            - has: {field: condition, pattern: $X is None}
+            - has: {field: consequence, has: {kind: expression_statement, has: {pattern: $X = $D}}, not: {has: {nthChild: 2}}}
+            - not: {has: {kind: "else_clause, elif_clause"}}
+    resolving:
+        any: [{matches: resolving-expression}, {matches: resolving-statement}]
     raw-use:
+        kind: identifier
         pattern: $X
         all:
             - not: {inside: {kind: comparison_operator, has: {kind: none}}}
-            - not: {inside: {matches: resolving, stopBy: {kind: conditional_expression}}}
+            - not: {inside: {matches: resolving, stopBy: {kind: 'conditional_expression, if_statement'}}}
     holds-raw:
         any:
             - matches: raw-use
@@ -27,8 +36,7 @@ utils:
         any:
             - kind: block
               inside: {kind: if_statement}
-            - kind: elif_clause
-            - kind: else_clause
+            - kind: elif_clause, else_clause, case_clause
     raw-branch:
         all:
             - matches: branch
@@ -36,17 +44,20 @@ utils:
             - not: {has: {matches: resolving, stopBy: end}}
     statement-arm:
         matches: branch
-        inside:
-            kind: if_statement
-            any:
-                - has: {matches: raw-branch}
-                - precedes: {stopBy: end, matches: holds-raw}
+        any:
+            - inside:
+                kind: if_statement
+                any:
+                    - has: {matches: raw-branch}
+                    - precedes: {stopBy: end, matches: holds-raw}
+            - inside:
+                kind: block
+                inside: {kind: match_statement, precedes: {stopBy: end, matches: holds-raw}}
+            - inside: {kind: block, has: {kind: case_clause, matches: raw-branch}}
 rule:
-    kind: conditional_expression
+    kind: conditional_expression, if_statement
     all:
-        - any:
-            - pattern: $X if $X is not None else $D
-            - pattern: $D if $X is None else $X
+        - matches: resolving
         - any:
             - matches: conditional-arm
             - inside:
@@ -55,4 +66,4 @@ rule:
                     - matches: conditional-arm
                     - matches: statement-arm
 message: '`$X` resolves None to `$D` in one arm and reaches the other arm as None'
-note: 'Resolve `$X` once before the branch, every consumer reads one meaning of absence'
+note: 'Resolve `<name>` once before the branch'

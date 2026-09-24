@@ -1,0 +1,242 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-null-guarded-some
+language: csharp
+severity: error
+utils:
+    some:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?(Prelude|Option)\.)?Some(\s*<.+>)?$'}
+            - has: {field: arguments, not: {has: {kind: argument, any: [{nthChild: 2}, {has: {field: name, pattern: $_}}]}}}
+    value:
+        any:
+            - pattern: $X
+            - kind: postfix_unary_expression
+              regex: '!$'
+              has: {pattern: $X}
+    bound:
+        any:
+            - pattern: $BOUND
+            - kind: postfix_unary_expression
+              regex: '!$'
+              has: {pattern: $BOUND}
+    held:
+        any:
+            - pattern: $X.Value
+            - matches: value
+    some-of-value:
+        any:
+            - matches: some
+              has: {field: arguments, has: {kind: argument, has: {matches: value}}}
+            - kind: parenthesized_expression
+              has: {matches: some-of-value}
+    some-of-bound:
+        any:
+            - matches: some
+              has: {field: arguments, has: {kind: argument, has: {matches: bound}}}
+            - kind: parenthesized_expression
+              has: {matches: some-of-bound}
+    some-of-held:
+        any:
+            - matches: some
+              has: {field: arguments, has: {kind: argument, has: {matches: held}}}
+            - kind: parenthesized_expression
+              has: {matches: some-of-held}
+    typed-none:
+        matches: csharp-none-value
+        not: {regex: '^default$'}
+    absent-test:
+        any:
+            - pattern: $X is null
+            - pattern: $X == null
+            - pattern: null == $X
+            - pattern: $X is not {}
+            - pattern: $X is not object
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^(((global::)?System\.)?[Oo]bject\.)?ReferenceEquals$'}
+                - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1}}, {has: {kind: argument, nthChild: 2}}], not: {has: {kind: argument, nthChild: 3}}}
+                - has: {field: arguments, has: {kind: argument, has: {kind: null_literal}}}
+                - has: {field: arguments, has: {kind: argument, has: {pattern: $X, not: {kind: null_literal}}}}
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {matches: present-test}
+            - kind: parenthesized_expression
+              has: {matches: absent-test}
+    present-test:
+        any:
+            - pattern: $X is not null
+            - pattern: $X != null
+            - pattern: null != $X
+            - pattern: $X is {}
+            - pattern: $X is object
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {matches: absent-test}
+            - kind: parenthesized_expression
+              has: {matches: present-test}
+    bound-present-test:
+        any:
+            - pattern: $X is {} $BOUND
+            - kind: parenthesized_expression
+              has: {matches: bound-present-test}
+    bound-absent-test:
+        any:
+            - pattern: $X is not {} $BOUND
+            - kind: parenthesized_expression
+              has: {matches: bound-absent-test}
+    value-test:
+        any:
+            - pattern: $X.HasValue
+            - kind: parenthesized_expression
+              has: {matches: value-test}
+    no-value-test:
+        any:
+            - pattern: '!$X.HasValue'
+            - kind: parenthesized_expression
+              has: {matches: no-value-test}
+    none-branch:
+        any:
+            - matches: csharp-none-value
+            - kind: return_statement
+              has: {matches: csharp-none-value}
+            - kind: block
+              has: {kind: return_statement, has: {matches: csharp-none-value}}
+              not: {has: {nthChild: 2}}
+    typed-none-branch:
+        any:
+            - matches: typed-none
+            - kind: return_statement
+              has: {matches: typed-none}
+            - kind: block
+              has: {kind: return_statement, has: {matches: typed-none}}
+              not: {has: {nthChild: 2}}
+    value-branch:
+        any:
+            - matches: some-of-value
+            - kind: return_statement
+              has: {matches: some-of-value}
+            - kind: block
+              has: {kind: return_statement, has: {matches: some-of-value}}
+              not: {has: {nthChild: 2}}
+    bound-branch:
+        any:
+            - matches: some-of-bound
+            - kind: return_statement
+              has: {matches: some-of-bound}
+            - kind: block
+              has: {kind: return_statement, has: {matches: some-of-bound}}
+              not: {has: {nthChild: 2}}
+    held-branch:
+        any:
+            - matches: some-of-held
+            - kind: return_statement
+              has: {matches: some-of-held}
+            - kind: block
+              has: {kind: return_statement, has: {matches: some-of-held}}
+              not: {has: {nthChild: 2}}
+    converted-branch:
+        any:
+            - pattern: $X
+            - kind: return_statement
+              has: {pattern: $X}
+            - kind: block
+              has: {kind: return_statement, has: {pattern: $X}}
+              not: {has: {nthChild: 2}}
+    choice:
+        any:
+            - all:
+                - has: {field: condition, matches: absent-test}
+                - has: {field: consequence, matches: none-branch}
+                - any:
+                    - has: {field: alternative, matches: value-branch}
+                    - {matches: fallthrough, precedes: {matches: value-branch}}
+            - all:
+                - has: {field: condition, matches: present-test}
+                - has: {field: consequence, matches: value-branch}
+                - any:
+                    - has: {field: alternative, matches: none-branch}
+                    - {matches: fallthrough, precedes: {matches: none-branch}}
+            - all:
+                - has: {field: condition, matches: bound-present-test}
+                - has: {field: consequence, matches: bound-branch}
+                - any:
+                    - has: {field: alternative, matches: none-branch}
+                    - {matches: fallthrough, precedes: {matches: none-branch}}
+            - all:
+                - has: {field: condition, matches: bound-absent-test}
+                - has: {field: consequence, matches: none-branch}
+                - any:
+                    - has: {field: alternative, matches: bound-branch}
+                    - {matches: fallthrough, precedes: {matches: bound-branch}}
+            - all:
+                - has: {field: condition, matches: no-value-test}
+                - has: {field: consequence, matches: none-branch}
+                - any:
+                    - has: {field: alternative, matches: held-branch}
+                    - {matches: fallthrough, precedes: {matches: held-branch}}
+            - all:
+                - has: {field: condition, matches: value-test}
+                - has: {field: consequence, matches: held-branch}
+                - any:
+                    - has: {field: alternative, matches: none-branch}
+                    - {matches: fallthrough, precedes: {matches: none-branch}}
+            - all:
+                - has: {field: condition, matches: absent-test}
+                - has: {field: consequence, matches: typed-none-branch}
+                - any:
+                    - has: {field: alternative, matches: converted-branch}
+                    - {matches: fallthrough, precedes: {matches: converted-branch}}
+            - all:
+                - has: {field: condition, matches: present-test}
+                - has: {field: consequence, matches: converted-branch}
+                - any:
+                    - has: {field: alternative, matches: typed-none-branch}
+                    - {matches: fallthrough, precedes: {matches: typed-none-branch}}
+    fallthrough:
+        kind: if_statement
+        not: {has: {field: alternative, pattern: $_}}
+    absent-arm:
+        kind: switch_expression_arm
+        all:
+            - has: {nthChild: 1, regex: '^(null|not\s*\{\s*\}|not\s+object|_)$'}
+            - has: {nthChild: 2, matches: csharp-none-value}
+            - not: {has: {nthChild: 3}}
+    present-arm:
+        kind: switch_expression_arm
+        all:
+            - any:
+                - all:
+                    - has: {nthChild: 1, regex: '^(_|not\s+null|\{\s*\}|object)$'}
+                    - has: {nthChild: 2, matches: some-of-value}
+                - all:
+                    - has: {nthChild: 1, regex: '^(\{\s*\}|var)\s+\w+$', has: {stopBy: end, kind: identifier, pattern: $BOUND}}
+                    - has: {nthChild: 2, matches: some-of-bound}
+            - not: {has: {nthChild: 3}}
+    switch-arms:
+        kind: switch_expression
+        all:
+            - has: {nthChild: 1, pattern: $X}
+            - has: {matches: absent-arm}
+            - has: {matches: present-arm}
+            - not: {has: {kind: switch_expression_arm, nthChild: 4}}
+rule:
+    any:
+        - kind: conditional_expression
+          pattern: $EXPRESSION
+          matches: choice
+        - kind: if_statement
+          pattern: $STATEMENT
+          matches: choice
+        - kind: switch_expression
+          pattern: $EXPRESSION
+          matches: switch-arms
+transform:
+    CALL: {replace: {source: $EXPRESSION, replace: '(?s)^.*$', by: Optional}}
+    RETURN: {replace: {source: $STATEMENT, replace: '(?s)^.*$', by: return Optional}}
+    END: {replace: {source: $STATEMENT, replace: '(?s)^.*$', by: ';'}}
+fix:
+    template: $CALL$RETURN($X)$END
+    expandEnd: {kind: return_statement, follows: {matches: fallthrough}}
+message: Null test on `$X` chooses between `Some` and `None` by hand
+note: Use `Optional(<value>)`

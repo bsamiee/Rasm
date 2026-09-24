@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-family-section
+language: csharp
+severity: error
+rule:
+    pattern: $DIVIDER
+    all:
+        - matches: csharp-labeled-divider
+        - matches: csharp-owner-level
+        - inside:
+            matches: csharp-member-list
+            stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}
+            not: {has: {stopBy: {matches: csharp-member-list}, matches: csharp-labeled-divider, not: {pattern: $DIVIDER}}}
+message: Family divider `$DIVIDER` is the one family of its owner
+note: Delete the divider, subsections split an owner holding more than one family

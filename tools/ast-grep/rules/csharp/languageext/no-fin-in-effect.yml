@@ -1,0 +1,95 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-fin-in-effect
+language: csharp
+severity: error
+utils:
+    result-type:
+        regex: '^((global::)?LanguageExt\.)?(Fin|Validation|Try)\s*<|^((global::)?LanguageExt\.)?Either\s*<\s*((global::)?LanguageExt\.(Common\.)?)?Error\s*,'
+    result-argument:
+        has:
+            kind: type_argument_list
+            has:
+                nthChild: {position: 1, reverse: true}
+                matches: result-type
+    effect-type:
+        kind: generic_name
+        all:
+            - matches: result-argument
+            - any:
+                - all:
+                    - has: {kind: identifier, nthChild: 1, regex: '^(IO|Eff)$'}
+                    - not: {inside: {kind: member_access_expression, field: name}}
+                - all:
+                    - has: {kind: identifier, nthChild: 1, regex: '^K$'}
+                    - has: {kind: type_argument_list, has: {nthChild: 1, regex: '^((global::)?LanguageExt\.)?(IO|Eff\s*<.+>)$'}}
+                    - not: {inside: {kind: member_access_expression, field: name}}
+                - all:
+                    - has: {kind: identifier, nthChild: 1, regex: '^pure$'}
+                    - inside: {kind: member_access_expression, field: name, has: {field: expression, regex: '^((global::)?LanguageExt\.)?IO$'}}
+    owner:
+        kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration, constructor_declaration, operator_declaration, property_declaration
+    result-local:
+        kind: identifier
+        pattern: $VALUE
+        inside:
+            stopBy: {matches: owner}
+            matches: owner
+            any:
+                - has:
+                    stopBy: end
+                    kind: parameter
+                    all:
+                        - has: {field: name, pattern: $VALUE}
+                        - has: {field: type, matches: result-type}
+                - has:
+                    stopBy: {kind: 'local_function_statement, lambda_expression, anonymous_method_expression'}
+                    kind: variable_declaration
+                    all:
+                        - has: {field: type, matches: result-type}
+                        - has: {kind: variable_declarator, has: {field: name, pattern: $VALUE}}
+    typed-position:
+        any:
+            - inside: {kind: arrow_expression_clause, inside: {matches: owner, has: {field: returns, stopBy: end, matches: effect-type}}}
+            - inside: {kind: arrow_expression_clause, inside: {matches: owner, has: {field: type, stopBy: end, matches: effect-type}}}
+            - inside: {kind: return_statement, inside: {stopBy: {matches: owner}, matches: owner, has: {field: returns, stopBy: end, matches: effect-type}}}
+            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, stopBy: end, matches: effect-type}}}
+    pure-result:
+        kind: invocation_expression
+        all:
+            - has: {field: function, regex: '^((global::)?LanguageExt\.)?IO\s*\.\s*pure$'}
+            - has: {field: arguments, has: {kind: argument, has: {matches: result-local}}, not: {has: {kind: argument, nthChild: 2}}}
+            - not: {matches: typed-position}
+    tried:
+        pattern: {context: 'class C { object F() => $EFFECT.Try(); }', selector: invocation_expression, strictness: cst}
+    tried-run:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^runFin$'}
+                - has: {field: expression, matches: tried}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Run$'}}, {has: {field: expression, matches: tried}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    continued:
+        any:
+            - inside: {kind: member_access_expression, field: expression}
+            - inside: {kind: parenthesized_expression, matches: continued}
+    tried-result:
+        all:
+            - any:
+                - matches: tried-run
+                - kind: invocation_expression
+                  all:
+                    - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: tried-run}}]}
+                    - has: {field: arguments, not: {has: {kind: argument}}}
+            - not: {matches: continued}
+            - not: {matches: typed-position}
+rule:
+    pattern: $TYPE
+    any:
+        - matches: effect-type
+        - matches: pure-result
+        - matches: tried-result
+message: '`$TYPE` holds a result type with a failure that duplicates the effect failure channel'
+note: Use `IO<A>` or `Eff<RT, A>` with the typed `Expected` on the effect failure channel, `IO.lift(<result>)` over a `Fin` or `Either`, `IO.lift(<result>.ToFin())` over a `Validation` or `Try`, and `ValidationT<Error, IO, A>` where errors keep accumulating inside the effect

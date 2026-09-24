@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-owner-call
+language: csharp
+arguments: [type, member]
+utils:
+    named:
+        any:
+            - kind: identifier
+              matches: member
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, matches: member}
+rule:
+    kind: invocation_expression
+    has:
+        field: function
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, matches: named}
+                - has:
+                    field: expression
+                    any:
+                        - kind: identifier
+                          matches: type
+                        - kind: member_access_expression
+                          has: {field: name, matches: type}
+            - matches: named
+              inside: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, matches: type}}

@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-discard-pattern-test
+language: csharp
+severity: error
+utils:
+    unused-var:
+        any:
+            - kind: declaration_pattern
+              all:
+                - has: {field: type, kind: implicit_type}
+                - has: {kind: discard}
+            - kind: 'parenthesized_pattern, or_pattern'
+              has: {matches: unused-var}
+            - kind: and_pattern
+              all: [{has: {field: left, matches: unused-var}}, {has: {field: right, matches: unused-var}}]
+rule:
+    kind: is_pattern_expression
+    all:
+        - has: {field: expression, pattern: $VALUE}
+        - has: {field: pattern, pattern: $PATTERN, matches: unused-var}
+message: '`$VALUE is $PATTERN` tests a pattern every value matches'
+note: Map the host answer the call returns into a result, or discard the value with `ignore(<expression>)`

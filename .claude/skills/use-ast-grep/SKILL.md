@@ -119,6 +119,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - Under `expandoChar`, patterns spell metavariables with that character (`_VAR`, `___VAR`), fix templates and transform sources use `$`
 - Unparsable rule files of any language and duplicate ids fail every load of the root config, an unknown key in `sgconfig.yml` loads silently
 - `ast-grep-ignore` on the line before or on the line of the match suppresses every rule, `ast-grep-ignore: <id>, <id>` the listed rules alone
+- Rules over comments miss a trailing `ast-grep-ignore` naming them or no id, a full-line one suppresses the next line alone and is reported
 - `unused-suppression` reports a comment suppressing nothing at `hint`, `--filter`, `--off`, `--min-severity`, `-r`, or `--inline-rules` turns it off
 - `no-suppress-all` reports an idless comment and is off, `--error=<id>` raises either built-in rule
 

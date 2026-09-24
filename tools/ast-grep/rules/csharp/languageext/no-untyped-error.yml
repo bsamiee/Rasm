@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untyped-error
+language: csharp
+severity: error
+utils:
+    text:
+        any:
+            - kind: string_literal, verbatim_string_literal, raw_string_literal, interpolated_string_expression
+            - kind: binary_expression, parenthesized_expression
+              has: {matches: text}
+    string-type:
+        kind: predefined_type, nullable_type, qualified_name, identifier
+        regex: '^((global::)?System\.)?(string|String)\??$'
+    string-declarator:
+        kind: variable_declaration
+        has: {kind: variable_declarator, has: {field: name, pattern: $TEXT_NAME}}
+        any:
+            - has: {field: type, matches: string-type}
+            - all:
+                - has: {field: type, kind: implicit_type}
+                - has: {kind: variable_declarator, has: {field: name, pattern: $TEXT_NAME}, all: [{has: {matches: text}}]}
+    string-name:
+        kind: identifier
+        pattern: $TEXT_NAME
+        inside:
+            stopBy: end
+            any:
+                - kind: method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, constructor_declaration
+                  has:
+                    field: parameters
+                    has: {kind: parameter, all: [{has: {field: name, pattern: $TEXT_NAME}}, {has: {field: type, matches: string-type}}]}
+                - kind: block
+                  has: {kind: local_declaration_statement, has: {matches: string-declarator}}
+                - kind: class_declaration, struct_declaration, record_declaration
+                  has: {field: body, has: {kind: field_declaration, has: {matches: string-declarator}}}
+    string-value:
+        any:
+            - matches: text
+            - matches: string-name
+            - kind: postfix_unary_expression, parenthesized_expression
+              has: {matches: string-value}
+            - kind: member_access_expression
+              has: {field: name, regex: '^Message$'}
+            - kind: conditional_access_expression
+              has: {kind: member_binding_expression, has: {field: name, regex: '^Message$'}}
+            - kind: invocation_expression
+              any:
+                - has: {field: function, regex: '^(nameof|((global::)?System\.)?(string|String)\s*\.\s*(Concat|Format|Join|Create))$'}
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(ToString|Trim|Substring|Replace|ToLowerInvariant|ToUpperInvariant)$'}}
+    error-type:
+        regex: '^((global::)?LanguageExt\.Common\.)?Error$'
+    error-tuple:
+        kind: tuple_expression
+        all:
+            - has: {kind: argument, nthChild: 2}
+            - not: {has: {kind: argument, nthChild: 3}}
+    untyped-type:
+        regex: '^((global::)?LanguageExt\.Common\.)?(Expected|Exceptional)$'
+    untyped-target:
+        any:
+            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: untyped-type}}}
+            - inside: {kind: arrow_expression_clause, inside: {kind: method_declaration, has: {field: returns, matches: untyped-type}}}
+            - inside: {kind: arrow_expression_clause, inside: {kind: 'local_function_statement, property_declaration', has: {field: type, matches: untyped-type}}}
+            - inside:
+                kind: return_statement
+                inside:
+                    stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration'}
+                    any:
+                        - kind: method_declaration
+                          has: {field: returns, matches: untyped-type}
+                        - kind: local_function_statement
+                          has: {field: type, matches: untyped-type}
+rule:
+    any:
+        - kind: implicit_object_creation_expression
+          pattern: $CALLEE
+          all:
+            - matches: untyped-target
+            - has: {kind: argument_list, has: {kind: argument, nthChild: 2}}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, pattern: $CALLEE, regex: '^((global::)?LanguageExt\.Common\.)?Error\s*\.\s*New$'}
+            - has:
+                field: arguments
+                any:
+                    - has: {kind: argument, nthChild: 2}
+                    - has: {kind: argument, has: {matches: string-value}}
+        - kind: object_creation_expression
+          has: {field: type, pattern: $CALLEE, regex: '^((global::)?LanguageExt\.Common\.)?Expected$'}
+        - kind: object_creation_expression
+          all:
+            - has: {field: type, pattern: $CALLEE, regex: '^((global::)?LanguageExt\.Common\.)?Exceptional$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+        - matches: error-tuple
+          pattern: $CALLEE
+          any:
+            - inside: {kind: cast_expression, field: value, has: {field: type, matches: error-type}}
+            - inside: {kind: arrow_expression_clause, inside: {kind: 'method_declaration, local_function_statement', has: {field: returns, matches: error-type}}}
+            - inside: {kind: arrow_expression_clause, inside: {kind: property_declaration, has: {field: type, matches: error-type}}}
+            - inside:
+                kind: return_statement
+                inside:
+                    stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression, accessor_declaration'}
+                    kind: 'method_declaration, local_function_statement'
+                    has: {field: returns, matches: error-type}
+            - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: error-type}}}
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    not: {has: {kind: argument, nthChild: 2}}
+                    inside:
+                        kind: invocation_expression
+                        has: {field: function, regex: '^((global::)?(LanguageExt\.)?(IO\s*\.\s*fail|Fin\s*\.\s*Fail|(Prelude\s*\.\s*)?FinFail)\s*<.+>)$'}
+            - inside:
+                kind: lambda_expression
+                field: body
+                inside:
+                    kind: argument
+                    inside:
+                        kind: argument_list
+                        not: {has: {kind: argument, nthChild: 2}}
+                        inside:
+                            kind: invocation_expression
+                            has: {field: function, regex: '(^|\.)MapFail$'}
+message: '`$CALLEE` builds an error from text with no type of its own'
+note: Use a `sealed record` extending `Expected` with its message and a package code

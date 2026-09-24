@@ -53,6 +53,7 @@ Findings group by correction and reason, instances with both in common become si
 - Diff supplies instances, language and package contracts decide the rest of the family
 - Siblings enumerate per module function, exporting module, overload, container kind, spelling, position, and callback form
 - Siblings are real when the after form, written once per sibling, is the same
+- Siblings include each form that silences the rule and keeps its cause (relayed value, restated type, rename, wrapper)
 - Criterion derives from the diff's forms, package overloads, and near misses
 - Fixed predicates with one caller stay in the rule, repeated predicates share a utility refined at each caller
 - Default-parameter corrections preserve evaluation timing and argument-binding errors, repeated positional, keyword, and unpacked values included

@@ -14,16 +14,7 @@ utils:
                     - has: {field: value, regex: '^True$'}
     shield-name:
         kind: identifier
-        pattern: $SCOPE
-        inside:
-            kind: function_definition
-            stopBy: {matches: python-function-boundary}
-            has:
-                stopBy: {kind: "function_definition, class_definition, lambda"}
-                kind: assignment
-                all:
-                    - has: {field: left, kind: identifier, pattern: $SCOPE}
-                    - has: {field: right, matches: shield-call}
+        matches: {python-assigned-name: {value: {matches: shield-call}}}
     shielded-scope:
         kind: with_statement
         has:
@@ -38,10 +29,20 @@ utils:
                         - kind: as_pattern
                           has: {matches: shield-call}
     anyio-import:
-        kind: import_statement
-        any:
-            - has: {kind: dotted_name, regex: '^anyio$', pattern: $ANYIO}
-            - has: {kind: aliased_import, all: [{has: {field: name, regex: '^anyio$'}}, {has: {field: alias, pattern: $ANYIO}}]}
+        matches: {python-module-import: {module: {regex: '^anyio$'}, binding: {pattern: $ANYIO}}}
+    anyio-shadowed:
+        inside:
+            kind: module, function_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+            stopBy: end
+            has:
+                stopBy: {kind: 'function_definition, class_definition, lambda, list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'}
+                matches: {python-binding: {name: {pattern: $ANYIO}}}
+    exit-body:
+        inside:
+            kind: function_definition
+            all:
+                - has: {field: name, regex: '^__aexit__$'}
+                - has: {regex: '^async$'}
     cancel-handler:
         kind: except_clause
         any:
@@ -51,10 +52,12 @@ rule:
     kind: block
     pattern: $BODY
     all:
-        - inside:
-            any:
-                - kind: finally_clause
-                - matches: cancel-handler
+        - any:
+            - inside:
+                any:
+                    - kind: finally_clause
+                    - matches: cancel-handler
+            - matches: exit-body
         - has:
             stopBy: {any: [{matches: python-function-boundary}, {matches: shielded-scope}]}
             any:
@@ -65,8 +68,10 @@ rule:
                   has: {regex: '^async$'}
         - not: {inside: {matches: shielded-scope, stopBy: {matches: python-function-boundary}}}
         - any:
-            - pattern: $SHIELDED
-              inside: {kind: module, stopBy: end, has: {matches: anyio-import}}
+            - all:
+                - pattern: $SHIELDED
+                - inside: {kind: module, stopBy: end, has: {matches: anyio-import}}
+                - not: {matches: anyio-shadowed}
             - pattern: $UNSHIELDED
 rewriters:
     - id: shield

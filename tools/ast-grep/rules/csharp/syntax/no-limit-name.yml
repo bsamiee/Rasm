@@ -1,0 +1,18 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-limit-name
+language: csharp
+severity: error
+rule:
+    kind: identifier
+    pattern: $NAME
+    regex: '[a-z0-9](Maximum|Minimum|Max|Min|Limit)([A-Z0-9_]|$)|^(Least|Fewest|Most|Max|Min)[A-Z0-9_]|(Upper|Lower)(Bound|Limit)|^_?(max|min|least|fewest|most)[A-Z0-9_]|^(MAX|MIN)_|_(MAX|MIN)$'
+    inside:
+        kind: variable_declarator
+        field: name
+        inside:
+            kind: variable_declaration
+            inside:
+                kind: field_declaration, local_declaration_statement
+                has: {kind: modifier, regex: '^const$'}
+message: Limit constant `$NAME` names its bound in a word other than a leading `Minimum` or `Maximum`
+note: Use `Minimum<Fact>` or `Maximum<Fact>`

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-atom-call
+language: csharp
+arguments: [member]
+rule:
+    kind: invocation_expression
+    has:
+        field: function
+        kind: member_access_expression
+        all:
+            - has: {field: name, matches: member}
+            - has: {field: expression, matches: csharp-atom-cell}

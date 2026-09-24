@@ -1,0 +1,279 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-sentinel-placeholder
+language: csharp
+severity: error
+utils:
+    type-name:
+        any:
+            - kind: identifier
+              pattern: $TYPE
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, pattern: $TYPE}
+            - kind: qualified_name
+              has: {field: name, matches: type-name}
+    id-time-type:
+        regex: '^((global::)?System\.)?(Guid|DateTime|DateTimeOffset)\??$'
+    hard-literal:
+        any:
+            - kind: member_access_expression
+              regex: '^(global::)?([A-Za-z0-9_]+\.)*(Guid\.Empty|[A-Z][A-Za-z0-9_]*\.Unset[A-Za-z]*(\.[A-Z][A-Za-z0-9_]*)?|DateTime(Offset)?\.MinValue|([Dd]ouble|[Ff]loat|Single)\.NaN)$'
+            - kind: default_expression
+              has: {field: type, matches: id-time-type}
+            - kind: object_creation_expression
+              all:
+                - has: {field: type, matches: id-time-type}
+                - not: {has: {field: arguments, has: {kind: argument}}}
+                - not: {has: {field: initializer, pattern: $_}}
+    hard-sentinel:
+        pattern: $SENTINEL
+        any:
+            - matches: hard-literal
+            - kind: identifier
+              pattern: $HOLDER
+              inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: variable_declarator
+                    all:
+                        - has: {field: name, pattern: $HOLDER}
+                        - has: {nthChild: 2, matches: hard-literal}
+    empty-text:
+        any:
+            - kind: string_literal
+              regex: '^""$'
+            - kind: member_access_expression
+              regex: '^(global::)?(System\.)?[Ss]tring\.Empty$'
+    empty-string:
+        pattern: $SENTINEL
+        matches: empty-text
+    placeholder-default:
+        pattern: $SENTINEL
+        any:
+            - kind: default_expression
+              not: {has: {field: type, pattern: $_}}
+            - kind: implicit_object_creation_expression
+              all:
+                - not: {has: {kind: argument_list, has: {kind: argument}}}
+                - not: {has: {kind: initializer_expression}}
+    hard-fallback:
+        any:
+            - matches: hard-sentinel
+            - kind: lambda_expression
+              has: {field: body, matches: hard-sentinel}
+    empty-fallback:
+        any:
+            - matches: empty-string
+            - kind: lambda_expression
+              has: {field: body, matches: empty-string}
+    hard-value:
+        any:
+            - matches: hard-sentinel
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\?\?$'}
+                - has: {field: right, matches: hard-sentinel}
+            - kind: conditional_expression
+              any:
+                - has: {field: consequence, matches: hard-sentinel}
+                - has: {field: alternative, matches: hard-sentinel}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^IfNone$'}}
+                - has: {field: arguments, has: {kind: argument, has: {matches: hard-fallback}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Match$'}}
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^None$'}}, {has: {matches: hard-fallback}}]}}
+    absence-empty:
+        any:
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^\?\?$'}
+                - has: {field: right, matches: empty-string}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^IfNone$'}}
+                - has: {field: arguments, has: {kind: argument, has: {matches: empty-fallback}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Match$'}}
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^None$'}}, {has: {matches: empty-fallback}}]}}
+    empty-value:
+        any:
+            - matches: empty-string
+            - kind: conditional_expression
+              any:
+                - has: {field: consequence, matches: empty-string}
+                - has: {field: alternative, matches: empty-string}
+    field-access:
+        any:
+            - kind: identifier
+              pattern: $FIELD
+            - kind: member_access_expression
+              has: {field: name, pattern: $FIELD}
+            - kind: conditional_access_expression
+              has: {kind: member_binding_expression, has: {field: name, pattern: $FIELD}}
+    compared-field:
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: binary_expression
+                      all:
+                        - has: {field: operator, regex: '^[=!]=$'}
+                        - any:
+                            - all: [{has: {field: left, matches: field-access}}, {has: {field: right, matches: empty-text}}]
+                            - all: [{has: {field: right, matches: field-access}}, {has: {field: left, matches: empty-text}}]
+                            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, matches: field-access}}, {has: {field: name, regex: '^Length$'}}]}
+                    - kind: invocation_expression
+                      all:
+                        - has: {field: function, regex: '^(global::)?(System\.)?[Ss]tring\.IsNullOrEmpty$|^(global::)?(System\.)?[Ss]tring\.IsNullOrWhiteSpace$'}
+                        - has: {field: arguments, has: {kind: argument, has: {matches: field-access}}}
+                    - kind: is_pattern_expression
+                      all:
+                        - has: {field: expression, matches: field-access}
+                        - has: {field: pattern, kind: constant_pattern, has: {matches: empty-text}}
+                    - kind: subpattern
+                      all:
+                        - has: {kind: identifier, pattern: $FIELD}
+                        - has: {kind: constant_pattern, has: {matches: empty-text}}
+    typed-member:
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has:
+                stopBy: end
+                kind: record_declaration, class_declaration, struct_declaration
+                all:
+                    - has: {field: name, pattern: $TYPE}
+                    - any:
+                        - has: {kind: parameter_list, has: {kind: parameter, all: [{has: {field: name, pattern: $FIELD}}, {has: {field: type, matches: id-time-type}}]}}
+                        - has: {kind: declaration_list, has: {kind: property_declaration, all: [{has: {field: name, pattern: $FIELD}}, {has: {field: type, matches: id-time-type}}]}}
+    record-type:
+        kind: record_declaration, class_declaration, struct_declaration
+        has: {field: name, pattern: $TYPE}
+    positional-field:
+        kind: argument
+        not: {has: {field: name, pattern: $_}}
+        any:
+            - {nthChild: 1, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 2, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 3, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 3, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 4, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 4, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 5, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 5, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 6, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 6, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 7, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 7, has: {field: name, pattern: $FIELD}}}}}}
+            - {nthChild: 8, inside: {kind: compilation_unit, stopBy: end, has: {stopBy: end, matches: record-type, has: {kind: parameter_list, has: {kind: parameter, nthChild: 8, has: {field: name, pattern: $FIELD}}}}}}
+    argument-value:
+        kind: argument
+        any:
+            - has: {nthChild: {position: 1, reverse: true}, matches: hard-value}
+            - has: {nthChild: {position: 1, reverse: true}, matches: absence-empty}
+            - all:
+                - has: {nthChild: {position: 1, reverse: true}, matches: empty-value}
+                - any:
+                    - has: {field: name, pattern: $FIELD}
+                    - matches: positional-field
+                - matches: compared-field
+            - all:
+                - has: {nthChild: {position: 1, reverse: true}, matches: placeholder-default}
+                - any:
+                    - has: {field: name, pattern: $FIELD}
+                    - matches: positional-field
+                - matches: typed-member
+    member-value:
+        any:
+            - has: {nthChild: 2, matches: hard-value}
+            - has: {nthChild: 2, matches: absence-empty}
+            - all:
+                - has: {nthChild: 2, matches: empty-value}
+                - has: {nthChild: 1, kind: identifier, pattern: $FIELD}
+                - matches: compared-field
+            - all:
+                - has: {nthChild: 2, matches: placeholder-default}
+                - has: {nthChild: 1, kind: identifier, pattern: $FIELD}
+                - matches: typed-member
+    initializer-value:
+        kind: assignment_expression
+        any:
+            - has: {field: right, matches: hard-value}
+            - has: {field: right, matches: absence-empty}
+            - all:
+                - has: {field: right, matches: empty-value}
+                - has: {field: left, kind: identifier, pattern: $FIELD}
+                - matches: compared-field
+            - all:
+                - has: {field: right, matches: placeholder-default}
+                - has: {field: left, kind: identifier, pattern: $FIELD}
+                - matches: typed-member
+    target-type:
+        any:
+            - inside:
+                kind: arrow_expression_clause
+                inside:
+                    any:
+                        - kind: method_declaration, local_function_statement
+                          has: {field: returns, matches: type-name}
+                        - kind: property_declaration
+                          has: {field: type, matches: type-name}
+            - inside:
+                kind: return_statement
+                inside:
+                    stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                    kind: method_declaration, local_function_statement
+                    has: {field: returns, matches: type-name}
+            - inside:
+                kind: variable_declarator
+                inside: {kind: variable_declaration, has: {field: type, matches: type-name}}
+    file-record:
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has:
+                stopBy: end
+                any:
+                    - kind: record_declaration
+                      has: {field: name, pattern: $TYPE}
+                    - kind: class_declaration
+                      has: {field: name, pattern: $TYPE}
+                      inside:
+                        kind: declaration_list
+                        inside:
+                            matches:
+                                csharp-file-union:
+                                    name: {pattern: $_UNION}
+rule:
+    any:
+        - kind: object_creation_expression
+          all:
+            - has: {field: type, matches: type-name}
+            - matches: file-record
+            - any:
+                - has: {field: arguments, has: {matches: argument-value}}
+                - has: {field: initializer, has: {matches: initializer-value}}
+        - kind: implicit_object_creation_expression
+          all:
+            - has: {kind: argument_list, has: {kind: argument}}
+            - matches: target-type
+            - matches: file-record
+            - has: {kind: argument_list, has: {matches: argument-value}}
+        - kind: with_expression
+          all:
+            - any:
+                - matches: target-type
+                - has:
+                    nthChild: 1
+                    kind: identifier
+                    pattern: $RECEIVER
+                    inside:
+                        stopBy: end
+                        kind: method_declaration, local_function_statement
+                        has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $RECEIVER}}, {has: {field: type, matches: type-name}}]}}
+            - matches: file-record
+            - has: {kind: with_initializer, matches: member-value}
+message: "`$TYPE` receives the sentinel `$SENTINEL` in place of a fact the path holds"
+note: Use `Option<T>` for the field, or a case that holds only the facts the path has

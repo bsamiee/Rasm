@@ -1,0 +1,14 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-option-case-cast
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+rule:
+    any:
+        - kind: as_expression
+          matches: {csharp-option-null-conversion: {option: {pattern: $OPTION}, element: {pattern: $_}}}
+        - kind: cast_expression, conditional_expression, invocation_expression
+          matches: {csharp-option-null-conversion: {option: {pattern: $OPTION}, element: {matches: csharp-reference-type}}}
+fix: $OPTION.ValueUnsafe()
+message: "`$OPTION` converts an `Option` to a nullable reference by hand"
+note: Use `<option>.ValueUnsafe()` from `LanguageExt.UnsafeValueAccess`

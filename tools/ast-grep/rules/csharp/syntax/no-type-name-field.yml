@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-type-name-field
+language: csharp
+severity: error
+utils:
+    type-type: {regex: '^((global::)?System\.)?Type$'}
+    function-owner:
+        kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
+    type-parameter:
+        kind: parameter
+        has: {field: type, matches: type-type}
+    type-local:
+        inside: {kind: variable_declaration, has: {field: type, matches: type-type}}
+    type-call:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, any: [{kind: identifier, regex: '^GetType$'}, {kind: member_access_expression, has: {field: name, regex: '^GetType$'}}, {kind: conditional_access_expression, has: {kind: member_binding_expression, has: {field: name, regex: '^GetType$'}}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: typeof_expression
+    type-source:
+        any:
+            - matches: type-call
+            - kind: identifier
+              pattern: $SOURCE
+              any:
+                - inside: {stopBy: end, matches: function-owner, has: {field: parameters, has: {matches: type-parameter, has: {field: name, pattern: $SOURCE}}}}
+                - matches: {csharp-block-local: {declarator: {matches: type-local}}}
+    type-value:
+        any:
+            - matches: type-call
+            - kind: identifier
+              pattern: $TYPED
+              inside: {stopBy: end, matches: function-owner, has: {field: parameters, has: {matches: type-parameter, has: {field: name, pattern: $TYPED}}}}
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {any: [{matches: type-local}, {all: [{inside: {kind: variable_declaration, has: {field: type, kind: implicit_type}}}, {has: {matches: type-source}}]}]}}}
+            - kind: postfix_unary_expression
+              has: {matches: type-value}
+    direct-read:
+        any:
+            - kind: member_access_expression
+              all:
+                - has: {field: name, regex: '^(Name|FullName|AssemblyQualifiedName)$'}
+                - has: {field: expression, matches: type-value}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^ToString$'}}, {has: {field: expression, matches: type-value}}]}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+    name-read:
+        any:
+            - matches: direct-read
+            - kind: identifier
+              matches: {csharp-block-local: {declarator: {has: {matches: direct-read}}}}
+            - kind: conditional_access_expression
+              all:
+                - has: {field: condition, matches: type-value}
+                - has: {kind: member_binding_expression, has: {field: name, regex: '^(Name|FullName)$'}}
+    value-wrapper:
+        any:
+            - kind: binary_expression
+              has: {field: operator, regex: '^\?\?$'}
+            - kind: postfix_unary_expression
+            - kind: 'interpolation, interpolated_string_expression'
+            - kind: member_access_expression
+              has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|Trim|TrimEnd|TrimStart)$'}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(ToUpperInvariant|ToLowerInvariant|Trim|TrimEnd|TrimStart)$'}}
+    created-type:
+        not: {regex: 'Exception$'}
+        pattern: $CREATED
+    creation:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: created-type}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: created-type}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        kind: 'method_declaration, local_function_statement'
+                        has: {field: returns, matches: created-type}
+            - kind: invocation_expression
+              has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: expression, kind: identifier, regex: '^[A-Z]', matches: created-type}
+                    - not: {has: {field: expression, regex: '^(Console|RhinoApp|Debug|Trace|Assert|Log|Logger|String|string|Path|File|Directory|Math|Convert|Enum)$'}}
+rule:
+    matches: name-read
+    pattern: $READ
+    any:
+        - inside:
+            kind: argument
+            stopBy: {not: {matches: value-wrapper}}
+            inside: {kind: argument_list, inside: {matches: creation}}
+        - inside:
+            kind: with_initializer
+            stopBy: {not: {matches: value-wrapper}}
+            inside: {kind: with_expression, has: {kind: identifier, nthChild: 1, pattern: $CREATED}}
+        - inside:
+            kind: assignment_expression
+            field: right
+            stopBy: {not: {matches: value-wrapper}}
+            inside: {kind: initializer_expression, inside: {matches: creation}}
+message: '`$READ` stores a CLR type name in a field of `$CREATED`'
+note: Hold the `Type` or the value in the field and let the message template format its name

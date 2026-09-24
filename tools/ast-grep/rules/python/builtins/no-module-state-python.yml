@@ -3,25 +3,48 @@ id: no-module-state-python
 language: python
 severity: error
 utils:
+    builtin-container:
+        matches: {python-builtin-name: {name: {regex: '^(dict|list|set|bytearray)$'}}}
+    library-container:
+        any:
+            - matches: {python-member-use: {module: {regex: '^collections$'}, name: {regex: '^(defaultdict|deque|OrderedDict|Counter|ChainMap|UserDict|UserList)$'}}}
+            - matches: {python-member-use: {module: {regex: '^weakref$'}, name: {regex: '^(WeakSet|WeakKeyDictionary|WeakValueDictionary)$'}}}
+            - matches: {python-member-use: {module: {regex: '^array$'}, name: {regex: '^array$'}}}
+    container-factory:
+        any:
+            - matches: builtin-container
+            - matches: library-container
+            - kind: attribute
+              all:
+                - has: {field: object, kind: identifier, regex: '^dict$', not: {matches: python-shadowed-name}}
+                - has: {field: attribute, regex: '^fromkeys$'}
     mutable-container:
         any:
-            - kind: dictionary
-            - kind: list
-            - kind: set
-            - kind: dictionary_comprehension
-            - kind: list_comprehension
-            - kind: set_comprehension
+            - kind: dictionary, list, set, dictionary_comprehension, list_comprehension, set_comprehension
             - kind: call
-              has:
-                field: function
-                not: {matches: python-shadowed-name}
-                regex: '^(dict|list|set|bytearray|(collections\.)?(defaultdict|deque|OrderedDict|Counter|ChainMap)|(weakref\.)?(WeakSet|WeakKeyDictionary|WeakValueDictionary))$'
+              has: {field: function, matches: container-factory}
+            - kind: parenthesized_expression
+              has: {matches: mutable-container}
+            - kind: binary_operator
+              all:
+                - has: {field: operator, regex: '^[+*|]$'}
+                - has: {matches: mutable-container}
+    module-statement:
+        kind: expression_statement
+        not: {inside: {stopBy: end, any: [{matches: python-function-boundary}, {kind: class_definition}]}}
+    stored:
+        any:
+            - matches: mutable-container
+            - kind: expression_list
+              has: {matches: mutable-container}
+            - kind: assignment
+              has: {field: right, matches: stored}
 rule:
     kind: assignment
     all:
-        - has: {field: left, kind: identifier, pattern: $NAME}
-        - has: {field: right, matches: mutable-container}
-        - inside: {kind: expression_statement, not: {inside: {stopBy: end, any: [{matches: python-function-boundary}, {kind: class_definition}]}}}
+        - has: {field: left, kind: 'identifier, pattern_list, tuple_pattern, list_pattern', pattern: $NAME}
+        - has: {field: right, matches: stored}
+        - inside: {matches: module-statement}
 constraints:
     NAME: {not: {regex: '^__all__$'}}
 message: 'Module-level `$NAME` is a mutable container every function can write'

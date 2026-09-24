@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-typing-cast
+language: python
+severity: error
+rule:
+    kind: call
+    pattern: $CALL
+    all:
+        - has: {field: function, matches: {python-member-use: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^cast$'}}}}
+        - has: {field: arguments, has: {nthChild: 2, pattern: $VALUE}, not: {has: {nthChild: 3}}}
+fix: $VALUE
+message: '`$CALL` restates a type the checker cannot infer'
+note: 'Pass the value itself and state the code the checker then reports in the file-level directive of a host or skill script, or on the reporting line elsewhere'

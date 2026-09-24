@@ -405,7 +405,7 @@ Forms the compiler rejects:
 - `Contains`, `Sum`, and `Average` on a `Seq` are ambiguous with the LINQ extensions (CS0121), membership is `Exists` and a sum is `Fold`
 - `Seq<A>.Empty` in expression context fails (CS0119), the simple name `Seq` binds to the `Prelude` function, the empty value is `Seq<A>()`
 - `Seq<A>` has no `Sort` instance, sorting is LINQ `Order()` followed by `toSeq`
-- `SeqExtensions.Choose<A, B>` takes two type arguments and `Seq<A>` has no instance form, `Choose<int>(Parse)` is CS1061
+- `SeqExtensions.Choose<A, B>` takes both type arguments and `Seq<A>` has no instance form, `Choose<int>(Parse)` is CS1061
 - `Choose` takes the indexed `Func<int, A, Option<B>>` with the index first, and a two-parameter `delegate` makes the call ambiguous (CS0121)
 - `Choose(x => x > 0 ? x : None)` is CS1660, the conditional has no target type, and `Map<Option<int>>(same).Somes()` compiles
 

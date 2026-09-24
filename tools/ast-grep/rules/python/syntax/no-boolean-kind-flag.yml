@@ -5,27 +5,25 @@ severity: error
 utils:
     bool-literal:
         kind: case_pattern
-        has: {kind: 'true, false'}
+        any:
+            - has: {kind: 'true, false'}
+            - has: {kind: union_pattern, not: {has: {pattern: $_, not: {kind: 'true, false'}}}}
+            - has: {kind: tuple_pattern, not: {has: {nthChild: 2}}, has: {matches: bool-literal}}
     bool-element:
         kind: case_pattern
         any:
-            - has: {kind: 'true, false'}
+            - matches: bool-literal
             - regex: '^_$'
+    bool-sequence:
+        all:
+            - has: {kind: case_pattern, nthChild: 2}
+            - has: {matches: bool-literal}
+            - not: {has: {kind: case_pattern, not: {matches: bool-element}}}
     bool-tuple:
         kind: case_clause
         any:
-            - all:
-                - has: {kind: case_pattern, nthChild: 2}
-                - has: {matches: bool-literal}
-                - not: {has: {kind: case_pattern, not: {matches: bool-element}}}
-            - has:
-                kind: case_pattern
-                has:
-                    kind: tuple_pattern
-                    all:
-                        - has: {kind: case_pattern, nthChild: 2}
-                        - has: {matches: bool-literal}
-                        - not: {has: {kind: case_pattern, not: {matches: bool-element}}}
+            - matches: bool-sequence
+            - has: {kind: case_pattern, has: {kind: 'tuple_pattern, list_pattern', matches: bool-sequence}}
 rule:
     kind: match_statement
     has: {field: body, has: {matches: bool-tuple}}

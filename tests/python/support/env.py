@@ -129,7 +129,6 @@ def _object_store(spec: ObjectStore) -> Iterator[Provisioned[s3fs.S3FileSystem]]
         )
 
     try:
-        # S3 rejects a LocationConstraint naming the default region
         _store().call_s3("create_bucket", Bucket=spec.bucket, **({"CreateBucketConfiguration": {"LocationConstraint": spec.region}} if spec.region != "us-east-1" else {}))
         yield Provisioned(url=endpoint, client=_store)
     finally:

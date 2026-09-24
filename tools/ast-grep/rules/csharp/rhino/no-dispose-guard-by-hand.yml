@@ -1,0 +1,118 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-dispose-guard-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    release-name:
+        regex: '^(Dispose|DisposeAsync)$'
+    release-member:
+        kind: method_declaration
+        any:
+            - has: {field: name, matches: release-name}
+            - all:
+                - has: {field: name, pattern: $MEMBER}
+                - inside:
+                    kind: declaration_list
+                    has:
+                        kind: method_declaration
+                        all:
+                            - has: {field: name, matches: release-name}
+                            - has:
+                                stopBy: end
+                                kind: invocation_expression
+                                has:
+                                    field: function
+                                    any:
+                                        - kind: identifier
+                                          pattern: $MEMBER
+                                        - kind: member_access_expression
+                                          regex: '^this\s*\.'
+                                          has: {field: name, pattern: $MEMBER}
+    flag:
+        any:
+            - kind: identifier
+              pattern: $FLAG
+            - kind: member_access_expression
+              regex: '^this\s*\.'
+              has: {field: name, kind: identifier, pattern: $FLAG}
+    ref-flag:
+        kind: argument
+        regex: '^(\w+\s*:\s*)?ref\s'
+        has: {nthChild: {position: 1, reverse: true}, matches: flag}
+    atomic:
+        kind: invocation_expression
+        all:
+            - has: {field: arguments, has: {matches: ref-flag}}
+            - not: {has: {field: function, regex: '^((global::)?System\.Threading\.)?Volatile\s*\.\s*Read(\s*<.+>)?$'}}
+            - any:
+                - has: {field: function, regex: '^((global::)?System\.Threading\.)?Interlocked\s*\.\s*(Exchange|CompareExchange|Increment|Add|Or)(\s*<.+>)?$'}
+                - inside: {kind: if_statement, field: condition}
+                - inside: {kind: 'binary_expression, prefix_unary_expression', inside: {kind: if_statement, field: condition}}
+    flag-read:
+        any:
+            - matches: flag
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?System\.Threading\.)?Volatile\s*\.\s*Read(\s*<.+>)?$'}
+                - has: {field: arguments, has: {matches: ref-flag}}
+            - kind: prefix_unary_expression
+              regex: '^!'
+              has: {matches: flag-read}
+            - kind: parenthesized_expression
+              has: {matches: flag-read}
+    flag-test:
+        any:
+            - matches: flag-read
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - has: {field: left, matches: flag-read}
+                - has: {field: right, kind: 'integer_literal, boolean_literal'}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: flag-read}
+                - has: {field: pattern, regex: '^(not\s+)?(0|1|true|false)$'}
+    flag-write:
+        kind: expression_statement
+        has:
+            any:
+                - kind: assignment_expression
+                  all:
+                    - has: {field: operator, regex: '^=$'}
+                    - has: {field: left, matches: flag}
+                    - has: {field: right, kind: 'integer_literal, boolean_literal'}
+                - kind: invocation_expression
+                  all:
+                    - has: {field: function, regex: '^((global::)?System\.Threading\.)?Volatile\s*\.\s*Write(\s*<.+>)?$'}
+                    - has: {field: arguments, has: {matches: ref-flag}}
+    exit:
+        any:
+            - kind: return_statement
+              not: {has: {pattern: $_}}
+            - kind: block
+              all:
+                - has: {kind: return_statement, not: {has: {pattern: $_}}}
+                - not: {has: {nthChild: 2}}
+    flag-guard:
+        kind: if_statement
+        all:
+            - has: {field: condition, matches: flag-test}
+            - any:
+                - all:
+                    - has: {field: consequence, matches: exit}
+                    - precedes: {matches: flag-write}
+                - has: {field: consequence, kind: block, has: {nthChild: 1, matches: flag-write}}
+rule:
+    kind: invocation_expression, if_statement
+    all:
+        - any:
+            - all:
+                - matches: atomic
+                - inside: {stopBy: end, matches: release-member}
+            - all:
+                - matches: flag-guard
+                - inside: {stopBy: end, matches: release-member}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Dispose$'}}}}
+message: Release runs once through the `$FLAG` flag by hand
+note: Compose `new Disposal(<release>)` and forward `Dispose` to it

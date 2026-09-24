@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-reference-type
+language: csharp
+utils:
+    named:
+        any:
+            - kind: identifier
+              pattern: $REFERENCE
+            - kind: generic_name
+              has: {kind: identifier, pattern: $REFERENCE}
+            - kind: qualified_name
+              has: {field: name, matches: named}
+    declared:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: class_declaration, interface_declaration, delegate_declaration
+                      has: {field: name, pattern: $REFERENCE}
+                    - kind: record_declaration
+                      all:
+                        - has: {field: name, pattern: $REFERENCE}
+                        - not: {has: {regex: '^struct$'}}
+    constrained:
+        inside:
+            stopBy: end
+            kind: method_declaration, local_function_statement, class_declaration, struct_declaration, record_declaration, interface_declaration, delegate_declaration
+            has:
+                kind: type_parameter_constraints_clause
+                all:
+                    - has: {kind: identifier, pattern: $REFERENCE}
+                    - has: {kind: type_parameter_constraint, regex: '^class\s*\??$'}
+rule:
+    any:
+        - kind: nullable_type
+          has: {field: type, matches: csharp-reference-type}
+        - kind: predefined_type
+          regex: '^(string|object|dynamic)$'
+        - kind: identifier, generic_name, qualified_name
+          all:
+            - matches: named
+            - matches: declared
+        - kind: identifier
+          all:
+            - matches: named
+            - matches: constrained

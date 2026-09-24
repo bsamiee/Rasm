@@ -1,0 +1,178 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-preset-case-switch
+language: csharp
+severity: error
+utils:
+    union-type:
+        any:
+            - kind: identifier
+              pattern: $UNION
+            - kind: generic_name
+              has: {kind: identifier, nthChild: 1, pattern: $UNION}
+            - kind: qualified_name
+              has: {field: name, matches: union-type}
+    host-type:
+        kind: identifier, generic_name, qualified_name, member_access_expression
+        regex: '^[A-Z]'
+        not: {regex: '^(global::)?(LanguageExt\.)?(Option|Fin|Either|Validation|Try|Seq|Lst|Arr|HashMap|Map|HashSet|Set)\b'}
+    case-argument:
+        kind: argument
+        has: {field: name, kind: identifier}
+    case-arm:
+        kind: switch_expression_arm
+        all:
+            - has:
+                nthChild: 1
+                kind: constant_pattern, type_pattern
+                has:
+                    any:
+                        - kind: member_access_expression
+                          has: {field: expression, matches: union-type}
+                        - kind: qualified_name
+                          has: {field: qualifier, matches: union-type}
+            - not: {has: {kind: when_clause}}
+    value-slot:
+        any:
+            - inside: {kind: argument, matches: case-argument}
+            - inside: {kind: switch_expression_arm, matches: case-arm}
+            - inside:
+                kind: lambda_expression
+                field: body
+                inside: {kind: argument, matches: case-argument}
+            - inside:
+                kind: return_statement
+                inside:
+                    kind: block
+                    not: {has: {nthChild: 2}}
+                    inside:
+                        kind: lambda_expression
+                        inside: {kind: argument, matches: case-argument}
+    preset:
+        kind: member_access_expression
+        any:
+            - matches: value-slot
+            - inside:
+                kind: argument
+                not: {has: {field: name, pattern: $_}}
+                inside:
+                    kind: argument_list
+                    not: {has: {kind: argument, nthChild: 2}}
+                    inside: {kind: invocation_expression, matches: value-slot}
+    union-case:
+        kind: record_declaration, class_declaration
+        has: {kind: base_list, has: {matches: union-type}}
+    stateless-case:
+        matches: union-case
+        all:
+            - not: {has: {kind: parameter_list, has: {kind: parameter}}}
+            - not: {has: {kind: declaration_list, has: {kind: 'property_declaration, field_declaration'}}}
+    stateless-union:
+        all:
+            - matches:
+                csharp-file-union:
+                    name: {pattern: $UNION}
+            - has: {kind: declaration_list, has: {matches: stateless-case, has: {field: name, pattern: $FIRST_CASE}}}
+            - has: {kind: declaration_list, has: {matches: stateless-case, not: {has: {field: name, pattern: $FIRST_CASE}}}}
+            - not: {has: {kind: declaration_list, has: {matches: union-case, not: {matches: stateless-case}}}}
+    case-preset:
+        matches: preset
+        all:
+            - has: {field: expression, pattern: $HOST}
+            - not:
+                not:
+                    all:
+                        - has: {field: name, pattern: $PRESET}
+                        - inside:
+                            kind: compilation_unit
+                            stopBy: end
+                            has:
+                                stopBy: end
+                                matches:
+                                    csharp-file-union:
+                                        name: {pattern: $UNION}
+                                has: {kind: declaration_list, has: {matches: stateless-case, has: {field: name, pattern: $PRESET}}}
+    preset-arms:
+        kind: argument_list
+        all:
+            - has:
+                matches: case-argument
+                has: {stopBy: end, matches: preset, has: {field: expression, matches: host-type, pattern: $HOST}}
+            - not: {has: {matches: case-argument, not: {has: {stopBy: end, matches: case-preset}}}}
+            - has:
+                matches: case-argument
+                has: {stopBy: end, matches: case-preset, has: {field: name, pattern: $FIRST_PRESET}}
+            - has:
+                matches: case-argument
+                has: {stopBy: end, matches: case-preset, not: {has: {field: name, pattern: $FIRST_PRESET}}}
+            - not: {has: {kind: argument, all: [{not: {nthChild: 1}}, {not: {matches: case-argument}}]}}
+    preset-switch-arms:
+        kind: switch_expression
+        all:
+            - has:
+                matches: case-arm
+                has: {matches: preset, has: {field: expression, matches: host-type, pattern: $HOST}}
+            - not: {has: {kind: switch_expression_arm, not: {all: [{matches: case-arm}, {has: {matches: case-preset}}]}}}
+            - has: {matches: case-arm, has: {matches: case-preset, has: {field: name, pattern: $FIRST_PRESET}}}
+            - has: {matches: case-arm, has: {matches: case-preset, not: {has: {field: name, pattern: $FIRST_PRESET}}}}
+    file-union:
+        inside:
+            kind: compilation_unit
+            stopBy: end
+            has: {stopBy: end, matches: stateless-union}
+    typed-receiver:
+        any:
+            - kind: identifier
+              pattern: $RECEIVER
+              inside:
+                stopBy: end
+                kind: method_declaration, local_function_statement, constructor_declaration, lambda_expression
+                any:
+                    - has:
+                        field: parameters
+                        has: {kind: parameter, all: [{has: {field: name, pattern: $RECEIVER}}, {has: {field: type, matches: union-type}}]}
+                    - has:
+                        stopBy: end
+                        kind: variable_declaration
+                        all:
+                            - has: {kind: variable_declarator, has: {field: name, pattern: $RECEIVER}}
+                            - has: {field: type, matches: union-type}
+            - kind: member_access_expression
+              all:
+                - has: {field: name, pattern: $PROPERTY}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: parameter, property_declaration
+                        all:
+                            - has: {field: name, pattern: $PROPERTY}
+                            - has: {field: type, matches: union-type}
+rule:
+    any:
+        - kind: switch_expression
+          all:
+            - has: {matches: case-arm}
+            - has: {nthChild: 1, matches: typed-receiver}
+            - matches: file-union
+            - matches: preset-switch-arms
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Switch|Map)(<.+>)?$'}}
+            - has: {field: arguments, has: {matches: case-argument, has: {stopBy: end, matches: preset}}}
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Switch|Map)(<.+>)?$'}
+                    - has: {field: expression, matches: typed-receiver}
+            - matches: file-union
+            - has: {field: arguments, matches: preset-arms}
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: 'identifier, generic_name', regex: '^(Switch|Map)(<.+>)?$'}
+            - has: {field: arguments, has: {matches: case-argument, has: {stopBy: end, matches: preset}}}
+            - inside: {stopBy: end, matches: stateless-union}
+            - has: {field: arguments, matches: preset-arms}
+message: "Stateless `$UNION` cases each select one static preset of `$HOST`"
+note: Use the preset type in place of the union, each caller passes the preset it selects

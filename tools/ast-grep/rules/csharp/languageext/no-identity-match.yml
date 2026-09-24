@@ -3,91 +3,358 @@ id: no-identity-match
 language: csharp
 severity: error
 utils:
+    same-value:
+        any:
+            - pattern: $VALUE
+            - kind: parenthesized_expression
+              has: {matches: same-value}
+    returned-value:
+        any:
+            - matches: same-value
+            - kind: block
+              all:
+                - has:
+                    kind: return_statement
+                    nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+                    has: {matches: same-value}
+                - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    identity-binding:
+        any:
+            - kind: parameter, variable_declarator, local_function_statement, declaration_pattern, declaration_expression, catch_declaration, from_clause
+              has: {field: name, regex: '^identity$'}
+            - kind: foreach_statement
+              has: {field: left, regex: '^identity$'}
+            - kind: tuple_pattern, let_clause, join_clause
+              has: {kind: identifier, regex: '^identity$'}
+            - kind: implicit_parameter
+              regex: '^identity$'
     identity-callback:
         any:
-            - regex: '^(global::)?(LanguageExt\.)?Prelude\.identity$'
+            - regex: '^(global::)?(LanguageExt\.)?Prelude\.identity(\s*<.+>)?$'
             - all:
-                - regex: '^identity$'
-                - inside: {kind: compilation_unit, stopBy: end, has: {kind: using_directive, regex: '^using\s+static\s+(global::)?LanguageExt\.Prelude\s*;$'}}
+                - regex: '^identity(\s*<.+>)?$'
                 - not:
                     inside:
                         stopBy: end
-                        kind: class_declaration, struct_declaration, record_declaration, interface_declaration, method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, property_declaration, accessor_declaration, operator_declaration
-                        has:
-                            stopBy: end
-                            any:
-                                - kind: variable_declarator
-                                  has: {field: name, regex: '^identity$'}
-                                - kind: parameter
-                                  has: {field: name, regex: '^identity$'}
+                        any:
+                            - kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration
+                              has: {stopBy: end, matches: identity-binding}
+                            - kind: class_declaration, struct_declaration, record_declaration, interface_declaration
+                              has:
+                                field: body
+                                has:
+                                    kind: field_declaration, property_declaration, method_declaration
+                                    any:
+                                        - has: {field: name, regex: '^identity$'}
+                                        - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, regex: '^identity$'}}}
             - matches:
                 csharp-unary-callback:
                     parameter: {pattern: $VALUE}
-                    body:
-                        any:
-                            - pattern: $VALUE
-                            - pattern:
-                                context: 'class C { object F() => M(x => { return $VALUE; }); }'
-                                selector: block
-                                strictness: cst
+                    body: {matches: returned-value}
+            - matches: relay-identity
+    relay-identity:
+        kind: identifier
+        all:
+            - pattern: $RELAY
+            - inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $RELAY}
+                        - any:
+                            - has: {field: returns, pattern: $RELAY_TYPE}
+                            - has: {field: type, pattern: $RELAY_TYPE}
+                        - has:
+                            field: parameters
+                            has:
+                                kind: parameter
+                                all:
+                                    - has: {field: name, pattern: $VALUE}
+                                    - has: {field: type, pattern: $RELAY_TYPE}
+                                not: {has: {kind: 'modifier, attribute_list'}}
+                            not: {has: {kind: parameter, nthChild: 2}}
+                        - has:
+                            field: body
+                            any:
+                                - kind: arrow_expression_clause
+                                  has: {matches: same-value}
+                                - kind: block
+                                  matches: returned-value
+    relayed:
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - matches: relay-identity
+                    - has: {matches: relay-identity}
+    identity-argument:
+        any:
+            - matches: identity-callback
+            - has: {matches: identity-callback}
+    empty-lambda:
+        kind: lambda_expression
+        has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+    literal-value:
+        any:
+            - kind: integer_literal, real_literal, string_literal, verbatim_string_literal, raw_string_literal, character_literal, boolean_literal, interpolated_string_expression
+            - kind: prefix_unary_expression
+              has: {kind: 'integer_literal, real_literal'}
+    widening-value:
+        any:
+            - kind: integer_literal
+              regex: '(?i)[ul]$'
+            - kind: real_literal, cast_expression
+            - kind: member_access_expression
+              has: {field: expression, kind: predefined_type, not: {regex: '^int$'}}
+            - kind: prefix_unary_expression, parenthesized_expression
+              has: {matches: widening-value}
+    widening-result:
+        any:
+            - matches: widening-value
+            - has: {field: body, matches: widening-value}
+            - has:
+                field: body
+                kind: block
+                has: {kind: return_statement, has: {matches: widening-value}}
+    shape:
+        any:
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RESULT.$MATCH(Succ: $IDENTITY, Fail: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RESULT.$MATCH(Fail: $FALLBACK, Succ: $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RESULT.$MATCH($IDENTITY, Fail: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, matches: identity-argument}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RESULT.$MATCH(Succ: $IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Succ$'}}, {has: {matches: identity-callback}}]}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {field: name, pattern: $_}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $OPTION.$MATCH(Some: $IDENTITY, None: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $OPTION.$MATCH(None: $FALLBACK, Some: $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $OPTION.$MATCH($IDENTITY, None: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, matches: identity-argument}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $OPTION.$MATCH(Some: $IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: identity-callback}}]}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {field: name, pattern: $_}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $OPTION.$MATCH($IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: identity-argument}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {any: [{matches: empty-lambda}, {matches: literal-value}]}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RIGHT.$MATCH(Right: $IDENTITY, Left: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Right$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RIGHT.$MATCH(Left: $FALLBACK, Right: $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Right$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RIGHT.$MATCH($FALLBACK, Right: $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Right$'}}, {has: {matches: identity-callback}}]}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RIGHT.$MATCH(Left: $FALLBACK, $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {field: name, pattern: $_}}, matches: identity-argument}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $LEFT.$MATCH(Left: $IDENTITY, Right: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Left$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $LEFT.$MATCH(Right: $FALLBACK, Left: $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Left$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $LEFT.$MATCH($IDENTITY, Right: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, not: {has: {field: name, pattern: $_}}, matches: identity-argument}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $LEFT.$MATCH(Left: $IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Left$'}}, {has: {matches: identity-callback}}]}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {field: name, pattern: $_}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, None: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $CALLEE($INPUT, None: $FALLBACK, Some: $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: identity-callback}}]}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, None: $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, not: {has: {field: name, pattern: $_}}, matches: identity-argument}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - has: {field: arguments, has: {kind: argument, all: [{has: {field: name, regex: '^Some$'}}, {has: {matches: identity-callback}}]}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 3, not: {has: {field: name, pattern: $_}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, matches: identity-argument}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 3, has: {matches: empty-lambda}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RESULT.$MATCH($IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: identity-argument}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Try|IO)\s*<'}}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RESULT.$MATCH($FALLBACK, $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, matches: identity-argument}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Validation\s*<'}}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $LEFT.$MATCH($IDENTITY, $FALLBACK); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, matches: identity-argument}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Either\s*<'}}}}}
+            - all:
+                - pattern:
+                    context: "class C { object F() => $RIGHT.$MATCH($FALLBACK, $IDENTITY); }"
+                    selector: invocation_expression
+                    strictness: cst
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, pattern: $_}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2, matches: identity-argument}}
+                - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?Either\s*<'}}}}}
+    match-call:
+        any:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Match$'}}
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
+    kept-fallback:
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {kind: null_literal}
+                    - has: {kind: lambda_expression, any: [{has: {field: body, kind: null_literal}}, {has: {field: type, pattern: $_}}]}
 rule:
-    any:
-        - pattern:
-            context: "class C { object F() => $RESULT.Match(Succ: $IDENTITY, Fail: $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $RESULT.Match(Fail: $FALLBACK, Succ: $IDENTITY); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $RESULT.Match($IDENTITY, Fail: $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $RESULT.Match(Succ: $IDENTITY, $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, None: $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $OPTION.Match(None: $FALLBACK, Some: $IDENTITY); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $OPTION.Match($IDENTITY, None: $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $OPTION.Match(Some: $IDENTITY, $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, None: $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $CALLEE($INPUT, None: $FALLBACK, Some: $IDENTITY); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $CALLEE($INPUT, $IDENTITY, None: $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
-        - pattern:
-            context: "class C { object F() => $CALLEE($INPUT, Some: $IDENTITY, $FALLBACK); }"
-            selector: invocation_expression
-            strictness: cst
+    kind: invocation_expression
+    all:
+        - matches: match-call
+        - not: {matches: kept-fallback}
+        - not:
+            all:
+                - has: {field: arguments, has: {kind: argument, has: {matches: widening-result}}}
+                - not:
+                    any:
+                        - all:
+                            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: integer_literal, regex: '(?i)^(0x[0-9a-f_]+|0b[01_]+|[0-9_]+)l$'}}}
+                            - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Option|Validation|Try|IO)\s*<(.+,\s*)?((global::)?System\.)?(long|Int64|float|Single|double|Double|decimal|Decimal)\s*>$'}}}}}
+                        - all:
+                            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: integer_literal, regex: '(?i)^(0x[0-9a-f_]+|0b[01_]+|[0-9_]+)(ul|lu)$'}}}
+                            - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Option|Validation|Try|IO)\s*<(.+,\s*)?((global::)?System\.)?(ulong|UInt64|float|Single|double|Double|decimal|Decimal)\s*>$'}}}}}
+                        - all:
+                            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: integer_literal, regex: '(?i)^(0x[0-9a-f_]+|0b[01_]+|[0-9_]+)u$'}}}
+                            - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Option|Validation|Try|IO)\s*<(.+,\s*)?((global::)?System\.)?(uint|UInt32|long|Int64|ulong|UInt64|float|Single|double|Double|decimal|Decimal)\s*>$'}}}}}
+                        - all:
+                            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: real_literal, regex: '(?i)f$'}}}
+                            - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Option|Validation|Try|IO)\s*<(.+,\s*)?((global::)?System\.)?(float|Single|double|Double)\s*>$'}}}}}
+                        - all:
+                            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: real_literal, regex: '(?i)m$'}}}
+                            - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Option|Validation|Try|IO)\s*<(.+,\s*)?((global::)?System\.)?(decimal|Decimal)\s*>$'}}}}}
+                        - all:
+                            - has: {field: arguments, has: {kind: argument, has: {stopBy: end, kind: real_literal, not: {regex: '(?i)[fm]$'}}}}
+                            - has: {field: function, has: {field: expression, matches: {csharp-declared-type: {type: {regex: '^((global::)?LanguageExt\.)?(Fin|Option|Validation|Try|IO)\s*<(.+,\s*)?((global::)?System\.)?(double|Double)\s*>$'}}}}}
+        - any:
+            - all:
+                - not: {matches: relayed}
+                - matches: shape
+            - all:
+                - matches: relayed
+                - pattern: $HELD
+                - not: {not: {matches: shape}}
 constraints:
+    MATCH: {regex: '^Match$'}
     CALLEE: {regex: '^((global::)?(LanguageExt\.)?Prelude\.)?match$'}
-    IDENTITY: {matches: identity-callback}
 transform:
     FIN: {replace: {source: $RESULT, replace: '(?s)^(.*)$', by: '${1}.IfFail'}}
     OPTION_HEAD: {replace: {source: $OPTION, replace: '(?s)^(.*)$', by: '${1}.IfNone'}}
+    RIGHT_HEAD: {replace: {source: $RIGHT, replace: '(?s)^(.*)$', by: '${1}.IfLeft'}}
+    LEFT_HEAD: {replace: {source: $LEFT, replace: '(?s)^(.*)$', by: '${1}.IfRight'}}
     CALL: {replace: {source: $CALLEE, replace: 'match$', by: 'ifNone'}}
     FIRST: {replace: {source: $INPUT, replace: '(?s)^(.*)$', by: '${1}, '}}
-fix: "$FIN$OPTION_HEAD$CALL($FIRST$FALLBACK)"
+    OPEN: {replace: {source: $FALLBACK, replace: '(?s)^(.*)$', by: '('}}
+    CLOSE: {replace: {source: $FALLBACK, replace: '(?s)^(.*)$', by: ')'}}
+fix: "$HELD$FIN$OPTION_HEAD$RIGHT_HEAD$LEFT_HEAD$CALL$OPEN$FIRST$FALLBACK$CLOSE"
 message: "`Match` returns one case's value unchanged and handles the other case alone"
-note: "Use `<fin>.IfFail(<handler>)` or `<option>.IfNone(<fallback>)`"
+note: "Use `<fin>.IfFail(<handler>)`, `<option>.IfNone(<fallback>)`, `<either>.IfLeft(<handler>)` for an unchanged `Right`, or `<either>.IfRight(<handler>)` for an unchanged `Left`, and delete a relay member nothing else reads"

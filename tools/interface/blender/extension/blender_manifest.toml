@@ -1,0 +1,10 @@
+schema_version = "1.0.0"
+
+id = "interface"
+version = "0.0.0"
+name = "Interface"
+tagline = "Lock-aware navigation, collapsed add-on panels, and family pies"
+maintainer = "Bardia Samiee"
+type = "add-on"
+blender_version_min = "5.2.0"
+license = ["SPDX:MIT"]

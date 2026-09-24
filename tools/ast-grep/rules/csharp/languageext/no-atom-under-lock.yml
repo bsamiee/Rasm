@@ -1,0 +1,104 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-atom-under-lock
+language: csharp
+severity: error
+utils:
+    scope-entry:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^EnterScope$'}}
+    lock-acquire:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, regex: '^(global::)?(System\.Threading\.)?Monitor\.(Enter|TryEnter)$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $GATE}}}
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Enter|TryEnter|Wait|WaitAsync|WaitOne|EnterWriteLock|EnterReadLock|EnterUpgradeableReadLock|TryEnterWriteLock|TryEnterReadLock|TryEnterUpgradeableReadLock)$'}
+                    - has: {field: expression, pattern: $GATE, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
+    lock-release:
+        kind: invocation_expression
+        any:
+            - all:
+                - has: {field: function, regex: '^(global::)?(System\.Threading\.)?Monitor\.Exit$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $GATE}}}
+            - has:
+                field: function
+                kind: member_access_expression
+                all:
+                    - has: {field: name, regex: '^(Exit|Release|ReleaseMutex|ExitWriteLock|ExitReadLock|ExitUpgradeableReadLock)$'}
+                    - has: {field: expression, pattern: $GATE, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
+    deferred-callback:
+        any:
+            - kind: local_function_statement
+            - kind: 'lambda_expression, anonymous_method_expression'
+              any:
+                - not: {inside: {kind: argument}}
+                - inside:
+                    kind: argument
+                    inside:
+                        kind: argument_list
+                        inside:
+                            any:
+                                - kind: 'object_creation_expression, implicit_object_creation_expression'
+                                - kind: invocation_expression
+                                  has:
+                                    field: function
+                                    regex: '^((global::)?(LanguageExt\.)?(Prelude\.)?(IO\.(lift|liftAsync|liftVAsync)|Eff\.lift|liftIO|liftEff|memo)|(System\.Threading\.Tasks\.)?Task\.(Run|Factory\.StartNew))(\s*<.+>)?$'
+    locked-try:
+        kind: try_statement
+        all:
+            - has: {kind: finally_clause, has: {stopBy: end, matches: lock-release}}
+            - any:
+                - has: {field: body, has: {stopBy: end, matches: lock-acquire}}
+                - follows: {stopBy: end, has: {stopBy: end, matches: lock-acquire}}
+    lock-region:
+        any:
+            - kind: lock_statement
+            - kind: using_statement
+              has: {matches: scope-entry}
+            - follows:
+                stopBy: end
+                kind: local_declaration_statement
+                regex: '^using\b'
+                has: {stopBy: end, matches: scope-entry}
+            - kind: 'block, catch_clause'
+              inside: {matches: locked-try}
+    mutation:
+        kind: invocation_expression
+        all:
+            - any:
+                - matches: csharp-atom-transition
+                - matches:
+                    csharp-atom-call:
+                        member:
+                            regex: '^(Add|AddOrUpdateRange|AddRange|Clear|FindOrAdd|FindOrMaybeAdd|Remove|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update)$'
+            - any:
+                - has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CELL}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL}}}
+    helper-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: identifier, pattern: $HELPER}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: 'method_declaration, local_function_statement'
+                    all:
+                        - has: {field: name, pattern: $HELPER}
+                        - has: {stopBy: end, matches: mutation}
+rule:
+    kind: invocation_expression
+    all:
+        - any:
+            - matches: mutation
+            - matches: helper-call
+        - inside:
+            stopBy: {matches: deferred-callback}
+            matches: lock-region
+message: '`$CELL` changes under a lock that serializes it a second time'
+note: Use one serializer, `Atom.Swap` alone or the lock over a plain field

@@ -1,10 +1,9 @@
-using System.Runtime.CompilerServices;
 using Microsoft.Extensions.Time.Testing;
 using Xunit.Sdk;
 
 namespace Rasm.TestSupport;
 
-// --- [TYPES] ---------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 [Union]
 public abstract partial record StubBehavior<TValue> {
     private StubBehavior() { }
@@ -12,14 +11,15 @@ public abstract partial record StubBehavior<TValue> {
     public sealed record Sequence(Seq<TValue> Values) : StubBehavior<TValue>;
 }
 
-// --- [MODELS] --------------------------------------------------------------------------
 public readonly record struct SpyCall<TArgs>(string Member, TArgs Arguments);
 
 public readonly record struct RestoreHandle(Action Restore) : IDisposable {
     public void Dispose() => Restore();
 }
 
-// --- [OPERATIONS] ----------------------------------------------------------------------
+public sealed record TimerEvent(string Label, TimeSpan Due, TimeSpan Observed);
+
+// --- [SERVICES] ------------------------------------------------------------------------
 public sealed class CallSpy<TArgs> {
     private readonly Atom<Seq<SpyCall<TArgs>>> calls = Atom(Seq<SpyCall<TArgs>>());
 
@@ -27,18 +27,16 @@ public sealed class CallSpy<TArgs> {
 
     public Seq<TArgs> Arguments => calls.Value.Map(static call => call.Arguments);
 
-    // Returned function records every call under the member name and answers from the behavior, an exhausted sequence fails the test
     public Func<TArgs, TResult> Stub<TResult>(string member, StubBehavior<TResult> behavior) {
         ArgumentException.ThrowIfNullOrWhiteSpace(member);
-        ArgumentNullException.ThrowIfNull(behavior);
-        StrongBox<int> cursor = new(0);
+        Atom<int> cursor = Atom(0);
         return args => {
             _ = calls.Swap(log => log.Add(new SpyCall<TArgs>(member, args)));
             return behavior.Switch(
                 state: (member, cursor),
                 constant: static (_, constant) => constant.Value,
                 sequence: static (st, sequence) => {
-                    int index = Interlocked.Increment(ref st.cursor.Value) - 1;
+                    int index = st.cursor.Swap(static position => position + 1) - 1;
                     return index < sequence.Values.Count
                         ? sequence.Values[index]
                         : throw new XunitException($"sequence stub '{st.member}' exhausted after {sequence.Values.Count} values");
@@ -46,17 +44,11 @@ public sealed class CallSpy<TArgs> {
         };
     }
 
-    // Installs the stub into a mutable hook through bind, the action bind returns restores the hook when the handle disposes
-    public RestoreHandle Attach<TResult>(string member, StubBehavior<TResult> behavior, Func<Func<TArgs, TResult>, Action> bind) {
-        ArgumentNullException.ThrowIfNull(bind);
-        return new RestoreHandle(bind(Stub(member, behavior)));
-    }
+    public RestoreHandle Attach<TResult>(string member, StubBehavior<TResult> behavior, Func<Func<TArgs, TResult>, Action> bind) =>
+        new(bind(Stub(member, behavior)));
 }
 
-// --- [CLOCK] ---------------------------------------------------------------------------
 public sealed class Timeline(DateTimeOffset? start = null) {
-    public sealed record TimerEvent(string Label, TimeSpan Due, TimeSpan Observed);
-
     private readonly Atom<Seq<TimerEvent>> events = Atom(Seq<TimerEvent>());
 
     public FakeTimeProvider Clock { get; } = start is DateTimeOffset instant ? new FakeTimeProvider(instant) : new FakeTimeProvider();
@@ -69,19 +61,18 @@ public sealed class Timeline(DateTimeOffset? start = null) {
         return events.Value.Skip(before);
     }
 
-    // Due is the schedule time of the firing, Observed is the clock reading in the callback, FakeTimeProvider moves the clock to the end of Advance before it fires
-    public ITimer CreateTimer(string label, TimeSpan due, TimeSpan? period = null) {
+    public ITimer CreateTimer(string label, TimeSpan due, Option<TimeSpan> period = default) {
         ArgumentException.ThrowIfNullOrWhiteSpace(label);
         TimeSpan origin = Clock.GetUtcNow() - Clock.Start;
-        TimeSpan interval = period ?? TimeSpan.Zero;
-        StrongBox<int> firings = new(0);
+        TimeSpan interval = period.IfNone(Timeout.InfiniteTimeSpan);
+        Atom<int> firings = Atom(0);
         return Clock.CreateTimer(
             _ => {
-                int ordinal = Interlocked.Increment(ref firings.Value) - 1;
+                int ordinal = firings.Swap(static count => count + 1) - 1;
                 _ = events.Swap(log => log.Add(new TimerEvent(label, origin + due + (interval * ordinal), Clock.GetUtcNow() - Clock.Start)));
             },
             state: null,
             due,
-            period ?? Timeout.InfiniteTimeSpan);
+            interval);
     }
 }

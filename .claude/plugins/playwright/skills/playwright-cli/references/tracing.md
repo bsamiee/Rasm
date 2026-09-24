@@ -5,21 +5,18 @@ Capture detailed execution traces for debugging and analysis. Traces include DOM
 ## Basic Usage
 
 ```bash
-# Start trace recording
 playwright-cli tracing-start
 
-# Perform actions
 playwright-cli open https://example.com
 playwright-cli click e1
 playwright-cli fill e2 "test"
 
-# Stop trace recording
 playwright-cli tracing-stop
 ```
 
 ## Trace Output Files
 
-When you start tracing, Playwright creates a `.playwright-cli/traces/` directory with several files:
+`tracing-start` writes to `$PLAYWRIGHT_MCP_OUTPUT_DIR/traces/`:
 
 ### `trace-{timestamp}.trace`
 
@@ -63,31 +60,32 @@ When you start tracing, Playwright creates a `.playwright-cli/traces/` directory
 
 ### Debugging Failed Actions
 
+The trace shows the DOM state when a failing click ran:
+
 ```bash
 playwright-cli tracing-start
 playwright-cli open https://app.example.com
 
-# This click fails - why?
 playwright-cli click e5
 
 playwright-cli tracing-stop
-# Open trace to see DOM state when click was attempted
 ```
 
 ### Analyzing Performance
+
+The trace's network waterfall identifies slow resources:
 
 ```bash
 playwright-cli tracing-start
 playwright-cli open https://slow-site.com
 playwright-cli tracing-stop
-
-# View network waterfall to identify slow resources
 ```
 
 ### Capturing Evidence
 
+A trace of a complete user flow records its exact sequence of events for documentation:
+
 ```bash
-# Record a complete user flow for documentation
 playwright-cli tracing-start
 
 playwright-cli open https://app.example.com/checkout
@@ -97,7 +95,6 @@ playwright-cli fill e3 "123"
 playwright-cli click e4
 
 playwright-cli tracing-stop
-# Trace shows exact sequence of events
 ```
 
 ## Trace vs Video vs Screenshot
@@ -115,11 +112,11 @@ playwright-cli tracing-stop
 
 ### 1. Start Tracing Before the Problem
 
+Trace the entire flow, every step leading to the issue included:
+
 ```bash
-# Trace the entire flow, not just the failing step
 playwright-cli tracing-start
 playwright-cli open https://example.com
-# ... all steps leading to the issue ...
 playwright-cli tracing-stop
 ```
 
@@ -128,8 +125,7 @@ playwright-cli tracing-stop
 Traces can consume significant disk space:
 
 ```bash
-# Remove traces older than 7 days
-find .playwright-cli/traces -mtime +7 -delete
+find $PLAYWRIGHT_MCP_OUTPUT_DIR/traces -mtime +7 -delete
 ```
 
 ## Limitations

@@ -1,0 +1,18 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <Description>Moves each central package row an analyzed project references to its newest listed, framework-compatible release</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+    </ItemGroup>
+
+    <ItemGroup Label="NuGet Dependencies">
+        <PackageReference Include="NuGet.Common" />
+        <PackageReference Include="NuGet.Configuration" />
+        <PackageReference Include="NuGet.Frameworks" />
+        <PackageReference Include="NuGet.Protocol" />
+        <PackageReference Include="NuGet.Versioning" />
+    </ItemGroup>
+</Project>

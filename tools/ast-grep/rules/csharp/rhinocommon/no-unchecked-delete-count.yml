@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unchecked-delete-count
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+rule:
+    kind: method_declaration
+    pattern: $METHOD
+    all:
+        - has: {field: returns, kind: generic_name, regex: '^IO<int>$'}
+        - has: {field: name, pattern: $NAME}
+        - has: {field: parameters, pattern: {context: 'void f(RhinoDoc $DOC, Seq<int> $INDICES, bool $QUIET) {}', selector: parameter_list}}
+        - has: {field: body, kind: arrow_expression_clause, has: {pattern: 'IO.lift(() => $DOC.$TABLE.Delete($INDICES, $QUIET))'}}
+constraints:
+    TABLE: {regex: '^(HatchPatterns|SectionStyles|Layers)$'}
+rewriters:
+    - id: unit-return
+      rule: {kind: generic_name, regex: '^IO<int>$'}
+      fix: IO<Unit>
+    - id: checked-count
+      rule: {pattern: 'IO.lift(() => $DOC.$TABLE.Delete($INDICES, $QUIET))'}
+      transform:
+        TYPE: {replace: {source: $TABLE, replace: 's$', by: Table}}
+      fix: 'IO.lift(() => CountMismatch.Unless($INDICES.Count, $DOC.$TABLE.Delete($INDICES, $QUIET), nameof($TYPE.Delete)))'
+transform:
+    TYPE: {replace: {source: $TABLE, replace: 's$', by: Table}}
+    FIXED: {rewrite: {source: $METHOD, rewriters: [unit-return, checked-count]}}
+fix: $FIXED
+message: '`$NAME` returns the count `$DOC.$TABLE.Delete` reports without comparing it with `$INDICES.Count`'
+note: 'Return `IO<Unit>` over `CountMismatch.Unless(<indices>.Count, <delete call>, nameof(<table type>.Delete))`'

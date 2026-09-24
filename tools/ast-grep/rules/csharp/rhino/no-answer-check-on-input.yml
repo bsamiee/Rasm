@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-answer-check-on-input
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    input:
+        any:
+            - kind: identifier
+              pattern: $INPUT
+              inside:
+                stopBy: {kind: lambda_expression}
+                kind: method_declaration, constructor_declaration, local_function_statement, operator_declaration
+                has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $INPUT}}}
+            - kind: member_access_expression
+              has: {field: expression, matches: input}
+    zero:
+        kind: integer_literal
+        regex: '^0$'
+    answer-error:
+        kind: object_creation_expression
+        has: {field: type, regex: '^((global::)?Rasm\.Rhino\.Document\.)?(NegativeIndex|EmptyGuid)$'}
+rule:
+    kind: invocation_expression
+    any:
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^ToFin$'}}
+            - has: {field: arguments, has: {kind: argument, has: {matches: answer-error}}}
+            - has:
+                field: function
+                has:
+                    field: expression
+                    kind: invocation_expression
+                    all:
+                        - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\s*\.\s*Present$'}
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
+        - all:
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers\s*\.\s*(NonEmpty|NonNegative)(\s*<.+>)?$'}
+            - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: input, pattern: $VALUE}}}
+        - all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Unless$'}}
+            - has:
+                field: arguments
+                has:
+                    kind: argument
+                    nthChild: 1
+                    has:
+                        kind: binary_expression
+                        any:
+                            - all: [{has: {field: operator, regex: '^>=$'}}, {has: {field: left, matches: input, pattern: $VALUE}}, {has: {field: right, matches: zero}}]
+                            - all: [{has: {field: operator, regex: '^<=$'}}, {has: {field: left, matches: zero}}, {has: {field: right, matches: input, pattern: $VALUE}}]
+    not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '.'}}}}
+message: '`$VALUE` is caller input checked as a host answer'
+note: Use `Limits.AtLeast(0).Check(<value>, <subject>)` for a bound and `Invalid.Unless` over the emptiness test for an id or a sequence

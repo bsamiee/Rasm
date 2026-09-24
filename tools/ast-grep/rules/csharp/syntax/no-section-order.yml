@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-section-order
+language: csharp
+severity: error
+rule:
+    matches: csharp-section-divider
+    pattern: $DIVIDER
+    any:
+        - regex: '^// --- \[TYPES\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[(CONSTANTS|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - regex: '^// --- \[CONSTANTS\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[(MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - regex: '^// --- \[MODELS\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[(ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - regex: '^// --- \[ERRORS\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[(SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - regex: '^// --- \[SERVICES\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[(OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - regex: '^// --- \[OPERATIONS\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[(COMPOSITION|EXPORTS)\] '}
+        - regex: '^// --- \[COMPOSITION\] '
+          follows: {stopBy: end, matches: csharp-section-divider, regex: '^// --- \[EXPORTS\] '}
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+message: Section `$LABEL` follows a section the table orders after it
+note: Use the order `[TYPES]`, `[CONSTANTS]`, `[MODELS]`, `[ERRORS]`, `[SERVICES]`, `[OPERATIONS]`, `[COMPOSITION]`, `[EXPORTS]`

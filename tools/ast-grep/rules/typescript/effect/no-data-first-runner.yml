@@ -49,4 +49,4 @@ transform:
     FIXED: rewrite($FIXABLE, rewriters=[runner])
 fix: $FIXED$KEPT
 message: '`$RUN` wraps the program it runs, the steps read from the inside out'
-note: '`program.pipe(step, $RUN(options))` ends the pipe with the runner'
+note: '`<program>.pipe(<step>, <runner>(<options>))` ends the pipe with the runner'

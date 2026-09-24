@@ -9,7 +9,7 @@ indent_style = space
 indent_size = 4
 
 [*.swift]
-indent_size = 2                                                               # swift-format default
+indent_size = 2
 
 [*.cs]
 # --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
@@ -110,8 +110,10 @@ csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental
 dotnet_diagnostic.IDE0055.severity = error                                    # Formatting violations fail the build
 
 # --- [QUALITY_ANALYZERS] -----------------------------------------------------
-dotnet_diagnostic.CA1034.severity = none                                      # Nested types are part of Thinktecture union declarations
-dotnet_diagnostic.CA1720.severity = none                                      # Grasshopper parameter SmartEnum items are named after the CLR type (Integer, Boolean)
+dotnet_diagnostic.CA1034.severity = none                                      # Nested types are Thinktecture union cases and closed Expected error hierarchies
+dotnet_diagnostic.CA1711.severity = none                                      # Types derived from host classes keep the host's suffix (ChangeQueue)
+dotnet_diagnostic.CA1716.severity = none                                      # Libraries serve C# consumers alone, host names like Integer, Option, and Nothing stay
+dotnet_diagnostic.CA1720.severity = none                                      # Union cases mirror host value types (Integer, Double, String)
 dotnet_diagnostic.MA0008.severity = none                                      # Structs already default to StructLayout Sequential
 dotnet_diagnostic.MA0048.severity = none                                      # More than one type per file allowed
 dotnet_diagnostic.MA0051.severity = none                                      # No method length limit
@@ -218,12 +220,13 @@ dotnet_diagnostic.MA0194.severity = error                                     # 
 dotnet_diagnostic.MA0200.severity = error                                     # No empty property pattern on non-nullable value types
 MA0032.allowOverloadsWithOptionalParameters = false                           # CancellationToken overloads required even with optional parameters
 dotnet_code_quality_unused_parameters = all                                   # Unused-parameter analysis on all visibilities
+dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true   # Constructor argument passes disposal to the constructed object
 
 # --- [ROSLYNATOR_ANALYZERS] --------------------------------------------------
 dotnet_diagnostic.RCS1002.severity = error                                    # Off by default: no braces on a single-statement block
 dotnet_diagnostic.RCS1004.severity = error                                    # Off by default: no braces on a single-statement if/else
 dotnet_diagnostic.RCS1006.severity = error                                    # Hidden by default: merge else with a nested if
-dotnet_diagnostic.RCS1014.severity = error                                    # Off by default: explicitly typed array creation
+dotnet_diagnostic.RCS1014.severity = error                                    # Off by default: array creation type style
 dotnet_diagnostic.RCS1015.severity = error                                    # nameof over a string literal that names a symbol
 dotnet_diagnostic.RCS1020.severity = error                                    # T? over Nullable<T>
 dotnet_diagnostic.RCS1031.severity = error                                    # Hidden by default: remove braces from switch sections
@@ -312,7 +315,7 @@ dotnet_diagnostic.RCS1247.severity = error                                    # 
 dotnet_diagnostic.RCS1252.severity = error                                    # Off by default: one infinite-loop form
 dotnet_diagnostic.RCS1253.severity = error                                    # Off by default: one doc summary layout
 dotnet_diagnostic.RCS1254.severity = error                                    # Enum flag values as shifts
-dotnet_diagnostic.RCS1256.severity = error                                    # No null check on a non-nullable argument
+dotnet_diagnostic.RCS1256.severity = error                                    # No argument null check on a parameter that admits null
 dotnet_diagnostic.RCS1257.severity = error                                    # Enum field by name
 dotnet_diagnostic.RCS1258.severity = error                                    # Flag already implied by another flag
 dotnet_diagnostic.RCS1259.severity = error                                    # Remove empty destructor, else, finally, namespace, initializer, region, or statement
@@ -326,7 +329,7 @@ dotnet_diagnostic.ROS0003.severity = error                                    # 
 dotnet_diagnostic.RCS1001.severity = none                                     # Covered by csharp_prefer_braces
 dotnet_diagnostic.RCS1003.severity = none                                     # Covered by csharp_prefer_braces
 dotnet_diagnostic.RCS1005.severity = none                                     # Covered by IDE0063
-dotnet_diagnostic.RCS1021.severity = none                                     # Covered by IDE0053
+dotnet_diagnostic.RCS1021.severity = none                                     # An expression body on an assignment lambda rebinds IO.lift(Action) to IO.lift<A>(Func<A>)
 dotnet_diagnostic.RCS1032.severity = none                                     # Covered by IDE0047
 dotnet_diagnostic.RCS1033.severity = none                                     # Covered by IDE0100
 dotnet_diagnostic.RCS1037.severity = none                                     # Covered by IDE0055
@@ -336,7 +339,7 @@ dotnet_diagnostic.RCS1047.severity = none                                     # 
 dotnet_diagnostic.RCS1049.severity = none                                     # Covered by IDE0100
 dotnet_diagnostic.RCS1058.severity = none                                     # Covered by IDE0054
 dotnet_diagnostic.RCS1084.severity = none                                     # Covered by IDE0029
-dotnet_diagnostic.RCS1085.severity = none                                     # Covered by IDE0032
+dotnet_diagnostic.RCS1085.severity = none                                     # Covered by IDE0032, and override properties hold no backing field
 dotnet_diagnostic.RCS1097.severity = none                                     # Covered by MA0044
 dotnet_diagnostic.RCS1102.severity = none                                     # Covered by MA0036
 dotnet_diagnostic.RCS1104.severity = none                                     # Covered by IDE0075
@@ -353,13 +356,13 @@ dotnet_diagnostic.RCS1156.severity = none                                     # 
 dotnet_diagnostic.RCS1158.severity = none                                     # Covered by CA1000
 dotnet_diagnostic.RCS1159.severity = none                                     # Covered by CA1003
 dotnet_diagnostic.RCS1160.severity = none                                     # Covered by CA1012
-dotnet_diagnostic.RCS1163.severity = none                                     # Covered by IDE0060
+dotnet_diagnostic.RCS1163.severity = none                                     # A lone _ lambda parameter is a variable, so a lambda whose body assigns the _ discard names its unused parameter
 dotnet_diagnostic.RCS1166.severity = none                                     # Covered by CS0472
 dotnet_diagnostic.RCS1168.severity = none                                     # Covered by CA1725
 dotnet_diagnostic.RCS1169.severity = none                                     # Covered by IDE0044
 dotnet_diagnostic.RCS1171.severity = none                                     # Covered by MA0173
 dotnet_diagnostic.RCS1180.severity = none                                     # Covered by MA0173
-dotnet_diagnostic.RCS1181.severity = none                                     # Member docs are optional (CS1591 is off)
+dotnet_diagnostic.RCS1181.severity = none                                     # Section dividers the file organization standard requires stay line comments
 dotnet_diagnostic.RCS1186.severity = none                                     # Covered by MA0110
 dotnet_diagnostic.RCS1187.severity = none                                     # Covered by CA1802
 dotnet_diagnostic.RCS1188.severity = none                                     # Covered by CA1805
@@ -387,7 +390,7 @@ dotnet_diagnostic.RCS1244.severity = none                                     # 
 dotnet_diagnostic.RCS1246.severity = none                                     # Covered by MA0098
 dotnet_diagnostic.RCS1249.severity = none                                     # Covered by MA0191
 dotnet_diagnostic.RCS1251.severity = none                                     # Covered by MA0206
-roslynator_array_creation_type_style = explicit                               # RCS1014: explicit element type
+roslynator_array_creation_type_style = implicit_when_type_is_obvious          # RCS1014: new[] or [] where a declaration or the elements state the type
 roslynator_empty_string_style = literal                                       # RCS1078: "" literal
 roslynator_enum_flag_value_style = shift_operator                             # RCS1254: 1 << n
 roslynator_infinite_loop_style = while                                        # RCS1252: while (true)
@@ -405,6 +408,7 @@ dotnet_diagnostic.IDE0052.severity = error                                    # 
 dotnet_diagnostic.IDE0060.severity = error                                    # Remove unused parameters
 dotnet_diagnostic.IDE0064.severity = error                                    # Make struct fields writable when they are reassigned
 dotnet_diagnostic.IDE0070.severity = error                                    # HashCode.Combine for composite hash codes
+dotnet_diagnostic.IDE0072.severity = none                                     # Discard arm it demands on enum switches hides a missing member from CS8509
 dotnet_diagnostic.IDE0076.severity = error                                    # Remove invalid SuppressMessage targets
 dotnet_diagnostic.IDE0077.severity = error                                    # SuppressMessage targets in the Roslyn format
 dotnet_diagnostic.IDE0079.severity = error                                    # Remove stale suppressions
@@ -432,7 +436,7 @@ dotnet_diagnostic.RMG015.severity = error                                     # 
 dotnet_diagnostic.RMG033.severity = error                                     # Same-type member copied by reference under UseDeepCloning
 dotnet_diagnostic.RMG083.severity = error                                     # Report read-only type targets instead of silent skips
 dotnet_diagnostic.RMG088.severity = error                                     # Enum member naming attribute is missing
-dotnet_diagnostic.RMG089.severity = error                                     # Nullable source to non-nullable target member, suppressed per member with SuppressNullMismatchDiagnostic
+dotnet_diagnostic.RMG089.severity = error                                     # Nullable source to non-null member, decided per member
 dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type to non-nullable target type
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
@@ -462,16 +466,7 @@ dotnet_diagnostic.EPC40.severity = error                                      # 
 # --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
 dotnet_diagnostic.CS1591.severity = none                                      # XML docs are generated for tooling with optional member docs
 dotnet_diagnostic.CA2225.severity = none                                      # Operator overloads from LanguageExt and Thinktecture need no named alternatives
-
-# Template for a project that references the Rhino host assemblies:
-# [libs/dotnet/{rhino-host-project}/**.cs]
-# dotnet_diagnostic.CA1416.severity = none                                    # CA1416 reads the reference assembly, and Rhino's System.Drawing.Common implements the Windows-only members on macOS
-# dotnet_diagnostic.CA1724.severity = none                                    # Microsoft.macOS Phase namespace collides with same-named application types
-
-# Template for a project that opts into Microsoft.Extensions experimental APIs:
-# [libs/dotnet/{host-project}/**.cs]
-# dotnet_diagnostic.EXTEXP0002.severity = none                                # Experimental API opt-in (HmacRedactor)
-# dotnet_diagnostic.EXTEXP0008.severity = none                                # Experimental API opt-in (resource monitoring)
+dotnet_diagnostic.CS8524.severity = none                                      # Switch naming every enum member treats unnamed values as defects
 
 [.artifacts/**.cs]
 dotnet_diagnostic.EPC29.severity = none                                       # xunit.v3.msbuildtasks and Microsoft.Testing.Platform.MSBuild generate ExcludeFromCodeCoverage without a Justification

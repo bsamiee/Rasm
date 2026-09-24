@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: functools-partial-callee
+language: python
+rule:
+    all:
+        - any:
+            - regex: '(^|\.)partial$'
+            - kind: identifier
+              inside: {kind: 'module, block', stopBy: end, has: {kind: import_from_statement, regex: '(?s)^from\s+functools\s+import\b.*\bpartial\s+as\b'}}
+        - matches: {python-member-use: {module: {regex: '^functools$'}, name: {regex: '^partial$'}}}

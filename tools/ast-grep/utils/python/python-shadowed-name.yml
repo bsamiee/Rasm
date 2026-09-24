@@ -7,13 +7,7 @@ utils:
             - kind: identifier
               pattern: $ROOT
             - kind: attribute
-              has:
-                field: object
-                any:
-                    - kind: identifier
-                      pattern: $ROOT
-                    - kind: attribute
-                      has: {field: object, kind: identifier, pattern: $ROOT}
+              has: {field: object, matches: root}
     parameter:
         matches: {python-parameter: {name: {pattern: $ROOT}}}
     target:

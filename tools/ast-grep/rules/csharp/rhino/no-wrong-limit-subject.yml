@@ -1,0 +1,65 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-wrong-limit-subject
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    subject:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: identifier, regex: '^nameof$'}
+            - has: {field: arguments, has: {kind: argument}}
+    traversed:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $VALUE}, {has: {kind: parameter, has: {field: name, pattern: $VALUE}}}]}
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        kind: invocation_expression
+                        has:
+                            field: function
+                            kind: member_access_expression
+                            all:
+                                - has: {field: name, regex: '^(Traverse|TraverseM)$'}
+                                - has:
+                                    field: expression
+                                    kind: invocation_expression
+                                    all:
+                                        - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?Seq$'}
+                                        - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+    same-file-method:
+        pattern: $METHOD
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has: {stopBy: end, kind: method_declaration, has: {field: name, pattern: $METHOD}}
+    named:
+        kind: argument
+        nthChild: 2
+        has: {matches: subject}
+rule:
+    kind: invocation_expression
+    all:
+        - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Check$'}}
+        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $VALUE}}}
+        - has: {field: arguments, has: {kind: argument, nthChild: 2, has: {matches: subject, pattern: $SUBJECT}}}
+        - any:
+            - inside: {stopBy: end, matches: traversed}
+            - has:
+                field: arguments
+                has:
+                    matches: named
+                    has:
+                        stopBy: end
+                        kind: argument
+                        has:
+                            any:
+                                - kind: identifier
+                                  matches: same-file-method
+                                - kind: member_access_expression
+                                  has: {field: name, matches: same-file-method}
+message: '`$SUBJECT` names another member than the value `$VALUE` it checks'
+note: Use `nameof(<checked parameter or field>)` as the subject of `Check`

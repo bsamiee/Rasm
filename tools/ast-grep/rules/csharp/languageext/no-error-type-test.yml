@@ -1,0 +1,105 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-type-test
+language: csharp
+severity: error
+utils:
+    many-name:
+        kind: identifier, qualified_name, member_access_expression, alias_qualified_name
+        regex: '(^|\.)ManyErrors$'
+    type-name:
+        kind: identifier, qualified_name, generic_name, member_access_expression, alias_qualified_name
+        not: {regex: '(^|\.)ManyErrors$'}
+    leading-type:
+        any:
+            - matches: type-name
+            - kind: binary_expression
+              has: {field: left, matches: leading-type}
+    type-test:
+        any:
+            - kind: constant_pattern
+              has: {matches: leading-type}
+            - kind: declaration_pattern, recursive_pattern
+              has: {field: type, matches: type-name}
+            - kind: or_pattern, and_pattern, negated_pattern, parenthesized_pattern
+              has: {matches: type-test}
+    many-pattern:
+        any:
+            - kind: constant_pattern
+              has: {matches: many-name}
+            - kind: declaration_pattern, recursive_pattern
+              has: {field: type, matches: many-name}
+            - kind: or_pattern, and_pattern, parenthesized_pattern
+              has: {matches: many-pattern}
+    tested-error:
+        kind: identifier
+        pattern: $ERROR
+    element-error:
+        kind: lambda_expression, anonymous_method_expression
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      pattern: $ERROR
+                    - kind: parameter_list
+                      has: {kind: parameter, has: {field: name, pattern: $ERROR}}
+                      not: {has: {kind: parameter, nthChild: 2}}
+            - inside:
+                kind: argument
+                inside:
+                    kind: argument_list
+                    inside:
+                        kind: invocation_expression
+                        has: {field: function, kind: member_access_expression, has: {field: expression, kind: member_access_expression, has: {field: name, regex: '^Inner$'}}}
+rule:
+    all:
+        - any:
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, matches: tested-error}
+                - has: {field: pattern, matches: type-test}
+                - not: {has: {field: pattern, matches: many-pattern}}
+                - not: {has: {field: pattern, kind: or_pattern, has: {stopBy: end, matches: many-name}}}
+            - kind: is_expression
+              all:
+                - has: {field: left, matches: tested-error}
+                - has: {field: right, matches: type-name}
+            - kind: is_pattern_expression
+              all:
+                - has: {field: expression, kind: as_expression, all: [{has: {field: left, matches: tested-error}}, {has: {field: right, matches: type-name}}]}
+                - has: {field: pattern, regex: '^(not\s+null|\{\s*\})$'}
+            - kind: binary_expression
+              all:
+                - has: {field: operator, regex: '^(==|!=)$'}
+                - has: {kind: null_literal}
+                - has: {kind: parenthesized_expression, has: {kind: as_expression, all: [{has: {field: left, matches: tested-error}}, {has: {field: right, matches: type-name}}]}}
+            - kind: binary_expression, invocation_expression
+              any:
+                - pattern: $ERROR.GetType() == typeof($_TYPE)
+                - pattern: $ERROR.GetType() != typeof($_TYPE)
+                - pattern: typeof($_TYPE) == $ERROR.GetType()
+                - pattern: typeof($_TYPE) != $ERROR.GetType()
+                - pattern: $ERROR.GetType().Equals(typeof($_TYPE))
+                - pattern: typeof($_TYPE).Equals($ERROR.GetType())
+                - pattern: typeof($_TYPE).IsInstanceOfType($ERROR)
+                - pattern: typeof($_TYPE).IsAssignableFrom($ERROR.GetType())
+                - pattern: $ERROR.GetType().IsAssignableTo(typeof($_TYPE))
+              not: {has: {stopBy: end, kind: typeof_expression, has: {field: type, matches: many-name}}}
+            - matches: type-test
+              not: {matches: many-pattern}
+              any:
+                - inside:
+                    kind: switch_expression_arm
+                    inside: {kind: switch_expression, has: {nthChild: 1, matches: tested-error}}
+                    not: {follows: {stopBy: end, kind: switch_expression_arm, has: {nthChild: 1, matches: many-pattern}}}
+                - inside:
+                    kind: switch_section
+                    inside: {kind: switch_body, inside: {kind: switch_statement, has: {field: value, matches: tested-error}}}
+                    not: {follows: {stopBy: end, kind: switch_section, has: {matches: many-pattern}}}
+        - inside:
+            stopBy: end
+            any:
+                - matches: element-error
+                - matches: {csharp-error-owner: {name: {pattern: $ERROR}, type: {regex: '^((global::)?(LanguageExt\.)?Common\.)?Error$'}}}
+message: Type test on the `Error` `$ERROR` misses the same case inside `ManyErrors`
+note: Use `<error>.IsType<E>()`, `IsExpected` or `IsExceptional` for the base cases, or `Filter<E>()` where the branch reads the case

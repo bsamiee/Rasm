@@ -2,13 +2,33 @@
 id: no-parameter-discard
 language: python
 severity: error
-rule:
-    all:
-        - kind: expression_statement
-          has: {kind: assignment, pattern: _ = $P, has: {field: right, kind: identifier}}
-        - inside:
+utils:
+    parameter-of-scope:
+        inside:
             kind: function_definition
             stopBy: {matches: python-function-boundary}
-            has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $P}}}}}
-message: 'Body discards parameter `$P` with an underscore assignment'
-note: 'Rename the parameter `_<name>` in the signature and at keyword callers'
+            has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $Q}}}}}
+    parameter-name:
+        kind: identifier
+        all:
+            - not: {regex: '^_$'}
+            - pattern: $Q
+            - matches: parameter-of-scope
+    discarded:
+        any:
+            - matches: parameter-name
+            - kind: expression_list
+              not: {has: {pattern: $_, not: {matches: parameter-name}}}
+rule:
+    all:
+        - any:
+            - kind: expression_statement
+              has:
+                kind: assignment
+                all:
+                    - has: {field: left, kind: identifier, regex: '^_\w*$'}
+                    - has: {field: right, matches: discarded, pattern: $P}
+            - kind: delete_statement
+              has: {matches: discarded, pattern: $P}
+message: 'Body discards parameter `$P`'
+note: 'Rename the parameter `_<name>` in the signature and at keyword callers, or mark an overriding method `@typing.override`'

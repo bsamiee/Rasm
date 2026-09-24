@@ -1,0 +1,63 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-hand-typed-color
+language: python
+severity: error
+files: ['tools/interface/**/*.py']
+ignores: ['tools/interface/radix.py']
+utils:
+    channel:
+        any:
+            - kind: integer
+              regex: '^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d|0[xX][0-9a-fA-F]{1,2}|0[oO][0-3]?[0-7]{1,2}|0[bB][01]{1,8})$'
+            - kind: float
+              regex: '^(0?\.\d*|1\.0*)$'
+    channels:
+        kind: 'tuple, list, expression_list, argument_list'
+        has: {matches: channel, nthChild: {position: 3, ofRule: {matches: channel}}}
+        not:
+            any:
+                - has: {matches: channel, nthChild: {position: 5, ofRule: {matches: channel}}}
+                - has: {pattern: $_, not: {any: [{matches: channel}, {kind: comment}]}}
+                - all:
+                    - has: {kind: float}
+                    - not: {has: {kind: float, regex: '^0?\.\d*[1-9]'}}
+                - inside: {kind: assignment, field: right, has: {field: left, kind: pattern_list}}
+    keyed-channel:
+        kind: 'keyword_argument, pair'
+        has: {field: value, matches: channel}
+    keyed-channels:
+        kind: 'argument_list, dictionary'
+        all:
+            - has: {matches: keyed-channel, has: {nthChild: 1, any: [{regex: '^(r|red|R|Red)$'}, {has: {kind: string_content, regex: '^(r|red|R|Red)$'}}]}}
+            - has: {matches: keyed-channel, has: {nthChild: 1, any: [{regex: '^(g|green|G|Green)$'}, {has: {kind: string_content, regex: '^(g|green|G|Green)$'}}]}}
+            - has: {matches: keyed-channel, has: {nthChild: 1, any: [{regex: '^(b|blue|B|Blue)$'}, {has: {kind: string_content, regex: '^(b|blue|B|Blue)$'}}]}}
+    named:
+        any:
+            - kind: attribute
+              all:
+                - has: {field: object, regex: '(^|\.)\w*Colors?$'}
+                - has: {field: attribute, regex: '^[A-Z][a-z]+([A-Z][a-z]+)*$', not: {regex: '^(Empty|Transparent)$'}}
+                - not: {inside: {kind: call, field: function}}
+                - not: {inside: {stopBy: end, matches: named}}
+            - kind: call
+              has: {field: function, regex: '(^|\.)From(Name|KnownColor)$'}
+    from-hex:
+        kind: call
+        has: {field: function, kind: attribute, has: {field: attribute, regex: '^fromhex$'}}
+    spelled:
+        any:
+            - matches: from-hex
+            - kind: integer
+              regex: '^0[xX]([0-9a-fA-F]{6}|[0-9a-fA-F]{8})$'
+            - kind: string_content
+              regex: '^\s*(#[0-9a-fA-F]{3,4}|#?[0-9a-fA-F]{6}|#?[0-9a-fA-F]{8}|((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\s*,\s*){2}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\s*,\s*[\d.]+)?|rgba?\(\s*((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\s*[,\s]\s*){2}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)(\s*[,/\s]\s*[\d.]+%?)?\s*\))\s*$'
+              not: {inside: {matches: from-hex, stopBy: end}}
+            - kind: string
+              regex: '^[bB]["''](\\x[0-9a-fA-F]{2}|\\[0-7]{1,3}|\\.|[^\\"'']){3,4}["'']$'
+              has: {kind: escape_sequence, stopBy: end}
+rule:
+    pattern: $COLOR
+    any: [{matches: channels}, {matches: keyed-channels}, {matches: named}, {matches: spelled}]
+    not: {inside: {kind: class_definition, stopBy: end, has: {field: name, regex: '^OffScale$'}}}
+message: '`$COLOR` spells a color by hand'
+note: 'Take the role its meaning needs from `theme.py`, and a value no Radix step supplies from `OffScale`'

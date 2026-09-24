@@ -6,29 +6,55 @@ utils:
     empty-class:
         kind: class_definition
         all:
+            - matches: python-plain-class
             - has: {field: name, pattern: $CLASS}
-            - not: {has: {field: superclasses, kind: argument_list}}
             - has:
                 field: body
                 kind: block
                 all:
                     - has: {any: [{kind: pass_statement}, {kind: expression_statement, has: {kind: "string, ellipsis"}}]}
                     - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    sentinel-factory:
+        any:
+            - matches: {python-member-use: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^(sentinel|Sentinel)$'}}}
+            - kind: identifier
+              regex: '^(sentinel|Sentinel)$'
+              not: {matches: python-shadowed-name}
+    sentinel-value:
+        any:
+            - pattern: object()
+            - kind: call
+              has: {field: function, matches: sentinel-factory}
+            - kind: call
+              pattern: $CLASS()
+              has: {field: function, kind: identifier}
+              inside: {kind: module, stopBy: end, has: {matches: empty-class}}
+              not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: type, all: [{has: {stopBy: end, kind: identifier, pattern: $CLASS}}, {has: {stopBy: end, kind: none}}]}}}
+    enum-base:
+        matches: {python-member-use: {module: {regex: '^enum$'}, name: {regex: '^(Enum|IntEnum|StrEnum|Flag|IntFlag|ReprEnum)$'}}}
 rule:
     kind: assignment
     all:
-        - has: {field: left, kind: identifier, pattern: $NAME}
-        - has:
-            field: right
-            any:
-                - pattern: object()
-                - pattern: sentinel($$$)
-                - pattern: $CLASS()
-                  has: {field: function, kind: identifier}
-                  inside: {kind: module, stopBy: end, has: {matches: empty-class}}
-                  not: {inside: {kind: module, stopBy: end, has: {stopBy: end, kind: type, all: [{has: {stopBy: end, kind: identifier, pattern: $CLASS}}, {has: {stopBy: end, kind: none}}]}}}
-        - inside:
-            kind: expression_statement
-            inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
+        - any:
+            - all:
+                - has: {field: left, kind: identifier, pattern: $NAME}
+                - has: {field: right, matches: sentinel-value}
+                - inside:
+                    kind: expression_statement
+                    inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
+            - all:
+                - has: {field: left, kind: pattern_list, pattern: $NAME}
+                - has: {field: right, kind: expression_list, has: {matches: sentinel-value}}
+                - inside:
+                    kind: expression_statement
+                    inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
+            - all:
+                - has: {field: left, kind: identifier, pattern: $NAME}
+                - inside:
+                    kind: expression_statement
+                    inside:
+                        kind: block
+                        not: {has: {nthChild: {position: 2, ofRule: {not: {any: [{kind: comment}, {matches: python-docstring-or-comment}]}}}}}
+                        inside: {kind: class_definition, has: {field: superclasses, has: {matches: enum-base}}}
 message: '`$NAME` is a sentinel standing for absence by identity'
 note: 'Declare the value as `<T> | None`'

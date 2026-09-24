@@ -1,0 +1,9 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-plain-class
+language: python
+rule:
+    kind: class_definition
+    not:
+        any:
+            - has: {field: superclasses, kind: argument_list}
+            - inside: {kind: decorated_definition}

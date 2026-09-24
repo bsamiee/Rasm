@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-constant-actual-kind
+language: csharp
+severity: error
+utils:
+    actual-record:
+        kind: 'identifier, qualified_name'
+        regex: '^((global::)?[\w.]*\.)?(WrongGeometry|WrongKind|ProjectionMismatch|WrongUpdateType)$'
+        pattern: $RECORD
+    constant-kind:
+        any:
+            - kind: member_access_expression
+              has: {field: expression, regex: '^((global::)?[\w.]*\.)?(ObjectType|RenderContentKind|CameraProjection|InstanceDefinitionUpdateType)$'}
+            - kind: cast_expression
+              has: {field: value, kind: 'integer_literal, prefix_unary_expression'}
+            - kind: default_expression
+    constant-value:
+        any:
+            - matches: constant-kind
+            - kind: identifier
+              pattern: $RELAY
+              inside:
+                stopBy: end
+                kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration'
+                has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {matches: constant-kind}}]}
+    actual-argument:
+        kind: argument
+        any:
+            - all:
+                - has: {field: name, regex: '^[Aa]ctual$'}
+                - has: {matches: constant-value, pattern: $KIND}
+            - all:
+                - nthChild: {position: 2, ofRule: {kind: argument}}
+                - not: {has: {field: name, pattern: $_}}
+                - has: {matches: constant-value, pattern: $KIND}
+    creation:
+        any:
+            - kind: object_creation_expression
+              has: {field: type, matches: actual-record}
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: actual-record}}, {has: {field: name, regex: '^Unless$'}}]}
+            - kind: implicit_object_creation_expression
+              any:
+                - inside: {kind: variable_declarator, inside: {kind: variable_declaration, has: {field: type, matches: actual-record}}}
+                - inside:
+                    kind: 'arrow_expression_clause, return_statement'
+                    inside:
+                        stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, anonymous_method_expression'}
+                        kind: 'method_declaration, local_function_statement'
+                        any: [{has: {field: returns, matches: actual-record}}, {has: {field: type, matches: actual-record}}]
+rule:
+    matches: creation
+    has: {kind: argument_list, has: {matches: actual-argument}}
+message: '`$RECORD` states the actual kind as the constant `$KIND`'
+note: Read the actual kind from the value, and where the value's kind can only be that constant, return the error that names what the case lacks

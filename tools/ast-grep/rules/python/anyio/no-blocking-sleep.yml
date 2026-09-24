@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-blocking-sleep
-language: python
-severity: error
-rule:
-    pattern: $USE
-    matches: {python-member-use: {module: {regex: '^time$'}, name: {regex: '^sleep$'}}}
-message: '`$USE` blocks the thread'
-note: 'Use `await anyio.sleep(<delay>)`'

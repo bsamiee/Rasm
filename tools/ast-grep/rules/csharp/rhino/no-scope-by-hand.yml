@@ -1,0 +1,369 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-scope-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    registration:
+        kind: invocation_expression
+        has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?use$'}
+    use-call:
+        matches: registration
+        has: {field: arguments, not: {has: {kind: argument, nthChild: 2}}}
+    default-attributes:
+        has: {stopBy: end, kind: member_access_expression, has: {field: name, regex: '^CreateDefaultAttributes$'}}
+    acquired:
+        matches: use-call
+        has: {field: arguments, has: {kind: argument, has: {pattern: $ACQUIRE}}}
+        not: {matches: default-attributes}
+    scope:
+        kind: from_clause
+        all:
+            - has: {field: name, pattern: $X}
+            - has: {matches: acquired}
+    later-scope:
+        kind: from_clause
+        all:
+            - has: {field: name, pattern: $SX}
+            - has: {matches: use-call, has: {field: arguments, has: {kind: argument, has: {pattern: $SACQ}}}}
+    tailed-root:
+        kind: query_expression
+        inside: {kind: parenthesized_expression, inside: {kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}}
+    nested-function:
+        kind: lambda_expression, anonymous_method_expression, local_function_statement
+    wrapped-clause:
+        kind: from_clause, let_clause, where_clause, join_clause, order_by_clause, group_clause, select_clause
+        follows: {stopBy: end, kind: from_clause, has: {matches: use-call}}
+    deep-1:
+        matches: wrapped-clause
+        has: {stopBy: end, matches: nested-function}
+    deep-2:
+        matches: wrapped-clause
+        has: {stopBy: end, matches: nested-function, has: {stopBy: end, matches: nested-function}}
+    deep-3:
+        matches: wrapped-clause
+        has: {stopBy: end, matches: nested-function, has: {stopBy: end, matches: nested-function, has: {stopBy: end, matches: nested-function}}}
+    inside-1:
+        inside: {stopBy: end, matches: nested-function}
+    inside-2:
+        inside: {stopBy: end, matches: nested-function, inside: {stopBy: end, matches: nested-function}}
+    inside-3:
+        inside: {stopBy: end, matches: nested-function, inside: {stopBy: end, matches: nested-function, inside: {stopBy: end, matches: nested-function}}}
+    overflows:
+        kind: query_expression
+        any:
+            - matches: inside-3
+            - all: [{matches: inside-2}, {has: {matches: deep-1}}]
+            - all: [{matches: inside-1}, {has: {matches: deep-2}}]
+            - has: {matches: deep-3}
+    positional:
+        kind: argument
+        not: {has: {field: name, kind: identifier}}
+    only-argument:
+        has:
+            field: arguments
+            all:
+                - has: {nthChild: 1, matches: positional, has: {pattern: $BIND}}
+                - not: {has: {kind: argument, nthChild: 2}}
+    parameter:
+        any:
+            - kind: implicit_parameter
+              pattern: $X
+            - kind: parameter_list
+              all:
+                - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $X}}
+                - not: {has: {kind: parameter, nthChild: 2}}
+    held:
+        kind: identifier
+        pattern: $LOCAL
+        inside:
+            stopBy: end
+            kind: block
+            has:
+                kind: local_declaration_statement
+                has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $LOCAL}}, {has: {matches: acquired}}]}
+    chained:
+        kind: invocation_expression
+        has:
+            field: function
+            kind: member_access_expression
+            has:
+                field: expression
+                any:
+                    - matches: acquired
+                    - matches: held
+    query:
+        kind: parenthesized_expression
+        has:
+            kind: query_expression
+            all:
+                - has: {kind: from_clause, nthChild: 1, matches: scope}
+                - any:
+                    - all:
+                        - pattern: $QUERY
+                        - has: {kind: from_clause, nthChild: 2}
+                        - not: {has: {kind: from_clause, not: {nthChild: 1}, has: {stopBy: end, matches: use-call}}}
+                    - all:
+                        - has: {kind: select_clause, nthChild: 2, has: {pattern: $SELECTED}}
+                        - not: {has: {nthChild: 3}}
+    bound:
+        matches: chained
+        all:
+            - has: {field: function, has: {field: name, regex: '^(Bind|SelectMany)$'}}
+            - matches: only-argument
+    projected:
+        matches: chained
+        all:
+            - has: {field: function, has: {field: name, regex: '^SelectMany$'}}
+            - has:
+                field: arguments
+                all:
+                    - has: {nthChild: 1, matches: positional, has: {pattern: $BIND}}
+                    - has:
+                        nthChild: 2
+                        matches: positional
+                        has:
+                            kind: lambda_expression
+                            all:
+                                - has: {field: parameters, kind: parameter_list, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $VALUE}}}
+                                - has: {field: body, kind: identifier, pattern: $VALUE}
+                    - not: {has: {kind: argument, nthChild: 3}}
+    mapped:
+        matches: chained
+        all:
+            - has: {field: function, has: {field: name, regex: '^(Map|Select)$'}}
+            - has:
+                field: arguments
+                all:
+                    - not: {has: {kind: argument, nthChild: 2}}
+                    - has:
+                        nthChild: 1
+                        matches: positional
+                        has:
+                            any:
+                                - kind: lambda_expression
+                                  all:
+                                    - has: {field: parameters, matches: parameter}
+                                    - has: {field: body, not: {kind: block}, pattern: $SELECTED}
+                                    - any:
+                                        - has: {kind: modifier, regex: '^static$', pattern: $STATIC}
+                                        - not: {has: {kind: modifier}}
+                                - kind: identifier, member_access_expression, generic_name
+                                  pattern: $GROUP
+    scoped:
+        any:
+            - matches: query
+            - matches: bound
+            - matches: projected
+            - matches: mapped
+    released:
+        kind: lambda_expression
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      pattern: $RESOURCE
+                    - kind: parameter_list
+                      all:
+                        - has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $RESOURCE}}
+                        - not: {has: {kind: parameter, nthChild: 2}}
+            - has:
+                field: body
+                any:
+                    - pattern: IO.lift($RESOURCE.Dispose)
+                    - pattern: IO.lift(() => $RESOURCE.Dispose())
+    bracketed:
+        has:
+            field: arguments
+            all:
+                - any:
+                    - has: {kind: argument, regex: '^Use\s*:', has: {nthChild: {position: 1, reverse: true}, pattern: $BIND}}
+                    - has: {kind: argument, nthChild: 1, matches: positional, has: {pattern: $BIND}}
+                - any:
+                    - has: {kind: argument, regex: '^Fin\s*:', has: {matches: released}}
+                    - has: {kind: argument, nthChild: 2, matches: positional, has: {matches: released}}
+                - not: {has: {kind: argument, nthChild: 3}}
+    closed:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}
+            - has: {field: arguments, not: {has: {kind: argument}}}
+            - has:
+                field: function
+                has:
+                    field: expression
+                    any:
+                        - matches: scoped
+                        - kind: invocation_expression
+                          all:
+                            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^As$'}}, {has: {field: expression, matches: scoped}}]}
+                            - has: {field: arguments, not: {has: {kind: argument}}}
+rule:
+    kind: invocation_expression, return_statement
+    all:
+        - any:
+            - kind: invocation_expression
+              all:
+                - matches: closed
+                - has: {field: function, has: {field: expression, has: {stopBy: end, matches: use-call}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}
+                - matches: bracketed
+                - has: {field: function, has: {field: expression, pattern: $ACQUIRE, not: {any: [{has: {stopBy: end, matches: use-call}}, {matches: default-attributes}]}}}
+            - kind: invocation_expression
+              pattern: $SECOND
+              all:
+                - pattern: (from $SM in $SSRC from $SX in use($SACQ) from $SV in $SB select $SV).Bracket()
+                - not: {has: {stopBy: end, matches: default-attributes}}
+                - not: {has: {stopBy: end, kind: from_clause, nthChild: 1, has: {stopBy: end, matches: use-call}}}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: name, regex: '^Bracket$'}}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+                - has:
+                    field: function
+                    has:
+                        field: expression
+                        kind: parenthesized_expression
+                        has:
+                            kind: query_expression
+                            pattern: $TAILED
+                            all:
+                                - has: {kind: from_clause, not: {nthChild: 1}, matches: later-scope, precedes: {kind: from_clause}}
+                                - not: {has: {kind: from_clause, nthChild: 1, has: {stopBy: end, matches: use-call}}}
+                                - not: {has: {matches: later-scope, precedes: {stopBy: end, has: {stopBy: end, matches: use-call}}}}
+                                - has: {kind: select_clause, has: {kind: identifier, pattern: $SV}}
+                - not: {has: {stopBy: end, matches: default-attributes}}
+            - kind: return_statement
+              all:
+                - has: {matches: closed, not: {has: {field: function, has: {field: expression, has: {stopBy: end, matches: use-call}}}}}
+                - follows: {kind: local_declaration_statement, has: {stopBy: end, kind: variable_declarator, has: {field: name, pattern: $LOCAL}}}
+        - not: {inside: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, kind: ERROR}}
+        - not: {has: {stopBy: end, matches: overflows}}
+        - not: {all: [{has: {stopBy: end, matches: registration, pattern: $SHARED}}, {has: {stopBy: end, matches: registration, not: {pattern: $SHARED}}}]}
+        - not: {matches: {csharp-owner-body: {type: {regex: '^Disposal$'}, member: {regex: '^Using$'}}}}
+rewriters:
+    - id: second-use
+      rule:
+        pattern: (from $M in $SRC from $X in use($ACQ) from $V in $B select $V).Bracket()
+      fix: |-
+        from $M in $SRC
+        from $V in Disposal.Using($ACQ, $X => $B)
+        select $V
+    - id: open-scope
+      rule:
+        kind: from_clause
+        all:
+            - matches: later-scope
+            - inside: {matches: tailed-root, has: {kind: select_clause, has: {kind: identifier, pattern: $SV}}}
+      fix: from $SV in Disposal.Using($SACQ, $SX =>
+    - id: close-scope
+      rule:
+        kind: select_clause
+        all:
+            - has: {kind: identifier, pattern: $SV}
+            - inside: {matches: tailed-root}
+      fix: |-
+        select $SV)
+        select $SV
+    - id: identity-tail
+      rule:
+        kind: query_expression
+        all:
+            - has: {kind: from_clause, nthChild: 1, has: {matches: use-call}}
+            - has:
+                kind: from_clause
+                nthChild: 2
+                all:
+                    - has: {field: name, pattern: $V}
+                    - has: {nthChild: {position: 1, reverse: true}, pattern: $BODY}
+            - has: {kind: select_clause, nthChild: 3, has: {pattern: $V}}
+            - not: {has: {nthChild: 4}}
+      fix: $BODY
+    - id: drop-scope
+      rule:
+        kind: from_clause
+        nthChild: 1
+        has: {matches: use-call}
+      fix: ''
+transform:
+    SECOND_FIXED:
+        rewrite:
+            source: $SECOND
+            rewriters: [second-use]
+    TAIL_FIXED:
+        rewrite:
+            source: $TAILED
+            rewriters: [open-scope, close-scope]
+    ACQUIRE_TEXT:
+        replace:
+            source: $ACQUIRE
+            replace: '^$'
+            by: ''
+    SACQ_TEXT:
+        replace:
+            source: $SACQ
+            replace: '^$'
+            by: ''
+    SEP:
+        replace:
+            source: $ACQUIRE
+            replace: '(?s)^.*$'
+            by: ', '
+    SHUT:
+        replace:
+            source: $ACQUIRE
+            replace: '(?s)^.*$'
+            by: )
+    RAW:
+        rewrite:
+            source: $QUERY
+            rewriters: [identity-tail, drop-scope]
+    BODY:
+        replace:
+            source: $RAW
+            replace: '^\s+'
+            by: ''
+    MODIFIER:
+        replace:
+            source: $STATIC
+            replace: '(?s)^(.*)$'
+            by: '$1 '
+    ARROW:
+        replace:
+            source: $X
+            replace: '(?s)^(.*)$'
+            by: '$1 => '
+    PURE:
+        replace:
+            source: $SELECTED
+            replace: '(?s)^(.*)$'
+            by: 'IO.pure($1)'
+    USING:
+        replace:
+            source: $ACQUIRE
+            replace: '(?s)^.*$'
+            by: Disposal.Using(
+    OPEN:
+        replace:
+            source: $LOCAL
+            replace: '(?s)^.*$'
+            by: 'return '
+    CLOSE:
+        replace:
+            source: $LOCAL
+            replace: '(?s)^.*$'
+            by: ';'
+    GROUPED:
+        replace:
+            source: $GROUP
+            replace: '(?s)^(.*)$'
+            by: 'resource => IO.pure($1(resource))'
+fix:
+    template: $OPEN$USING$ACQUIRE$SEP$MODIFIER$ARROW$BODY$PURE$BIND$GROUPED$SHUT$CLOSE$SECOND_FIXED$TAIL_FIXED
+    expandStart: {kind: local_declaration_statement, has: {stopBy: end, matches: use-call}}
+message: "`$ACQUIRE_TEXT$SACQ_TEXT` scope closes through `Bracket` by hand"
+note: Use `Disposal.Using(<acquire>, <resource> => <body>)`, with a body nested three functions deep extracted into a named member

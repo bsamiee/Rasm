@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Camera, projection and stack operations, named views, layouts, capture, animation, and motion over Rhino viewports</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Dependencies">
+        <PackageReference Include="System.Drawing.Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="NodaTime" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
+    </ItemGroup>
+</Project>

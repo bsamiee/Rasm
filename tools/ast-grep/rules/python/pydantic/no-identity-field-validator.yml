@@ -7,28 +7,46 @@ utils:
         any:
             - matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^BaseModel$'}}}
             - matches: {python-member-use: {module: {regex: '^pydantic_settings$'}, name: {regex: '^BaseSettings$'}}}
+    field-validator-function:
+        matches: {python-member-use: {module: {regex: '^pydantic(\.v1)?$'}, name: {regex: '^(field_validator|validator)$'}}}
+    model-validator-function:
+        matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^model_validator$'}}}
+    mode:
+        kind: keyword_argument
+        has: {field: name, regex: '^mode$'}
     validator:
         kind: decorator
         has:
             kind: call
+            any:
+                - all:
+                    - has: {field: function, matches: field-validator-function}
+                    - has:
+                        field: arguments
+                        all:
+                            - has: {kind: string}
+                            - not:
+                                has:
+                                    pattern: $_
+                                    not:
+                                        any:
+                                            - kind: string
+                                              not: {has: {kind: interpolation}}
+                                            - kind: keyword_argument
+                                              all:
+                                                - has: {field: name, regex: '^mode$'}
+                                                - has: {field: value, kind: string, regex: '^["''](before|after)["'']$'}
+                                            - kind: comment
+                - all:
+                    - has: {field: function, matches: model-validator-function}
+                    - has: {field: arguments, has: {matches: mode, has: {field: value, regex: '^["'']before["'']$'}}, not: {has: {nthChild: 2}}}
+    after-model-validator:
+        kind: decorator
+        has:
+            kind: call
             all:
-                - has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic$'}, name: {regex: '^field_validator$'}}}}
-                - has:
-                    field: arguments
-                    all:
-                        - has: {kind: string}
-                        - not:
-                            has:
-                                pattern: $_
-                                not:
-                                    any:
-                                        - kind: string
-                                          not: {has: {kind: interpolation}}
-                                        - kind: keyword_argument
-                                          all:
-                                            - has: {field: name, regex: '^mode$'}
-                                            - has: {field: value, kind: string, regex: '^["''](before|after)["'']$'}
-                                        - kind: comment
+                - has: {field: function, matches: model-validator-function}
+                - has: {field: arguments, has: {matches: mode, has: {field: value, regex: '^["'']after["'']$'}}, not: {has: {nthChild: 2}}}
     classmethod: {kind: decorator, regex: '^@classmethod$'}
     staticmethod: {kind: decorator, regex: '^@staticmethod$'}
     value-parameter:
@@ -48,56 +66,98 @@ utils:
             - has: {matches: value-parameter, nthChild: 1}
             - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: positional_separator}}}, not: {matches: info-parameter}}}
             - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: positional_separator}}}}}
-rule:
-    kind: decorated_definition
-    all:
-        - has: {matches: validator}
-        - not: {has: {kind: decorator, not: {any: [{matches: validator}, {matches: classmethod}, {matches: staticmethod}]}}}
-        - any:
-            - all:
-                - has: {matches: staticmethod}
-                - has: {kind: function_definition, has: {field: parameters, matches: static-parameters}}
-            - all:
-                - not: {has: {matches: staticmethod}}
-                - has: {kind: function_definition, has: {field: parameters, matches: class-parameters}}
-        - has:
-            kind: function_definition
+    instance-parameters:
+        kind: parameters
+        all:
+            - has: {matches: value-parameter, nthChild: 1}
+            - not: {has: {nthChild: 2}}
+    identity-lambda:
+        kind: lambda
+        all:
+            - has: {field: parameters, has: {kind: identifier, pattern: $ARGUMENT}, not: {has: {nthChild: 2}}}
+            - has: {field: body, kind: identifier, pattern: $ARGUMENT}
+    identity-metadata:
+        kind: type
+        has:
+            kind: call
             all:
-                - has: {field: name, pattern: $METHOD}
-                - not: {has: {regex: '^async$'}}
-                - has:
-                    field: body
-                    all:
-                        - has: {kind: return_statement, pattern: 'return $VALUE'}
-                        - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
-        - inside:
-            kind: block
-            inside:
-                kind: class_definition
-                has:
-                    field: superclasses
-                    all:
-                        - has: {matches: model-base}
-                        - not: {has: {nthChild: 2}}
-        - inside:
-            kind: block
-            not:
-                has:
-                    nthChild:
-                        position: 2
-                        ofRule:
-                            any:
-                                - kind: function_definition
-                                  has: {field: name, pattern: $METHOD}
-                                - kind: decorated_definition
-                                  has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
-        - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-        - any:
-            - precedes: {pattern: $NEXT}
-            - pattern: $_
+                - has: {field: function, matches: {python-member-use: {module: {regex: '^pydantic(\.functional_validators)?$'}, name: {regex: '^(AfterValidator|BeforeValidator)$'}}}}
+                - has: {field: arguments, has: {matches: identity-lambda}, not: {has: {nthChild: 2}}}
+    annotated:
+        kind: generic_type
+        has: {kind: identifier, regex: '^Annotated$'}
+rule:
+    any:
+        - kind: decorated_definition
+          all:
+            - any:
+                - all:
+                    - has: {matches: validator}
+                    - not: {has: {kind: decorator, not: {any: [{matches: validator}, {matches: classmethod}, {matches: staticmethod}]}}}
+                    - any:
+                        - all:
+                            - has: {matches: staticmethod}
+                            - has: {kind: function_definition, has: {field: parameters, matches: static-parameters}}
+                        - all:
+                            - not: {has: {matches: staticmethod}}
+                            - has: {kind: function_definition, has: {field: parameters, matches: class-parameters}}
+                - all:
+                    - has: {matches: after-model-validator}
+                    - not: {has: {kind: decorator, not: {matches: after-model-validator}}}
+                    - has: {kind: function_definition, has: {field: parameters, matches: instance-parameters}}
+            - has:
+                kind: function_definition
+                all:
+                    - has: {field: name, pattern: $METHOD}
+                    - not: {has: {regex: '^async$'}}
+                    - has:
+                        field: body
+                        all:
+                            - has: {kind: return_statement, pattern: 'return $VALUE'}
+                            - not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
+            - inside:
+                kind: block
+                inside:
+                    kind: class_definition
+                    has:
+                        field: superclasses
+                        all:
+                            - has: {matches: model-base}
+                            - not: {has: {nthChild: 2}}
+            - inside:
+                kind: block
+                not:
+                    has:
+                        nthChild:
+                            position: 2
+                            ofRule:
+                                any:
+                                    - kind: function_definition
+                                      has: {field: name, pattern: $METHOD}
+                                    - kind: decorated_definition
+                                      has: {kind: function_definition, has: {field: name, pattern: $METHOD}}
+            - inside: {kind: block, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+            - any:
+                - precedes: {pattern: $NEXT}
+                - pattern: $_
+        - kind: type_parameter
+          pattern: $PARAMETERS
+          all:
+            - inside: {matches: annotated}
+            - has: {kind: type, nthChild: 3}
+            - has: {matches: identity-metadata}
+        - kind: type
+          all:
+            - has: {kind: generic_type, matches: annotated, has: {kind: type_parameter, all: [{has: {kind: type, nthChild: 1, pattern: $BASE}}, {has: {kind: type, nthChild: 2, matches: identity-metadata}}], not: {has: {nthChild: 3}}}}
+rewriters:
+    - id: kept-metadata
+      rule: {kind: type, pattern: $KEPT, not: {matches: identity-metadata}}
+      fix: $KEPT
+transform:
+    KEPT_TYPES: rewrite($PARAMETERS, rewriters=[kept-metadata], joinBy=', ')
+    REBUILT: {replace: {source: $KEPT_TYPES, replace: '(?s)^(.+)$', by: '[$1]'}}
 fix:
-    template: $NEXT
+    template: $NEXT$BASE$REBUILT
     expandEnd: {pattern: $NEXT}
-message: '`$METHOD` returns the field value unchanged'
+message: 'Validator returns the field value unchanged'
 note: 'Delete the validator'
-labels: {METHOD: {style: primary, message: Identity validator}}

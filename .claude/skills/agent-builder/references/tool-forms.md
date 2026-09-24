@@ -80,7 +80,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `ast-grep scan --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c` counts hits per rule in one scan
 - `mcp__ast-grep__find_code_by_rule` with `output_format: text` and `max_results` prints `showing first N of M`, the JSON form goes to a file
 - `hyperfine -N -r 8 '<scan>'` measures one rule
-- `difft --display inline <a> <b>` diffs two files with no escape byte under a pipe
+- `difft --display inline <a> <b>` diffs files with no escape byte under a pipe
 
 ## [08]-[CLAUDE]
 

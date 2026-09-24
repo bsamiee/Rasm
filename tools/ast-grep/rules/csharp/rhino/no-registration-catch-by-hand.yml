@@ -1,0 +1,59 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-registration-catch-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    registration:
+        kind: invocation_expression
+        has:
+            field: function
+            any:
+                - kind: member_access_expression
+                  has: {field: name, pattern: $REGISTER, regex: '^Register\w*$'}
+                - kind: identifier
+                  pattern: $REGISTER
+                  regex: '^Register\w*$'
+    relayed:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: identifier, pattern: $RELAY}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: 'method_declaration, local_function_statement'
+                    all:
+                        - has: {field: name, pattern: $RELAY}
+                        - has: {field: body, has: {stopBy: end, matches: registration}}
+    registering:
+        any:
+            - matches: registration
+            - matches: relayed
+            - has: {stopBy: end, any: [{matches: registration}, {matches: relayed}]}
+            - kind: identifier
+              pattern: $HELD
+              inside:
+                stopBy: end
+                kind: block
+                has:
+                    kind: local_declaration_statement
+                    has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $HELD}}, {has: {stopBy: end, any: [{matches: registration}, {matches: relayed}]}}]}
+    missing-id:
+        kind: argument_list
+        has: {stopBy: end, kind: identifier, regex: '^InvalidDataException$'}
+rule:
+    any:
+        - kind: invocation_expression
+          all:
+            - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^(Catch|CatchIO|IfFail|MapFail)(\s*<.+>)?$'}}, {has: {field: expression, matches: registering}}]}
+            - has: {field: arguments, matches: missing-id}
+        - kind: binary_expression
+          all:
+            - has: {field: operator, regex: '^\|$'}
+            - has: {field: left, matches: registering}
+            - has: {field: right, kind: invocation_expression, all: [{has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?@catch(\s*<.+>)?$'}}, {has: {field: arguments, matches: missing-id}}]}
+    not: {matches: {csharp-owner-body: {type: {regex: '^Answers$'}, member: {regex: '^Registered$'}}}}
+message: '`$REGISTER` maps its missing plug-in id exception by hand'
+note: Use `Answers.Registered(<register>, <assembly>, <plugInId>, <member>)` over the `(Assembly, Guid)` overload of the host registration

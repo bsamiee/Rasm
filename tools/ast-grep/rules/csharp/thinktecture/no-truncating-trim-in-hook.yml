@@ -1,0 +1,113 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-truncating-trim-in-hook
+language: csharp
+severity: error
+utils:
+    trim-callee:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^TrimOrNullify$'}
+            - kind: conditional_access_expression
+              has: {kind: member_binding_expression, has: {field: name, regex: '^TrimOrNullify$'}}
+    slice-callee:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^(Substring|AsSpan|AsMemory)$'}
+            - kind: conditional_access_expression
+              has: {kind: member_binding_expression, has: {field: name, regex: '^(Substring|AsSpan|AsMemory)$'}}
+    remove-callee:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^Remove$'}
+            - kind: conditional_access_expression
+              has: {kind: member_binding_expression, has: {field: name, regex: '^Remove$'}}
+    take-callee:
+        any:
+            - kind: member_access_expression
+              has: {field: name, regex: '^(Take|TakeLast)(<.+>)?$'}
+            - kind: conditional_access_expression
+              has: {kind: member_binding_expression, has: {field: name, regex: '^(Take|TakeLast)(<.+>)?$'}}
+    extension-class:
+        regex: '^(global::)?(Thinktecture\.)?StringExtensions$'
+    bounded-range:
+        kind: range_expression
+        regex: '\.\.\s*[^\s^]'
+    length-argument:
+        kind: argument
+        any:
+            - all: [{nthChild: 2}, {not: {has: {field: name, pattern: $_}}}]
+            - has: {field: name, regex: '^length$'}
+    trim-cut:
+        kind: invocation_expression
+        any:
+            - all:
+                - has:
+                    field: function
+                    matches: trim-callee
+                    not: {has: {field: expression, matches: extension-class}}
+                - has: {field: arguments, has: {kind: argument}}
+            - all:
+                - has:
+                    field: function
+                    matches: trim-callee
+                    has: {field: expression, matches: extension-class}
+                - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+    slice-cut:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: slice-callee}
+            - has:
+                field: arguments
+                any:
+                    - has: {matches: length-argument}
+                    - has: {kind: argument, has: {matches: bounded-range}}
+    remove-cut:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: remove-callee}
+            - has: {field: arguments, all: [{has: {kind: argument}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+    take-cut:
+        kind: invocation_expression
+        all:
+            - has: {field: function, matches: take-callee}
+            - has: {field: arguments, has: {kind: argument}}
+    range-cut:
+        kind: element_access_expression
+        has: {field: subscript, has: {kind: argument, has: {matches: bounded-range}}}
+    cut:
+        any:
+            - matches: trim-cut
+            - matches: slice-cut
+            - matches: remove-cut
+            - matches: take-cut
+            - matches: range-cut
+    relay:
+        kind: invocation_expression
+        all:
+            - has:
+                field: function
+                any:
+                    - kind: identifier
+                      pattern: $HELPER
+                    - kind: member_access_expression
+                      has: {field: name, kind: identifier, pattern: $HELPER}
+            - inside:
+                kind: compilation_unit
+                stopBy: end
+                has:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $HELPER}
+                        - not: {has: {field: name, regex: '^ValidateFactoryArguments$'}}
+                        - has: {stopBy: end, matches: cut}
+rule:
+    kind: invocation_expression, element_access_expression
+    pattern: $CUT
+    all:
+        - inside: {stopBy: end, matches: csharp-validation-hook}
+        - any:
+            - matches: cut
+            - matches: relay
+message: "`ValidateFactoryArguments` cuts the key to a length through `$CUT` and merges distinct inputs into one value"
+note: Assign `validationError` when the text exceeds the length

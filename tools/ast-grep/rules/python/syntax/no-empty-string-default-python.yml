@@ -6,20 +6,51 @@ utils:
     empty-string:
         kind: string
         not: {has: {kind: "string_content, interpolation"}}
+    empty-default:
+        any:
+            - matches: empty-string
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(msgspec\.)?field$'}
+                - has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: name, regex: '^default$'}}, {has: {field: value, matches: empty-string}}]}}
+    text-type:
+        kind: type
+        regex: '^(str|Annotated\[\s*str\s*,.*\])$'
+    tested:
+        any:
+            - inside: {kind: 'if_statement, elif_clause, while_statement, conditional_expression, assert_statement', field: condition}
+            - inside: {kind: not_operator}
+            - inside: {kind: boolean_operator}
+            - inside: {kind: comparison_operator, has: {matches: empty-string}}
+            - nthChild: 2
+              inside: {kind: conditional_expression}
+    tested-name:
+        kind: identifier
+        pattern: $NAME
+        matches: tested
+    tested-field:
+        kind: attribute
+        has: {field: attribute, pattern: $NAME}
+        matches: tested
 rule:
     any:
         - kind: typed_default_parameter
           all:
             - has: {field: name, pattern: $NAME}
-            - has: {field: type, kind: type, regex: '^str$'}
+            - has: {field: type, matches: text-type}
             - has: {field: value, matches: empty-string}
+            - inside: {kind: function_definition, stopBy: end, has: {field: body, has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, matches: tested-name}}}
+        - kind: default_parameter
+          all:
+            - has: {field: name, pattern: $NAME}
+            - has: {field: value, matches: empty-string}
+            - inside: {kind: 'function_definition, lambda', stopBy: end, has: {field: body, any: [{matches: tested-name}, {has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, matches: tested-name}}]}}
         - kind: assignment
           all:
             - has: {field: left, kind: identifier, pattern: $NAME}
-            - has: {field: type, kind: type, regex: '^str$'}
-            - has: {field: right, matches: empty-string}
+            - has: {field: type, matches: text-type}
+            - has: {field: right, matches: empty-default}
             - inside: {kind: expression_statement, inside: {kind: block, inside: {kind: class_definition}}}
-constraints:
-    NAME: {not: {regex: '^(sep|separator|prefix|suffix|delimiter)$'}}
+            - inside: {kind: module, stopBy: end, has: {stopBy: end, matches: tested-field}}
 message: '`$NAME` defaults to an empty string standing for absence'
-note: 'Declare `$NAME: str | None = None` and test `is None`'
+note: 'Declare `<name>: str | None = None` and test `is None`'

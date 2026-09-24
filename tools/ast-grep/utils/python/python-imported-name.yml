@@ -8,8 +8,13 @@ utils:
         all:
             - has: {field: module_name, matches: module}
             - any:
-                - has: {kind: dotted_name, matches: name, pattern: $BOUND}
+                - has: {kind: dotted_name, not: {nthChild: 1}, all: [{matches: name}, {pattern: $BOUND}]}
                 - has: {kind: aliased_import, all: [{has: {field: name, matches: name}}, {has: {field: alias, pattern: $BOUND}}]}
+    wildcard-import:
+        kind: import_from_statement
+        all:
+            - has: {field: module_name, matches: module}
+            - has: {kind: wildcard_import}
 rule:
     not: {matches: python-shadowed-name}
     kind: identifier
@@ -30,3 +35,8 @@ rule:
                 kind: class_definition
                 stopBy: {kind: "function_definition, lambda"}
                 has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: binding-import}
+            - matches: name
+              inside:
+                kind: module
+                stopBy: end
+                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: wildcard-import}

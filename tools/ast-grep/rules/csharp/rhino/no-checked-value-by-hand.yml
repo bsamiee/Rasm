@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-checked-value-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    owner:
+        regex: '^((global::)?Rasm\.Rhino\.Document\.)?(Refused|Invalid)$'
+    unsafe:
+        any:
+            - kind: member_access_expression, element_access_expression, conditional_access_expression, cast_expression
+            - kind: binary_expression
+              has: {field: operator, regex: '^[/%]$'}
+            - kind: object_creation_expression
+              has: {field: type, matches: owner}
+    plain:
+        any:
+            - kind: lambda_expression
+            - not: {any: [{matches: unsafe}, {has: {stopBy: {kind: lambda_expression}, matches: unsafe}}]}
+    typed:
+        has: {regex: '^((global::)?LanguageExt\.)?Fin\s*<'}
+    result:
+        inside:
+            any:
+                - kind: lambda_expression
+                  matches: typed
+                - kind: arrow_expression_clause, return_statement
+                  inside:
+                    stopBy: {kind: 'method_declaration, local_function_statement, lambda_expression, property_declaration'}
+                    kind: method_declaration, local_function_statement, lambda_expression, property_declaration
+                    matches: typed
+                - kind: conditional_expression
+                  matches: result
+rule:
+    any:
+        - pattern: $OWNER.Unless($$$).$MAP($LIFT)
+        - kind: conditional_expression
+          any:
+            - all: [{has: {field: alternative, pattern: new $OWNER($$$)}}, {has: {field: consequence, matches: plain}}]
+            - all: [{has: {field: consequence, pattern: new $OWNER($$$)}}, {has: {field: alternative, matches: plain}}]
+          matches: result
+          not: {has: {field: condition, has: {stopBy: end, kind: 'declaration_pattern, var_pattern, recursive_pattern'}}}
+        - pattern: $ANSWERS.$FOUND($$$).ToFin(new $OWNER($$$))
+    not: {matches: {csharp-owner-body: {type: {regex: '^(Refused|Invalid)$'}, member: {regex: '^Unless$'}}}}
+constraints:
+    OWNER: {matches: owner}
+    MAP: {regex: '^(Map|Select)(\s*<.+>)?$'}
+    LIFT: {has: {kind: lambda_expression, has: {field: body, not: {kind: block}, matches: plain}}}
+    ANSWERS: {regex: '^((global::)?Rasm\.Rhino\.Document\.)?Answers$'}
+    FOUND: {regex: '^Found(\s*<.+>)?$'}
+message: Check selects between a value and `$OWNER` by hand
+note: Use `<owner>.Unless(<check>, <value>, <member>)`, with `Unless<T>` where `T` is a base type of `<value>`

@@ -25,6 +25,7 @@ prerelease-mode = "allow"
 
 [manifest]
 members = [
+    "interface",
     "rasm",
     "rasm-test-support",
 ]
@@ -1024,6 +1025,19 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/4b/39/9a4689914dd907915cee74733b95888fc1d8a21aad47a24a0a2deec73ac4/cachetools-7.1.8.tar.gz", hash = "sha256:1221d547a0b24b7f26fa891d40d488b5258beab9aebd8ed68c729be3af849c43", size = 40909, upload-time = "2026-08-31T19:02:53.985Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/d7/3d/9487690d0e937854db587205c66bab3c3cf88d9f00ed380b74cb88cc94ee/cachetools-7.1.8-py3-none-any.whl", hash = "sha256:a81e3844acaa7355b6567f97bd67a94a14ec3a9bc2cbbdae45b9592cc036775b", size = 16842, upload-time = "2026-08-31T19:02:52.554Z" },
+]
+
+[[package]]
+name = "cattrs"
+version = "26.2.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "attrs" },
+    { name = "typing-extensions" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d6/b2/42f4524e5479b090040b5fd8bb316dd8c65a079bb6492494ce2079dc91be/cattrs-26.2.0.tar.gz", hash = "sha256:3cf49f69df8326bcf17a3cb3d3d3ec4a856858fe3a7473746c9044c317d3ba55", size = 524993, upload-time = "2026-09-06T20:31:58.055Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/f5/4d/6b8460462012a52075ba97932197f8c141be71b8e5f7e918af08ee73424b/cattrs-26.2.0-py3-none-any.whl", hash = "sha256:c680f17cd1df3a1c038ad1db8d90a9c595568cc54c4e8098e7ceb8d7b9bd826b", size = 74830, upload-time = "2026-09-06T20:31:56.327Z" },
 ]
 
 [[package]]
@@ -3071,6 +3085,29 @@ source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/72/34/14ca021ce8e5dfedc35312d08ba8bf51fdd999c576889fc2c24cb97f4f10/iniconfig-2.3.0.tar.gz", hash = "sha256:c76315c77db068650d49c5b56314774a7804df16fee4402c1f19d6d15d8c4730", size = 20503, upload-time = "2025-10-18T21:55:43.219Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/cb/b1/3846dd7f199d53cb17f49cba7e651e9ce294d8497c8c150530ed11865bb8/iniconfig-2.3.0-py3-none-any.whl", hash = "sha256:f631c04d2c48c52b84d0d0549c99ff3859c98df65b3101406327ecc7d53fbf12", size = 7484, upload-time = "2025-10-18T21:55:41.639Z" },
+]
+
+[[package]]
+name = "interface"
+version = "0.0.0"
+source = { virtual = "tools/interface" }
+dependencies = [
+    { name = "anyio" },
+    { name = "cyclopts" },
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "msgspec" },
+    { name = "psutil" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "anyio" },
+    { name = "cyclopts" },
+    { name = "httpx" },
+    { name = "mcp" },
+    { name = "msgspec" },
+    { name = "psutil" },
 ]
 
 [[package]]
@@ -7113,7 +7150,9 @@ source = { virtual = "." }
 [package.dev-dependencies]
 dev = [
     { name = "annotated-types" },
+    { name = "attrs" },
     { name = "brotli-stubs" },
+    { name = "cattrs" },
     { name = "coverage" },
     { name = "dirty-equals" },
     { name = "fake-bpy-module-5-2" },
@@ -7268,6 +7307,7 @@ workspace = [
     { name = "lz4" },
     { name = "manifold3d" },
     { name = "matplotlib" },
+    { name = "mcp" },
     { name = "meshio" },
     { name = "mpmath" },
     { name = "msgspec" },
@@ -7439,7 +7479,9 @@ workspace = [
 [package.metadata.requires-dev]
 dev = [
     { name = "annotated-types" },
+    { name = "attrs" },
     { name = "brotli-stubs" },
+    { name = "cattrs" },
     { name = "coverage" },
     { name = "dirty-equals" },
     { name = "fake-bpy-module-5-2" },
@@ -7592,6 +7634,7 @@ workspace = [
     { name = "lz4" },
     { name = "manifold3d" },
     { name = "matplotlib" },
+    { name = "mcp" },
     { name = "meshio" },
     { name = "mpmath" },
     { name = "msgspec" },
@@ -7776,6 +7819,7 @@ dependencies = [
     { name = "opentelemetry-sdk" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pydantic-core" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "s3fs" },
@@ -7799,6 +7843,7 @@ requires-dist = [
     { name = "opentelemetry-sdk" },
     { name = "psutil" },
     { name = "pydantic" },
+    { name = "pydantic-core" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
     { name = "s3fs" },

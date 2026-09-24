@@ -3,16 +3,21 @@
         <RepoRoot>$(MSBuildThisFileDirectory)</RepoRoot>
         <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepoRoot)', '.artifacts', 'dotnet'))</ArtifactsPath>
         <LibsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'libs'))</LibsRoot>
-        <ToolsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tools'))</ToolsRoot>
         <TestsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'tests'))</TestsRoot>
         <AppsRoot>$([MSBuild]::NormalizeDirectory('$(RepoRoot)', 'apps'))</AppsRoot>
     </PropertyGroup>
 
     <PropertyGroup Label="Project Classification">
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(LibsRoot)'))">libs</ProjectRole>
-        <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(ToolsRoot)'))">tools</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(TestsRoot)'))">tests</ProjectRole>
         <ProjectRole Condition="$(MSBuildProjectDirectory.StartsWith('$(AppsRoot)'))">apps</ProjectRole>
+        <_ParentFolder>$([System.IO.Path]::GetFileName($([System.IO.Path]::GetDirectoryName('$(MSBuildProjectDirectory)'))))</_ParentFolder>
+        <RhinoHost Condition="'$(_ParentFolder)' == 'rhino'">common</RhinoHost>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Rhino Plugin" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
+        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <TargetExt>.rhp</TargetExt>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
@@ -28,6 +33,13 @@
         <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
         <NuGetAudit>false</NuGetAudit>
         <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <PropertyGroup Label="Mapperly">
+        <MapperlyAutoUserMappings>false</MapperlyAutoUserMappings>
+        <MapperlyRequiredMappingStrategy>Target</MapperlyRequiredMappingStrategy>
+        <MapperlyEnabledConversions>None</MapperlyEnabledConversions>
+        <MapperlyThrowOnPropertyMappingNullMismatch>true</MapperlyThrowOnPropertyMappingNullMismatch>
     </PropertyGroup>
 
     <PropertyGroup Label="Continuous Integration" Condition="'$(CI)' == 'true'">

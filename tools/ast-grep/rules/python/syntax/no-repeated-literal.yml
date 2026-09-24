@@ -1,0 +1,161 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-literal
+language: python
+severity: error
+utils:
+    collection-element:
+        any:
+            - inside: {kind: tuple}
+            - inside: {kind: list}
+            - inside: {kind: set}
+            - inside: {kind: expression_list}
+            - inside: {kind: pair, field: value, inside: {kind: dictionary}}
+    bytes:
+        kind: string
+        has: {kind: string_start, regex: '^[rR]?[bB]'}
+    plus-chain:
+        kind: binary_operator
+        all:
+            - has: {field: operator, regex: '^\+$'}
+            - has: {field: right, kind: string}
+            - has: {field: left, any: [{kind: string}, {matches: plus-chain}]}
+            - not: {has: {stopBy: end, kind: interpolation}}
+    path-segment:
+        any:
+            - inside: {kind: binary_operator, has: {field: operator, regex: '^/$'}}
+            - inside:
+                kind: argument_list
+                inside: {kind: call, has: {field: function, regex: '(^|\.)((Pure)?(Posix|Windows)?Path|joinpath)$|^os\.path\.join$'}}
+    key-read:
+        any:
+            - kind: subscript
+            - {kind: call, has: {field: function, kind: attribute, has: {field: attribute, regex: '^get$'}}}
+    literal-member:
+        any:
+            - inside: {kind: type, inside: {kind: type_parameter, inside: {kind: generic_type, has: {kind: identifier, regex: '^Literal$'}}}}
+            - inside: {kind: subscript, field: subscript, has: {field: value, regex: '(^|\.)Literal$'}}
+    literal:
+        all:
+            - any:
+                - {kind: string, not: {matches: bytes}, has: {kind: string_content, pattern: $K}}
+                - {kind: string, matches: bytes, pattern: $K}
+                - {kind: concatenated_string, pattern: $K}
+            - has: {stopBy: end, kind: string_content, regex: '.{3}', not: {regex: '^[A-Z][A-Z0-9_]*$'}}
+            - not:
+                any:
+                    - inside: {kind: concatenated_string}
+                    - inside: {kind: binary_operator, matches: plus-chain}
+                    - has: {stopBy: end, kind: interpolation}
+                    - has: {stopBy: end, kind: string_content, has: {nthChild: 1}}
+                    - inside: {kind: expression_statement, not: {has: {nthChild: 2}}}
+                    - inside: {kind: keyword_argument, field: value, has: {field: name, regex: '^(encoding|errors)$'}}
+                    - inside: {any: [{kind: tuple}, {kind: list}], matches: collection-element}
+                    - inside: {kind: argument_list, inside: {kind: call, matches: collection-element}}
+                    - inside: {kind: keyword_argument, field: value, inside: {kind: argument_list, inside: {kind: call, matches: collection-element}}}
+                    - all: [{inside: {kind: subscript, field: subscript}}, {not: {matches: literal-member}}]
+                    - all: [{inside: {stopBy: end, kind: type}}, {not: {matches: literal-member}}]
+                    - inside: {stopBy: end, kind: 'class_pattern, keyword_pattern, dict_pattern'}
+                    - inside: {stopBy: end, kind: case_pattern, inside: {kind: case_clause, inside: {kind: block, inside: {kind: match_statement, has: {field: subject, matches: key-read}}}}}
+                    - inside: {kind: comparison_operator, has: {matches: key-read}}
+                    - {nthChild: 1, inside: {kind: argument_list, inside: {kind: call, matches: key-read}}}
+                    - inside: {stopBy: end, kind: assignment, has: {field: left, regex: '^__all__$'}}
+    return-body:
+        kind: block
+        has: {kind: return_statement, has: {matches: literal}}
+        not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: expression_statement, has: {kind: string}}, {kind: return_statement}]}}}
+    attribute-body:
+        kind: block
+        has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $A}}, {has: {field: right, matches: literal}}]}}
+        not: {has: {pattern: $_, not: {any: [{kind: comment}, {kind: expression_statement, has: {any: [{kind: string}, {kind: assignment}]}}]}}}
+    wrapper-def:
+        kind: function_definition
+        all:
+            - has: {field: name, pattern: $W}
+            - has: {field: parameters, not: {has: {nthChild: 1}}}
+            - has: {field: body, matches: return-body}
+    namespace-class:
+        kind: class_definition
+        all:
+            - has: {field: name, pattern: $N}
+            - not: {has: {field: superclasses, kind: argument_list}}
+            - has: {field: body, matches: attribute-body}
+            - not: {has: {field: body, has: {kind: expression_statement, has: {kind: assignment}, follows: {stopBy: end, kind: expression_statement, has: {kind: assignment}}}}}
+    wrapper-call:
+        pattern: $W()
+        all:
+            - has: {field: function, kind: identifier}
+            - inside: {stopBy: end, any: [{kind: module}, {kind: block}], has: {any: [{matches: wrapper-def}, {kind: decorated_definition, has: {field: definition, matches: wrapper-def}}]}}
+    class-read:
+        kind: attribute
+        all:
+            - has: {field: object, kind: identifier, regex: '^[A-Z]', pattern: $N}
+            - not: {any: [{inside: {kind: call, field: function}}, {inside: {kind: assignment, field: left}}]}
+            - has: {field: attribute, pattern: $A}
+            - inside: {stopBy: end, kind: module, has: {any: [{matches: namespace-class}, {kind: decorated_definition, has: {field: definition, matches: namespace-class}}]}}
+    text-node:
+        any:
+            - all: [{matches: literal}, {not: {any: [{matches: path-segment}, {matches: literal-member}]}}]
+            - matches: wrapper-call
+            - matches: class-read
+    text-spelling:
+        any:
+            - matches: text-node
+            - has: {stopBy: end, matches: text-node}
+    text-before:
+        any:
+            - follows: {stopBy: end, matches: text-spelling}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: text-spelling}}
+    text-second:
+        any:
+            - all: [{matches: text-node}, {matches: text-before}]
+            - has: {stopBy: end, all: [{matches: text-node}, {matches: text-before}]}
+    text-third:
+        any:
+            - follows: {stopBy: end, matches: text-second}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: text-second}}
+    path-node:
+        all: [{matches: literal}, {matches: path-segment}]
+    path-spelling:
+        any:
+            - matches: path-node
+            - has: {stopBy: end, matches: path-node}
+    path-before:
+        any:
+            - follows: {stopBy: end, matches: path-spelling}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: path-spelling}}
+    path-second:
+        any:
+            - all: [{matches: path-node}, {matches: path-before}]
+            - has: {stopBy: end, all: [{matches: path-node}, {matches: path-before}]}
+    path-third:
+        any:
+            - follows: {stopBy: end, matches: path-second}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: path-second}}
+    type-node:
+        all: [{matches: literal}, {matches: literal-member}]
+    type-spelling:
+        any:
+            - matches: type-node
+            - has: {stopBy: end, matches: type-node}
+    type-before:
+        any:
+            - follows: {stopBy: end, matches: type-spelling}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: type-spelling}}
+    type-second:
+        any:
+            - all: [{matches: type-node}, {matches: type-before}]
+            - has: {stopBy: end, all: [{matches: type-node}, {matches: type-before}]}
+    type-third:
+        any:
+            - follows: {stopBy: end, matches: type-second}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: type-second}}
+rule:
+    pattern: $S
+    any:
+        - all: [{matches: literal}, {not: {any: [{matches: path-segment}, {matches: literal-member}]}}, {pattern: $W}, {pattern: $N}, {matches: text-third}]
+        - all: [{matches: wrapper-call}, {pattern: $N}, {matches: text-third}]
+        - all: [{matches: class-read}, {pattern: $W}, {matches: text-third}]
+        - all: [{matches: path-node}, {matches: path-third}]
+        - all: [{matches: type-node}, {matches: type-third}]
+message: '`$S` repeats a literal spelled twice earlier in the file'
+note: 'Bind the value once in a module constant, or read it from the owner that declares it'

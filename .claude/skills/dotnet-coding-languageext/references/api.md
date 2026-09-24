@@ -390,7 +390,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [05]   | `FinT.lift(K<M, Fin<A>>)`             | `static`      | Named form of the constructor                                    |
 |  [06]   | `FinT.liftIO(IO<A>)`                  | `static`      | Lift from `IO<A>` under `MonadIO<M>`                             |
 |  [07]   | `FinT.liftIO(IO<Fin<A>>)`             | `static`      | Lift from `IO<Fin<A>>` directly                                  |
-|  [08]   | `FinT.runFin`                         | `property`    | The `K<M, Fin<A>>` result                                        |
+|  [08]   | `FinT.runFin`                         | `property`    | `K<M, Fin<A>>` result                                            |
 |  [09]   | `FinT.Bind` overload set              | `instance`    | Binds `FinT`, `K<FinT<M>,B>`, `Fin<B>`, `Pure<B>`, `Fail<Error>` |
 |  [10]   | `FinT.SelectMany` overload set        | `instance`    | Binds `FinT`, `K<FinT<M>,B>`, `K<M,B>`, `Fin<B>`, `Pure<B>`      |
 |  [11]   | `FinT.Match(Succ, Fail)` / `MapFail`  | `instance`    | `K<M, B>` fold / failure map                                     |
@@ -563,7 +563,7 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 |  [27]   | `Memo.Reset()`                           | `instance` | Drop a memoized value                   |
 |  [28]   | `Range.fromMinMax(A, A, A)`              | `static`   | Generated bounded sequence              |
 |  [29]   | `Prelude.Range(int\|long from, count)`   | `static`   | `Range<A>` from origin and count        |
-|  [30]   | `Prelude.unit`                           | `property` | The `Unit` literal                      |
+|  [30]   | `Prelude.unit`                           | `property` | `Unit` literal                          |
 |  [31]   | `Prelude.identity(A)`                    | `static`   | Identity function                       |
 
 - Results memoized past the run are `memo` over the executed value, the `memoK(K<F,A>)` and `memoK(A)` arities preload a value that already exists
@@ -648,4 +648,4 @@ Each `LanguageExt.Deriving` interface lifts one `LanguageExt.Traits` conformance
 - `Deriving.Stateful<Supertype, Subtype, S>`, `Deriving.Writable<Supertype, Subtype, W>`, and `Deriving.MonadT<Supertype, Subtype, M>` place it second
 - `Deriving.Fallible<E, Supertype, Subtype>` puts the failure type first
 - `LanguageExt.Deriving` is a static class, `using LanguageExt.Deriving;` fails with `CS0138`, a derivation reads `Deriving.Monad<Supertype, Subtype>`
-- `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate arity-two interface over `NaturalIso<Supertype, Subtype>`
+- `LanguageExt.Traits.Deriving<Supertype, Subtype>` is a separate interface over `NaturalIso<Supertype, Subtype>`

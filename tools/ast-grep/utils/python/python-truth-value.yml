@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-truth-value
+language: python
+utils:
+    literal-truth:
+        any:
+            - kind: 'comparison_operator, not_operator, true, false'
+            - kind: call
+              has: {field: function, kind: identifier, regex: '^(bool|isinstance|issubclass|callable|hasattr|any|all)$', not: {matches: python-shadowed-name}}
+            - kind: parenthesized_expression
+              has: {matches: literal-truth}
+            - kind: boolean_operator
+              all:
+                - has: {field: left, matches: literal-truth}
+                - has: {field: right, matches: literal-truth}
+    bool-parameter:
+        matches: {python-typed-parameter: {type: {regex: '^bool$'}}}
+    bool-name:
+        matches: {python-assigned-name: {value: {matches: literal-truth}}}
+    truth:
+        any:
+            - matches: literal-truth
+            - kind: identifier
+              any: [{matches: bool-parameter}, {matches: bool-name}]
+            - kind: parenthesized_expression
+              has: {matches: truth}
+            - kind: boolean_operator
+              all:
+                - has: {field: left, matches: truth}
+                - has: {field: right, matches: truth}
+rule:
+    matches: truth

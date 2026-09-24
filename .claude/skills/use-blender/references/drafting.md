@@ -1,6 +1,6 @@
 # [DRAFTING]
 
-Scaled technical drawings come from orthographic cameras, where paper size and scale fix every number, Line Art draws visible edges with hidden lines removed, and `scripts/drawing.py` writes the sheet. Sheets draw in a headless session or a factory run on the saved file. Models with IFC data take their drawings from `references/bim.md`.
+Scaled technical drawings come from orthographic cameras, where paper size and scale fix every number, Line Art draws visible edges with hidden lines removed, and `scripts/drawing.py` writes the sheet. Sheets draw in a headless session or a factory run on the saved file. Use `references/bim.md` for drawings of an IFC model.
 
 ## [01]-[SCALE]
 
@@ -15,12 +15,12 @@ Orthographic cameras with the default `sensor_fit` of `AUTO` span `ortho_scale` 
 ## [02]-[LINEWORK]
 
 ```python
-# [HEADLESS_CALL] Plan sheet at 1:50 through <camera>, an ORTHO camera above the model, <root> is the repository root
+# [HEADLESS_CALL] Plan sheet at 1:50 through <camera>, an ORTHO camera above the model, <skill> is this skill's directory
 import runpy
 
 import bpy
 
-drawing = runpy.run_path("<root>/.claude/skills/use-blender/scripts/drawing.py")
+drawing = runpy.run_path("<skill>/scripts/drawing.py")
 scene = bpy.context.scene
 scene.camera = bpy.data.objects["<camera>"]
 bpy.ops.object.grease_pencil_add(type="LINEART_SCENE")

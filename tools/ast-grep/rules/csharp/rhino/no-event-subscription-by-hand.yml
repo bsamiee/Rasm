@@ -1,0 +1,34 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-event-subscription-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    event:
+        any:
+            - kind: identifier
+              pattern: $EVENT
+            - kind: member_access_expression
+              has: {field: name, pattern: $EVENT}
+    action:
+        all:
+            - inside: {kind: lambda_expression, field: body, has: {field: parameters, any: [{kind: implicit_parameter, pattern: $P}, {kind: parameter_list, has: {kind: parameter, has: {field: name, pattern: $P}}}]}}
+            - has: {field: right, pattern: $P}
+rule:
+    kind: assignment_expression
+    all:
+        - has: {field: operator, regex: '^\+=$'}
+        - has: {field: left, matches: event}
+        - not: {matches: action}
+        - inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                kind: assignment_expression
+                all:
+                    - has: {field: operator, regex: '^-=$'}
+                    - has: {field: left, matches: event}
+                    - not: {matches: action}
+message: '`+=` and `-=` attach and detach `$EVENT` by hand'
+note: Use `Events.Attach<THandler>(h => <source>.<event> += h, h => <source>.<event> -= h, <handler>)` and dispose the returned handle to detach

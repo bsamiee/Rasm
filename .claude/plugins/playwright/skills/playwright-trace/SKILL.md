@@ -23,35 +23,36 @@ All commands after `open` operate on the currently opened trace — no need to p
 
 ### Open a trace
 
+Trace metadata holds browser, viewport, duration, and action and error counts:
+
 ```bash
-# Extract trace and show metadata: browser, viewport, duration, action/error counts
 npx playwright trace open <trace.zip>
 ```
 
 ### Close a trace
 
 ```bash
-# Remove extracted trace data
 npx playwright trace close
 ```
 
 ### Actions
 
+- `trace actions` lists every action as a tree with action IDs and timing
+- `--grep` filters by action title as a case-insensitive regex, `--errors-only` keeps failed actions
+
 ```bash
-# List all actions as a tree with action IDs and timing
 npx playwright trace actions
 
-# Filter by action title (regex, case-insensitive)
 npx playwright trace actions --grep "click"
 
-# Only failed actions
 npx playwright trace actions --errors-only
 ```
 
 ### Action details
 
+`trace action` prints one action's parameters, result, logs, source, and snapshots:
+
 ```bash
-# Show full details for one action: params, result, logs, source, snapshots
 npx playwright trace action <action-id>
 ```
 
@@ -59,116 +60,103 @@ The `action` command displays available snapshot phases (before, action, after) 
 
 ### Requests
 
+- `trace requests` lists every network request with start time on the `trace actions` clock, method, status, URL, duration, and size
+- `--grep` filters by URL pattern, `--method` by HTTP method, `--failed` keeps requests with status 400 or above
+
 ```bash
-# All network requests: start time (on the `trace actions` clock), method, status, URL, duration, size
 npx playwright trace requests
 
-# Filter by URL pattern
 npx playwright trace requests --grep "api"
 
-# Filter by HTTP method
 npx playwright trace requests --method POST
 
-# Only failed requests (status >= 400)
 npx playwright trace requests --failed
 ```
 
 ### Request details
 
+`trace request` prints one request's headers, body, and security details:
+
 ```bash
-# Show full details for one request: headers, body, security
 npx playwright trace request <request-id>
 ```
 
 ### Console
 
+- `trace console` lists every console message with stdout and stderr
+- `--errors-only` keeps errors, `--browser` the browser console, `--stdio` stdout and stderr, `--grep` messages matching a text pattern
+
 ```bash
-# All console messages and stdout/stderr
 npx playwright trace console
 
-# Only errors
 npx playwright trace console --errors-only
 
-# Only browser console (no stdout/stderr)
 npx playwright trace console --browser
 
-# Only stdout/stderr (no browser console)
 npx playwright trace console --stdio
 
-# Filter by message text pattern
 npx playwright trace console --grep "failed to fetch"
 ```
 
 ### Errors
 
+`trace errors` lists every error with its stack trace and associated action:
+
 ```bash
-# All errors with stack traces and associated actions
 npx playwright trace errors
 ```
 
 ### Snapshots
 
-The `snapshot` command loads the DOM snapshot for an action into a headless browser and runs a single browser command against it. Without a browser command, it returns the accessibility snapshot.
+The `snapshot` command loads the DOM snapshot for an action into a headless browser and runs a single browser command against it. Without a browser command, it returns the accessibility snapshot. An `eval` with a ref targets that element of the accessibility snapshot.
 
 ```bash
-# Get the accessibility snapshot (default)
 npx playwright trace snapshot <action-id>
 
-# Use a specific phase
 npx playwright trace snapshot <action-id> --phase before
 
-# Run eval to query the DOM
 npx playwright trace snapshot <action-id> -- eval "document.title"
 npx playwright trace snapshot <action-id> -- eval "document.querySelector('#error').textContent"
 
-# Eval on a specific element ref (from the snapshot)
 npx playwright trace snapshot <action-id> -- eval "el => el.getAttribute('data-testid')" e5
 
-# Take a screenshot of the snapshot
 npx playwright trace snapshot <action-id> -- screenshot
 
-# Redirect output to a file
-npx playwright trace snapshot <action-id> -- eval "document.body.outerHTML" --filename=page.html
-npx playwright trace snapshot <action-id> -- screenshot --filename=screenshot.png
+npx playwright trace snapshot <action-id> -- eval "document.body.outerHTML" --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/page.html
+npx playwright trace snapshot <action-id> -- screenshot --filename=$PLAYWRIGHT_MCP_OUTPUT_DIR/screenshot.png
 ```
 
 Only three browser commands are useful on a frozen snapshot: `snapshot`, `eval`, and `screenshot`.
 
 ### Attachments
 
+`trace attachment` extracts an attachment by its number:
+
 ```bash
-# List all trace attachments
 npx playwright trace attachments
 
-# Extract an attachment by its number
 npx playwright trace attachment 1
 npx playwright trace attachment 1 -o out.png
 ```
 
 ## Typical investigation
 
+An investigation finds the failed action, reads its details and snapshot, then checks failed requests and console errors:
+
 ```bash
-# 1. Open the trace and see what's inside
 npx playwright trace open test-results/my-test/trace.zip
 
-# 2. What actions ran?
 npx playwright trace actions
 
-# 3. Which action failed?
 npx playwright trace actions --errors-only
 
-# 4. What went wrong?
 npx playwright trace action 12
 
-# 5. What did the page look like at that moment?
 npx playwright trace snapshot 12
 
-# 6. Query the DOM for more detail
 npx playwright trace snapshot 12 -- eval "document.querySelector('.error-message').textContent"
 
-# 7. Any relevant network failures?
 npx playwright trace requests --failed
 
-# 8. Any console errors?
 npx playwright trace console --errors-only
 ```

@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutable-collection-field
+language: csharp
+severity: error
+utils:
+    mutable-collection:
+        any:
+            - kind: array_type
+            - kind: 'generic_name, qualified_name'
+              regex: |-
+                (?x)^(global::)?(System\.Collections\.(Generic|ObjectModel|Concurrent)\.)?
+                (List|Dictionary|SortedDictionary|SortedList|SortedSet|Queue|Stack|LinkedList|PriorityQueue|IList|ICollection|IDictionary|ISet
+                |Collection|ObservableCollection|ConcurrentDictionary|ConcurrentBag|ConcurrentQueue|ConcurrentStack|BlockingCollection)\s*<
+            - kind: 'generic_name, qualified_name'
+              regex: '^(global::)?(System\.)?(Memory|ArraySegment)\s*<'
+            - kind: qualified_name
+              regex: '^(global::)?System\.Collections\.Generic\.HashSet\s*<'
+            - kind: 'identifier, qualified_name'
+              regex: '^(global::)?(System\.Collections\.)?(ArrayList|Hashtable)$'
+    generic-type:
+        kind: generic_name
+        has: {kind: type_argument_list, has: {matches: mutable-within}}
+    mutable-within:
+        any:
+            - matches: mutable-collection
+            - kind: nullable_type
+              has: {field: type, matches: mutable-within}
+            - kind: tuple_type
+              has: {kind: tuple_element, has: {field: type, matches: mutable-within}}
+            - matches: generic-type
+              not: {regex: '^(Func|Action)\s*<'}
+            - kind: qualified_name
+              all:
+                - not: {regex: '^(global::)?(System\.)?(Func|Action)\s*<'}
+                - has: {field: name, matches: generic-type}
+rule:
+    matches: csharp-record-member
+    has:
+        field: type
+        pattern: $TYPE
+        matches: mutable-within
+message: 'Field of type `$TYPE` holds a mutable collection'
+note: Hold `Seq<A>`, `Arr<A>`, `Lst<A>`, `Map<K, V>`, `HashMap<K, V>`, `Set<A>`, or `LanguageExt.HashSet<A>` and copy the input with `toSeq` at the boundary

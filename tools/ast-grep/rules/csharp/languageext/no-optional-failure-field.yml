@@ -1,0 +1,84 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-failure-field
+language: csharp
+severity: error
+utils:
+    error-type-name:
+        any:
+            - regex: '^(global::)?(LanguageExt\.Common\.|System\.)?(Error|Expected|Exceptional|ManyErrors|Exception)$'
+            - kind: identifier
+              pattern: $ERROR
+              inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: record_declaration, all: [{has: {field: name, pattern: $ERROR}}, {matches: csharp-error-record}]}}
+    failure-name:
+        regex: '^(error|failure|fault|reason|problem|cause)|(^|[a-z0-9])(Error|Failure|Fault|Reason|Problem|Cause)([A-Z0-9]|$)'
+    failure-type:
+        any:
+            - kind: 'generic_name, qualified_name'
+              regex: '^(global::)?(LanguageExt\.)?Option\s*<'
+              has: {stopBy: end, kind: type_argument_list, has: {nthChild: 1, matches: error-type-name}}
+            - kind: nullable_type
+              has: {field: type, matches: error-type-name}
+            - regex: |-
+                (?x)^(
+                  (global::)?(LanguageExt\.)?Fin\s*<\s*(global::)?(LanguageExt\.)?Unit\s*>
+                  |(global::)?(LanguageExt\.)?(Either|Validation)\s*<\s*(global::)?(LanguageExt\.Common\.)?Error\s*,\s*(global::)?(LanguageExt\.)?Unit\s*>
+                )$
+    optional-text:
+        regex: '^((global::)?(LanguageExt\.)?Option\s*<\s*string\s*>|string\s*\?)$'
+    optional-failure:
+        any:
+            - has: {field: type, matches: failure-type}
+            - all:
+                - has: {field: type, matches: optional-text}
+                - has: {field: name, matches: failure-name}
+    optional-failure-field:
+        kind: field_declaration
+        has:
+            kind: variable_declaration
+            any:
+                - has: {field: type, matches: failure-type}
+                - all:
+                    - has: {field: type, matches: optional-text}
+                    - has: {kind: variable_declarator, has: {field: name, matches: failure-name}}
+    owner:
+        kind: 'record_declaration, class_declaration, struct_declaration'
+        not: {matches: csharp-error-record}
+    data-member:
+        kind: 'property_declaration, field_declaration'
+        not: {any: [{matches: optional-failure}, {matches: optional-failure-field}]}
+    member-with-data:
+        kind: declaration_list
+        inside: {matches: owner}
+        any:
+            - inside: {kind: 'record_declaration, class_declaration, struct_declaration', has: {kind: parameter_list, has: {kind: parameter}}}
+            - has: {matches: data-member}
+rule:
+    any:
+        - kind: parameter
+          all:
+            - matches: optional-failure
+            - has: {field: name, pattern: $FIELD}
+            - inside: {kind: parameter_list, inside: {matches: owner}}
+            - any:
+                - follows: {stopBy: end, kind: parameter}
+                - precedes: {stopBy: end, kind: parameter}
+        - kind: tuple_element
+          all:
+            - matches: optional-failure
+            - has: {field: name, pattern: $FIELD}
+            - any:
+                - follows: {stopBy: end, kind: tuple_element}
+                - precedes: {stopBy: end, kind: tuple_element}
+        - kind: property_declaration
+          all:
+            - matches: optional-failure
+            - has: {field: name, pattern: $FIELD}
+            - has: {field: accessors, kind: accessor_list}
+            - inside: {matches: member-with-data}
+        - kind: field_declaration
+          all:
+            - matches: optional-failure-field
+            - has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, pattern: $FIELD}}}
+            - inside: {matches: member-with-data}
+message: '`$FIELD` holds an optional failure beside the data of a success'
+note: Use a union case or an `Expected` record holding the failure as a required field

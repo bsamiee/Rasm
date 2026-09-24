@@ -1,0 +1,33 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-record-member
+language: csharp
+rule:
+    any:
+        - kind: parameter
+          inside: {kind: parameter_list, inside: {kind: record_declaration}}
+        - kind: parameter
+          has: {field: name, pattern: $PRIMARY}
+          inside:
+            kind: parameter_list
+            inside:
+                kind: 'class_declaration, struct_declaration'
+                has:
+                    field: body
+                    has:
+                        stopBy: end
+                        kind: identifier
+                        pattern: $PRIMARY
+                        inside: {stopBy: end, kind: 'arrow_expression_clause, block'}
+        - kind: property_declaration
+          not: {has: {kind: modifier, regex: '^override$'}}
+          inside: {kind: declaration_list, inside: {kind: record_declaration}}
+        - kind: property_declaration
+          not: {has: {kind: modifier, regex: '^(override|static)$'}}
+          inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration'}}
+        - kind: variable_declaration
+          inside: {kind: field_declaration, inside: {kind: declaration_list, inside: {kind: record_declaration}}}
+        - kind: variable_declaration
+          inside:
+            kind: field_declaration
+            not: {has: {kind: modifier, regex: '^(static|const)$'}}
+            inside: {kind: declaration_list, inside: {kind: 'class_declaration, struct_declaration'}}

@@ -33,4 +33,4 @@ rule:
                 - has: {pattern: $T, not: {kind: generic_type}}
 fix: Promise<$ARG>
 message: 'Function returns `$ARG` or a promise of it, a union every caller branches on'
-note: 'Return one `Promise<$ARG>` at the host boundary, `Effect.runPromise` adapts the composed effect'
+note: 'Return one `Promise<<value>>` at the host boundary, `Effect.runPromise` adapts the composed effect'

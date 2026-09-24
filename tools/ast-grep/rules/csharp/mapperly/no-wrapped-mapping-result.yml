@@ -1,0 +1,99 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-wrapped-mapping-result
+language: csharp
+severity: error
+utils:
+    option:
+        has: {kind: identifier, nthChild: 1, regex: '^Option$'}
+    wrapper-type:
+        kind: generic_name
+        has:
+            kind: identifier
+            nthChild: 1
+            pattern: $WRAPPER
+            regex: '^(Option|Fin|Either|Validation|Try|IO|Eff)T?$'
+        any:
+            - inside:
+                field: returns
+                stopBy: end
+                kind: method_declaration
+                matches: csharp-mapping-method
+              not:
+                all:
+                    - matches: option
+                    - inside:
+                        field: returns
+                        stopBy: end
+                        kind: method_declaration
+                        not: {has: {kind: modifier, regex: '^partial$'}}
+            - not: {matches: option}
+              inside:
+                kind: parameter
+                stopBy: end
+                inside:
+                    kind: parameter_list
+                    inside: {kind: method_declaration, matches: csharp-mapping-method}
+    option-parameter:
+        kind: identifier
+        pattern: $HELD
+        inside: {stopBy: end, kind: method_declaration, has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $HELD}}, {has: {field: type, matches: option}}]}}}
+    unwrap-callee:
+        kind: member_access_expression
+        has: {field: name, regex: '^(ThrowIfFail|ValueUnsafe|Run|RunUnsafe)$'}
+        not:
+            all:
+                - has: {field: name, regex: '^ValueUnsafe$'}
+                - has: {field: expression, matches: option-parameter}
+    unwrap-body:
+        has:
+            stopBy: end
+            any:
+                - kind: throw_expression, throw_statement
+                - kind: invocation_expression
+                  has: {field: function, matches: unwrap-callee}
+    mapping-body:
+        inside: {field: body, stopBy: end, kind: method_declaration, matches: csharp-mapping-method}
+    unwrap:
+        any:
+            - kind: invocation_expression
+              has:
+                field: function
+                matches: unwrap-callee
+                has: {field: name, pattern: $WRAPPER}
+            - kind: throw_expression, throw_statement
+              pattern: $WRAPPER
+            - kind: cast_expression
+              pattern: $WRAPPER
+              has:
+                field: value
+                kind: invocation_expression
+                has: {field: function, regex: '(^|\.)From(<.+>)?$'}
+            - kind: invocation_expression
+              pattern: $WRAPPER
+              all:
+                - has:
+                    field: function
+                    any:
+                        - kind: identifier
+                          pattern: $HELPER
+                        - kind: member_access_expression
+                          has: {field: name, kind: identifier, pattern: $HELPER}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: method_declaration, local_function_statement
+                        all:
+                            - has: {field: name, pattern: $HELPER}
+                            - not: {matches: csharp-mapping-method}
+                            - matches: unwrap-body
+rule:
+    any:
+        - matches: wrapper-type
+        - kind: invocation_expression, throw_expression, throw_statement, cast_expression
+          all:
+            - matches: mapping-body
+            - matches: unwrap
+message: "Mapping method builds or unwraps a result through `$WRAPPER`, a case the boundary owns"
+note: Map the success value and keep the context at the call with `Map`, `Bind`, or a traversal

@@ -20,55 +20,80 @@ utils:
         inside: {kind: block, inside: {kind: function_definition}}
     forwarded-call:
         kind: call
+        pattern: $CALL
         any:
             - inside: {matches: forwarding-statement}
             - inside: {kind: await, inside: {matches: forwarding-statement}}
     single-statement-body:
         kind: block
         not: {has: {nthChild: {position: 2, ofRule: {not: {matches: python-docstring-or-comment}}}}}
-    first-parameter:
-        any: [{kind: identifier, pattern: $A}, {kind: typed_parameter, has: {kind: identifier, pattern: $A}}]
-    second-parameter:
-        nthChild: 2
-        any: [{kind: identifier, pattern: $B}, {kind: typed_parameter, has: {kind: identifier, pattern: $B}}]
-    third-parameter:
-        nthChild: 3
-        any: [{kind: identifier, pattern: $C}, {kind: typed_parameter, has: {kind: identifier, pattern: $C}}]
+    plain-parameter:
+        kind: identifier, typed_parameter
+    parameter-slot:
+        kind: identifier, typed_parameter, default_parameter, typed_default_parameter, list_splat_pattern, dictionary_splat_pattern, keyword_separator
+    positional-parameters:
+        kind: parameters
+        all:
+            - has: {matches: plain-parameter}
+            - not: {has: {matches: parameter-slot, not: {matches: plain-parameter}}}
+            - has: {nthChild: {position: 1, ofRule: {matches: parameter-slot}}, matches: {python-parameter: {name: {pattern: $FIRST}}}}
+            - has: {nthChild: {position: 1, reverse: true, ofRule: {matches: parameter-slot}}, matches: {python-parameter: {name: {pattern: $LAST}}}}
+    positional-arguments:
+        kind: argument_list
+        all:
+            - not: {has: {pattern: $_, not: {kind: identifier}}}
+            - has: {nthChild: 1, pattern: $FIRST}
+            - has: {nthChild: {position: 1, reverse: true}, pattern: $LAST}
+    keyword-arguments:
+        kind: argument_list
+        all:
+            - has: {kind: keyword_argument}
+            - not: {has: {pattern: $_, not: {kind: keyword_argument, all: [{has: {field: name, pattern: $K}}, {has: {field: value, pattern: $K}}]}}}
 rule:
     kind: function_definition
     all:
+        - not: {has: {field: name, regex: '^__\w+__$'}}
         - any:
             - not: {has: {regex: '^async$'}}
             - has: {field: body, kind: block, has: {matches: forwarding-statement, has: {kind: await}}}
         - not: {inside: {kind: decorated_definition}}
+        - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, has: {field: function, pattern: $F}}}
         - any:
             - all:
-                - any:
-                    - pattern: |-
-                        def $NAME($$$ARGS):
-                            return $F($$$ARGS)
-                    - pattern: |-
-                        async def $NAME($$$ARGS):
-                            return await $F($$$ARGS)
-                - has: {field: body, matches: single-statement-body}
+                - has: {field: parameters, matches: positional-parameters}
+                - has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, matches: positional-arguments}}}
+                - not:
+                    has:
+                        field: parameters
+                        has:
+                            all:
+                                - matches: {python-parameter: {name: {pattern: $PREVIOUS}}}
+                                - precedes: {stopBy: {matches: parameter-slot}, matches: {python-parameter: {name: {pattern: $NEXT}}}}
+                                - not: {inside: {kind: function_definition, stopBy: end, has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, has: {all: [{pattern: $PREVIOUS}, {precedes: {stopBy: {kind: identifier}, pattern: $NEXT}}]}}}}}}
+                - not:
+                    has:
+                        field: body
+                        has:
+                            stopBy: end
+                            pattern: $CALL
+                            has:
+                                field: arguments
+                                has:
+                                    all:
+                                        - pattern: $PREVIOUS
+                                        - precedes: {stopBy: {kind: identifier}, pattern: $NEXT}
+                                        - not: {inside: {kind: function_definition, stopBy: end, has: {field: parameters, has: {all: [{matches: {python-parameter: {name: {pattern: $PREVIOUS}}}}, {precedes: {stopBy: {matches: parameter-slot}, matches: {python-parameter: {name: {pattern: $NEXT}}}}}]}}}}
             - all:
-                - has: {field: parameters, has: {matches: first-parameter}, not: {has: {nthChild: 2}}}
-                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F($A)}}
-            - all:
-                - has:
-                    field: parameters
-                    all: [{has: {matches: first-parameter}}, {has: {matches: second-parameter}}]
-                    not: {has: {nthChild: 3}}
-                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F($A, $B)'}}
-            - all:
-                - has:
-                    field: parameters
-                    all: [{has: {matches: first-parameter}}, {has: {matches: second-parameter}}, {has: {matches: third-parameter}}]
-                    not: {has: {nthChild: 4}}
-                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F($A, $B, $C)'}}
+                - has: {field: parameters, has: {matches: plain-parameter}, not: {has: {matches: parameter-slot, not: {matches: plain-parameter}}}}
+                - has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, matches: keyword-arguments}}}
+                - not: {has: {field: parameters, has: {all: [{matches: plain-parameter}, {matches: {python-parameter: {name: {pattern: $Q}}}}, {not: {inside: {kind: function_definition, stopBy: end, has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, has: {kind: keyword_argument, has: {field: name, pattern: $Q}}}}}}}}]}}}
+                - not: {has: {field: body, has: {stopBy: end, pattern: $CALL, has: {field: arguments, has: {kind: keyword_argument, all: [{has: {field: value, pattern: $V}}, {not: {inside: {kind: function_definition, stopBy: end, has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $V}}}}}}}}]}}}}}
             - all:
                 - has: {field: parameters, has: {kind: list_splat_pattern, has: {kind: identifier, pattern: $A}}, not: {has: {nthChild: 2}}}
-                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: $F(*$A)}}
+                - has: {field: body, has: {stopBy: end, pattern: $CALL, all: [{pattern: '$F(*$A)'}]}}
+            - all:
+                - has: {field: parameters, has: {kind: dictionary_splat_pattern, has: {kind: identifier, pattern: $K}}, not: {has: {nthChild: 2}}}
+                - has: {field: body, has: {stopBy: end, pattern: $CALL, all: [{pattern: '$F(**$K)'}]}}
             - all:
                 - has:
                     field: parameters
@@ -76,7 +101,7 @@ rule:
                         - has: {kind: list_splat_pattern, has: {kind: identifier, pattern: $A}}
                         - has: {kind: dictionary_splat_pattern, has: {kind: identifier, pattern: $K}}
                     not: {has: {nthChild: 3}}
-                - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, pattern: '$F(*$A, **$K)'}}
+                - has: {field: body, has: {stopBy: end, pattern: $CALL, all: [{pattern: '$F(*$A, **$K)'}]}}
         - not: {has: {field: name, pattern: $F}}
 constraints:
     F: {matches: named-callee}

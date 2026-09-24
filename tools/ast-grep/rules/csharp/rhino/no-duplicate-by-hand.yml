@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-duplicate-by-hand
+language: csharp
+severity: error
+files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+utils:
+    copy-call:
+        any:
+            - kind: invocation_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_access_expression
+                    all:
+                        - has: {field: expression, pattern: $SOURCE}
+                        - has: {field: name, kind: identifier, regex: '^(Duplicate|DuplicateShallow)$', pattern: $COPY}
+                - has: {field: arguments, not: {has: {kind: argument}}}
+            - kind: parenthesized_expression
+              has: {matches: copy-call}
+    narrowing-arm:
+        kind: switch_expression_arm
+        any:
+            - has: {kind: declaration_pattern, has: {field: type, pattern: $T}}
+            - has: {kind: constant_pattern, has: {kind: identifier, pattern: $T}}
+    parameter-narrowed:
+        any:
+            - kind: cast_expression
+              all:
+                - has: {field: value, kind: identifier, pattern: $P}
+                - has: {field: type, pattern: $T}
+            - kind: as_expression
+              all:
+                - has: {field: left, kind: identifier, pattern: $P}
+                - has: {field: right, pattern: $T}
+    relay-name:
+        any:
+            - kind: identifier
+              pattern: $RELAY
+            - kind: generic_name
+              has: {kind: identifier, pattern: $RELAY}
+    relay:
+        kind: invocation_expression
+        all:
+            - has: {field: arguments, all: [{has: {kind: argument, nthChild: 1, has: {matches: copy-call}}}, {not: {has: {kind: argument, nthChild: 2}}}]}
+            - has:
+                field: function
+                any:
+                    - matches: relay-name
+                    - kind: member_access_expression
+                      has: {field: name, matches: relay-name}
+            - inside:
+                stopBy: end
+                kind: compilation_unit
+                has:
+                    stopBy: end
+                    kind: method_declaration, local_function_statement
+                    all:
+                        - has: {field: name, pattern: $RELAY}
+                        - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $P}}}
+                        - has:
+                            field: body
+                            any:
+                                - kind: arrow_expression_clause
+                                  has: {matches: parameter-narrowed}
+                                - kind: block
+                                  has: {kind: return_statement, has: {matches: parameter-narrowed}}
+rule:
+    kind: as_expression, cast_expression, is_pattern_expression, switch_expression, invocation_expression
+    any:
+        - matches: relay
+        - kind: as_expression
+          all:
+            - has: {field: left, matches: copy-call}
+            - has: {field: right, pattern: $T}
+        - kind: cast_expression
+          all:
+            - has: {field: value, matches: copy-call}
+            - has: {field: type, pattern: $T}
+        - kind: is_pattern_expression
+          all:
+            - has: {field: expression, matches: copy-call}
+            - has: {field: pattern, kind: declaration_pattern, has: {field: type, pattern: $T}}
+        - kind: switch_expression
+          all:
+            - has: {nthChild: 1, matches: copy-call}
+            - has: {matches: narrowing-arm}
+message: "`$SOURCE.$COPY()` narrows its copy to `$T` by hand"
+note: Use `DuplicateMode.Duplicate.Acquire(<source>)`, its handle's `Value` holds the source type

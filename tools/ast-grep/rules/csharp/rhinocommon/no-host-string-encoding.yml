@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-host-string-encoding
+language: csharp
+severity: error
+rule:
+    kind: 'member_access_expression, member_binding_expression'
+    all:
+        - any:
+            - has: {field: name, regex: '^(ToEncodedString|FromEncodedString|ToJSON|FromJSON)$', pattern: $MEMBER}
+            - has: {field: name, kind: generic_name, regex: '^FromEncodedString\s*<', pattern: $MEMBER}
+            - all:
+                - has: {field: name, regex: '^(FromBase64String|ToBase64String|DecompressBase64String)$', pattern: $MEMBER}
+                - not: {has: {field: expression, regex: '^((global::)?System\.)?Convert$'}}
+        - not: {inside: {kind: argument, inside: {kind: argument_list, inside: {kind: invocation_expression, has: {field: function, regex: '^nameof$'}}}}}
+message: '`$MEMBER` holds a host object as its string encoding'
+note: Hold the host object under a `use` scope between the host calls that take it

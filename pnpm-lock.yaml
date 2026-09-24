@@ -438,6 +438,9 @@ catalogs:
     '@qualithm/arrow-flight-client':
       specifier: 0.2.0
       version: 0.2.0
+    '@radix-ui/colors':
+      specifier: 3.0.0
+      version: 3.0.0
     '@radix-ui/react-slot':
       specifier: 1.4.0-rc.1785512840124
       version: 1.4.0-rc.1785512840124
@@ -1278,6 +1281,9 @@ importers:
       '@qualithm/arrow-flight-client':
         specifier: 'catalog:'
         version: 0.2.0(apache-arrow@21.2.0)
+      '@radix-ui/colors':
+        specifier: 'catalog:'
+        version: 3.0.0
       '@radix-ui/react-slot':
         specifier: 'catalog:'
         version: 1.4.0-rc.1785512840124(@types/react@19.3.0)(react@19.3.0-canary-ff8f88fc-20260915)
@@ -5508,6 +5514,9 @@ packages:
     engines: {node: '>=20.0.0'}
     peerDependencies:
       apache-arrow: 21.2.0
+
+  '@radix-ui/colors@3.0.0':
+    resolution: {integrity: sha512-FUOsGBkHrYJwCSEtWRCIfQbZG7q1e6DgxCIOe1SUQzDe/7rXXeA47s8yCn6fuTNQAj1Zq4oTFi9Yjp3wzElcxg==}
 
   '@radix-ui/primitive@1.1.7':
     resolution: {integrity: sha512-rqWnm76nYT8HoNNqEjpgJ7Pw/DrBj5iBTrmEPo6HTX5+VJyBNOqTdv4g89G63HuR5g0AaENoAcH7Is5fF2kZ8Q==}
@@ -17038,6 +17047,8 @@ snapshots:
       '@connectrpc/connect': 2.1.2(@bufbuild/protobuf@2.12.0)
       '@connectrpc/connect-node': 2.1.2(@bufbuild/protobuf@2.12.0)(@connectrpc/connect@2.1.2(@bufbuild/protobuf@2.12.0))
       apache-arrow: 21.2.0
+
+  '@radix-ui/colors@3.0.0': {}
 
   '@radix-ui/primitive@1.1.7': {}
 

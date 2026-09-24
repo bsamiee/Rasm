@@ -148,6 +148,7 @@
         "@pulumiverse/grafana": "catalog:",
         "@pyroscope/nodejs": "catalog:",
         "@qualithm/arrow-flight-client": "catalog:",
+        "@radix-ui/colors": "catalog:",
         "@radix-ui/react-slot": "catalog:",
         "@radix-ui/react-visually-hidden": "catalog:",
         "@react-aria/live-announcer": "catalog:",
@@ -283,7 +284,7 @@
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
                 "cache": true,
-                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,libs,tests,tools}/**/*.csproj", "dotnet"],
+                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,eng,libs,tests,tools}/**/*.csproj", "dotnet"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"]
             },
             "browsers": {
@@ -355,7 +356,7 @@
                 ],
                 "options": {
                     "commands": [
-                        "ast-grep scan --no-ignore hidden",
+                        "ast-grep scan --no-ignore hidden --error=no-suppress-all",
                         "biome check --error-on-warnings",
                         "ruff check",
                         "yamllint .",
@@ -371,6 +372,7 @@
                 "dependsOn": ["restore"],
                 "options": {
                     "commands": [
+                        "node tools/interface/radix.ts",
                         "biome check --write --error-on-warnings",
                         "ruff check --fix",
                         "ruff format",
@@ -386,7 +388,7 @@
                     "typescript",
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
-                    "{workspaceRoot}/{infra,tools/nx,tools/yak}/*.ts",
+                    "{workspaceRoot}/{infra,tools/nx,tools/yak,tools/interface}/*.ts",
                     {
                         "externalDependencies": ["typescript"]
                     }
@@ -404,6 +406,11 @@
                 "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts refresh",
                 "parallelism": false
             },
+            "interface": {
+                "command": "python tools/interface/cli.py",
+                "parallelism": false,
+                "outputs": ["{workspaceRoot}/.artifacts/tools/interface"]
+            },
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
@@ -411,7 +418,7 @@
                     "commands": [
                         "uv sync --upgrade",
                         "ncu --workspaces --target newest --upgrade --install always",
-                        "dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj",
+                        "dotnet run --project eng/dotnet/Rasm.Upgrade -- eng/dotnet/Rasm.Catalog/Rasm.Catalog.proj",
                         "mise upgrade"
                     ],
                     "parallel": false
@@ -424,7 +431,7 @@
                         "commands": ["ncu --workspaces --target newest --upgrade --install always"]
                     },
                     "dotnet": {
-                        "commands": ["dotnet dnx dotnet-outdated-tool -- --upgrade --pre-release Always --no-restore eng/dotnet/Rasm.Catalog/Rasm.Catalog.csproj"]
+                        "commands": ["dotnet run --project eng/dotnet/Rasm.Upgrade -- eng/dotnet/Rasm.Catalog/Rasm.Catalog.proj"]
                     },
                     "tools": {
                         "commands": ["mise upgrade"]

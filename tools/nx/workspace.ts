@@ -91,7 +91,7 @@ const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
 
 const _runtime = ManagedRuntime.make(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer));
 const createNodes: CreateNodes = [
-    `{apps,libs,tests,tools,.claude/plugins}/**/{${Record.keys(_PROJECTS).join(',')}}`,
+    `{apps,eng,libs,tests,tools,.claude/plugins}/**/{${Record.keys(_PROJECTS).join(',')}}`,
     (files, options, context): Promise<CreateNodesResultArray> => createNodesFromFiles((file) => _runtime.runPromise(_project(file, context.workspaceRoot)), files, options, context),
 ];
 

@@ -1,0 +1,16 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: anyio-runner-callee
+language: python
+utils:
+    process-module:
+        matches: {python-submodule: {parent: {regex: '^anyio$'}, child: {regex: '^(to_process|to_interpreter)$'}}}
+rule:
+    any:
+        - matches: anyio-in-place-callee
+        - regex: '(^|\.)((to_process|to_interpreter)\.run_sync|start_soon|start_task(_soon)?)$'
+        - {regex: '\.start$', matches: anyio-importing-module}
+        - kind: attribute
+          all:
+            - has: {field: attribute, regex: '^run_sync$'}
+            - has: {field: object, matches: process-module}
+        - all: [{matches: anyio-runner-name}, {matches: {python-member-use: {module: {regex: '^anyio\.(to_process|to_interpreter)$'}, name: {regex: '^run_sync$'}}}}]

@@ -20,4 +20,4 @@ transform:
     FOUND: rewrite($FIRST, rewriters=[find])
 fix: $FOUND
 message: '`$L.$SCAN` scans the whole list for its first match'
-note: '`$L.find($P)` stops at the first match, `Array.findFirst($L, <mapper>)` with an `Option` mapper where `$SCAN` is `flatMap`'
+note: '`<list>.find(<predicate>)` stops at the first match, `Array.findFirst(<list>, <mapper>)` with an `Option` mapper where the scan is `flatMap`'

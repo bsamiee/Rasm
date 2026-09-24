@@ -9,6 +9,7 @@ import importlib
 import inspect
 from pathlib import Path
 import sys
+from types import BuiltinFunctionType, ClassMethodDescriptorType, FunctionType, MethodDescriptorType, MethodType, ModuleType, WrapperDescriptorType
 from typing import get_args, TypeAliasType, TypeForm, TypeIs
 
 from hypothesis import given as hyp_given
@@ -38,16 +39,21 @@ class PackageUnderTest(msgspec.Struct, frozen=True):
 
 # --- [STASH] ----------------------------------------------------------------------------
 
-PROPERTY_RECORDS: pytest.StashKey[tuple[PropertyRecord, ...]] = pytest.StashKey()  # Written once at collection from the property marks and the COVERS tuples
-PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest.StashKey()  # Written by register_package at configure
+PROPERTY_RECORDS: pytest.StashKey[tuple[PropertyRecord, ...]] = pytest.StashKey()
+PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest.StashKey()
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def _record(subject: object, property_name: str, module: str) -> PropertyRecord:
-    """Build the record of one subject under one property name in one test module."""
-    name = getattr(subject, "__qualname__", None) or getattr(subject, "__name__", None) or str(subject)
-    return PropertyRecord(subject=name, property_name=property_name, module=module, subject_module=getattr(subject, "__module__", None))
+    """Build the record of one subject under one property name in one test module, a subject without a defining module renders by ``str``."""
+    match subject:
+        case type() | TypeAliasType() | FunctionType() | MethodType() | BuiltinFunctionType():
+            return PropertyRecord(subject=subject.__qualname__, property_name=property_name, module=module, subject_module=subject.__module__)
+        case MethodDescriptorType() | WrapperDescriptorType() | ClassMethodDescriptorType():
+            return PropertyRecord(subject=subject.__qualname__, property_name=property_name, module=module, subject_module=subject.__objclass__.__module__)
+        case _:
+            return PropertyRecord(subject=str(subject), property_name=property_name, module=module, subject_module=None)
 
 
 def _resolvable(subject: object) -> TypeIs[TypeForm[object]]:
@@ -80,27 +86,28 @@ def is_automatically_exempt(subject: object) -> bool:
 def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, str], ...]]:
     """Collect public names and module-import failures for a package."""
     root = importlib.import_module(package_name)
-    modules = [root]
+    exports: list[tuple[ModuleType, list[str]]] = []
     failures: list[tuple[str, str]] = []
-    for base in getattr(root, "__path__", ()):
+    for base in root.__path__:
         for py in sorted(Path(base).rglob("*.py")):
             parts = py.relative_to(base).with_suffix("").parts
             stem = parts[:-1] if parts[-1] == "__init__" else parts
-            if (mod_name := ".".join((package_name, *stem))) == package_name or any(part.startswith("_") for part in stem):
+            if any(part.startswith("_") for part in stem):
                 continue
+            mod_name = ".".join((package_name, *stem))
             try:
-                modules.append(importlib.import_module(mod_name))
+                module = importlib.import_module(mod_name)
+                exports.append((module, module.__all__))
             except Exception as exc:  # ruff:ignore[blind-except]
                 failures.append((mod_name, repr(exc)))
 
     public_api: dict[str, object] = {}
-    for mod in modules:
-        all_names: object = getattr(mod, "__all__", None)
-        names = [n for n in all_names if isinstance(n, str)] if isinstance(all_names, list | tuple) else [n for n in dir(mod) if not n.startswith("_")]
+    for mod, names in exports:
+        members = dict(inspect.getmembers(mod))
         for name in names:
-            if not hasattr(mod, name):
+            if name not in members:
                 failures.append((mod.__name__, f"__all__ names {name!r} but the module never defines it"))
-            elif not inspect.ismodule(member := getattr(mod, name)):
+            elif not inspect.ismodule(member := members[name]):
                 public_api.setdefault(name, member)
 
     return public_api, tuple(failures)
@@ -118,9 +125,9 @@ def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Call
     """
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
-        if any(mark.name == "property" and "record" in mark.kwargs for mark in getattr(fn, "pytestmark", ())):
-            raise TypeError(f"@property_test applied twice to {fn!r}, remove the duplicate decorator")
-        record = _record(subject, getattr(fn, "__name__", repr(fn)), getattr(fn, "__module__", ""))
+        if not isinstance(fn, FunctionType):
+            raise TypeError(f"@property_test decorates a test function, got {fn!r}")
+        record = _record(subject, fn.__qualname__, fn.__module__)
         if not given:
             return pytest.mark.property(record=record)(fn)
         if not _resolvable(subject):
@@ -131,19 +138,9 @@ def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Call
     return _decorator
 
 
-def record_coverage_declarations(module: object) -> tuple[PropertyRecord, ...]:
-    """Return the records a test module's declarative ``COVERS`` tuple declares.
-
-    Raises:
-        TypeError: A ``COVERS`` entry is neither a type nor a callable.
-    """
-    name: str = getattr(module, "__name__", "")
-    covers: tuple[object, ...] = getattr(module, "COVERS", ()) if name else ()
-    match [subject for subject in covers if not (isinstance(subject, type) or inspect.isroutine(subject))]:
-        case [value, *_]:
-            raise TypeError(f"COVERS in {name} lists {value!r}: entries must be types or callables")
-        case _:
-            return tuple(_record(subject, "covers", name) for subject in covers)
+def covers(module: str, *subjects: Callable[..., object]) -> list[pytest.MarkDecorator]:
+    """Return one property mark per subject for a test module's ``pytestmark``, recording each subject as covered by the module named ``module``."""
+    return [pytest.mark.property(record=_record(subject, "covers", module)) for subject in subjects]
 
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
@@ -220,7 +217,7 @@ def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapp
 
 __all__ = [
     "property_test",
-    "record_coverage_declarations",
+    "covers",
     "register_package",
     "register_package_tree",
     "assert_property_coverage",

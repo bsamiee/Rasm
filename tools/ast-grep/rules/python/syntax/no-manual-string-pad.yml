@@ -2,22 +2,44 @@
 id: no-manual-string-pad
 language: python
 severity: error
+utils:
+    shortfall:
+        kind: binary_operator
+        all:
+            - has: {field: operator, regex: '^-$'}
+            - has: {field: right, kind: call, pattern: len($TEXT)}
+    derived-count:
+        any:
+            - has: {stopBy: end, pattern: len($TEXT)}
+            - kind: identifier
+              matches: {python-assigned-name: {value: {has: {stopBy: end, pattern: len($TEXT)}}}}
 rule:
     any:
         - kind: binary_operator
-          pattern: $FILL * $LEFT + $TEXT + $FILL * $RIGHT
+          any:
+            - pattern: $FILL * $LEFT + $TEXT + $FILL * $LEFT
+            - pattern: $FILL * $LEFT + $TEXT + $FILL * ($LEFT + 1)
+          has: {nthChild: 1, stopBy: end, kind: binary_operator, has: {field: right, matches: derived-count}}
         - kind: string
-          has:
-            kind: interpolation
-            pattern: {context: 'f"{$FILL * $LEFT}"', selector: interpolation}
-            precedes:
+          all:
+            - has:
                 kind: interpolation
-                pattern: {context: 'f"{$TEXT}"', selector: interpolation}
+                pattern: {context: 'f"{$FILL * $LEFT}"', selector: interpolation}
                 precedes:
                     kind: interpolation
-                    pattern: {context: 'f"{$FILL * $RIGHT}"', selector: interpolation}
+                    pattern: {context: 'f"{$TEXT}"', selector: interpolation}
+                    precedes:
+                        kind: interpolation
+                        any:
+                            - pattern: {context: 'f"{$FILL * $LEFT}"', selector: interpolation}
+                            - pattern: {context: 'f"{$FILL * ($LEFT + 1)}"', selector: interpolation}
+            - has: {kind: interpolation, has: {kind: binary_operator, has: {field: right, matches: derived-count}}}
+        - kind: binary_operator
+          any:
+            - pattern: $TEXT + $FILL * ($WIDTH)
+            - pattern: $FILL * ($WIDTH) + $TEXT
+          has: {stopBy: end, kind: parenthesized_expression, has: {matches: shortfall}}
 constraints:
-    FILL: {kind: 'string, identifier'}
-    RIGHT: {any: [{pattern: $LEFT}, {has: {pattern: $LEFT, stopBy: end}}]}
-message: '`$TEXT` is padded by hand with `$FILL` on both sides'
-note: 'Use `format(<text>, f"<align><width>")`'
+    FILL: {kind: string, regex: '^[rRuU]?("([^"\\]|\\.)"|''([^''\\]|\\.)'')$'}
+message: '`$TEXT` is padded by hand with `$FILL`'
+note: 'Use `format(<text>, f"<fill><align><width>")`'

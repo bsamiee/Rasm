@@ -29,7 +29,8 @@ result = {"action": animation.action.name, "slot": animation.action_slot.identif
 
 - First `keyframe_insert` on an ID creates the action `<Object>Action` with slot `OB<Object>`, one layer, and one `KEYFRAME` strip
 - `channelbag.fcurves.find("location", index=0)` returns one F-curve or `None`
-- New keys take `preferences.edit.keyframe_new_interpolation_type`, `BEZIER` here, a linear motion sets each key
+- Keys from `keyframe_insert` and `keyframe_points.insert` take `BEZIER` with `AUTO_CLAMPED` handles under every new-key preference
+- Linear motion sets `interpolation` on each key
 
 ## [02]-[SHARED_ACTIONS]
 

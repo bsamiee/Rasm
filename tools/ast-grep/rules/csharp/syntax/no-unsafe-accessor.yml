@@ -1,0 +1,88 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unsafe-accessor
+language: csharp
+severity: error
+utils:
+    callee:
+        any:
+            - kind: member_access_expression
+              has: {field: name, pattern: $CALLEE}
+            - kind: identifier, generic_name
+              pattern: $CALLEE
+    flags-type:
+        regex: '^(global::)?(System\.)?(Reflection\.)?BindingFlags$'
+    non-public-member:
+        kind: member_access_expression
+        regex: '^(global::)?(System\.)?(Reflection\.)?BindingFlags\.NonPublic$'
+    non-public-flag:
+        has:
+            stopBy: end
+            any:
+                - matches: non-public-member
+                - kind: cast_expression
+                  all:
+                    - has: {field: type, matches: flags-type}
+                    - has: {field: value, kind: integer_literal}
+                - kind: identifier
+                  pattern: $FLAGS
+                  inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has:
+                        stopBy: end
+                        kind: variable_declarator
+                        all:
+                            - has: {field: name, pattern: $FLAGS}
+                            - has: {stopBy: end, matches: non-public-member}
+rule:
+    any:
+        - kind: attribute
+          has: {field: name, pattern: $CALLEE, regex: '^(global::)?(System\.Runtime\.CompilerServices\.)?UnsafeAccessor(Attribute)?$'}
+        - kind: invocation_expression
+          has:
+            field: function
+            matches: callee
+            regex: '(^|\.)Get(Safe)?UninitializedObject$'
+        - kind: invocation_expression
+          all:
+            - has:
+                field: function
+                matches: callee
+                all:
+                    - has: {field: expression, regex: '^(global::)?(System\.)?Activator$'}
+                    - has: {field: name, regex: '^CreateInstance$'}
+            - has:
+                field: arguments
+                any:
+                    - has: {kind: argument, nthChild: 2, has: {kind: boolean_literal, regex: '^true$'}}
+                    - has: {kind: argument, all: [{has: {field: name, regex: '^nonPublic$'}}, {has: {kind: boolean_literal, regex: '^true$'}}]}
+                    - matches: non-public-flag
+        - kind: invocation_expression
+          all:
+            - has: {field: function, matches: callee, has: {field: name, regex: '^(Get(Constructor|Field|Method|Property|Member|Event|NestedType)s?|InvokeMember)$'}}
+            - has: {field: arguments, matches: non-public-flag}
+        - kind: invocation_expression
+          has:
+            field: function
+            matches: callee
+            regex: '(^|\.)(GetRuntime(Fields|Methods|Properties|Events)|GetDeclared(Field|Method|Methods|Property|Event|NestedType))$'
+        - kind: member_access_expression
+          has: {field: name, pattern: $CALLEE, regex: '^Declared(Constructors|Fields|Methods|Members|Properties|Events|NestedTypes)$'}
+        - kind: invocation_expression
+          has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: expression, regex: '^(global::)?(System\.)?(Runtime\.(CompilerServices|InteropServices)\.)?(Unsafe|MemoryMarshal)$'}
+                - has:
+                    field: name
+                    kind: generic_name
+                    pattern: $CALLEE
+                    regex: '^(As|BitCast|Cast)<'
+                    has:
+                        kind: type_argument_list
+                        all:
+                            - has: {nthChild: 2}
+                            - not: {has: {nthChild: 2, kind: predefined_type}}
+message: "`$CALLEE` reaches a hidden constructor or member past the type's validation"
+note: Use the declared factory or member of the constrained type

@@ -1,0 +1,18 @@
+[project]
+name = "interface"
+version = "0.0.0"
+requires-python = ">=3.15"
+dependencies = [
+    "anyio",
+    "cyclopts",
+    "httpx",
+    "mcp",
+    "msgspec",
+    "psutil",
+]
+
+# --- [RUFF] -----------------------------------------------------------------------------
+
+[tool.ruff]
+extend = "../../pyproject.toml"
+per-file-target-version = { "!{cli,host,*/apply}.py" = "py313" }

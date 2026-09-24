@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-indirect-radix-read
+language: python
+severity: error
+files: ['tools/interface/**/*.py']
+ignores: ['tools/interface/radix.py']
+utils:
+    radix-class:
+        any:
+            - kind: identifier
+              regex: '^Radix$'
+              not: {inside: {kind: attribute, field: attribute}}
+            - kind: attribute
+              has: {field: attribute, regex: '^Radix$'}
+            - kind: string_content
+              regex: '^Radix(\.|$)'
+              not: {regex: '^Radix\.[a-z]+\d+$'}
+    named-step-read:
+        any:
+            - inside: {kind: attribute, field: object, has: {field: attribute, regex: '^[a-z]+\d+$'}}
+            - inside: {kind: dotted_name, regex: '(^|\.)Radix\.[a-z]+\d+$', inside: {kind: case_pattern}}
+            - inside: {kind: 'import_statement, import_from_statement', stopBy: end, not: {has: {kind: aliased_import, stopBy: end, has: {field: name, regex: '(^|\.)Radix$'}}}}
+rule:
+    pattern: $READ
+    matches: radix-class
+    not: {matches: named-step-read}
+message: '`$READ` reaches Radix other than by a named step'
+note: 'Read the step as `Radix.<scale><step>`'

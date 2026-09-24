@@ -1,0 +1,120 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-relayed-runner-callable
+language: python
+severity: error
+utils:
+    in-place-runner:
+        kind: call
+        has: {field: function, matches: anyio-in-place-callee}
+    runner:
+        kind: call
+        has: {field: function, matches: anyio-runner-callee}
+    runner-argument:
+        nthChild: 1
+        inside: {kind: argument_list, inside: {matches: runner}}
+    in-place-argument:
+        nthChild: 1
+        inside: {kind: argument_list, inside: {matches: in-place-runner}}
+    plain:
+        kind: 'identifier, string, integer, float, true, false, none'
+    plain-call:
+        kind: call
+        all:
+            - has: {field: function, kind: 'identifier, attribute', regex: '^[\w.]+$'}
+            - has: {field: arguments, not: {has: {pattern: $_, not: {matches: plain}}}}
+    partial-call:
+        kind: call
+        all:
+            - has: {field: arguments, has: {nthChild: 1, not: {kind: 'list_splat, parenthesized_list_splat'}}, not: {has: {kind: 'keyword_argument, dictionary_splat'}}}
+            - has: {field: function, matches: functools-partial-callee}
+    lambda-call:
+        kind: lambda
+        all:
+            - any:
+                - not: {has: {field: parameters, kind: lambda_parameters}}
+                - has:
+                    field: parameters
+                    not:
+                        has:
+                            pattern: $_
+                            not:
+                                any:
+                                    - kind: keyword_separator
+                                    - {kind: default_parameter, all: [{has: {field: name, pattern: $P}}, {has: {field: value, pattern: $P}}]}
+            - has: {field: body, matches: plain-call}
+    partial-relay:
+        kind: assignment
+        all:
+            - has: {field: left, pattern: $BOUND}
+            - has: {field: right, matches: partial-call}
+    in-place-relay:
+        any:
+            - kind: assignment
+              all:
+                - has: {field: left, pattern: $BOUND}
+                - has: {field: right, matches: lambda-call}
+            - kind: function_definition
+              not: {inside: {kind: decorated_definition}}
+              all:
+                - has: {field: name, pattern: $BOUND}
+                - has: {field: parameters, not: {has: {pattern: $_}}}
+                - has: {field: body, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: return_statement}}
+                - any:
+                    - {not: {regex: '^async\b'}, has: {field: body, has: {kind: return_statement, has: {matches: plain-call}}}}
+                    - {regex: '^async\b', has: {field: body, has: {kind: return_statement, has: {kind: await, has: {matches: plain-call}}}}}
+    sole-use:
+        not:
+            has:
+                stopBy: end
+                kind: identifier
+                pattern: $BOUND
+                not:
+                    any:
+                        - inside: {kind: assignment, field: left}
+                        - inside: {kind: function_definition, field: name}
+                        - inside: {kind: attribute, field: attribute}
+                        - inside: {kind: keyword_argument, field: name}
+                        - matches: runner-argument
+rule:
+    pattern: $BOUND
+    any:
+        - kind: identifier
+          all:
+            - matches: runner-argument
+            - any:
+                - inside: {kind: 'function_definition, module', stopBy: end, all: [{has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: partial-relay}}, {matches: sole-use}]}
+                - all:
+                    - matches: in-place-argument
+                    - inside: {kind: 'function_definition, module', stopBy: end, all: [{has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: in-place-relay}}, {matches: sole-use}]}
+        - kind: 'call, lambda'
+          all:
+            - nthChild: 2
+            - any:
+                - matches: partial-call
+                - matches: lambda-call
+            - inside:
+                kind: argument_list
+                not: {has: {nthChild: 3}}
+                inside:
+                    kind: call
+                    all:
+                        - has: {field: function, matches: {python-member-use: {module: {regex: '^(typing|typing_extensions)$'}, name: {regex: '^cast$'}}}}
+                        - any:
+                            - matches: in-place-argument
+                            - {matches: runner-argument, not: {has: {field: arguments, has: {nthChild: 2, kind: lambda}}}}
+        - kind: call
+          all:
+            - has: {field: function, kind: identifier, pattern: $HELPER}
+            - matches: runner-argument
+            - inside:
+                kind: 'function_definition, module'
+                stopBy: end
+                has:
+                    stopBy: {kind: 'function_definition, class_definition, lambda'}
+                    kind: function_definition
+                    not: {any: [{regex: '^async\b'}, {inside: {kind: decorated_definition}}]}
+                    all:
+                        - has: {field: name, pattern: $HELPER}
+                        - has: {field: body, not: {has: {nthChild: 2}}, has: {nthChild: 1, kind: return_statement, has: {matches: partial-call}}}
+message: '`$BOUND` binds arguments the runner passes on its own'
+note: 'Pass the function and its positional arguments to the runner directly, as `<runner>(<function>, <arguments>)`, and delete the binding it was relayed through'

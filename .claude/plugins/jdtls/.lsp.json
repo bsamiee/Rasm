@@ -10,9 +10,6 @@
                     "sourcePaths": [".claude/skills/use-ghidra/scripts"],
                     "referencedLibraries": ["/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar"]
                 },
-                "configuration": {
-                    "runtimes": [{ "name": "JavaSE-27", "path": "/Users/bardiasamiee/.local/share/mise/installs/java/27.0.0", "default": true }]
-                },
                 "import": { "gradle": { "enabled": false }, "maven": { "enabled": false } }
             }
         }

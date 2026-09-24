@@ -1,0 +1,55 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-bound-runner-callable
+language: python
+severity: error
+utils:
+    in-place-runner:
+        kind: call
+        has: {field: function, matches: anyio-in-place-callee}
+    runner:
+        kind: call
+        has: {field: function, matches: anyio-runner-callee}
+    plain:
+        kind: 'identifier, string, integer, float, true, false, none'
+rule:
+    pattern: $BOUND
+    nthChild: 1
+    any:
+        - kind: call
+          all:
+            - has: {field: arguments, not: {has: {kind: 'keyword_argument, dictionary_splat'}}, has: {nthChild: 1, pattern: $F, not: {kind: 'list_splat, parenthesized_list_splat'}}}
+            - has: {field: arguments, pattern: {context: 'f($_, $$$ARGS)', selector: argument_list}}
+            - has: {field: function, matches: functools-partial-callee}
+            - inside: {kind: argument_list, inside: {matches: runner}}
+        - kind: call
+          all:
+            - has: {field: arguments, pattern: {context: 'f($F)', selector: argument_list}, not: {has: {kind: 'list_splat, parenthesized_list_splat, keyword_argument, dictionary_splat'}}}
+            - has: {field: function, matches: functools-partial-callee}
+            - inside: {kind: argument_list, inside: {matches: runner}}
+        - kind: lambda
+          all:
+            - any:
+                - not: {has: {field: parameters, kind: lambda_parameters}}
+                - has:
+                    field: parameters
+                    not:
+                        has:
+                            pattern: $_
+                            not:
+                                any:
+                                    - kind: keyword_separator
+                                    - {kind: default_parameter, all: [{has: {field: name, pattern: $P}}, {has: {field: value, pattern: $P}}]}
+            - has:
+                field: body
+                kind: call
+                all:
+                    - has: {field: function, pattern: $F, kind: 'identifier, attribute', regex: '^[\w.]+$'}
+                    - has: {field: arguments, not: {has: {pattern: $_, not: {matches: plain}}}}
+                    - has: {field: arguments, pattern: {context: 'f($$$ARGS)', selector: argument_list}}
+            - inside: {kind: argument_list, inside: {matches: in-place-runner}}
+transform:
+    REST:
+        replace: {source: $$$ARGS, replace: '(?s)^(.+)$', by: ', $1'}
+fix: $F$REST
+message: '`$BOUND` binds arguments the runner passes on its own'
+note: 'Pass the function and its positional arguments to the runner directly, as `<runner>(<function>, <arguments>)`'

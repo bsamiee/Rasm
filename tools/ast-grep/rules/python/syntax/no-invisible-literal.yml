@@ -2,9 +2,100 @@
 id: no-invisible-literal
 language: python
 severity: error
+utils:
+    invisible:
+        regex: '(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])[\x{200C}\x{200D}\x{FE0E}\x{FE0F}]|(?:^|[^\x{1F3F4}\x{E0020}-\x{E007F}])[\x{E0020}-\x{E007F}]|[\p{Default_Ignorable_Code_Point}--[\x{61C}\x{200B}\x{200C}\x{200D}\x{200F}\x{202A}-\x{202E}\x{2066}-\x{2069}\x{FE0E}\x{FE0F}\x{E0020}-\x{E007F}]]'
 rule:
     kind: string
-    regex: '(?:^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}])[\x{200C}\x{200D}\x{FE0E}\x{FE0F}]|[\x{00A0}\x{00AD}\x{2028}\x{2029}\x{2060}\x{FEFF}]'
+    matches: invisible
     not: {inside: {kind: string, stopBy: end}}
+    any:
+        - pattern: $FIXABLE
+          not:
+            any:
+                - regex: '^[a-zA-Z]*[rR]'
+                - regex: '[\x{E0000}-\x{E0FFF}]'
+                - has: {kind: interpolation, matches: invisible, stopBy: end}
+        - pattern: $UNFIXED
+transform:
+    T00: {replace: {source: $FIXABLE, replace: '\x{AD}', by: '\u00ad'}}
+    T01: {replace: {source: $T00, replace: '\x{34F}', by: '\u034f'}}
+    T02: {replace: {source: $T01, replace: '\x{61C}', by: '\u061c'}}
+    T03: {replace: {source: $T02, replace: '\x{115F}', by: '\u115f'}}
+    T04: {replace: {source: $T03, replace: '\x{1160}', by: '\u1160'}}
+    T05: {replace: {source: $T04, replace: '\x{17B4}', by: '\u17b4'}}
+    T06: {replace: {source: $T05, replace: '\x{17B5}', by: '\u17b5'}}
+    T07: {replace: {source: $T06, replace: '\x{180B}', by: '\u180b'}}
+    T08: {replace: {source: $T07, replace: '\x{180C}', by: '\u180c'}}
+    T09: {replace: {source: $T08, replace: '\x{180D}', by: '\u180d'}}
+    T10: {replace: {source: $T09, replace: '\x{180E}', by: '\u180e'}}
+    T11: {replace: {source: $T10, replace: '\x{180F}', by: '\u180f'}}
+    T12: {replace: {source: $T11, replace: '\x{200B}', by: '\u200b'}}
+    T13: {replace: {source: $T12, replace: '(^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])\x{200C}', by: '${1}\u200c'}}
+    T14: {replace: {source: $T13, replace: '(^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])\x{200D}', by: '${1}\u200d'}}
+    T15: {replace: {source: $T14, replace: '\x{200E}', by: '\u200e'}}
+    T16: {replace: {source: $T15, replace: '\x{200F}', by: '\u200f'}}
+    T17: {replace: {source: $T16, replace: '\x{202A}', by: '\u202a'}}
+    T18: {replace: {source: $T17, replace: '\x{202B}', by: '\u202b'}}
+    T19: {replace: {source: $T18, replace: '\x{202C}', by: '\u202c'}}
+    T20: {replace: {source: $T19, replace: '\x{202D}', by: '\u202d'}}
+    T21: {replace: {source: $T20, replace: '\x{202E}', by: '\u202e'}}
+    T22: {replace: {source: $T21, replace: '\x{2060}', by: '\u2060'}}
+    T23: {replace: {source: $T22, replace: '\x{2061}', by: '\u2061'}}
+    T24: {replace: {source: $T23, replace: '\x{2062}', by: '\u2062'}}
+    T25: {replace: {source: $T24, replace: '\x{2063}', by: '\u2063'}}
+    T26: {replace: {source: $T25, replace: '\x{2064}', by: '\u2064'}}
+    T27: {replace: {source: $T26, replace: '\x{2065}', by: '\u2065'}}
+    T28: {replace: {source: $T27, replace: '\x{2066}', by: '\u2066'}}
+    T29: {replace: {source: $T28, replace: '\x{2067}', by: '\u2067'}}
+    T30: {replace: {source: $T29, replace: '\x{2068}', by: '\u2068'}}
+    T31: {replace: {source: $T30, replace: '\x{2069}', by: '\u2069'}}
+    T32: {replace: {source: $T31, replace: '\x{206A}', by: '\u206a'}}
+    T33: {replace: {source: $T32, replace: '\x{206B}', by: '\u206b'}}
+    T34: {replace: {source: $T33, replace: '\x{206C}', by: '\u206c'}}
+    T35: {replace: {source: $T34, replace: '\x{206D}', by: '\u206d'}}
+    T36: {replace: {source: $T35, replace: '\x{206E}', by: '\u206e'}}
+    T37: {replace: {source: $T36, replace: '\x{206F}', by: '\u206f'}}
+    T38: {replace: {source: $T37, replace: '\x{3164}', by: '\u3164'}}
+    T39: {replace: {source: $T38, replace: '\x{FE00}', by: '\ufe00'}}
+    T40: {replace: {source: $T39, replace: '\x{FE01}', by: '\ufe01'}}
+    T41: {replace: {source: $T40, replace: '\x{FE02}', by: '\ufe02'}}
+    T42: {replace: {source: $T41, replace: '\x{FE03}', by: '\ufe03'}}
+    T43: {replace: {source: $T42, replace: '\x{FE04}', by: '\ufe04'}}
+    T44: {replace: {source: $T43, replace: '\x{FE05}', by: '\ufe05'}}
+    T45: {replace: {source: $T44, replace: '\x{FE06}', by: '\ufe06'}}
+    T46: {replace: {source: $T45, replace: '\x{FE07}', by: '\ufe07'}}
+    T47: {replace: {source: $T46, replace: '\x{FE08}', by: '\ufe08'}}
+    T48: {replace: {source: $T47, replace: '\x{FE09}', by: '\ufe09'}}
+    T49: {replace: {source: $T48, replace: '\x{FE0A}', by: '\ufe0a'}}
+    T50: {replace: {source: $T49, replace: '\x{FE0B}', by: '\ufe0b'}}
+    T51: {replace: {source: $T50, replace: '\x{FE0C}', by: '\ufe0c'}}
+    T52: {replace: {source: $T51, replace: '\x{FE0D}', by: '\ufe0d'}}
+    T53: {replace: {source: $T52, replace: '(^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])\x{FE0E}', by: '${1}\ufe0e'}}
+    T54: {replace: {source: $T53, replace: '(^|[^\p{Extended_Pictographic}\p{Emoji_Modifier}\x{200D}\x{FE0E}\x{FE0F}#*0-9])\x{FE0F}', by: '${1}\ufe0f'}}
+    T55: {replace: {source: $T54, replace: '\x{FEFF}', by: '\ufeff'}}
+    T56: {replace: {source: $T55, replace: '\x{FFA0}', by: '\uffa0'}}
+    T57: {replace: {source: $T56, replace: '\x{FFF0}', by: '\ufff0'}}
+    T58: {replace: {source: $T57, replace: '\x{FFF1}', by: '\ufff1'}}
+    T59: {replace: {source: $T58, replace: '\x{FFF2}', by: '\ufff2'}}
+    T60: {replace: {source: $T59, replace: '\x{FFF3}', by: '\ufff3'}}
+    T61: {replace: {source: $T60, replace: '\x{FFF4}', by: '\ufff4'}}
+    T62: {replace: {source: $T61, replace: '\x{FFF5}', by: '\ufff5'}}
+    T63: {replace: {source: $T62, replace: '\x{FFF6}', by: '\ufff6'}}
+    T64: {replace: {source: $T63, replace: '\x{FFF7}', by: '\ufff7'}}
+    T65: {replace: {source: $T64, replace: '\x{FFF8}', by: '\ufff8'}}
+    T66: {replace: {source: $T65, replace: '\x{1BCA0}', by: '\U0001bca0'}}
+    T67: {replace: {source: $T66, replace: '\x{1BCA1}', by: '\U0001bca1'}}
+    T68: {replace: {source: $T67, replace: '\x{1BCA2}', by: '\U0001bca2'}}
+    T69: {replace: {source: $T68, replace: '\x{1BCA3}', by: '\U0001bca3'}}
+    T70: {replace: {source: $T69, replace: '\x{1D173}', by: '\U0001d173'}}
+    T71: {replace: {source: $T70, replace: '\x{1D174}', by: '\U0001d174'}}
+    T72: {replace: {source: $T71, replace: '\x{1D175}', by: '\U0001d175'}}
+    T73: {replace: {source: $T72, replace: '\x{1D176}', by: '\U0001d176'}}
+    T74: {replace: {source: $T73, replace: '\x{1D177}', by: '\U0001d177'}}
+    T75: {replace: {source: $T74, replace: '\x{1D178}', by: '\U0001d178'}}
+    T76: {replace: {source: $T75, replace: '\x{1D179}', by: '\U0001d179'}}
+    T77: {replace: {source: $T76, replace: '\x{1D17A}', by: '\U0001d17a'}}
+fix: $T77$UNFIXED
 message: 'String literal holds an invisible code point'
 note: 'Spell the code point as `\uXXXX`'

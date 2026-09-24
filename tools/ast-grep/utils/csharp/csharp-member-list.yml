@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-member-list
+language: csharp
+rule:
+    kind: declaration_list, enum_member_declaration_list

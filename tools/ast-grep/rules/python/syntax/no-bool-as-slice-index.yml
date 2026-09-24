@@ -3,98 +3,44 @@ id: no-bool-as-slice-index
 language: python
 severity: error
 utils:
-    bool-leaf:
-        any:
-            - kind: 'comparison_operator, not_operator, true, false'
-            - kind: call
-              has: {field: function, regex: '^bool$'}
-    bool-parameter:
-        any:
-            - kind: typed_parameter
-              all:
-                - has: {kind: identifier, pattern: $B}
-                - has: {field: type, regex: '^bool$'}
-            - kind: typed_default_parameter
-              all:
-                - has: {field: name, pattern: $B}
-                - has: {field: type, regex: '^bool$'}
-    bool-operand-parameter:
-        any:
-            - kind: typed_parameter
-              all:
-                - has: {kind: identifier, pattern: $B2}
-                - has: {field: type, regex: '^bool$'}
-            - kind: typed_default_parameter
-              all:
-                - has: {field: name, pattern: $B2}
-                - has: {field: type, regex: '^bool$'}
-    bool-operand:
-        any:
-            - matches: bool-leaf
-            - kind: parenthesized_expression
-              has: {matches: bool-leaf}
-            - kind: identifier
-              pattern: $B2
-              any:
-                - inside: {kind: function_definition, stopBy: end, has: {field: parameters, has: {matches: bool-operand-parameter}}}
-                - inside:
-                    kind: function_definition
-                    stopBy: end
-                    has:
-                        stopBy: {matches: python-function-boundary}
-                        kind: assignment
-                        all:
-                            - has: {field: left, kind: identifier, pattern: $B2}
-                            - has: {field: right, matches: bool-leaf}
-    bool-source:
-        any:
-            - matches: bool-leaf
-            - kind: parenthesized_expression
-              has: {matches: bool-source}
-            - kind: boolean_operator
-              all:
-                - has: {field: left, matches: bool-operand}
-                - has: {field: right, matches: bool-operand}
-            - kind: call
-              all:
-                - has: {field: function, regex: '^int$'}
-                - has: {field: arguments, has: {matches: bool-operand}}
-    bool-name:
-        kind: identifier
-        pattern: $B
-        any:
-            - inside: {kind: function_definition, stopBy: end, has: {field: parameters, has: {matches: bool-parameter}}}
-            - inside:
-                kind: function_definition
-                stopBy: end
-                has:
-                    stopBy: {matches: python-function-boundary}
-                    kind: assignment
-                    all:
-                        - has: {field: left, kind: identifier, pattern: $B}
-                        - has: {field: right, matches: bool-source}
     bool-value:
         any:
-            - matches: bool-source
-            - matches: bool-name
+            - matches: python-truth-value
+            - kind: call
+              all:
+                - has: {field: function, kind: identifier, regex: '^int$', not: {matches: python-shadowed-name}}
+                - has: {field: arguments, has: {nthChild: 1, matches: python-truth-value}, not: {has: {nthChild: 2}}}
+    literal-table:
+        kind: list, tuple, string, concatenated_string
+    comparison:
+        any:
+            - kind: comparison_operator
+            - kind: boolean_operator
+              has: {stopBy: {kind: 'boolean_operator, parenthesized_expression'}, kind: comparison_operator}
+    mask-name:
+        matches: {python-assigned-name: {value: {matches: comparison}}}
+    mask:
+        any:
+            - matches: comparison
+            - kind: identifier
+              matches: mask-name
+    bool-index:
+        any:
+            - kind: slice
+              has: {matches: bool-value}
+            - matches: bool-value
+              not: {matches: mask}
+            - matches: mask
+              inside: {kind: subscript, has: {field: value, matches: literal-table}}
     repeated:
-        kind: 'list, tuple, string'
+        kind: list, tuple, string, concatenated_string
     bool-keyed-mapping:
         kind: identifier
         pattern: $M
         any:
+            - matches: {python-typed-parameter: {type: {regex: '\b(Mapping|MutableMapping|dict|Dict)\[\s*bool\s*,'}}}
             - inside:
-                kind: function_definition
-                stopBy: end
-                has:
-                    field: parameters
-                    has:
-                        kind: 'typed_parameter, typed_default_parameter'
-                        all:
-                            - has: {kind: identifier, pattern: $M}
-                            - has: {field: type, regex: '\b(Mapping|MutableMapping|dict|Dict)\[\s*bool\s*,'}
-            - inside:
-                kind: 'module, function_definition, class_definition'
+                kind: module, function_definition, class_definition
                 stopBy: end
                 has:
                     stopBy: {kind: 'function_definition, class_definition, lambda'}
@@ -106,14 +52,7 @@ rule:
     any:
         - kind: subscript
           pattern: $USE
-          has:
-            field: subscript
-            any:
-                - kind: slice
-                  has: {nthChild: 1, matches: bool-value}
-                - kind: call
-                  matches: bool-source
-                - matches: bool-name
+          has: {field: subscript, matches: bool-index}
           not: {has: {field: value, matches: bool-keyed-mapping}}
         - kind: binary_operator
           pattern: $USE

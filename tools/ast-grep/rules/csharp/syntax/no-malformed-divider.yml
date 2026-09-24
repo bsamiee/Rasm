@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-malformed-divider
+language: csharp
+severity: error
+utils:
+    misparsed:
+        inside: {kind: compilation_unit, stopBy: end, has: {kind: ERROR, stopBy: end}}
+rule:
+    matches: csharp-divider-comment
+    pattern: $DIVIDER
+    any:
+        - not: {matches: csharp-labeled-divider}
+        - matches: csharp-labeled-divider
+          not: {any: [{matches: csharp-dashed-divider}, {matches: csharp-owner-level}, {matches: misparsed}]}
+        - matches: csharp-dashed-divider
+          not: {any: [{matches: csharp-file-level}, {matches: csharp-owner-level}, {matches: misparsed}]}
+        - matches: csharp-section-divider
+          not: {regex: '^.{90}$'}
+message: Divider `$DIVIDER` departs from both divider forms
+note: Use `// --- [<SECTION>] ` with dashes to column 90 at file level, or `// --- [<FAMILY>]` inside an owner

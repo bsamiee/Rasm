@@ -51,4 +51,4 @@ rule:
         - has: {kind: switch_entry, has: {kind: statements, any: [{has: {stopBy: end, kind: call_suffix, pattern: $ARGS}}, {not: {has: {stopBy: end, kind: call_suffix}}}]}}
         - not: {has: {kind: switch_entry, not: {matches: forwarding-entry}}}
 message: '`$NAME` forwards `$M` of every associated value unchanged'
-note: 'Declare a protocol the associated value types conform to and hold `any <Protocol>`, the consumer reads `$M` on it with no switch'
+note: 'Declare a protocol the associated value types conform to and hold `any <Protocol>`, the consumer reads `<member>` on it with no switch'

@@ -14,8 +14,9 @@ Covers the decisions of writing C# under the workspace standards (TOTALITY, FLOW
 - [04]-[IMMUTABLE_DATA](references/immutable-data.md): Snapshot and transition model behind the immutability rules, with persistent structure costs
 - [05]-[EFFECTS](references/effects.md): Worked flows for effects at the boundary, from isolating I/O and injection to running the composed effect
 - [06]-[STATE](references/state.md): Worked flows for state passed through `State` and `StateT`, with the generators and the loop forms
-- [07]-[STREAMS](references/streams.md): The observable model and the agent model, with per-item failure, backpressure, and entity processes
+- [07]-[STREAMS](references/streams.md): Observable model and agent model, with per-item failure, backpressure, and entity processes
 - [08]-[EVENT_SOURCING](references/event-sourcing.md): Event history as the source of truth, from storage to the command and query sides
+- [09]-[REFACTORING](references/refactoring.md): Corrections no ast-grep rule enforces, rejected shapes with required forms
 
 Examples assume `using static LanguageExt.Prelude`, which supplies `Some`, `None`, `Seq`, `toSeq`, `Range`, `parseInt`, `guard`, `use`, `par`, `curry`, `compose`, and `fun` as unqualified names:
 - `Seq<A>` is the default collection in domain code
@@ -34,15 +35,15 @@ Function signatures are contracts, input types describe every value the function
 |  [02]   | Produce a value             | `() -> string`                        | `Func<string>`                            |
 |  [03]   | Consume a value for effects | `int -> ()`                           | `Action<int>`                             |
 |  [04]   | Perform an effect           | `() -> ()`                            | `Action`                                  |
-|  [05]   | Combine two inputs          | `(int, int) -> int`                   | `Func<int, int, int>`                     |
+|  [05]   | Combine inputs              | `(int, int) -> int`                   | `Func<int, int, int>`                     |
 |  [06]   | Accept a function           | `(string, (IDbConnection -> R)) -> R` | `Func<string, Func<IDbConnection, R>, R>` |
 
 - Use `Func` and `Action` when only the signature matters, and a custom delegate when its name conveys domain intent that `Func<T, bool>` does not
 - Multi-argument method groups defeat generic type inference, a partially applied function is a `Func` field, property, or factory
 - `fun` gives an inline lambda its delegate type
-- A signature leaves semantic detail unstated (`Where` and `TakeWhile` share one), the name states it
+- Signatures leave semantic detail unstated (`Where` and `TakeWhile` share one), names state it
 - Records hold inputs and outputs, functions hold behavior
-- A constrained type owns only the validation that constructs it and the operations (comparison) that protect its representation
+- Constrained types own only the validation that constructs them and the operations (comparison) that protect their representation
 
 ### [01.1]-[HONEST_SIGNATURES]
 
@@ -58,11 +59,10 @@ Functions honor their signature when each declared input produces a declared out
 
 ### [01.2]-[PURITY]
 
-Functions are pure when their return value depends only on their inputs (immutable values fixed at construction included) and evaluation causes no side effect, a pure call can be replaced by its result (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, mutation local to a function that never escapes is no side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, the same transformations can change the behavior of an impure function. Expose a variable dependency as input data:
+Functions are pure when their return value depends only on their inputs (immutable values fixed at construction included) and evaluation causes no side effect, a pure call can be replaced by its result (referential transparency). Side effects are mutating state visible outside the function (instance fields included), mutating an argument, throwing, and I/O (the clock, console, filesystem, database, network, or another process). Instance methods that read mutable fields and lambdas that close over mutable variables are impure, mutation local to a function that never escapes is no side effect. Pure functions are safe for parallel evaluation, lazy evaluation, and memoization, the same transformations can change the behavior of an impure function. Expose a variable dependency as input data, the clock enters as an argument and invariant formatting keeps the result independent of the ambient culture:
 
 ```csharp
 internal static class Stamps {
-    // Clock enters as an argument, invariant formatting keeps the result independent of ambient culture
     public static string Format(Instant now, string? label) => string.Create(CultureInfo.InvariantCulture, $"{now} - {label ?? "unlabeled"}");
 }
 ```
@@ -76,7 +76,7 @@ Higher-order functions accept a function, return one, or both, and a delegate is
 ```csharp
 Seq<DayOfWeek> days = toSeq(Enum.GetValues<DayOfWeek>());
 Seq<DayOfWeek> StartingWith(string prefix) => days.Filter(day => day.ToString().StartsWith(prefix, StringComparison.Ordinal));
-Seq<DayOfWeek> matched = StartingWith("S"); // Sunday, Saturday
+Seq<DayOfWeek> matched = StartingWith("S");
 ```
 
 Function factories turn configuration into behavior. `compose(f, g)` joins functions into one function that applies `f` first (method groups need its explicit type arguments), method chaining expresses the same flow inline:
@@ -94,8 +94,8 @@ Select the form by the call site:
 - Specialization when it simplifies call sites
 - Function collections when behaviors share a signature and vary as data
 - `ForAll` or `Exists` when a short-circuiting boolean suffices
-- An ordered rule table with an explicit fallback for a first-match decision over values
-- A returned closure to narrow a noisy API to one operation
+- Ordered rule table with an explicit fallback for a first-match decision over values
+- Returned closure to narrow a noisy API to one operation
 - Ordinary functions when the helper is larger than the duplication it removes or hides ordering, effects, missing-value behavior, or termination risk
 
 ## [02]-[EXPRESSIONS]
@@ -176,7 +176,7 @@ Immutable values are fixed once created, a needed change derives a new value fro
 - `init` accessors permit object-initializer syntax and prevent reassignment after initialization
 - `required` marks a property that cannot be omitted
 - `record` supports nondestructive mutation through `with`, which copies the unchanged properties and leaves the original unchanged
-- A state machine pattern matches the next interaction to select the transition
+- State machines pattern match the next interaction to select the transition
 - Getter-only auto-properties get a compiler-generated readonly backing field, assigned inline or in the constructor
 
 ```csharp
@@ -198,17 +198,19 @@ None of `readonly`, `init`, and `with` makes a referenced child object immutable
 - `Lens<A, B>` with `lens(outer, inner)` updates a nested field
 - Confine local mutation to a scope that owns it, a `List<T>` or `Dictionary<K, V>` stays inside a scope that publishes an immutable value
 
-In-place updates destroy the prior value, transformations preserve it:
+In-place updates destroy the prior value:
 
 ```csharp
-// BAD: In-place updates destroy the prior value
 List<int> values = [7, 6, 1];
-values.Sort(); // values becomes 1, 6, 7
+values.Sort();
+```
 
-// GOOD: Functional alternatives preserve it
+Transformations preserve it, `values` keeps its order:
+
+```csharp
 Seq<int> values = Seq(7, 6, 1);
-Seq<int> sorted = toSeq(values.Order());              // values remains 7, 6, 1
-Seq<int> odd = values.Filter(static x => x % 2 == 1); // 7, 1
+Seq<int> sorted = toSeq(values.Order());
+Seq<int> odd = values.Filter(static x => x % 2 == 1);
 ```
 
 Concurrent reorders of a shared list during a sum give the reader an inconsistent traversal, a separate ordered view removes the interference. Choose the collection by the operation the domain performs most: `Seq<A>` for ordered reads, `Lst<A>` for indexed edits, `Map<K, V>` or `HashMap<K, V>` for keyed lookups, `Set<A>` or `HashSet<A>` for uniqueness, and `Iterable<A>` for a lazy source.
@@ -221,7 +223,7 @@ Every function returns an explicit result type, and one type serves one concern:
 | :-----: | :--------------------- | :---------------------------------------------- |
 |  [01]   | `Option<A>`            | Absence without an `Error`                      |
 |  [02]   | `Fin<A>`               | Expected failure with an `Error`, short-circuit |
-|  [03]   | `Either<L, R>`         | Two value types, neither an error               |
+|  [03]   | `Either<L, R>`         | Value of either type, neither an error          |
 |  [04]   | `Validation<Error, A>` | Independent failures, accumulate                |
 |  [05]   | `Try<A>`               | Synchronous exception capture, deferred         |
 |  [06]   | `IO<A>`                | Side effects with a failure channel             |
@@ -244,9 +246,9 @@ Give each step a function and select the operator by the step's signature and by
 
 - Errors from one traversed element hold the element index as a typed field
 - Values stay in one abstraction through the pipeline, an unwrap followed by a rewrap duplicates effect handling
-- A nested `Bind` becomes a query
+- Nested `Bind` calls become a query
 - Nested contexts (`IO<Option<A>>`) compose through a transformer (`OptionT<IO, A>`)
-- A stack that appears throughout a workflow becomes a dedicated type
+- Stacks that appear throughout a workflow become a dedicated type
 
 ```csharp
 internal sealed record InvalidCommand() : Expected("command is invalid", 901);
@@ -300,8 +302,8 @@ internal abstract partial record Identity {
 - Put shared data on the abstract base and case-specific data in its case
 - Call `Switch` only where behavior depends on the case, and pass the union onward elsewhere
 - Treat a case as an alternative to its siblings, name each case's data in its own terms, and hold mixed cases in one `Seq` of the base type
-- A new union case is a compile error at every `Switch` until it gains an arm
-- A union fits a growing set of operations, abstract members fit a growing set of cases
+- Every `Switch` lacking an arm for a new union case fails to compile
+- Unions fit a growing set of operations, abstract members fit a growing set of cases
 - Use a domain union when the consumer needs domain outcome names, and `Option`, `Fin`, or `Either` otherwise
 - Keep absence and failure separate when the consumer responds differently
 - Fold a recursive union with one replacement per constructor, and fold an unbounded depth through `Trampoline<A>`
@@ -313,7 +315,7 @@ internal abstract partial record Identity {
 |  [01]   | `Match` in the middle of a pipeline unwraps a value the next step relifts | `Bind` the next step                          |
 |  [02]   | `IfNone` with an arbitrary default hides absence                          | `ToFin` with an `Error`                       |
 |  [03]   | Matching on message text couples the consumer to prose                    | `HasCode` or `IsType<E>`                      |
-|  [04]   | `Option` nested inside an effect forces two unwraps                       | `OptionT<IO, A>`                              |
+|  [04]   | `Option` nested inside an effect forces an unwrap per layer               | `OptionT<IO, A>`                              |
 |  [05]   | `Fin` nested inside an effect duplicates the failure channel              | Typed `Expected` on the `IO` error channel    |
 |  [06]   | `Run` inside the domain performs the effect before the host runs it       | Keep the `IO` and `Bind` the next step        |
 |  [07]   | `Some` as a null guard                                                    | `Optional` at the null boundary               |
@@ -326,7 +328,7 @@ internal abstract partial record Identity {
 `IO<A>` describes a side effect with a failure channel, performs nothing until the host runs it, and holds a domain rejection as a typed `Expected` on that channel in place of a nested result:
 - `IO.lift` defers a thunk, `IO.lift(Fin<A>)` puts an evaluated rejection on the channel
 - `IO.liftAsync` adapts a task thunk, its `EnvIO` overload passes `env.Token`
-- An operation that waits on I/O enters through `IO.liftAsync` and has no synchronous counterpart that blocks a thread
+- Operations that wait on I/O enter through `IO.liftAsync` and have no synchronous counterpart that blocks a thread
 - `IO.pure` and `IO.fail` build the plain cases
 - `Eff<RT, A>` reads a capability from a runtime `RT` through `Has<Eff<RT>, T>`, `IO<A>` converts to it implicitly
 
@@ -377,11 +379,11 @@ Independent effects combine with the tuple `Apply` or with `Fork` and `Await`, `
 - `Atom<A>` replaces the value with compare-and-swap
 - `AtomHashMap<K, V>` holds a registry with `FindOrAdd`
 - `Ref<A>` under `atomic` commits coordinated updates
-- A `Conduit` reduced under `Fork` serializes commands as an agent
-- A conflict reruns the update function, the function stays free of effects
+- `Conduit` reduced under `Fork` serializes commands as an agent
+- Conflicts rerun the update function, the function stays free of effects
 
 Delivery shape selects the construct:
 - `Source<A>` fits values that arrive over time, logic across events or sources (sequences, transitions, windows), and one-way dataflow
-- An expected per-item failure stays a `Fin<A>` value inside the stream
+- Expected per-item failures stay `Fin<A>` values inside the stream
 - Independent events take a callback or an `IO<A>`, request-response work stays out of a stream
 - Coordination that needs explicit queues and exact sequencing takes a `Conduit` as the queue or `Pipes` as the pipeline

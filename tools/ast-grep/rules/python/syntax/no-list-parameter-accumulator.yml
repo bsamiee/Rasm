@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-list-parameter-accumulator
+language: python
+severity: error
+rule:
+    pattern: $CALL
+    any:
+        - kind: call
+          has:
+            field: function
+            kind: attribute
+            all:
+                - has: {field: object, kind: identifier, pattern: $P}
+                - has: {field: attribute, regex: '^(append|extend|insert)$'}
+        - kind: augmented_assignment
+          all:
+            - has: {field: left, kind: identifier, pattern: $P}
+            - has: {field: operator, regex: '^\+=$'}
+    inside:
+        kind: function_definition
+        stopBy: {kind: 'function_definition, lambda'}
+        has:
+            field: parameters
+            has:
+                kind: 'typed_parameter, typed_default_parameter'
+                all:
+                    - any: [{has: {kind: identifier, pattern: $P, nthChild: 1}}, {has: {field: name, pattern: $P}}]
+                    - has: {field: type, regex: '^(list|MutableSequence)\['}
+message: '`$CALL` hands values back through the list parameter `$P`'
+note: 'Return or yield the values and let the caller collect them'

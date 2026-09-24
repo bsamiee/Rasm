@@ -208,7 +208,7 @@ internal static class Removals {
 
 Order of the bracketed effects decides which downstream work each scope surrounds, adding, removing, or reordering a cross-cutting behavior changes the corresponding query clauses. `Bracket`, `use`, `Map`, and `Bind` are not database-specific:
 - Timing outside connection acquisition measures acquisition and database work, and timing inside the connection scope measures only downstream work
-- The transaction scope depends on the connection and follows the connection scope
+- Transaction scopes depend on the connection and follow the connection scope
 - Operations that must be atomic sit inside the transaction scope, before the commit step
 
 ## [06]-[EXECUTION]

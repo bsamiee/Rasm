@@ -20,4 +20,4 @@ rule:
 constraints:
     K: {not: {regex: '^[0-9_]+$'}}
 message: '`$D[$K] = $V` removes the key when `$V` is nil'
-note: '`if let value = $V { $D[$K] = value }` where absence keeps the entry, `$D[$K] = $V ?? <default>` where a default is meant, `$D.removeValue(forKey: $K)` where removal is meant'
+note: '`if let value = <optional> { <dictionary>[<key>] = value }` where absence keeps the entry, `<dictionary>[<key>] = <optional> ?? <default>` where a default is meant, `<dictionary>.removeValue(forKey: <key>)` where removal is meant'

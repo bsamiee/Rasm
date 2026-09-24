@@ -2,70 +2,13 @@
 id: no-logging-call
 language: python
 severity: error
-utils:
-    event-method: {regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
-    logger-call:
-        kind: call
-        has:
-            field: function
-            any:
-                - matches: {python-member-use: {module: {regex: "^logging$"}, name: {regex: "^(getLogger|Logger|RootLogger|LoggerAdapter)$"}}}
-                - kind: attribute
-                  all:
-                    - has: {field: attribute, regex: "^getChild$"}
-                    - has: {field: object, any: [{matches: logger-call}, {matches: parent-logger}]}
-    parent-logger:
-        kind: identifier
-        pattern: $PARENT
-        inside:
-            kind: module, function_definition
-            stopBy: end
-            has:
-                stopBy: {kind: "function_definition, class_definition, lambda"}
-                kind: expression_statement
-                has:
-                    kind: assignment
-                    all:
-                        - has: {field: left, kind: identifier, pattern: $PARENT}
-                        - has: {field: right, matches: logger-call}
-    logger-assignment:
-        kind: expression_statement
-        has:
-            kind: assignment
-            all:
-                - has: {field: left, kind: identifier, pattern: $LOGGER}
-                - has: {field: right, matches: logger-call}
-    local-binding:
-        any:
-            - has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $LOGGER}}}}}
-            - has:
-                stopBy: {kind: "function_definition, class_definition, lambda"}
-                kind: assignment, augmented_assignment, for_statement, for_in_clause
-                has: {field: left, kind: identifier, pattern: $LOGGER}
-    bound-logger:
-        kind: identifier
-        pattern: $LOGGER
-        any:
-            - inside:
-                kind: function_definition
-                stopBy: {matches: python-function-boundary}
-                has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: logger-assignment}
-            - all:
-                - not: {inside: {kind: function_definition, stopBy: end, matches: local-binding}}
-                - not: {inside: {kind: for_statement, stopBy: end, has: {field: left, kind: identifier, pattern: $LOGGER}}}
-                - inside: {kind: module, stopBy: end, has: {matches: logger-assignment}}
+ignores: ['.claude/skills/use-blender/scripts/*.py', '.claude/skills/use-rhino/scripts/*.py', 'tools/interface/**']
 rule:
+    kind: attribute
     pattern: $USE
-    any:
-        - matches: {python-member-use: {module: {regex: "^logging$"}, name: {matches: event-method}}}
-        - kind: attribute
-          all:
-            - has: {field: attribute, matches: event-method}
-            - has:
-                field: object
-                any:
-                    - matches: logger-call
-                    - matches: bound-logger
+    all:
+        - has: {field: attribute, regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
+        - has: {field: object, matches: python-stdlib-logger}
 message: '`$USE` logs through the standard library logging API'
 note: 'Use `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`'
 labels: {USE: {style: primary, message: Event method}}

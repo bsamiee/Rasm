@@ -1,7 +1,7 @@
 # /// script
 # dependencies = ["msgspec"]
 # ///
-"""Records and faults every script returns, inside Rhino's Python and outside it."""
+"""Records and faults every script returns inside and outside Rhino."""
 
 import msgspec
 
@@ -9,11 +9,11 @@ import msgspec
 
 
 class Record(msgspec.Struct, frozen=True, omit_defaults=True, repr_omit_defaults=True):
-    """Immutable value whose printed and encoded forms leave out fields at their default."""
+    """Immutable value that prints and encodes without its default fields."""
 
 
 class Properties(Record, frozen=True):
-    """Attributes of a layer, or an object's overrides of its layer, where `None` leaves one unchanged."""
+    """Layer attributes or an object's overrides of its layer, `None` leaving an attribute unchanged."""
 
     color: str | None = None
     linetype: str | None = None
@@ -26,7 +26,7 @@ class Properties(Record, frozen=True):
 
 
 class LayerRecord(Record, frozen=True):
-    """One layer's full path, properties, and object count."""
+    """Layer read back with its object count."""
 
     path: str
     properties: Properties
@@ -41,10 +41,11 @@ class MaterialRecord(Record, frozen=True):
     roughness: float
     metallic: float
     opacity: float
+    ior: float
 
 
 class File[T](Record, frozen=True):
-    """File an operation wrote with its size in bytes and what it holds beyond the document's objects."""
+    """File an operation wrote, with the operation's own `detail`."""
 
     path: str
     bytes: int
@@ -55,7 +56,7 @@ class File[T](Record, frozen=True):
 
 
 class Fault(Record, frozen=True):
-    """Value the type `source` refused, with the values it accepts in its place."""
+    """Value that type `source` refused, with the alternatives it accepts."""
 
     source: type
     value: object
@@ -66,7 +67,7 @@ class Fault(Record, frozen=True):
 
 
 def collect_faults(*results: object) -> tuple[Fault, ...]:
-    """Return every fault among independent results, each a value or a tuple of results."""
+    """Return every fault among independent results, flattening nested tuples."""
     return tuple(fault for result in results for fault in (collect_faults(*result) if isinstance(result, tuple) else (result,)) if isinstance(fault, Fault))
 
 

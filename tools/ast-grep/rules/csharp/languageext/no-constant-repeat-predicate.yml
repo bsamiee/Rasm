@@ -1,0 +1,76 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-constant-repeat-predicate
+language: csharp
+severity: error
+utils:
+    predicate:
+        any:
+            - has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^predicate$'}, pattern: $PREDICATE}}
+            - all:
+                - not: {has: {field: arguments, has: {kind: argument, has: {field: name, regex: '^predicate$'}}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: {position: 1, reverse: true}, not: {has: {field: name, pattern: $_}}, pattern: $PREDICATE}}
+    held:
+        any:
+            - all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?repeatUntil(\s*<.+>)?$'}
+                - not: {has: {field: arguments, has: {kind: argument, nthChild: 3}}}
+            - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {kind: identifier, not: {inside: {kind: argument, field: name}}}}}
+            - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, has: {matches: outer-read}}}
+    outer-read:
+        kind: lambda_expression, anonymous_method_expression
+        all:
+            - has:
+                field: parameters
+                any:
+                    - kind: implicit_parameter
+                      pattern: $READ_PARAMETER
+                    - kind: parameter_list
+                      has: {kind: parameter, has: {field: name, pattern: $READ_PARAMETER}}
+            - has:
+                stopBy: end
+                kind: identifier
+                not:
+                    any:
+                        - pattern: $READ_PARAMETER
+                        - inside: {kind: member_access_expression, field: name}
+                        - inside: {kind: parameter}
+rewriters:
+    - id: kept-argument
+      rule: {kind: argument, pattern: $ARGUMENT, not: {pattern: $PREDICATE}}
+      fix: $ARGUMENT
+rule:
+    kind: invocation_expression
+    all:
+        - pattern: {context: 'class C { object F() => $CALLEE($$$ARGUMENTS); }', selector: invocation_expression, strictness: cst}
+        - any:
+            - has: {field: function, has: {field: name, regex: '^(Repeat|Retry)(While|Until)(IO)?(\s*<.+>)?$'}}
+            - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(repeat|retry)(While|Until)(\s*<.+>)?$'}
+        - matches: predicate
+        - any:
+            - all:
+                - has: {field: function, regex: '(?s)While(IO)?(\s*<[^()]*>)?$'}
+                - has: {field: arguments, has: {kind: argument, pattern: $PREDICATE, matches: {csharp-constant-lambda: {value: {regex: '^true$'}}}}}
+            - all:
+                - has: {field: function, regex: '(?s)Until(IO)?(\s*<[^()]*>)?$'}
+                - has:
+                    field: arguments
+                    has:
+                        kind: argument
+                        pattern: $PREDICATE
+                        matches: {csharp-constant-lambda: {value: {regex: '^(false|default(\s*\(\s*((global::)?System\.)?(bool|Boolean)\s*\))?)$'}}}
+        - any:
+            - all:
+                - matches: held
+                - pattern: $HELD
+            - all:
+                - not: {matches: held}
+                - has: {field: function, pattern: $FIXED}
+                - has: {field: arguments, pattern: $FIXED_ARGUMENTS}
+transform:
+    BASE: {replace: {source: $FIXED, replace: '(?s)(While|Until)((IO)?(\s*<[^()]*>)?)$', by: '${2}'}}
+    REST: {rewrite: {source: $FIXED_ARGUMENTS, rewriters: [kept-argument], joinBy: ', '}}
+    OPEN: {replace: {source: $FIXED, replace: '(?s)^.+$', by: '('}}
+    CLOSE: {replace: {source: $FIXED, replace: '(?s)^.+$', by: ')'}}
+fix: $HELD$BASE$OPEN$REST$CLOSE
+message: '`$CALLEE` takes a predicate that returns a constant'
+note: Use `Repeat` or `Retry` with the same effect and schedule, `repeat(<effect>.As())` over a `K<IO, A>` in place of the prelude `repeatUntil`, and delete a predicate local or member nothing else reads

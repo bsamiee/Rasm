@@ -1,0 +1,127 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-atom-side-channel
+language: csharp
+severity: error
+utils:
+    mutator:
+        regex: '^(Swap|SwapIO|SwapMaybe|SwapMaybeIO|SwapKey|Add|AddOrUpdate|AddOrUpdateRange|AddRange|Clear|FilterInPlace|MapInPlace|BindInPlace|FindOrAdd|FindOrMaybeAdd|Insert|InsertRange|Push|Remove|RemoveAll|RemoveAt|RemoveRange|SetItem|SetItems|TryAdd|TryAddRange|TrySetItem|TrySetItems|Enqueue|Dequeue|DequeueUnsafe|Update|Commute)$'
+    collection-type:
+        regex: '^((global::)?System\.Collections\.Generic\.)?(List|Dictionary|HashSet|SortedSet|SortedDictionary|SortedList|Queue|Stack|LinkedList)\s*<|\[[^\]]*\]$'
+    collection-local:
+        kind: identifier
+        pattern: $CELL
+        inside:
+            stopBy: end
+            kind: block
+            has:
+                kind: local_declaration_statement
+                has:
+                    kind: variable_declaration
+                    any:
+                        - all:
+                            - has: {field: type, matches: collection-type}
+                            - has: {kind: variable_declarator, has: {field: name, pattern: $CELL}}
+                        - has:
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $CELL}
+                                - has: {nthChild: 2, kind: 'object_creation_expression, array_creation_expression', has: {field: type, matches: collection-type}}
+    cell:
+        any:
+            - matches: csharp-atom-cell
+            - matches: collection-local
+    mutation:
+        any:
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, all: [{has: {field: name, matches: mutator}}, {has: {field: expression, pattern: $CELL, matches: cell}}]}
+            - kind: invocation_expression
+              all:
+                - has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\.)?(swap|commute)$'}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $CELL, matches: csharp-atom-cell}}}
+            - kind: assignment_expression
+              has: {field: left, kind: element_access_expression, has: {field: expression, pattern: $CELL, matches: collection-local}}
+            - kind: argument
+              has: {kind: identifier, pattern: $CELL, matches: csharp-atom-cell}
+              inside: {kind: argument_list, inside: {kind: invocation_expression}}
+    combinator:
+        kind: invocation_expression
+        has: {field: function, kind: member_access_expression, has: {field: name, regex: '^(Iter|IfSome|IfSucc|IfFail|IfNone|Do|ForEach|Traverse|TraverseM|Map|Select|Bind|SelectMany|Filter|Where|Choose|Fold|Match|Switch)(\s*<.+>)?$'}}
+    combinator-callback:
+        kind: 'lambda_expression, anonymous_method_expression'
+        inside: {kind: argument, inside: {kind: argument_list, inside: {matches: combinator}}}
+    lift-thunk:
+        kind: lambda_expression
+        inside:
+            kind: argument
+            inside:
+                kind: argument_list
+                inside: {kind: invocation_expression, has: {field: function, regex: '^(global::)?(LanguageExt\.)?(Prelude\.)?(IO\.(lift|liftAsync)|atomic|atomicIO|snapshot|serial)(\s*<.+>)?$'}}
+    opaque-callback:
+        kind: 'lambda_expression, anonymous_method_expression, local_function_statement'
+        not:
+            any:
+                - matches: combinator-callback
+                - matches: lift-thunk
+    callback:
+        any:
+            - kind: 'lambda_expression, anonymous_method_expression'
+              all:
+                - matches: combinator-callback
+                - has: {stopBy: {matches: opaque-callback}, matches: mutation}
+            - kind: 'from_clause, let_clause, where_clause, select_clause, group_clause, order_by_clause, join_clause'
+              all:
+                - not: {kind: from_clause, nthChild: 1}
+                - has: {stopBy: {matches: opaque-callback}, matches: mutation}
+            - kind: argument
+              all:
+                - has: {kind: identifier, pattern: $GROUP}
+                - inside: {kind: argument_list, inside: {matches: combinator}}
+                - inside:
+                    stopBy: end
+                    kind: block
+                    has:
+                        kind: local_function_statement
+                        all:
+                            - has: {field: name, pattern: $GROUP}
+                            - has: {stopBy: {matches: opaque-callback}, matches: mutation}
+    read:
+        kind: identifier
+        any:
+            - pattern: $CELL
+            - pattern: $SOURCE
+        not:
+            any:
+                - inside: {kind: member_access_expression, field: name}
+                - inside: {kind: member_access_expression, field: expression, has: {field: name, matches: mutator}, inside: {kind: invocation_expression, field: function}}
+                - inside: {kind: element_access_expression, field: expression, inside: {kind: assignment_expression, field: left}}
+                - inside: {stopBy: end, matches: callback}
+    later-read:
+        any:
+            - matches: read
+            - has: {stopBy: end, matches: read}
+    nested-step:
+        kind: 'local_declaration_statement, expression_statement, return_statement, if_statement, while_statement, do_statement, for_statement, foreach_statement, using_statement, lock_statement, yield_statement, switch_statement, try_statement'
+        not: {inside: {kind: if_statement, field: consequence}}
+        any: [{matches: callback}, {has: {stopBy: {matches: opaque-callback}, matches: callback}}]
+        precedes: {stopBy: end, matches: later-read}
+rule:
+    any:
+        - kind: local_declaration_statement
+          has:
+            kind: variable_declaration
+            has: {kind: variable_declarator, all: [{has: {field: name, pattern: $CELL}}, {has: {nthChild: 2, kind: identifier, pattern: $SOURCE}}]}
+        - kind: local_declaration_statement
+          has: {kind: variable_declaration, has: {kind: variable_declarator, has: {field: name, all: [{pattern: $CELL}, {pattern: $SOURCE}]}}}
+        - kind: from_clause
+          has: {field: name, all: [{pattern: $CELL}, {pattern: $SOURCE}]}
+        - kind: let_clause
+          has: {kind: identifier, nthChild: 1, all: [{pattern: $CELL}, {pattern: $SOURCE}]}
+    precedes:
+        stopBy: end
+        any:
+            - all:
+                - any: [{matches: callback}, {has: {stopBy: {matches: opaque-callback}, matches: callback}}]
+                - precedes: {stopBy: end, matches: later-read}
+            - has: {stopBy: {matches: opaque-callback}, matches: nested-step}
+message: '`$CELL` passes a value out of a callback'
+note: Use the callback's return type, a `Fin<R>` or a tuple the calling operation returns

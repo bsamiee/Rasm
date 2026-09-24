@@ -1,0 +1,23 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: python-submodule
+language: python
+arguments: [parent, child]
+utils:
+    member:
+        matches: {python-member-use: {module: {matches: parent}, name: {matches: child}}}
+    aliased-import:
+        kind: aliased_import
+        inside: {kind: import_statement}
+        all:
+            - has: {field: name, kind: dotted_name, all: [{has: {kind: identifier, nthChild: 1, matches: parent}}, {has: {kind: identifier, nthChild: 2, matches: child}}], not: {has: {nthChild: 3}}}
+            - has: {field: alias, pattern: $ALIAS}
+rule:
+    any:
+        - matches: member
+        - kind: identifier
+          pattern: $ALIAS
+          not: {matches: python-shadowed-name}
+          inside:
+            kind: module, function_definition
+            stopBy: end
+            has: {stopBy: {kind: "function_definition, class_definition, lambda"}, matches: aliased-import}

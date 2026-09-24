@@ -2,6 +2,7 @@
 id: no-future-annotations
 language: python
 severity: error
+ignores: ['.claude/skills/use-blender/scripts/*.py', '.claude/skills/use-rhino/scripts/*.py', 'tools/interface/{location,radix,render,theme,units}.py', 'tools/interface/*/{script,window}.py', 'tools/interface/*/{extension,grasshopper}/**']
 utils:
     annotations-feature: {kind: dotted_name, regex: '^annotations$', inside: {kind: future_import_statement}}
 rule:

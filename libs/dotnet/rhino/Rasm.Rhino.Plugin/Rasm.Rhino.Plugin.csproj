@@ -1,0 +1,20 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <Description>Rhino plug-in base class, plug-in registry, and Zoo licensing as IO effects over RhinoCommon</Description>
+    </PropertyGroup>
+
+    <ItemGroup Label="Rhino Dependencies">
+        <PackageReference Include="System.Drawing.Common" />
+    </ItemGroup>
+
+    <ItemGroup Label="Core Dependencies">
+        <PackageReference Include="LanguageExt.Core" />
+        <PackageReference Include="Riok.Mapperly" PrivateAssets="all" />
+        <PackageReference Include="Thinktecture.Runtime.Extensions" />
+    </ItemGroup>
+
+    <ItemGroup Label="Workspace Packages">
+        <ProjectReference Include="../Rasm.Rhino.Document/Rasm.Rhino.Document.csproj" />
+        <ProjectReference Include="../Rasm.Rhino.Persistence/Rasm.Rhino.Persistence.csproj" />
+    </ItemGroup>
+</Project>

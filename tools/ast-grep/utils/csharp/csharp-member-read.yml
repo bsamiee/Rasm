@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: csharp-member-read
+language: csharp
+arguments: [member, source]
+utils:
+    unwrapping:
+        any:
+            - kind: 'cast_expression, parenthesized_expression, postfix_unary_expression'
+            - kind: invocation_expression
+              has: {field: function, kind: member_access_expression, has: {field: name, regex: '^IfNone$'}}
+            - kind: member_access_expression
+              has: {field: name, regex: '^IfNone$'}
+    read:
+        kind: member_access_expression
+        all:
+            - not: {matches: unwrapping}
+            - has: {field: name, matches: member}
+            - has: {field: expression, matches: source}
+    value:
+        any:
+            - matches: read
+            - matches: unwrapping
+              has: {stopBy: {not: {matches: unwrapping}}, matches: read}
+rule:
+    any:
+        - matches: value
+        - kind: identifier
+          pattern: $RELAY
+          inside:
+            stopBy: end
+            kind: 'method_declaration, local_function_statement, lambda_expression, constructor_declaration'
+            has: {stopBy: end, kind: variable_declarator, all: [{has: {field: name, pattern: $RELAY}}, {has: {not: {kind: identifier}, matches: value}}]}

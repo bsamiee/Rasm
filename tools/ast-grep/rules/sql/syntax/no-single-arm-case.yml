@@ -29,4 +29,4 @@ transform:
     RESULT: {rewrite: {source: $CASE, rewriters: [with-else, without-else]}}
 fix: $RESULT
 message: '`case` with one `when` arm selects between two values'
-note: 'Use `iif($COND, $THEN, $ELSE)` with `null` as the third argument where `case` has no `else`'
+note: 'Use `iif(<condition>, <then>, <else>)` with `null` as the third argument where `case` has no `else`'

@@ -1,0 +1,402 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-function-csharp
+language: csharp
+severity: error
+utils:
+    plain-parameter:
+        kind: parameter
+        not:
+            has:
+                any:
+                    - kind: attribute_list
+                    - kind: modifier
+                      regex: '^(ref|out|scoped)$'
+    parameter-1: {matches: plain-parameter, nthChild: {position: 1, ofRule: {kind: parameter}}, has: {field: name, pattern: $P1}}
+    parameter-2: {matches: plain-parameter, nthChild: {position: 2, ofRule: {kind: parameter}}, has: {field: name, pattern: $P2}}
+    parameter-3: {matches: plain-parameter, nthChild: {position: 3, ofRule: {kind: parameter}}, has: {field: name, pattern: $P3}}
+    parameter-4: {matches: plain-parameter, nthChild: {position: 4, ofRule: {kind: parameter}}, has: {field: name, pattern: $P4}}
+    parameter-5: {matches: plain-parameter, nthChild: {position: 5, ofRule: {kind: parameter}}, has: {field: name, pattern: $P5}}
+    parameter-list:
+        kind: parameter_list
+        not: {has: {field: name, pattern: $_}}
+    arity-0:
+        matches: parameter-list
+        not: {has: {kind: parameter}}
+    arity-1:
+        matches: parameter-list
+        all: [{has: {matches: parameter-1}}]
+        not: {has: {kind: parameter, nthChild: {position: 2, ofRule: {kind: parameter}}}}
+    arity-2:
+        matches: parameter-list
+        all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}]
+        not: {has: {kind: parameter, nthChild: {position: 3, ofRule: {kind: parameter}}}}
+    arity-3:
+        matches: parameter-list
+        all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}]
+        not: {has: {kind: parameter, nthChild: {position: 4, ofRule: {kind: parameter}}}}
+    arity-4:
+        matches: parameter-list
+        all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}, {has: {matches: parameter-4}}]
+        not: {has: {kind: parameter, nthChild: {position: 5, ofRule: {kind: parameter}}}}
+    arity-5:
+        matches: parameter-list
+        all: [{has: {matches: parameter-1}}, {has: {matches: parameter-2}}, {has: {matches: parameter-3}}, {has: {matches: parameter-4}}, {has: {matches: parameter-5}}]
+        not: {has: {kind: parameter, nthChild: {position: 6, ofRule: {kind: parameter}}}}
+    root-1: {any: [{kind: identifier, pattern: $P1}, {kind: member_access_expression, has: {field: expression, matches: root-1}}]}
+    root-2: {any: [{kind: identifier, pattern: $P2}, {kind: member_access_expression, has: {field: expression, matches: root-2}}]}
+    root-3: {any: [{kind: identifier, pattern: $P3}, {kind: member_access_expression, has: {field: expression, matches: root-3}}]}
+    root-4: {any: [{kind: identifier, pattern: $P4}, {kind: member_access_expression, has: {field: expression, matches: root-4}}]}
+    root-5: {any: [{kind: identifier, pattern: $P5}, {kind: member_access_expression, has: {field: expression, matches: root-5}}]}
+    type-parameter-name:
+        kind: identifier
+        pattern: $TYPE_PARAMETER
+        inside:
+            stopBy: end
+            has: {kind: type_parameter_list, has: {kind: type_parameter, has: {kind: identifier, pattern: $TYPE_PARAMETER}}}
+    parameter-name:
+        kind: identifier
+        pattern: $PARAMETER
+        inside:
+            stopBy: end
+            kind: 'method_declaration, local_function_statement'
+            has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $PARAMETER}}}
+    static-root:
+        any:
+            - kind: identifier
+              regex: '^[A-Z]'
+              not:
+                any:
+                    - matches: type-parameter-name
+                    - matches: parameter-name
+            - kind: 'predefined_type, alias_qualified_name, generic_name, qualified_name'
+            - kind: member_access_expression
+              has: {field: expression, matches: static-root}
+    callee-name:
+        any:
+            - kind: identifier
+              pattern: $CALLEE
+            - kind: generic_name
+              has: {kind: identifier, pattern: $CALLEE}
+    callee:
+        kind: invocation_expression
+        not: {has: {field: function, kind: identifier, pattern: $NAME}}
+        has:
+            field: function
+            any:
+                - matches: callee-name
+                - kind: member_access_expression
+                  has: {field: name, matches: callee-name}
+                - kind: conditional_access_expression
+                  has: {kind: member_binding_expression, has: {field: name, matches: callee-name}}
+    static-callee:
+        matches: callee
+        has:
+            field: function
+            any:
+                - matches: callee-name
+                - kind: member_access_expression
+                  has: {field: expression, matches: static-root}
+    receiver-1: {has: {field: function, any: [{kind: identifier, pattern: $P1}, {kind: member_access_expression, has: {field: expression, matches: root-1}}, {kind: conditional_access_expression, has: {field: condition, matches: root-1}}]}}
+    receiver-2: {has: {field: function, any: [{kind: identifier, pattern: $P2}, {kind: member_access_expression, has: {field: expression, matches: root-2}}, {kind: conditional_access_expression, has: {field: condition, matches: root-2}}]}}
+    receiver-3: {has: {field: function, any: [{kind: identifier, pattern: $P3}, {kind: member_access_expression, has: {field: expression, matches: root-3}}, {kind: conditional_access_expression, has: {field: condition, matches: root-3}}]}}
+    receiver-4: {has: {field: function, any: [{kind: identifier, pattern: $P4}, {kind: member_access_expression, has: {field: expression, matches: root-4}}, {kind: conditional_access_expression, has: {field: condition, matches: root-4}}]}}
+    receiver-5: {has: {field: function, any: [{kind: identifier, pattern: $P5}, {kind: member_access_expression, has: {field: expression, matches: root-5}}, {kind: conditional_access_expression, has: {field: condition, matches: root-5}}]}}
+    argument-1:
+        kind: argument
+        not: {has: {kind: modifier}}
+        has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $P1}
+    argument-2:
+        kind: argument
+        not: {has: {kind: modifier}}
+        has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $P2}
+    argument-3:
+        kind: argument
+        not: {has: {kind: modifier}}
+        has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $P3}
+    argument-4:
+        kind: argument
+        not: {has: {kind: modifier}}
+        has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $P4}
+    argument-5:
+        kind: argument
+        not: {has: {kind: modifier}}
+        has: {nthChild: {position: 1, reverse: true}, kind: identifier, pattern: $P5}
+    call-1:
+        matches: callee
+        any:
+            - {matches: static-callee, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-1, has: {field: arguments, not: {has: {kind: argument}}}}
+    call-2:
+        matches: callee
+        any:
+            - {matches: static-callee, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-1, has: {field: arguments, all: [{has: {matches: argument-2, nthChild: {position: 1, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-2, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 2, ofRule: {kind: argument}}}}}}
+    call-3:
+        matches: callee
+        any:
+            - {matches: static-callee, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 3, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-1, has: {field: arguments, all: [{has: {matches: argument-2, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 2, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-2, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 2, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-3, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 3, ofRule: {kind: argument}}}}}}
+    call-4:
+        matches: callee
+        any:
+            - {matches: static-callee, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 4, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 5, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-1, has: {field: arguments, all: [{has: {matches: argument-2, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 3, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-2, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 3, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-3, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 3, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-4, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 3, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 4, ofRule: {kind: argument}}}}}}
+    call-5:
+        matches: callee
+        any:
+            - {matches: static-callee, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 4, ofRule: {kind: argument}}}}, {has: {matches: argument-5, nthChild: {position: 5, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 6, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-1, has: {field: arguments, all: [{has: {matches: argument-2, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-5, nthChild: {position: 4, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 5, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-2, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-5, nthChild: {position: 4, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 5, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-3, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-5, nthChild: {position: 4, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 5, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-4, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-5, nthChild: {position: 4, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 5, ofRule: {kind: argument}}}}}}
+            - {matches: receiver-5, has: {field: arguments, all: [{has: {matches: argument-1, nthChild: {position: 1, ofRule: {kind: argument}}}}, {has: {matches: argument-2, nthChild: {position: 2, ofRule: {kind: argument}}}}, {has: {matches: argument-3, nthChild: {position: 3, ofRule: {kind: argument}}}}, {has: {matches: argument-4, nthChild: {position: 4, ofRule: {kind: argument}}}}], not: {has: {kind: argument, nthChild: {position: 5, ofRule: {kind: argument}}}}}}
+    call-0:
+        matches: static-callee
+        has: {field: arguments, not: {has: {kind: argument}}}
+    lift:
+        kind: invocation_expression
+        has: {field: function, regex: '^((global::)?LanguageExt\.)?IO\.(lift|liftAsync)$'}
+    thunk:
+        kind: lambda_expression
+        has: {field: parameters, kind: parameter_list, not: {has: {kind: parameter}}}
+    member-read-0:
+        kind: member_access_expression
+        all:
+            - has: {field: name, pattern: $CALLEE}
+            - has: {field: expression, matches: static-root}
+    member-read-1:
+        kind: member_access_expression
+        all:
+            - has: {field: name, pattern: $CALLEE}
+            - has: {field: expression, matches: root-1}
+    single-statement:
+        kind: block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    setter-1:
+        matches: single-statement
+        has:
+            kind: expression_statement
+            has:
+                kind: assignment_expression
+                all:
+                    - has: {field: operator, regex: '^=$'}
+                    - has: {field: left, matches: member-read-0}
+                    - has: {field: right, kind: identifier, pattern: $P1}
+    setter-2:
+        matches: single-statement
+        has:
+            kind: expression_statement
+            has:
+                kind: assignment_expression
+                all:
+                    - has: {field: operator, regex: '^=$'}
+                    - any:
+                        - all:
+                            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, matches: root-1}}, {has: {field: name, pattern: $CALLEE}}]}
+                            - has: {field: right, kind: identifier, pattern: $P2}
+                        - all:
+                            - has: {field: left, kind: member_access_expression, all: [{has: {field: expression, matches: root-2}}, {has: {field: name, pattern: $CALLEE}}]}
+                            - has: {field: right, kind: identifier, pattern: $P1}
+    lifted-0:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: thunk, has: {field: body, any: [{matches: call-0}, {matches: member-read-0}]}}
+                    - has: {matches: member-read-0}
+    lifted-1:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: thunk, has: {field: body, any: [{matches: call-1}, {matches: member-read-1}, {matches: setter-1}]}}
+                    - has: {matches: member-read-1}
+    lifted-2:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: thunk, has: {field: body, any: [{matches: call-2}, {matches: setter-2}]}}
+    lifted-3:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: thunk, has: {field: body, matches: call-3}}
+    lifted-4:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: thunk, has: {field: body, matches: call-4}}
+    lifted-5:
+        matches: lift
+        has:
+            field: arguments
+            has:
+                kind: argument
+                any:
+                    - has: {matches: thunk, has: {field: body, matches: call-5}}
+    mapper-attribute:
+        kind: attribute_list
+        has: {kind: attribute, has: {field: name, regex: '^((global::)?Riok\.Mapperly\.Abstractions\.)?Mapper(Attribute)?$'}}
+    hidden-owner:
+        kind: identifier
+        pattern: $HIDDEN
+        inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $HIDDEN}}, {not: {has: {kind: modifier, regex: '^public$'}}}]}}
+    mapper-owner:
+        kind: identifier
+        pattern: $MAPPER
+        regex: '^\w+Mapper$'
+        not: {inside: {stopBy: end, kind: compilation_unit, has: {stopBy: end, kind: class_declaration, all: [{has: {field: name, pattern: $MAPPER}}, {not: {has: {matches: mapper-attribute}}}]}}}
+    boundary-callee:
+        kind: member_access_expression
+        has: {field: expression, any: [{matches: hidden-owner}, {matches: mapper-owner}]}
+    unit-return:
+        kind: return_statement
+        has: {regex: '^(((global::)?LanguageExt\.)?(Prelude\.)?unit|((global::)?LanguageExt\.)?Unit\.Default)$'}
+    unit-adapted:
+        kind: block
+        all:
+            - has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}, matches: unit-return}
+            - not: {has: {nthChild: {position: 3, ofRule: {not: {kind: comment}}}}}
+    body-0: {matches: lifted-0}
+    body-1: {any: [{matches: call-1}, {matches: lifted-1}]}
+    body-2: {any: [{matches: call-2}, {matches: lifted-2}]}
+    body-3: {any: [{matches: call-3}, {matches: lifted-3}]}
+    body-4: {any: [{matches: call-4}, {matches: lifted-4}]}
+    body-5: {any: [{matches: call-5}, {matches: lifted-5}]}
+    returns-0: {any: [{kind: arrow_expression_clause, has: {matches: body-0}}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: body-0}}}, {matches: unit-adapted, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: body-0}}}]}
+    returns-1: {any: [{kind: arrow_expression_clause, has: {matches: body-1}}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: body-1}}}, {matches: unit-adapted, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: body-1}}}]}
+    returns-2: {any: [{kind: arrow_expression_clause, has: {matches: body-2}}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: body-2}}}, {matches: unit-adapted, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: body-2}}}]}
+    returns-3: {any: [{kind: arrow_expression_clause, has: {matches: body-3}}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: body-3}}}, {matches: unit-adapted, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: body-3}}}]}
+    returns-4: {any: [{kind: arrow_expression_clause, has: {matches: body-4}}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: body-4}}}, {matches: unit-adapted, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: body-4}}}]}
+    returns-5: {any: [{kind: arrow_expression_clause, has: {matches: body-5}}, {matches: single-statement, has: {kind: 'return_statement, expression_statement', has: {matches: body-5}}}, {matches: unit-adapted, has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, kind: expression_statement, has: {matches: body-5}}}]}
+    case-arguments:
+        kind: argument_list
+        not: {has: {kind: argument, not: {has: {nthChild: {position: 1, reverse: true}, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $CASE}}}}}
+    case-call:
+        kind: invocation_expression
+        all:
+            - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, pattern: $TARGET}}
+            - has: {field: arguments, matches: case-arguments}
+    state-arm:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $TARGET}}}
+            - has: {field: parameters, has: {kind: parameter, nthChild: 2, has: {field: name, pattern: $CASE}}}
+            - not: {has: {field: parameters, has: {kind: parameter, nthChild: 3}}}
+            - has: {field: body, matches: case-call}
+    capture-arm:
+        kind: lambda_expression
+        all:
+            - has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CASE}, {kind: parameter_list, has: {kind: parameter, nthChild: 1, has: {field: name, pattern: $CASE}}, not: {has: {kind: parameter, nthChild: 2}}}]}
+            - has: {field: body, kind: invocation_expression, all: [{has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CALLEE}}}, {has: {field: arguments, matches: case-arguments}}]}
+    switch-arm:
+        kind: switch_expression_arm
+        all:
+            - has: {nthChild: 1, kind: declaration_pattern, has: {field: name, pattern: $CASE}}
+            - not: {has: {kind: when_clause}}
+            - has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, all: [{has: {field: function, kind: member_access_expression, has: {field: expression, pattern: $CALLEE}}}, {has: {field: arguments, matches: case-arguments}}]}
+    case-receiver:
+        kind: identifier
+        pattern: $CALLEE
+        matches: parameter-name
+    switch-subject:
+        kind: identifier
+        pattern: $SUBJECT
+        inside: {stopBy: end, kind: 'method_declaration, local_function_statement', has: {field: parameters, has: {kind: parameter, has: {field: name, pattern: $SUBJECT}}}}
+    switch-forward:
+        any:
+            - kind: invocation_expression
+              all:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: name, regex: '^Switch$'}}, {has: {field: expression, matches: switch-subject}}]}
+                - any:
+                    - all:
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {nthChild: {position: 1, reverse: true}, matches: case-receiver}}}
+                        - has: {field: arguments, has: {kind: argument, nthChild: 2}}
+                        - has: {field: arguments, not: {has: {kind: argument, not: {any: [{nthChild: 1}, {has: {nthChild: {position: 1, reverse: true}, matches: state-arm}}]}}}}
+                    - all:
+                        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {kind: lambda_expression, has: {field: body, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: case-receiver}}}}}}
+                        - has: {field: arguments, not: {has: {kind: argument, not: {has: {nthChild: {position: 1, reverse: true}, matches: capture-arm}}}}}
+            - kind: switch_expression
+              all:
+                - has: {nthChild: 1, matches: switch-subject}
+                - has: {kind: switch_expression_arm, has: {nthChild: {position: 1, reverse: true}, kind: invocation_expression, has: {field: function, kind: member_access_expression, has: {field: expression, matches: case-receiver}}}}
+                - not: {has: {kind: switch_expression_arm, not: {matches: switch-arm}}}
+    switch-body:
+        any:
+            - matches: switch-forward
+            - matches: lift
+              has: {field: arguments, has: {kind: argument, has: {matches: thunk, has: {field: body, matches: switch-forward}}}}
+rule:
+    kind: 'method_declaration, local_function_statement'
+    all:
+        - has: {field: name, pattern: $NAME}
+        - not:
+            any:
+                - has: {kind: modifier, regex: '^(override|partial|extern|abstract|async)$'}
+                - has:
+                    kind: attribute_list
+                    has:
+                        kind: attribute
+                        not: {has: {field: name, regex: '^((global::)?System\.(Diagnostics(\.(CodeAnalysis|Contracts))?|Runtime\.CompilerServices|ComponentModel)\.)?(Pure|MethodImpl|DebuggerStepThrough|DebuggerHidden|DebuggerNonUserCode|SuppressMessage|UnconditionalSuppressMessage|Obsolete|EditorBrowsable|ExcludeFromCodeCoverage|NotNull|MaybeNull|NotNullIfNotNull)(Attribute)?$'}}
+                - has: {kind: explicit_interface_specifier}
+                - all:
+                    - kind: method_declaration
+                    - inside: {kind: declaration_list, inside: {has: {kind: base_list, has: {regex: '^((global::)?[\w.]*\.)?I[A-Z]\w*(<.*>)?$'}}}}
+                    - has: {kind: modifier, regex: '^public$'}
+                    - not: {has: {kind: modifier, regex: '^static$'}}
+                - inside:
+                    kind: declaration_list
+                    has: {stopBy: end, kind: attribute_argument, all: [{has: {field: name, regex: '^Use$'}}, {has: {kind: invocation_expression, pattern: nameof($NAME)}}]}
+        - any:
+            - all: [{has: {field: parameters, matches: arity-0}}, {has: {field: body, matches: returns-0}}]
+            - all: [{has: {field: parameters, matches: arity-1}}, {has: {field: body, matches: returns-1}}]
+            - all: [{has: {field: parameters, matches: arity-2}}, {has: {field: body, matches: returns-2}}]
+            - all: [{has: {field: parameters, matches: arity-3}}, {has: {field: body, matches: returns-3}}]
+            - all: [{has: {field: parameters, matches: arity-4}}, {has: {field: body, matches: returns-4}}]
+            - all: [{has: {field: parameters, matches: arity-5}}, {has: {field: body, matches: returns-5}}]
+            - has: {field: body, any: [{kind: arrow_expression_clause, has: {matches: switch-body}}, {matches: single-statement, has: {kind: return_statement, has: {matches: switch-body}}}]}
+        - not:
+            all:
+                - has: {kind: modifier, regex: '^public$'}
+                - has: {field: body, has: {stopBy: end, matches: lift}}
+                - inside:
+                    kind: declaration_list
+                    has: {kind: method_declaration, all: [{has: {field: name, pattern: $CALLEE}}, {not: {has: {kind: modifier, regex: '^public$'}}}]}
+        - not:
+            all:
+                - has: {kind: modifier, regex: '^public$'}
+                - has:
+                    field: body
+                    has:
+                        stopBy: end
+                        matches: lift
+                        has:
+                            field: arguments
+                            has:
+                                kind: argument
+                                has:
+                                    any:
+                                        - matches: thunk
+                                          has: {field: body, kind: invocation_expression, has: {field: function, matches: boundary-callee}}
+                                        - matches: boundary-callee
+message: '`$NAME` forwards its parameters unchanged to `$CALLEE`'
+note: Call the callee at each use and delete the function, an effect lifts the host member where it composes (`IO.lift(<receiver>.<member>)`), and an `Action` in expression position takes `fun(<action>)`; a public `IO` read over a Mapperly mapping stays, the rule reading a `<name>Mapper` class declared in another file as `[Mapper]` by its name

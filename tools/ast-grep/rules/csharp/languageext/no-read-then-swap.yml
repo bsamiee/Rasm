@@ -1,0 +1,68 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-read-then-swap
+language: csharp
+severity: error
+utils:
+    transaction:
+        kind: invocation_expression
+        has: {field: function, regex: '^(global::)?(LanguageExt\.)?(Prelude\.)?(atomic|atomicIO|snapshot|serial)$'}
+    callback:
+        kind: 'lambda_expression, anonymous_method_expression'
+    receiver:
+        any:
+            - kind: identifier
+              pattern: $ALIAS
+              inside:
+                stopBy: end
+                kind: block
+                has:
+                    kind: local_declaration_statement
+                    has:
+                        kind: variable_declaration
+                        has:
+                            kind: variable_declarator
+                            all:
+                                - has: {field: name, pattern: $ALIAS}
+                                - has: {nthChild: 2, any: [{kind: identifier, pattern: $NAME}, {kind: member_access_expression, all: [{has: {field: expression, regex: '^this$'}}, {has: {field: name, pattern: $NAME}}]}]}
+            - kind: identifier
+              pattern: $NAME
+            - kind: member_access_expression
+              all:
+                - has: {field: expression, regex: '^this$'}
+                - has: {field: name, pattern: $NAME}
+    swap:
+        kind: invocation_expression
+        all:
+            - matches: csharp-atom-transition
+            - any:
+                - has: {field: function, kind: member_access_expression, all: [{has: {field: expression, matches: receiver}}, {has: {field: name, pattern: $SWAP}}]}
+                - all:
+                    - has: {field: function, pattern: $SWAP}
+                    - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: receiver}}}
+    step:
+        kind: 'local_declaration_statement, expression_statement, return_statement, if_statement, while_statement, do_statement, for_statement, foreach_statement, using_statement, lock_statement, yield_statement, from_clause, let_clause, where_clause, select_clause'
+        not: {inside: {kind: if_statement, field: consequence}}
+rule:
+    kind: member_access_expression
+    all:
+        - has: {field: name, pattern: $READER, regex: '^Value(IO)?$'}
+        - has: {field: expression, pattern: $CELL, matches: receiver}
+        - not: {inside: {stopBy: end, kind: 'lambda_expression, anonymous_method_expression', has: {field: parameters, any: [{kind: implicit_parameter, pattern: $CELL}, {has: {kind: parameter, has: {field: name, pattern: $CELL}}}]}}}
+        - not: {inside: {stopBy: end, matches: transaction}}
+        - any:
+            - inside:
+                stopBy: end
+                matches: step
+                precedes: {stopBy: end, has: {stopBy: end, matches: swap}}
+            - inside:
+                stopBy: end
+                field: condition
+                kind: 'if_statement, conditional_expression, while_statement, do_statement'
+                has: {stopBy: end, matches: swap}
+            - inside:
+                stopBy: {matches: callback}
+                kind: argument
+                inside: {kind: 'tuple_expression, argument_list'}
+                precedes: {stopBy: end, has: {stopBy: {matches: callback}, matches: swap}}
+message: '`$CELL.$READER` is read before a separate `$SWAP` of `$CELL`'
+note: Use one transition that takes the prior value, the state before and after held in the `Atom` value or the `Swap` result

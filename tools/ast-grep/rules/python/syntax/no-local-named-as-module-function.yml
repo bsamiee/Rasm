@@ -9,29 +9,34 @@ utils:
               has: {field: name, pattern: $N}
             - kind: decorated_definition
               has: {kind: function_definition, has: {field: name, pattern: $N}}
+              not: {has: {kind: decorator, regex: '^@(pytest\.)?fixture\b'}}
     binding-target:
         kind: identifier
         pattern: $N
         any:
-            - inside: {kind: 'assignment, augmented_assignment', field: left}
+            - inside: {kind: 'assignment, augmented_assignment, for_statement, for_in_clause', field: left}
             - inside: {kind: named_expression, field: name}
-            - inside: {kind: for_statement, field: left}
             - inside: {kind: as_pattern_target}
-            - inside: {kind: aliased_import, field: alias}
+            - inside: {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'case_pattern, keyword_pattern'}}
+            - inside: {kind: splat_pattern}
+            - inside: {kind: as_pattern, inside: {kind: case_pattern}}
+            - inside: {kind: 'aliased_import', field: alias}
+            - inside: {kind: dotted_name, not: {has: {nthChild: 2}}, inside: {kind: 'import_statement, import_from_statement', not: {has: {field: module_name, kind: dotted_name, not: {has: {nthChild: 2}}, has: {pattern: $N}}}}}
+            - inside: {kind: 'function_definition, class_definition', field: name}
+            - inside: {kind: 'parameters, lambda_parameters'}
+            - inside: {kind: 'typed_parameter, list_splat_pattern, dictionary_splat_pattern', inside: {kind: 'parameters, lambda_parameters'}}
+            - inside: {kind: 'default_parameter, typed_default_parameter', field: name}
             - inside:
                 kind: 'pattern_list, tuple_pattern, list_pattern'
-                stopBy: {kind: 'assignment, for_statement'}
-                inside: {kind: 'assignment, for_statement', field: left}
+                stopBy: {kind: 'assignment, for_statement, for_in_clause'}
+                inside: {kind: 'assignment, for_statement, for_in_clause', field: left}
 rule:
     kind: identifier
     all:
         - matches: binding-target
-        - inside: {kind: function_definition, stopBy: end}
+        - not: {inside: {kind: attribute}}
+        - inside: {kind: 'function_definition, lambda', stopBy: end, not: {has: {field: name, pattern: $N}}}
         - inside: {kind: module, stopBy: end, has: {matches: module-function}}
-        - not:
-            inside:
-                kind: function_definition
-                stopBy: end
-                has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $N}}}}}
+        - not: {inside: {kind: function_definition, stopBy: end, has: {field: body, has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, kind: global_statement, has: {kind: identifier, pattern: $N}}}}}
 message: 'Local `$N` shadows the module function `$N`'
 note: 'Name the local for its value'

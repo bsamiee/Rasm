@@ -20,4 +20,15 @@ uv owns resolution, the lock, and the environment of the root project file.
 
 - `uv sync` installs the workspace root, `--all-packages` every member
 - `python-preference = "only-system"` excludes uv-managed interpreters, `UV_PYTHON` names the interpreter
-- Script with control flow is a package with a `[project.scripts]` entry a target runs by name
+- Script folder a target runs is a workspace member with a `pyproject.toml` naming its dependencies
+- Targets run a member's script as `python <path>` from the synced `.venv` on `PATH`, `uv run` syncs the environment before every run
+- `[project.scripts]` needs a build backend and an editable install, the install puts the module root on `sys.path` of every environment process
+- Module named like a standard-library module shadows it for every process with its directory on `sys.path` or `mypy_path`
+
+## [04]-[CHECKERS]
+
+- `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a scratch `--config-file`
+- `# ty: ignore[<code>]` above the first statement covers the whole file, as `# mypy: disable-error-code=<code>` and `# ruff: file-ignore[<code>]` do
+- `respect-type-ignore-comments = false` makes ty read `ty: ignore` comments alone, a line ignoring both checkers carries both comments
+- Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override by module, ty reads their source
+- Modules that build their members at import (pyobjc's `AppKit`) take ty's `replace-imports-with-any`, ty finds no member in their source
