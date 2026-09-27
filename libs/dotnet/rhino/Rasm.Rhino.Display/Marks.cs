@@ -1,6 +1,7 @@
 using System.Drawing;
 using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
+using Rhino.ApplicationSettings;
 using Rhino.Display;
 using Rhino.DocObjects;
 using Riok.Mapperly.Abstractions;
@@ -186,6 +187,13 @@ public sealed class SpriteCache : IDisposable {
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 public static class Marks {
+    // --- [FEEDBACK]
+    public static Color FeedbackColor => AppearanceSettings.FeedbackColor;
+
+    public static Color GuideColor => AppearanceSettings.CrosshairColor;
+
+    public static Color PointColor => SmartTrackSettings.ActivePointColor;
+
     // --- [WORLD]
     public static IO<Unit> DrawWorld(DisplayPipeline pipeline, Seq<WorldMark> marks) =>
         marks.TraverseM(mark => Draw(pipeline, mark)).As().Map(static _ => unit);

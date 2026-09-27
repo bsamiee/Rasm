@@ -1,31 +1,20 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import { DatabaseSync } from 'node:sqlite';
-import { afterAll, expect, it } from 'vitest';
+import { afterAll, assert, expect, it } from 'vitest';
 import { open } from './hooks/observation/sql.ts';
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _VIEW = /create view (?<name>\w+) as/gu;
-const _COUNT = 22;
 const _SEGMENTS = 4;
-const _OLD_RANGE =
-    'create table judged_range(kind text not null, lineage_key text not null, worktree text not null, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict;';
-const _OLD_KIND = "create table range_kind(kind text); insert into range_kind(kind) values ('commit'), ('edit');";
-const _OLD_INDEX = 'create index finding_path on finding(path, occurrence);';
-const _OLD_TRANSITION =
-    "create table finding_transition(finding_id text not null, state text not null, subject_hash text not null, start_line integer, start_column integer, end_line integer, end_column integer, occurrence integer, at integer not null, by text not null, evidence text, verdict text, successor text) strict; insert into finding_transition(finding_id, state, subject_hash, start_line, occurrence, at, by, evidence, verdict) values ('f1', 'confirmed', 'h1', 3, 1, 1, 'agent:a', 'present', null), ('f1', 'moved', 'h1', null, null, 2, 'check:sqlite3', null, null);";
 const _PARTS = open('.').split(/^\..*\n/gmu);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const _binary = (left: string, right: string): number => Number(left > right) - Number(left < right);
+const _compare = (left: string, right: string): number => Number(left > right) - Number(left < right);
 
 const _segments = (parts: readonly string[]): readonly [string, string, string, string] => {
     const [begun, selects, drops, applied] = parts;
-    if (begun === undefined || selects === undefined || drops === undefined || applied === undefined) {
-        throw new Error(`the open statement splits into ${parts.length} segments, not ${_SEGMENTS}`);
-    }
+    assert(begun !== undefined && selects !== undefined && drops !== undefined && applied !== undefined, `the open statement splits into ${parts.length} segments, not ${_SEGMENTS}`);
     return [begun, selects, drops, applied];
 };
 
@@ -85,9 +74,10 @@ afterAll(() => {
 // --- [CASES] ---------------------------------------------------------------------------
 
 it('creates every view the open statement declares', () => {
+    const declared = 22;
     expect(_PARTS).toHaveLength(_SEGMENTS);
-    expect(created).toHaveLength(_COUNT);
-    expect(created).toStrictEqual([...open('.').matchAll(_VIEW)].map((match) => String(match.groups?.['name'])).toSorted(_binary));
+    expect(created).toHaveLength(declared);
+    expect(created).toStrictEqual([...open('.').matchAll(_VIEW)].map((match) => String(match.groups?.['name'])).toSorted(_compare));
 });
 
 it.each(created)('prepares %s', (name) => {
@@ -96,17 +86,20 @@ it.each(created)('prepares %s', (name) => {
 
 it('drops every view and rebuilds no table on a second open over the same database, its temp tables gone', () => {
     const delta = _opened(sink);
-    expect(delta.split('\n').toSorted(_binary)).toStrictEqual(created.map((name) => `drop view if exists ${name};`));
+    expect(delta.split('\n').toSorted(_compare)).toStrictEqual(created.map((name) => `drop view if exists ${name};`));
     expect(sink.prepare('select count(1) as n from sqlite_temp_master').get()?.['n']).toBe(0);
     expect(() => created.map((name) => sink.prepare(`select * from ${name} limit 0`))).not.toThrow();
 });
 
 it('rebuilds a table whose stored body differs, keeping the rows of its common columns, and recreates a changed index', () => {
+    const oldRange =
+        'create table judged_range(kind text not null, lineage_key text not null, worktree text not null, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict;';
+    const oldIndex = 'create index finding_path on finding(path, occurrence);';
     const old = _sink();
-    old.exec(`${_OLD_RANGE}${_OLD_KIND}`);
+    old.exec(`${oldRange}create table range_kind(kind text); insert into range_kind(kind) values ('commit'), ('edit');`);
     _opened(old);
-    old.exec(`drop index finding_path; ${_OLD_INDEX} drop index finding_category; ${_OLD_INDEX.replace('finding_path', 'FINDING_CATEGORY')}`);
-    old.exec(`${_OLD_RANGE.replace('create table', 'drop table judged_range; create table')}`);
+    old.exec(`drop index finding_path; ${oldIndex} drop index finding_category; ${oldIndex.replace('finding_path', 'FINDING_CATEGORY')}`);
+    old.exec(`${oldRange.replace('create table', 'drop table judged_range; create table')}`);
     const delta = _opened(old);
     expect(delta).toContain('alter table judged_range__delta rename to judged_range;');
     expect(delta).toContain('drop index if exists finding_path;');
@@ -123,7 +116,9 @@ it('rebuilds a table whose stored body differs, keeping the rows of its common c
 
 it('rebuilds the transition table over its rows, dropping successor and adding path and bytes as null', () => {
     const old = _sink();
-    old.exec(_OLD_TRANSITION);
+    old.exec(
+        "create table finding_transition(finding_id text not null, state text not null, subject_hash text not null, start_line integer, start_column integer, end_line integer, end_column integer, occurrence integer, at integer not null, by text not null, evidence text, verdict text, successor text) strict; insert into finding_transition(finding_id, state, subject_hash, start_line, occurrence, at, by, evidence, verdict) values ('f1', 'confirmed', 'h1', 3, 1, 1, 'agent:a', 'present', null), ('f1', 'moved', 'h1', null, null, 2, 'check:sqlite3', null, null);",
+    );
     const delta = _opened(old);
     expect(delta).toContain('alter table finding_transition__delta rename to finding_transition;');
     expect(_columns(old, 'finding_transition')).toStrictEqual([

@@ -21,11 +21,6 @@ utils:
         all:
             - not: {pattern: $ELEMENT}
             - has: {kind: simple_identifier, pattern: $ELEMENT, stopBy: end}
-    element-test:
-        all:
-            - not: {kind: 'try_expression, await_expression'}
-            - not: {has: {kind: 'try_expression, await_expression', stopBy: end}}
-            - has: {kind: simple_identifier, pattern: $Z, stopBy: end}
 rule:
     any:
         - matches: plain-loop
@@ -57,30 +52,6 @@ rule:
                             - not: {has: {kind: type_annotation}}
                         - has: {matches: element-source}
                         - has: {kind: statements, pattern: $BODY}
-        - matches: plain-loop
-          all:
-            - has: {field: item, matches: single-item, pattern: $Z}
-            - has:
-                kind: statements
-                matches: single-if
-                has:
-                    kind: if_statement
-                    all:
-                        - not: {has: {field: condition, kind: 'value_binding_pattern, availability_condition'}}
-                        - not: {has: {regex: '^case$'}}
-                        - has: {field: condition, pattern: $COND, matches: element-test}
-                        - has: {kind: statements, pattern: $BODY}
-        - matches: plain-loop
-          pattern:
-            context: |-
-                for $Z in $COLL {
-                  guard $COND else { continue }
-                  $$$REST
-                }
-            selector: for_statement
-          all:
-            - has: {field: item, matches: single-item}
-            - has: {kind: statements, has: {kind: guard_statement, nthChild: 1, has: {field: condition, matches: element-test}}}
         - matches: plain-loop
           pattern:
             context: |-
@@ -119,11 +90,10 @@ transform:
     OPEN: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: '.compactMap({ '}}
     BIND: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: ' in '}}
     CLOSE: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: ' })'}}
-    WHERE: {replace: {source: $COND, replace: '^', by: ' where '}}
     STATEMENTS: {replace: {source: $BODY, replace: '\s+$', by: ''}}
 fix: |-
-    for $CASE$GUARDED$$$PATTERN$Y$TYPE$COLON$Z in $COLL$OPEN$ELEMENT$BIND$SOURCE$CLOSE$WHERE {
+    for $CASE$GUARDED$$$PATTERN$Y$TYPE$COLON in $COLL$OPEN$ELEMENT$BIND$SOURCE$CLOSE {
       $STATEMENTS$$$REST
     }
-message: '`for` selects elements by a test at the top of its body'
-note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values, `for <element> in <sequence> where <condition>` the elements passing a test'
+message: '`for` selects elements by a pattern or an optional binding at the top of its body'
+note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values'

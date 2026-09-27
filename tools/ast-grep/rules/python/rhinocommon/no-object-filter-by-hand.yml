@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-object-filter-by-hand
+language: python
+severity: error
+utils:
+    enumeration:
+        kind: call
+        has:
+            field: function
+            kind: attribute
+            has: {field: attribute, regex: '^GetObjectList$'}
+    object-list:
+        kind: call
+        any:
+            - matches: enumeration
+            - has: {field: function, kind: identifier, pattern: $HELPER}
+              inside:
+                kind: module
+                stopBy: end
+                has:
+                    kind: function_definition
+                    all:
+                        - has: {field: name, pattern: $HELPER}
+                        - has: {field: body, has: {stopBy: end, kind: return_statement, has: {stopBy: end, matches: enumeration}}}
+    owned-attribute:
+        kind: attribute
+        has: {field: attribute, regex: '^(Space|LayerIndex|MaterialIndex)$'}
+    owned-filter:
+        kind: comparison_operator
+        pattern: $TEST
+        any:
+            - {pattern: $I.Attributes.$P == $V, has: {nthChild: 1, matches: owned-attribute}}
+            - {pattern: $V == $I.Attributes.$P, has: {nthChild: 2, matches: owned-attribute}}
+        not:
+            inside:
+                stopBy: {kind: 'if_clause, if_statement'}
+                any:
+                    - kind: boolean_operator
+                      has: {field: operator, regex: '^or$'}
+                    - kind: not_operator, conditional_expression, call, lambda
+    holds-filter:
+        any:
+            - matches: owned-filter
+            - has: {stopBy: end, matches: owned-filter}
+rule:
+    any:
+        - kind: for_in_clause
+          all:
+            - has: {field: left, kind: identifier, pattern: $I}
+            - has: {field: right, matches: object-list}
+            - inside:
+                kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                has: {kind: if_clause, has: {matches: holds-filter}}
+        - kind: for_statement
+          all:
+            - has: {field: left, kind: identifier, pattern: $I}
+            - has: {field: right, matches: object-list}
+            - has:
+                field: body
+                not: {has: {nthChild: 2}}
+                has:
+                    kind: if_statement
+                    not: {has: {kind: 'elif_clause, else_clause'}}
+                    has: {field: condition, matches: holds-filter}
+message: '`$TEST` filters the object enumeration by hand'
+note: 'Set the `ObjectEnumeratorSettings` filter of the attribute (`SpaceFilter`, `LayerIndexFilter`, `MaterialIndexFilter`) on the settings `GetObjectList` reads'

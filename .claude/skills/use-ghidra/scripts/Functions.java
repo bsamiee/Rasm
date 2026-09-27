@@ -1,15 +1,15 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import ghidra.app.decompiler.DecompileOptions;
 import ghidra.app.decompiler.DecompileResults;
 import ghidra.app.decompiler.parallel.DecompilerCallback;
 import ghidra.app.decompiler.parallel.ParallelDecompiler;
 import ghidra.app.util.bin.format.objc.objc2.Objc2Constants;
+import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
 import ghidra.program.model.listing.Program;
 import ghidra.program.model.mem.MemoryBlock;
 import ghidra.program.model.symbol.Reference;
+import ghidra.program.model.symbol.ReferenceManager;
 import ghidra.util.task.TaskMonitor;
 
 import util.CollectionUtils;
@@ -25,27 +25,17 @@ import java.util.SequencedMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-// --- [FUNCTIONS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 final class Functions {
+    // --- [GRAPH]
+
     static final Comparator<Function> BY_ENTRY = Comparator.comparing(Function::getEntryPoint);
 
     private Functions() {}
 
-    // --- [GRAPH] -----------------------------------------------------------------------
-
-    static Function target(Function function) {
-        Optional<Function> reached =
-                function.isThunk()
-                        ? Optional.ofNullable(function.getThunkedFunction(true))
-                        : isStub(function)
-                                ? callee(function).map(Functions::target)
-                                : Optional.empty();
-        return reached.orElse(function);
-    }
-
-    private static Optional<Function> callee(Function stub) {
-        return stub.getCalledFunctions(TaskMonitor.DUMMY).stream().min(BY_ENTRY);
+    static Stream<Function> internal(Program program) {
+        return CollectionUtils.asStream(program.getFunctionManager().getFunctions(true));
     }
 
     static boolean isStub(Function function) {
@@ -53,6 +43,26 @@ final class Functions {
         return Stream.ofNullable(block)
                 .map(MemoryBlock::getName)
                 .anyMatch(Objc2Constants.OBJC2_STUBS::equals);
+    }
+
+    static Function thunked(Function function) {
+        return function.isThunk() ? function.getThunkedFunction(true) : function;
+    }
+
+    static Function target(Function function) {
+        return isStub(function)
+                ? function.getCalledFunctions(TaskMonitor.DUMMY).stream()
+                        .min(BY_ENTRY)
+                        .map(Functions::target)
+                        .orElse(function)
+                : thunked(function);
+    }
+
+    static Stream<Function> thunks(Function function) {
+        return Stream.ofNullable(function.getFunctionThunkAddresses(true))
+                .flatMap(Arrays::stream)
+                .map(function.getProgram().getFunctionManager()::getFunctionAt)
+                .filter(Objects::nonNull);
     }
 
     static Stream<Function> callers(Function function, TaskMonitor monitor) {
@@ -66,31 +76,22 @@ final class Functions {
                 .distinct();
     }
 
-    static Stream<Function> thunks(Function function) {
-        return Stream.ofNullable(function.getFunctionThunkAddresses(true))
-                .flatMap(Arrays::stream)
-                .map(function.getProgram().getFunctionManager()::getFunctionAt)
-                .filter(Objects::nonNull);
-    }
-
     static Stream<Function> callees(Function function, TaskMonitor monitor) {
         return function.getCalledFunctions(monitor).stream().map(Functions::target).distinct();
     }
 
-    static Stream<Function> internal(Program program) {
-        return CollectionUtils.asStream(program.getFunctionManager().getFunctions(true));
-    }
-
-    // --- [DATA] ------------------------------------------------------------------------
+    // --- [DATA]
 
     static Optional<String> selector(Function stub) {
         Program program = stub.getProgram();
-        return CollectionUtils.asStream(stub.getBody().getAddresses(true))
-                .map(program.getReferenceManager()::getReferencesFrom)
+        ReferenceManager references = program.getReferenceManager();
+        return CollectionUtils.asStream(references.getReferenceSourceIterator(stub.getBody(), true))
+                .map(references::getReferencesFrom)
                 .flatMap(Arrays::stream)
                 .map(Reference::getToAddress)
                 .map(program.getListing()::getDataAt)
                 .filter(Objects::nonNull)
+                .filter(StringDataInstance::isString)
                 .map(Data::getValue)
                 .filter(String.class::isInstance)
                 .map(String.class::cast)
@@ -113,9 +114,9 @@ final class Functions {
                 .distinct();
     }
 
-    // --- [DECOMPILE] -------------------------------------------------------------------
+    // --- [DECOMPILE]
 
-    static SequencedMap<Function, Arguments.Result<DecompileResults>> decompile(
+    static SequencedMap<Function, Report.Result<DecompileResults>> decompile(
             Program program,
             List<Function> functions,
             Map<Arguments.Setting, Integer> settings,
@@ -142,9 +143,7 @@ final class Functions {
                     completed.stream()
                             .collect(
                                     Collectors.toMap(
-                                            DecompileResults::getFunction,
-                                            results -> results,
-                                            (first, _) -> first));
+                                            DecompileResults::getFunction, results -> results));
             return functions.stream()
                     .collect(
                             Collectors.toMap(
@@ -157,13 +156,12 @@ final class Functions {
         }
     }
 
-    private static Arguments.Result<DecompileResults> result(
-            DecompileResults results, int timeout) {
+    private static Report.Result<DecompileResults> result(DecompileResults results, int timeout) {
         return results.decompileCompleted()
-                ? new Arguments.Success<>(results)
-                : new Arguments.Failure<>(
+                ? new Report.Success<>(results)
+                : new Report.Failure<>(
                         results.isTimedOut()
-                                ? "timed out after " + timeout + " s"
+                                ? "Decompile timed out after %d s".formatted(timeout)
                                 : results.getErrorMessage().strip());
     }
 }

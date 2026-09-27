@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+// --- [COMPOSITION] ---------------------------------------------------------------------
+
 @main
 struct RelayApp: App {
   @NSApplicationDelegateAdaptor(AppDelegate.self) private var delegate: AppDelegate

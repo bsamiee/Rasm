@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-case-or-iif-choice
+language: sql
+severity: error
+utils:
+    choice:
+        any:
+            - pattern: {context: 'select case when __C then __T end', selector: case}
+            - pattern: {context: 'select case when __C then __T else __E end', selector: case}
+            - pattern: {context: 'select iif(__C, __T)', selector: invocation}
+            - pattern: {context: 'select iif(__C, __T, __E)', selector: invocation}
+    nullable-operand:
+        any:
+            - pattern: {context: 'select case when __C then __T end', selector: case}
+            - pattern: {context: 'select case when __C then __T else null end', selector: case}
+            - pattern: {context: 'select iif(__C, __T)', selector: invocation}
+            - pattern: {context: 'select iif(__C, __T, null)', selector: invocation}
+    counting-operand:
+        any:
+            - pattern: {context: 'select case when __C then 1 else 0 end', selector: case}
+            - pattern: {context: 'select iif(__C, 1, 0)', selector: invocation}
+rule:
+    pattern: _CHOICE
+    matches: choice
+    not:
+        any:
+            - all:
+                - matches: nullable-operand
+                - inside: {kind: term, inside: {matches: {sql-aggregate: {name: {regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$'}}}}}
+            - all:
+                - matches: counting-operand
+                - inside: {kind: term, inside: {matches: {sql-aggregate: {name: {regex: '(?i)^(sum|total)$'}}}}}
+rewriters:
+    - id: case-else
+      rule: {pattern: {context: 'select case when _COND then _THEN else _ELSE end', selector: case}}
+      fix: if($COND, $THEN, $ELSE)
+    - id: case
+      rule: {pattern: {context: 'select case when _COND then _THEN end', selector: case}}
+      fix: if($COND, $THEN, null)
+    - id: iif-else
+      rule: {pattern: {context: 'select iif(_COND, _THEN, _ELSE)', selector: invocation}}
+      fix: if($COND, $THEN, $ELSE)
+    - id: iif
+      rule: {pattern: {context: 'select iif(_COND, _THEN)', selector: invocation}}
+      fix: if($COND, $THEN, null)
+transform:
+    RESULT: {rewrite: {source: $CHOICE, rewriters: [case-else, case, iif-else, iif]}}
+fix: $RESULT
+message: '`$CHOICE` selects between two values in a form other than `if`'
+note: 'Use `if(<condition>, <then>, <else>)` with `null` as the third argument where the choice has none, DuckDB reads no `iif`'

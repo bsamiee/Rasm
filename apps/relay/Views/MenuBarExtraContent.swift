@@ -1,6 +1,19 @@
 import AppKit
 import SwiftUI
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+enum RemovalMessage {
+  static func text(for model: AccountModel) -> String {
+    let removal: String = "Removing \(model.account.identity.email) deletes its saved sign-in"
+    return model.isSelected && model.account.provider == .claude
+      ? "\(removal) and signs Claude Code out"
+      : removal
+  }
+}
+
+// --- [VIEWS] ---------------------------------------------------------------------------
+
 struct MenuBarExtraContent: View {
   let store: AccountStore
 
@@ -83,15 +96,6 @@ struct MenuBarExtraContent: View {
     dismiss()
     openWindow(id: "settings")
     Task(name: "Bring Relay front") { await Activation.requestFront() }
-  }
-}
-
-enum RemovalMessage {
-  static func text(for model: AccountModel) -> String {
-    let removal: String = "Removing \(model.account.identity.email) deletes its saved sign-in"
-    return model.isSelected && model.account.provider == .claude
-      ? "\(removal) and signs Claude Code out"
-      : removal
   }
 }
 

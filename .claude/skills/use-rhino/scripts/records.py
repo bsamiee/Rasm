@@ -26,7 +26,7 @@ class Properties(Record, frozen=True):
 
 
 class LayerRecord(Record, frozen=True):
-    """Layer read back with its object count."""
+    """Layer with its object count."""
 
     path: str
     properties: Properties

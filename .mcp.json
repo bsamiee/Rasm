@@ -94,8 +94,8 @@
             "args": ["lldb-mcp"]
         },
         "rhino-mcp-platform": {
-            "command": "${HOME}/Library/Application Support/McNeel/Rhinoceros/packages/9.0/Rhino-MCP-Platform/0.2.1-wip/router/osx-arm64/rhino-mcp-router",
-            "args": ["--default-version", "9"]
+            "command": "mise",
+            "args": ["exec", "--", "rhino-mcp-router"]
         },
         "blender": {
             "command": "mise",

@@ -2,7 +2,7 @@
 id: no-event-handler-by-hand
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     answer-call:
         matches: {csharp-owner-call: {type: {regex: '^Answers$'}, member: {regex: '^(Answer|Succeeded)$'}}}

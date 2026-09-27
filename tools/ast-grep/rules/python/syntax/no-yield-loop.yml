@@ -1,0 +1,130 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-yield-loop
+language: python
+severity: error
+utils:
+    plain-loop:
+        kind: for_statement
+        not:
+            any:
+                - regex: '^async\b'
+                - has: {kind: else_clause}
+    yield-body:
+        kind: block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+        has:
+            nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+            any:
+                - kind: expression_statement
+                  has: {kind: yield}
+                - kind: if_statement
+                  not: {has: {kind: 'elif_clause, else_clause'}}
+                  has: {field: consequence, matches: yield-body}
+                - matches: plain-loop
+                  has: {field: body, matches: yield-body}
+    yield-loop:
+        matches: plain-loop
+        has: {field: body, matches: yield-body}
+    identity:
+        any:
+            - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: yield $TARGET}}}
+            - all:
+                - has: {field: left, pattern: {context: 'for $A, $B in x: pass', selector: pattern_list}}
+                - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: 'yield $A, $B'}}}
+            - all:
+                - has: {field: left, pattern: {context: 'for $A, $B, $C in x: pass', selector: pattern_list}}
+                - has: {field: body, has: {kind: expression_statement, has: {kind: yield, pattern: 'yield $A, $B, $C'}}}
+    binds-name:
+        has: {field: left, any: [{pattern: $W}, {has: {stopBy: end, kind: identifier, pattern: $W}}]}
+    rebound-target:
+        kind: named_expression
+        has: {field: name, pattern: $W}
+        inside:
+            stopBy: end
+            pattern: $FIXABLE
+            any:
+                - matches: binds-name
+                - has: {stopBy: end, kind: for_statement, matches: binds-name}
+    read-later:
+        precedes: {stopBy: end, has: {stopBy: end, kind: identifier, pattern: $L}}
+    leaked-target:
+        kind: identifier
+        pattern: $L
+        all:
+            - inside: {stopBy: {kind: for_statement}, kind: for_statement, field: left}
+            - inside:
+                stopBy: end
+                pattern: $FIXABLE
+                any:
+                    - matches: read-later
+                    - inside: {stopBy: {kind: function_definition}, not: {kind: function_definition}, matches: read-later}
+rule:
+    kind: for_statement
+    matches: yield-loop
+    all:
+        - has: {field: left, pattern: $TARGET}
+        - not: {inside: {stopBy: {kind: 'function_definition, lambda'}, kind: for_statement, matches: yield-loop}}
+        - not: {inside: {stopBy: {kind: function_definition}, kind: function_definition, regex: '^async\b'}}
+        - not: {matches: identity}
+        - any:
+            - pattern: $FIXABLE
+              all:
+                - has: {stopBy: end, kind: yield, not: {regex: '^yield\s+from\b'}, has: {nthChild: 1, pattern: $VALUE}}
+                - not: {has: {stopBy: end, kind: comment}}
+                - not: {has: {stopBy: end, kind: named_expression, inside: {stopBy: end, kind: for_statement, field: right}}}
+                - not: {has: {stopBy: end, matches: rebound-target}}
+                - not: {has: {stopBy: end, matches: leaked-target}}
+            - pattern: $KEPT
+rewriters:
+    - id: shown-value
+      rule: {kind: expression_list, pattern: $SHOWN, inside: {kind: yield}}
+      fix: ($SHOWN)
+    - id: grouped-loop
+      rule:
+        kind: for_statement
+        all:
+            - has: {field: left, pattern: $LOOP_TARGET}
+            - has: {field: right, kind: 'conditional_expression, lambda, expression_list', pattern: $LOOP_SOURCE}
+            - has: {field: body, pattern: $LOOP_BODY}
+      transform:
+        CLAUSES: rewrite($LOOP_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
+      fix: ' for $LOOP_TARGET in ($LOOP_SOURCE)$CLAUSES'
+    - id: loop
+      rule:
+        kind: for_statement
+        all:
+            - has: {field: left, pattern: $LOOP_TARGET}
+            - has: {field: right, pattern: $LOOP_SOURCE}
+            - has: {field: body, pattern: $LOOP_BODY}
+      transform:
+        CLAUSES: rewrite($LOOP_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
+      fix: ' for $LOOP_TARGET in $LOOP_SOURCE$CLAUSES'
+    - id: grouped-test
+      rule:
+        kind: if_statement
+        all:
+            - has: {field: condition, kind: 'conditional_expression, lambda, named_expression', pattern: $TEST}
+            - has: {field: consequence, pattern: $TEST_BODY}
+      transform:
+        CLAUSES: rewrite($TEST_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
+      fix: ' if ($TEST)$CLAUSES'
+    - id: test
+      rule:
+        kind: if_statement
+        all:
+            - has: {field: condition, pattern: $TEST}
+            - has: {field: consequence, pattern: $TEST_BODY}
+      transform:
+        CLAUSES: rewrite($TEST_BODY, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
+      fix: ' if $TEST$CLAUSES'
+    - id: emitted
+      rule: {kind: expression_statement}
+      fix: ''
+transform:
+    SHOWN_VALUE: rewrite($VALUE, rewriters=[shown-value])
+    HEAD: {replace: {source: $SHOWN_VALUE, replace: '(?s)^(.+)$', by: 'yield from ($1'}}
+    GENERATED: rewrite($FIXABLE, rewriters=[grouped-loop, loop, grouped-test, test, emitted])
+    TAIL: {replace: {source: $GENERATED, replace: '(?s)^(.+)$', by: '$1)'}}
+fix: $HEAD$TAIL$KEPT
+message: '`for $TARGET` yields by statement in place of one `yield from`'
+note: 'Use `yield from (<value> for <target> in <iterable> if <test>)` for `yield <value>` with one `for` clause per nested loop, `yield from (*<values> for <target> in <iterable>)` for `yield from <values>` on Python 3.15, and `yield from chain.from_iterable(<values> for <target> in <iterable>)` in a file ruff targets at Python 3.13'

@@ -1,0 +1,109 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-constant-python
+language: python
+severity: error
+utils:
+    module-level:
+        kind: expression_statement
+        inside: {kind: module}
+    literal:
+        any:
+            - kind: string, concatenated_string, integer, float, true, false, none
+              not: {has: {stopBy: end, kind: interpolation}}
+            - kind: identifier, lambda
+            - kind: attribute
+              not: {has: {stopBy: end, kind: call}}
+            - kind: unary_operator, binary_operator, tuple, parenthesized_expression, list, set, dictionary, pair, argument_list, keyword_argument
+              not: {has: {pattern: $_, not: {any: [{matches: literal}, {kind: comment}]}}}
+            - kind: call
+              all:
+                - has: {field: function, regex: '^(frozenset|tuple|(types\.)?MappingProxyType|re\.compile)$'}
+                - has: {field: arguments, matches: literal}
+    reference:
+        kind: identifier
+        pattern: $NAME
+        not:
+            any:
+                - inside: {kind: attribute, field: attribute}
+                - inside: {kind: keyword_argument, field: name}
+    exported:
+        kind: expression_statement
+        has:
+            kind: assignment
+            all:
+                - has: {field: left, regex: '^__all__$'}
+                - has: {field: right, has: {kind: string, has: {kind: string_content, pattern: $NAME}}}
+    reader:
+        kind: function_definition
+        all:
+            - has: {field: name, pattern: $FN}
+            - has: {stopBy: end, matches: reference}
+    holds-reader:
+        any:
+            - matches: reader
+            - has: {stopBy: end, matches: reader}
+    constant-reader:
+        kind: assignment
+        all:
+            - inside: {matches: module-level}
+            - has: {field: left, kind: identifier, pattern: $FN}
+            - has: {field: right, has: {stopBy: end, matches: reference}}
+    own-binding:
+        inside: {kind: assignment, field: left, inside: {matches: module-level}}
+    read:
+        matches: reference
+        not: {matches: own-binding}
+    holds-read:
+        any:
+            - matches: read
+            - has: {stopBy: end, matches: read}
+    later-read:
+        matches: read
+        any:
+            - follows: {stopBy: end, matches: holds-read}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: holds-read}}
+rule:
+    kind: assignment
+    all:
+        - has: {field: left, kind: identifier, pattern: $NAME}
+        - has: {field: right, matches: literal}
+        - inside: {matches: module-level}
+        - any:
+            - has: {field: type, regex: '^(typing\.)?Final(\[|$)'}
+            - has: {field: left, regex: '^_?[A-Z][A-Z0-9_]*$'}
+        - inside:
+            kind: module
+            stopBy: end
+            all:
+                - not: {has: {matches: exported}}
+                - any:
+                    - all:
+                        - has: {stopBy: end, matches: reader}
+                        - not:
+                            has:
+                                stopBy: end
+                                matches: reader
+                                any:
+                                    - follows: {stopBy: end, matches: holds-reader}
+                                    - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reader}}
+                        - not:
+                            has:
+                                stopBy: end
+                                matches: reference
+                                not:
+                                    any:
+                                        - inside: {stopBy: end, kind: function_definition, has: {field: name, pattern: $FN}}
+                                        - matches: own-binding
+                    - all:
+                        - has: {stopBy: end, matches: constant-reader}
+                        - not:
+                            has:
+                                stopBy: end
+                                matches: reference
+                                not:
+                                    any:
+                                        - inside: {stopBy: end, matches: constant-reader}
+                                        - matches: own-binding
+                        - not: {has: {stopBy: end, matches: later-read}}
+message: 'Module-level constant `$NAME` has one reader, `$FN`'
+note: 'Bind the value inside its one reader, as a local where its name states a fact and at the use site otherwise, and drop the module-level name'

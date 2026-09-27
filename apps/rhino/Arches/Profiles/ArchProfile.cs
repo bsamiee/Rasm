@@ -1,8 +1,6 @@
 using Rasm.Rhino.Document;
 using Rasm.Rhino.Modeling;
 using Rasm.Rhino.Modeling.Curves;
-using Rhino;
-using Rhino.Geometry.Intersect;
 
 namespace Arches.Profiles;
 
@@ -10,11 +8,13 @@ namespace Arches.Profiles;
 public sealed record Span {
     private readonly Plane frame;
 
-    private Span(Point3d start, Point3d end, Plane frame) => (Start, End, this.frame) = (start, end, frame);
+    private Span(Point3d start, Point3d end, Plane frame, double tolerance) => (Start, End, this.frame, Tolerance) = (start, end, frame, tolerance);
 
     public Point3d Start { get; }
 
     public Point3d End { get; }
+
+    public double Tolerance { get; }
 
     public Vector3d Normal => frame.ZAxis;
 
@@ -34,17 +34,15 @@ public sealed record Span {
 
     public double EquilateralHeight => Length * (Math.Sqrt(3) / 2);
 
-    public double RiseTolerance => Length * RhinoMath.SqrtEpsilon;
-
-    public static Fin<Span> From(Point3d start, Point3d end, Vector3d normal) =>
-        new Plane(start, end - start, Vector3d.CrossProduct(normal, end - start)) is { IsValid: true } plane ? new Span(start, end, plane) : new Degenerate(nameof(Span));
+    public static Fin<Span> From(Point3d start, Point3d end, Vector3d normal, double tolerance) =>
+        new Plane(start, end - start, Vector3d.CrossProduct(normal, end - start)) is { IsValid: true } plane ? new Span(start, end, plane, tolerance) : new Degenerate(nameof(Span));
 
     public Circle CircleAt(Point3d center, double radius) => new(new Plane(center, Direction, Perpendicular), radius);
 
     public Point3d Raised(Point3d candidate, Limits<double> limits) {
         Point3d pulled = CenterLine.ClosestPoint(candidate, limitToFiniteSegment: false);
         Vector3d side = ((pulled - Midpoint) * Perpendicular) < 0 ? -Perpendicular : Perpendicular;
-        return Midpoint + (side * limits.Clamp(pulled.DistanceTo(Midpoint), RiseTolerance));
+        return Midpoint + (side * limits.Clamp(pulled.DistanceTo(Midpoint), Tolerance));
     }
 }
 
@@ -71,11 +69,6 @@ public abstract partial record ArchProfile {
             .Map<ArchProfile>(pairs => new Arcs(span, pairs.Flatten()));
     }
 
-    public static Fin<LineCircleCrossing.Multiple> Secant(Line line, Circle circle) =>
-        CurveConstruction.LineCircle(line, circle).Bind(static crossing => crossing.Switch(
-            single: static _ => Fin.Fail<LineCircleCrossing.Multiple>(new Missing(nameof(Intersection.LineCircle))),
-            multiple: static both => Fin.Succ(both)));
-
     public IO<Seq<Curve>> Joined(double tolerance) =>
         Switch(
             tolerance,
@@ -85,8 +78,13 @@ public abstract partial record ArchProfile {
             parabolic: static (_, parabolic) => parabolic.ToCurve().Map(static curve => Seq(curve)),
             elliptical: static (_, elliptical) => elliptical.ToCurve().Map(static curve => Seq(curve)));
 
-    private static Fin<Arc> Image(Arc arc, Transform mirror) =>
-        !arc.IsValid ? new Invalid(nameof(Arc)) : Refused.Unless(arc.Transform(mirror), arc, nameof(Arc.Transform));
+    private static Fin<Arc> Image(Arc arc, Transform mirror) {
+        Arc image = arc;
+        bool mirrored = image.Transform(mirror);
+        return from valid in Invalid.Unless(arc.IsValid, nameof(Arc))
+               from transformed in Refused.Unless(mirrored, image, nameof(Arc.Transform))
+               select transformed;
+    }
 
     private static Arc Reversed(Arc arc) {
         arc.Reverse();
@@ -99,4 +97,6 @@ public static class RiseLimits {
     public static Fin<Limits<double>> UpToSemicircle(Span span) => Limits.Above(0.0).AtMost(span.HalfSpan, nameof(UpToSemicircle));
 
     public static Fin<Limits<double>> FromSemicircle(Span span) => Limits.AtLeast(span.HalfSpan);
+
+    public static Fin<Limits<double>> Positive(Span _) => Limits.Above(0.0);
 }

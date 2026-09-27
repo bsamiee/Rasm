@@ -3,6 +3,8 @@ import Dispatch
 import Foundation
 import System
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 nonisolated enum FileWatch {
   static func changes(of file: URL) -> AsyncThrowingStream<SHA256Digest?, any Error> {
     marks(of: file, probe: contentDigest)

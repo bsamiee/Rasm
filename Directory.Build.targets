@@ -1,10 +1,4 @@
 <Project>
-    <PropertyGroup Label="Host Classification">
-        <_HostTokens>;$(RhinoHost);</_HostTokens>
-        <HostGrasshopper Condition="$(_HostTokens.Contains(';grasshopper;'))">true</HostGrasshopper>
-        <HostCommon Condition="$(_HostTokens.Contains(';common;')) or '$(HostGrasshopper)' == 'true'">true</HostCommon>
-    </PropertyGroup>
-
     <PropertyGroup Label="Test Coverage" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <IsTestProject>true</IsTestProject>
         <UseMicrosoftTestingPlatformRunner>true</UseMicrosoftTestingPlatformRunner>
@@ -26,17 +20,27 @@
         <Using Include="CsCheck" Condition="'@(PackageReference->WithMetadataValue('Identity', 'CsCheck'))' != ''" />
     </ItemGroup>
 
-    <ItemGroup Label="Rhino Host Packages" Condition="'$(HostCommon)' == 'true'">
+    <ItemGroup Label="Rhino Host Packages" Condition="'$(RhinoHost)' != ''">
         <PackageReference Include="RhinoCommon" ExcludeAssets="runtime" />
-        <PackageReference Include="Grasshopper2" ExcludeAssets="runtime" Condition="'$(HostGrasshopper)' == 'true'" />
+        <PackageReference Include="Grasshopper2" Condition="'$(RhinoHost)' == 'grasshopper'" />
         <PackageReference Update="System.Drawing.Common" ExcludeAssets="runtime" />
         <Using Include="Rhino.Geometry" />
-        <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(HostGrasshopper)' == 'true'" />
+        <Using Include="Grasshopper2.Types.Numeric;Grasshopper2.UI" Condition="'$(RhinoHost)' == 'grasshopper'" />
     </ItemGroup>
 
     <ItemGroup Label="Workspace Policy">
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
+
+    <Target Name="AddPlugInWebSite" AfterTargets="GetAssemblyAttributes" Condition="'$(RhinoPlugIn)' == 'true'">
+        <ItemGroup>
+            <AssemblyAttribute Include="Rhino.PlugIns.PlugInDescriptionAttribute">
+                <_Parameter1>Rhino.PlugIns.DescriptionType.WebSite</_Parameter1>
+                <_Parameter1_IsLiteral>true</_Parameter1_IsLiteral>
+                <_Parameter2>$(PrivateRepositoryUrl)</_Parameter2>
+            </AssemblyAttribute>
+        </ItemGroup>
+    </Target>
 
     <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">
         <RemoveDir Directories="$(_TestResultsDirectory)" />

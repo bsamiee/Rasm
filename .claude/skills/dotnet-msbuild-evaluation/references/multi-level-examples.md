@@ -20,17 +20,17 @@ Repository with a root `Directory.Build.props`, a nested `tests/Directory.Build.
 
 ```xml
 <Project>
-  <PropertyGroup>
-    <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
-    <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts'))</ArtifactsPath>
-    <Stage Condition="'$(Stage)' == ''">library</Stage>
-    <Role Condition="$(MSBuildProjectDirectory.StartsWith('$(RepositoryRoot)tests'))">tests</Role>
-    <Role Condition="'$(Role)' == ''">library</Role>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <IsPackable>false</IsPackable>
-  </PropertyGroup>
+    <PropertyGroup>
+        <RepositoryRoot>$(MSBuildThisFileDirectory)</RepositoryRoot>
+        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts'))</ArtifactsPath>
+        <Stage Condition="'$(Stage)' == ''">library</Stage>
+        <Role Condition="$(MSBuildProjectDirectory.StartsWith('$(RepositoryRoot)tests'))">tests</Role>
+        <Role Condition="'$(Role)' == ''">library</Role>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
 </Project>
 ```
 
@@ -41,14 +41,14 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
 ```xml
 <!-- tests/Directory.Build.props -->
 <Project>
-  <PropertyGroup>
-    <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
-  </PropertyGroup>
-  <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
+    <PropertyGroup>
+        <_OuterDirectoryBuildProps>$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))</_OuterDirectoryBuildProps>
+    </PropertyGroup>
+    <Import Project="$(_OuterDirectoryBuildProps)" Condition="'$(_OuterDirectoryBuildProps)' != ''" />
 
-  <PropertyGroup>
-    <IsTestProject>true</IsTestProject>
-  </PropertyGroup>
+    <PropertyGroup>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
 </Project>
 ```
 
@@ -58,14 +58,14 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
 
 ```xml
 <Project>
-  <PropertyGroup Condition="'$(OutputType)' == 'Exe'">
-    <SelfContained>false</SelfContained>
-  </PropertyGroup>
+    <PropertyGroup Condition="'$(OutputType)' == 'Exe'">
+        <SelfContained>false</SelfContained>
+    </PropertyGroup>
 
-  <ItemGroup>
-    <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != ''" />
-    <Compile Update="Generated/*.cs" AutoGen="true" />
-  </ItemGroup>
+    <ItemGroup>
+        <Using Include="Microsoft.Extensions.Logging" Condition="'@(PackageReference->WithMetadataValue('Identity', 'Microsoft.Extensions.Logging'))' != ''" />
+        <Compile Update="Generated/*.cs" AutoGen="true" />
+    </ItemGroup>
 </Project>
 ```
 
@@ -77,28 +77,28 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
 ```xml
 <!-- libs/Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
-    <Using Include="Microsoft.Extensions.Logging" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging" Version="10.0.0" />
+        <Using Include="Microsoft.Extensions.Logging" />
+    </ItemGroup>
 </Project>
 
 <!-- tests/Library.Tests/Library.Tests.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
-    <ImplicitUsings>enable</ImplicitUsings>
-    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <IsPackable>false</IsPackable>
-    <IsTestProject>true</IsTestProject>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+    </PropertyGroup>
 </Project>
 ```
 
@@ -108,18 +108,18 @@ Private property `_OuterDirectoryBuildProps` keeps nested quotes out of the impo
 ```xml
 <!-- libs/Library/Library.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Microsoft.Extensions.Logging" />
-  </ItemGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Microsoft.Extensions.Logging" />
+    </ItemGroup>
 </Project>
 
 <!-- tests/Library.Tests/Library.Tests.csproj -->
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
-  </PropertyGroup>
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+    </PropertyGroup>
 </Project>
 ```

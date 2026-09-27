@@ -1,8 +1,7 @@
 {
     "extends": "../../../tsconfig.base.json",
     "compilerOptions": {
-        "outDir": "../../../.cache/typescript/out/apps/creative-cloud/mcp",
-        "types": ["node"]
+        "outDir": "../../../.cache/typescript/out/apps/creative-cloud/mcp"
     },
     "files": ["package.json"]
 }

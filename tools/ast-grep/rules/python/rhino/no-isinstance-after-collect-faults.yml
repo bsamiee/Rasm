@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-isinstance-after-collect-faults
+language: python
+severity: error
+rule:
+    kind: boolean_operator
+    pattern: $TEST
+    all:
+        - has: {field: operator, regex: '^or$'}
+        - has: {field: right, kind: call, pattern: 'isinstance($X, tuple)'}
+        - has:
+            field: left
+            has:
+                stopBy: end
+                kind: call
+                all:
+                    - has: {field: function, regex: '^collect_faults$'}
+                    - has: {field: arguments, has: {kind: identifier, pattern: $X}}
+message: '`isinstance($X, tuple)` repeats the fault test `collect_faults` ran on `$X`'
+note: 'Match independent results in one `match` with a success case naming each value and `case failed: return collect_faults(*failed)`, the success pattern narrows each value'

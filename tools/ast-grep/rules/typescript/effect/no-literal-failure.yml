@@ -2,7 +2,6 @@
 id: no-literal-failure
 language: tsx
 severity: error
-ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     untagged-error:
         any:
@@ -29,56 +28,50 @@ utils:
                     stopBy: {matches: syntax-function-boundary}
     strict-constructor:
         kind: member_expression
-        any:
-            - all:
-                - has: {field: property, regex: '^fail$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit|Cause|Deferred|TDeferred|Request|Fiber|Take)$'}}}}
-            - all:
-                - has: {field: property, regex: '^left$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Either)?$'}, exported: {regex: '^Either$'}}}}
+        all:
+            - has: {field: property, regex: '^fail$'}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Exit|Cause|Deferred|Request|Result))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Exit|Cause|Deferred|Request|Result)$'}}}}
     lazy-constructor:
         kind: member_expression
         any:
             - all:
                 - has: {field: property, regex: '^failSync$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Deferred)$'}}}}
-            - all:
-                - has: {field: property, regex: '^orElseFail$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Stream))?$'}, exported: {regex: '^(Effect|STM|Stream)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Deferred))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Deferred)$'}}}}
             - all:
                 - has: {field: property, regex: '^mapError$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink|Exit)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Channel|Sink|Exit|Result))?$'}, exported: {regex: '^(Effect|Stream|Channel|Sink|Exit|Result)$'}}}}
             - all:
-                - has: {field: property, regex: '^(mapLeft|fromOption)$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Either)?$'}, exported: {regex: '^Either$'}}}}
+                - has: {field: property, regex: '^fromOption$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}}
     filter-constructor:
         kind: member_expression
-        all:
-            - has: {field: property, regex: '^filterOrFail$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM))?$'}, exported: {regex: '^(Effect|Micro|STM)$'}}}}
+        any:
+            - all:
+                - has: {field: property, regex: '^filterOrFail$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+            - all:
+                - has: {field: property, regex: '^(filterOrFail|liftPredicate)$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}}
     options-callee:
         kind: member_expression
         any:
             - all:
-                - has: {field: property, regex: '^(try|tryPromise|tryMap|tryMapPromise)$'}
+                - has: {field: property, regex: '^(try|tryPromise)$'}
                 - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
             - all:
-                - has: {field: property, regex: '^(try|tryPromise)$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Micro)?$'}, exported: {regex: '^Micro$'}}}}
-            - all:
                 - has: {field: property, regex: '^try$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(STM|Either))?$'}, exported: {regex: '^(STM|Either)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Result)?$'}, exported: {regex: '^Result$'}}}}
             - all:
                 - has: {field: property, regex: '^mapBoth$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Exit|Stream|Either))?$'}, exported: {regex: '^(Effect|STM|Exit|Stream|Either)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Exit|Stream|Result))?$'}, exported: {regex: '^(Effect|Exit|Stream|Result)$'}}}}
     failure-member:
         any:
             - kind: pair
               all:
-                - has: {field: key, regex: '^(catch|onFailure|onLeft)$'}
+                - has: {field: key, regex: '^(catch|onFailure)$'}
                 - has: {field: value, matches: untagged-thunk}
             - kind: method_definition
-              has: {field: name, regex: '^(catch|onFailure|onLeft)$'}
+              has: {field: name, regex: '^(catch|onFailure)$'}
               matches: untagged-thunk
 rule:
     kind: call_expression
@@ -102,4 +95,4 @@ rule:
             - has: {field: arguments, has: {kind: object, has: {matches: failure-member}}}
             - has: {field: function, pattern: $FAIL, matches: options-callee}
 message: '`$FAIL` fails with `$ERROR`, a value with no `_tag`'
-note: 'Fail with a `Data.TaggedError`, `Data.taggedEnum`, or `Data.tagged` value, `Effect.catchTag` recovers it by `_tag`'
+note: 'Fail with a `Data.TaggedError`, `Schema.TaggedError`, or `Data.taggedEnum` value, `Effect.catchTag` recovers it by `_tag`'

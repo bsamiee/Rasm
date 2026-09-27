@@ -1,5 +1,7 @@
 import ServiceManagement
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 struct LoginItem {
   let status: SMAppService.Status
   let failure: String?

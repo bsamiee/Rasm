@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated struct FileLocations: Sendable {
   let applicationSupportDirectory: URL
   let defaultClaudeDirectory: URL

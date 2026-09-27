@@ -16,10 +16,9 @@ Rasm/
 │   └── dotnet/
 ├── infra/                    # Pulumi program declaring repository resources
 ├── tools/
-│   ├── ast-grep/             # Outlines and rules per language
+│   ├── ast-grep/             # Outlines, rules, and utilities per language
 │   ├── interface/            # Desktop application interfaces, one directory per application
-│   ├── nx/                   # Nx plugin inferring a project from each project file
-│   └── yak/                  # Rhino packages installed through the yak CLI
+│   └── nx/                   # Nx plugin inferring a project from each project file
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
@@ -34,7 +33,7 @@ Rasm/
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Test and coverage options every project config imports
-├── vite.config.ts            # Bundling options every build target runs from its project directory
+├── vite.config.ts            # Bundling options every UXP build target runs from its project directory
 ├── biome.json                # TypeScript and JSON formatting and lint
 ├── pmd.xml                   # Java lint rules
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
@@ -67,7 +66,7 @@ flowchart LR
         catalog_py["pyproject.toml groups"] --> lock_py["uv.lock, .venv/bin on PATH"]
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
         catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
-        yak["tools/yak"] --> upgrade
+        packages["packages.toml rows"] --> upgrade
     end
 
     subgraph taskgraph ["Task graph"]
@@ -80,7 +79,7 @@ flowchart LR
     subgraph commands ["Commands"]
         direction TB
         lint["nx run rasm:lint"] --> checkers["Every portable checker, one process each over the tree"]
-        format_tree["nx run rasm:format"] --> writers["Every portable writer, then dotnet format"]
+        format_tree["nx run rasm:format"] --> writers["Palette generator, every portable writer, then dotnet format"]
         check_all["nx run-many -t check"] --> project_check["Build, typecheck, or test per project"]
         check_affected["nx affected -t check"] --> project_check
         ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner, format with git diff --exit-code"]
@@ -94,12 +93,12 @@ flowchart LR
 - Targets call one tool, arguments on the command, configuration in the tool's own file
 - `nx run rasm:check` runs lint and root typecheck
 - `nx run <project>:<target>` runs one target of one project
-- `nx run <project>:install` places an Xcode project's Release product at its `INSTALL_PATH`
-- `nx run rasm:upgrade` moves every catalog and tool binary to its newest release
-- `nx run rasm:upgrade --configuration <language>` moves one catalog, `tools` the binaries, `rhino` the Rhino packages
+- `nx run <project>:install` installs a project's Release product into its host
+- `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/yak/` with a manifest `yak spec` derives from its build
+- `nx run rasm:upgrade` moves catalogs, tool binaries, and application packages to their newest builds
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- `nx run rasm:interface` applies the interface to each application directory holding an `apply.py`, `-- <app>` to one
+- `nx run rasm:interface` applies the interface to each application directory holding an `apply.py`, `-- <app>` to one, and prints every outcome as one JSON document
 - Workspace plugin names each project's tags, empty targets, and `cli.ts` subcommands by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
@@ -119,11 +118,11 @@ flowchart LR
 |  [08]   | Secret                         | Doppler, read through `doppler run` around the command                                |
 |  [09]   | Resource or repository setting | Typed row of the program under `infra/`, applied by `nx run rasm:up`                  |
 |  [10]   | Tool no target runs            | Machine setup                                                                         |
-|  [11]   | Rhino package                  | `nx run rasm:upgrade --configuration rhino` at the newest upstream development build  |
+|  [11]   | Application package            | `packages.toml` row beside the script installing it                                   |
 |  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                          |
 
-- Package rows and `.editorconfig` rows hold a one-line purpose comment, every other file holds section dividers alone
-- Tool rows name a release candidate where `latest` resolves a development build
+- Package rows and `.editorconfig` analyzer rows hold a one-line purpose comment, every other configuration file holds section dividers alone
+- Tool rows name a release where `latest` resolves a development build
 - Facts sit once in their owning file, other files name the owner
 - Mini configs, wrappers, and aliases beside an owner are corrected at the owner
 
@@ -144,11 +143,10 @@ flowchart LR
 - Projects under a `rhino` folder compile against `RhinoCommon`, `RhinoHost` token `grasshopper` adds `Grasshopper2`
 - Installed Rhino supplies host assemblies at runtime, build output holds none
 - Project files define projects, never `project.json`
-- Project files are `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, `settings.gradle.kts`, and `.xcodeproj`
+- Project files are `.csproj`, `package.json` with `tsconfig.json`, `pyproject.toml`, and `.xcodeproj`
 - `Workspace.slnx` lists every project `.csproj`
 - `.xcodeproj` basenames name the Nx project, its scheme, and its product
 - Projects hold no `src/` directory and no folder with one file, folders group by domain per language
-- Python and TypeScript files declare their exports at the end
 - Changes replace structure in place, one commit holds change and removal, new structure keeps its predecessor's name
 - Packages, namespaces, routes, contracts, and directories carry no version suffix or `v1` folder
 - Schema libraries apply the delta from owning types to the live database, with no migration file or history table

@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-digest-truncation
+language: python
+severity: error
+utils:
+    truncated:
+        kind: subscript
+        has: {field: subscript, kind: slice}
+        any:
+            - pattern: hashlib.new($ALG, $$$_).$DIGEST()[$SLICE]
+            - pattern: hashlib.$ALG($$$_).$DIGEST()[$SLICE]
+            - pattern: $ALG($$$_).$DIGEST()[$SLICE]
+    earlier:
+        inside:
+            stopBy: end
+            follows:
+                stopBy: end
+                any:
+                    - {matches: truncated}
+                    - has: {stopBy: end, matches: truncated}
+rule:
+    kind: subscript
+    pattern: $TRUNCATION
+    all:
+        - matches: truncated
+        - matches: earlier
+constraints:
+    ALG: {regex: '^([''"]?)(md5|sha1|sha224|sha256|sha384|sha512|sha3_224|sha3_256|sha3_384|sha3_512|blake2b|blake2s)([''"]?)$'}
+    DIGEST: {regex: '^(hex)?digest$'}
+message: '`$TRUNCATION` truncates a `$ALG` digest to `[$SLICE]` a second time in the file'
+note: 'Declare one function from hashed bytes to the truncated digest and call it at every site'

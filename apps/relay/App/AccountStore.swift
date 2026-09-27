@@ -5,6 +5,8 @@ import OSLog
 import Observation
 import SwiftUI
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
 @Observable
 final class AccountStore {
   private(set) var accounts: [AccountModel] = []
@@ -88,7 +90,7 @@ final class AccountStore {
       }
       await load()
       guard isStorageAvailable, !isStopping else { return }
-      await settle()
+      await reconcile()
       await readSelection()
       await withDiscardingTaskGroup { group in
         group.addTask(name: "Network") { await self.observeNetwork() }
@@ -331,8 +333,8 @@ final class AccountStore {
     }
   }
 
-  private func settle() async {
-    if case .failure(let error) = await claude.settle(known: records) {
+  private func reconcile() async {
+    if case .failure(let error) = await claude.completePendingSwitch(known: records) {
       providerIssues[.claude] = error.localizedDescription
     }
     codexPrecondition = (await codex.preconditions()).failure?.localizedDescription
@@ -697,6 +699,8 @@ final class AccountStore {
     return result
   }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated extension Result where Failure: ProviderFailure {
   func erased() -> Result<Success, ProviderError> {

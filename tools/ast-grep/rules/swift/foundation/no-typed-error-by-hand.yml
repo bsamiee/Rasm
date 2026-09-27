@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-typed-error-by-hand
+language: swift
+severity: error
+rule:
+    kind: call_expression
+    pattern: 'NSError(domain: $DOMAIN, $$$)'
+constraints:
+    DOMAIN: {regex: '^("?)(NSCocoaErrorDomain|NSPOSIXErrorDomain|NSURLErrorDomain)("?)$|^(CocoaError|POSIXError|URLError)\.errorDomain$'}
+message: '`NSError` spells an error of domain `$DOMAIN` with an integer code'
+note: Use `CocoaError(.<code>, userInfo:)`, `POSIXError(.<code>, userInfo:)`, or `URLError(.<code>, userInfo:)`, a failure typed `NSError` widens to `any Error`

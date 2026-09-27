@@ -1,41 +1,34 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import type { ToolCallInput } from 'claude-code';
-import { type Command, strip } from '../command.ts';
-import { type Decision, deny, none, type Option, pass, some } from '../composition.ts';
+import type { Command } from '../command.ts';
+import { type Decision, deny, none, type Option, pass, refuse, some } from '../composition.ts';
+import { type Invocation, invocations } from '../invocation.ts';
 import { basename } from '../path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Refinement = (args: readonly string[], existing: readonly string[]) => readonly string[];
+type WorktreeEvent = Extract<ToolCallInput, { readonly tool: 'Agent' | 'EnterWorktree' }>;
 
 interface GitRow {
-    readonly why: string;
+    readonly reason: string;
     readonly any?: true;
     readonly flags?: readonly string[];
-    readonly starts?: readonly string[];
+    readonly prefixes?: readonly string[];
     readonly safe?: readonly string[];
     readonly refine?: Refinement;
 }
-
 interface Head {
     readonly key: Key;
     readonly args: readonly string[];
 }
 
-type WorktreeEvent = Extract<ToolCallInput, { readonly tool: 'Agent' | 'EnterWorktree' }>;
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _WORKTREE = 'creates a second checkout with its own metadata and sync cost';
-const _CHECKOUT_CREATE: readonly string[] = ['-b', '--orphan', '-t', '--track', '--detach'];
-const _GIT_VALUE_OPTS: readonly string[] = ['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'];
-const _REFINED: readonly string[] = ['reset', 'checkout'];
 
 // --- [REFINEMENTS] ---------------------------------------------------------------------
 
 const _isFlag = (word: string): boolean => word.startsWith('-');
-
 const _short = (word: string, letter: string): boolean => _isFlag(word) && !word.startsWith('--') && word.includes(letter);
 
 const _reset: Refinement = (args, existing) => {
@@ -57,33 +50,33 @@ const _config: Refinement = (args) => {
 
 const _checkout: Refinement = (args, existing) => {
     const [first, ...more] = args.filter((word) => word === '-' || !_isFlag(word));
-    if (!args.includes('--') && args.some((word) => _CHECKOUT_CREATE.includes(word))) {
+    if (!args.includes('--') && args.some((word) => ['-b', '--orphan', '-t', '--track', '--detach'].includes(word))) {
         return [];
     }
     if (args.includes('--') || more.length > 0 || first === '.' || first?.startsWith(':') === true) {
         return ['git checkout with a pathspec overwrites working-tree files'];
     }
-    return first !== undefined && first !== '-' && existing.includes(first) ? [`git checkout ${first} names an existing path and would overwrite it`] : [];
+    return first !== undefined && first !== '-' && existing.includes(first) ? [`git checkout ${first} names an existing path it overwrites`] : [];
 };
 
 // --- [POLICY] --------------------------------------------------------------------------
 
 const GIT = {
-    branch: { why: 'deletes or force-moves a branch', flags: ['-d', '-D', '-M', '--delete'], starts: ['--force'] },
-    checkout: { why: 'discards local changes', flags: ['-f', '-B', '-p', '--patch', '--ours', '--theirs'], starts: ['--force'], refine: _checkout },
-    clean: { why: 'deletes untracked files', any: true },
-    config: { why: 'defines a git alias that can hide a refused subcommand', refine: _config },
-    push: { why: 'rewrites or deletes remote history', flags: ['-f', '-d', '--delete', '--mirror', '--prune'], starts: ['--force', '+', ':'] },
-    rebase: { why: 'rewrites commits other agents can hold', any: true },
-    'reflog delete': { why: 'erases reflog entries, the last recovery path', any: true },
-    'reflog drop': { why: 'erases reflog entries, the last recovery path', any: true },
-    'reflog expire': { why: 'erases reflog entries, the last recovery path', any: true },
-    reset: { why: 'wipes working-tree or index state', flags: ['--hard', '--merge', '--keep'], refine: _reset },
-    restore: { why: 'discards working-tree state', refine: _restore },
-    revert: { why: 'reverses committed history', any: true },
-    stash: { why: 'hides uncommitted work other agents depend on', any: true, safe: ['list', 'show'] },
-    switch: { why: 'discards local changes', flags: ['-f', '-C', '--discard-changes'], starts: ['--force'] },
-    worktree: { why: _WORKTREE, any: true, safe: ['list'] },
+    branch: { reason: 'deletes or force-moves a branch', flags: ['-d', '-D', '-M', '--delete'], prefixes: ['--force'] },
+    checkout: { reason: 'discards local changes', flags: ['-f', '-B', '-p', '--patch', '--ours', '--theirs'], prefixes: ['--force'], refine: _checkout },
+    clean: { reason: 'deletes untracked files', any: true },
+    config: { reason: 'defines a git alias that can hide a refused subcommand', refine: _config },
+    push: { reason: 'rewrites or deletes remote history', flags: ['-f', '-d', '--delete', '--mirror', '--prune'], prefixes: ['--force', '+', ':'] },
+    rebase: { reason: 'rewrites commits other agents can hold', any: true },
+    'reflog delete': { reason: 'erases reflog entries, the last recovery path', any: true },
+    'reflog drop': { reason: 'erases reflog entries, the last recovery path', any: true },
+    'reflog expire': { reason: 'erases reflog entries, the last recovery path', any: true },
+    reset: { reason: 'wipes working-tree or index state', flags: ['--hard', '--merge', '--keep'], refine: _reset },
+    restore: { reason: 'discards working-tree state', refine: _restore },
+    revert: { reason: 'reverses committed history', any: true },
+    stash: { reason: 'hides uncommitted work other agents depend on', any: true, safe: ['list', 'show'] },
+    switch: { reason: 'discards local changes', flags: ['-f', '-C', '--discard-changes'], prefixes: ['--force'] },
+    worktree: { reason: _WORKTREE, any: true, safe: ['list'] },
 } as const satisfies Readonly<Record<string, GitRow>>;
 
 type Key = keyof typeof GIT;
@@ -94,7 +87,7 @@ const _isKey = (candidate: string): candidate is Key => Object.hasOwn(GIT, candi
 
 const _skip = (words: readonly string[], index: number): number => {
     const word = words[index];
-    return word !== undefined && _isFlag(word) ? _skip(words, index + (_GIT_VALUE_OPTS.includes(word) ? 2 : 1)) : index;
+    return word !== undefined && _isFlag(word) ? _skip(words, index + (['-C', '-c', '--git-dir', '--work-tree', '--namespace', '--config-env', '--exec-path'].includes(word) ? 2 : 1)) : index;
 };
 
 const _head = (words: readonly string[]): Option<Head> => {
@@ -109,10 +102,10 @@ const _refusals = (head: Head, existing: readonly string[]): readonly string[] =
         return [];
     }
     if (row.any === true) {
-        return [`git ${head.key} ${row.why}`];
+        return [`git ${head.key} ${row.reason}`];
     }
-    const hit = head.args.find((word) => row.flags?.includes(word) === true || row.starts?.some((start) => word.startsWith(start)) === true);
-    return hit === undefined ? (row.refine?.(head.args, existing) ?? []) : [`git ${head.key} ${hit} ${row.why}`];
+    const hit = head.args.find((word) => row.flags?.includes(word) === true || row.prefixes?.some((prefix) => word.startsWith(prefix)) === true);
+    return hit === undefined ? (row.refine?.(head.args, existing) ?? []) : [`git ${head.key} ${hit} ${row.reason}`];
 };
 
 const _reason = (words: readonly string[], existing: readonly string[]): readonly string[] => {
@@ -124,23 +117,15 @@ const _reason = (words: readonly string[], existing: readonly string[]): readonl
     return head.kind === 'some' ? _refusals(head.value, existing) : [];
 };
 
-const _gits = (commands: readonly Command[]): readonly (readonly string[])[] =>
-    commands
-        .map((command) => strip(command.words))
-        .flatMap((words) => words.flatMap((word, index) => ((index === 0 || words[index - 1] === '--') && basename(word) === 'git' ? [words.slice(index)] : [])));
+const _gits = (commands: readonly Command[]): readonly Invocation[] => commands.flatMap((command) => invocations(command.words).filter(([head]) => basename(head) === 'git'));
 
 const gitPaths = (commands: readonly Command[]): readonly string[] =>
     _gits(commands).flatMap((words) => {
         const head = _head(words.slice(_skip(words, 1)));
-        return head.kind === 'some' && _REFINED.includes(head.value.key) ? head.value.args.filter((word) => !_isFlag(word)) : [];
+        return head.kind === 'some' && ['reset', 'checkout'].includes(head.value.key) ? head.value.args.filter((word) => !_isFlag(word)) : [];
     });
 
-const gitPolicy =
-    (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) =>
-    <E>(e: E): Decision<E> => {
-        const distinct: ReadonlySet<string> = new Set(_gits(commands).flatMap((words) => _reason(words, existing)));
-        return distinct.size === 0 ? pass(e) : deny([...distinct].join(', '));
-    };
+const gitPolicy = (commands: readonly Command[], existing: readonly string[]): (<E>(e: E) => Decision<E>) => refuse(_gits(commands).flatMap((words) => _reason(words, existing)));
 
 const worktreePolicy = (e: WorktreeEvent): Decision<WorktreeEvent> =>
     e.tool === 'EnterWorktree' || e.isolation === 'worktree' ? deny(`${e.tool === 'EnterWorktree' ? e.tool : `${e.tool} isolation worktree`} ${_WORKTREE}`) : pass(e);

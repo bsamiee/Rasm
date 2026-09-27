@@ -4,7 +4,7 @@ language: csharp
 severity: error
 rule:
     pattern: $NAME
-    regex: '^(unit|None)$'
+    regex: '^(unit|unitIO|unitEff|None|identity)$'
     any:
         - kind: implicit_parameter
         - kind: identifier
@@ -12,5 +12,5 @@ rule:
             - inside: {kind: 'variable_declarator, parameter, from_clause, join_clause, join_into_clause, declaration_pattern, declaration_expression, local_function_statement', field: name}
             - inside: {kind: let_clause}
             - inside: {kind: foreach_statement, field: left}
-message: '`$NAME` declares a name that hides the `Prelude` value `$NAME`'
+message: '`$NAME` declares a name that hides the `Prelude` member `$NAME`'
 note: Name the value for what it holds

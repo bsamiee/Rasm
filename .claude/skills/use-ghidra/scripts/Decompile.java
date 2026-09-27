@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import ghidra.app.decompiler.ClangTokenGroup;
 import ghidra.app.decompiler.ClangTypeToken;
 import ghidra.app.decompiler.ClangVariableToken;
@@ -43,9 +41,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-// --- [SCRIPT] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Decompile extends GhidraScript {
+    // --- [BLOCKS]
+
     record Global(Address address, String name, DataType type) {}
 
     sealed interface Block permits Decompiled, Failed, Stub {
@@ -60,7 +60,9 @@ public class Decompile extends GhidraScript {
         @Override
         public Stream<String> lines(List<Function> callers) {
             return Stream.concat(
-                    Stream.of(Report.item(function.getName(true)), header(function, role, callers)),
+                    Stream.of(
+                            Report.subsection(function.getName(true)),
+                            header(function, role, callers)),
                     code.lines());
         }
     }
@@ -69,7 +71,7 @@ public class Decompile extends GhidraScript {
         @Override
         public Stream<String> lines(List<Function> callers) {
             return Stream.of(
-                    Report.item(function.getName(true)),
+                    Report.subsection(function.getName(true)),
                     header(function, role, callers),
                     "// failed: " + cause);
         }
@@ -79,7 +81,7 @@ public class Decompile extends GhidraScript {
         @Override
         public Stream<String> lines(List<Function> callers) {
             return Stream.of(
-                    Report.item(function.getName(true)),
+                    Report.subsection(function.getName(true)),
                     "// %s %s -> %s"
                             .formatted(
                                     function.getEntryPoint(),
@@ -88,23 +90,7 @@ public class Decompile extends GhidraScript {
         }
     }
 
-    @Override
-    public void run() throws Exception {
-        Arguments.Request request =
-                Arguments.parse(
-                        getScriptName(),
-                        getScriptArgs(),
-                        EnumSet.allOf(Arguments.Setting.class),
-                        currentProgram);
-        SequencedMap<Function, String> selection = select(request.seeds(), request.settings());
-        println(
-                write(
-                        request.out(),
-                        decompile(selection, request.settings()),
-                        request.arguments()));
-    }
-
-    // --- [SELECTION] -------------------------------------------------------------------
+    // --- [SELECTION]
 
     private SequencedMap<Function, String> select(
             List<Function> seeds, Map<Arguments.Setting, Integer> settings) {
@@ -160,14 +146,14 @@ public class Decompile extends GhidraScript {
         return !function.isThunk() && !function.isExternal() && !Functions.isStub(function);
     }
 
-    // --- [DECOMPILE] -------------------------------------------------------------------
+    // --- [DECOMPILE]
 
     private List<Block> decompile(
             SequencedMap<Function, String> selection, Map<Arguments.Setting, Integer> settings)
             throws Exception {
         List<Function> targets =
                 selection.keySet().stream().filter(Decompile::isDecompilable).toList();
-        SequencedMap<Function, Arguments.Result<DecompileResults>> results =
+        SequencedMap<Function, Report.Result<DecompileResults>> results =
                 Functions.decompile(currentProgram, targets, settings, monitor);
         return selection.entrySet().stream()
                 .map(
@@ -181,16 +167,16 @@ public class Decompile extends GhidraScript {
     private Block block(
             Function function,
             String role,
-            SequencedMap<Function, Arguments.Result<DecompileResults>> results) {
+            SequencedMap<Function, Report.Result<DecompileResults>> results) {
         return switch (results.get(function)) {
-            case Arguments.Success<DecompileResults>(DecompileResults decompiled) ->
+            case Report.Success<DecompileResults>(DecompileResults decompiled) ->
                     new Decompiled(
                             function,
                             role,
                             decompiled.getDecompiledFunction().getC().strip(),
                             types(decompiled.getCCodeMarkup()),
                             globals(decompiled));
-            case Arguments.Failure<DecompileResults>(String cause) ->
+            case Report.Failure<DecompileResults>(String cause) ->
                     new Failed(function, role, cause);
         };
     }
@@ -269,7 +255,7 @@ public class Decompile extends GhidraScript {
         };
     }
 
-    // --- [WRITE] -----------------------------------------------------------------------
+    // --- [WRITE]
 
     private String write(Path out, List<Block> blocks, String arguments) throws Exception {
         Set<Function> members = blocks.stream().map(Block::function).collect(Collectors.toSet());
@@ -318,9 +304,9 @@ public class Decompile extends GhidraScript {
                                         .flatMap(
                                                 block ->
                                                         block.lines(callers.get(block.function()))),
-                                Stream.of(Report.divider("GLOBALS")),
+                                Stream.of(Report.section("GLOBALS")),
                                 globals.stream().map(this::row),
-                                Stream.of(Report.divider("TYPES")),
+                                Stream.of(Report.section("TYPES")),
                                 declarations.toString().lines())
                         .flatMap(section -> section);
         return Report.write(out, currentProgram, counts, body);
@@ -336,5 +322,23 @@ public class Decompile extends GhidraScript {
                         .orElse("");
         return "// %s %s %s%s"
                 .formatted(global.address(), global.type().getDisplayName(), global.name(), value);
+    }
+
+    // --- [RUN]
+
+    @Override
+    public void run() throws Exception {
+        Arguments.Request request =
+                Arguments.parse(
+                        getScriptName(),
+                        getScriptArgs(),
+                        EnumSet.allOf(Arguments.Setting.class),
+                        currentProgram);
+        SequencedMap<Function, String> selection = select(request.seeds(), request.settings());
+        println(
+                write(
+                        request.out(),
+                        decompile(selection, request.settings()),
+                        request.arguments()));
     }
 }

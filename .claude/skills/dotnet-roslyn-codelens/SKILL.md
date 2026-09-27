@@ -172,7 +172,7 @@ Reference kinds:
   - `transitive` walks through helper methods, bounded by `maxDepth` (default 3, maximum 5)
 - `get_test_summary` — per-project inventory of test methods, from project to tests where `find_tests_for_symbol` goes from test to production
   - Each test reports framework, attribute kind, row count, location, and the production symbols it references
-- `find_uncovered_symbols` — public methods and properties no test reaches within three helper hops, sorted by cyclomatic complexity
+- `find_uncovered_symbols` — public methods and properties no test reaches within 3 helper hops, sorted by cyclomatic complexity
   - Reference-based static analysis, reads no runtime coverage data
 
 ### [03.4]-[DIAGNOSTICS_AND_REFACTORING]
@@ -263,7 +263,7 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
   - Discarded disposable creator or factory calls are an error
   - Methods only, ownership transfer through an argument is undetected, test projects and generated code are skipped
 - `find_large_classes` — types over a member count or line count threshold
-- `find_god_objects` — types over all three size thresholds and at least one coupling threshold, a large isolated class is skipped
+- `find_god_objects` — types over all 3 size thresholds and at least one coupling threshold, a large isolated class is skipped
   - Defaults are 300 lines, 15 members, 10 fields, 5 incoming namespaces, and 5 outgoing namespaces, each configurable
 - `find_circular_dependencies` — cycles in the project graph or the namespace graph
 - `check_architecture` — layering rules supplied inline, `scope` selects `namespace` (default) or `project`
@@ -278,7 +278,7 @@ Tools see explicit `throw` only, implicit run-time exceptions (null dereference,
 - `complexity` — cyclomatic, the number of independent paths through the member, a straight-line method scores 1
 - `cognitive` — how hard the member is to follow, a 0 means nothing branches, it ranks refactoring work
   - Nesting costs extra, a whole `switch` costs 1, `else`/`else if` cost 1 with no nesting penalty
-  - Flat 20-case dispatch and four nested `if` levels share one cyclomatic number and differ in cognitive
+  - Flat 20-case dispatch and 4 nested `if` levels share one cyclomatic number and differ in cognitive
 - `maxNesting` — the deepest control structure, lambda and local-function bodies included
 
 `metric` (`"cyclomatic"` by default, or `"cognitive"`) selects the number `threshold` and the sort use. Both numbers always appear in the response.
@@ -319,7 +319,7 @@ Solutions named on the server's command line load with the first one active, wit
 - `unload_solution` — frees memory, the remaining loaded solution becomes active
 - `start_background_task` — queues a long tool for `get_task_status`, `rebuild_solution` is the only allowed tool
 - `get_task_status` — the status, result, or error of one background task
-- `list_running_tasks` — background tasks running or finished within the last five minutes
+- `list_running_tasks` — background tasks running or finished within the last 5 minutes
 
 ## [04]-[CHANGE_WORKFLOW]
 
@@ -342,11 +342,11 @@ Every list-returning tool wraps its results in one envelope:
 
 ```json
 {
-  "items": [...],
-  "totalCount": 142,
-  "truncated": false,
-  "limit": 500,
-  "summary": { ... }
+    "items": [...],
+    "totalCount": 142,
+    "truncated": false,
+    "limit": 500,
+    "summary": { ... }
 }
 ```
 

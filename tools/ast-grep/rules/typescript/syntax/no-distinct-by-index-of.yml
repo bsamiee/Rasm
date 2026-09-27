@@ -15,37 +15,30 @@ utils:
             - any:
                 - all: [{has: {field: left, matches: same-list}}, {has: {field: right, pattern: $I}}]
                 - all: [{has: {field: left, pattern: $I}}, {has: {field: right, matches: same-list}}]
-    array-import:
-        kind: import_statement
+    native-set:
+        kind: new_expression
         all:
-            - has: {field: source, regex: '^["'']effect(/Array)?["'']$'}
-            - has:
-                stopBy: end
-                kind: import_specifier
-                all:
-                    - has: {field: name, regex: '^Array$'}
-                    - has: {kind: identifier, pattern: $ARRAY, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
+            - has: {field: constructor, regex: '^(globalThis\.)?Set$', matches: syntax-global-reference}
+            - has: {field: arguments, all: [{has: {nthChild: 1, pattern: $L}}, {not: {has: {nthChild: 2}}}]}
 rule:
-    kind: call_expression
-    all:
-        - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^filter$'}}]}
-        - has:
-            field: arguments
-            has:
-                kind: arrow_function
-                all:
-                    - has: {field: parameters, all: [{has: {nthChild: 1, has: {kind: identifier, pattern: $X}}}, {has: {nthChild: 2, has: {kind: identifier, pattern: $I}}}]}
-                    - has: {field: body, matches: first-index-test}
-        - any:
-            - pattern: $FIXABLE
-              inside: {kind: program, stopBy: end, has: {matches: array-import}}
-            - pattern: $KEPT
-rewriters:
-    - id: dedupe
-      rule: {kind: call_expression}
-      fix: $ARRAY.dedupe($L)
-transform:
-    FIXED: rewrite($FIXABLE, rewriters=[dedupe])
-fix: $FIXED$KEPT
-message: '`$L.filter` keeps the first of each value by a quadratic `indexOf` scan'
-note: '`Array.dedupe(<list>)` keeps the first of each value by `Equal`'
+    any:
+        - kind: call_expression
+          all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, pattern: $L}}, {has: {field: property, regex: '^filter$'}}]}
+            - has:
+                field: arguments
+                has:
+                    kind: arrow_function
+                    all:
+                        - has: {field: parameters, all: [{has: {nthChild: 1, has: {kind: identifier, pattern: $X}}}, {has: {nthChild: 2, has: {kind: identifier, pattern: $I}}}]}
+                        - has: {field: body, matches: first-index-test}
+        - kind: array
+          all:
+            - has: {nthChild: 1, kind: spread_element, has: {matches: native-set}}
+            - not: {has: {nthChild: 2}}
+        - kind: call_expression
+          all:
+            - has: {field: function, regex: '^(globalThis\.)?Array\.from$', matches: syntax-global-reference}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: native-set}}, {not: {has: {nthChild: 2}}}]}
+message: '`$L` is deduplicated by hand'
+note: '`Array.dedupe(<list>)` keeps the first of each value by structural `Equal`, a `Set` by identity, and `indexOf` drops every `NaN`'

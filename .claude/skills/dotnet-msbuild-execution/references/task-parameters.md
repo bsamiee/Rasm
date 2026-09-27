@@ -45,25 +45,25 @@ Parameters per built-in task that decide correctness and incremental behavior. E
 
 ```xml
 <UsingTask TaskName="CountLines" TaskFactory="RoslynCodeTaskFactory" AssemblyFile="$(MSBuildToolsPath)/Microsoft.Build.Tasks.Core.dll">
-  <ParameterGroup>
-    <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
-    <Total ParameterType="System.Int32" Output="true" />
-  </ParameterGroup>
-  <Task>
-    <Using Namespace="System.IO" />
-    <Using Namespace="System.Linq" />
-    <Code Type="Fragment" Language="cs">
-      <![CDATA[
-        Total = Files.Sum(file => File.ReadAllLines(file.ItemSpec).Length);
-      ]]>
-    </Code>
-  </Task>
+    <ParameterGroup>
+        <Files ParameterType="Microsoft.Build.Framework.ITaskItem[]" Required="true" />
+        <Total ParameterType="System.Int32" Output="true" />
+    </ParameterGroup>
+    <Task>
+        <Using Namespace="System.IO" />
+        <Using Namespace="System.Linq" />
+        <Code Type="Fragment" Language="cs">
+            <![CDATA[
+                Total = Files.Sum(file => File.ReadAllLines(file.ItemSpec).Length);
+            ]]>
+        </Code>
+    </Task>
 </UsingTask>
 
 <Target Name="CountStagedLines">
-  <CountLines Files="@(Staged)">
-    <Output TaskParameter="Total" PropertyName="LineTotal" />
-  </CountLines>
+    <CountLines Files="@(Staged)">
+        <Output TaskParameter="Total" PropertyName="LineTotal" />
+    </CountLines>
 </Target>
 ```
 

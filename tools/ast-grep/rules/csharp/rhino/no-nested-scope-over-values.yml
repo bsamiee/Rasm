@@ -2,7 +2,7 @@
 id: no-nested-scope-over-values
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     held:
         kind: identifier, member_access_expression, binary_expression

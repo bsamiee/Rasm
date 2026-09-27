@@ -3,79 +3,51 @@ id: no-lifted-fallback
 language: tsx
 severity: error
 utils:
-    constant-success:
-        matches:
-            effect-constant-handler:
-                result:
-                    not: {has: {field: arguments, has: {kind: spread_element}}}
-                    any: [{pattern: $M.succeed($_)}, {pattern: $M.succeed<$$$_>($_)}]
-    constant-failure:
-        matches:
-            effect-constant-handler:
-                result:
-                    not: {has: {field: arguments, has: {kind: spread_element}}}
-                    any: [{pattern: $M.fail($_)}, {pattern: $M.fail<$$$_>($_)}]
+    lifted:
+        kind: call_expression
+        any: [{pattern: $M.$LIFT($V)}, {pattern: $M.$LIFT<$$$_>($V)}]
+        not: {has: {field: arguments, has: {kind: spread_element}}}
+    lifting-handler:
+        kind: arrow_function, function_expression
+        all:
+            - not: {has: {regex: '^async$'}}
+            - not: {has: {field: return_type, kind: type_annotation}}
+            - not: {has: {field: parameters, has: {nthChild: 2}}}
+            - has:
+                field: body
+                any:
+                    - matches: lifted
+                    - kind: parenthesized_expression
+                      has: {matches: lifted}
+                    - kind: statement_block
+                      has: {kind: return_statement, has: {matches: lifted}}
+                      not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
 rule:
     kind: call_expression
     pattern: $CALL
     all:
-        - has: {field: function, pattern: $M.$RECOVER}
-        - any:
-            - all:
-                - has: {field: function, has: {field: property, regex: '^orElse$'}}
-                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Stream))?$'}, exported: {regex: '^(Effect|STM|Stream)$'}}}}}
-            - all:
-                - has: {field: function, has: {field: property, regex: '^catchAll$'}}
-                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream)$'}}}}}
-        - any:
-            - has: {field: arguments, has: {matches: constant-success}}
-            - all:
-                - has: {field: arguments, has: {matches: constant-failure}}
-                - has: {field: function, has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM|Stream))?$'}, exported: {regex: '^(Effect|STM|Stream)$'}}}}}
-    not:
-        any:
-            - has: {field: type_arguments, kind: type_arguments}
-            - has: {kind: comment, stopBy: end}
-            - has:
-                field: arguments
-                has:
-                    kind: arrow_function, function_expression
-                    has: {field: return_type, kind: type_annotation}
+        - has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: object, pattern: $M, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream))?$'}, exported: {regex: '^(Effect|Stream)$'}}}}
+                - has: {field: property, regex: '^catch$'}
+        - has: {field: arguments, pattern: $ARGUMENTS, has: {nthChild: {position: 1, reverse: true}, matches: lifting-handler, pattern: $H}}
+        - not: {has: {field: type_arguments, kind: type_arguments}}
+        - not: {has: {kind: comment, stopBy: end}}
+constraints:
+    LIFT: {regex: '^(succeed|fail)$'}
 rewriters:
-    - id: empty-parameters
-      rule: {kind: formal_parameters}
-      fix: ()
-    - id: empty-parameter
-      rule: {kind: identifier, inside: {kind: arrow_function, field: parameter}}
-      fix: ()
     - id: unlift-object
-      rule: {any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}], has: {field: arguments, has: {kind: object}}}
+      rule: {matches: lifted, inside: {pattern: $H, field: body}, has: {field: arguments, has: {kind: object}}}
       fix: ($V)
     - id: unlift
-      rule: {any: [{pattern: $_.$_($V)}, {pattern: $_.$_<$$$_>($V)}]}
+      rule: {matches: lifted, inside: {pattern: $H, stopBy: end}}
       fix: $V
-    - id: succeed-first
-      rule: {pattern: '$M.$_($SELF, $H)', has: {field: arguments, has: {pattern: $H, matches: constant-success}}}
-      transform:
-        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
-      fix: $M.orElseSucceed($SELF, $FALLBACK)
-    - id: succeed-last
-      rule: {pattern: $M.$_($H), has: {field: arguments, has: {pattern: $H, matches: constant-success}}}
-      transform:
-        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
-      fix: $M.orElseSucceed($FALLBACK)
-    - id: fail-first
-      rule: {pattern: '$M.$_($SELF, $H)'}
-      transform:
-        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
-      fix: $M.orElseFail($SELF, $FALLBACK)
-    - id: fail-last
-      rule: {pattern: $M.$_($H)}
-      transform:
-        FALLBACK: rewrite($H, rewriters=[empty-parameters, empty-parameter, unlift-object, unlift])
-      fix: $M.orElseFail($FALLBACK)
 transform:
-    RECOVERED: rewrite($CALL, rewriters=[succeed-first, succeed-last, fail-first, fail-last])
-fix: $RECOVERED
-message: '`$M.$RECOVER` fallback lifts a constant'
-note: '`<module>.orElseSucceed(self, () => value)` or `<module>.orElseFail(self, () => error)` lifts the thunk result'
+    SUCCEEDED: replace($LIFT, replace='^succeed$', by='orElseSucceed')
+    OPERATION: replace($SUCCEEDED, replace='^fail$', by='mapError')
+    HANDLED: rewrite($ARGUMENTS, rewriters=[unlift-object, unlift])
+fix: $M.$OPERATION$HANDLED
+message: '`$M.catch` handler lifts its result back into `$M`'
+note: '`<module>.orElseSucceed(self, (error) => value)` recovers with the value, `<module>.mapError(self, (error) => failure)` replaces the failure'

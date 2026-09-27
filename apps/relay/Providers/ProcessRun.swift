@@ -3,6 +3,8 @@ import Foundation
 import Subprocess
 import System
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated struct ProcessInvocation: Sendable {
   let executable: URL
   let arguments: [String]
@@ -16,6 +18,8 @@ nonisolated struct ProcessOutput: Sendable {
   let standardOutput: String
   let standardError: String
 }
+
+// --- [ERRORS] --------------------------------------------------------------------------
 
 nonisolated enum ProcessFailure: LocalizedError, Sendable {
   case launch(SubprocessError)
@@ -37,6 +41,8 @@ nonisolated enum ProcessFailure: LocalizedError, Sendable {
     }
   }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated enum ProcessRun {
   static let teardown: [TeardownStep] = [

@@ -1,0 +1,46 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-forwarding-function-javascript
+language: javascript
+severity: error
+utils:
+    parameter-read:
+        kind: identifier
+        pattern: $P
+        inside:
+            kind: function_declaration, function_expression, arrow_function
+            stopBy: {kind: 'function_declaration, function_expression, arrow_function'}
+            has: {field: parameters, has: {kind: identifier, pattern: $P}}
+    named-callee:
+        kind: identifier, member_expression
+        not: {any: [{matches: parameter-read}, {has: {stopBy: end, matches: parameter-read}}]}
+    parameters-1:
+        any:
+            - has: {field: parameter, kind: identifier, pattern: $A}
+            - has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {not: {has: {nthChild: 2}}}]}
+    parameters-2:
+        has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $B}}, {not: {has: {nthChild: 3}}}]}
+    parameters-3:
+        has: {field: parameters, all: [{has: {nthChild: 1, kind: identifier, pattern: $A}}, {has: {nthChild: 2, kind: identifier, pattern: $B}}, {has: {nthChild: 3, kind: identifier, pattern: $C}}, {not: {has: {nthChild: 4}}}]}
+    single-return:
+        kind: statement_block
+        not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+    forwarded:
+        kind: call_expression
+        has: {field: function, pattern: $F, matches: named-callee}
+    forwarded-1: {matches: forwarded, pattern: $F($A)}
+    forwarded-2: {matches: forwarded, pattern: '$F($A, $B)'}
+    forwarded-3: {matches: forwarded, pattern: '$F($A, $B, $C)'}
+    result-1:
+        any: [{matches: forwarded-1}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-1}}}]
+    result-2:
+        any: [{matches: forwarded-2}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-2}}}]
+    result-3:
+        any: [{matches: forwarded-3}, {matches: single-return, has: {kind: return_statement, has: {matches: forwarded-3}}}]
+rule:
+    kind: function_declaration, function_expression, arrow_function
+    any:
+        - all: [{matches: parameters-1}, {has: {field: body, matches: result-1}}]
+        - all: [{matches: parameters-2}, {has: {field: body, matches: result-2}}]
+        - all: [{matches: parameters-3}, {has: {field: body, matches: result-3}}]
+message: 'Function forwards its parameters unchanged to `$F`'
+note: 'Replace the function with its callee at each use'

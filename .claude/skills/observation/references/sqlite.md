@@ -56,7 +56,7 @@ Page `lang_expr.html`, operators and subqueries:
 |  [03]   | `not in` answers null when the subquery holds a null            | `not in` over `finding_id` alone, a not-null column               |
 |  [04]   | `is` compares null-safe                                         | `d.agent_id is o.agent_id` in `agent_digest`                      |
 |  [05]   | `''` inside a literal spells one quote                          | Bound text holding `'` goes as `"'<text>'"` with each `'` doubled |
-|  [06]   | `iif(x, y, z)` equals `case when x then y else z end`           | `iif` where a case has one arm and an else                        |
+|  [06]   | `if(x, y, z)` equals `case when x then y else z end`            | `if` where a case has one arm, DuckDB reads no `iif`              |
 
 ## [06]-[JSON]
 

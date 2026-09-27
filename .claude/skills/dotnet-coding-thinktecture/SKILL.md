@@ -270,7 +270,7 @@ internal sealed partial class TextOrCount {
 - Equality compares the discriminator and then the member value, `ToString` and `GetHashCode` delegate to the member
 - `string` members compare with `OrdinalIgnoreCase` unless `DefaultStringComparison` says otherwise
 - Members of type `object` or an interface receive a constructor and no operator
-- Every member type is at least as accessible as the union (077), a union has at least two members (067) and one union attribute (066)
+- Every member type is at least as accessible as the union (077), a union has at least 2 members (067) and one union attribute (066)
 - `CreateX` factories replace the constructor for a member typed as a type parameter, an interface, `object`, or a duplicate of another member
 - Type parameter members get no operator, `T` equal to another member's type makes every conversion ambiguous (`CS0457`)
 - Interface arguments never apply an operator (`CS0029`), an `object` argument boxes the union or routes into the more specific member

@@ -1,44 +1,126 @@
-# ty: ignore[invalid-argument-type, unresolved-attribute]
-# mypy: disable-error-code="arg-type, attr-defined, union-attr, unreachable"
-# ruff: file-ignore[private-member-access, unnecessary-dunder-call]
-"""Add-on panels re-registered closed and owned by the add-on that ships them, and stock panels another add-on reordered put back in Blender's order."""
+# ty: ignore[invalid-argument-type, unresolved-attribute, unresolved-import]
+# mypy: disable-error-code="arg-type, attr-defined, import-not-found, no-any-return, union-attr, unreachable"
+# ruff: file-ignore[invalid-class-name, mutable-class-default, private-member-access, unnecessary-dunder-call]
+"""Add-on panels collapsed under their owners, icon sidebar tabs, stock header draws, packed toolbar columns of the workspace's owners, and one asset shelf per asset kind."""
 
+from collections.abc import Callable, Generator, Iterator
+from functools import cache
 from importlib.metadata import packages_distributions
 from itertools import chain, groupby
 from pathlib import Path
 import sys
 import tomllib
+from types import MappingProxyType
+from typing import Final, override, TYPE_CHECKING
 
 import addon_utils
+from bl_pkg.bl_extension_utils import PKG_MANIFEST_FILENAME_TOML
 import bl_ui
+from bl_ui.space_toolsystem_common import ToolDef
 import bpy
 from packaging.utils import canonicalize_name, parse_wheel_filename
+
+if TYPE_CHECKING:
+    from bpy.stub_internal.rna_enums import IconItems
+
+# --- [TABLES] ---------------------------------------------------------------------------
+
+SHELVES: Final = MappingProxyType[str, list[str]](tomllib.loads(Path(__file__).with_name(PKG_MANIFEST_FILENAME_TOML).read_text(encoding="utf-8"))["shelves"])
+
+ICONS: Final = MappingProxyType[str, "IconItems"]({
+    "Item": "OBJECT_DATA",
+    "Tool": "TOOL_SETTINGS",
+    "View": "HIDE_OFF",
+    "Animation": "ANIM",
+    "Node": "NODE",
+    "Group": "NODETREE",
+    "Options": "OPTIONS",
+    "Image": "IMAGE_DATA",
+    "Mask": "MOD_MASK",
+    "Scopes": "SEQ_HISTOGRAM",
+    "Text": "TEXT",
+    "Footage": "FILE_MOVIE",
+    "Track": "TRACKER",
+    "Stabilization": "TRACKING",
+    "Action": "ACTION",
+    "Shape Key": "SHAPEKEY_DATA",
+    "Strip": "SEQUENCE",
+    "Cache": "FILE_CACHE",
+    "Proxy": "SEQ_PREVIEW",
+    "Annotation": "GREASEPENCIL",
+    "Attributes": "FILE_FOLDER",
+    "Bookmarks": "BOOKMARKS",
+    "Filter": "FILTER",
+    "Navigation": "VIEW_PAN",
+    "Solve": "CON_CAMERASOLVER",
+    "AmbientCG Fetcher": "MATERIAL",
+    "Arrange": "ALIGN_JUSTIFY",
+    "Attrio": "SPREADSHEET",
+    "BlenDiff": "SELECT_DIFFERENCE",
+    "Blosm": "WORLD",
+    "blosm ape": "ASSET_MANAGER",
+    "Boolean": "MOD_BOOLEAN",
+    "CAD Helper": "SNAP_ON",
+    "Dimensions": "DRIVER_DISTANCE",
+    "Formula": "DRIVER",
+    "Jupyter": "CONSOLE",
+    "MCP for Blender": "INTERNET",
+    "MeasureIt_ARCH": "ARROW_LEFTRIGHT",
+    "MPFB": "USER",
+    "MPR": "MESH_CUBE",
+    "MTree": "CURVES",
+    "Node Wrangler": "NODE_SEL",
+    "NodeToPython": "SCRIPT",
+    "osm": "NODE_MATERIAL",
+    "PinSolver": "PINNED",
+    "Pohlke": "VIEW_ORTHO",
+    "Point Cloud": "POINTCLOUD_DATA",
+    "Profile": "CURVE_BEZCIRCLE",
+    "Sketcher": "LINE_DATA",
+    "STEP": "IMPORT",
+    "Struct Topo": "MOD_REMESH",
+    "SV": "SCRIPTPLUGINS",
+    "Sverchok": "SCRIPTPLUGINS",
+    "UniV": "UV",
+    "VI-Suite": "LIGHT_SUN",
+})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def subclasses[T](base: type[T]) -> list[type[T]]:
-    """Every registered subclass of the type, each before its own subclasses."""
-    return [cls for child in base.__subclasses__() for cls in (child, *subclasses(child)) if cls.is_registered]
+# --- [OWNERS]
+def lineage[T](base: type[T]) -> list[type[T]]:
+    """Every subclass of the type, each before its own subclasses."""
+    return [cls for child in base.__subclasses__() for cls in (child, *lineage(child))]
 
 
-def collapse(preferences: bpy.types.Preferences) -> None:
-    """Re-register the stock panels of each placement another add-on reordered in Blender's order, then each add-on panel subtree outside a region header and a render engine's add-on, a top-level one closed with its header shown, each class declaring the owner any later re-registration keeps."""
-    modules = [module for name, module in sys.modules.items() if name in preferences.addons and name not in addon_utils._addons_hidden_core]
+@cache
+def owning(addons: frozenset[str]) -> Callable[[str], str | None]:
+    """Resolver from a module name to its owning add-on, read from the enabled add-ons' folders and the wheels their manifests list."""
+    modules = [module for name, module in sys.modules.items() if name in addons and name not in addon_utils._addons_hidden_core]
     folders = {Path(module.__file__).parent if module.__spec__.submodule_search_locations else Path(module.__file__): module.__name__ for module in modules}
     wheels = {
         parse_wheel_filename(Path(wheel).name)[0]: module
         for folder, module in folders.items()
-        for manifest in folder.glob("blender_manifest.toml")
+        if (manifest := folder / PKG_MANIFEST_FILENAME_TOML).is_file()
         for wheel in tomllib.loads(manifest.read_text(encoding="utf-8")).get("wheels", ())
     }
     distributions = packages_distributions()
 
-    def owner(cls: type) -> str:
-        file, top = Path(sys.modules[cls.__module__].__file__), cls.__module__.partition(".")[0]
-        shipped = (module for folder, module in folders.items() if file.is_relative_to(folder))
-        installed = (wheels[name] for name in map(canonicalize_name, distributions.get(top, ())) if name in wheels)
-        return next(chain(shipped, installed), "")
+    @cache
+    def owner(name: str) -> str | None:
+        file, top = Path(sys.modules[name].__file__), name.partition(".")[0]
+        bundled = (module for folder, module in folders.items() if file.is_relative_to(folder))
+        installed = (wheels[wheel] for wheel in map(canonicalize_name, distributions.get(top, ())) if wheel in wheels)
+        return next(chain(bundled, installed), None)
+
+    return owner
+
+
+# --- [PANELS]
+def collapse(preferences: bpy.types.Preferences) -> None:
+    """Re-register reordered stock panels in Blender's order and each add-on panel tree closed, owned by its add-on, with its category icon."""
+    owner = owning(frozenset(preferences.addons.keys()))
 
     def place(cls: type[bpy.types.Panel]) -> tuple[str, str, str]:
         return cls.bl_space_type, cls.bl_region_type, contexts[cls]
@@ -46,11 +128,10 @@ def collapse(preferences: bpy.types.Preferences) -> None:
     def subtree(parent: type[bpy.types.Panel]) -> list[type[bpy.types.Panel]]:
         return [parent, *(member for child, name in parents.items() if name == parent.bl_rna.identifier and child not in roots for member in subtree(child))]
 
-    startup = Path(bpy.utils.system_resource("SCRIPTS", path="startup"))
-    engines = {owner(engine) for engine in subclasses(bpy.types.RenderEngine)} - {""}
-    registered = [cls for name in bpy.types.__dir__() if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.Panel) and cls is not bpy.types.Panel]
-    blender = [cls for cls in (*bl_ui.classes, *chain.from_iterable(module.classes for module in bl_ui._modules_loaded)) if isinstance(cls, type) and issubclass(cls, bpy.types.Panel)]
-    loaded, parents, contexts = list(dict.fromkeys((*blender, *registered))), dict[type[bpy.types.Panel], str](), dict[type[bpy.types.Panel], str]()
+    engines = {owner(engine.__module__) for engine in lineage(bpy.types.RenderEngine) if engine.is_registered} - {None}
+    registered = [member for name in bpy.types.__dir__() if isinstance(member := getattr(bpy.types, name), type) and issubclass(member, bpy.types.Panel) and member is not bpy.types.Panel]
+    blender = [cls for classes in (bl_ui.classes, *(module.classes for module in bl_ui._modules_loaded)) for cls in classes if isinstance(cls, type) and issubclass(cls, bpy.types.Panel)]
+    loaded, parents, contexts, icons = list(dict.fromkeys((*blender, *registered))), dict[type[bpy.types.Panel], str](), dict[type[bpy.types.Panel], str](), dict[type[bpy.types.Panel], "IconItems"]()
     for cls in loaded:
         match cls:
             case type(bl_parent_id=name):
@@ -59,27 +140,141 @@ def collapse(preferences: bpy.types.Preferences) -> None:
                 contexts[cls] = context
             case _:
                 contexts[cls] = ""
-    stock, position = {cls.bl_rna.identifier for cls in loaded if Path(sys.modules[cls.__module__].__file__).is_relative_to(startup)}, {cls: index for index, cls in enumerate(loaded)}
+        match cls:
+            case type(bl_category=category) if category in ICONS:
+                icons[cls] = ICONS[category]
+            case _:
+                pass
+    stock, position = {cls.bl_rna.identifier for cls in blender}, {cls: index for index, cls in enumerate(loaded)}
     tops = sorted((cls for cls in registered if position[cls] < len(blender) and cls not in parents), key=place)
     shuffled = {key for key, group in groupby(tops, key=place) if (indices := [position[cls] for cls in group]) != sorted(indices)}
+    placements = shuffled | {place(cls) for cls in tops if cls in icons}
     roots = [
-        *(cls for cls in loaded if position[cls] < len(blender) and cls not in parents and place(cls) in shuffled),
-        *(cls for cls in loaded if cls.bl_rna.identifier not in stock and (cls not in parents or parents[cls] in stock) and cls.bl_region_type != "HEADER" and owner(cls) not in engines),
+        *(cls for cls in loaded if position[cls] < len(blender) and cls not in parents and place(cls) in placements),
+        *(cls for cls in loaded if cls.bl_rna.identifier not in stock and (cls not in parents or parents[cls] in stock) and cls.bl_region_type != "HEADER" and owner(cls.__module__) not in engines),
     ]
     for parent in [cls for cls in roots if cls not in parents and cls.bl_rna.identifier not in stock]:
         match parent:
+            case type(bl_options=declared, bl_order=_):
+                parent.bl_options = {"DEFAULT_CLOSED", *declared}
             case type(bl_options=declared):
-                parent.bl_options = {"DEFAULT_CLOSED", *(option for option in declared if option != "HIDE_HEADER" or parent.bl_rna.identifier == "BIM_PT_tabs")}
+                parent.bl_options = {"DEFAULT_CLOSED", *(option for option in declared if option != "HIDE_HEADER")}
             case _:
                 parent.bl_options = {"DEFAULT_CLOSED"}
+    for cls in [cls for cls in icons if "bl_icon_value" in vars(cls)]:
+        del cls.bl_icon_value
     for members in [subtree(parent) for parent in roots]:
         for cls in reversed(members):
             bpy.utils.unregister_class(cls)
         for cls in members:
-            cls.bl_owner_id = owner(cls)
+            if (module := owner(cls.__module__)) is not None:
+                cls.bl_owner_id = module
+            if cls in icons:
+                cls.bl_icon = icons[cls]
             bpy.utils.register_class(cls)
 
 
+def remove_appended(header: type[bpy.types.Header]) -> list[Callable[[bpy.types.Header, bpy.types.Context], None]]:
+    """Remove and return every draw function an add-on appended to the header."""
+    appended = [draw for draw in header._dyn_ui_initialize() if draw.__module__.partition(".")[0] != bl_ui.__name__]
+    for draw in appended:
+        header.remove(draw)
+    return appended
+
+
+# --- [TOOLBAR]
+def packed(layout: bpy.types.UILayout, column_count: int, scale_y: float) -> Generator[bpy.types.UILayout | None, bool | None]:
+    """Toolbar column layout Blender's tool draw sends each tool and group end to, filling rows across groups and padding the last row."""
+    block, row, filled = layout.column(align=True), None, column_count
+    signal = yield None
+    while signal is not None:
+        match signal:
+            case True if row is not None and filled == column_count:
+                block = layout.column(align=True)
+                signal = yield None
+            case True:
+                signal = yield None
+            case False:
+                if filled == column_count:
+                    row, filled = block.row(align=True), 0
+                    row.scale_x, row.scale_y = scale_y * 1.1, scale_y
+                filled += 1
+                signal = yield row
+    for _ in range(column_count - filled):
+        row.label(text="")
+    yield None
+
+
+def placed(stock: Callable[[type, bpy.types.Context, str | None], Iterator[object]]) -> Callable[[type, bpy.types.Context, str | None], Iterator[object]]:
+    """Toolbar tool read that drops each tool of an add-on the workspace's owner filter excludes."""
+
+    def tools_from_context(cls: type, context: bpy.types.Context, mode: str | None = None) -> Iterator[object]:
+        workspace = context.workspace
+        owner, passed = owning(frozenset(bpy.context.preferences.addons.keys())), {None, *(entry.name for entry in workspace.owner_ids)}
+        owners = {id(tool._bl_tool): owner(tool.__module__) for tool in lineage(bpy.types.WorkSpaceTool) if workspace.use_filter_by_owner and "_bl_tool" in vars(tool)}
+        for item in stock(cls, context, mode):
+            match item:
+                case ToolDef():
+                    if owners.get(id(item)) in passed:
+                        yield item
+                case tuple():
+                    if group := tuple(tool for tool in item if owners.get(id(tool)) in passed):
+                        yield group
+                case _:
+                    yield item
+
+    return tools_from_context
+
+
+# --- [SHELF]
+class Shelf(bpy.types.AssetShelf):
+    """Asset shelf shown by default, its catalog tabs stored in the preferences, of the assets whose ID type its manifest shelf row names."""
+
+    bl_options = {"DEFAULT_VISIBLE", "STORE_ENABLED_CATALOGS_IN_PREFERENCES"}
+
+    @classmethod
+    @override
+    def asset_poll(cls, asset: bpy.types.AssetRepresentation | None) -> bool:
+        return asset.id_type in SHELVES[cls.__name__]
+
+
+class VIEW3D_AST_objects(Shelf):
+    """Object Mode asset shelf of the object and collection assets in every library."""
+
+    bl_space_type = "VIEW_3D"
+
+    @classmethod
+    @override
+    def poll(cls, context: bpy.types.Context | None) -> bool:
+        return context.mode == "OBJECT"
+
+
+class NODE_AST_materials(Shelf):
+    """Shader editor asset shelf of the material assets in every library."""
+
+    bl_space_type = "NODE_EDITOR"
+
+    @classmethod
+    @override
+    def poll(cls, context: bpy.types.Context | None) -> bool:
+        return context.space_data.tree_type == "ShaderNodeTree"
+
+
+class IMAGE_AST_worlds(Shelf):
+    """Image Editor View mode asset shelf of the world assets in every library."""
+
+    bl_space_type = "IMAGE_EDITOR"
+
+    @classmethod
+    @override
+    def poll(cls, context: bpy.types.Context | None) -> bool:
+        return context.space_data.mode == "VIEW"
+
+
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+CLASSES: Final = (VIEW3D_AST_objects, NODE_AST_materials, IMAGE_AST_worlds)
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["collapse"]
+__all__ = ["CLASSES", "ICONS", "collapse", "packed", "placed", "remove_appended"]

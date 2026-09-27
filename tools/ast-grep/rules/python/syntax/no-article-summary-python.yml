@@ -1,0 +1,17 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-article-summary-python
+language: python
+severity: error
+utils:
+    docstring:
+        kind: expression_statement
+        nthChild: {position: 1, ofRule: {not: {kind: comment}}}
+        any:
+            - inside: {kind: module}
+            - inside: {kind: block, inside: {kind: 'function_definition, class_definition', field: body}}
+rule:
+    kind: string
+    regex: '^(?i:[ru])?("""|''''''|"|'')\s*(The|A|An)\s+\S'
+    inside: {matches: docstring}
+message: 'Docstring summary opens with an article'
+note: 'Open the summary with the noun it names or the verb it performs'

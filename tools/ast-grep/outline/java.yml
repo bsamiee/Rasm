@@ -9,7 +9,8 @@ rule:
     has: {field: name, pattern: $NAME}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
 name: $NAME
 signature: $SIGNATURE
 isExported: {has: {kind: modifiers, has: {regex: '^public$'}}}
@@ -42,7 +43,8 @@ rule:
     has: {field: name, pattern: $NAME}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
 name: $NAME
 signature: $SIGNATURE
 isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
@@ -92,7 +94,8 @@ rule:
     has: {field: name, pattern: $NAME}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
 name: $NAME
 signature: $SIGNATURE
 isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}
@@ -109,7 +112,8 @@ rule:
     has: {field: name, pattern: $NAME}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '\(\s+', by: '('}}
 name: $NAME
 signature: $SIGNATURE
 isPublic: {not: {has: {kind: modifiers, has: {regex: '^(private|protected)$'}}}}

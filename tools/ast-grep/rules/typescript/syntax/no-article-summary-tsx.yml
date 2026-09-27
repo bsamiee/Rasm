@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-article-summary-tsx
+language: tsx
+severity: error
+rule:
+    kind: comment
+    regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
+    not: {inside: {kind: ambient_declaration, stopBy: end}}
+message: 'Doc comment summary opens with an article'
+note: 'Open the summary with the noun it names or the verb it performs'

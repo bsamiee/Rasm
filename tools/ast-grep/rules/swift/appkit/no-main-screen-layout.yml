@@ -3,6 +3,10 @@ id: no-main-screen-layout
 language: swift
 severity: error
 rule:
-    pattern: NSScreen.main
-message: '`NSScreen.main` sizes a window under layout by the key window''s screen'
+    pattern: $SCREEN
+    any:
+        - pattern: NSScreen.main
+        - pattern: NSScreen.screens.first
+        - pattern: 'NSScreen.screens[0]'
+message: '`$SCREEN` sizes a window under layout by the key window''s or the menu bar''s screen'
 note: 'Read `screen` of the window under layout, or size the content and let the window clamp it to its screen'

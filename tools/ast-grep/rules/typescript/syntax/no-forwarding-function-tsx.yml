@@ -2,7 +2,7 @@
 id: no-forwarding-function-tsx
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**']
+ignores: ['.claude/plugins/*/hooks/**']
 utils:
     effect-module:
         matches: {syntax-import-reference: {source: {regex: '^effect(/\w+)?$'}, exported: {kind: identifier, not: {regex: '^Schema$'}}}}

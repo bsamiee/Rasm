@@ -1,6 +1,8 @@
 import AppKit
 import Foundation
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 enum CodexDesktop {
   static let bundleIdentifier: String = "com.openai.codex"
   private nonisolated static let quitDeadline: Duration = .seconds(10)

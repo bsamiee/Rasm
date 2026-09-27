@@ -5,9 +5,7 @@ severity: error
 rule:
     kind: invocation
     all:
-        - has: {kind: object_reference, regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$', pattern: _AGG}
-        - not: {has: {kind: keyword_distinct}}
-        - not: {has: {kind: filter_expression}}
+        - matches: {sql-aggregate: {name: {regex: '(?i)^(min|max|sum|total|avg|count|group_concat|string_agg)$', pattern: _AGG}}}
         - has:
             field: parameter
             kind: term
@@ -15,8 +13,11 @@ rule:
                 field: value
                 any:
                     - pattern: {context: 'select case when _COND then _VALUE end', selector: case}
+                    - pattern: {context: 'select case when _COND then _VALUE else null end', selector: case}
                     - pattern: {context: 'select iif(_COND, _VALUE, null)', selector: invocation}
                     - pattern: {context: 'select iif(_COND, _VALUE)', selector: invocation}
+                    - pattern: {context: 'select if(_COND, _VALUE, null)', selector: invocation}
+                    - pattern: {context: 'select if(_COND, _VALUE)', selector: invocation}
         - any:
             - has: {kind: term, pattern: _SEPARATOR, nthChild: 3}
             - not: {has: {kind: term, nthChild: 3}}

@@ -1,6 +1,8 @@
 import AppKit
 import SwiftUI
 
+// --- [VIEWS] ---------------------------------------------------------------------------
+
 struct PanelToolTips: NSViewRepresentable {
   func makeNSView(context: Context) -> PanelToolTipsView {
     PanelToolTipsView()

@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-article-summary-csharp
+language: csharp
+severity: error
+rule:
+    kind: comment
+    any:
+        - regex: '^///\s*<summary>\s*(The|A|An)\s+\S'
+        - regex: '^///\s*(The|A|An)\s+\S'
+          follows: {kind: comment, regex: '^///\s*<summary>\s*$'}
+message: 'Doc comment summary opens with an article'
+note: 'Open the summary with the noun it names or the verb it performs'

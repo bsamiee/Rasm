@@ -1,20 +1,23 @@
 # /// script
 # requires-python = ">=3.15"
-# dependencies = ["msgspec", "regex", "wcwidth"]
+# dependencies = ["editorconfig", "msgspec", "pygments", "regex", "wcwidth"]
 # ///
 """Check and fix the house style of markdown files and of section dividers and comments in source files."""
 
 from collections.abc import Callable, Iterable
 from copy import replace
 from enum import Enum, Flag
-from functools import reduce
+from functools import cache, reduce
 from itertools import accumulate, groupby, pairwise, starmap, takewhile, zip_longest
 from operator import or_
 from pathlib import Path
 import sys
 from typing import Self
 
+from editorconfig import get_properties
 import msgspec
+from pygments.lexers import get_all_lexers
+from pygments.lexers.special import TextLexer
 import regex
 from wcwidth import wcswidth
 
@@ -38,7 +41,7 @@ class Marker(Enum):
 
     @property
     def lattice(self) -> Ctx:
-        """The members that claim blocks in a file of this kind, blank lines joined here so a rule over one kind's members skips the other kind."""
+        """Members that claim blocks in a file of this kind, blank lines joined here so a rule over one kind's members skips the other kind."""
         return (SOURCE if self.sign else MARKDOWN) | Ctx.BLANK
 
 
@@ -48,14 +51,14 @@ class Ctx(Flag):
     pattern: str
     rx: regex.Pattern[str]
     FRONTMATTER = r"\A---\n(?:.*\n)*?---$"
-    FENCE = r"^(?P<fence>```|~~~).*\n(?:.*\n)*?(?P=fence).*$"
+    FENCE = r"^(?P<fence>```|~~~)[`~]*(?P<info>[^\s`~]*).*\n(?:.*\n)*?(?P=fence).*$"
     METADATA = r"^# /// [a-zA-Z0-9-]+$(?:\n#(?: .*)?$)*?\n# ///$"
     HEADING = r"^(?P<level>#{1,6}) (?P<t>.+)$"
     TABLE = r"^(?P<row>\|(?: *(?P<t>(?:\\\||[^|\n])*?) *\|)+ *$)(?:\n(?&row))*"
     ENTRY = r"^(?P<bullet> *(?:[-*+]|\d+\.) )(?:(?P<chain>\[[^\]]*\](?:-\[[^\]]*\])*)(?:\((?P<path>[^)]*)\):|:?) )?(?P<t>.+)$(?:\n(?!(?&bullet)) +(?P<t>\S.*)$)*"
     LABEL = r"^\[[A-Z_]+\](?::(?: (?P<t>.+))?)?$"
     DIVIDER = r"^(?P<head>[ \t]*(?&sign) --- )(?P<tok>\[[^\]]+\]).*?(?P<fill> -+)?$"
-    DIRECTIVE = r"^[ \t]*(?&sign) \S*:(?:\s.*)?$"
+    DIRECTIVE = r"^[ \t]*(?&sign) (?:biome-ignore(?:-all|-start|-end)? )?\S*:(?:\s.*)?$"
     COMMENT = r"^[ \t]*(?&sign) (?P<t>\S.*)$"
     BLANK = r"^[ \t]*$"
     PARAGRAPH = r"^(?P<t>.+)$(?:\n(?!(?&claimed))(?P<t>.+)$)*"
@@ -74,6 +77,7 @@ class Ctx(Flag):
 TEXT = reduce(or_, (c for c in Ctx if "t" in c.rx.groupindex))
 MARKDOWN = Ctx.FRONTMATTER | Ctx.FENCE | Ctx.HEADING | Ctx.TABLE | Ctx.ENTRY | Ctx.LABEL | Ctx.PARAGRAPH
 SOURCE = Ctx.METADATA | Ctx.DIVIDER | Ctx.DIRECTIVE | Ctx.COMMENT | Ctx.CODE
+SPAN = r"(?<!`)(?P<run>`+)(?!`).+?(?<!`)(?P=run)(?!`)"
 
 # --- [ENGINE] ---------------------------------------------------------------------------
 
@@ -86,27 +90,27 @@ class Line(msgspec.Struct, frozen=True):
 
 
 class Block(msgspec.Struct, frozen=True):
-    """The consecutive lines one lattice member claimed."""
+    """Consecutive lines one lattice member claimed."""
 
     ctx: Ctx
     lines: tuple[Line, ...]
 
     @property
     def head(self) -> Line:
-        """The first line."""
+        """First line."""
         return self.lines[0]
 
     @property
     def text(self) -> str:
-        """The lines joined by newlines."""
+        """Lines joined by newlines."""
         return "\n".join(line.text for line in self.lines)
 
     def rewrite(self, texts: Iterable[str]) -> Block:
-        """The block with every line's text replaced, one text per line."""
+        """Block with every line's text replaced, one text per line."""
         return replace(self, lines=tuple(replace(line, text=t) for line, t in zip(self.lines, texts, strict=True)))
 
     def retext(self, text: str) -> Block:
-        """The block with its first line's text replaced."""
+        """Block with its first line's text replaced."""
         return replace(self, lines=(replace(self.head, text=text), *self.lines[1:]))
 
 
@@ -119,7 +123,7 @@ class Finding(msgspec.Struct, frozen=True):
 
 
 class Doc(msgspec.Struct, frozen=True):
-    """The blocks of a file, the count of blocks fixes changed, and the findings reports made."""
+    """Blocks of a file, the count of blocks fixes changed, and the findings reports made."""
 
     path: Path
     blocks: list[Block]
@@ -128,7 +132,7 @@ class Doc(msgspec.Struct, frozen=True):
 
 
 class Fix(msgspec.Struct, frozen=True):
-    """A registry row `fix` writes and `check` counts: every block the transform changed, dropped, or added counts once."""
+    """Registry row `fix` writes and `check` counts: every block the transform changed, dropped, or added counts once."""
 
     mask: Ctx
     fn: Callable[[Ctx, list[Block]], list[Block]]
@@ -140,7 +144,7 @@ class Fix(msgspec.Struct, frozen=True):
 
 
 class Report(msgspec.Struct, frozen=True):
-    """A registry row whose findings have no mechanical fix, the message formatted with each reported line's text."""
+    """Registry row whose findings have no mechanical fix, the message formatted with each reported line's text."""
 
     mask: Ctx
     message: str
@@ -153,22 +157,22 @@ class Report(msgspec.Struct, frozen=True):
 
 
 def parts(ctx: Ctx, text: str) -> regex.Match[str]:
-    """The groups the member's pattern captures over a block it claimed, a block it no longer claims is a defect of the rule that rewrote it."""
+    """Groups the member's pattern captures over a block it claimed, a block it no longer claims is a defect of the rule that rewrote it."""
     if (m := ctx.rx.match(text)) is None:
         raise LookupError(ctx, text)
     return m
 
 
 def splice(text: str, spans: list[tuple[int, int]], fn: Callable[[str], str]) -> str:
-    """The text with `fn` run over each span, later spans first so earlier offsets hold."""
+    """Text with `fn` run over each span, later spans first so earlier offsets hold."""
     for a, b in reversed(spans):
         text = text[:a] + fn(text[a:b]) + text[b:]
     return text
 
 
 def opaque(fn: Callable[[str], str]) -> Callable[[str], str]:
-    """The text transform over the prose of a span alone, code spans and link targets returned as they are."""
-    return lambda s: regex.sub(r"`[^`]*`|\]\([^)]*\)|(?P<prose>(?:[^`\]]|\](?!\())+)", lambda m: fn(m["prose"]) if m["prose"] else m[0], s)
+    """Text transform over the prose of a span alone, code spans and link targets returned as they are."""
+    return lambda s: regex.sub(rf"{SPAN}|\]\([^)]*\)|(?P<prose>(?:[^`\]]|\](?!\())+)", lambda m: fn(m["prose"]) if m["prose"] else m[0], s)
 
 
 def lift_text(fn: Callable[[str], str]) -> Callable[[Ctx, list[Block]], list[Block]]:
@@ -216,7 +220,7 @@ def emoji(s: str) -> str:
 
 
 def leader(block: Block) -> Block:
-    """The entry leader as `[NN]` and `[UPPER_SNAKE]` tokens joined by `-` and followed by `: `, a link card left to its own rule."""
+    """Entry leader as `[NN]` and `[UPPER_SNAKE]` tokens joined by `-` and followed by `: `, a link card left to its own rule."""
     if (m := parts(block.ctx, block.head.text))["chain"] is None or m["path"] is not None:
         return block
     tokens = "-".join(map(token, regex.findall(r"\[[^\]]*\]", m["chain"])))
@@ -242,12 +246,12 @@ def labels(blocks: list[Block]) -> list[Block]:
 
 
 def wrap(block: Block) -> Block:
-    """The paragraph or entry as one logical line, its lines joined by one space."""
+    """Paragraph or entry as one logical line, its lines joined by one space."""
     return replace(block, lines=(replace(block.head, text=" ".join((block.head.text, *(line.text.strip() for line in block.lines[1:])))),))
 
 
 def content(block: Block) -> Block:
-    """The divider without text after its token, its dash fill kept."""
+    """Divider without text after its token, its dash fill kept."""
     m = parts(block.ctx, block.text)
     return block.retext(f"{m['head']}{m['tok']}{m['fill'] or ''}")
 
@@ -278,15 +282,15 @@ class Align(Enum):
 
     @classmethod
     def of(cls, mark: str) -> Align:
-        """The alignment a cell of the alignment row states by its colons, left when it states none."""
+        """Alignment a cell of the alignment row states by its colons, left when it states none."""
         return next((a for a in cls if a.mark == regex.sub(r"-+", "-", mark)), cls.LEFT)
 
     def rule(self, width: int) -> str:
-        """The alignment row cell, its dash widened to the width."""
+        """Alignment row cell, its dash widened to the width."""
         return self.mark.replace("-", "-" * (width - len(self.mark) + 1))
 
     def pad(self, cell: str, width: int) -> str:
-        """The cell padded to the width by display width, a centered cell's odd space on the right."""
+        """Cell padded to the width by display width, a centered cell's odd space on the right."""
         return format(cell, f"{self.spec}{width + len(cell) - wcswidth(cell)}")
 
 
@@ -304,7 +308,7 @@ def header(block: Block) -> Block:
 
 
 def index(block: Block) -> Block:
-    """A first `[INDEX]` column with `[NN]` cells for two or more rows, a numbered column under another index name renamed and renumbered."""
+    """First `[INDEX]` column with `[NN]` cells for two or more rows, a numbered column under another index name renamed and renumbered."""
     grid = _grid(block)
     match grid:
         case [[name, *head], marks, *body] if regex.fullmatch(r"\[(INDEX|IDX|NN|NO|NUM|ROW)\]", name) and all(regex.fullmatch(r"\[?\d+\]?", first) for first, *_ in body):
@@ -318,7 +322,7 @@ def index(block: Block) -> Block:
 
 
 def render(block: Block) -> Block:
-    """The alignment row rebuilt with the index column centered, every cell padded to its column's widest cell by its alignment, pipes aligned."""
+    """Alignment row rebuilt with the index column centered, every cell padded to its column's widest cell by its alignment, pipes aligned."""
     match _grid(block):
         case [_, _, *_] as grid:
             head, marks, *body = zip(*zip_longest(*grid, fillvalue=""), strict=True)
@@ -334,13 +338,13 @@ def render(block: Block) -> Block:
 
 
 class Number(msgspec.Struct, frozen=True):
-    """A heading number: the `##` count so far and the `###` count under the last `##`, zero at the `##` itself."""
+    """Heading number: the `##` count so far and the `###` count under the last `##`, zero at the `##` itself."""
 
     h2: int = 0
     h3: int = 0
 
     def step(self, level: int) -> Number:
-        """The number after a heading of the level, unchanged past any level but `##` and `###`."""
+        """Number after a heading of the level, unchanged past any level but `##` and `###`."""
         match level:
             case 2:
                 return Number(self.h2 + 1)
@@ -356,14 +360,14 @@ class Number(msgspec.Struct, frozen=True):
 
 
 def chain(block: Block) -> Block:
-    """A `##` or `###` title as its bracket tokens joined by `-`, a plain title as its one token."""
+    """`##` or `###` title as its bracket tokens joined by `-`, a plain title as its one token."""
     m = parts(block.ctx, block.text)
     tokens = regex.findall(r"\[[^\]]+\]", m["t"]) or [token(m["t"])]
     return block.retext(f"{m['level']} {'-'.join(tokens)}") if len(m["level"]) in {2, 3} else block
 
 
 def numbered(block: Block, number: Number) -> Block:
-    """The heading with its number before the chain, any number the title opens with replaced."""
+    """Heading with its number before the chain, any number the title opens with replaced."""
     m = parts(block.ctx, block.text)
     title = regex.sub(r"^\[[\d.]+\]-", "", m["t"])
     return block.retext(f"{m['level']} {number.label}-{title}")
@@ -410,21 +414,26 @@ def h1s(d: Doc) -> list[Line]:
     return [line for line in ones[:1] if not regex.fullmatch(r"# \[[A-Z_]+\]", line.text)] + ones[1:]
 
 
+def spoken(text: str) -> str:
+    """Text with its code spans dropped."""
+    return regex.sub(SPAN, "", text)
+
+
 def dead(d: Doc) -> list[Line]:
     """Relative link targets that resolve to no file from the file's directory, code spans opaque."""
-    targets = [(line, t) for b in d.blocks for line in b.lines for t in regex.findall(r"\]\(([^)#:]+)[)#]", regex.sub(r"`[^`]*`", "", line.text))]
+    targets = [(line, t) for b in d.blocks for line in b.lines for t in regex.findall(r"\]\(([^)#:]+)[)#]", spoken(line.text))]
     return [Line(line.n, t) for line, t in targets if not (d.path.parent / t).exists()]
 
 
-def wide(d: Doc) -> list[Line]:
-    """Blocks with a line past column 150, named at their first line."""
-    return [b.head for b in d.blocks if any(wcswidth(line.text) > 150 for line in b.lines)]
+def wide(view: Callable[[str], str]) -> Callable[[Doc], list[Line]]:
+    """Report over blocks with a line past column 150 in the view of its text, named at their first line."""
+    return lambda d: [b.head for b in d.blocks if any(wcswidth(view(line.text)) > 150 for line in b.lines)]
 
 
 def counted(d: Doc) -> list[Line]:
-    """Lines of text spans holding an enumeration word of the word map, code spans and hyphenated compounds opaque, each named by the word."""
-    words = r"(?i)\b(?:two|three|four|five|six|seven|eight|nine|ten|several|various|multiple|numerous|a number of|a couple of|a few)\b(?!-\w)"
-    return [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in regex.finditer(words, regex.sub(r"`[^`]*`", "", line.text))]
+    """Lines of text spans holding an enumeration word of the word map, code spans, hyphenated compounds, and the noun after `a` opaque, each named by the word."""
+    words = r"(?i)(?<!\ba )\b(?:two|three|four|five|six|seven|eight|nine|ten|several|various|multiple|numerous|a number of|a couple of|a few)\b(?!-\w)"
+    return [Line(line.n, m[0]) for b in d.blocks for line in b.lines for m in regex.finditer(words, spoken(line.text))]
 
 
 def full(block: Block) -> bool:
@@ -433,7 +442,7 @@ def full(block: Block) -> bool:
 
 
 def subject(block: Block) -> Line:
-    """The divider's first line naming its token."""
+    """Divider's first line naming its token."""
     return Line(block.head.n, parts(block.ctx, block.text)["tok"])
 
 
@@ -452,6 +461,39 @@ def empties(d: Doc) -> list[Line]:
 def orphans(d: Doc) -> list[Line]:
     """Sub dividers before the first full divider."""
     return [subject(b) for b in takewhile(lambda b: not full(b), d.blocks)]
+
+
+@cache
+def narrow(folder: Path, info: str) -> range:
+    """Indent steps below the `.editorconfig` indent size of a file matching the first filename pattern of the info string's Pygments lexer, none for plain text or no lexer."""
+    names = [patterns[0].replace("*", "fence") for _, aliases, patterns, _ in get_all_lexers() if info in aliases and info not in TextLexer.aliases and patterns]
+    props = [get_properties(str(folder / name)) for name in names[:1]]
+    return next((range(2, int(p["indent_size"])) for p in props if p.get("indent_style") == "space" and p.get("indent_size", "").isdigit()), range(0))
+
+
+def depth(line: Line) -> int:
+    """Count of spaces the line opens with."""
+    return len(line.text) - len(line.text.lstrip(" "))
+
+
+def nest(levels: tuple[int, ...], line: Line) -> tuple[int, ...]:
+    """Open indent levels after the line, levels deeper than the line closed and the line's own opened."""
+    level = depth(line)
+    kept = tuple(n for n in levels if n <= level)
+    return (*kept, level) if level > kept[-1] else kept
+
+
+def shallow(d: Doc) -> list[Line]:
+    """Fence lines opening an indent level fewer columns past the enclosing level than their language's indent size, a one-column step aligning a doc comment star."""
+
+    def opened(b: Block) -> list[Line]:
+        steps = narrow(d.path.parent.resolve(), parts(b.ctx, b.text)["info"])
+        solid = [line for line in b.lines[1:-1] if line.text.strip()]
+        root: tuple[int, ...] = (0,)
+        stacks = accumulate(solid, nest, initial=root)
+        return [Line(line.n, line.text.strip()) for line, levels in zip(solid, stacks, strict=False) if depth(line) - max(n for n in levels if n <= depth(line)) in steps]
+
+    return [line for b in d.blocks for line in opened(b)]
 
 
 # --- [REGISTRY] -------------------------------------------------------------------------
@@ -478,11 +520,12 @@ RULES: tuple[Fix | Report, ...] = (
     Report(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, "Text opens with a lowercase letter", probe(r"\p{Ll}")),
     Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
     Report(TEXT, "Text counts visible items with `{}`", counted),
-    Report(Ctx.ENTRY, "Entry runs past column 150", wide),
-    Report(Ctx.TABLE, "Table runs past column 150", wide),
+    Report(Ctx.ENTRY, "Entry prose runs past column 150", wide(spoken)),
+    Report(Ctx.TABLE, "Table runs past column 150", wide(str)),
     Report(Ctx.DIVIDER, "Divider `{}` repeats an earlier full divider", repeats),
     Report(SOURCE, "Divider `{}` opens an empty section", empties),
     Report(Ctx.DIVIDER, "Sub divider `{}` precedes the first full divider", orphans),
+    Report(Ctx.FENCE, "Fence line `{}` indents by fewer columns than `.editorconfig` sets for its language", shallow),
 )
 
 # --- [HOST] -----------------------------------------------------------------------------
@@ -510,12 +553,10 @@ def lint(path: Path, marker: Marker) -> Doc:
     return replace(done, found=sorted(done.found, key=lambda f: f.line))
 
 
-SKIPPED = ("**/.claude/plugins/playwright/**", "**/pnpm-workspace.yaml")
-
-
 def files(paths: list[Path]) -> dict[Path, Marker]:
     """Every owned file under the paths with its marker, generated plugin copies and the workspace file skipped, markdown files first."""
-    found = sorted(f for p in paths for f in ((f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p]) if not any(f.full_match(s) for s in SKIPPED))
+    skipped = ("**/.claude/plugins/playwright/**", "**/pnpm-workspace.yaml")
+    found = sorted(f for p in paths for f in ((f for f in p.rglob("*") if f.is_file()) if p.is_dir() else [p]) if not any(f.full_match(s) for s in skipped))
     return {f: m for m in Marker for f in found if f.suffix in m.suffixes}
 
 

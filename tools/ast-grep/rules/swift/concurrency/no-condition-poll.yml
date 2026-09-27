@@ -6,12 +6,11 @@ utils:
     observed-state:
         kind: navigation_expression
         all:
-            - has: {field: suffix, regex: '^\.(isTerminated|isRunning|isFinished|isCancelled|isExecuting)$'}
+            - has: {field: suffix, regex: '^\.(isTerminated|isFinishedLaunching|isRunning|isReady|isFinished|isCancelled|isExecuting)$'}
             - not: {has: {field: target, regex: '^!?Task$'}}
     sleep-call:
         any:
-            - pattern: Task.sleep($$$A)
-            - pattern: Thread.sleep($$$A)
+            - pattern: $_.sleep($$$A)
             - pattern: usleep($$$A)
             - pattern: sleep($$$A)
 rule:

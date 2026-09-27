@@ -29,6 +29,14 @@ utils:
             - has: {field: operator, matches: numeric-operator}
             - has: {field: left, matches: numeric-operand}
             - has: {field: right, matches: numeric-operand}
+    test-comparison:
+        kind: command
+        all:
+            - has: {field: name, regex: '^test$'}
+            - has: {matches: numeric-operand, nthChild: 2}
+            - has: {kind: word, regex: '^-(eq|ne|lt|le|gt|ge)$', nthChild: 3}
+            - has: {matches: numeric-operand, nthChild: 4}
+            - not: {has: {nthChild: 5}}
     numeric-expression:
         any:
             - matches: comparison
@@ -42,12 +50,16 @@ utils:
             - kind: parenthesized_expression
               has: {matches: numeric-expression}
 rule:
-    kind: test_command
     pattern: $TEST
-    has: {pattern: $EXPRESSION, matches: numeric-expression}
+    any:
+        - kind: test_command
+          has: {pattern: $EXPRESSION, matches: numeric-expression}
+        - matches: test-comparison
+          pattern: $EXPRESSION
 rewriters:
     - id: name
       rule:
+        kind: simple_expansion, expansion
         matches: named-parameter
         pattern: $PARAMETER
         not: {regex: '^\$\{?[0-9]+\}?$'}
@@ -64,11 +76,17 @@ rewriters:
       fix: $UNQUOTED
     - id: compare
       rule:
-        matches: comparison
-        all:
-            - has: {field: left, pattern: $LEFT}
-            - has: {field: operator, pattern: $OPERATOR}
-            - has: {field: right, pattern: $RIGHT}
+        any:
+            - matches: comparison
+              all:
+                - has: {field: left, pattern: $LEFT}
+                - has: {field: operator, pattern: $OPERATOR}
+                - has: {field: right, pattern: $RIGHT}
+            - matches: test-comparison
+              all:
+                - has: {pattern: $LEFT, nthChild: 2}
+                - has: {pattern: $OPERATOR, nthChild: 3}
+                - has: {pattern: $RIGHT, nthChild: 4}
       transform:
         L: rewrite($LEFT, rewriters=[unquote, name])
         R: rewrite($RIGHT, rewriters=[unquote, name])

@@ -2,11 +2,6 @@
 id: effect-promise-boundary
 language: tsx
 utils:
-    promise-module:
-        matches:
-            syntax-import-reference:
-                source: {regex: '^effect(/(Effect|Micro))?$'}
-                exported: {regex: '^(Effect|Micro)$'}
     stream-module:
         matches:
             syntax-import-reference:
@@ -18,17 +13,8 @@ utils:
             field: function
             kind: member_expression
             all:
-                - has: {field: object, matches: promise-module}
-                - any:
-                    - has: {field: property, regex: ^(promise|tryPromise)$}
-                    - all:
-                        - has: {field: property, regex: ^tryMapPromise$}
-                        - has:
-                            field: object
-                            matches:
-                                syntax-import-reference:
-                                    source: {regex: '^effect(/Effect)?$'}
-                                    exported: {regex: '^Effect$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+                - has: {field: property, regex: ^(promise|tryPromise)$}
 rule:
     any:
         - kind: arrow_function, function_expression
@@ -37,11 +23,7 @@ rule:
                 stopBy:
                     not: {matches: syntax-expression-wrapper}
                 kind: arguments
-                inside:
-                    matches: promise-call
-                    has:
-                        field: function
-                        has: {field: property, regex: ^(promise|tryPromise)$}
+                inside: {matches: promise-call}
             - inside:
                 stopBy:
                     not: {matches: syntax-expression-wrapper}

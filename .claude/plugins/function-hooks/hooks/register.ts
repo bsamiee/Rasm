@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import type {
     ClassicHookEvent,
     ClassicHookInputs,
@@ -7,6 +5,8 @@ import type {
     EngineInterface,
     Frozen,
     Next,
+    On,
+    PluginOptions,
     ProcessRunInit,
     ProcessRunResult,
     Register,
@@ -49,27 +49,22 @@ import type { Place } from './policies/walk.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
+type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]>;
+type Boundary = Frozen<ClassicHookInputs['Stop']> | Frozen<ClassicHookInputs['SubagentStop']>;
+type Completed = Frozen<TurnCompleteInput>;
+
 interface Sink {
     readonly argv: Argv;
     readonly root: string;
 }
-
 interface Stamped {
     readonly sink: Sink;
     readonly ts: number;
 }
-
-type Classic = Frozen<ClassicHookInputs[Exclude<ClassicHookEvent, 'PreToolUse'>]>;
-
-type Boundary = Frozen<ClassicHookInputs['Stop']> | Frozen<ClassicHookInputs['SubagentStop']>;
-
-type Completed = Frozen<TurnCompleteInput>;
-
 interface Memo {
     readonly text: () => string;
     readonly set: (text: string) => boolean;
 }
-
 interface Environment {
     readonly chosen: Settings;
     readonly claims: Set<string>;
@@ -77,13 +72,12 @@ interface Environment {
     readonly footer: Memo;
 }
 
-type Awaited = readonly [string, Spawned, Map<string, Spawned>];
+type Pending = readonly [string, Spawned, Map<string, Spawned>];
+type Once = (attempt: () => Promise<Result<Sink>>) => Promise<Result<Sink>>;
 
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
-const _CTRL = /\p{Cc}+/gu;
-const _PLACED: Argv = ['git', 'status', '--porcelain', 'tools/ast-grep'];
-const _PORCELAIN_PATH = 3;
+const _CONTROL = /\p{Cc}+/gu;
 
 // --- [MEMO] ----------------------------------------------------------------------------
 
@@ -99,6 +93,14 @@ const _memo = (): Memo => {
     };
 };
 
+const _once = (): Once => {
+    let opening: Promise<Result<Sink>> | undefined;
+    return (attempt) => {
+        opening ??= attempt();
+        return opening;
+    };
+};
+
 // --- [PROCESS] -------------------------------------------------------------------------
 
 const _run = ($: EngineInterface, argv: Argv, init?: ProcessRunInit): Promise<Result<string>> =>
@@ -108,10 +110,7 @@ const _run = ($: EngineInterface, argv: Argv, init?: ProcessRunInit): Promise<Re
     );
 
 const _scan = ($: EngineInterface, text: string): Promise<ProcessRunResult> => $.session.repo().then((repo) => $.process.run(SCAN, repo === null ? { stdin: text } : { stdin: text, cwd: repo.root }));
-
-const _homed = ($: EngineInterface, cwd: string): Promise<Place> => $.env.get('HOME').then((home) => ({ home: fromNullable(home), cwd }));
-
-const _place = ($: EngineInterface): Promise<Place> => $.session.cwd().then((cwd) => _homed($, cwd));
+const _place = ($: EngineInterface): Promise<Place> => Promise.all([$.env.get('HOME'), $.session.cwd()]).then(([home, cwd]) => ({ home: fromNullable(home), cwd }));
 
 // --- [OPEN] ----------------------------------------------------------------------------
 
@@ -147,8 +146,7 @@ const _open = ($: EngineInterface): Promise<Result<Sink>> =>
             return opened;
         });
 
-const _stamped = ($: EngineInterface, once: (attempt: () => Promise<Result<Sink>>) => Promise<Result<Sink>>): Promise<Result<Stamped>> =>
-    $.clock.now().then((ts) => once(() => _open($)).then((sink) => map(sink, (value) => ({ sink: value, ts }))));
+const _stamped = ($: EngineInterface, once: Once): Promise<Result<Stamped>> => $.clock.now().then((ts) => once(() => _open($)).then((sink) => map(sink, (value) => ({ sink: value, ts }))));
 
 // --- [RECORD] --------------------------------------------------------------------------
 
@@ -199,7 +197,7 @@ const _launched = ($: EngineInterface, environment: Environment, spawned: Spawne
 
 // --- [SETTLEMENT] ----------------------------------------------------------------------
 
-const _awaited = (environment: Result<Environment>, agentId: string | undefined): Option<Awaited> => {
+const _pending = (environment: Result<Environment>, agentId: string | undefined): Option<Pending> => {
     if (environment.kind === 'fault' || agentId === undefined) {
         return none;
     }
@@ -220,12 +218,13 @@ const _judged = ($: EngineInterface, sink: Sink, e: Completed, [id, judging, spa
         });
 
 const _placed = ($: EngineInterface, e: Completed, building: Building): Promise<Readonly<Record<string, unknown>>> =>
-    _run($, _PLACED, { cwd: building.lineage.worktree }).then((printed) => {
+    _run($, ['git', 'status', '--porcelain', 'tools/ast-grep'], { cwd: building.lineage.worktree }).then((printed) => {
         if (printed.kind === 'fault') {
             $.ui.log(`placed rules not read, ${printed.reason}`);
             return e;
         }
-        return { ...e, placed: printed.value.split('\n').flatMap((line) => (line === '' ? [] : [line.slice(_PORCELAIN_PATH)])) };
+        const pathStart = 3;
+        return { ...e, placed: printed.value.split('\n').flatMap((line) => (line === '' ? [] : [line.slice(pathStart)])) };
     });
 
 const _built = ($: EngineInterface, sink: Sink, e: Completed, [id, building, spawned]: readonly [string, Building, Map<string, Spawned>], ts: number): Promise<void> => {
@@ -238,7 +237,7 @@ const _built = ($: EngineInterface, sink: Sink, e: Completed, [id, building, spa
         });
 };
 
-const _settled = ($: EngineInterface, sink: Sink, e: Completed, [id, pending, spawned]: Awaited, ts: number): Promise<void> => {
+const _ended = ($: EngineInterface, sink: Sink, e: Completed, [id, pending, spawned]: Pending, ts: number): Promise<void> => {
     if (e.reason !== 'answer') {
         spawned.delete(id);
         $.ui.log(`${pending.agent} ${id} ended on ${e.reason} over ${subject(pending)}, nothing recorded`);
@@ -248,8 +247,8 @@ const _settled = ($: EngineInterface, sink: Sink, e: Completed, [id, pending, sp
 };
 
 const _completed = ($: EngineInterface, sink: Sink, e: Completed, ts: number, environment: Result<Environment>): Promise<void> => {
-    const awaited = _awaited(environment, e.agentId);
-    return awaited.kind === 'some' ? _settled($, sink, e, awaited.value, ts) : record($, sink, 'turn.complete', e, TURN, ts);
+    const pending = _pending(environment, e.agentId);
+    return pending.kind === 'some' ? _ended($, sink, e, pending.value, ts) : record($, sink, 'turn.complete', e, TURN, ts);
 };
 
 // --- [DELIVERY] ------------------------------------------------------------------------
@@ -293,7 +292,7 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
 
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
     _run($, ['git', 'branch', '--show-current'], { cwd: e.cwd }).then((branch) =>
-        branch.kind === 'fault' ? _skip($, branch.reason) : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim().replace(_CTRL, ' ')), to, environment),
+        branch.kind === 'fault' ? _skip($, branch.reason) : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim().replace(_CONTROL, ' ')), to, environment),
     );
 
 const _boundary = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment): Promise<readonly string[]> =>
@@ -317,33 +316,13 @@ const _answered = (result: ClassicResult, entries: readonly string[]): ClassicRe
     return entries.length === 0 ? result : { ...result, additionalContext: earlier.kind === 'some' ? [...earlier.value, ...entries] : [...entries] };
 };
 
-// --- [REGISTRATION] --------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-const register: Register = (on, options) => {
+const _observation = (on: On, options: PluginOptions, once: Once): void => {
     const footer = _memo();
     const claims: Set<string> = new Set();
     const spawned: Map<string, Spawned> = new Map();
     const environment = map(settings(options), (chosen): Environment => ({ chosen, claims, spawned, footer }));
-    const walking = options['walkPolicy'] === true;
-    let opening: Promise<Result<Sink>> | undefined;
-    const once = (attempt: () => Promise<Result<Sink>>): Promise<Result<Sink>> => {
-        opening ??= attempt();
-        return opening;
-    };
-
-    on('tool.call', ($, e, next) =>
-        decide(
-            e,
-            (text: string) => _scan($, text),
-            (path: string) => $.fs.exists(path),
-            () => _place($),
-            walking,
-        )
-            .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason.replace(_CTRL, ' ') } : next(decision.e)))
-            .then<ToolCallResult>((answer) =>
-                answer.deny === undefined ? answer : _stamped($, once).then((found) => (found.kind === 'ok' ? _denied($, found.value.sink, e, next, answer, found.value.ts) : answer)),
-            ),
-    );
 
     on(
         'classic.*',
@@ -386,6 +365,30 @@ const register: Register = (on, options) => {
     );
 
     on('ui.render', { component: 'SessionMode' }, (_$, e, next) => (footer.text() === '' ? next(e) : next({ ...e, props: { modes: [...e.props.modes, footer.text()] } })));
+};
+
+const register: Register = (on, options) => {
+    const walking = options['walkPolicy'] === true;
+    const opener: Option<Once> = options['observation'] === true ? some(_once()) : none;
+
+    on('tool.call', ($, e, next) =>
+        decide(
+            e,
+            (text: string) => _scan($, text),
+            (path: string) => $.fs.exists(path),
+            walking ? some(() => _place($)) : none,
+        )
+            .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason.replace(_CONTROL, ' ') } : next(decision.e)))
+            .then<ToolCallResult>((answer) =>
+                answer.deny === undefined || opener.kind === 'none'
+                    ? answer
+                    : _stamped($, opener.value).then((found) => (found.kind === 'ok' ? _denied($, found.value.sink, e, next, answer, found.value.ts) : answer)),
+            ),
+    );
+
+    if (opener.kind === 'some') {
+        _observation(on, options, opener.value);
+    }
 };
 
 // --- [EXPORTS] -------------------------------------------------------------------------

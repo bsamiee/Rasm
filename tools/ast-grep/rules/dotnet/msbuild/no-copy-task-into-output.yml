@@ -5,7 +5,7 @@ severity: error
 rule:
     all:
         - matches: {msbuild-element: {name: {regex: '^(Copy|Move)$'}}}
-        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir)\)'}}}}}
+        - has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^Destination(Folder|Files)$'}, value: {regex: '\$\((OutDir|OutputPath|TargetDir|PublishDir)\)'}}}}}
         - not: {has: {matches: msbuild-tag, has: {matches: {msbuild-attribute: {name: {regex: '^SourceFiles$'}, value: {regex: '^["'']\s*@\('}}}}}}
-message: Task writes into the project output alone
-note: Declare a `None` or `Content` item with `CopyToOutputDirectory`
+message: Task writes into the project's own build or publish output alone
+note: Declare a `None` or `Content` item with `CopyToOutputDirectory` or `CopyToPublishDirectory`

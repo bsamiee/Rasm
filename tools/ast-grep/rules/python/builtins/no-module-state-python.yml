@@ -31,7 +31,7 @@ utils:
                 - has: {matches: mutable-container}
     module-statement:
         kind: expression_statement
-        not: {inside: {stopBy: end, any: [{matches: python-function-boundary}, {kind: class_definition}]}}
+        not: {inside: {stopBy: end, kind: 'function_definition, lambda, class_definition'}}
     stored:
         any:
             - matches: mutable-container

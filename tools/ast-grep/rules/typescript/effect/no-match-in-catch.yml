@@ -10,8 +10,8 @@ utils:
             kind: member_expression
             pattern: $HANDLER
             all:
-                - has: {field: property, regex: '^(catchAll|catchAllCause|catchIf|catchSome|tapError|tapErrorCause|mapError)$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream)$'}}}}
+                - has: {field: property, regex: '^(catch|catchCause|catchIf|catchFilter|tapError|tapCause|mapError)$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream))?$'}, exported: {regex: '^(Effect|Stream)$'}}}}
     callback-parameter:
         kind: arrow_function, function_expression
         any:
@@ -33,13 +33,27 @@ utils:
             - kind: binary_expression
               all:
                 - has: {field: left, pattern: $E._tag}
-                - has: {field: operator, regex: '^===?$'}
+                - has: {field: operator, regex: '^[!=]==?$'}
+            - kind: binary_expression
+              all:
+                - has: {field: left, kind: identifier, pattern: $E}
+                - has: {field: operator, regex: '^instanceof$'}
+            - kind: call_expression
+              all:
+                - has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: property, regex: '^isTagged$'}
+                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Predicate)?$'}, exported: {regex: '^Predicate$'}}}}
+                - has: {field: arguments, has: {nthChild: 1, kind: identifier, pattern: $E}}
 rule:
     matches: error-handler
     has:
         field: arguments
         has:
             matches: callback-parameter
+            nthChild: {position: 1, reverse: true}
             has: {stopBy: {matches: syntax-function-boundary}, matches: selection}
 message: '`$HANDLER` selects the failure by hand inside its callback'
 note: '`Effect.catchTag`, `catchTags`, `tapErrorTag`, or `catchIf` selects the failure by `_tag` or predicate ahead of the callback'

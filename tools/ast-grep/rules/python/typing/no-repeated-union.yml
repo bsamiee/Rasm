@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-union
+language: python
+severity: error
+utils:
+    union-operator:
+        kind: binary_operator
+        has: {field: operator, regex: '^\|$'}
+    union:
+        any:
+            - matches: union-operator
+              not: {inside: {any: [{matches: union-operator}, {kind: type, inside: {kind: union_type}}]}}
+              has: {field: left, matches: union-operator}
+            - kind: union_type
+              not: {inside: {kind: union_type}}
+              has: {kind: type, has: {any: [{matches: union-operator}, {kind: union_type}]}}
+    earlier:
+        inside:
+            stopBy: end
+            follows:
+                stopBy: end
+                any:
+                    - {matches: union, pattern: $UNION}
+                    - has: {stopBy: end, matches: union, pattern: $UNION}
+    earlier-typed:
+        inside:
+            stopBy: end
+            follows:
+                stopBy: end
+                any:
+                    - {matches: union, pattern: $UNION, inside: {kind: type, stopBy: end}}
+                    - has: {stopBy: end, matches: union, pattern: $UNION, inside: {kind: type, stopBy: end}}
+rule:
+    kind: binary_operator, union_type
+    matches: union
+    pattern: $UNION
+    any:
+        - all: [{inside: {kind: type, stopBy: end}}, {matches: earlier}]
+        - matches: earlier-typed
+message: '`$UNION` repeats a union of three or more members spelled earlier in the file'
+note: 'Declare `type <Name> = <union>` under `[TYPES]` and name the alias at every site'

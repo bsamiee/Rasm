@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-undivided-declaration-tsx
+language: tsx
+severity: error
+utils:
+    named:
+        any:
+            - kind: function_declaration, generator_function_declaration, class_declaration, abstract_class_declaration, type_alias_declaration, interface_declaration, enum_declaration
+              has: {field: name, pattern: $NAME}
+            - kind: lexical_declaration, variable_declaration
+              has: {kind: variable_declarator, has: {field: name, pattern: $NAME}}
+rule:
+    inside: {kind: program}
+    any:
+        - matches: named
+        - kind: export_statement
+          any:
+            - has: {field: declaration, matches: named}
+            - {not: {has: {field: declaration, pattern: $_}}, pattern: $NAME}
+        - kind: expression_statement
+          has: {kind: internal_module, has: {field: name, pattern: $NAME}}
+    not: {follows: {stopBy: end, matches: text-section-divider}}
+message: Declaration `$NAME` sits above every section divider
+note: Open the section of its kind with `// --- [<SECTION>] ` dashed to column 90 above it

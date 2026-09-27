@@ -2,7 +2,7 @@
 id: no-native-promise
 language: tsx
 severity: error
-ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts', '**/*.config.ts']
+ignores: ['.claude/plugins/*/hooks/**']
 rule:
     not: {inside: {matches: effect-promise-boundary, stopBy: {matches: syntax-function-boundary}}}
     any:

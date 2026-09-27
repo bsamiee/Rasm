@@ -5,21 +5,22 @@ description: "Use when a task needs a dependency's signature, API shape, usage, 
 
 # [SEARCH_CODE]
 
-Dependency declarations read from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at the installed tag, versions from the registry.
+Dependency declarations read from installed files, usage from Context7, DeepWiki, and public code, source and wiki from the repository at its installed tag, versions from registries.
 
 - Version: Context7 and DeepWiki index the default branch, an installed version's fact comes from its files, its tag, or a Context7 snapshot
-- Path: package metadata names the repository and commit, the Context7 ID is that `/owner/repo` lowercased, the tag list spells the tag
-- Prose: Context7 descriptions and DeepWiki answers are generated, the code is quoted from the Source URL, a named member confirms in the declaration
+- Path: package metadata names repository and commit, Context7 IDs are its `/owner/repo` lowercased, and a tag list spells each tag
+- Prose: Context7 descriptions and DeepWiki answers are generated, code is quoted from its Source URL, a named member confirms in its declaration
 - Ignore: an ignore file inside the searched tree (`.venv/.gitignore`) hides its files, `--no-ignore` reads them, a listed path needs no flag
 - Size: `get_file_contents`, `get_package_context`, and `read_wiki_contents` return the whole document, a cited line reads through `rg`
 - Index: `search_code` reads default branches in files under 384 KB, the tree call finds a path at a tag
-- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from the repository URL skips the resolve
+- Quota: every client on one GitHub account shares 10 `search_code` calls per minute, the next answers HTTP 403, reads at a tag spend none of it
+- Caps: Context7 tool descriptions cap each tool at 3 calls per question, an ID from a repository URL skips the resolve
 
 Numbered steps chain, each consuming the step before, bulleted cases are alternatives, one per command line in order.
 
 ## [01]-[DECLARATION]
 
-One member's signature and doc, a type's members, a module's exports, or a configuration option, read from the installed files at the pinned version.
+One member's signature and doc, a type's members, a module's exports, or a configuration option, read from installed files at the pinned version.
 
 Installed version of a direct or transitive package and the package that depends on it, one line per ecosystem:
 - .NET: resolved version at each node of the graph from a restored project
@@ -34,7 +35,7 @@ uv tree --frozen --invert --package <pkg> --depth 1
 
 .NET types declaring a member as `.xml` doc ids, ` ``N ` follows a generic method name, no decompile:
 - Installed version, `<lib>` is `.cache/nuget/packages/<id>/<version>/lib/<tfm>`
-- Version the packages folder lacks, the nupkg streamed through `tar`, id lowercase
+- Version missing from the packages folder, its nupkg streamed through `tar`, id lowercase
 
 ```bash
 rg -oI 'M:[\w.`]+\.<Member>(``\d)?\([^"]*' <lib>/*.xml
@@ -44,7 +45,7 @@ curl -sL "https://api.nuget.org/v3-flatcontainer/<id>/<version>/<id>.<version>.n
 .NET decompiled source on stdout with doc comments and nested types, `<dll>` is `<lib>/<assembly>.dll` of an installed version:
 1. Full name of a type with its `` `N `` arity, entity types `c`, `i`, `s`, `d`, `e` as one word
 2. Type line and public members of the type step 1 named
-3. Doc comment, attributes, and signature per overload with line, `-A<n>` on the same `rg` reads the body
+3. Doc comment, attributes, and signature per overload with line, `-A<n>` on its `rg` reads the body
 
 ```bash
 dotnet dnx ilspycmd -y -- -l cisde <dll> | rg '<Type>'
@@ -63,7 +64,7 @@ dotnet dnx ilspycmd -y -- -p -o <main>/.artifacts/ilspy/<Name>/<Version> <dll>
 
 TypeScript package under `node_modules/<pkg>`, `package.json` `types` names the entry file:
 1. Exports of one declaration file, `export * as <Module>` names the module file step 2 searches
-2. Declaration with file and line, overloads continue below, the doc comment above reads through `Read` at that line
+2. Declaration with file and line, following overloads and its preceding doc comment read through `Read` at the line
 
 ```bash
 rg -n '^export ' node_modules/<pkg>/<file>.d.ts
@@ -87,7 +88,7 @@ uv run --frozen python -c "import <mod>; help(<mod>.<Obj>)"
 uv run --frozen python -c "import inspect, <mod>; print(inspect.getsource(<mod>.<Obj>))"
 ```
 
-Python typed signature per overload from the package's `.pyi` or its `-stubs` package where the runtime declares no types:
+Python typed signature per overload from a package's `.pyi` or its `-stubs` package where the runtime declares no types:
 
 ```bash
 rg -nU --no-ignore 'def <fn>\([^)]*\)[^:]*:' .venv/lib/python*/site-packages/<pkg>* --glob '*.pyi'
@@ -99,7 +100,7 @@ MSBuild target with `Condition`, `Inputs`, and `DependsOnTargets` across the SDK
 rg -n -A3 '<Target Name="<target>"' "$(dotnet msbuild <project>.csproj -getProperty:MSBuildToolsPath)"
 ```
 
-Java members and signatures of classes from the jars on a classpath, more than one class per call:
+Java members and signatures of classes from jars on a classpath, more than one class per call:
 
 ```bash
 javap -cp '<jar>:<jar>' <package.Class> <package.Class>
@@ -107,7 +108,7 @@ javap -cp '<jar>:<jar>' <package.Class> <package.Class>
 
 ## [02]-[USAGE]
 
-How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming the symbol.
+How a member composes, from the repository's code examples, source, wiki, and README and from public code, one concept per query naming its symbol.
 
 Context7 ID is the repository URL's `/owner/repo` lowercased, resolve when metadata names no URL:
 - Candidates with snippet count, reputation, benchmark score, and Versions
@@ -123,7 +124,7 @@ mcp__context7__query-docs {"libraryId": "/websites/<site>", "query": "<one conce
 ```
 
 DeepWiki generated wiki of the default branch:
-1. Page index per repository, what its parts are, `Repository not found` routes that repository to its tree and files
+1. Page index per repository, what its parts are, `Repository not found` routes the repository to its tree and files
 2. Answer with quoted signatures over repositories step 1 indexed, up to 10 per call
 
 ```text
@@ -137,13 +138,13 @@ GitHub public code composing members, repository and commit per fragment:
 mcp__github__search_code {"query": "\"<Member>\" \"<Member>\" language:<language>", "perPage": 5, "fields": ["repository", "path", "text_matches"]}
 ```
 
-.NET `AGENTS.md` of an installed NuGet package, its README otherwise, from the packages folder or the source:
+.NET `AGENTS.md` of an installed NuGet package, its README otherwise, from the packages folder or source:
 
 ```text
 mcp__nuget__get_package_context {"solutionDirectory": "<repo>", "packageName": "<id>", "packageVersion": "<version>"}
 ```
 
-Context7 stars, trust score, and last update per candidate, the MCP result omits them, `libraryName` is the repository name:
+Context7 stars, trust score, and last update per candidate, MCP results omit them, `libraryName` is the repository name:
 
 ```bash
 curl -s "https://context7.com/api/v2/libs/search?libraryName=<repository name>" -H "Authorization: Bearer $CONTEXT7_API_KEY" | jq -r '.results[:8][] | [.id, .benchmarkScore, .trustScore, .stars, .totalSnippets, .lastUpdateDate[:10], (.versions|join(","))] | @tsv'
@@ -164,9 +165,9 @@ curl -s "https://pypi.org/pypi/<pkg>/<version>/json" | jq -r '.info.description'
 
 ## [03]-[REPOSITORY]
 
-Repository, commit, and tag behind an installed version, then its tree, files, blame, and wiki at that tag:
+Repository, commit, and tag behind an installed version, then its tree, files, blame, and wiki at the tag:
 1. Repository URL and build commit from package metadata, one line per ecosystem:
-    - .NET: `projectUrl` holds the repository when the `repository` element holds a commit alone
+    - .NET: `projectUrl` holds the repository when a `repository` element holds a commit alone
     - TypeScript: repository URL, package directory in a monorepo, and commit when the publisher recorded one
     - Python: source, documentation, and changelog URLs of the installed version
 2. Tag spelling for a version (`v1.5.0`, `8.7.0`, `effect@3.22.1`, `4.0.0a6`), a nuspec commit matches column one, no filter lists every tag
@@ -208,7 +209,7 @@ mcp__github__search_code {"query": "\"<phrase>\" repo:<owner>/<repo> path:<dir>"
 
 ## [04]-[RELEASE]
 
-Newest version and its date come from the registry, notes come from the release at the tag, an advisory names the patched version.
+Newest version and its date come from the registry, notes from each tag's release, and advisories name patched versions.
 
 .NET newest NuGet version with its publish date:
 
@@ -216,7 +217,7 @@ Newest version and its date come from the registry, notes come from the release 
 mcp__nuget__get_latest_package_version {"solutionDirectory": "<repo>", "packageName": "<id>", "includePrerelease": true}
 ```
 
-GitHub advisories on the pinned versions with the patched version each, one call across ecosystems, owner and repo name this repository:
+GitHub advisories on pinned versions with each patched version, one call across ecosystems, owner and repo name the current repository:
 
 ```text
 mcp__github__check_dependency_vulnerabilities {"owner": "<owner>", "repo": "<repo>", "dependencies": [{"ecosystem": "nuget", "name": "<id>", "version": "<version>"}, {"ecosystem": "npm", "name": "<pkg>", "version": "<version>"}, {"ecosystem": "pip", "name": "<pkg>", "version": "<version>"}]}
@@ -230,14 +231,14 @@ pnpm view <pkg> dist-tags time --json | jq -c '{tags: .["dist-tags"], published:
 
 Python versions:
 - Lock version beside the newest, prereleases per `pyproject`
-- Newest stable version, its upload time, and its requirements from the registry, the versionless URL describes newest stable
+- Newest stable version, its upload time, and its requirements from the registry, a versionless URL describes newest stable
 
 ```bash
 uv tree --frozen --outdated --package <pkg> --depth 0
 curl -s https://pypi.org/pypi/<pkg>/json | jq -r '.info.version, .urls[0].upload_time, .info.requires_dist[]?'
 ```
 
-GitHub release notes body alone, `Not Found` means the tag has no release and the changelog at the tag holds the notes:
+GitHub release notes body alone, `Not Found` means no release exists for the tag and its changelog holds release notes:
 
 ```bash
 gh api "repos/<owner>/<repo>/releases/tags/<tag>" --jq '.body'

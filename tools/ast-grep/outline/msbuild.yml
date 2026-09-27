@@ -49,8 +49,10 @@ rule:
             has:
                 kind: STag
                 has: {kind: Name, regex: "^PropertyGroup$"}
+transform:
+    LINE: {replace: {source: $PROPERTY, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
-signature: $PROPERTY
+signature: $LINE
 
 ---
 id: msbuild-item

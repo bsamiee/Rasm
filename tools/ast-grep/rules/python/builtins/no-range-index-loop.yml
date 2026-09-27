@@ -1,0 +1,64 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-range-index-loop
+language: python
+severity: error
+utils:
+    size:
+        any:
+            - pattern: len($C)
+            - pattern: $C.Count
+            - pattern: $C.Length
+    bound:
+        any:
+            - matches: size
+            - kind: call
+              all:
+                - has: {field: function, regex: '^min$'}
+                - has: {field: arguments, all: [{has: {matches: size}}, {not: {has: {nthChild: 3}}}]}
+    range-call:
+        kind: call
+        pattern: $RANGE
+        all:
+            - has: {field: function, matches: {python-builtin-name: {name: {regex: '^range$'}}}}
+            - has:
+                field: arguments
+                any:
+                    - all: [{has: {nthChild: 1, matches: bound}}, {not: {has: {nthChild: 2}}}]
+                    - all: [{has: {nthChild: 1, kind: integer, regex: '^0$'}}, {has: {nthChild: 2, matches: bound}}, {not: {has: {nthChild: 3}}}]
+    element:
+        kind: subscript
+        pattern: $C[$I]
+    target:
+        kind: subscript
+        pattern: $C[$I]
+        any:
+            - inside: {kind: assignment, field: left}
+            - inside: {kind: augmented_assignment, field: left}
+            - inside: {kind: delete_statement}
+            - inside: {kind: 'pattern_list, tuple_pattern, list_pattern', inside: {kind: assignment, field: left}}
+    stray:
+        kind: identifier
+        pattern: $I
+        not:
+            any:
+                - inside: {kind: subscript, field: subscript, has: {field: value, pattern: $C}}
+                - inside: {kind: 'for_in_clause, for_statement', field: left}
+rule:
+    any:
+        - kind: for_in_clause
+          all:
+            - has: {field: left, kind: identifier, pattern: $I}
+            - has: {field: right, matches: range-call}
+            - inside:
+                kind: list_comprehension, set_comprehension, dictionary_comprehension, generator_expression
+                all:
+                    - has: {stopBy: end, matches: element}
+                    - not: {has: {stopBy: end, matches: stray}}
+        - kind: for_statement
+          all:
+            - has: {field: left, kind: identifier, pattern: $I}
+            - has: {field: right, matches: range-call}
+            - has: {field: body, has: {stopBy: end, matches: element}}
+            - not: {has: {field: body, has: {stopBy: end, any: [{matches: stray}, {matches: target}]}}}
+message: '`$RANGE` walks `$C` by index `$I` read only as `$C[$I]`'
+note: 'Iterate `<collection>`, or `islice(<collection>, <n>)` where `min` caps the count'

@@ -20,8 +20,6 @@ utils:
               regex: '^[A-Z]\w*\.[A-Z][A-Z0-9_]*$'
             - kind: keyword_argument
               has: {field: value, matches: constant}
-    stateful-callee:
-        regex: '^(next|anext|input|print|iter|aiter|list|dict|set|bytearray|object|open|reversed|enumerate|zip|map|filter|range|memoryview|deque|defaultdict|OrderedDict|Counter|(\w+\.)*(choice|choices|random|randint|randrange|uniform|shuffle|sample|getrandbits|randbytes|token_bytes|token_hex|token_urlsafe|now|today|utcnow|time|monotonic|perf_counter|urandom|uuid1|uuid4|read|readline|readlines|write|pop|popleft|popitem|append|extend|insert|remove|discard|update|setdefault|send|recv|copy))$'
     holds-call:
         not: {matches: nested-scope}
         any:
@@ -68,7 +66,7 @@ rule:
     pattern: $CALL
     all:
         - has: {field: arguments, has: {pattern: $_, not: {matches: constant}}}
-        - has: {field: function, kind: 'identifier, attribute', not: {matches: stateful-callee}}
+        - has: {field: function, kind: 'identifier, attribute', not: {matches: python-stateful-callee}}
         - not: {has: {kind: 'await, yield, named_expression, lambda', stopBy: end}}
         - not: {any: [{matches: opposite-arm}, {inside: {stopBy: {matches: scope}, matches: opposite-arm}}]}
         - any:

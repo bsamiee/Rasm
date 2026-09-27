@@ -2,7 +2,6 @@
 id: no-throw-on-absence
 language: tsx
 severity: error
-ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     absence-test:
         any:
@@ -37,8 +36,8 @@ rule:
           pattern: $IF
           all:
             - has: {field: property, regex: '^getOrThrow(With)?$'}
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Either))?$'}, exported: {regex: '^(Option|Either)$'}}}}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Result))?$'}, exported: {regex: '^(Option|Result)$'}}}}
 message: '`throw` stands in for the failure case of an absent value'
-note: 'Return the reason as a value, `ParseResult.fromOption` under `Schema.transformOrFail` or `Effect.fail` with a tagged variant'
+note: 'Return the reason as a value, `Effect.fromOption(<option>, () => <tagged error>)` or `Effect.fail` with a tagged variant'
 labels:
     IF: {style: primary}

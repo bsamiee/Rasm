@@ -5,7 +5,7 @@ severity: error
 rule:
     kind: do_statement
     all:
-        - has: {kind: catch_block, matches: result-failure-catch}
+        - has: {kind: catch_block, matches: swift-result-failure-catch}
         - has:
             kind: catch_block
             all:

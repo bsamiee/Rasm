@@ -16,7 +16,7 @@ public static class FourCentered {
             let crownCenter = quarterPerpendicular.PointAt(crossing.B)
             let tangentAngle = Vector3d.VectorAngle(span.Direction, threeQuarterPoint - crownCenter)
             let crownCircle = span.CircleAt(crownCenter, crownCenter.DistanceTo(threeQuarterPoint) + span.QuarterSpan)
-            from points in ArchProfile.Secant(riseLine, crownCircle)
+            from points in CurveConstruction.LineCircle(riseLine, crownCircle).Bind(static met => met.Secant)
             let startArc = new Arc(haunchCircle, tangentAngle)
             let endArc = new Arc(crownCircle, new Interval(tangentAngle, Vector3d.VectorAngle(span.Direction, points.Point2 - crownCenter)))
             from profile in ArchProfile.Mirrored(span, Seq(startArc, endArc))
@@ -30,7 +30,7 @@ public static class FourCentered {
         Circle crownCircle = span.CircleAt(crownCenter, crownCenter.DistanceTo(haunchCenter) + span.QuarterSpan);
         Arc startArc = new(span.CircleAt(haunchCenter, span.QuarterSpan), tangentAngle);
         return
-            from points in ArchProfile.Secant(new Line(span.Midpoint, span.Perpendicular, span.Length), crownCircle)
+            from points in CurveConstruction.LineCircle(new Line(span.Midpoint, span.Perpendicular, span.Length), crownCircle).Bind(static met => met.Secant)
             let endArc = new Arc(crownCircle, new Interval(tangentAngle, Vector3d.VectorAngle(span.Direction, points.Point2 - crownCenter)))
             from profile in ArchProfile.Mirrored(span, Seq(startArc, endArc))
             select profile;

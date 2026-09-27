@@ -2,6 +2,7 @@
 id: no-socket-module
 language: python
 severity: error
+ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
 utils:
     socket-member:
         regex: '^(socket|create_connection|create_server|getaddrinfo|getnameinfo|gethostbyname|gethostbyname_ex|gethostbyaddr|getfqdn)$'

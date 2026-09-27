@@ -1,0 +1,30 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-coined-identifier-csharp
+language: csharp
+severity: error
+utils:
+    declaration:
+        kind: >-
+            class_declaration, record_declaration, struct_declaration, interface_declaration, enum_declaration, enum_member_declaration, delegate_declaration, method_declaration, property_declaration, event_declaration, parameter, parameter_list, variable_declarator, local_function_statement, tuple_element, type_parameter, catch_declaration, declaration_pattern, recursive_pattern, declaration_expression, from_clause
+    declared:
+        any:
+            - kind: implicit_parameter
+            - kind: identifier
+              any:
+                - inside: {matches: declaration, field: name}
+                - inside: {kind: foreach_statement, field: left}
+                - inside: {kind: tuple_pattern}
+                - inside: {kind: let_clause}
+                  precedes: {regex: '^=$'}
+                - inside: {kind: join_clause}
+                  precedes: {regex: '^in$'}
+                - inside: {kind: join_into_clause}
+                - inside: {kind: query_expression}
+                  follows: {regex: '^into$'}
+rule:
+    all:
+        - matches: declared
+        - matches: text-coined-word
+    pattern: $NAME
+message: Declared name `$NAME` holds a coined term
+note: Use the host API member or language term the declaration matches, or the decided domain word

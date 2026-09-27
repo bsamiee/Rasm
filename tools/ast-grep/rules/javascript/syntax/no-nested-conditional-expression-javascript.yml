@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-conditional-expression-javascript
+language: javascript
+severity: error
+rule:
+    kind: ternary_expression
+    all:
+        - has: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression'}}}
+        - not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'parenthesized_expression, unary_expression'}}}}
+message: 'Conditional expression nests a conditional'
+note: 'Select with an `if` statement per test, or a `switch` when every test compares one subject'

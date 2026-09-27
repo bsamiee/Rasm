@@ -13,7 +13,7 @@ utils:
                     kind: Attribute
                     all:
                         - has: {kind: Name, regex: '^Include$'}
-                        - has: {kind: AttValue, regex: '(?i)^["'']([A-Za-z0-9.]+\.(Analyzers?|SourceGenerators?|Generators?))["'']$'}
+                        - has: {kind: AttValue, regex: '^["''][A-Za-z0-9.]*(?i:\.(analyzers?|sourcegenerators?|generators?|codefixes))["'']$|^["''][A-Za-z0-9.]*[a-z0-9](Analyzers?|SourceGenerators?)["'']$'}
     all-assets:
         any:
             - regex: '(?i)^["'']?\s*all\s*["'']?$'
@@ -80,7 +80,7 @@ rewriters:
         FIXED:
             replace:
                 source: $STRIPPED
-                replace: '\s*(/?>)$'
+                replace: '(\s*/?>)$'
                 by: ' PrivateAssets="all"$1'
       fix: $FIXED
 transform:

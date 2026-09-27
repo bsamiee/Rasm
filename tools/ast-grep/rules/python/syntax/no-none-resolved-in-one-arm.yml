@@ -61,7 +61,7 @@ rule:
         - any:
             - matches: conditional-arm
             - inside:
-                stopBy: {matches: python-function-boundary}
+                stopBy: {kind: 'function_definition, lambda'}
                 any:
                     - matches: conditional-arm
                     - matches: statement-arm

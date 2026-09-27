@@ -3,6 +3,8 @@ id: no-callback-offer
 language: tsx
 severity: error
 utils:
+    queue-module:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Queue)?$'}, exported: {regex: '^Queue$'}}}
     constructor-call:
         kind: call_expression
         has:
@@ -10,14 +12,26 @@ utils:
             kind: member_expression
             all:
                 - has: {field: property, regex: '^(make|unbounded|bounded|dropping|sliding)$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Mailbox|Queue))?$'}, exported: {regex: '^(Mailbox|Queue)$'}}}}
+                - has: {field: object, matches: queue-module}
+    queue-offer:
+        kind: call_expression
+        all:
+            - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: queue-module}}, {has: {field: property, regex: '^(offer|offerAll)$'}}]}
+            - has: {field: arguments, has: {nthChild: 1, pattern: $QUEUE}}
     offer-call:
         kind: call_expression
         any:
-            - pattern: $QUEUE.unsafeOffer($$$_)
-            - pattern: $QUEUE.unsafeOfferAll($$$_)
-            - pattern: Queue.unsafeOffer($QUEUE, $$$_)
-            - pattern: Queue.unsafeOfferAll($QUEUE, $$$_)
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: queue-module}}, {has: {field: property, regex: '^(offerUnsafe|offerAllUnsafe)$'}}]}
+                - has: {field: arguments, has: {nthChild: 1, pattern: $QUEUE}}
+            - all:
+                - has:
+                    field: function
+                    kind: member_expression
+                    all:
+                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+                        - has: {field: property, regex: '^(runFork|runSync|runPromise|runCallback)$'}
+                - has: {field: arguments, has: {nthChild: 1, matches: queue-offer}}
 rule:
     kind: variable_declarator
     all:
@@ -31,5 +45,5 @@ rule:
                     stopBy: end
                     matches: syntax-function-boundary
                     has: {stopBy: end, matches: offer-call}
-message: '`unsafeOffer` feeds `$QUEUE` from a callback'
-note: '`Stream.asyncPush((emit) => register(emit.single))` turns the callback into a stream, the register effect runs under a `Scope`'
+message: 'Callback feeds `$QUEUE` outside the effect that built it'
+note: '`Stream.callback((queue) => register((value) => Queue.offerUnsafe(queue, value)))` owns the queue, the register effect runs under the stream''s `Scope`'

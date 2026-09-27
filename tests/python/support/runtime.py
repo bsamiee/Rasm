@@ -1,11 +1,9 @@
 """Pytest runtime plugin for the Hypothesis default profile, the network marker, property records, and the telemetry and log capture fixtures."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 from collections.abc import Generator
 
-from hypothesis import HealthCheck, settings as hyp_settings
-from opentelemetry import trace as otel_trace
+from hypothesis import HealthCheck, settings
+from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import SimpleSpanProcessor
 from opentelemetry.sdk.trace.export.in_memory_span_exporter import InMemorySpanExporter
@@ -17,7 +15,7 @@ from tests.python.support.properties import PROPERTY_RECORDS, PropertyRecord
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
-hyp_settings.register_profile("default", deadline=None, suppress_health_check=(HealthCheck.too_slow, HealthCheck.data_too_large, HealthCheck.filter_too_much))
+settings.register_profile("default", deadline=None, suppress_health_check=(HealthCheck.too_slow, HealthCheck.data_too_large, HealthCheck.filter_too_much))
 
 
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
@@ -33,12 +31,12 @@ def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item
 @pytest.fixture(scope="session")
 def _otel_exporter() -> InMemorySpanExporter:
     """Attach a fresh in-memory exporter to the set-once process-level ``TracerProvider``."""
-    match otel_trace.get_tracer_provider():
+    match trace.get_tracer_provider():
         case TracerProvider() as tracer_provider:
             pass
         case _:
             tracer_provider = TracerProvider()
-            otel_trace.set_tracer_provider(tracer_provider)
+            trace.set_tracer_provider(tracer_provider)
     exporter = InMemorySpanExporter()
     tracer_provider.add_span_processor(SimpleSpanProcessor(exporter))
     return exporter
@@ -53,7 +51,7 @@ def otel_spans(_otel_exporter: InMemorySpanExporter) -> InMemorySpanExporter:
 
 @pytest.fixture
 def log_processors() -> tuple[Processor, ...]:
-    """Processors inserted before the ``log_events`` capture sink, empty unless a package conftest overrides it."""
+    """Return the processors inserted before the ``log_events`` capture sink, empty unless a package conftest overrides the fixture."""
     return ()
 
 

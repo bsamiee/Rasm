@@ -1,6 +1,8 @@
 import Foundation
 import Subprocess
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated enum CodexSelection: Equatable, Sendable {
   case none
   case known(UUID)
@@ -12,6 +14,8 @@ nonisolated struct CodexRateLimitsUpdate: Sendable {
   let windows: [QuotaWindow]
   let observedAt: Date
 }
+
+// --- [SERVICES] ------------------------------------------------------------------------
 
 private struct CodexServer {
   let connection: CodexConnection

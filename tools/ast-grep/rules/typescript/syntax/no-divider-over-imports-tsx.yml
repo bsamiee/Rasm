@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-divider-over-imports-tsx
+language: tsx
+severity: error
+rule:
+    kind: comment
+    regex: '^// --- \[IMPORTS\]'
+    any:
+        - precedes: {pattern: $NEXT}
+        - pattern: $_
+message: Divider `[IMPORTS]` names no section
+note: Delete the divider, imports precede every section divider
+fix:
+    template: $NEXT
+    expandEnd: {pattern: $NEXT}

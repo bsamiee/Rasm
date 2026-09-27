@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unsubscriptable-builtin
+language: python
+severity: error
+utils:
+    unsubscriptable:
+        kind: identifier
+        pattern: $G
+        matches: {python-builtin-name: {name: {regex: '^(classmethod|staticmethod|map|filter|zip|reversed|memoryview|slice)$'}}}
+    local-annotation:
+        inside:
+            kind: assignment
+            field: type
+            stopBy: end
+            inside: {kind: function_definition, stopBy: {kind: 'function_definition, class_definition'}}
+rule:
+    any:
+        - kind: generic_type
+          all:
+            - has: {nthChild: 1, matches: unsubscriptable}
+            - not: {matches: local-annotation}
+        - kind: subscript
+          has: {field: value, matches: unsubscriptable}
+message: '`$G` defines no `__class_getitem__` on Python 3.13, where evaluating this subscript raises `TypeError`'
+note: 'Annotate with the `collections.abc` protocol the value satisfies (`Callable`, `Iterator`, `Iterable`, `Sequence`), a descriptor wrapped where it is registered'

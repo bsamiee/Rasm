@@ -1,5 +1,19 @@
 import SwiftUI
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
+extension VerticalAlignment {
+  private enum GlyphRow: AlignmentID {
+    static func defaultValue(in context: ViewDimensions) -> CGFloat {
+      context[VerticalAlignment.center]
+    }
+  }
+
+  static let glyphRow: VerticalAlignment = VerticalAlignment(GlyphRow.self)
+}
+
+// --- [VIEWS] ---------------------------------------------------------------------------
+
 struct UsageGauge<Accessory: View>: View {
   let title: String
   let reading: String?
@@ -64,14 +78,4 @@ struct CapsuleProgressStyle: ProgressViewStyle {
       .clipShape(Capsule())
       .frame(height: 6)
   }
-}
-
-extension VerticalAlignment {
-  private enum GlyphRow: AlignmentID {
-    static func defaultValue(in context: ViewDimensions) -> CGFloat {
-      context[VerticalAlignment.center]
-    }
-  }
-
-  static let glyphRow: VerticalAlignment = VerticalAlignment(GlyphRow.self)
 }

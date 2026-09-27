@@ -399,4 +399,4 @@ rule:
                                           has: {field: body, kind: invocation_expression, has: {field: function, matches: boundary-callee}}
                                         - matches: boundary-callee
 message: '`$NAME` forwards its parameters unchanged to `$CALLEE`'
-note: Call the callee at each use and delete the function, an effect lifts the host member where it composes (`IO.lift(<receiver>.<member>)`), and an `Action` in expression position takes `fun(<action>)`; a public `IO` read over a Mapperly mapping stays, the rule reading a `<name>Mapper` class declared in another file as `[Mapper]` by its name
+note: Call the callee at each use and delete the function, an effect lifts the host member where it composes (`IO.lift(<receiver>.<member>)`), an `Action` in expression position takes `fun(<action>)`

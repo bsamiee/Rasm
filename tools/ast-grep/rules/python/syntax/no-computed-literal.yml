@@ -36,7 +36,7 @@ rule:
         - {matches: plus-chain, not: {inside: {kind: binary_operator, matches: plus-chain}}}
         - kind: call
           all:
-            - has: {field: function, kind: attribute, has: {field: object, any: [{matches: plain-string}, {kind: concatenated_string}, {regex: '^str$'}]}}
+            - has: {field: function, kind: attribute, all: [{has: {field: object, any: [{matches: plain-string}, {kind: concatenated_string}, {regex: '^str$'}]}}, {not: {has: {field: attribute, regex: '^join$'}}}]}
             - has: {field: arguments, matches: literal-arguments}
         - kind: call
           all:

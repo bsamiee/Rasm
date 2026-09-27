@@ -15,14 +15,14 @@ utils:
                     not: {all: [{nthChild: {position: 1, reverse: true}}, {inside: {kind: statements, pattern: $BODY}}]}
     one-failure-catch:
         all:
-            - has: {kind: catch_block, matches: result-failure-catch}
+            - has: {kind: catch_block, matches: swift-result-failure-catch}
             - not: {has: {kind: catch_block, nthChild: {position: 2, ofRule: {kind: catch_block}}}}
     classifying-catch:
         kind: catch_block
         has:
             kind: statements
             all:
-                - has: {nthChild: 1, matches: result-failure-statement}
+                - has: {nthChild: 1, matches: swift-result-failure-statement}
                 - not: {has: {nthChild: 2}}
     success-last:
         kind: do_statement

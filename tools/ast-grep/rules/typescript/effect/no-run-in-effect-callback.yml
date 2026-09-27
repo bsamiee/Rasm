@@ -3,26 +3,15 @@ id: no-run-in-effect-callback
 language: tsx
 severity: error
 utils:
-    effect-module: {matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro))?$'}, exported: {regex: '^(Effect|Micro)$'}}}}
-    runtime-member:
-        kind: member_expression
-        all:
-            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|Runtime))?$'}, exported: {regex: '^(Effect|Micro|Runtime)$'}}}}
-            - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
+    effect-module: {matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
     run-invocation:
         kind: call_expression
-        any:
-            - has: {field: function, matches: runtime-member}
-              any:
-                - has: {field: function, has: {field: object, matches: effect-module}}
-                - has: {field: arguments, has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
-            - has:
-                field: function
-                kind: call_expression
-                has:
-                    field: function
-                    matches: runtime-member
-                    has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Runtime)?$'}, exported: {regex: '^Runtime$'}}}}
+        has:
+            field: function
+            kind: member_expression
+            all:
+                - has: {field: object, matches: effect-module}
+                - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
     effect-combinator:
         kind: call_expression
         any:
@@ -33,11 +22,11 @@ utils:
                     - has:
                         field: property
                         regex: |-
-                            ^(map|flatMap|andThen|tap|tapError|tapBoth|tapErrorCause|tapDefect|sync|suspend|promise|try|tryPromise|tryMap
-                            |tryMapPromise|gen|fn|fnUntraced|mapOut|mapError|mapBoth|catchAll|catchAllCause|catchTag|catchTags|catchSome|catchIf
-                            |match|matchEffect|matchCause|matchCauseEffect|orElse|filterOrFail|filterOrElse|forEach|reduce|zipWith|ensuring
-                            |onExit|onError|acquireRelease|acquireUseRelease|async|whenEffect|iterate|loop|retry|repeat|mapAccum|mapEffect)$
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro|STM|Stream|Layer|Channel|Sink))?$'}, exported: {regex: '^(Effect|Micro|STM|Stream|Layer|Channel|Sink)$'}}}}
+                            (?x)^(map|flatMap|andThen|tap|tapError|tapBoth|tapCause|tapDefect|sync|suspend|promise|try|tryPromise|callback|gen
+                            |fn|fnUntraced|mapError|mapBoth|catch|catchCause|catchTag|catchTags|catchIf|catchFilter|catchReason|catchDefect|match
+                            |matchEffect|matchCause|matchCauseEffect|filterOrFail|filterOrElse|forEach|reduce|zipWith|ensuring|onExit|onError
+                            |acquireRelease|acquireUseRelease|retry|repeat|mapAccum|mapEffect)$
+                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Stream|Layer|Channel|Sink))?$'}, exported: {regex: '^(Effect|Stream|Layer|Channel|Sink)$'}}}}
             - has:
                 field: function
                 kind: member_expression

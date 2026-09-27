@@ -1,46 +1,50 @@
 ---
 name: manage-repo
-description: "Use when adding or changing a project file, target, tool, workflow, or infra row, covering owners, growth, targets, and checks."
+description: "Use when adding or changing a project file, target, tool, workflow, infra row, or desktop application interface, covering owners, growth, targets, and checks."
 ---
 
 # [MANAGE_REPO]
 
-Covers project files, targets, tools, workflows, and infra rows of a polyglot monorepo.
+Covers project files, targets, tools, workflows, infra rows, and desktop application interfaces of a polyglot monorepo.
 
 [REFERENCES]:
 - [01]-[NX](references/nx.md): Plugin inference, target defaults, run-commands, dependencies, inputs, affected selection
-- [02]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, builds, patches, composite compiler projects, direct execution, Biome rows
-- [03]-[PYTHON](references/python.md): Dependency groups, lock, environments, interpreter, script members, checker suppressions
-- [04]-[DOTNET](references/dotnet.md): MSBuild skills, project file contents, central row and SDK upgrades
-- [05]-[TOOLING](references/tooling.md): Tool rows, release settings, version files, install paths, environment templates
-- [06]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
-- [07]-[JAVA](references/java.md): Project file, formatter form, tool rows that wait for the first project
-- [08]-[SWIFT](references/swift.md): Project file rows, build setting defaults, schemes, icons, signing, format configuration
-- [09]-[APPLICATIONS](references/applications.md): Desktop application evidence, layout, input, color, display, units, render, loading, proof
+- [02]-[TOOLING](references/tooling.md): Tool rows, release settings, version files, install paths, environment templates
+- [03]-[TYPESCRIPT](references/typescript.md): Catalog, overrides, install scripts, composite compiler projects, direct execution, Biome rows
+- [04]-[PYTHON](references/python.md): Dependency groups, lock, workspace members, interpreter, checkers
+- [05]-[DOTNET](references/dotnet.md): Central row and SDK upgrades, catalog project, analyzer rows
+- [06]-[SWIFT](references/swift.md): Project file rows, build setting defaults, schemes, icons, signing, format configuration
+- [07]-[JAVA](references/java.md): Project file, formatter form, tool rows that wait for the first project, language server
+- [08]-[INFRA](references/infra.md): Automation API, resource options, workflow syntax decisions
+- [09]-[APPLICATIONS](references/applications.md): Interface standard every configured desktop application follows
 
 ## [01]-[PLACEMENT]
 
 - Use `README.md` for the owner of each concern
 - Concerns with no owner take a new file named for the tool that reads it
 - Structure joins with its first consumer, a row, file, target, or value nothing reads goes
-- Row's consumer is a file importing the package, a command running the binary, or a tool reading the row
-- Rows naming a package, binary, or server point at one a project file or tool row installs, a row pointing at none goes
+- Row consumers are files importing its package, commands running its binary, or tools reading it, a file importing `package.json` included
+- Catalog rows, their overrides, and tool-plugin rows stay without an importer, the catalog stocks packages for current and future projects
+- Build chains and project kinds of a declared host (UXP, ExtendScript) stay while no project uses them
+- `plan/` holds plans and research for future projects and stays read-only
+- Rows naming a package, binary, or server point at one a project file or tool row installs, a missing install record joins its owning file
 - Root files hold policy every project shares, a row one project consumes sits in the project file
-- Project files are written by hand as the file set the language's init command produces
-- Project file extending a root file exists for a plugin discovering projects by the file, a tool taking `--config` reads the root file from any `cwd`
+- Project files are written by hand as the file set their language's init command produces
+- Project files extending a root file exist for a plugin discovering projects by file name, a `--config` tool reads the root file from any `cwd`
 - Rows restating a tool's documented default go, the default comes from a schema, release notes, or installed source
-- Row deleted with the tool's output and lock unchanged goes, a row that only cancels another row's effect goes with the canceled row
+- Rows whose deletion leaves tool output and lock unchanged go, a row that only cancels another row's effect goes with the canceled row
 - Relaxing checker rows (ignore, allowlist, suppression, raised threshold) stay while a file violates the rule without them
 - Tightening checker rows (ban, required form, lowered threshold) state policy and stay with no violating file
 - Suppressions one file needs sit at its top, one every importer of a package needs (missing stubs) sits in the tool's table
-- Skills couple to no project, a skill names the tools it drives and its own scripts, a target, project file row, or repository path stays out
-- Scripts join the skill whose subject they serve, a script an app, target, or workflow consumes joins the repository
+- Skills couple to no project, a skill names the tools it drives, its scripts, and output paths under `.artifacts/`, targets and project rows stay out
+- Scripts join their subject's skill, a script an app, target, or workflow consumes joins the repository
+- Scripts answer a question no single tool call answers, a script that forwards one tool call goes
 - Root targets unify check, format, build, test, install, and release of the repository's own code, a wrapper over one tool mise supplies is no target
-- Modules generated from a package's data are committed, their generator runs first in `format`
+- One tool over one file set runs in one target, a second target or entry running it again goes
+- Entry points derive their items from declarations, a configuration, script, or README line per item goes, the tool's own argument selects a subset
+- Generated modules are committed, their generator runs first in `format`
 
 ## [02]-[CHECKS]
 
-- Per-language target names, preview or dry-run variants, and proof scripts are second checks, one run of the project's `check` target proves a change
-- Writers prove through `git diff --exit-code` after their target
-- Rule, checker, or file extension row joins with a tracked file it reads and the tree passing it, its first run over the tree is its proof
-- `check` of a row's consumers against a baseline run proves its removal, a file importing `package.json` for `version` is a consumer
+- Projects hold one `check` target, per-language check names, dry-run variants, and check scripts beside it go
+- Rule, checker, or file extension rows join with a tracked file they read and the tree passing them

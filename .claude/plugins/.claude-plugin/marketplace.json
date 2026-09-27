@@ -7,7 +7,7 @@
         {
             "name": "function-hooks",
             "source": "./function-hooks",
-            "description": "Denies policy-refused tool calls, records hook events as observation rows, delivers findings per lineage"
+            "description": "Denies policy-refused tool calls, and with observation on records hook events as observation rows and delivers findings per lineage"
         },
         {
             "name": "playwright",

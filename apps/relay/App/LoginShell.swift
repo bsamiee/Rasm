@@ -1,6 +1,8 @@
 import Foundation
 import Subprocess
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
 nonisolated enum LoginShellFailure: Error {
   case shellUnset
   case shellNotOnPath(String)
@@ -8,6 +10,8 @@ nonisolated enum LoginShellFailure: Error {
   case terminationStatus(ProcessOutput)
   case markerNotFound
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated enum LoginShell {
   static let variables: [String] = [

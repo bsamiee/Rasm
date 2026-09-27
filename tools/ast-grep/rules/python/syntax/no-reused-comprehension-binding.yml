@@ -1,0 +1,41 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-reused-comprehension-binding
+language: python
+severity: error
+utils:
+    comprehension:
+        kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+    holds-walrus:
+        has: {stopBy: end, pattern: $WALRUS}
+    branch:
+        any:
+            - kind: 'case_clause, elif_clause, else_clause'
+            - kind: block
+              inside: {kind: if_statement, field: consequence}
+    exclusive:
+        inside:
+            stopBy: end
+            matches: branch
+            not: {matches: holds-walrus}
+            any:
+                - inside: {kind: block, has: {kind: case_clause, matches: holds-walrus}}
+                - inside: {kind: if_statement, has: {matches: branch, has: {stopBy: end, pattern: $WALRUS}}}
+    scope-binding:
+        matches: {python-binding: {name: {pattern: $N}}}
+        not:
+            any:
+                - kind: for_in_clause
+                - inside: {matches: comprehension, stopBy: {kind: 'function_definition, class_definition, lambda'}}
+                - matches: exclusive
+rule:
+    kind: named_expression
+    pattern: $WALRUS
+    all:
+        - has: {field: name, pattern: $N}
+        - inside: {matches: comprehension, stopBy: {kind: 'function_definition, class_definition, lambda'}}
+        - inside:
+            kind: 'function_definition, module'
+            stopBy: {kind: 'function_definition, lambda, module'}
+            has: {stopBy: {kind: 'function_definition, class_definition, lambda'}, matches: scope-binding}
+message: 'Comprehension binds `$N` in a scope that binds `$N` again'
+note: 'Name the comprehension binding with a term the enclosing function binds nowhere else'

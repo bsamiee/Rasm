@@ -1,6 +1,8 @@
 import Foundation
 import Subprocess
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
 nonisolated enum ClaudeSessionAction: Sendable {
   case refreshCredentials
   case greeting
@@ -12,6 +14,8 @@ nonisolated enum ClaudeSessionAction: Sendable {
     }
   }
 }
+
+// --- [MODELS] --------------------------------------------------------------------------
 
 private nonisolated enum ClaudeSessionPhase: Sendable {
   case initializing(String)
@@ -34,6 +38,8 @@ private nonisolated enum ClaudeSessionStep: Sendable {
   case awaiting(ClaudeSessionPhase, sessionReset: Date?)
   case finished(sessionReset: Date?)
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated enum ClaudeSession {
   static func run(

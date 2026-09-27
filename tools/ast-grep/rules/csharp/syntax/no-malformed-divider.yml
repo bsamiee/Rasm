@@ -11,8 +11,8 @@ rule:
     any:
         - not: {matches: csharp-labeled-divider}
         - matches: csharp-labeled-divider
-          not: {any: [{matches: csharp-dashed-divider}, {matches: csharp-owner-level}, {matches: misparsed}]}
-        - matches: csharp-dashed-divider
+          not: {any: [{matches: text-section-divider}, {matches: csharp-owner-level}, {matches: misparsed}]}
+        - matches: text-section-divider
           not: {any: [{matches: csharp-file-level}, {matches: csharp-owner-level}, {matches: misparsed}]}
         - matches: csharp-section-divider
           not: {regex: '^.{90}$'}

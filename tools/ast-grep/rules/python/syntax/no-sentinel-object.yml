@@ -41,13 +41,13 @@ rule:
                 - has: {field: right, matches: sentinel-value}
                 - inside:
                     kind: expression_statement
-                    inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
+                    inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
             - all:
                 - has: {field: left, kind: pattern_list, pattern: $NAME}
                 - has: {field: right, kind: expression_list, has: {matches: sentinel-value}}
                 - inside:
                     kind: expression_statement
-                    inside: {kind: 'module, class_definition', stopBy: {matches: python-function-boundary}}
+                    inside: {kind: 'module, class_definition', stopBy: {kind: 'function_definition, lambda'}}
             - all:
                 - has: {field: left, kind: identifier, pattern: $NAME}
                 - inside:

@@ -3,50 +3,93 @@ id: no-data-first-runner
 language: tsx
 severity: error
 utils:
-    runner:
+    dual-runner:
         kind: member_expression
-        pattern: $RUN
         any:
             - all:
                 - has: {field: property, regex: '^runMain$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform-(node|bun)$'}, exported: {regex: '^(NodeRuntime|BunRuntime)$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/platform-(node|bun)(/(Node|Bun)Runtime)?$'}, exported: {regex: '^(NodeRuntime|BunRuntime)$'}}}}
             - all:
                 - has: {field: property, regex: '^run$'}
-                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^@effect/cli(/Command)?$'}, exported: {regex: '^Command$'}}}}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect/unstable/cli(/Command)?$'}, exported: {regex: '^Command$'}}}}
+    effect-runner:
+        kind: member_expression
+        all:
+            - has: {field: property, regex: '^(runPromise|runPromiseExit|runSync|runSyncExit|runFork|runCallback)$'}
+            - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
+    pipe-function:
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Function)?$'}, exported: {regex: '^pipe$'}}}
+    piped-program:
+        kind: call_expression
+        has: {field: arguments, has: {nthChild: 1}}
+        any:
+            - has: {field: function, kind: member_expression, has: {field: property, regex: '^pipe$'}}
+            - has: {field: function, kind: identifier, matches: pipe-function}
+    runner-call:
+        kind: call_expression
+        all:
+            - has: {field: function, pattern: $RUN, any: [{matches: dual-runner}, {matches: effect-runner}]}
+            - any:
+                - pattern: $RUN($PROGRAM)
+                - pattern: '$RUN($PROGRAM, $OPTIONS)'
+                  has: {field: function, matches: dual-runner}
+            - has: {field: arguments, has: {nthChild: 1, matches: piped-program}}
 rule:
     kind: call_expression
     all:
-        - has: {field: function, matches: runner}
         - any:
-            - pattern: $RUN($PROGRAM)
-            - pattern: '$RUN($PROGRAM, $OPTIONS)'
-        - not: {has: {field: arguments, has: {nthChild: 1, kind: object}}}
+            - matches: runner-call
+              not: {inside: {kind: member_expression, field: object, has: {field: property, regex: '^pipe$'}}}
+            - all:
+                - has: {field: function, kind: member_expression, all: [{has: {field: object, matches: runner-call}}, {has: {field: property, regex: '^pipe$'}}]}
+                - has: {field: arguments, has: {nthChild: 1}}
         - any:
             - pattern: $FIXABLE
               not: {has: {kind: comment, stopBy: end}}
             - pattern: $KEPT
 rewriters:
-    - id: extend
-      rule:
-        pattern: $SELF.pipe($$$_)
-        has: {field: arguments, pattern: $STEPS}
+    - id: chained-method-options
+      rule: {pattern: '$RUN($SELF.pipe($$$STEPS), $OPTIONS).pipe($$$MORE)'}
       transform:
-        INNER: substring($STEPS, startChar=1, endChar=-1)
-        LISTED: replace($INNER, replace='(?s),\s*$', by='')
+        LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}
+        FOLLOWING: {replace: {source: $$$MORE, replace: '(?s),\s*$', by: ''}}
+      fix: $SELF.pipe($LISTED, $RUN($OPTIONS), $FOLLOWING)
+    - id: chained-method
+      rule: {pattern: $RUN($SELF.pipe($$$STEPS)).pipe($$$MORE)}
+      transform:
+        LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}
+        FOLLOWING: {replace: {source: $$$MORE, replace: '(?s),\s*$', by: ''}}
+      fix: $SELF.pipe($LISTED, $RUN, $FOLLOWING)
+    - id: chained-function-options
+      rule: {pattern: '$RUN($PIPE($$$STEPS), $OPTIONS).pipe($$$MORE)'}
+      transform:
+        LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}
+        FOLLOWING: {replace: {source: $$$MORE, replace: '(?s),\s*$', by: ''}}
+      fix: $PIPE($LISTED, $RUN($OPTIONS), $FOLLOWING)
+    - id: chained-function
+      rule: {pattern: $RUN($PIPE($$$STEPS)).pipe($$$MORE)}
+      transform:
+        LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}
+        FOLLOWING: {replace: {source: $$$MORE, replace: '(?s),\s*$', by: ''}}
+      fix: $PIPE($LISTED, $RUN, $FOLLOWING)
+    - id: method-options
+      rule: {pattern: '$RUN($SELF.pipe($$$STEPS), $OPTIONS)'}
+      transform: {LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}}
       fix: $SELF.pipe($LISTED, $RUN($OPTIONS))
-    - id: open
-      rule: {pattern: $SELF}
-      fix: $SELF.pipe($RUN($OPTIONS))
-    - id: runner
-      rule:
-        any:
-            - pattern: $RUN($PROGRAM)
-            - pattern: '$RUN($PROGRAM, $OPTIONS)'
-      transform:
-        PIPED: rewrite($PROGRAM, rewriters=[extend, open])
-      fix: $PIPED
+    - id: method
+      rule: {pattern: $RUN($SELF.pipe($$$STEPS))}
+      transform: {LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}}
+      fix: $SELF.pipe($LISTED, $RUN)
+    - id: function-options
+      rule: {pattern: '$RUN($PIPE($$$STEPS), $OPTIONS)'}
+      transform: {LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}}
+      fix: $PIPE($LISTED, $RUN($OPTIONS))
+    - id: function
+      rule: {pattern: $RUN($PIPE($$$STEPS))}
+      transform: {LISTED: {replace: {source: $$$STEPS, replace: '(?s),\s*$', by: ''}}}
+      fix: $PIPE($LISTED, $RUN)
 transform:
-    FIXED: rewrite($FIXABLE, rewriters=[runner])
+    FIXED: rewrite($FIXABLE, rewriters=[chained-method-options, chained-method, chained-function-options, chained-function, method-options, method, function-options, function])
 fix: $FIXED$KEPT
-message: '`$RUN` wraps the program it runs, the steps read from the inside out'
-note: '`<program>.pipe(<step>, <runner>(<options>))` ends the pipe with the runner'
+message: '`$RUN` wraps the pipe it runs, the steps read from the inside out'
+note: '`<program>.pipe(<step>, <runner>, <step>)` runs the steps in reading order, `<runner>(<options>)` where the runner takes options'

@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-option-nullable-by-hand
+language: csharp
+severity: error
+utils:
+    type-named:
+        any:
+            - kind: identifier
+              pattern: $TYPE_NAME
+            - kind: generic_name
+              has: {kind: identifier, pattern: $TYPE_NAME}
+            - kind: qualified_name
+              has: {field: name, matches: type-named}
+    type-declared:
+        inside:
+            stopBy: end
+            kind: compilation_unit
+            has:
+                stopBy: end
+                any:
+                    - kind: class_declaration, interface_declaration, delegate_declaration
+                      has: {field: name, pattern: $TYPE_NAME}
+                    - kind: record_declaration
+                      all:
+                        - has: {field: name, pattern: $TYPE_NAME}
+                        - not: {has: {regex: '^struct$'}}
+    type-constrained:
+        inside:
+            stopBy: end
+            kind: method_declaration, local_function_statement, class_declaration, struct_declaration, record_declaration, interface_declaration, delegate_declaration
+            has:
+                kind: type_parameter_constraints_clause
+                all:
+                    - has: {kind: identifier, pattern: $TYPE_NAME}
+                    - has: {kind: type_parameter_constraint, regex: '^class\s*\??$'}
+    reference-type:
+        any:
+            - kind: nullable_type
+              has: {field: type, matches: reference-type}
+            - kind: predefined_type
+              regex: '^(string|object|dynamic)$'
+            - kind: identifier, generic_name, qualified_name
+              all:
+                - matches: type-named
+                - matches: type-declared
+            - kind: identifier
+              all:
+                - matches: type-named
+                - matches: type-constrained
+    reference-conversion:
+        any:
+            - kind: as_expression
+              matches: {csharp-option-null-conversion: {option: {pattern: $REFERENCE}, element: {pattern: $_}}}
+            - kind: 'cast_expression, conditional_expression, invocation_expression'
+              matches: {csharp-option-null-conversion: {option: {pattern: $REFERENCE}, element: {matches: reference-type}}}
+    value-conversion:
+        kind: 'cast_expression, conditional_expression, invocation_expression'
+        all:
+            - matches: {csharp-option-null-conversion: {option: {pattern: $VALUE}, element: {not: {matches: reference-type}}}}
+            - not: {has: {stopBy: end, kind: default_expression}}
+            - not: {kind: cast_expression, has: {field: type, not: {kind: nullable_type}}}
+rule:
+    any:
+        - matches: reference-conversion
+        - matches: value-conversion
+transform:
+    REFERENCE_READ: {replace: {source: $REFERENCE, replace: '(?s)^(.*)$', by: '${1}.ValueUnsafe()'}}
+    VALUE_READ: {replace: {source: $VALUE, replace: '(?s)^(.*)$', by: '${1}.ToNullable()'}}
+fix: $REFERENCE_READ$VALUE_READ
+message: '`$REFERENCE$VALUE` converts an `Option` to a nullable by hand'
+note: Use `<option>.ValueUnsafe()` from `LanguageExt.UnsafeValueAccess` for a reference element and `<option>.ToNullable()` for a value element

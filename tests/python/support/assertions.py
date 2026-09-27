@@ -1,7 +1,5 @@
 """Reusable assertions for algebraic properties, tables, tolerance, results, and state machines."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 import cmath
 from collections.abc import Callable, Iterable, Mapping, Sequence
 import dataclasses
@@ -12,7 +10,7 @@ from typing import Protocol, runtime_checkable, Self
 
 from expression import Option, Result
 from expression.collections import Block
-from hypothesis import settings as hyp_settings
+from hypothesis import settings
 from hypothesis.stateful import RuleBasedStateMachine, run_state_machine_as_test
 import msgspec
 import msgspec.json
@@ -218,14 +216,7 @@ def assert_table[I, O](cases: Iterable[Case[I, O]], function: Callable[[I], O], 
 
 
 def assert_ok[T, E](result: Result[T, E]) -> T:
-    """Assert ``Ok``.
-
-    Returns:
-        The inner value.
-
-    Raises:
-        AssertionError: The result is ``Error``.
-    """
+    """Return the ``Ok`` value, raising ``AssertionError`` on ``Error``."""
     match result:
         case Result(tag="ok", ok=v):
             return v
@@ -234,14 +225,7 @@ def assert_ok[T, E](result: Result[T, E]) -> T:
 
 
 def assert_error[T, E](result: Result[T, E]) -> E:
-    """Assert ``Error``.
-
-    Returns:
-        The error.
-
-    Raises:
-        AssertionError: The result is ``Ok``.
-    """
+    """Return the ``Error`` value, raising ``AssertionError`` on ``Ok``."""
     match result:
         case Result(tag="error", error=e):
             return e
@@ -249,41 +233,26 @@ def assert_error[T, E](result: Result[T, E]) -> E:
             raise AssertionError(f"expected Error, got {result!r}")
 
 
-def assert_some[T](opt: Option[T]) -> T:
-    """Assert ``Some``.
-
-    Returns:
-        The inner value.
-
-    Raises:
-        AssertionError: The option is ``Nothing``.
-    """
-    match opt:
+def assert_some[T](option: Option[T]) -> T:
+    """Return the ``Some`` value, raising ``AssertionError`` on ``Nothing``."""
+    match option:
         case Option(tag="some", some=v):
             return v
         case _:
             raise AssertionError("expected Some, got Nothing")
 
 
-def assert_none(opt: Option[object]) -> None:
-    """Assert ``Nothing``.
-
-    Raises:
-        AssertionError: The option is ``Some``.
-    """
-    match opt:
+def assert_none(option: Option[object]) -> None:
+    """Raise ``AssertionError`` when the option is ``Some``."""
+    match option:
         case Option(tag="none"):
             return
         case _:
-            raise AssertionError(f"expected Nothing, got {opt!r}")
+            raise AssertionError(f"expected Nothing, got {option!r}")
 
 
 def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..., None], *args: object, **kwargs: object) -> None:
-    """Assert a property assertion rejects a known counterexample.
-
-    Raises:
-        AssertionError: The property accepts the counterexample.
-    """
+    """Raise ``AssertionError`` when the property assertion accepts the counterexample."""
     try:
         property_assertion(counterexample, *args, **kwargs)
     except AssertionError:
@@ -292,11 +261,7 @@ def rejects_counterexample[T](counterexample: T, property_assertion: Callable[..
 
 
 def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder | msgspec.msgpack.Encoder = JSON_ENCODER) -> T:
-    """Assert encode then decode equality and re-encode byte identity, the re-encode step catches non-deterministic codecs that structural equality misses.
-
-    Returns:
-        The decoded value, JSON by default or MessagePack with that encoder.
-    """
+    """Return the decoded value after asserting decode equality and a byte-identical re-encode."""
     raw = encoder.encode(value)
     decoded: T = msgspec.msgpack.decode(raw, type=typ) if isinstance(encoder, msgspec.msgpack.Encoder) else msgspec.json.decode(raw, type=typ)
     assert decoded == value, f"decode mismatch for {typ.__name__}: {decoded!r} != {value!r}"
@@ -310,7 +275,7 @@ def assert_roundtrip[T](value: T, typ: type[T], *, encoder: msgspec.json.Encoder
 
 def run_state_machine[M: RuleBasedStateMachine](machine_cls: type[M], *, steps: int = 200) -> None:
     """Run a Hypothesis state machine for ``steps`` rule applications per example under the active profile."""
-    run_state_machine_as_test(machine_cls, settings=hyp_settings(stateful_step_count=steps))  # type: ignore[no-untyped-call]
+    run_state_machine_as_test(machine_cls, settings=settings(stateful_step_count=steps))  # type: ignore[no-untyped-call]
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

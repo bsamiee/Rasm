@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
   struct Window: Decodable, Sendable {
     let utilization: Double?
@@ -11,10 +13,10 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
       case resetsAt = "resets_at"
     }
 
-    func quotaWindow(kind: QuotaKind) -> Result<QuotaWindow?, ClaudeQuotaErrors> {
+    func quotaWindow(kind: QuotaKind) -> Result<QuotaWindow?, ClaudeQuotaFailures> {
       utilization.map { utilization in
         combine(
-          UsageAmount.make(percent: utilization).mapError(ClaudeQuotaErrors.init),
+          UsageAmount.make(percent: utilization).mapError(ClaudeQuotaFailures.init),
           ClaudeUsageResponse.resetDate(resetsAt)
         ).map { amount, reset in
           QuotaWindow(kind: kind, used: amount, resetsAt: reset, rejected: status == "rejected")
@@ -53,7 +55,7 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
       scope?.model.flatMap { model in model.displayName ?? model.id }
     }
 
-    func quotaWindow() -> Result<QuotaWindow?, ClaudeQuotaErrors> {
+    func quotaWindow() -> Result<QuotaWindow?, ClaudeQuotaFailures> {
       guard kind == "weekly_scoped", let name: String = modelName else { return .success(nil) }
       return Window(utilization: percent ?? utilization, resetsAt: resetsAt, status: status)
         .quotaWindow(kind: .model(name))
@@ -71,11 +73,11 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
   }
 
   func usage(observedAt: Date, signInExpiresAt: Date?) -> Result<AccountUsage, ClaudeFailure> {
-    let session: Result<QuotaWindow?, ClaudeQuotaErrors> =
+    let session: Result<QuotaWindow?, ClaudeQuotaFailures> =
       fiveHour?.quotaWindow(kind: .session) ?? .success(nil)
-    let weekly: Result<QuotaWindow?, ClaudeQuotaErrors> =
+    let weekly: Result<QuotaWindow?, ClaudeQuotaFailures> =
       sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil)
-    let models: Result<[QuotaWindow?], ClaudeQuotaErrors> = traverse(limits ?? []) { limit in
+    let models: Result<[QuotaWindow?], ClaudeQuotaFailures> = traverse(limits ?? []) { limit in
       limit.quotaWindow()
     }
     return combine(session, weekly, models).mapError(ClaudeFailure.invalidQuota).flatMap {
@@ -90,13 +92,13 @@ nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
     }
   }
 
-  static func resetDate(_ value: String?) -> Result<Date?, ClaudeQuotaErrors> {
+  static func resetDate(_ value: String?) -> Result<Date?, ClaudeQuotaFailures> {
     value.map { value in
       Result {
         try Date.ISO8601FormatStyle(includingFractionalSeconds: value.contains(".")).parse(value)
       }
       .map(Optional.some)
-      .mapError { _ in ClaudeQuotaErrors(.invalidResetDate) }
+      .mapError { _ in ClaudeQuotaFailures(.invalidResetDate) }
     } ?? .success(nil)
   }
 }

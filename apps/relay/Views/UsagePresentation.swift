@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 nonisolated enum UsagePresentation {
   private static let countdownStyle: Duration.UnitsFormatStyle = Duration.UnitsFormatStyle(
     allowedUnits: [.hours, .minutes], width: .narrow)

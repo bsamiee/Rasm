@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import { Array, Effect, type Exit, HashMap, Match, Metric, MutableRef, Option, Tracer } from 'effect';
 
 // --- [TYPES] ---------------------------------------------------------------------------

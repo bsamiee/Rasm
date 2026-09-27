@@ -1,4 +1,3 @@
-using System.Diagnostics;
 using Rasm.Rhino.Document;
 
 namespace Arches.Profiles;
@@ -17,10 +16,10 @@ public static class Multifoil {
     public static Fin<ArchProfile> Foils(Span span, bool pointed, int count) {
         int divisionCount = DivisionCount(count);
         Arc guide = Guide(span, pointed ? PointedGuide : RoundedGuide, divisionCount, springing: 0);
-        Point3d[] points = DivisionPoints(guide, divisionCount);
+        Func<int, Point3d> at = Divisions(guide, divisionCount);
         return
-            from lobes in Range(1, (divisionCount - 2) / 2, 2).ToSeq().Traverse(index => Lobe(span, guide, points[index], points[index + 1], points[index + 2])).As()
-            from profile in ArchProfile.Mirrored(span, Springing(span, points[0], points[1]).Cons(lobes) + Seq(Crown(span, points[^1], points[^2])))
+            from lobes in Range(1, (divisionCount - 2) / 2, 2).ToSeq().Traverse(index => Lobe(span, guide, at(index), at(index + 1), at(index + 2))).As()
+            from profile in ArchProfile.Mirrored(span, Springing(span, at(0), at(1)).Cons(lobes) + Seq(Crown(span, at(divisionCount), at(divisionCount - 1))))
             select profile;
     }
 
@@ -29,30 +28,25 @@ public static class Multifoil {
     public static Fin<ArchProfile> Trefoil(Span span, bool pointed) {
         Arc springingArc = new(span.CircleAt(span.Midpoint + (span.Direction * span.QuarterSpan), span.QuarterSpan), Math.PI / 2);
         Fin<Arc> topArc = pointed
-            ? Span.From(springingArc.EndPoint - (span.Direction * span.QuarterSpan * 2), springingArc.EndPoint, span.Normal).Map(Gothic.EquilateralArc)
+            ? Span.From(springingArc.EndPoint - (span.Direction * span.QuarterSpan * 2), springingArc.EndPoint, span.Normal, span.Tolerance).Map(Gothic.EquilateralArc)
             : new Arc(span.CircleAt(span.Midpoint + (span.Perpendicular * span.QuarterSpan), span.QuarterSpan), Math.PI / 2);
         return topArc.Bind(top => ArchProfile.Mirrored(span, Seq(springingArc, top)));
     }
 
     private static Fin<ArchProfile> RoundedCinquefoil(Span span) {
         const int divisionCount = 5;
-        return DivisionPoints(Guide(span, RoundedGuide, divisionCount, springing: 1), divisionCount) switch {
-            [_, var springing, var first, var center, var last, var crown] =>
-                ArchProfile.Mirrored(span, Seq(Springing(span, springing, first), Foil(span, first, center, last), Crown(span, crown, last))),
-            _ => throw new UnreachableException(),
-        };
+        Func<int, Point3d> at = Divisions(Guide(span, RoundedGuide, divisionCount, springing: 1), divisionCount);
+        return ArchProfile.Mirrored(span, Seq(Springing(span, at(1), at(2)), Foil(span, at(2), at(3), at(4)), Crown(span, at(5), at(4))));
     }
 
     private static Fin<ArchProfile> PointedCinquefoil(Span span) {
         const int divisionCount = 6;
         Arc guide = Guide(span, PointedGuide, divisionCount, springing: 0);
-        return DivisionPoints(guide, divisionCount) switch {
-            [var springing, var first, var center, var last, ..] =>
-                from pointedSpan in Span.From(Transform.Mirror(guide.EndPoint, span.Direction) * last, last, span.Normal)
-                from profile in ArchProfile.Mirrored(span, Seq(Springing(span, springing, first), Foil(span, first, center, last), Gothic.EquilateralArc(pointedSpan)))
-                select profile,
-            _ => throw new UnreachableException(),
-        };
+        Func<int, Point3d> at = Divisions(guide, divisionCount);
+        return
+            from pointedSpan in Span.From(Transform.Mirror(guide.EndPoint, span.Direction) * at(3), at(3), span.Normal, span.Tolerance)
+            from profile in ArchProfile.Mirrored(span, Seq(Springing(span, at(0), at(1)), Foil(span, at(1), at(2), at(3)), Gothic.EquilateralArc(pointedSpan)))
+            select profile;
     }
 
     private static int DivisionCount(int count) => count + (count & 1);
@@ -64,12 +58,12 @@ public static class Multifoil {
         return new Arc(span.CircleAt(center, radius), shape.Sweep);
     }
 
-    private static Point3d[] DivisionPoints(Arc arc, int segmentCount) =>
-        [.. Range(0, segmentCount + 1).Select(index => arc.PointAt(arc.AngleDomain.ParameterAt((double)index / segmentCount)))];
+    private static Func<int, Point3d> Divisions(Arc arc, int segmentCount) =>
+        index => arc.PointAt(arc.AngleDomain.ParameterAt((double)index / segmentCount));
 
     private static Fin<Arc> Lobe(Span span, Arc guide, Point3d start, Point3d middle, Point3d end) {
         Point3d apex = middle + (Vector3d.CrossProduct(guide.TangentAt(guide.ClosestParameter(middle)), span.Normal) * end.DistanceTo(start) / 2);
-        return Span.From(start, end, span.Normal).Bind(lobeSpan => Circular.ThroughApex(lobeSpan, apex));
+        return Span.From(start, end, span.Normal, span.Tolerance).Bind(lobeSpan => Circular.ThroughApex(lobeSpan, apex));
     }
 
     private static Arc Foil(Span span, Point3d from, Point3d center, Point3d to) => new(from, Vector3d.CrossProduct(span.Normal, from - center), to);

@@ -1,16 +1,20 @@
 {
     "jdtls": {
-        "command": "jdtls",
+        "command": "mise",
+        "args": ["exec", "--", "jdtls"],
         "extensionToLanguage": { ".java": "java" },
+        "workspaceFolder": "${CLAUDE_PROJECT_DIR}/.claude/skills/use-ghidra/scripts",
         "startupTimeout": 120000,
         "maxRestarts": 3,
         "settings": {
             "java": {
-                "project": {
-                    "sourcePaths": [".claude/skills/use-ghidra/scripts"],
-                    "referencedLibraries": ["/opt/homebrew/opt/ghidra/libexec/Ghidra/**/lib/*.jar"]
+                "configuration": {
+                    "runtimes": [{ "name": "JavaSE-27", "path": "${JAVA_HOME}", "default": true }]
                 },
-                "import": { "gradle": { "enabled": false }, "maven": { "enabled": false } }
+                "project": {
+                    "referencedLibraries": ["${GHIDRA_INSTALL_DIR}/Ghidra/**/lib/*.jar"]
+                },
+                "diagnostic": { "filter": ["**/.cache/**"] }
             }
         }
     }

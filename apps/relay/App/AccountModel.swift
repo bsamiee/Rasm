@@ -1,6 +1,8 @@
 import Foundation
 import Observation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 struct RunningOperation {
   let kind: AccountOperation
   let startedAt: Date

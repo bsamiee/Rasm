@@ -6,7 +6,7 @@ utils:
     parameter-of-scope:
         inside:
             kind: function_definition
-            stopBy: {matches: python-function-boundary}
+            stopBy: {kind: 'function_definition, lambda'}
             has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $Q}}}}}
     parameter-name:
         kind: identifier

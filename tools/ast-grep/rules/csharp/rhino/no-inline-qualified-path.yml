@@ -2,7 +2,7 @@
 id: no-inline-qualified-path
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     io-call:
         kind: invocation_expression

@@ -3,12 +3,16 @@ using LanguageExt.UnsafeValueAccess;
 using Rasm.Rhino.Document;
 using Rhino;
 using Rhino.ApplicationSettings;
+using Rhino.DocObjects;
 using Rhino.UI;
 using Riok.Mapperly.Abstractions;
 
 [assembly: UseStaticMapper(typeof(Answers))]
 
 namespace Rasm.Rhino.Persistence;
+
+// --- [TYPES] ---------------------------------------------------------------------------
+public delegate (double Nudge, double Ctrl, double Shift) NudgeSteps(double resolution, ConstructionPlaneGridDefaults grid);
 
 // --- [MODELS] --------------------------------------------------------------------------
 public sealed record AliasRow(Option<string> Alias, Option<string> Macro, bool Instant);
@@ -127,6 +131,23 @@ public static class AppSettings {
 
     private static Fin<Unit> Tokens(Seq<string> names, char separator, string member) =>
         Invalid.Unless(names.ForAll(name => (name.Length > 0) && !name.Contains(separator, StringComparison.Ordinal)), member);
+
+    // --- [MODEL_AIDS]
+    public static IO<IDisposable> NudgeFollowsActiveDocument(NudgeSteps steps, Action<Error> reject) =>
+        from nudged in NudgeActiveDocument(steps)
+        from attached in Events.AttachAll(
+            Seq(EventKind.NewDocument, EventKind.EndOpenDocument, EventKind.ActiveDocumentChanged, EventKind.DocumentPropertiesChanged)
+                .Map(kind => Events.Attach(kind, new EventScope.Any(), _ => NudgeActiveDocument(steps), reject)))
+        select attached;
+
+    private static IO<Unit> NudgeActiveDocument(NudgeSteps steps) =>
+        IO.lift(static () => Optional(RhinoDoc.ActiveDoc)).Bind(doc => doc.Map(active => Nudge(active, steps)).IfNone(IO.pure(unit)));
+
+    private static IO<Unit> Nudge(RhinoDoc doc, NudgeSteps steps) =>
+        from resolution in DocumentUnits.DisplayResolution(doc, DocumentSpace.Model)
+        from grid in IO.lift(doc.GetGridDefaults)
+        from written in IO.lift(() => (ModelAidSettings.NudgeKeyStep, ModelAidSettings.CtrlNudgeKeyStep, ModelAidSettings.ShiftNudgeKeyStep) = steps(resolution, grid))
+        select unit;
 }
 
 [Mapper]

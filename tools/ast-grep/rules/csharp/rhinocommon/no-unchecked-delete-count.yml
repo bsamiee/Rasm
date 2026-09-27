@@ -2,29 +2,33 @@
 id: no-unchecked-delete-count
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
+utils:
+    sequence-type:
+        regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?(Seq|Lst|Arr|Iterable|IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List|HashSet)\s*<|.*\[\]$)'
+    sequence:
+        any:
+            - kind: 'collection_expression, array_creation_expression, implicit_array_creation_expression'
+            - kind: invocation_expression
+              has: {field: function, regex: '(^|\.)\s*(toSeq|Seq|Map|Select|Filter|Where|Choose|ToArray|ToList|Strict)(\s*<.+>)?$'}
+            - matches: {csharp-declared-type: {type: {matches: sequence-type}}}
+    compared:
+        inside:
+            kind: argument
+            nthChild: 2
+            inside:
+                kind: argument_list
+                inside: {kind: invocation_expression, has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?CountMismatch\s*\.\s*Unless$'}}
 rule:
-    kind: method_declaration
-    pattern: $METHOD
+    kind: invocation_expression
     all:
-        - has: {field: returns, kind: generic_name, regex: '^IO<int>$'}
-        - has: {field: name, pattern: $NAME}
-        - has: {field: parameters, pattern: {context: 'void f(RhinoDoc $DOC, Seq<int> $INDICES, bool $QUIET) {}', selector: parameter_list}}
-        - has: {field: body, kind: arrow_expression_clause, has: {pattern: 'IO.lift(() => $DOC.$TABLE.Delete($INDICES, $QUIET))'}}
-constraints:
-    TABLE: {regex: '^(HatchPatterns|SectionStyles|Layers)$'}
-rewriters:
-    - id: unit-return
-      rule: {kind: generic_name, regex: '^IO<int>$'}
-      fix: IO<Unit>
-    - id: checked-count
-      rule: {pattern: 'IO.lift(() => $DOC.$TABLE.Delete($INDICES, $QUIET))'}
-      transform:
-        TYPE: {replace: {source: $TABLE, replace: 's$', by: Table}}
-      fix: 'IO.lift(() => CountMismatch.Unless($INDICES.Count, $DOC.$TABLE.Delete($INDICES, $QUIET), nameof($TYPE.Delete)))'
-transform:
-    TYPE: {replace: {source: $TABLE, replace: 's$', by: Table}}
-    FIXED: {rewrite: {source: $METHOD, rewriters: [unit-return, checked-count]}}
-fix: $FIXED
-message: '`$NAME` returns the count `$DOC.$TABLE.Delete` reports without comparing it with `$INDICES.Count`'
-note: 'Return `IO<Unit>` over `CountMismatch.Unless(<indices>.Count, <delete call>, nameof(<table type>.Delete))`'
+        - has:
+            field: function
+            kind: member_access_expression
+            all:
+                - has: {field: name, regex: '^Delete$'}
+                - has: {field: expression, kind: member_access_expression, has: {field: name, pattern: $TABLE, regex: '^(Objects|Layers|SectionStyles|Markups|HatchPatterns)$'}}
+        - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: sequence, pattern: $ITEMS}}}
+        - not: {matches: compared}
+message: '`$TABLE.Delete` returns a count that no comparison with `$ITEMS` checks'
+note: Compare the count with the requested items through `CountMismatch.Unless(<items>.Count, <delete call>, nameof(<table type>.Delete))`

@@ -63,7 +63,7 @@ public sealed record OptionSelection(
     Seq<string> ListOptions,
     Option<(string Off, string On)> ToggleValues,
     Option<OptionState> CurrentValue) {
-    public static OptionSelection Read(CommandLineOption option, Option<OptionState> held) =>
+    public static OptionSelection Read(CommandLineOption option) =>
         new(
             option.Index,
             option.OptionType,
@@ -71,7 +71,7 @@ public sealed record OptionSelection(
             option.LocalName,
             option.OptionType == CommandLineOptionType.List ? toSeq(option.ListOptions(english: false)) : Seq<string>(),
             option.OptionType == CommandLineOptionType.Toggle ? Some(Toggles(option)) : Option<(string Off, string On)>.None,
-            held || Current(option));
+            Current(option));
 
     private static Option<OptionState> Current(CommandLineOption option) =>
         option.OptionType switch {
@@ -543,7 +543,7 @@ public sealed partial class EventKind {
             sink, kind, static h => RhinoApp.CommandPromptChanged += h, static h => RhinoApp.CommandPromptChanged -= h,
             static args => (
                 Option<uint>.None,
-                new EventData.CommandPrompt(args.Prompt, args.PromptDefault, Answers.Present(args.Options).Map(static option => OptionSelection.Read(option, Option<OptionState>.None)).Strict()))));
+                new EventData.CommandPrompt(args.Prompt, args.PromptDefault, Answers.Present(args.Options).Map(OptionSelection.Read).Strict()))));
 
     public static readonly EventKind EscapeKeyPressed = new(
         nameof(EscapeKeyPressed),

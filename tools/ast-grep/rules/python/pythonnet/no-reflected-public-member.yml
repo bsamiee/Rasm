@@ -1,0 +1,100 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-reflected-public-member
+language: python
+severity: error
+utils:
+    runtime-type:
+        any:
+            - pattern: $O.GetType()
+            - kind: identifier
+              pattern: $K
+              inside: {kind: 'function_definition, module', stopBy: end, has: {kind: assignment, stopBy: end, pattern: $K = $O.GetType()}}
+    public-lookup:
+        kind: call
+        all:
+            - has: {field: arguments, has: {nthChild: 1, pattern: $N, not: {kind: keyword_argument}}}
+            - not: {has: {field: arguments, has: {nthChild: 3, pattern: $_}}}
+            - not: {has: {field: arguments, has: {nthChild: 2, not: {regex: '\bBindingFlags\.', not: {regex: '\b(NonPublic|Static)\b'}}}}}
+    member-lookup:
+        matches: public-lookup
+        has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^Get(Property|Field)$'}}, {has: {field: object, matches: runtime-type}}]}
+    method-lookup:
+        matches: public-lookup
+        has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^GetMethod$'}}, {has: {field: object, matches: runtime-type}}]}
+    read:
+        kind: call
+        all:
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^GetValue$'}}, {has: {field: object, matches: member-lookup}}]}
+            - any: [{pattern: '$_.GetValue($O)'}, {pattern: '$_.GetValue($O, None)'}]
+    invoke:
+        kind: call
+        all:
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^Invoke$'}}, {has: {field: object, matches: method-lookup}}]}
+            - pattern: $_.Invoke($O, $ARGS)
+    write:
+        kind: call
+        inside: {kind: expression_statement}
+        all:
+            - has: {field: function, kind: attribute, all: [{has: {field: attribute, regex: '^SetValue$'}}, {has: {field: object, matches: member-lookup}}]}
+            - pattern: $_.SetValue($O, $V)
+    named:
+        has: {stopBy: end, pattern: $N, regex: '^["'']\w+["'']$'}
+    listed:
+        has:
+            field: arguments
+            has:
+                nthChild: 2
+                any:
+                    - kind: call
+                      all: [{has: {field: function, regex: '^(System\.)?Array\['}}, {has: {field: arguments, has: {kind: list, pattern: '[$$$A]'}}}]
+                    - {kind: list, pattern: '[$$$A]'}
+    unlisted:
+        has: {field: arguments, has: {nthChild: 2, kind: none}}
+rewriters:
+    - id: read-attribute
+      rule: {all: [{matches: read}, {matches: named}]}
+      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
+      fix: $O.$NAME
+    - id: read-computed
+      rule: {matches: read}
+      fix: getattr($O, $N)
+    - id: invoke-attribute
+      rule: {all: [{matches: invoke}, {matches: named}, {matches: unlisted}]}
+      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
+      fix: $O.$NAME()
+    - id: invoke-attribute-listed
+      rule: {all: [{matches: invoke}, {matches: named}, {matches: listed}]}
+      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
+      fix: $O.$NAME($$$A)
+    - id: invoke-attribute-spread
+      rule: {all: [{matches: invoke}, {matches: named}]}
+      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
+      fix: $O.$NAME(*$ARGS)
+    - id: invoke-computed
+      rule: {all: [{matches: invoke}, {matches: unlisted}]}
+      fix: getattr($O, $N)()
+    - id: invoke-computed-listed
+      rule: {all: [{matches: invoke}, {matches: listed}]}
+      fix: getattr($O, $N)($$$A)
+    - id: invoke-computed-spread
+      rule: {matches: invoke}
+      fix: getattr($O, $N)(*$ARGS)
+    - id: write-attribute
+      rule: {all: [{matches: write}, {matches: named}]}
+      transform: {NAME: {substring: {source: $N, startChar: 1, endChar: -1}}}
+      fix: $O.$NAME = $V
+    - id: write-computed
+      rule: {matches: write}
+      fix: setattr($O, $N, $V)
+rule:
+    kind: call
+    pattern: $CALL
+    any: [{matches: read}, {matches: invoke}, {matches: write}]
+transform:
+    DIRECT:
+        rewrite:
+            source: $CALL
+            rewriters: [read-attribute, read-computed, invoke-attribute, invoke-attribute-listed, invoke-attribute-spread, invoke-computed, invoke-computed-listed, invoke-computed-spread, write-attribute, write-computed]
+fix: $DIRECT
+message: '`$CALL` reflects over a public member of `$O`'
+note: 'Read, call, or assign the member on the instance, pythonnet binds every public member of its runtime type, and keep reflection for a non-public or static member'

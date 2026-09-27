@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import type { ToolCallInput } from 'claude-code';
 import { type Decision, deny, pass } from '../composition.ts';
 import { basename } from '../path.ts';

@@ -1,6 +1,7 @@
-# mypy: disable-error-code="arg-type, index"
+# mypy: disable-error-code="arg-type, index, union-attr"
+# ty: ignore[unresolved-attribute]
 # ruff: file-ignore[suspicious-xml-etree-import, subprocess-without-shell-equals-true]
-"""Write the Line Art strokes seen through an orthographic camera as an SVG and PDF sheet at scale to `.artifacts/blender/<name>.svg` and `.pdf`, run inside Blender through `runpy.run_path`."""
+"""Write the Line Art strokes seen through an orthographic camera as an SVG and PDF sheet at scale to `.artifacts/blender/<name>.svg` and `.pdf`, screen-ink white in document black, run inside Blender through `runpy.run_path`."""
 
 from enum import StrEnum
 from itertools import pairwise
@@ -22,7 +23,6 @@ type Outcome = Sheet | Rejected | NoPdf
 class Rejection(StrEnum):
     """Scene state no sheet draws from, each value the `kind` its result reports."""
 
-    NO_SCENE = "NoScene"
     UNKNOWN_OBJECTS = "UnknownObjects"
     NO_CAMERA = "NoCamera"
     NOT_CAMERA = "NotCamera"
@@ -69,10 +69,9 @@ class NoPdf:
 
 
 def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, ...] = ()) -> Outcome:
-    """Project the strokes of the named Grease Pencil objects, or of every one with a Line Art modifier, through the scene camera onto a 1:`scale` sheet."""
+    """Project the strokes of the named Grease Pencil objects, or of every visible one, through the scene camera onto a 1:`scale` sheet."""
     depsgraph = bpy.context.evaluated_depsgraph_get()
-    if (scene := depsgraph.scene) is None:
-        return Rejected(Rejection.NO_SCENE, ())
+    scene = depsgraph.scene
     if missing := tuple(n for n in (objects if camera is None else (camera, *objects)) if n not in scene.objects):
         return Rejected(Rejection.UNKNOWN_OBJECTS, missing)
     match scene.camera if camera is None else scene.objects[camera]:
@@ -84,9 +83,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
             return Rejected(Rejection.NOT_ORTHOGRAPHIC, (view.name,))
         case view:
             return Rejected(Rejection.NOT_CAMERA, (view.name,))
-    drawn = [scene.objects[n] for n in objects] or [
-        o for o in scene.objects if isinstance(o.data, bpy.types.GreasePencil) and any(isinstance(m, bpy.types.GreasePencilLineartModifier) for m in o.modifiers)
-    ]
+    drawn = [scene.objects[n] for n in objects] or [o for o in scene.objects if isinstance(o.data, bpy.types.GreasePencil) and o.visible_get()]
     if foreign := tuple(o.name for o in drawn if not isinstance(o.data, bpy.types.GreasePencil)):
         return Rejected(Rejection.NOT_GREASE_PENCIL, foreign)
     to_view = view.matrix_world.normalized().inverted()
@@ -97,6 +94,11 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
     def number(value: float) -> str:
         """Text of the value to the significant digits single precision holds, the precision of Grease Pencil positions and camera frames."""
         return np.format_float_positional(value, precision=np.finfo(np.float32).precision, unique=False, fractional=False, trim="-")
+
+    def ink(style: bpy.types.MaterialGPencilStyle) -> str:
+        """Hex of the style's scene-linear stroke color in sRGB bytes, screen-ink white written as document black."""
+        srgb = (np.clip(Color(style.color[:3]).from_scene_linear_to_srgb()[:], 0, 1) * 255).round().astype(np.uint8)
+        return "#" + (np.zeros_like(srgb) if (srgb == 255).all() else srgb).tobytes().hex()
 
     def strokes(owner: bpy.types.Object, layer: bpy.types.GreasePencilLayer) -> list[ET.Element]:
         """One element per stroke of the layer's current drawing with two or more points and a visible material, in sheet millimeters with its own color, opacity, and width."""
@@ -120,11 +122,7 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
         xy = positions.reshape(-1, 3) @ projection[:2, :3].T + projection[:2, 3]
         points = np.column_stack(((xy[:, 0] - low[0]) * mm, (high[1] - xy[:, 1]) * mm))
         widths = 2 * (columns["radius"] + layer.radius_offset) * to_world.median_scale * mm
-        styles = {
-            i: ("#" + (np.clip(Color(style.color[:3]).from_scene_linear_to_srgb()[:], 0, 1) * 255).round().astype(np.uint8).tobytes().hex(), style.color[3])
-            for i, slot in enumerate(owner.material_slots)
-            if slot.material is not None and (style := slot.material.grease_pencil) is not None and not style.hide
-        }
+        styles = {i: (ink(style), style.color[3]) for i, slot in enumerate(owner.material_slots) if slot.material is not None and (style := slot.material.grease_pencil) is not None and not style.hide}
         return [
             ET.Element(
                 "polygon" if stroke.cyclic else "polyline",
@@ -136,8 +134,8 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
                 },
             )
             for stroke, (start, end) in zip(found, pairwise(offsets), strict=True)
-            if end - start > 1 and stroke.material_index in styles
-            for color, alpha in (styles[stroke.material_index],)
+            if end - start > 1 and (pen := styles.get(stroke.material_index)) is not None
+            for color, alpha in (pen,)
         ]
 
     pencils = [(o, data) for o in (d.evaluated_get(depsgraph) for d in drawn) if isinstance(data := o.data, bpy.types.GreasePencil)]
@@ -154,14 +152,12 @@ def sheet(name: str, scale: int, camera: str | None = None, objects: tuple[str, 
     path = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists()) / ".artifacts" / "blender" / f"{name}.svg"
     path.parent.mkdir(parents=True, exist_ok=True)
     ET.ElementTree(svg).write(path, encoding="utf-8")
-    pdf = path.with_suffix(".pdf")
-    match shutil.which("typst"):
-        case None:
-            return NoPdf(str(path), "typst is not on the PATH of this Blender process")
-        case typst:
-            page = "#set page(width: auto, height: auto, margin: 0pt)\n#image(sys.inputs.svg)\n"
-            compiled = subprocess.run((typst, "compile", "--root", path.anchor, "--input", f"svg={path}", "-", str(pdf)), input=page, capture_output=True, text=True, check=False)
-    return NoPdf(str(path), compiled.stderr.strip()) if compiled.returncode else Sheet(str(path), str(pdf), (float(width), float(height)), scale, view.name, counts)
+    svg_file, pdf = str(path), path.with_suffix(".pdf")
+    if (typst := shutil.which("typst")) is None:
+        return NoPdf(svg_file, "Blender's PATH holds no typst")
+    page = "#set page(width: auto, height: auto, margin: 0pt)\n#image(sys.inputs.svg)\n"
+    compiled = subprocess.run((typst, "compile", "--root", path.anchor, "--input", f"svg={path}", "-", str(pdf)), input=page, capture_output=True, text=True, check=False)
+    return NoPdf(svg_file, compiled.stderr.strip()) if compiled.returncode else Sheet(svg_file, str(pdf), (float(width), float(height)), scale, view.name, counts)
 
 
 def as_result(value: Outcome) -> dict[str, object]:

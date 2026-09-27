@@ -4,13 +4,6 @@ language: csharp
 severity: error
 utils:
     type-type: {regex: '^((global::)?System\.)?Type$'}
-    function-owner:
-        kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
-    type-parameter:
-        kind: parameter
-        has: {field: type, matches: type-type}
-    type-local:
-        inside: {kind: variable_declaration, has: {field: type, matches: type-type}}
     type-call:
         any:
             - kind: invocation_expression
@@ -22,18 +15,12 @@ utils:
         any:
             - matches: type-call
             - kind: identifier
-              pattern: $SOURCE
-              any:
-                - inside: {stopBy: end, matches: function-owner, has: {field: parameters, has: {matches: type-parameter, has: {field: name, pattern: $SOURCE}}}}
-                - matches: {csharp-block-local: {declarator: {matches: type-local}}}
+              matches: {csharp-declared-type: {type: {matches: type-type}}}
     type-value:
         any:
-            - matches: type-call
+            - matches: type-source
             - kind: identifier
-              pattern: $TYPED
-              inside: {stopBy: end, matches: function-owner, has: {field: parameters, has: {matches: type-parameter, has: {field: name, pattern: $TYPED}}}}
-            - kind: identifier
-              matches: {csharp-block-local: {declarator: {any: [{matches: type-local}, {all: [{inside: {kind: variable_declaration, has: {field: type, kind: implicit_type}}}, {has: {matches: type-source}}]}]}}}
+              matches: {csharp-block-local: {declarator: {all: [{inside: {kind: variable_declaration, has: {field: type, kind: implicit_type}}}, {has: {matches: type-source}}]}}}
             - kind: postfix_unary_expression
               has: {matches: type-value}
     direct-read:
@@ -82,12 +69,12 @@ utils:
                         kind: 'method_declaration, local_function_statement'
                         has: {field: returns, matches: created-type}
             - kind: invocation_expression
-              has:
-                field: function
-                kind: member_access_expression
-                all:
-                    - has: {field: expression, kind: identifier, regex: '^[A-Z]', matches: created-type}
-                    - not: {has: {field: expression, regex: '^(Console|RhinoApp|Debug|Trace|Assert|Log|Logger|String|string|Path|File|Directory|Math|Convert|Enum)$'}}
+              all:
+                - has: {field: function, kind: member_access_expression, has: {field: expression, kind: identifier, matches: created-type}}
+                - inside:
+                    kind: compilation_unit
+                    stopBy: end
+                    has: {stopBy: end, kind: 'class_declaration, record_declaration, struct_declaration', has: {field: name, pattern: $CREATED}}
 rule:
     matches: name-read
     pattern: $READ

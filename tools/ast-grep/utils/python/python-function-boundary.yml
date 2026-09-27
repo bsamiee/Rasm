@@ -1,5 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: python-function-boundary
-language: python
-rule:
-    kind: function_definition, lambda

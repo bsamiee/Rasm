@@ -3,10 +3,20 @@ id: no-expression-in-run-step
 language: yaml
 severity: error
 files: ['.github/**']
+utils:
+    key:
+        kind: plain_scalar, single_quote_scalar, double_quote_scalar
+        pattern: $KEY
+    script-step:
+        kind: block_mapping, flow_mapping
+        has:
+            kind: block_mapping_pair, flow_pair
+            all:
+                - has: {field: key, regex: '^(uses|"uses"|''uses'')$'}
+                - has: {field: value, regex: '^["'']?actions/github-script@'}
 rule:
     kind: block_mapping_pair, flow_pair
     all:
-        - has: {field: key, regex: '^(run|"run"|''run'')$'}
         - has:
             field: value
             regex: '\$\{\{'
@@ -14,5 +24,14 @@ rule:
                 - kind: flow_node
                 - kind: block_node
                   has: {kind: block_scalar}
-message: 'GitHub substitutes a `${{ }}` expression in a `run` script as text before the shell parses it'
-note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read `"$NAME"` in the script'
+        - any:
+            - has: {field: key, regex: '^(run|"run"|''run'')$', has: {matches: key, stopBy: end}}
+            - all:
+                - has: {field: key, regex: '^(script|"script"|''script'')$', has: {matches: key, stopBy: end}}
+                - inside:
+                    kind: block_mapping_pair, flow_pair
+                    stopBy: end
+                    has: {field: key, regex: '^(with|"with"|''with'')$'}
+                    inside: {matches: script-step}
+message: 'GitHub substitutes a `${{ }}` expression into the `$KEY` source as text before its interpreter parses it'
+note: 'Set `env: {NAME: ${{ <context> }}}` on the step and read the variable, `"$NAME"` in `run` and `process.env.NAME` in `script`'

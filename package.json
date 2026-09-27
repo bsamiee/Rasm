@@ -148,9 +148,6 @@
         "@pulumiverse/grafana": "catalog:",
         "@pyroscope/nodejs": "catalog:",
         "@qualithm/arrow-flight-client": "catalog:",
-        "@radix-ui/colors": "catalog:",
-        "@radix-ui/react-slot": "catalog:",
-        "@radix-ui/react-visually-hidden": "catalog:",
         "@react-aria/live-announcer": "catalog:",
         "@simplewebauthn/browser": "catalog:",
         "@simplewebauthn/server": "catalog:",
@@ -196,7 +193,6 @@
         "class-variance-authority": "catalog:",
         "cloudevents": "catalog:",
         "clsx": "catalog:",
-        "cmdk": "catalog:",
         "colorjs.io": "catalog:",
         "d3": "catalog:",
         "effect": "catalog:",
@@ -268,7 +264,6 @@
         "types-for-adobe": "catalog:",
         "typescript": "catalog:",
         "uplot": "catalog:",
-        "vaul": "catalog:",
         "vite": "catalog:",
         "vitest": "catalog:",
         "watlas": "catalog:",
@@ -284,7 +279,7 @@
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
                 "cache": true,
-                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,eng,libs,tests,tools}/**/*.csproj", "dotnet"],
+                "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,eng,libs,tests}/**/*.csproj", "dotnet"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"]
             },
             "browsers": {
@@ -317,7 +312,7 @@
                 "dependsOn": ["grammar"]
             },
             "outline": {
-                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml",
+                "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml",
                 "dependsOn": ["grammar"]
             },
             "lint": {
@@ -372,7 +367,7 @@
                 "dependsOn": ["restore"],
                 "options": {
                     "commands": [
-                        "node tools/interface/radix.ts",
+                        "node tools/interface/palette.ts",
                         "biome check --write --error-on-warnings",
                         "ruff check --fix",
                         "ruff format",
@@ -388,7 +383,7 @@
                     "typescript",
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
-                    "{workspaceRoot}/{infra,tools/nx,tools/yak,tools/interface}/*.ts",
+                    "{workspaceRoot}/{infra,tools/nx,tools/interface}/*.ts",
                     {
                         "externalDependencies": ["typescript"]
                     }
@@ -407,38 +402,25 @@
                 "parallelism": false
             },
             "interface": {
-                "command": "python tools/interface/cli.py",
+                "command": "python -m interface.cli",
+                "options": { "env": { "PYTHONPATH": "tools" } },
                 "parallelism": false,
-                "outputs": ["{workspaceRoot}/.artifacts/tools/interface"]
+                "outputs": ["{workspaceRoot}/.artifacts/tools/interface", "{workspaceRoot}/.cache/tools/interface"]
             },
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
+                "outputs": ["{workspaceRoot}/.artifacts/yak", "{workspaceRoot}/.cache/tools/interface"],
                 "options": {
                     "commands": [
                         "uv sync --upgrade",
                         "ncu --workspaces --target newest --upgrade --install always",
                         "dotnet run --project eng/dotnet/Rasm.Upgrade -- eng/dotnet/Rasm.Catalog/Rasm.Catalog.proj",
-                        "mise upgrade"
+                        "mise upgrade",
+                        "python -m interface.cli upgrade"
                     ],
-                    "parallel": false
-                },
-                "configurations": {
-                    "python": {
-                        "commands": ["uv sync --upgrade"]
-                    },
-                    "typescript": {
-                        "commands": ["ncu --workspaces --target newest --upgrade --install always"]
-                    },
-                    "dotnet": {
-                        "commands": ["dotnet run --project eng/dotnet/Rasm.Upgrade -- eng/dotnet/Rasm.Catalog/Rasm.Catalog.proj"]
-                    },
-                    "tools": {
-                        "commands": ["mise upgrade"]
-                    },
-                    "rhino": {
-                        "commands": ["node tools/yak/rhino-mcp-platform.ts"]
-                    }
+                    "parallel": false,
+                    "env": { "PYTHONPATH": "tools" }
                 }
             }
         }

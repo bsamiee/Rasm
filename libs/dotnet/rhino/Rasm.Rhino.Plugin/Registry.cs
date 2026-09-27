@@ -136,9 +136,6 @@ public static class PlugInRegistry {
     public static IO<Unit> CheckInLicense(Guid productId) =>
         IO.lift(() => Refused.Unless(LicenseUtils.CheckInLicense(productId), nameof(LicenseUtils.CheckInLicense)));
 
-    public static IO<Unit> ReturnLicense(Guid productId) =>
-        IO.lift(() => Refused.Unless(LicenseUtils.ReturnLicense(productId), nameof(LicenseUtils.ReturnLicense)));
-
     public static IO<Unit> ConvertLicense(Guid productId) =>
         IO.lift(() => Refused.Unless(LicenseUtils.ConvertLicense(productId), nameof(LicenseUtils.ConvertLicense)));
 

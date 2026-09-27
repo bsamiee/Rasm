@@ -1,7 +1,5 @@
 """Benchmark cases with absolute performance budgets over the pytest-benchmark fixture."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 from collections.abc import Callable, Sequence
 from typing import Literal
 
@@ -14,17 +12,7 @@ from pytest_benchmark.fixture import BenchmarkFixture
 
 
 class BenchmarkCase(msgspec.Struct, frozen=True):
-    """Benchmark subject, workload generator, and performance budget.
-
-    ``workload(size)`` builds the tuple passed to ``subject``.
-    ``budget_ms`` is an absolute ceiling over ``budget_statistic``, ``math.inf`` records timings without one.
-    ``--benchmark-compare-fail`` holds a relative ceiling against a stored run.
-
-    Attributes:
-        budget_statistic: Statistic compared with the budget, ``mean`` is tail-sensitive.
-        fresh_rounds: Measured rounds with the workload rebuilt before each, for a mutating or consuming subject.
-            ``None`` lets the benchmark options own the rounds.
-    """
+    """Benchmark subject, workload generator, sizes, and absolute performance budget over one timing statistic."""
 
     label: str
     subject: Callable[[tuple[object, ...]], object]

@@ -1,7 +1,5 @@
 """Hypothesis strategy construction for msgspec and pydantic-core schemas."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 from collections.abc import Callable, Mapping
 import dataclasses
 import datetime as dt
@@ -32,8 +30,7 @@ class _Size(TypedDict):
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-_NUM_CEILING = 1_000_000
-_TEXT_CAP = 64
+_NUMERIC_CEILING = 1_000_000
 
 _JSON: st.SearchStrategy[object] = st.recursive(
     st.none() | st.booleans() | st.integers(min_value=-1_000, max_value=1_000) | st.text(max_size=16),
@@ -46,9 +43,9 @@ _PATH = st.lists(_PATH_PART, min_size=1, max_size=3).map(lambda parts: Path(*par
 # --- [CONSTRAINTS] ----------------------------------------------------------------------
 
 
-def _size(mn: object, mx: object, cap: int) -> _Size:
-    lo = mn if isinstance(mn, int) else 0
-    return {"min_size": lo, "max_size": max(lo, min(mx, cap) if isinstance(mx, int) else cap)}
+def _size(minimum: object, maximum: object, cap: int) -> _Size:
+    lower = minimum if isinstance(minimum, int) else 0
+    return {"min_size": lower, "max_size": max(lower, min(maximum, cap) if isinstance(maximum, int) else cap)}
 
 
 def _timezones(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:ignore[boolean-type-hint-positional-argument]
@@ -62,15 +59,10 @@ def _timezones(tz: bool | None) -> st.SearchStrategy[dt.tzinfo | None]:  # ruff:
 
 
 def _multiples[N](lower: object, upper: object, step: object, convert: Callable[[Decimal], N], *, exclude_lower: bool = False, exclude_upper: bool = False) -> st.SearchStrategy[N]:
-    """Return a strategy drawing the multiplier k directly, every value is a valid in-range multiple with zero rejection.
-
-    Fraction bounds are exact for int, float, and Decimal inputs.
-    A None bound is the numeric ceiling on that side.
-    An exclusive bound equal to a multiple shrinks the k window by one and excludes the boundary itself.
-    """
+    """Return a strategy over the in-range multiples of ``step`` that draws the integer multiplier."""
     decimal_step = Decimal(str(step))
-    lower_quotient = Fraction(str(-_NUM_CEILING if lower is None else lower)) / Fraction(decimal_step)
-    upper_quotient = Fraction(str(_NUM_CEILING if upper is None else upper)) / Fraction(decimal_step)
+    lower_quotient = Fraction(str(-_NUMERIC_CEILING if lower is None else lower)) / Fraction(decimal_step)
+    upper_quotient = Fraction(str(_NUMERIC_CEILING if upper is None else upper)) / Fraction(decimal_step)
     lower_ceiling = ceil(lower_quotient)
     upper_floor = floor(upper_quotient)
     minimum_multiplier = lower_ceiling + (1 if exclude_lower and lower_quotient == lower_ceiling else 0)
@@ -82,49 +74,46 @@ def _multiples[N](lower: object, upper: object, step: object, convert: Callable[
     )
 
 
-def _text(mn: object, mx: object, pattern: object) -> st.SearchStrategy[str]:
-    lo = mn if isinstance(mn, int) else 1
-    hi = min(mx, _TEXT_CAP) if isinstance(mx, int) else _TEXT_CAP
-    if lo > hi:
+def _text(minimum: object, maximum: object, pattern: object) -> st.SearchStrategy[str]:
+    lower = minimum if isinstance(minimum, int) else 1
+    cap = 64
+    upper = min(maximum, cap) if isinstance(maximum, int) else cap
+    if lower > upper:
         return st.nothing()
-    return st.from_regex(pattern, fullmatch=True).filter(lambda s: lo <= len(s) <= hi) if isinstance(pattern, str) else st.text(min_size=lo, max_size=hi)
+    return st.from_regex(pattern, fullmatch=True).filter(lambda s: lower <= len(s) <= upper) if isinstance(pattern, str) else st.text(min_size=lower, max_size=upper)
 
 
 # --- [MSGSPEC_SCHEMAS] ------------------------------------------------------------------
 
 
 def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]:
-    """Return a bounded strategy for a ``msgspec.inspect`` schema.
-
-    Raises:
-        AssertionError: The schema kind is unsupported.
-    """
+    """Return a bounded strategy for a ``msgspec.inspect`` schema."""
     match schema:
         case msgspec.inspect.IntType(ge=ge, gt=gt, le=le, lt=lt):
-            lo = next(bound for bound in (ge, gt, -_NUM_CEILING) if bound is not None) + (ge is None and gt is not None)
-            hi = next(bound for bound in (le, lt, _NUM_CEILING) if bound is not None) - (le is None and lt is not None)
+            lower = next(bound for bound in (ge, gt, -_NUMERIC_CEILING) if bound is not None) + (ge is None and gt is not None)
+            upper = next(bound for bound in (le, lt, _NUMERIC_CEILING) if bound is not None) - (le is None and lt is not None)
             step = schema.multiple_of
-            return _multiples(lo, hi, step, int) if isinstance(step, int) else st.integers(min_value=lo, max_value=hi)
+            return _multiples(lower, upper, step, int) if isinstance(step, int) else st.integers(min_value=lower, max_value=upper)
         case msgspec.inspect.FloatType(ge=ge, gt=gt, le=le, lt=lt):
-            lo_f = next(bound for bound in (ge, gt, -float(_NUM_CEILING)) if bound is not None)
-            hi_f = next(bound for bound in (le, lt, float(_NUM_CEILING)) if bound is not None)
-            open_lo, open_hi = ge is None and gt is not None, le is None and lt is not None
-            step_f = schema.multiple_of
+            float_lower = next(bound for bound in (ge, gt, -float(_NUMERIC_CEILING)) if bound is not None)
+            float_upper = next(bound for bound in (le, lt, float(_NUMERIC_CEILING)) if bound is not None)
+            open_lower, open_upper = ge is None and gt is not None, le is None and lt is not None
+            float_step = schema.multiple_of
             return (
-                _multiples(lo_f, hi_f, step_f, float, exclude_lower=open_lo, exclude_upper=open_hi)
-                if isinstance(step_f, int | float)
-                else st.floats(min_value=lo_f, max_value=hi_f, exclude_min=open_lo, exclude_max=open_hi, allow_nan=False, allow_infinity=False)
+                _multiples(float_lower, float_upper, float_step, float, exclude_lower=open_lower, exclude_upper=open_upper)
+                if isinstance(float_step, int | float)
+                else st.floats(min_value=float_lower, max_value=float_upper, exclude_min=open_lower, exclude_max=open_upper, allow_nan=False, allow_infinity=False)
             )
-        case msgspec.inspect.StrType(min_length=mn, max_length=mx, pattern=pat):
-            return _text(mn, mx, pat)
+        case msgspec.inspect.StrType(min_length=minimum, max_length=maximum, pattern=pattern):
+            return _text(minimum, maximum, pattern)
         case msgspec.inspect.BoolType():
             return st.booleans()
-        case msgspec.inspect.BytesType(min_length=mn, max_length=mx):
-            return st.binary(**_size(mn, mx, 256))
-        case msgspec.inspect.ByteArrayType(min_length=mn, max_length=mx):
-            return st.binary(**_size(mn, mx, 256)).map(bytearray)
-        case msgspec.inspect.MemoryViewType(min_length=mn, max_length=mx):
-            return st.binary(**_size(mn, mx, 256)).map(memoryview)
+        case msgspec.inspect.BytesType(min_length=minimum, max_length=maximum):
+            return st.binary(**_size(minimum, maximum, 256))
+        case msgspec.inspect.ByteArrayType(min_length=minimum, max_length=maximum):
+            return st.binary(**_size(minimum, maximum, 256)).map(bytearray)
+        case msgspec.inspect.MemoryViewType(min_length=minimum, max_length=maximum):
+            return st.binary(**_size(minimum, maximum, 256)).map(memoryview)
         case msgspec.inspect.EnumType(cls=cls):
             return st.sampled_from(list(cls))
         case msgspec.inspect.LiteralType(values=values):
@@ -145,16 +134,16 @@ def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]
             return st.none()
         case msgspec.inspect.UnionType(types=types):
             return st.one_of(*(_msgspec_strategy(member) for member in types))
-        case msgspec.inspect.VarTupleType(item_type=item, min_length=mn, max_length=mx):
-            return st.lists(_msgspec_strategy(item), **_size(mn, mx, 3)).map(tuple)
+        case msgspec.inspect.VarTupleType(item_type=item, min_length=minimum, max_length=maximum):
+            return st.lists(_msgspec_strategy(item), **_size(minimum, maximum, 3)).map(tuple)
         case msgspec.inspect.TupleType(item_types=items):
             return st.tuples(*(_msgspec_strategy(item) for item in items))
-        case msgspec.inspect.ListType(item_type=item, min_length=mn, max_length=mx) | msgspec.inspect.CollectionType(item_type=item, min_length=mn, max_length=mx):
-            return st.lists(_msgspec_strategy(item), **_size(mn, mx, 3))
-        case msgspec.inspect.SetType(item_type=item, min_length=mn, max_length=mx) | msgspec.inspect.FrozenSetType(item_type=item, min_length=mn, max_length=mx):
-            return st.frozensets(_msgspec_strategy(item), **_size(mn, mx, 3))
-        case msgspec.inspect.DictType(key_type=key, value_type=val, min_length=mn, max_length=mx):
-            return st.dictionaries(_msgspec_strategy(key), _msgspec_strategy(val), **_size(mn, mx, 3))
+        case msgspec.inspect.ListType(item_type=item, min_length=minimum, max_length=maximum) | msgspec.inspect.CollectionType(item_type=item, min_length=minimum, max_length=maximum):
+            return st.lists(_msgspec_strategy(item), **_size(minimum, maximum, 3))
+        case msgspec.inspect.SetType(item_type=item, min_length=minimum, max_length=maximum) | msgspec.inspect.FrozenSetType(item_type=item, min_length=minimum, max_length=maximum):
+            return st.frozensets(_msgspec_strategy(item), **_size(minimum, maximum, 3))
+        case msgspec.inspect.DictType(key_type=key, value_type=value, min_length=minimum, max_length=maximum):
+            return st.dictionaries(_msgspec_strategy(key), _msgspec_strategy(value), **_size(minimum, maximum, 3))
         case msgspec.inspect.StructType(cls=cls) | msgspec.inspect.DataclassType(cls=cls) | msgspec.inspect.TypedDictType(cls=cls) | msgspec.inspect.NamedTupleType(cls=cls):
             return strategy_for(cls)
         case msgspec.inspect.RawType():
@@ -164,7 +153,7 @@ def _msgspec_strategy(schema: msgspec.inspect.Type) -> st.SearchStrategy[object]
         case msgspec.inspect.CustomType(cls=cls):
             return st.from_type(cls)
         case msgspec.inspect.ExtType():
-            return st.tuples(st.integers(min_value=0, max_value=127), st.binary(max_size=16)).map(lambda cd: msgspec.msgpack.Ext(*cd))
+            return st.tuples(st.integers(min_value=0, max_value=127), st.binary(max_size=16)).map(lambda pair: msgspec.msgpack.Ext(*pair))
         case _:  # pragma: no cover
             raise AssertionError(f"unsupported msgspec schema {type(schema).__name__}")
 
@@ -216,26 +205,26 @@ def _pydantic_strategy(schema: CoreSchema, definitions: dict[str, CoreSchema]) -
         case "decimal":
             decimal_lower, exclude_lower = _numeric_bound(schema, "ge", "gt")
             decimal_upper, exclude_upper = _numeric_bound(schema, "le", "lt")
-            dp: int | None
+            places: int | None
             digit_lower: Decimal | None
             digit_upper: Decimal | None
             match schema.get("decimal_places"), schema.get("max_digits"):
-                case int() as dp, int() as digits:
-                    digit_upper = Decimal(10) ** (digits - dp) - Decimal(10) ** (-dp)
+                case int() as places, int() as digits:
+                    digit_upper = Decimal(10) ** (digits - places) - Decimal(10) ** (-places)
                     digit_lower = -digit_upper
-                case int() as dp, _:
+                case int() as places, _:
                     digit_lower = digit_upper = None
                 case _, int() as digits:
-                    dp = 0
+                    places = 0
                     digit_upper = Decimal(10) ** digits - 1
                     digit_lower = -digit_upper
                 case _:
-                    dp = digit_lower = digit_upper = None
+                    places = digit_lower = digit_upper = None
             effective_lower = decimal_lower if decimal_lower is not None else digit_lower
             effective_upper = decimal_upper if decimal_upper is not None else digit_upper
             if (multiple_of := schema.get("multiple_of")) is not None:
                 return _multiples(effective_lower, effective_upper, multiple_of, lambda value: value, exclude_lower=exclude_lower, exclude_upper=exclude_upper)
-            values = st.decimals(min_value=effective_lower, max_value=effective_upper, places=dp, allow_nan=False, allow_infinity=False)
+            values = st.decimals(min_value=effective_lower, max_value=effective_upper, places=places, allow_nan=False, allow_infinity=False)
             return (
                 values.filter(lambda value: (not exclude_lower or effective_lower is None or value > effective_lower) and (not exclude_upper or effective_upper is None or value < effective_upper))
                 if (exclude_lower or exclude_upper)
@@ -313,10 +302,7 @@ def _pydantic_strategy(schema: CoreSchema, definitions: dict[str, CoreSchema]) -
 
 
 def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
-    """Return the case fields of an ``expression`` ``@tagged_union`` class mapped to type hints, or ``None`` for any other subject.
-
-    The decorator leaves every dataclass field ``init=False`` and ``kw_only`` behind a leading ``tag`` discriminator and replaces ``__init__`` with an exactly-one-case constructor, field-wise sampling builds invalid unions, and detection keys on the structural signature.
-    """
+    """Return the case fields of an ``expression`` ``@tagged_union`` class mapped to type hints, or ``None`` for any other subject."""
     if not (dataclasses.is_dataclass(subject) and isinstance(subject, type)):
         return None
     fields = dataclasses.fields(subject)
@@ -328,10 +314,7 @@ def _tagged_cases(subject: type) -> dict[str, TypeForm[object]] | None:
 
 @functools.cache
 def _register(subject: type) -> None:
-    """Register the Hypothesis strategy of a class once, a tagged union, a pydantic model, or a msgspec-described type.
-
-    The registry takes the strategy as a function of the type, resolved at the first draw, a strategy value would resolve at registration and re-enter this function through the fields that name the class.
-    """
+    """Register the Hypothesis strategy of a tagged union, pydantic model, or msgspec-described class once."""
     if (cases := _tagged_cases(subject)) is not None:
 
         def _case(name: str, hint: TypeForm[object]) -> st.SearchStrategy[object]:

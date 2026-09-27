@@ -1,5 +1,6 @@
-# mypy: disable-error-code="unreachable, attr-defined"
-# ty: ignore[unresolved-attribute, invalid-context-manager]
+# mypy: disable-error-code="unreachable, attr-defined, import-not-found, union-attr"
+# ty: ignore[unresolved-attribute, invalid-context-manager, unresolved-import]
+# ruff: file-ignore[import-private-name]
 """Find operators, RNA types, and add-on settings matching words across stock Blender and every enabled add-on, run inside Blender through `runpy.run_path`."""
 
 import ast
@@ -7,16 +8,14 @@ from enum import auto, StrEnum
 import inspect
 from itertools import accumulate
 from pathlib import Path
-import sys
 import textwrap
 
+import _bpy
 import attrs
 import bpy
 import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
-
-type Outcome = Discovery | Unset
 
 
 class Tool(StrEnum):
@@ -61,7 +60,7 @@ class Setting:
     """Runtime property an add-on registered on an ID type, with its fields' values on the context's instance of that type."""
 
     path: str
-    group: str
+    type: str
     values: dict[str, object] | None
     next: Tool
 
@@ -75,25 +74,13 @@ class Discovery:
     settings: tuple[Setting, ...]
 
 
-# --- [ERRORS] ---------------------------------------------------------------------------
-
-
-@attrs.frozen
-class Unset:
-    """RNA pointer the search reads that holds no value, by its path."""
-
-    path: str
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def discover(*words: str) -> Outcome:
+def discover(*words: str) -> Discovery:
     """Operators, RNA types, and add-on settings with every word in their text, polls answered in the timer context and in the largest 3D Viewport."""
-    if (preferences := bpy.context.preferences) is None:
-        return Unset("context.preferences")
     needles = tuple(word.lower() for word in words)
-    addons = {key: addon.module for addon in preferences.addons for key in {addon.module, addon.module.rpartition(".")[2]}}
+    addons = {key: addon.module for addon in bpy.context.preferences.addons for key in {addon.module, addon.module.rpartition(".")[2]}}
     resources = Path(bpy.utils.resource_path("LOCAL"))
     members = tuple(bpy.context.copy().values())
     arguments = set(bpy.types.OperatorProperties.bl_rna.properties.keys())
@@ -112,8 +99,7 @@ def discover(*words: str) -> Outcome:
 
     def owner(cls: type) -> str | None:
         """Enabled add-on with a module or extension id naming the package holding the class, none for Blender's own and agent code."""
-        packages = (sys.modules.get(package) for package in accumulate(cls.__module__.split("."), lambda head, part: f"{head}.{part}"))
-        return next((addons[package.__name__] for package in packages if package and package.__name__ in addons), None)
+        return next((addons[package] for package in accumulate(cls.__module__.split("."), lambda head, part: f"{head}.{part}") if package in addons), None)
 
     def source(cls: type) -> str | None:
         """File defining the class, none for a compiled class or one from agent code."""
@@ -127,13 +113,11 @@ def discover(*words: str) -> Outcome:
         bundled = cls.__module__ == bpy.types.__name__ or (file is not None and Path(file).is_relative_to(resources))
         return Tool.GET_PYTHON_API_DOCS if who is None and bundled else Tool.BPY_API_LOOKUP
 
-    def reads(cls: type, file: str | None) -> tuple[str, ...]:
+    def reads(cls: type) -> tuple[str, ...]:
         """Deepest context chains up to two members the class's source reads, none for a class without a source file or with lines Python cannot find."""
-        if file is None:
-            return ()
         try:
             tree = ast.parse(textwrap.dedent(inspect.getsource(cls)))
-        except OSError:
+        except (OSError, TypeError):
             return ()
         dotted = (ast.unparse(node).removeprefix("bpy.").split(".")[:3] for node in ast.walk(tree) if isinstance(node, ast.Attribute))
         chains = {".".join(parts) for parts in dotted if len(parts) > 1 and parts[0] == "context" and parts[1] not in methods and all(map(str.isidentifier, parts))}
@@ -155,15 +139,17 @@ def discover(*words: str) -> Outcome:
             case _:
                 return np.asarray(raw).tolist()
 
-    def operator(category: str, name: str) -> Operator | None:
-        entry = getattr(getattr(bpy.ops, category), name)
-        rna, call = entry.get_rna_type(), f"bpy.ops.{category}.{name}"
+    def operator(idname: str) -> Operator | None:
+        """Operator hit for one registered idname, the operator function read through `_bpy.ops.create_function`."""
+        prefix, _, name = idname.partition("_OT_")
+        entry = _bpy.ops.create_function(prefix.lower(), name)
+        rna, call = entry.get_rna_type(), f"bpy.ops.{entry.idname_py()}"
         if not matches(f"{call} {rna.name} {rna.description}"):
             return None
-        match bpy.types.Operator.bl_rna_get_subclass_py(entry.idname()):
+        match bpy.types.Operator.bl_rna_get_subclass_py(idname):
             case type() as cls:
                 who, file = owner(cls), source(cls)
-                chains, following = reads(cls, file), tool(cls, who, file)
+                chains, following = reads(cls), tool(cls, who, file)
             case _:
                 who, chains, file, following = None, (), None, Tool.GET_PYTHON_API_DOCS
         with view:
@@ -185,27 +171,23 @@ def discover(*words: str) -> Outcome:
             case _:
                 group, kind, names = None, prop.type, (prop.identifier,)
         path = f"{host.__name__}.{prop.identifier}"
-        if not matches(f"{path} {prop.name} {kind}"):
+        if not matches(f"{path} {prop.name} {prop.description} {'' if group is None else kind}"):
             return None
         instance = next((m for m in members if isinstance(m, host)), None)
         target = instance if instance is None or group is None else getattr(instance, prop.identifier)
         return Setting(path, kind, None if target is None else {n: value(getattr(target, n)) for n in names}, Tool.BPY_API_LOOKUP)
 
-    operators = (operator(category, name) for category in dir(bpy.ops) for name in dir(getattr(bpy.ops, category)))
+    operators = map(operator, _bpy.ops.dir())
     types = (rna_type(name, cls) for name in dir(bpy.types) if isinstance(cls := getattr(bpy.types, name), type) and issubclass(cls, bpy.types.bpy_struct) and cls is not bpy.types.bpy_struct)
     settings = (setting(host, prop) for host in bpy.types.ID.__subclasses__() for prop in host.bl_rna.properties if prop.is_runtime)
-    return Discovery(tuple(o for o in operators if o), tuple(t for t in types if t), tuple(s for s in settings if s))
+    return Discovery(tuple(filter(None, operators)), tuple(filter(None, types)), tuple(filter(None, settings)))
 
 
-def as_result(value: Outcome) -> dict[str, object]:
-    """`result` dict for `execute_blender_code`, the case name under `kind` and a count per group of a discovery."""
-    match value:
-        case Discovery():
-            return {"kind": type(value).__name__, "counts": {f.name: len(getattr(value, f.name)) for f in attrs.fields(Discovery)}, **attrs.asdict(value)}
-        case Unset():
-            return {"kind": type(value).__name__, **attrs.asdict(value)}
+def as_result(value: Discovery) -> dict[str, object]:
+    """`result` dict for `execute_blender_code`, the case name under `kind` and a count per group."""
+    return {"kind": type(value).__name__, "counts": {f.name: len(getattr(value, f.name)) for f in attrs.fields(Discovery)}, **attrs.asdict(value)}
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Discovery", "Operator", "Outcome", "Setting", "Tool", "Type", "Unset", "as_result", "discover"]
+__all__ = ["Discovery", "Operator", "Setting", "Tool", "Type", "as_result", "discover"]

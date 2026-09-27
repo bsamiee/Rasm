@@ -47,7 +47,16 @@
                 "outputs": ["{workspaceRoot}/.artifacts/{projectRoot}"]
             }
         ],
-        "deploy": [{ "filter": { "projects": ["tag:host:uxp"] }, "dependsOn": ["build"], "parallelism": false }],
+        "pack": [
+            {
+                "filter": { "projects": ["tag:host:rhino"] },
+                "command": "python -m interface.rhino.packages pack {projectRoot}",
+                "cache": true,
+                "inputs": ["production", "^production", "dotnet", "python", "{workspaceRoot}/tools/interface/rhino/packages.py", { "runtime": "yak version" }],
+                "outputs": ["{workspaceRoot}/.artifacts/yak/{projectRoot}"],
+                "options": { "env": { "PYTHONPATH": "tools" } }
+            }
+        ],
         "install": [
             {
                 "filter": { "projects": ["tag:language:swift"] },
@@ -60,6 +69,13 @@
                     ],
                     "parallel": false
                 },
+                "parallelism": false
+            },
+            {
+                "filter": { "projects": ["tag:host:rhino"] },
+                "command": "python -m interface.rhino.packages install {projectRoot}",
+                "dependsOn": ["pack"],
+                "options": { "env": { "PYTHONPATH": "tools" } },
                 "parallelism": false
             }
         ],
@@ -121,7 +137,7 @@
     },
     "plugins": [
         { "plugin": "@nx/vitest", "exclude": ["vitest.config.ts", "vite.config.ts"], "options": { "testMode": "run" } },
-        { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false } },
+        { "plugin": "@nx/dotnet", "options": { "clean": false, "pack": false, "publish": false, "restore": false, "watch": false } },
         { "plugin": "./tools/nx/workspace.ts" }
     ]
 }

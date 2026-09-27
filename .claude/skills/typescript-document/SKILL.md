@@ -100,13 +100,13 @@ Each member of a named `interface` or `type` takes a one-line doc comment, the l
  * Options for the retry policy
  */
 interface RetryOptions {
-  /** Attempts before the effect fails with the last error */
-  attempts: number;
-  /**
-   * Delay between attempts in milliseconds
-   * @defaultValue `5000`
-   */
-  delay?: number;
+    /** Attempts before the effect fails with the last error */
+    attempts: number;
+    /**
+     * Delay between attempts in milliseconds
+     * @defaultValue `5000`
+     */
+    delay?: number;
 }
 ```
 

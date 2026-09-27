@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import { NodeServices } from '@effect/platform-node';
 import { Array, Effect, FileSystem, Path, Schema, String } from 'effect';
 import { defaultClientConditions, defaultServerConditions, defaultServerMainFields, type UserConfig, type UserConfigFnPromise } from 'vite';
@@ -13,7 +11,7 @@ const _HOST_MODULE = /^adobe:/u;
 const _Package = Schema.fromJsonString(Schema.Struct({ main: Schema.String }));
 const _Plugin = Schema.Struct({ plugin: Schema.Struct({ main: Schema.String }) });
 
-// --- [CONFIGURATION] -------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const _config = Effect.gen(function* () {
     const fs = yield* FileSystem.FileSystem;
@@ -38,7 +36,7 @@ const _config = Effect.gen(function* () {
     } satisfies UserConfig;
 });
 
-const userConfig: UserConfigFnPromise = (): Promise<UserConfig> => Effect.runPromise(_config.pipe(Effect.orDie, Effect.provide(NodeServices.layer)));
+const userConfig: UserConfigFnPromise = (): Promise<UserConfig> => _config.pipe(Effect.orDie, Effect.provide(NodeServices.layer), Effect.runPromise);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

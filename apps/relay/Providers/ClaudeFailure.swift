@@ -1,6 +1,8 @@
 import Foundation
 import Subprocess
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
 nonisolated enum ClaudeFailure: ProviderFailure {
   case executableMissing
   case signInRequired
@@ -10,9 +12,9 @@ nonisolated enum ClaudeFailure: ProviderFailure {
   case keychainLocked
   case filesystem(any Error)
   case invalidCredentials
-  case invalidIdentity(IdentityFailure)
+  case invalidIdentity(IdentityErrors)
   case invalidResponse
-  case invalidQuota(ClaudeQuotaErrors)
+  case invalidQuota(ClaudeQuotaFailures)
   case http(Int)
   case rateLimited(until: Date?)
   case transport(any Error)
@@ -97,6 +99,13 @@ nonisolated extension ClaudeFailure {
   }
 }
 
+nonisolated struct ClaudeQuotaFailures: AggregateError {
+  let first: QuotaFailure
+  let remaining: [QuotaFailure]
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 nonisolated extension Result where Failure == KeychainFailure {
   func claude() -> Result<Success, ClaudeFailure> {
     mapError { failure in
@@ -113,9 +122,4 @@ nonisolated extension Result where Failure == ProcessFailure {
   func claude() -> Result<Success, ClaudeFailure> {
     mapError(ClaudeFailure.init(process:))
   }
-}
-
-nonisolated struct ClaudeQuotaErrors: AggregateError {
-  let first: QuotaFailure
-  let remaining: [QuotaFailure]
 }

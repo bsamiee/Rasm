@@ -53,7 +53,7 @@ BAD:
 
 ```xml
 <Target Name="AfterBuild">
-  <Message Importance="high" Text="built" />
+    <Message Importance="high" Text="built" />
 </Target>
 ```
 
@@ -61,7 +61,7 @@ GOOD:
 
 ```xml
 <Target Name="ReportBuild" AfterTargets="Build">
-  <Message Importance="high" Text="built $(TargetPath)" />
+    <Message Importance="high" Text="built $(TargetPath)" />
 </Target>
 ```
 
@@ -69,7 +69,7 @@ GOOD in `Directory.Build.targets`:
 
 ```xml
 <PropertyGroup>
-  <CompileDependsOn>$(CompileDependsOn);ReportCompile</CompileDependsOn>
+    <CompileDependsOn>$(CompileDependsOn);ReportCompile</CompileDependsOn>
 </PropertyGroup>
 ```
 
@@ -95,10 +95,10 @@ MSBuild skips a target with every output at least as new as its inputs, a target
 
 ```xml
 <Target Name="RegisterTool" AfterTargets="Build" Inputs="$(MSBuildAllProjects)" Outputs="$(IntermediateOutputPath)register-tool.marker">
-  <Touch Files="$(IntermediateOutputPath)register-tool.marker" AlwaysCreate="true" />
-  <ItemGroup>
-    <FileWrites Include="$(IntermediateOutputPath)register-tool.marker" />
-  </ItemGroup>
+    <Touch Files="$(IntermediateOutputPath)register-tool.marker" AlwaysCreate="true" />
+    <ItemGroup>
+        <FileWrites Include="$(IntermediateOutputPath)register-tool.marker" />
+    </ItemGroup>
 </Target>
 ```
 
@@ -109,24 +109,24 @@ Globs outside a target expand during evaluation and cannot see a file a target w
 ```xml
 <Target Name="GenerateBuildInfoSource" BeforeTargets="CoreCompile"
         Inputs="$(MSBuildAllProjects);@(BuildInfoInput)" Outputs="$(IntermediateOutputPath)BuildInfo.g.cs">
-  <ReadLinesFromFile File="@(BuildInfoInput)">
-    <Output TaskParameter="Lines" PropertyName="_BuildLabel" />
-  </ReadLinesFromFile>
-  <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs" Overwrite="true" WriteOnlyWhenDifferent="true"
-                    Lines="// &lt;auto-generated /&gt;%0Ainternal static class BuildInfo { public const string Label = &quot;$(_BuildLabel)&quot;%3B }" />
-  <ItemGroup>
-    <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
-    <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
-  </ItemGroup>
+    <ReadLinesFromFile File="@(BuildInfoInput)">
+        <Output TaskParameter="Lines" PropertyName="_BuildLabel" />
+    </ReadLinesFromFile>
+    <WriteLinesToFile File="$(IntermediateOutputPath)BuildInfo.g.cs" Overwrite="true" WriteOnlyWhenDifferent="true"
+                      Lines="// &lt;auto-generated /&gt;%0Ainternal static class BuildInfo { public const string Label = &quot;$(_BuildLabel)&quot;%3B }" />
+    <ItemGroup>
+        <Compile Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+        <FileWrites Include="$(IntermediateOutputPath)BuildInfo.g.cs" />
+    </ItemGroup>
 </Target>
 
 <Target Name="GenerateManifestData" BeforeTargets="AssignTargetPaths"
         Inputs="$(MSBuildAllProjects);@(BuildInfoInput)" Outputs="$(IntermediateOutputPath)manifest.json">
-  <WriteLinesToFile File="$(IntermediateOutputPath)manifest.json" Lines="{}" Overwrite="true" WriteOnlyWhenDifferent="true" />
-  <ItemGroup>
-    <None Include="$(IntermediateOutputPath)manifest.json" TargetPath="data/manifest.json" CopyToOutputDirectory="PreserveNewest" />
-    <FileWrites Include="$(IntermediateOutputPath)manifest.json" />
-  </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)manifest.json" Lines="{}" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+        <None Include="$(IntermediateOutputPath)manifest.json" TargetPath="data/manifest.json" CopyToOutputDirectory="PreserveNewest" />
+        <FileWrites Include="$(IntermediateOutputPath)manifest.json" />
+    </ItemGroup>
 </Target>
 ```
 
@@ -164,14 +164,14 @@ Tasks inside a target run at execution time with the current properties and item
 <Exec Command="dotnet --version" ConsoleToMSBuild="true" IgnoreExitCode="true" EchoOff="true"
       WorkingDirectory="$(MSBuildProjectDirectory)" EnvironmentVariables="DOTNET_NOLOGO=1;DOTNET_CLI_TELEMETRY_OPTOUT=1"
       StandardOutputImportance="low">
-  <Output TaskParameter="ConsoleOutput" PropertyName="ToolVersion" />
-  <Output TaskParameter="ExitCode" PropertyName="ToolExitCode" />
+    <Output TaskParameter="ConsoleOutput" PropertyName="ToolVersion" />
+    <Output TaskParameter="ExitCode" PropertyName="ToolExitCode" />
 </Exec>
 <Error Text="dotnet --version exited with $(ToolExitCode)" Condition="'$(ToolExitCode)' != '0'" />
 
 <MSBuild Projects="@(ProjectReference)" Targets="GetSchemaFiles" BuildInParallel="$(BuildInParallel)"
          RemoveProperties="RuntimeIdentifier" SkipNonexistentTargets="true">
-  <Output TaskParameter="TargetOutputs" ItemName="_CollectedSchema" />
+    <Output TaskParameter="TargetOutputs" ItemName="_CollectedSchema" />
 </MSBuild>
 ```
 
@@ -190,10 +190,10 @@ Tasks inside a target run at execution time with the current properties and item
 
 ```xml
 <PropertyGroup>
-  <AllowedGroups>;images;data;</AllowedGroups>
+    <AllowedGroups>;images;data;</AllowedGroups>
 </PropertyGroup>
 <ItemGroup>
-  <AllowedAsset Include="@(Asset)" Condition="$(AllowedGroups.Contains(';%(Asset.Group);'))" />
+    <AllowedAsset Include="@(Asset)" Condition="$(AllowedGroups.Contains(';%(Asset.Group);'))" />
 </ItemGroup>
 <Error Text="Asset '%(Asset.Identity)' group '%(Asset.Group)' is not allowed" Condition="!$(AllowedGroups.Contains(';%(Asset.Group);'))" />
 ```
@@ -218,10 +218,10 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 
 ```xml
 <Target Name="Stage" DependsOnTargets="Prepare">
-  <Exec Command="tool --optional-step" ContinueOnError="WarnAndContinue" />
-  <Error Code="TOOL0001" File="tool.config" Text="tool.config lacks a stage entry" Condition="'$(StageEntry)' == ''" />
-  <OnError ExecuteTargets="Cleanup" Condition="'$(KeepStageOutput)' != 'true'" />
-  <OnError ExecuteTargets="Report" />
+    <Exec Command="tool --optional-step" ContinueOnError="WarnAndContinue" />
+    <Error Code="TOOL0001" File="tool.config" Text="tool.config lacks a stage entry" Condition="'$(StageEntry)' == ''" />
+    <OnError ExecuteTargets="Cleanup" Condition="'$(KeepStageOutput)' != 'true'" />
+    <OnError ExecuteTargets="Report" />
 </Target>
 ```
 
@@ -243,7 +243,7 @@ Command line switches prove what a target returns and control the whole build:
 
 ```xml
 <ItemGroup>
-  <ProjectReferenceTargets Include="Build" Targets="GetSchemaFiles" />
+    <ProjectReferenceTargets Include="Build" Targets="GetSchemaFiles" />
 </ItemGroup>
 ```
 
@@ -269,11 +269,11 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 
 ```xml
 <Target Name="AddNoticesToPublish" AfterTargets="ComputeFilesToPublish">
-  <WriteLinesToFile File="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" Lines="@(Notice)" Overwrite="true" WriteOnlyWhenDifferent="true" />
-  <ItemGroup>
-    <ResolvedFileToPublish Include="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" RelativePath="legal/THIRD-PARTY-NOTICES.txt" CopyToPublishDirectory="PreserveNewest" />
-    <FileWrites Include="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" />
-  </ItemGroup>
+    <WriteLinesToFile File="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" Lines="@(Notice)" Overwrite="true" WriteOnlyWhenDifferent="true" />
+    <ItemGroup>
+        <ResolvedFileToPublish Include="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" RelativePath="legal/THIRD-PARTY-NOTICES.txt" CopyToPublishDirectory="PreserveNewest" />
+        <FileWrites Include="$(IntermediateOutputPath)THIRD-PARTY-NOTICES.txt" />
+    </ItemGroup>
 </Target>
 ```
 
@@ -306,16 +306,16 @@ Multi-targeting projects build once as the outer build, `DispatchToInnerBuilds` 
 
 ```xml
 <ItemGroup>
-  <None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
-  <None Update="testdata/seed.db" CopyToOutputDirectory="IfDifferent" />
-  <Content Include="../shared/assets/**" LinkBase="content/" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
+    <None Update="settings.ini" CopyToOutputDirectory="PreserveNewest" />
+    <None Update="testdata/seed.db" CopyToOutputDirectory="IfDifferent" />
+    <Content Include="../shared/assets/**" LinkBase="content/" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="Never" />
 </ItemGroup>
 
 <Target Name="AddNativeAsset" AfterTargets="ResolvePackageAssets">
-  <ItemGroup>
-    <NativeCopyLocalItems Include="$(MSBuildProjectDirectory)/native/libtool.dylib"
-                          NuGetPackageId="Tool.Native" NuGetPackageVersion="1.0.0"
-                          AssetType="native" CopyLocal="true" DestinationSubDirectory="runtimes/osx-arm64/native/" />
-  </ItemGroup>
+    <ItemGroup>
+        <NativeCopyLocalItems Include="$(MSBuildProjectDirectory)/native/libtool.dylib"
+                              NuGetPackageId="Tool.Native" NuGetPackageVersion="1.0.0"
+                              AssetType="native" CopyLocal="true" DestinationSubDirectory="runtimes/osx-arm64/native/" />
+    </ItemGroup>
 </Target>
 ```

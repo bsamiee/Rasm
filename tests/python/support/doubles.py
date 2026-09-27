@@ -1,7 +1,5 @@
 """Recording call stubs, an autojumping virtual clock, fixture file writers, and NDJSON line-count assertions."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 from collections.abc import Callable, Mapping
 from pathlib import Path
 from typing import assert_never
@@ -15,15 +13,17 @@ import trio.testing
 
 type CallRecord = tuple[str, tuple[object, ...], dict[str, object]]
 
+# --- [MODELS] ---------------------------------------------------------------------------
+
 
 class Sync[R](msgspec.Struct, frozen=True):
-    """Synchronous double, ``(*args, **kwargs) -> value``, an append-only sink is ``Sync(None)``."""
+    """Synchronous double, ``(*args, **kwargs) -> value``."""
 
     value: R
 
 
 class Async[R](msgspec.Struct, frozen=True):
-    """Awaited double, ``async (*args, **kwargs) -> value``, for a coroutine the subject awaits."""
+    """Awaited double, ``async (*args, **kwargs) -> value``."""
 
     value: R
 
@@ -78,7 +78,7 @@ def install[R](monkeypatch: pytest.MonkeyPatch, target: object, member: str, stu
 
 
 def autojump_backend() -> tuple[str, dict[str, object]]:
-    """Return the ``anyio_backend`` parameter for Trio's autojumping clock, every ``anyio.sleep`` and deadline advances once the loop idles."""
+    """Return the ``anyio_backend`` parameter for Trio's autojumping clock."""
     return ("trio", {"clock": trio.testing.MockClock(autojump_threshold=0)})
 
 

@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: sql-aggregate
+language: sql
+arguments: [name]
+rule:
+    kind: invocation
+    all:
+        - has: {kind: object_reference, matches: name}
+        - not: {has: {kind: keyword_distinct}}
+        - not: {has: {kind: filter_expression}}

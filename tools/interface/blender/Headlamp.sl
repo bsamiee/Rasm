@@ -1,0 +1,10 @@
+light_ambient.x 0.300000
+light_ambient.y 0.300000
+light_ambient.z 0.300000
+light[0].flag 1
+light[0].col.x 0.700000
+light[0].col.y 0.700000
+light[0].col.z 0.700000
+light[0].vec.x -0.240400
+light[0].vec.y 0.533700
+light[0].vec.z 0.810100

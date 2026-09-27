@@ -3,11 +3,31 @@ id: no-library-interface-class
 language: tsx
 severity: error
 utils:
+    library-module:
+        kind: identifier
+        pattern: $MODULE
+        not: {matches: syntax-shadowed-import}
+        inside:
+            kind: program
+            stopBy: end
+            has:
+                kind: import_statement
+                all:
+                    - has: {field: source, has: {kind: string_fragment, regex: '^(effect|@effect/[\w-]+)(/\w+)?$'}}
+                    - has:
+                        kind: import_clause
+                        any:
+                            - has: {kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}
+                            - has:
+                                kind: named_imports
+                                has:
+                                    kind: import_specifier
+                                    has: {kind: identifier, pattern: $MODULE, nthChild: {position: 1, reverse: true, ofRule: {kind: identifier}}}
     library-interface:
         kind: nested_type_identifier
         all:
-            - has: {field: module, matches: {syntax-import-reference: {source: {regex: '^(effect|@effect/\w+)(/\w+)?$'}, exported: {kind: identifier}}}}
-            - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable)$'}}
+            - has: {field: module, matches: library-module}
+            - not: {has: {field: name, regex: '^(Equal|Hash|Inspectable|Pipeable|Redactable)$'}}
 rule:
     kind: class_declaration, abstract_class_declaration, class
     all:

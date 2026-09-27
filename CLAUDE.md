@@ -100,7 +100,6 @@ Navigate code through its language's skill and MCP server, or the `use-ast-grep`
 
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
 - ALWAYS group .NET MSBuild items and NuGet package rows by responsibility, order each group consistently, and keep maintenance notes to one line
-- ALWAYS record each package as one row of its catalog with a one-line purpose comment
 - ALWAYS add a missing dependency record to its owning project file instead of deleting the corresponding record
 - ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
 - ALWAYS state a fact once in a project file, lock, or check, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown

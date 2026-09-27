@@ -2,7 +2,6 @@
 id: no-union-parameter-dispatch
 language: tsx
 severity: error
-ignores: ['**/*.d.ts']
 rule:
     any:
         - kind: function_signature
@@ -23,4 +22,4 @@ rule:
                         - has: {field: parameters, has: {stopBy: end, kind: identifier, pattern: $PARAMETER}}
                     - not: {has: {field: return_type, kind: 'type_predicate_annotation, asserts_annotation'}}
 message: 'Argument shape selects the behavior at runtime through an overload or a `typeof` test'
-note: 'One signature takes a validated options record, `Schema` decodes the shape at the boundary'
+note: 'One function per argument shape, `Schema` decodes an unknown input once at the boundary'

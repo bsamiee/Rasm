@@ -210,6 +210,7 @@ playwright-cli list --json
 - `--mobile` emulates a generic mobile device, Pixel 10 on Chromium and iPhone 17 on WebKit
 - Prefer `--mobile` when a mobile layout is acceptable, mobile pages can give smaller snapshots
 - Profiles are in-memory by default, `--persistent` persists one, `--profile` sets its directory when the user requests one
+- `PLAYWRIGHT_MCP_USER_DATA_DIR` puts every session in one profile, a second session answers `Browser is already in use` without its own `--profile`
 - `attach --extension` connects through the Playwright Extension, `attach --cdp` to a running Chrome or Edge channel or a CDP endpoint
 - `detach` leaves an attached browser running
 
@@ -265,7 +266,7 @@ After each command, playwright-cli provides a snapshot of the current browser st
 ```
 
 `playwright-cli snapshot` takes a snapshot on demand, and its options combine:
-- `snapshot` saves to a file with a timestamp-based name, `--filename` names it when the snapshot is part of the workflow result
+- `snapshot` saves to a file with a timestamp-based name, `--filename` names it when the snapshot belongs to a workflow result
 - A selector or ref snapshots one element in place of the whole page
 - `--depth` limits snapshot depth, a ref snapshot afterwards reads one subtree
 - `--boxes` adds each element's bounding box as `[box=x,y,width,height]`

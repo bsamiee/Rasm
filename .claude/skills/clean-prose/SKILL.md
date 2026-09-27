@@ -149,6 +149,7 @@ Snippets show one rule or operation of the package their file owns, the owned ty
 - Every local carries its declared type, prose beside the snippet names each undeclared placeholder member
 - One snippet shows one shape, a construct its source shows in more shapes keeps each shape
 - Names keep one shape within a file
+- Code indents by the `.editorconfig` indent size of its language, output copied from a tool keeps its spacing in a `text` fence
 
 Tables hold values a reader decides by, the sentence that explains them stays in section text:
 - Headers hold at most 2 words, cells hold values, identifiers, or short phrases without an article, period, or semicolon

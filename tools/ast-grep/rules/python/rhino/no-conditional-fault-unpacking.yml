@@ -1,0 +1,32 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-fault-unpacking
+language: python
+severity: error
+utils:
+    one-fault:
+        kind: 'tuple, list'
+        has: {kind: call, pattern: $FAULT, has: {field: function, regex: '^Fault$'}}
+        not: {has: {nthChild: 2}}
+    empty:
+        kind: 'tuple, list'
+        not: {has: {pattern: $_}}
+    collector-import:
+        kind: import_from_statement
+        has:
+            any:
+                - {kind: dotted_name, regex: '^collect_faults$', not: {nthChild: 1}}
+                - {kind: aliased_import, has: {field: name, regex: '^collect_faults$'}}
+rule:
+    kind: list_splat
+    pattern: $UNPACKING
+    all:
+        - has:
+            kind: parenthesized_expression
+            has:
+                kind: conditional_expression
+                any:
+                    - all: [{has: {nthChild: 1, matches: one-fault}}, {has: {nthChild: 3, matches: empty}}]
+                    - all: [{has: {nthChild: 1, matches: empty}}, {has: {nthChild: 3, matches: one-fault}}]
+        - inside: {kind: module, stopBy: end, has: {matches: collector-import}}
+message: '`$UNPACKING` unpacks `$FAULT` under a condition'
+note: 'Pass the `Fault` or `None` to `collect_faults` beside other independent results, `collect_faults` keeps every `Fault` and drops the rest'

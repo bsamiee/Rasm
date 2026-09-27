@@ -3,16 +3,19 @@ id: no-null-defaulted-equality
 language: sql
 severity: error
 utils:
-    left-defaulted:
+    defaulted:
         kind: invocation
         all:
             - has: {kind: object_reference, regex: '(?i)^(ifnull|coalesce)$'}
+            - not: {has: {nthChild: 4}}
+    left-defaulted:
+        matches: defaulted
+        all:
             - has: {nthChild: 2, pattern: _A}
             - has: {nthChild: 3, pattern: _X}
     right-defaulted:
-        kind: invocation
+        matches: defaulted
         all:
-            - has: {kind: object_reference, regex: '(?i)^(ifnull|coalesce)$'}
             - has: {nthChild: 2, pattern: _B}
             - has: {nthChild: 3, pattern: _X}
 rule:
@@ -22,8 +25,8 @@ rule:
         - has: {field: left, matches: left-defaulted}
         - has: {field: right, matches: right-defaulted}
 transform:
-    EQUAL: {replace: {source: $OPERATOR, replace: '^=$', by: ''}}
-    NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ' not'}}
-fix: '$A is$NEGATION $B'
+    EQUAL: {replace: {source: $OPERATOR, replace: '^=$', by: ' not'}}
+    NEGATION: {replace: {source: $EQUAL, replace: '^(<>|!=)$', by: ''}}
+fix: '$A is$NEGATION distinct from $B'
 message: '`$A` and `$B` compare through the shared default `$X`'
-note: 'Compare with `is` or `is not`'
+note: 'Compare with `is not distinct from` or `is distinct from`, which SQLite and DuckDB both read'

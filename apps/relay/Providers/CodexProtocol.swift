@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated enum CodexProtocol {
   struct RateLimitWindow: Decodable, Sendable {
     let usedPercent: Double
@@ -145,7 +147,7 @@ nonisolated enum CodexProtocol {
 
   private static func quotaWindow(
     _ window: RateLimitWindow, reached: Bool
-  ) -> Result<QuotaWindow?, CodexFieldFailure> {
+  ) -> Result<QuotaWindow?, CodexFieldFailures> {
     let kind: QuotaKind? =
       switch window.windowDurationMins {
       case .some(let minutes) where minutes <= 0: nil
@@ -154,15 +156,15 @@ nonisolated enum CodexProtocol {
       case .none: nil
       }
     guard let kind else { return .success(nil) }
-    let amount: Result<UsageAmount, CodexFieldFailure> = UsageAmount.make(
+    let amount: Result<UsageAmount, CodexFieldFailures> = UsageAmount.make(
       percent: window.usedPercent
     )
-    .mapError { _ in CodexFieldFailure("\(kind.name) usage percentage") }
-    let resetsAt: Result<Date?, CodexFieldFailure> =
+    .mapError { _ in CodexFieldFailures("\(kind.name) usage percentage") }
+    let resetsAt: Result<Date?, CodexFieldFailures> =
       switch window.resetsAt {
       case .none: .success(nil)
       case .some(let seconds) where seconds.isFinite: .success(Date(timeIntervalSince1970: seconds))
-      case .some: .failure(CodexFieldFailure("\(kind.name) reset time"))
+      case .some: .failure(CodexFieldFailures("\(kind.name) reset time"))
       }
     return combine(amount, resetsAt).map { amount, resetsAt in
       QuotaWindow(
@@ -317,15 +319,15 @@ nonisolated struct CodexAuthFile: Sendable {
     }
     return claims(idToken).flatMap { claims in
       let auth: JSONValue? = claims["https://api.openai.com/auth"]
-      let workspace: Result<String, CodexFieldFailure> =
+      let workspace: Result<String, CodexFieldFailures> =
         (auth?["chatgpt_account_id"]?.stringValue ?? tokens["account_id"]?.stringValue)
-        .map { value in .success(value) } ?? .failure(CodexFieldFailure("workspace identifier"))
-      let user: Result<String, CodexFieldFailure> =
+        .map { value in .success(value) } ?? .failure(CodexFieldFailures("workspace identifier"))
+      let user: Result<String, CodexFieldFailures> =
         (auth?["chatgpt_user_id"]?.stringValue ?? auth?["user_id"]?.stringValue)
-        .map { value in .success(value) } ?? .failure(CodexFieldFailure("user identifier"))
-      let email: Result<String, CodexFieldFailure> =
+        .map { value in .success(value) } ?? .failure(CodexFieldFailures("user identifier"))
+      let email: Result<String, CodexFieldFailures> =
         claims["email"]?.stringValue.map { value in .success(value) }
-        ?? .failure(CodexFieldFailure("account email"))
+        ?? .failure(CodexFieldFailures("account email"))
       return combine(user, workspace, email)
         .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
         .flatMap { user, workspace, email in

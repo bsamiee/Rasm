@@ -59,14 +59,14 @@ rule:
                     - matches: cancel-handler
             - matches: exit-body
         - has:
-            stopBy: {any: [{matches: python-function-boundary}, {matches: shielded-scope}]}
+            stopBy: {any: [{kind: 'function_definition, lambda'}, {matches: shielded-scope}]}
             any:
                 - kind: await
                 - kind: with_statement
                   has: {regex: '^async$'}
                 - kind: for_statement
                   has: {regex: '^async$'}
-        - not: {inside: {matches: shielded-scope, stopBy: {matches: python-function-boundary}}}
+        - not: {inside: {matches: shielded-scope, stopBy: {kind: 'function_definition, lambda'}}}
         - any:
             - all:
                 - pattern: $SHIELDED

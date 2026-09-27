@@ -32,27 +32,27 @@ The saved file contains:
 
 ```json
 {
-  "cookies": [
-    {
-      "name": "session_id",
-      "value": "abc123",
-      "domain": "example.com",
-      "path": "/",
-      "expires": 1893456000,
-      "httpOnly": true,
-      "secure": true,
-      "sameSite": "Lax"
-    }
-  ],
-  "origins": [
-    {
-      "origin": "https://example.com",
-      "localStorage": [
-        { "name": "theme", "value": "dark" },
-        { "name": "user_id", "value": "12345" }
-      ]
-    }
-  ]
+    "cookies": [
+        {
+            "name": "session_id",
+            "value": "abc123",
+            "domain": "example.com",
+            "path": "/",
+            "expires": 1893456000,
+            "httpOnly": true,
+            "secure": true,
+            "sameSite": "Lax"
+        }
+    ],
+    "origins": [
+        {
+            "origin": "https://example.com",
+            "localStorage": [
+                { "name": "theme", "value": "dark" },
+                { "name": "user_id", "value": "12345" }
+            ]
+        }
+    ]
 }
 ```
 
@@ -112,10 +112,10 @@ For complex scenarios like adding multiple cookies at once, use `run-code`:
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.context().addCookies([
-    { name: 'session_id', value: 'sess_abc123', domain: 'example.com', path: '/', httpOnly: true },
-    { name: 'preferences', value: JSON.stringify({ theme: 'dark' }), domain: 'example.com', path: '/' }
-  ]);
+    await page.context().addCookies([
+        { name: 'session_id', value: 'sess_abc123', domain: 'example.com', path: '/', httpOnly: true },
+        { name: 'preferences', value: JSON.stringify({ theme: 'dark' }), domain: 'example.com', path: '/' }
+    ]);
 }"
 ```
 
@@ -163,11 +163,11 @@ For complex scenarios like setting multiple values at once, use `run-code`:
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.evaluate(() => {
-    localStorage.setItem('token', 'jwt_abc123');
-    localStorage.setItem('user_id', '12345');
-    localStorage.setItem('expires_at', Date.now() + 3600000);
-  });
+    await page.evaluate(() => {
+        localStorage.setItem('token', 'jwt_abc123');
+        localStorage.setItem('user_id', '12345');
+        localStorage.setItem('expires_at', Date.now() + 3600000);
+    });
 }"
 ```
 
@@ -209,10 +209,10 @@ playwright-cli sessionstorage-clear
 
 ```bash
 playwright-cli run-code "async page => {
-  return await page.evaluate(async () => {
-    const databases = await indexedDB.databases();
-    return databases;
-  });
+    return await page.evaluate(async () => {
+        const databases = await indexedDB.databases();
+        return databases;
+    });
 }"
 ```
 
@@ -220,9 +220,9 @@ playwright-cli run-code "async page => {
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.evaluate(() => {
-    indexedDB.deleteDatabase('myDatabase');
-  });
+    await page.evaluate(() => {
+        indexedDB.deleteDatabase('myDatabase');
+    });
 }"
 ```
 

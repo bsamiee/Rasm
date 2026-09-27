@@ -7,10 +7,16 @@ rule:
     pattern: _TAG
     all:
         - has: {kind: Name, regex: '^WriteLinesToFile$'}
-        - has: {matches: {msbuild-attribute: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^["'']\s*(true|on|yes|!false|!off|!no)\s*["'']$'}}}}
         - not: {has: {kind: Attribute, has: {kind: Name, regex: '^WriteOnlyWhenDifferent$'}}}
+        - any:
+            - has: {matches: {msbuild-attribute: {name: {regex: '^Overwrite$'}, value: {regex: '(?i)^["'']\s*(true|on|yes|!false|!off|!no)\s*["'']$'}}}}
+            - all:
+                - has: {kind: Name, pattern: _APPENDING}
+                - not: {has: {kind: Attribute, has: {kind: Name, regex: '^Overwrite$'}}}
 transform:
-    RESULT: replace($TAG, replace='(/?>)$', by=' WriteOnlyWhenDifferent="true"$1')
-fix: $RESULT
-message: '`WriteLinesToFile` with `Overwrite` updates the timestamp when the content is unchanged'
-note: Add `WriteOnlyWhenDifferent="true"`
+    HEAD: replace($TAG, replace='\s*/?>$', by='')
+    CLOSE: replace($TAG, replace='(?s)^.*?(\s*/?>)$', by='$1')
+    OVERWRITE: replace($APPENDING, replace='^.+$', by=' Overwrite="true"')
+fix: $HEAD$OVERWRITE WriteOnlyWhenDifferent="true"$CLOSE
+message: '`WriteLinesToFile` writes its file on every build, unchanged `Lines` included'
+note: Set `Overwrite="true"` and `WriteOnlyWhenDifferent="true"`

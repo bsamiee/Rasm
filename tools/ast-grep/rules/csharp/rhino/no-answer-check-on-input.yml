@@ -2,7 +2,7 @@
 id: no-answer-check-on-input
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     input:
         any:

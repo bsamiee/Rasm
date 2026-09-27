@@ -63,9 +63,9 @@ utils:
                     - all:
                         - has: {field: source, regex: '^["'']effect/Schema["'']$'}
                         - has: {stopBy: end, kind: namespace_import, has: {kind: identifier, pattern: $MODULE}}
-    struct-import:
+    constructor-import:
         kind: identifier
-        pattern: $STRUCT
+        pattern: $CONSTRUCTOR
         inside:
             kind: program
             stopBy: end
@@ -77,9 +77,9 @@ utils:
                     - has:
                         stopBy: end
                         kind: import_specifier
-                        has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^Struct$'}
+                        has: {kind: identifier, nthChild: {position: 1, ofRule: {kind: identifier}}, regex: '^(Struct|TaggedUnion)$'}
                         all:
-                            - has: {kind: identifier, pattern: $STRUCT, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
+                            - has: {kind: identifier, pattern: $CONSTRUCTOR, nthChild: {position: 1, ofRule: {kind: identifier}, reverse: true}}
                             - not: {has: {regex: '^type$'}}
 rule:
     any:
@@ -103,9 +103,9 @@ rule:
                         any:
                             - kind: member_expression
                               all:
-                                - has: {field: property, regex: '^Struct$'}
+                                - has: {field: property, regex: '^(Struct|TaggedUnion)$'}
                                 - has: {field: object, matches: schema-module}
-                            - matches: struct-import
+                            - matches: constructor-import
 name: $NAME
 signature: $DECLARATION
 

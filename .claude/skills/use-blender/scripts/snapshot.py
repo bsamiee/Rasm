@@ -1,4 +1,5 @@
-# mypy: disable-error-code="truthy-bool"
+# mypy: disable-error-code="truthy-bool, union-attr"
+# ty: ignore[unresolved-attribute]
 """Write the evaluated state of the scene to `.artifacts/blender/<name>.json` and name what changed since an earlier snapshot, run inside Blender through `runpy.run_path`."""
 
 from collections.abc import Mapping
@@ -15,24 +16,27 @@ import numpy as np
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Outcome = Snapshot | UnknownObjects | MissingSnapshot | Unset
+type Animation = Animated | Unassigned | None
+type Outcome = Snapshot | UnknownObjects | MissingSnapshot
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
 JSON: Final = make_converter()
+JSON.register_structure_hook_func(lambda kind: kind is object, lambda value, _: value)
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
 
 @attrs.frozen
 class Geometry:
-    """Hash over realized positions and instance transforms, with the element counts of the evaluated geometry set."""
+    """Hash over realized positions, stroke points, and instance transforms, with the element counts of the evaluated geometry set."""
 
     shape: str
     vertices: int
     faces: int
     curve_points: int
     cloud_points: int
+    strokes: int
     instances: int
 
 
@@ -64,12 +68,13 @@ class Unassigned:
 
 @attrs.frozen
 class Modifier:
-    """Modifier name, type, and visibility."""
+    """Modifier name, type, visibility, and the stored settings its type adds, Geometry Nodes inputs included."""
 
     name: str
     type: str
     show_viewport: bool
     show_render: bool
+    settings: dict[str, object]
 
 
 @attrs.frozen
@@ -99,8 +104,8 @@ class ObjectState:
     modifiers: list[Modifier]
     constraints: list[Constraint]
     geometry: Geometry | None
-    animation: Animated | Unassigned | None
-    drivers: dict[str, str]
+    animation: Animation
+    drivers: dict[str, object]
 
 
 @attrs.frozen
@@ -173,25 +178,13 @@ class MissingSnapshot:
     name: str
 
 
-@attrs.frozen
-class Unset:
-    """RNA pointer the snapshot reads that holds no value, by its path."""
-
-    path: str
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None) -> Outcome:
     """Write the state of the named or every object with the scene, datablocks, and node trees, then compare with `since`."""
     path = next(p for p in Path(__file__).resolve().parents if (p / ".git").exists()) / ".artifacts" / "blender" / f"{name}.json"
-    if (scene := bpy.context.scene) is None:
-        return Unset("context.scene")
-    if (view_settings := scene.view_settings) is None:
-        return Unset("scene.view_settings")
-    if (display_settings := scene.display_settings) is None:
-        return Unset("scene.display_settings")
+    scene = bpy.context.scene
     if missing := tuple(n for n in objects if n not in scene.objects):
         return UnknownObjects(missing)
     if since is not None and not path.with_stem(since).is_file():
@@ -225,14 +218,17 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
     low, high = np.full(((count := len(owners)), 3), np.inf), np.full((count, 3), -np.inf)
     np.minimum.at(low, index, corners.min(axis=1))
     np.maximum.at(high, index, corners.max(axis=1))
-    boxes = {str(o): [fixed(a), fixed(b)] for o, a, b in zip(owners, low, high, strict=True)}
+    boxes = {o: [fixed(a), fixed(b)] for o, a, b in zip(owners, low, high, strict=True)}
 
     def geometry(obj: bpy.types.Object) -> Geometry | None:
         try:
             geometry_set = obj.evaluated_get(depsgraph).evaluated_geometry()
         except TypeError:
             return None
-        mesh, curves, cloud, instances = geometry_set.mesh, geometry_set.curves, geometry_set.pointcloud, geometry_set.instances_pointcloud()
+        mesh, curves, cloud, pencil, instances = geometry_set.mesh, geometry_set.curves, geometry_set.pointcloud, geometry_set.grease_pencil, geometry_set.instances_pointcloud()
+        frames = (layer.current_frame() for layer in (pencil.layers if pencil else ()))
+        drawings = [frame.drawing for frame in frames if frame and frame.drawing]
+        positions = [drawing.attributes["position"] for drawing in drawings]
         transforms = instances.attributes["instance_transform"] if instances else None
         return Geometry(
             digest(
@@ -240,6 +236,7 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
                     floats(mesh.vertices, "co", 3) if mesh else b"",
                     floats(curves.points, "position", 3) if curves else b"",
                     floats(cloud.points, "co", 3) if cloud else b"",
+                    *(floats(p.data, "vector", 3) for p in positions if isinstance(p, bpy.types.FloatVectorAttribute)),
                     floats(transforms.data, "value", 16) if isinstance(transforms, bpy.types.Float4x4Attribute) else b"",
                 ))
             ),
@@ -247,10 +244,11 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
             len(mesh.polygons) if mesh else 0,
             len(curves.points) if curves else 0,
             len(cloud.points) if cloud else 0,
+            sum(len(drawing.strokes) for drawing in drawings),
             len(instances.points) if instances else 0,
         )
 
-    def animation(obj: bpy.types.Object) -> Animated | Unassigned | None:
+    def animation(obj: bpy.types.Object) -> Animation:
         match obj.animation_data:
             case bpy.types.AnimData(action=bpy.types.Action() as action, action_slot=bpy.types.ActionSlot() as slot):
                 bag = anim_utils.action_get_channelbag_for_slot(action, slot)
@@ -262,6 +260,12 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
                 return Unassigned(action.name, [s.identifier for s in data.action_suitable_slots])
             case _:
                 return None
+
+    nodes = runpy.run_path(str(Path(__file__).with_name("nodes.py")))
+    common = frozenset(bpy.types.Modifier.bl_rna.properties.keys())
+
+    def settings(modifier: bpy.types.Modifier) -> dict[str, object]:
+        return {p.identifier: nodes["plain"](getattr(modifier, p.identifier)) for p in modifier.bl_rna.properties if p.identifier not in common and nodes["stored"](p)}
 
     def state(obj: bpy.types.Object) -> ObjectState:
         location, rotation, scale = obj.matrix_world.decompose()
@@ -277,20 +281,17 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
             obj.visible_get(),
             obj.hide_render,
             [s.material.name if s.material else None for s in obj.material_slots],
-            [Modifier(m.name, m.type, m.show_viewport, m.show_render) for m in obj.modifiers],
+            [Modifier(m.name, m.type, m.show_viewport, m.show_render, settings(m)) for m in obj.modifiers],
             [Constraint(c.name, c.type, c.enabled) for c in obj.constraints],
             geometry(obj),
             animation(obj),
-            {indexed(d): driver.expression for d in (obj.animation_data.drivers if obj.animation_data else ()) if (driver := d.driver)},
+            {indexed(d): nodes["plain"](d.driver) for d in (obj.animation_data.drivers if obj.animation_data else ())},
         )
 
     def delta[V](a: Mapping[str, V], b: Mapping[str, V]) -> dict[str, tuple[V | None, V | None]]:
         return {k: (old, new) for k in sorted(a.keys() | b.keys()) if (old := a.get(k)) != (new := b.get(k))}
 
-    nodes = runpy.run_path(str(Path(__file__).with_name("nodes.py")))
     records = {n: nodes["record"](owner, tree) for n, (owner, tree) in nodes["trees"]().items()}
-    if (unset := next((r for r in records.values() if isinstance(r, nodes["Unset"])), None)) is not None:
-        return Unset(unset.path)
     now = State(
         SceneState(
             scene.name,
@@ -300,10 +301,10 @@ def snapshot(name: str, objects: tuple[str, ...] = (), since: str | None = None)
             scene.unit_settings.system,
             scene.unit_settings.length_unit,
             round(scene.unit_settings.scale_length, 5),
-            display_settings.display_device,
-            view_settings.view_transform,
-            view_settings.look,
-            round(view_settings.exposure, 5),
+            scene.display_settings.display_device,
+            scene.view_settings.view_transform,
+            scene.view_settings.look,
+            round(scene.view_settings.exposure, 5),
             sum(block.users == 0 for block in bpy.data.all_ids),
             sorted(library.filepath for library in bpy.data.libraries),
             sorted(p for p in bpy.utils.blend_paths(absolute=True) if not Path(p).exists()),
@@ -341,6 +342,7 @@ def as_result(value: Outcome) -> dict[str, object]:
 
 __all__ = [
     "Animated",
+    "Animation",
     "Channel",
     "Comparison",
     "Constraint",
@@ -354,7 +356,6 @@ __all__ = [
     "State",
     "Unassigned",
     "UnknownObjects",
-    "Unset",
     "as_result",
     "snapshot",
 ]

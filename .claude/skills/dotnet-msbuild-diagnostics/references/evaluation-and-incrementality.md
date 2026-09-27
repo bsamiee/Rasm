@@ -40,7 +40,7 @@ Change a glob, an import, or a property function when the measured evaluation co
 
 ```xml
 <PropertyGroup>
-  <DefaultItemExcludes>$(DefaultItemExcludes);fixtures/**</DefaultItemExcludes>
+    <DefaultItemExcludes>$(DefaultItemExcludes);fixtures/**</DefaultItemExcludes>
 </PropertyGroup>
 ```
 

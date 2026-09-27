@@ -2,7 +2,6 @@
 id: no-nullable-return
 language: tsx
 severity: error
-ignores: ['**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     no-value-type:
         any:
@@ -95,4 +94,4 @@ rule:
             - has: {field: return_type, matches: value-annotation}
             - not: {matches: host-contract}
 message: 'Function returns `null`, `undefined`, or `NaN` for absence'
-note: 'Return `Option`, `Option.none()` inside, `Option.fromNullable` or `Option.liftPredicate` at the boundary'
+note: 'Return `Option`, `Option.none()` inside, `Option.fromNullishOr` or `Option.liftPredicate` at the boundary'

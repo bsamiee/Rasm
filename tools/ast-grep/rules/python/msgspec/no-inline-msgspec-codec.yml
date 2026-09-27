@@ -23,7 +23,6 @@ utils:
     mappable:
         not:
             any:
-                - matches: python-commented
                 - has: {field: arguments, has: {kind: 'list_splat, dictionary_splat'}}
                 - has: {field: arguments, has: {kind: keyword_argument, has: {field: name, regex: '^(decimal_format|uuid_format|float_hook)$'}}}
     function-import:
@@ -56,7 +55,7 @@ rule:
         - has: {field: function, kind: attribute, all: [{has: {field: object, matches: constructor}}, {has: {field: attribute, pattern: $METHOD}}]}
         - matches: paired
         - has: {field: arguments, has: {nthChild: 1, pattern: $VALUE, not: {kind: 'keyword_argument, list_splat, dictionary_splat'}}, not: {has: {nthChild: 2}}}
-        - not: {matches: python-commented}
+        - not: {has: {kind: comment, stopBy: end}}
         - any:
             - all:
                 - has: {field: function, has: {field: object, matches: mappable, has: {field: function, kind: attribute, has: {field: object, pattern: $MODULE}}}}
@@ -97,4 +96,4 @@ transform:
     IMPORTED_OUT: rewrite($IMPORTED_FORM, rewriters=[imported-call])
 fix: $MODULE_OUT$IMPORTED_OUT$UNFIXED
 message: 'Codec instance serves one call'
-note: 'Use `<module>.encode(<value>)` or `<module>.decode(<value>, type=<type>)`'
+note: 'Use `<module>.encode(<value>)` or `<module>.decode(<value>, type=<type>)`, and bind a codec that takes an option those functions lack once at module level'

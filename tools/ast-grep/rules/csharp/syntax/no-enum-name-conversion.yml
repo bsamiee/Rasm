@@ -10,20 +10,7 @@ utils:
     declared-receiver:
         kind: identifier
         pattern: $RECEIVER
-        inside:
-            matches: function-owner
-            stopBy: end
-            has:
-                stopBy: end
-                any:
-                    - kind: parameter
-                      all:
-                        - has: {field: name, pattern: $RECEIVER}
-                        - has: {field: type, not: {any: [{matches: text-type}, {kind: predefined_type}]}}
-                    - kind: variable_declaration
-                      all:
-                        - has: {field: type, not: {any: [{matches: text-type}, {kind: predefined_type}]}}
-                        - has: {kind: variable_declarator, has: {field: name, pattern: $RECEIVER}}
+        matches: {csharp-declared-type: {type: {not: {any: [{matches: text-type}, {kind: predefined_type}]}}}}
     name-format:
         kind: argument_list
         any:

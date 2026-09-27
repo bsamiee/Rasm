@@ -2,7 +2,7 @@
 id: no-filter-by-membership
 language: tsx
 severity: error
-ignores: ['.claude/plugins/**']
+ignores: ['.claude/plugins/*/hooks/**']
 utils:
     effect-array:
         matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}

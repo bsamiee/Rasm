@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-raising-catch-all
+language: python
+severity: error
+utils:
+    type-error:
+        kind: raise_statement
+        has: {nthChild: 1, any: [{kind: identifier, regex: '^TypeError$'}, {kind: call, has: {field: function, kind: identifier, regex: '^TypeError$'}}]}
+    raising-body:
+        kind: block
+        all:
+            - has: {nthChild: {position: 1, ofRule: {not: {kind: comment}}}, matches: type-error}
+            - not: {has: {nthChild: {position: 2, ofRule: {not: {kind: comment}}}}}
+rule:
+    any:
+        - kind: case_clause
+          all:
+            - has: {kind: case_pattern, any: [{regex: '^_$'}, {has: {kind: dotted_name, not: {has: {nthChild: 2}}}}]}
+            - not: {has: {field: guard, kind: if_clause}}
+            - has: {field: consequence, matches: raising-body}
+        - kind: else_clause
+          all:
+            - inside: {kind: if_statement}
+            - has: {field: body, matches: raising-body}
+message: 'Catch-all branch raises `TypeError` for a case the branches above leave unhandled'
+note: 'Delete the branch and let the last handled case close the dispatch, the declared inputs reach no other type'

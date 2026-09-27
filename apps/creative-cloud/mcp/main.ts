@@ -1,19 +1,11 @@
-/**
- * Exposes Adobe automation through MCP with references from installed applications
- * Keeps accepted execution results available after request cancellation
- */
-
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import { NodeRuntime, NodeServices } from '@effect/platform-node';
-import { Array, Cause, Context, Crypto, Deferred, Effect, type FileSystem, Logger, Option, type Path, Predicate, Schema } from 'effect';
+import { Cause, Context, Crypto, Deferred, Effect, type FileSystem, Logger, Option, type Path, Schema, Struct } from 'effect';
 import { McpProtocol, McpSchema, McpServer, Tool, Toolkit } from 'effect/unstable/ai';
 import { ChildProcessSpawner } from 'effect/unstable/process';
-import { Applications, execute, Request } from './execution.ts';
-import { Failure, invoke } from './native.ts';
+import { Applications, execute, Failure, invoke, Request } from './execution.ts';
 import packageJson from './package.json' with { type: 'json' };
 
-// --- [SCHEMAS] -------------------------------------------------------------------------
+// --- [MODELS] --------------------------------------------------------------------------
 
 const Application = Schema.Struct({
     identifier: Schema.String,
@@ -24,8 +16,6 @@ const Application = Schema.Struct({
     version: Schema.optionalKey(Schema.String),
 });
 
-// --- [TOOLS] ---------------------------------------------------------------------------
-
 const discovery = Toolkit.make(
     Tool.make('applications', {
         dependencies: [ChildProcessSpawner.ChildProcessSpawner],
@@ -34,10 +24,11 @@ const discovery = Toolkit.make(
         success: Schema.Struct({ applications: Schema.Array(Application), references: Schema.Array(McpSchema.ResourceLink) }),
     })
         .annotate(Tool.Readonly, true)
+        .annotate(Tool.Destructive, false)
         .annotate(Tool.Idempotent, true),
 );
 
-// --- [SERVER] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 const program = Effect.gen(function* () {
     const scope = yield* Effect.scope;
@@ -57,10 +48,9 @@ const program = Effect.gen(function* () {
             discovery.toLayer({
                 applications: Effect.fn('adobe.applications')(function* () {
                     const applications = yield* invoke({ operation: 'applications' }, Schema.Array(Application));
-                    const references = Array.map(Array.filter(applications, Predicate.Struct({ scriptable: Predicate.isTruthy })), (application) => {
-                        const uri = `adobe://dictionary/${encodeURIComponent(application.url)}`;
-                        return McpSchema.ResourceLink.make({ mimeType: 'application/xml', name: application.name, uri });
-                    });
+                    const references = applications
+                        .filter(Struct.get('scriptable'))
+                        .map((application) => McpSchema.ResourceLink.make({ mimeType: 'application/xml', name: application.name, uri: `adobe://dictionary/${encodeURIComponent(application.url)}` }));
                     return { applications, references };
                 }, Effect.tapError(Effect.logError)),
             }),
@@ -72,7 +62,7 @@ const program = Effect.gen(function* () {
         tool: new McpSchema.Tool({
             annotations: { destructiveHint: true, idempotentHint: false, openWorldHint: true, readOnlyHint: false },
             description:
-                'Execute an installed Adobe dictionary command. Accepted work continues after request cancellation. Results remain in resources/list for this server lifetime. Unconfirmed native outcomes block further execution in that application until the server is restarted after checking the application.',
+                'Execute an installed Adobe dictionary command. Accepted work continues after request cancellation. Results stay in resources/list while the server runs. Unconfirmed native outcomes block further execution in that application until a person checks the application and restarts the server.',
             inputSchema: Tool.getJsonSchemaFromSchema(Request),
             name: 'execute',
         }),
@@ -81,7 +71,7 @@ const program = Effect.gen(function* () {
                 Effect.mapError((error) => new McpSchema.InvalidParams({ message: Cause.pretty(Cause.fail(error)) })),
             );
             const id = yield* crypto.randomUUIDv4.pipe(Effect.mapError((error) => new McpSchema.InternalError({ message: Cause.pretty(Cause.fail(error)) })));
-            const uri = `adobe://execution/${id}`;
+            const link = McpSchema.ResourceLink.make({ mimeType: 'application/json', name: id, uri: `adobe://execution/${id}` });
             const result = yield* Deferred.make<McpSchema.CallToolResult>();
             const registration = McpServer.registerResource({
                 content: Deferred.poll(result).pipe(
@@ -92,36 +82,34 @@ const program = Effect.gen(function* () {
                         }),
                     ),
                 ),
-                description: `${request.application.href}: ${request.command}. Pending means native completion has not been confirmed.`,
-                mimeType: 'application/json',
-                name: id,
-                uri,
+                description: `${request.application.href}: ${request.command}. Pending state means native completion is unconfirmed.`,
+                mimeType: link.mimeType,
+                name: link.name,
+                uri: link.uri,
             });
             const execution = Deferred.complete(
                 result,
-                execute(request, uri).pipe(
+                execute(request, link).pipe(
                     Effect.catchCause((cause) => {
                         const failure = Schema.encodeSync(Schema.toCodecJson(Schema.Cause(Schema.Defect(), Schema.Defect())))(cause);
                         return Effect.logError(cause).pipe(
                             Effect.as(
                                 new McpSchema.CallToolResult({
-                                    content: [McpSchema.TextContent.make({ text: JSON.stringify(failure) }), McpSchema.ResourceLink.make({ mimeType: 'application/json', name: id, uri })],
+                                    content: [McpSchema.TextContent.make({ text: JSON.stringify(failure) }), link],
                                     isError: true,
-                                    structuredContent: { execution: uri, failure },
+                                    structuredContent: { execution: link.uri, failure },
                                 }),
                             ),
                         );
                     }),
                 ),
-            ).pipe(Effect.andThen(server.notifications['notifications/resources/updated']({ uri })), Effect.uninterruptible, Effect.forkIn(scope));
+            ).pipe(Effect.andThen(server.notifications['notifications/resources/updated']({ uri: link.uri })), Effect.uninterruptible, Effect.forkIn(scope));
             yield* registration.pipe(Effect.andThen(execution), Effect.uninterruptible);
             return yield* Deferred.await(result);
         }, Effect.provideContext(services)),
     });
     return yield* Effect.never;
 });
-
-// --- [ENTRY] ---------------------------------------------------------------------------
 
 program.pipe(
     Effect.provide(Applications.layer),

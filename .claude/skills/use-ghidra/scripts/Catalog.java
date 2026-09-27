@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import ghidra.app.script.GhidraScript;
 import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.listing.Data;
@@ -16,9 +14,11 @@ import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-// --- [SCRIPT] --------------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
 public class Catalog extends GhidraScript {
+    // --- [ROWS]
+
     sealed interface Row permits StringRow, ImportRow, FunctionRow {
         Comparator<Row> ORDER =
                 Comparator.comparingLong(Row::rank).reversed().thenComparing(Row::text);
@@ -93,22 +93,12 @@ public class Catalog extends GhidraScript {
 
         Stream<String> lines() {
             return Stream.concat(
-                    Stream.of(Report.divider(name)),
+                    Stream.of(Report.section(name)),
                     rows.stream().sorted(Row.ORDER).map(Row::text));
         }
     }
 
-    @Override
-    public void run() throws Exception {
-        Path out = Arguments.out(getScriptName(), getScriptArgs());
-        List<Section> sections = List.of(strings(), imports(), functions());
-        String counts = sections.stream().map(Section::count).collect(Collectors.joining(" "));
-        println(
-                Report.write(
-                        out, currentProgram, counts, sections.stream().flatMap(Section::lines)));
-    }
-
-    // --- [SECTIONS] --------------------------------------------------------------------
+    // --- [SECTIONS]
 
     private Section strings() {
         DefinedDataIterator defined =
@@ -153,5 +143,17 @@ public class Catalog extends GhidraScript {
                                                 Functions.callers(function, monitor).count(),
                                                 Functions.callees(function, monitor).count()))
                         .toList());
+    }
+
+    // --- [RUN]
+
+    @Override
+    public void run() throws Exception {
+        Path out = Arguments.out(getScriptName(), getScriptArgs());
+        List<Section> sections = List.of(strings(), imports(), functions());
+        String counts = sections.stream().map(Section::count).collect(Collectors.joining(" "));
+        println(
+                Report.write(
+                        out, currentProgram, counts, sections.stream().flatMap(Section::lines)));
     }
 }

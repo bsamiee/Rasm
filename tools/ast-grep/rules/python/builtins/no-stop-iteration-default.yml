@@ -2,26 +2,49 @@
 id: no-stop-iteration-default
 language: python
 severity: error
+utils:
+    lone:
+        kind: block
+        not: {has: {nthChild: 2}}
+    handler:
+        kind: except_clause
+        has: {field: value, regex: '^StopIteration$'}
+    advance: {kind: call, pattern: next($IT)}
 rule:
     kind: try_statement
     all:
-        - has: {field: body, kind: block, has: {kind: return_statement, pattern: return next($IT)}, not: {has: {nthChild: 2}}}
-        - has:
-            kind: except_clause
-            all:
-                - has: {field: value, regex: '^StopIteration$'}
-                - has: {kind: block, has: {kind: return_statement, pattern: return $D}, not: {has: {nthChild: 2}}}
         - not: {has: {kind: 'else_clause, finally_clause'}}
-    any:
-        - pattern: $FIXABLE
-          not: {has: {kind: except_clause, not: {has: {field: value, regex: '^StopIteration$'}}}}
-        - pattern: $KEPT
+        - not: {has: {matches: handler, has: {stopBy: end, kind: 'call, await, yield, named_expression, lambda'}}}
+        - any:
+            - all:
+                - has: {field: body, matches: lone, has: {kind: return_statement, pattern: $STMT, has: {matches: advance}}}
+                - has: {matches: handler, has: {kind: block, matches: lone, has: {kind: return_statement, pattern: return $D}}}
+            - all:
+                - has:
+                    field: body
+                    matches: lone
+                    has: {kind: expression_statement, pattern: $STMT, has: {kind: assignment, all: [{has: {field: left, pattern: $T}}, {has: {field: right, matches: advance}}]}}
+                - has:
+                    matches: handler
+                    has:
+                        kind: block
+                        matches: lone
+                        has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $T}}, {not: {has: {field: type, kind: type}}}, {has: {field: right, pattern: $D}}]}}
+        - any:
+            - pattern: $FIXABLE
+              not: {has: {kind: except_clause, not: {matches: handler}}}
+            - pattern: $KEPT
 rewriters:
-    - id: default-argument
-      rule: {kind: try_statement}
-      fix: return next($IT, $D)
+    - id: defaulted
+      rule: {matches: advance}
+      fix: next($IT, $D)
+    - id: unwrapped
+      rule: {kind: try_statement, has: {field: body, has: {pattern: $STMT}}}
+      transform:
+        DEFAULTED: rewrite($STMT, rewriters=[defaulted])
+      fix: $DEFAULTED
 transform:
-    OUT: rewrite($FIXABLE, rewriters=[default-argument])
+    OUT: rewrite($FIXABLE, rewriters=[unwrapped])
 fix: $OUT$KEPT
-message: '`next($IT)` catches `StopIteration` to return `$D`'
+message: '`next($IT)` catches `StopIteration` to reach `$D`'
 note: 'Use `next(<iterator>, <default>)`'

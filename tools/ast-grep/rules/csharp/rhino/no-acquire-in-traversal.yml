@@ -2,7 +2,7 @@
 id: no-acquire-in-traversal
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     element:
         any:
@@ -18,12 +18,12 @@ utils:
     acquire:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '(^|\.)\s*Acquire(\s*<.+>)?$'}
+            - has: {field: function, regex: '(^|\.)\s*(Acquire|EditCopy)(\s*<.+>)?$'}
             - not: {inside: {stopBy: {kind: lambda_expression}, kind: invocation_expression, has: {field: function, regex: '^((global::)?(LanguageExt\.)?Prelude\s*\.\s*)?use$'}}}
     element-scope:
         kind: invocation_expression
         all:
-            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.(Document|Modeling)\.)?(Disposal\s*\.\s*(Using|Bracketed)|GeometryOps\s*\.\s*WithCopy)(\s*<.+>)?$'}
+            - has: {field: function, regex: '^((global::)?Rasm\.Rhino\.Document\.)?Disposal\s*\.\s*(Using|Bracketed)(\s*<.+>)?$'}
             - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {matches: element}}}
     sequence-type:
         regex: '^((global::)?(LanguageExt\.|System\.Collections\.Generic\.)?(Seq|Lst|Arr|IEnumerable|IReadOnlyList|IReadOnlyCollection|IList|ICollection|List)\s*<|\[\]\??$)'

@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated struct SavedAccount: Sendable {
   let account: Account
   let authentication: AuthenticationState
@@ -9,6 +11,8 @@ nonisolated struct SavedAccount: Sendable {
 nonisolated struct SavedAccounts: Sendable {
   let accounts: [SavedAccount]
 }
+
+// --- [ERRORS] --------------------------------------------------------------------------
 
 nonisolated enum AccountStorageError: Error {
   case invalidAccount(id: UUID, error: IdentityError)
@@ -37,6 +41,8 @@ nonisolated enum AccountStorageFailure: LocalizedError {
     }
   }
 }
+
+// --- [SERVICES] ------------------------------------------------------------------------
 
 actor AccountStorage {
   private let fileURL: URL

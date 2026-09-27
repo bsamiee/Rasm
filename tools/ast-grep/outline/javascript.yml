@@ -1,0 +1,59 @@
+id: javascript-script-declaration
+language: javascript
+role: item
+symbolType: function
+utils:
+    script-body:
+        kind: statement_block
+        inside:
+            kind: function_expression
+            inside:
+                kind: parenthesized_expression
+                any:
+                    - inside: {kind: expression_statement, inside: {kind: program}}
+                    - inside: {kind: call_expression, field: function, inside: {kind: expression_statement, inside: {kind: program}}}
+rule:
+    pattern: $DECLARATION
+    any:
+        - kind: function_declaration
+          inside: {matches: script-body}
+          has: {field: name, pattern: $NAME}
+        - kind: variable_declarator
+          inside: {kind: variable_declaration, inside: {matches: script-body}}
+          has: {field: name, pattern: $NAME}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '^([^\n]*?)\s*\{?\s*(?:\n[\s\S]*)?$', by: '$1'}}
+name: $NAME
+signature: $SIGNATURE
+isExported: false
+
+---
+id: javascript-script-entry
+language: javascript
+role: member
+parentRuleIds: [javascript-script-declaration]
+symbolType: property
+utils:
+    script-body:
+        kind: statement_block
+        inside:
+            kind: function_expression
+            inside:
+                kind: parenthesized_expression
+                any:
+                    - inside: {kind: expression_statement, inside: {kind: program}}
+                    - inside: {kind: call_expression, field: function, inside: {kind: expression_statement, inside: {kind: program}}}
+rule:
+    kind: pair
+    pattern: $DECLARATION
+    has: {field: key, pattern: $NAME}
+    inside:
+        kind: object
+        inside:
+            kind: variable_declarator
+            field: value
+            inside: {kind: variable_declaration, inside: {matches: script-body}}
+transform:
+    SIGNATURE: {replace: {source: $DECLARATION, replace: '^([^\n]*?)\s*\{?\s*(?:\n[\s\S]*)?$', by: '$1'}}
+name: $NAME
+signature: $SIGNATURE

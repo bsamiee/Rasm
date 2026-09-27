@@ -5,18 +5,18 @@ Xcode project files hold every build decision, `.swift-format` at the root holds
 ## [01]-[PROJECT_FILES]
 
 - `objectVersion` at the newest value Xcode writes takes a `PBXFileSystemSynchronizedRootGroup` with no source file list
-- Synchronized group's exceptions name the files outside the build
+- Synchronized group exceptions name files outside the build
 - Build setting default comes from the spec `DefaultValue` under Xcode's `XCBSpecifications.ideplugin`
 - `xcodebuild -showBuildSettings` prints each setting's resolved value
-- Rows restating a spec default go, rows a template writes over the default stay with their reason
+- Rows a template writes over the default stay with their reason
 - `LastUpgradeCheck`, `LastSwiftUpdateCheck`, and `BuildIndependentTargetsInParallel` are Xcode's own rows at the installed version
 - One shared scheme per project sits under `xcshareddata`, `xcuserdata/` stays ignored
 - `-disableAutomaticPackageResolution` on a build enforces `Package.resolved`
 - Synchronized group without an exception for its own `.xcodeproj` gains a `projectReferences` entry to it at each Xcode save
 - `actool` renders the icon document for every appearance into `Assets.car` and `AppIcon.icns` at build, no rendered image is checked in
-- Apple Development signatures carry a designated requirement of bundle id, Apple anchor, identity leaf, and WWDR intermediate, not team
+- Apple Development signatures carry a designated requirement of bundle id, Apple anchor, identity leaf, and WWDR intermediate, with no team id
 
 ## [02]-[FORMAT]
 
-- `xcrun swift-format dump-configuration` prints the defaults, a rule row set to its default goes
+- `xcrun swift-format dump-configuration` prints the defaults
 - Rule rows state one lint decision

@@ -2,22 +2,51 @@
 id: no-first-by-filter-slice
 language: tsx
 severity: error
+utils:
+    array-member:
+        kind: member_expression
+        has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Array)?$'}, exported: {regex: '^Array$'}}}}
+    flat-map:
+        kind: call_expression
+        has: {field: function, kind: member_expression, has: {field: property, pattern: $SCAN, regex: '^flatMap$'}}
+    scan:
+        kind: call_expression
+        has: {field: function, matches: array-member, has: {field: property, pattern: $SCAN, regex: '^(filter|filterMap)$'}}
+    first:
+        matches: array-member
+        has: {field: property, regex: '^head$'}
 rule:
     pattern: $FIRST
     any:
-        - pattern: $L.$SCAN($P)[0]
-        - pattern: $L.$SCAN($P).at(0)
-constraints:
-    SCAN: {regex: '^(filter|flatMap)$'}
+        - kind: subscript_expression
+          all:
+            - has: {field: object, matches: flat-map}
+            - has: {field: index, regex: '^0$'}
+        - pattern: $L.at(0)
+          has: {field: function, has: {field: object, matches: flat-map}}
+        - kind: call_expression
+          all:
+            - has: {field: function, matches: first}
+            - has: {field: arguments, all: [{has: {nthChild: 1, matches: scan, has: {field: arguments, has: {nthChild: 2}}}}, {not: {has: {nthChild: 2}}}]}
+        - pattern: $A.get($SCANNED, 0)
+          all:
+            - has: {field: function, matches: array-member}
+            - has: {field: arguments, has: {nthChild: 1, matches: scan, has: {field: arguments, has: {nthChild: 2}}}}
+        - matches: first
+          inside: {kind: arguments}
+          follows:
+            stopBy: {not: {regex: '^,$'}}
+            matches: scan
+            not: {has: {field: arguments, has: {nthChild: 2}}}
 rewriters:
     - id: find
       rule:
         any:
-            - pattern: $L.filter($P)[0]
-            - pattern: $L.filter($P).at(0)
-      fix: $L.find($P)
+            - pattern: $A.head($M.filter($XS, $P))
+            - pattern: $A.get($M.filter($XS, $P), 0)
+      fix: $A.findFirst($XS, $P)
 transform:
     FOUND: rewrite($FIRST, rewriters=[find])
 fix: $FOUND
-message: '`$L.$SCAN` scans the whole list for its first match'
-note: '`<list>.find(<predicate>)` stops at the first match, `Array.findFirst(<list>, <mapper>)` with an `Option` mapper where the scan is `flatMap`'
+message: '`$SCAN` builds every match of the list to take the first'
+note: '`Array.findFirst(<list>, <predicate>)` stops at the first match and takes an `Option` mapper where the scan maps'

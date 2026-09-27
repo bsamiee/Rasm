@@ -11,7 +11,7 @@ utils:
                 - not:
                     inside:
                         kind: function_definition
-                        stopBy: {matches: python-function-boundary}
+                        stopBy: {kind: 'function_definition, lambda'}
                         has: {field: parameters, has: {matches: {python-parameter: {name: {pattern: $ROOT}}}}}
             - kind: attribute
               has: {field: object, matches: named-callee}
@@ -57,7 +57,7 @@ rule:
             - not: {has: {regex: '^async$'}}
             - has: {field: body, kind: block, has: {matches: forwarding-statement, has: {kind: await}}}
         - not: {inside: {kind: decorated_definition}}
-        - has: {field: body, matches: single-statement-body, has: {stopBy: {matches: python-function-boundary}, matches: forwarded-call, has: {field: function, pattern: $F}}}
+        - has: {field: body, matches: single-statement-body, has: {stopBy: {kind: 'function_definition, lambda'}, matches: forwarded-call, has: {field: function, pattern: $F}}}
         - any:
             - all:
                 - has: {field: parameters, matches: positional-parameters}

@@ -104,6 +104,19 @@ public static class DocumentUnits {
             DocumentSpace.Page => new UnitsAndTolerances(doc.PageUnits, doc.PageAbsoluteTolerance, doc.PageRelativeTolerance, doc.PageAngleToleranceRadians, doc.PageDistanceDisplayPrecision),
         });
 
+    public static IO<double> DisplayResolution(RhinoDoc doc, DocumentSpace space) =>
+        IO.lift(() => space switch {
+            DocumentSpace.Model => DisplayResolution(doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision, doc.ModelUnits),
+            DocumentSpace.Page => DisplayResolution(doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision, doc.PageUnits),
+        });
+
+    private static Fin<double> DisplayResolution(global::Rhino.UI.DistanceDisplayMode mode, int precision, LengthUnit lengthUnit) =>
+        mode switch {
+            global::Rhino.UI.DistanceDisplayMode.Decimal => Math.Pow(10, -precision),
+            global::Rhino.UI.DistanceDisplayMode.Fractional => Math.ScaleB(1, -precision),
+            global::Rhino.UI.DistanceDisplayMode.FeetInches => UnitScale(LengthUnit.Inches, lengthUnit).Map(inch => Math.ScaleB(inch, -precision)),
+        };
+
     public static IO<UnitsAndTolerances> Adjust(RhinoDoc doc, DocumentSpace space, UnitsAndTolerancesChange change) =>
         from written in change.Switch(
             (Doc: doc, Space: space),

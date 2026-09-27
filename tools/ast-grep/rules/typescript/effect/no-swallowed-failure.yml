@@ -4,7 +4,7 @@ language: tsx
 severity: error
 utils:
     effect-module:
-        matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|STM))?$'}, exported: {regex: '^(Effect|STM)$'}}}
+        matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}
     failure-constructor:
         kind: call_expression
         pattern: $INNER
@@ -12,7 +12,7 @@ utils:
             field: function
             kind: member_expression
             all:
-                - has: {field: property, regex: '^(try|tryPromise|tryMap|tryMapPromise|fail|failSync|filterOrFail|mapError|mapBoth|orElseFail)$'}
+                - has: {field: property, regex: '^(try|tryPromise|fail|failSync|failCause|failCauseSync|filterOrFail|mapError|mapBoth)$'}
                 - has: {field: object, matches: effect-module}
     boolean-handler:
         matches: {effect-constant-handler: {result: {kind: 'true, false'}}}

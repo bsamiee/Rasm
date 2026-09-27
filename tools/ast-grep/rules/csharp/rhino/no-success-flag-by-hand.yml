@@ -2,7 +2,7 @@
 id: no-success-flag-by-hand
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     unit-type:
         regex: '^((global::)?(LanguageExt\.)?)?IO\s*<\s*((global::)?(LanguageExt\.)?)?Unit\s*>$'

@@ -3,8 +3,6 @@ id: no-default-comparison
 language: csharp
 severity: error
 utils:
-    function-owner:
-        kind: 'method_declaration, constructor_declaration, local_function_statement, lambda_expression, accessor_declaration, operator_declaration'
     type-parameter:
         kind: identifier
         pattern: $TP
@@ -31,12 +29,7 @@ utils:
     generic-local:
         kind: identifier
         pattern: $OPERAND
-        any:
-            - inside:
-                matches: function-owner
-                stopBy: end
-                has: {field: parameters, has: {kind: parameter, all: [{has: {field: name, pattern: $OPERAND}}, {has: {field: type, matches: type-parameter}}]}}
-            - matches: {csharp-block-local: {declarator: {inside: {kind: variable_declaration, has: {field: type, matches: type-parameter}}}}}
+        matches: {csharp-declared-type: {type: {matches: type-parameter}}}
     default-value:
         any:
             - kind: default_expression

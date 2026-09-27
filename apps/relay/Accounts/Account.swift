@@ -1,6 +1,8 @@
 import DeveloperToolsSupport
 import Foundation
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
 nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
   case claude
   case openAI
@@ -23,68 +25,6 @@ nonisolated enum Provider: String, CaseIterable, Codable, Sendable {
 nonisolated enum SessionPolicy: String, Codable, Sendable {
   case manual
   case automatic
-}
-
-nonisolated enum IdentityError: Error {
-  case missingAccountID
-  case missingEmail
-  case emptyOrganizationID
-}
-
-nonisolated struct IdentityFailure: AggregateError {
-  let first: IdentityError
-  let remaining: [IdentityError]
-}
-
-nonisolated struct AccountIdentity: Equatable, Sendable {
-  let accountID: String
-  let organizationID: String?
-  let email: String
-  let plan: String?
-
-  private init(accountID: String, organizationID: String?, email: String, plan: String?) {
-    self.accountID = accountID
-    self.organizationID = organizationID
-    self.email = email
-    self.plan = plan
-  }
-
-  static func make(
-    accountID: String,
-    organizationID: String?,
-    email: String,
-    plan: String?
-  ) -> Result<AccountIdentity, IdentityFailure> {
-    let canonicalID: String = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
-    let canonicalEmail: String = email.trimmingCharacters(in: .whitespacesAndNewlines)
-    let canonicalOrganization: String? = organizationID.map { value in
-      value.trimmingCharacters(in: .whitespacesAndNewlines)
-    }
-    let checkedID: Result<String, IdentityFailure> =
-      canonicalID.isEmpty ? .failure(IdentityFailure(.missingAccountID)) : .success(canonicalID)
-    let checkedEmail: Result<String, IdentityFailure> =
-      canonicalEmail.isEmpty ? .failure(IdentityFailure(.missingEmail)) : .success(canonicalEmail)
-    let checkedOrganization: Result<String?, IdentityFailure> =
-      switch canonicalOrganization {
-      case .none: .success(nil)
-      case .some(let value) where value.isEmpty: .failure(IdentityFailure(.emptyOrganizationID))
-      case .some(let value): .success(value)
-      }
-    return combine(checkedID, checkedEmail, checkedOrganization).map { id, email, organization in
-      AccountIdentity(accountID: id, organizationID: organization, email: email, plan: plan)
-    }
-  }
-
-  func isSameAccount(as other: AccountIdentity) -> Bool {
-    accountID == other.accountID && organizationID == other.organizationID
-  }
-}
-
-nonisolated struct Account: Identifiable, Sendable {
-  let id: UUID
-  let provider: Provider
-  var identity: AccountIdentity
-  var sessionPolicy: SessionPolicy
 }
 
 nonisolated enum AuthenticationState: Equatable, Codable, Sendable {
@@ -112,6 +52,64 @@ nonisolated enum AccountOperation: Equatable, Sendable {
   }
 }
 
+nonisolated protocol ProviderFailure: LocalizedError, Sendable {
+  var requiresSignIn: Bool { get }
+  var isCancellation: Bool { get }
+}
+
+// --- [MODELS] --------------------------------------------------------------------------
+
+nonisolated struct AccountIdentity: Equatable, Sendable {
+  let accountID: String
+  let organizationID: String?
+  let email: String
+  let plan: String?
+
+  private init(accountID: String, organizationID: String?, email: String, plan: String?) {
+    self.accountID = accountID
+    self.organizationID = organizationID
+    self.email = email
+    self.plan = plan
+  }
+
+  static func make(
+    accountID: String,
+    organizationID: String?,
+    email: String,
+    plan: String?
+  ) -> Result<AccountIdentity, IdentityErrors> {
+    let canonicalID: String = accountID.trimmingCharacters(in: .whitespacesAndNewlines)
+    let canonicalEmail: String = email.trimmingCharacters(in: .whitespacesAndNewlines)
+    let canonicalOrganization: String? = organizationID.map { value in
+      value.trimmingCharacters(in: .whitespacesAndNewlines)
+    }
+    let checkedID: Result<String, IdentityErrors> =
+      canonicalID.isEmpty ? .failure(IdentityErrors(.missingAccountID)) : .success(canonicalID)
+    let checkedEmail: Result<String, IdentityErrors> =
+      canonicalEmail.isEmpty ? .failure(IdentityErrors(.missingEmail)) : .success(canonicalEmail)
+    let checkedOrganization: Result<String?, IdentityErrors> =
+      switch canonicalOrganization {
+      case .none: .success(nil)
+      case .some(let value) where value.isEmpty: .failure(IdentityErrors(.emptyOrganizationID))
+      case .some(let value): .success(value)
+      }
+    return combine(checkedID, checkedEmail, checkedOrganization).map { id, email, organization in
+      AccountIdentity(accountID: id, organizationID: organization, email: email, plan: plan)
+    }
+  }
+
+  func isSameAccount(as other: AccountIdentity) -> Bool {
+    accountID == other.accountID && organizationID == other.organizationID
+  }
+}
+
+nonisolated struct Account: Identifiable, Sendable {
+  let id: UUID
+  let provider: Provider
+  var identity: AccountIdentity
+  var sessionPolicy: SessionPolicy
+}
+
 nonisolated enum AuthenticationPhase: Equatable, Sendable {
   case pending
   case completing
@@ -130,9 +128,17 @@ nonisolated struct AuthenticationPresentation: Identifiable, Equatable, Sendable
   }
 }
 
-nonisolated protocol ProviderFailure: LocalizedError, Sendable {
-  var requiresSignIn: Bool { get }
-  var isCancellation: Bool { get }
+// --- [ERRORS] --------------------------------------------------------------------------
+
+nonisolated enum IdentityError: Error {
+  case missingAccountID
+  case missingEmail
+  case emptyOrganizationID
+}
+
+nonisolated struct IdentityErrors: AggregateError {
+  let first: IdentityError
+  let remaining: [IdentityError]
 }
 
 nonisolated struct ProviderError: LocalizedError, Sendable {

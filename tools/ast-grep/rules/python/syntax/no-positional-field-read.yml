@@ -76,7 +76,10 @@ utils:
         pattern: $ALIASED
         inside: {kind: module, stopBy: end, has: {kind: import_from_statement, has: {kind: aliased_import, all: [{has: {field: name, regex: '^_?[A-Z][A-Z0-9_]*$'}}, {has: {field: alias, pattern: $ALIASED}}]}}}
     constant:
-        any: [{matches: python-module-constant}, {matches: aliased-constant}]
+        any:
+            - matches: python-module-constant
+              not: {regex: '^_?[A-Z]\w*[a-z]\w*\.'}
+            - matches: aliased-constant
     substitution-callback:
         any:
             - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '(^|\.)subn?$'}}}
@@ -172,11 +175,36 @@ utils:
               all:
                 - has: {field: function, kind: identifier, pattern: $MAKER}
                 - inside: {kind: module, stopBy: end, has: {stopBy: end, kind: function_definition, all: [{has: {field: name, pattern: $MAKER}}, {has: {field: return_type, matches: fixed-tuple}}]}}
+    mapping-type:
+        regex: '^((typing\.)?Final\[)?(\w+\.)?(Mapping|MutableMapping|dict|MappingProxyType|OrderedDict|defaultdict|Counter|ChainMap)\b'
+    mapping-value:
+        any:
+            - kind: 'dictionary, dictionary_comprehension'
+            - kind: call
+              has: {field: function, regex: '(^|\.)(dict|MappingProxyType|OrderedDict|defaultdict|Counter|ChainMap)$'}
+    mapping-source:
+        any:
+            - matches: mapping-value
+            - kind: call
+              has: {field: function, kind: attribute, has: {field: attribute, regex: '^keys$'}}
+            - kind: identifier
+              pattern: $MAPPING
+              inside:
+                kind: 'module, function_definition'
+                stopBy: end
+                any:
+                    - has:
+                        stopBy: {kind: 'function_definition, class_definition, lambda'}
+                        kind: assignment
+                        all:
+                            - has: {field: left, pattern: $MAPPING}
+                            - any: [{has: {field: right, matches: mapping-value}}, {has: {field: type, matches: mapping-type}}]
+                    - has: {field: parameters, has: {kind: 'typed_parameter, typed_default_parameter', all: [{has: {kind: identifier, pattern: $MAPPING}}, {has: {field: type, matches: mapping-type}}]}}
     element-loop:
         all:
             - not: {has: {field: right, matches: match-source}}
             - any:
-                - has: {field: left, kind: identifier, pattern: $ROW}
+                - all: [{has: {field: left, kind: identifier, pattern: $ROW}}, {not: {has: {field: right, matches: mapping-source}}}]
                 - all:
                     - has: {field: right, kind: call, has: {field: function, regex: '^zip$'}}
                     - has: {field: left, kind: 'pattern_list, tuple_pattern', has: {kind: identifier, pattern: $ROW}}
@@ -232,6 +260,10 @@ utils:
                             - all:
                                 - nthChild: 1
                                 - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^(map|filter)$'}}, not: {has: {matches: match-source}}}
+                            - all:
+                                - nthChild: 1
+                                - has: {field: parameters, has: {nthChild: 2, kind: identifier, pattern: $ROW}}
+                                - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '(^|\.)reduce$'}}, not: {has: {matches: match-source}}}
                             - all:
                                 - not: {has: {field: parameters, has: {nthChild: 2}}}
                                 - has: {field: body, matches: getter-body}

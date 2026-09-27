@@ -2,6 +2,8 @@ import AppKit
 import ServiceManagement
 import SwiftUI
 
+// --- [VIEWS] ---------------------------------------------------------------------------
+
 struct SettingsView: View {
   let store: AccountStore
 

@@ -4,6 +4,9 @@ language: csharp
 utils:
     atom-type:
         regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\??$'
+    atom-creation:
+        kind: invocation_expression
+        regex: '^((global::)?(LanguageExt\.)?IO\.(lift|pure)\s*(<.+>)?\s*\(\s*(static\s+)?(\(\s*\)\s*=>\s*)?)?(global::)?(LanguageExt\.)?(Prelude\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap|atomIO)\b'
     atom-element-type:
         regex: '^(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<.*>\s*\[\s*\]$|[<,]\s*(global::)?(LanguageExt\.)?(Atom|AtomHashMap|AtomSeq|AtomQue|Ref|VersionHashMap)\s*<'
     owner-member:
@@ -40,17 +43,17 @@ utils:
             - kind: variable_declarator
               all:
                 - has: {field: name, pattern: $CELL}
-                - has: {nthChild: 2, any: [{matches: csharp-atom-creation}, {matches: csharp-atom-cell}]}
+                - has: {nthChild: 2, any: [{matches: atom-creation}, {matches: csharp-atom-cell}]}
             - kind: from_clause
               all:
                 - has: {field: name, pattern: $CELL}
                 - any:
                     - has: {field: type, matches: atom-type}
-                    - has: {matches: csharp-atom-creation}
+                    - has: {matches: atom-creation}
             - kind: let_clause
               all:
                 - has: {kind: identifier, nthChild: 1, pattern: $CELL}
-                - has: {matches: csharp-atom-creation}
+                - has: {matches: atom-creation}
     atom-member:
         any:
             - kind: field_declaration

@@ -16,13 +16,13 @@ Project files hold what differs from root `Directory.Build.props`: `Sdk` attribu
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <Description>Domain model for the Item aggregate</Description>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageReference Include="Contoso.Logging.Abstractions" />
-    <ProjectReference Include="../Core/Core.csproj" />
-  </ItemGroup>
+    <PropertyGroup>
+        <Description>Domain model for the Item aggregate</Description>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="Contoso.Logging.Abstractions" />
+        <ProjectReference Include="../Core/Core.csproj" />
+    </ItemGroup>
 </Project>
 ```
 
@@ -47,26 +47,26 @@ Files with no place in the project set:
 
 ```xml
 <PropertyGroup>
-  <UseArtifactsOutput>true</UseArtifactsOutput>
-  <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
+    <UseArtifactsOutput>true</UseArtifactsOutput>
+    <ArtifactsPath>$([MSBuild]::NormalizePath('$(MSBuildThisFileDirectory)', '.artifacts', 'dotnet'))</ArtifactsPath>
 </PropertyGroup>
 ```
 
 ## [02]-[CENTRAL_PACKAGE_MANAGEMENT]
 
-`Directory.Packages.props` owns every version in `PackageVersion` items, projects name packages without a version. `NuGet.props` imports the nearest `Directory.Packages.props` at or above the project directory, a nested file imports the outer one at its top.
+`Directory.Packages.props` owns every version in `PackageVersion` items, projects name packages without a version. `NuGet.props` imports the nearest `Directory.Packages.props` at or above its project directory, a nested file imports its outer one at its top.
 
 ```xml
 <Project>
-  <PropertyGroup>
-    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
-  </PropertyGroup>
-  <ItemGroup>
-    <PackageVersion Include="Contoso.Logging.Abstractions" Version="10.0.11" />
-  </ItemGroup>
-  <ItemGroup>
-    <GlobalPackageReference Include="Contoso.Analyzers" Version="3.0.203" />
-  </ItemGroup>
+    <PropertyGroup>
+        <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    </PropertyGroup>
+    <ItemGroup>
+        <PackageVersion Include="Contoso.Logging.Abstractions" Version="10.0.11" />
+    </ItemGroup>
+    <ItemGroup>
+        <GlobalPackageReference Include="Contoso.Analyzers" Version="3.0.203" />
+    </ItemGroup>
 </Project>
 ```
 
@@ -79,7 +79,7 @@ Files with no place in the project set:
 |  [03]   | `CentralPackageFloatingVersionsEnabled`  | `false`   | `true` permits `1.*`, restore then depends on the feed state           |
 |  [04]   | `ManagePackageVersionsCentrally=false`   |           | In a nested `Directory.Packages.props`, removes a tree from CPM        |
 
-Transitive pinning restores every transitive package with a `PackageVersion` item at that version, a pin below a dependency's floor fails restore with `NU1109`. `dotnet pack` promotes pinned transitive packages to explicit nuspec dependencies. `PackageVersion Update` in a nested file changes one version for one tree.
+Transitive pinning restores every transitive package with a `PackageVersion` item at the item's version, a pin below a dependency's floor fails restore with `NU1109`. `dotnet pack` promotes pinned transitive packages to explicit nuspec dependencies. `PackageVersion Update` in a nested file changes one version for one tree.
 
 | [INDEX] | [METADATA]             | [EFFECT]                                                                                 |
 | :-----: | :--------------------- | :--------------------------------------------------------------------------------------- |
@@ -107,7 +107,7 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 
 ```xml
 <ItemGroup>
-  <PackageReference Include="Contoso.Testing.TrxReport" Condition="'$(ProjectRole)' == 'tests'" />
+    <PackageReference Include="Contoso.Testing.TrxReport" Condition="'$(ProjectRole)' == 'tests'" />
 </ItemGroup>
 ```
 
@@ -118,8 +118,7 @@ Transitive pinning restores every transitive package with a `PackageVersion` ite
 |  [03]   | `dotnet package list --project <csproj> --include-transitive` | Requested and resolved versions, `--outdated` compares with the feeds |
 |  [04]   | `dotnet package remove <id> --project <csproj>`               | Removes the reference, the `PackageVersion` item stays                |
 |  [05]   | `dotnet package search <term> --source <url>`                 | Feed search, `--exact-match` lists every version of one id            |
-|  [06]   | `dotnet package update [<id>@<version>] --project <csproj>`   | Newest version, `--vulnerable` narrows, no prerelease switch          |
-|  [07]   | `dotnet add package`                                          | Verb-first spelling of `dotnet package add`                           |
+|  [06]   | `dotnet add package`                                          | Verb-first spelling of `dotnet package add`                           |
 
 SemVer precedence misorders the prerelease builds a CI labels by branch or by build number:
 - Alphanumeric identifiers compare as text, `<n>-<branch>-<build>` outranks `<n>-dev-<build>` when `<branch>` sorts after `dev`
@@ -133,41 +132,41 @@ Catalog projects reference every central row, rows no other project references i
 
 ```xml
 <Project Sdk="Microsoft.Build.NoTargets">
-  <ItemGroup>
-    <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" ExcludeAssets="build;buildMultitargeting;buildTransitive" />
-  </ItemGroup>
+    <ItemGroup>
+        <PackageReference Include="@(PackageVersion->ClearMetadata())" Exclude="@(PackageReference)" ExcludeAssets="build;buildMultitargeting;buildTransitive" />
+    </ItemGroup>
 </Project>
 ```
 
 - `Microsoft.Build.NoTargets` restores without compiling, `global.json` `msbuild-sdks` holds its version
 - `ClearMetadata` drops `Version`, a `PackageReference` with `Version` under CPM fails `NU1008`
-- `Exclude` skips the rows root `Directory.Build.props` already references, a duplicate reports `NU1504`
-- `ExcludeAssets` keeps every package's build props and targets out of the evaluation, no package then reshapes the project
+- `Exclude` skips rows root `Directory.Build.props` references, a duplicate reports `NU1504`
+- `ExcludeAssets` keeps every package's build props and targets out of evaluation, no package then reshapes the project
 - `NoTargets` declares no framework reference, pruning then has nothing to prune and no row reports `NU1510`
 
 ## [03]-[RESTORE]
 
-Restore resolves every direct reference to its exact `PackageVersion` and every transitive package to the lowest version the graph accepts, or to its `PackageVersion` under transitive pinning. Resolved graph is a function of `Directory.Packages.props`, the project files, and the sources.
+Restore resolves every direct reference to its exact `PackageVersion` and every transitive package to the lowest version its graph accepts, or to its `PackageVersion` under transitive pinning. Resolved graph is a function of `Directory.Packages.props`, project files, and sources.
 
 ```xml
 <?xml version="1.0" encoding="utf-8"?>
 <configuration>
-  <packageSources>
-    <clear />
-    <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
-    <add key="contoso" value="https://pkgs.contoso.example/nuget/v3/index.json" />
-  </packageSources>
-  <packageSourceMapping>
-    <packageSource key="nuget.org">
-      <package pattern="*" />
-    </packageSource>
-    <packageSource key="contoso">
-      <package pattern="Contoso.*" />
-    </packageSource>
-  </packageSourceMapping>
-  <config>
-    <add key="globalPackagesFolder" value="packages" />
-  </config>
+    <packageSources>
+        <clear />
+        <add key="nuget.org" value="https://api.nuget.org/v3/index.json" />
+        <add key="contoso" value="https://pkgs.contoso.example/nuget/v3/index.json" />
+    </packageSources>
+    <packageSourceMapping>
+        <packageSource key="nuget.org">
+        <package pattern="*" />
+        </packageSource>
+        <packageSource key="contoso">
+        <package pattern="Contoso.*" />
+        </packageSource>
+    </packageSourceMapping>
+    <config>
+        <add key="globalPackagesFolder" value="packages" />
+    </config>
 </configuration>
 ```
 
@@ -177,7 +176,7 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 - Exact id patterns beat a prefix, a longer prefix beats a shorter one, `*` is the default
 - CPM reports `NU1507` with more than one HTTP source and no mapping
 - Mapping is skipped for an id present in the global packages folder
-- `globalPackagesFolder` in the `<config>` section or `NUGET_PACKAGES` in the pipeline gives a repository its own folder
+- `globalPackagesFolder` in a `<config>` section or `NUGET_PACKAGES` in the pipeline gives a repository its own folder
 - `globalPackagesFolder` applies to `PackageReference`, `repositoryPath` applies to `packages.config`, `NUGET_PACKAGES` overrides both
 - `RestoreSources` replaces the configured sources for one restore, `RestoreAdditionalProjectSources` adds to them
 - `RestoreIgnoreFailedSources` turns an unreachable source into a warning
@@ -191,32 +190,32 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 | [INDEX] | [COMMAND]                                | [EFFECT]                                                                      |
 | :-----: | :--------------------------------------- | :---------------------------------------------------------------------------- |
 |  [01]   | `dotnet restore --force`                 | Resolves again as if `project.assets.json` were deleted, keeps the HTTP cache |
-|  [02]   | `dotnet restore --runtime <rid>`         | Restores the runtime-specific assets a publish for that RID needs             |
+|  [02]   | `dotnet restore --runtime <rid>`         | Restores the runtime-specific assets a publish for `<rid>` needs              |
 |  [03]   | `dotnet restore -p:Name=Value`           | Global property for the restore evaluation                                    |
 |  [04]   | `dotnet nuget locals all --list`         | Paths of `global-packages`, `http-cache`, `temp`, and `plugins-cache`         |
 |  [05]   | `dotnet nuget locals http-cache --clear` | Drops the 30 minute feed cache after a package republish                      |
 
 ## [04]-[PACKAGE_AUTHORING]
 
-`dotnet pack` reads every value from the project, a package project sets `Version`, `Description`, and `PackageLicenseExpression`, the `Directory.Build.props` of a packaging directory owns the shared layout. `IsPackable=false` in the root props keeps every other project out of `dotnet pack`. `packaging/Directory.Build.props` holds:
+`dotnet pack` reads every value from the project, a package project sets `Version`, `Description`, and `PackageLicenseExpression`, a packaging directory's `Directory.Build.props` owns shared layout. `IsPackable=false` in the root props keeps every other project out of `dotnet pack`. `packaging/Directory.Build.props` holds:
 
 ```xml
 <Project>
-  <PropertyGroup>
-    <RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</RepositoryRoot>
-    <UseArtifactsOutput>true</UseArtifactsOutput>
-    <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts', 'packaging'))</ArtifactsPath>
-    <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'nuget'))</PackageOutputPath>
-    <TargetFramework>netstandard2.0</TargetFramework>
-    <IncludeBuildOutput>false</IncludeBuildOutput>
-    <EnableDefaultItems>false</EnableDefaultItems>
-    <DeterministicTimestamp>1735689600</DeterministicTimestamp>
-  </PropertyGroup>
-  <ItemGroup>
-    <None Include="$(MSBuildProjectDirectory)/runtimes/**" Pack="true" PackagePath="runtimes/" />
-    <None Include="$(MSBuildProjectDirectory)/buildTransitive/**" Pack="true" PackagePath="buildTransitive/" />
-    <None Include="$(MSBuildThisFileDirectory)_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
-  </ItemGroup>
+    <PropertyGroup>
+        <RepositoryRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..'))</RepositoryRoot>
+        <UseArtifactsOutput>true</UseArtifactsOutput>
+        <ArtifactsPath>$([MSBuild]::NormalizePath('$(RepositoryRoot)', '.artifacts', 'packaging'))</ArtifactsPath>
+        <PackageOutputPath>$([MSBuild]::NormalizeDirectory('$(RepositoryRoot)', '.artifacts', 'nuget'))</PackageOutputPath>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <IncludeBuildOutput>false</IncludeBuildOutput>
+        <EnableDefaultItems>false</EnableDefaultItems>
+        <DeterministicTimestamp>1735689600</DeterministicTimestamp>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Include="$(MSBuildProjectDirectory)/runtimes/**" Pack="true" PackagePath="runtimes/" />
+        <None Include="$(MSBuildProjectDirectory)/buildTransitive/**" Pack="true" PackagePath="buildTransitive/" />
+        <None Include="$(MSBuildThisFileDirectory)_._" Pack="true" PackagePath="lib/$(TargetFramework)/" />
+    </ItemGroup>
 </Project>
 ```
 
@@ -224,23 +223,23 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 
 ```xml
 <Project Sdk="Microsoft.NET.Sdk">
-  <PropertyGroup>
-    <Version>1.0.0</Version>
-    <Description>Item shared library per runtime identifier</Description>
-    <PackageLicenseExpression>MIT</PackageLicenseExpression>
-  </PropertyGroup>
+    <PropertyGroup>
+        <Version>1.0.0</Version>
+        <Description>Item shared library per runtime identifier</Description>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    </PropertyGroup>
 </Project>
 ```
 
-- Nested `Directory.Build.props` files without the root import stop root inheritance for the tree below
-- `lib/<tfm>/_._` marks the framework the package supports, the pack targets emit the matching dependency group
-- Native libraries go under `runtimes/<rid>/native/`, the SDK copies the matching RID directory and flattens it on publish
+- Nested `Directory.Build.props` files without a root import stop root inheritance for the tree below
+- `lib/<tfm>/_._` marks a framework the package supports, pack targets emit a matching dependency group
+- Native libraries go under `runtimes/<rid>/native/`, the SDK copies each matching RID directory and flattens it on publish
 - Managed assemblies per RID go under `runtimes/<rid>/lib/<tfm>/` with an AnyCPU compile assembly under `ref/<tfm>/`
 - NuGet takes compile assets from `ref/` over `lib/` and runtime assets from `runtimes/` over `lib/`
-- `contentFiles/any/any/` with `PackageCopyToOutput="true"` writes `copyToOutput="true"` to the nuspec, for a data file the runtime opens by path
-- `build/<PackageId>.props` and `.targets` reach the direct consumer, `buildTransitive/` reaches every consumer down the graph
+- `contentFiles/any/any/` with `PackageCopyToOutput="true"` writes `copyToOutput="true"` to the nuspec, for a data file a runtime opens by path
+- `build/<PackageId>.props` and `.targets` reach direct consumers, `buildTransitive/` reaches every consumer down the graph
 - Packed `.props` files set properties under a condition the consumer can override
-- `PackagePath` names the folder in the package, `Pack="true"` on `None` includes the item, `Pack="false"` on `Content` excludes it
+- `PackagePath` names a package folder, `Pack="true"` on `None` includes the item, `Pack="false"` on `Content` excludes it
 - `Deterministic` gives every zip entry the `DeterministicTimestamp` time, RFC 3339 or Unix seconds
 - `SOURCE_DATE_EPOCH` fills `DeterministicTimestamp` when unset, the wall clock otherwise
 
@@ -272,16 +271,16 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 
 ## [05]-[SOLUTION_FILES]
 
-`.slnx` is the default of `dotnet new sln`, solution folders match the repository layout, a project a task runner builds on its own stays out of the solution.
+`.slnx` is `dotnet new sln`'s default, solution folders match repository layout, a project a task runner builds on its own stays out of the solution.
 
 ```xml
 <Solution>
-  <Folder Name="/apps/">
-    <Project Path="apps/Tool/Tool.csproj" />
-  </Folder>
-  <Folder Name="/libs/">
-    <Project Path="libs/Library/Library.csproj" />
-  </Folder>
+    <Folder Name="/apps/">
+        <Project Path="apps/Tool/Tool.csproj" />
+    </Folder>
+    <Folder Name="/libs/">
+        <Project Path="libs/Library/Library.csproj" />
+    </Folder>
 </Solution>
 ```
 
@@ -304,29 +303,29 @@ Restore resolves every direct reference to its exact `PackageVersion` and every 
 
 - MSBuild builds a solution as a generated project importing `Directory.Solution.props` and `Directory.Solution.targets`
 - Generated solution project skips `Directory.Build.props`
-- `.slnx` builds import `before.<name>.sln.targets` and `after.<name>.sln.targets` beside the file, the name keeps `.sln` for both formats
+- `.slnx` builds import `before.<name>.sln.targets` and `after.<name>.sln.targets` beside the solution, their name keeps `.sln` for both formats
 - `.slnf` filters name a `.slnx` in `path`, `dotnet build Filter.slnf` builds the listed projects and their references
 - `dotnet build Library/Library.csproj` builds one project and its references
 - Duplicate `Project` rows fail every solution command with an error naming the duplicate path
 
 ## [06]-[CI_BUILD_PROPERTIES]
 
-Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` under a condition on a property the pipeline passes with `-p:CI=true` or exports as the `CI` environment variable, switches sit on the pipeline command lines.
+Every CI property sits in one `PropertyGroup` in root `Directory.Build.props` under a condition on a property the pipeline passes with `-p:CI=true` or exports as environment variable `CI`, switches sit on pipeline command lines.
 
 ```xml
 <PropertyGroup Label="Continuous integration" Condition="'$(CI)' == 'true'">
-  <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
-  <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-  <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <MSBuildTreatWarningsAsErrors>true</MSBuildTreatWarningsAsErrors>
 </PropertyGroup>
 ```
 
 - `ContinuousIntegrationBuild` turns on `DeterministicSourcePaths`
 - `TreatWarningsAsErrors` covers compiler and NuGet warnings, `MSBuildTreatWarningsAsErrors` covers warnings MSBuild tasks and BuildCheck log
-- `SatelliteResourceLanguages=en` keeps the named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`
+- `SatelliteResourceLanguages=en` keeps named satellite assemblies, `GenerateDocumentationFile=true` writes the XML file and turns on `CS1591`
 - Satellite and documentation properties belong to the unconditioned group
 - `EnableWindowsTargeting` stays unset on a non-Windows runner, a Windows target framework then fails `NETSDK1100`
-- `global.json` `rollForward: disable` pins the SDK on the runner, `DOTNET_ROLL_FORWARD` governs the runtime an application host selects
+- `global.json` `rollForward: disable` pins the SDK on runners, `DOTNET_ROLL_FORWARD` governs which runtime an application host selects
 - Use `dotnet-msbuild-diagnostics` for BuildCheck on the pipeline build
 
 ```bash
@@ -353,11 +352,11 @@ dotnet test --solution Product.slnx --no-build --report-trx
 |  [06]   | `DOTNET_CLI_HOME=<dir>`                | Location of first-run sentinels, workload data, and local tools          |
 |  [07]   | `MSBUILDDISABLENODEREUSE=1`            | `-nodeReuse:false` for every MSBuild process, one a tool starts included |
 
-`global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs the `Microsoft.Testing.Extensions.TrxReport` package in each test project, `--project` and `--solution` exclude each other, the exit code is `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
+`global.json` `test.runner: Microsoft.Testing.Platform` makes `dotnet test` run every test project as an MTP application and reject a VSTest project, `--report-trx` needs package `Microsoft.Testing.Extensions.TrxReport` in each test project, `--project` and `--solution` exclude each other, and exit codes are `0` for success, `2` for a failed test, `8` for zero tests, `9` for fewer tests than `--minimum-expected-tests`, and `5` for an invalid command line.
 
 - `dotnet test --no-build` runs `ComputeRunArguments` per test project and starts the app host
 - `TestingPlatformCommandLineArguments` reaches the test run through `RunArguments`
-- `TestingPlatformDotnetTestSupport` belongs to the VSTest mode, the .NET 10 runner fails when a project sets it
+- `TestingPlatformDotnetTestSupport` belongs to VSTest mode, the .NET 10 runner fails when a project sets it
 - Extension options (`--report-trx`, `--coverage`, `--crashdump`) fail with exit code `5` in a project without the providing package
 - `coverlet.MTP` names each report by a timestamp under `--results-directory`
 

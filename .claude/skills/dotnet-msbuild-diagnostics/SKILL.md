@@ -147,7 +147,7 @@ Run in order: `binlog_overview`, `binlog_diagnose` on a failed build, `binlog_er
 
 Start with `binlog_overview`, `binlog_errors`, `binlog_warnings`, and `binlog_projects` on the original log. Their streaming index answers whole-build queries without loading the structured tree. Read each response's scope notice, a query can use a substituted subtree when the index cannot answer it. An extract supplied as input limits the scope with no notice.
 
-Above 200 MB the server answers tree queries from an automatically extracted subtree, error-seeded projects for diagnostic tools and the heaviest projects for performance tools, and caches the extract beside the index for seven days. `BINLOG_MCP_AUTO_EXTRACT_MB` sets the threshold, `0` forces a full load. `binlog_double_writes`, `binlog_diagnose`, `binlog_compare`, and `binlog_compare_property` answer about the whole build, they load the full log when process memory allows and refuse with the reason otherwise.
+Above 200 MB the server answers tree queries from an automatically extracted subtree, error-seeded projects for diagnostic tools and the heaviest projects for performance tools, and caches the extract beside the index for 7 days. `BINLOG_MCP_AUTO_EXTRACT_MB` sets the threshold, `0` forces a full load. `binlog_double_writes`, `binlog_diagnose`, `binlog_compare`, and `binlog_compare_property` answer about the whole build, they load the full log when process memory allows and refuse with the reason otherwise.
 
 For a targeted investigation:
 1. Select projects from the original log's diagnostics
@@ -156,7 +156,7 @@ For a targeted investigation:
 4. Add `include_descendants=true` for referenced projects and `include_ancestors=true` for callers
 5. Read `skippedUnsupportedRecords` and state the selected scope with the result
 
-Preview tokens stay valid for ten minutes in the same server process. Defects in an extract are evidence for its selected projects, an empty result excludes no defect elsewhere. Keep every participant when investigating a cross-project relationship.
+Preview tokens stay valid for 10 minutes in the same server process. Defects in an extract are evidence for its selected projects, an empty result excludes no defect elsewhere. Keep every participant when investigating a cross-project relationship.
 
 Original logs serve `binlog_files`, `binlog_search_files`, `binlog_preprocess`, and `binlog_assets`. Extracts omit the embedded source archive. When the original query cannot run, report its refusal and the available evidence.
 

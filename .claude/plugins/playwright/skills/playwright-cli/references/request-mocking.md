@@ -42,14 +42,14 @@ For conditional responses, request body inspection, response modification, or de
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.route('**/api/login', route => {
-    const body = route.request().postDataJSON();
-    if (body.username === 'admin') {
-      route.fulfill({ body: JSON.stringify({ token: 'mock-token' }) });
-    } else {
-      route.fulfill({ status: 401, body: JSON.stringify({ error: 'Invalid' }) });
-    }
-  });
+    await page.route('**/api/login', route => {
+        const body = route.request().postDataJSON();
+        if (body.username === 'admin') {
+            route.fulfill({ body: JSON.stringify({ token: 'mock-token' }) });
+        } else {
+            route.fulfill({ status: 401, body: JSON.stringify({ error: 'Invalid' }) });
+        }
+    });
 }"
 ```
 
@@ -57,12 +57,12 @@ playwright-cli run-code "async page => {
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.route('**/api/user', async route => {
-    const response = await route.fetch();
-    const json = await response.json();
-    json.isPremium = true;
-    await route.fulfill({ response, json });
-  });
+    await page.route('**/api/user', async route => {
+        const response = await route.fetch();
+        const json = await response.json();
+        json.isPremium = true;
+        await route.fulfill({ response, json });
+    });
 }"
 ```
 
@@ -70,7 +70,7 @@ playwright-cli run-code "async page => {
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.route('**/api/offline', route => route.abort('internetdisconnected'));
+    await page.route('**/api/offline', route => route.abort('internetdisconnected'));
 }"
 # Options: connectionrefused, timedout, connectionreset, internetdisconnected
 ```
@@ -79,9 +79,9 @@ playwright-cli run-code "async page => {
 
 ```bash
 playwright-cli run-code "async page => {
-  await page.route('**/api/slow', async route => {
-    await new Promise(r => setTimeout(r, 3000));
-    route.fulfill({ body: JSON.stringify({ data: 'loaded' }) });
-  });
+    await page.route('**/api/slow', async route => {
+        await new Promise(r => setTimeout(r, 3000));
+        route.fulfill({ body: JSON.stringify({ data: 'loaded' }) });
+    });
 }"
 ```

@@ -1,12 +1,9 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import type { ClassicHookEvent, EventName } from 'claude-code';
 import { fromNullable, none, type Option, some } from '../composition.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
 type Event = ClassicHookEvent | 'tool.call' | Extract<EventName, `turn.${string}`>;
-
 type Trim = (value: Readonly<Record<string, unknown>>, tool: Option<string>) => Readonly<Record<string, unknown>>;
 
 interface Columns {
@@ -18,7 +15,6 @@ interface Columns {
     readonly drops: readonly string[];
     readonly trims: readonly Trim[];
 }
-
 interface Row {
     readonly event: Event;
     readonly ts: number;
@@ -37,7 +33,6 @@ const _RESPONSE_DROPS: Readonly<Record<string, readonly string[]>> = { ['Read']:
 // --- [REFINEMENTS] ---------------------------------------------------------------------
 
 const _isRecord = (value: unknown): value is Readonly<Record<string, unknown>> => typeof value === 'object' && value !== null;
-
 const _isText = (value: unknown): value is string => typeof value === 'string';
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -91,7 +86,7 @@ const row = (event: Event, value: Readonly<Record<string, unknown>>, columns: Co
     };
 };
 
-// --- [REGISTRATIONS] -------------------------------------------------------------------
+// --- [COLUMNS] -------------------------------------------------------------------------
 
 const CLASSIC: Columns = {
     session: 'session_id',

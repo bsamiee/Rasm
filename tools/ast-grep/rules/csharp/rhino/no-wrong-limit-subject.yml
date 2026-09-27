@@ -2,7 +2,7 @@
 id: no-wrong-limit-subject
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     subject:
         kind: invocation_expression

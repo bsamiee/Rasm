@@ -1,7 +1,5 @@
 """Declarative environment doubles for SSH, remote filesystems, and object stores."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 from collections.abc import Awaitable, Callable, Iterator
 from contextlib import AbstractContextManager, contextmanager
 import os
@@ -43,10 +41,7 @@ class RemoteFS(msgspec.Struct, frozen=True):
 
 
 class ObjectStore(msgspec.Struct, frozen=True):
-    """S3-compatible object-store double over an in-process threaded moto endpoint.
-
-    Endpoints are per-provision but moto account state is process-global, teardown resets the backend and a later provision starts empty.
-    """
+    """S3-compatible object-store double over an in-process threaded moto endpoint."""
 
     bucket: str = "test-support-bucket"
     region: str = "us-east-1"
@@ -56,7 +51,7 @@ type EnvironmentSpec = SshHost | RemoteFS | ObjectStore
 
 
 class Provisioned[C](msgspec.Struct, frozen=True):
-    """Provisioned test resource with its URL and client factory, the provisioning scope owns teardown."""
+    """Provisioned test resource with its URL and client factory."""
 
     url: str
     client: Callable[[], C]
@@ -67,7 +62,7 @@ class Provisioned[C](msgspec.Struct, frozen=True):
 
 @contextmanager
 def _ssh_host(spec: SshHost) -> Iterator[Provisioned[Awaitable[asyncssh.SSHClientConnection]]]:
-    """Serve the socketpair SSH exec/SFTP host, each client connection runs beside its own server handshake."""
+    """Serve the socketpair SSH exec and SFTP host, one server handshake per client connection."""
     key = asyncssh.generate_private_key("ssh-ed25519")
 
     class _Host(asyncssh.SSHServer):
@@ -113,7 +108,7 @@ def _memory_filesystem() -> Iterator[Provisioned[AbstractFileSystem]]:
 
 @contextmanager
 def _object_store(spec: ObjectStore) -> Iterator[Provisioned[s3fs.S3FileSystem]]:
-    """Serve a moto endpoint with the bucket created, reset the backend and stop the server at exit."""
+    """Serve a moto endpoint holding the bucket, resetting the backend and stopping the server at exit."""
     server = ThreadedMotoServer(ip_address="127.0.0.1", port=0, verbose=False)
     server.start()
     host, port = server.get_host_and_port()

@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [TYPES] ---------------------------------------------------------------------------
+
 nonisolated enum CodexTurnErrorCode: String, Sendable {
   case contextWindowExceeded
   case sessionBudgetExceeded
@@ -15,6 +17,8 @@ nonisolated enum CodexTurnErrorCode: String, Sendable {
   case sandboxError
   case other
 }
+
+// --- [ERRORS] --------------------------------------------------------------------------
 
 nonisolated enum CodexFailure: ProviderFailure {
   case applicationUnavailable
@@ -97,13 +101,15 @@ nonisolated extension CodexFailure {
   }
 }
 
+nonisolated struct CodexFieldFailures: AggregateError {
+  let first: String
+  let remaining: [String]
+}
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 nonisolated extension Result where Failure == ProcessFailure {
   func codex() -> Result<Success, CodexFailure> {
     mapError(CodexFailure.init(process:))
   }
-}
-
-nonisolated struct CodexFieldFailure: AggregateError {
-  let first: String
-  let remaining: [String]
 }

@@ -13,7 +13,7 @@ Extensions are packages Blender installs from a zip and imports as `bl_ext.<repo
 - Folders linked into a repository import from the source and write bytecode into it, packages reach Blender as the zip `build` writes
 - Local repositories take the folder name as the package id, a linked folder is named after the manifest id
 - Reinstalling over an enabled copy pops the package and every submodule from `sys.modules`, and the new modules load with no restart
-- Renamed packages leave a stale record and a dangling link, `addon_disable` on the old record, relink, `extensions.repo_refresh_all()`, enable, save
+- Renamed packages take `addon_disable` on their earlier module, a relink, `extensions.repo_refresh_all()`, an enable, and a save
 
 ```bash
 # Manifest check, exit 1 naming each invalid key or the missing blender_manifest.toml
@@ -28,18 +28,25 @@ blender --factory-startup -c extension build --source-dir <source> --output-dir 
 - Zip packages install live through `bpy.ops.extensions.package_install_files(filepath=<zip>, repo="user_default", enable_on_install=True)`
 - Platform packages take `bpy.ops.extensions.repo_sync_all()`, then `package_install(repo_index=<i>, pkg_id="<id>", enable_on_install=True)`
 - `<i>` is the index of `blender_org` in `preferences.extensions.repos`
-- `bpy.ops.extensions.package_uninstall(repo_index=<i>, pkg_id="<id>")` removes one, installs enable in the call with no restart
+- `package_install` on an installed id upgrades it to the synced index's newest compatible version and keeps its enabled state
+- `bpy.ops.extensions.package_uninstall(repo_index=<i>, pkg_id="<id>")` removes one before it returns, installs enable with no restart
+- Uninstalls remove the record, the preference group, the package folder, the cached archive, and `extensions/.user/<repo>/<id>`
+- `https://extensions.blender.org/api/v1/extensions/?blender_version=<version>&platform=<platform>` lists one newest compatible row per id
 - `blender -c extension install-file -r user_default -e <zip>` installs a package file with the manifest at its root, a directory is refused
 - `blender --online-mode -c extension install --sync --enable blender_org.<id>` installs a platform package, empty resources start offline
-- Legacy zips install through `preferences.addon_install(filepath=)` then `addon_enable(module=)` and `wm.save_userpref()`
+- `bl_info` add-on zips install through `preferences.addon_install(filepath=)`, then `addon_enable(module=)` and `wm.save_userpref()`
+- `preferences.addon_remove(module=)` redraws `context.area`, a call from a timer runs it under a `temp_override` holding an area
 - Add-ons that draw through `gpu` at import enable in a GUI run alone, ended by `wm.quit_blender()`
 - Development runs under `BLENDER_USER_RESOURCES=<dir>`, apart from the user's packages, and background runs there call the installed operators
-- Enabling a subset (`--factory-startup` with `addon_utils.enable`, `--addons bl_ext.<id>`, factory `-c extension install -e`) rewrites the wheels
+- Resource folders a variable names exist before launch, a missing one falls back to the user's own and a save there writes the user's config
+- Factory runs that load scripts or enable a subset (`--addons bl_ext.<id>`, `-c extension install -e`) rewrite the wheels to the enabled set
+- Factory runs take `BLENDER_USER_EXTENSIONS=<existing folder>`, a `-c extension validate` or `build` run leaves the wheels as they are
 - Shared wheels sit under `<EXTENSIONS>/.local/lib/python3.13/site-packages`, a run under the user's preferences restores the full set
 
 ## [03]-[REGISTRATION]
 
-- Keymap items and panel re-registrations run in a timer `register()` adds with `first_interval=0.0`, after every add-on registered
+- Keymap items, panel re-registrations, and file data reads run in a timer `register()` adds with `first_interval=0.0`, after every add-on registered
+- Startup registration sees `bpy.data` as `_RestrictData`, a read of `bpy.data.objects` inside `register()` raises `AttributeError`
 - Add-on keymap items go in `keyconfigs.addon`, one keymap per name for every add-on, and `unregister` removes the exact `(keymap, item)` pairs
 - Add-on items land at the head of the user keymap in reverse order of addition, a table written in reverse lands in the order written
 - Chords are checked against every modifier combination of the stock items first, an add-on PRESS item ahead of a stock CLICK_DRAG item shadows it
@@ -52,4 +59,7 @@ blender --factory-startup -c extension build --source-dir <source> --output-dir 
 - Hidden core add-ons register with an empty owner id
 - `bpy.types.__dir__()` lists registered types in registration order, `dir()` sorts it, the Cycles `RenderEngine` is registered and absent from it
 - Pie draws pad every direction, a slice with nothing to draw takes a separator, and a raise inside `draw` leaves the pie empty
-- Modal operators that read the next key set `workspace.status_text_set(<text>)` and clear it with `None`
+- Modal operators that read the next key pass `workspace.status_text_set()` a text or a `draw(header, context)` callable
+- Every exit of such an operator, `cancel()` included, passes `None` to `status_text_set()`
+- Status bar draws lay out one row across the window, labels past the window edge clip unseen
+- Pie and status-bar draw functions run on every redraw, a pie on every MOUSEMOVE, so the operator resolves what they draw once in `invoke`

@@ -3,7 +3,8 @@ using Arches.Interaction;
 using Arches.Profiles;
 using Rasm.Rhino.Commands;
 using Rasm.Rhino.Document;
-using Rasm.Rhino.Viewport;
+using Rasm.Rhino.Persistence;
+using Rasm.Rhino.Plugin;
 using Rhino;
 using Rhino.Commands;
 using Rhino.PlugIns;
@@ -14,12 +15,17 @@ using Rhino.UI;
 namespace Arches;
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
-public sealed class ArchPlugIn : PlugIn;
+public sealed class ArchPlugIn : CallbackPlugIn {
+    protected override PlugInCallbacks Callbacks { get; } = new() {
+        LoadTime = PlugInLoadTime.AtStartup,
+        Subscriptions = [static reject => AppSettings.NudgeFollowsActiveDocument(static (resolution, grid) => (grid.SnapSpacing, 2 * resolution, grid.GridSpacing), reject)],
+    };
+}
 
 public abstract class ArchCommand(string typePrompt, IterableNE<ArchType> types) : HostCommand {
     protected override IO<Unit> Run(RhinoDoc doc, RunMode mode) =>
         from units in DocumentUnits.Read(doc, DocumentSpace.Model)
-        from profile in Prompts.PickType(typePrompt, types, new Context(doc, ActiveNormal(doc), None))
+        from profile in Prompts.PickType(typePrompt, types, new Context(doc, units.Absolute, None))
         from added in Disposal.Using(
             profile.Joined(units.Absolute),
             curves => Commits.WithinRedraw(
@@ -27,11 +33,6 @@ public abstract class ArchCommand(string typePrompt, IterableNE<ArchType> types)
                 new RedrawPolicy.AllViews(Deferred: true),
                 TableOps.Apply(doc, new TableOp.Add(curves.Map(static curve => new GeometryPair(curve, None)), None, Reference: false))))
         select unit;
-
-    private static IO<Vector3d> ActiveNormal(RhinoDoc doc) =>
-        from row in Viewports.ResolveViewport(doc, new ViewportTarget.Active())
-        from cplane in Cameras.GetConstructionPlane(row.Viewport)
-        select cplane.Plane.Normal;
 }
 
 public sealed class CircularArch() : ArchCommand(
@@ -84,5 +85,5 @@ public sealed class MultifoilArch() : ArchCommand(
 public sealed class ConicArch() : ArchCommand(
     LOC.STR("Select conic arch type"),
     IterableNE.create(
-        ArchTypes.ThreePoint(LOC.CON("Parabolic"), Conic.Parabolic, static _ => Conic.ParabolicRise),
+        ArchTypes.ThreePoint(LOC.CON("Parabolic"), Conic.Parabolic, RiseLimits.Positive),
         ArchTypes.ThreePoint(LOC.CON("Elliptical"), Conic.Elliptical, RiseLimits.UpToSemicircle)));

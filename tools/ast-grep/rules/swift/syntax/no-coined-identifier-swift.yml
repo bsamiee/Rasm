@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-coined-identifier-swift
+language: swift
+severity: error
+utils:
+    declared:
+        any:
+            - kind: simple_identifier
+              any:
+                - inside: {kind: 'pattern, if_statement, guard_statement, while_statement', field: bound_identifier}
+                - inside: {kind: pattern, inside: {kind: pattern, inside: {kind: property_declaration, field: name}}}
+                - inside: {kind: 'function_declaration, protocol_function_declaration, enum_entry', field: name}
+                - inside: {kind: 'parameter, lambda_parameter', field: name}
+                - inside: {kind: parameter, field: external_name}
+            - kind: type_identifier
+              any:
+                - inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name}
+                - inside: {kind: type_parameter}
+rule:
+    all:
+        - matches: declared
+        - matches: text-coined-word
+    pattern: $NAME
+message: Declared name `$NAME` holds a coined term
+note: Use the host API member or language term the declaration matches, or the decided domain word

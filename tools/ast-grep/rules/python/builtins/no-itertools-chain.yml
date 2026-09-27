@@ -2,7 +2,7 @@
 id: no-itertools-chain
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/*.py', '.claude/skills/use-rhino/scripts/*.py', 'tools/interface/**']
+ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
 utils:
     chain-function:
         matches: {python-member-use: {module: {regex: '^itertools$'}, name: {regex: '^chain$'}}}
@@ -54,7 +54,7 @@ utils:
         has: {field: arguments, any: [{kind: generator_expression}, {not: {has: {nthChild: 2}}}]}
 rule:
     pattern: $M
-    not: {matches: python-commented}
+    not: {has: {kind: comment, stopBy: end}}
     any:
         - kind: call
           all:

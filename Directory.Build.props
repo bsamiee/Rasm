@@ -16,12 +16,18 @@
     </PropertyGroup>
 
     <PropertyGroup Label="Rhino Plugin" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
-        <EnableDynamicLoading>true</EnableDynamicLoading>
+        <RhinoPlugIn>true</RhinoPlugIn>
         <TargetExt>.rhp</TargetExt>
+        <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
+        <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>
+        <GenerateDependencyFile>false</GenerateDependencyFile>
+        <PublishDocumentationFiles>false</PublishDocumentationFiles>
+        <CopyOutputSymbolsToPublishDirectory>false</CopyOutputSymbolsToPublishDirectory>
+        <PublishReferencesSymbols>false</PublishReferencesSymbols>
     </PropertyGroup>
 
     <PropertyGroup Label="Build Defaults">
-        <TargetFramework Condition="'$(TargetFramework)' == ''">net10.0</TargetFramework>
+        <TargetFramework>net10.0</TargetFramework>
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <CheckForOverflowUnderflow>true</CheckForOverflowUnderflow>

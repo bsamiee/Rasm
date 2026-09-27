@@ -7,9 +7,6 @@
         "@effect/platform-node": "catalog:",
         "effect": "catalog:"
     },
-    "devDependencies": {
-        "@types/node": "catalog:"
-    },
     "nx": {
         "implicitDependencies": ["AdobeAutomation"]
     }

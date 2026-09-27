@@ -2,7 +2,7 @@
 id: no-bracketed-pair-by-hand
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     action:
         any:

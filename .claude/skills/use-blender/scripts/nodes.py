@@ -1,6 +1,6 @@
-# mypy: disable-error-code="unreachable, arg-type, attr-defined"
-# ty: ignore[invalid-argument-type, unresolved-attribute]
-"""Digest one node tree as its interface, non-default nodes, and links by socket identifier, run inside Blender through `runpy.run_path`."""
+# mypy: disable-error-code="unreachable, arg-type, attr-defined, union-attr"
+# ty: ignore[invalid-argument-type, not-iterable, unresolved-attribute]
+"""Digest one node tree as its interface, non-default nodes, and links by socket identifier through the stored-value walk of RNA structs, run inside Blender through `runpy.run_path`."""
 
 from collections import ChainMap
 from collections.abc import Iterable
@@ -11,7 +11,7 @@ from mathutils import Color, Euler, Matrix, Quaternion, Vector
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
-type Outcome = Digest | UnknownTree | Unset
+type Outcome = Digest | UnknownTree
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -70,13 +70,6 @@ class UnknownTree:
     name: str
 
 
-@attrs.frozen
-class Unset:
-    """RNA pointer the digest reads that holds no value, by its path."""
-
-    path: str
-
-
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
@@ -90,45 +83,45 @@ def trees() -> dict[str, tuple[str, bpy.types.NodeTree]]:
     return dict(ChainMap(groups, *({owner.name: (type(owner).__name__, owner.node_tree) for owner in ids if owner.node_tree} for ids in owners), compositors))
 
 
-def record(owner: str, tree: bpy.types.NodeTree) -> Digest | Unset:
+def stored(p: bpy.types.Property) -> bool:
+    """Value a struct stores: editable properties, ID pointers, and owned structs and collections, with back pointers and active-item references left out."""
+    match p:
+        case bpy.types.PointerProperty(fixed_type=bpy.types.ID()):
+            return not p.is_readonly
+        case bpy.types.PointerProperty(fixed_type=bpy.types.Node() | bpy.types.NodeTreeInterfaceItem() | bpy.types.Struct() | None):
+            return False
+        case bpy.types.PointerProperty():
+            return p.is_readonly
+        case bpy.types.CollectionProperty():
+            return True
+        case _:
+            return not p.is_readonly
+
+
+def plain(value: object) -> object:
+    """JSON form of an RNA value, floats rounded, flag sets sorted, IDs by name, structs by stored value, arrays and collections by element."""
+    match value:
+        case float():
+            return round(value, 5)
+        case str() | int() | None:
+            return value
+        case set():
+            return sorted(value)
+        case bpy.types.ID():
+            return value.name
+        case bpy.types.bpy_struct():
+            return {p.identifier: plain(getattr(value, p.identifier)) for p in value.bl_rna.properties if stored(p)}
+        case Vector() | Color() | Euler() | Quaternion() | Matrix():
+            return plain(value[:])
+        case _:
+            return [plain(v) for v in value]
+
+
+def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
     """Interface, nodes, and links of a tree, each interface socket and node holding the values that differ from a fresh one made in a scratch tree of the same type."""
-    layout = {p.identifier for p in bpy.types.Node.bl_rna.properties} - {"mute"}
+    layout = frozenset(p.identifier for p in bpy.types.Node.bl_rna.properties) - {"mute"}
 
-    def stored(p: bpy.types.Property) -> bool:
-        """Value a struct stores: editable properties, ID pointers, and owned structs and collections, with back pointers and active-item references left out."""
-        match p:
-            case bpy.types.PointerProperty(fixed_type=bpy.types.ID()):
-                return not p.is_readonly
-            case bpy.types.PointerProperty(fixed_type=bpy.types.Node() | bpy.types.NodeTreeInterfaceItem() | bpy.types.Struct() | None):
-                return False
-            case bpy.types.PointerProperty():
-                return p.is_readonly
-            case bpy.types.CollectionProperty():
-                return True
-            case _:
-                return not p.is_readonly
-
-    def plain(value: object) -> object:
-        """JSON form of an RNA value, floats rounded, flag sets sorted, IDs by name, structs by stored value, arrays and collections by element."""
-        match value:
-            case float():
-                return round(value, 5)
-            case str() | int() | None:
-                return value
-            case set():
-                return sorted(value)
-            case bpy.types.ID():
-                return value.name
-            case bpy.types.bpy_struct():
-                return {p.identifier: plain(getattr(value, p.identifier)) for p in value.bl_rna.properties if stored(p)}
-            case Vector() | Color() | Euler() | Quaternion() | Matrix():
-                return plain(value[:])
-            case Iterable():
-                return [plain(v) for v in value]
-            case _:
-                raise TypeError(f"{type(value).__name__} is no RNA value type")
-
-    def changed(item: bpy.types.bpy_struct, fresh: bpy.types.bpy_struct, skipped: set[str]) -> dict[str, object]:
+    def changed(item: bpy.types.bpy_struct, fresh: bpy.types.bpy_struct, skipped: frozenset[str]) -> dict[str, object]:
         """Stored values of `item` outside `skipped` that differ from `fresh`."""
         keys = (p.identifier for p in item.bl_rna.properties if p.identifier not in skipped and stored(p))
         return {k: v for k in keys if (v := plain(getattr(item, k))) != plain(getattr(fresh, k))}
@@ -140,8 +133,8 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest | Unset:
     def node(item: bpy.types.Node, fresh: bpy.types.Node) -> Node:
         """Settings, enabled unlinked inputs, and outputs of `item` that differ from `fresh`, which takes `item`'s ID settings first to hold a group node's group defaults."""
         values = changed(item, fresh, layout)
-        for key, value in ((k, getattr(item, k)) for k in values):
-            if isinstance(value, bpy.types.ID):
+        for key in values:
+            if isinstance(value := getattr(item, key), bpy.types.ID):
                 setattr(fresh, key, value)
         inputs, outputs = socket_values(s for s in item.inputs if s.enabled and not s.is_linked), socket_values(item.outputs)
         blank_inputs, blank_outputs = socket_values(fresh.inputs), socket_values(fresh.outputs)
@@ -149,27 +142,16 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest | Unset:
             item.name, item.bl_idname, values, {k: v for k, v in inputs.items() if v != blank_inputs.get(k)}, {k: v for k, v in outputs.items() if k in blank_outputs and v != blank_outputs[k]}
         )
 
-    def link(item: bpy.types.NodeLink) -> Link:
-        """Link by node names and socket identifiers."""
-        match item:
-            case bpy.types.NodeLink(from_node=bpy.types.Node(name=a), from_socket=bpy.types.NodeSocket(identifier=s), to_node=bpy.types.Node(name=b), to_socket=bpy.types.NodeSocket(identifier=t)):
-                return Link(a, s, b, t, item.is_muted)
-            case _:
-                raise TypeError(f"{tree.name} holds a link without both ends")
-
     scratch = bpy.data.node_groups.new("digest", tree.bl_idname)
     try:
-        match tree.interface, scratch.interface:
-            case bpy.types.NodeTreeInterface() as declared, bpy.types.NodeTreeInterface() as blank:
-                nodes = tuple(node(item, scratch.nodes.new(item.bl_idname)) for item in tree.nodes)
-                interface = tuple(
-                    Socket(i.identifier, i.name, i.in_out, i.socket_type, changed(i, blank.new_socket(i.name, in_out=i.in_out, socket_type=i.socket_type), set()))
-                    for i in declared.items_tree
-                    if isinstance(i, bpy.types.NodeTreeInterfaceSocket)
-                )
-                return Digest(tree.name, owner, interface, nodes, tuple(link(k) for k in tree.links))
-            case _:
-                return Unset(f"{tree.name}.interface")
+        nodes = tuple(node(item, scratch.nodes.new(item.bl_idname)) for item in tree.nodes)
+        interface = tuple(
+            Socket(i.identifier, i.name, i.in_out, i.socket_type, changed(i, scratch.interface.new_socket(i.name, in_out=i.in_out, socket_type=i.socket_type), frozenset()))
+            for i in tree.interface.items_tree
+            if isinstance(i, bpy.types.NodeTreeInterfaceSocket)
+        )
+        links = tuple(Link(k.from_node.name, k.from_socket.identifier, k.to_node.name, k.to_socket.identifier, k.is_muted) for k in tree.links)
+        return Digest(tree.name, owner, interface, nodes, links)
     finally:
         bpy.data.node_groups.remove(scratch)
 
@@ -187,4 +169,4 @@ def as_result(value: Outcome) -> dict[str, object]:
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Digest", "Link", "Node", "Outcome", "Socket", "UnknownTree", "Unset", "as_result", "digest", "record", "trees"]
+__all__ = ["Digest", "Link", "Node", "Outcome", "Socket", "UnknownTree", "as_result", "digest", "plain", "record", "stored", "trees"]

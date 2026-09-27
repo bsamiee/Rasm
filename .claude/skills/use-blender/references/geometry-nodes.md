@@ -30,12 +30,20 @@ link(line.outputs["Mesh"], instance.inputs["Points"])
 link(group_in.outputs["Geometry"], instance.inputs["Instance"])
 link(instance.outputs["Instances"], realize.inputs["Geometry"])
 link(realize.outputs["Geometry"], group_out.inputs["Geometry"])
+depth = dict.fromkeys(nodes, 0)
+for _ in nodes:
+    for edge in tree.links:
+        depth[edge.to_node] = max(depth[edge.to_node], depth[edge.from_node] + 1)
+for column in set(depth.values()):
+    for row, node in enumerate(n for n in nodes if depth[n] == column):
+        node.location = (column * 300.0, -row * 300.0)
 modifier = obj.modifiers.new("<Group>", "NODES")
 modifier.node_group = tree
 evaluated = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
 result = {"inputs": [(i.name, i.identifier) for i in tree.interface.items_tree if i.in_out == "INPUT"], "vertices": len(evaluated.data.vertices), "dimensions": list(evaluated.dimensions), "warnings": [w.message for w in modifier.node_warnings]}
 ```
 
+- Nodes placed by link depth read left to right in the editor
 - `tree.interface.items_tree` maps each socket name to its identifier (`Socket_1`), identifiers follow creation order and survive a rename
 - Interface sockets hold `default_value`, `min_value`, `max_value`, and `subtype`
 - `modifier.node_warnings` stays empty on a tree that outputs nothing, the evaluated vertex count proves output
@@ -59,8 +67,8 @@ result = {"vertices": len(obj.evaluated_get(depsgraph).data.vertices), "instance
 ```
 
 - Each input holds `value`, `type` (`VALUE` or `ATTRIBUTE`), and `attribute_name` for the attribute an `ATTRIBUTE` input reads
+- `inputs[<identifier>]` is the raw `IDPropertyGroup` with the value at `["value"]`, the attribute form holds `.value`
 - `obj.update_tag()` after a value change makes the next evaluated read hold it, in the session as in background
-- Depsgraph updates without the tag keep the old result
 
 ## [03]-[RESULTS]
 
@@ -70,3 +78,10 @@ result = {"vertices": len(obj.evaluated_get(depsgraph).data.vertices), "instance
 - `instance_transform` reads column-major through `foreach_get`, the translation sits at `[3, :3]`
 - `obj.evaluated_get(depsgraph).data.attributes` holds evaluated attributes
 - `bpy.data.meshes.new_from_object(<evaluated>)` bakes the result to a mesh datablock
+
+## [04]-[SVERCHOK]
+
+Sverchok trees evaluate through a task queue a GUI timer drains:
+- Trees are `SverchCustomTreeType` node groups with Sverchok socket names (`Vers`, `Edgs`, `Pols` on generators, `vertices` on `SvMeshViewer`)
+- Viewer nodes write objects named by `base_data_name`
+- Headless calls run the queue in the call with `from sverchok.core.tasks import tasks`, then `while tasks: tasks.run()`

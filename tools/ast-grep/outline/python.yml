@@ -18,3 +18,13 @@ rule:
                 has: {kind: identifier, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
+---
+id: python-nested-function
+language: python
+role: member
+symbolType: function
+parentRuleIds: [python-function, python-async-function]
+rule:
+    kind: function_definition
+    has: {field: name, pattern: $NAME}
+name: $NAME

@@ -54,6 +54,7 @@ utils:
                     - inside: {kind: keyword_argument, field: value, inside: {kind: argument_list, inside: {kind: call, matches: collection-element}}}
                     - all: [{inside: {kind: subscript, field: subscript}}, {not: {matches: literal-member}}]
                     - all: [{inside: {stopBy: end, kind: type}}, {not: {matches: literal-member}}]
+                    - {inside: {kind: pair, field: key, inside: {kind: dictionary}}, has: {kind: string_content, regex: '^[A-Za-z_][A-Za-z0-9_]*$'}}
                     - inside: {stopBy: end, kind: 'class_pattern, keyword_pattern, dict_pattern'}
                     - inside: {stopBy: end, kind: case_pattern, inside: {kind: case_clause, inside: {kind: block, inside: {kind: match_statement, has: {field: subject, matches: key-read}}}}}
                     - inside: {kind: comparison_operator, has: {matches: key-read}}
@@ -158,4 +159,4 @@ rule:
         - all: [{matches: path-node}, {matches: path-third}]
         - all: [{matches: type-node}, {matches: type-third}]
 message: '`$S` repeats a literal spelled twice earlier in the file'
-note: 'Bind the value once in a module constant, or read it from the owner that declares it'
+note: 'Bind the value once, as a local where one function reads it and a module constant otherwise, or read it from the owner that declares it'

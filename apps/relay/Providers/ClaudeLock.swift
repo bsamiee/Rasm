@@ -1,9 +1,18 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 private nonisolated struct ClaudeLockfileStat: Equatable, Sendable {
   let inode: Int
   let modified: Date
 }
+
+private nonisolated struct ClaudeLockRequest: Sendable {
+  let url: URL
+  let stale: TimeInterval
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
 
 private nonisolated struct ClaudeLockfile: Sendable {
   let url: URL
@@ -81,11 +90,6 @@ private nonisolated struct ClaudeLockfile: Sendable {
         return .success(ClaudeLockfileStat(inode: inode, modified: modified))
       }
   }
-}
-
-private nonisolated struct ClaudeLockRequest: Sendable {
-  let url: URL
-  let stale: TimeInterval
 }
 
 actor ClaudeLock {

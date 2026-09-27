@@ -1,7 +1,6 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
-import { type Command, LAUNCHERS, strip } from '../command.ts';
-import { type Decision, deny, fromNullable, none, type Option, pass, some } from '../composition.ts';
+import type { Command } from '../command.ts';
+import { type Decision, none, type Option, refuse, some } from '../composition.ts';
+import { type Invocation, invocations, operands, option } from '../invocation.ts';
 import { basename } from '../path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -11,11 +10,6 @@ interface Place {
     readonly cwd: string;
 }
 
-interface Scan {
-    readonly found: readonly string[];
-    readonly given: readonly string[];
-}
-
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _NAME = 'CloudStorage';
@@ -23,190 +17,9 @@ const _CLOUD = `~/Library/${_NAME}`;
 const _HOME = /^(?:~|\$HOME|\$\{HOME\})(?=\/|$)/u;
 const _PRIMARY = /^(?:-.{2,}|\(|!)$/u;
 const _RECURSIVE = /^-[A-Za-z]*[rR]/u;
-const _LISTS = /^-[A-Za-z]*R/u;
-const _FD_STARTS: readonly string[] = ['-C', '--base-directory', '--search-path'];
-const _FD: readonly string[] = [
-    ..._FD_STARTS,
-    '-d',
-    '--max-depth',
-    '--min-depth',
-    '--exact-depth',
-    '-E',
-    '--exclude',
-    '-t',
-    '--type',
-    '-e',
-    '--extension',
-    '-S',
-    '--size',
-    '--changed-within',
-    '--changed-before',
-    '-o',
-    '--owner',
-    '--format',
-    '--batch-size',
-    '--ignore-file',
-    '-c',
-    '--color',
-    '--ignore-contain',
-    '-j',
-    '--threads',
-    '--max-results',
-    '--path-separator',
-    '--and',
-];
-const _FD_COMMAND: readonly string[] = ['-x', '--exec', '-X', '--exec-batch'];
-const _RG: readonly string[] = [
-    '-A',
-    '--after-context',
-    '-B',
-    '--before-context',
-    '-C',
-    '--context',
-    '-d',
-    '--max-depth',
-    '-E',
-    '--encoding',
-    '-e',
-    '--regexp',
-    '-f',
-    '--file',
-    '-g',
-    '--glob',
-    '--iglob',
-    '-j',
-    '--threads',
-    '-M',
-    '--max-columns',
-    '-m',
-    '--max-count',
-    '-r',
-    '--replace',
-    '-t',
-    '--type',
-    '-T',
-    '--type-not',
-    '--type-add',
-    '--type-clear',
-    '--max-filesize',
-    '--color',
-    '--colors',
-    '--sort',
-    '--sortr',
-    '--path-separator',
-    '--pre',
-    '--pre-glob',
-    '--ignore-file',
-    '--dfa-size-limit',
-    '--regex-size-limit',
-    '--engine',
-    '--field-context-separator',
-    '--field-match-separator',
-    '--context-separator',
-    '--hostname-bin',
-    '--hyperlink-format',
-    '--generate',
-];
-const _RG_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '--files', '--type-list'];
-const _GREP: readonly string[] = [
-    '-A',
-    '--after-context',
-    '-B',
-    '--before-context',
-    '-C',
-    '--context',
-    '-d',
-    '--directories',
-    '-D',
-    '--devices',
-    '-e',
-    '--regexp',
-    '-f',
-    '--file',
-    '-g',
-    '--glob',
-    '--iglob',
-    '-J',
-    '--jobs',
-    '-M',
-    '--file-magic',
-    '-m',
-    '--max-count',
-    '-N',
-    '--neg-regexp',
-    '-O',
-    '--file-extension',
-    '-t',
-    '--file-type',
-    '--include',
-    '--exclude',
-    '--include-dir',
-    '--exclude-dir',
-    '--include-from',
-    '--exclude-from',
-    '--label',
-    '--binary-files',
-    '--color',
-    '--colour',
-    '--colors',
-    '--colours',
-    '--encoding',
-    '--format',
-    '--replace',
-    '--from',
-    '--config',
-];
-const _GREP_PATTERNS: readonly string[] = ['-e', '--regexp', '-f', '--file', '-N', '--neg-regexp'];
-const _DU: readonly string[] = ['-B', '-I', '-d', '-t'];
-const _TREE: readonly string[] = [
-    '-L',
-    '--level',
-    '-I',
-    '--ignore-glob',
-    '-s',
-    '--sort',
-    '-t',
-    '--time',
-    '-w',
-    '--width',
-    '-F',
-    '--classify',
-    '--absolute',
-    '--color',
-    '--colour',
-    '--color-scale',
-    '--color-scale-mode',
-    '--icons',
-    '--hyperlink',
-    '--time-style',
-];
-const _LS: readonly string[] = ['-D'];
+const _RECURSIVE_LIST = /^-[A-Za-z]*R/u;
 
 // --- [WORDS] ---------------------------------------------------------------------------
-
-const _option = (valued: readonly string[], word: string): readonly [readonly string[], boolean] => {
-    const [head = word] = word.split('=');
-    const names = head.startsWith('--') ? [head] : [...head.slice(1)].map((letter) => `-${letter}`);
-    const at = names.findIndex((name) => valued.includes(name));
-    return [at < 0 ? names : names.slice(0, at + 1), at === names.length - 1 && !word.includes('=')];
-};
-
-const _scan = (valued: readonly string[], args: readonly string[]): Scan => {
-    const [head, ...rest] = args;
-    if (head === undefined) {
-        return { found: [], given: [] };
-    }
-    if (head === '--') {
-        return { found: rest, given: [] };
-    }
-    if (head === '-' || !head.startsWith('-')) {
-        const tail = _scan(valued, rest);
-        return { ...tail, found: [head, ...tail.found] };
-    }
-    const [opened, takes] = _option(valued, head);
-    const tail = _scan(valued, rest.slice(takes ? 1 : 0));
-    return { ...tail, given: [...opened, ...tail.given] };
-};
 
 const _until = (stop: (word: string) => boolean, args: readonly string[]): readonly string[] => {
     const at = args.findIndex(stop);
@@ -224,10 +37,7 @@ const _values = (flags: readonly string[], args: readonly string[]): readonly st
 
 // --- [WALKERS] -------------------------------------------------------------------------
 
-const _afterPattern = (valued: readonly string[], patterns: readonly string[], args: readonly string[]): readonly string[] => {
-    const scan = _scan(valued, args);
-    return scan.given.some((name) => patterns.includes(name)) ? scan.found : scan.found.slice(1);
-};
+const _inputs = (invocation: Invocation): Option<readonly string[]> => some(operands(invocation).inputs);
 
 const _recurses = (args: readonly string[]): boolean =>
     args.some(
@@ -237,31 +47,6 @@ const _recurses = (args: readonly string[]): boolean =>
             _RECURSIVE.test(word) ||
             (word.endsWith('recurse') && (word.startsWith('--directories=') || args[index - 1] === '-d' || args[index - 1] === '--directories')),
     );
-
-const _WALKERS: Readonly<Record<string, (args: readonly string[]) => Option<readonly string[]>>> = {
-    fd: (args) =>
-        some([
-            ..._afterPattern(
-                _FD,
-                [],
-                _until((word) => word.startsWith('-') && _option(_FD, word)[0].some((name) => _FD_COMMAND.includes(name)), args),
-            ),
-            ..._values(_FD_STARTS, args),
-        ]),
-    find: (args) =>
-        some(
-            _scan(
-                [],
-                _until((word) => _PRIMARY.test(word), args),
-            ).found,
-        ),
-    rg: (args) => some(_afterPattern(_RG, _RG_PATTERNS, args)),
-    grep: (args) => (_recurses(args) ? some(_afterPattern(_GREP, _GREP_PATTERNS, args)) : none),
-    du: (args) => some(_scan(_DU, args).found),
-    tree: (args) => some(_scan(_TREE, args).found),
-    ls: (args) => (args.some((word) => _LISTS.test(word)) ? some(_scan(_LS, args).found) : none),
-    lsof: (args) => (args.includes('+D') ? some(_values(['+D'], args)) : none),
-};
 
 // --- [PATHS] ---------------------------------------------------------------------------
 
@@ -295,30 +80,39 @@ const _refused = (home: string, cwd: string, starts: readonly string[], args: re
     return relations.includes('inside') || (relations.includes('above') && !excluded);
 };
 
-const _reason = (home: string, cwd: string, command: Command): readonly string[] => {
-    const stripped = strip(command.words);
-    const [head] = stripped;
-    const at = stripped.indexOf('--');
-    const [name, ...args] = head !== undefined && LAUNCHERS.includes(basename(head)) && at > 0 ? stripped.slice(at + 1) : stripped;
-    const walker = name === undefined ? none : fromNullable(_WALKERS[basename(name)]);
-    const starts = walker.kind === 'some' ? walker.value(args) : none;
-    return starts.kind === 'some' && _refused(home, cwd, starts.value, args)
-        ? [`${command.words.join(' ')} descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider`]
-        : [];
+const _walks = (home: string, cwd: string, invocation: Invocation): boolean => {
+    const [program, ...args] = invocation;
+    const inputs = (): Option<readonly string[]> => _inputs(invocation);
+    const walkers: Readonly<Record<string, () => Option<readonly string[]>>> = {
+        fd: () =>
+            some([
+                ...operands([program, ..._until((word) => word.startsWith('-') && option(program, word)[0].some((name) => ['-x', '--exec', '-X', '--exec-batch'].includes(name)), args)]).inputs,
+                ..._values(['-C', '--base-directory', '--search-path'], args),
+            ]),
+        find: () => _inputs([program, ..._until((word) => _PRIMARY.test(word), args)]),
+        rg: inputs,
+        grep: () => (_recurses(invocation) ? inputs() : none),
+        du: inputs,
+        tree: inputs,
+        ls: () => (invocation.some((word) => _RECURSIVE_LIST.test(word)) ? inputs() : none),
+        lsof: () => (invocation.includes('+D') ? some(_values(['+D'], invocation)) : none),
+    };
+    const starts = walkers[basename(program)]?.() ?? none;
+    return starts.kind === 'some' && _refused(home, cwd, starts.value, invocation);
 };
 
 // --- [POLICY] --------------------------------------------------------------------------
 
-const walkPolicy =
-    (commands: readonly Command[], place: Place): (<E>(e: E) => Decision<E>) =>
-    <E>(e: E): Decision<E> => {
-        if (place.home.kind === 'none') {
-            return pass(e);
-        }
-        const home = place.home.value;
-        const reasons = commands.flatMap((command) => _reason(home, place.cwd, command));
-        return reasons.length === 0 ? pass(e) : deny(reasons.join(', '));
-    };
+const walkPolicy = (commands: readonly Command[], { home, cwd }: Place): (<E>(e: E) => Decision<E>) =>
+    refuse(
+        home.kind === 'none'
+            ? []
+            : commands.flatMap((command) =>
+                  invocations(command.words).some((invocation) => _walks(home.value, cwd, invocation))
+                      ? [`${command.words.join(' ')} descends into ${_CLOUD}, where dataless cloud placeholders hang the walker on the file provider`]
+                      : [],
+              ),
+    );
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

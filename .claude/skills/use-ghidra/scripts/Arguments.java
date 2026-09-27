@@ -1,7 +1,4 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import ghidra.app.decompiler.DecompileOptions;
-import ghidra.program.model.address.Address;
 import ghidra.program.model.data.StringDataInstance;
 import ghidra.program.model.listing.Data;
 import ghidra.program.model.listing.Function;
@@ -13,6 +10,7 @@ import util.CollectionUtils;
 
 import java.nio.file.Path;
 import java.util.Arrays;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -25,45 +23,37 @@ import java.util.regex.PatternSyntaxException;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
-// --- [ARGUMENTS] -----------------------------------------------------------------------
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 final class Arguments {
-    sealed interface Result<T> permits Success, Failure {
-        default Stream<T> values() {
-            return switch (this) {
-                case Success<T>(T value) -> Stream.of(value);
-                case Failure<T> _ -> Stream.empty();
-            };
-        }
-
-        default Stream<String> failures() {
-            return switch (this) {
-                case Success<T> _ -> Stream.empty();
-                case Failure<T>(String message) -> Stream.of(message);
-            };
-        }
-    }
-
-    record Success<T>(T value) implements Result<T> {}
-
-    record Failure<T>(String message) implements Result<T> {}
+    // --- [OPERANDS]
 
     enum Setting {
-        CALLERS("depth", 0),
-        CALLEES("depth", 0),
-        TIMEOUT("seconds", DecompileOptions.SUGGESTED_DECOMPILE_TIMEOUT_SECS),
-        PAYLOAD("megabytes", DecompileOptions.SUGGESTED_MAX_PAYLOAD_BYTES);
+        CALLERS("depth", 0, 0),
+        CALLEES("depth", 0, 0),
+        TIMEOUT("seconds", DecompileOptions.SUGGESTED_DECOMPILE_TIMEOUT_SECS, 1),
+        PAYLOAD("megabytes", DecompileOptions.SUGGESTED_MAX_PAYLOAD_BYTES, 1);
 
         final String unit;
         final int defaultValue;
+        final int minimum;
 
-        Setting(String unit, int defaultValue) {
+        Setting(String unit, int defaultValue, int minimum) {
             this.unit = unit;
             this.defaultValue = defaultValue;
+            this.minimum = minimum;
+        }
+
+        String label() {
+            return name().toLowerCase(Locale.ROOT);
+        }
+
+        String key() {
+            return label() + "=";
         }
 
         String usage() {
-            return "[%s=<%s>]".formatted(name().toLowerCase(Locale.ROOT), unit);
+            return "[%s<%s>]".formatted(key(), unit);
         }
     }
 
@@ -76,12 +66,12 @@ final class Arguments {
 
         final String prefix;
         final String placeholder;
-        final BiFunction<String, Program, Result<List<Function>>> resolver;
+        final BiFunction<String, Program, Report.Result<List<Function>>> resolver;
 
         Seed(
                 String prefix,
                 String placeholder,
-                BiFunction<String, Program, Result<List<Function>>> resolver) {
+                BiFunction<String, Program, Report.Result<List<Function>>> resolver) {
             this.prefix = prefix;
             this.placeholder = placeholder;
             this.resolver = resolver;
@@ -92,12 +82,48 @@ final class Arguments {
         }
     }
 
+    sealed interface Operand permits SeedMatch, SettingValue {
+        default Stream<Function> seeds() {
+            return switch (this) {
+                case SeedMatch(List<Function> functions) -> functions.stream();
+                case SettingValue _ -> Stream.empty();
+            };
+        }
+
+        default Stream<SettingValue> assignments() {
+            return switch (this) {
+                case SeedMatch _ -> Stream.empty();
+                case SettingValue value -> Stream.of(value);
+            };
+        }
+    }
+
+    record SeedMatch(List<Function> functions) implements Operand {}
+
+    record SettingValue(Setting setting, int value) implements Operand {}
+
     record Request(
             Path out, List<Function> seeds, Map<Setting, Integer> settings, String arguments) {}
 
     private Arguments() {}
 
-    // --- [PARSING] ---------------------------------------------------------------------
+    // --- [PARSING]
+
+    static <T> List<T> values(List<Report.Result<T>> results, String usage) {
+        List<String> failures = results.stream().flatMap(Report.Result::failures).toList();
+        if (!failures.isEmpty()) {
+            throw new IllegalArgumentException(String.join("\n", failures) + "\n" + usage);
+        }
+        return results.stream().flatMap(Report.Result::values).toList();
+    }
+
+    static Path out(String script, String... args) {
+        return Optional.of(args)
+                .filter(arguments -> arguments.length == 1)
+                .map(arguments -> Path.of(arguments[0]))
+                .orElseThrow(
+                        () -> new IllegalArgumentException("usage: %s <out>".formatted(script)));
+    }
 
     static Request parse(String script, String[] args, Set<Setting> accepted, Program program) {
         String usage =
@@ -110,132 +136,127 @@ final class Arguments {
                                 Arrays.stream(Seed.values())
                                         .map(Seed::usage)
                                         .collect(Collectors.joining(" | ")));
-        List<String> arguments = List.of(args);
-        if (arguments.isEmpty()) {
+        if (args.length == 0) {
             throw new IllegalArgumentException(usage);
         }
-        List<String> remaining = arguments.subList(1, arguments.size());
-        Map<Boolean, List<String>> partition =
-                remaining.stream().collect(Collectors.partitioningBy(arg -> arg.contains("=")));
-        List<Result<Map.Entry<Setting, Integer>>> entries =
-                partition.get(true).stream().map(arg -> setting(arg, accepted)).toList();
-        List<Result<List<Function>>> seeds =
-                partition.get(false).isEmpty()
-                        ? List.of(new Failure<>("no seed given"))
-                        : partition.get(false).stream()
-                                .map(seed -> resolve(seed, program))
-                                .toList();
-        List<String> failures =
-                Stream.concat(seeds.stream(), entries.stream()).flatMap(Result::failures).toList();
-        if (!failures.isEmpty()) {
-            throw new IllegalArgumentException(String.join("\n", failures) + "\n" + usage);
-        }
-        Stream<Map.Entry<Setting, Integer>> defaults =
-                accepted.stream().map(key -> Map.entry(key, key.defaultValue));
+        List<String> arguments = Arrays.asList(args).subList(1, args.length);
+        Stream<Report.Result<Operand>> missing =
+                arguments.stream().allMatch(argument -> setting(argument).isPresent())
+                        ? Stream.of(new Report.Failure<>("Arguments name no seed"))
+                        : Stream.empty();
+        Stream<Report.Result<Operand>> resolved =
+                arguments.stream().map(argument -> operand(argument, script, accepted, program));
+        List<Operand> operands = values(Stream.concat(resolved, missing).toList(), usage);
+        Stream<SettingValue> defaults =
+                accepted.stream().map(setting -> new SettingValue(setting, setting.defaultValue));
         Map<Setting, Integer> settings =
-                Stream.concat(defaults, entries.stream().flatMap(Result::values))
+                Stream.concat(defaults, operands.stream().flatMap(Operand::assignments))
                         .collect(
                                 Collectors.toMap(
-                                        Map.Entry::getKey, Map.Entry::getValue, (_, last) -> last));
-        List<Function> functions =
-                seeds.stream().flatMap(Result::values).flatMap(List::stream).distinct().toList();
-        return new Request(
-                Path.of(arguments.getFirst()), functions, settings, String.join(" ", remaining));
+                                        SettingValue::setting,
+                                        SettingValue::value,
+                                        (_, last) -> last,
+                                        () -> new EnumMap<>(Setting.class)));
+        List<Function> seeds = operands.stream().flatMap(Operand::seeds).distinct().toList();
+        return new Request(Path.of(args[0]), seeds, settings, String.join(" ", arguments));
     }
 
-    static Path out(String script, String... args) {
-        return Optional.of(args)
-                .filter(arguments -> arguments.length == 1)
-                .map(arguments -> Path.of(arguments[0]))
-                .orElseThrow(
-                        () -> new IllegalArgumentException("usage: %s <out>".formatted(script)));
+    private static Optional<Setting> setting(String argument) {
+        return Arrays.stream(Setting.values())
+                .filter(setting -> argument.startsWith(setting.key()))
+                .findFirst();
     }
 
-    static <T> List<T> values(List<Result<T>> results, String usage) {
-        List<String> failures = results.stream().flatMap(Result::failures).toList();
-        if (!failures.isEmpty()) {
-            throw new IllegalArgumentException(String.join("\n", failures) + "\n" + usage);
-        }
-        return results.stream().flatMap(Result::values).toList();
+    private static Report.Result<Operand> operand(
+            String argument, String script, Set<Setting> accepted, Program program) {
+        return setting(argument)
+                .map(setting -> assign(setting, argument, script, accepted))
+                .orElseGet(() -> resolve(argument, program));
     }
 
-    private static Result<Map.Entry<Setting, Integer>> setting(String arg, Set<Setting> accepted) {
-        int at = arg.indexOf('=');
-        try {
-            Setting key = Setting.valueOf(arg.substring(0, at).toUpperCase(Locale.ROOT));
-            Map.Entry<Setting, Integer> entry =
-                    Map.entry(key, Integer.parseInt(arg.substring(at + 1)));
-            return accepted.contains(key)
-                    ? new Success<>(entry)
-                    : new Failure<>(arg + ": not a setting of this script");
-        } catch (IllegalArgumentException _) {
-            return new Failure<>(arg + ": not <setting>=<integer>");
-        }
+    private static Report.Result<Operand> assign(
+            Setting setting, String argument, String script, Set<Setting> accepted) {
+        Optional<Integer> value =
+                Optional.of(argument.substring(setting.key().length()))
+                        .filter(Pattern.compile("\\d{1,9}").asMatchPredicate())
+                        .map(Integer::valueOf)
+                        .filter(count -> count >= setting.minimum);
+        return accepted.contains(setting)
+                ? value.<Report.Result<Operand>>map(
+                                count -> new Report.Success<>(new SettingValue(setting, count)))
+                        .orElseGet(
+                                () ->
+                                        new Report.Failure<>(
+                                                "Setting `%s` takes an integer from %d"
+                                                        .formatted(argument, setting.minimum)))
+                : new Report.Failure<>(
+                        "Script `%s` takes no setting `%s`".formatted(script, setting.label()));
     }
 
-    // --- [SEEDS] -----------------------------------------------------------------------
+    // --- [SEEDS]
 
-    static Result<List<Function>> resolve(String seed, Program program) {
+    private static Report.Result<Operand> resolve(String seed, Program program) {
         Seed form =
                 Arrays.stream(Seed.values())
                         .filter(each -> seed.startsWith(each.prefix))
                         .findFirst()
                         .orElseThrow();
-        Result<List<Function>> matches =
-                form.resolver.apply(seed.substring(form.prefix.length()), program);
-        return matches instanceof Success<List<Function>>(List<Function> found) && found.isEmpty()
-                ? new Failure<>(seed + ": matches no function")
-                : matches;
+        return switch (form.resolver.apply(seed.substring(form.prefix.length()), program)) {
+            case Report.Success<List<Function>>(List<Function> found) when found.isEmpty() ->
+                    new Report.Failure<>("Seed `%s` matches no function".formatted(seed));
+            case Report.Success<List<Function>>(List<Function> found) ->
+                    new Report.Success<>(new SeedMatch(found));
+            case Report.Failure<List<Function>>(String cause) ->
+                    new Report.Failure<>("Seed `%s` %s".formatted(seed, cause));
+        };
     }
 
-    private static Result<List<Function>> containing(String hex, Program program) {
-        try {
-            Address address =
-                    program.getAddressFactory()
-                            .getDefaultAddressSpace()
-                            .getAddress(Long.parseUnsignedLong(hex, 16));
-            Function found = program.getFunctionManager().getFunctionContaining(address);
-            return new Success<>(Stream.ofNullable(found).toList());
-        } catch (NumberFormatException _) {
-            return new Failure<>("0x" + hex + ": not a hexadecimal address");
-        }
+    private static Report.Result<List<Function>> containing(String hex, Program program) {
+        return Optional.ofNullable(program.getAddressFactory().getAddress(hex))
+                .<Report.Result<List<Function>>>map(
+                        address ->
+                                new Report.Success<>(
+                                        Stream.ofNullable(
+                                                        program.getFunctionManager()
+                                                                .getFunctionContaining(address))
+                                                .toList()))
+                .orElseGet(() -> new Report.Failure<>("names no address"));
     }
 
-    private static Result<List<Function>> matching(String regex, Program program) {
+    private static Report.Result<List<Function>> matching(String regex, Program program) {
         try {
-            return new Success<>(select(Pattern.compile(regex).asPredicate(), program));
+            return new Report.Success<>(select(Pattern.compile(regex).asPredicate(), program));
         } catch (PatternSyntaxException exception) {
-            return new Failure<>("re:" + regex + ": " + exception.getDescription());
+            return new Report.Failure<>("fails to compile: " + exception.getDescription());
         }
     }
 
-    private static Result<List<Function>> named(String name, Program program) {
-        return new Success<>(select(name::equals, program));
-    }
-
-    private static Result<List<Function>> referencing(String needle, Program program) {
+    private static Report.Result<List<Function>> referencing(String needle, Program program) {
         String lowercase = needle.toLowerCase(Locale.ROOT);
-        Predicate<Data> containsNeedle =
+        Predicate<Data> holdsNeedle =
                 data ->
                         StringDataInstance.isString(data)
                                 && data.getValue() instanceof String value
                                 && value.toLowerCase(Locale.ROOT).contains(lowercase);
-        return new Success<>(
-                CollectionUtils.asStream(
-                                DefinedDataIterator.byDataInstance(program, containsNeedle))
+        return new Report.Success<>(
+                CollectionUtils.asStream(DefinedDataIterator.byDataInstance(program, holdsNeedle))
                         .flatMap(Functions::referrers)
                         .distinct()
                         .toList());
     }
 
-    private static Result<List<Function>> tagged(String name, Program program) {
+    private static Report.Result<List<Function>> tagged(String name, Program program) {
         return program.getFunctionManager().getFunctionTagManager().getFunctionTag(name)
                         instanceof FunctionTag tag
-                ? new Success<>(
+                ? new Report.Success<>(
                         Functions.internal(program)
                                 .filter(function -> function.getTags().contains(tag))
                                 .toList())
-                : new Failure<>("tag:" + name + ": no such function tag");
+                : new Report.Failure<>("names no function tag");
+    }
+
+    private static Report.Result<List<Function>> named(String name, Program program) {
+        return new Report.Success<>(select(name::equals, program));
     }
 
     private static List<Function> select(Predicate<String> test, Program program) {

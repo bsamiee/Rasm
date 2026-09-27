@@ -45,14 +45,14 @@ Collect the generated code into a Playwright test:
 import { test, expect } from '@playwright/test';
 
 test('login flow', async ({ page }) => {
-  // Generated code from playwright-cli session:
-  await page.goto('https://example.com/login');
-  await page.getByRole('textbox', { name: 'Email' }).fill('user@example.com');
-  await page.getByRole('textbox', { name: 'Password' }).fill('password123');
-  await page.getByRole('button', { name: 'Sign In' }).click();
+    // Generated code from playwright-cli session:
+    await page.goto('https://example.com/login');
+    await page.getByRole('textbox', { name: 'Email' }).fill('user@example.com');
+    await page.getByRole('textbox', { name: 'Password' }).fill('password123');
+    await page.getByRole('button', { name: 'Sign In' }).click();
 
-  // Add assertions
-  await expect(page).toHaveURL(/.*dashboard/);
+    // Add assertions
+    await expect(page).toHaveURL(/.*dashboard/);
 });
 ```
 
@@ -124,16 +124,16 @@ await expect(page.getByRole('checkbox', { name: 'Enable notifications' })).toBeC
 
 // toMatchAriaSnapshot on the whole page, finds a matching region
 await expect(page).toMatchAriaSnapshot(`
-  - heading "Welcome, user"
-  - link /\\d+ new messages?/
-  - button "Sign out"
+    - heading "Welcome, user"
+    - link /\\d+ new messages?/
+    - button "Sign out"
 `);
 
 // toMatchAriaSnapshot scoped to a region
 await expect(page.getByRole('navigation')).toMatchAriaSnapshot(`
-  - link "Home"
-  - link /\\d+ new messages?/
-  - link "Profile"
+    - link "Home"
+    - link /\\d+ new messages?/
+    - link "Profile"
 `);
 ```
 
@@ -170,7 +170,7 @@ Minimum viable seed:
 import { test } from '@playwright/test';
 
 test('seed', async ({ page }) => {
-  await page.goto('https://example.com/');
+    await page.goto('https://example.com/');
 });
 ```
 
@@ -182,10 +182,10 @@ import { test as baseTest } from '@playwright/test';
 export { expect } from '@playwright/test';
 
 export const test = baseTest.extend({
-  page: async ({ page }, use) => {
-    await page.goto('https://example.com/');
-    await use(page);
-  },
+    page: async ({ page }, use) => {
+        await page.goto('https://example.com/');
+        await use(page);
+    },
 });
 ```
 
@@ -194,7 +194,7 @@ export const test = baseTest.extend({
 import { test } from './fixtures';
 
 test('seed', async ({ page }) => {
-  // Fixture already navigates. This empty body tells agents where to start.
+    // Fixture already navigates. This empty body tells agents where to start.
 });
 ```
 
@@ -253,10 +253,10 @@ Save under `specs/<feature>.plan.md`. Use this structure:
 **File:** `tests/<group>/<kebab-case-scenario-name>.spec.ts`
 
 **Steps:**
-  1. <Concrete user step>
+1. <Concrete user step>
     - expect: <observable outcome>
     - expect: <another observable outcome>
-  2. <Next step>
+2. <Next step>
     - expect: <outcome>
 
 #### 1.2. <next-scenario>
@@ -321,21 +321,21 @@ Collect the generated code and write the test file at the path given in the spec
 import { test, expect } from './fixtures';   // or '@playwright/test' if no fixtures file
 
 test.describe('Signing in and out', () => {
-  test('should sign in', async ({ page }) => {
-    // 1. Navigate to the application
-    // (handled by the seed fixture)
+    test('should sign in', async ({ page }) => {
+        // 1. Navigate to the application
+        // (handled by the seed fixture)
 
-    // 2. Type 'John Doe' into the username field
-    await page.getByRole('textbox', { name: 'username' }).fill('John Doe');
+        // 2. Type 'John Doe' into the username field
+        await page.getByRole('textbox', { name: 'username' }).fill('John Doe');
 
-    // 3. Type password
-    await page.getByRole('textbox', { name: 'password' }).fill('TestPassword');
+        // 3. Type password
+        await page.getByRole('textbox', { name: 'password' }).fill('TestPassword');
 
-    // 4. Press Enter to submit
-    await page.getByRole('textbox', { name: 'password' }).press('Enter');
+        // 4. Press Enter to submit
+        await page.getByRole('textbox', { name: 'password' }).press('Enter');
 
-    await expect(page.getByRole('heading')).toContainText('Welcome, John Doe!');
-  });
+        await expect(page.getByRole('heading')).toContainText('Welcome, John Doe!');
+    });
 });
 ```
 

@@ -6,7 +6,6 @@ rule:
     pattern: $DIVIDER
     all:
         - matches: csharp-labeled-divider
-        - matches: csharp-owner-level
         - inside:
             matches: csharp-member-list
             stopBy: {not: {kind: 'preproc_if, preproc_elif, preproc_else'}}

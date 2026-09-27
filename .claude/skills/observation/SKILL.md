@@ -6,13 +6,13 @@ user-invocable: false
 
 # [OBSERVATION]
 
-Sink `<main>/.cache/observation/observation.db` holds one row per hook event the `function-hooks` plugin records, views over the rows, and finding tables agents write, one file per repository under its main worktree. `<main>` is the first `worktree` line of `git worktree list --porcelain`, `<worktree>` the `git rev-parse --show-toplevel` line, `<branch>` the `git branch --show-current` line, `<db>` the sink path, and `<scripts>` `.claude/skills/observation/scripts`. Readers run `sqlite3 -json -cmd ".param set :<name> <value>" <db> "<select>"` from `<worktree>`, one binding per id the select reads, `-json` renders `payload` as a JSON string and `jq '[.[] | .payload |= fromjson]'` nests it. Writers run one script from `<worktree>` with its parameters bound before the read:
+Sink `<main>/.cache/observation/observation.db` holds one row per hook event the `function-hooks` plugin records while its `observation` option is true, views over its rows, and finding tables agents write, one file per repository under its main worktree. `<main>` is the first `worktree` line of `git worktree list --porcelain`, `<worktree>` and `<branch>` what `git rev-parse --show-toplevel` and `git branch --show-current` print. `<db>` is the sink path and `<scripts>` `.claude/skills/observation/scripts`. Readers run `sqlite3 -json -cmd ".param set :<name> <value>" <db> "<select>"` from `<worktree>`, one binding per id the select reads, `-json` renders `payload` as a JSON string and `jq '[.[] | .payload |= fromjson]'` nests it. Writers run one script from `<worktree>` with its parameters bound before the read:
 
 ```bash
 sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> ".read <scripts>/lifecycle.sql"
 ```
 
-One `-cmd ".param set :<name> <value>"` binds each parameter, the value SQL-evaluated: text goes as `'<text>'`, a text holding `'` as `"'<text>'"` with each `'` doubled, a number bare, an absent value as `null`, and a name left unbound reads null. `:ids` names a JSON array of finding ids. `:out` and `:sites` hold JSON text, `:out` the JSON a checker printed, `:sites` a JSON array of objects keyed by `site` columns. JSON text holds `'` and `"`, the quotes `.param set` splits its value on, each binds as one row of the shell's binding table through an SQL argument after `<db>`, where `''` spells one `'`, an SQL `-cmd` ends a `-bail` process before the arguments run:
+One `-cmd ".param set :<name> <value>"` binds each parameter, the value SQL-evaluated: text goes as `'<text>'`, a text holding `'` as `"'<text>'"` with each `'` doubled, a number bare, an absent value as `null`, and a name left unbound reads null. `:ids` names a JSON array of finding ids. `:out` and `:sites` hold JSON text, `:out` the JSON a checker printed, `:sites` a JSON array of objects keyed by `site` columns. JSON text holds `'` and `"`, quotes `.param set` splits a value on, and each binds as one row of the shell's binding table through an SQL argument after `<db>`, where `''` spells one `'`, an SQL `-cmd` ends a `-bail` process before SQL arguments run:
 
 ```bash
 sqlite3 -bail -json -cmd ".timeout 10000" -cmd ".param set :worktree '<worktree>'" <db> "insert into temp.sqlite_parameters(key, value) values(':out', '$(<checker command> | sd -F "'" "''")')" ".read <scripts>/<script>"
@@ -48,7 +48,7 @@ Table `observation(event, ts, session_id, prompt_id, agent_id, tool, tool_use_id
 - `turn.start` rows come from the main loop alone, subagent runs write `turn.step` rows and one `turn.complete` row under their `agent_id`
 - Resumed subagent runs write one more `SubagentStart` and `turn.complete` row under the same `agent_id`
 - Plugin-spawned agents record `SubagentStart`, `turn.step`, `turn.complete`, and refused `tool.call` rows alone, `background_tasks` omits them
-- `turn.complete` of a plugin-spawned category agent adds `placed`, the paths `git status --porcelain tools/ast-grep` printed at the event
+- `turn.complete` of a plugin-spawned category agent adds `placed`, paths `git status --porcelain tools/ast-grep` printed at the event
 - Classic rows hold `cwd`, `transcript_path`, and `scratchpad_dir`, subagent rows `agent_type`
 - `permission_mode` and `effort` appear on classic rows where the event supplies them
 - `Stop` and `SessionEnd` rows hold `$.session.usage()` as `usage` with `context`, `cost`, and `rateLimits`
@@ -84,7 +84,7 @@ Table `observation(event, ts, session_id, prompt_id, agent_id, tool, tool_use_id
 
 ## [02]-[VIEWS]
 
-Views sit in `hooks/observation/sql.ts` of the plugin, `:session` and `:prompt` bound to the ids a reader filters by. `running_agents` covers sessions with a row within 48 hours:
+Views sit in the plugin's `hooks/observation/sql.ts`, `:session` and `:prompt` bound to ids a reader filters by. `running_agents` covers sessions with a row within 48 hours:
 
 ```bash
 # Which files each edit tool call touched, with the cwd it ran from
@@ -141,24 +141,24 @@ Finding tables in `sql.ts`, every one `strict`, their `state`, `channel`, `kind`
 |  [03]   | `finding_delivery`   | One row per id a context line or `report` reached, with its `lineage_key`   | Plugin alone                      |
 |  [04]   | `judged_range`       | One range per row, `kind` `edit`, key parts, `agent_id`, `at` of the answer | Plugin at range agent's answer    |
 
-Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase hex:
+Identity, `sha3` of the `sqlite3` shell as sole hasher, every hash lowercase hex:
 - `finding` and `site` generate `ntext` as `<normalized>` over `text`, tabs, returns, and newlines as spaces, every run of spaces as one
 - `finding` and `site` generate `text_hash` as `sha3` over `ntext`
 - `finding` generates `finding_id` as `sha3` over `category`, observed `path`, `text_hash`, and `occurrence` joined by `char(0)`
 - `source` takes `checker:<tool>` or `agent:<id>`
-- Every transition writes `path`, the site's current path, `finding_state` reads the latest transition's `path` and the observed path under a null
+- Every transition writes `path`, its site's current path, `finding_state` reads the latest transition's `path` and observed path under a null
 - `subject_hash` is `<head>`, `lower(hex(sha3(readfile(path), 256)))` over the finding's current `path`
 - `subject_hash` of a gone file is `''`, equal to no stored hash
-- `occurrence` is the ordinal of `text` within the file at observation
+- `occurrence` is the ordinal of `text` within its file at observation
 - `path` is relative to `<worktree>`, lines and columns are one-based, `byte_start` and `byte_end` zero-based
 - Transitions with null span columns leave `finding_state` reading the finding's span
-- `finding_state` reads `state`, `evidence`, and `verdict` from the latest transition other than `moved`, every other column from the latest
+- `finding_state` reads `state`, `evidence`, and `verdict` from the latest non-`moved` transition, every other column from its newest transition
 - Live rows, `proposed`, `confirmed`, `checker_owned`, `checker_silent`, and `waived`, hold a site on disk, `lifecycle.sql` re-checks each one
 - `lineage_key` is `<name>/<branch>`, `<name>` `.` for the main worktree or a linked worktree's directory name, `<branch>` empty on a detached head
-- `by` takes `user`, `agent:<id>`, or `check:<tool>`, `<id>` the writer's `agent_id` in a subagent, its `session_id` on the main loop
-- `finding_delivery.agent_id` is the category agent on a `report` row and on the rows a rules entry told, null on a finding entry
+- `by` takes `user`, `agent:<id>`, or `check:<tool>`, `<id>` a subagent writer's `agent_id` or a main-loop writer's `session_id`
+- `finding_delivery.agent_id` is the category agent on a `report` row and on rows a rules entry told, null on a finding entry
 - `verdict` holds the rule builder's `bar_verdict` row on a `confirmed` under a refused category, copied by re-confirm, kept across a move, else null
-- `bar_verdict` opens empty, the rule builder alone fills it from the bar table of `rule-building` through `bar.sql`
+- `bar_verdict` opens empty, the rule builder alone fills it from `rule-building`'s bar table through `bar.sql`
 - Retired verdicts keep their `bar_verdict` row, `finding_transition.verdict` references it
 - `recurring_categories` reads a null `verdict` as not refused
 - `<rules>` and `<utils>` are the lines `yq -r '.ruleDirs[]' sgconfig.yml` and `yq -r '.utilDirs[]' sgconfig.yml` print
@@ -169,7 +169,7 @@ Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase 
 | :-----: | :--------------- | :----------------------------------------------------- | :--------------------------- | :------------------------- |
 |  [01]   | `proposed`       | Judgment agent claims the site violates the standard   | `agent:<id>`                 | Correction in one line     |
 |  [02]   | `confirmed`      | Present at the hash, fix keeps behavior                | `agent:<id>`, `check:<tool>` | Proof line, `verdict`      |
-|  [03]   | `wrong`          | Fix changes behavior, or false positive                | `agent:<id>`                 | Reason, final at this hash |
+|  [03]   | `wrong`          | Fix changes behavior, or false positive                | `agent:<id>`                 | Reason, final at its hash  |
 |  [04]   | `checker_owned`  | Checker rule states the category, a checker row covers | `agent:<id>`                 | `<tool>:<rule id>`         |
 |  [05]   | `checker_silent` | Checker rule states the category and missed the site   | `agent:<id>`                 | `<tool>:<rule id>`         |
 |  [06]   | `fixed`          | Text absent, an edit removed it or a write lacks it    | `check:<tool>`               | `tool_use_id`              |
@@ -177,7 +177,7 @@ Identity, `sha3` of the `sqlite3` shell as the one hasher, every hash lowercase 
 |  [08]   | `moved`          | Text moved by an edit or `git mv` since its transition | `check:<tool>`               | `null`, `path` the new one |
 |  [09]   | `waived`         | User accepts the site as is                            | `user`                       | Reason                     |
 
-Rows are stale when `subject_hash` of the latest `confirmed` differs from `<head>` at read time, present when `ntext` occurs in `<normalized>` over `cast(readfile(path) as text)`. Rows are covered when the latest transition is `checker_owned` with the checker rule stating the correction as evidence, a checker row on the same span with another correction covers nothing. `readfile` runs from `<worktree>` in a statement alone, views hold none:
+Rows are stale when `subject_hash` of the latest `confirmed` differs from `<head>` at read time, present when `ntext` occurs in `<normalized>` over `cast(readfile(path) as text)`. Rows are covered when their latest transition is `checker_owned` with a checker rule stating its correction as evidence, and a checker row on an equal span with another correction covers nothing. `readfile` runs from `<worktree>` in a statement alone, views hold none:
 
 ```bash
 # Writer's <id> and <start>, a subagent by :agent, its definition name, the main loop by :literal, text of one of its own Bash commands
@@ -226,7 +226,7 @@ sqlite3 -json <db> "select * from missed_sites order by category, path, start_li
 
 ## [04]-[MAPPING]
 
-Checker JSON becomes `site` rows through the checker's script. Commands run from `<worktree>`, `<paths>` the files to check relative to it, each command's output the `:out` its script binds. ast-grep, ruff, and biome exit 1 on a finding, an empty `:out` marks a checker failure, `json_each` over it raises. A zero-width diagnostic writes `text` `''` at `occurrence` 1. `dotnet build` writes one SARIF log per compiled project, `<project>` the one owning the scope's `.cs` files, `--no-incremental` compiles it when up to date, `<log>` `$(dotnet msbuild Directory.Build.props -getProperty:ArtifactsPath)/binlog/<project>.sarif`, `:out` bound as `-cmd ".param set :out \"cast(readfile('<log>') as text)\""`:
+Checker JSON becomes `site` rows through the checker's script. Commands run from `<worktree>`, `<paths>` files to check relative to it, each command's output the `:out` its script binds. ast-grep, ruff, and biome exit 1 on a finding, an empty `:out` marks a checker failure, `json_each` over it raises. A zero-width diagnostic writes `text` `''` at `occurrence` 1. `dotnet build` writes one SARIF log per compiled project, `<project>` owning the scope's `.cs` files, `--no-incremental` compiles it when up to date, `<log>` `$(dotnet msbuild Directory.Build.props -getProperty:ArtifactsPath)/binlog/<project>.sarif`, `:out` bound as `-cmd ".param set :out \"cast(readfile('<log>') as text)\""`:
 
 ```bash
 # [AST_GREP] Rule hits as JSON
@@ -246,15 +246,15 @@ Diagnostic of a checker category comes from its owner, `ruff rule <code>`, `biom
 
 ## [05]-[DELIVERY]
 
-Categories at `categoryThreshold` confirmed sites spawn `categoryAgent` with `category <category> lineage <key>`, one at a time, edit ranges at `editThreshold` files spawn `editAgent` with `range <key> <from_ts> <to_ts>`. `report` rows, one per `finding` row of the category, are written at the category agent's answer and count in `reported_on` until the site closes. `judged_range` row is written at the range agent's answer holding a transition by it. Spawned agents outlive a compaction, not the session.
+Categories at `categoryThreshold` confirmed sites spawn `categoryAgent` with `category <category> lineage <key>`, one at a time, edit ranges at `editThreshold` files spawn `editAgent` with `range <key> <from_ts> <to_ts>`. `report` rows, one per `finding` row of its category, are written at the category agent's answer and count in `reported_on` until their site closes. `judged_range` row is written at the range agent's answer holding a transition by it. Spawned agents outlive a compaction, not the session.
 
-At a quiet `Stop`, one with no editor of the unjudged range and no `editAgent` in `running_agents` or `background_tasks`, the plugin delivers every `open_findings` row present on disk with `delivered_on` lacking the lineage key: one `finding_delivery` row per id and one `additionalContext` entry, `<n> findings on <branch>, ids <a, b>, apply the delivery section of the observation skill`. The same `Stop` delivers every `placed_rules` row of the lineage with `told_on` lacking the key: one `finding_delivery` row per `report` id of the placing agent and one entry, `<n> rules placed on <branch>, <category> at <path>, apply the delivery section of the observation skill`. Deliveries count in `delivered_on` until the site closes and in `told_on` without end. Model that receives a findings entry:
-1. Read the ids through the `confirmed_findings` reader
-2. Validate each against the current task and act on the sites in scope
-3. Write one transition per id through `transition.sql`, `fixed` with the edit's `tool_use_id`, `wrong` with the reason, `waived` on the user's word
+At a quiet `Stop`, one with no editor of an unjudged range and no `editAgent` in `running_agents` or `background_tasks`, the plugin delivers every `open_findings` row present on disk with `delivered_on` lacking its lineage key: one `finding_delivery` row per id and one `additionalContext` entry, `<n> findings on <branch>, ids <a, b>, apply the delivery section of the observation skill`. Each such `Stop` delivers every `placed_rules` row of its lineage with `told_on` lacking the key: one `finding_delivery` row per placing-agent `report` id and one entry, `<n> rules placed on <branch>, <category> at <path>, apply the delivery section of the observation skill`. Deliveries count in `delivered_on` until their site closes and in `told_on` without end. Model that receives a findings entry:
+1. Read ids through the `confirmed_findings` reader
+2. Validate each against the current task and act on in-scope sites
+3. Write one transition per id through `transition.sql`, `fixed` with its edit's `tool_use_id`, `wrong` with its reason, `waived` on the user's word
 4. Continue the task
 
 Model that receives a rules entry, its paths rule files untracked or modified in the working tree:
-1. Run `ast-grep scan --no-ignore hidden <paths of the task>` for the sites the rules cover
+1. Run `ast-grep scan --no-ignore hidden <paths of the task>` for sites the rules cover
 2. Keep or delete each rule on the user's word
 3. Continue the task

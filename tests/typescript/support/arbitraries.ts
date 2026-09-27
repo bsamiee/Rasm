@@ -1,5 +1,3 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import { Array, Effect, flow, Schema } from 'effect';
 import { Arbitrary } from 'effect/unstable/arbitrary';
 

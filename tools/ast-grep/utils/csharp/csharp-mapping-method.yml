@@ -2,6 +2,13 @@
 id: csharp-mapping-method
 language: csharp
 utils:
+    mapper-class:
+        kind: class_declaration
+        has:
+            kind: attribute_list
+            has:
+                kind: attribute
+                has: {field: name, regex: '^(global::)?(Riok\.Mapperly\.Abstractions\.)?Mapper(Attribute)?$'}
     user-mapping:
         has:
             kind: attribute_list
@@ -12,14 +19,14 @@ utils:
         all:
             - has: {kind: modifier, regex: '^partial$'}
             - not: {has: {field: body, pattern: $_}}
-            - inside: {kind: declaration_list, inside: {matches: csharp-mapper-class}}
+            - inside: {kind: declaration_list, inside: {matches: mapper-class}}
     use-helper:
         all:
             - has: {field: name, pattern: $HELPER}
             - inside:
                 kind: declaration_list
                 inside:
-                    matches: csharp-mapper-class
+                    matches: mapper-class
                     has:
                         stopBy: end
                         kind: attribute_argument

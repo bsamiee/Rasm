@@ -2,7 +2,6 @@
 id: no-promise-outside-boundary
 language: tsx
 severity: error
-ignores: ['**/*.config.ts', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     host-import:
         kind: call_expression
@@ -11,18 +10,10 @@ utils:
         kind: call_expression
         has:
             field: function
-            any:
-                - kind: member_expression
-                  all:
-                    - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
-                    - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/(Effect|Micro))?$'}, exported: {regex: '^(Effect|Micro)$'}}}}
-                - kind: call_expression
-                  has:
-                    field: function
-                    kind: member_expression
-                    all:
-                        - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
-                        - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Runtime)?$'}, exported: {regex: '^Runtime$'}}}}
+            kind: member_expression
+            all:
+                - has: {field: property, regex: '^(runPromise|runPromiseExit)$'}
+                - has: {field: object, matches: {syntax-import-reference: {source: {regex: '^effect(/Effect)?$'}, exported: {regex: '^Effect$'}}}}
     main-entry:
         any:
             - not: {inside: {matches: syntax-function-boundary, stopBy: end}}

@@ -4,10 +4,15 @@ language: swift
 severity: error
 rule:
     pattern: $ARGS
-    matches: {swift-security-argument: {subcommand: {regex: '^"add-generic-password"$'}}}
-    not: {has: {kind: line_string_literal, regex: '^"-U"$'}}
+    any:
+        - matches: {swift-security-argument: {subcommand: {regex: '^"add-generic-password"$'}}}
+          not: {has: {kind: line_string_literal, regex: '^"-U"$'}}
+        - kind: line_string_literal
+          regex: '^"add-generic-password '
+          not: {regex: '\s-U(\s|\\n|"$)'}
 transform:
-    UPDATED: {replace: {source: $ARGS, replace: '"add-generic-password"', by: '"add-generic-password", "-U"'}}
+    LISTED: {replace: {source: $ARGS, replace: '"add-generic-password"', by: '"add-generic-password", "-U"'}}
+    UPDATED: {replace: {source: $LISTED, replace: '^"add-generic-password ', by: '"add-generic-password -U '}}
 fix: $UPDATED
 message: '`add-generic-password` without `-U` adds a second item beside the existing one'
 note: 'Pass `-U`, it updates the item in place and keeps its ACL and partition list'

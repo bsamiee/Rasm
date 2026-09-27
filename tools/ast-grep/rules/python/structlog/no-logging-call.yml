@@ -2,13 +2,19 @@
 id: no-logging-call
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/*.py', '.claude/skills/use-rhino/scripts/*.py', 'tools/interface/**']
+ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
+utils:
+    event-method: {regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
 rule:
-    kind: attribute
     pattern: $USE
-    all:
-        - has: {field: attribute, regex: "^(log|debug|info|warning|warn|error|critical|fatal|exception)$"}
-        - has: {field: object, matches: python-stdlib-logger}
+    any:
+        - kind: identifier, attribute
+          matches: {python-member-use: {module: {regex: "^logging$"}, name: {matches: event-method}}}
+          not: {inside: {kind: 'import_statement, import_from_statement', stopBy: end}}
+        - kind: attribute
+          all:
+            - has: {field: attribute, matches: event-method}
+            - has: {field: object, matches: python-stdlib-logger}
 message: '`$USE` logs through the standard library logging API'
 note: 'Use `structlog.get_logger(__name__).<level>(<event>, <key>=<value>)`'
 labels: {USE: {style: primary, message: Event method}}

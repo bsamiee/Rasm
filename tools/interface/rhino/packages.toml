@@ -1,0 +1,9 @@
+# --- [PACKAGES] -------------------------------------------------------------------------
+packages = [
+    { id = "Rhino-MCP-Platform", source = { repository = "mcneel/RhinoAI", branch = "rhino-{major}.x", workflow = "Build", artifact = "rhino-mcp-platform-R{major}-osx" }, panels = ["AI"], commands = { STANDARD = ["AIPanel"] } }, # MCP router and document listener every agent session drives
+    { id = "ClippingBox", panels = ["CLIPPING_BOXES"], commands = { VISIBILITY = ["ClippingBoxNew", "ClippingBoxEdit", "ClippingBoxOn", "ClippingBoxOff", "ClippingBoxDelete", "ClippingBoxManager"] } }, # Six-plane clipping box with its manager panel
+    { id = "Garage", panels = ["SCRIPTS", "WHAT"], commands = { STANDARD = ["ScriptManager", "WhatPanel", "ByParent", "RandomColor", "BlendLayerColors"], SELECT = ["SelStackedControlPointCrv"], VISIBILITY = ["LayerWalker", "MatchModelVisibility"], CURVE_TOOLS = ["SimplifyPolyline", "ExtractInflectionPoints", "ExtractMinMaxRadiusPoints", "OverCut", "ZigZag", "SuperEllipse", "GoldenRectangle", "Cycloid", "Guilloche"], SOLID_TOOLS = ["SolidWeight", "MarkOutOfToleranceEdges", "QuadSphere", "Baseball"], MESH_TOOLS = ["ShowUnweldedEdges"], TRANSFORM = ["OrientOnMesh", "ResetBlock"], DRAFTING = ["DetailDisplayMode", "ConvertFieldToText"] } }, # Script Manager panel and utility commands
+    { id = "schlepp" },                                                  # Random walk components for Grasshopper 2
+    { id = "UnitsCalculator", commands = { DRAFTING = ["UnitsCalculator"] } }, # Floating calculator for mixed imperial and metric expressions
+    { id = "Arches", project = "apps/rhino/Arches" },                    # Historical arch profile commands and document-unit nudge steps
+]

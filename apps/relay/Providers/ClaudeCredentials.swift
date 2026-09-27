@@ -1,6 +1,8 @@
 import CryptoKit
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated struct ClaudeOAuthToken: Sendable {
   let value: JSONValue
   let accessToken: String
@@ -55,11 +57,6 @@ nonisolated struct ClaudeOAuthToken: Sendable {
   }
 }
 
-nonisolated struct ClaudeFailures: AggregateError {
-  let first: ClaudeFailure
-  let remaining: [ClaudeFailure]
-}
-
 nonisolated struct ClaudeCredential: Sendable {
   let item: [String: JSONValue]
   let token: ClaudeOAuthToken
@@ -76,6 +73,15 @@ nonisolated enum ClaudeStoreContent: Sendable {
     if case .credential(let credential) = self { credential } else { nil }
   }
 }
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+nonisolated struct ClaudeFailures: AggregateError {
+  let first: ClaudeFailure
+  let remaining: [ClaudeFailure]
+}
+
+// --- [SERVICES] ------------------------------------------------------------------------
 
 nonisolated struct ClaudeCredentialStore: Sendable {
   let directory: URL

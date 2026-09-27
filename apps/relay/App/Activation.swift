@@ -1,6 +1,8 @@
 import AppKit
 import OSLog
 
+// --- [OPERATIONS] ----------------------------------------------------------------------
+
 enum Activation {
   private static let logger: Logger = Logger(subsystem: "app.rasm.relay", category: "Activation")
 

@@ -1,0 +1,106 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-constant-tsx
+language: tsx
+severity: error
+utils:
+    literal:
+        any:
+            - kind: string, number, true, false, null, undefined, identifier, arrow_function
+            - kind: member_expression
+              not: {has: {stopBy: end, kind: call_expression}}
+            - kind: new_expression
+              all:
+                - has: {field: constructor, regex: '^(Set|Map)$'}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
+            - kind: call_expression
+              all:
+                - has: {field: function, regex: '^Object\.freeze$'}
+                - not: {has: {field: arguments, has: {pattern: $_, not: {matches: literal}}}}
+            - kind: template_string
+              not: {has: {kind: template_substitution}}
+            - kind: unary_expression, binary_expression
+              not: {has: {pattern: $_, not: {matches: literal}}}
+            - kind: array
+              not: {has: {pattern: $_, not: {matches: literal}}}
+            - kind: object
+              not:
+                has:
+                    pattern: $_
+                    not:
+                        kind: pair
+                        all:
+                            - has: {field: key, kind: 'property_identifier, string, number'}
+                            - has: {field: value, matches: literal}
+            - kind: as_expression, satisfies_expression, parenthesized_expression
+              has: {nthChild: 1, matches: literal}
+    reference:
+        kind: identifier, shorthand_property_identifier
+        pattern: $NAME
+        not: {inside: {kind: variable_declarator, field: name}}
+    declaration:
+        pattern: $DECLARATION
+        inside: {kind: program}
+    declared:
+        any:
+            - matches: declaration
+            - inside: {stopBy: end, matches: declaration}
+    reader:
+        pattern: $READER
+        all:
+            - matches: syntax-function-boundary
+            - not: {inside: {stopBy: end, matches: syntax-function-boundary}}
+            - matches: declared
+            - has: {stopBy: end, matches: reference}
+    holds-reader:
+        any:
+            - matches: reader
+            - has: {stopBy: end, matches: reader}
+    constant-reader:
+        kind: variable_declarator
+        all:
+            - inside: {kind: lexical_declaration, any: [{inside: {kind: program}}, {inside: {kind: export_statement, inside: {kind: program}}}]}
+            - has: {field: name, kind: identifier, pattern: $HOLDER}
+            - has: {field: value, has: {stopBy: end, matches: reference}}
+    holds-reference:
+        any:
+            - matches: reference
+            - has: {stopBy: end, matches: reference}
+    later-reference:
+        matches: reference
+        any:
+            - follows: {stopBy: end, matches: holds-reference}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reference}}
+rule:
+    kind: variable_declarator
+    all:
+        - has: {field: name, kind: identifier, pattern: $NAME, regex: '^_?[A-Z][A-Z0-9_]*$'}
+        - has: {field: value, matches: literal}
+        - inside:
+            kind: lexical_declaration
+            all:
+                - has: {field: kind, regex: '^const$'}
+                - inside: {kind: program}
+        - inside:
+            kind: program
+            stopBy: end
+            any:
+                - all:
+                    - has: {stopBy: end, matches: reader}
+                    - not:
+                        has:
+                            stopBy: end
+                            matches: reader
+                            any:
+                                - follows: {stopBy: end, matches: holds-reader}
+                                - inside: {stopBy: end, follows: {stopBy: end, matches: holds-reader}}
+                    - not:
+                        has:
+                            stopBy: end
+                            matches: reference
+                            not: {inside: {stopBy: end, pattern: $READER, matches: declared}}
+                - all:
+                    - has: {stopBy: end, matches: constant-reader}
+                    - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, matches: constant-reader}}}}
+                    - not: {has: {stopBy: end, matches: later-reference}}
+message: 'Module-level constant `$NAME` has one reader'
+note: 'Bind the value inside its one reader, as a local where its name states a fact and at the use site otherwise, and drop the module-level name'

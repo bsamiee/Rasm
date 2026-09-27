@@ -1,0 +1,13 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-article-summary-java
+language: java
+severity: error
+rule:
+    any:
+        - kind: block_comment
+          regex: '^/\*\*\s*(\*\s*)?(The|A|An)\s+\S'
+        - kind: line_comment
+          regex: '^///\s*(The|A|An)\s+\S'
+          not: {follows: {kind: line_comment, regex: '^///'}}
+message: 'Doc comment summary opens with an article'
+note: 'Open the summary with the noun it names or the verb it performs'

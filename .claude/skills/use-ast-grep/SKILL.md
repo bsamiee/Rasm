@@ -110,6 +110,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `files:` and `ignores:` globs match paths relative to the config directory with no `./` prefix, `ignores:` reads first
 - `scan -r` reads `files:` from the rule file
 - Wildcard globs take an implied `**/` prefix, a plain file name matches the one file beside `sgconfig.yml`, `**/<name>` every file of that name
+- Scopes name the folder a rule's cause covers, one file's exemption is its first line `ast-grep-ignore: <id>` over a blank second line
 - Dot directories under a walked path need `--no-ignore hidden`, a dot path named on the command needs no flag
 - Injection entries capture the embedded source as `$CONTENT` and name the parser in `injected`, a language or a candidate list with `$LANG`
 - `injected` names a built-in language or a `customLanguages` key, `run -l <injected>` walks every file of a host that injects it

@@ -83,13 +83,13 @@ Files outside the chain:
 ```xml
 <!-- Directory.Build.targets -->
 <PropertyGroup Condition="$([MSBuild]::IsTargetFrameworkCompatible('$(TargetFramework)', 'netstandard2.0'))">
-  <DefineConstants>$(DefineConstants);FEATURE_SPANS</DefineConstants>
+    <DefineConstants>$(DefineConstants);FEATURE_SPANS</DefineConstants>
 </PropertyGroup>
 <PropertyGroup Condition="'$([MSBuild]::GetTargetFrameworkIdentifier(`$(TargetFramework)`))' == '.NETCoreApp'">
-  <DefineConstants>$(DefineConstants);HOST_CORE</DefineConstants>
+    <DefineConstants>$(DefineConstants);HOST_CORE</DefineConstants>
 </PropertyGroup>
 <PropertyGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
-  <DefineConstants>$(DefineConstants);HOST_MACOS</DefineConstants>
+    <DefineConstants>$(DefineConstants);HOST_MACOS</DefineConstants>
 </PropertyGroup>
 ```
 
@@ -105,11 +105,11 @@ Properties hold one string, the last assignment in evaluation order wins, a glob
 
 ```xml
 <PropertyGroup>
-  <ToolPath>$([MSBuild]::ValueOrDefault('$(ToolPathOverride)', '$(MSBuildThisFileDirectory)tools/tool'))</ToolPath>
-  <_ToolDir>$([MSBuild]::NormalizeDirectory('$(ToolPath)'))</_ToolDir>
-  <ToolFile>$([MSBuild]::NormalizePath('$(_ToolDir)', 'tool.exe'))</ToolFile>
-  <ToolRelative>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ToolPath)'))</ToolRelative>
-  <NoWarn>$(NoWarn);NU1603</NoWarn>
+    <ToolPath>$([MSBuild]::ValueOrDefault('$(ToolPathOverride)', '$(MSBuildThisFileDirectory)tools/tool'))</ToolPath>
+    <_ToolDir>$([MSBuild]::NormalizeDirectory('$(ToolPath)'))</_ToolDir>
+    <ToolFile>$([MSBuild]::NormalizePath('$(_ToolDir)', 'tool.exe'))</ToolFile>
+    <ToolRelative>$([MSBuild]::MakeRelative('$(MSBuildThisFileDirectory)', '$(ToolPath)'))</ToolRelative>
+    <NoWarn>$(NoWarn);NU1603</NoWarn>
 </PropertyGroup>
 ```
 
@@ -158,18 +158,18 @@ Item elements perform one operation each, in order of appearance across every im
 
 ```xml
 <ItemGroup>
-  <Source Include="**/*.cs" Exclude="Generated/**;Tests/**" />
-  <Source Include="Generated/*.cs" Kind="generated" />
-  <Source Remove="Legacy.cs" />
-  <Source Update="Generated/*.cs" Owner="tool" />
+    <Source Include="**/*.cs" Exclude="Generated/**;Tests/**" />
+    <Source Include="Generated/*.cs" Kind="generated" />
+    <Source Remove="Legacy.cs" />
+    <Source Update="Generated/*.cs" Owner="tool" />
 </ItemGroup>
 ```
 
 ```xml
 <!-- Inside a target -->
 <ItemGroup>
-  <Asset Condition="'%(Identity)' == 'config.json'" Copy="PreserveNewest" />
-  <Copied Include="@(Asset)" KeepMetadata="Copy" />
+    <Asset Condition="'%(Identity)' == 'config.json'" Copy="PreserveNewest" />
+    <Copied Include="@(Asset)" KeepMetadata="Copy" />
 </ItemGroup>
 ```
 

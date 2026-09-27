@@ -2,7 +2,6 @@
 id: no-fetch-outside-boundary
 language: tsx
 severity: error
-ignores: ['**/*.config.ts', '**/*.spec.ts', '**/*.test.ts', '**/*.bench.ts']
 utils:
     global-receiver: {matches: syntax-global-reference, regex: '^(globalThis|window|self)(\.(globalThis|window|self))*$'}
 rule:

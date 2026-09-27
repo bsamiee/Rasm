@@ -1,3 +1,5 @@
+// --- [TYPES] ---------------------------------------------------------------------------
+
 nonisolated protocol AggregateError: Error {
   associatedtype Element: Sendable
 
@@ -23,6 +25,8 @@ nonisolated extension AggregateError {
     Self(first: first, remaining: remaining + other.errors)
   }
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated extension Result {
   var failure: Failure? {

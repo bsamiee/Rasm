@@ -5,6 +5,7 @@ severity: error
 utils:
     forward:
         pattern: $OWNER.$MEMBER($SOURCE)
+        not: {has: {field: function, matches: csharp-throwing-factory}}
 rule:
     kind: method_declaration
     all:

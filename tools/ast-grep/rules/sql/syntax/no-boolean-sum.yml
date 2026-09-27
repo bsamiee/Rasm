@@ -5,20 +5,22 @@ severity: error
 rule:
     kind: invocation
     all:
-        - has: {kind: object_reference, regex: '(?i)^(sum|total)$', pattern: _AGG}
-        - not: {has: {kind: keyword_distinct}}
-        - not: {has: {kind: filter_expression}}
+        - matches: {sql-aggregate: {name: {regex: '(?i)^(sum|total)$', pattern: _AGG}}}
         - has:
             field: parameter
             kind: term
             has:
                 field: value
-                pattern: _COND
                 any:
-                    - kind: binary_expression
-                      has: {field: operator, pattern: __OPERATOR, regex: '(?i)^(=|==|<>|!=|<|>|<=|>=|is|is\s+not|like|not\s+like|glob|in|not\s+in|between|not\s+between|and|or)$'}
-                    - kind: unary_expression
-                      has: {field: operator, kind: keyword_not}
+                    - pattern: _COND
+                      any:
+                        - kind: binary_expression
+                          has: {field: operator, pattern: __OPERATOR, regex: '(?i)^(=|==|<>|!=|<|>|<=|>=|is|is\s+not|like|not\s+like|glob|in|not\s+in|between|not\s+between|and|or)$'}
+                        - kind: unary_expression
+                          has: {field: operator, kind: keyword_not}
+                    - pattern: {context: 'select case when _COND then 1 else 0 end', selector: case}
+                    - pattern: {context: 'select iif(_COND, 1, 0)', selector: invocation}
+                    - pattern: {context: 'select if(_COND, 1, 0)', selector: invocation}
 fix: count(1) filter (where $COND)
 message: '`$AGG` adds the truth values of `$COND`'
 note: 'Use `count(1) filter (where <condition>)`'

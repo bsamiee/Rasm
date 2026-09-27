@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-child-removal-loop
+language: python
+severity: error
+utils:
+    element-module:
+        inside:
+            kind: module
+            stopBy: end
+            has:
+                any:
+                    - kind: import_statement
+                      has: {kind: 'dotted_name, aliased_import', regex: '^(xml\.etree|lxml)\b'}
+                    - kind: import_from_statement
+                      has: {field: module_name, regex: '^(xml\.etree|lxml)\b'}
+    children:
+        any:
+            - pattern: list($O)
+            - pattern: tuple($O)
+            - pattern: $O.findall($$$_)
+            - pattern: $O.iterfind($$$_)
+            - pattern: $O
+    selection:
+        kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression'
+        has: {kind: for_in_clause, has: {field: right, matches: children}}
+    relayed:
+        any: [{kind: identifier, pattern: $L}, {pattern: $L.values()}]
+        inside:
+            kind: 'function_definition, module'
+            stopBy: end
+            has: {stopBy: end, kind: assignment, all: [{has: {field: left, pattern: $L}}, {has: {field: right, matches: selection}}]}
+    target-read:
+        kind: identifier
+        pattern: $E
+        not:
+            any:
+                - inside: {kind: for_statement, stopBy: end, has: {field: left, pattern: $E}}
+                - inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', stopBy: end, has: {kind: for_in_clause, has: {field: left, pattern: $E}}}
+                - inside: {kind: assignment, field: left}
+    later-read:
+        kind: for_statement
+        any:
+            - precedes: {stopBy: end, any: [{matches: target-read}, {has: {stopBy: end, matches: target-read}}]}
+            - inside: {stopBy: {kind: function_definition}, precedes: {stopBy: end, any: [{matches: target-read}, {has: {stopBy: end, matches: target-read}}]}}
+rule:
+    kind: for_statement
+    all:
+        - has:
+            field: body
+            kind: block
+            all:
+                - has: {nthChild: 1, kind: expression_statement, has: {pattern: $O.remove($E)}}
+                - not: {has: {nthChild: 2, pattern: $_}}
+        - has: {field: left, kind: identifier, pattern: $E}
+        - has: {field: right, any: [{matches: children}, {matches: selection}, {matches: relayed}]}
+        - not: {has: {field: alternative, kind: else_clause}}
+        - matches: element-module
+    any:
+        - pattern: $WHOLE
+          has: {field: right, any: [{pattern: list($O)}, {pattern: tuple($O)}]}
+          not: {matches: later-read}
+        - pattern: $KEPT
+rewriters:
+    - id: clear
+      rule: {kind: for_statement}
+      fix: del $O[:]
+transform:
+    CLEARED: {rewrite: {source: $WHOLE, rewriters: [clear]}}
+fix: $CLEARED$KEPT
+message: '`$O.remove($E)` in a loop removes the children of `$O` one at a time'
+note: 'Delete every child with `del <element>[:]`, or assign the kept children with `<element>[:] = [<child> for <child> in <element> if <kept>]`'

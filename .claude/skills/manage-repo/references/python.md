@@ -1,11 +1,11 @@
 # [PYTHON]
 
-uv owns resolution, the lock, and the environment of the root project file.
+uv owns resolution, lock, and environment of the root project file.
 
 ## [01]-[GROUPS]
 
 - Version bounds exist for a resolver conflict, stated in the row comment
-- `default-groups` names the groups `uv sync` installs, `"all"` every group, `--only-group <group>` one group without the project
+- `default-groups` names groups `uv sync` installs, `"all"` every group, `--only-group <group>` one group without the project
 - `prerelease = "allow"` accepts prereleases for every package
 
 ## [02]-[LOCK]
@@ -14,21 +14,27 @@ uv owns resolution, the lock, and the environment of the root project file.
 - `environments` restricts resolution to disjoint PEP 508 markers
 - `required-environments` names platforms a package without a source distribution must publish a wheel for
 - `[tool.uv.workspace] members` globs name the `pyproject.toml` files one root lock covers
-- Dependencies on a member take `{ workspace = true }` in `[tool.uv.sources]`
+- `uv run` installs a PEP 723 script's inline dependencies into an ephemeral environment `uv.lock` does not pin
 
 ## [03]-[ENVIRONMENT]
 
 - `uv sync` installs the workspace root, `--all-packages` every member
 - `python-preference = "only-system"` excludes uv-managed interpreters, `UV_PYTHON` names the interpreter
 - Script folder a target runs is a workspace member with a `pyproject.toml` naming its dependencies
-- Targets run a member's script as `python <path>` from the synced `.venv` on `PATH`, `uv run` syncs the environment before every run
-- `[project.scripts]` needs a build backend and an editable install, the install puts the module root on `sys.path` of every environment process
-- Module named like a standard-library module shadows it for every process with its directory on `sys.path` or `mypy_path`
+- Members without `[build-system]` lock as `virtual` and never install, a packaged member installs when a root dependency group names it
+- Targets run a member as `python -m <member>.<module>` from its parent folder, or with it on `PYTHONPATH` beside root commands
+- Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
+- `[project.scripts]` needs a build backend and an editable install, and the install puts its module root on `sys.path` of every environment process
+- Module named in `sys.stdlib_module_names` shadows the standard library for every process with its directory on `sys.path` or `mypy_path`
+- Relative cache paths resolve against ruff's configuration file and mypy's working directory, `$MYPY_CONFIG_FILE_DIR` pins mypy's
 
 ## [04]-[CHECKERS]
 
 - `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a scratch `--config-file`
-- `# ty: ignore[<code>]` above the first statement covers the whole file, as `# mypy: disable-error-code=<code>` and `# ruff: file-ignore[<code>]` do
+- `# ty: ignore[<code>]` above the first statement covers its whole file, as `# mypy: disable-error-code=<code>` and `# ruff: file-ignore[<code>]` do
 - `respect-type-ignore-comments = false` makes ty read `ty: ignore` comments alone, a line ignoring both checkers carries both comments
 - Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override by module, ty reads their source
-- Modules that build their members at import (pyobjc's `AppKit`) take ty's `replace-imports-with-any`, ty finds no member in their source
+- Header `disable-error-code` codes that suppress nothing stay silent in mypy
+- Per-path target versions exist in ruff alone, mypy checks every file at one version, ty checks a PEP 723 script at its `requires-python`
+- `exhaustive-match` notes in mypy offer `case _: pass`, a `case None:` arm with a body or a narrowing before `match` clears the error
+- Calls through a union of bound methods with differing signatures fail mypy and ty, each `match` arm calls its own typed method

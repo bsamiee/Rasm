@@ -23,4 +23,4 @@ rule:
                 - not: {has: {kind: switch_case, not: {matches: literal-case}}}
                 - not: {has: {kind: 'switch_case, switch_default', not: {matches: returning-case}}}
 message: '`switch` over `$KEY` returns one value per literal case'
-note: 'Index a record keyed by the literals, `Schema.Literal(...Struct.keys(record))` validates the key'
+note: 'Index a record keyed by the literals, `Schema.Literals(Struct.keys(<record>))` validates the key'

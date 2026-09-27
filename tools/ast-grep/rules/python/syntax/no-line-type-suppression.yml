@@ -2,7 +2,7 @@
 id: no-line-type-suppression
 language: python
 severity: error
-files: ['.claude/skills/*/scripts/**/*.py', 'tools/interface/**/*.py']
+files: ['.claude/skills/*/scripts/**', 'tools/interface/**']
 rule:
     kind: comment
     regex: '^#\s*((type|ty|pyright|ruff):\s*ignore|noqa)\b'

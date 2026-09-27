@@ -1,7 +1,5 @@
 """Property-test registration and public-API test coverage accounting."""
 
-# --- [IMPORTS] --------------------------------------------------------------------------
-
 from collections.abc import Callable, Mapping
 import enum
 import functools
@@ -46,7 +44,7 @@ PACKAGES_UNDER_TEST: pytest.StashKey[frozendict[str, PackageUnderTest]] = pytest
 
 
 def _record(subject: object, property_name: str, module: str) -> PropertyRecord:
-    """Build the record of one subject under one property name in one test module, a subject without a defining module renders by ``str``."""
+    """Build the property record of a subject under a property name in a test module."""
     match subject:
         case type() | TypeAliasType() | FunctionType() | MethodType() | BuiltinFunctionType():
             return PropertyRecord(subject=subject.__qualname__, property_name=property_name, module=module, subject_module=subject.__module__)
@@ -114,15 +112,7 @@ def _public_api(package_name: str) -> tuple[dict[str, object], tuple[tuple[str, 
 
 
 def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Callable[P, None]], Callable[P, None]]:
-    """Register a property test and inject the subject's Hypothesis strategy.
-
-    Args:
-        subject: Type or callable covered by the property test.
-        given: True injects ``strategy_for(subject)`` as the rightmost positional argument, the subject is then a type form.
-
-    Returns:
-        The decorator marking the test with its ``PropertyRecord``, collection records it.
-    """
+    """Return a decorator marking a test with its ``PropertyRecord``, with ``given`` injecting ``strategy_for(subject)`` as the rightmost positional argument."""
 
     def _decorator(fn: Callable[P, None]) -> Callable[P, None]:
         if not isinstance(fn, FunctionType):
@@ -139,32 +129,19 @@ def property_test[**P](subject: object, *, given: bool = True) -> Callable[[Call
 
 
 def covers(module: str, *subjects: Callable[..., object]) -> list[pytest.MarkDecorator]:
-    """Return one property mark per subject for a test module's ``pytestmark``, recording each subject as covered by the module named ``module``."""
+    """Return one property mark per subject for the ``pytestmark`` of the test module named ``module``."""
     return [pytest.mark.property(record=_record(subject, "covers", module)) for subject in subjects]
 
 
 def register_package(stash: pytest.Stash, package: str, *, suite: Path, exempt: frozenset[str] = frozenset()) -> None:
-    """Register a package for public-API test coverage on the session stash, repeat calls merge exemptions and keep the first test directory.
-
-    Args:
-        stash: Session stash the ``PACKAGES_UNDER_TEST`` key lives on.
-        package: Fully-qualified package name.
-        suite: Package test directory.
-        exempt: Public names explicitly exempt from the coverage requirement.
-    """
+    """Register a package for public-API test coverage on the session stash, a repeat call merging exemptions and keeping the first test directory."""
     packages = stash.setdefault(PACKAGES_UNDER_TEST, frozendict())
     registration = PackageUnderTest(exempt | prior.exempt, prior.suite) if (prior := packages.get(package)) is not None else PackageUnderTest(exempt, suite)
     stash[PACKAGES_UNDER_TEST] = packages | {package: registration}
 
 
 def register_package_tree(config: pytest.Config, source_root: Path, suite_root: Path) -> tuple[str, ...]:
-    """Register each Python package directly beneath ``source_root`` under the name its modules import by, with the same-named folder under ``suite_root`` as the test directory.
-
-    A package under a ``pythonpath`` root or outside the rootdir imports by its folder name, any other by its rootdir-relative dotted path.
-
-    Returns:
-        The registered names, a directory without Python source does not register.
-    """
+    """Register each Python package beneath ``source_root`` under its import name with the same-named ``suite_root`` folder as test directory, returning the registered names."""
     authored = tuple(child for child in sorted(source_root.iterdir()) if child.is_dir() and any(child.rglob("*.py"))) if source_root.is_dir() else ()
     names = tuple(child.name if child.parent in config.getini("pythonpath") or not child.is_relative_to(config.rootpath) else ".".join(child.relative_to(config.rootpath).parts) for child in authored)
     for name, child in zip(names, authored, strict=True):
@@ -173,10 +150,7 @@ def register_package_tree(config: pytest.Config, source_root: Path, suite_root: 
 
 
 def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, PackageUnderTest]) -> dict[str, tuple[str, ...]]:
-    """Return package test modules that pytest did not import during collection, their coverage declarations were not recorded.
-
-    Collection imports every selected test module under the dotted name pytest's importlib mode assigns it, a name absent from ``sys.modules`` marks an uncollected module.
-    """
+    """Return the package test modules pytest did not import during collection."""
     gaps = {
         package: tuple(
             sorted(
@@ -192,13 +166,7 @@ def uncollected_test_modules(config: pytest.Config, packages: Mapping[str, Packa
 
 
 def assert_property_coverage(records: tuple[PropertyRecord, ...], packages: Mapping[str, PackageUnderTest], *, only: frozenset[str] | None = None) -> None:
-    """Assert every registered public API has a property test or an explicit exemption.
-
-    Args:
-        records: Property records collection recorded, the ``PROPERTY_RECORDS`` stash value.
-        packages: Registered packages, the ``PACKAGES_UNDER_TEST`` stash value.
-        only: Packages to inspect, ``None`` inspects every registration.
-    """
+    """Assert every registered public API in the ``only`` packages, or in every package when ``None``, has a property test or an exemption."""
     global_covered = frozenset(record.subject.rsplit(".", 1)[-1] for record in records if record.subject_module is None)
 
     for package, registration in packages.items():

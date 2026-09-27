@@ -3,23 +3,19 @@ id: no-succeed-in-flat-map
 language: tsx
 severity: error
 utils:
+    succeed-module:
+        matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Stream|Channel|Sink|Result))?$"}, exported: {regex: "^(Effect|Stream|Channel|Sink|Result)$"}}}
+    option-module:
+        matches: {syntax-import-reference: {source: {regex: "^effect(/Option)?$"}, exported: {regex: "^Option$"}}}
+    constant-module:
+        matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Option))?$"}, exported: {regex: "^(Effect|Option)$"}}}
     lifted-body:
         kind: call_expression, member_expression
         any:
-            - has:
-                field: function
-                pattern: $M.succeed
-                has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM|Stream|Channel|Sink|Exit))?$"}, exported: {regex: "^(Effect|Micro|STM|Stream|Channel|Sink|Exit)$"}}}}
-            - has:
-                field: function
-                pattern: $M.some
-                has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Option)?$"}, exported: {regex: "^Option$"}}}}
-            - has:
-                field: function
-                pattern: $M.right
-                has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Either)?$"}, exported: {regex: "^Either$"}}}}
+            - has: {field: function, pattern: $M.succeed, has: {field: object, matches: succeed-module}}
+            - has: {field: function, pattern: $M.some, has: {field: object, matches: option-module}}
             - pattern: $M.void
-              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM|Channel|Exit|Option))?$"}, exported: {regex: "^(Effect|Micro|STM|Channel|Exit|Option)$"}}}}
+              has: {field: object, matches: constant-module}
     void-callback:
         kind: arrow_function, function_expression
         has:
@@ -47,11 +43,9 @@ utils:
         kind: member_expression
         any:
             - pattern: $M.succeed
-              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/(Effect|Micro|STM|Stream|Channel|Sink|Exit))?$"}, exported: {regex: "^(Effect|Micro|STM|Stream|Channel|Sink|Exit)$"}}}}
+              has: {field: object, matches: succeed-module}
             - pattern: $M.some
-              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Option)?$"}, exported: {regex: "^Option$"}}}}
-            - pattern: $M.right
-              has: {field: object, matches: {syntax-import-reference: {source: {regex: "^effect(/Either)?$"}, exported: {regex: "^Either$"}}}}
+              has: {field: object, matches: option-module}
     identity-body:
         matches: lifted-value
         any: [{pattern: $_.$_($N)}, {pattern: $_.$_<$$$_>($N)}]
@@ -89,6 +83,7 @@ rule:
                     - matches: lifting-callback
                     - matches: point-free-lift
                     - matches: lifted-value
+                      has: {field: function, has: {field: object, matches: constant-module}}
                       inside: {kind: arguments, inside: {kind: call_expression, has: {field: function, has: {field: property, regex: '^andThen$'}}}}
 constraints:
     F: {regex: "^(flatMap|andThen)$"}

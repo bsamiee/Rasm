@@ -16,7 +16,7 @@ rule:
                     all:
                         - has: {field: name, pattern: $DECLARED}
                         - has: {field: type, matches: type}
-            - kind: block
+            - kind: block, switch_section
               has:
                 kind: local_declaration_statement
                 has:

@@ -2,23 +2,22 @@
 # requires-python = ">=3.13"
 # dependencies = ["msgspec", "packaging"]
 # ///
-"""PreToolUse hook that runs each `run_python` script inside the skill's runtime and refuses Rhino calls that reach IronPython or reload the shared interpreter."""
+"""PreToolUse hook that runs each `run_python` script inside the skill's runtime and refuses the router tools and `RunScript` calls script entry points replace, IronPython runs, and interpreter reloads."""
 
 from importlib.metadata import distributions
 from pathlib import Path
 import re
 import sys
 import tomllib
-from typing import Final
+from typing import ClassVar
 
 import msgspec
 from packaging.requirements import Requirement
 from packaging.utils import canonicalize_name
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-IRONPYTHON: Final = 'This call runs a .py file on IronPython 2.7; run the file through _-ScriptEditor _Run "<file>"'
-RELOAD: Final = "python.reloadEngine reloads every caller's modules in place and keeps names a module dropped; the hook evicts the skill modules on each call"
+type Call = Script | Macro | CloseDoc | SaveDoc | OpenDoc
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -30,23 +29,45 @@ class Input(msgspec.Struct, frozen=True):
     slot: str | None = None
 
 
-class Command(msgspec.Struct, frozen=True):
-    """`run_command` arguments."""
-
-    command: str
-    slot: str | None = None
+class Event(msgspec.Struct, frozen=True, tag_field="tool_name"):
+    """PreToolUse event of a `rhino-mcp-platform` call, tagged by its tool name."""
 
 
-class Script(msgspec.Struct, frozen=True, tag_field="tool_name", tag="mcp__rhino-mcp-platform__run_python"):
+class Script(Event, frozen=True, tag="mcp__rhino-mcp-platform__run_python"):
     """PreToolUse event of a `run_python` call."""
 
     tool_input: Input
 
 
-class Macro(msgspec.Struct, frozen=True, tag_field="tool_name", tag="mcp__rhino-mcp-platform__run_command"):
+class Macro(Event, frozen=True, tag="mcp__rhino-mcp-platform__run_command"):
     """PreToolUse event of a `run_command` call."""
 
-    tool_input: Command
+    reason: ClassVar[str] = (
+        "run_command returns the process command history and leaves an unanswered prompt waiting. "
+        "document.command(doc, macro, layer_path, ids) in run_python returns the command's objects, results, and output"
+    )
+
+
+class CloseDoc(Event, frozen=True, tag="mcp__rhino-mcp-platform__close_doc"):
+    """PreToolUse event of a `close_doc` call."""
+
+    reason: ClassVar[str] = (
+        "close_doc writes the document with a preview image and holds the UI thread past the router limit. close(doc) in run_python closes a titled document, close_slot a spawned one"
+    )
+
+
+class SaveDoc(Event, frozen=True, tag="mcp__rhino-mcp-platform__save_doc"):
+    """PreToolUse event of a `save_doc` call."""
+
+    reason: ClassVar[str] = "save_doc writes a copy and leaves the document's own path and edits unsaved. save(doc, path) in run_python saves the document and export(doc, path, ids) writes a copy"
+
+
+class OpenDoc(Event, frozen=True, tag="mcp__rhino-mcp-platform__open_doc"):
+    """PreToolUse event of an `open_doc` call."""
+
+    reason: ClassVar[str] = (
+        "open_doc imports into the slot's document. open -g -b com.mcneel.rhinoceros.9 <file> opens a file as its own document and load(doc, path, layer_path) imports under a layer"
+    )
 
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
@@ -88,26 +109,32 @@ def wrap(source: str) -> str:
     return "\n".join((*hoisted, runner, f"_rhino_mcp_run({source!r}, {f'MCP: {label}'!r}, globals(), {tuple(modules)!r})", ""))
 
 
-def decision(event: Script | Macro) -> dict[str, object] | None:
-    """The hook's decision for the event: a refusal naming its reason, the wrapped `run_python` input, or none for a `run_command` passed unchanged."""
+def decision(event: Call) -> dict[str, object]:
+    """Return a refusal naming its reason, or the wrapped `run_python` input for a script event."""
     match event:
-        case Script(tool_input=Input(script=text)) | Macro(tool_input=Command(command=text)) if "runpythonscript" in text.casefold():
-            return {"permissionDecision": "deny", "permissionDecisionReason": IRONPYTHON}
+        case Script(tool_input=Input(script=text)) if "runpythonscript" in text.casefold():
+            reason = 'Script runs a .py file on IronPython 2.7. Run the file through _-ScriptEditor _Run "<file>"'
         case Script(tool_input=Input(script=text)) if "python.reloadengine" in text.casefold():
-            return {"permissionDecision": "deny", "permissionDecisionReason": RELOAD}
+            reason = "python.reloadEngine reloads every caller's modules in place and keeps names a module dropped. The hook evicts the skill modules on each call"
+        case Script(tool_input=Input(script=text)) if ".runscript(" in text.casefold():
+            reason = (
+                "RunScript on an inactive document spins Rhino's UI thread in a point prompt no call releases. "
+                "document.command(doc, macro, layer_path, ids) runs a macro in the active document and refuses another"
+            )
         case Script(tool_input=tool_input):
             return {"updatedInput": msgspec.structs.replace(tool_input, script=wrap(tool_input.script))}
-        case Macro():
-            return None
+        case refused:
+            reason = refused.reason
+    return {"permissionDecision": "deny", "permissionDecisionReason": reason}
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
 def main() -> None:
-    """Print the hook's output for the stdin event, nothing for a call it passes unchanged."""
-    if (output := decision(msgspec.json.decode(sys.stdin.buffer.read(), type=Script | Macro))) is not None:
-        sys.stdout.buffer.write(msgspec.json.encode({"hookSpecificOutput": {"hookEventName": "PreToolUse", **output}}))
+    """Print the hook's output for the stdin event."""
+    output = decision(msgspec.json.decode(sys.stdin.buffer.read(), type=Call))
+    sys.stdout.buffer.write(msgspec.json.encode({"hookSpecificOutput": {"hookEventName": "PreToolUse", **output}}))
 
 
 if __name__ == "__main__":
@@ -115,4 +142,4 @@ if __name__ == "__main__":
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["Command", "Input", "Macro", "Script", "decision", "main", "wrap"]
+__all__ = ["Call", "CloseDoc", "Event", "Input", "Macro", "OpenDoc", "SaveDoc", "Script", "decision", "main", "wrap"]

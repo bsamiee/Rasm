@@ -2,7 +2,7 @@
 id: no-traceback-print
 language: python
 severity: error
-ignores: ['.claude/skills/use-blender/scripts/*.py', '.claude/skills/use-rhino/scripts/*.py', 'tools/interface/**']
+ignores: ['.claude/skills/use-blender/scripts/**', '.claude/skills/use-rhino/scripts/**', 'tools/interface/**']
 utils:
     exception-class: {matches: {python-member-use: {module: {regex: "^traceback$"}, name: {regex: "^TracebackException$"}}}}
     formatted-traceback:

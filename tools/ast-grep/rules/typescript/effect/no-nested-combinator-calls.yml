@@ -17,14 +17,14 @@ utils:
             has:
                 field: property
                 regex: |-
-                    ^(map|flatMap|andThen|tap|tapError|tapBoth|filter|filterMap|filterOrFail|filterOrElse|forEach|reduce|getOrElse|orElse
-                    |orElseSucceed|orElseFail|catchAll|catchAllCause|catchTag|catchTags|catchSome|mapError|mapBoth|match|matchEffect|zip
-                    |zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext|mapInput|partition|partitionMap|take
-                    |takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll|retry|repeat|timeout|delay|when
-                    |race|merge|mapOut|filterInput|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast|chunksOf
-                    |intersperse|union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|sortBy|groupBy
-                    |flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible|uninterruptible
-                    |ignore|compact|reverse|dedupe|sandbox)$
+                    (?x)^(map|flatMap|andThen|tap|tapError|tapErrorTag|tapCause|tapBoth|filter|filterMap|filterOrFail|filterOrElse|forEach
+                    |reduce|getOrElse|orElse|orElseSucceed|catch|catchCause|catchIf|catchFilter|catchTag|catchTags|catchReason|catchDefect
+                    |mapError|mapBoth|match|matchEffect|zip|zipWith|zipLeft|zipRight|as|ensuring|provide|provideService|provideContext
+                    |mapInput|partition|partitionMap|take|takeWhile|takeRight|drop|dropWhile|dropRight|append|appendAll|prepend|prependAll
+                    |retry|repeat|timeout|delay|when|race|merge|scan|split|replace|bind|bindTo|some|every|contains|findFirst|findLast
+                    |chunksOf|intersperse|union|intersection|difference|mapAccum|mapEffect|onError|onExit|withSpan|annotateLogs|sortBy
+                    |groupBy|flatten|fromIterable|orDie|scoped|asVoid|flip|result|option|exit|cached|forever|forkChild|forkScoped
+                    |forkDetach|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$
     step:
         all:
             - matches: module-call
@@ -37,8 +37,8 @@ utils:
             has:
                 field: property
                 regex: |-
-                    (?x)^(flatten|fromIterable|orDie|scoped|asVoid|flip|either|option|exit|cached|forever|fork|interruptible
-                    |uninterruptible|ignore|compact|reverse|dedupe|sandbox)$
+                    (?x)^(flatten|fromIterable|orDie|scoped|asVoid|flip|result|option|exit|cached|forever|forkChild|forkScoped
+                    |forkDetach|interruptible|uninterruptible|ignore|compact|reverse|dedupe|sandbox)$
     data-first-step:
         matches: step
         has:
@@ -63,6 +63,17 @@ rule:
                 - inside: {kind: arguments, inside: {matches: data-first-step}}
         - not: {has: {kind: comment, stopBy: end}}
         - not: {has: {kind: type_arguments, stopBy: end}}
+        - any:
+            - pattern: $FIXABLE
+              inside:
+                kind: program
+                stopBy: end
+                has:
+                    kind: import_statement
+                    all:
+                        - has: {field: source, has: {kind: string_fragment, regex: '^effect(/Function)?$'}}
+                        - has: {stopBy: end, kind: import_specifier, has: {field: name, regex: '^pipe$'}, not: {has: {field: alias, kind: identifier}}}
+            - pattern: $KEPT
 rewriters:
     - id: unary
       rule:
@@ -89,8 +100,9 @@ rewriters:
         pattern: '$M.$OP($FIRST, $$$REST)'
       fix: $FIRST, $M.$OP($$$REST)
 transform:
-    STEPS: rewrite($CALL, rewriters=[unary, steps, unary-head, head])
-fix: pipe($STEPS)
+    STEPS: rewrite($FIXABLE, rewriters=[unary, steps, unary-head, head])
+    PIPED: {replace: {source: $STEPS, replace: '(?s)^(.+)$', by: 'pipe($1)'}}
+fix: $PIPED$KEPT
 message: 'Data-first module calls nest four deep and read from the inside out'
 note: '`pipe(value, step, step, step)` lists the steps in evaluation order'
 labels:

@@ -3,11 +3,15 @@ import Foundation
 import Subprocess
 import System
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated enum ClaudeSelection: Equatable, Sendable {
   case none
   case known(UUID)
   case unknown(AccountIdentity)
 }
+
+// --- [SERVICES] ------------------------------------------------------------------------
 
 actor ClaudeClient {
   private static let excludedEnvironmentVariables: Set<String> = [
@@ -56,14 +60,14 @@ actor ClaudeClient {
     sharedRefreshLock = ClaudeLock.refreshLockfile(in: shared.directory)
   }
 
-  func settle(known: [Account]) async -> Result<Void, ClaudeFailure> {
+  func completePendingSwitch(known: [Account]) async -> Result<Void, ClaudeFailure> {
     await selectionState().bind { state -> Result<Void, ClaudeFailure> in
       guard let pending: ClaudePendingSwitch = state.pending else { return .success(()) }
-      return await settle(pending, known: known)
+      return await completePendingSwitch(pending, known: known)
     }
   }
 
-  private func settle(
+  private func completePendingSwitch(
     _ pending: ClaudePendingSwitch, known: [Account]
   ) async -> Result<Void, ClaudeFailure> {
     let shared: ClaudeCredentialStore = defaultStore()

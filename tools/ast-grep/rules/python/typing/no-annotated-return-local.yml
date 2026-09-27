@@ -1,0 +1,11 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-annotated-return-local
+language: python
+severity: error
+rule:
+    kind: expression_statement
+    all:
+        - has: {kind: assignment, all: [{has: {field: left, kind: identifier, pattern: $N}}, {has: {field: type, pattern: $T}}, {has: {field: right, pattern: $V}}]}
+        - precedes: {kind: return_statement, pattern: return $N}
+message: 'Local `$N` is annotated `$T` and returned on the next line'
+note: 'Return the value, converted at the boundary into its type (`msgspec.convert(<value>, <type>)`) where the callee returns an untyped value'

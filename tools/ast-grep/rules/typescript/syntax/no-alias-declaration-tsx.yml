@@ -2,7 +2,7 @@
 id: no-alias-declaration-tsx
 language: tsx
 severity: error
-ignores: ['**/*.d.ts']
+ignores: ['.claude/types/**']
 utils:
     binding-target:
         any:

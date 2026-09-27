@@ -1,151 +1,122 @@
 # [RELAY]
 
-- Relay shows Claude and OpenAI subscription usage in the menu bar, switches the active account, and starts a 5-hour session on any account
-- `Relay:build` places the Debug `Relay.app` under `.cache/xcode/apps/relay/Build/Products`, `Relay:install` the Release one under `/Applications`
-- Views reuse a status line or prompt the provider CLI prints verbatim, with no trailing ellipsis
+Relay shows Claude and OpenAI subscription usage in the menu bar, switches each provider's active account, and starts 5-hour sessions.
 
-## [01]-[ACCOUNTS]
+## [01]-[LAYOUT]
 
-Provider CLI and desktop app run as the selected account, Relay stores every other account's credential:
-- Sign-in on an existing account must return its identity, a different identity is signed out and refused
-- Added account matching a connected account is refused, one matching a signed-out account replaces its record
-- Active sign-in with an unknown identity adds an account
-- Launch deletes account directories with no record
-
-[CLAUDE]:
-- `claude` resolves in user and system install directories, then launchd's `PATH`
-- `claude auth login --claudeai` in the account's private store signs in through the browser, its exit status decides the outcome
-- Code pasted at `Paste code here if prompted` goes to the login child's stdin
-- Shared store is the directory `CLAUDE_SECURESTORAGE_CONFIG_DIR` names, else `CLAUDE_CONFIG_DIR`, else `~/.claude`
-- `.claude.json` sits inside `CLAUDE_CONFIG_DIR` when set, else at `~/.claude.json`
-- Active account is the shared store's `oauthAccount`
-- Shared Keychain item holds the one live credential, every other account's credential sits in its private item
-- Switch copies the shared credential into the outgoing private item, then moves the incoming item and `oauthAccount` into the shared store
-- Switch runs no child process or network request inside its locks
-- Switch holds Claude Code's `.oauth_refresh.lock` pair on every store it touches, 10 attempts 100 ms to 1 s apart
-- Crash mid-switch leaves its record in `claude-selection.json`, the next launch deletes the private copy of the credential the shared item holds
-- Running CLI keeps its token until its next refresh reads the shared item, new invocations read it at once
-- Every selection read (launch, wake, panel open, `.claude.json` change, after each operation) re-reads the shared item so the last-read credential is at most one read old
-- The CLI holds `.oauth_refresh.lock` in the store while it rotates a token, Relay re-reads the shared item when that directory vanishes
-- Refresh tokens are single use and the grant ends 30 days after the sign-in, no refresh extends it, the card shows the date as "Oct 12" at the trailing end of the account row with the full date on hover, "Login expired" as the note past it
-- Codex stores no login expiry, `auth.json` carries `last_refresh` and JWT `exp` alone and the app-server reports auth mode, email, and plan, so a Codex card shows no date
-- Access token is refreshed 10 minutes before expiry, wider than the CLI's own 5-minute margin so a greeting child never rotates the token itself, a refresh-token expiry triggers nothing
-- Refresh tokens are single use, so the refresh child runs on its own task that no cancel or quit reaches, a rotation the server completed is persisted by the child or lost for good
-- Refresh children run one at a time across stores, tokens refreshed in one batch expire in one batch and usage reads stay concurrent
-- Login outside Relay saves the outgoing account's last-read credential into its private item
-- Saved credential that rotated since its last read requires a new sign-in
-- `claude -p` in the account's store is the one credential refresh, run when the access token or refresh token nears expiry
-- 401 on a usage read refreshes once, a second 401 is reported and the account stays connected, sign-in required comes from the store alone
-- CLI that gets `invalid_grant` on a refresh blanks the item's access and refresh tokens and keeps its metadata, the blank item reads as signed out
-- Item with an empty `refreshToken` reads as signed out
-- Locked login keychain keeps the account connected
-- 429 waits `Retry-After`, a missing or zero value leaves the next scheduled read in place
-- Children inherit no Claude Code credential, endpoint, model, cloud, or remote-session variable
-- Sign-out runs `claude auth logout` in the account's store
-- Remove signs out, then deletes the Keychain item and the account directory
-
-[OPENAI]:
-- `codex app-server` from `ChatGPT.app`, bundle `com.openai.codex`, runs once per `CODEX_HOME`, the next request after an exit restarts it
-- Server version comes from `initialize`'s `userAgent`, a rejected request reads "Codex <version> rejected <method>, <message>" so a ChatGPT update that changes the protocol names itself
-- Children inherit no `CODEX_*` or OpenAI API variable, `CODEX_HOME` names the account's home
-- Active account is `auth.json` under `CODEX_HOME`, else `~/.codex`, identity is its `id_token` claims
-- Switch copies the live `auth.json` into the outgoing account's directory, installs the incoming copy live, then removes the copy
-- Switch writes each `auth.json` at mode 0600 through `FileManager.replaceItemAt`
-- Switch requires `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset in live `config.toml`
-- Running `codex` keeps its account, a switch quits and reopens a running desktop app
-- Sign-in opens the `account/login/start` page in the browser, sign-out runs `account/logout`
-- `account/rateLimits/updated` pushes from a running server update usage without a request
-
-## [02]-[SESSIONS]
-
-Sessions are 5-hour usage windows, each started by one greeting on the least costly model from the account's own store, selection starts none:
-- Session start reads usage first and sends the greeting only while the account is ready
-- Claude greeting is `claude -p` in stream-json with tools, hooks, and memory off, one turn, then `hi`
-- Claude greeting reads its access token from an inherited descriptor named by `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR`
-- Claude model is the first enabled Haiku entry of `list_models`, applied through `set_model`
-- OpenAI greeting is an ephemeral `thread/start` with every tool, feature, MCP server, and web search disabled, then `turn/start` with `hi`
-- OpenAI model is `gpt-5.6-luna` unhidden in `model/list` at its lowest supported effort, the turn runs at the default service tier
-- Exhausted or rejected weekly window, or included usage denied, blocks the account until the weekly reset
-- Model window at 100% blocks nothing
-- Limit reporting no window of 12 h or less has no session, its card shows no session gauge and no start, a Pro Codex account reports the weekly window alone while the Spark limit carries 5 h and weekly
-- Manual is the default policy, Automatic sends the greeting once per ready window
-- Launch, wake, panel open, and each change of `.claude.json` or the live `auth.json` reread the active accounts
-- Usage refreshes when `NWPathMonitor` reports the path satisfied, at launch and once the network returns after a wake, and on panel open, a dark wake with no network refreshes nothing
-- Refresh ticks every 60 s while the panel is open, every 5, 15, or 30 minutes by how recently it was open while closed, and at each known reset
-- Every refresh is a request, the schedule alone decides how often Claude usage is read
-- Claude session reset is `rate_limit_info.unifiedWindows.five_hour.resetsAt` of the `rate_limit_event` the stream emits after the greeting turn, the top-level `rateLimitType` names the limiting window alone and reads `seven_day` once weekly usage passes session usage, the usage endpoint reports the window later and a reading without a reset keeps the one already known
-- Session start reads usage again after the greeting and carries the event's reset into that reading
-- Session start control stays in place under a spinner overlay with its symbol hidden while the greeting runs, no elapsed counter
-
-## [03]-[INTERFACE]
-
-- Panel and Settings use system controls, semantic colors, fonts, and appearance
-- Settings is a `Window` scene, the `Settings` scene disables minimize and zoom and stacks its toolbar under the title
-- Panel opens Settings through `openWindow`, then `NSWorkspace.openApplication` on the running bundle
-- Cooperative activation honors `NSWorkspace.openApplication`, `NSApplication.activate` from the non-activating panel is refused
-- Panel window sets `allowsToolTipsWhenApplicationIsInactive`, a window of an inactive app shows no `.help` text by default
-- Settings sidebar removes the `NavigationSplitView` sidebar toggle
-- `SMAppService.Status.notFound` is the never-registered state on macOS 26, the switch reads off and stays enabled
-- Thrown registration error is the General pane footer
-- Login item status is read when the pane appears and each time Relay becomes active, `SMAppService` posts no status notification
-- Controls keep their label while their operation runs, the status line names the state
-- Sheet state belongs to the store, closing Settings mid-login cancels nothing
-- Error text in the unified log is public, provider failures name no token
-
-## [04]-[STORAGE]
-
-Stored state sits under `~/Library/Application Support/Relay`, `<id>` the account's UUID:
-
-| [INDEX] | [PATH]                  | [CONTENT]                                                 |
-| :-----: | :---------------------- | :-------------------------------------------------------- |
-|  [01]   | `accounts.json`         | Accounts with identity, policy, sign-in state, last usage |
-|  [02]   | `claude-selection.json` | Pending Claude switch: incoming, outgoing, phase          |
-|  [03]   | `Accounts/<id>/Claude`  | Private Claude store, `.claude.json`                      |
-|  [04]   | `Accounts/<id>/Codex`   | `CODEX_HOME` with the saved `auth.json`                   |
-|  [05]   | `Session/`              | Working directory of the `claude` and `codex` children    |
-
-- Claude credentials sit in the login Keychain, `Claude Code-credentials` for the shared store, `Claude Code-credentials-<hash>` per private store
-- `<hash>` is the first 8 hex of SHA-256 over the `CLAUDE_CONFIG_DIR` string
-- Item account is `$USER`
-- Reads, writes, and deletes run `security` (`find-generic-password -w`, `add-generic-password -U -X <hex>` over `-i`, `delete-generic-password`)
-- `claude auth login` creates each private item, `security` alone sits in every item's ACL and partition list
-- `-w` prints non-printable data as hex on macOS 26, all-hex output is decoded as bytes
-- `security` exits with its `OSStatus`, `waitid` reports the low 24 bits and a shell's `$?` the low byte
-- `errSecItemNotFound` is not found, `errSecInteractionNotAllowed` is a locked keychain, every other nonzero status is denied
-- Claude Code's locks are directories created through `FileManager`, inode and modification date decide a compromised lock
-
-## [05]-[PERMISSIONS]
-
-Bundle declares no entitlement and links no Keychain, Automation, Accessibility, or notification API:
-- Hardened runtime is on with the App Sandbox off, children spawn and inherit the greeting descriptor under it
-- Keychain raises no prompt while `/usr/bin/security` alone reads and writes every Claude Code item
-- In-process Keychain writes reset an item's partition list to the app, every later CLI write then makes in-process reads prompt
-- Launch at login registers the running bundle through `SMAppService.mainApp`, the `/Applications` copy is the one to register
-- Login shell profile that reads Desktop, Documents, or Downloads can raise a Files and Folders prompt
-- Network is `URLSession` to `api.anthropic.com` for Claude usage and profile at a 15 s request timeout, OpenAI usage goes through the app-server
-
-## [06]-[PROCESSES]
-
-Every child runs under `Subprocess.run` from `swiftlang/swift-subprocess` in its own session, cancel is SIGTERM to the group, SIGKILL 2 s later:
-- Every invocation races a deadline (login 5 min, greeting 2 min, refresh, usage, and logout 60 s, `security` 15 s, login shell 5 s)
-- `codex app-server` alone runs without a deadline, its requests carry their own
-- Login shell is `SHELL` as a path, an unqualified name resolves on the launch `PATH`, a missing or unresolved name keeps launchd's variables
-- `CLAUDE_CONFIG_DIR`, `CLAUDE_SECURESTORAGE_CONFIG_DIR`, and `CODEX_HOME` come from `$SHELL -lc` once after launch, every other variable is launchd's
-- Stream children (`claude auth login`, `claude -p`, `codex app-server`) are read and written inside the `run` body closure
-- Cancel of any operation returns once the child is reaped, quit cancels every operation and waits 5 s at most
-- Per-account operations run on the account's one task, a switch waits for the outgoing account's task alone since every other account works in its private store
-- Session start clicked during a usage refresh starts once the refresh finishes, a cancelled operation keeps the usage it found
-
-## [07]-[PROJECT]
+Views call `AccountStore`, the store calls one client actor per provider, and clients reach providers through children, files, and HTTP:
 
 ```text
 apps/relay/
-├── App/        # Entry point, store, and host services
-├── Accounts/   # Domain types and their storage
-├── Providers/  # One client per provider with process and keychain tools
-└── Views/      # Panel and Settings
+├── Accounts/   # Domain types, usage availability, accounts.json codec, error accumulation
+├── App/        # Store, account model, file locations, watches, login shell, login item, entry point
+├── Providers/  # Claude and Codex clients and protocols, Keychain, Claude Code locks, process runner
+└── Views/      # Menu bar panel, Settings window, gauges, text formats
 ```
 
-- MainActor is the default isolation under approachable concurrency, `nonisolated` marks every type off the main actor
-- Generated Info.plist keeps Relay out of the Dock and files it under Utilities
-- Provider and menu bar symbols are single-SVG imagesets with template rendering and preserved vector representation
+- `AccountStore` owns every trigger (launch, wake, network, file watch, schedule, user action) and every `AccountModel` state change
+- `ClaudeClient` and `CodexClient` return `ClaudeFailure` and `CodexFailure`, `erased()` lifts both into `ProviderError` at the store
+- `requiresSignIn` failures mark an account signed out and deselect it, every other failure keeps it connected with an issue on its card
+- `isCancellation` failures set no issue, keep usage, and log nothing
+
+## [02]-[STORAGE]
+
+Stored state sits under `~/Library/Application Support/Relay`, `<id>` an account's UUID:
+
+| [INDEX] | [PATH]                  | [CONTENT]                                             |
+| :-----: | :---------------------- | :---------------------------------------------------- |
+|  [01]   | `accounts.json`         | Account order, identity, policy, sign-in state, usage |
+|  [02]   | `claude-selection.json` | Claude switch in progress: incoming, outgoing, phase  |
+|  [03]   | `Accounts/<id>/Claude`  | Private Claude config directory                       |
+|  [04]   | `Accounts/<id>/Codex`   | Private `CODEX_HOME`                                  |
+|  [05]   | `Session/`              | Working directory of every `claude` and `codex` child |
+
+- Failed load of `accounts.json` disables adding accounts and starts no trigger
+
+## [03]-[ACCOUNTS]
+
+Each provider's CLI and desktop app run as its active account, Relay keeps every other account's credential in a private store:
+- Selected account reads and writes the provider's live store, every other account its private store
+- `AccountIdentity.isSameAccount` compares account id and organization id, every identity check goes through it
+- Sign-in to an existing account that returns another identity signs that store out and fails
+- New sign-in matching a connected or busy account is refused, one matching a signed-out account replaces that record
+- Active account with an unknown identity joins as a connected account
+- Launch finishes a recorded Claude switch, then deletes each account directory with no record, with its Claude credential
+
+## [04]-[CLAUDE]
+
+Claude stores are config directories with an account file and a login Keychain item, `ClaudeClient` resolves a shared store and one per account:
+- Shared store directory is `CLAUDE_SECURESTORAGE_CONFIG_DIR`, else `CLAUDE_CONFIG_DIR`, else `~/.claude`
+- Account file is `.config.json` in a config directory when present, else `.claude.json` in `CLAUDE_CONFIG_DIR` or at `~/.claude.json`
+- Active Claude account is `oauthAccount` of the shared account file
+- Item service is `Claude Code-credentials-<hash>` over a store's NFC config directory path, `Claude Code-credentials` with no path
+- `Keychain` reads, writes, and deletes every item through `/usr/bin/security`
+- Every `claude` child takes its environment from `processEnvironment`, which drops `excludedEnvironmentVariables` and points at the child's store
+- Switch holds Claude Code's lock pair through `ClaudeLock` on every store it touches and runs no `claude` child or HTTP request inside
+- Switch saves the shared credential into the outgoing private store, then installs the incoming item and `oauthAccount` into the shared store
+- `claude-selection.json` records each switch phase, launch finishes a recorded switch by deleting the private copy the shared store holds
+- Access token refreshes within 10 minutes of `expiresAt`, refresh-token expiry triggers nothing
+- Refresh is a `claude -p` child in an account's store with no token, Relay reads the rotated item after it exits
+- Refresh runs on an unstructured task no cancel or quit reaches, `rotations` runs refreshes one at a time across stores
+- 401 on a request refreshes once and retries, a second 401 is an account issue and keeps it connected
+- `/api/oauth/profile` checks each new access token against a stored identity before any request uses it
+- Each selection read keeps the active account's credential, `saveLastCredential` writes it into the outgoing private item after an outside login
+- 429 blocks usage reads until `Retry-After`
+
+## [05]-[CODEX]
+
+`CodexClient` drives the desktop app's `codex app-server` over JSON lines on stdio:
+- Server binary is `Contents/Resources/codex` in the app with bundle id `com.openai.codex`
+- One server runs per `CODEX_HOME`, the next request after an exit starts a new one
+- Server environment drops `CODEX_*` and `excludedEnvironmentVariables`, then sets `CODEX_HOME` to an account's home
+- Selected account's home is launch `CODEX_HOME`, else `~/.codex`
+- Identity is `id_token` claims of `auth.json`, a usage response for another workspace fails as `identityChanged`
+- Notifications a later wait claims belong in `retainedNotifications`, `account/rateLimits/updated` updates usage without a request
+- Switch requires top-level `config.toml` to leave `cli_auth_credentials_store` unset or `file` and `forced_chatgpt_workspace_id` unset
+- Switch stops every server it touches, moves `auth.json` files, then quits and reopens a running desktop app
+
+## [06]-[SESSIONS]
+
+Session start reads usage and sends one greeting while `AccountUsage.availability` is `ready`:
+- Weekly window exhausted or rejected, or included usage denied, blocks an account until its weekly reset
+- Session and model windows at 100% block nothing
+- Claude greets on the first enabled Haiku model, OpenAI on `gpt-5.6-luna` at its lowest effort, both with tools, MCP, hooks, and memory off
+- Claude greeting reads its access token from a pipe that `CLAUDE_CODE_OAUTH_TOKEN_FILE_DESCRIPTOR` names
+- Claude session reset comes from the greeting's `rate_limit_event`, set on a session window the next usage read reports without one
+- Window with no reset keeps a known future reset of its kind
+- Automatic policy starts once per ready window
+
+## [07]-[TRIGGERS]
+
+`AccountStore` reads selection and usage on events and on a schedule:
+- Selection read runs at launch, wake, panel open, network return, each change of shared `.claude.json` or live `auth.json`, and refresh lock removal
+- Usage refresh runs when the network path turns satisfied (launch included), on panel open, after a switch, and on schedule
+- Schedule ticks every 60 s while the panel is open, else every 5, 15, or 30 minutes by time since it last opened, and past each known reset
+- Refreshes and watch events skip while a switch runs
+
+## [08]-[PROCESSES]
+
+`ProcessRun` starts every child through `Subprocess.run` in its own session, teardown sends SIGTERM to its group and SIGKILL 2 s later:
+- Every child runs under a deadline except `codex app-server`, which puts one on each request
+- Stream children are read and written inside the `run` body closure
+- `$SHELL -lc` runs once at launch and overlays `LoginShell.variables` on the launch environment, a failed run keeps the launch environment
+- Each account runs one operation at a time, and a switch waits for the outgoing account's operation alone
+- Quit cancels every operation, waits 5 s at most, then saves accounts
+
+## [09]-[INTERFACE]
+
+Panel and Settings use system controls, semantic colors, and fonts:
+- Panel opens Settings by dismissing itself, `openWindow`, then `Activation.requestFront` through `NSWorkspace.openApplication`
+- Sign-in sheet state and task belong to `AccountStore`, closing Settings mid-login cancels nothing
+- Login item registers the running bundle through `SMAppService.mainApp`, its status reloads on panel open, pane appearance, and activation
+- Provider failures log with `privacy: .public` under subsystem `app.rasm.relay`, failure cases hold no token
+
+## [10]-[PROOF]
+
+`nx run Relay:check` builds Debug and runs `swift-format lint --strict`:
+- `nx run Relay:build` places Debug `Relay.app` under `.cache/xcode/apps/relay/Build/Products/Debug`
+- `nx run Relay:install` places Release `Relay.app` under `/Applications`, the bundle a login item registers
+- Hardened runtime is on, App Sandbox is off, and the target declares no entitlements
+- Relay starts from its process environment, a launch through `open` gives it launchd's variables
+- Scheme's Run loads `.lldbinit`, which starts LLDB's MCP protocol server
+- `log stream --predicate 'subsystem == "app.rasm.relay"'` shows provider and storage errors

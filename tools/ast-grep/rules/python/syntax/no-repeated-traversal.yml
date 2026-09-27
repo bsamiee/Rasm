@@ -1,0 +1,45 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-traversal
+language: python
+severity: error
+utils:
+    owner:
+        inside: {stopBy: {kind: function_definition}, kind: function_definition, has: {field: name, pattern: $FN}}
+    outer-level:
+        not: {regex: '^async\b'}
+        all:
+            - has: {field: left, pattern: $OUTER_TARGET}
+            - has: {field: right, pattern: $OUTER_SOURCE}
+    inner-level:
+        not: {regex: '^async\b'}
+        all:
+            - has: {field: left, pattern: $INNER_TARGET}
+            - has: {field: right, pattern: $INNER_SOURCE}
+    clause-pair:
+        kind: for_in_clause
+        matches: outer-level
+        precedes: {kind: for_in_clause, matches: inner-level}
+    statement-pair:
+        kind: for_statement
+        matches: outer-level
+        has: {field: body, not: {has: {nthChild: 2}}, has: {kind: for_statement, matches: inner-level}}
+    pair:
+        any: [{matches: clause-pair}, {matches: statement-pair}]
+    earlier-pair:
+        all: [{matches: pair}, {matches: owner}]
+    after-pair:
+        follows:
+            stopBy: end
+            any:
+                - matches: earlier-pair
+                - has: {stopBy: end, matches: earlier-pair}
+rule:
+    kind: for_in_clause, for_statement
+    all:
+        - matches: pair
+        - matches: owner
+        - any:
+            - matches: after-pair
+            - inside: {stopBy: end, matches: after-pair}
+message: '`for $OUTER_TARGET in $OUTER_SOURCE` then `for $INNER_TARGET in $INNER_SOURCE` repeats a two-level traversal `$FN` spells earlier'
+note: 'Bind the flattened elements once in the function (`<items> = [<element> for <a> in <outer> for <b> in <inner>]`) and read `<items>` in each comprehension or loop'

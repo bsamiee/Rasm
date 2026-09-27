@@ -2,7 +2,7 @@
 id: no-default-attributes-by-hand
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 rule:
     any:
         - kind: member_access_expression

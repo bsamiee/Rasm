@@ -4,15 +4,15 @@ Materials, light, display modes, and saved states come from `document.py` entry 
 
 ## [01]-[MATERIALS]
 
-`material` builds the Physically Based content the Materials panel creates, edits a material of that name in place, and replaces one of another type. Every layer and object holding it renders the change:
+`material` builds Physically Based content as the Materials panel does, edits a same-named material in place, and replaces one of another type. Every layer and object holding it renders the change:
 - `describe(doc).materials` and `file3dm.py` list each material with base color, roughness, metallic, opacity (1 opaque), and `ior`, 1.52 by default
 - Layers take a material through `layer(..., Properties(material=))`, every object with the layer as material source renders with it
 - Objects that differ from their layer take one through `add` or `change` with `Properties(material=)`
-- `capture(..., mode="Rendered")` shows render materials, `Shaded` shows display colors, `Arctic` shows form in white with soft shadows
+- `capture(..., mode="Rendered")` shows render materials, `Shaded` shows display colors, `Arctic` shows form under ambient occlusion with soft shadows
 
 Other parameters and texture maps go on the same content:
 - `RenderContentType.NewContentFromTypeId(ContentUuids.PhysicallyBasedMaterialType, doc)` makes one, `doc.RenderMaterials.Add` stores it
-- `Material.ToPhysicallyBased()` carries IOR 1.0 and removes every dielectric reflection in Blender, typed content carries 1.52
+- `Material.ToPhysicallyBased()` holds IOR 1.0, typed content holds 1.52
 - `Replace(content)` on a stored material puts `content` in its place everywhere it is assigned
 - Edits run between `BeginChange(RenderContent.ChangeContexts.Program)` and `EndChange()`
 - `SetParameter(ParameterNames.PhysicallyBased.<Name>, value)` sets a parameter
@@ -54,13 +54,13 @@ settings.BackgroundStyle = BackgroundStyle.Environment
 print(sun.Azimuth, sun.Altitude, settings.RenderEnvironment(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard).Name)
 ```
 
-- `sun.TimeZone` is the standard offset, `sun.DaylightSavingOn` with `DaylightSavingMinutes` 60 adds daylight time to the local clock
+- `sun.TimeZone` is the standard offset, `sun.DaylightSavingOn` with `DaylightSavingMinutes` 60 adds daylight time to local time
 - `sun.North` is degrees counter-clockwise from +X, true north turned `n` degrees counter-clockwise from +Y takes `90 + n`
-- `sun.Here()` reads the Mac's location, a site's sun takes the site's latitude and longitude
+- `sun.Here()` reads the Mac's location, a site's sun takes its latitude and longitude
 - `sun.Accuracy` reaches no file, a file read compares the sun's inputs and never its azimuth or altitude
 - Earth anchors set `EarthBasepointLatitude`, `EarthBasepointLongitude`, and `EarthBasepointElevation` (m) on a copy assigned back
-- `ModelNorth` `(-sin n, cos n, 0)` and `ModelEast` `(cos n, sin n, 0)` on the `doc.EarthAnchorPoint` copy turn its north with the sun's
-- `EarthBasepointElevationCoordinateSystem` reads `Unset` after a file write, the elevation's reference stays out of the `.3dm`
+- `ModelNorth` `(-sin n, cos n, 0)` and `ModelEast` `(cos n, sin n, 0)` on a `doc.EarthAnchorPoint` copy turn its north with the sun's
+- `EarthBasepointElevationCoordinateSystem` reads `Unset` after a file write, the elevation's reference stays out of `.3dm` files
 - `sun.ManualControlOn = True` with `sun.Azimuth` and `sun.Altitude` places the sun by angle
 - `settings.GroundPlane.AutoAltitude = False` with `Altitude` places the ground plane
 - Physical skies are `ContentUuids.PhysicalSkyTextureType` content set as the `"texture"` child of a `BasicEnvironmentType` environment
@@ -82,14 +82,14 @@ print(DisplayModeDescription.ExportToFile(mode, "</abs/style.ini>"))
 ```
 
 - Built-in modes draw curves at their linetype width times `CurveThicknessScale`, `CurveThickness` draws only under `CurveThicknessUsage` Pixels
-- `CopyDisplayMode` registers in memory and records the source as `DerivedFrom`, `UpdateDisplayMode(mode)` saves the mode whole at once
-- Documents find a style by id, `ImportFromFile(path)` keeps the id the file names and `CopyDisplayMode` gives a new one on each machine
-- `ImportFromFile` of an id Rhino holds resets the mode to its `DerivedFrom` mode, takes the file's keys, and turns SubD edges off
-- `DeleteDisplayMode(id)` before `ImportFromFile` makes the import take the file whole, omitted keys take a Wireframe-like baseline
+- `CopyDisplayMode` registers in memory and records its source as `DerivedFrom`, `UpdateDisplayMode(mode)` saves the mode whole at once
+- Documents find a style by id, `ImportFromFile(path)` keeps the file's id and `CopyDisplayMode` gives a new one on each machine
+- `ImportFromFile` of an id Rhino holds resets the held mode to its `DerivedFrom` mode, takes file keys, and turns SubD edges off
+- `DeleteDisplayMode(id)` before `ImportFromFile` makes an import take the file whole, omitted keys take a Wireframe-like baseline
 - INI files need `Name`, state floats as Rhino exports them (`2.200000047683716`), drop alpha, and take `y` and `n` for booleans
 - INI keys another key switches off (shadow keys under `CastShadows=n`, `SolidColor` under `FillMode=1`) draw nothing
-- Fresh exports compare against the held mode, a `DisplayModeDescription` fetched before an import keeps the values it was fetched with
-- `DeleteDisplayMode(id)` alone lets the mode return from its saved settings, a lasting removal deletes that settings child and saves:
+- Fresh exports compare against the held mode, a `DisplayModeDescription` fetched before an import keeps its fetched values
+- `DeleteDisplayMode(id)` alone lets a mode return from its saved settings, a lasting removal deletes the mode's settings child and saves:
 
 ```python
 # Remove a display mode and its saved settings for good
@@ -100,19 +100,23 @@ PersistentSettings.RhinoAppSettings.AddChild("Options").AddChild("DisplayAttribu
 DisplayModeDescription.SaveDisplayModes()
 ```
 
-- Scratch modes take a fresh `Guid.NewGuid()` and a name prefix, and `DeleteDisplayMode` in the `finally` of the call that imported them
-- `view.CaptureToBitmap(Size(w, h), mode)` draws a mode the view does not show, and `capture(..., mode="<Style>")` renders a style by name
+- Scratch modes take a fresh `Guid.NewGuid()` and a name prefix, and `DeleteDisplayMode` in the `finally` of their importing call
+- `view.CaptureToBitmap(Size(w, h), mode)` draws a mode the view does not show, technical-family modes as plain wireframe
+- Technical-family modes show their lines in a window capture of a view set to the mode
+- Black-to-white switching follows the application background and skips clipping edges, black objects draw white on a white mode fill
+- Modes on a white fill draw black lines through fixed mode colors alone, black points and point clouds stay white there
+- `MeshSpecificAttributes.AllMeshWiresColor` colors mesh edges and selected face wires through `MeshWireColor` and its single-color flag
 - `'_SetDisplayMode _Viewport=_Active _Mode=<English name>` resolves the mode by name, `_Viewport=_All` sets every viewport, a rename breaks macros
 - Technical-family modes (`DerivedFrom` Technical) refuse per-object assignment, `PipelineLocked` alone marks no family
-- Display panel rows write the active viewport's whole mode and save it, its Reset copies the built-in parent over a custom mode
+- Display panel rows write the active viewport's whole mode and save it, its Reset copies a built-in parent over a custom mode
 - Retina wires draw 1.5 device pixels per thickness unit under antialiasing, a thickness-1 curve spans 2 device pixels in a capture
 
 ## [04]-[SAVED_STATES]
 
 - `save_view(doc, "<name>", zoom=, view=, mode=)` stores camera and display mode without moving any view, an existing name is replaced
 - `show(doc, named="<name>")` moves the user's view to it with its mode and construction plane, `show(doc, view=, zoom=, mode=)` zooms to a box or ids
-- `capture(doc, "<file>", named="<name>")` renders a named view and leaves the user's camera and construction plane as they were
-- `doc.NamedViews.Restore(index, viewport)` renames the viewport to the named view, the name writes back afterwards
+- `capture(doc, "<file>", named="<name>")` draws a named view with its mode and construction plane
+- `doc.NamedViews.Restore(index, viewport)` renames `viewport` to the named view, its own name writes back afterwards
 - `doc.NamedViews.Add(name, viewport.Id)` returns -1 in a headless document, named views need a windowed document
 - `position(doc, "<name>", ids)` records placements, `position(doc, "<name>")` moves the objects back after a trial transform
 - `doc.NamedLayerStates.Save("<name>")` records every layer's settings, `Restore("<name>", RestoreLayerProperties.All)` brings them back
@@ -123,12 +127,15 @@ DisplayModeDescription.SaveDisplayModes()
 Window captures show the view as drawn, clipping planes and section fills included, without activating Rhino:
 
 ```bash
-# Rhino document windows on this Space: window id, title, on screen
+# Rhino document windows on the current Space: window id, title, on screen
 osascript -l JavaScript -e 'ObjC.import("CoreGraphics"); JSON.stringify(ObjC.deepUnwrap(ObjC.castRefToObject($.CGWindowListCopyWindowInfo($.kCGWindowListOptionAll, 0))).filter(w => w.kCGWindowOwnerName === "RhinoBETA" && w.kCGWindowLayer === 0 && w.kCGWindowIsOnscreen).map(w => [w.kCGWindowNumber, w.kCGWindowName]))'
 screencapture -x -o -l <window id> <file>.png
 ```
 
-- Document windows and the Grasshopper 2 editor are macOS window tabs of one frame, a background tab captures the front tab's pixels
-- `view.Redraw()` ends the call before the window capture, window ids change at every launch
+- Document windows are macOS window tabs of one frame, a background tab captures the front tab's pixels
+- Grasshopper 2's editor is a child window of its opening frame, and its capture includes the frame
+- Frame captures show the Grasshopper 2 preview without the editor after `Editor.Instance.Visible = False`
+- `view.Redraw()` ends the call before a window capture, window ids change at every launch
+- Window captures right after the redrawing call can hold the previous frame, one listener call between them draws the new one
 - Menus and pop-ups draw only after a click, their contents read from the Eto tree or System Events AX attributes
 - Docked panels capture through their own `NSView` with `BitmapImageRepForCachingDisplayInRect`, or hosted in a scratch Eto form captured by id

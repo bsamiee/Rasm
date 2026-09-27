@@ -140,12 +140,6 @@ utils:
         any:
             - {matches: partial-of-boolean, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}
             - {kind: identifier, pattern: $RENAMED, inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, matches: partial-of-boolean, has: {field: arguments, has: {nthChild: 2}, not: {has: {nthChild: 3}}}}}]}}}}
-    cast-reference:
-        kind: identifier
-        all:
-            - inside: {stopBy: end, kind: module, has: {any: [{kind: import_statement, regex: '\btyping(_extensions)?\b'}, {kind: import_from_statement, has: {field: module_name, regex: '^typing(_extensions)?$'}}]}}
-            - pattern: $RENAMED
-            - inside: {stopBy: end, kind: 'module, block', has: {kind: expression_statement, has: {kind: assignment, all: [{has: {field: left, pattern: $RENAMED}}, {has: {field: right, regex: '^(\w+\.)?cast$'}}]}}}
     getmembers-callee:
         any:
             - {kind: identifier, regex: '^getmembers(_static)?$'}
@@ -264,9 +258,6 @@ rule:
                 - inside: {kind: for_in_clause, field: right, all: [{has: {field: left, has: {nthChild: 1, kind: identifier, pattern: $MEMBER}}}, {inside: {kind: 'list_comprehension, set_comprehension, dictionary_comprehension, generator_expression', has: {kind: if_clause, has: {stopBy: end, matches: name-comparison, has: {pattern: $MEMBER}}}}}]}
                 - inside: {kind: for_statement, field: right, all: [{has: {field: left, has: {nthChild: 1, kind: identifier, pattern: $MEMBER}}}, {has: {field: body, has: {stopBy: end, matches: name-comparison, has: {pattern: $MEMBER}}}}]}
                 - inside: {kind: argument_list, inside: {kind: call, has: {field: function, regex: '^filter$'}}, has: {kind: lambda, has: {field: body, matches: name-comparison}}}
-        - kind: call
-          pattern: $PROBE
-          has: {field: function, matches: cast-reference}
         - kind: comparison_operator
           pattern: $PROBE
           all:

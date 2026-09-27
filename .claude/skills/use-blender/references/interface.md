@@ -14,18 +14,21 @@ Workspaces, areas, regions, panels, and views change on the screen the window sh
 
 ## [02]-[WORKSPACES]
 
-- Activation puts the active object in the workspace's `object_mode`, a mode the object lacks (`POSE` on a mesh) keeps the old workspace with no error
-- `workspace.object_mode = "OBJECT"` on every workspace first lets each activation succeed, stock Modeling and UV Editing hold `EDIT`
+- Activation puts the active object in the workspace's `object_mode`, a mode it lacks (`POSE` on a mesh) keeps the current workspace with no error
 - Workspace switches alone set `bpy.data.is_dirty`
-- `bpy.ops.workspace.duplicate()` switches to the copy on a later pass, another duplicate, activation, or delete before the switch crashes Blender
-- Copies are the workspace absent from the set taken before the call, renamed after the switch, chained copies run one at a time
-- `bpy.ops.workspace.delete()` deletes the active workspace on a later pass and refuses the last one, `bpy.data.workspaces` iterates in tab order
+- `bpy.ops.workspace.duplicate()` switches to the copy on a later pass
+- Copies are the workspace absent from the set taken before the call, renamed after the switch
+- `bpy.ops.workspace.delete()` deletes the active workspace on a later pass and keeps the last one, `bpy.data.workspaces` iterates by name
 - `bpy.ops.workspace.reorder_to_front()` moves the active workspace to the first tab, activations in reverse order restore an order
+- Tab order sits in DNA `WorkSpace.order` outside RNA, and `screen.workspace_cycle(direction="NEXT")` visits workspaces in it
 - Renames are plain data writes, `bpy.data.workspaces["Layout"].name = "Model"`
 - Region flags and `SpaceProperties.context` written on a workspace off screen revert when it shows, writes follow its activation
 - On-screen areas read through `workspace.screens[0].areas`
+- File loads keep the window's screens while `filepaths.use_load_ui` is False, `wm.read_homefile(load_ui=True)` restores the startup screens
 - `SpaceProperties.context` lists `OBJECT`, `MODIFIER`, and `MATERIAL` only with an active object
-- `WorkSpace.owner_ids` with `use_filter_by_owner` filter add-on panels, menus, gizmo groups, and own-named keymaps, operators carry no owner check
+- `WorkSpace.owner_ids` with `use_filter_by_owner` filter add-on panels, menus, gizmo groups, and own-named keymaps
+- Operators and tools of every add-on run in every workspace
+- Toolbars read their tools through each `ToolSelectPanelHelper` subclass's `tools_from_context`
 - Types with an empty owner id pass every owner filter
 - `workspace.tools.from_space_view3d_mode("<MODE>", create=True).idname` sets the active tool per mode
 
@@ -34,32 +37,39 @@ Workspaces, areas, regions, panels, and views change on the screen the window sh
 - `Area.x`, `y`, `width`, and `height` are read-only device pixels, `area_move` and `area_split` are the only writers
 - `Area.type` is the editor family and `Area.ui_type` the sub-editor (`TIMELINE`, `ShaderNodeTree`, `FILES`), size tables key on `ui_type`
 - `screen.area_split(direction=, factor=)` under an `area` override cuts an exact size from the bottom or left with no snap
-- Split areas keep the larger part as the old area, and the new one is the area absent from the set taken before the call
-- `screen.area_move` polls true only with the pointer resting on the edge, so scripted sizes come from `area_split`
+- Split areas keep the larger part as the original area, and the new one is the area absent from the set taken before the call
+- `screen.area_move(x=, y=, delta=)` polls true with the pointer resting on the edge under a window and screen override
+- `--enable-event-simulate` launches drop OS input, `window.event_simulate(type="MOUSEMOVE", value="NOTHING", x=, y=)` rests the pointer
+- `area_move` snaps a horizontal edge above a Timeline or Dope Sheet to header height plus 23 × scale, the area resized as an Outliner lands exact
 - Window growth collapses a bottom Dope Sheet area at or under 1.5 times the minimum height to header height
 - Editors trade places by swapping `area.type` values, each area keeps its rectangle and restores its stored space of that type
 - `screen.area_close` closes the override's `area`, `screen.area_swap(cursor=(x, y))` swaps the editors sharing the edge under the point
 
 ## [04]-[REGIONS]
 
-- Region widths change by a drag of the region edge alone, no RNA member writes them, hidden regions report 1x1
+- Region widths follow a drag of the inner edge, posted in an event-simulate Blender as MOUSEMOVE, LEFTMOUSE PRESS, MOUSEMOVE, LEFTMOUSE RELEASE
+- Drags start 3 logical pixels inside the edge after `view2d.reset`, and hidden regions report 1x1
 - Stored region widths read back as `int(scale * (logical + 0.5))` device pixels
+- Toolbar glyphs scale with the region's view2d zoom alone, `scale_y` sizes the cell and never the glyph
+- `view2d.zoom_out(zoomfacx=(z - 1) / 2, zoomfacy=(z - 1) / 2)` after `view2d.reset` sets zoom z, a drag lands on the snap at z
+- Region zoom reads as `width / ((width - 1) * span)`, `span` the x distance `view2d.region_to_view` gives between pixels 0 and 1
 - `screen.region_toggle(region_type=)` under an area override shows or hides a region
 - `Region.alignment` is read-only, `screen.region_flip` on the region flips it
-- `SpaceNodeEditor.show_region_asset_shelf` is writable on a `CompositorNodeTree` editor alone, `space.is_property_readonly(<name>)` on screen tells
-- Writing `show_region_hud` crashes Blender
+- `show_region_asset_shelf` is writable where a registered `AssetShelf` polls true, `space.is_property_readonly(<name>)` on screen tells
+- One region shows one shelf, the first registered type whose poll passes, and `filter_<id>` class booleans pre-filter its assets by ID type
+- `bpy.ops.view3d.view_center_camera()` under a camera view's `WINDOW` override fits the frame to the region, a rerun at one size keeps the zoom
 - `show_region_header` False hides the tool header too, a hidden 3D tool header loses nothing, mode buttons and tool settings draw elsewhere
 - `Area.show_menus` False folds every menu drawn through `Menu.draw_collapsible` into one icon, which keeps a narrow 3D Viewport header whole
 - Draw functions appended to the header itself stay beside the folded menus
 - Top bar and status bar are window areas absent from `screen.areas`, right-click on the top bar is their only path
-- `Region.active_panel_category` selects the Sidebar tab, reads `UNSUPPORTED` until the region draws, and no RNA hides a tab
+- `Region.active_panel_category` selects the Sidebar tab and reads `UNSUPPORTED` until the region draws
+- Sidebar tabs draw while one of their panels polls true
 - `system.show_panel_tabs_compact` draws Sidebar tabs as an icon or the first letters of the category
 
 ## [05]-[PANELS]
 
-- Panel open state and order store per region per screen as `Panel` records in `startup.blend`, and no Python collection changes a stored record
+- Panel open state and order store per region per screen as `Panel` records in `startup.blend`, reset by rebuilding it from a factory layout
 - Re-registering a class with `DEFAULT_CLOSED` closes it only in regions that never drew it, stored records keep their `sortorder` too
-- Stored panel order and state reset only by rebuilding `startup.blend`, from a factory layout with Blender quit
 - `HIDE_HEADER` panels have no header to collapse, their parent tab panel takes the option
 - Unregistering removes a type from its region list and registering appends it after every panel of equal `bl_order`
 - Properties tabs hide per area through `show_properties_<tab>`, Bone, Bone Constraints, and Texture appear only in context
@@ -73,9 +83,10 @@ Workspaces, areas, regions, panels, and views change on the screen the window sh
 - `is_orthographic_side_view` reads true only after an axis operator, `view_perspective` names the projection
 - `space.local_view` set marks local view, with a `view_distance` apart from the global view's
 - In camera view `view3d.move` pans the camera frame, `view3d.rotate` leaves the camera, wheel zoom changes `view_camera_zoom`
-- Parallel and camera views of the user's GUI hold `region_3d.lock_rotation`, view writes set it `False` first, and the next draw relocks them
-- `view3d.view_axis`, `view_persportho`, `view_camera`, and `view_orbit` poll false under the lock
-- `inputs.use_auto_perspective` on switches to orthographic on an axis view and back to perspective on orbit, off leaves axis views unlocked
+- `region_3d.lock_rotation` holds a view's orientation, `view3d.view_axis`, `view_persportho`, `view_camera`, and `view_orbit` poll false under it
+- View writes on a locked view set `lock_rotation` `False` first
+- `inputs.use_auto_perspective` switches an axis view to orthographic and an orbit back to perspective
+- Viewport `lens` acts on a 72 mm sensor, so `space.lens` twice a camera's `lens` shows that camera's field of view
 
 ## [07]-[PICTURES]
 
@@ -91,4 +102,5 @@ screencapture -x -o -l <id> <dir>/<name>.png
 - Captures hold an ICC profile, byte reads convert through one tool every time (`magick -profile "sRGB Profile.icc"`)
 - Community `get_viewport_screenshot` draws offscreen without overlays
 - `wm.window_new()` under a `VIEW_3D` override opens a second window titled `3D Viewport` for a probe view, `wm.window_close()` under it removes it
-- Pies open from a timer through `wm.call_menu_pie` under an area and region override and close by reassigning `window.workspace`, with no key event
+- Menus, panels, and pies open at the pointer from a timer through `wm.call_menu`, `wm.call_panel`, and `wm.call_menu_pie` under an area override
+- `wm.call_panel` of a Properties panel polls under a `PROPERTIES` area override alone, a pie closes when `window.workspace` is reassigned

@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-unescaped-glob-interpolation
+language: python
+severity: error
+utils:
+    escaped:
+        kind: call
+        has: {field: function, matches: {python-member-use: {module: {regex: '^glob$'}, name: {regex: '^escape$'}}}}
+    value:
+        pattern: $VALUE
+        not: {any: [{kind: 'string, concatenated_string, binary_operator, parenthesized_expression, tuple, keyword_argument'}, {matches: escaped}]}
+    operand:
+        has: {stopBy: {not: {kind: 'binary_operator, parenthesized_expression'}}, matches: value}
+    interpolated:
+        any:
+            - kind: string
+              has: {kind: interpolation, has: {field: expression, matches: value}}
+            - pattern: $_L + $_R
+              all:
+                - has: {stopBy: {not: {kind: 'binary_operator, parenthesized_expression'}}, kind: 'string, concatenated_string'}
+                - matches: operand
+            - pattern: $_L % $_R
+              all:
+                - has: {field: left, kind: 'string, concatenated_string'}
+                - has: {field: right, any: [{matches: value}, {kind: tuple, has: {matches: value}}]}
+            - kind: call
+              all:
+                - has: {field: function, kind: attribute, all: [{has: {field: object, kind: 'string, concatenated_string'}}, {has: {field: attribute, regex: '^format$'}}]}
+                - has: {field: arguments, has: {any: [{matches: value}, {kind: keyword_argument, has: {field: value, matches: value}}]}}
+rule:
+    kind: call
+    all:
+        - has: {field: function, kind: attribute, has: {field: attribute, regex: '^(glob|iglob|rglob)$'}}
+        - has:
+            field: arguments
+            any:
+                - has: {nthChild: 1, matches: interpolated}
+                - has: {kind: keyword_argument, all: [{has: {field: name, regex: '^(pathname|pattern)$'}}, {has: {field: value, matches: interpolated}}]}
+message: 'Glob pattern interpolates `$VALUE` unescaped'
+note: 'Wrap the value in `glob.escape`, glob reads `*`, `?`, and `[` in a name as pattern syntax'

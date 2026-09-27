@@ -6,7 +6,7 @@ Pulumi's Automation API runs the typed program in process, GitHub Actions runs w
 
 - Rows are `as const satisfies` their provider's argument type
 - `LocalWorkspace.createOrSelectStack` takes an inline program, `up` and `refresh` results hold `summary.resourceChanges`
-- `import: <id>` in resource options adopts an existing resource on one run and comes out of the options after it, `protect: true` refuses deletion
+- `import: <id>` in resource options adopts an existing resource, `up --import` passes it for one run, `protect: true` refuses deletion
 - Use `secrets` for a token or variable a program or workflow reads
 
 ## [02]-[WORKFLOWS]
@@ -22,8 +22,8 @@ Pulumi's Automation API runs the typed program in process, GitHub Actions runs w
 |  [07]   | Expressions  | `${{ }}` values reach a script through the step `env` map                                                         |
 |  [08]   | Status check | Fan-in job with `needs` over every job and `if: always()`, failing on a `needs.<job>.result` other than `success` |
 
-- Caches restore an exact `key` match and save under it when the job succeeds, a key over a file with `latest` rows restores the first save
+- Caches restore an exact `key` match and save under it when their job succeeds, a key over a file with `latest` rows restores the first save
 - `jdx/mise-action` restores its data directory, then `mise install` resolves every `latest` row again, the cache freezes no version
-- Package cache keys hash the SDK version file beside the project files
+- Package cache keys hash the SDK version file beside project files
 - Composite step for one ecosystem takes `if: runner.os == '<os>'` when one runner alone runs its projects
 - Jobs skipped by a conditional or a failed dependency pass as a required status check and read `skipped` in `needs.<job>.result`

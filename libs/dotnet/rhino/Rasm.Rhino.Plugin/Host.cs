@@ -32,11 +32,11 @@ public sealed record ArchiveCallbacks(
 public sealed record PlugInCallbacks {
     public Action<Error> Reject { get; init; } = ErrorOps.Report;
 
-    public Option<IO<Unit>> Load { get; init; }
+    public Option<PlugInLoadTime> LoadTime { get; init; }
+
+    public Seq<Func<Action<Error>, IO<IDisposable>>> Subscriptions { get; init; }
 
     public Option<IO<Seq<Command>>> Commands { get; init; }
-
-    public Option<IO<Unit>> Shutdown { get; init; }
 
     public Option<IO<Unit>> ResetMessageBoxes { get; init; }
 
@@ -73,15 +73,20 @@ public sealed record CommandRefused(string EnglishName, Guid Id) : Expected("Reg
 // --- [OPERATIONS] ----------------------------------------------------------------------
 internal static class PlugInOverrides {
     // --- [LIFECYCLE]
-    internal static LoadReturnCode OnLoad(PlugInCallbacks callbacks, ref string errorMessage) {
-        (LoadReturnCode code, Option<string> message) = callbacks.Load.IfNone(IO.pure(unit)).RunSafe().Match(
-            Succ: static _ => (LoadReturnCode.Success, Option<string>.None),
-            Fail: static error => error.IsType<Canceled>()
-                ? (LoadReturnCode.ErrorNoDialog, Option<string>.None)
-                : (LoadReturnCode.ErrorShowDialog, Some(ErrorOps.Localize(error))));
+    internal static LoadReturnCode OnLoad(PlugInCallbacks callbacks, ref string errorMessage, out Seq<IDisposable> subscriptions) {
+        (LoadReturnCode code, Option<string> message, subscriptions) = Disposal.AcquireAll(callbacks.Subscriptions.Map(subscribe => subscribe(callbacks.Reject)))
+            .RunSafe()
+            .Match(
+                Succ: static attached => (LoadReturnCode.Success, Option<string>.None, attached),
+                Fail: static error => error.IsType<Canceled>()
+                    ? (LoadReturnCode.ErrorNoDialog, Option<string>.None, Seq<IDisposable>())
+                    : (LoadReturnCode.ErrorShowDialog, Some(ErrorOps.Localize(error)), Seq<IDisposable>()));
         errorMessage = message.IfNone(errorMessage);
         return code;
     }
+
+    internal static void OnShutdown(PlugInCallbacks callbacks, Seq<IDisposable> subscriptions) =>
+        Deliver(callbacks, Some(Disposal.Release(subscriptions)));
 
     internal static void CreateCommands(PlugInCallbacks callbacks, Func<Command, bool> register) =>
         _ = Answers.Answer(
@@ -169,18 +174,22 @@ public abstract class CallbackPlugIn : PlugIn {
     protected abstract PlugInCallbacks Callbacks { get; }
 
     // --- [LIFECYCLE]
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage);
+    private Seq<IDisposable> subscriptions;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
         PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
     }
 
-    protected sealed override void OnShutdown() => PlugInOverrides.Deliver(Callbacks, Callbacks.Shutdown);
+    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
 
     protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
 
     // --- [QUERIES]
+    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
+
     public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
@@ -213,18 +222,22 @@ public abstract class CallbackImportPlugIn : FileImportPlugIn {
     protected abstract ImportCallbacks Import { get; }
 
     // --- [LIFECYCLE]
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage);
+    private Seq<IDisposable> subscriptions;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
         PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
     }
 
-    protected sealed override void OnShutdown() => PlugInOverrides.Deliver(Callbacks, Callbacks.Shutdown);
+    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
 
     protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
 
     // --- [QUERIES]
+    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
+
     public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
@@ -263,18 +276,22 @@ public abstract class CallbackExportPlugIn : FileExportPlugIn {
     protected abstract ExportCallbacks Export { get; }
 
     // --- [LIFECYCLE]
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage);
+    private Seq<IDisposable> subscriptions;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
         PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
     }
 
-    protected sealed override void OnShutdown() => PlugInOverrides.Deliver(Callbacks, Callbacks.Shutdown);
+    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
 
     protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
 
     // --- [QUERIES]
+    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
+
     public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);
@@ -313,18 +330,22 @@ public abstract class CallbackRenderPlugIn : RenderPlugIn {
     protected abstract RenderCallbacks Rendering { get; }
 
     // --- [LIFECYCLE]
-    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage);
+    private Seq<IDisposable> subscriptions;
+
+    protected sealed override LoadReturnCode OnLoad(ref string errorMessage) => PlugInOverrides.OnLoad(Callbacks, ref errorMessage, out subscriptions);
 
     protected sealed override void CreateCommands() {
         base.CreateCommands();
         PlugInOverrides.CreateCommands(Callbacks, RegisterCommand);
     }
 
-    protected sealed override void OnShutdown() => PlugInOverrides.Deliver(Callbacks, Callbacks.Shutdown);
+    protected sealed override void OnShutdown() => PlugInOverrides.OnShutdown(Callbacks, subscriptions);
 
     protected sealed override void ResetMessageBoxes() => PlugInOverrides.Deliver(Callbacks, Callbacks.ResetMessageBoxes);
 
     // --- [QUERIES]
+    public sealed override PlugInLoadTime LoadTime => Callbacks.LoadTime.IfNone(base.LoadTime);
+
     public sealed override bool AddToHelpMenu => Callbacks.Help.IsSome;
 
     public sealed override bool DisplayHelp(nint windowHandle) => PlugInOverrides.DisplayHelp(Callbacks, windowHandle);

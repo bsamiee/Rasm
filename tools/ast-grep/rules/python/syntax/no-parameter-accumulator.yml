@@ -1,0 +1,42 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-parameter-accumulator
+language: python
+severity: error
+utils:
+    container-type:
+        regex: '^((typing|collections|collections\.abc)\.)?(list|set|dict|bytearray|deque|defaultdict|OrderedDict|Counter|MutableSequence|MutableSet|MutableMapping)\b'
+    parameter-slot:
+        kind: subscript
+        has: {field: value, kind: identifier, pattern: $P}
+rule:
+    pattern: $CALL
+    any:
+        - kind: call
+          has:
+            field: function
+            kind: attribute
+            all:
+                - has: {field: object, kind: identifier, pattern: $P}
+                - has: {field: attribute, regex: '^(append|appendleft|extend|extendleft|insert|add|update|setdefault)$'}
+        - kind: augmented_assignment
+          any:
+            - all:
+                - has: {field: left, kind: identifier, pattern: $P}
+                - has: {field: operator, regex: '^(\+|\|)=$'}
+            - has: {field: left, matches: parameter-slot}
+        - kind: assignment
+          has: {field: left, matches: parameter-slot}
+    inside:
+        kind: function_definition
+        stopBy: {kind: 'function_definition, lambda'}
+        all:
+            - has:
+                field: parameters
+                has:
+                    kind: 'typed_parameter, typed_default_parameter'
+                    all:
+                        - any: [{has: {kind: identifier, pattern: $P, nthChild: 1}}, {has: {field: name, pattern: $P}}]
+                        - has: {field: type, matches: container-type}
+            - not: {has: {field: body, has: {stopBy: {kind: 'function_definition, lambda, class_definition'}, kind: assignment, has: {field: left, kind: identifier, pattern: $P}}}}
+message: '`$CALL` hands values back through the container parameter `$P`'
+note: 'Return or yield the values and let the caller collect them'

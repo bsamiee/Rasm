@@ -35,18 +35,14 @@ Preferences, add-on records, repositories, keymaps, themes, fonts, and units, ea
 
 - `preferences.addons` holds enabled add-ons alone, indexing an absent one raises `KeyError`, `addon_utils.modules()` lists every installed module
 - `scene.<group>` of a disabled add-on raises `AttributeError`, presence resolves before the read
-- Module names are `bl_ext.<repository>.<id>` for an extension, the module for a core add-on, and the zip's top folder or stem for a legacy add-on
-- Legacy folder names carry a branch or version suffix (`BlenderGIS-2215`), code keys them on `bl_info["name"]` and resolves the module at run time
-- `{m.bl_info["name"]: m.__name__ for m in addon_utils.modules()}` resolves a legacy module, `__name__.rpartition(".")[2]` names an extension
+- Module names are `bl_ext.<repository>.<id>` for an extension, the module for a core add-on, and the zip's top folder or stem for a `bl_info` add-on
+- `bl_info` add-on folders take the zip's top folder name, branch or version suffix included, so code keys them on `bl_info["name"]`
+- `{m.bl_info["name"]: m.__name__ for m in addon_utils.modules()}` resolves a `bl_info` module, `__name__.rpartition(".")[2]` names an extension
 - `preferences.addon_disable` unregisters, removes the record, and frees its preference group, a later enable starts from the add-on's defaults
 - `addon_disable` on a record whose module is gone still removes the record, a record without a module logs `Add-on not loaded` at every start
 - `bl_pkg`, `io_anim_bvh`, `io_curve_svg`, `io_mesh_uv_layout`, and `io_scene_fbx` load at every start whatever their record says
 - `bl_pkg` holds the extension system, and add-ons that fail in `--background` keep their record with `loaded` False
-- Bonsai prints `KeyError: 'materials'` at registration without an IFC file and Sverchok logs one `registration error`, both load
-- Sverchok `log_to_buffer` writes a `sverchok.log` text block into every file, off with `bpy.data.texts["sverchok.log"]` removed before a save
-- BlenderGIS `logLevel` DEBUG floods the console, `overpassServer` default fails, `cacheFolder` and `core/settings.json` sit inside the add-on tree
-- Dimension add-ons each hold one imperial precision (`imperial_denominator`, `imperial_precision`, `imperial_fraction_denominator`)
-- One denominator feeds every precision field as a string, Bonsai `doc.imperial_precision` as `1/<n>`
+- Dimension add-ons take their imperial precision as a denominator string, Bonsai `doc.imperial_precision` as `1/<n>`
 
 ## [04]-[REPOSITORIES]
 
@@ -63,6 +59,7 @@ Preferences, add-on records, repositories, keymaps, themes, fonts, and units, ea
 - `preferences.keymap.active_keyconfig` names the preset, `keyconfigs.active.preferences` holds `spacebar_action` and `use_pie_click_drag`
 - `keyconfigs.user` rebuilds at load as the default keyconfig plus add-on items with the stored diffs applied, `keymap.is_user_modified` flags a diff
 - First keymap item whose operator polls true consumes an event, `view3d.rotate` polls false under `region_data.lock_rotation`
+- 3D Viewport regions run the tool keymap, mode keymaps, `Object Non-modal`, `Frames`, `3D View Generic`, and `3D View`, then area and window handlers
 - Add-on item added and a user keymap edited in the same event-loop pass records the item as removed in the diff, one tick between them keeps it
 - `restore_to_default()` then `keyconfigs.update()` merges dropped add-on items back and drops every user edit of that keymap
 - Writing `KeyMapItem.idname` resets its properties, a copy writes `idname` first and then each property `is_property_set` on the source
@@ -109,5 +106,10 @@ Preferences, add-on records, repositories, keymaps, themes, fonts, and units, ea
 - Lengths are meters built from exact literals, `INCH = 0.0254`, `FOOT = 12 * INCH`, a bare 1.7 displays as an odd imperial value
 - `view_distance` stores meters with unit NONE, and render pixel sizes have no imperial form
 - `bpy.utils.units` systems are `IMPERIAL`, `METRIC`, `NONE`, categories read through `dir(bpy.utils.units.categories)`
-- Viewport grid follows the unit ladder under a unit system, `grid_subdivisions` is inactive and `grid_scale_unit` reads 0.3048 under FEET
-- Typed input parses `6'3"` under IMPERIAL, `inputs.use_numeric_input_advanced` enables expressions
+- Grid steps follow the unit table, perspective views from the base unit up and axis views with every smaller unit, `overlay.grid_scale` scales them
+- `grid_subdivisions` is inactive under a unit system, and `grid_scale_unit` reads 0.3048 under FEET
+- Imperial text parses as a sum of unit-marked terms with `-` and `+` as arithmetic and a bare number as feet, `5' 3-1/2"` reads 95.5 in
+- `5' 3.5"`, `5' 3" 1/2"`, and `5' 3"+1/2"` read 63.5 in
+- `inputs.use_numeric_input_advanced` enables expressions in typed input
+- Imperial display and `bpy.utils.units.to_string` pick the unit by magnitude (thou, mi, sq yd, cu yd, st, tn), 1/16" reading 62.5 thou
+- `precision` in `bpy.utils.units.to_string` counts significant digits

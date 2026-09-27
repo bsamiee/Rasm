@@ -3,9 +3,10 @@ id: no-dashed-subsection-divider
 language: csharp
 severity: error
 rule:
+    kind: comment
     pattern: $DIVIDER
     all:
-        - matches: csharp-dashed-divider
+        - matches: text-section-divider
         - matches: csharp-owner-level
 transform:
     FAMILY: {replace: {source: $DIVIDER, replace: '\s+-+$', by: ''}}

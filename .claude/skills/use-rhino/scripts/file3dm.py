@@ -3,18 +3,21 @@
 # /// script
 # requires-python = ">=3.13"
 # dependencies = ["msgspec", "rhino3dm"]
+#
+# [tool.ty.environment]
+# extra-paths = ["."]
 # ///
 """Describe `.3dm` files on disk through openNURBS without Rhino."""
 
 from collections import Counter
-from datetime import datetime
+from datetime import datetime, UTC
 from functools import reduce
 from pathlib import Path
 import sys
 
 import msgspec
 from records import Fault, LayerRecord, MaterialRecord, Properties, Record
-from rhino3dm import ActiveSpace, BoundingBox, File3dm, ObjectMode, ObjectType, UnitSystem
+from rhino3dm import ActiveSpace, AnnotationBase, BoundingBox, File3dm, ObjectMode, ObjectType, UnitSystem
 
 # --- [MODELS] ---------------------------------------------------------------------------
 
@@ -28,6 +31,7 @@ class FileRecord(Record, frozen=True):
     edited: datetime
     open_by: tuple[str, ...] | None
     units: UnitSystem
+    page_units: UnitSystem
     tolerance: float
     angle_tolerance: float
     types: dict[ObjectType, int]
@@ -35,11 +39,12 @@ class FileRecord(Record, frozen=True):
     locked: int
     min: tuple[float, float, float] | None
     max: tuple[float, float, float] | None
-    invalid: dict[str, str]
     layers: tuple[LayerRecord, ...]
     materials: tuple[MaterialRecord, ...]
     blocks: tuple[str, ...]
+    styles: tuple[str, ...]
     views: tuple[str, ...]
+    layouts: tuple[str, ...]
     named_views: tuple[str, ...]
 
 
@@ -47,23 +52,32 @@ class FileRecord(Record, frozen=True):
 
 
 def describe(path: Path) -> FileRecord | Fault:
-    """Read one `.3dm` file, counting model-space objects outside block definitions."""
+    """Read one `.3dm` file, counting model-space objects outside block definitions, a view holding page-space objects a layout."""
     if (model := File3dm.Read(str(path))) is None:
         return Fault(File3dm, str(path))
     objects = [item for item in model.Objects if not item.Attributes.IsInstanceDefinitionObject and item.Attributes.ActiveSpace == ActiveSpace.ModelSpace]
+    pages = {item.Attributes.ViewportId for item in model.Objects if item.Attributes.ActiveSpace == ActiveSpace.PageSpace}
     materials = list(model.Materials)
     per_layer = Counter(item.Attributes.LayerIndex for item in objects)
     modes = Counter(item.Attributes.Mode for item in objects)
-    box = reduce(BoundingBox.Union, (item.Geometry.GetBoundingBox() for item in objects)) if objects else None
+    box = (
+        reduce(
+            BoundingBox.Union,
+            (item.Geometry.GetBoundingBox(model.DimStyles.FindId(item.Geometry.DimensionStyleId)) if isinstance(item.Geometry, AnnotationBase) else item.Geometry.GetBoundingBox() for item in objects),
+        )
+        if objects
+        else None
+    )
     html = "#{:02X}{:02X}{:02X}".format
     lock = Path(f"{path}.rhl")
     return FileRecord(
         path=str(path),
         version=model.ArchiveVersion,
         edited_by=model.LastEditedBy,
-        edited=model.LastEdited,
+        edited=model.LastEdited.replace(tzinfo=UTC),
         open_by=tuple(lock.read_text(encoding="utf-8-sig").splitlines()) if lock.exists() else None,
         units=model.Settings.ModelUnitSystem,
+        page_units=model.Settings.PageUnitSystem,
         tolerance=model.Settings.ModelAbsoluteTolerance,
         angle_tolerance=model.Settings.ModelAngleToleranceDegrees,
         types=dict(Counter(item.Geometry.ObjectType for item in objects)),
@@ -71,7 +85,6 @@ def describe(path: Path) -> FileRecord | Fault:
         locked=modes[ObjectMode.Locked],
         min=None if box is None else (box.Min.X, box.Min.Y, box.Min.Z),
         max=None if box is None else (box.Max.X, box.Max.Y, box.Max.Z),
-        invalid={str(item.Attributes.Id): item.Geometry.IsValidWithLog[1] for item in objects if not item.Geometry.IsValid},
         layers=tuple(
             LayerRecord(
                 layer.FullPath,
@@ -99,7 +112,9 @@ def describe(path: Path) -> FileRecord | Fault:
             }.values()
         ),
         blocks=tuple(definition.Name for definition in model.InstanceDefinitions),
-        views=tuple(view.Name for view in model.Views),
+        styles=tuple(style.Name for style in model.DimStyles),
+        views=tuple(view.Name for view in model.Views if view.Viewport.Id not in pages),
+        layouts=tuple(view.Name for view in model.Views if view.Viewport.Id in pages),
         named_views=tuple(view.Name for view in model.NamedViews),
     )
 
@@ -108,10 +123,14 @@ def describe(path: Path) -> FileRecord | Fault:
 
 
 def main() -> None:
-    """Print one JSON line per `.3dm` file under each argument, exiting 1 when any file fails to read."""
-    results = [describe(path.resolve()) for argument in map(Path, sys.argv[1:]) for path in (sorted(argument.rglob("*.3dm")) if argument.is_dir() else (argument,))]
-    sys.stdout.buffer.write(msgspec.json.Encoder(enc_hook=lambda value: value.__name__ if isinstance(value, type) else value.name).encode_lines(results))
-    sys.exit(any(isinstance(result, Fault) for result in results))
+    """Print one JSON line per `.3dm` file under each argument as it reads, exiting 1 when any file fails to read."""
+    encoder, failed = msgspec.json.Encoder(enc_hook=lambda value: value.__name__ if isinstance(value, type) else value.name), False
+    for path in (path for argument in map(Path, sys.argv[1:]) for path in (sorted(argument.rglob("*.3dm")) if argument.is_dir() else (argument,))):
+        result = describe(path.resolve())
+        sys.stdout.buffer.write(encoder.encode_lines((result,)))
+        sys.stdout.buffer.flush()
+        failed |= isinstance(result, Fault)
+    sys.exit(failed)
 
 
 if __name__ == "__main__":

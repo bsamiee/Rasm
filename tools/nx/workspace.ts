@@ -1,9 +1,7 @@
-// --- [IMPORTS] -------------------------------------------------------------------------
-
 import { Lang, parse, type SgNode } from '@ast-grep/napi';
-import { NodeFileSystem, NodePath } from '@effect/platform-node';
+import { NodeServices } from '@effect/platform-node';
 import { type CreateNodes, type CreateNodesResultArray, createNodesFromFiles, type ProjectConfiguration } from '@nx/devkit';
-import { Array, Data, Effect, FileSystem, Layer, ManagedRuntime, Option, Path, type PlatformError, Record, Schema } from 'effect';
+import { Array, Data, Effect, FileSystem, ManagedRuntime, Path, type PlatformError, Record, Schema } from 'effect';
 import { parse as toml } from 'smol-toml';
 
 // --- [TYPES] ---------------------------------------------------------------------------
@@ -11,7 +9,6 @@ import { parse as toml } from 'smol-toml';
 interface ProjectFile {
     readonly file: string;
     readonly directory: string;
-    readonly text: string;
     readonly workspace: string;
 }
 
@@ -26,7 +23,7 @@ const _Pytest = Schema.Struct({ tool: Schema.Struct({ pytest: Schema.Struct({ py
 
 class ProjectFileError extends Data.TaggedError('ProjectFileError')<{ readonly file: string; readonly cause: unknown }> {
     override get message(): string {
-        return `${this.file} does not define a project`;
+        return `${this.file} defines no project`;
     }
 }
 
@@ -41,15 +38,21 @@ const _literals = (source: SgNode, pattern: string, variable: string): readonly 
 // --- [PROJECTS] ------------------------------------------------------------------------
 
 const _PROJECTS: Record<string, Configure> = {
-    '*.csproj': ({ directory }) => Effect.succeed({ root: directory, tags: ['language:dotnet'], targets: { typecheck: {}, check: {} } }),
+    '*.csproj': ({ directory }) =>
+        Effect.map(Path.Path, (path) => {
+            const plugin = directory.startsWith('apps/') && path.basename(path.dirname(directory)) === 'rhino';
+            return {
+                root: directory,
+                tags: ['language:dotnet', ...(plugin ? ['host:rhino'] : [])],
+                targets: { typecheck: {}, check: {}, ...(plugin ? { pack: {}, install: {} } : {}) },
+            };
+        }),
     '.swcrc': ({ directory }) => Effect.succeed({ root: directory, tags: ['host:extendscript'], targets: { build: {} } }),
-    'cli.ts': ({ directory, text }) =>
-        Effect.succeed({
-            root: directory,
-            targets: Record.fromIterableWith(_literals(_tsx(text), 'Command.make($NAME, $CONFIG, $HANDLER)', 'NAME'), (name) => [
-                name,
-                { command: `node cli.ts ${name}`, options: { cwd: '{projectRoot}' } },
-            ]),
+    'cli.ts': ({ file, directory, workspace }) =>
+        Effect.gen(function* () {
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const names = _literals(_tsx(yield* fs.readFileString(path.join(workspace, file))), 'Command.make($NAME, $CONFIG, $HANDLER)', 'NAME');
+            return { root: directory, targets: Record.fromIterableWith(names, (name) => [name, { command: `node cli.ts ${name}`, options: { cwd: '{projectRoot}' } }]) };
         }),
     'project.pbxproj': ({ directory }) =>
         Effect.map(Path.Path, (path) => ({
@@ -58,18 +61,17 @@ const _PROJECTS: Record<string, Configure> = {
             tags: ['language:swift', 'host:macos'],
             targets: { build: {}, install: {}, lint: {}, format: {}, check: {} },
         })),
-    'pyproject.toml': ({ file, directory, text, workspace }) =>
+    'pyproject.toml': ({ file, directory, workspace }) =>
         Effect.gen(function* () {
-            const fs = yield* FileSystem.FileSystem;
-            const path = yield* Path.Path;
-            const { project } = yield* Effect.flatMap(_toml(file, text), Schema.decodeUnknownEffect(_Project));
+            const [fs, path] = yield* Effect.all([FileSystem.FileSystem, Path.Path]);
+            const { project } = yield* Effect.flatMap(_toml(file, yield* fs.readFileString(path.join(workspace, file))), Schema.decodeUnknownEffect(_Project));
             const { tool } = yield* Effect.flatMap(_toml('pyproject.toml', yield* fs.readFileString(path.join(workspace, 'pyproject.toml'))), Schema.decodeUnknownEffect(_Pytest));
-            const tests = yield* Effect.forEach(tool.pytest.pythonFiles, (pattern) => fs.glob(`**/${pattern}`, { root: path.join(workspace, directory) }), { concurrency: 'unbounded' });
+            const tests = yield* fs.glob(`**/{${tool.pytest.pythonFiles.join(',')}}`, { root: path.join(workspace, directory) });
             return {
                 root: directory,
                 name: project.name,
                 tags: ['language:python'],
-                targets: { typecheck: {}, check: {}, ...(Array.isReadonlyArrayNonEmpty(Array.flatten(tests)) ? { test: {} } : {}) },
+                targets: { typecheck: {}, check: {}, ...(Array.isReadonlyArrayNonEmpty(tests) ? { test: {} } : {}) },
             };
         }),
     'tsconfig.json': ({ directory }) => Effect.succeed({ root: directory, tags: ['language:typescript'], targets: { typecheck: {}, check: {} } }),
@@ -77,19 +79,18 @@ const _PROJECTS: Record<string, Configure> = {
 };
 
 const _project = Effect.fnUntraced(function* (file: string, workspace: string) {
-    const fs = yield* FileSystem.FileSystem;
     const path = yield* Path.Path;
     const configure = yield* Effect.fromOption(
-        Option.orElse(Record.get(_PROJECTS, path.basename(file)), () => Record.get(_PROJECTS, `*${path.extname(file)}`)),
-        () => new ProjectFileError({ file, cause: 'No project kind reads this file' }),
+        Array.findFirst([path.basename(file), `*${path.extname(file)}`], (key) => Record.get(_PROJECTS, key)),
+        () => new ProjectFileError({ file, cause: 'no project kind reads its name' }),
     );
-    const configuration = yield* configure({ file, workspace, directory: path.dirname(file), text: yield* fs.readFileString(path.join(workspace, file)) });
+    const configuration = yield* configure({ file, workspace, directory: path.dirname(file) });
     return { projects: { [configuration.root]: configuration } };
 });
 
-// --- [REGISTRATION] --------------------------------------------------------------------
+// --- [COMPOSITION] ---------------------------------------------------------------------
 
-const _runtime = ManagedRuntime.make(Layer.mergeAll(NodeFileSystem.layer, NodePath.layer));
+const _runtime = ManagedRuntime.make(NodeServices.layer);
 const createNodes: CreateNodes = [
     `{apps,eng,libs,tests,tools,.claude/plugins}/**/{${Record.keys(_PROJECTS).join(',')}}`,
     (files, options, context): Promise<CreateNodesResultArray> => createNodesFromFiles((file) => _runtime.runPromise(_project(file, context.workspaceRoot)), files, options, context),

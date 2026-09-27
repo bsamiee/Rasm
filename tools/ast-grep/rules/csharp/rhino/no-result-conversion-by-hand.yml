@@ -2,7 +2,7 @@
 id: no-result-conversion-by-hand
 language: csharp
 severity: error
-files: ['libs/dotnet/rhino/**', 'apps/rhino/**']
+files: ['**/rhino/**']
 utils:
     host-success:
         regex: '^((global::)?Rhino\.Commands\.)?Result\.Success$'

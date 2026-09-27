@@ -105,6 +105,9 @@ public abstract partial record LineCircleCrossing {
     public sealed record Single(double T, Point3d Point) : LineCircleCrossing;
 
     public sealed record Multiple(double T1, Point3d Point1, double T2, Point3d Point2) : LineCircleCrossing;
+
+    public Fin<Multiple> Secant =>
+        Switch<Fin<Multiple>>(single: static _ => new Missing(nameof(Multiple)), multiple: static both => both);
 }
 
 // --- [OPERATIONS] ----------------------------------------------------------------------

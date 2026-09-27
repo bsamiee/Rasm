@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated enum JSONValue: Codable, Equatable, Sendable {
   case null
   case bool(Bool)

@@ -20,23 +20,34 @@ geo.setOriginGeo(<longitude>, <latitude>)
 result = {"crs": geo.crs, "origin_crs": [geo.crsx, geo.crsy], "georeferenced": geo.isGeoref}
 ```
 
+- Sun Position and Bonsai solar take the same site and moment
+- New sites start with `geo.delOrigin()` and the georeference snippet, then the Sun Position and Bonsai solar fields
 - `crs` set after `lon` and `lat` reprojects the origin into `crs x` and `crs y`, `lon` and `lat` range-check and raise outside their bounds
 - Reprojection runs offline between WGS84 and Web Mercator (`EPSG:3857`) or UTM, `pyproj` and GDAL are absent
 - Other CRS route through the MapTiler web service, a failed reprojection deletes `crs x` and `crs y` and logs a warning with no raise
 - Imports refuse a half-set georeference with `Scene georef is broken, please fix it beforehand`, `geo.delOrigin()` clears it
 - IFC models hold their georeference in the IFC file, `scene.BIMGeoreferenceProperties` shows it with a Blender offset (`blender_offset_x`)
+- BlenderGIS turns off HTTPS certificate checks for the whole Python process unless `PYTHONHTTPSVERIFY` is set
+- BlenderGIS replaces `sys.excepthook` and `threading.Thread.__init__` at import
+- First registration downloads FreeImage from GitHub into `~/Library/Application Support/imageio` for the basemap, `IMAGEIO_NO_INTERNET=1` stops it
 
 ## [02]-[GIS_DATA]
 
 - BlenderGIS importers sit under `bpy.ops.importgis`, `discover("importgis")` lists them with their parameters
 - `importgis.asc_file(filepath=)` builds a DEM mesh from an ASCII grid on the scene georeference
-- Each BlenderGIS import rewrites the 3D view's grid and clip distances while its `adjust3Dview` preference is on
-- SRTM downloads need `opentopography_api_key` in the add-on preferences
+- Raster, SHP, and ASC imports rewrite every 3D view's grid and clip distances while `adjust3Dview` is on
+- `importgis.osm_query`, `osm_file`, and `dem_query` set every 3D view's `clip_start` to 1, 10, or 100 m whatever `adjust3Dview` holds
+- `importgis.dem_query` downloads from the `demServer` preference template, an OpenTopography server needs `opentopography_api_key`
+- `dem_query` and `osm_query` take their extent from one selected mesh, headless under a stored window, `active_object`, and `selected_objects`
+- DEM heights are orthometric meters, so `location.z = -<site elevation>` puts the ground at the model's zero
+- `view3d.map_start` refuses every scene CRS but Web Mercator without GDAL
+- `importgis.georaster(filepath=, importMode="MESH", objectsLst=<DEM index>)` drapes a GeoTIFF onto a DEM mesh
+- GIS imports link their objects to the scene collection, `osm_query` with `separate` builds one OSM collection with a child per tag
 - Use `references/interchange.md` for city models
 
 ## [03]-[SUN_AND_CLIMATE]
 
-Sun direction comes from `scene.sun_pos_properties` or `ladybug`, both agree to 0.01 degrees:
+Sun direction comes from `scene.sun_pos_properties`:
 - Sun Position fields `latitude`, `longitude`, `UTC_zone`, `year`, `month`, `day`, and `time` set the moment
 - Every field write recomputes and moves the lamp and sky, `sun_elevation` and `sun_azimuth` read the result in radians
 - `sun_pos_properties.sun_object` names a Sun light, `sun_distance` places it at that distance along the sun vector, 0 at the origin
@@ -47,17 +58,4 @@ Sun direction comes from `scene.sun_pos_properties` or `ladybug`, both agree to 
 - `calculate_sun` hours are standard time like EPW files, 12:00 daylight time is 11.0
 - Bonsai solar fields written through RNA overwrite the Sun Position fields and raise with no IFC project loaded, ID item writes land in float32
 - Bonsai `true_north` carries the IFC sign, Sun Position receives it as `north_offset = -true_north`
-- `Sunpath.from_location(Location(latitude=, longitude=, time_zone=))` from `ladybug.sunpath` and `ladybug.location` builds a sun path
-- `calculate_sun(month, day, hour)` returns `altitude` and `azimuth` in degrees and touches no scene state
-
-Analysis operators read an EPW weather file and `scene.ladybug`, headless included:
-1. `bpy.ops.ladybug.load_epw(filepath=<epw>)` sets `scene.ladybug` city, latitude, longitude, standard time zone, and elevation over earlier values
-2. Set the analysis period (`ap_st_month`, `ap_st_day`, `ap_end_month`, `ap_end_day`) on `scene.ladybug`
-3. Select target meshes, `ladybug.sensor_grid()` subdivides them into analysis cells
-4. `ladybug.direct_sun_hours()` or `ladybug.incident_radiation()` adds a `<target> · <study>` result mesh with a legend beside it
-
-- Result meshes hold one value per analysis cell in a float attribute (`LB Sun Hours`) beside `LB Color`, a script reads the float
-- Without `sensor_grid` each target face is one cell
-- `scene.ladybug.st_context` default `SELECTED` shades the study with other selected meshes alone, `VISIBLE` with every visible mesh
-- `scene.ladybug.north` is degrees counter-clockwise from +Y to project north, `time_zone` is standard time with no daylight field
-- EPW weather files download per station from climate.onebuilding.org
+- EPW files per station download from climate.onebuilding.org

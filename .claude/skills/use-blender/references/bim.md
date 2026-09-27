@@ -5,8 +5,8 @@ IFC work runs on Bonsai with its bundled `ifcopenshell`: the IFC file is the mod
 ## [01]-[LOAD]
 
 Bonsai acts on every file load through `load_post`, before any agent code runs on the file:
-- `activate_workspace` preference switches the window to the BIM workspace at every load, `should_setup_workspace` appends that workspace to the file
-- `should_use_snap` preference forces Bonsai's own snap settings at every load
+- Bonsai keeps the window's workspace and the file's snap settings at load, `activate_workspace`, `should_setup_workspace`, and `should_use_snap` off
+- GUI sessions hold every Bonsai tool from registration with `should_setup_toolbar` on, headless sessions register none
 - `setup_tabs` writes 20 `BIMAreaProperties` entries onto every screen, a Properties area reads `tab` (`PROJECT`, `BLENDER`) at its area index
 - `override_scene_panel` re-registers every non-Bonsai `bl_context == "scene"` panel, stock ones included, in class-name order once per session
 - Re-registered Scene panels reorder the Scene tab and lose the owner id of every class that declares no `bl_owner_id`
@@ -19,13 +19,14 @@ Bonsai acts on every file load through `load_post`, before any agent code runs o
 - `bim.load_project(filepath=, should_start_fresh_session=False)` loads an IFC into the open file, spatial elements as empties
 - `should_start_fresh_session` defaults true and runs `wm.read_homefile()`, the open file's objects and path gone with no prompt
 - `bim.new_project(preset="imperial_ft")` starts a feet project after the same `wm.read_homefile()`, `metric_m` and `metric_mm` metric ones
+- `bim.new_project` makes the site, building, and storey collections siblings under the `IfcProject/<Name>` collection
 - Loaded objects take the name `<IfcClass>/<Name>`
 - `bonsai.tool.Ifc.get()` returns the open `ifcopenshell.file`, `bonsai.tool.Ifc.get_entity(<object>)` the entity behind an object
 - `ifcopenshell.util.element` reads psets (`get_psets`), container (`get_container`), and type (`get_type`) from an entity
 - `bim.save_project(filepath=)` writes the file, object transforms reach `ObjectPlacement` on save
-- Mesh edits stay in Blender until `bim.update_representation()` runs on the active and selected object, a save without it writes the old shape
+- Mesh edits reach the IFC through `bim.update_representation()` on the active and selected object before `bim.save_project`
 - `BIMProperties` imperial unit items are lower-case words (`square foot`, `cubic foot`), SI items upper-case IFC names (`SQUARE_METRE`, `KILO/GRAM`)
-- Startup camera carries `BIMCameraProperties` (`target_view`, `diagram_scale`, `dpi`), read once the camera becomes an IFC drawing
+- Cameras carry `BIMCameraProperties` (`target_view`, `diagram_scale`, `dpi`), read once the camera becomes an IFC drawing
 
 ## [03]-[AUTHORING]
 
@@ -70,7 +71,9 @@ Bonsai drawings are scaled SVG views cut from the IFC model and sheets place the
 8. `bpy.ops.bim.add_drawing_to_sheet()`, then `bpy.ops.bim.create_sheets(open_viewer=False)` writes `sheets/<sheet>.svg` at the sheet size
 
 - Drawings carry `data-scale="1:100"` and millimeter `width` and `height`, a 5 m wall draws 50 mm long
+- `doc.drawing_font` names the viewport decoration font alone, sheets keep `default.css` (OpenGost at 2.5 mm text, 0.25 mm lines)
 - `drawings/cache/` holds linework and annotation layers, `drawings/assets/` holds symbols, markers, and patterns
-- `create_sheets` converts to PDF through the add-on's `svg2pdf_command` preference, empty by default
+- `create_sheets` runs the `svg2pdf_command` and `svg2dxf_command` preferences as JSON command lists with `svg`, `pdf`, and `dxf` replaced by paths
+- Empty conversion preferences leave the sheet as SVG alone
 - `typst compile --root / <sheet>.typ <pdf>` writes a sheet PDF with its stylesheet line weights
 - `<sheet>.typ` sets `page(width: <w>mm, height: <h>mm, margin: 0pt)` and holds `#image("<sheet>.svg", width: 100%, height: 100%)`

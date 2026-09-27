@@ -1,10 +1,16 @@
 {
     "name": "function-hooks",
-    "description": "Denies policy-refused tool calls, records hook events as observation rows, delivers findings per lineage",
+    "description": "Denies policy-refused tool calls, with observation on records hook events as sink rows and delivers findings per lineage",
     "author": {
         "name": "Bardia Samiee"
     },
     "userConfig": {
+        "observation": {
+            "type": "boolean",
+            "title": "Observation",
+            "description": "Recording of hook events and refused calls as sink rows, agent spawns and finding delivery at stop boundaries, and the footer label",
+            "default": false
+        },
         "walkPolicy": {
             "type": "boolean",
             "title": "Walk policy",

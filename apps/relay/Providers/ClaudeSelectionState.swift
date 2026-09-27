@@ -1,5 +1,7 @@
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
 nonisolated struct ClaudePendingSwitch: Codable, Equatable, Sendable {
   enum Phase: String, Codable, Sendable {
     case saving

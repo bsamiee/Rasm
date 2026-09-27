@@ -2,6 +2,8 @@ import Foundation
 import Subprocess
 import Synchronization
 
+// --- [SERVICES] ------------------------------------------------------------------------
+
 actor CodexConnection {
   private enum PendingReply: Sendable {
     case unclaimed(method: String)
@@ -105,10 +107,10 @@ actor CodexConnection {
   private func reply(to id: String) async -> Result<JSONValue, CodexFailure> {
     await withTaskCancellationHandler {
       await withCheckedContinuation { continuation in
-        let settled: Result<JSONValue, CodexFailure>? = registry.withLock { state in
+        let immediate: Result<JSONValue, CodexFailure>? = registry.withLock { state in
           Self.claim(id, for: continuation, in: &state)
         }
-        if let settled { continuation.resume(returning: settled) }
+        if let immediate { continuation.resume(returning: immediate) }
       }
     } onCancel: {
       Self.cancelReply(id, in: self.registry)
@@ -167,12 +169,12 @@ actor CodexConnection {
   ) async -> Result<JSONValue, CodexFailure> {
     await withTaskCancellationHandler {
       await withCheckedContinuation { continuation in
-        let settled: Result<JSONValue, CodexFailure>? = registry.withLock { state in
+        let immediate: Result<JSONValue, CodexFailure>? = registry.withLock { state in
           Self.register(
             NotificationWaiter(id: id, matches: predicate, continuation: continuation),
             for: method, in: &state)
         }
-        if let settled { continuation.resume(returning: settled) }
+        if let immediate { continuation.resume(returning: immediate) }
       }
     } onCancel: {
       Self.cancelWaiter(id, method: method, in: self.registry)
@@ -318,11 +320,11 @@ actor CodexConnection {
     _ message: JSONValue, method: String, server: String
   ) -> Result<JSONValue, CodexFailure> {
     if let error: JSONValue = message["error"] {
-      let code: Result<Int, CodexFieldFailure> =
-        error["code"]?.intValue.map(Result.success) ?? .failure(CodexFieldFailure("error code"))
-      let description: Result<String, CodexFieldFailure> =
+      let code: Result<Int, CodexFieldFailures> =
+        error["code"]?.intValue.map(Result.success) ?? .failure(CodexFieldFailures("error code"))
+      let description: Result<String, CodexFieldFailures> =
         error["message"]?.stringValue.map(Result.success)
-        ?? .failure(CodexFieldFailure("error message"))
+        ?? .failure(CodexFieldFailures("error message"))
       return combine(code, description)
         .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
         .flatMap { code, description in

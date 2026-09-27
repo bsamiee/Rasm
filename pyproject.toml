@@ -16,6 +16,7 @@ workspace = [
     "cloudpickle",                                        # Kernel and closure transfer across process and subinterpreter boundaries
     "cryptography",                                       # AES-GCM envelope and key-wrap primitives for per-subject crypto-shredding
     "cyclopts",                                           # CLI parser from typed signatures
+    "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "expression",                                         # Result and Option types with railway composition
     "google-cloud-secret-manager",                        # Google Cloud Secret Manager secret store
     "google-crc32c",                                      # CRC32C integrity check for Google Cloud secret payloads, no cp315 wheel, the sdist builds the pure implementation
@@ -47,6 +48,7 @@ workspace = [
     "psutil",
     "pydantic",
     "pydantic-settings",                                  # Settings models read from the environment and files
+    "pygments",                                           # Lexer aliases and filename patterns, fence languages in prose.py
     "pyroscope-io",                                       # Continuous-profiling agent feeding the pyroscope-otel span-link exporter
     "pyroscope-otel",                                     # Continuous-profiling span links beside the OTLP exporters
     "regex",                                              # Unicode property classes the standard library regex lacks, emoji and pictograph matching
@@ -341,6 +343,7 @@ dev = [
     "types-openpyxl",
     "types-protobuf",
     "types-psutil",
+    "types-pygments",
     "types-pyphen",
     "types-regex",
     "types-reportlab",
@@ -454,7 +457,7 @@ provides-extras = ["extensions", "sql"]
 cache-dir = ".cache/ruff"
 preview = true
 line-length = 200
-src = [".", "libs/python"]
+src = [".", "libs/python", "tools"]
 per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/*.py" = "py313" }
 
 [tool.ruff.format]
@@ -491,6 +494,9 @@ ignore = [
 
 [tool.ruff.lint.flake8-bandit]
 check-typed-exception = true
+
+[tool.ruff.lint.flake8-boolean-trap]
+extend-allowed-calls = ["ctypes.c_bool"]
 
 [tool.ruff.lint.flake8-import-conventions.extend-aliases]
 "dask.array" =     "da"
@@ -555,6 +561,9 @@ require-lazy = [
 "warnings.warn".msg =                "Return an expression.Result for an expected failure"
 "warnings.warn_explicit".msg =       "Return an expression.Result for an expected failure"
 
+[tool.ruff.lint.flake8-type-checking]
+runtime-evaluated-base-classes = ["msgspec.Struct"]
+
 [tool.ruff.lint.isort]
 combine-as-imports = true
 force-sort-within-sections = true
@@ -579,7 +588,7 @@ max-nested-blocks = 3
 
 [tool.ty.environment]
 python-platform = "all"
-root = [".", "libs/python"]
+root = [".", "libs/python", "tools"]
 
 [tool.ty.analysis]
 respect-type-ignore-comments = false
@@ -594,7 +603,7 @@ unsound-return-statement = "ignore"
 
 [tool.mypy]
 files = ["tests"]
-mypy_path = ["libs/python", "tools/interface"]
+mypy_path = ["libs/python", "tools"]
 cache_dir = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict = true
 pretty = true

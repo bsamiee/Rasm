@@ -1,6 +1,4 @@
-"""Pytest configuration for tests/python, package registration follows the libs/python layout."""
-
-# --- [IMPORTS] --------------------------------------------------------------------------
+"""Pytest configuration for tests/python."""
 
 from pathlib import Path
 

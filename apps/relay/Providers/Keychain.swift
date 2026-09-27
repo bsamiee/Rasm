@@ -1,11 +1,15 @@
 import Foundation
 import Subprocess
 
+// --- [ERRORS] --------------------------------------------------------------------------
+
 nonisolated enum KeychainFailure: Error, Sendable {
   case denied
   case interactionNotAllowed
   case process(ProcessFailure)
 }
+
+// --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated enum Keychain {
   private static let tool: URL = URL(filePath: "/usr/bin/security")

@@ -13,9 +13,9 @@ public static class Ogee {
         Vector3d riseDirection = apex - span.Midpoint;
         Circle springingCircle = new(new Plane(span.Midpoint, span.Direction, riseDirection), span.HalfSpan);
         Line apexParallel = new(apex, span.Direction);
-        return riseDirection.Length - springingCircle.Radius <= span.RiseTolerance
+        return riseDirection.Length - springingCircle.Radius <= span.Tolerance
             ? ArchProfile.Mirrored(span, Seq(new Arc(springingCircle, Math.PI / 2)))
-            : from points in ArchProfile.Secant(new Line(span.End, apex), springingCircle)
+            : from points in CurveConstruction.LineCircle(new Line(span.End, apex), springingCircle).Bind(static met => met.Secant)
               from crossing in CurveConstruction.LineLine(new Line(span.Midpoint, points.Point2), apexParallel)
               let crownCenter = apexParallel.PointAt(crossing.B)
               let crownCircle = new Circle(new Plane(crownCenter, span.Direction, -riseDirection), crownCenter.DistanceTo(points.Point2))
@@ -31,7 +31,7 @@ public static class Ogee {
         Circle haunchCircle = new(new Plane(haunchCenter, span.Direction, riseDirection), haunchCenter.DistanceTo(span.End));
         Line apexParallel = new(apex, span.Direction);
         return
-            from points in ArchProfile.Secant(new Line(span.End, apex), haunchCircle)
+            from points in CurveConstruction.LineCircle(new Line(span.End, apex), haunchCircle).Bind(static met => met.Secant)
             let startArc = new Arc(haunchCircle, Vector3d.VectorAngle(span.Direction, points.Point2 - haunchCenter))
             from crossing in CurveConstruction.LineLine(apexParallel, new Line(haunchCenter, points.Point2))
             let crownCenter = apexParallel.PointAt(crossing.A)
@@ -48,7 +48,7 @@ public static class Ogee {
         double endToApexQuarter = endToApex.Length / 4;
         Line endPerpendicular = new(span.End, span.Perpendicular);
         Point3d endToApexMidpoint = endToApex.PointAtLength(endToApexQuarter * 2);
-        Vector3d endToApexPerpendicular = Transform.Rotation(Math.PI / 2, span.Normal, Point3d.Origin) * endToApex.Direction;
+        Vector3d endToApexPerpendicular = Vector3d.CrossProduct(span.Normal, endToApex.Direction);
         Line firstQuarterPerpendicular = new(endToApex.PointAtLength(endToApexQuarter), endToApexPerpendicular);
         Line thirdQuarterPerpendicular = new(endToApex.PointAtLength(endToApexQuarter * 3), endToApexPerpendicular);
         return
@@ -70,7 +70,7 @@ public static class Ogee {
         Point3d crownCenter = span.End + (span.Perpendicular * span.EquilateralHeight);
         Interval sweep = new(2 * Math.PI / 3, Math.PI);
         return
-            from haunchSpan in Span.From(span.End, haunchEnd, span.Normal)
+            from haunchSpan in Span.From(span.End, haunchEnd, span.Normal, span.Tolerance)
             let haunchCenter = haunchSpan.Midpoint - (haunchSpan.Perpendicular * haunchSpan.EquilateralHeight)
             let startArc = new Arc(new Circle(new Plane(haunchCenter, span.Direction, -span.Perpendicular), haunchCenter.DistanceTo(span.End)), sweep)
             let endArc = new Arc(new Circle(new Plane(crownCenter, span.Direction, -span.Perpendicular), crownCenter.DistanceTo(apex)), sweep)

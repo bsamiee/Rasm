@@ -31,6 +31,7 @@ result = {"action": animation.action.name, "slot": animation.action_slot.identif
 - `channelbag.fcurves.find("location", index=0)` returns one F-curve or `None`
 - Keys from `keyframe_insert` and `keyframe_points.insert` take `BEZIER` with `AUTO_CLAMPED` handles under every new-key preference
 - Linear motion sets `interpolation` on each key
+- `scene.frame_set(<frame>)` evaluates a frame before an animated read
 
 ## [02]-[SHARED_ACTIONS]
 

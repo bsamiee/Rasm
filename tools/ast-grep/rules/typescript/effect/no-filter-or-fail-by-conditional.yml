@@ -22,7 +22,7 @@ utils:
     terminal-member:
         kind: member_expression
         all:
-            - has: {field: property, regex: '^(fail|failSync|failCause|failCauseSync|die|dieSync|dieMessage|interrupt)$'}
+            - has: {field: property, regex: '^(fail|failSync|failCause|failCauseSync|die|interrupt)$'}
             - has: {field: object, matches: effect-module}
     discriminant-test:
         kind: binary_expression

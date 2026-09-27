@@ -1,9 +1,6 @@
 import Foundation
 
-nonisolated enum QuotaFailure: Error {
-  case invalidPercentage(Double)
-  case invalidResetDate
-}
+// --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated struct UsageAmount: Equatable, Sendable {
   let percent: Double
@@ -126,4 +123,11 @@ nonisolated enum UsageState: Sendable {
   var isCurrent: Bool {
     if case .current = self { true } else { false }
   }
+}
+
+// --- [ERRORS] --------------------------------------------------------------------------
+
+nonisolated enum QuotaFailure: Error {
+  case invalidPercentage(Double)
+  case invalidResetDate
 }

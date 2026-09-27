@@ -1,395 +1,179 @@
-# ty: ignore[unresolved-attribute, no-matching-overload, unsupported-operator, invalid-argument-type, unresolved-import, redundant-condition-strict]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, no-any-return, arg-type, call-overload, operator"
-# ruff: file-ignore[print]
-"""Rhino settings as rows of a label, a read, a write, and a target, converged and reported inside Rhino's CPython."""
+# ty: ignore[unresolved-attribute, unresolved-import, unsupported-operator, invalid-argument-type, no-matching-overload]
+# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc, call-overload, operator, no-any-return"
+# ruff: file-ignore[import-outside-top-level]
+"""Rows of Rhino's application settings and declared packages converged inside Rhino's CPython, and the entry points the host calls."""
 
-from collections.abc import Callable, Iterable, Iterator, Mapping
-from configparser import ConfigParser
-from datetime import timedelta
+from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import partial, reduce
 from importlib import import_module
 import math
+from operator import attrgetter
 from pathlib import Path
-from string import Template
-from tempfile import TemporaryDirectory
-from types import MappingProxyType, SimpleNamespace
 from typing import Final
 
 import clr
+from Eto.Forms import Screen
 from Foundation import NSArray, NSString, NSUserDefaults, NSUserDefaultsType
-import location
-from radix import Rgb
-from render import (
-    CAUSTICS,
-    DIFFUSE_BOUNCES,
-    DPI,
-    FILTER_GLOSSY,
-    FRAME_SIZE,
-    GLOSSY_BOUNCES,
-    INDIRECT_CLAMP,
-    MATERIALS,
-    MAX_BOUNCES,
-    NOISE_THRESHOLD,
-    SAMPLES,
-    stocked,
-    TRANSMISSION_BOUNCES,
-    TRANSPARENT_BOUNCES,
-    VOLUME_BOUNCES,
-)
 import Rhino
-from rhino import window
 import Rhino.ApplicationSettings as Settings
-from Rhino.Display import DefinedViewportProjection, DisplayModeDescription
-from Rhino.DocObjects import DimensionStyle, HatchPattern, Linetype, ObjectSectionFillRule, ObjectType, SectionBackgroundFillMode, SectionStyle
+from Rhino.Display import DisplayModeDescription, DisplayPipelineAttributes, PointStyle
+from Rhino.DocObjects import ObjectType
 from Rhino.DocObjects.Tables import RestoreLayerProperties
-from Rhino.FileIO import File3dm, File3dmWriteOptions, FileWriteOptions
-from Rhino.Geometry import BoundingBox, MeshingParameterStyle, Vector3d
-from rhino.grasshopper import settings as grasshopper
-from rhino.grasshopper.settings import found, member, Row
 from Rhino.PlugIns import PlugIn, PlugInLoadTime
-from Rhino.Render import ContentUuids, RenderContent, RenderContentType, RenderSettings, SupportOptions
+from Rhino.Render import SupportOptions
 from Rhino.Runtime import HostUtils, NamedParametersEventArgs
-from rhino.window import Extent, Panel, Scope, Site
 import System
-from System import Array, DateTime, DateTimeKind, Guid, String
+from System import Array, Guid, String
 from System.Collections.Generic import List
-from System.Drawing import Color as DrawingColor, ColorTranslator, Size
+from System.Drawing import Color, ColorTranslator
 from System.Globalization import CultureInfo
+from System.Net.Sockets import TcpClient
 from System.Reflection import BindingFlags
-import theme
-from theme import Accent, Axis, blend, GRID_MAJOR_ALPHA, GRID_MINOR_ALPHA, Guide, Line, Selection, SELECTION_FILL_ALPHA, Status, Surface, Tag, Text, Typography
-from units import GRID_EXTENT, GRID_THICK_EVERY, INCH, MILLIMETER, NUDGE, Units
+from System.Text import Encoding
 
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Facts = dict[str, object]
-type Reading = tuple[str, Callable[[], object], object]
+from interface.aliases import COMMAND_ALIASES
+from interface.render import MATERIALS, stocked
+from interface.report import Kind, line, Row
+from interface.rhino import template
+from interface.rhino.grasshopper import configuration
+from interface.rhino.rows import absent, color, emit, found, hex_color, internal_setting, key, member
+from interface.rhino.window import bands, Extent, Panel, RIGHT_BOTTOM, RIGHT_TOP, Site
+from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, POINT_WIDTH, Rgb, Selection, Status, Surface, Tag, Text, Typography
+from interface.units import ANGLE_STEP
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-CUT_STYLE: Final = "Cut"
-SKY_USAGES: Final = tuple(System.Enum.GetValues(clr.GetClrType(RenderSettings.EnvironmentUsage)))
-SKY_SLOT: Final = "texture"
-SKY_SUN: Final = "use-document-sun"
-SKY_GAIN: Final = "rdk-texture-adjust-multiplier"
-SKY_MULTIPLIER: Final = 8.21
-SUN_INTENSITY: Final = 1.115
-RENDER_KEYS: Final = MappingProxyType({
-    "UseDocumentSamples": True,
-    "Samples": SAMPLES,
-    "AdaptiveThreshold": NOISE_THRESHOLD,
-    "MaxBounce": MAX_BOUNCES,
-    "MaxDiffuseBounce": DIFFUSE_BOUNCES,
-    "MaxGlossyBounce": GLOSSY_BOUNCES,
-    "MaxTransmissionBounce": TRANSMISSION_BOUNCES,
-    "MaxVolumeBounce": VOLUME_BOUNCES,
-    "TransparentMaxBounce": TRANSPARENT_BOUNCES,
-    "SampleClampDirect": 0.0,
-    "SampleClampIndirect": INDIRECT_CLAMP,
-    "FilterGlossy": FILTER_GLOSSY,
-    "CausticsReflective": CAUSTICS,
-    "CausticsRefractive": CAUSTICS,
-})
-
-# --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Placeholders(Template):
-    """A resource file whose placeholders name a theme export or a run-time value by dotted path, `$Surface.WELL` or `$PointStyle.RoundDot`."""
-
-    idpattern = r"(?a:[_a-z][_a-z0-9]*(?:\.[_a-z][_a-z0-9]*)?)"
-
-
-class DocumentUnits:
-    """Units, tolerance, distance displays and precisions, grid spacing, snap, and line count, dimension style and length displays, and linetype patterns a document takes from one units declaration."""
-
-    def __init__(self, units: Units) -> None:
-        """Derive every fact from the declaration, the other declaration's model unit giving the alternate dimension."""
-        other = next(system for system in Units if system is not units)
-        alternate = unit_system(other.length)
-        self.model, self.page = unit_system(units.length), unit_system(units.page)
-        scale = Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Meters, self.model)
-        self.tolerance, self.grid, self.snap, self.lines = units.tolerance * scale, units.grid * scale, units.snap * scale, round(GRID_EXTENT / units.grid)
-        self.model_display, self.page_display = distance_display(self.model, page=False), distance_display(self.page, page=True)
-        self.model_precision, self.page_precision = precision(units, self.model, self.model_display), precision(units, self.page, self.page_display)
-        self.dimension_display, self.alternate_display = length_display(self.model), length_display(alternate)
-        self.alternate_precision = precision(other, alternate, distance_display(alternate, page=False))
-        self.style = "Template Foot-Inch Architectural" if units is Units.IMPERIAL else "Template Millimeter Architectural"
-        self.linetypes = default_linetypes(units.resolution / MILLIMETER)
-
+OPTIONS: Final = "Options"
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-# --- [ROWS]
-def color(rgb: Rgb, alpha: float = 1.0) -> DrawingColor:
-    """System color of a role at the alpha fraction."""
-    return DrawingColor.FromArgb(round(alpha * 255), *rgb)
-
-
-def hex_color(rgb: Rgb) -> str:
-    """A role as `#RRGGBB`."""
-    return "#{:02X}{:02X}{:02X}".format(*rgb)
-
-
-def token(value: object, rgb: Callable[[Rgb], str]) -> str:
-    """A value in a resource file's spelling: an alpha fraction as a percentage, an enum member as its number, a color in the given spelling, and any other value as text."""
-    match value:
-        case float():
-            return f"{round(value * 100)}%"
-        case System.Enum():
-            return str(int(value))
-        case tuple():
-            return rgb(value)
-        case _:
-            return str(value)
-
-
-def render(template: str, values: Mapping[str, object], rgb: Callable[[Rgb], str]) -> str:
-    """The template with each placeholder the run-time value or theme export its dotted path names, in the resource file's spelling."""
-    text = Placeholders(template)
-    names = SimpleNamespace(**values, **{name: getattr(theme, name) for name in theme.__all__})
-    return text.substitute({name: token(reduce(getattr, name.split("."), names), rgb) for name in text.get_identifiers()})
-
-
+# --- [SETTINGS]
 def internal(name: str, value: str) -> object:
-    """The named member of an enum Rhino declares internal, its type read by assembly-qualified name."""
+    """Member of an internal Rhino enum by its assembly-qualified type name."""
     return System.Enum.Parse(System.Type.GetType(name, throwOnError=True), value)
 
 
-def key(child: Rhino.PersistentSettings, name: str, *, target: bool | int | str | Guid | tuple[str, ...] | DrawingColor, label: str = "key") -> Row:
-    """Row of a settings key through the accessor pair the API names for the target's type."""
-    match target:
-        case bool():
-            return (f"{label} {name}", lambda: found(child.TryGetBool(name)), partial(child.SetBool, name), target)
-        case int():
-            return (f"{label} {name}", lambda: found(child.TryGetInteger(name)), partial(child.SetInteger, name), target)
-        case str():
-            return (f"{label} {name}", lambda: found(child.TryGetString(name)), partial(child.SetString, name), target)
-        case Guid():
-            return (f"{label} {name}", lambda: found(child.TryGetGuid(name)), partial(child.SetGuid, name), target)
-        case tuple():
-            return (f"{label} {name}", lambda: found(child.TryGetStringList(name)), lambda value: child.SetStringList(name, Array[String](list(value))), target)
-        case DrawingColor():
-            return (f"{label} {name}", lambda: found(child.TryGetColor(name)), partial(child.SetColor, name), target)
-
-
-def internal_setting(kind: object, name: str, *, target: object, instance: object = None) -> Row:
-    """Row of a property of a type Rhino declares internal, labeled by the type, read through its getter and written through its setter as a typed delegate, static without an instance."""
-    prop = kind.GetProperty(name)
-    setter = prop.SetMethod.CreateDelegate(System.Type.GetType("System.Action`1", throwOnError=True).MakeGenericType(prop.PropertyType), instance)
-    return (f"{kind.Name} {name}", partial(prop.GetValue, instance), setter, target)
-
-
-def absent(child: Rhino.PersistentSettings, name: str, *, label: str) -> Row:
-    """Row holding a settings key absent, deleted through its child when present."""
-    return (f"{label} {name}", lambda: name in child.Keys, lambda _: child.DeleteItem(name), False)
-
-
-def plain(value: object) -> object:
-    """A value as Python compares it: a system color as its alpha, red, green, and blue bytes, an id as its text, and an array as a tuple."""
-    match value:
-        case DrawingColor():
-            return (value.A, value.R, value.G, value.B)
-        case Guid():
-            return str(value)
-        case System.Array():
-            return tuple(value)
-        case _:
-            return value
-
-
-def converged(row: Row) -> tuple[str, object, object, object]:
-    """The row's label, its value before, its value after a write on difference, and its target."""
-    label, read, write, target = row
-    if (before := plain(read())) != plain(target):
-        write(target)
-    return (label, before, plain(read()), plain(target))
-
-
-def observed(row: Row | Reading) -> tuple[str, object, object, object]:
-    """The row's label, its value read twice, and its target."""
-    label, read, *_, target = row
-    value = plain(read())
-    return (label, value, value, plain(target))
-
-
-def lines(label: str, before: object, after: object, target: object) -> Iterable[tuple[str, object, object, object]]:
-    """The report lines of a row, one per key when its target is a mapping."""
-    match before, after, target:
-        case Mapping() as held, Mapping() as now, Mapping() as wanted:
-            return ((f"{label} {name}", held.get(name), now.get(name), value) for name, value in wanted.items())
-        case _:
-            return ((label, before, after, target),)
-
-
-def emit(results: Iterable[tuple[str, object, object, object]], skipped: Iterable[str], measured: Mapping[Site | Extent, float]) -> None:
-    """Print the `app` line, a `skip` line per absent plug-in or library, a `measure` line per extent, a `change` line per value a write changed, and an `error` line per value that reads other than its target, each value in its one-line `repr`."""
-    print(f"app\t{Rhino.RhinoApp.Version}\t{Path(Rhino.RhinoApp.GetDataDirectory(localUser=True, forceDirectoryCreation=False)) / 'settings'}")
-    for name in skipped:
-        print(f"skip\t{name}")
-    for name, value in measured.items():
-        print(f"measure\t{name}\t{value!r}")
-    for label, before, after, target in (line for result in results for line in lines(*result)):
-        if after != before:
-            print(f"change\t{label}\t{before!r}\t{after!r}")
-        if after != target:
-            print(f"error\t{label} holds {after!r} and needs {target!r}")
-
-
-def rounded(value: float) -> float:
-    """A length rounded past the noise a unit conversion leaves."""
-    return round(value, 9)
-
-
-# --- [SETTINGS]
-def presentation() -> int | None:
-    """Where command options present, as the command line's own callback reads it."""
-    args = NamedParametersEventArgs()
-    try:
-        HostUtils.ExecuteNamedCallback("Rhino.UI.Internal.DockBars.CommandLine.GetPresentationStyle", args)
-        return found(args.TryGetInt("mode"))
-    finally:
-        args.Dispose()
-
-
-def present(mode: int) -> None:
-    """Command options presented where the mode names, through the command line's own callback."""
-    args = NamedParametersEventArgs()
-    try:
-        args.Set("mode", mode)
-        HostUtils.ExecuteNamedCallback("Rhino.UI.Internal.DockBars.CommandLine.SetPresentationStyle", args)
-    finally:
-        args.Dispose()
-
-
-def prompt_font(family: str) -> None:
-    """The command prompt font family, set through the appearance state the native owner reads."""
-    state = Settings.AppearanceSettings.GetCurrentState()
-    state.CommandPromptFontName = family
-    Settings.AppearanceSettings.UpdateFromState(state)
-
-
-def settings_rows(options: Rhino.PersistentSettings) -> tuple[Row, ...]:
-    """Navigation, selection, dialogs, undo, input devices, language, prompt, history echo, gumball, SmartTrack, snaps, nudges, strips, docked containers, notes, crash reports, and update checks."""
+def settings_rows() -> tuple[Row, ...]:
+    """Rows of Rhino's application settings, the Settings window closed first."""
     root = Rhino.PersistentSettings.RhinoAppSettings
+    options = root.AddChild(OPTIONS)
     general, advanced, appearance, mouse = (options.AddChild(name) for name in ("General", "Advanced", "Appearance", "Mouse"))
-    scale = Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Meters, unit_system(Units.IMPERIAL.length))
+    preferences = Rhino.UI.RhinoEtoApp.ApplicationPreferencesWindowForPage(None)
     defaults, monitor = NSUserDefaults.StandardUserDefaults, NSUserDefaults("com.mcneel.rhinoceros.RhinoMonitor", NSUserDefaultsType.SuiteName)
     english, languages = CultureInfo(1033), "AppleLanguages"
     osnaps = Settings.OsnapModes
     tab_panels, notes = (System.Type.GetType(name, throwOnError=True) for name in ("Rhino.UI.Internal.TabPanels.TabPanelSettings, Rhino.UI", "Rhino.UI.Runtime.Settings, Rhino.UI"))
     toolbar = System.Type.GetType("Rhino.UI.Internal.TabPanels.ToolbarSettings, Rhino.UI", throwOnError=True).GetProperty("Instance").GetValue(None)
-    buttons, tooltips = (toolbar.GetType().GetProperty(name).GetValue(toolbar) for name in ("Buttons", "ToolTips"))
+    buttons, tooltips = toolbar.Buttons, toolbar.ToolTips
     tab_style = partial(internal, "Rhino.UI.Internal.TabPanels.TabControlDisplayStyle, Rhino.UI")
     icon_size = 16
-    icon_buttons = int(internal("Rhino.UI.DialogPanels.OSnapPanel+OSnapButtonDisplay, Rhino.UI", "IconOnly"))
+
+    def presentation(entry: str, **parameters: int) -> int | None:
+        """Command options presentation mode the command line's named callback returns, None while it names no mode."""
+        args = NamedParametersEventArgs()
+        try:
+            for name, value in parameters.items():
+                args.Set(name, value)
+            HostUtils.ExecuteNamedCallback(f"Rhino.UI.Internal.DockBars.CommandLine.{entry}", args)
+            return found(args.TryGetInt("mode"))
+        finally:
+            args.Dispose()
+
+    def prompt_font(family: str) -> None:
+        """Set the command prompt font family through the appearance state the native owner reads."""
+        state = Settings.AppearanceSettings.GetCurrentState()
+        state.CommandPromptFontName = family
+        Settings.AppearanceSettings.UpdateFromState(state)
+
     return (
-        member("view", Settings.ViewSettings, "RotateViewAroundObjectAtMouseCursor", target=True),
-        member("view", Settings.ViewSettings, "RotateViewAroundAutogumball", target=False),
-        member("view", Settings.ViewSettings, "AlwaysPanParallelViews", target=True),
-        member("view", Settings.ViewSettings, "PanPlanParallelViewsWithControlShiftRMB", target=True),
-        member("view", Settings.ViewSettings, "ZoomScale", target=0.913),
-        member("view", Settings.ViewSettings, "AutoAdjustTargetDepth", target=True),
+        Row(label="settings window open", read=lambda: preferences is not None and preferences.Visible, write=lambda _: preferences.Close(), target=False),
+        *(
+            member("view", Settings.ViewSettings, name, target=True)
+            for name in ("RotateViewAroundObjectAtMouseCursor", "AlwaysPanParallelViews", "PanPlanParallelViewsWithControlShiftRMB", "AutoAdjustTargetDepth")
+        ),
+        *(member("view", Settings.ViewSettings, name, target=False) for name in ("RotateViewAroundAutogumball", "SingleClickMaximize", "LinkedViewports")),
+        member("view", Settings.ViewSettings, "ZoomScale", target=1 / math.sqrt(1.2)),
         member("view", Settings.ViewSettings, "ViewRotation", target=Settings.ViewSettings.ViewRotationStyle.RotateAroundWorldAxes),
-        member("view", Settings.ViewSettings, "SingleClickMaximize", target=False),
-        member("view", Settings.ViewSettings, "LinkedViewports", target=False),
+        member("view", Settings.ViewSettings, "RotateCircleIncrement", target=360 // ANGLE_STEP),
         member("general", Settings.GeneralSettings, "MiddleMouseMode", target=Settings.MiddleMouseMode.PopupToolbar),
         member("general", Settings.GeneralSettings, "MiddleMousePopupToolbar", target="Popup"),
         member("general", Settings.GeneralSettings, "MouseSelectMode", target=Settings.MouseSelectMode.Combo),
         member("general", Settings.GeneralSettings, "MinimumUndoSteps", target=100),
         member("general", Settings.GeneralSettings, "MaximumUndoMemoryMb", target=4096),
-        key(general, "MiddleMousePlainButtonRotateMode", target=True),
-        key(general, "MiddleMouseViewManipulationMode", target=True),
-        key(general, "MiddleMouseShiftControlSwap", target=False),
-        key(general, "EnableTrackpadScrolling", target=True),
-        key(general, "EnableContextMenu", target=True),
-        key(general, "ContextMenuDelayInMillisecond", target=300),
-        key(general, "UsageStatisticsEnabled", target=False),
-        key(advanced, "EnableCheckForUpdates", target=False),
-        key(advanced, "DisableModelAndPageUnitsDifferDialog", target=True),
-        key(advanced, "DisablePageUnitsNotInchesOrMMDialog", target=True),
-        key(advanced, "MacDisplayOldVersionAutosaveWarning", target=False),
-        key(advanced, "DisplayNonOriginModelBasepointWarning", target=False),
-        key(advanced, "UseCompressionWhenSaving", target=False),
-        key(advanced, "UseEtoCommandUI", target=True),
-        key(advanced, "AllowUnadornedShortcuts", target=False),
-        key(advanced, "NotesUseSpacesForTabs", target=False),
+        member("general", Settings.GeneralSettings, "EnableContextMenu", target=True),
+        member("general", Settings.GeneralSettings, "ContextMenuDelay", target=System.TimeSpan(0, 0, 0, 0, 300)),
+        *(
+            key(general, name, target=True)
+            for name in ("MiddleMousePlainButtonRotateMode", "MiddleMouseViewManipulationMode", "EnableTrackpadScrolling", "MouseOverHighlight", "SilhouetteHighlighting")
+        ),
+        *(key(general, name, target=False) for name in ("MiddleMouseShiftControlSwap", "UsageStatisticsEnabled")),
+        key(general, "SilhouetteThickness", target=3),
+        *(key(advanced, name, target=True) for name in ("DisableModelAndPageUnitsDifferDialog", "DisablePageUnitsNotInchesOrMMDialog", "UseEtoCommandUI")),
+        *(
+            key(advanced, name, target=False)
+            for name in (
+                "EnableCheckForUpdates",
+                "MacDisplayOldVersionAutosaveWarning",
+                "DisplayNonOriginModelBasepointWarning",
+                "UseCompressionWhenSaving",
+                "AllowUnadornedShortcuts",
+                "NotesUseSpacesForTabs",
+            )
+        ),
         key(advanced, "NotesTabWidth", target=8),
+        absent(advanced, "DarkMode", label="key"),
         key(root.AddChild("Warnings"), "MissingFontWarning", target=False),
+        member("plugin", PlugIn, "AskOnLoadProtection", target=False),
         key(options.AddChild("PackageManager"), "CheckForUpdates", target=False),
         key(options.AddChild("FileSettings"), "AutoSaveVersionsEnabled", target=True),
-        key(mouse, "EnableUnselectedObjectDrag", target=False),
-        key(mouse, "EnableUnselectedGripDrag", target=True),
-        key(mouse, "EnableMouseScrollBallRotation", target=False),
-        key(mouse, "EnableMagicMouseGestures", target=True),
-        key(mouse, "EnableMagicMouseRotation", target=False),
-        key(mouse, "DisableRightClickAsEnter", target=False),
+        *(key(mouse, name, target=False) for name in ("EnableUnselectedObjectDrag", "EnableMouseScrollBallRotation", "EnableMagicMouseRotation", "DisableRightClickAsEnter")),
+        *(key(mouse, name, target=True) for name in ("EnableUnselectedGripDrag", "EnableMagicMouseGestures")),
         key(mouse, "MouseButton4Macro", target="'_Zoom _Selected"),
         member("appearance", Settings.AppearanceSettings, "LanguageIdentifier", target=english.LCID),
         member("appearance", Settings.AppearanceSettings, "HelpLanguageIdentifier", target=0),
-        member("appearance", Settings.AppearanceSettings, "EchoCommandsToHistoryWindow", target=True),
-        member("appearance", Settings.AppearanceSettings, "EchoPromptsToHistoryWindow", target=True),
-        member("appearance", Settings.AppearanceSettings, "ShowViewportTitles", target=True),
-        member("appearance", Settings.AppearanceSettings, "ShowCrosshairs", target=True),
-        member("appearance", Settings.AppearanceSettings, "ShowOsnapBar", target=True),
-        member("appearance", Settings.AppearanceSettings, "ShowSelectionFilterBar", target=False),
+        *(
+            member("appearance", Settings.AppearanceSettings, name, target=True)
+            for name in ("EchoCommandsToHistoryWindow", "EchoPromptsToHistoryWindow", "ShowViewportTitles", "ShowCrosshairs", "ShowCursorWhenCrosshairsVisible", "ShowOsnapBar")
+        ),
         member("appearance", Settings.AppearanceSettings, "ShowLayoutDropShadow", target=False),
         member("appearance", Settings.AppearanceSettings, "CommandPromptFontSize", target=110),
-        ("appearance CommandPromptFontName", lambda: found(appearance.TryGetString("CommandPromptFontName")), prompt_font, Typography.INTERFACE.family),
-        key(appearance, "AutocompleteCommands", target=True),
-        key(appearance, "FuzzyAutocomplete", target=True),
-        key(appearance, "ShowStatusbar", target=True),
+        Row(label="appearance CommandPromptFontName", read=lambda: found(appearance.TryGetString("CommandPromptFontName")), write=prompt_font, target=Typography.INTERFACE.family),
+        *(key(appearance, name, target=True) for name in ("AutocompleteCommands", "FuzzyAutocomplete", "ShowStatusbar", "AlwaysShowGeneralObjectProperties", "ShowSideBar")),
         key(appearance, "StatusbarInfoPaneMode", target=int(internal("Rhino.UI.Internal.TabPanels.Controls.StatusBarInfoPaneMode, Rhino.UI", "selected_object_count"))),
-        key(appearance, "AlwaysShowGeneralObjectProperties", target=True),
-        key(appearance, "ShowSideBar", target=True),
         key(appearance, "DirectionArrowThickness", target=2),
-        ("command options presentation", presentation, present, int(internal("Rhino.UI.CommandPromptLocation, RhinoCommon", "SideBar"))),
+        Row(
+            label="command options presentation",
+            read=partial(presentation, "GetPresentationStyle"),
+            write=lambda mode: presentation("SetPresentationStyle", mode=mode),
+            target=int(internal("Rhino.UI.CommandPromptLocation, RhinoCommon", "SideBar")),
+        ),
         key(options, "CommandPromptStyle", target=int(internal("Rhino.UI.CommandPromptStyle, RhinoCommon", "Graphical"))),
         absent(options, "CommandPromptLocation", label="key"),
         member("file", Settings.FileSettings, "ClipboardOnExit", target=Settings.ClipboardState.DeleteData),
-        member("file", Settings.FileSettings, "FileLockingOpenWarning", target=False),
-        member("file", Settings.FileSettings, "CreateOtherBackupFiles", target=False),
-        member("file", Settings.FileSettings, "SaveViewChanges", target=False),
-        member("gumball", Settings.GumballSettings, "EnableGumball", target=True),
-        member("gumball", Settings.GumballSettings, "SnappyGumball", target=True),
-        member("gumball", Settings.GumballSettings, "MergeFacesAfterExtrude", target=True),
+        *(member("file", Settings.FileSettings, name, target=False) for name in ("FileLockingOpenWarning", "CreateOtherBackupFiles", "SaveViewChanges")),
+        member("opengl", Settings.OpenGLSettings, "AntialiasLevel", target=Rhino.AntialiasLevel.Good),
+        *(member("gumball", Settings.GumballSettings, name, target=True) for name in ("EnableGumball", "SnappyGumball", "MergeFacesAfterExtrude")),
         *(member("gumball", Settings.GumballSettings, name, target=2) for name in ("AxisThickness", "ArcThickness")),
-        member("smarttrack", Settings.SmartTrackSettings, "UseSmartTrack", target=True),
-        member("smarttrack", Settings.SmartTrackSettings, "SmartOrtho", target=True),
-        member("smarttrack", Settings.SmartTrackSettings, "Parallels", target=True),
+        *(member("smarttrack", Settings.SmartTrackSettings, name, target=True) for name in ("UseSmartTrack", "SmartOrtho", "Parallels", "UseDottedLines")),
         key(options.AddChild("SmartTrack"), "MaximumSmartPoints", target=4),
-        member("modelaid", Settings.ModelAidSettings, "Osnap", target=True),
+        *(member("modelaid", Settings.ModelAidSettings, name, target=True) for name in ("Osnap", "Ortho", "ProjectToCPlaneInPlanParallelViews", "DragStartsWindowSelection", "AltPlusArrow")),
+        *(member("modelaid", Settings.ModelAidSettings, name, target=False) for name in ("GridSnap", "Planar", "ProjectSnapToCPlane", "SnapToFiltered", "ExtendToApparentIntersection")),
         member("modelaid", Settings.ModelAidSettings, "OsnapModes", target=osnaps.End | osnaps.Point | osnaps.Midpoint | osnaps.Center | osnaps.Intersection | osnaps.Perpendicular | osnaps.Quadrant),
-        member("modelaid", Settings.ModelAidSettings, "Ortho", target=True),
-        member("modelaid", Settings.ModelAidSettings, "GridSnap", target=False),
-        member("modelaid", Settings.ModelAidSettings, "Planar", target=False),
-        member("modelaid", Settings.ModelAidSettings, "ProjectToCPlaneInPlanParallelViews", target=True),
-        member("modelaid", Settings.ModelAidSettings, "ProjectSnapToCPlane", target=False),
-        member("modelaid", Settings.ModelAidSettings, "SnapToFiltered", target=False),
-        member("modelaid", Settings.ModelAidSettings, "ExtendToApparentIntersection", target=False),
-        member("modelaid", Settings.ModelAidSettings, "DragStartsWindowSelection", target=True),
-        member("modelaid", Settings.ModelAidSettings, "AltPlusArrow", target=True),
+        member("modelaid", Settings.ModelAidSettings, "OrthoAngle", target=math.radians(6 * ANGLE_STEP)),
         member("modelaid", Settings.ModelAidSettings, "NudgeMode", target=1),
-        *(
-            (f"modelaid {name}", lambda name=name: rounded(getattr(Settings.ModelAidSettings, name)), partial(setattr, Settings.ModelAidSettings, name), rounded(length * scale))
-            for name, length in zip(("NudgeKeyStep", "CtrlNudgeKeyStep", "ShiftNudgeKeyStep"), NUDGE, strict=True)
-        ),
-        member("chooseone", Settings.ChooseOneObjectSettings, "ShowObjectLayer", target=True),
-        member("chooseone", Settings.ChooseOneObjectSettings, "ShowObjectTypeDetails", target=True),
-        member("chooseone", Settings.ChooseOneObjectSettings, "ShowAllOption", target=True),
+        *(member("chooseone", Settings.ChooseOneObjectSettings, name, target=True) for name in ("ShowObjectLayer", "ShowObjectTypeDetails", "ShowAllOption")),
         member("chooseone", Settings.ChooseOneObjectSettings, "ShowTitlebarAndBorder", target=False),
         member("selectionfilter", Settings.SelectionFilterSettings, "GlobalGeometryFilter", target=ObjectType.AnyObject),
         member("selectionfilter", Settings.SelectionFilterSettings, "Enabled", target=Settings.SelectionFilterSettings.GetDefaultState().Enabled),
-        member("tooltip", Settings.CursorTooltipSettings, "TooltipsEnabled", target=True),
-        member("tooltip", Settings.CursorTooltipSettings, "DistancePane", target=True),
+        *(member("tooltip", Settings.CursorTooltipSettings, name, target=True) for name in ("TooltipsEnabled", "DistancePane")),
         key(options.AddChild("Grid"), "AxisLineWidth", target=1),
         *(
             internal_setting(tab_panels, name, target=target)
             for name, target in (
                 ("LockDockedWindows", True),
                 ("TabIconSize", icon_size),
-                ("ToolBarImageSize", window.BUTTON_SIZE),
+                ("ToolBarImageSize", 24),
                 ("HorizontalDisplayStyle", tab_style("Text")),
                 ("VerticalDisplayStyle", tab_style("Bitmap")),
                 ("FloatingDisplayStyle", tab_style("Bitmap")),
@@ -400,92 +184,105 @@ def settings_rows(options: Rhino.PersistentSettings) -> tuple[Row, ...]:
             )
         ),
         *(
-            internal_setting(buttons.GetType(), name, target=target, instance=buttons)
+            member(type(buttons).__name__, buttons, name, target=target)
             for name, target in (
                 ("PanelButtonSize", icon_size),
-                ("ButtonPadding", window.BUTTON_PADDING),
+                ("ButtonPadding", 3),
                 ("SpacerSize", 5),
                 ("Cascade", internal("Rhino.UI.Internal.TabPanels.CascadeStyle, Rhino.UI", "AsPanel")),
                 ("MiddleMouseDelay", 400),
             )
         ),
-        *(internal_setting(tooltips.GetType(), name, target=True, instance=tooltips) for name in ("IncludeShortcut", "IncludeAlias")),
-        key(root, "OSnapButtonDisplay", target=icon_buttons),
-        key(root, "OSnapIconSize", target=icon_size),
-        key(root, "OSnapStretchButtons", target=True),
+        *(member(type(tooltips).__name__, tooltips, name, target=True) for name in ("IncludeShortcut", "IncludeAlias")),
+        key(root, "OSnapButtonDisplay", target=int(internal("Rhino.UI.DialogPanels.OSnapPanel+OSnapButtonDisplay, Rhino.UI", "IconOnly"))),
         key(root, "SelectionFilterButtonDisplay", target=int(internal("Rhino.UI.DialogPanels.SelectionFilterUi+ButtonDisplay, Rhino.UI", "IconOnly"))),
-        key(root, "SelectionFilterIconSize", target=icon_size),
-        key(root, "SelectionFilterUseCheckedColor", target=True),
-        key(root, "SelectionFilterStretchButtons", target=True),
+        *(key(root, name, target=icon_size) for name in ("OSnapIconSize", "SelectionFilterIconSize")),
+        *(key(root, name, target=True) for name in ("OSnapStretchButtons", "SelectionFilterUseCheckedColor", "SelectionFilterStretchButtons")),
         key(root, "AnnotationSpellCheck", target=False),
-        key(root.AddChild("PropertiesEditor").AddChild("Options"), "DisplayPagesOnIdle", target=True),
+        key(root.AddChild("PropertiesEditor").AddChild(OPTIONS), "DisplayPagesOnIdle", target=True),
         internal_setting(notes, "NotesRestoreCursorPosition", target=False),
         *(
-            (f"appkit {name}", partial(read, name), lambda value, write=write, name=name: write(value, name), target)
+            Row(label=f"appkit {name}", read=partial(read, name), write=lambda value, write=write, name=name: write(value, name), target=target)
             for read, write, name, target in (
                 (defaults.BoolForKey, defaults.SetBool, "AppleReduceDesktopTinting", True),
+                (defaults.BoolForKey, defaults.SetBool, "SUAutomaticallyUpdate", False),
+                (lambda name: defaults.IntForKey(name).ToInt64(), lambda value, name: defaults.SetInt(System.IntPtr(value), name), "AppleAccentColor", 4),
+                (defaults.StringForKey, defaults.SetString, "AppleHighlightColor", " ".join((*(f"{channel / 255:.6f}" for channel in Accent.TEXT_SELECTED), "Other"))),
                 (defaults.StringForKey, defaults.SetString, "MRLanguage", english.Parent.Name),
                 (monitor.BoolForKey, monitor.SetBool, "MRShouldIncludeModelFileInReport", False),
             )
         ),
-        (
-            f"appkit {languages}",
-            partial(defaults.StringArrayForKey, languages),
-            lambda value: defaults.SetValueForKey(NSArray.FromStrings(Array[String](list(value))), NSString(languages)),
-            (english.Parent.Name,),
+        Row(
+            label=f"appkit {languages}",
+            read=partial(defaults.StringArrayForKey, languages),
+            write=lambda value: defaults.SetValueForKey(NSArray.FromStrings(Array[String](list(value))), NSString(languages)),
+            target=(english.Parent.Name,),
         ),
     )
 
 
 # --- [PANELS]
 def panel_rows() -> tuple[Row, ...]:
-    """List views and restore memory of the panels, the material preview checker, the block preview in the declared mode, and each right-hand panel open where the host's file stage orders it."""
+    """Rows of the panels' settings and each right-hand panel open."""
     rdk, eto_panels, commands = (Rhino.PersistentSettings.FromPlugInId(PlugIn.IdFromName(name)) for name in ("Renderer Development Kit", "RDK_EtoUI", "Commands"))
     settings = rdk.AddChild("Settings")
     support = settings.AddChild("RendererSupport")
     checkers = {"LightPreviewCheckerColor": Surface.BOX, "DarkPreviewCheckerColor": Surface.PANEL}
+    library = (
+        (
+            ("Libraries_CustomPathList", SupportOptions.Libraries_CustomPathList, SupportOptions.Libraries_SetCustomPathList, str(MATERIALS)),
+            ("Libraries_InitialLocation", SupportOptions.Libraries_InitialLocation, SupportOptions.Libraries_SetInitialLocation, SupportOptions.RdkInitialLocation.CustomFolder),
+            ("Libraries_InitialLocationCustomFolder", SupportOptions.Libraries_InitialLocationCustomFolder, SupportOptions.Libraries_SetInitialLocationCustomFolder, str(MATERIALS)),
+        )
+        if stocked(MATERIALS)
+        else ()
+    )
     layer_states = commands.AddChild("LayerStates")
     restored = RestoreLayerProperties.Visible | RestoreLayerProperties.Locked | RestoreLayerProperties.ViewportVisible | RestoreLayerProperties.NewDetailOn
     preview = Rhino.PersistentSettings.RhinoAppSettings.AddChild("ObjectManager").AddChild("Preview")
     panels = Rhino.UI.Panels
-    head, *_ = window.RIGHT_TOP
-    container = panels.PanelDockBar(Guid(str(head)))
+    head, *_ = RIGHT_TOP
+
+    def open_panel(panel: Panel) -> None:
+        """Open the panel in the right column's top container, or in its last container while that one is closed."""
+        held, opened = panels.PanelDockBar(Guid(str(head))), Guid(str(panel))
+        if held == Guid.Empty:
+            panels.OpenPanel(opened)
+        else:
+            panels.OpenPanel(held, opened, makeSelectedPanel=False)
+
     return (
         key(settings, "LibrariesViewMode", target=1, label="libraries"),
         key(settings, "LibrariesListSizePercentage", target=0, label="libraries"),
         *(
-            (f"rdk {name}", lambda name=name: found(support.TryGetUnsignedInteger(name)), partial(support.SetUnsignedInteger, name), ColorTranslator.ToWin32(color(rgb)))
+            Row(label=f"rdk {name}", read=lambda name=name: found(support.TryGetUnsignedInteger(name)), write=partial(support.SetUnsignedInteger, name), target=ColorTranslator.ToWin32(color(rgb)))
             for name, rgb in checkers.items()
         ),
         *(key(eto_panels.AddChild(panel), "ViewMode", target=1, label=panel) for panel in ("BlockContent", "FileExplorer")),
-        ("libraries Libraries_ShowDocuments", SupportOptions.Libraries_ShowDocuments, SupportOptions.Libraries_SetShowDocuments, False),
-        ("block content BlockContent_ShowDocuments", SupportOptions.BlockContent_ShowDocuments, SupportOptions.BlockContent_SetShowDocuments, False),
-        (
-            "layer states RestoreLayerProperties",
-            lambda: found(layer_states.TryGetUnsignedInteger("RestoreLayerProperties")),
-            partial(layer_states.SetUnsignedInteger, "RestoreLayerProperties"),
-            int(restored),
+        Row(label="libraries Libraries_ShowDocuments", read=SupportOptions.Libraries_ShowDocuments, write=SupportOptions.Libraries_SetShowDocuments, target=False),
+        *(Row(label=f"libraries {name}", read=read, write=write, target=target) for name, read, write, target in library),
+        Row(label="block content BlockContent_ShowDocuments", read=SupportOptions.BlockContent_ShowDocuments, write=SupportOptions.BlockContent_SetShowDocuments, target=False),
+        Row(
+            label="layer states RestoreLayerProperties",
+            read=lambda: found(layer_states.TryGetUnsignedInteger("RestoreLayerProperties")),
+            write=partial(layer_states.SetUnsignedInteger, "RestoreLayerProperties"),
+            target=int(restored),
         ),
         key(layer_states, "ModelPropertiesChecked", target=True, label="layer states"),
         key(layer_states, "ViewportPropertiesChecked", target=True, label="layer states"),
-        key(preview, "DisplayModeId", target=Guid(str(window.MODE_ID)), label="block preview"),
+        absent(preview, "DisplayModeId", label="block preview"),
         *(
-            (
-                f"panel {panel.name} open",
-                lambda panel=panel: panels.PanelDockBar(Guid(str(panel))) != Guid.Empty,
-                lambda _, panel=panel: panels.OpenPanel(container, Guid(str(panel)), makeSelectedPanel=False),
-                True,
-            )
-            for panel in (*window.RIGHT_TOP, *window.RIGHT_BOTTOM)
+            Row(label=f"panel {panel.name} open", read=lambda panel=panel: panels.PanelDockBar(Guid(str(panel))) != Guid.Empty, write=lambda _, panel=panel: open_panel(panel), target=True)
+            for panel in (*RIGHT_TOP, *RIGHT_BOTTOM)
         ),
     )
 
 
 # --- [COLORS]
 def theme_rows() -> tuple[Row, ...]:
-    """Every theme key a Rhino control draws, in the role its meaning takes, each zone's grounded keys on its ground."""
+    """Rows of each theme key a Rhino control draws in its role, every other theme key holding a color deleted."""
     theme_settings = Rhino.PersistentSettings.RhinoAppSettings.AddChild("UI").AddChild("ThemeSettings")
-    roles = {
+    shared = {
         "Text.Disabled": Text.DISABLED,
         "Button.Enabled.Background": Surface.FIELD,
         "Button.Enabled.Border": Line.BORDER,
@@ -506,7 +303,7 @@ def theme_rows() -> tuple[Row, ...]:
             ("Background", "Edge"),
             {
                 "Text.Secondary": Text.SECONDARY,
-                "GripperDot": Line.GRID,
+                "GripperDot": Line.BORDER,
                 "Highlight": Accent.CONTROL_PRESSED,
                 "Button.EnabledHover.Border": Surface.HOVER,
                 "Tab.EnabledHover.Background": Surface.WELL,
@@ -538,21 +335,30 @@ def theme_rows() -> tuple[Row, ...]:
             },
         ),
     }
-    clear = {"Button.Disabled.Background"}
-    return tuple(
-        key(theme_settings, f"{zone}.{suffix}", target=color(rgb, 0.0 if suffix in clear else 1.0), label="theme")
+    declared = {
+        f"{zone}.{suffix}": color(rgb, 0.0 if suffix == "Button.Disabled.Background" else 1.0)
         for zone, (ground, grounded, overrides) in zones.items()
-        for suffix, rgb in {**roles, **dict.fromkeys(grounded, ground), **overrides}.items()
-    )
+        for suffix, rgb in {**shared, **dict.fromkeys(grounded, ground), **overrides}.items()
+    }
+
+    def strays() -> tuple[str, ...]:
+        """Sorted theme keys holding a color the declaration leaves out."""
+        return tuple(sorted(name for name in theme_settings.Keys if name not in declared and found(theme_settings.TryGetColor(name)) is not None))
+
+    def clear(_: object) -> None:
+        """Delete every undeclared theme key holding a color."""
+        for name in strays():
+            theme_settings.DeleteItem(name)
+
+    return (*(key(theme_settings, name, target=target, label="theme") for name, target in declared.items()), Row(label="undeclared theme keys", read=strays, write=clear, target=()))
 
 
-def color_rows(options: Rhino.PersistentSettings, ui_settings: Rhino.PersistentSettings) -> tuple[Row, ...]:
-    """The color roles on the canvas, grid, axes, selection, feedback, command prompt, SmartTrack, choose-one highlight, gumball, widgets, analysis, filter strip, and color picker swatches."""
-    appearance, gumball = Settings.AppearanceSettings, Settings.GumballSettings
-    root = Rhino.PersistentSettings.RhinoAppSettings
-    general, arrow_owner = options.AddChild("General"), options.AddChild("Appearance")
+def color_rows() -> tuple[Row, ...]:
+    """Rows of Rhino's color settings in their roles, each color no macOS code draws at its factory value."""
+    appearance, gumball, tooltip = Settings.AppearanceSettings, Settings.GumballSettings, Settings.CursorTooltipSettings
+    factory, root = appearance.GetDefaultState(), Rhino.PersistentSettings.RhinoAppSettings
+    arrow_owner, ui_settings = root.AddChild(OPTIONS).AddChild("Appearance"), root.AddChild("UI").AddChild("Settings")
     axes = tuple(color(axis) for axis in (Axis.X, Axis.Y, Axis.Z))
-    fill = color(Selection.ITEM, SELECTION_FILL_ALPHA)
     triads = (
         (appearance, ("GridXAxisLineColor", "GridYAxisLineColor", "GridZAxisLineColor")),
         (appearance, ("WorldCoordIconXAxisColor", "WorldCoordIconYAxisColor", "WorldCoordIconZAxisColor")),
@@ -566,25 +372,26 @@ def color_rows(options: Rhino.PersistentSettings, ui_settings: Rhino.PersistentS
             appearance,
             {
                 "ViewportBackgroundColor": color(Surface.CANVAS),
-                "PageviewPaperColor": color(Surface.CANVAS),
-                "GridThickLineColor": color(blend(Line.GRID, Surface.CANVAS, GRID_MAJOR_ALPHA)),
-                "GridThinLineColor": color(blend(Line.GRID, Surface.CANVAS, GRID_MINOR_ALPHA)),
+                "PageviewPaperColor": color(Surface.PAPER),
+                "FrameBackgroundColor": factory.FrameBackgroundColor,
+                "CommandPromptHypertextColor": factory.CommandPromptHypertextColor,
+                "GridThickLineColor": color(blend(Line.GRID, Surface.CANVAS, Alpha.GRID_MAJOR)),
+                "GridThinLineColor": color(blend(Line.GRID, Surface.CANVAS, Alpha.GRID_MINOR)),
                 "LockedObjectColor": color(Line.LOCKED),
                 "SelectedObjectColor": color(Selection.ITEM),
                 "EditCandidateColor": color(Selection.HOVER),
                 "SelectionWindowStrokeColor": color(Selection.ITEM),
-                "SelectionWindowFillColor": fill,
+                "SelectionWindowFillColor": color(Selection.ITEM, Alpha.SELECTION_FILL),
                 "SelectionWindowCrossingStrokeColor": color(Selection.ITEM),
-                "SelectionWindowCrossingFillColor": fill,
-                "FeedbackColor": color(Line.GEOMETRY),
+                "SelectionWindowCrossingFillColor": color(Selection.ITEM, Alpha.CROSSING_FILL),
+                "FeedbackColor": color(Ink.SCREEN),
                 "TrackingColor": color(Guide.TRACKING),
                 "CrosshairColor": color(Guide.HANDLE),
-                "DefaultLayerColor": color(Line.GEOMETRY),
-                "DefaultObjectColor": color(Line.GEOMETRY),
+                "DefaultLayerColor": color(Ink.DOCUMENT),
+                "DefaultObjectColor": color(Ink.DOCUMENT),
                 "CommandPromptBackgroundColor": color(Surface.WELL),
                 "CommandPromptTextColor": color(Text.PRIMARY),
-                "CommandPromptHypertextColor": color(Accent.ITEM_HOVER),
-                "BlackWhiteSwitching": False,
+                "BlackWhiteSwitching": True,
             },
         ),
         (
@@ -599,561 +406,528 @@ def color_rows(options: Rhino.PersistentSettings, ui_settings: Rhino.PersistentS
             },
         ),
         ("chooseone", Settings.ChooseOneObjectSettings, {"HighlightColor": color(Selection.HOVER), "UseCustomColor": True}),
-        ("gumball", gumball, {"MenuBallColor": color(Text.PRIMARY)}),
+        ("gumball", gumball, {"MenuBallColor": color(Guide.HANDLE)}),
         ("curvaturegraph", Settings.CurvatureGraphSettings, {"CurveHairColor": color(Guide.CONSTRUCTION), "SurfaceUHairColor": color(Axis.X), "SurfaceVHairColor": color(Axis.Y)}),
         ("directionanalysis", Settings.DirectionAnalysisSettings, {"Color": color(Guide.CONSTRUCTION)}),
         ("edgeanalysis", Settings.EdgeAnalysisSettings, {"ShowEdgeColor": color(Status.ERROR)}),
-        ("zebraanalysis", Settings.ZebraAnalysisSettings, {"StripeColor": color(Line.GEOMETRY)}),
+        ("zebraanalysis", Settings.ZebraAnalysisSettings, {"StripeColor": color(Ink.DOCUMENT)}),
+        ("tooltip", tooltip, {name: getattr(tooltip.GetDefaultState(), name) for name in ("BackgroundColor", "TextColor")}),
     )
-    swatches = (hex_color(Line.GEOMETRY), *(hex_color(tag.solid) for tag in Tag))
+    swatches = tuple(hex_color(rgb) for rgb in (Ink.DOCUMENT, *(tag.value for tag in Tag)))
     return (
         *(member(label, owner, name, target=target) for label, owner, targets in members for name, target in targets.items()),
         *(member("axis", owner, name, target=axis) for owner, names in triads for name, axis in zip(names, axes, strict=True)),
-        *((f"widget {widget}", partial(appearance.GetWidgetColor, widget), partial(appearance.SetWidgetColor, widget), axis) for widget, axis in zip(widgets, axes, strict=True)),
+        *(
+            Row(label=f"widget {widget}", read=partial(appearance.GetWidgetColor, widget), write=partial(appearance.SetWidgetColor, widget), target=axis)
+            for widget, axis in zip(widgets, axes, strict=True)
+        ),
         *(key(arrow_owner, name, target=axis) for name, axis in zip(arrows, axes, strict=True)),
         key(root.AddChild("SoftTransformSettings"), "FalloffColor", target=color(Guide.TRACKING)),
-        *(key(general, name, target=color(rgb)) for name, rgb in (("HiddenLineColor", Line.GEOMETRY), ("SelectedObjectCornerColor", Selection.ITEM))),
-        key(root, "SelectionFilterCheckedColorDark", target=color(Accent.CONTROL_PRESSED)),
+        *(key(root, f"SelectionFilterCheckedColor{scheme}", target=color(Accent.CONTROL_PRESSED)) for scheme in ("Dark", "Light")),
         key(ui_settings, "ColorPanelSwatches", target=swatches),
     )
 
 
 # --- [COMMANDS]
-def alias_table() -> dict[str, str]:
-    """Rhino's factory aliases overlaid with the declared alias file, names upper-cased and macros case-folded as Rhino compares them."""
-    declared = (line.partition(" ") for line in Path(__file__).with_name("aliases.txt").read_text(encoding="utf-8").splitlines() if line)
-    return {**{pair.Key.upper(): pair.Value for pair in Settings.CommandAliasList.GetDefaults()}, **{name.upper(): macro for name, _, macro in declared}}
-
-
-def write_aliases(aliases: Mapping[str, str]) -> None:
-    """Replace Rhino's whole alias list with the table, none of them instant."""
-    Settings.CommandAliasList.Update(List[Settings.CommandAlias]([Settings.CommandAlias(name, macro, instant=False) for name, macro in aliases.items()]), replaceAll=True)
-
-
-def folded(aliases: Mapping[str, str]) -> dict[str, str]:
-    """The table with macros case-folded."""
-    return {name: macro.casefold() for name, macro in aliases.items()}
-
-
-def registry_child(plugin: Guid) -> Rhino.PersistentSettings | None:
-    """The plug-in registry record of the plug-in under the registry version that holds it, none when no version holds one."""
-    registry, record = Rhino.PersistentSettings.RhinoAppSettings.AddChild("PlugInRegistry"), str(plugin)
-    return next((held for version in registry.ChildKeys if (held := found(registry.AddChild(version).TryGetChild(record))) is not None), None)
-
-
-def plugin_loads() -> tuple[tuple[str, PlugInLoadTime, Rhino.PersistentSettings | None], ...]:
-    """Each declared plug-in with its load time and its registry record, none where the plug-in is not installed."""
-    on_demand = PlugInLoadTime.WhenNeeded
-    return tuple(
-        (name, mode, registry_child(PlugIn.IdFromName(name)))
-        for name, mode in ((f"3DxRhino.{Rhino.RhinoApp.ExeVersion}", on_demand), ("PanelingTools", on_demand), ("RhinoAI", PlugInLoadTime.AtStartup))
-    )
-
-
 def command_rows() -> tuple[Row, ...]:
-    """The aliases as a whole set, the shortcuts, installed plug-ins' load modes, RhinoAI's agents, alerts off, Cycles on the automatic device, and Rhino Render current."""
-    table = alias_table()
-    shortcuts = Settings.ShortcutKeySettings
+    """Rows of the declared aliases as the whole set, shortcuts, and the settings of plug-ins Rhino bundles."""
+    shortcuts, registry = Settings.ShortcutKeySettings, Rhino.PersistentSettings.RhinoAppSettings.AddChild("PlugInRegistry")
     clr.AddReference("RhinoCyclesCore")
-    cycles = import_module("RhinoCyclesCore.Core").RcCore.It.AllSettings
-    alerter = import_module("Commands.Commands.Alerter").AlerterCommand.Instance
-    loads = tuple((name, mode, record) for name, mode, record in plugin_loads() if record is not None)
+    from Commands.Commands import Alerter
+    import RhinoCyclesCore.Core
+
     shortcut_macros = (
-        (Settings.ShortcutKey.Ctrl7, window.mode_macro(Scope.ACTIVE)),
         (Settings.ShortcutKey.F3, "! _Properties"),
         *((getattr(Settings.ShortcutKey, f"CtrlF{index}"), f"'_SetMaximizedViewport {view}") for index, view in enumerate(("Top", "Front", "Right", "Perspective"), start=1)),
     )
+
+    def folded(aliases: Mapping[str, str]) -> dict[str, str]:
+        """Alias table with macros case-folded as Rhino compares them."""
+        return {name: macro.casefold() for name, macro in aliases.items()}
+
+    def registry_child(plugin: Guid) -> Rhino.PersistentSettings:
+        """Plug-in's registry record under the registry version holding it."""
+        return next(held for version in registry.ChildKeys if (held := found(registry.AddChild(version).TryGetChild(str(plugin)))) is not None)
+
     return (
-        ("aliases", lambda: folded({pair.Key.upper(): pair.Value for pair in Settings.CommandAliasList.ToDictionary()}), lambda _: write_aliases(table), folded(table)),
-        *((f"shortcut {each}", partial(shortcuts.GetMacro, each), partial(shortcuts.SetMacro, each), macro) for each, macro in shortcut_macros),
-        *(key(record, "LoadMode", target=int(mode), label=f"plugin {name}") for name, mode, record in loads),
-        *(absent(record, "LoadProtection", label=f"plugin {name}") for name, mode, record in loads if mode == PlugInLoadTime.AtStartup),
-        internal_setting(System.Type.GetType("Rhino.AI.AISettings, RhinoAI", throwOnError=True), "DisabledAgents", target=()),
-        member("alerter", alerter, "Enabled", target=False),
-        *(member("cycles", cycles, name, target=target) for name, target in (("ThrottleMs", 100), ("SelectedDeviceStr", "-1"), ("IntermediateSelectedDeviceStr", "-1"), ("PixelSize", 1))),
-        ("render DefaultRenderPlugInId", lambda: Rhino.Render.Utilities.DefaultRenderPlugInId, Rhino.Render.Utilities.SetDefaultRenderPlugIn, PlugIn.IdFromName("Rhino Render")),
-    )
-
-
-# --- [DISPLAY]
-def mode_description() -> DisplayModeDescription:
-    """The display mode Rhino holds under the id the INI declares, None before the first import."""
-    return DisplayModeDescription.GetDisplayMode(Guid(str(window.MODE_ID)))
-
-
-def mode_keys(text: str) -> dict[str, str]:
-    """Every key of a display-mode INI as its section below the mode and its lower-cased name, the bare `=` line of an empty texture section read as a comment."""
-    parser = ConfigParser(interpolation=None, comment_prefixes=("=",))
-    parser.read_string(text)
-    return {f"{'\\'.join(section.split('\\')[2:])} {name}".strip(): value for section in parser.sections() for name, value in parser.items(section)}
-
-
-def held_mode(keys: Iterable[str]) -> dict[str, str]:
-    """The stated keys of the declared display mode as Rhino exports it, none while the mode is absent."""
-    with TemporaryDirectory() as folder:
-        path = Path(folder, "held.ini")
-        mode = mode_description()
-        held = mode_keys(path.read_text(encoding="utf-8-sig")) if mode is not None and DisplayModeDescription.ExportToFile(mode, str(path)) else {}
-    return {name: held[name] for name in keys if name in held}
-
-
-def import_mode(text: str) -> None:
-    """The display mode deleted and imported fresh from the rendered INI under its declared id."""
-    if (mode := mode_description()) is not None:
-        DisplayModeDescription.DeleteDisplayMode(mode.Id)
-    with TemporaryDirectory() as folder:
-        (source := Path(folder, window.DISPLAY_MODE_FILE.name)).write_text(text, encoding="utf-8")
-        DisplayModeDescription.ImportFromFile(str(source))
-
-
-def in_menu(mode: Guid, *, shown: bool) -> None:
-    """The mode listed in or left out of the display menus and the Display panel dropdown."""
-    description = DisplayModeDescription.GetDisplayMode(mode)
-    description.InMenu = shown
-    DisplayModeDescription.UpdateDisplayMode(description)
-
-
-def display_rows() -> tuple[Row, ...]:
-    """The declared display mode, each key the INI states compared with Rhino's export and the mode imported on a difference, and the menu listing of every built-in mode."""
-    technical = partial(internal, "Rhino.Display.DisplayPipelineAttributes+TechnicalModeParameter, RhinoCommon")
-    values = {clr.GetClrType(each).Name: each for each in (Rhino.Display.PointStyle, Rhino.Display.DisplayPipelineAttributes.ClippingPlaneFillColorUse)} | {
-        "TechnicalMask": sum(int(technical(name)) for name in ("TECH_EDGES", "TECH_SILHOUETTES", "TECH_CREASES", "TECH_INTERSECTIONS"))
-    }
-    text = render(window.DISPLAY_MODE_FILE.read_text(encoding="utf-8"), values, lambda rgb: ",".join(map(str, rgb)))
-    wanted = mode_keys(text)
-    modes = DisplayModeDescription
-    shown = (Guid(str(window.MODE_ID)), modes.WireframeId, modes.XRayId, modes.RenderedId, modes.RaytracedId)
-    hidden = (modes.ShadedId, modes.GhostedId, modes.TechId, modes.ArtisticId, modes.PenId, modes.MonochromeId, modes.AmbientOcclusionId, Guid("881f20dd-a78e-4930-a7c3-690e5e6b0927"))
-    return (
-        ("display mode", partial(held_mode, tuple(wanted)), lambda _: import_mode(text), wanted),
+        Row(
+            label="aliases",
+            read=lambda: folded({pair.Key.upper(): pair.Value for pair in Settings.CommandAliasList.ToDictionary()}),
+            write=lambda _: Settings.CommandAliasList.Update(
+                List[Settings.CommandAlias]([Settings.CommandAlias(name, macro, instant=False) for name, macro in COMMAND_ALIASES.items()]), replaceAll=True
+            ),
+            target=folded(COMMAND_ALIASES),
+        ),
+        *(Row(label=f"shortcut {each}", read=partial(shortcuts.GetMacro, each), write=partial(shortcuts.SetMacro, each), target=macro) for each, macro in shortcut_macros),
         *(
-            (f"display mode {mode} in menu", lambda mode=mode: DisplayModeDescription.GetDisplayMode(mode).InMenu, lambda value, mode=mode: in_menu(mode, shown=value), listed)
-            for listed, ids in ((True, shown), (False, hidden))
-            for mode in ids
+            key(registry_child(PlugIn.IdFromName(name)), "LoadMode", target=int(PlugInLoadTime.WhenNeeded), label=f"plugin {name}")
+            for name in (f"3DxRhino.{Rhino.RhinoApp.ExeVersion}", "PanelingTools")
+        ),
+        member("alerter", Alerter.AlerterCommand.Instance, "Enabled", target=False),
+        *(
+            member("cycles", RhinoCyclesCore.Core.RcCore.It.AllSettings, name, target=target)
+            for name, target in (("ThrottleMs", 100), ("SelectedDeviceStr", "-1"), ("IntermediateSelectedDeviceStr", "-1"), ("PixelSize", 1))
+        ),
+        Row(
+            label="render DefaultRenderPlugInId",
+            read=lambda: Rhino.Render.Utilities.DefaultRenderPlugInId,
+            write=Rhino.Render.Utilities.SetDefaultRenderPlugIn,
+            target=PlugIn.IdFromName("Rhino Render"),
         ),
     )
 
 
-# --- [TEMPLATE]
-def unit_system(unit: str) -> Rhino.UnitSystem:
-    """The unit system a units token names."""
-    return System.Enum.Parse(clr.GetClrType(Rhino.UnitSystem), unit, ignoreCase=True)
+# --- [PACKAGES]
+def defines_plugin(path: Path) -> bool:
+    """Whether the assembly file exports a concrete `PlugIn` subclass, read from its metadata and that of the assemblies beside it without loading any."""
+    clr.AddReference("System.Reflection.Metadata")
+    from System.IO import File
+    from System.Reflection import TypeAttributes
+    from System.Reflection.Metadata import AssemblyReferenceHandle, HandleKind, PEReaderExtensions, TypeDefinitionHandle, TypeReferenceHandle, TypeSpecificationHandle
+    from System.Reflection.PortableExecutable import PEReader
 
+    rhino = clr.GetClrType(PlugIn)
 
-def distance_display(system: Rhino.UnitSystem, *, page: bool) -> Rhino.UI.DistanceDisplayMode:
-    """Distance display of a unit system: feet and inches for a feet model, fractions for an inch page, decimals otherwise."""
-    match system, page:
-        case Rhino.UnitSystem.Feet, False:
-            return Rhino.UI.DistanceDisplayMode.FeetInches
-        case Rhino.UnitSystem.Inches, True:
-            return Rhino.UI.DistanceDisplayMode.Fractional
-        case _:
-            return Rhino.UI.DistanceDisplayMode.Decimal
+    def exported(reader: object, held: object) -> bool:
+        """Whether the type definition is visible outside its assembly."""
+        visibility = held.Attributes & TypeAttributes.VisibilityMask
+        return visibility == TypeAttributes.Public or (visibility == TypeAttributes.NestedPublic and exported(reader, reader.GetTypeDefinition(held.GetDeclaringType())))
 
+    def defined(reader: object, namespace: str, name: str) -> object:
+        """Type definition of the namespace and name, None when the assembly defines none."""
+        return next((held for held in map(reader.GetTypeDefinition, reader.TypeDefinitions) if reader.GetString(held.Namespace) == namespace and reader.GetString(held.Name) == name), None)
 
-def length_display(system: Rhino.UnitSystem) -> DimensionStyle.LengthDisplay:
-    """Dimension length display of a unit system: feet and inches for feet, millimeters for millimeters, the model's unit otherwise."""
-    match system:
-        case Rhino.UnitSystem.Feet:
-            return DimensionStyle.LengthDisplay.FeetAndInches
-        case Rhino.UnitSystem.Millimeters:
-            return DimensionStyle.LengthDisplay.Millmeters
-        case _:
-            return DimensionStyle.LengthDisplay.ModelUnits
+    def derived(reader: object, base: object) -> bool:
+        """Whether the base type resolves to a RhinoCommon type `PlugIn` is assignable from."""
+        match base.Kind:
+            case HandleKind.TypeDefinition:
+                return derived(reader, reader.GetTypeDefinition(TypeDefinitionHandle.op_Explicit(base)).BaseType)
+            case HandleKind.TypeSpecification:
+                signature = reader.GetBlobReader(reader.GetTypeSpecification(TypeSpecificationHandle.op_Explicit(base)).Signature)
+                signature.ReadSignatureTypeCode()
+                signature.ReadSignatureTypeCode()
+                return derived(reader, signature.ReadTypeHandle())
+            case HandleKind.TypeReference:
+                held = reader.GetTypeReference(TypeReferenceHandle.op_Explicit(base))
+                scope, namespace, name = held.ResolutionScope, reader.GetString(held.Namespace), reader.GetString(held.Name)
+                owner = reader.GetString(reader.GetAssemblyReference(AssemblyReferenceHandle.op_Explicit(scope)).Name) if scope.Kind == HandleKind.AssemblyReference else None
+                sibling = readers.get(owner)
+                definition = None if sibling is None else defined(sibling, namespace, name)
+                return (
+                    rhino.IsAssignableFrom(rhino.Assembly.GetType(f"{namespace}.{name}"))
+                    if owner == rhino.Assembly.GetName().Name
+                    else definition is not None and derived(sibling, definition.BaseType)
+                )
+            case _:
+                return False
 
-
-def precision(units: Units, system: Rhino.UnitSystem, mode: Rhino.UI.DistanceDisplayMode) -> int:
-    """Display precision reaching the declared resolution: binary digits of an inch for fractions, decimal digits of the unit otherwise."""
-    decimal = mode == Rhino.UI.DistanceDisplayMode.Decimal
-    unit = 1 / Rhino.RhinoMath.UnitScale(Rhino.UnitSystem.Meters, system) if decimal else INCH
-    return round(math.log(unit / units.resolution, 10 if decimal else 2))
-
-
-def new_hatches() -> tuple[HatchPattern, ...]:
-    """Rhino's current hatch pattern set without the system patterns `HatchPattern.Defaults` names, Solid kept."""
-    system = frozenset(str(prop.GetValue(None).Id) for prop in clr.GetClrType(HatchPattern.Defaults).GetProperties()) - {str(HatchPattern.Defaults.Solid.Id)}
-    return tuple(pattern for pattern in HatchPattern.GetDefaultHatchPatterns() if str(pattern.Id) not in system)
-
-
-def segments(linetype: Linetype) -> tuple[float, ...]:
-    """Segment lengths of a linetype in millimeters, each gap negative."""
-    return tuple(length if solid else -length for length, solid in map(linetype.GetSegment, range(linetype.SegmentCount)))
-
-
-def default_linetypes(scale: float) -> dict[str, tuple[float, ...]]:
-    """Segment lengths at the scale by name of each linetype Rhino loads on demand, read from a document the call creates and disposes."""
-    doc = Rhino.RhinoDoc.CreateHeadless(None)
+    images = [PEReader(File.OpenRead(str(file))) for file in (path, *sorted(path.parent.glob("*.dll")))]
     try:
-        doc.Linetypes.LoadDefaultLinetypes()
-        return {linetype.Name: tuple(rounded(length * scale) for length in segments(linetype)) for linetype in doc.Linetypes}
+        own, *_ = metadata = [PEReaderExtensions.GetMetadataReader(image) for image in images if image.HasMetadata]
+        readers = {reader.GetString(reader.GetAssemblyDefinition().Name): reader for reader in metadata if reader.IsAssembly}
+        return any(exported(own, held) and not held.Attributes.HasFlag(TypeAttributes.Abstract) and derived(own, held.BaseType) for held in map(own.GetTypeDefinition, own.TypeDefinitions))
     finally:
-        doc.Dispose()
+        for image in images:
+            image.Dispose()
 
 
-def cut_style() -> SectionStyle:
-    """The cut section style: the section surface as a solid fill on solid objects, and its boundary at the cut pen weight."""
-    style = SectionStyle()
-    style.Name, style.BoundaryWidthScale, style.BoundaryPlotWeightMillimeters = CUT_STYLE, 1.0, 0.35
-    style.BackgroundFillMode, style.SectionFillRule = SectionBackgroundFillMode.SolidColor, ObjectSectionFillRule.SolidObjects
-    style.BackgroundFillColor = style.BackgroundFillPrintColor = color(Surface.SECTION)
-    return style
-
-
-def section_facts(style: SectionStyle) -> tuple[object, ...]:
-    """Name, boundary width scale and print weight, background fill mode, fill colors, and fill rule of a section style."""
-    return (
-        style.Name,
-        style.BoundaryWidthScale,
-        style.BoundaryPlotWeightMillimeters,
-        str(style.BackgroundFillMode),
-        style.BackgroundFillColor.ToArgb(),
-        style.BackgroundFillPrintColor.ToArgb(),
-        str(style.SectionFillRule),
-    )
-
-
-def section_styles(doc: Rhino.RhinoDoc) -> tuple[SectionStyle, ...]:
-    """The document's section styles not deleted, read by table index."""
-    return tuple(style for style in map(doc.SectionStyles.FindIndex, range(doc.SectionStyles.Count)) if not style.IsDeleted)
-
-
-def saved_states(doc: Rhino.RhinoDoc) -> tuple[tuple[object, tuple[str, ...]], ...]:
-    """Each saved-state table of the document, named views, construction planes, positions, and layer states, with the names it holds."""
-    return (
-        (doc.NamedViews, tuple(view.Name for view in doc.NamedViews)),
-        (doc.NamedConstructionPlanes, tuple(plane.Name for plane in doc.NamedConstructionPlanes)),
-        (doc.NamedPositions, tuple(doc.NamedPositions.Names)),
-        (doc.NamedLayerStates, tuple(doc.NamedLayerStates.Names)),
-    )
-
-
-def site() -> tuple[tuple[float, float], tuple[float, float], float, bool, int, float]:
-    """The model north and east axes, the time zone hours, the daylight saving switch and minutes, and the sun's north the location declaration gives a document."""
-    north = math.radians(location.NORTH)
-    sine, cosine = math.sin(north), math.cos(north)
-    return (-sine, cosine), (cosine, sine), location.OFFSET / timedelta(hours=1), timedelta() < location.DAYLIGHT, location.DAYLIGHT // timedelta(minutes=1), 90 + location.NORTH
-
-
-def template_target(measures: DocumentUnits) -> Facts:
-    """Every template fact the units, location, render, section, and table declarations decide."""
-    grid = (rounded(measures.grid), rounded(measures.snap), measures.lines, GRID_THICK_EVERY)
-    geometry = color(Line.GEOMETRY).ToArgb()
-    north, east, *sun = site()
+def installed(packages: Iterable[str]) -> dict[str, dict[Path, Guid | None]]:
+    """Plug-in files of each installed declared package by id in declared order, each with its plug-in id or None for a Grasshopper 2 library."""
+    root = Path(HostUtils.AutoInstallPlugInFolder(currentUser=True))
+    folders = {path.relative_to(root).parts[0].casefold(): path for path in (Path(folder.FullName) for folder in HostUtils.GetActivePlugInVersionFolders()) if path.is_relative_to(root)}
     return {
-        "model units": (str(measures.model), rounded(measures.tolerance), str(measures.model_display), measures.model_precision),
-        "page units": ((page := str(measures.page)), str(measures.page_display), measures.page_precision),
-        "views": ((str(window.MODE_ID), grid),),
-        "cameras": ((True, (0.0, 0.0, 0.0)),),
-        "grid defaults": grid,
-        "dimension styles": 1,
-        "dimension style": (measures.style, str(measures.dimension_display), measures.model_precision, str(measures.alternate_display), measures.alternate_precision, False, False),
-        "render": (page, False, FRAME_SIZE, DPI, True, RENDER_KEYS),
-        "render mesh": str(MeshingParameterStyle.Quality),
-        "sun": (True, location.LATITUDE, location.LONGITUDE, *sun, location.MOMENT.replace(tzinfo=None).isoformat(timespec="minutes"), SUN_INTENSITY),
-        "earth anchor": (location.LATITUDE, location.LONGITUDE, location.ELEVATION, tuple(map(rounded, north)), tuple(map(rounded, east))),
-        "environment": (str(Rhino.Display.BackgroundStyle.Environment), (str(ContentUuids.PhysicalSkyTextureType), True, SKY_MULTIPLIER), 1, 1),
-        "layers": ((geometry, geometry, CUT_STYLE),),
-        "section styles": (section_facts(cut_style()),),
-        "saved states": (),
-        "hatch patterns": tuple(sorted(pattern.Name for pattern in new_hatches())),
-        "linetypes": measures.linetypes,
+        package: {path: PlugIn.IdFromPath(str(path)) if defines_plugin(path) else None for path in sorted(folder.glob("*.rhp"))}
+        for package in packages
+        if (folder := folders.get(package.casefold())) is not None
     }
 
 
-def sky(doc: Rhino.RhinoDoc) -> tuple[str, bool, float] | None:
-    """Texture type, document-sun switch, and gain of the document's background environment, none without one."""
-    settings = doc.RenderSettings
-    environment = doc.RenderEnvironments.Find(settings.RenderEnvironmentId(RenderSettings.EnvironmentUsage.Background, RenderSettings.EnvironmentPurpose.Standard))
-    texture = None if environment is None else environment.FindChild(SKY_SLOT)
-    return None if texture is None else (str(texture.TypeId), System.Convert.ToBoolean(texture.GetParameter(SKY_SUN)), System.Convert.ToDouble(texture.GetParameter(SKY_GAIN)))
+def plugins(held: Mapping[str, Mapping[Path, Guid | None]]) -> Iterator[tuple[str, Path, Guid]]:
+    """Package id, file, and plug-in id of each installed Rhino plug-in."""
+    return ((package, path, plugin) for package, files in held.items() for path, plugin in files.items() if plugin is not None)
 
 
-def file_sky(file: File3dm) -> tuple[str, tuple[str, bool, float] | None, int, int]:
-    """Background style, the texture type, document-sun switch, and gain of the background environment, how many environments the usages name, and how many the file holds."""
-    settings = file.Settings.RenderSettings
-    ids = {usage: settings.RenderEnvironmentId(usage, RenderSettings.EnvironmentPurpose.Standard) for usage in SKY_USAGES}
-    background = ids[RenderSettings.EnvironmentUsage.Background]
-    texture = next((child for environment in file.RenderEnvironments if environment.Id == background for child in environment.Children if child.ChildSlotName == SKY_SLOT), None)
+def package_rows(held: Mapping[str, Mapping[Path, Guid | None]]) -> tuple[Row, ...]:
+    """Rows of silent package plug-in loads, the marker keeping Rhino from installing each Grasshopper 2 library as a plug-in, the listener's agent settings, and the unwelded edge command settings of the plug-in declaring that command."""
+    agents, edges = System.Type.GetType("Rhino.AI.AISettings, RhinoAI", throwOnError=True), "ShowUnweldedEdges"
+
+    def command_settings(plugin: Guid) -> Rhino.PersistentSettings:
+        """Settings of the plug-in's unwelded edge command, the plug-in loaded first."""
+        PlugIn.LoadPlugIn(plugin)
+        return PlugIn.Find(plugin).CommandSettings(edges)
+
     return (
-        str(settings.BackgroundStyle),
-        None if texture is None else (str(texture.TypeId), texture.GetParameter(SKY_SUN).ToBool(), System.Convert.ToDouble(texture.GetParameter(SKY_GAIN))),
-        len(set(ids.values())),
-        len(tuple(file.RenderEnvironments)),
+        *(
+            Row(label=f"plugin {package} {path.name} loads silently", read=lambda plugin=plugin: found(PlugIn.GetLoadProtection(plugin)), write=partial(PlugIn.SetLoadProtection, plugin), target=True)
+            for package, path, plugin in plugins(held)
+        ),
+        *(
+            Row(label=f"plugin {package} {path.name} grasshopper-only", read=marker.is_file, write=lambda _, marker=marker: marker.touch(), target=True)
+            for package, files in held.items()
+            for path, plugin in files.items()
+            if plugin is None
+            for marker in (path.with_name(f"{path.name}.grasshopper-only"),)
+        ),
+        *(internal_setting(agents, name, target=target) for name, target in (("AutoLoadMCP", True), ("DefaultAgentName", "claude"), ("DisabledAgents", ()))),
+        *(
+            row
+            for package, _, plugin in plugins(held)
+            if edges in PlugIn.GetEnglishCommandNames(plugin)
+            for settings, label in ((command_settings(plugin), f"plugin {package} {edges}"),)
+            for row in (key(settings, "Color", target=color(Status.ERROR), label=label), key(settings, "Thickness", target=1, label=label))
+        ),
     )
 
 
-def template_facts(path: str) -> Facts:
-    """Every template fact the declarations decide, read from the file and a headless document opened on it, none when the file is absent."""
-    if not Path(path).exists():
-        return {}
-    file, doc = File3dm.Read(path), Rhino.RhinoDoc.CreateHeadless(path)
-    try:
-        grid_defaults = doc.GetGridDefaults()
-        planes = tuple((view.ActiveViewport.DisplayMode.Id, view.ActiveViewport.GetConstructionPlane()) for view in doc.Views)
-        style = doc.DimStyles.Current
-        settings = doc.RenderSettings
-        sun = settings.Sun
-        anchor = doc.EarthAnchorPoint
-        dictionary = settings.UserDictionary
+# --- [DISPLAY]
+def mode_value(mode: Guid, read: Callable[[DisplayPipelineAttributes], object]) -> object:
+    """Value the read takes from a built-in display mode's attributes."""
+    return read(DisplayModeDescription.GetDisplayMode(mode).DisplayAttributes)
+
+
+def point_width() -> float:
+    """Logical width in points a point draws at so it spans the declared device pixels on the primary screen."""
+    return POINT_WIDTH / Screen.PrimaryScreen.LogicalPixelSize
+
+
+def display_rows() -> tuple[Row, ...]:
+    """Rows deleting every display mode beside Rhino's own, setting every color of each built-in mode to its role over the mode's canvas or paper ground, configuring the Shaded, X-Ray, and Ghosted modes alike, and listing the shown built-in modes in the menus."""
+    stored = Rhino.PersistentSettings.RhinoAppSettings.AddChild(OPTIONS).AddChild("DisplayAttributesManager")
+    logical = point_width()
+    methods, grip = System.Type.GetType("UnsafeNativeMethods, RhinoCommon", throwOnError=True), internal("UnsafeNativeMethods+DisplayAttributesInt, RhinoCommon", "PCGripSize")
+    members, sides = (System.Type.GetType(f"UnsafeNativeMethods+{name}, RhinoCommon", throwOnError=True) for name in ("DisplayAttrsColor", "DisplayAttributesMaterialIdx"))
+    emission = internal("UnsafeNativeMethods+DisplayAttrsMaterialColor, RhinoCommon", "Emission")
+    wires = internal("UnsafeNativeMethods+DisplayPipelineAttributesBool, RhinoCommon", "SingleMeshWireColor")
+    modeling = (DisplayModeDescription.ShadedId, DisplayModeDescription.XRayId, DisplayModeDescription.GhostedId)
+    papers = (DisplayModeDescription.PenId, DisplayModeDescription.AmbientOcclusionId)
+    rendered = (DisplayModeDescription.RenderedId, DisplayModeDescription.RaytracedId)
+    screen_lines = {"TECH_HIDDENLINES": True, "TECH_EDGES": False, "TECH_SILHOUETTES": True, "TECH_CREASES": False, "TECH_SEAMS": False, "TECH_INTERSECTIONS": False}
+    attributes = {
+        "ShadingEnabled": True,
+        "UseCustomObjectMaterial": True,
+        "UseCustomObjectColor": True,
+        "FrontMaterialShine": 0.0,
+        "BackfaceDisplayStyle": DisplayPipelineAttributes.BackfaceStyle.UseFrontFaceSettings,
+        "LightingScheme": DisplayPipelineAttributes.LightingSchema.DefaultLighting,
+        "CastShadows": False,
+        "ShowIsoCurves": False,
+        "ShowSurfaceEdges": True,
+        "SurfaceEdgeThicknessScale": 1.0,
+        "ShowTangentEdges": False,
+        "ShowTangentSeams": False,
+        "ShowSurfaceNakedEdge": False,
+        "MeshSpecificAttributes.ShowMeshWires": False,
+        "ShowMeshEdges": True,
+        "MeshEdgeColorReduction": 0,
+        "MeshEdgeThickness": 1,
+        "ShowMeshNakedEdges": False,
+        "MeshNakedEdgeThickness": 1,
+        "LayersFollowLockUsage": True,
+        "ControlPolygonUseSolidLines": True,
+        "ControlPolygonStyle": PointStyle.RoundDot,
+        "PointStyle": PointStyle.RoundSimple,
+        "PointRadius": (logical - 1) / 2,
+        "PointCloudStyle": PointStyle.RoundSimple,
+        "PointCloudRadius": logical,
+        "ShowSubDEdges": False,
+        "ShowSubDNonmanifoldEdges": False,
+        "SubDCreaseInteriorEdgeThickness": 1.0,
+        "SubDBoundaryEdgeThickness": 1.0,
+        "SubDBoundaryThicknessScale": 1.0,
+        "SubDReflectionAxisLineThickness": 1.0,
+        "ViewSpecificAttributes.DrawGrid": True,
+        "ViewSpecificAttributes.DrawGridAxes": True,
+        "ViewSpecificAttributes.DrawWorldAxes": True,
+        "ViewSpecificAttributes.DrawZAxis": False,
+        "GridTransparency": 0,
+        "UseSectionStyles": False,
+        "ClippingEdgeThickness": 1,
+    }
+
+    def ground(mode: Guid) -> Rgb:
+        """Ground the mode draws on, paper for the drawing modes and the canvas for the rest."""
+        return Surface.PAPER if mode in papers else Surface.CANVAS
+
+    def palette(mode: Guid) -> dict[str, Rgb]:
+        """Role of each color the mode's store keeps, every line in the ink of its ground, SubD edge colors where their usage draws one color."""
+        paper = mode in papers
+        ink = Ink.DOCUMENT if paper else Ink.SCREEN
+        inked = ("MeshWireColor", "CurveColor", "EdgeColor", "IsoColor", "IsoUColor", "IsoVColor", "MeshEdgeColor", "ClippingEdgeColor")
+        subd = ("SubDSmoothInteriorEdgeColor", "SubDCreaseInteriorEdgeColor", "SubDBoundaryEdgeColor") if paper else ()
+        defects = ("NakedEdgeColor", "MeshNakedEdgeColor", "MeshNonmanifoldEdgeColor", *(() if mode in rendered else ("SubDNonManifoldEdgeColor",)))
         return {
-            "model units": (str(doc.ModelUnitSystem), rounded(doc.ModelAbsoluteTolerance), str(doc.ModelDistanceDisplayMode), doc.ModelDistanceDisplayPrecision),
-            "page units": (str(doc.PageUnitSystem), str(doc.PageDistanceDisplayMode), doc.PageDistanceDisplayPrecision),
-            "views": tuple(sorted({(str(mode), (rounded(plane.GridSpacing), rounded(plane.SnapSpacing), plane.GridLineCount, plane.ThickLineFrequency)) for mode, plane in planes})),
-            "cameras": tuple(
-                sorted({
-                    (view.Maximized == view.Viewport.IsPerspectiveProjection, (rounded(target.X), rounded(target.Y), rounded(target.Z)))
-                    for view in file.Views
-                    for target in (view.Viewport.TargetPoint,)
-                })
-            ),
-            "grid defaults": (rounded(grid_defaults.GridSpacing), rounded(grid_defaults.SnapSpacing), grid_defaults.GridLineCount, grid_defaults.GridThickFrequency),
-            "dimension styles": doc.DimStyles.Count,
-            "dimension style": (
-                style.Name,
-                str(style.DimensionLengthDisplay),
-                style.LengthResolution,
-                str(style.AlternateDimensionLengthDisplay),
-                style.AlternateLengthResolution,
-                style.AlternateUnitsDisplay,
-                style.DrawTextMask,
-            ),
-            "render": (
-                str(settings.ImageUnitSystem),
-                settings.UseViewportSize,
-                (settings.ImageSize.Width, settings.ImageSize.Height),
-                settings.ImageDpi,
-                settings.Dithering.Enabled,
-                {name: found(dictionary.TryGetValue(name)) for name in RENDER_KEYS},
-            ),
-            "render mesh": str(doc.MeshingParameterStyle),
-            "sun": (
-                sun.Enabled,
-                sun.Latitude,
-                sun.Longitude,
-                sun.TimeZone,
-                sun.DaylightSavingOn,
-                sun.DaylightSavingMinutes,
-                sun.North,
-                sun.GetDateTime(DateTimeKind.Local).ToString("yyyy-MM-ddTHH:mm"),
-                sun.Intensity,
-            ),
-            "earth anchor": (
-                anchor.EarthBasepointLatitude,
-                anchor.EarthBasepointLongitude,
-                anchor.EarthBasepointElevation,
-                (rounded(anchor.ModelNorth.X), rounded(anchor.ModelNorth.Y)),
-                (rounded(anchor.ModelEast.X), rounded(anchor.ModelEast.Y)),
-            ),
-            "environment": file_sky(file),
-            "layers": tuple(
-                (layer.Color.ToArgb(), layer.PlotColor.ToArgb(), doc.SectionStyles[layer.SectionStyleIndex].Name if layer.SectionStyleIndex >= 0 else None)
-                for layer in doc.Layers
-                if not layer.IsDeleted
-            ),
-            "section styles": tuple(section_facts(style) for style in section_styles(doc)),
-            "saved states": tuple(name for _, names in saved_states(doc) for name in names),
-            "hatch patterns": tuple(sorted(pattern.Name for pattern in doc.HatchPatterns if not pattern.IsDeleted)),
-            "linetypes": {linetype.Name: tuple(map(rounded, segments(linetype))) for linetype in doc.Linetypes if not linetype.IsDeleted},
+            **dict.fromkeys((*inked, *subd, "TechnicalLine", "TechnicalEdge", "TechnicalSilhouette", "TechnicalIntersection"), ink),
+            **dict.fromkeys(defects, Status.ERROR),
+            **dict.fromkeys(("GradTopLeft", "GradBottomLeft", "GradTopRight", "GradBottomRight"), ground(mode)),
+            **dict.fromkeys(("SubDReflectionAxisLineColor", "SubDReflectionPlaneColor"), Guide.CONSTRUCTION),
+            "WxColor": Axis.X,
+            "WyColor": Axis.Y,
+            "WzColor": Axis.Z,
+            "AmbientColor": Surface.AMBIENT if mode in modeling else Surface.SHADOW,
+            "ShadowColor": Surface.SHADOW,
+            "ClippingSurfaceColor": Surface.SECTION,
+            "ClippingCPColor": Selection.BODY,
+            "CPColor": Guide.HANDLE,
+            "LockedColor": Line.LOCKED,
+            "GridPlaneColor": Line.GRID,
         }
-    finally:
-        file.Dispose()
-        doc.Dispose()
 
+    def drawing(mode: Guid) -> dict[str, object]:
+        """Usage flags drawing the ground and routing lines to its ink: object colors on the canvas, which switching turns white, fixed ink on paper, where switching follows the dark canvas."""
+        paper = mode in papers
+        edges = DisplayPipelineAttributes.SubDEdgeColorUse.SingleColorForAll if paper else DisplayPipelineAttributes.SubDEdgeColorUse.ObjectColor
+        return {
+            "FillMode": DisplayPipelineAttributes.FrameBufferFillMode.SolidColor if paper else DisplayPipelineAttributes.FrameBufferFillMode.DefaultColor,
+            "LinearWorkflowUsage": DisplayPipelineAttributes.LinearWorkflowUsages.Custom,
+            "PreProcessColors": False,
+            "PreProcessTextures": False,
+            "PostProcessFrameBuffer": False,
+            "ControlPolygonUseFixedSingleColor": True,
+            "UseSingleCurveColor": paper,
+            "SurfaceEdgeColorUsage": DisplayPipelineAttributes.SurfaceEdgeColorUse.SingleColorForAll if paper else DisplayPipelineAttributes.SurfaceEdgeColorUse.ObjectColor,
+            "SurfaceNakedEdgeColorUsage": DisplayPipelineAttributes.SurfaceNakedEdgeColorUse.SingleColorForAll,
+            "SurfaceIsoSingleColor": paper,
+            "SurfaceIsoColorsUsed": False,
+            "SubDSmoothInteriorEdgeColorUsage": edges,
+            "SubDCreaseInteriorEdgeColorUsage": edges,
+            "SubDBoundaryEdgeColorUsage": edges,
+            "SubDNonManifoldEdgeColorUsage": DisplayPipelineAttributes.SubDEdgeColorUse.SingleColorForAll,
+            "ClippingPlaneFillColorUsage": DisplayPipelineAttributes.ClippingPlaneFillColorUse.SolidColor,
+            "ClippingEdgeColorUsage": DisplayPipelineAttributes.ClippingEdgeColorUse.SolidColor,
+        }
 
-def write_units(doc: Rhino.RhinoDoc, measures: DocumentUnits) -> None:
-    """Model and page units, tolerance, display, each view at its factory projection around the origin in the declared mode, grid defaults, and the one dimension style from Rhino's built-in for the units."""
-    doc.AdjustModelUnitSystem(measures.model, scale=False)
-    doc.AdjustPageUnitSystem(measures.page, scale=False)
-    doc.ModelAbsoluteTolerance = measures.tolerance
-    doc.ModelDistanceDisplayMode, doc.ModelDistanceDisplayPrecision = measures.model_display, measures.model_precision
-    doc.PageDistanceDisplayMode, doc.PageDistanceDisplayPrecision = measures.page_display, measures.page_precision
-    mode, extent = mode_description(), GRID_THICK_EVERY * measures.grid
-    for view in doc.Views:
-        viewport = view.ActiveViewport
-        viewport.SetProjection(System.Enum.Parse(clr.GetClrType(DefinedViewportProjection), viewport.Name), viewport.Name, updateConstructionPlane=True)
-        viewport.ZoomBoundingBox(BoundingBox(-extent, -extent, 0, extent, extent, 0))
-        plane = viewport.GetConstructionPlane()
-        plane.GridSpacing, plane.SnapSpacing, plane.GridLineCount, plane.ThickLineFrequency = measures.grid, measures.snap, measures.lines, GRID_THICK_EVERY
-        viewport.SetConstructionPlane(plane)
-        viewport.DisplayMode = mode
-    defaults = doc.GetGridDefaults()
-    defaults.GridSpacing, defaults.SnapSpacing, defaults.GridLineCount, defaults.GridThickFrequency = measures.grid, measures.snap, measures.lines, GRID_THICK_EVERY
-    doc.SetGridDefaults(defaults)
-    style = doc.DimStyles.Current
-    for extra in [each for each in doc.DimStyles if each.Id != style.Id]:
-        doc.DimStyles.Delete(extra.Index, quiet=True)
-    style.CopyFrom(next(each for each in doc.DimStyles.BuiltInStyles if each.Name == measures.style))
-    style.Name = measures.style
-    style.DimensionLengthDisplay, style.LengthResolution = measures.dimension_display, measures.model_precision
-    style.AlternateDimensionLengthDisplay, style.AlternateLengthResolution = measures.alternate_display, measures.alternate_precision
-    style.AlternateUnitsDisplay, style.DrawTextMask = False, False
-    doc.DimStyles.Modify(style, style.Id, quiet=True)
+    def native(entry: str, owner: object, *arguments: object) -> object:
+        """Result of the named RhinoCommon internal native entry called on the owner's native pointer and the arguments."""
+        pointer = owner.GetType().GetMethod("NonConstPointer", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(owner, None)
+        return methods.GetMethod(entry, BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, Array[System.Object]([pointer, *arguments]))
 
+    def assign(path: str, held: DisplayPipelineAttributes, value: object) -> None:
+        """Set the display attribute member at the dotted path to the value."""
+        *owners, name = path.split(".")
+        setattr(reduce(getattr, owners, held), name, value)
 
-def write_render(doc: Rhino.RhinoDoc, page: Rhino.UnitSystem) -> None:
-    """Frame at the page unit, the engine's samples, noise threshold, light paths, clamps, glossy filter, and caustics, quality render meshes, sun and its intensity, earth anchor, and the physical sky at its gain as the one environment for every usage, from the render and location declarations."""
-    doc.MeshingParameterStyle = MeshingParameterStyle.Quality
-    settings = doc.RenderSettings
-    settings.ImageUnitSystem = page
-    settings.UseViewportSize, settings.ImageSize, settings.ImageDpi = False, Size(*FRAME_SIZE), DPI
-    settings.Dithering.Enabled = True
-    for name, value in RENDER_KEYS.items():
-        settings.UserDictionary.Set(name, val=value)
-    north, east, zone, daylight, daylight_minutes, sun_north = site()
-    sun = settings.Sun
-    sun.Enabled, sun.Latitude, sun.Longitude, sun.Intensity = True, location.LATITUDE, location.LONGITUDE, SUN_INTENSITY
-    sun.TimeZone, sun.DaylightSavingOn, sun.DaylightSavingMinutes, sun.North = zone, daylight, daylight_minutes, sun_north
-    moment = location.MOMENT
-    sun.SetDateTime(DateTime(moment.year, moment.month, moment.day, moment.hour, moment.minute, 0), DateTimeKind.Local)
-    for held in tuple(doc.RenderEnvironments):
-        doc.RenderEnvironments.Remove(held)
-    environment = RenderContentType.NewContentFromTypeId(ContentUuids.BasicEnvironmentType, doc)
-    environment.Name = "Sky"
-    texture = RenderContentType.NewContentFromTypeId(ContentUuids.PhysicalSkyTextureType, doc)
-    texture.BeginChange(RenderContent.ChangeContexts.Program)
-    texture.SetParameter(SKY_SUN, value=True)
-    texture.SetParameter(SKY_GAIN, value=SKY_MULTIPLIER)
-    texture.EndChange()
-    environment.SetChild(texture, SKY_SLOT)
-    doc.RenderEnvironments.Add(environment)
-    settings.BackgroundStyle = Rhino.Display.BackgroundStyle.Environment
-    for usage in SKY_USAGES:
-        settings.SetRenderEnvironmentId(usage, environment.Id)
-    doc.RenderSettings = settings
-    anchor = doc.EarthAnchorPoint
-    anchor.EarthBasepointLatitude, anchor.EarthBasepointLongitude, anchor.EarthBasepointElevation = location.LATITUDE, location.LONGITUDE, location.ELEVATION
-    anchor.ModelNorth, anchor.ModelEast = Vector3d(*north, 0), Vector3d(*east, 0)
-    doc.EarthAnchorPoint = anchor
+    def store[T](mode: Guid, write: Callable[[DisplayModeDescription, T], object], value: T) -> None:
+        """Write the value into a built-in mode's description and store the mode in the settings file."""
+        description = DisplayModeDescription.GetDisplayMode(mode)
+        write(description, value)
+        DisplayModeDescription.UpdateDisplayMode(description)
 
+    def fill(held: DisplayPipelineAttributes, value: Color) -> None:
+        """Set the solid fill color, keeping the fill mode `SetFill` switches to a solid fill."""
+        mode = held.FillMode
+        held.SetFill(value)
+        held.FillMode = mode
 
-def write_tables(doc: Rhino.RhinoDoc, linetypes: Mapping[str, tuple[float, ...]]) -> None:
-    """Rhino's current hatch set with Solid, the cut section style alone, the current layer alone in black with the cut style, its linetype set at the given segment lengths and no other linetype, and no saved state."""
-    hatches = {pattern.Name: pattern for pattern in new_hatches()}
-    for pattern in [pattern for pattern in doc.HatchPatterns if pattern.Name not in hatches]:
-        doc.HatchPatterns.Delete(pattern.Index, quiet=True)
-    held = {pattern.Name for pattern in doc.HatchPatterns if not pattern.IsDeleted}
-    for name in [name for name in hatches if name not in held]:
-        doc.HatchPatterns.Add(hatches[name])
-    style = cut_style()
-    held_index = doc.SectionStyles.Find(CUT_STYLE)
-    index = doc.SectionStyles.Add(style) if held_index < 0 else held_index
-    doc.SectionStyles.Modify(style, index, quiet=True)
-    current = doc.Layers.CurrentLayerIndex
-    for layer in [layer for layer in doc.Layers if not layer.IsDeleted and layer.Index != current]:
-        doc.Layers.Delete(layer.Index, quiet=True)
-    layer = doc.Layers.CurrentLayer
-    layer.Color, layer.PlotColor, layer.SectionStyleIndex = color(Line.GEOMETRY), color(Line.GEOMETRY), index
-    doc.Layers.Modify(layer, current, quiet=True)
-    for other in [other for other in section_styles(doc) if other.Name != CUT_STYLE]:
-        doc.SectionStyles.Delete(other.Index, quiet=True)
-    doc.Linetypes.LoadDefaultLinetypes()
-    for name, lengths in linetypes.items():
-        linetype = doc.Linetypes.FindName(name)
-        linetype.SetSegments(Array[float](lengths))
-        doc.Linetypes.Modify(linetype, linetype.Index, quiet=True)
-    for linetype in [linetype for linetype in doc.Linetypes if not linetype.IsDeleted and linetype.Name not in linetypes]:
-        doc.Linetypes.Delete(linetype.Index, quiet=True)
-    for table, names in saved_states(doc):
-        for name in names:
-            table.Delete(name)
+    def row[T](mode: Guid, name: str, read: Callable[[DisplayPipelineAttributes], object], write: Callable[[DisplayPipelineAttributes, T], object], *, target: T) -> Row:
+        """Row of one member of a built-in mode's attributes."""
+        return Row(
+            label=f"display mode {DisplayModeDescription.GetDisplayMode(mode).EnglishName} {name}",
+            read=partial(mode_value, mode, read),
+            write=partial(store, mode, lambda description, value: write(description.DisplayAttributes, value)),
+            target=target,
+        )
 
+    def member_rows(mode: Guid, values: Mapping[str, object]) -> Iterator[Row]:
+        """Rows of the named attribute members at their values."""
+        return (row(mode, path, attrgetter(path), partial(assign, path), target=value) for path, value in values.items())
 
-def write_template(path: str, measures: DocumentUnits) -> None:
-    """The template rewritten through a headless document opened on it, or on the default template when it is absent, then its file's views with Perspective alone maximized."""
-    doc = Rhino.RhinoDoc.CreateHeadless(path if Path(path).exists() else Settings.FileSettings.TemplateFile)
-    try:
-        write_units(doc, measures)
-        write_render(doc, measures.page)
-        write_tables(doc, measures.linetypes)
-        doc.WriteFile(path, FileWriteOptions())
-    finally:
-        doc.Dispose()
-    file = File3dm.Read(path)
-    try:
-        for view in file.Views:
-            view.Maximized = view.Viewport.IsPerspectiveProjection
-        file.Write(path, File3dmWriteOptions())
-    finally:
-        file.Dispose()
+    def mode_rows(mode: Guid) -> Iterator[Row]:
+        """Rows of the usage flags of each mode Rhino's own pipeline fills and the Shaded configuration of the modeling modes, Ghosted keeping its see-through material, then of every color the mode's store keeps in its role."""
+        if mode not in rendered:
+            yield from member_rows(mode, drawing(mode))
+            yield row(mode, "SolidColor", lambda display: display.GetFill()[0], fill, target=color(ground(mode)))
+            yield row(
+                mode,
+                "SingleMeshWireColor",
+                lambda display: native("CDisplayPipelineAttributes_GetBool", display, wires),
+                lambda display, value: native("CDisplayPipelineAttributes_SetBool", display, wires, value),
+                target=mode in papers,
+            )
+            yield from (
+                row(
+                    mode,
+                    f"{kind} fixed color",
+                    lambda display, bit=bit: native("CDisplayPipelineAttributes_GetTechnicalUsage", display, bit),
+                    lambda display, value, bit=bit: native("CDisplayPipelineAttributes_SetTechnicalUsage", display, bit, value),
+                    target=mode in papers or screen,
+                )
+                for kind, screen in screen_lines.items()
+                for bit in (System.UInt32(int(internal("Rhino.Display.DisplayPipelineAttributes+TechnicalModeParameter, RhinoCommon", kind))),)
+            )
+        if mode in modeling:
+            yield from member_rows(mode, {**attributes, "FrontOverrideObjectTransparency": mode == DisplayModeDescription.GhostedId})
+            yield row(mode, "PerPixelLightning", partial(native, "CDisplayPipelineAttributes_GetPerPixelLightning"), partial(native, "CDisplayPipelineAttributes_SetPerPixelLightning"), target=True)
+            yield row(
+                mode,
+                "PCGripSize",
+                lambda display: native("CDisplayPipelineAttributes_GetInt", display, grip),
+                lambda display, value: native("CDisplayPipelineAttributes_SetInt", display, grip, System.Int32(value)),
+                target=round((logical - 1) / 2),
+            )
+        yield from (
+            row(
+                mode,
+                name,
+                lambda display, which=which: Color.FromArgb(native("CDisplayPipelineAttributes_GetColor", display, which)),
+                lambda display, value, which=which: native("CDisplayPipelineAttributes_SetColor", display, which, value.ToArgb()),
+                target=color(rgb),
+            )
+            for name, rgb in palette(mode).items()
+            for which in (System.Enum.Parse(members, name),)
+        )
+        if mode in modeling or mode_value(mode, attrgetter("UseCustomObjectMaterial")):
+            yield from member_rows(mode, {"FrontDiffuse": color(Surface.SHADED)})
+        yield from (
+            row(
+                mode,
+                f"{side} Emission",
+                lambda display, side=side: Color.FromArgb(native("CDisplayAttributeMaterial_GetColor", display, side, emission)),
+                lambda display, value, side=side: native("CDisplayAttributeMaterial_SetColor", display, side, emission, value.ToArgb()),
+                target=color(Surface.SHADOW),
+            )
+            for side in System.Enum.GetValues(sides)
+        )
 
+    def rank(mode: DisplayModeDescription) -> object:
+        """Order of the mode in the display attributes manager's list, negative for a built-in mode."""
+        return native("DisplayAttrsMgrListDesc_Order", mode)
 
-def template_rows() -> tuple[Row, ...]:
-    """The imperial default template and the metric one beside it, each converged as one set of facts."""
-    default = Settings.FileSettings.TemplateFile
-    paths = ((default, Units.IMPERIAL), (str(Path(default).with_name(f"{Units.METRIC.name.title()}.3dm")), Units.METRIC))
-    return tuple(
-        (f"template {Path(path).stem}", partial(template_facts, path), lambda _, path=path, measures=measures: write_template(path, measures), template_target(measures))
-        for path, units in paths
-        for measures in [DocumentUnits(units)]
+    def custom_modes() -> tuple[str, ...]:
+        """Ids of every display mode beside Rhino's own."""
+        return tuple(str(mode.Id) for mode in DisplayModeDescription.GetDisplayModes() if rank(mode) >= 0)
+
+    def remove(_: object) -> None:
+        """Delete every display mode beside Rhino's own and its stored settings, then save the display modes."""
+        for mode in custom_modes():
+            DisplayModeDescription.DeleteDisplayMode(Guid(mode))
+            stored.DeleteChild(mode)
+        DisplayModeDescription.SaveDisplayModes()
+
+    shown = (DisplayModeDescription.ShadedId, DisplayModeDescription.WireframeId, DisplayModeDescription.XRayId, DisplayModeDescription.RenderedId, DisplayModeDescription.RaytracedId)
+    built_in = tuple(mode.Id for mode in DisplayModeDescription.GetDisplayModes() if rank(mode) < 0)
+    return (
+        Row(label="custom display modes", read=custom_modes, write=remove, target=()),
+        *(each for mode in built_in for each in mode_rows(mode)),
+        *(
+            Row(
+                label=f"display mode {DisplayModeDescription.GetDisplayMode(mode).EnglishName} in menu",
+                read=lambda mode=mode: DisplayModeDescription.GetDisplayMode(mode).InMenu,
+                write=partial(store, mode, lambda description, value: setattr(description, "InMenu", value)),
+                target=mode in shown,
+            )
+            for mode in (*shown, *(mode for mode in built_in if mode not in shown))
+        ),
     )
 
 
 # --- [MEASURES]
-def extents() -> dict[Site | Extent, float]:
-    """Lengths in points and row counts the file stage sizes from: the dock sites, button cell, resizer, and tab strip, and the Layers, Osnap, Materials, and Libraries parts, each panel read shown in its container and closed after when it was closed before."""
-    doc, panels, (head, *_) = Rhino.RhinoDoc.ActiveDoc, Rhino.UI.Panels, window.RIGHT_TOP
-    sites, bars, tab_panels, toolbar_settings, tabs, resizer, grid_kind = (
+def docks(doc: Rhino.RhinoDoc) -> dict[Site, object]:
+    """Dock site of the document's main window at each location."""
+    sites = System.Type.GetType("Rhino.UI.Internal.TabPanels.TabPanelDockSites, Rhino.UI", throwOnError=True)
+    docked = sites.GetMethod("FromDocument", Array[System.Type]([clr.GetClrType(Rhino.RhinoDoc)])).Invoke(None, Array[System.Object]([doc]))
+    return {site: getattr(docked, site) for site in Site}
+
+
+def extents(doc: Rhino.RhinoDoc) -> dict[Site | Extent, float]:
+    """Lengths in points and row and toggle counts the file edit sizes from, each panel closed again after its measure when it was closed."""
+    panels, (head, *_) = Rhino.UI.Panels, RIGHT_TOP
+    bars, tab_panels, toolbar_settings, tabs, resizer, layer_grid, layout_grid = (
         System.Type.GetType(f"Rhino.UI.{name}, Rhino.UI", throwOnError=True)
         for name in (
-            "Internal.TabPanels.TabPanelDockSites",
             "Internal.TabPanels.TabPanelDockBars",
             "Internal.TabPanels.TabPanelSettings",
             "Internal.TabPanels.ToolbarSettings",
             "Internal.TabPanels.Controls.BaseTabControl",
             "Internal.TabPanels.Controls.DockSiteResizer",
             "DialogPanels.LayerTreeGridView",
+            "DialogPanels.LayoutTreeGridView",
         )
     )
+    serial = System.UInt32(doc.RuntimeSerialNumber)
 
-    def height(control: object) -> float:
-        """Height of an Eto control of any runtime type."""
-        return control.GetType().GetProperty("Height").GetValue(control)
+    def container(bar: Guid) -> object:
+        """Dock bar's control at the size its band gives it."""
+        return bars.GetMethod("FromDockBarId").Invoke(None, Array[System.Object]([bar])).HasContent(serial)
 
-    def container(panel: Panel) -> object:
-        """The control of the dock bar holding the panel, as tall as its band gives it."""
-        bar = bars.GetMethod("FromDockBarId").Invoke(None, Array[System.Object]([panels.PanelDockBar(Guid(str(panel)))]))
-        return bar.GetType().GetMethod("HasContent").Invoke(bar, Array[System.Object]([System.UInt32(doc.RuntimeSerialNumber)]))
+    def contained(control: object, kind: object) -> object:
+        """First descendant control of the kind."""
+        return next(each for each in control.Children if kind.IsInstanceOfType(each))
+
+    def inset(shell: object, grid: object) -> float:
+        """Width the container spends beside the tree grid's visible columns."""
+        outline = grid.ControlObject
+        columns = tuple(outline.TableColumns())
+        shown = [index for index, column in enumerate(columns) if not column.Hidden]
+        span = outline.RectForColumn(System.IntPtr(max(shown))).Right.Value - sum(columns[index].Width.Value for index in shown)
+        return shell.Size.Width - outline.EnclosingScrollView.ContentView.Frame.Size.Width.Value + span
 
     def private(owner: object, kind: object, name: str) -> object:
         """Value of the private instance field the type declares on the owner."""
         return kind.GetField(name, BindingFlags.Instance | BindingFlags.NonPublic).GetValue(owner)
 
-    top = panels.PanelDockBar(Guid(str(head)))
-    homes = {panel: panels.PanelDockBar(Guid(str(panel))) for panel in (Panel.LAYERS, Panel.MATERIALS, Panel.LIBRARIES)}
-    for panel, home in homes.items():
-        panels.OpenPanel(top if home == Guid.Empty else home, Guid(str(panel)), makeSelectedPanel=True)
-    try:
-        Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc).ControlObject.ContentView.LayoutSubtreeIfNeeded()
-        docked = sites.GetMethod("FromDocument", Array[System.Type]([clr.GetClrType(Rhino.RhinoDoc)])).Invoke(None, Array[System.Object]([doc]))
-        controls = {location: held.GetType().GetProperty("Control").GetValue(held) for location in Site for held in [docked.GetType().GetProperty(location.value).GetValue(docked)]}
-        style = tab_panels.GetProperty("HorizontalDisplayStyle").GetValue(None)
-        toolbar = toolbar_settings.GetProperty("Instance").GetValue(None)
-        buttons = toolbar.GetType().GetProperty("Buttons").GetValue(toolbar)
-        layers, osnap, materials, libraries = (panels.GetPanel(Guid(str(panel)), doc) for panel in (Panel.LAYERS, Panel.OSNAP, Panel.MATERIALS, Panel.LIBRARIES))
-        grid = next(each for each in layers.GetType().GetProperty("Children").GetValue(layers) if grid_kind.IsInstanceOfType(each))
-        outline = grid.GetType().GetProperty("ControlObject").GetValue(grid)
-        editor = materials.GetType().BaseType
-        thumbnails = private(materials, editor, "m_thumbnail_list")
-        thumbview = private(thumbnails, thumbnails.GetType(), "m_thumbview")
-        model = thumbnails.GetType().GetProperty("ViewModel").GetValue(thumbnails)
-        splitter, tree = (private(libraries, libraries.GetType(), name) for name in ("m_splitter", "m_tree_grid"))
-        folders = tree.ControlObject
+    def layers(panel: object, shell: object) -> dict[Site | Extent, float]:
+        """Measures of the Layers container and its tree."""
+        grid = contained(panel, layer_grid)
+        outline = grid.ControlObject
         return {
-            **{location: height(control) for location, control in controls.items()},
-            Extent.TAB_STRIP: tabs.GetMethod("CalculateTabHeight", BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, Array[System.Object]([style])),
-            Extent.BUTTON: buttons.GetType().GetProperty("TotalButtonSize").GetValue(buttons),
-            Extent.RESIZER: resizer.GetProperty("ResizerWidth").GetValue(None),
-            Extent.LAYERS_CHROME: height(container(Panel.LAYERS)) - height(grid),
+            Extent.LAYERS_CHROME: shell.Size.Height - grid.Size.Height,
             Extent.LAYERS_HEADER: outline.HeaderView.Frame.Size.Height.Value,
             Extent.LAYERS_ROW: outline.RowHeight.Value + outline.IntercellSpacing.Height.Value,
-            Extent.OSNAP: height(container(Panel.OSNAP)) - height(osnap) + osnap.GetPreferredSize().Height,
-            Extent.MATERIALS_STRIP: private(materials, editor, "m_thumb_list_table").Spacing.Height + private(materials, editor, "m_view_mode_button_table").GetPreferredSize().Height,
-            Extent.MATERIALS_ROW: model.GetType().GetProperty("ThumbHeigth").GetValue(model) + private(thumbview, thumbview.GetType(), "m_space_between_items"),
-            Extent.LIBRARIES_CHROME: height(container(Panel.LIBRARIES)) - (splitter.Height - splitter.SplitterWidth),
+            Extent.LAYERS_INSET: inset(shell, grid),
+        }
+
+    def materials(panel: object, _: object) -> dict[Site | Extent, float]:
+        """Material editor's strip above its list and its row pitch."""
+        editor = panel.GetType().BaseType
+        thumbnails = private(panel, editor, "m_thumbnail_list")
+        thumbview = private(thumbnails, thumbnails.GetType(), "m_thumbview")
+        return {
+            Extent.MATERIALS_STRIP: private(panel, editor, "m_thumb_list_table").Spacing.Height + private(panel, editor, "m_view_mode_button_table").GetPreferredSize().Height,
+            Extent.MATERIALS_ROW: thumbnails.ViewModel.ThumbHeigth + private(thumbview, thumbview.GetType(), "m_space_between_items"),
+        }
+
+    def libraries(panel: object, shell: object) -> dict[Site | Extent, float]:
+        """Measures of the Libraries container, its folder tree, and its list."""
+        splitter, tree = (contained(panel, System.Type.GetType(f"Eto.Forms.{name}, Eto", throwOnError=True)) for name in ("Splitter", "TreeGridView"))
+        folders = tree.ControlObject
+        return {
+            Extent.LIBRARIES_CHROME: shell.Size.Height - (splitter.Height - splitter.SplitterWidth),
             Extent.LIBRARIES_BORDER: tree.Height - folders.EnclosingScrollView.ContentView.Frame.Size.Height.Value,
             Extent.LIBRARIES_ROW: folders.RowHeight.Value + folders.IntercellSpacing.Height.Value,
             Extent.LIBRARIES_FOLDERS: folders.RowCount.ToInt64(),
             Extent.LIBRARIES_LIST_MINIMUM: splitter.Panel2MinimumSize,
+        }
+
+    top, window = panels.PanelDockBar(Guid(str(head))), Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc).ControlObject.ContentView
+    homes = {panel: panels.PanelDockBar(Guid(str(panel))) for panel in (Panel.LAYERS, Panel.LAYOUTS, Panel.MATERIALS, Panel.LIBRARIES)}
+
+    def selected(panel: Panel, measure: Callable[[object, object], dict[Site | Extent, float]]) -> dict[Site | Extent, float]:
+        """Measures of the panel laid out as its container's selected tab, a background tab holding its last layout's frames."""
+        guid = Guid(str(panel))
+        panels.OpenPanel(top if homes[panel] == Guid.Empty else homes[panel], guid, makeSelectedPanel=True)
+        window.LayoutSubtreeIfNeeded()
+        return measure(panels.GetPanel(guid, doc), container(panels.PanelDockBar(guid)))
+
+    try:
+        window.LayoutSubtreeIfNeeded()
+        width, style, toolbar = (kind.GetProperty(name).GetValue(None) for kind, name in ((resizer, "ResizerWidth"), (tab_panels, "HorizontalDisplayStyle"), (toolbar_settings, "Instance")))
+        osnap = panels.GetPanel(Guid(str(Panel.OSNAP)), doc)
+        grid = contained(osnap, System.Type.GetType("Rhino.UI.Controls.ControlGridLayout, Rhino.UI", throwOnError=True))
+        pitch = grid.ItemSize + grid.ItemPadding.Size
+        return {
+            **{site: owner.Control.Size.Height for site, owner in docks(doc).items()},
+            Extent.TAB_STRIP: tabs.GetMethod("CalculateTabHeight", BindingFlags.Static | BindingFlags.NonPublic).Invoke(None, Array[System.Object]([style])),
+            Extent.BUTTON: toolbar.Buttons.TotalButtonSize,
+            Extent.RESIZER: width,
+            Extent.OSNAP_TOGGLES: len(grid.Items),
+            Extent.OSNAP_PITCH_X: pitch.Width,
+            Extent.OSNAP_PITCH_Y: pitch.Height,
+            Extent.OSNAP_INSET: osnap.Padding.Horizontal,
+            Extent.OSNAP_CHROME: container(panels.PanelDockBar(Guid(str(Panel.OSNAP)))).Size.Height - osnap.Size.Height + osnap.GetPreferredSize().Height - grid.Rows * pitch.Height,
+            **selected(Panel.LAYERS, layers),
+            **selected(Panel.LAYOUTS, lambda panel, shell: {Extent.LAYOUTS_INSET: inset(shell, contained(panel, layout_grid))}),
+            **selected(Panel.MATERIALS, materials),
+            **selected(Panel.LIBRARIES, libraries),
         }
     finally:
         for panel in (panel for panel, home in homes.items() if home == Guid.Empty):
@@ -1161,84 +935,63 @@ def extents() -> dict[Site | Extent, float]:
         panels.OpenPanel(top, Guid(str(head)), makeSelectedPanel=True)
 
 
-# --- [DOCUMENTS]
-def released(document: Rhino.RhinoDoc) -> bool:
-    """Whether the document holds unsaved edits once a titled one is saved and an untitled one is marked unmodified."""
-    if document.Path:
-        document.Save()
-    else:
-        document.Modified = False
-    return document.Modified
-
-
-# --- [PROOF]
-def window_readings() -> tuple[Reading, ...]:
-    """The layout the host wrote, as the relaunched Rhino holds it: the top panels sharing one container, Layers in a container of its own, Osnap under the sidebar, and Selection Filters beside Osnap."""
-    panels, (head, *_) = Rhino.UI.Panels, window.RIGHT_TOP
-    top = panels.PanelDockBar(Guid(str(head)))
-    return (
-        *((f"panel {panel.name} in the top container", lambda panel=panel: panels.PanelDockBar(Guid(str(panel))) == top, True) for panel in window.RIGHT_TOP),
-        *((f"panel {panel.name} in its own container", lambda panel=panel: panels.PanelDockBar(Guid(str(panel))) not in {top, Guid.Empty}, True) for panel in window.RIGHT_BOTTOM),
-        ("panel Osnap outside the top container", lambda: panels.PanelDockBar(Guid(str(Panel.OSNAP))) not in {top, Guid.Empty}, True),
-        ("panel Selection Filters beside Osnap", lambda: panels.PanelDockBar(Guid(str(Panel.OSNAP))) in panels.PanelDockBars(Guid(str(Panel.SELECTION_FILTERS))), True),
-    )
-
-
-def document_readings() -> tuple[Reading, ...]:
-    """The document Rhino opened from the template at launch: every view in the declared mode and the physical sky environment."""
-    doc = Rhino.RhinoDoc.ActiveDoc
-    return (
-        *((f"document view {view.MainViewport.Name} mode", lambda view=view: str(view.ActiveViewport.DisplayMode.Id), str(window.MODE_ID)) for view in doc.Views),
-        ("document environment", partial(sky, doc), (str(ContentUuids.PhysicalSkyTextureType), True, SKY_MULTIPLIER)),
-    )
+def shifts(doc: Rhino.RhinoDoc, measured: Mapping[Site | Extent, float]) -> dict[Site, float]:
+    """Length each dock site grows by across its dock axis once its first band takes its settled size, zero for a site the file edit leaves."""
+    sizes, resizer, private = bands(measured), measured[Extent.RESIZER], BindingFlags.Instance | BindingFlags.NonPublic
+    return {
+        site: sum(band.Size + resizer for band in tuple(owner.GetType().GetProperty("Bands", private).GetValue(owner))[1:]) + sizes[site] + resizer - owner.Control.DockSiteSize
+        if site in sizes
+        else 0.0
+        for site, owner in docks(doc).items()
+    }
 
 
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-def rows() -> Iterator[Row]:
-    """Every setting row in write order, the display mode imported before the Grasshopper preview reads its point size."""
-    root = Rhino.PersistentSettings.RhinoAppSettings
-    options, ui_settings = root.AddChild("Options"), root.AddChild("UI").AddChild("Settings")
-    steps = (
-        partial(settings_rows, options),
-        theme_rows,
-        partial(color_rows, options, ui_settings),
-        command_rows,
-        display_rows,
-        template_rows,
-        lambda: grasshopper.rows(mode_description().DisplayAttributes.PointRadius, partial(render, rgb=hex_color)),
-        panel_rows,
-    )
-    return (row for step in steps for row in step())
+def ready(address: str, port: int) -> None:
+    """Send Rhino's process id over one connection to the host listening at the address and port."""
+    client, sent = TcpClient(address, port), Encoding.ASCII.GetBytes(str(System.Environment.ProcessId))
+    try:
+        client.GetStream().Write(sent, 0, sent.Length)
+    finally:
+        client.Dispose()
 
 
-def main() -> None:
-    """Every row written on difference, the settings flushed, and the report printed with each absent plug-in and an empty materials library skipped and the extents the file stage sizes from."""
-    results = tuple(map(converged, rows()))
-    PlugIn.FlushSettingsSavedQueue()
-    absent_plugins = tuple(name for name, _, record in plugin_loads() if record is None)
-    emit(results, absent_plugins if stocked(MATERIALS) else (*absent_plugins, str(MATERIALS)), extents())
+def applied(doc: Rhino.RhinoDoc, packages: Sequence[str]) -> Iterator[Row | str]:
+    """Every row in write order and the report lines the file edit reads, Rhino's Shaded mode configured before the template's views take it and the Grasshopper 2 rows sized from the measured extents."""
+    held = installed(packages)
+    columns, kind = (System.Type.GetType(f"Rhino.UI.DialogPanels.{name}, Rhino.UI", throwOnError=True) for name in ("LayerColumns", "LayerColumns+ColumnType"))
+    search = System.Type.GetType("Rhino.UI.Internal.RuiIo.RuiFile, Rhino.UI", throwOnError=True).GetMethod("RuiFileNameFromPlugIn", BindingFlags.Static | BindingFlags.NonPublic)
+    yield from (row for step in (settings_rows, theme_rows, color_rows, command_rows, partial(package_rows, held), display_rows, template.rows, panel_rows) for row in step())
+    measured = extents(doc)
+    widths = {str(column): columns.GetMethod("DefaultWidth").Invoke(None, Array[System.Object]([column])) for column in System.Enum.GetValues(kind)}
+    yield from (line(Kind.MEASURE, name, repr(value)) for name, value in {**measured, **widths}.items())
+    yield from configuration.rows(doc, point_width(), shifts(doc, measured))
+    yield from (line(Kind.PLUGIN, package, *(() if (file := search.Invoke(None, Array[System.Object]([str(path)]))) is None else (file,))) for package, path, _ in plugins(held))
+    yield from (line(Kind.SKIP, package) for package in packages if package not in held)
+    yield from (() if stocked(MATERIALS) else (line(Kind.SKIP, str(MATERIALS)),))
 
 
-def close() -> None:
-    """The document step the host runs before it quits Rhino, each modified document saved or marked unmodified and reported as a change."""
-    emit(
-        (
-            (f"document {document.RuntimeSerialNumber} unsaved edits", True, held, False)
-            for document in [each for each in Rhino.RhinoDoc.OpenDocuments() if each.Modified]
-            for held in (released(document),)
-        ),
-        (),
-        {},
-    )
+def main(doc: Rhino.RhinoDoc, packages: Sequence[str]) -> None:
+    """Converge and report every row, then flush the settings on every path."""
+    try:
+        emit(applied(doc, packages))
+    finally:
+        PlugIn.FlushSettingsSavedQueue()
 
 
-def layout() -> None:
-    """Every row, the host's window layout, and the document opened from the template, read in the relaunched Rhino, then the Grasshopper 2 editor's rectangle written on difference over the views the settled layout gives."""
-    emit((*map(observed, (*rows(), *window_readings(), *document_readings())), converged(grasshopper.editor_rectangle())), (), {})
+def release() -> None:
+    """Drop the unsaved edits of untitled Rhino and Grasshopper 2 documents and report an error naming each titled one with unsaved edits."""
+    grasshopper = import_module("Grasshopper2.Doc").Document.AllDocuments if PlugIn.GetPlugInInfo(PlugIn.IdFromName("Grasshopper2")).IsLoaded else ()
+    for each in [each for each in Rhino.RhinoDoc.OpenDocuments() if each.Modified and not each.Path]:
+        each.Modified = False
+    for each in [each for each in grasshopper if each.Modified and not each.File.Path]:
+        each.Unmodify()
+    names = (*(f"Rhino document {each.Path}" for each in Rhino.RhinoDoc.OpenDocuments() if each.Modified), *(f"Grasshopper 2 document {each.File.Path}" for each in grasshopper if each.Modified))
+    emit(line(Kind.ERROR, f"{name} holds unsaved edits. Save or close it and rerun") for name in names)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["close", "extents", "layout", "main"]
+__all__ = ["main", "ready", "release"]

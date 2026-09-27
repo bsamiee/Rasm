@@ -57,6 +57,15 @@ utils:
     anonymous-arguments-1: {kind: value_arguments, has: {matches: anonymous-1}, not: {has: {nthChild: 2}}}
     anonymous-arguments-2: {kind: value_arguments, all: [{has: {matches: anonymous-1}}, {has: {matches: anonymous-2}}], not: {has: {nthChild: 3}}}
     anonymous-arguments-3: {kind: value_arguments, all: [{has: {matches: anonymous-1}}, {has: {matches: anonymous-2}}, {has: {matches: anonymous-3}}], not: {has: {nthChild: 4}}}
+    pointer-scope:
+        kind: call_expression
+        any:
+            - has:
+                kind: navigation_expression
+                all:
+                    - has: {field: target, kind: 'simple_identifier, navigation_expression', not: {has: {kind: call_suffix, stopBy: end}}}
+                    - has: {field: suffix, regex: '^\.withCString$'}
+            - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Pointer$'}
     plain-parameters:
         kind: function_declaration
         not:
@@ -120,5 +129,6 @@ rule:
                 - not: {has: {kind: lambda_function_type}}
                 - matches: anonymous-forwarded-3
         - not: {has: {field: name, pattern: $F}}
+        - not: {inside: {kind: call_suffix, inside: {matches: pointer-scope}}}
 message: 'Function or closure forwards its parameters unchanged to `$F`'
 note: 'Call `<callee>` at each use, or pass it as a value (`f`, `obj.m`, `m(label:)`, `Type.init`), a trailing closure on a labeled parameter becomes `(label: f)`'

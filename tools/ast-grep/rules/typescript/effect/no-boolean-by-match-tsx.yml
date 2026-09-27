@@ -51,7 +51,7 @@ constraints:
             - pattern: Boolean
               matches: {syntax-import-reference: {source: {regex: '^effect(/Boolean)?$'}, exported: {regex: '^Boolean$'}}}
             - not: {pattern: Boolean}
-              matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Either|Exit|Effect|STM))?$'}, exported: {regex: '^(Option|Either|Exit|Effect|STM)$'}}}
+              matches: {syntax-import-reference: {source: {regex: '^effect(/(Option|Result|Exit|Effect))?$'}, exported: {regex: '^(Option|Result|Exit|Effect)$'}}}
 rewriters:
     - id: true-key
       rule: {matches: true-pair}

@@ -25,10 +25,20 @@ rule:
                   matches: name
                 - kind: pattern_list, tuple_pattern, list_pattern, list_splat_pattern
                   has: {stopBy: {kind: 'attribute, subscript'}, kind: identifier, matches: name}
+        - kind: identifier
+          matches: name
+          inside:
+            kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'
+            inside:
+                stopBy: {not: {kind: 'pattern_list, tuple_pattern, list_pattern, list_splat_pattern'}}
+                kind: 'assignment, augmented_assignment, for_statement, for_in_clause'
         - kind: named_expression
           has: {field: name, matches: name}
         - kind: as_pattern
           has: {field: alias, has: {stopBy: end, kind: identifier, matches: name}}
+        - kind: identifier
+          matches: name
+          inside: {kind: as_pattern_target, stopBy: {kind: 'as_pattern_target, attribute, subscript, call'}}
         - kind: function_definition, class_definition
           has: {field: name, matches: name}
         - kind: identifier

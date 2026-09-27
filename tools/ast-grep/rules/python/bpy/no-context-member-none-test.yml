@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-context-member-none-test
+language: python
+severity: error
+utils:
+    context:
+        any:
+            - matches: {python-member-use: {module: {regex: '^bpy$'}, name: {regex: '^context$'}}}
+            - matches: {python-typed-parameter: {type: {regex: '^(bpy\.types\.)?Context$'}}}
+    member:
+        kind: attribute
+        all:
+            - has: {field: attribute, regex: '^(blend_data|preferences|scene|view_layer|window_manager)$'}
+            - has: {field: object, matches: context}
+    tested:
+        any:
+            - matches: member
+            - kind: named_expression
+              has: {field: value, matches: member}
+            - kind: parenthesized_expression
+              has: {matches: tested}
+            - kind: identifier
+              matches: {python-assigned-name: {value: {matches: member}}}
+rule:
+    any:
+        - kind: comparison_operator
+          all:
+            - has: {nthChild: 1, matches: tested}
+            - has: {nthChild: 2, kind: none}
+        - kind: not_operator
+          has: {field: argument, matches: tested}
+        - kind: boolean_operator
+          has: {field: left, matches: tested}
+        - matches: tested
+          any:
+            - inside: {kind: 'if_statement, elif_clause, while_statement', field: condition}
+            - all: [{inside: {kind: 'assert_statement'}}, {nthChild: 1}]
+            - all: [{inside: {kind: 'conditional_expression'}}, {nthChild: 2}]
+message: 'Blender context member is tested for absence'
+note: 'Read the member directly, Blender supplies it in every script, handler, and operator context and the stub alone types it Optional'

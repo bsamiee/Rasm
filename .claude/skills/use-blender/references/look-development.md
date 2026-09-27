@@ -33,8 +33,8 @@ Library tools of `mcp-for-blender` download, build, and pack in one call, each w
 
 - Hunyuan3D holds no account, and its tools fail
 - Poly Haven packs every downloaded image into the `.blend`, a 4k texture set grows the file by its map sizes
-- Importer of ambientCG downloads a set (Color, Roughness, NormalGL, NormalDX, Displacement) into its `cache_dir`, the shared materials folder
-- Normalized imports hold the factor in root object scale, `transform_apply(scale=True)` under a selection override bakes it into the mesh
+- Importer of ambientCG downloads a set (Color, Roughness, NormalGL, NormalDX, Displacement) into its `cache_dir` preference
+- Normalized imports hold the factor in root object scale
 - Download results name imported objects and bounds, the next call reads them by those names
 
 ## [03]-[WORLD_AND_LIGHT]
@@ -43,6 +43,7 @@ Metals reflect the world, under the flat gray default world a metal proof render
 - `ShaderNodeTexSky` defaults to `MULTIPLE_SCATTERING`, `sun_elevation` and `sun_rotation` place its sun, `altitude` is meters above sea level
 - `sun_disc` lights Cycles alone, site light pairs the sky with `sun_disc` False and a SUN lamp at the disc's irradiance
 - Sun to sky on a horizontal plane is 7.4:1 under the physical sky, a 4 W/m² sun reads as overcast
+- Lights a task adds take physical watts against exposure -5.3, and a 1000 W point light 5 m above a gray floor renders it dark
 - EEVEE turns world light above `world.sun_threshold` (10 by default) into a sun of its own, 0 turns the extraction off
 - Lights changed to `SUN` read again from `bpy.data.lights`, a handle taken before the change stays a point light
 - SUN lamps converted from the stock point light keep an 11.4° angle, `light.angle = light.bl_rna.properties["angle"].default` gives 0.526°
@@ -81,3 +82,6 @@ result = {"preview": list(obj.preview.image_size), "catalog": catalog}
 - `bpy.data.libraries.write` writes the given IDs and their dependencies with asset data and previews, replacing the whole target file
 - Catalog lines take the form `<uuid>:<path>:<simple name>` after a `VERSION 1` line, one catalog per path
 - Library rows in `preferences.filepaths.asset_libraries` need a folder with a catalog file, `asset_libraries.remove(<row>)` drops one
+- Remote rows come from `bpy.ops.preferences.asset_library_add(type="REMOTE", name=, remote_url=)`, `asset_libraries.new` takes no URL
+- Remote rows take `import_method` `APPEND` or `PACK`, `APPEND_REUSE` raises on a remote row
+- Remote row `https://ambientcg.com/api/blender/` lists ambientCG's 8,711 materials, 425 worlds, and 204 objects, each fetched on first use

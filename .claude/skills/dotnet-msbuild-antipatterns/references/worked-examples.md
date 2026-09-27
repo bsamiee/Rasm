@@ -8,7 +8,7 @@ Consumer calling `Publish` on a tool project, BAD:
 
 ```xml
 <Target Name="PublishTool" BeforeTargets="Build">
-  <MSBuild Projects="../Tool/Tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
+    <MSBuild Projects="../Tool/Tool.csproj" Targets="Publish" Properties="_IsPublishing=true" />
 </Target>
 ```
 
@@ -16,7 +16,7 @@ GOOD:
 
 ```xml
 <ItemGroup>
-  <ProjectReference Include="../Tool/Tool.csproj" ReferenceOutputAssembly="false" UndefineProperties="_IsPublishing" />
+    <ProjectReference Include="../Tool/Tool.csproj" ReferenceOutputAssembly="false" UndefineProperties="_IsPublishing" />
 </ItemGroup>
 ```
 
@@ -53,10 +53,10 @@ Framework negotiation fails between `.NETFramework` and `.NETCoreApp`, `SkipGetT
 
 ```xml
 <PropertyGroup>
-  <HostAppPath Condition="'$(HostAppPath)' == '' and '$(HOST_APP_PATH)' != ''">$(HOST_APP_PATH)</HostAppPath>
-  <HostAppPath Condition="'$(HostAppPath)' == ''">/Applications/Host.app</HostAppPath>
-  <_HostAppDir>$([MSBuild]::NormalizeDirectory('$(HostAppPath)'))</_HostAppDir>
-  <HostAssemblyDir>$(_HostAppDir)Contents/Resources/</HostAssemblyDir>
+    <HostAppPath Condition="'$(HostAppPath)' == '' and '$(HOST_APP_PATH)' != ''">$(HOST_APP_PATH)</HostAppPath>
+    <HostAppPath Condition="'$(HostAppPath)' == ''">/Applications/Host.app</HostAppPath>
+    <_HostAppDir>$([MSBuild]::NormalizeDirectory('$(HostAppPath)'))</_HostAppDir>
+    <HostAssemblyDir>$(_HostAppDir)Contents/Resources/</HostAssemblyDir>
 </PropertyGroup>
 ```
 
@@ -64,16 +64,16 @@ Framework negotiation fails between `.NETFramework` and `.NETCoreApp`, `SkipGetT
 
 ```xml
 <ItemGroup Condition="'$(HostRole)' != ''">
-  <_HostAssembly Include="HostCore" />
-  <_HostAssembly Include="HostUi" Condition="'$(HostRole)' == 'ui'" />
-  <Reference Include="@(_HostAssembly)" HintPath="$(HostAssemblyDir)%(Identity).dll" Private="false" />
+    <_HostAssembly Include="HostCore" />
+    <_HostAssembly Include="HostUi" Condition="'$(HostRole)' == 'ui'" />
+    <Reference Include="@(_HostAssembly)" HintPath="$(HostAssemblyDir)%(Identity).dll" Private="false" />
 </ItemGroup>
 
 <Target Name="VerifyHostInstallation" BeforeTargets="ResolveAssemblyReferences" Condition="'$(HostRole)' != ''">
-  <ItemGroup>
-    <_MissingHostFile Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
-  </ItemGroup>
-  <Error Condition="'@(_MissingHostFile)' != ''" Text="Host installation '$(HostAppPath)' lacks @(_MissingHostFile->'%(Filename)%(Extension)', ', '), set HOST_APP_PATH" />
+    <ItemGroup>
+        <_MissingHostFile Include="@(Reference->'%(HintPath)')" Condition="'%(Reference.HintPath)' != '' and !Exists('%(Reference.HintPath)')" />
+    </ItemGroup>
+    <Error Condition="'@(_MissingHostFile)' != ''" Text="Host installation '$(HostAppPath)' lacks @(_MissingHostFile->'%(Filename)%(Extension)', ', '), set HOST_APP_PATH" />
 </Target>
 ```
 
@@ -85,8 +85,8 @@ Layer membership derives from the project directory in `Directory.Build.props`:
 
 ```xml
 <PropertyGroup>
-  <LayerRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '<layer>'))</LayerRoot>
-  <InLayer Condition="$(MSBuildProjectDirectory.StartsWith('$(LayerRoot)'))">true</InLayer>
+    <LayerRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '<layer>'))</LayerRoot>
+    <InLayer Condition="$(MSBuildProjectDirectory.StartsWith('$(LayerRoot)'))">true</InLayer>
 </PropertyGroup>
 ```
 
@@ -94,10 +94,10 @@ Layer membership derives from the project directory in `Directory.Build.props`:
 
 ```xml
 <Target Name="ValidateReferenceLayer" BeforeTargets="PrepareForBuild" Condition="'$(InLayer)' == 'true'">
-  <ItemGroup>
-    <_UpwardReference Include="@(ProjectReference->'%(FullPath)')" Condition="!$([System.String]::Copy('%(FullPath)').StartsWith('$(LayerRoot)'))" />
-  </ItemGroup>
-  <Error Condition="'@(_UpwardReference)' != ''" Text="Project '$(MSBuildProjectName)' references outside its layer: @(_UpwardReference, ', ')" />
+    <ItemGroup>
+        <_UpwardReference Include="@(ProjectReference->'%(FullPath)')" Condition="!$([System.String]::Copy('%(FullPath)').StartsWith('$(LayerRoot)'))" />
+    </ItemGroup>
+    <Error Condition="'@(_UpwardReference)' != ''" Text="Project '$(MSBuildProjectName)' references outside its layer: @(_UpwardReference, ', ')" />
 </Target>
 ```
 

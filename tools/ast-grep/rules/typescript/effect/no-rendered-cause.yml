@@ -6,7 +6,17 @@ utils:
     failure-callback:
         kind: arrow_function, function_expression
         any:
-            - inside: {kind: pair, field: value, has: {field: key, regex: '^(catch|onFailure|onLeft)$'}}
+            - inside: {kind: pair, field: value, has: {field: key, regex: '^(catch|onFailure)$'}}
+            - inside:
+                kind: pair
+                field: value
+                inside:
+                    kind: object
+                    inside:
+                        kind: arguments
+                        inside:
+                            kind: call_expression
+                            has: {field: function, kind: member_expression, has: {field: property, regex: '^(catchTags|catchReasons)$'}}
             - inside:
                 kind: arguments
                 inside:
@@ -14,7 +24,7 @@ utils:
                     has:
                         field: function
                         kind: member_expression
-                        has: {field: property, regex: '^(mapError|mapErrorCause|mapLeft|catchAll|catchAllCause|catchTag|catchTags|catchIf|catchSome|catchSomeCause|tapError|tapErrorCause|tapErrorTag)$'}
+                        has: {field: property, regex: '^(mapError|catch|catchCause|catchTag|catchTags|catchIf|catchFilter|catchReason|catchReasons|catchDefect|tapError|tapCause|tapErrorTag)$'}
     cause-parameter:
         matches: failure-callback
         any:
@@ -57,4 +67,4 @@ rule:
                 - has: {regex: '^get$'}
                 - has: {field: name, regex: '^message$'}
 message: '`$CAUSE` renders to text before the boundary'
-note: 'Hold `cause: unknown` on the variant, `Cause.pretty(cause, { renderErrorCause: true })` renders it at the boundary'
+note: 'Hold `cause: unknown` on the variant, `Cause.pretty` renders the failure with its `[cause]` chain at the boundary'
