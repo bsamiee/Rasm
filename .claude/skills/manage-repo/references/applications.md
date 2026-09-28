@@ -9,7 +9,7 @@ Interface folder holds one `.archive/` with the knowledge of every application:
 - `decompiled/` holds managed assemblies and native binaries as source, `inventories/` store dumps and factory baselines
 - `color/` holds color specimens and runnable map generators
 - Evidence is the application's own: source file and line at installed tag, decompiled path, dated documentation URL, or live read and result
-- Session, agent, decision, and task ids, transcript and scratch paths, work dates, interface code references, reports, plans, and notes stay out
+- Session, agent, decision, and task ids, transcript and temporary paths, work dates, interface code references, reports, plans, and notes stay out
 - Work reads `facts/index.txt`, then each facts file on its topic
 - Archived facts are used as written, a missing fact is read from the application before any row uses it
 - New facts join the facts file that owns their topic, and a fact found wrong is corrected in place
@@ -56,7 +56,7 @@ Every setting is written through its owning store and API:
 - Hosts own every application they drive, and close documents, quit, and relaunch it whenever a run needs
 - Runs launch each application once to write, then reopen one that ran at discovery on the files edited after its quit
 - Processes alive at the deadline after a quit are terminated
-- Runs leave no residue in the application (autosave, history line, scratch document, run file)
+- Runs leave no residue in the application (autosave, history line, temporary document, run file)
 
 ## [03]-[EVIDENCE]
 

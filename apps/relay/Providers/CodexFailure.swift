@@ -1,115 +1,79 @@
 import Foundation
 
-// --- [TYPES] ---------------------------------------------------------------------------
-
-nonisolated enum CodexTurnErrorCode: String, Sendable {
-  case contextWindowExceeded
-  case sessionBudgetExceeded
-  case usageLimitExceeded
-  case rateLimitExceeded
-  case serverOverloaded
-  case cyberPolicy
-  case misalignmentPolicyViolation
-  case internalServerError
-  case unauthorized
-  case badRequest
-  case threadRollbackFailed
-  case sandboxError
-  case other
-}
-
 // --- [ERRORS] --------------------------------------------------------------------------
 
-nonisolated enum CodexFailure: ProviderFailure {
-  case applicationUnavailable
-  case process(ProcessFailure)
-  case cancelled
-  case timedOut
-  case connectionClosed
-  case invalidResponse(field: String)
-  case requestRejected(method: String, code: Int, message: String, server: String)
-  case signInRequired
-  case subscriptionRequired
-  case signInPageUnopened
-  case signInRefused(reason: String?)
-  case identityChanged
-  case modelUnavailable
-  case turnFailed(code: CodexTurnErrorCode?, message: String)
-  case storage(any Error)
-  case keyringStorage
-  case forcedWorkspace
-  case desktopLaunch(any Error)
-  case desktopQuitRefused
+nonisolated enum CodexFailure: DeadlineFailure, ProviderFailure {
+    case applicationUnavailable
+    case process(ProcessFailure)
+    case cancelled
+    case timedOut
+    case connectionClosed
+    case invalidResponse(field: String)
+    case requestRejected(method: CodexProtocol.Method, code: Int, message: String, serverVersion: String?)
+    case signInRequired
+    case subscriptionRequired
+    case signInPageUnopened
+    case signInRefused(reason: String?)
+    case identityChanged
+    case modelUnavailable
+    case turnUnauthorized(message: String)
+    case turnFailed(message: String)
+    case storage(any Error)
+    case keyringStorage
+    case forcedWorkspace
+    case desktopLaunch(any Error)
+    case desktopQuitRefused
 
-  var requiresSignIn: Bool {
-    switch self {
-    case .signInRequired, .subscriptionRequired, .identityChanged: true
-    case .turnFailed(.unauthorized, _): true
-    case .applicationUnavailable, .process, .cancelled, .timedOut, .connectionClosed,
-      .invalidResponse, .requestRejected, .signInPageUnopened, .signInRefused, .modelUnavailable,
-      .turnFailed, .storage, .keyringStorage, .forcedWorkspace,
-      .desktopLaunch, .desktopQuitRefused:
-      false
+    var requiresSignIn: Bool {
+        switch self {
+            case .signInRequired, .subscriptionRequired, .identityChanged, .turnUnauthorized: true
+            case .applicationUnavailable, .process, .cancelled, .timedOut, .connectionClosed,
+                .invalidResponse, .requestRejected, .signInPageUnopened, .signInRefused, .modelUnavailable,
+                .turnFailed, .storage, .keyringStorage, .forcedWorkspace,
+                .desktopLaunch, .desktopQuitRefused:
+                false
+        }
     }
-  }
 
-  var isCancellation: Bool {
-    switch self {
-    case .cancelled, .process(.cancelled): true
-    default: false
+    var isAccountMismatch: Bool {
+        if case .identityChanged = self { true } else { false }
     }
-  }
 
-  var errorDescription: String? {
-    switch self {
-    case .applicationUnavailable:
-      "Install the OpenAI desktop app to connect an account"
-    case .process(let failure): failure.localizedDescription
-    case .cancelled: "Canceled"
-    case .timedOut: "OpenAI app server did not answer in time"
-    case .connectionClosed: "OpenAI connection closed"
-    case .invalidResponse(let field): "OpenAI returned an unreadable \(field)"
-    case .requestRejected(let method, _, let message, let server):
-      "Codex \(server) rejected \(method), \(message)"
-    case .signInRequired: "Sign in to this OpenAI account"
-    case .subscriptionRequired: "Connect this account with a ChatGPT subscription"
-    case .signInPageUnopened: "OpenAI sign-in page could not open"
-    case .signInRefused(let reason): reason ?? "OpenAI sign-in did not finish"
-    case .identityChanged: "OpenAI is signed in to a different user or workspace"
-    case .modelUnavailable:
-      "OpenAI model \(CodexProtocol.greetingModelName) is unavailable for this account"
-    case .turnFailed(_, let message): message
-    case .storage(let error): "Could not save the OpenAI account, \(error.localizedDescription)"
-    case .keyringStorage:
-      "Codex keeps its sign-in in the Keychain, set cli_auth_credentials_store = \"file\" in ~/.codex/config.toml to switch accounts"
-    case .forcedWorkspace:
-      "Codex pins a workspace through forced_chatgpt_workspace_id in ~/.codex/config.toml, unset it to switch accounts"
-    case .desktopLaunch(let error): "Could not open the OpenAI app, \(error.localizedDescription)"
-    case .desktopQuitRefused: "OpenAI app did not accept the quit request"
+    var isCancellation: Bool {
+        switch self {
+            case .cancelled, .process(.cancelled): true
+            default: false
+        }
     }
-  }
-}
 
-nonisolated extension CodexFailure {
-  init(process failure: ProcessFailure) {
-    self =
-      switch failure {
-      case .cancelled: .cancelled
-      case .timedOut: .timedOut
-      default: .process(failure)
-      }
-  }
-}
+    var retryAfter: Date? { nil }
 
-nonisolated struct CodexFieldFailures: AggregateError {
-  let first: String
-  let remaining: [String]
-}
-
-// --- [OPERATIONS] ----------------------------------------------------------------------
-
-nonisolated extension Result where Failure == ProcessFailure {
-  func codex() -> Result<Success, CodexFailure> {
-    mapError(CodexFailure.init(process:))
-  }
+    var errorDescription: String? {
+        switch self {
+            case .applicationUnavailable: "Codex app not installed"
+            case .process(let failure): failure.localizedDescription
+            case .cancelled: "Canceled"
+            case .timedOut: "Codex app server timed out"
+            case .connectionClosed: "Codex app server connection closed"
+            case .invalidResponse(let field): "Unreadable Codex \(field)"
+            case .requestRejected(let method, let code, let message, .some(let serverVersion)):
+                "Codex app server \(serverVersion) rejected \(method.rawValue) with \(code): \(message)"
+            case .requestRejected(let method, let code, let message, .none):
+                "Codex app server rejected \(method.rawValue) with \(code): \(message)"
+            case .signInRequired: "Sign in required"
+            case .subscriptionRequired: "ChatGPT sign-in required"
+            case .signInPageUnopened: "Could not open the OpenAI sign-in page"
+            case .signInRefused(.some(let reason)): "OpenAI sign-in failed: \(reason)"
+            case .signInRefused(.none): "OpenAI sign-in failed"
+            case .identityChanged: "Signed in to a different OpenAI user or workspace"
+            case .modelUnavailable: "\(CodexProtocol.greetingModelName) model unavailable"
+            case .turnUnauthorized(let message): "OpenAI greeting unauthorized: \(message)"
+            case .turnFailed(let message): "OpenAI greeting failed: \(message)"
+            case .storage(let error): "Could not access Codex files: \(error.localizedDescription)"
+            case .keyringStorage: "Set cli_auth_credentials_store = \"file\" in config.toml to switch accounts"
+            case .forcedWorkspace: "Unset forced_chatgpt_workspace_id in config.toml to switch accounts"
+            case .desktopLaunch(let error): "Could not open the Codex app: \(error.localizedDescription)"
+            case .desktopQuitRefused: "Codex app refused to quit"
+        }
+    }
 }

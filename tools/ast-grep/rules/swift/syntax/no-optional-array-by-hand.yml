@@ -1,0 +1,62 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-optional-array-by-hand
+language: swift
+severity: error
+utils:
+    empty-array:
+        any:
+            - pattern: '[]'
+            - pattern: '[$_]()'
+            - pattern: Array()
+    one-element:
+        not: {has: {kind: lambda_function_type, regex: '->'}}
+        any:
+            - pattern: '{ [$_] }'
+            - pattern: '{ $_ in [$_] }'
+    transform-call:
+        kind: call_expression
+        all:
+            - has: {kind: navigation_expression, all: [{has: {field: target, pattern: $X}}, {has: {field: suffix, regex: '^\.(map|flatMap)$'}}]}
+            - has: {kind: call_suffix, not: {has: {kind: value_arguments}}, has: {kind: lambda_literal, pattern: $LAMBDA, matches: one-element}}
+    in-for-each:
+        inside:
+            kind: value_argument
+            inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^ForEach$'}}}}
+rule:
+    any:
+        - kind: nil_coalescing_expression
+          all:
+            - has: {field: if_nil, matches: empty-array}
+            - has:
+                field: value
+                any:
+                    - pattern: '$X.map { [$0] }'
+                    - pattern: '$X.flatMap { [$0] }'
+                    - pattern: '$X.map { $V in [$V] }'
+                    - pattern: '$X.flatMap { $V in [$V] }'
+                    - matches: transform-call
+        - kind: if_statement
+          all:
+            - any:
+                - inside: {kind: property_declaration, field: value}
+                - inside: {kind: 'assignment, control_transfer_statement', field: result}
+            - any:
+                - pattern: 'if let $V = $X { [$V] } else { [] }'
+                - pattern: 'if let $X { [$X] } else { [] }'
+                - all: [{pattern: 'if let $_ = $X { [$_] } else { [] }'}, {pattern: $IF}]
+                - all: [{pattern: 'if let $X { [$_] } else { [] }'}, {pattern: $IF}]
+    not: {matches: in-for-each}
+transform:
+    MAP:
+        replace:
+            source: $LAMBDA
+            replace: '^\{(\s*[^\[]*?)\[([\s\S]*)\](\s*)\}$'
+            by: '.map {$1$2$3}'
+    IFMAP:
+        replace:
+            source: $IF
+            replace: '^if\s+let\s+(\w+)(?:\s*=[\s\S]*?)?\s*\{\s*\[([\s\S]*)\]\s*\}\s*else\s*\{\s*\[\s*\]\s*\}$'
+            by: '.map { $1 in $2 }'
+fix: '[$X$MAP$IFMAP].compactMap(\.self)'
+message: '`$X` becomes an array through a closure or branch with an empty default'
+note: '`[<optional>].compactMap(\.self)` holds the value when present and nothing otherwise, `[<optional>.map { <transform> }].compactMap(\.self)` holds its transform'

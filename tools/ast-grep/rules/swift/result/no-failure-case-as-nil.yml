@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-failure-case-as-nil
+language: swift
+severity: error
+rule:
+    kind: call_expression
+    all:
+        - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^flatMapError$'}}}
+        - has:
+            kind: call_suffix
+            has:
+                kind: lambda_literal
+                all:
+                    - has: {field: type, has: {stopBy: end, kind: lambda_parameter, has: {field: name, pattern: $E}}}
+                    - has: {stopBy: end, kind: call_expression, regex: '^(Result(<[^>]*>)?)?\.success\((nil|\.none)\)$'}
+                    - has: {stopBy: end, kind: call_expression, regex: '^(Result(<[^>]*>)?)?\.failure\(', has: {stopBy: end, kind: value_argument, pattern: $E}}
+                    - not:
+                        has:
+                            stopBy: end
+                            any:
+                                - kind: as_expression
+                                - kind: pattern
+                                  has: {field: name, kind: user_type}
+                                - kind: switch_pattern
+                                  regex: '^(Foundation\.)?(CocoaError|URLError|POSIXError|MachError)\.'
+message: '`flatMapError` maps a failure case of `$E` to `.success(nil)`, one absence spelled as a failure and as `nil`'
+note: 'Return `.success(nil)` for that case from the producing function, drop the case from its failure type and the `flatMapError` from each consumer, a host error cast or pattern (`as? CocoaError`, `case CocoaError.fileNoSuchFile`, `.noSuchFileOrDirectory as Errno`) stays the classifying boundary'

@@ -28,8 +28,8 @@
             },
             {
                 "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination 'platform=macOS,arch=arm64' -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution build",
-                "inputs": ["default", "xcode"],
+                "command": "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -destination platform=macOS -derivedDataPath .cache/xcode/{projectRoot} -packageCachePath $NX_WORKSPACE_ROOT/.cache/swiftpm/cache -disableAutomaticPackageResolution build",
+                "inputs": ["default", "xcode", "{workspaceRoot}/Xcode.xcconfig"],
                 "outputs": ["{workspaceRoot}/.cache/xcode/{projectRoot}/Build/Products/Debug"]
             },
             { "filter": { "projects": ["tag:language:typescript"] }, "inputs": ["production", "^production", "typescript"] },
@@ -64,7 +64,7 @@
                 "options": {
                     "commands": [
                         "rm -rf .artifacts/{projectRoot}/install",
-                        "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination 'platform=macOS,arch=arm64' -derivedDataPath .cache/xcode/{projectRoot} -disableAutomaticPackageResolution install DSTROOT=\"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\"",
+                        "xcodebuild -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -configuration Release -destination platform=macOS -derivedDataPath .cache/xcode/{projectRoot} -packageCachePath $NX_WORKSPACE_ROOT/.cache/swiftpm/cache -disableAutomaticPackageResolution install DSTROOT=\"$NX_WORKSPACE_ROOT/.artifacts/{projectRoot}/install\"",
                         "sudo ditto .artifacts/{projectRoot}/install /"
                     ],
                     "parallel": false
@@ -79,15 +79,38 @@
                 "parallelism": false
             }
         ],
+        "upgrade": [
+            {
+                "filter": { "projects": ["tag:language:swift"] },
+                "executor": "nx:run-commands",
+                "options": {
+                    "commands": [
+                        "rm -f {projectRoot}/{projectName}.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved .cache/xcode/{projectRoot}/SourcePackages/workspace-state.json",
+                        "xcodebuild -resolvePackageDependencies -project {projectRoot}/{projectName}.xcodeproj -scheme {projectName} -derivedDataPath .cache/xcode/{projectRoot} -packageCachePath $NX_WORKSPACE_ROOT/.cache/swiftpm/cache"
+                    ],
+                    "parallel": false
+                }
+            }
+        ],
         "lint": [
             {
                 "filter": { "projects": ["tag:language:swift"] },
-                "command": "xcrun swift-format lint --strict --recursive {projectRoot}",
+                "executor": "nx:run-commands",
                 "cache": true,
-                "inputs": ["default", "xcode", "{workspaceRoot}/.swift-format"]
+                "inputs": ["default", "xcode", "{workspaceRoot}/.swift-format", "{workspaceRoot}/.swiftlint.yml", { "runtime": "swiftlint version" }],
+                "options": { "commands": ["xcrun swift-format lint --strict --recursive {projectRoot}", "swiftlint lint --quiet {projectRoot}"], "parallel": false }
             }
         ],
-        "format": [{ "filter": { "projects": ["tag:language:swift"] }, "command": "xcrun swift-format format --in-place --recursive {projectRoot}" }],
+        "format": [
+            {
+                "filter": { "projects": ["tag:language:swift"] },
+                "executor": "nx:run-commands",
+                "options": {
+                    "commands": ["swiftlint lint --fix --quiet {projectRoot}", "xcrun swift-format format --in-place --recursive {projectRoot}"],
+                    "parallel": false
+                }
+            }
+        ],
         "typecheck": [
             { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
             {

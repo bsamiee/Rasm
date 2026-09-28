@@ -1,0 +1,102 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-repeated-literal-swift
+language: swift
+severity: error
+utils:
+    collection-element:
+        any:
+            - inside: {kind: tuple_expression}
+            - inside: {kind: array_literal, field: element}
+            - inside: {kind: dictionary_literal, field: value}
+    key-read:
+        kind: call_expression
+        has: {kind: call_suffix, has: {kind: value_arguments, regex: '^\['}}
+    path-segment:
+        inside:
+            kind: value_argument
+            inside:
+                kind: value_arguments
+                inside:
+                    kind: call_suffix
+                    inside:
+                        kind: call_expression
+                        has:
+                            nthChild: 1
+                            regex: '(^|\.)(appending(PathComponent|PathExtension)?|appendPathComponent|URL|FilePath|fileURLWithPath)$'
+    literal:
+        all:
+            - kind: line_string_literal
+              pattern: $K
+            - has: {kind: line_str_text, regex: '.{3}', not: {regex: '^[A-Z][A-Z0-9_]*$'}}
+            - not:
+                any:
+                    - has: {kind: interpolated_expression}
+                    - inside: {kind: value_argument, inside: {kind: value_arguments, regex: '^\['}}
+                    - inside: {kind: value_argument, has: {field: name, regex: '^(forName|forKey|forKeyPath|forHTTPHeaderField)$'}}
+                    - {inside: {kind: dictionary_literal, field: key}, has: {kind: line_str_text, regex: '^[A-Za-z_][A-Za-z0-9_]*$'}}
+                    - inside: {kind: array_literal, matches: collection-element}
+                    - inside: {kind: value_argument, inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, matches: collection-element}}}}
+                    - inside: {stopBy: end, kind: 'enum_entry, attribute'}
+                    - inside: {stopBy: end, kind: switch_pattern, inside: {kind: switch_entry, inside: {kind: switch_statement, has: {field: expr, matches: key-read}}}}
+                    - inside: {kind: 'equality_expression, comparison_expression', has: {matches: key-read}}
+    namespace-type:
+        kind: class_declaration
+        all:
+            - has: {field: declaration_kind, regex: '^(enum|struct)$'}
+            - has: {field: name, pattern: $N}
+            - not: {has: {kind: inheritance_specifier}}
+            - has: {field: body, has: {kind: property_declaration, all: [{has: {field: name, has: {pattern: $A}}}, {has: {field: value, kind: line_string_literal}}]}}
+            - not: {has: {field: body, has: {pattern: $_, not: {any: [{kind: comment}, {kind: property_declaration, all: [{has: {kind: modifiers, regex: '\bstatic\b'}}, {has: {field: value, kind: line_string_literal}}]}]}}}}
+    namespace-read:
+        kind: navigation_expression
+        all:
+            - has: {field: target, kind: simple_identifier, regex: '^[A-Z]', pattern: $N}
+            - has: {field: suffix, has: {field: suffix, pattern: $A}}
+            - not: {inside: {kind: directly_assignable_expression}}
+            - inside: {stopBy: end, kind: source_file, has: {matches: namespace-type}}
+    text-node:
+        any:
+            - all: [{matches: literal}, {not: {matches: path-segment}}]
+            - matches: namespace-read
+    text-spelling:
+        any:
+            - matches: text-node
+            - has: {stopBy: end, matches: text-node}
+    text-before:
+        any:
+            - follows: {stopBy: end, matches: text-spelling}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: text-spelling}}
+    text-second:
+        any:
+            - all: [{matches: text-node}, {matches: text-before}]
+            - has: {stopBy: end, all: [{matches: text-node}, {matches: text-before}]}
+    text-third:
+        any:
+            - follows: {stopBy: end, matches: text-second}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: text-second}}
+    path-node:
+        all: [{matches: literal}, {matches: path-segment}]
+    path-spelling:
+        any:
+            - matches: path-node
+            - has: {stopBy: end, matches: path-node}
+    path-before:
+        any:
+            - follows: {stopBy: end, matches: path-spelling}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: path-spelling}}
+    path-second:
+        any:
+            - all: [{matches: path-node}, {matches: path-before}]
+            - has: {stopBy: end, all: [{matches: path-node}, {matches: path-before}]}
+    path-third:
+        any:
+            - follows: {stopBy: end, matches: path-second}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: path-second}}
+rule:
+    pattern: $S
+    any:
+        - all: [{matches: literal}, {not: {matches: path-segment}}, {pattern: $N}, {matches: text-third}]
+        - all: [{matches: namespace-read}, {pattern: $K}, {matches: text-third}]
+        - all: [{matches: path-node}, {matches: path-third}]
+message: '`$S` repeats a literal spelled twice earlier in the file'
+note: 'Bind the value once, as a local where one function reads it and otherwise as a static constant of the type that owns its behavior, a type holding literals alone owns none'

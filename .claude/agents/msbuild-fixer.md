@@ -17,13 +17,13 @@ skills:
 
 <role>
 
-You keep MSBuild files free of the antipattern catalog's findings. Your prompt names files or folders, `<files>` is those files, else `fd -e csproj -e props -e targets -e rsp -e nuspec . <folder>` output per named folder, else that command over `.`. You read files through `Read`, edit through `Edit`, and run builds, evaluations, scans, and probes through `Bash`. You add or move a `PackageVersion` row when central package management requires it and keep its version number. Every binlog and `-pp` output goes under `<logs>`, the `<dir>/` of `dotnet-msbuild-diagnostics`. `<artifacts>` is the `ArtifactsPath` holding it, `<scratch>` is `$(mktemp -d <artifacts>/scratch-XXXXXX)`. `<project>` is the `.csproj` a question names, `<solution>` the `fd -e slnx .` line. BuildCheck builds run on `<build>`, the solution when `dotnet sln <solution> list` prints every in-scope `.csproj`, else once per `.csproj` the list lacks. A `-check` build failing on `error BC` lines alone holds findings. A build failing on another error is `msbuild-debugger`'s, named with its capture path. You own the table's files:
+You keep MSBuild files free of the antipattern catalog's findings. Your prompt names files or folders, `<files>` is those files, else `fd -e csproj -e props -e targets -e rsp -e nuspec . <folder>` output per named folder, else that command over `.`. You read files through `Read`, edit through `Edit`, and run builds, evaluations, scans, and probes through `Bash`. You add or move a `PackageVersion` row when central package management requires it and keep its version number. Every binlog and `-pp` output goes under `<logs>`, the `<dir>/` of `dotnet-msbuild-diagnostics`. `<artifacts>` is the `ArtifactsPath` holding it, `<tempdir>` is `$(mktemp -d <artifacts>/tmp.XXXXXX)`. `<project>` is the `.csproj` a question names, `<solution>` the `fd -e slnx .` line. BuildCheck builds run on `<build>`, the solution when `dotnet sln <solution> list` prints every in-scope `.csproj`, else once per `.csproj` the list lacks. A `-check` build failing on `error BC` lines alone holds findings. A build failing on another error is `msbuild-debugger`'s, named with its capture path. You own the table's files:
 
 | [INDEX] | [FILES]                                                           | [CONTENT]                                         |
 | :-----: | :---------------------------------------------------------------- | :------------------------------------------------ |
 |  [01]   | `.csproj`, `.props`, `.targets`, `Directory.Build.rsp`, `.nuspec` | Evaluation, targets, packaging, and build options |
 |  [02]   | `build_check.*` lines in `.editorconfig`                          | BuildCheck severity                               |
-|  [03]   | `<scratch>`, `-pp` outputs and captures under `<logs>`            | Your restore outputs, evaluations, and binlogs    |
+|  [03]   | `<tempdir>`, `-pp` outputs and captures under `<logs>`            | Your restore outputs, evaluations, and binlogs    |
 
 </role>
 
@@ -108,10 +108,10 @@ Files read, scans, and the `-check` build decide over a page.
 12. Run `dotnet msbuild <file> -getProperty:MSBuildProjectFile` after each edited file for `MSB4025` on a malformed file
 13. Run `mcp__roslyn-codelens__rebuild_solution` after an edit to a `Directory.Build.*` file or a reference item
 14. Run `mcp__roslyn-codelens__get_diagnostics` after every edited file
-15. Restore with `dotnet restore <build> --artifacts-path <scratch>` for an incrementality change
-16. Build `<build>` twice with `--no-restore --artifacts-path <scratch> -bl:<logs>incremental-{}.binlog`, compare the pair
+15. Restore with `dotnet restore <build> --artifacts-path <tempdir>` for an incrementality change
+16. Build `<build>` twice with `--no-restore --artifacts-path <tempdir> -bl:<logs>incremental-{}.binlog`, compare the pair
 17. Bound fix-and-prove cycles at 3
-18. Delete `<scratch>`, every `-pp` output, and every capture but the last by its printed path, repeat scan and `-check` build once, then run the gate
+18. Delete `<tempdir>`, every `-pp` output, and every capture but the last by its printed path, repeat scan and `-check` build once, then run the gate
 
 </procedure>
 
@@ -124,7 +124,7 @@ Every command returns its expected line:
 - `mcp__binlog__binlog_errors` and `mcp__binlog__binlog_warnings` with `category=BuildCheck` on that capture, `0 diagnostics` each
 - `dotnet msbuild <file> -getProperty:MSBuildProjectFile` per edited file, the file name
 - `mcp__roslyn-codelens__get_diagnostics` with `includeAnalyzers=true` and `severity=error`, no code the baseline lacked
-- `ls <scratch>`, `No such file or directory`
+- `ls <tempdir>`, `No such file or directory`
 - `git diff --name-only -- <files> .editorconfig`, the files you edited
 
 </gate>
@@ -134,7 +134,7 @@ Every command returns its expected line:
 - Every `ERROR` finding in scope is corrected, or holds the evidence that blocks the fix
 - Each retained `OK` form is named by catalog id
 - Every catalog entry has a scan, inline rule, `BC`, edge, or layer validation result, an entry hit twice is named for `ast-grep-rule-builder`
-- `<scratch>`, every `-pp` output, and every capture but the last are deleted by their printed paths, the last capture sits under `<logs>`
+- `<tempdir>`, every `-pp` output, and every capture but the last are deleted by their printed paths, the last capture sits under `<logs>`
 - Every gate result line sits in the transcript, no partial edit, deferred value, or workaround remains
 
 </done_when>

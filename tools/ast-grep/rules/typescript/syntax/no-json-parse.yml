@@ -1,9 +1,0 @@
-# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
-id: no-json-parse
-language: tsx
-severity: error
-rule:
-    kind: call_expression
-    has: {field: function, regex: '^(globalThis\.)?JSON\.parse$', matches: syntax-global-reference}
-message: '`JSON.parse` returns an unvalidated `any`'
-note: '`Schema.decodeUnknownEffect(Schema.fromJsonString(<schema>))` returns the typed value or a `SchemaError`'

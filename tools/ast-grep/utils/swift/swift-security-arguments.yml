@@ -1,0 +1,6 @@
+id: swift-security-arguments
+language: swift
+arguments: [subcommand]
+rule:
+    kind: array_literal
+    has: {kind: line_string_literal, matches: subcommand}

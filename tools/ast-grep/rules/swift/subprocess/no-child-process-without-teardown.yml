@@ -1,0 +1,72 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-child-process-without-teardown
+language: swift
+severity: error
+utils:
+    default-options:
+        any:
+            - pattern: PlatformOptions()
+            - pattern: Subprocess.PlatformOptions()
+    options-configured:
+        all:
+            - has:
+                stopBy: end
+                kind: assignment
+                all:
+                    - has: {field: target, regex: '\.teardownSequence$'}
+                    - not: {has: {field: result, regex: '^\[\s*\]$'}}
+            - has:
+                stopBy: end
+                kind: assignment
+                any:
+                    - all:
+                        - has: {field: target, regex: '\.createSession$'}
+                        - has: {field: result, regex: '^true$'}
+                    - has: {field: target, regex: '\.processGroupID$'}
+    platform-options-argument:
+        kind: value_argument
+        has: {field: name, regex: '^platformOptions$'}
+rule:
+    pattern: $SITE
+    any:
+        - kind: property_declaration
+          all:
+            - any:
+                - has: {field: value, matches: default-options}
+                - all:
+                    - has: {kind: type_annotation, has: {stopBy: end, kind: user_type, regex: '^(Subprocess\.)?PlatformOptions$'}}
+                    - any:
+                        - has: {field: value, pattern: .init()}
+                        - inside: {kind: 'function_declaration, init_declaration, lambda_literal, computed_property', stopBy: end}
+            - inside:
+                kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body, enum_class_body, source_file'
+                stopBy: {kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body, enum_class_body, source_file'}
+                not: {matches: options-configured}
+        - kind: value_argument
+          all:
+            - matches: platform-options-argument
+            - has: {field: value, any: [{matches: default-options}, {pattern: .init()}]}
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, regex: '^(Subprocess\.)?(run|Configuration)$'}
+            - has:
+                kind: call_suffix
+                has:
+                    kind: value_arguments
+                    all:
+                        - any:
+                            - has: {kind: value_argument, has: {field: name, regex: '^(executable|arguments|environment|workingDirectory)$'}}
+                            - has: {kind: value_argument, nthChild: 1, has: {field: value, regex: '^((Subprocess\.)?Executable)?\.(name|path)\('}}
+                        - not: {has: {matches: platform-options-argument}}
+            - inside: {kind: source_file, stopBy: end, has: {kind: import_declaration, regex: '^import\s+Subprocess$'}}
+        - kind: call_expression
+          any:
+            - pattern: Process()
+            - pattern: Foundation.Process()
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^(Foundation\.)?Process\.(run|launchedProcess)$'}
+        - kind: property_declaration
+          all:
+            - has: {kind: type_annotation, has: {stopBy: end, kind: user_type, regex: '^(Foundation\.)?Process$'}}
+            - has: {field: value, pattern: .init()}
+message: '`$SITE` starts a child in the parent session with no teardown sequence'
+note: 'Run the child through `Subprocess.run` with platform options that set `createSession = true` or `processGroupID` and a non-empty `teardownSequence`, `[.gracefulShutDown(toProcessGroup: true, allowedDurationToNextStep: <duration>)]`'

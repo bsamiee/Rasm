@@ -15,8 +15,6 @@ rule:
               has: {kind: try_operator, regex: '^try\?$'}
             - kind: as_expression
               has: {kind: as_operator, regex: '^as\?$'}
-            - kind: nil_coalescing_expression
-              has: {field: if_nil, regex: '^nil$'}
 constraints:
     K: {not: {regex: '^[0-9_]+$'}}
 message: '`$D[$K] = $V` removes the key when `$V` is nil'

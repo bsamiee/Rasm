@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-indistinct-log-message
+language: swift
+severity: error
+utils:
+    log-call:
+        kind: call_expression
+        regex: '^[\w.]*[lL]ogger\.(trace|debug|info|notice|log|warning|error|critical|fault)\('
+        any:
+            - pattern: $_L.$_V($MSG)
+            - pattern: '$_L.log(level: $_E, $MSG)'
+    value-only:
+        kind: line_string_literal
+        all:
+            - not: {has: {field: text, regex: '[A-Za-z]'}}
+            - not: {has: {kind: interpolated_expression, not: {has: {field: name, kind: value_argument_label}}, follows: {stopBy: end, kind: interpolated_expression, not: {has: {field: name, kind: value_argument_label}}}}}
+    earlier-site:
+        any:
+            - matches: log-call
+            - has: {stopBy: end, matches: log-call}
+rule:
+    kind: call_expression
+    all:
+        - matches: log-call
+        - has: {nthChild: 1, pattern: $LOGGER}
+        - any:
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: value-only}}}}
+            - follows: {stopBy: end, matches: earlier-site}
+            - inside: {stopBy: end, follows: {stopBy: end, matches: earlier-site}}
+message: '`$LOGGER` logs a lone interpolated value or the message of an earlier log call, a log reader cannot tell the sites apart'
+note: 'Name the operation and its subject in the literal text of each message, and log a failure that several paths share once after they join'

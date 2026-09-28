@@ -3,394 +3,621 @@ import Foundation
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated enum CodexProtocol {
-  struct RateLimitWindow: Decodable, Sendable {
-    let usedPercent: Double
-    let windowDurationMins: Int?
-    let resetsAt: Double?
-  }
-
-  struct RateLimitSnapshot: Decodable, Sendable {
-    let limitId: String?
-    let primary: RateLimitWindow?
-    let secondary: RateLimitWindow?
-    let rateLimitReachedType: String?
-    let spendControlReached: Bool?
-  }
-
-  struct AccountRateLimits: Decodable, Sendable {
-    let accountId: String?
-    let ordinaryUsageAllowed: Bool?
-    let rateLimits: RateLimitSnapshot
-    let rateLimitsByLimitId: [String: RateLimitSnapshot]?
-
-    var codexLimits: RateLimitSnapshot? {
-      if let byID: [String: RateLimitSnapshot] = rateLimitsByLimitId { return byID["codex"] }
-      return rateLimits.limitId == nil || rateLimits.limitId == "codex" ? rateLimits : nil
+    // --- [JSON_RPC]
+    enum Method: String, Codable, Sendable {
+        case initialize
+        case initialized
+        case modelList = "model/list"
+        case configRead = "config/read"
+        case threadStart = "thread/start"
+        case threadUnsubscribe = "thread/unsubscribe"
+        case turnStart = "turn/start"
+        case turnCompleted = "turn/completed"
+        case accountRateLimitsRead = "account/rateLimits/read"
+        case accountRateLimitsUpdated = "account/rateLimits/updated"
+        case accountLoginStart = "account/login/start"
+        case accountLoginCompleted = "account/login/completed"
+        case accountLogout = "account/logout"
     }
-  }
 
-  struct RateLimitsUpdated: Decodable, Sendable {
-    let rateLimits: RateLimitSnapshot
-  }
-
-  struct ReasoningEffortOption: Decodable, Sendable {
-    let reasoningEffort: String
-  }
-
-  struct Model: Decodable, Sendable {
-    let id: String
-    let model: String
-    let hidden: Bool
-    let supportedReasoningEfforts: [ReasoningEffortOption]
-  }
-
-  struct ModelList: Decodable, Sendable {
-    let data: [Model]
-    let nextCursor: String?
-  }
-
-  struct ThreadReference: Decodable, Sendable {
-    let id: String
-  }
-
-  struct ThreadStarted: Decodable, Sendable {
-    let thread: ThreadReference
-  }
-
-  struct TurnError: Decodable, Sendable {
-    let message: String
-    let codexErrorInfo: JSONValue?
-  }
-
-  struct Turn: Decodable, Sendable {
-    let id: String
-    let status: String
-    let error: TurnError?
-  }
-
-  struct TurnStarted: Decodable, Sendable {
-    let turn: Turn
-  }
-
-  struct TurnCompleted: Decodable, Sendable {
-    let threadId: String
-    let turn: Turn
-  }
-
-  struct LoginStarted: Decodable, Sendable {
-    let type: String
-    let loginId: String?
-    let authUrl: String?
-  }
-
-  struct LoginCompleted: Decodable, Sendable {
-    let loginId: String?
-    let success: Bool
-    let error: String?
-  }
-
-  struct EffectiveConfig: Decodable, Sendable {
-    struct Config: Decodable, Sendable {
-      let mcpServers: [String: JSONValue]?
-      let forcedChatgptWorkspaceId: JSONValue?
-
-      enum CodingKeys: String, CodingKey {
-        case mcpServers = "mcp_servers"
-        case forcedChatgptWorkspaceId = "forced_chatgpt_workspace_id"
-      }
+    struct Request<Params: Encodable & Sendable>: Encodable, Sendable {
+        let id: String
+        let method: Method
+        let params: Params?
     }
-    let config: Config
-  }
 
-  struct GreetingModel: Sendable {
-    let name: String
-    let effort: String
-  }
-
-  static let greetingModelName: String = "gpt-5.6-luna"
-
-  private static let reasoningEfforts: [String] = [
-    "none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra",
-  ]
-
-  static func usage(
-    _ response: AccountRateLimits, identity: AccountIdentity, observedAt: Date
-  ) -> Result<AccountUsage, CodexFailure> {
-    limits(of: response, for: identity).flatMap { limits in
-      windows(limits).map { windows in
-        AccountUsage(
-          windows: windows, includedUsageAllowed: response.ordinaryUsageAllowed,
-          observedAt: observedAt)
-      }
+    struct Notification: Encodable, Sendable {
+        let method: Method
     }
-  }
 
-  private static func limits(
-    of response: AccountRateLimits, for identity: AccountIdentity
-  ) -> Result<RateLimitSnapshot, CodexFailure> {
-    let sameWorkspace: Bool =
-      response.accountId == nil || response.accountId == identity.organizationID
-    return sameWorkspace
-      ? response.codexLimits.map(Result.success)
-        ?? .failure(.invalidResponse(field: "usage limits"))
-      : .failure(.identityChanged)
-  }
+    struct ErrorObject: Codable, Sendable {
+        let code: Int?
+        let message: String?
 
-  static func windows(_ limits: RateLimitSnapshot) -> Result<[QuotaWindow], CodexFailure> {
-    let reached: Bool = limits.rateLimitReachedType != nil || limits.spendControlReached == true
-    return traverse([limits.primary, limits.secondary].compactMap { $0 }) { window in
-      quotaWindow(window, reached: reached)
-    }
-    .map { windows in windows.compactMap { $0 } }
-    .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
-  }
-
-  private static func quotaWindow(
-    _ window: RateLimitWindow, reached: Bool
-  ) -> Result<QuotaWindow?, CodexFieldFailures> {
-    let kind: QuotaKind? =
-      switch window.windowDurationMins {
-      case .some(let minutes) where minutes <= 0: nil
-      case .some(let minutes) where minutes <= 12 * 60: .session
-      case .some: .weekly
-      case .none: nil
-      }
-    guard let kind else { return .success(nil) }
-    let amount: Result<UsageAmount, CodexFieldFailures> = UsageAmount.make(
-      percent: window.usedPercent
-    )
-    .mapError { _ in CodexFieldFailures("\(kind.name) usage percentage") }
-    let resetsAt: Result<Date?, CodexFieldFailures> =
-      switch window.resetsAt {
-      case .none: .success(nil)
-      case .some(let seconds) where seconds.isFinite: .success(Date(timeIntervalSince1970: seconds))
-      case .some: .failure(CodexFieldFailures("\(kind.name) reset time"))
-      }
-    return combine(amount, resetsAt).map { amount, resetsAt in
-      QuotaWindow(
-        kind: kind, used: amount, resetsAt: resetsAt, rejected: reached && amount.isExhausted)
-    }
-  }
-
-  static func greetingModel(
-    _ connection: CodexConnection, cursor: String? = nil
-  ) async -> Result<GreetingModel, CodexFailure> {
-    var parameters: [String: JSONValue] = ["includeHidden": .bool(false)]
-    if let cursor { parameters["cursor"] = .string(cursor) }
-    return await connection.request(ModelList.self, "model/list", params: .object(parameters))
-      .bind { list in
-        if let model: Model = list.data.first(where: { value in
-          value.model == greetingModelName && !value.hidden
-        }) {
-          return greetingEffort(model).map { effort in
-            GreetingModel(name: greetingModelName, effort: effort)
-          }
+        init(code: Int, message: String) {
+            self.code = code
+            self.message = message
         }
-        return await
-          (list.nextCursor.map(Result<String, CodexFailure>.success)
-          ?? .failure(.modelUnavailable))
-          .bind { next in await greetingModel(connection, cursor: next) }
-      }
-  }
 
-  static func sendGreeting(
-    _ connection: CodexConnection, model: GreetingModel, workingDirectory: URL
-  ) async -> Result<Void, CodexFailure> {
-    await connection.request(
-      EffectiveConfig.self, "config/read",
-      params: .object(["includeLayers": .bool(false), "cwd": .string(workingDirectory.path)])
-    )
-    .map { effective in greetingOverrides(effective.config) }
-    .bind { overrides in
-      await connection.request(
-        ThreadStarted.self, "thread/start",
-        params: .object([
-          "model": .string(model.name),
-          "modelProvider": .string("openai"),
-          "cwd": .string(workingDirectory.path),
-          "approvalPolicy": .string("never"),
-          "sandbox": .string("read-only"),
-          "runtimeWorkspaceRoots": .array([]),
-          "ephemeral": .bool(true),
-          "environments": .array([]),
-          "dynamicTools": .array([]),
-          "selectedCapabilityRoots": .array([]),
-          "baseInstructions": .string("Reply with hi."),
-          "developerInstructions": .string(""),
-          "config": .object(overrides),
-        ]))
+        init(from decoder: any Decoder) {
+            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+            code = try? container?.decodeIfPresent(Int.self, forKey: .code)
+            message = try? container?.decodeIfPresent(String.self, forKey: .message)
+        }
     }
-    .bind { started -> Result<Void, CodexFailure> in
-      let outcome: Result<Void, CodexFailure> = await completeGreeting(
-        connection, threadID: started.thread.id, model: model)
-      let detached: Result<JSONValue, CodexFailure> = await connection.request(
-        "thread/unsubscribe", params: .object(["threadId": .string(started.thread.id)]))
-      return outcome.flatMap { _ in detached.map { _ in () } }
+
+    struct ErrorReply: Encodable, Sendable {
+        let id: JSONValue
+        let error: ErrorObject
     }
-  }
 
-  private static func greetingEffort(_ model: Model) -> Result<String, CodexFailure> {
-    let supported: Set<String> = Set(model.supportedReasoningEfforts.map(\.reasoningEffort))
-    return reasoningEfforts.first(where: supported.contains).map { effort in .success(effort) }
-      ?? .failure(.invalidResponse(field: "model reasoning effort"))
-  }
+    enum ServerMessage: Decodable, Sendable {
+        case request(id: JSONValue)
+        case response(id: String, error: ErrorObject?, result: JSONValue?)
+        case notification(method: Method, params: JSONValue)
+        case ignored
 
-  private static func greetingOverrides(_ config: EffectiveConfig.Config) -> [String: JSONValue] {
-    var overrides: [String: JSONValue] = Dictionary(
-      uniqueKeysWithValues: disabledFeatures.map { key in (key, .bool(false)) })
-    overrides["web_search"] = .string("disabled")
-    overrides["project_doc_max_bytes"] = .number(0)
-    overrides["mcp_servers"] = .object(
-      (config.mcpServers ?? [:]).mapValues { _ in .object(["enabled": .bool(false)]) })
-    return overrides
-  }
+        enum CodingKeys: CodingKey {
+            case id, method, params, result, error
+        }
 
-  private static func completeGreeting(
-    _ connection: CodexConnection, threadID: String, model: GreetingModel
-  ) async -> Result<Void, CodexFailure> {
-    await connection.request(
-      TurnStarted.self, "turn/start",
-      params: .object([
-        "threadId": .string(threadID),
-        "input": .array([.object(["type": .string("text"), "text": .string("hi")])]),
-        "effort": .string(model.effort),
-        "serviceTierForTurn": .string("default"),
-      ])
-    )
-    .bind { started in
-      await connection.notification(TurnCompleted.self, "turn/completed") { completed in
-        completed.threadId == threadID && completed.turn.id == started.turn.id
-      }
+        init(from decoder: any Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+            self = try container.map(Self.init(container:)) ?? .ignored
+        }
+
+        private init(container: KeyedDecodingContainer<CodingKeys>) throws {
+            let responseID: String? = try? container.decode(String.self, forKey: .id)
+            let method: Method? = try? container.decode(Method.self, forKey: .method)
+            self =
+                if container.contains(.id), container.contains(.method) {
+                    try .request(id: container.decode(JSONValue.self, forKey: .id))
+                } else if let responseID {
+                    try .response(
+                        id: responseID,
+                        error: container.contains(.error) ? container.decode(ErrorObject.self, forKey: .error) : nil,
+                        result: container.contains(.result) ? container.decode(JSONValue.self, forKey: .result) : nil,
+                    )
+                } else if let method, container.contains(.params) {
+                    try .notification(method: method, params: container.decode(JSONValue.self, forKey: .params))
+                } else {
+                    .ignored
+                }
+        }
     }
-    .flatMap { completed -> Result<Void, CodexFailure> in
-      switch completed.turn.status {
-      case "completed": .success(())
-      case "interrupted": .failure(.cancelled)
-      case "failed":
-        completed.turn.error.map { error in
-          .failure(
-            .turnFailed(
-              code: error.codexErrorInfo?.stringValue.flatMap(CodexTurnErrorCode.init),
-              message: error.message))
-        } ?? .failure(.invalidResponse(field: "turn error"))
-      default: .failure(.invalidResponse(field: "turn completion"))
-      }
-    }
-  }
 
-  private static let disabledFeatures: [String] = [
-    "features.apps", "features.code_mode", "features.code_mode_only", "features.context_management",
-    "features.current_time_reminder", "features.deferred_executor", "features.enable_fanout",
-    "features.goals", "features.hooks", "features.image_generation", "features.memories",
-    "features.multi_agent", "features.multi_agent_v2", "features.plugins",
-    "features.request_permissions_tool", "features.shell_snapshot", "features.shell_tool",
-    "features.standalone_web_search", "features.token_budget", "features.tool_suggest",
-    "features.unified_exec", "features.view_image", "orchestrator.skills.enabled",
-    "skills.include_instructions", "token_budget.use_history_notes_extension",
-    "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
-  ]
+    // --- [REQUESTS]
+    enum InputType: String, Encodable, Sendable {
+        case text
+    }
+
+    enum AuthMode: String, Encodable, Sendable {
+        case chatgpt
+    }
+
+    struct InitializeParams: Encodable, Sendable {
+        struct ClientInfo: Encodable, Sendable {
+            let name: String
+            let title: String
+            let version: String
+        }
+
+        struct Capabilities: Encodable, Sendable {
+            let experimentalApi: Bool
+        }
+
+        let clientInfo: ClientInfo
+        let capabilities: Capabilities
+    }
+
+    struct ModelListParams: Encodable, Sendable {
+        let includeHidden: Bool
+        let cursor: String?
+    }
+
+    struct ConfigReadParams: Encodable, Sendable {
+        let includeLayers: Bool
+        let cwd: String
+    }
+
+    struct GreetingConfig: Encodable, Sendable {
+        struct Server: Encodable, Sendable {
+            let enabled: Bool
+        }
+
+        let webSearch: String
+        let projectDocMaxBytes: Int
+        let mcpServers: [String: Server]
+
+        enum CodingKeys: String, CodingKey {
+            case webSearch = "web_search"
+            case projectDocMaxBytes = "project_doc_max_bytes"
+            case mcpServers = "mcp_servers"
+        }
+    }
+
+    struct ThreadStartParams: Encodable, Sendable {
+        let model: String
+        let modelProvider: String
+        let cwd: String
+        let approvalPolicy: String
+        let sandbox: String
+        let runtimeWorkspaceRoots: [String]
+        let ephemeral: Bool
+        let environments: [JSONValue]
+        let dynamicTools: [JSONValue]
+        let selectedCapabilityRoots: [String]
+        let baseInstructions: String
+        let developerInstructions: String
+        let config: JSONDocument<GreetingConfig>
+    }
+
+    struct ThreadParams: Encodable, Sendable {
+        let threadId: String
+    }
+
+    struct TextInput: Encodable, Sendable {
+        let type: InputType
+        let text: String
+    }
+
+    struct TurnStartParams: Encodable, Sendable {
+        let threadId: String
+        let input: [TextInput]
+        let effort: String
+        let serviceTierForTurn: String
+    }
+
+    struct RateLimitsReadParams: Encodable, Sendable {
+        let excludeResetCreditDetails: Bool
+    }
+
+    struct LoginStartParams: Encodable, Sendable {
+        let type: AuthMode
+    }
+
+    // --- [MESSAGES]
+    struct InitializeResult: Decodable, Sendable {
+        let userAgent: String?
+
+        enum CodingKeys: CodingKey {
+            case userAgent
+        }
+
+        init(from decoder: any Decoder) {
+            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+            userAgent = try? container?.decodeIfPresent(String.self, forKey: .userAgent)
+        }
+    }
+
+    struct RateLimitWindow: Decodable, Sendable {
+        let usedPercent: Double
+        let windowDurationMins: Int?
+        let resetsAt: Date?
+    }
+
+    struct RateLimitSnapshot: Decodable, Sendable {
+        let limitId: String?
+        let primary: RateLimitWindow?
+        let secondary: RateLimitWindow?
+        let rateLimitReachedType: String?
+        let spendControlReached: Bool?
+    }
+
+    struct AccountRateLimits: Decodable, Sendable {
+        let accountId: String?
+        let ordinaryUsageAllowed: Bool?
+        let rateLimits: RateLimitSnapshot
+        let rateLimitsByLimitId: [String: RateLimitSnapshot]?
+
+        var codexLimits: RateLimitSnapshot? {
+            if let byID: [String: RateLimitSnapshot] = rateLimitsByLimitId { return byID["codex"] }
+            return rateLimits.limitId == nil || rateLimits.limitId == "codex" ? rateLimits : nil
+        }
+    }
+
+    struct RateLimitsUpdated: Decodable, Sendable {
+        let rateLimits: RateLimitSnapshot
+    }
+
+    struct ReasoningEffortOption: Decodable, Sendable {
+        let reasoningEffort: String
+    }
+
+    struct Model: Decodable, Sendable {
+        let model: String
+        let supportedReasoningEfforts: [ReasoningEffortOption]
+    }
+
+    struct ModelList: Decodable, Sendable {
+        let data: [Model]
+        let nextCursor: String?
+    }
+
+    struct ThreadReference: Decodable, Sendable {
+        let id: String
+    }
+
+    struct ThreadStarted: Decodable, Sendable {
+        let thread: ThreadReference
+    }
+
+    struct TurnError: Decodable, Sendable {
+        let message: String
+        let codexErrorInfo: JSONValue?
+    }
+
+    enum TurnStatus: String, Sendable {
+        case completed, interrupted, failed
+    }
+
+    struct Turn: Decodable, Sendable {
+        let id: String
+        let status: String
+        let error: TurnError?
+    }
+
+    struct TurnStarted: Decodable, Sendable {
+        let turn: Turn
+    }
+
+    struct TurnCompleted: Decodable, Sendable {
+        let threadId: String
+        let turn: Turn
+    }
+
+    struct LoginStarted: Decodable, Sendable {
+        let loginId: String?
+        let authUrl: String?
+    }
+
+    struct LoginCompleted: Decodable, Sendable {
+        let loginId: String?
+        let success: Bool
+        let error: String?
+    }
+
+    struct EffectiveConfig: Decodable, Sendable {
+        struct Config: Decodable, Sendable {
+            let mcpServers: [String: JSONValue]?
+
+            enum CodingKeys: String, CodingKey {
+                case mcpServers = "mcp_servers"
+            }
+        }
+        let config: Config
+    }
+
+    // --- [USAGE]
+    static func usage(
+        _ response: AccountRateLimits,
+        identity: AccountIdentity,
+        observedAt: Date,
+    ) -> Result<AccountUsage, CodexFailure> {
+        limits(of: response, for: identity).flatMap { limits in
+            windows(limits).map { windows in
+                AccountUsage(
+                    windows: windows,
+                    includedUsageAllowed: response.ordinaryUsageAllowed,
+                    observedAt: observedAt,
+                    signInExpiresAt: nil,
+                )
+            }
+        }
+    }
+
+    private static func limits(
+        of response: AccountRateLimits,
+        for identity: AccountIdentity,
+    ) -> Result<RateLimitSnapshot, CodexFailure> {
+        let sameWorkspace: Bool =
+            response.accountId == nil || response.accountId == identity.organizationID
+        return sameWorkspace
+            ? response.codexLimits.map(Result.success)
+                ?? .failure(.invalidResponse(field: "usage limits"))
+            : .failure(.identityChanged)
+    }
+
+    static func windows(_ limits: RateLimitSnapshot) -> Result<[QuotaWindow], CodexFailure> {
+        let reached: Bool = limits.rateLimitReachedType != nil || limits.spendControlReached == true
+        return traverse([limits.primary, limits.secondary].compactMap(\.self)) { window in
+            quotaWindow(window, reached: reached)
+        }
+        .map { windows in windows.compactMap(\.self) }
+        .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
+    }
+
+    private static func quotaWindow(
+        _ window: RateLimitWindow,
+        reached: Bool,
+    ) -> Result<QuotaWindow?, AggregateError<String>> {
+        let kind: QuotaKind? =
+            switch window.windowDurationMins {
+                case .some(let minutes) where minutes <= 0: nil
+                case .some(let minutes) where minutes <= 12 * 60: .session
+                case .some: .weekly
+                case .none: nil
+            }
+        return kind.map { kind in
+            UsageAmount.make(percent: window.usedPercent)
+                .mapError { _ in AggregateError(first: "\(kind.name) usage percentage", remaining: []) }
+                .map { amount in
+                    QuotaWindow(kind: kind, used: amount, resetsAt: window.resetsAt, rejected: reached && amount.isExhausted)
+                }
+        } ?? .success(nil)
+    }
+
+    // --- [GREETING]
+    static let greetingModelName: String = "gpt-5.6-luna"
+
+    static func greetingEffort(
+        _ connection: CodexConnection,
+        cursor: String? = nil,
+    ) async -> Result<String, CodexFailure> {
+        let reasoningEfforts: [String] = ["none", "minimal", "low", "medium", "high", "xhigh", "max", "ultra"]
+        return await connection.request(
+            ModelList.self,
+            .modelList,
+            params: ModelListParams(includeHidden: false, cursor: cursor),
+        )
+        .bind { list in
+            if let model: Model = list.data.first(where: { value in value.model == greetingModelName }) {
+                let supported: Set<String> = Set(model.supportedReasoningEfforts.map(\.reasoningEffort))
+                return reasoningEfforts.first(where: supported.contains).map(Result.success)
+                    ?? .failure(.invalidResponse(field: "model reasoning effort"))
+            }
+            return await
+                (list.nextCursor.map(Result<String, CodexFailure>.success)
+                ?? .failure(.modelUnavailable))
+                .bind { next in await greetingEffort(connection, cursor: next) }
+        }
+    }
+
+    static func sendGreeting(
+        _ connection: CodexConnection,
+        effort: String,
+        workingDirectory: URL,
+    ) async -> Result<Void, CodexFailure> {
+        await connection.request(
+            EffectiveConfig.self,
+            .configRead,
+            params: ConfigReadParams(includeLayers: false, cwd: workingDirectory.path),
+        )
+        .map { effective in greetingOverrides(effective.config) }
+        .bind { overrides in
+            await connection.request(
+                ThreadStarted.self,
+                .threadStart,
+                params: ThreadStartParams(
+                    model: greetingModelName,
+                    modelProvider: "openai",
+                    cwd: workingDirectory.path,
+                    approvalPolicy: "never",
+                    sandbox: "read-only",
+                    runtimeWorkspaceRoots: [],
+                    ephemeral: true,
+                    environments: [],
+                    dynamicTools: [],
+                    selectedCapabilityRoots: [],
+                    baseInstructions: "Reply with hi.",
+                    developerInstructions: "",
+                    config: overrides,
+                ),
+            )
+        }
+        .bind { started -> Result<Void, CodexFailure> in
+            let outcome: Result<Void, CodexFailure> = await connection.request(
+                TurnStarted.self,
+                .turnStart,
+                params: TurnStartParams(
+                    threadId: started.thread.id,
+                    input: [TextInput(type: .text, text: "hi")],
+                    effort: effort,
+                    serviceTierForTurn: "default",
+                ),
+            )
+            .bind { turn in
+                await connection.notification(TurnCompleted.self, .turnCompleted) { completed in
+                    completed.threadId == started.thread.id && completed.turn.id == turn.turn.id
+                }
+            }
+            .flatMap { completed -> Result<Void, CodexFailure> in
+                switch (TurnStatus(rawValue: completed.turn.status), completed.turn.error) {
+                    case (.completed, _): .success(())
+                    case (.interrupted, _): .failure(.cancelled)
+                    case (.failed, .some(let error)) where error.codexErrorInfo == .string("unauthorized"):
+                        .failure(.turnUnauthorized(message: error.message))
+                    case (.failed, .some(let error)): .failure(.turnFailed(message: error.message))
+                    case (.failed, .none): .failure(.invalidResponse(field: "turn error"))
+                    case (.none, _): .failure(.invalidResponse(field: "turn completion"))
+                }
+            }
+            let detached: Result<JSONValue, CodexFailure> = await connection.request(
+                .threadUnsubscribe,
+                params: ThreadParams(threadId: started.thread.id),
+            )
+            return outcome.flatMap { _ in detached.map { _ in () } }
+        }
+    }
+
+    private static func greetingOverrides(_ config: EffectiveConfig.Config) -> JSONDocument<GreetingConfig> {
+        let disabledFeatures: [String] = [
+            "features.apps", "features.code_mode", "features.code_mode_only", "features.context_management",
+            "features.current_time_reminder", "features.deferred_executor", "features.enable_fanout",
+            "features.goals", "features.hooks", "features.image_generation", "features.memories",
+            "features.multi_agent", "features.multi_agent_v2", "features.plugins",
+            "features.request_permissions_tool", "features.shell_snapshot", "features.shell_tool",
+            "features.standalone_web_search", "features.token_budget", "features.tool_suggest",
+            "features.unified_exec", "features.view_image", "orchestrator.skills.enabled",
+            "skills.include_instructions", "token_budget.use_history_notes_extension",
+            "tools.experimental_request_user_input.enabled", "tools.update_plan.enabled",
+        ]
+        return JSONDocument(
+            fields: Dictionary(uniqueKeysWithValues: disabledFeatures.map { key in (key, JSONValue.bool(false)) }),
+            known: GreetingConfig(
+                webSearch: "disabled",
+                projectDocMaxBytes: 0,
+                mcpServers: (config.mcpServers ?? [:]).mapValues { _ in GreetingConfig.Server(enabled: false) },
+            ),
+        )
+    }
 }
 
 nonisolated struct CodexAuthFile: Sendable {
-  let identity: AccountIdentity
+    private struct Document: Decodable, Sendable {
+        struct Tokens: Decodable, Sendable {
+            let idToken: String?
+            let accountID: String?
 
-  static func read(at url: URL) -> Result<CodexAuthFile?, CodexFailure> {
-    Result { try Data(contentsOf: url) }.map(Optional.some)
-      .flatMapError { error -> Result<Data?, CodexFailure> in
-        (error as? CocoaError)?.code == .fileReadNoSuchFile
-          ? .success(nil) : .failure(.storage(error))
-      }
-      .flatMap { data in
-        data.map { data in parse(data).map(Optional.some) } ?? .success(nil)
-      }
-  }
+            enum CodingKeys: String, CodingKey {
+                case idToken = "id_token"
+                case accountID = "account_id"
+            }
 
-  private static func parse(_ data: Data) -> Result<CodexAuthFile, CodexFailure> {
-    guard let document: JSONValue = try? JSONDecoder().decode(JSONValue.self, from: data) else {
-      return .failure(.invalidResponse(field: "auth.json"))
-    }
-    if let mode: String = document["auth_mode"]?.stringValue, mode != "chatgpt" {
-      return .failure(.subscriptionRequired)
-    }
-    guard let tokens: JSONValue = document["tokens"], tokens != .null,
-      let idToken: String = tokens["id_token"]?.stringValue
-    else {
-      return .failure(.signInRequired)
-    }
-    return claims(idToken).flatMap { claims in
-      let auth: JSONValue? = claims["https://api.openai.com/auth"]
-      let workspace: Result<String, CodexFieldFailures> =
-        (auth?["chatgpt_account_id"]?.stringValue ?? tokens["account_id"]?.stringValue)
-        .map { value in .success(value) } ?? .failure(CodexFieldFailures("workspace identifier"))
-      let user: Result<String, CodexFieldFailures> =
-        (auth?["chatgpt_user_id"]?.stringValue ?? auth?["user_id"]?.stringValue)
-        .map { value in .success(value) } ?? .failure(CodexFieldFailures("user identifier"))
-      let email: Result<String, CodexFieldFailures> =
-        claims["email"]?.stringValue.map { value in .success(value) }
-        ?? .failure(CodexFieldFailures("account email"))
-      return combine(user, workspace, email)
-        .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
-        .flatMap { user, workspace, email in
-          AccountIdentity.make(
-            accountID: user, organizationID: workspace, email: email,
-            plan: auth?["chatgpt_plan_type"]?.stringValue
-          )
-          .mapError { _ in .invalidResponse(field: "account identity") }
-          .map(CodexAuthFile.init(identity:))
+            init(from decoder: any Decoder) {
+                let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+                idToken = try? container?.decodeIfPresent(String.self, forKey: .idToken)
+                accountID = try? container?.decodeIfPresent(String.self, forKey: .accountID)
+            }
+        }
+
+        let authMode: String?
+        let tokens: Tokens?
+
+        enum CodingKeys: String, CodingKey {
+            case tokens
+            case authMode = "auth_mode"
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+            authMode = try? container?.decodeIfPresent(String.self, forKey: .authMode)
+            tokens = try container?.decodeIfPresent(Tokens.self, forKey: .tokens)
         }
     }
-  }
 
-  private static func claims(_ token: String) -> Result<JSONValue, CodexFailure> {
-    let components: [Substring] = token.split(separator: ".")
-    guard components.count == 3 else {
-      return .failure(.invalidResponse(field: "account identity token"))
+    private struct Claims: Decodable, Sendable {
+        struct Auth: Decodable, Sendable {
+            let chatgptAccountID: String?
+            let chatgptUserID: String?
+            let userID: String?
+            let chatgptPlanType: String?
+
+            enum CodingKeys: String, CodingKey {
+                case chatgptAccountID = "chatgpt_account_id"
+                case chatgptUserID = "chatgpt_user_id"
+                case userID = "user_id"
+                case chatgptPlanType = "chatgpt_plan_type"
+            }
+
+            init(from decoder: any Decoder) {
+                let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+                chatgptAccountID = try? container?.decodeIfPresent(String.self, forKey: .chatgptAccountID)
+                chatgptUserID = try? container?.decodeIfPresent(String.self, forKey: .chatgptUserID)
+                userID = try? container?.decodeIfPresent(String.self, forKey: .userID)
+                chatgptPlanType = try? container?.decodeIfPresent(String.self, forKey: .chatgptPlanType)
+            }
+        }
+
+        let email: String?
+        let auth: Auth?
+
+        enum CodingKeys: String, CodingKey {
+            case email
+            case auth = "https://api.openai.com/auth"
+        }
+
+        init(from decoder: any Decoder) throws {
+            let container: KeyedDecodingContainer<CodingKeys>? = try? decoder.container(keyedBy: CodingKeys.self)
+            email = try? container?.decodeIfPresent(String.self, forKey: .email)
+            auth = try container?.decodeIfPresent(Auth.self, forKey: .auth)
+        }
     }
-    let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
-    let padded: String = encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)
-    guard let data: Data = Data(base64Encoded: padded),
-      let claims: JSONValue = try? JSONDecoder().decode(JSONValue.self, from: data)
-    else {
-      return .failure(.invalidResponse(field: "account identity token"))
+
+    static let name: String = "auth.json"
+
+    let identity: AccountIdentity
+
+    static func read(at url: URL) -> Result<Self?, CodexFailure> {
+        ifPresent { try Data(contentsOf: url) }
+            .mapError(CodexFailure.storage)
+            .flatMap { data in
+                data.map { data in
+                    Result { try JSONDecoder().decode(Document.self, from: data) }
+                        .mapError { _ in .invalidResponse(field: name) }
+                        .flatMap(parse)
+                } ?? .success(nil)
+            }
     }
-    return .success(claims)
-  }
+
+    private static func parse(_ document: Document) -> Result<Self?, CodexFailure> {
+        if let mode: String = document.authMode, CodexProtocol.AuthMode(rawValue: mode) != .chatgpt {
+            return .failure(.subscriptionRequired)
+        }
+        return
+            if let tokens: Document.Tokens = document.tokens, let idToken: String = tokens.idToken
+        {
+            claims(idToken)
+                .flatMap { claims -> Result<(String, String, String, String?), CodexFailure> in
+                    let workspace: Result<String, AggregateError<String>> =
+                        (claims.auth?.chatgptAccountID ?? tokens.accountID)
+                        .map(Result.success) ?? .failure(AggregateError(first: "workspace identifier", remaining: []))
+                    let user: Result<String, AggregateError<String>> =
+                        (claims.auth?.chatgptUserID ?? claims.auth?.userID)
+                        .map(Result.success) ?? .failure(AggregateError(first: "user identifier", remaining: []))
+                    let email: Result<String, AggregateError<String>> =
+                        claims.email.map(Result.success)
+                        ?? .failure(AggregateError(first: "account email", remaining: []))
+                    return combine(user, workspace, email)
+                        .mapError { failure in .invalidResponse(field: failure.errors.joined(separator: ", ")) }
+                        .map { user, workspace, email in (user, workspace, email, claims.auth?.chatgptPlanType) }
+                }
+                .flatMap { user, workspace, email, plan in
+                    AccountIdentity.make(accountID: user, organizationID: workspace, email: email, plan: plan)
+                        .mapError { _ in .invalidResponse(field: "account identity") }
+                }
+                .map(Self.init(identity:))
+                .map(Optional.some)
+        } else {
+            .success(nil)
+        }
+    }
+
+    private static func claims(_ token: String) -> Result<Claims, CodexFailure> {
+        let components: [Substring] = token.split(separator: ".")
+        let unreadable: CodexFailure = .invalidResponse(field: "account identity token")
+        guard components.count == 3 else { return .failure(unreadable) }
+        let encoded: String = String(components[1]).replacing("-", with: "+").replacing("_", with: "/")
+        let padded: String = encoded + String(repeating: "=", count: (4 - encoded.count % 4) % 4)
+        return Data(base64Encoded: padded).map { data in
+            Result { try JSONDecoder().decode(Claims.self, from: data) }.mapError { _ in unreadable }
+        } ?? .failure(unreadable)
+    }
 }
 
-nonisolated struct CodexConfigFile: Sendable {
-  let credentialStore: String?
-  let forcesWorkspace: Bool
-
-  static func read(at url: URL) -> Result<CodexConfigFile, CodexFailure> {
-    Result { try String(contentsOf: url, encoding: .utf8) }.map(Optional.some)
-      .flatMapError { error -> Result<String?, CodexFailure> in
-        (error as? CocoaError)?.code == .fileReadNoSuchFile
-          ? .success(nil) : .failure(.storage(error))
-      }
-      .map { text in
-        text.map(parse) ?? CodexConfigFile(credentialStore: nil, forcesWorkspace: false)
-      }
-  }
-
-  private static func parse(_ text: String) -> CodexConfigFile {
-    let top: [Substring] = text.split(separator: "\n").prefix { line in
-      !line.trimmingCharacters(in: .whitespaces).hasPrefix("[")
+nonisolated enum CodexConfigFile {
+    static func switchable(at url: URL) -> Result<Void, CodexFailure> {
+        ifPresent { try String(contentsOf: url, encoding: .utf8) }
+            .mapError(CodexFailure.storage)
+            .flatMap { text in text.map(parse) ?? .success(()) }
     }
-    let store: String? = top.lazy.compactMap { line in
-      line.firstMatch(of: /^\s*cli_auth_credentials_store\s*=\s*"([^"]*)"/).map { match in
-        String(match.1)
-      }
-    }.first
-    let forced: Bool = top.contains { line in
-      line.contains(/^\s*forced_chatgpt_workspace_id\s*=/)
-    }
-    return CodexConfigFile(credentialStore: store, forcesWorkspace: forced)
-  }
 
-  var switchable: Result<Void, CodexFailure> {
-    guard credentialStore == nil || credentialStore == "file" else {
-      return .failure(.keyringStorage)
+    private static func parse(_ text: String) -> Result<Void, CodexFailure> {
+        let top: [Substring] = text.split(separator: "\n").prefix { line in
+            !line.trimmingCharacters(in: .whitespaces).hasPrefix("[")
+        }
+        let store: String? = top.lazy.compactMap { line in
+            line.firstMatch(of: /^\s*cli_auth_credentials_store\s*=\s*"([^"]*)"/).map { match in
+                String(match.1)
+            }
+        }.first
+        let forced: Bool = top.contains { line in
+            line.contains(/^\s*forced_chatgpt_workspace_id\s*=/)
+        }
+        return switch (store, forced) {
+            case (.some(let store), _) where store != "file": .failure(.keyringStorage)
+            case (_, true): .failure(.forcedWorkspace)
+            case (_, false): .success(())
+        }
     }
-    return forcesWorkspace ? .failure(.forcedWorkspace) : .success(())
-  }
 }

@@ -9,7 +9,11 @@ utils:
         pattern: {context: 'func f() -> Result<$T, $E> {}', selector: user_type}
     success-call:
         kind: call_expression
-        has: {nthChild: 1, kind: prefix_expression, regex: '^\.success$'}
+        has:
+            nthChild: 1
+            any:
+                - {kind: prefix_expression, regex: '^\.success$'}
+                - {kind: navigation_expression, regex: '^Result(<[\s\S]*>)?\.success$'}
     failure-reference:
         any:
             - {kind: prefix_expression, regex: '^\.failure$'}
@@ -38,4 +42,4 @@ transform:
     UNWRAPPED: {rewrite: {source: $DECLARATION, rewriters: [return-type, unwrap-success]}}
 fix: $UNWRAPPED
 message: '`$NAME` returns `Result<$T, $E>` and constructs `.success` alone'
-note: 'Return `<success type>`'
+note: 'Return the success type and the unwrapped value, a caller composing the function into a Result chain calls `.map`'

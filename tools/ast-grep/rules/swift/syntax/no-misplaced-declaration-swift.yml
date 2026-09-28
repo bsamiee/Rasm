@@ -1,0 +1,50 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-misplaced-declaration-swift
+language: swift
+severity: error
+utils:
+    error-conformance:
+        kind: inheritance_specifier
+        regex: '^(Swift\.|Foundation\.)?(Error|LocalizedError|CustomNSError|RecoverableError)$'
+rule:
+    kind: class_declaration, protocol_declaration, typealias_declaration, function_declaration, property_declaration
+    has: {field: name, pattern: $NAME}
+    inside: {kind: source_file}
+    any:
+        - kind: function_declaration
+          follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, regex: '^// --- \[(TYPES|CONSTANTS|MODELS|ERRORS)\] '}
+        - kind: property_declaration
+          follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, regex: '^// --- \[TYPES\] '}
+        - kind: class_declaration
+          has: {field: declaration_kind, regex: '^(struct|class|actor)$'}
+          not: {has: {matches: error-conformance}}
+          follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, regex: '^// --- \[(OPERATIONS|EXPORTS)\] '}
+        - kind: protocol_declaration, typealias_declaration
+          follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, regex: '^// --- \[(CONSTANTS|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\] '}
+        - kind: class_declaration
+          has: {field: declaration_kind, regex: '^(struct|class|actor)$'}
+          not: {has: {matches: error-conformance}}
+          follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, regex: '^// --- \[(TYPES|CONSTANTS)\] '}
+        - kind: class_declaration
+          all:
+            - has: {field: declaration_kind, regex: '^(struct|enum|class|actor)$'}
+            - has: {matches: error-conformance}
+            - follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, not: {regex: '^// --- \[ERRORS\] '}}
+        - kind: class_declaration
+          all:
+            - has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}
+            - follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, not: {regex: '^// --- \[COMPOSITION\] '}}
+        - kind: class_declaration
+          all:
+            - has: {field: declaration_kind, regex: '^extension$'}
+            - inside:
+                kind: source_file
+                has:
+                    kind: 'class_declaration, protocol_declaration'
+                    all:
+                        - not: {has: {field: declaration_kind, regex: '^extension$'}}
+                        - has: {field: name, pattern: $NAME}
+                        - follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, pattern: $SECTION}
+            - follows: {stopBy: {matches: swift-section-divider}, matches: swift-section-divider, not: {pattern: $SECTION}}
+message: Declaration `$NAME` sits under a section its kind does not belong to
+note: 'Use the section of its kind, `[TYPES]` for protocols and aliases, `[CONSTANTS]` for literals, `[MODELS]` or `[SERVICES]` for structs, classes, and actors, `[ERRORS]` for `Error` conformers, `[OPERATIONS]` for free functions, `[COMPOSITION]` for the `@main` type, and the extended type''s section for an extension'

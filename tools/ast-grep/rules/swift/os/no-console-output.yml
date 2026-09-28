@@ -1,0 +1,58 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-console-output
+language: swift
+severity: error
+utils:
+    host-entry:
+        inside:
+            stopBy: end
+            kind: function_declaration
+            all:
+                - has: {field: name, regex: '^main$'}
+                - has: {kind: modifiers, has: {kind: property_modifier, regex: '^static$'}}
+                - inside:
+                    kind: 'class_body, enum_class_body'
+                    inside: {kind: class_declaration, has: {kind: modifiers, has: {kind: attribute, regex: '^@main$'}}}
+    callee:
+        any:
+            - kind: simple_identifier
+            - kind: navigation_expression
+              has: {field: target, kind: simple_identifier, regex: '^(Swift|Foundation|CoreFoundation|Darwin|Glibc|os)$'}
+    stream-call:
+        has: {nthChild: 1, matches: callee, regex: '(^|\.)(fputs|fprintf|vfprintf|fwrite|fputc|putc)$'}
+    descriptor-call:
+        has: {nthChild: 1, matches: callee, regex: '(^|\.)(write|dprintf)$'}
+    diagnostic-call:
+        any:
+            - has: {nthChild: 1, matches: callee, regex: '(^|\.)(debugPrint|dump|NSLog|NSLogv|os_log|perror|CFShow)$'}
+            - all:
+                - has: {nthChild: 1, matches: callee, regex: '(^|\.)print$'}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^to$'}}}}
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^((Foundation\.)?FileHandle|(SystemPackage\.|System\.)?FileDescriptor)\.standardError\.\w+$'}
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^(try\s+)?((Foundation\.)?FileHandle\(fileDescriptor:|(SystemPackage\.|System\.)?FileDescriptor\(rawValue:)\s*(2|STDERR_FILENO)\)\.\w+$'}
+            - all:
+                - matches: stream-call
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, regex: '^stderr$'}}}
+            - all:
+                - matches: descriptor-call
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^STDERR_FILENO$'}}}
+    stdout-call:
+        any:
+            - has: {nthChild: 1, matches: callee, regex: '(^|\.)(print|puts|putchar|printf|vprintf)$'}
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^((Foundation\.)?FileHandle|(SystemPackage\.|System\.)?FileDescriptor)\.standardOutput\.\w+$'}
+            - has: {nthChild: 1, kind: navigation_expression, regex: '^(try\s+)?((Foundation\.)?FileHandle\(fileDescriptor:|(SystemPackage\.|System\.)?FileDescriptor\(rawValue:)\s*(1|STDOUT_FILENO)\)\.\w+$'}
+            - all:
+                - matches: stream-call
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, regex: '^stdout$'}}}
+            - all:
+                - matches: descriptor-call
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, nthChild: 1, regex: '^STDOUT_FILENO$'}}}
+rule:
+    kind: call_expression
+    has: {nthChild: 1, pattern: $CALLEE}
+    any:
+        - matches: diagnostic-call
+        - matches: stdout-call
+          not: {matches: host-entry}
+message: '`$CALLEE` writes to the console outside the host boundary'
+note: 'Log a diagnostic through `Logger` from `os` with a `privacy:` annotation on each interpolation, a command-line tool writes its result to stdout from `static func main` of its `@main` type alone'

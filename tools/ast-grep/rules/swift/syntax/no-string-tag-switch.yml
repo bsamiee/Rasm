@@ -1,0 +1,22 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-string-tag-switch
+language: swift
+severity: error
+utils:
+    tag-pattern:
+        kind: switch_pattern
+        has: {kind: pattern, has: {kind: line_string_literal, not: {has: {kind: interpolated_expression}}}}
+rule:
+    kind: switch_statement
+    all:
+        - has: {field: expr, pattern: $SUBJECT}
+        - has: {kind: switch_entry, has: {matches: tag-pattern, pattern: $FIRST}}
+        - has: {kind: switch_entry, has: {matches: tag-pattern, not: {pattern: $FIRST}}}
+        - not:
+            has:
+                kind: switch_entry
+                all:
+                    - has: {kind: default_keyword}
+                    - has: {kind: statements, has: {pattern: $SUBJECT, stopBy: end, not: {inside: {kind: line_string_literal, stopBy: end}}}}
+message: '`switch` over `$SUBJECT` selects the branch by string literal'
+note: 'Declare the tokens as cases of an enum with `String` raw values, convert the text once at the boundary through its `Decodable` conformance or `init(rawValue:)`, and switch over the cases'

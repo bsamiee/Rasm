@@ -1,0 +1,19 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-family-section-swift
+language: swift
+severity: error
+rule:
+    pattern: $DIVIDER
+    all:
+        - matches: swift-labeled-divider
+        - inside:
+            matches: swift-member-list
+            not: {has: {matches: swift-labeled-divider, not: {pattern: $DIVIDER}}}
+        - any:
+            - precedes: {pattern: $NEXT}
+            - pattern: $_
+message: Family divider `$DIVIDER` is the one family of its owner
+note: Delete the divider, subsections split an owner holding more than one family
+fix:
+    template: $NEXT
+    expandEnd: {pattern: $NEXT}

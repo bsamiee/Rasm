@@ -68,7 +68,7 @@ result = {"file": bpy.data.filepath}
 - `pgrep` lines without `--background` name the running GUI the task uses, the second command launches one when every line holds `--background`
 - Server calls answer once both add-ons listen on their ports
 - New work the task keeps goes into a file the agent names with `bpy.ops.wm.save_as_mainfile(filepath="<dir>/<name>.blend")`
-- Scratch work stays in an untitled file that closes unsaved, and disk keeps only the files the task produces
+- Temporary work stays in an untitled file that closes unsaved, and disk keeps only the files the task produces
 - Long jobs, files the GUI does not hold, and batches run through `headless.py` on the saved file, every other job runs live
 - Quits and preference reloads run through `mcp-for-blender`, the `blender` sandbox blocks `wm.quit_blender`, `sys.exit`, and `wm.read_userpref` forms
 - `mcp-for-blender` `execute_blender_code` answers with printed output and drops `result`, a raise answers with the traceback alone

@@ -9,9 +9,11 @@ utils:
               any:
                 - inside: {kind: 'pattern, if_statement, guard_statement, while_statement', field: bound_identifier}
                 - inside: {kind: pattern, inside: {kind: pattern, inside: {kind: property_declaration, field: name}}}
+                - inside: {kind: pattern, not: {has: {nthChild: 2}}, inside: {kind: pattern, stopBy: end, has: {kind: value_binding_pattern}}}
                 - inside: {kind: 'function_declaration, protocol_function_declaration, enum_entry', field: name}
-                - inside: {kind: 'parameter, lambda_parameter', field: name}
+                - inside: {kind: 'parameter, lambda_parameter, tuple_type_item, tuple_expression', field: name}
                 - inside: {kind: parameter, field: external_name}
+                - inside: {kind: 'enum_type_parameters, macro_declaration'}
             - kind: type_identifier
               any:
                 - inside: {kind: 'class_declaration, protocol_declaration, typealias_declaration, associatedtype_declaration', field: name}

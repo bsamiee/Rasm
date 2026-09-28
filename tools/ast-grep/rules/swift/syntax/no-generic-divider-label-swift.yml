@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-generic-divider-label-swift
+language: swift
+severity: error
+rule:
+    pattern: $DIVIDER
+    matches: swift-labeled-divider
+    any:
+        - regex: '^// --- \[([A-Z0-9_]+_)?(HELPERS?|UTILS?|UTILITY|UTILITIES|MISC|MISCELLANEOUS|OTHERS?|COMMON|GENERAL|GENERIC|INTERNALS?|PRIVATES?|PUBLIC|PROTECTED|STATICS?|MEMBERS|METHODS|FUNCTIONS|SUPPORT|SUPPORTING|IMPLEMENTATIONS?|EXTRAS?|SHARED|STUFF|VARIOUS|ETC|TODO|UNSORTED|UNCATEGORIZED|AUX|AUXILIARY|EXTENSIONS?|PROPERTIES|COMPUTED)\]'
+        - regex: '^// --- \[(TYPES|CONSTANTS|MODELS|ERRORS|SERVICES|OPERATIONS|COMPOSITION|EXPORTS)\]$'
+          inside: {matches: swift-member-list}
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+message: Divider label `$LABEL` names nothing its members do or own
+note: Use a label naming the operation family inside an owner, or the owned concept at file level

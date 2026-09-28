@@ -1,0 +1,40 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-trailing-task-group-wait
+language: swift
+severity: error
+utils:
+    group-body:
+        kind: statements
+        inside:
+            kind: lambda_literal
+            all:
+                - has: {kind: lambda_function_type, has: {kind: lambda_function_type_parameters, has: {kind: lambda_parameter, has: {field: name, pattern: $G}}}}
+                - inside:
+                    kind: call_suffix
+                    inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^withTaskGroup$'}}
+    drain:
+        any:
+            - kind: await_expression
+              has: {field: expr, pattern: $G.waitForAll()}
+            - kind: for_statement
+              regex: '^for\s+await\s+_\s+in\b'
+              all:
+                - has: {field: collection, pattern: $G}
+                - not: {has: {kind: statements}}
+rule:
+    pattern: $WAIT
+    all:
+        - inside: {matches: group-body}
+        - matches: drain
+        - follows: {pattern: $PREV}
+        - any:
+            - not: {precedes: {regex: '[\s\S]'}}
+            - precedes:
+                kind: control_transfer_statement
+                regex: '^return(\s+[\w.]+)?$'
+                not: {precedes: {regex: '[\s\S]'}}
+message: '`$WAIT` repeats the wait on every remaining child task that `withTaskGroup` runs after its body returns'
+note: 'Delete the wait'
+fix:
+    template: $PREV
+    expandStart: {pattern: $PREV}

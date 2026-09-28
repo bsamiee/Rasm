@@ -27,7 +27,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `jq` and `yq` refuse a JSON file with `//` comments, `Read` reads it
 - `yq -r '[.id, .message] | join(" | ")' <rules>/*.yml` maps a rule family
 - `stat -f '%m %N' <file>` prints the modification time
-- `mktemp -d <dir>/scratch-XXXXXX` makes a private directory under a tree other sessions write
+- `mktemp -d <dir>/tmp.XXXXXX` makes a private directory under a tree other sessions write
 
 ## [03]-[MISE]
 
@@ -64,7 +64,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `dotnet msbuild <file> -getProperty:MSBuildProjectFile` is the parse check, a broken file answers `MSB4025`
 - `dotnet format <project> --no-restore --verify-no-changes --include <files>` is the writer's check form, a missing path prints nothing at exit 0
 - `dotnet build <build> --no-restore -t:Rebuild -check -bl:<logs><purpose>-{}.binlog` names a capture, `{}` expands to date, time, pid, and a suffix
-- `dotnet restore <solution> --artifacts-path <scratch>` then builds under it isolate a pair from other sessions
+- `dotnet restore <solution> --artifacts-path <tempdir>` then builds under it isolate a pair from other sessions
 - `-p:LangVersion=7.3` produces a failing build without a repository edit
 - `Csc` execution count in `binlog_expensive_tasks` proves a compile, a duration proves nothing
 

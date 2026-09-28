@@ -29,5 +29,5 @@ rule:
                             - has: {matches: ignored}
                             - has: {kind: value_binding_pattern, regex: '^var$'}
                             - has: {field: name, pattern: $NAME}
-message: '`$OWNER` reads `$NAME`, an `@ObservationIgnored` property with no published mutation'
+message: '`$OWNER` reads `$NAME`, an `@ObservationIgnored` property no observer sees change'
 note: 'Drop `@ObservationIgnored` from `<property>`'

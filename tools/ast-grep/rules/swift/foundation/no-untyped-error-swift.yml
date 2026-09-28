@@ -1,0 +1,21 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-untyped-error-swift
+language: swift
+severity: error
+utils:
+    error-type:
+        regex: '^(Foundation\.)?(NSError|CocoaError|URLError|POSIXError|MachError)(\.init)?$'
+    text-entry:
+        kind: dictionary_literal
+        has:
+            kind: simple_identifier
+            regex: '^NSLocalized(Description|FailureReason(Error)?|RecoverySuggestion(Error)?)Key$'
+            precedes: {kind: line_string_literal, stopBy: {pattern: $_}}
+rule:
+    kind: call_expression
+    has: {nthChild: 1, matches: error-type, pattern: $CALLEE}
+    any:
+        - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^userInfo$'}}, {has: {field: value, matches: text-entry}}]}}}
+        - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, all: [{has: {field: name, regex: '^domain$'}}, {has: {field: value, kind: line_string_literal}}]}}}
+message: '`$CALLEE` builds an error from text with no type of its own, its consumers can match no failure case'
+note: 'Declare an `enum` with one case per failure and its values as payload, conforming to `LocalizedError` with `errorDescription`, or to `CustomNSError` with `errorDomain`, `errorCode`, and the text under `NSLocalizedDescriptionKey` in `errorUserInfo` where a system domain and code identify the case, `NSError` under a system domain reads no `errorDescription`'

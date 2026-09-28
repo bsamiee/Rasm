@@ -1,0 +1,42 @@
+id: swift-nesting-level
+language: swift
+utils:
+    local-function:
+        kind: function_declaration
+        inside: {kind: statements}
+    scope-callee:
+        any:
+            - kind: simple_identifier
+              regex: '^(with[A-Z]\w*|Result|Task)$'
+            - kind: navigation_expression
+              has: {field: suffix, regex: '^\.(with[A-Z]\w*|addTask|addTaskUnlessCancelled|run)$'}
+    scope-call:
+        kind: call_expression
+        has:
+            any:
+                - matches: scope-callee
+                - kind: call_expression
+                  has: {matches: scope-callee}
+    scope-closure:
+        kind: lambda_literal
+        any:
+            - inside:
+                kind: call_suffix
+                not: {has: {kind: lambda_literal, nthChild: {position: 2, ofRule: {kind: lambda_literal}}}}
+                inside: {matches: scope-call}
+            - inside:
+                kind: value_argument
+                inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {matches: scope-call}}}
+    control:
+        any:
+            - kind: guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement, do_statement
+            - kind: if_statement
+              not: {inside: {kind: if_statement}}
+            - kind: ternary_expression
+              not: {inside: {kind: ternary_expression, field: if_false, stopBy: {not: {kind: tuple_expression}}}}
+rule:
+    any:
+        - matches: control
+        - matches: local-function
+        - kind: lambda_literal
+          not: {any: [{matches: scope-closure}, {inside: {matches: swift-view-builder, stopBy: end}}]}

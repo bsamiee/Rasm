@@ -8,6 +8,8 @@ utils:
         all:
             - has: {field: collection, pattern: $COLL}
             - not: {has: {kind: where_clause}}
+            - any: [{has: {kind: try_operator, pattern: $TRY}}, {not: {has: {kind: try_operator}}}]
+            - any: [{has: {regex: '^await$', pattern: $$AWAIT}}, {not: {has: {regex: '^await$'}}}]
     single-item:
         kind: pattern
         all:
@@ -16,11 +18,72 @@ utils:
     single-if:
         matches: {swift-single-statement: {first: {kind: if_statement, not: {has: {regex: '^(,|else)$'}}}}}
     element-source:
-        pattern: $SOURCE
         follows: {regex: '^=$'}
         all:
             - not: {pattern: $ELEMENT}
-            - has: {kind: simple_identifier, pattern: $ELEMENT, stopBy: end}
+            - any:
+                - {matches: property-chain, pattern: $PROPERTY}
+                - kind: call_expression
+                  all:
+                    - has:
+                        nthChild: 1
+                        kind: 'simple_identifier, navigation_expression'
+                        pattern: $FUNCTION
+                        not: {has: {stopBy: end, any: [{kind: call_suffix}, {pattern: $ELEMENT}]}}
+                    - has:
+                        kind: call_suffix
+                        not: {has: {kind: lambda_literal}}
+                        has:
+                            kind: value_arguments
+                            all:
+                                - has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, pattern: $ELEMENT}}
+                                - not: {has: {kind: value_argument, nthChild: 2}}
+                - pattern: $SOURCE
+                  all:
+                    - has: {kind: simple_identifier, stopBy: end, all: [{pattern: $ELEMENT}, {pattern: $PARAMETER}]}
+                    - not: {has: {stopBy: end, kind: lambda_literal}}
+                    - not:
+                        has:
+                            stopBy: end
+                            kind: simple_identifier
+                            not:
+                                any:
+                                    - pattern: $ELEMENT
+                                    - inside: {kind: 'navigation_suffix, value_argument_label'}
+                                    - inside: {kind: prefix_expression, has: {field: operation, regex: '^\.$'}}
+                                    - {nthChild: 1, inside: {kind: call_expression}}
+    property-chain:
+        kind: navigation_expression
+        has: {field: target, any: [{kind: simple_identifier, pattern: $ELEMENT}, {matches: property-chain}]}
+    optional-binding:
+        all:
+            - has: {field: condition, kind: value_binding_pattern}
+            - has: {field: bound_identifier, kind: simple_identifier, pattern: $Y}
+            - any:
+                - has: {kind: type_annotation, has: {field: name, pattern: $TYPE}}
+                - not: {has: {kind: type_annotation}}
+            - has: {matches: element-source}
+    boolean-test:
+        not:
+            any:
+                - has: {regex: '^case$'}
+                - has: {kind: 'value_binding_pattern, availability_condition'}
+    continue-guard:
+        kind: guard_statement
+        all:
+            - not: {has: {regex: '^,$'}}
+            - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^continue$'}}}}
+    reads-item:
+        any:
+            - {kind: simple_identifier, pattern: $READ}
+            - has: {stopBy: end, kind: simple_identifier, pattern: $READ}
+rewriters:
+    - id: grouped-condition
+      rule: {kind: 'disjunction_expression, ternary_expression', pattern: $C, inside: {kind: guard_statement}}
+      fix: '($C)'
+    - id: condition
+      rule: {pattern: $C, not: {any: [{kind: statements}, {regex: '^(guard|else)$'}]}, inside: {kind: guard_statement}}
+      fix: '$C'
 rule:
     any:
         - matches: plain-loop
@@ -45,55 +108,77 @@ rule:
                 has:
                     kind: if_statement
                     all:
-                        - has: {field: condition, kind: value_binding_pattern}
-                        - has: {field: bound_identifier, kind: simple_identifier, pattern: $Y}
-                        - any:
-                            - has: {kind: type_annotation, pattern: $TYPE}
-                            - not: {has: {kind: type_annotation}}
-                        - has: {matches: element-source}
+                        - matches: optional-binding
                         - has: {kind: statements, pattern: $BODY}
         - matches: plain-loop
-          pattern:
-            context: |-
-                for $ELEMENT in $COLL {
-                  guard let $Y = $SOURCE else { continue }
-                  $$$REST
-                }
-            selector: for_statement
           all:
-            - has: {field: item, matches: single-item}
-            - has: {kind: statements, has: {kind: guard_statement, has: {matches: element-source}}}
+            - has: {field: item, matches: single-item, pattern: $ELEMENT}
+            - has:
+                kind: statements
+                pattern: $STMTS
+                has: {nthChild: 1, matches: continue-guard, all: [{matches: optional-binding}]}
         - matches: plain-loop
-          pattern:
-            context: |-
-                for $ELEMENT in $COLL {
-                  guard let $Y: $ANNOTATED = $SOURCE else { continue }
-                  $$$REST
-                }
-            selector: for_statement
           all:
-            - has: {field: item, matches: single-item}
-            - has: {kind: statements, has: {kind: guard_statement, has: {matches: element-source}}}
+            - has: {field: item, matches: single-item, pattern: $X}
+            - has:
+                kind: statements
+                pattern: $STMTS
+                has:
+                    nthChild: 1
+                    matches: continue-guard
+                    pattern: $GUARD
+                    regex: '^guard\s+case\b'
+                    has: {kind: simple_identifier, pattern: $X, follows: {regex: '^=$'}, precedes: {regex: '^else$'}}
         - matches: plain-loop
-          pattern:
-            context: |-
-                for $ITEM in $COLL {
-                  guard case $$$PATTERN = $ITEM else { continue }
-                  $$$REST
-                }
-            selector: for_statement
-          has: {field: item, matches: single-item}
+          all:
+            - has: {field: item, pattern: $KEPT, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}
+            - any: [{has: {kind: type_annotation, pattern: $ANNOTATION}}, {not: {has: {kind: type_annotation}}}]
+            - has:
+                kind: statements
+                pattern: $STMTS
+                has:
+                    nthChild: 1
+                    kind: guard_statement
+                    pattern: $CONDITIONS
+                    all:
+                        - matches: boolean-test
+                        - has: {regex: '^,$'}
+                        - has: {matches: reads-item}
+                        - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^continue$'}}}}
+        - matches: plain-loop
+          all:
+            - has: {field: item, pattern: $KEPT, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}
+            - any: [{has: {kind: type_annotation, pattern: $ANNOTATION}}, {not: {has: {kind: type_annotation}}}]
+            - has:
+                kind: statements
+                pattern: $STMTS
+                has:
+                    nthChild: 1
+                    kind: if_statement
+                    all:
+                        - matches: boolean-test
+                        - not: {has: {regex: '^(,|else)$'}}
+                        - has: {field: condition, pattern: $SKIPPED, matches: reads-item}
+                        - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^continue$'}}}}
 transform:
+    TRIED: {replace: {source: $TRY, replace: '(?s)^.*$', by: 'try '}}
+    AWAITED: {replace: {source: $AWAIT, replace: '(?s)^.*$', by: 'await '}}
     CASE: {replace: {source: $IF, replace: '(?s)^if\s+case\s+(.*?)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\s*\{.*$', by: 'case $1'}}
-    GUARDED: {replace: {source: $ITEM, replace: '(?s)^.*$', by: 'case '}}
-    COLON: {replace: {source: $ANNOTATED, replace: '^', by: ': '}}
+    GUARDED: {replace: {source: $GUARD, replace: '(?s)^guard\s+case\s+(.*?)\s*=\s*[A-Za-z_][A-Za-z0-9_]*\s+else\b.*$', by: 'case $1'}}
+    COLON: {replace: {source: $TYPE, replace: '^', by: ': '}}
+    KEY: {replace: {source: $PROPERTY, replace: '(?s)^[A-Za-z_][A-Za-z0-9_]*(.*)$', by: '.compactMap(\$1)'}}
+    APPLIED: {replace: {source: $FUNCTION, replace: '(?s)^(.*)$', by: '.compactMap($1)'}}
     OPEN: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: '.compactMap({ '}}
     BIND: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: ' in '}}
     CLOSE: {replace: {source: $SOURCE, replace: '(?s)^.*$', by: ' })'}}
+    JOINED: {rewrite: {source: $CONDITIONS, rewriters: [grouped-condition, condition], joinBy: ' && '}}
+    WHERE: {replace: {source: $JOINED, replace: '(?s)^(.+)$', by: ' where $1'}}
+    NEGATED: {replace: {source: $SKIPPED, replace: '(?s)^(.+)$', by: ' where !($1)'}}
     STATEMENTS: {replace: {source: $BODY, replace: '\s+$', by: ''}}
+    REST: {replace: {source: $STMTS, replace: '(?s)^(?:guard\b.*?\belse|if\b.*?)\s*\{\s*continue\s*\}\s*(.*?)\s*$', by: '$1'}}
 fix: |-
-    for $CASE$GUARDED$$$PATTERN$Y$TYPE$COLON in $COLL$OPEN$ELEMENT$BIND$SOURCE$CLOSE {
-      $STATEMENTS$$$REST
+    for $TRIED$AWAITED$CASE$GUARDED$Y$COLON$KEPT$ANNOTATION in $COLL$KEY$APPLIED$OPEN$PARAMETER$BIND$SOURCE$CLOSE$WHERE$NEGATED {
+        $STATEMENTS$REST
     }
-message: '`for` selects elements by a pattern or an optional binding at the top of its body'
-note: '`for case <pattern> in <sequence>` selects the matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` the present values'
+message: '`for` selects elements by a test at the top of its body'
+note: '`for case <pattern> in <sequence>` selects matching elements, `for <value> in <sequence>.compactMap({ <element> in <optional> })` present values, `for <element> in <sequence> where <test> && <test>` elements passing every test of a `guard` condition list, `where !(<test>)` elements a leading `if <test> { continue }` keeps'

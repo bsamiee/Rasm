@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-receiver-dispatch-switch
+language: swift
+severity: error
+utils:
+    first-entry:
+        kind: switch_entry
+        nthChild: {position: 1, ofRule: {kind: switch_entry}}
+rule:
+    kind: switch_statement
+    all:
+        - any:
+            - all:
+                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: await $R.$M($$$A).$N($$$B) }', selector: statements}}}
+                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: await $_.$M($$$A).$N($$$B) }', selector: statements}}}}}
+            - all:
+                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: await $R.$M($$$A) }', selector: statements}}}
+                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: await $_.$M($$$A) }', selector: statements}}}}}
+            - all:
+                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: $R.$M($$$A).$N($$$B) }', selector: statements}}}
+                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: $_.$M($$$A).$N($$$B) }', selector: statements}}}}}
+            - all:
+                - has: {matches: first-entry, has: {pattern: {context: 'switch s { case .a: $R.$M($$$A) }', selector: statements}}}
+                - not: {has: {kind: switch_entry, not: {has: {pattern: {context: 'switch s { case .a: $_.$M($$$A) }', selector: statements}}}}}
+        - has: {kind: switch_entry, not: {has: {pattern: $R, stopBy: end}}}
+constraints:
+    R: {kind: simple_identifier}
+message: 'Every arm calls `$M` with the same arguments on a different receiver'
+note: 'Conform the receivers to one protocol whose requirement returns the result type every arm produces, choose the receiver once, and call `<member>` on it, calls that ran concurrently as an `async let` pair become a task group over the cases whose results apply in case order'

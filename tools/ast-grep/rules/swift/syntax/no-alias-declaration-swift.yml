@@ -6,10 +6,16 @@ rule:
     kind: typealias_declaration
     all:
         - has: {field: name, kind: type_identifier, pattern: $ALIAS}
-        - has: {kind: user_type, pattern: $TARGET, not: {has: {kind: type_identifier, nthChild: 2}}}
+        - has:
+            kind: 'user_type, array_type, dictionary_type, optional_type, existential_type'
+            pattern: $TARGET
+            not:
+                any:
+                    - {kind: user_type, has: {kind: type_identifier, nthChild: 2}}
+                    - has: {kind: user_type, stopBy: end, has: {kind: type_identifier, nthChild: 2}}
         - not: {has: {kind: type_parameters}}
         - any:
-            - inside: {kind: source_file}
+            - inside: {kind: 'source_file, statements'}
             - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, not: {has: {kind: inheritance_specifier}}}}
 message: '`$ALIAS` is another name for `$TARGET`'
 note: 'Spell `<target>` where `<alias>` is used'

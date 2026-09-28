@@ -8,6 +8,13 @@ utils:
             - kind: line_string_literal
               not: {has: {kind: 'line_str_text, interpolated_expression'}}
             - pattern: String()
+    empty-result:
+        any:
+            - matches: empty-string
+            - kind: control_transfer_statement
+              has: {field: result, matches: empty-string}
+    empty-block:
+        matches: {swift-single-statement: {first: {matches: empty-result}}}
 rule:
     any:
         - kind: nil_coalescing_expression
@@ -18,7 +25,31 @@ rule:
         - kind: switch_entry
           all:
             - has: {kind: switch_pattern, pattern: $SHAPE}
-            - has: {matches: {swift-single-statement: {first: {matches: empty-string}}}}
+            - has: {matches: empty-block}
+        - kind: guard_statement
+          all:
+            - has: {field: condition, kind: value_binding_pattern}
+            - has: {field: bound_identifier, pattern: $SHAPE}
+            - has: {matches: empty-block}
+        - kind: if_statement
+          all:
+            - has: {field: condition, kind: value_binding_pattern}
+            - has: {field: bound_identifier, pattern: $SHAPE}
+            - has: {matches: empty-block, follows: {regex: '^else$', stopBy: end}}
+        - kind: catch_block
+          all:
+            - pattern: $SHAPE
+            - has: {matches: empty-block}
+        - kind: value_argument
+          all:
+            - has: {field: name, regex: '^default$'}
+            - has: {field: value, matches: empty-string}
+            - inside:
+                kind: value_arguments
+                regex: '^\['
+                inside:
+                    kind: call_suffix
+                    inside: {kind: call_expression, pattern: $SHAPE, not: {inside: {kind: 'directly_assignable_expression, navigation_expression'}}}
         - matches: empty-string
           all:
             - inside: {kind: 'function_declaration, init_declaration'}
@@ -28,7 +59,9 @@ rule:
             - inside: {kind: 'class_body, enum_class_body'}
             - has: {kind: value_binding_pattern, regex: '^let$'}
             - has: {field: name, kind: pattern, pattern: $SHAPE}
-            - has: {kind: type_annotation, regex: '^:\s*String$'}
+            - any:
+                - has: {kind: type_annotation, regex: '^:\s*String$'}
+                - not: {has: {kind: type_annotation}}
             - has: {field: value, matches: empty-string}
 message: '`$SHAPE` yields an empty string standing for absence'
 note: 'Declare or return an Optional and test `nil`, the empty string stays a value'

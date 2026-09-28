@@ -6,15 +6,24 @@ utils:
     stored-value:
         kind: 'simple_identifier, navigation_expression'
         not: {has: {kind: call_suffix, stopBy: end}}
-    single-parameter:
-        kind: lambda_function_type
-        has:
-            kind: lambda_function_type_parameters
-            all:
-                - has: {kind: lambda_parameter, has: {field: name, pattern: $POINTER}}
-                - not: {has: {nthChild: 2}}
-    single-call:
-        matches: {swift-single-statement: {first: {pattern: $BODY, not: {kind: control_transfer_statement}}}}
+    parameter:
+        kind: lambda_literal
+        any:
+            - has:
+                kind: lambda_function_type
+                has:
+                    kind: lambda_function_type_parameters
+                    all:
+                        - has: {kind: lambda_parameter, has: {field: name, pattern: $POINTER}}
+                        - not: {has: {nthChild: 2}}
+            - all:
+                - not: {has: {kind: lambda_function_type}}
+                - has: {kind: statements, has: {kind: simple_identifier, regex: '^\$0$', pattern: $POINTER, stopBy: end}}
+                - not: {has: {kind: statements, has: {kind: lambda_literal, stopBy: end}}}
+    call-body:
+        matches: {swift-single-statement: {first: {kind: call_expression, pattern: $BODY}}}
+    mutable-call-body:
+        matches: {swift-single-statement: {first: {kind: call_expression, pattern: $MUTABLEBODY}}}
     argument-use:
         not:
             has:
@@ -31,55 +40,71 @@ utils:
                 not:
                     inside:
                         kind: navigation_expression
-                        regex: '^\w+\.baseAddress$'
+                        regex: '^\$?\w+\.baseAddress$'
                         inside: {kind: value_argument, stopBy: {not: {kind: postfix_expression}}}
-    closure:
+    closure-argument:
         kind: call_suffix
-        has:
-            kind: lambda_literal
-            all:
-                - has: {matches: single-parameter}
-                - has: {kind: statements, matches: single-call}
-rule:
-    kind: call_expression
-    any:
-        - all:
+        any:
+            - has: {kind: lambda_literal, pattern: $CLOSURE}
+            - has: {kind: value_arguments, has: {kind: value_argument, not: {has: {kind: value_argument_label}}, has: {field: value, kind: lambda_literal, pattern: $CLOSURE}}}
+    closure-alone:
+        kind: call_suffix
+        matches: closure-argument
+        not: {has: {kind: value_arguments, has: {kind: value_argument, not: {has: {field: value, kind: lambda_literal}}}}}
+    closure-after-inout:
+        kind: call_suffix
+        matches: closure-argument
+        all:
             - has:
-                kind: navigation_expression
-                all:
-                    - has: {field: target, pattern: $TARGET, matches: stored-value}
-                    - has: {field: suffix, regex: '^\.withCString$'}
-            - has: {matches: closure, has: {kind: lambda_literal, has: {kind: statements, matches: argument-use}}}
-        - all:
-            - has:
-                kind: navigation_expression
-                all:
-                    - has: {field: target, pattern: $TARGET, matches: stored-value}
-                    - has: {field: suffix, regex: '^\.withUnsafeBufferPointer$'}
-            - has: {matches: closure, has: {kind: lambda_literal, has: {kind: statements, matches: base-use}}}
-        - all:
-            - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Pointer$'}
-            - has:
-                kind: call_suffix
+                kind: value_arguments
+                has:
+                    kind: value_argument
+                    all:
+                        - has: {kind: value_argument_label, regex: '^(to|of)$'}
+                        - has: {field: value, pattern: $TARGET, kind: prefix_expression, regex: '^&'}
+            - not:
                 has:
                     kind: value_arguments
                     has:
                         kind: value_argument
-                        all:
-                            - has: {kind: value_argument_label, regex: '^to$'}
-                            - has: {field: value, pattern: $TARGET, kind: prefix_expression, regex: '^&'}
-            - has: {matches: closure, has: {kind: lambda_literal, has: {kind: statements, matches: argument-use}}}
+                        not: {any: [{has: {field: value, kind: lambda_literal}}, {has: {kind: value_argument_label, regex: '^(to|of)$'}}]}
+    member-call:
+        kind: navigation_expression
+        has: {field: target, pattern: $TARGET, matches: stored-value}
+rule:
+    kind: call_expression
+    any:
+        - all:
+            - has: {matches: member-call, has: {field: suffix, regex: '^\.withCString$'}}
+            - has: {matches: closure-alone}
+            - has: {stopBy: end, pattern: $CLOSURE, matches: parameter, has: {kind: statements, all: [{matches: call-body}, {matches: argument-use}]}}
+        - all:
+            - has: {matches: member-call, has: {field: suffix, regex: '^\.withUnsafeBufferPointer$'}}
+            - has: {matches: closure-alone}
+            - has: {stopBy: end, pattern: $CLOSURE, matches: parameter, has: {kind: statements, all: [{matches: call-body}, {matches: base-use}]}}
+        - all:
+            - has: {matches: member-call, has: {field: suffix, regex: '^\.withUnsafeMutableBufferPointer$'}}
+            - has: {matches: closure-alone}
+            - has: {stopBy: end, pattern: $CLOSURE, matches: parameter, has: {kind: statements, all: [{matches: mutable-call-body}, {matches: base-use}]}}
+        - all:
+            - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Pointer$'}
+            - has: {matches: closure-after-inout, has: {kind: value_arguments, has: {kind: value_argument_label, stopBy: end, regex: '^to$'}}}
+            - has: {stopBy: end, pattern: $CLOSURE, matches: parameter, has: {kind: statements, all: [{matches: call-body}, {matches: argument-use}]}}
+        - all:
+            - has: {kind: simple_identifier, regex: '^withUnsafe(Mutable)?Bytes$'}
+            - has: {matches: closure-after-inout, has: {kind: value_arguments, has: {kind: value_argument_label, stopBy: end, regex: '^of$'}}}
+            - has: {stopBy: end, pattern: $CLOSURE, matches: parameter, has: {kind: statements, all: [{matches: call-body}, {matches: base-use}]}}
 rewriters:
     - id: unwrapped-base
       rule:
         kind: postfix_expression
         regex: '!$'
-        has: {kind: navigation_expression, regex: '^\w+\.baseAddress$', has: {field: target, pattern: $POINTER}}
+        has: {kind: navigation_expression, regex: '^\$?\w+\.baseAddress$', has: {field: target, pattern: $POINTER}}
       fix: $TARGET
     - id: base
       rule:
         kind: navigation_expression
-        regex: '^\w+\.baseAddress$'
+        regex: '^\$?\w+\.baseAddress$'
         has: {field: target, pattern: $POINTER}
       fix: $TARGET
     - id: argument
@@ -88,8 +113,21 @@ rewriters:
         pattern: $POINTER
         not: {inside: {kind: 'navigation_suffix, value_argument_label'}}
       fix: $TARGET
+    - id: mutable-unwrapped-base
+      rule:
+        kind: postfix_expression
+        regex: '!$'
+        has: {kind: navigation_expression, regex: '^\$?\w+\.baseAddress$', has: {field: target, pattern: $POINTER}}
+      fix: '&$TARGET'
+    - id: mutable-base
+      rule:
+        kind: navigation_expression
+        regex: '^\$?\w+\.baseAddress$'
+        has: {field: target, pattern: $POINTER}
+      fix: '&$TARGET'
 transform:
     CALL: {rewrite: {source: $BODY, rewriters: [unwrapped-base, base, argument]}}
-fix: $CALL
+    MUTABLECALL: {rewrite: {source: $MUTABLEBODY, rewriters: [mutable-unwrapped-base, mutable-base]}}
+fix: $CALL$MUTABLECALL
 message: 'Closure hands `$TARGET` to a call as a pointer the call converts to on its own'
 note: 'Pass `<target>` directly, a `String`, `[Element]`, or `&value` argument converts to its parameter''s pointer type for the call'

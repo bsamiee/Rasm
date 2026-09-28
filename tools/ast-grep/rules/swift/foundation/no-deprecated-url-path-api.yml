@@ -2,36 +2,61 @@
 id: no-deprecated-url-path-api
 language: swift
 severity: error
+utils:
+    scope:
+        kind: 'function_declaration, init_declaration, lambda_literal, computed_property, class_body'
+    string-binding:
+        kind: 'property_declaration, parameter'
+        regex: '\bNSString\b'
+        has: {stopBy: end, kind: simple_identifier, pattern: $BASE}
+    components-binding:
+        kind: 'property_declaration, parameter'
+        regex: '\bURLComponents\b'
+        has: {stopBy: end, kind: simple_identifier, pattern: $RECEIVER}
 rule:
-    pattern: $CALL
+    pattern: $SITE
     any:
-        - pattern: '$INIT(fileURLWithPath: $P, $$$REST)'
-        - pattern: '$INIT(fileURLWithPath: $P)'
-        - pattern: '$BASE.appendingPathComponent($P, $$$REST)'
-        - pattern: '$BASE.appendingPathComponent($P)'
-        - pattern: '$TARGET.appendPathComponent($P, $$$REST)'
-        - pattern: '$TARGET.appendPathComponent($P)'
-    not:
-        has:
-            kind: call_suffix
+        - pattern: $CALL
+          any:
+            - pattern: '$INIT(fileURLWithPath: $P, $$$REST)'
+            - pattern: '$INIT(fileURLWithPath: $P)'
+            - any:
+                - pattern: '$BASE.appendingPathComponent($P, $$$REST)'
+                - pattern: '$BASE.appendingPathComponent($P)'
+              not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: string-binding}}}
+            - pattern: '$TARGET.appendPathComponent($P, $$$REST)'
+            - pattern: '$TARGET.appendPathComponent($P)'
+          not:
             has:
-                kind: value_arguments
+                kind: call_suffix
                 has:
-                    kind: value_argument
-                    all:
-                        - has: {field: name, regex: '^isDirectory$'}
-                        - has: {field: value, not: {any: [{kind: boolean_literal}, {kind: simple_identifier}, {kind: navigation_expression}, {kind: prefix_expression}]}}
+                    kind: value_arguments
+                    has:
+                        kind: value_argument
+                        all:
+                            - has: {field: name, regex: '^isDirectory$'}
+                            - has: {field: value, not: {any: [{kind: boolean_literal}, {kind: simple_identifier}, {kind: navigation_expression}, {kind: prefix_expression}]}}
+        - kind: navigation_expression
+          pattern: $READ
+          all:
+            - has: {field: suffix, has: {field: suffix, regex: '^(host|user|password|query|fragment)$'}}
+            - has: {field: target, pattern: $RECEIVER, not: {any: [{kind: key_path_expression}, {regex: '(?i)components$'}]}}
+            - not: {inside: {kind: call_expression}}
+            - not: {inside: {stopBy: end, matches: scope, has: {stopBy: end, matches: components-binding}}}
 constraints:
-    INIT: {regex: '^URL$'}
+    INIT: {regex: '^(Foundation\.)?URL(\.init)?$'}
     BASE: {not: {regex: '\bNSString\b'}}
 transform:
-    OPEN_INIT: {replace: {source: $INIT, replace: '^URL$', by: 'URL(filePath: '}}
+    OPEN_INIT: {replace: {source: $INIT, replace: '^(.+)$', by: '$1(filePath: '}}
     OPEN_APPENDING: {replace: {source: $BASE, replace: '(?s)^(.*)$', by: '$1.appending(path: '}}
     OPEN_APPEND: {replace: {source: $TARGET, replace: '(?s)^(.*)$', by: '$1.append(path: '}}
     DIRECTORY: {replace: {source: $$$REST, replace: 'isDirectory: true', by: 'directoryHint: .isDirectory'}}
     FILE: {replace: {source: $DIRECTORY, replace: 'isDirectory: false', by: 'directoryHint: .notDirectory'}}
     HINT: {replace: {source: $FILE, replace: 'isDirectory: ([^,]+)', by: 'directoryHint: $1 ? .isDirectory : .notDirectory'}}
     TAIL: {replace: {source: $HINT, replace: '^(.+)$', by: ', $1'}}
-fix: '$OPEN_INIT$OPEN_APPENDING$OPEN_APPEND$P$TAIL)'
-message: '`$CALL` spells a file path through the `URL` API the SDK deprecates for the `filePath:` and `path:` forms'
-note: 'Call `URL(filePath:)`, `appending(path:)`, or `append(path:)`, with `isDirectory: true` as `directoryHint: .isDirectory`, `false` as `.notDirectory`, and a `Bool` name as the ternary over both'
+    CLOSE: {replace: {source: $P, replace: '(?s)^.+$', by: ')'}}
+    DECODED: {replace: {source: $READ, replace: '(?s)^(.*)\.(host|user)$', by: '$1.$2(percentEncoded: false)'}}
+    READ_FIX: {replace: {source: $DECODED, replace: '(?s)^(.*)\.(password|query|fragment)$', by: '$1.$2()'}}
+fix: '$OPEN_INIT$OPEN_APPENDING$OPEN_APPEND$P$TAIL$CLOSE$READ_FIX'
+message: '`$SITE` reads or builds the URL through a member the SDK deprecates for the `filePath:`, `path:`, and `percentEncoded:` forms'
+note: 'Call `URL(filePath:)`, `appending(path:)`, or `append(path:)` with `directoryHint:` (`.isDirectory` for `isDirectory: true`, `.notDirectory` for `false`, a ternary for a `Bool` name), and read `host(percentEncoded: false)`, `user(percentEncoded: false)`, `password()`, `query()`, or `fragment()`, each equal to its property'

@@ -10,12 +10,20 @@ utils:
             - kind: integer_literal
               regex: '^10$'
             - pattern: 'UInt8(ascii: "\n")'
+            - pattern: 'Character("\n")'
             - kind: line_string_literal
-              regex: '^"\\n"$'
+              regex: '^"(\\r)?\\n"$'
+            - kind: 'prefix_expression, navigation_expression'
+              regex: '^(CharacterSet)?\.newlines$'
+    newline-search:
+        kind: call_expression
+        all:
+            - has: {kind: navigation_expression, has: {field: suffix, regex: '^\.(split|firstIndex|lastIndex|components|firstRange|ranges)$'}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: newline}}}}
 rule:
     kind: for_statement
     all:
-        - has: {field: collection, regex: '\.bytes$', pattern: $BYTES}
+        - has: {field: collection, regex: '(^|\.)(bytes|characters|unicodeScalars|standardOutput|standardError)$', pattern: $BYTES}
         - has: {field: item, has: {field: bound_identifier, pattern: $B}}
         - has:
             kind: statements
@@ -30,5 +38,6 @@ rule:
                       all:
                         - has: {pattern: $B}
                         - has: {kind: switch_entry, has: {kind: switch_pattern, has: {matches: newline, stopBy: end}}}
-message: '`for` over `$BYTES` splits lines by comparing `$B` to a newline by hand'
-note: 'Iterate `lines` of `FileHandle.AsyncBytes` or `URL.AsyncBytes`, or `strings()` of swift-subprocess `SubprocessOutputSequence`'
+                    - matches: newline-search
+message: '`for` over `$BYTES` splits `$B` into lines at a newline by hand'
+note: 'Iterate `lines` of `FileHandle.AsyncBytes`, `URL.AsyncBytes`, or `URLSession.AsyncBytes`, or `strings()` of swift-subprocess `SubprocessOutputSequence`'

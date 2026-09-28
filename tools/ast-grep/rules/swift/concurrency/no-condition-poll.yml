@@ -6,21 +6,32 @@ utils:
     observed-state:
         kind: navigation_expression
         all:
-            - has: {field: suffix, regex: '^\.(isTerminated|isFinishedLaunching|isRunning|isReady|isFinished|isCancelled|isExecuting)$'}
+            - has: {field: suffix, regex: '^\.(isTerminated|isFinishedLaunching|isRunning|isActive|isHidden|isReady|isFinished|isCancelled|isExecuting|fileExists|contentsOfDirectory|attributesOfItem|runningApplications|frontmostApplication|menuBarOwningApplication)$'}
             - not: {has: {field: target, regex: '^!?Task$'}}
     sleep-call:
         any:
             - pattern: $_.sleep($$$A)
             - pattern: usleep($$$A)
             - pattern: sleep($$$A)
+            - pattern: Task.yield()
+            - pattern: '$_.run(until: $$$A)'
+            - pattern: '$_.run(mode: $M, before: $$$A)'
+            - pattern: CFRunLoopRunInMode($$$A)
+            - pattern: '$_.wait(timeout: $$$A)'
+            - pattern: '$_.wait(wallTimeout: $$$A)'
 rule:
-    kind: 'while_statement, repeat_while_statement'
+    kind: 'while_statement, repeat_while_statement, for_statement'
     all:
         - has:
             stopBy: end
             matches: observed-state
             pattern: $STATE
-            not: {inside: {kind: statements, stopBy: {kind: 'while_statement, repeat_while_statement'}}}
-        - has: {kind: statements, has: {matches: sleep-call, stopBy: end, pattern: $SLEEP}}
+            any:
+                - not: {inside: {kind: statements, stopBy: {kind: 'while_statement, repeat_while_statement, for_statement'}}}
+                - inside:
+                    kind: 'if_statement, guard_statement'
+                    stopBy: {kind: statements}
+                    has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return|throw)\b'}}
+        - has: {stopBy: end, matches: sleep-call, pattern: $SLEEP}
 message: '`$SLEEP` polls `$STATE` in a loop'
-note: 'Await the change through `publisher(for:)` on the key path, `NSWorkspace.shared.notificationCenter.notifications(named:)`, or the server push where one exists'
+note: 'Await the change through `Observations { <state> }` for `@Observable` state, `publisher(for: <key path>).values` for a KVO-compliant property, `notifications(named:)` for a posted notification, `DispatchSource.makeFileSystemObjectSource` for a file, or the server push'

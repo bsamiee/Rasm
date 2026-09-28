@@ -5,14 +5,14 @@ severity: error
 rule:
     any:
         - all:
-            - matches: {swift-security-argument: {subcommand: {regex: '^"(add|delete|find)-generic-password"$', pattern: $COMMAND}}}
+            - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$', pattern: $COMMAND}}}
             - has: {kind: line_string_literal, regex: '^"-(T|A)"$'}
         - kind: line_string_literal
           all:
-            - has: {kind: line_str_text, regex: '^(add|delete|find)-generic-password( |$)', pattern: $COMMAND}
+            - has: {kind: line_str_text, regex: '^add-(generic|internet)-password( |$)', pattern: $COMMAND}
             - has: {kind: line_str_text, regex: '(^| )-(T|A)( |$)'}
         - kind: line_str_text
-          regex: set-generic-password-partition-list
+          regex: 'set-(generic-password|internet-password|key)-partition-list'
           pattern: $COMMAND
 message: '`$COMMAND` rewrites the item ACL or partition list that the owning program''s next write restores'
 note: 'Write the item through `add-generic-password -U` with no `-T` or `-A` and leave the partition list to the owning program'

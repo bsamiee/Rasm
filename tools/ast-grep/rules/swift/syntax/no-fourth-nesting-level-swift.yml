@@ -3,67 +3,30 @@ id: no-fourth-nesting-level-swift
 language: swift
 severity: error
 utils:
-    function:
-        kind: function_declaration, init_declaration, deinit_declaration, subscript_declaration, lambda_literal, computed_property, computed_getter, computed_setter, computed_modify, willset_clause, didset_clause
-    scope-callee:
-        any:
-            - kind: simple_identifier
-              regex: '^(with[A-Z]\w*|Result|Task)$'
-            - kind: navigation_expression
-              has: {field: suffix, regex: '^\.(addTask|addTaskUnlessCancelled|run|withLock|withValue)$'}
-    scope-closure:
-        kind: lambda_literal
+    linted-function:
+        kind: function_declaration
         inside:
-            kind: call_suffix
-            not: {has: {kind: lambda_literal, nthChild: {position: 2, ofRule: {kind: lambda_literal}}}}
-            inside:
-                kind: call_expression
-                has:
-                    any:
-                        - matches: scope-callee
-                        - kind: call_expression
-                          has: {matches: scope-callee}
-    nested-function:
-        any:
-            - kind: lambda_literal
-              not: {matches: scope-closure}
-            - kind: function_declaration
-              inside: {kind: 'function_body, lambda_literal', stopBy: end}
-    fourth-function:
-        matches: nested-function
-        not: {inside: {matches: swift-view-builder, stopBy: end}}
-        inside:
-            matches: nested-function
+            kind: function_declaration
             stopBy: end
             inside:
-                matches: nested-function
+                kind: function_declaration
                 stopBy: end
-                inside: {matches: nested-function, stopBy: end}
-    control:
-        any:
-            - kind: guard_statement, for_statement, while_statement, repeat_while_statement, switch_statement, do_statement
-            - kind: if_statement
-              not: {inside: {kind: if_statement}}
-            - kind: ternary_expression
-              not: {inside: {kind: ternary_expression, field: if_false, stopBy: {not: {kind: tuple_expression}}}}
-    boundary: {any: [{matches: control}, {matches: function}]}
+                inside: {kind: function_declaration, stopBy: end}
 rule:
+    matches: swift-nesting-level
     pattern: $SCOPE
-    any:
-        - matches: fourth-function
-          not: {inside: {matches: fourth-function, stopBy: end}}
-        - matches: control
-          inside:
-            matches: control
-            stopBy: {matches: boundary}
+    not: {any: [{matches: linted-function}, {inside: {kind: ERROR, stopBy: end}}]}
+    inside:
+        matches: swift-nesting-level
+        stopBy: {matches: swift-nesting-boundary}
+        inside:
+            matches: swift-nesting-level
+            stopBy: {matches: swift-nesting-boundary}
             inside:
-                matches: control
-                stopBy: {matches: boundary}
-                inside:
-                    matches: control
-                    stopBy: {matches: boundary}
-                    not: {inside: {matches: control, stopBy: {matches: function}}}
+                matches: swift-nesting-level
+                stopBy: {matches: swift-nesting-boundary}
+                not: {inside: {matches: swift-nesting-level, stopBy: {matches: swift-nesting-boundary}}}
 message: Closure or control nesting reaches a fourth level
-note: Flatten the fourth level into a guard clause or a named function
+note: Flatten the fourth level with a guard clause, one `switch` over the combined cases, a chained step after the closure that returns the value, or a sequence operation upstream (`compactMap`, `filter`, `first(where:)`, `contains(where:)`)
 labels:
     SCOPE: {style: primary}

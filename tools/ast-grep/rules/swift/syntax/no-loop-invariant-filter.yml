@@ -1,0 +1,37 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-loop-invariant-filter
+language: swift
+severity: error
+utils:
+    guard-continue:
+        kind: 'guard_statement, if_statement'
+        all:
+            - not: {has: {regex: '^case$'}}
+            - not: {kind: if_statement, has: {regex: '^else$'}}
+            - not: {has: {field: condition, kind: value_binding_pattern}}
+            - not: {has: {kind: value_binding_pattern, stopBy: {kind: statements}}}
+            - has: {kind: statements, matches: {swift-single-statement: {first: {kind: control_transfer_statement, regex: '^continue$'}}}}
+    varying-read:
+        any:
+            - kind: call_expression
+            - kind: simple_identifier
+              regex: '^Task$'
+            - kind: simple_identifier
+              pattern: $READ
+              inside:
+                kind: for_statement
+                stopBy: {kind: for_statement}
+                any:
+                    - has: {field: item, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}
+                    - has: {kind: statements, has: {stopBy: end, kind: assignment, has: {field: target, has: {stopBy: end, kind: simple_identifier, pattern: $READ}}}}
+rule:
+    kind: for_statement
+    all:
+        - has: {field: item, pattern: $ITEM, not: {regex: '^_$'}}
+        - not: {has: {regex: '^await$'}}
+        - any:
+            - has: {kind: where_clause, pattern: $WHERE}
+            - has: {kind: statements, has: {nthChild: 1, matches: guard-continue, pattern: $WHERE}}
+        - not: {has: {stopBy: end, pattern: $WHERE, has: {stopBy: end, matches: varying-read}}}
+message: '`$WHERE` reads nothing of `$ITEM` or of state the loop changes'
+note: 'Hoist the test above the loop as one `guard` or `if`'

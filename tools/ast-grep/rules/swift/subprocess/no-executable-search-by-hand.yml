@@ -1,0 +1,26 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-executable-search-by-hand
+language: swift
+severity: error
+utils:
+    executable-test:
+        kind: call_expression
+        has:
+            kind: navigation_expression
+            has: {field: suffix, has: {field: suffix, regex: '^isExecutableFile$'}}
+    search-closure:
+        kind: lambda_literal
+        has: {matches: executable-test, stopBy: end}
+rule:
+    kind: call_expression
+    all:
+        - has:
+            kind: navigation_expression
+            has: {field: suffix, has: {field: suffix, regex: '^(first|filter|contains|firstIndex|compactMap)$', pattern: $SEARCH}}
+        - has:
+            kind: call_suffix
+            any:
+                - has: {matches: search-closure}
+                - has: {kind: value_arguments, has: {kind: value_argument, has: {matches: search-closure}}}
+message: '`$SEARCH` tests each directory with `isExecutableFile` to find an executable by hand'
+note: 'Run the child as `Executable.name(<name>)` to search the child environment''s `PATH`, or resolve the path through `resolveExecutablePath(in:)`'

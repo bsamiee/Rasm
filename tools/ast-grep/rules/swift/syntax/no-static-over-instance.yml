@@ -2,6 +2,12 @@
 id: no-static-over-instance
 language: swift
 severity: error
+utils:
+    own-type:
+        kind: user_type
+        any:
+            - pattern: $TYPE
+            - regex: '^Self$'
 rule:
     kind: function_declaration
     all:
@@ -10,7 +16,7 @@ rule:
             - has: {regex: '^class$'}
         - has: {field: name, kind: simple_identifier, pattern: $NAME}
         - inside: {kind: 'class_body, enum_class_body', inside: {kind: class_declaration, has: {field: name, pattern: $TYPE}}}
-        - has: {kind: parameter, pattern: $RECEIVER, has: {kind: user_type, pattern: $TYPE}}
-        - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {kind: user_type, pattern: $TYPE}}}
+        - has: {kind: parameter, pattern: $RECEIVER, has: {matches: own-type}}
+        - not: {has: {kind: parameter, not: {pattern: $RECEIVER}, has: {matches: own-type}}}
 message: '`$NAME` is a type member taking `$RECEIVER`, a value of the enclosing `$TYPE`'
-note: 'Drop `static` and `<receiver>`, the body reads `self` and call sites call the member on the value'
+note: 'Drop `static` and `<receiver>`, the body reads `self`, an `inout` receiver makes the member `mutating`, and call sites call the member on the value'

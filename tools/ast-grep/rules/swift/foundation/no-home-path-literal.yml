@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-home-path-literal
+language: swift
+severity: error
+rule:
+    kind: 'line_string_literal, multi_line_string_literal, raw_string_literal'
+    pattern: $S
+    has: {kind: 'line_str_text, multi_line_str_text, raw_str_part, raw_str_end_part', regex: '(^|[\s"''#(=:])(~|\$HOME|\$\{HOME\}|/Users/[^/\s"'']+)/'}
+message: '`$S` spells a home path as text, file APIs read it unexpanded and the user or an environment variable decides the real directory'
+note: 'Build the path with `appending(path:)` on `URL.homeDirectory` or on the directory the relocating environment variable names, and let a message name the file or interpolate the resolved path'

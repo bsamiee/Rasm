@@ -59,7 +59,7 @@ const _PROJECTS: Record<string, Configure> = {
             root: path.dirname(directory),
             name: path.basename(directory, '.xcodeproj'),
             tags: ['language:swift', 'host:macos'],
-            targets: { build: {}, install: {}, lint: {}, format: {}, check: {} },
+            targets: { build: {}, install: {}, upgrade: {}, lint: {}, format: {}, check: {} },
         })),
     'pyproject.toml': ({ file, directory, workspace }) =>
         Effect.gen(function* () {

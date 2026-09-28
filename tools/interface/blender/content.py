@@ -56,8 +56,8 @@ async def look_development(client: httpx.AsyncClient) -> tuple[Change, ...] | Un
     if await anyio.Path(LOOK_DEVELOPMENT).is_file():
         return ()
     url = str(httpx.URL("https://ambientcg.com/get", params={"file": f"{folder.name}.zip"}))
-    async with anyio.TemporaryDirectory() as scratch:
-        archive = anyio.Path(scratch, f"{folder.name}.zip")
+    async with anyio.TemporaryDirectory() as temporary:
+        archive = anyio.Path(temporary, f"{folder.name}.zip")
         if isinstance(failed := await downloaded(client, LOOK_DEVELOPMENT.name, url, archive), Unfetched):
             return failed
         await anyio.to_thread.run_sync(shutil.unpack_archive, archive, folder)

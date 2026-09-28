@@ -1,0 +1,51 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-rendered-cause-swift
+language: swift
+severity: error
+utils:
+    text:
+        kind: navigation_expression
+        has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|errorDescription)$'}}
+    rendering:
+        any:
+            - matches: text
+            - kind: call_expression
+              all:
+                - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^(map|flatMap|compactMap)$'}}}
+                - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: text}}}}
+    enclosing-expression:
+        kind: 'ternary_expression, nil_coalescing_expression, tuple_expression, await_expression, try_expression'
+    constructed:
+        kind: call_expression
+        has:
+            nthChild: 1
+            any:
+                - {kind: prefix_expression, regex: '^\.\w+$'}
+                - {kind: simple_identifier, regex: '^[A-Z]'}
+                - {kind: navigation_expression, regex: '\.init$'}
+    storage:
+        any:
+            - kind: assignment
+            - kind: value_argument
+              inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {matches: constructed}}}
+    stored:
+        inside: {matches: storage, stopBy: {not: {matches: enclosing-expression}}}
+rule:
+    pattern: $RENDER
+    any:
+        - matches: rendering
+          all: [{matches: stored}]
+        - kind: simple_identifier
+          all:
+            - matches: stored
+            - inside:
+                kind: statements
+                stopBy: end
+                has:
+                    kind: property_declaration
+                    all:
+                        - has: {field: name, has: {field: bound_identifier, pattern: $RENDER}}
+                        - has: {field: value, any: [{matches: rendering}, {matches: enclosing-expression, has: {stopBy: {not: {matches: enclosing-expression}}, matches: rendering}}]}
+    not: {inside: {matches: swift-view-builder, stopBy: end}}
+message: '`$RENDER` stores the error as text, its consumers can no longer match the failure case'
+note: 'Hold the typed error in the property or case payload, and read `localizedDescription` where the view or log renders it'

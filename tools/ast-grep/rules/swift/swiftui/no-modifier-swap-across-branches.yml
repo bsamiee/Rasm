@@ -2,10 +2,33 @@
 id: no-modifier-swap-across-branches
 language: swift
 severity: error
+utils:
+    action-call:
+        kind: call_expression
+        has:
+            kind: call_suffix
+            any:
+                - has: {kind: lambda_literal}
+                - has:
+                    kind: value_arguments
+                    has:
+                        kind: value_argument
+                        any:
+                            - has: {field: value, kind: lambda_literal}
+                            - has: {field: name, regex: '^action$'}
+    call-arm:
+        matches: {swift-single-statement: {first: {pattern: '$F($$$)', not: {matches: action-call}}}}
 rule:
-    pattern: 'if $C { $V.$M($$$A) } else { $V.$M($$$B) }'
-    not:
-        pattern: 'if $C { $E } else { $E }'
+    any:
+        - pattern: 'if $C { $F($$$A) } else { $F($$$B) }'
+          all:
+            - not: {pattern: 'if $C { $E } else { $E }'}
+            - not: {has: {kind: statements, has: {matches: action-call}}}
+        - kind: switch_statement
+          all:
+            - has: {kind: switch_entry, has: {matches: call-arm, pattern: $FIRST}}
+            - has: {kind: switch_entry, has: {matches: call-arm, not: {pattern: $FIRST}}}
+            - not: {has: {kind: switch_entry, not: {has: {matches: call-arm}}}}
     inside: {matches: swift-view-builder, stopBy: end}
-message: '`$V.$M` with different arguments per branch of `if $C` rebuilds the view identity at every change of `$C`'
+message: '`$F` with different arguments per branch rebuilds the view identity at every change of the branch condition'
 note: 'Keep one `<view>` and pass the state through `.tint`, `.disabled`, `Toggle(...).toggleStyle(.button)`, or a ternary argument where both arguments share one type'

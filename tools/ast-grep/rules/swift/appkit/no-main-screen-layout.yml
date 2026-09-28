@@ -5,8 +5,11 @@ severity: error
 rule:
     pattern: $SCREEN
     any:
-        - pattern: NSScreen.main
-        - pattern: NSScreen.screens.first
-        - pattern: 'NSScreen.screens[0]'
+        - kind: navigation_expression
+          regex: '^(AppKit\.)?NSScreen\.(main|deepest|screens\.(first|last))$'
+        - kind: call_expression
+          regex: '^(AppKit\.)?NSScreen\.screens\[[^\]]+\]$'
+        - kind: navigation_expression
+          regex: '^(NSApp|(AppKit\.)?NSApplication\.shared)\.(keyWindow|mainWindow)[?!]?\.screen$'
 message: '`$SCREEN` sizes a window under layout by the key window''s or the menu bar''s screen'
 note: 'Read `screen` of the window under layout, or size the content and let the window clamp it to its screen'

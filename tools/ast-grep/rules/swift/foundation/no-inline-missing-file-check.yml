@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inline-missing-file-check
+language: swift
+severity: error
+utils:
+    read-if-present:
+        kind: function_declaration
+        all:
+            - has: {kind: parameter, has: {kind: function_type, regex: '\bthrows\b'}}
+            - has: {kind: user_type, has: {stopBy: end, kind: optional_type}}
+rule:
+    kind: simple_identifier
+    regex: '^(file(Read)?NoSuchFile|noSuchFileOrDirectory|ENOENT|NSFile(Read)?NoSuchFileError)$'
+    pattern: $SITE
+    not:
+        any:
+            - inside: {kind: enum_entry}
+            - inside: {stopBy: end, matches: read-if-present}
+message: '`$SITE` classifies a missing file outside the read-if-present function'
+note: 'Route every read through one function that takes the throwing operation and returns `Result<Value?, any Error>`, `.success(nil)` for a missing file and `.failure` for every other error'

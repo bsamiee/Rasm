@@ -1,0 +1,5 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: swift-member-list
+language: swift
+rule:
+    kind: class_body, enum_class_body, protocol_body

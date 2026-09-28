@@ -10,7 +10,7 @@ import packageJson from './package.json' with { type: 'json' };
 const Application = Schema.Struct({
     identifier: Schema.String,
     name: Schema.String,
-    processes: Schema.Array(Schema.Int),
+    processIdentifiers: Schema.Array(Schema.Int),
     scriptable: Schema.Boolean,
     url: Schema.String,
     version: Schema.optionalKey(Schema.String),
@@ -37,7 +37,7 @@ const program = Effect.gen(function* () {
     const services = yield* Effect.context<Applications | ChildProcessSpawner.ChildProcessSpawner | McpServer.McpServer | FileSystem.FileSystem | Path.Path>();
 
     yield* McpServer.registerResource`adobe://dictionary/${Schema.URL}`({
-        content: (_uri, application) => invoke({ application: application.href, operation: 'dictionary' }, Schema.String),
+        content: (_uri, application) => invoke({ dictionary: { application: application.href } }, Schema.String),
         description: 'Commands and object model supplied by an installed Adobe application.',
         mimeType: 'application/xml',
         name: 'Scripting dictionary',
@@ -47,7 +47,7 @@ const program = Effect.gen(function* () {
         Effect.provide(
             discovery.toLayer({
                 applications: Effect.fn('adobe.applications')(function* () {
-                    const applications = yield* invoke({ operation: 'applications' }, Schema.Array(Application));
+                    const applications = yield* invoke({ applications: {} }, Schema.Array(Application));
                     const references = applications
                         .filter(Struct.get('scriptable'))
                         .map((application) => McpSchema.ResourceLink.make({ mimeType: 'application/xml', name: application.name, uri: `adobe://dictionary/${encodeURIComponent(application.url)}` }));

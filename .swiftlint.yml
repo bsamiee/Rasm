@@ -1,0 +1,140 @@
+# --- [RULES] ----------------------------------------------------------------------------
+only_rules:
+    - accessibility_label_for_image
+    - accessibility_trait_for_button
+    - anonymous_argument_in_multiline_closure
+    - array_init
+    - async_without_await
+    - block_based_kvo
+    - blanket_disable_command
+    - class_delegate_protocol
+    - comma_inheritance
+    - compiler_protocol_init
+    - computed_accessors_order
+    - contains_over_filter_count
+    - contains_over_filter_is_empty
+    - contains_over_first_not_nil
+    - contains_over_range_nil_comparison
+    - convenience_type
+    - direct_return
+    - discarded_notification_center_observer
+    - discouraged_assert
+    - discouraged_direct_init
+    - discouraged_none_name
+    - duplicate_conditions
+    - duplicated_key_in_dictionary_literal
+    - dynamic_inline
+    - empty_collection_literal
+    - empty_count
+    - empty_enum_arguments
+    - empty_string
+    - explicit_init
+    - explicit_type_interface
+    - fallthrough
+    - fatal_error_message
+    - file_name_no_space
+    - first_where
+    - flatmap_over_map_reduce
+    - function_default_parameter_at_end
+    - generic_type_name
+    - identical_operands
+    - implicit_optional_initialization
+    - invalid_swiftlint_command
+    - invisible_character
+    - is_disjoint
+    - joined_default_parameter
+    - last_where
+    - legacy_cggeometry_functions
+    - legacy_constant
+    - legacy_constructor
+    - legacy_multiple
+    - legacy_nsgeometry_functions
+    - legacy_objc_type
+    - legacy_random
+    - legacy_swiftui_aspect_ratio
+    - local_doc_comment
+    - lower_acl_than_parent
+    - modifier_order
+    - nesting
+    - non_optional_string_data_conversion
+    - notification_center_detachment
+    - ns_number_init_as_function_reference
+    - nsobject_prefer_isequal
+    - optional_data_string_conversion
+    - optional_enum_case_matching
+    - orphaned_doc_comment
+    - overridden_super_call
+    - override_in_extension
+    - prefer_asset_symbols
+    - prefer_condition_list
+    - prefer_key_path
+    - prefer_self_in_static_references
+    - prefer_self_type_over_type_of_self
+    - prefer_type_checking
+    - prefer_zero_over_explicit_init
+    - private_swiftui_state
+    - prohibited_super_call
+    - protocol_property_accessors_order
+    - reduce_boolean
+    - reduce_into
+    - redundant_discardable_let
+    - redundant_final
+    - redundant_nil_coalescing
+    - redundant_objc_attribute
+    - redundant_self
+    - redundant_sendable
+    - redundant_set_access_control
+    - redundant_string_enum_value
+    - return_value_from_void_function
+    - self_binding
+    - self_in_property_initialization
+    - shorthand_argument
+    - shorthand_operator
+    - shorthand_optional_binding
+    - sorted_first_last
+    - static_operator
+    - static_over_final_class
+    - strict_fileprivate
+    - superfluous_disable_command
+    - superfluous_else
+    - todo
+    - toggle_bool
+    - unavailable_condition
+    - unavailable_function
+    - unhandled_throwing_task
+    - unneeded_break_in_switch
+    - unneeded_escaping
+    - unneeded_override
+    - unneeded_parentheses_in_closure_argument
+    - unneeded_throws_rethrows
+    - unowned_variable_capture
+    - untyped_error_in_catch
+    - unused_closure_parameter
+    - unused_control_flow_label
+    - unused_enumerated
+    - unused_optional_binding
+    - unused_parameter
+    - unused_setter_value
+    - weak_delegate
+    - yoda_condition
+
+# --- [OPTIONS] --------------------------------------------------------------------------
+strict: true
+cache_path: .cache/swiftlint
+blanket_disable_command:
+    allowed_rules: []
+modifier_order:
+    preferred_modifier_order: [acl, setterACL, override, isolation, dynamic, mutators, lazy, final, required, convenience, typeMethods, owned]
+nesting:
+    type_level: 3
+non_optional_string_data_conversion:
+    include_variables: true
+optional_data_string_conversion:
+    include_implicit_init: true
+redundant_self:
+    only_in_closures: false
+shorthand_argument:
+    always_disallow_more_than_one: true
+    always_disallow_member_access: true
+unneeded_override:
+    affect_initializers: true

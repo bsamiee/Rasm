@@ -7,7 +7,8 @@ import { ChildProcess, type ChildProcessSpawner } from 'effect/unstable/process'
 const Request = Schema.Struct({
     application: Schema.URL.annotateKey({ description: 'Application file URL returned by applications. The application must be running.' }),
     arguments: Schema.Record(Schema.String, Schema.Json).annotate({
-        description: 'Parameters named by the installed dictionary, with direct naming its direct parameter. Values are scalars, lists, or native {type, data} descriptors.',
+        description:
+            "Parameters named by the installed dictionary, with direct naming its direct parameter. Values take the JSON form replies use: numbers, booleans, text (enumerator and class names resolve by the parameter type, file URLs become files, a quoted four-character code like 'docu' names a raw code), lists, records keyed by property name, and object specifiers {want: class, form: 'indx' | 'name' | 'ID  ' | 'prop', seld: index, ordinal like 'all ', name, id, or property, from: container specifier or null}.",
     }),
     artifacts: Schema.Array(Schema.URL).annotate({ description: 'File URLs of outputs to capture after the native reply. Use an empty array when the command writes no files.' }),
     command: Schema.String.annotate({ description: 'Exact command name from the application scripting dictionary resource.' }),
@@ -40,7 +41,7 @@ const invoke = Effect.fn('adobe.native')(
         request: Schema.JsonObject,
         response: S,
     ): Effect.fn.Return<S['Type'], typeof Failure.Type | PlatformError.PlatformError | Schema.SchemaError, ChildProcessSpawner.ChildProcessSpawner | Scope.Scope | S['DecodingServices']> {
-        const child = yield* ChildProcess.make('AdobeAutomation', {
+        const child = yield* ChildProcess.make('AdobeScripting', {
             stdin: Stream.make(JSON.stringify(request)).pipe(Stream.encodeText),
             stderr: 'inherit',
         });
@@ -55,8 +56,8 @@ const invoke = Effect.fn('adobe.native')(
 );
 
 const perform = Effect.fn('adobe.perform')(function* (request: typeof Request.Type, execution: McpSchema.ResourceLink) {
-    const reply = yield* invoke({ application: request.application.href, arguments: request.arguments, command: request.command, operation: 'execute' }, Schema.JsonObject);
-    const [errors, artifacts] = yield* Effect.partition(request.artifacts, (url) => invoke({ operation: 'artifact', url: url.href }, McpSchema.BlobResourceContents), { concurrency: 'unbounded' });
+    const reply = yield* invoke({ execute: { application: request.application.href, arguments: request.arguments, command: request.command } }, Schema.Json);
+    const [errors, artifacts] = yield* Effect.partition(request.artifacts, (url) => invoke({ file: { url: url.href } }, McpSchema.BlobResourceContents), { concurrency: 'unbounded' });
     const content = yield* Effect.forEach(
         artifacts,
         Effect.fn(function* (artifact) {

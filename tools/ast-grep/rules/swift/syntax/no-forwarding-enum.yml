@@ -33,20 +33,25 @@ utils:
         all:
             - has: {matches: associated-value-case}
             - has: {matches: single-forwarding-statement}
-    single-switch:
-        matches: {swift-single-statement: {first: {kind: switch_statement}}}
+    switch-owner:
+        matches: {swift-single-statement: {first: {kind: 'switch_statement, control_transfer_statement'}}}
+        inside:
+            kind: 'computed_property, computed_getter, function_body'
+            inside:
+                kind: 'property_declaration, function_declaration'
+                stopBy: {kind: 'property_declaration, function_declaration'}
+                has: {field: name, pattern: $NAME}
+                inside: {kind: 'enum_class_body, class_body'}
 rule:
     kind: switch_statement
     all:
         - has: {field: expr, kind: self_expression}
         - inside:
-            matches: single-switch
-            inside:
-                kind: 'computed_property, function_body'
-                inside:
-                    kind: 'property_declaration, function_declaration'
-                    has: {field: name, pattern: $NAME}
-                    inside: {kind: enum_class_body}
+            any:
+                - matches: switch-owner
+                - kind: control_transfer_statement
+                  regex: '^return\b'
+                  inside: {matches: switch-owner}
         - has: {kind: switch_entry, has: {kind: statements, has: {stopBy: end, kind: navigation_suffix, has: {field: suffix, kind: simple_identifier, pattern: $M}}}}
         - has: {kind: switch_entry, has: {kind: statements, any: [{has: {stopBy: end, kind: call_suffix, pattern: $ARGS}}, {not: {has: {stopBy: end, kind: call_suffix}}}]}}
         - not: {has: {kind: switch_entry, not: {matches: forwarding-entry}}}

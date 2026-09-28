@@ -4,11 +4,20 @@ language: swift
 severity: error
 rule:
     kind: comment
-    regex: '^// --- \[IMPORTS\]'
-    any:
-        - precedes: {pattern: $NEXT}
-        - pattern: $_
-message: Divider `[IMPORTS]` names no section
+    pattern: $DIVIDER
+    inside: {kind: source_file}
+    all:
+        - any:
+            - regex: '^// --- \[IMPORTS\]'
+            - regex: '^// --- \[[A-Z0-9_]+\]'
+              precedes: {kind: import_declaration}
+              not: {precedes: {stopBy: {matches: text-section-divider}, not: {kind: 'import_declaration, comment, multiline_comment'}}}
+        - any:
+            - precedes: {pattern: $NEXT}
+            - pattern: $_
+transform:
+    LABEL: {replace: {source: $DIVIDER, replace: '^// --- (\[[A-Z0-9_]+\]).*$', by: '$1'}}
+message: Divider `$LABEL` names no section
 note: Delete the divider, imports precede every section divider
 fix:
     template: $NEXT

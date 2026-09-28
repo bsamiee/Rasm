@@ -1,0 +1,56 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-single-reader-constant-swift
+language: swift
+severity: error
+utils:
+    literal:
+        any:
+            - kind: 'integer_literal, real_literal, hex_literal, oct_literal, bin_literal, boolean_literal'
+            - kind: 'line_string_literal, multi_line_string_literal'
+              not: {has: {stopBy: end, kind: interpolated_expression}}
+            - kind: 'prefix_expression, navigation_expression'
+              not: {has: {stopBy: end, kind: call_expression}}
+            - kind: 'array_literal, dictionary_literal'
+              not: {has: {pattern: $_, not: {matches: literal}}}
+            - kind: call_expression
+              all:
+                - has:
+                    nthChild: 1
+                    any:
+                        - {kind: prefix_expression, not: {regex: '^\.init$'}}
+                        - {kind: simple_identifier, regex: '^[A-Z]'}
+                        - {kind: navigation_expression, regex: '^[A-Z]', not: {has: {stopBy: end, kind: call_expression}}}
+                        - {kind: navigation_expression, has: {field: target, matches: literal}}
+                - not: {has: {kind: call_suffix, has: {stopBy: end, kind: value_argument, has: {field: value, not: {matches: literal}}}}}
+                - not: {has: {kind: call_suffix, has: {kind: lambda_literal}}}
+    reference:
+        kind: simple_identifier
+        pattern: $NAME
+        not:
+            any:
+                - inside: {kind: value_argument_label}
+                - inside: {kind: pattern, field: bound_identifier, inside: {kind: property_declaration, field: name}}
+    member:
+        kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration'
+        inside: {kind: 'class_body, enum_class_body, protocol_body, source_file'}
+    reader:
+        matches: member
+        pattern: $READER
+        has: {stopBy: end, matches: reference}
+rule:
+    kind: property_declaration
+    all:
+        - has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+        - not: {has: {kind: modifiers, has: {kind: attribute}}}
+        - has: {kind: value_binding_pattern, regex: '^let$'}
+        - has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+        - has: {field: value, matches: literal}
+        - inside: {kind: 'class_body, enum_class_body, source_file'}
+        - inside:
+            kind: source_file
+            stopBy: end
+            all:
+                - has: {stopBy: end, matches: reader}
+                - not: {has: {stopBy: end, matches: reference, not: {inside: {stopBy: end, pattern: $READER, matches: member}}}}
+message: 'Constant `$NAME` has one reader'
+note: 'Bind the value inside its one reader, as a local where its name states a fact and at the use site otherwise, and drop the type-level name'

@@ -345,8 +345,8 @@ async def installed(executable: Path, root: Path, libraries: Libraries) -> None:
     """Install the add-on's libraries into its target folder with uv against the bundle's Python, numpy held at the bundled version."""
     python = next(executable.parent.parent.glob("Resources/*/python/bin/python3.*"))
     numpy = next(python.parent.parent.glob("lib/python3.*/site-packages/numpy-*.dist-info")).name.removeprefix("numpy-").removesuffix(".dist-info")
-    async with anyio.TemporaryDirectory() as scratch:
-        constraints = anyio.Path(scratch, "constraints.txt")
+    async with anyio.TemporaryDirectory() as temporary:
+        constraints = anyio.Path(temporary, "constraints.txt")
         await constraints.write_text(f"numpy=={numpy}\n", encoding="utf-8")
         requirements = () if libraries.requirements is None else ("--requirements", str(root / libraries.requirements))
         await anyio.run_process(["uv", "pip", "install", "--python", str(python), "--target", str(root / libraries.target), "--constraints", str(constraints), *requirements, *libraries.packages])
@@ -354,15 +354,15 @@ async def installed(executable: Path, root: Path, libraries: Libraries) -> None:
 
 async def copied(path: Path, name: str, build: Build, target: Path) -> Path:
     """Tool's single-file add-on zipped at the target under its module name, the build recorded as its comment."""
-    async with anyio.TemporaryDirectory() as scratch:
-        await anyio.Path(path).copy(anyio.Path(scratch, name))
-        return await anyio.to_thread.run_sync(zipped, Path(scratch), target, build)
+    async with anyio.TemporaryDirectory() as temporary:
+        await anyio.Path(path).copy(anyio.Path(temporary, name))
+        return await anyio.to_thread.run_sync(zipped, Path(temporary), target, build)
 
 
 async def repacked(client: httpx.AsyncClient, executable: Path, package: Package, folder: str, build: Build, target: Path) -> Written:
     """Source archive at the build's address, extracted, patched, given its libraries and run paths, and zipped at the target."""
-    async with anyio.TemporaryDirectory() as scratch:
-        source, tree, (manifest, _) = Path(scratch, "source.zip"), Path(scratch, "tree"), tooling(executable)
+    async with anyio.TemporaryDirectory() as temporary:
+        source, tree, (manifest, _) = Path(temporary, "source.zip"), Path(temporary, "tree"), tooling(executable)
         if isinstance(failed := await downloaded(client, package.id, build.source, anyio.Path(source)), Unfetched):
             return failed
         match await anyio.to_thread.run_sync(extracted, source, tree, package.id, folder, manifest):
@@ -383,8 +383,8 @@ async def repacked(client: httpx.AsyncClient, executable: Path, package: Package
 
 async def rebuilt(client: httpx.AsyncClient, executable: Path, listing: Listing, patches: tuple[Patch, ...], build: Build, target: Path) -> Written:
     """Listed archive downloaded, patched, and zipped at the target."""
-    async with anyio.TemporaryDirectory() as scratch:
-        source, tree, (manifest, _) = Path(scratch, "source.zip"), Path(scratch, "tree"), tooling(executable)
+    async with anyio.TemporaryDirectory() as temporary:
+        source, tree, (manifest, _) = Path(temporary, "source.zip"), Path(temporary, "tree"), tooling(executable)
         if isinstance(failed := await downloaded(client, listing.id, listing.archive_url, anyio.Path(source)), Unfetched):
             return failed
         match await anyio.to_thread.run_sync(extracted, source, tree, listing.id, listing.id, manifest):
@@ -417,9 +417,9 @@ def decoded(text: str) -> tuple[Package, ...]:
 
 
 async def background[T](executable: Path, access: Access, module: str, function: str, kind: type[T]) -> T | ToolError:
-    """JSON a background Blender writes through the module's function at a scratch path, decoded as the kind, or the failed command."""
-    async with anyio.TemporaryDirectory() as scratch:
-        path = anyio.Path(scratch, f"{function}.json")
+    """JSON a background Blender writes through the module's function at a path in a temporary directory, decoded as the kind, or the failed command."""
+    async with anyio.TemporaryDirectory() as temporary:
+        path = anyio.Path(temporary, f"{function}.json")
         try:
             await anyio.run_process((str(executable), "--background", access, "--python-exit-code", "1", "--python-expr", bootstrap(module, f"{function}({str(path)!r})")))
         except CalledProcessError as error:

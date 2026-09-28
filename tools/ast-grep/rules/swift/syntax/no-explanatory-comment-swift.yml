@@ -1,0 +1,31 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-explanatory-comment-swift
+language: swift
+severity: error
+utils:
+    checked-summary:
+        any:
+            - inside: {kind: function_body, stopBy: end, inside: {kind: function_declaration}}
+            - all:
+                - precedes:
+                    stopBy: {not: {kind: comment}}
+                    any:
+                        - kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration, protocol_declaration, typealias_declaration'
+                        - {kind: class_declaration, has: {field: declaration_kind, regex: '^(class|struct|enum)$'}}
+                - not: {inside: {stopBy: end, kind: 'function_declaration, init_declaration, deinit_declaration, subscript_declaration, property_declaration, protocol_declaration'}}
+rule:
+    kind: comment
+    not:
+        any:
+            - regex: '^//\s*-*\s*\['
+            - regex: '^//\s*(swiftlint:|swift-format-ignore|ast-grep-ignore|swift-tools-version:)'
+            - regex: '\b(TODO|FIXME)\b'
+            - regex: '^///\s*(-\s+(Parameters?|Returns|Throws)\b.*|\s*-\s+\w+:.*)?$'
+              not: {regex: '^///\s*-\s+(Attention|Authors?|Bug|Complexity|Copyright|Date|Experiment|Important|Invariant|Note|Postcondition|Precondition|Remarks?|Requires|SeeAlso|Since|Tip|ToDo|Version|Warning)\s*:'}
+            - regex: '^///'
+              not:
+                any:
+                    - follows: {kind: comment, regex: '^///'}
+                    - all: [{regex: '[.!?]\s+[A-Z]'}, {not: {matches: checked-summary}}]
+message: Comment states a fact outside a section divider, a family divider, a one-sentence doc summary, or a tool directive
+note: Delete the comment, a fact code cannot show goes into a name

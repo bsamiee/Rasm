@@ -4,16 +4,16 @@ import SwiftUI
 // --- [VIEWS] ---------------------------------------------------------------------------
 
 struct PanelToolTips: NSViewRepresentable {
-  func makeNSView(context: Context) -> PanelToolTipsView {
-    PanelToolTipsView()
-  }
+    func makeNSView(context _: Context) -> PanelToolTipsView {
+        PanelToolTipsView()
+    }
 
-  func updateNSView(_ view: PanelToolTipsView, context: Context) {}
+    func updateNSView(_: PanelToolTipsView, context _: Context) {}
 }
 
 final class PanelToolTipsView: NSView {
-  override func viewDidMoveToWindow() {
-    super.viewDidMoveToWindow()
-    window?.allowsToolTipsWhenApplicationIsInactive = true
-  }
+    override func viewWillMove(toWindow newWindow: NSWindow?) {
+        super.viewWillMove(toWindow: newWindow)
+        newWindow?.allowsToolTipsWhenApplicationIsInactive = true
+    }
 }

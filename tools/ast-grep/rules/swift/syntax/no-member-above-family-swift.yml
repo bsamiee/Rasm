@@ -1,0 +1,12 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-member-above-family-swift
+language: swift
+severity: error
+rule:
+    kind: >-
+        property_declaration, function_declaration, init_declaration, deinit_declaration, subscript_declaration, typealias_declaration, class_declaration, protocol_declaration, enum_entry, associatedtype_declaration, protocol_property_declaration, protocol_function_declaration
+    inside: {matches: swift-member-list}
+    precedes: {stopBy: end, matches: swift-labeled-divider}
+    not: {follows: {stopBy: end, matches: swift-labeled-divider}}
+message: Member of a subdivided owner sits above its first family divider
+note: Use the `// --- [<FAMILY>]` divider that names what the member does above it

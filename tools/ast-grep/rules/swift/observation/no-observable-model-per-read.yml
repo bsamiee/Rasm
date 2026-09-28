@@ -2,6 +2,8 @@
 id: no-observable-model-per-read
 language: swift
 severity: error
+utils:
+    observable: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
 rule:
     kind: property_declaration
     all:
@@ -13,12 +15,22 @@ rule:
                 has:
                     nthChild: 1
                     any:
-                        - pattern: '$S.map { $E in $T($$$A) }'
-                        - pattern: '$S.map { $T($$$A) }'
-    inside:
-        kind: class_body
-        inside:
-            kind: class_declaration
-            has: {kind: modifiers, has: {kind: attribute, regex: '^@Observable$'}}
+                        - pattern: '$S.$MAP { $E in $T($$$A) }'
+                        - pattern: '$S.$MAP { $T($$$A) }'
+                        - pattern: '$S.$MAP($T.init)'
+                        - pattern: '$S.$MAP($T.init($$$L))'
+        - inside:
+            kind: class_body
+            inside: {kind: class_declaration, has: {matches: observable}}
+        - inside:
+            kind: source_file
+            stopBy: end
+            has:
+                kind: class_declaration
+                all:
+                    - has: {matches: observable}
+                    - has: {field: name, pattern: $T}
+constraints:
+    MAP: {regex: '^(map|compactMap)$'}
 message: '`$T` is built afresh per element of `$S` on every read'
 note: 'Store an array of per-item `@Observable` models'

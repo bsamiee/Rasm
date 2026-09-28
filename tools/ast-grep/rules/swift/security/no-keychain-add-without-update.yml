@@ -5,14 +5,14 @@ severity: error
 rule:
     pattern: $ARGS
     any:
-        - matches: {swift-security-argument: {subcommand: {regex: '^"add-generic-password"$'}}}
+        - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$'}}}
           not: {has: {kind: line_string_literal, regex: '^"-U"$'}}
         - kind: line_string_literal
-          regex: '^"add-generic-password '
+          regex: '^"add-(generic|internet)-password '
           not: {regex: '\s-U(\s|\\n|"$)'}
 transform:
-    LISTED: {replace: {source: $ARGS, replace: '"add-generic-password"', by: '"add-generic-password", "-U"'}}
-    UPDATED: {replace: {source: $LISTED, replace: '^"add-generic-password ', by: '"add-generic-password -U '}}
+    LISTED: {replace: {source: $ARGS, replace: '"(add-(?:generic|internet)-password)"', by: '"$1", "-U"'}}
+    UPDATED: {replace: {source: $LISTED, replace: '^"(add-(?:generic|internet)-password) ', by: '"$1 -U '}}
 fix: $UPDATED
-message: '`add-generic-password` without `-U` adds a second item beside the existing one'
-note: 'Pass `-U`, it updates the item in place and keeps its ACL and partition list'
+message: '`add-generic-password` or `add-internet-password` without `-U` adds a second item beside the existing one'
+note: 'Pass `-U` to update the item in place with its ACL and partition list'

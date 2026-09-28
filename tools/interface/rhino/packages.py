@@ -110,16 +110,16 @@ def staging(root: Path, project: str) -> anyio.Path:
 
 
 async def packed(root: Path, project: str) -> Path:
-    """Yak package of the plug-in project, published and built in a scratch folder and copied alone into its staging folder."""
+    """Yak package of the plug-in project, published and built in a temporary directory and copied alone into its staging folder."""
     folder = staging(root, project)
     await folder.mkdir(parents=True, exist_ok=True)
-    async with anyio.TemporaryDirectory() as scratch:
-        await anyio.run_process(["dotnet", "publish", str(root / project), "--configuration", "Release", "--output", scratch])
+    async with anyio.TemporaryDirectory() as temporary:
+        await anyio.run_process(["dotnet", "publish", str(root / project), "--configuration", "Release", "--output", temporary])
         for command in ("spec", "build"):
-            await anyio.run_process([YAK, command], cwd=scratch)
+            await anyio.run_process([YAK, command], cwd=temporary)
         for stale in [path async for path in folder.iterdir()]:
             await stale.unlink()
-        (built,) = [path async for path in anyio.Path(scratch).glob("*.yak")]
+        (built,) = [path async for path in anyio.Path(temporary).glob("*.yak")]
         return Path(await built.copy_into(folder))
 
 
@@ -187,11 +187,11 @@ async def released(client: httpx.AsyncClient, rhino: Rhino, identity: str) -> Co
             return await installed(rhino, identity, newest, identity, newest)
 
 
-async def upgraded(client: httpx.AsyncClient, rhino: Rhino, root: Path, scratch: anyio.Path, package: Package) -> Converged:
+async def upgraded(client: httpx.AsyncClient, rhino: Rhino, root: Path, temporary: anyio.Path, package: Package) -> Converged:
     """Change row of the package converged on the newest build its row names, None while that build is installed."""
     match package:
         case Package(id=identity, source=Source() as source):
-            return await converged(rhino, identity, await downloaded(rhino, source, scratch / identity))
+            return await converged(rhino, identity, await downloaded(rhino, source, temporary / identity))
         case Package(id=identity, project=str() as project):
             return await converged(rhino, identity, await packed(root, project))
         case Package(id=identity):
@@ -210,8 +210,8 @@ async def upgrade(host: Host) -> tuple[Outcome]:
     """Installs each package `packages.toml` declares at the newest build its source publishes for the Rhino `yak` serves."""
     rhino, packages = await Rhino.served(), await declared()
     handles: list[anyio.TaskHandle[Converged]] = []
-    async with httpx.AsyncClient(follow_redirects=True) as client, anyio.TemporaryDirectory() as scratch, anyio.create_task_group() as group:
-        handles.extend(group.start_soon(upgraded, client, rhino, host.root, anyio.Path(scratch), package) for package in packages)
+    async with httpx.AsyncClient(follow_redirects=True) as client, anyio.TemporaryDirectory() as temporary, anyio.create_task_group() as group:
+        handles.extend(group.start_soon(upgraded, client, rhino, host.root, anyio.Path(temporary), package) for package in packages)
     results = tuple(handle.return_value for handle in handles)
     changes = tuple(result for result in results if isinstance(result, Change))
     match tuple(f"{result.identity} publishes no version Rhino {rhino.major}.{rhino.minor} on macOS loads" for result in results if isinstance(result, NoRelease)):

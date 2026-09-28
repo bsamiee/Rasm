@@ -1,0 +1,71 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stream-tuple-element-assignment
+language: swift
+severity: error
+utils:
+    stream-tuple-value:
+        has: {field: value, regex: '(?s)\.makeStream\(.*\)$', pattern: $PAIR}
+    label-assignment:
+        kind: assignment
+        has:
+            field: result
+            kind: navigation_expression
+            all:
+                - has: {field: target, pattern: $S}
+                - has: {field: suffix, has: {field: suffix, regex: '^(stream|continuation)$'}}
+    stream-label-assignment:
+        kind: assignment
+        all:
+            - has: {field: target, pattern: $STREAM}
+            - has: {field: result, kind: navigation_expression, all: [{has: {field: target, pattern: $S}}, {has: {field: suffix, has: {field: suffix, regex: '^stream$'}}}]}
+    continuation-label-assignment:
+        kind: assignment
+        all:
+            - has: {field: target, pattern: $CONTINUATION}
+            - has: {field: result, kind: navigation_expression, all: [{has: {field: target, pattern: $S}}, {has: {field: suffix, has: {field: suffix, regex: '^continuation$'}}}]}
+    local-assignment:
+        kind: assignment
+        has: {field: result, kind: simple_identifier, any: [{pattern: $X}, {pattern: $Y}]}
+    stream-local-assignment:
+        kind: assignment
+        all:
+            - has: {field: target, pattern: $STREAM}
+            - has: {field: result, kind: simple_identifier, pattern: $X}
+    continuation-local-assignment:
+        kind: assignment
+        all:
+            - has: {field: target, pattern: $CONTINUATION}
+            - has: {field: result, kind: simple_identifier, pattern: $Y}
+rule:
+    kind: property_declaration
+    matches: stream-tuple-value
+    any:
+        - all:
+            - has: {field: name, has: {field: bound_identifier, pattern: $S}}
+            - any:
+                - precedes: {matches: stream-label-assignment, precedes: {matches: continuation-label-assignment}}
+                - precedes: {matches: continuation-label-assignment, precedes: {matches: stream-label-assignment}}
+            - not:
+                precedes:
+                    stopBy: end
+                    not: {matches: label-assignment}
+                    has: {stopBy: end, kind: simple_identifier, pattern: $S, not: {inside: {kind: navigation_suffix}}}
+        - all:
+            - has:
+                field: name
+                all:
+                    - has: {kind: pattern, nthChild: 1, has: {kind: simple_identifier, pattern: $X}}
+                    - has: {kind: pattern, nthChild: 2, has: {kind: simple_identifier, pattern: $Y}}
+            - any:
+                - precedes: {matches: stream-local-assignment, precedes: {matches: continuation-local-assignment}}
+                - precedes: {matches: continuation-local-assignment, precedes: {matches: stream-local-assignment}}
+            - not:
+                precedes:
+                    stopBy: end
+                    not: {matches: local-assignment}
+                    has: {stopBy: end, kind: simple_identifier, any: [{pattern: $X}, {pattern: $Y}], not: {inside: {kind: navigation_suffix}}}
+message: '`$PAIR` reaches `$STREAM` and `$CONTINUATION` through a local, one tuple element per assignment'
+note: 'Assign the tuple whole in its `(stream, continuation)` order, `(<stream>, <continuation>) = <type>.makeStream()`'
+fix:
+    template: '($STREAM, $CONTINUATION) = $PAIR'
+    expandEnd: {stopBy: end, any: [{matches: label-assignment}, {matches: local-assignment}], follows: {any: [{matches: label-assignment}, {matches: local-assignment}]}}

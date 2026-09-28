@@ -40,7 +40,6 @@ utils:
             - has: {all: [{matches: second-entry}, {matches: literal-entry}]}
     matched-body:
         kind: statements
-        pattern: $FIRST
         matches: literal-body
         has: {kind: boolean_literal, pattern: $IN, stopBy: end}
     other-return:
@@ -58,7 +57,7 @@ utils:
             - matches: false-call
             - kind: control_transfer_statement
               has: {field: result, matches: false-call}
-    flagged-literal:
+    matched-literal:
         has:
             stopBy: end
             kind: value_argument
@@ -78,58 +77,81 @@ utils:
             - has: {all: [{matches: first-entry}, {matches: single-pattern}]}
             - any:
                 - all:
-                    - has: {matches: first-entry, has: {matches: {swift-single-statement: {first: {pattern: $FIRST, all: [{matches: true-arm}, {matches: flagged-literal}]}}}}}
-                    - has: {matches: second-entry, has: {matches: {swift-single-statement: {first: {all: [{matches: false-arm}, {matches: other-literal}]}}}}}
+                    - has: {matches: first-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, pattern: $CALLED, all: [{matches: true-arm}, {matches: matched-literal}]}}}
+                    - has: {matches: second-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, all: [{matches: false-arm}, {matches: other-literal}]}}}
                 - all:
-                    - has: {matches: first-entry, has: {matches: {swift-single-statement: {first: {pattern: $FIRST, all: [{matches: false-arm}, {matches: flagged-literal}]}}}}}
-                    - has: {matches: second-entry, has: {matches: {swift-single-statement: {first: {all: [{matches: true-arm}, {matches: other-literal}]}}}}}
+                    - has: {matches: first-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, pattern: $CALLED, all: [{matches: false-arm}, {matches: matched-literal}]}}}
+                    - has: {matches: second-entry, has: {kind: statements, not: {has: {nthChild: 2}}, has: {nthChild: 1, all: [{matches: true-arm}, {matches: other-literal}]}}}
+            - any:
+                - has: {kind: switch_entry, has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement}}}
+                - inside: {kind: statements, has: {nthChild: 2}}
+                - {matches: whole-body, pattern: $WHOLE}
+    returning-statement:
+        all:
+            - inside: {kind: statements}
+            - any:
+                - kind: 'if_statement, guard_statement'
+                - matches: boolean-switch
+                  has: {kind: switch_entry, has: {kind: statements, has: {nthChild: 1, kind: control_transfer_statement}}}
+    whole-body:
+        nthChild: 1
+        inside: {kind: statements, inside: {kind: 'function_body, lambda_literal, computed_property, computed_getter'}}
 rule:
-    any:
-        - kind: if_statement
-          pattern: $IF
-          regex: '^if\s+case\b'
-          all:
-            - not: {has: {regex: '^else$'}}
-            - has: {kind: statements, matches: matched-body}
-            - precedes: {matches: other-return}
-        - kind: if_statement
-          pattern: $IF
-          regex: '^if\s+case\b'
-          all:
-            - has: {regex: '^else$'}
-            - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: matched-body}
-            - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: literal-body, has: {matches: other-return}}
-            - not: {precedes: {kind: control_transfer_statement}}
-        - kind: guard_statement
-          pattern: $GUARD
-          regex: '^guard\s+case\b'
-          all:
-            - not: {has: {regex: '^,$'}}
-            - has: {kind: statements, matches: literal-body, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
-            - precedes:
-                kind: control_transfer_statement
-                pattern: $FIRST
-                has: {field: result, kind: boolean_literal, pattern: $IN, not: {pattern: $OUT}}
-        - matches: boolean-switch
-          all:
-            - has:
-                all: [{matches: first-entry}, {matches: single-pattern}]
-                has: {kind: statements, pattern: $FIRST, has: {kind: boolean_literal, pattern: $IN, stopBy: end}}
-            - has:
-                matches: second-entry
-                has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end, not: {pattern: $IN}}}
-        - matches: boolean-switch
-          all:
-            - has:
-                matches: first-entry
-                not: {matches: single-pattern}
-                has: {kind: statements, pattern: $FIRST, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
-            - has:
-                all: [{matches: second-entry}, {matches: single-pattern}]
-                has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end, not: {pattern: $OUT}}}
-        - matches: constructor-switch
+    all:
+        - any:
+            - {matches: returning-statement, not: {matches: whole-body}, pattern: $KEPT}
+            - {not: {matches: returning-statement}}
+            - {matches: whole-body}
+        - any:
+            - kind: if_statement
+              pattern: $IF
+              regex: '^if\s+case\b'
+              all:
+                - not: {has: {regex: '^else$'}}
+                - has: {kind: statements, matches: matched-body}
+                - precedes: {matches: other-return}
+            - kind: if_statement
+              pattern: $IF
+              regex: '^if\s+case\b'
+              all:
+                - has: {regex: '^else$'}
+                - has: {kind: statements, nthChild: {position: 1, ofRule: {kind: statements}}, matches: matched-body}
+                - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, matches: literal-body, has: {matches: other-return}}
+                - not: {precedes: {kind: control_transfer_statement}}
+            - kind: guard_statement
+              pattern: $GUARD
+              regex: '^guard\s+case\b'
+              all:
+                - not: {has: {regex: '^,$'}}
+                - has: {kind: statements, matches: literal-body, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
+                - precedes:
+                    kind: control_transfer_statement
+                    has: {field: result, kind: boolean_literal, pattern: $IN, not: {pattern: $OUT}}
+            - matches: boolean-switch
+              all:
+                - has:
+                    all: [{matches: first-entry}, {matches: single-pattern}]
+                    has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end}}
+                - has:
+                    matches: second-entry
+                    has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end, not: {pattern: $IN}}}
+            - matches: boolean-switch
+              all:
+                - has:
+                    matches: first-entry
+                    not: {matches: single-pattern}
+                    has: {kind: statements, has: {kind: boolean_literal, pattern: $OUT, stopBy: end}}
+                - has:
+                    all: [{matches: second-entry}, {matches: single-pattern}]
+                    has: {kind: statements, has: {kind: boolean_literal, pattern: $IN, stopBy: end, not: {pattern: $OUT}}}
+            - matches: constructor-switch
 transform:
-    RETURN: {replace: {source: $FIRST, replace: '(?s)^\s*(return\s+)?.*$', by: '$1'}}
+    RETURN: {replace: {source: $KEPT, replace: '(?s)^.*$', by: 'return '}}
+    LOCAL: {replace: {source: $LABEL, replace: '^(.+)$', by: 'let $1: Bool = '}}
+    NEWLINE: {replace: {source: $CTOR, replace: '^.+$', by: "\n"}}
+    WHOLE_RETURN: {replace: {source: $WHOLE, replace: '(?s)^.*$', by: 'return '}}
+    CALL_RETURN: {replace: {source: $CALLED, replace: '(?s)^\s*(return\s+)?.*$', by: '$1'}}
+    ARGUMENT: {replace: {source: $LABEL, replace: '^(.+)$', by: '$1'}}
     HEAD: {replace: {source: $IF, replace: '(?s)^(if\s+case\b.*?)\s*\{\s*return\s+(?:true|false)\s*\}(?:\s*else\s*\{\s*return\s+(?:true|false)\s*\})?$', by: '$1'}}
     TEST: {replace: {source: $GUARD, replace: '(?s)^guard\s+(case\b.*?)\s*else\s*\{\s*return\s+(?:true|false)\s*\}$', by: 'if $1'}}
     CASE: {replace: {source: $PATTERN, replace: '^', by: 'if case '}}
@@ -140,7 +162,7 @@ transform:
     LABEL_COLON: {replace: {source: $LABEL, replace: '^(.+)$', by: '$1: '}}
     TAIL_ARGS: {replace: {source: $$$TAIL, replace: '(?s)^(.+)$', by: ', $1'}}
 fix:
-    template: '$RETURN$CTOR_OPEN$BEFORE_ARGS$LABEL_COLON$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }$TAIL_ARGS$CTOR_CLOSE'
+    template: '$RETURN$LOCAL$HEAD$TEST$CASE$VALUE { $IN } else { $OUT }$NEWLINE$WHOLE_RETURN$CALL_RETURN$CTOR_OPEN$BEFORE_ARGS$LABEL_COLON$ARGUMENT$TAIL_ARGS$CTOR_CLOSE'
     expandEnd: {kind: control_transfer_statement}
 message: 'One case yields `$IN` and every other case `$OUT`'
 note: '`if case <pattern> = <value> { <matched> } else { <other> }` is one expression over both cases, `<value> == <case>` where the type is `Equatable`'

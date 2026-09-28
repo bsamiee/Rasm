@@ -15,7 +15,7 @@
 
 ## [01]-[LANGUAGE_STANDARDS]
 
-Navigate code through its language's skill and MCP server, or the `use-ast-grep` skill and `ast-grep` MCP for every other language, then project CLI tooling
+Navigate code through its language's skill and MCP server, else the `use-ast-grep` skill and `ast-grep` MCP, then project CLI tooling
 
 [TOOL_ROUTING]:
 - ALWAYS use `search-web` skill for a question the open web answers
@@ -101,14 +101,15 @@ Navigate code through its language's skill and MCP server, or the `use-ast-grep`
 [DEPENDENCY_SOURCES]: External dependencies, SDKs, and APIs are primary sources
 - ALWAYS group .NET MSBuild items and NuGet package rows by responsibility, order each group consistently, and keep maintenance notes to one line
 - ALWAYS add a missing dependency record to its owning project file instead of deleting the corresponding record
-- ALWAYS assume the newest release, prereleases included, and pin nothing outside `uv.lock`, `pnpm-lock.yaml`, and `Directory.Packages.props`
+- ALWAYS assume the newest release, prereleases included
+- ALWAYS pin versions in `uv.lock`, `pnpm-lock.yaml`, `Package.resolved`, and `Directory.Packages.props` alone
 - ALWAYS state a fact once in a project file, lock, or check, packages, workflows, tooling, and scripts hold no fallback, guard, retry, or cooldown
 - ALWAYS reference a package directly in every project that names its types, a transitive reference supplies no global using, alias, or analyzer
 - ALWAYS map every package id to one source in `NuGet.config`
 
 ## [04]-[FILE_ORGANIZATION]
 
-Source files group declarations into sections under full dividers, a subsection divider inside an owner splits its section into operation families, and `<marker>` is the language's line comment:
+Source files group declarations into sections and an owner's members into operation families, `<marker>` is the language's line comment:
 
 ```text
 <marker> --- [<SECTION>] -----------------------------------------------------------------

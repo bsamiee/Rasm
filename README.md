@@ -30,6 +30,7 @@ Rasm/
 ├── Directory.Build.targets   # .NET items, host package references, and policy targets
 ├── NuGet.config              # NuGet source and package folder
 ├── Workspace.slnx            # .NET solution
+├── Xcode.xcconfig            # Build settings every Xcode project inherits at project level
 ├── tsconfig.base.json        # Compiler options every TypeScript project extends
 ├── tsconfig.json             # Root TypeScript project over files outside every package
 ├── vitest.config.ts          # Test and coverage options every project config imports
@@ -39,6 +40,8 @@ Rasm/
 ├── sgconfig.yml              # ast-grep rule directories and language parsing
 ├── .editorconfig             # Editor settings and .NET analyzer severity
 ├── .swift-format             # Swift lint and format rules
+├── .swiftlint.yml            # Swift lint rules swift-format lacks
+├── .lldbinit                 # LLDB MCP server start every Xcode scheme's Run loads
 ├── .yamllint.yaml, .yamlfmt  # YAML lint and format
 ├── .github/                  # Continuous integration and repository workflows
 ├── .claude/                  # Agent harness knowledge and settings
@@ -67,6 +70,7 @@ flowchart LR
         catalog_net["Directory.Packages.props"] --> restore["rasm:restore"]
         catalog_net --> eng_net["eng/dotnet"] --> upgrade["rasm:upgrade"]
         packages["packages.toml rows"] --> upgrade
+        catalog_swift[".xcodeproj package requirements"] --> lock_swift["Package.resolved"]
     end
 
     subgraph taskgraph ["Task graph"]
@@ -95,10 +99,10 @@ flowchart LR
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:install` installs a project's Release product into its host
 - `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/yak/` with a manifest `yak spec` derives from its build
-- `nx run rasm:upgrade` moves catalogs, tool binaries, and application packages to their newest builds
+- `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
-- `nx run rasm:interface` applies the interface to each application directory holding an `apply.py`, `-- <app>` to one, and prints every outcome as one JSON document
+- `nx run rasm:interface` applies each `tools/interface/<app>/apply.py`, `-- <app>` one, and prints every outcome as one JSON document
 - Workspace plugin names each project's tags, empty targets, and `cli.ts` subcommands by project file, `@nx/dotnet` and `@nx/vitest` infer theirs
 - Tools one host supplies join a project's target, root targets hold commands no project owns
 - Inputs name the files a tool reads and its version as `runtime`, outputs name the files it writes
@@ -120,6 +124,8 @@ flowchart LR
 |  [10]   | Tool no target runs            | Machine setup                                                                         |
 |  [11]   | Application package            | `packages.toml` row beside the script installing it                                   |
 |  [12]   | Ghidra install                 | Homebrew formula `ghidra`, path named in `mise.toml` `[env]`                          |
+|  [13]   | Xcode build setting            | `Xcode.xcconfig`, per-product rows in the `.xcodeproj` target                         |
+|  [14]   | Swift package version          | `.xcodeproj` package requirement                                                      |
 
 - Package rows and `.editorconfig` analyzer rows hold a one-line purpose comment, every other configuration file holds section dividers alone
 - Tool rows name a release where `latest` resolves a development build
@@ -131,10 +137,10 @@ flowchart LR
 - .NET: Roslyn analyzers at `latest-all`, warnings as errors, code style enforced in build
 - Python: `ruff`, `ty`, and `mypy` at zero findings
 - TypeScript: `biome check` at zero findings, `tsc --build` under strict options
-- Swift: warnings as errors and upcoming features, `swift-format lint --strict` at zero findings
+- Swift: warnings as errors, strict memory safety, Swift 7 upcoming features, `swift-format lint --strict` and `swiftlint lint` at zero findings
 - Java: `google-java-format --aosp` and `pmd check` at zero findings
 - Tree: `yamllint`, `actionlint` with `shellcheck` over workflow run steps, and ast-grep rule families
-- Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swift-format` per Xcode project
+- Writers: `dotnet format`, `ruff format`, Biome, yamlfmt, `google-java-format`, `swiftlint lint --fix` then `swift-format` per Xcode project
 - Failing checks are fixed in the code or the rule, severity stays as configured
 
 ## [06]-[STRUCTURE]

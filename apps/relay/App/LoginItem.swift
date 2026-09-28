@@ -3,36 +3,38 @@ import ServiceManagement
 // --- [MODELS] --------------------------------------------------------------------------
 
 struct LoginItem {
-  let status: SMAppService.Status
-  let failure: String?
+    let status: SMAppService.Status
+    let failure: (any Error)?
 
-  static var current: LoginItem {
-    LoginItem(status: SMAppService.mainApp.status, failure: nil)
-  }
-
-  var isEnabled: Bool {
-    switch status {
-    case .enabled, .requiresApproval: true
-    case .notRegistered, .notFound: false
-    @unknown default: false
+    static var current: Self {
+        Self(status: SMAppService.mainApp.status, failure: nil)
     }
-  }
 
-  var requiresApproval: Bool { status == .requiresApproval }
-
-  var issue: String? {
-    failure ?? (requiresApproval ? "Approval pending in Login Items" : nil)
-  }
-
-  static func setEnabled(_ enabled: Bool) async -> LoginItem {
-    let update: Result<Void, any Error> = await Result {
-      if enabled {
-        try SMAppService.mainApp.register()
-      } else {
-        try await SMAppService.mainApp.unregister()
-      }
+    var isEnabled: Bool {
+        switch status {
+            case .enabled, .requiresApproval: true
+            case .notRegistered, .notFound: false
+            @unknown default: false
+        }
     }
-    return LoginItem(
-      status: SMAppService.mainApp.status, failure: update.failure?.localizedDescription)
-  }
+
+    var requiresApproval: Bool { status == .requiresApproval }
+
+    var issue: String? {
+        failure?.localizedDescription ?? (requiresApproval ? "Approval pending in Login Items" : nil)
+    }
+
+    static func setEnabled(_ enabled: Bool) async -> Self {
+        let update: Result<Void, any Error> = await Result {
+            if enabled {
+                try SMAppService.mainApp.register()
+            } else {
+                try await SMAppService.mainApp.unregister()
+            }
+        }
+        return Self(
+            status: SMAppService.mainApp.status,
+            failure: update.failure,
+        )
+    }
 }

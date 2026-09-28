@@ -44,7 +44,7 @@ jobs:
                 persist-credentials: false
             - uses: nrwl/nx-set-shas@v5
             - uses: ./.github/actions/setup
-            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM=
+            - run: nx affected -t check --exclude='!tag:host:macos' -- CODE_SIGN_STYLE=Manual CODE_SIGN_IDENTITY=- DEVELOPMENT_TEAM= COMPILER_INDEX_STORE_ENABLE=NO
 
     format:
         runs-on: ubuntu-26.04

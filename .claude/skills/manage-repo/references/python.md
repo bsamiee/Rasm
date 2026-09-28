@@ -30,7 +30,7 @@ uv owns resolution, lock, and environment of the root project file.
 
 ## [04]-[CHECKERS]
 
-- `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a scratch `--config-file`
+- `ruff check` and `ty check` take `--config '<key> = <value>'` to override one row, `mypy` an option flag or a temporary `--config-file`
 - `# ty: ignore[<code>]` above the first statement covers its whole file, as `# mypy: disable-error-code=<code>` and `# ruff: file-ignore[<code>]` do
 - `respect-type-ignore-comments = false` makes ty read `ty: ignore` comments alone, a line ignoring both checkers carries both comments
 - Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override by module, ty reads their source

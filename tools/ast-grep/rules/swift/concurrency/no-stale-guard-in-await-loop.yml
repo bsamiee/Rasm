@@ -3,38 +3,48 @@ id: no-stale-guard-in-await-loop
 language: swift
 severity: error
 utils:
-    guard-state:
+    loop-state:
         kind: simple_identifier
-        pattern: $STATE
-        not: {follows: {regex: '^\.$'}}
-        any:
-            - follows: {regex: '^=$'}
-            - inside: {kind: guard_statement}
-            - inside: {kind: prefix_expression, inside: {kind: guard_statement}}
+        all:
+            - pattern: $STATE
+            - not: {follows: {regex: '^\.$'}}
+            - inside:
+                kind: for_statement
+                stopBy: end
+                has:
+                    kind: statements
+                    has:
+                        kind: assignment
+                        stopBy: end
+                        has: {field: target, has: {kind: simple_identifier, pattern: $STATE, stopBy: end}}
 rule:
     kind: for_statement
     regex: '^for\s+(try\s+)?await\b'
     all:
         - has: {field: item, has: {field: bound_identifier, pattern: $L}}
-        - has:
-            kind: statements
-            all:
-                - has:
+        - any:
+            - has:
+                kind: where_clause
+                pattern: $GUARD
+                all:
+                    - has: {matches: loop-state, stopBy: end}
+                    - not: {has: {pattern: $L, stopBy: end}}
+            - has:
+                kind: statements
+                has:
                     kind: guard_statement
                     nthChild: 1
                     pattern: $GUARD
                     all:
                         - has: {kind: statements, has: {kind: control_transfer_statement, regex: '^(break|return)\b'}}
-                        - has: {matches: guard-state, stopBy: end}
+                        - has: {matches: loop-state, stopBy: end, inside: {kind: guard_statement, stopBy: {kind: statements}}}
                         - not: {has: {pattern: $L, stopBy: end}}
-                - has:
-                    kind: assignment
-                    stopBy: end
-                    has: {field: target, has: {kind: simple_identifier, pattern: $STATE, stopBy: end}}
-                - not:
-                    has:
-                        kind: if_statement
-                        not: {nthChild: 1}
-                        has: {kind: statements, has: {kind: control_transfer_statement, regex: '^break$'}}
+        - not:
+            has:
+                kind: statements
+                has:
+                    kind: if_statement
+                    not: {nthChild: 1}
+                    has: {kind: statements, has: {kind: control_transfer_statement, regex: '^break$'}}
 message: '`$GUARD` reads `$STATE` from the previous iteration and awaits one more `$L` before the exit'
 note: 'Test the exit after the statement that sets `<state>`, `if <finished> { break }` as the last statement of the body, or close the input to end the sequence'

@@ -1,0 +1,20 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-inferred-binding
+language: swift
+severity: error
+rule:
+    any:
+        - kind: pattern
+          inside: {kind: for_statement, field: item}
+          all:
+            - has: {stopBy: end, kind: simple_identifier, pattern: $NAME}
+            - not: {has: {pattern: $$_CASE, regex: '^case$'}}
+            - not: {precedes: {kind: type_annotation}}
+        - kind: value_binding_pattern
+          inside: {kind: 'if_statement, guard_statement, while_statement'}
+          precedes:
+            kind: simple_identifier
+            pattern: $NAME
+            precedes: {pattern: $$_EQUALS, regex: '^=$'}
+message: '`$NAME` binds a value whose type the declaration leaves to inference'
+note: 'Name the type as `let <name>: <Type> = <value>` or `for <name>: <Type> in <sequence>`, the form SwiftLint `explicit_type_interface` requires of every other declaration'

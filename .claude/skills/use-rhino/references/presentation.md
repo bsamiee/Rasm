@@ -100,7 +100,7 @@ PersistentSettings.RhinoAppSettings.AddChild("Options").AddChild("DisplayAttribu
 DisplayModeDescription.SaveDisplayModes()
 ```
 
-- Scratch modes take a fresh `Guid.NewGuid()` and a name prefix, and `DeleteDisplayMode` in the `finally` of their importing call
+- Temporary display modes take a fresh `Guid.NewGuid()` and a name prefix, and `DeleteDisplayMode` in the `finally` of their importing call
 - `view.CaptureToBitmap(Size(w, h), mode)` draws a mode the view does not show, technical-family modes as plain wireframe
 - Technical-family modes show their lines in a window capture of a view set to the mode
 - Black-to-white switching follows the application background and skips clipping edges, black objects draw white on a white mode fill
@@ -138,4 +138,4 @@ screencapture -x -o -l <window id> <file>.png
 - `view.Redraw()` ends the call before a window capture, window ids change at every launch
 - Window captures right after the redrawing call can hold the previous frame, one listener call between them draws the new one
 - Menus and pop-ups draw only after a click, their contents read from the Eto tree or System Events AX attributes
-- Docked panels capture through their own `NSView` with `BitmapImageRepForCachingDisplayInRect`, or hosted in a scratch Eto form captured by id
+- Docked panels capture through their own `NSView` with `BitmapImageRepForCachingDisplayInRect`, or hosted in a temporary Eto form captured by id

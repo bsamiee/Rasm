@@ -1,0 +1,39 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-stored-derived-property
+language: swift
+severity: error
+utils:
+    self-member:
+        kind: navigation_expression
+        all:
+            - has: {field: target, kind: self_expression}
+            - has: {field: suffix, has: {field: suffix, pattern: $X}}
+    rooted:
+        any:
+            - kind: navigation_expression
+              has: {field: target, any: [{kind: simple_identifier, pattern: $X}, {matches: self-member}, {matches: rooted}]}
+            - kind: call_expression
+              has: {nthChild: 1, matches: rooted}
+    stored:
+        kind: property_declaration
+        all:
+            - has: {field: name, has: {field: bound_identifier, pattern: $X}}
+            - not: {has: {kind: computed_property}}
+            - not: {has: {kind: modifiers, has: {regex: '^(static|class|lazy)$'}}}
+rule:
+    kind: assignment
+    all:
+        - inside: {kind: statements, inside: {kind: function_body, inside: {kind: init_declaration}}}
+        - has:
+            field: target
+            any:
+                - has: {kind: simple_identifier, pattern: $B}
+                - has: {kind: navigation_expression, has: {field: target, kind: self_expression}, all: [{has: {field: suffix, has: {field: suffix, pattern: $B}}}]}
+        - has: {field: result, matches: rooted}
+        - not: {has: {field: target, has: {stopBy: end, kind: simple_identifier, pattern: $X}}}
+        - inside:
+            stopBy: end
+            kind: class_declaration
+            has: {field: body, has: {matches: stored}}
+message: '`$B` stores a value derived from the stored property `$X`'
+note: 'Declare `<property>` as computed over `<source>` and drop its assignment in `init`, or read `<source>.<member>` at each reader when the derivation reads one member'

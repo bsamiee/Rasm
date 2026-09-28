@@ -1,0 +1,24 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-conditional-self-assignment-swift
+language: swift
+severity: error
+utils:
+    self-value:
+        any:
+            - pattern: $T
+            - {kind: tuple_expression, not: {has: {nthChild: 2}}, has: {matches: self-value}}
+    kept: {kind: statements, all: [{has: {matches: self-value}}, {not: {has: {nthChild: 2}}}]}
+rule:
+    pattern: $_TARGET = $_VALUE
+    all:
+        - has: {field: target, has: {pattern: $T}}
+        - has:
+            field: result
+            stopBy: {not: {kind: tuple_expression}}
+            any:
+                - {kind: ternary_expression, any: [{has: {field: if_true, matches: self-value}}, {has: {field: if_false, matches: self-value}}]}
+                - {kind: nil_coalescing_expression, any: [{has: {field: value, matches: self-value}}, {has: {field: if_nil, matches: self-value}}]}
+                - {kind: if_statement, has: {matches: kept, stopBy: {not: {kind: if_statement}}}}
+                - {kind: switch_statement, has: {kind: switch_entry, has: {matches: kept}}}
+message: '`$T` is written with its own value in one arm of the conditional'
+note: 'Write `<target>` under an `if`, `if case`, or `if let` on the arm that changes it'

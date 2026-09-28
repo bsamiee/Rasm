@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-code-by-cast
+language: swift
+severity: error
+utils:
+    error-cast:
+        kind: as_expression
+        has: {field: name, regex: '^(Foundation\.)?\w*Error$'}
+    member:
+        has: {field: suffix, has: {field: suffix, regex: '^(code|errorCode|domain)$'}}
+    cast-code:
+        kind: navigation_expression
+        all:
+            - matches: member
+            - has: {field: target, kind: tuple_expression, has: {matches: error-cast}}
+    bound-code:
+        kind: navigation_expression
+        all:
+            - matches: member
+            - has: {field: target, kind: simple_identifier, pattern: $NAME}
+            - inside:
+                stopBy: end
+                kind: 'if_statement, guard_statement, while_statement'
+                all:
+                    - has: {kind: simple_identifier, pattern: $NAME}
+                    - has: {matches: error-cast}
+    code-read:
+        any:
+            - matches: cast-code
+            - matches: bound-code
+rule:
+    pattern: $MATCH
+    any:
+        - kind: equality_expression
+          has: {matches: code-read}
+        - kind: switch_statement
+          has: {field: expr, any: [{matches: code-read}, {kind: tuple_expression, has: {matches: code-read}}]}
+        - kind: call_expression
+          all:
+            - has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^contains$'}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, has: {kind: value_argument, has: {field: value, matches: code-read}}}}
+message: '`$MATCH` classifies the error by casting it and comparing its code'
+note: 'Match the code as a pattern on the error (`case CocoaError.fileNoSuchFile` in a `switch`, `if case URLError.timedOut = error`), one `switch` covers codes of several error types (`case .noSuchFileOrDirectory as Errno`)'

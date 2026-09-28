@@ -1,0 +1,27 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-malformed-divider-swift
+language: swift
+severity: error
+utils:
+    file-level:
+        inside: {kind: source_file}
+    owner-level:
+        inside: {matches: swift-member-list}
+    misparsed:
+        any:
+            - inside: {kind: source_file, stopBy: end, has: {kind: ERROR, stopBy: end}}
+            - inside: {kind: ERROR, stopBy: end}
+rule:
+    kind: comment
+    regex: '^//\s*-*\s*\['
+    pattern: $DIVIDER
+    any:
+        - not: {matches: swift-labeled-divider}
+        - matches: swift-labeled-divider
+          not: {any: [{matches: text-section-divider}, {matches: owner-level}, {matches: misparsed}]}
+        - matches: text-section-divider
+          not: {any: [{matches: file-level}, {matches: owner-level}, {matches: misparsed}]}
+        - matches: swift-section-divider
+          not: {regex: '^.{90}$'}
+message: Divider `$DIVIDER` departs from both divider forms
+note: Use `// --- [<SECTION>] ` with dashes to column 90 at file level, or `// --- [<FAMILY>]` inside an owner

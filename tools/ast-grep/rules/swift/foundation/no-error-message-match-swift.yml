@@ -1,0 +1,52 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-error-message-match-swift
+language: swift
+severity: error
+utils:
+    message:
+        any:
+            - kind: navigation_expression
+              has: {field: suffix, has: {field: suffix, regex: '^(localizedDescription|localizedFailureReason|localizedRecoverySuggestion|errorDescription|failureReason|recoverySuggestion)$'}}
+            - kind: call_expression
+              has:
+                nthChild: 1
+                kind: navigation_expression
+                all:
+                    - has: {field: suffix, has: {field: suffix, regex: '^(lowercased|uppercased|trimmingCharacters|localizedLowercase|folding)$'}}
+                    - has: {field: target, matches: message}
+            - kind: navigation_expression
+              all:
+                - has: {field: suffix, has: {field: suffix, regex: '^(localizedLowercase|localizedUppercase)$'}}
+                - has: {field: target, matches: message}
+            - kind: tuple_expression
+              has: {matches: message}
+            - kind: simple_identifier
+              pattern: $TEXT
+              inside:
+                kind: statements
+                stopBy: end
+                has:
+                    kind: property_declaration
+                    all:
+                        - has: {field: name, has: {field: bound_identifier, pattern: $TEXT}}
+                        - has: {field: value, matches: message}
+rule:
+    pattern: $MATCH
+    any:
+        - kind: equality_expression
+          all:
+            - has: {matches: message}
+            - not: {has: {regex: '^(nil|true|false)$'}}
+        - kind: call_expression
+          has:
+            nthChild: 1
+            kind: navigation_expression
+            all:
+                - has: {field: suffix, has: {field: suffix, regex: '^(contains|hasPrefix|hasSuffix|starts|range|ranges|firstRange|firstMatch|wholeMatch|prefixMatch|matches|localizedCaseInsensitiveContains|localizedStandardContains|caseInsensitiveCompare|compare)$'}}
+                - has: {field: target, matches: message}
+        - kind: switch_statement
+          all:
+            - has: {field: expr, matches: message}
+            - has: {kind: switch_entry, has: {kind: switch_pattern, has: {stopBy: end, kind: line_string_literal}}}
+message: '`$MATCH` classifies an error by its message text'
+note: 'Match the error''s case or its code as a pattern (`case CocoaError.fileNoSuchFile`, `case URLError.timedOut`, `.noSuchFileOrDirectory as Errno`), or its type through `catch let error as <type>`'

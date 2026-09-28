@@ -31,17 +31,88 @@ signature: $DECLARATION
 isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
 
 ---
-id: swift-property
+id: swift-global-variable
 language: swift
 role: item
 symbolType: property
+utils:
+    exported: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}
 rule:
-    kind: property_declaration
-    pattern: $DECLARATION
-    inside: {kind: source_file}
-    has: {field: name, kind: pattern, has: {kind: simple_identifier, pattern: $NAME}}
+    any:
+        - kind: property_declaration
+          pattern: $DECLARATION
+          inside: {kind: source_file}
+          has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+          not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+        - kind: simple_identifier
+          pattern: $NAME
+          inside:
+            kind: pattern
+            any:
+                - inside: {kind: property_declaration, pattern: $BINDINGS, inside: {kind: source_file}}
+                - inside: {kind: pattern, inside: {kind: property_declaration, pattern: $BINDINGS, inside: {kind: source_file}}}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    BINDINGS_HEADER: {replace: {source: $BINDINGS, replace: '\s*\{[\s\S]*$', by: ''}}
+    BINDINGS_LINE: {replace: {source: $BINDINGS_HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE$BINDINGS_LINE
+isExported:
+    any:
+        - has: {matches: exported}
+        - inside: {kind: property_declaration, stopBy: end, has: {matches: exported}}
+
+---
+id: swift-operator-function
+language: swift
+role: item
+symbolType: function
+rule:
+    kind: function_declaration
+    pattern: $DECLARATION
+    inside: {kind: source_file}
+    has: {field: name, pattern: $$NAME}
+    not: {has: {field: name, kind: simple_identifier}}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isExported: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(public|open)$'}}}
+
+---
+id: swift-operator
+language: swift
+role: item
+symbolType: operator
+rule:
+    kind: operator_declaration
+    has: {kind: custom_operator, pattern: $NAME}
+name: $NAME
+
+---
+id: swift-precedence-group
+language: swift
+role: item
+symbolType: operator
+rule:
+    kind: precedence_group_declaration
+    has: {kind: simple_identifier, pattern: $NAME}
+name: $NAME
+
+---
+id: swift-macro
+language: swift
+role: item
+symbolType: function
+rule:
+    kind: macro_declaration
+    pattern: $DECLARATION
+    has: {kind: simple_identifier, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*=[\s\S]*$', by: ''}}
     SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
 name: $NAME
 signature: $SIGNATURE
@@ -56,7 +127,6 @@ symbolType: struct
 rule:
     kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'class_body, enum_class_body'}
     all:
         - has: {field: declaration_kind, regex: '^struct$'}
         - has: {field: name, pattern: $NAME}
@@ -66,7 +136,7 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
 
 ---
 id: swift-member-enum
@@ -77,7 +147,6 @@ symbolType: enum
 rule:
     kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'class_body, enum_class_body'}
     all:
         - has: {field: declaration_kind, regex: '^enum$'}
         - has: {field: name, pattern: $NAME}
@@ -87,7 +156,7 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
 
 ---
 id: swift-member-class
@@ -98,9 +167,8 @@ symbolType: class
 rule:
     kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'class_body, enum_class_body'}
     all:
-        - has: {field: declaration_kind, regex: '^(class|actor)$'}
+        - has: {field: declaration_kind, regex: '^class$'}
         - has: {field: name, pattern: $NAME}
 transform:
     HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
@@ -108,38 +176,45 @@ transform:
     SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
 
 ---
-id: swift-member-property
+id: swift-member-actor
 language: swift
 role: member
 parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
-symbolType: property
+symbolType: object
 rule:
-    kind: property_declaration
+    kind: class_declaration
     pattern: $DECLARATION
-    inside: {kind: 'class_body, enum_class_body'}
-    has: {field: name, kind: pattern, has: {kind: simple_identifier, pattern: $NAME}}
+    all:
+        - has: {field: declaration_kind, regex: '^actor$'}
+        - has: {field: name, pattern: $NAME}
 transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
-    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
 name: $NAME
 signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
 
 ---
-id: swift-enum-case
+id: swift-member-protocol
 language: swift
 role: member
-parentRuleIds: [swift-enum]
-symbolType: enumMember
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+symbolType: interface
 rule:
-    kind: enum_entry
+    kind: protocol_declaration
     pattern: $DECLARATION
-    has: {field: name, kind: simple_identifier, pattern: $NAME}
+    has: {field: name, pattern: $NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
 name: $NAME
-signature: $DECLARATION
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
 
 ---
 id: swift-member-typealias
@@ -150,48 +225,10 @@ symbolType: struct
 rule:
     kind: typealias_declaration
     pattern: $DECLARATION
-    not: {inside: {kind: source_file}}
     has: {kind: type_identifier, pattern: $NAME}
 name: $NAME
 signature: $DECLARATION
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
-
----
-id: swift-extension-function
-language: swift
-role: member
-parentRuleIds: [swift-extension]
-symbolType: method
-rule:
-    kind: function_declaration
-    pattern: $DECLARATION
-    inside: {kind: class_body, inside: {kind: class_declaration, has: {field: declaration_kind, regex: '^extension$'}}}
-    has: {field: name, kind: simple_identifier, pattern: $NAME}
-transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-name: $NAME
-signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
-
----
-id: swift-extension-init
-language: swift
-role: member
-parentRuleIds: [swift-extension]
-symbolType: constructor
-rule:
-    kind: init_declaration
-    pattern: $DECLARATION
-    inside: {kind: class_body, inside: {kind: class_declaration, has: {field: declaration_kind, regex: '^extension$'}}}
-transform:
-    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
-    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
-    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
-name: init
-signature: $SIGNATURE
-isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)'}}}}
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
 
 ---
 id: swift-member-associatedtype
@@ -207,6 +244,40 @@ name: $NAME
 signature: $DECLARATION
 
 ---
+id: swift-member-property
+language: swift
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension]
+symbolType: property
+utils:
+    hidden: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}
+rule:
+    any:
+        - kind: property_declaration
+          pattern: $DECLARATION
+          has: {field: name, kind: pattern, has: {field: bound_identifier, pattern: $NAME}}
+          not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+        - kind: simple_identifier
+          pattern: $NAME
+          inside:
+            kind: pattern
+            any:
+                - inside: {kind: property_declaration, pattern: $BINDINGS}
+                - inside: {kind: pattern, inside: {kind: property_declaration, pattern: $BINDINGS}}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*(=|\{)[\s\S]*$', by: ''}}
+    SIGNATURE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    BINDINGS_HEADER: {replace: {source: $BINDINGS, replace: '\s*\{[\s\S]*$', by: ''}}
+    BINDINGS_LINE: {replace: {source: $BINDINGS_HEADER, replace: '\s*\n\s*', by: ' '}}
+name: $NAME
+signature: $SIGNATURE$BINDINGS_LINE
+isPublic:
+    not:
+        any:
+            - has: {matches: hidden}
+            - inside: {kind: property_declaration, stopBy: end, has: {matches: hidden}}
+
+---
 id: swift-member-protocol-property
 language: swift
 role: member
@@ -220,14 +291,90 @@ name: $NAME
 signature: $DECLARATION
 
 ---
-id: swift-member-protocol-init
+id: swift-member-enum-case
 language: swift
 role: member
-parentRuleIds: [swift-protocol]
+parentRuleIds: [swift-enum]
+symbolType: enumMember
+rule:
+    any:
+        - kind: enum_entry
+          pattern: $DECLARATION
+          has: {field: name, kind: simple_identifier, pattern: $NAME}
+          not: {has: {kind: simple_identifier, follows: {kind: simple_identifier, stopBy: end}}}
+        - kind: simple_identifier
+          pattern: $NAME
+          inside: {kind: enum_entry, pattern: $DECLARATION}
+name: $NAME
+signature: $DECLARATION
+
+---
+id: swift-member-method
+language: swift
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+symbolType: method
+rule:
+    kind: 'function_declaration, protocol_function_declaration'
+    pattern: $DECLARATION
+    has: {field: name, pattern: $$NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+
+---
+id: swift-member-initializer
+language: swift
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
 symbolType: constructor
 rule:
     kind: init_declaration
     pattern: $DECLARATION
-    inside: {kind: protocol_body}
-name: init
-signature: $DECLARATION
+    has: {regex: '^init$', pattern: $$NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+
+---
+id: swift-member-deinitializer
+language: swift
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+symbolType: constructor
+rule:
+    kind: deinit_declaration
+    pattern: $DECLARATION
+    has: {regex: '^deinit$', pattern: $$NAME}
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: $NAME
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}
+
+---
+id: swift-member-subscript
+language: swift
+role: member
+parentRuleIds: [swift-class, swift-struct, swift-enum, swift-actor, swift-extension, swift-protocol]
+symbolType: method
+rule:
+    kind: subscript_declaration
+    pattern: $DECLARATION
+transform:
+    HEADER: {replace: {source: $DECLARATION, replace: '\s*\{[\s\S]*$', by: ''}}
+    LINE: {replace: {source: $HEADER, replace: '\s*\n\s*', by: ' '}}
+    SIGNATURE: {replace: {source: $LINE, replace: '(\()\s+|\s+(\))', by: '$1$2'}}
+name: subscript
+signature: $SIGNATURE
+isPublic: {not: {has: {kind: modifiers, has: {kind: visibility_modifier, regex: '^(private|fileprivate)$'}}}}

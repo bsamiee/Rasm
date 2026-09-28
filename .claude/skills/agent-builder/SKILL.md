@@ -51,7 +51,7 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 - Runs cover every file in scope and act on every fact they find
 - User choices are reported with the options seen, work outside a reported choice completes
 - Owned files sit in a `role` table with a content column, files outside the table stay as found
-- Placeholders (`<logs>`, `<scratch>`) name the command or file that supplies their value, with every separator written
+- Placeholders (`<logs>`, `<tempdir>`) name the command or file that supplies their value, with every separator written
 
 [CONTEXT_GATHERING]:
 - Discovery skips what spawn supplies: root instructions, git status, preloaded skills

@@ -8,17 +8,14 @@ trim_trailing_whitespace = true
 indent_style = space
 indent_size = 4
 
-[*.swift]
-indent_size = 2
-
 [*.cs]
-# --- [NAMESPACE_AND_IMPORTS] -----------------------------------------------
+# --- [NAMESPACE_AND_IMPORTS] ------------------------------------------------------------
 csharp_style_namespace_declarations = file_scoped:error                       # File-scoped namespaces
 dotnet_style_namespace_match_folder = true:error                              # Namespace matches the folder path
 dotnet_style_require_accessibility_modifiers = always:error                   # Explicit accessibility modifiers
 csharp_using_directive_placement = outside_namespace:error                    # Using directives outside the namespace
 
-# --- [TYPE_EXPLICITNESS] ----------------------------------------------------
+# --- [TYPE_EXPLICITNESS] ----------------------------------------------------------------
 csharp_style_var_for_built_in_types = false:error                             # No var for built-in types
 csharp_style_var_when_type_is_apparent = false:error                          # No var when the type is apparent
 csharp_style_var_elsewhere = false:error                                      # No var elsewhere
@@ -33,7 +30,7 @@ dotnet_style_readonly_field = true:error                                      # 
 csharp_style_prefer_readonly_struct = true:error                              # readonly structs avoid defensive copies
 csharp_style_prefer_readonly_struct_member = true:error                       # readonly struct members where possible
 
-# --- [CONTROL_FLOW_AND_PATTERNS] --------------------------------------------
+# --- [CONTROL_FLOW_AND_PATTERNS] --------------------------------------------------------
 csharp_style_pattern_matching_over_is_with_cast_check = true:error            # Pattern matching over is + cast
 csharp_style_pattern_matching_over_as_with_null_check = true:error            # Pattern matching over as + null check
 csharp_style_prefer_pattern_matching = true:error                             # Pattern matching over equivalent checks
@@ -48,7 +45,7 @@ dotnet_style_prefer_simplified_boolean_expressions = true:error               # 
 dotnet_style_prefer_simplified_interpolation = true:error                     # Simplified string interpolation
 csharp_style_inlined_variable_declaration = true:error                        # Inline out variable declarations
 
-# --- [SYNTAX_AND_CONCISION] -------------------------------------------------
+# --- [SYNTAX_AND_CONCISION] -------------------------------------------------------------
 csharp_style_prefer_primary_constructors = true:error                         # Primary constructors
 dotnet_style_prefer_collection_expression = when_types_exactly_match:error    # Collection expressions when types match exactly
 csharp_style_implicit_object_creation_when_type_is_apparent = true:error      # Target-typed new when the type is apparent
@@ -74,7 +71,7 @@ dotnet_style_parentheses_in_relational_binary_operators = always_for_clarity:err
 dotnet_style_parentheses_in_other_binary_operators = always_for_clarity:error # Parentheses in other binary operators for clarity
 dotnet_style_parentheses_in_other_operators = never_if_unnecessary:error      # No unnecessary parentheses elsewhere
 
-# --- [NULL_AND_EXPRESSION_SAFETY] -------------------------------------------
+# --- [NULL_AND_EXPRESSION_SAFETY] -------------------------------------------------------
 dotnet_style_prefer_is_null_check_over_reference_equality_method = true:error # is null over ReferenceEquals
 dotnet_style_null_propagation = true:error                                    # Null propagation (?.)
 dotnet_style_coalesce_expression = true:error                                 # Null coalescing (??)
@@ -83,7 +80,7 @@ csharp_style_throw_expression = true:error                                    # 
 csharp_style_unused_value_assignment_preference = discard_variable:error      # Discard for unused assignments
 csharp_style_unused_value_expression_statement_preference = discard_variable:error # Discard for unused expression values
 
-# --- [MEMBER_BODY_STYLE] ----------------------------------------------------
+# --- [MEMBER_BODY_STYLE] ----------------------------------------------------------------
 csharp_style_expression_bodied_methods = true:error                           # Expression-bodied methods
 csharp_style_expression_bodied_constructors = true:error                      # Expression-bodied constructors
 csharp_style_expression_bodied_operators = true:error                         # Expression-bodied operators
@@ -94,7 +91,7 @@ csharp_style_expression_bodied_lambdas = true:error                           # 
 csharp_style_expression_bodied_local_functions = true:error                   # Expression-bodied local functions
 dotnet_style_prefer_auto_properties = true:error                              # Auto-properties over trivial backing fields
 
-# --- [FORMATTING_KR] --------------------------------------------------------
+# --- [FORMATTING_KR] --------------------------------------------------------------------
 csharp_prefer_braces = false:error                                            # No braces on single-statement blocks
 csharp_new_line_before_open_brace = none                                      # Opening brace on the same line
 csharp_new_line_before_else = false                                           # else on the same line as the closing brace
@@ -109,7 +106,7 @@ csharp_style_allow_blank_line_after_colon_in_constructor_initializer_experimenta
 csharp_style_allow_blank_line_after_token_in_conditional_expression_experimental = false  # No blank line after conditional-expression tokens
 dotnet_diagnostic.IDE0055.severity = error                                    # Formatting violations fail the build
 
-# --- [QUALITY_ANALYZERS] -----------------------------------------------------
+# --- [QUALITY_ANALYZERS] ----------------------------------------------------------------
 dotnet_diagnostic.CA1034.severity = none                                      # Nested types are Thinktecture union cases and closed Expected error hierarchies
 dotnet_diagnostic.CA1711.severity = none                                      # Types derived from host classes keep the host's suffix (ChangeQueue)
 dotnet_diagnostic.CA1716.severity = none                                      # Libraries serve C# consumers alone, host names like Integer, Option, and Nothing stay
@@ -126,13 +123,13 @@ dotnet_diagnostic.CS0649.severity = error                                     # 
 dotnet_diagnostic.CA1307.severity = none                                      # Covered by MA0001 and MA0074, which skip expression trees
 dotnet_diagnostic.CA1310.severity = none                                      # Covered by MA0074
 
-# --- [THREADING_ANALYZERS] ---------------------------------------------------
+# --- [THREADING_ANALYZERS] --------------------------------------------------------------
 dotnet_diagnostic.VSTHRD003.severity = none                                   # No host exposes JoinableTaskFactory, the prescribed fix
 dotnet_diagnostic.VSTHRD103.severity = none                                   # Covered by CA1849 and MA0042
 dotnet_diagnostic.VSTHRD102.severity = error                                  # Info by default: implement internal logic asynchronously
 dotnet_diagnostic.VSTHRD111.severity = error                                  # Hidden by default: explicit ConfigureAwait on every await
 
-# --- [MEZIANTOU_ANALYZERS] ---------------------------------------------------
+# --- [MEZIANTOU_ANALYZERS] --------------------------------------------------------------
 dotnet_diagnostic.MA0003.severity = error                                     # Named arguments for readability
 dotnet_diagnostic.MA0004.severity = none                                      # Covered by CA2007 and VSTHRD111
 dotnet_diagnostic.MA0007.severity = error                                     # Trailing comma in multi-line initializers
@@ -222,7 +219,7 @@ MA0032.allowOverloadsWithOptionalParameters = false                           # 
 dotnet_code_quality_unused_parameters = all                                   # Unused-parameter analysis on all visibilities
 dotnet_code_quality.CA2000.dispose_ownership_transfer_at_constructor = true   # Constructor argument passes disposal to the constructed object
 
-# --- [ROSLYNATOR_ANALYZERS] --------------------------------------------------
+# --- [ROSLYNATOR_ANALYZERS] -------------------------------------------------------------
 dotnet_diagnostic.RCS1002.severity = error                                    # Off by default: no braces on a single-statement block
 dotnet_diagnostic.RCS1004.severity = error                                    # Off by default: no braces on a single-statement if/else
 dotnet_diagnostic.RCS1006.severity = error                                    # Hidden by default: merge else with a nested if
@@ -397,7 +394,7 @@ roslynator_infinite_loop_style = while                                        # 
 roslynator_doc_comment_summary_style = single_line                            # RCS1253: single-line summaries
 roslynator_object_creation_parentheses_style = omit                           # RCS1050: new T { } without parentheses
 
-# --- [IDE_QUALITY_RULES] ----------------------------------------------------
+# --- [IDE_QUALITY_RULES] ----------------------------------------------------------------
 dotnet_diagnostic.IDE0001.severity = error                                    # Hidden by default and IDE-only: simplify qualified names, `dotnet format` rewrites them and the build never reports them
 dotnet_diagnostic.IDE0002.severity = error                                    # Hidden by default and IDE-only: simplify qualified member access, same route as IDE0001
 dotnet_diagnostic.IDE0004.severity = error                                    # Remove unnecessary casts
@@ -428,7 +425,7 @@ dotnet_diagnostic.IDE0360.severity = error                                    # 
 dotnet_diagnostic.IDE0380.severity = error                                    # Remove unnecessary unsafe modifiers
 dotnet_diagnostic.IDE1005.severity = error                                    # ?.Invoke for delegate invocation
 
-# --- [MAPPERLY_ANALYZERS] ----------------------------------------------------
+# --- [MAPPERLY_ANALYZERS] ---------------------------------------------------------------
 dotnet_diagnostic.RMG009.severity = error                                     # Report read-only member targets instead of silent skips
 dotnet_diagnostic.RMG010.severity = error                                     # Cannot map from a write-only member
 dotnet_diagnostic.RMG011.severity = error                                     # Cannot map to a write-only member path
@@ -440,14 +437,14 @@ dotnet_diagnostic.RMG089.severity = error                                     # 
 dotnet_diagnostic.RMG090.severity = error                                     # Nullable source type to non-nullable target type
 dotnet_diagnostic.RMG096.severity = error                                     # Hidden by default: ignored member without a Justification
 
-# --- [MESSAGEPACK_ANALYZERS] -------------------------------------------------
+# --- [MESSAGEPACK_ANALYZERS] ------------------------------------------------------------
 dotnet_diagnostic.MsgPack001.severity = error                                 # Disabled by default: explicit serializer options, the default reads a static mutable field
 dotnet_diagnostic.MsgPack002.severity = error                                 # Disabled by default: serializer options from a constant in place of a mutable static field
 
-# --- [THINKTECTURE_ANALYZERS] -----------------------------------------------
+# --- [THINKTECTURE_ANALYZERS] -----------------------------------------------------------
 dotnet_diagnostic.TTRESG1001.severity = error                                 # Info by default: static lambdas in Switch/Map arms with state through the state parameter
 
-# --- [ERRORPRONE_ANALYZERS] --------------------------------------------------
+# --- [ERRORPRONE_ANALYZERS] -------------------------------------------------------------
 dotnet_diagnostic.EPC15.severity = error                                      # ConfigureAwait(false) in assemblies marked UseConfigureAwaitFalse
 dotnet_diagnostic.EPC19.severity = error                                      # Unobserved CancellationTokenRegistration pins the callback until disposed
 dotnet_diagnostic.EPC27.severity = error                                      # No async void method (EPC17 covers delegates)
@@ -463,7 +460,7 @@ dotnet_diagnostic.EPC38.severity = error                                      # 
 dotnet_diagnostic.EPC39.severity = error                                      # Off by default: enumerable re-enumerated inside a loop
 dotnet_diagnostic.EPC40.severity = error                                      # Off by default: IEnumerable<T> parameter enumerated more than once
 
-# --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------
+# --- [WORKSPACE_SEVERITY_FLOOR] ---------------------------------------------------------
 dotnet_diagnostic.CS1591.severity = none                                      # XML docs are generated for tooling with optional member docs
 dotnet_diagnostic.CA2225.severity = none                                      # Operator overloads from LanguageExt and Thinktecture need no named alternatives
 dotnet_diagnostic.CS8524.severity = none                                      # Switch naming every enum member treats unnamed values as defects
@@ -476,7 +473,7 @@ dotnet_diagnostic.VSTHRD111.severity = none                                   # 
 dotnet_diagnostic.CA1515.severity = none                                      # xUnit requires public test classes
 dotnet_diagnostic.MA0191.severity = none                                      # Tests pass null into non-nullable parameters with the null-forgiving operator
 
-# --- [XUNIT_ANALYZERS] -------------------------------------------------------
+# --- [XUNIT_ANALYZERS] ------------------------------------------------------------------
 dotnet_diagnostic.xUnit1004.severity = error                                  # No skipped tests
 dotnet_diagnostic.xUnit1033.severity = error                                  # Fixture declared on the class but not accepted by its constructor
 dotnet_diagnostic.xUnit1042.severity = error                                  # TheoryData<T> over untyped MemberData

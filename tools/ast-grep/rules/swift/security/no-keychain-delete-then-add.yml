@@ -2,13 +2,32 @@
 id: no-keychain-delete-then-add
 language: swift
 severity: error
+utils:
+    delete-command:
+        any:
+            - matches: {swift-security-arguments: {subcommand: {regex: '^"delete-(generic|internet)-password"$'}}}
+            - kind: line_string_literal
+              regex: '^"delete-(generic|internet)-password '
+            - pattern: SecItemDelete($$$)
 rule:
-    all:
-        - matches: {swift-security-argument: {subcommand: {regex: '^"add-generic-password"$', pattern: $COMMAND}}}
-        - inside:
-            stopBy: end
-            all:
-                - inside: {kind: statements}
-                - follows: {stopBy: end, has: {stopBy: end, matches: {swift-security-argument: {subcommand: {regex: '^"delete-generic-password"$'}}}}}
-message: '`$COMMAND` after `delete-generic-password` recreates the item''s ACL and partition list under the writer alone'
-note: 'Drop the `delete-generic-password` statement, `add-generic-password -U` replaces the data in place'
+    any:
+        - kind: line_string_literal
+          regex: 'delete-(generic|internet)-password .*\\nadd-(generic|internet)-password '
+        - all:
+            - any:
+                - matches: {swift-security-arguments: {subcommand: {regex: '^"add-(generic|internet)-password"$'}}}
+                - kind: line_string_literal
+                  regex: '^"add-(generic|internet)-password '
+                - pattern: SecItemAdd($$$)
+            - any:
+                - inside:
+                    stopBy: end
+                    all:
+                        - inside: {kind: statements}
+                        - follows: {stopBy: end, any: [{matches: delete-command}, {has: {stopBy: end, matches: delete-command}}]}
+                - inside:
+                    stopBy: end
+                    kind: call_suffix
+                    inside: {kind: call_expression, has: {kind: navigation_expression, has: {stopBy: end, matches: delete-command}}}
+message: 'Adding the item after deleting it recreates its ACL and partition list under the writer alone'
+note: 'Drop the delete, `add-generic-password -U` or `SecItemUpdate` replaces the data in place'

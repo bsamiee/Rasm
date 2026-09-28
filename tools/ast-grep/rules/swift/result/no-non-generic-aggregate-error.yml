@@ -1,0 +1,28 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-non-generic-aggregate-error
+language: swift
+severity: error
+rule:
+    kind: class_declaration
+    all:
+        - has: {field: declaration_kind, regex: ^struct$}
+        - not: {has: {kind: type_parameters}}
+        - has: {kind: inheritance_specifier, regex: (Error|Failure)$}
+        - has:
+            field: body
+            has:
+                kind: property_declaration
+                not: {has: {kind: computed_property}}
+                has: {kind: type_annotation, has: {field: name, kind: array_type, has: {field: name, pattern: $ELEMENT}}}
+        - not:
+            has:
+                field: body
+                has:
+                    kind: property_declaration
+                    not:
+                        any:
+                            - has: {kind: computed_property}
+                            - has: {kind: type_annotation, has: {field: name, pattern: $ELEMENT}}
+                            - has: {kind: type_annotation, has: {field: name, kind: array_type, has: {field: name, pattern: $ELEMENT}}}
+message: Error struct stores `$ELEMENT` values alone, an aggregate error specialized by hand to one element type
+note: 'Declare one generic `struct <Aggregate><Element: Sendable>: Error` holding the first element and the remaining array, each use passes its element type as the generic argument'

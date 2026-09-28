@@ -3,102 +3,86 @@ import Foundation
 // --- [MODELS] --------------------------------------------------------------------------
 
 nonisolated struct ClaudeUsageResponse: Decodable, Sendable {
-  struct Window: Decodable, Sendable {
-    let utilization: Double?
-    let resetsAt: String?
-    let status: String?
+    struct Window: Decodable, Sendable {
+        let utilization: Double?
+        let resetsAt: String?
+        let status: String?
 
-    enum CodingKeys: String, CodingKey {
-      case utilization, status
-      case resetsAt = "resets_at"
-    }
-
-    func quotaWindow(kind: QuotaKind) -> Result<QuotaWindow?, ClaudeQuotaFailures> {
-      utilization.map { utilization in
-        combine(
-          UsageAmount.make(percent: utilization).mapError(ClaudeQuotaFailures.init),
-          ClaudeUsageResponse.resetDate(resetsAt)
-        ).map { amount, reset in
-          QuotaWindow(kind: kind, used: amount, resetsAt: reset, rejected: status == "rejected")
+        func quotaWindow(kind: QuotaKind) -> Result<QuotaWindow?, AggregateError<QuotaFailure>> {
+            utilization.map { utilization in
+                combine(
+                    UsageAmount.make(percent: utilization).mapError { failure in AggregateError(first: failure, remaining: []) },
+                    ClaudeUsageResponse.resetDate(resetsAt),
+                ).map { amount, reset in
+                    QuotaWindow(kind: kind, used: amount, resetsAt: reset, rejected: status == "rejected")
+                }
+            } ?? .success(nil)
         }
-      } ?? .success(nil)
     }
-  }
 
-  struct Limit: Decodable, Sendable {
-    struct Scope: Decodable, Sendable {
-      struct Model: Decodable, Sendable {
-        let displayName: String?
-        let id: String?
-        enum CodingKeys: String, CodingKey {
-          case id
-          case displayName = "display_name"
+    struct Limit: Decodable, Sendable {
+        struct Model: Decodable, Sendable {
+            let displayName: String?
+            let id: String?
         }
-      }
-      let model: Model?
+
+        struct Scope: Decodable, Sendable {
+            let model: Model?
+        }
+
+        let kind: String
+        let percent: Double?
+        let utilization: Double?
+        let resetsAt: String?
+        let status: String?
+        let scope: Scope?
+
+        var modelName: String? {
+            scope?.model.flatMap { model in model.displayName ?? model.id }
+        }
+
+        func quotaWindow() -> Result<QuotaWindow?, AggregateError<QuotaFailure>> {
+            if kind == "weekly_scoped", let name: String = modelName {
+                Window(utilization: percent ?? utilization, resetsAt: resetsAt, status: status)
+                    .quotaWindow(kind: .model(name))
+            } else {
+                .success(nil)
+            }
+        }
     }
 
-    let kind: String
-    let group: String?
-    let percent: Double?
-    let utilization: Double?
-    let resetsAt: String?
-    let status: String?
-    let scope: Scope?
+    let fiveHour: Window?
+    let sevenDay: Window?
+    let limits: [Limit]?
 
-    enum CodingKeys: String, CodingKey {
-      case kind, group, percent, utilization, scope, status
-      case resetsAt = "resets_at"
+    func usage(observedAt: Date, signInExpiresAt: Date?) -> Result<AccountUsage, ClaudeFailure> {
+        let session: Result<QuotaWindow?, AggregateError<QuotaFailure>> =
+            fiveHour?.quotaWindow(kind: .session) ?? .success(nil)
+        let weekly: Result<QuotaWindow?, AggregateError<QuotaFailure>> =
+            sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil)
+        let models: Result<[QuotaWindow?], AggregateError<QuotaFailure>> = traverse(limits ?? []) { limit in
+            limit.quotaWindow()
+        }
+        return combine(session, weekly, models).mapError(ClaudeFailure.invalidQuota).flatMap { session, weekly, models in
+            let windows: [QuotaWindow] = [session, weekly].compactMap(\.self) + models.compactMap(\.self)
+            return windows.isEmpty
+                ? .failure(.invalidResponse)
+                : .success(
+                    AccountUsage(
+                        windows: windows,
+                        includedUsageAllowed: nil,
+                        observedAt: observedAt,
+                        signInExpiresAt: signInExpiresAt,
+                    )
+                )
+        }
     }
 
-    var modelName: String? {
-      scope?.model.flatMap { model in model.displayName ?? model.id }
+    static func resetDate(_ value: String?) -> Result<Date?, AggregateError<QuotaFailure>> {
+        value.map { value in
+            Result { try Date(value, strategy: .iso8601) }
+                .map(Optional.some)
+                .mapError { _ in AggregateError(first: .invalidResetDate, remaining: []) }
+        } ?? .success(nil)
     }
-
-    func quotaWindow() -> Result<QuotaWindow?, ClaudeQuotaFailures> {
-      guard kind == "weekly_scoped", let name: String = modelName else { return .success(nil) }
-      return Window(utilization: percent ?? utilization, resetsAt: resetsAt, status: status)
-        .quotaWindow(kind: .model(name))
-    }
-  }
-
-  let fiveHour: Window?
-  let sevenDay: Window?
-  let limits: [Limit]?
-
-  enum CodingKeys: String, CodingKey {
-    case fiveHour = "five_hour"
-    case sevenDay = "seven_day"
-    case limits
-  }
-
-  func usage(observedAt: Date, signInExpiresAt: Date?) -> Result<AccountUsage, ClaudeFailure> {
-    let session: Result<QuotaWindow?, ClaudeQuotaFailures> =
-      fiveHour?.quotaWindow(kind: .session) ?? .success(nil)
-    let weekly: Result<QuotaWindow?, ClaudeQuotaFailures> =
-      sevenDay?.quotaWindow(kind: .weekly) ?? .success(nil)
-    let models: Result<[QuotaWindow?], ClaudeQuotaFailures> = traverse(limits ?? []) { limit in
-      limit.quotaWindow()
-    }
-    return combine(session, weekly, models).mapError(ClaudeFailure.invalidQuota).flatMap {
-      session, weekly, models in
-      let windows: [QuotaWindow] = [session, weekly].compactMap { $0 } + models.compactMap { $0 }
-      return windows.isEmpty
-        ? .failure(.invalidResponse)
-        : .success(
-          AccountUsage(
-            windows: windows, includedUsageAllowed: nil, observedAt: observedAt,
-            signInExpiresAt: signInExpiresAt))
-    }
-  }
-
-  static func resetDate(_ value: String?) -> Result<Date?, ClaudeQuotaFailures> {
-    value.map { value in
-      Result {
-        try Date.ISO8601FormatStyle(includingFractionalSeconds: value.contains(".")).parse(value)
-      }
-      .map(Optional.some)
-      .mapError { _ in ClaudeQuotaFailures(.invalidResetDate) }
-    } ?? .success(nil)
-  }
 }

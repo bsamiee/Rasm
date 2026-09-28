@@ -1,0 +1,94 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-mutable-binding
+language: swift
+severity: error
+utils:
+    head:
+        any:
+            - {kind: simple_identifier, pattern: $NAME}
+            - {kind: navigation_expression, has: {field: target, matches: head}}
+            - {kind: call_expression, has: {nthChild: 1, matches: head}}
+    mutation:
+        any:
+            - {kind: assignment, has: {field: target, has: {matches: head}}}
+            - {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, has: {field: target, matches: head}}}
+    empty-value:
+        kind: call_expression
+        regex: '^(\[[^\]]*\]|(Array|ContiguousArray|Set|Dictionary|String|Data)(<[^()]*>)?)\(\s*\)$'
+    derivable-mutation:
+        kind: call_expression
+        has:
+            nthChild: 1
+            kind: navigation_expression
+            all:
+                - has: {field: target, pattern: $NAME}
+                - has: {field: suffix, regex: '^\.(append|insert|remove|removeAll|removeFirst|removeLast|removeSubrange|replaceSubrange|sort|reverse|shuffle|merge|formUnion|formIntersection|formSymmetricDifference|subtract|toggle)$'}
+rule:
+    kind: value_binding_pattern
+    all:
+        - has: {field: mutability, regex: '^var$'}
+        - precedes:
+            any:
+                - {kind: simple_identifier, pattern: $NAME}
+                - {kind: pattern, has: {stopBy: end, kind: simple_identifier, pattern: $NAME}}
+        - any:
+            - inside:
+                kind: statements
+                stopBy: {kind: 'statements, class_body, enum_class_body, protocol_body'}
+                has: {stopBy: end, matches: mutation}
+            - inside: {kind: property_declaration, inside: {kind: source_file}}
+        - not:
+            inside:
+                kind: property_declaration
+                any:
+                    - has: {field: computed_value, kind: computed_property}
+                    - all:
+                        - has: {field: name, has: {field: bound_identifier, pattern: $NAME}}
+                        - any:
+                            - all:
+                                - has: {field: value, kind: call_expression, not: {matches: empty-value}}
+                                - not:
+                                    precedes:
+                                        stopBy: end
+                                        any:
+                                            - matches: derivable-mutation
+                                            - has: {stopBy: end, matches: derivable-mutation}
+                                            - {kind: assignment, has: {field: target, has: {pattern: $NAME}}}
+                                            - {kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
+                                            - {kind: 'for_statement, while_statement, repeat_while_statement', has: {stopBy: end, pattern: $NAME}}
+                                            - has: {stopBy: end, kind: assignment, has: {field: target, has: {pattern: $NAME}}}
+                                            - has: {stopBy: end, kind: assignment, has: {field: target, has: {kind: call_expression, has: {pattern: $NAME}}}}
+                                            - has: {stopBy: end, kind: 'for_statement, while_statement, repeat_while_statement', has: {stopBy: end, pattern: $NAME}}
+                            - precedes:
+                                stopBy: end
+                                has:
+                                    stopBy: end
+                                    kind: prefix_expression
+                                    all:
+                                        - has: {field: operation, pattern: $$_OPERATOR, regex: '^&$'}
+                                        - has: {field: target, pattern: $NAME}
+                            - all:
+                                - precedes:
+                                    stopBy: end
+                                    any:
+                                        - all:
+                                            - {kind: for_statement, has: {pattern: $$_AWAIT, regex: '^await$'}}
+                                            - has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
+                                        - has:
+                                            stopBy: end
+                                            kind: for_statement
+                                            all:
+                                                - has: {pattern: $$_AWAIT, regex: '^await$'}
+                                                - has: {stopBy: end, kind: assignment, has: {field: target, has: {matches: head}}}
+                                - not:
+                                    precedes:
+                                        stopBy: end
+                                        any:
+                                            - {kind: assignment, has: {field: target, has: {matches: head}}}
+                                            - has:
+                                                stopBy: end
+                                                kind: assignment
+                                                has: {field: target, has: {matches: head}}
+                                                not: {inside: {stopBy: end, kind: for_statement, has: {pattern: $$_AWAIT, regex: '^await$'}}}
+message: '`var $NAME` binds a value an expression computes'
+note: 'Bind `let` to the expression that yields the final value (`map`, `reduce`, `merging`, a memberwise init, a `switch` or `if` expression)'

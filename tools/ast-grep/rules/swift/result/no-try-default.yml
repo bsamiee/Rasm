@@ -5,32 +5,113 @@ severity: error
 utils:
     optional-try:
         kind: try_expression
-        pattern: $TRY
         has: {kind: try_operator, regex: '^try\?$'}
-    tried:
+    tried-chain:
         any:
             - matches: optional-try
+            - kind: navigation_expression
+              has: {field: target, matches: tried-chain}
+            - kind: call_expression
+              has: {nthChild: 1, matches: tried-chain}
             - kind: tuple_expression
-              has: {field: value, matches: optional-try}
+              has: {field: value, matches: tried-chain}
+    get-call:
+        kind: call_expression
+        all:
+            - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^get$'}}}
+            - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument}}}}
+    consumed:
+        any:
+            - inside: {kind: 'nil_coalescing_expression, guard_statement, if_statement, while_statement, equality_expression, infix_expression'}
+            - inside: {kind: tuple_expression, inside: {kind: 'nil_coalescing_expression, equality_expression, infix_expression'}}
+    projected-body:
+        kind: statements
+        all:
+            - has:
+                nthChild: 1
+                any:
+                    - pattern: $VALUE
+                    - pattern: {context: 'func f() { return $VALUE }', selector: control_transfer_statement}
+            - not: {has: {nthChild: 2}}
+    success-projection:
+        kind: switch_entry
+        all:
+            - has:
+                kind: switch_pattern
+                regex: '^(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))$'
+                has: {stopBy: end, kind: pattern, inside: {kind: pattern}, has: {kind: simple_identifier, pattern: $VALUE}}
+            - has: {matches: projected-body}
+    partition:
+        inside:
+            kind: lambda_literal
+            stopBy: end
+            inside:
+                kind: call_suffix
+                inside: {kind: call_expression, has: {nthChild: 1, kind: navigation_expression, has: {field: suffix, regex: '^\.compactMap$'}}}
+    failure-default:
+        kind: switch_entry
+        all:
+            - has: {kind: switch_pattern, regex: '^\.failure(\(_\))?$'}
+            - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
+            - has: {kind: statements, pattern: $TRY}
+    default-value:
+        any:
+            - kind: 'boolean_literal, integer_literal, real_literal, line_string_literal, array_literal, dictionary_literal'
+            - kind: prefix_expression
+              has: {field: operation, regex: '^\.$'}
+              not: {has: {field: target, regex: '^none$'}}
+            - {kind: prefix_expression, regex: '^-\s*[0-9]'}
+    swallowing-catch:
+        kind: catch_block
+        pattern: $TRY
+        all:
+            - not: {has: {kind: 'pattern, where_clause'}}
+            - not: {has: {stopBy: end, kind: simple_identifier, regex: '^error$'}}
+            - has:
+                kind: statements
+                matches:
+                    swift-single-statement:
+                        first:
+                            kind: control_transfer_statement
+                            has: {field: result, matches: default-value}
 rule:
     any:
+        - kind: do_statement
+          has: {matches: swallowing-catch}
         - kind: nil_coalescing_expression
-          all:
-            - has: {field: value, matches: tried}
-            - has: {field: if_nil, pattern: $DEFAULT}
+          pattern: $TRY
+          has: {field: value, matches: tried-chain}
+          not: {has: {field: if_nil, regex: '^nil$'}}
         - matches: optional-try
-          has:
-            field: expr
-            kind: call_expression
-            all:
-                - has: {kind: navigation_expression, has: {field: suffix, has: {field: suffix, regex: '^get$'}}}
-                - has: {kind: call_suffix, has: {kind: value_arguments, not: {has: {kind: value_argument}}}}
+          pattern: $TRY
+          has: {field: expr, any: [{matches: get-call}, {kind: await_expression, has: {field: expr, matches: get-call}}]}
+          not: {any: [{matches: consumed}, {matches: partition}]}
+        - matches: get-call
+          pattern: $TRY
+          has: {kind: navigation_expression, has: {field: target, matches: tried-chain}}
+          not: {any: [{matches: consumed}, {matches: partition}]}
         - kind: 'guard_statement, if_statement, while_statement'
-          has: {matches: optional-try, follows: {regex: '^=$'}}
+          has: {matches: tried-chain, pattern: $TRY, follows: {regex: '^=$'}}
+          not: {has: {kind: wildcard_pattern}}
         - kind: 'equality_expression, infix_expression'
+          pattern: $TRY
           all:
-            - has: {matches: tried}
+            - has: {matches: tried-chain}
             - has: {field: op, regex: '^[!=]=$'}
             - has: {regex: '^nil$'}
-message: '`$TRY` collapses the thrown error into a nil no consumer reads'
-note: '`Result { try <call> }.flatMapError { error in <recovered case> }` replaces `(try? <call>) ?? <default>`, a `switch` or `.map`/`.mapError` over the result replaces `try? <result>.get()`, `switch Result { try <call> }` replaces the `guard let` form, and the failure case replaces `(try? <call>) != nil`'
+        - kind: switch_statement
+          not: {matches: partition}
+          all:
+            - has: {matches: success-projection}
+            - has: {matches: failure-default}
+            - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
+        - kind: if_statement
+          regex: '^if\s+case\s+(\.success\(let\s+\w+\)|let\s+\.success\(\w+\))\s*='
+          all:
+            - has: {kind: pattern, has: {kind: simple_identifier, pattern: $VALUE}}
+            - has: {nthChild: {position: 1, ofRule: {kind: statements}}, matches: projected-body}
+            - has: {kind: statements, nthChild: {position: 2, ofRule: {kind: statements}}, pattern: $TRY}
+            - not: {has: {kind: if_statement}}
+            - not: {matches: partition}
+message: '`$TRY` discards the error, the consumer reads nil or a default in place of the failure'
+note: 'Recover through `Result { try <call> }.flatMapError { error in <recovered case> }` in place of `(try? <call>) ?? <default>`, a `catch` returning a default, or a `switch` or `if case` projecting `.success`, transform the result through `.map` or `.mapError` in place of `try? <result>.get()`, keep `Result { try <call> }` with a typed failure case in place of the `guard let` form, and match the failure case in place of `(try? <call>) != nil`'

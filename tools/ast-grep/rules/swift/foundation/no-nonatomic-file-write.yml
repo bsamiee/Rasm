@@ -7,7 +7,8 @@ utils:
         any:
             - pattern: 'Data($$$ARGS)'
             - pattern: '$OWNER.encode($$$ARGS)'
-            - pattern: '$OWNER.data(using: $$$ARGS)'
+            - pattern: '$OWNER.data($$$ARGS)'
+            - pattern: '$OWNER.archivedData($$$ARGS)'
     data-binding:
         any:
             - pattern: 'let $R: Data = $_'
@@ -15,20 +16,47 @@ utils:
             - pattern: 'var $R: Data'
             - pattern: {context: 'func f($R: Data) {}', selector: parameter}
             - pattern: {context: 'func f(_ $R: Data) {}', selector: parameter}
+    atomic-option:
+        regex: '^\.(atomic|withoutOverwriting)$'
 rule:
     any:
-        - pattern: '$R.write(to: $U, atomically: $A, encoding: $E)'
-        - pattern: '$R.write(to: $U, atomically: $A)'
-        - pattern: '$R.write(to: $U)'
+        - pattern: $ATOMICALLY_FALSE
           any:
-            - has: {kind: navigation_expression, has: {field: target, stopBy: end, matches: data-receiver}}
-            - inside: {stopBy: end, kind: function_declaration, has: {stopBy: end, matches: data-binding}}
-constraints:
-    A: {regex: '^false$'}
+            - pattern: '$R.write(to: $U, atomically: false, encoding: $E)'
+            - pattern: '$R.write(toFile: $U, atomically: false, encoding: $E)'
+            - pattern: '$R.write(to: $U, atomically: false)'
+            - pattern: '$R.write(toFile: $U, atomically: false)'
+        - pattern: $WITH_OPTIONS
+          any:
+            - pattern: '$R.write(to: $U, options: $O)'
+            - pattern: '$R.write(toFile: $U, options: $O)'
+          has:
+            kind: call_suffix
+            has:
+                kind: value_arguments
+                has:
+                    kind: value_argument
+                    all:
+                        - has: {field: name, regex: '^options$'}
+                        - has:
+                            field: value
+                            any:
+                                - kind: array_literal
+                                  not: {has: {matches: atomic-option}}
+                                - kind: prefix_expression
+                                  not: {matches: atomic-option}
+        - pattern: $WITHOUT_OPTIONS
+          all:
+            - pattern: '$R.write(to: $U)'
+            - any:
+                - has: {kind: navigation_expression, has: {field: target, stopBy: end, matches: data-receiver}}
+                - inside: {stopBy: end, kind: function_declaration, has: {stopBy: end, matches: data-binding}}
 transform:
-    ATOM: {replace: {source: $A, replace: '^false$', by: 'atomically: true'}}
-    TAIL: {replace: {source: $ATOM, replace: '^$', by: 'options: [.atomic]'}}
-    ENC: {replace: {source: $E, replace: '^(.+)$', by: ', encoding: $1'}}
-fix: '$R.write(to: $U, $TAIL$ENC)'
-message: '`$R.write(to:)` truncates the file in place and exposes a half-written file until the write ends'
-note: 'Pass `options: [.atomic]` to `Data.write` or `atomically: true` to `String.write` and `NSData.write`'
+    ATOMICALLY: {replace: {source: $ATOMICALLY_FALSE, replace: 'atomically: false', by: 'atomically: true'}}
+    FILLED: {replace: {source: $WITH_OPTIONS, replace: 'options: \[(\s*[^\]\s])', by: 'options: [.atomic, $1'}}
+    EMPTY: {replace: {source: $FILLED, replace: 'options: \[\]', by: 'options: [.atomic]'}}
+    SINGLE: {replace: {source: $EMPTY, replace: 'options: (\.[a-zA-Z]\w*)', by: 'options: [.atomic, $1]'}}
+    APPENDED: {replace: {source: $WITHOUT_OPTIONS, replace: '(?s)^(.*?)(,?)(\s*)\)$', by: '${1}, options: [.atomic]${2}${3})'}}
+fix: '$ATOMICALLY$SINGLE$APPENDED'
+message: '`$R.write` truncates the file in place and exposes a half-written file until the write ends'
+note: 'Pass `.atomic` in the `options:` of `Data.write` or `atomically: true` to `String.write` and `NSData.write`'

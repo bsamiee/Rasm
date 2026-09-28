@@ -3,8 +3,12 @@ id: no-result-switch-for-bind
 language: swift
 severity: error
 utils:
+    failure-value:
+        any:
+            - pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}
+            - {kind: call_expression, regex: '^\.failure\('}
     failure-return:
-        matches: {swift-single-statement: {first: {pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}}}}
+        matches: {swift-single-statement: {first: {matches: failure-value}}}
     failure-entry:
         kind: switch_entry
         all:
@@ -15,11 +19,12 @@ utils:
         all:
             - has: {kind: switch_pattern, regex: '^(let\s+)?\.success\b'}
             - not: {has: {kind: switch_pattern, nthChild: {position: 2, ofRule: {kind: switch_pattern}}}}
-            - not: {has: {kind: statements, has: {nthChild: 1, pattern: {context: 'func f() { return .failure($$$_) }', selector: control_transfer_statement}}}}
+            - not: {has: {kind: statements, has: {nthChild: 1, matches: failure-value}}}
 rule:
     any:
         - kind: switch_statement
           all:
+            - not: {has: {field: expr, kind: self_expression}}
             - has: {matches: success-entry}
             - has: {matches: failure-entry}
             - not: {has: {kind: switch_entry, nthChild: {position: 3, ofRule: {kind: switch_entry}}}}
@@ -31,4 +36,4 @@ rule:
           not: {regex: '(?s)^guard\s+case\s+(let\s+)?\.success\b[^,]*,.*\b(case|let|var)\b'}
           has: {matches: failure-return}
 message: 'Statement unpacks a Result by hand, failure returned and value bound'
-note: '`<operation>.flatMap { value in <continuation> }` skips the continuation on a failure, `bind` where the continuation awaits, `mapError` first where the arm replaces the failure'
+note: '`<result>.flatMap { value in <continuation> }` skips the continuation on a failure, `mapError` first where the failure arm replaces the error, an async flatMap where the continuation awaits'

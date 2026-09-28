@@ -282,21 +282,11 @@
                 "inputs": ["{workspaceRoot}/Workspace.slnx", "{workspaceRoot}/{apps,eng,libs,tests}/**/*.csproj", "dotnet"],
                 "outputs": ["{workspaceRoot}/.artifacts/dotnet/obj/*/project.assets.json", "{workspaceRoot}/.artifacts/dotnet/obj/*/*.nuget.*"]
             },
-            "browsers": {
-                "command": "playwright install chromium --no-shell",
-                "parallelism": false
-            },
+            "browsers": { "command": "playwright install chromium --no-shell", "parallelism": false },
             "grammar": {
                 "executor": "nx:run-commands",
                 "cache": true,
-                "inputs": [
-                    {
-                        "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "@derekstride/tree-sitter-sql"]
-                    },
-                    {
-                        "runtime": "tree-sitter --version"
-                    }
-                ],
+                "inputs": [{ "externalDependencies": ["@tree-sitter-grammars/tree-sitter-xml", "@derekstride/tree-sitter-sql"] }, { "runtime": "tree-sitter --version" }],
                 "outputs": ["{workspaceRoot}/.cache/ast-grep/xml.so", "{workspaceRoot}/.cache/ast-grep/sql.so"],
                 "options": {
                     "commands": [
@@ -306,11 +296,7 @@
                     "parallel": true
                 }
             },
-            "rewrite": {
-                "command": "ast-grep scan -U --no-ignore hidden",
-                "parallelism": false,
-                "dependsOn": ["grammar"]
-            },
+            "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
             "outline": {
                 "command": "ast-grep outline --outline-rules tools/ast-grep/outline/typescript.yml --outline-rules tools/ast-grep/outline/javascript.yml --outline-rules tools/ast-grep/outline/python.yml --outline-rules tools/ast-grep/outline/swift.yml --outline-rules tools/ast-grep/outline/java.yml",
                 "dependsOn": ["grammar"]
@@ -321,33 +307,15 @@
                 "dependsOn": ["grammar"],
                 "inputs": [
                     "{workspaceRoot}/**/*",
-                    {
-                        "dependentTasksOutputFiles": "**/*.so"
-                    },
-                    {
-                        "runtime": "ast-grep --version"
-                    },
-                    {
-                        "runtime": "ruff --version"
-                    },
-                    {
-                        "runtime": "biome --version"
-                    },
-                    {
-                        "runtime": "yamllint --version"
-                    },
-                    {
-                        "runtime": "actionlint --version"
-                    },
-                    {
-                        "runtime": "shellcheck --version"
-                    },
-                    {
-                        "runtime": "google-java-format --version"
-                    },
-                    {
-                        "runtime": "pmd --version"
-                    }
+                    { "dependentTasksOutputFiles": "**/*.so" },
+                    { "runtime": "ast-grep --version" },
+                    { "runtime": "ruff --version" },
+                    { "runtime": "biome --version" },
+                    { "runtime": "yamllint --version" },
+                    { "runtime": "actionlint --version" },
+                    { "runtime": "shellcheck --version" },
+                    { "runtime": "google-java-format --version" },
+                    { "runtime": "pmd --version" }
                 ],
                 "options": {
                     "commands": [
@@ -384,23 +352,13 @@
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
                     "{workspaceRoot}/{infra,tools/nx,tools/interface}/*.ts",
-                    {
-                        "externalDependencies": ["typescript"]
-                    }
+                    { "externalDependencies": ["typescript"] }
                 ],
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/root"]
             },
-            "check": {
-                "dependsOn": ["lint", "typecheck"]
-            },
-            "up": {
-                "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts up",
-                "parallelism": false
-            },
-            "refresh": {
-                "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts refresh",
-                "parallelism": false
-            },
+            "check": { "dependsOn": ["lint", "typecheck"] },
+            "up": { "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts up", "parallelism": false },
+            "refresh": { "command": "doppler run --project rasm --config dev_repo -- node infra/cli.ts refresh", "parallelism": false },
             "interface": {
                 "command": "python -m interface.cli",
                 "options": { "env": { "PYTHONPATH": "tools" } },
@@ -410,6 +368,7 @@
             "upgrade": {
                 "executor": "nx:run-commands",
                 "parallelism": false,
+                "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }],
                 "outputs": ["{workspaceRoot}/.artifacts/yak", "{workspaceRoot}/.cache/tools/interface"],
                 "options": {
                     "commands": [

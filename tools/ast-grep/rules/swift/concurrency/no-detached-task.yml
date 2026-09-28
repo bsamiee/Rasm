@@ -2,8 +2,39 @@
 id: no-detached-task
 language: swift
 severity: error
+utils:
+    continuation-body:
+        kind: lambda_literal
+        inside:
+            kind: call_suffix
+            inside: {kind: call_expression, has: {nthChild: 1, kind: simple_identifier, regex: '^with(Checked|Unsafe)(Throwing)?Continuation$'}}
 rule:
     kind: call_expression
-    has: {kind: navigation_expression, regex: '^Task\.detached$'}
-message: '`Task.detached` launches work no parent''s cancellation, priority, or isolation reaches'
-note: 'Add the work as a child task through `group.addTask` or `async let`'
+    has:
+        nthChild: 1
+        pattern: $DETACHED
+        any:
+            - kind: navigation_expression
+              regex: '^(_Concurrency\.)?Task(<[^{]*>)?\.(detached|immediateDetached)$'
+            - kind: prefix_expression
+              regex: '^\.(detached|immediateDetached)$'
+              inside:
+                kind: call_expression
+                inside:
+                    kind: 'property_declaration, function_declaration'
+                    stopBy: {kind: 'property_declaration, function_declaration, lambda_literal'}
+                    any:
+                        - has: {kind: type_annotation, regex: '^:\s*Task\b'}
+                        - has: {kind: user_type, regex: '^Task\b'}
+            - kind: navigation_expression
+              regex: '^(Dispatch\.)?DispatchQueue\.global\([^)]*\)\.async$'
+              not: {inside: {stopBy: end, matches: continuation-body}}
+            - kind: navigation_expression
+              regex: '^(Foundation\.)?Thread\.detachNewThread$'
+              not: {inside: {stopBy: end, matches: continuation-body}}
+            - kind: simple_identifier
+              regex: '^Thread$'
+              not: {inside: {stopBy: end, matches: continuation-body}}
+              precedes: {kind: call_suffix, any: [{has: {kind: lambda_literal}}, {has: {kind: value_arguments, has: {kind: value_argument, has: {field: name, regex: '^block$'}}}}]}
+message: '`$DETACHED` launches work no parent''s cancellation, priority, or isolation reaches'
+note: 'Run the work as a child task through `async let` or `group.addTask`, or call an `@concurrent` function to leave the caller''s actor'

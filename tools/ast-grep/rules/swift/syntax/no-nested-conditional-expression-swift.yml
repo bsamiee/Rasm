@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-nested-conditional-expression-swift
+language: swift
+severity: error
+rule:
+    kind: ternary_expression
+    not: {inside: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}}
+    any:
+        - has: {kind: ternary_expression, stopBy: {not: {kind: 'tuple_expression, prefix_expression'}}}
+        - inside:
+            kind: statements
+            not: {has: {nthChild: 2}}
+            inside: {kind: 'if_statement, switch_entry'}
+message: 'Conditional expression nests a conditional'
+note: 'Select with one `if` expression per test, a `switch` expression over the combined subjects (`switch (<a>, <b>)`), or a `where` clause on the case'

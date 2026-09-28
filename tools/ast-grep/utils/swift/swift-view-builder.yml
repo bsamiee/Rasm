@@ -2,4 +2,4 @@ id: swift-view-builder
 language: swift
 rule:
     kind: 'property_declaration, function_declaration'
-    regex: '(?s)^[^{]*(@(View|Scene|ToolbarContent|Commands)Builder\b|\bsome\s+(View|Scene|ToolbarContent|Commands)\b|\bAnyView\b)'
+    regex: '(?s)^[^{]*(@(View|Content|Scene|ToolbarContent|Commands|TabContent|TableColumn|TableRow|ChartContent|AccessibilityRotorContent|SliderTick|WidgetBundle|ControlWidgetConfiguration|ControlWidgetTemplate)Builder\b|\bsome\s+(View|Scene|(Customizable)?ToolbarContent|Commands|TabContent|TableColumnContent|TableRowContent|ChartContent|AccessibilityRotorContent|SliderTickContent|WidgetBundle|WidgetConfiguration|ControlWidgetConfiguration|ControlWidgetTemplate)\b|\bAnyView\b)'

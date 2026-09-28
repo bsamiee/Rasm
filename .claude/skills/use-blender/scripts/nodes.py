@@ -118,7 +118,7 @@ def plain(value: object) -> object:
 
 
 def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
-    """Interface, nodes, and links of a tree, each interface socket and node holding the values that differ from a fresh one made in a scratch tree of the same type."""
+    """Interface, nodes, and links of a tree, each interface socket and node holding the values that differ from a fresh one made in a new tree of the same type."""
     layout = frozenset(p.identifier for p in bpy.types.Node.bl_rna.properties) - {"mute"}
 
     def changed(item: bpy.types.bpy_struct, fresh: bpy.types.bpy_struct, skipped: frozenset[str]) -> dict[str, object]:
@@ -142,18 +142,18 @@ def record(owner: str, tree: bpy.types.NodeTree) -> Digest:
             item.name, item.bl_idname, values, {k: v for k, v in inputs.items() if v != blank_inputs.get(k)}, {k: v for k, v in outputs.items() if k in blank_outputs and v != blank_outputs[k]}
         )
 
-    scratch = bpy.data.node_groups.new("digest", tree.bl_idname)
+    baseline = bpy.data.node_groups.new("digest", tree.bl_idname)
     try:
-        nodes = tuple(node(item, scratch.nodes.new(item.bl_idname)) for item in tree.nodes)
+        nodes = tuple(node(item, baseline.nodes.new(item.bl_idname)) for item in tree.nodes)
         interface = tuple(
-            Socket(i.identifier, i.name, i.in_out, i.socket_type, changed(i, scratch.interface.new_socket(i.name, in_out=i.in_out, socket_type=i.socket_type), frozenset()))
+            Socket(i.identifier, i.name, i.in_out, i.socket_type, changed(i, baseline.interface.new_socket(i.name, in_out=i.in_out, socket_type=i.socket_type), frozenset()))
             for i in tree.interface.items_tree
             if isinstance(i, bpy.types.NodeTreeInterfaceSocket)
         )
         links = tuple(Link(k.from_node.name, k.from_socket.identifier, k.to_node.name, k.to_socket.identifier, k.is_muted) for k in tree.links)
         return Digest(tree.name, owner, interface, nodes, links)
     finally:
-        bpy.data.node_groups.remove(scratch)
+        bpy.data.node_groups.remove(baseline)
 
 
 def digest(name: str) -> Outcome:

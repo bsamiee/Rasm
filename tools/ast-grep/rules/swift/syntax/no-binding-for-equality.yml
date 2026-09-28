@@ -1,0 +1,91 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-binding-for-equality
+language: swift
+severity: error
+utils:
+    binding:
+        kind: pattern
+        has: {kind: simple_identifier, pattern: $NAME}
+        not: {has: {kind: pattern}}
+    operand:
+        not:
+            any:
+                - kind: 'disjunction_expression, conjunction_expression, equality_expression'
+                - pattern: $NAME
+                - has: {stopBy: end, kind: simple_identifier, pattern: $NAME}
+    compared:
+        kind: equality_expression
+        all:
+            - has: {field: op, regex: '^==$'}
+            - any:
+                - all:
+                    - has: {field: lhs, pattern: $NAME}
+                    - has: {field: rhs, pattern: $VALUE}
+                - all:
+                    - has: {field: rhs, pattern: $NAME}
+                    - has: {field: lhs, pattern: $VALUE}
+            - not: {has: {field: lhs, kind: 'disjunction_expression, conjunction_expression'}}
+            - not: {has: {field: rhs, kind: 'disjunction_expression, conjunction_expression'}}
+            - not: {has: {has: {stopBy: end, kind: simple_identifier, pattern: $NAME}}}
+    compared-pair:
+        kind: equality_expression
+        all:
+            - has: {field: op, regex: '^==$'}
+            - has: {field: lhs, pattern: $NAME}
+            - has:
+                field: rhs
+                kind: disjunction_expression
+                all:
+                    - has: {field: lhs, pattern: $FIRST, matches: operand}
+                    - has:
+                        field: rhs
+                        kind: equality_expression
+                        all:
+                            - has: {field: op, regex: '^==$'}
+                            - has: {field: lhs, pattern: $NAME}
+                            - has: {field: rhs, pattern: $SECOND, matches: operand}
+rule:
+    kind: switch_pattern
+    all:
+        - has:
+            kind: pattern
+            all:
+                - has:
+                    kind: pattern
+                    any:
+                        - matches: binding
+                        - all:
+                            - has: {kind: value_binding_pattern}
+                            - has: {kind: pattern, matches: binding}
+                            - has: {field: name, kind: user_type}
+                - not: {has: {kind: pattern, follows: {kind: pattern, stopBy: end}}}
+        - precedes: {kind: where_keyword}
+        - any:
+            - {pattern: $ALONE, precedes: {stopBy: end, matches: compared}}
+            - {pattern: $PAIRED, precedes: {stopBy: end, matches: compared-pair}}
+        - not: {precedes: {stopBy: end, kind: switch_pattern}}
+        - not: {follows: {stopBy: end, kind: switch_pattern}}
+        - not: {precedes: {stopBy: end, kind: statements, has: {stopBy: end, kind: simple_identifier, pattern: $NAME}}}
+rewriters:
+    - id: binding-to-value
+      rule: {matches: binding}
+      fix: $VALUE
+    - id: binding-to-first
+      rule: {matches: binding}
+      fix: $FIRST
+    - id: binding-to-second
+      rule: {matches: binding}
+      fix: $SECOND
+transform:
+    SINGLE: {rewrite: {source: $ALONE, rewriters: [binding-to-value]}}
+    FIRST_CASE: {rewrite: {source: $PAIRED, rewriters: [binding-to-first]}}
+    SECOND_CASE: {rewrite: {source: $PAIRED, rewriters: [binding-to-second]}}
+    SINGLE_PATTERN: {replace: {source: $SINGLE, replace: '\blet\s+', by: ''}}
+    FIRST_PATTERN: {replace: {source: $FIRST_CASE, replace: '\blet\s+', by: ''}}
+    SECOND_PATTERN: {replace: {source: $SECOND_CASE, replace: '\blet\s+', by: ''}}
+    SECOND_JOINED: {replace: {source: $SECOND_PATTERN, replace: '(?s)^(.+)$', by: ', $1'}}
+fix:
+    template: $SINGLE_PATTERN$FIRST_PATTERN$SECOND_JOINED
+    expandEnd: {stopBy: end, any: [{matches: compared}, {matches: compared-pair}]}
+message: 'Case pattern binds `$NAME` only to compare it in its `where` clause'
+note: 'Match the value in the pattern as `case .<case>(<value>):` or `case .<case>(.<code> as <ErrorType>):`, and `where <name> == <a> || <name> == <b>` as `case .<case>(<a>), .<case>(<b>):`'

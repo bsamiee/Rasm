@@ -1,0 +1,38 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-affix-slice-by-count
+language: swift
+severity: error
+utils:
+    branch:
+        kind: 'ternary_expression, if_statement, guard_statement, switch_entry, while_statement'
+    prefix-test:
+        any:
+            - pattern: $R.hasPrefix($AFFIX)
+            - pattern: '$R.starts(with: $AFFIX)'
+    suffix-test:
+        pattern: $R.hasSuffix($AFFIX)
+    count-difference:
+        has: {kind: call_suffix, has: {stopBy: end, kind: additive_expression, has: {field: lhs, pattern: $R.count}}}
+rule:
+    pattern: $SLICE
+    any:
+        - any:
+            - pattern: $R.dropFirst($$$)
+            - pattern: $R.removeFirst($$$)
+            - {pattern: $R.suffix($$$), matches: count-difference}
+          inside:
+            stopBy: end
+            any:
+                - {matches: branch, has: {stopBy: end, matches: prefix-test}}
+                - {kind: statements, has: {kind: guard_statement, has: {stopBy: end, matches: prefix-test}}}
+        - any:
+            - pattern: $R.dropLast($$$)
+            - pattern: $R.removeLast($$$)
+            - {pattern: $R.prefix($$$), matches: count-difference}
+          inside:
+            stopBy: end
+            any:
+                - {matches: branch, has: {stopBy: end, matches: suffix-test}}
+                - {kind: statements, has: {kind: guard_statement, has: {stopBy: end, matches: suffix-test}}}
+message: '`$SLICE` removes the tested affix `$AFFIX` by a count that restates its length'
+note: 'Drop the affix by one match, `<text>.trimmingPrefix(<affix>)`, `trimPrefix(<affix>)`, or `<text>.replacing(/<affix>\z/, with: "")` where text without it stays unchanged, `<text>.wholeMatch(of: /<affix>(.*)/)?.1` where it yields nil'

@@ -6,129 +6,144 @@ import System
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 nonisolated enum FileWatch {
-  static func changes(of file: URL) -> AsyncThrowingStream<SHA256Digest?, any Error> {
-    marks(of: file, probe: contentDigest)
-  }
-
-  static func presence(of entry: URL) -> AsyncThrowingStream<Bool, any Error> {
-    marks(of: entry, probe: exists)
-  }
-
-  private static func marks<Mark: Equatable & Sendable>(
-    of file: URL, probe: @escaping @Sendable (URL) -> Mark
-  ) -> AsyncThrowingStream<Mark, any Error> {
-    AsyncThrowingStream { continuation in
-      let watcher: Watcher<Mark> = Watcher(file: file, probe: probe, continuation: continuation)
-      continuation.onTermination = { _ in watcher.stop() }
-      watcher.start()
-    }
-  }
-
-  private static func contentDigest(_ file: URL) -> SHA256Digest? {
-    (try? Data(contentsOf: file)).map(SHA256.hash(data:))
-  }
-
-  private static func exists(_ entry: URL) -> Bool {
-    FileManager.default.fileExists(atPath: entry.path)
-  }
-
-  private final class Watcher<Mark: Equatable & Sendable>: @unchecked Sendable {
-    private let file: URL
-    private let probe: @Sendable (URL) -> Mark
-    private let continuation: AsyncThrowingStream<Mark, any Error>.Continuation
-    private let queue: DispatchQueue = DispatchQueue(label: "app.rasm.relay.filewatch")
-    private var directorySource: (any DispatchSourceFileSystemObject)?
-    private var fileSource: (any DispatchSourceFileSystemObject)?
-    private var pending: DispatchWorkItem?
-    private var mark: Mark?
-    private var stopped: Bool = false
-
-    init(
-      file: URL, probe: @escaping @Sendable (URL) -> Mark,
-      continuation: AsyncThrowingStream<Mark, any Error>.Continuation
-    ) {
-      self.file = file
-      self.probe = probe
-      self.continuation = continuation
-    }
-
-    func start() {
-      queue.async { [self] in
-        mark = probe(file)
-        let directory: Result<any DispatchSourceFileSystemObject, any Error> = source(
-          path: file.deletingLastPathComponent().path, events: .write
-        ) { [weak self] in
-          self?.openFileSource()
-          self?.scheduleEmit()
+    // --- [VALUES]
+    static func values<Value: Equatable & Sendable>(
+        of file: URL,
+        probe: @escaping @Sendable (URL) -> Value,
+        debounce: Duration?,
+    ) -> AsyncThrowingStream<Value, any Error> {
+        AsyncThrowingStream { continuation in
+            let watcher: Watcher<Value> = Watcher(
+                file: file,
+                probe: probe,
+                debounce: debounce,
+                continuation: continuation,
+            )
+            continuation.onTermination = { _ in watcher.enqueue { watcher in watcher.stop() } }
+            watcher.enqueue { watcher in watcher.start() }
         }
-        switch directory {
-        case .success(let source):
-          directorySource = source
-          openFileSource()
-        case .failure(let error): continuation.finish(throwing: error)
+    }
+
+    private actor Watcher<Value: Equatable & Sendable> {
+        // --- [STATE]
+        private let file: URL
+        private let probe: @Sendable (URL) -> Value
+        private let debounce: Duration?
+        private let continuation: AsyncThrowingStream<Value, any Error>.Continuation
+        private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "app.rasm.relay.filewatch")
+        private var directorySource: (any DispatchSourceFileSystemObject)?
+        private var fileSource: (any DispatchSourceFileSystemObject)?
+        private var pending: Task<Void, Never>?
+        private var value: Value?
+        private var stopped: Bool = false
+
+        init(
+            file: URL,
+            probe: @escaping @Sendable (URL) -> Value,
+            debounce: Duration?,
+            continuation: AsyncThrowingStream<Value, any Error>.Continuation,
+        ) {
+            self.file = file
+            self.probe = probe
+            self.debounce = debounce
+            self.continuation = continuation
         }
-      }
-    }
 
-    func stop() {
-      queue.async {
-        self.stopped = true
-        self.pending?.cancel()
-        self.directorySource?.cancel()
-        self.fileSource?.cancel()
-        self.directorySource = nil
-        self.fileSource = nil
-      }
-    }
+        nonisolated var unownedExecutor: UnownedSerialExecutor { unsafe queue.asUnownedSerialExecutor() }
 
-    private func openFileSource() {
-      guard !stopped, fileSource == nil else { return }
-      let opened: Result<any DispatchSourceFileSystemObject, any Error> = source(
-        path: file.path, events: [.write, .extend, .delete, .rename, .attrib]
-      ) { [weak self] in
-        guard let self else { return }
-        if let source: any DispatchSourceFileSystemObject = fileSource,
-          !source.data.intersection([.delete, .rename]).isEmpty
-        {
-          source.cancel()
-          fileSource = nil
+        // --- [LIFECYCLE]
+        nonisolated func enqueue(_ work: @escaping @Sendable (isolated Watcher) -> Void) {
+            queue.async { [self] in assumeIsolated(work) }
         }
-        scheduleEmit()
-      }
-      switch opened {
-      case .success(let source): fileSource = source
-      case .failure(let error as Errno) where error == .noSuchFileOrDirectory: return
-      case .failure(let error): continuation.finish(throwing: error)
-      }
+
+        func start() {
+            value = probe(file)
+            let directory: Result<any DispatchSourceFileSystemObject, any Error> = Result {
+                try source(path: file.deletingLastPathComponent().path, events: .write) { watcher in
+                    watcher.openFileSource()
+                    watcher.scheduleEmit()
+                }
+            }
+            switch directory {
+                case .success(let source):
+                    directorySource = source
+                    openFileSource()
+                case .failure(let error): continuation.finish(throwing: error)
+            }
+        }
+
+        func stop() {
+            stopped = true
+            pending?.cancel()
+            directorySource?.cancel()
+            fileSource?.cancel()
+            directorySource = nil
+            fileSource = nil
+        }
+
+        // --- [EVENTS]
+        private func openFileSource() {
+            guard !stopped, fileSource == nil else { return }
+            let opened: Result<(any DispatchSourceFileSystemObject)?, any Error> = ifPresent {
+                try source(path: file.path, events: [.write, .extend, .delete, .rename, .attrib]) { watcher in
+                    if let source: any DispatchSourceFileSystemObject = watcher.fileSource,
+                        !source.data.isDisjoint(with: [.delete, .rename])
+                    {
+                        source.cancel()
+                        watcher.fileSource = nil
+                    }
+                    watcher.scheduleEmit()
+                }
+            }
+            switch opened {
+                case .success(let source): fileSource = source
+                case .failure(let error): continuation.finish(throwing: error)
+            }
+        }
+
+        private func source(
+            path: String,
+            events: DispatchSource.FileSystemEvent,
+            handler: @escaping @Sendable (isolated Watcher) -> Void,
+        ) throws -> any DispatchSourceFileSystemObject {
+            let descriptor: FileDescriptor = try FileDescriptor.open(FilePath(path), .readOnly, options: .eventOnly)
+            let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(
+                fileDescriptor: descriptor.rawValue,
+                eventMask: events,
+                queue: queue,
+            )
+            source.setEventHandler { [weak self] in self?.assumeIsolated(handler) }
+            source.setCancelHandler { try? descriptor.close() }
+            source.activate()
+            return source
+        }
+
+        private func scheduleEmit() {
+            guard let debounce else {
+                emitIfChanged()
+                return
+            }
+            pending?.cancel()
+            pending = Task { [self] in
+                if case .success = await Result(catching: { try await Task.sleep(for: debounce) }) { emitIfChanged() }
+            }
+        }
+
+        private func emitIfChanged() {
+            guard !stopped else { return }
+            let current: Value = probe(file)
+            guard current != value else { return }
+            value = current
+            continuation.yield(current)
+        }
     }
 
-    private func source(
-      path: String, events: DispatchSource.FileSystemEvent, handler: @escaping @Sendable () -> Void
-    ) -> Result<any DispatchSourceFileSystemObject, any Error> {
-      Result { try FileDescriptor.open(FilePath(path), .readOnly, options: .eventOnly) }.map {
-        descriptor in
-        let source: any DispatchSourceFileSystemObject = DispatchSource.makeFileSystemObjectSource(
-          fileDescriptor: descriptor.rawValue, eventMask: events, queue: queue)
-        source.setEventHandler(handler: handler)
-        source.setCancelHandler { try? descriptor.close() }
-        source.activate()
-        return source
-      }
+    // --- [PROBES]
+    static func contentDigest(_ file: URL) -> SHA256Digest? {
+        (try? Data(contentsOf: file)).map(SHA256.hash(data:))
     }
 
-    private func scheduleEmit() {
-      pending?.cancel()
-      let work: DispatchWorkItem = DispatchWorkItem { [weak self] in self?.emitIfChanged() }
-      pending = work
-      queue.asyncAfter(deadline: .now() + .milliseconds(300), execute: work)
+    static func exists(_ entry: URL) -> Bool {
+        FileManager.default.fileExists(atPath: entry.path)
     }
-
-    private func emitIfChanged() {
-      guard !stopped else { return }
-      let current: Mark = probe(file)
-      guard current != mark else { return }
-      mark = current
-      continuation.yield(current)
-    }
-  }
 }

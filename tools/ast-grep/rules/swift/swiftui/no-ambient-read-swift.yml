@@ -1,0 +1,35 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/ast-grep/ast-grep/main/schemas/rule.json
+id: no-ambient-read-swift
+language: swift
+severity: error
+utils:
+    rendered-text:
+        kind: property_declaration
+        has: {field: name, regex: '^(description|debugDescription|errorDescription|failureReason|recoverySuggestion|helpAnchor|localizedDescription)$'}
+    rendering-type:
+        kind: class_declaration
+        has:
+            kind: inheritance_specifier
+            regex: '^(SwiftUI\.)?(View|ViewModifier|Scene|App|Commands|(Customizable)?ToolbarContent|TabContent|Table(Column|Row)Content|Shape|InsettableShape|Layout|\w*Style|(NS|UI)View(Controller)?Representable)$'
+    timeline-schedule:
+        kind: value_argument
+        nthChild: 1
+        inside: {kind: value_arguments, inside: {kind: call_suffix, inside: {kind: call_expression, has: {nthChild: 1, regex: '^TimelineView$'}}}}
+rule:
+    pattern: $READ
+    any:
+        - kind: call_expression
+          regex: '^((Foundation\.)?(Date|UUID)(\.init)?\((timeIntervalSinceNow:[^)]*)?\)|(Swift\.)?SystemRandomNumberGenerator\(\)|(CFAbsoluteTimeGetCurrent|mach_(absolute|continuous)_time|arc4random(_uniform)?)\([^)]*\)|(Dispatch(Wall)?Time)\.now\(\)|[\w.]+\.random\(|[\w.]+\.(randomElement|shuffled)\(\)|[\w.]+\.isDateIn(Today|Yesterday|Tomorrow)\()'
+        - kind: navigation_expression
+          regex: '^(((Foundation\.)?Date|ContinuousClock|SuspendingClock)(\.Instant)?\.now|[\w.]+\.timeIntervalSinceNow|(Foundation\.)?Date\.timeIntervalSinceReferenceDate|ProcessInfo\.processInfo\.systemUptime)$'
+        - kind: prefix_expression
+          regex: '^\.now$'
+    inside:
+        stopBy: end
+        any:
+            - matches: swift-view-builder
+            - matches: rendering-type
+            - matches: rendered-text
+    not: {inside: {stopBy: end, matches: timeline-schedule}}
+message: '`$READ` reads the clock or a random value inside a view or a description'
+note: 'Keep the typed `Date` in the model and render it from `context.date` of one `TimelineView`, `Text(<date>, style: .relative)`, or `Text(timerInterval:)`, the store reads the clock for an action and passes the instant down'
