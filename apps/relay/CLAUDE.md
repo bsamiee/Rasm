@@ -88,7 +88,7 @@ Relay refreshes Claude tokens as a peer of Claude Code, under the same lock pair
 ## [06]-[CODEX]
 
 `CodexClient` drives the desktop app's `codex app-server` over JSON lines on stdio:
-- Server binary is `Contents/Resources/codex` in the app with bundle id `com.openai.codex`
+- Server binary is the `entrypoint` of `Contents/Resources/codex-cli/codex-package.json` in the app with bundle id `com.openai.codex`
 - One server runs per `CODEX_HOME`, the next request after an exit starts a new one
 - Server environment drops `CODEX_*` and `excludedEnvironmentVariables`, then sets `CODEX_HOME` to an account's home
 - Selected account's home is `CODEX_HOME`, else `~/.codex`

@@ -279,8 +279,7 @@ actor CodexClient: ProviderClient {
                 !key.hasPrefix("CODEX_") && !excludedEnvironmentVariables.contains(key)
             }
             .merging(["CODEX_HOME": home.path]) { _, override in override }
-        return await CodexDesktop.applicationURL()
-            .map { application in application.appending(path: "Contents/Resources/codex") }
+        return await CodexDesktop.serverExecutable()
             .flatMap { executable -> Result<URL, CodexFailure> in
                 FileManager.default.isExecutableFile(atPath: executable.path)
                     ? .success(executable) : .failure(.applicationUnavailable)

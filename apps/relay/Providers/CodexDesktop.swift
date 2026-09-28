@@ -1,6 +1,12 @@
 import AppKit
 import Foundation
 
+// --- [MODELS] --------------------------------------------------------------------------
+
+private nonisolated struct CodexPackage: Decodable {
+    let entrypoint: String
+}
+
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
 enum CodexDesktop {
@@ -9,6 +15,17 @@ enum CodexDesktop {
     static func applicationURL() -> Result<URL, CodexFailure> {
         NSWorkspace.shared.urlForApplication(withBundleIdentifier: bundleIdentifier)
             .map(Result.success) ?? .failure(.applicationUnavailable)
+    }
+
+    static func serverExecutable() -> Result<URL, CodexFailure> {
+        applicationURL().flatMap { application in
+            let package: URL = application.appending(path: "Contents/Resources/codex-cli", directoryHint: .isDirectory)
+            return Result {
+                try JSONDecoder().decode(CodexPackage.self, from: Data(contentsOf: package.appending(path: "codex-package.json")))
+            }
+            .map { manifest in package.appending(path: manifest.entrypoint) }
+            .mapError { _ in .applicationUnavailable }
+        }
     }
 
     static func relaunchIfRunning() async -> Result<Void, CodexFailure> {
