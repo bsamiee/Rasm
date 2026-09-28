@@ -194,7 +194,7 @@ def lift_sequence(fn: Callable[[list[Block]], list[Block]]) -> Callable[[Ctx, li
     return lambda _, blocks: fn(blocks)
 
 
-def probe(pattern: str) -> Callable[[Doc], list[Line]]:
+def opening_matches(pattern: str) -> Callable[[Doc], list[Line]]:
     """Lift a text pattern to a report over the opening of every text span, the span its subject."""
 
     def opening(b: Block) -> list[Line]:
@@ -516,8 +516,8 @@ RULES: tuple[Fix | Report, ...] = (
     Fix(Ctx.TABLE, lift_block(render)),
     Fix(MARKDOWN, lift_sequence(spacing)),
     Report(Ctx.HEADING, "`{}` is not the one `[TOKEN]` H1", h1s),
-    Report(TEXT, "Text opens with an article", probe(r"(?i)(?:a|an|the)\s+\S")),
-    Report(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, "Text opens with a lowercase letter", probe(r"\p{Ll}")),
+    Report(TEXT, "Text opens with an article", opening_matches(r"(?i)(?:a|an|the)\s+\S")),
+    Report(Ctx.ENTRY | Ctx.TABLE | Ctx.COMMENT, "Text opens with a lowercase letter", opening_matches(r"\p{Ll}")),
     Report(TEXT & MARKDOWN, "`{}` resolves to no file", dead),
     Report(TEXT, "Text counts visible items with `{}`", counted),
     Report(Ctx.ENTRY, "Entry prose runs past column 150", wide(spoken)),

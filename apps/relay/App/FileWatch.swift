@@ -9,13 +9,13 @@ nonisolated enum FileWatch {
     // --- [VALUES]
     static func values<Value: Equatable & Sendable>(
         of file: URL,
-        probe: @escaping @Sendable (URL) -> Value,
+        read: @escaping @Sendable (URL) -> Value,
         debounce: Duration?,
     ) -> AsyncThrowingStream<Value, any Error> {
         AsyncThrowingStream { continuation in
             let watcher: Watcher<Value> = Watcher(
                 file: file,
-                probe: probe,
+                read: read,
                 debounce: debounce,
                 continuation: continuation,
             )
@@ -27,7 +27,7 @@ nonisolated enum FileWatch {
     private actor Watcher<Value: Equatable & Sendable> {
         // --- [STATE]
         private let file: URL
-        private let probe: @Sendable (URL) -> Value
+        private let read: @Sendable (URL) -> Value
         private let debounce: Duration?
         private let continuation: AsyncThrowingStream<Value, any Error>.Continuation
         private let queue: DispatchSerialQueue = DispatchSerialQueue(label: "app.rasm.relay.filewatch")
@@ -39,12 +39,12 @@ nonisolated enum FileWatch {
 
         init(
             file: URL,
-            probe: @escaping @Sendable (URL) -> Value,
+            read: @escaping @Sendable (URL) -> Value,
             debounce: Duration?,
             continuation: AsyncThrowingStream<Value, any Error>.Continuation,
         ) {
             self.file = file
-            self.probe = probe
+            self.read = read
             self.debounce = debounce
             self.continuation = continuation
         }
@@ -57,7 +57,7 @@ nonisolated enum FileWatch {
         }
 
         func start() {
-            value = probe(file)
+            value = read(file)
             let directory: Result<any DispatchSourceFileSystemObject, any Error> = Result {
                 try source(path: file.deletingLastPathComponent().path, events: .write) { watcher in
                     watcher.openFileSource()
@@ -131,14 +131,14 @@ nonisolated enum FileWatch {
 
         private func emitIfChanged() {
             guard !stopped else { return }
-            let current: Value = probe(file)
+            let current: Value = read(file)
             guard current != value else { return }
             value = current
             continuation.yield(current)
         }
     }
 
-    // --- [PROBES]
+    // --- [READS]
     static func contentDigest(_ file: URL) -> SHA256Digest? {
         (try? Data(contentsOf: file)).map(SHA256.hash(data:))
     }

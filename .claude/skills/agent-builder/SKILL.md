@@ -92,7 +92,7 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 [DONE_WHEN]:
 - Done conditions name the replaced form with the command that proves absence by empty output
 - Done conditions hold every gate result line in the transcript, the empty gate included
-- Done conditions hold no partial edit, deferred value, workaround, or probe artifact
+- Done conditions hold no partial edit, deferred value, workaround, or run residue
 
 ## [03]-[INTEGRATION]
 

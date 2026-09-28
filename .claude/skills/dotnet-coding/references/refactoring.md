@@ -6,7 +6,7 @@ Use `dotnet-coding-mapperly` for member copies between host and domain types.
 
 ## [01]-[HOST_BOUNDARY]
 
-Host answers map by each member's documented contract, read from decompiled source or a live probe:
+Host answers map by each member's documented contract, read from decompiled source or the run's output:
 
 | [INDEX] | [REJECTED]                                          | [REQUIRED]                                         | [REASON]                      |
 | :-----: | :-------------------------------------------------- | :------------------------------------------------- | :---------------------------- |

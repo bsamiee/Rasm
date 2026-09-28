@@ -48,5 +48,5 @@ lsof -a -nP -iTCP -sTCP:LISTEN -c Blender
 - `mcp-for-blender` keeps its last socket, its first call after a relaunch answers `Broken pipe` with no code run and the next reaches the new GUI
 - Crashed GUIs leave `blender.crash.txt`, or `<file stem>.crash.txt` with a file open, in `preferences.filepaths.temporary_directory`
 - Crash logs hold the last operators, the native backtrace, and the Python backtrace, macOS adds `~/Library/Logs/DiagnosticReports/Blender-*.ips`
-- Other Blenders write reports into the same folders, and a report belongs to a probe when its timestamp falls inside the probe
+- Other Blenders write reports into the same folders, and a report belongs to a run when its timestamp falls inside it
 - `<pid>_autosave.blend` and `quit.blend` in the temporary directory hold the work a crash or quit left

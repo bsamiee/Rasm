@@ -101,6 +101,6 @@ screencapture -x -o -l <id> <dir>/<name>.png
 - `area.tag_redraw()` on every area, then a return from the call, precedes a window capture of a theme or view write
 - Captures hold an ICC profile, byte reads convert through one tool every time (`magick -profile "sRGB Profile.icc"`)
 - Community `get_viewport_screenshot` draws offscreen without overlays
-- `wm.window_new()` under a `VIEW_3D` override opens a second window titled `3D Viewport` for a probe view, `wm.window_close()` under it removes it
+- `wm.window_new()` under a `VIEW_3D` override opens a second window titled `3D Viewport`, `wm.window_close()` under it removes it
 - Menus, panels, and pies open at the pointer from a timer through `wm.call_menu`, `wm.call_panel`, and `wm.call_menu_pie` under an area override
 - `wm.call_panel` of a Properties panel polls under a `PROPERTIES` area override alone, a pie closes when `window.workspace` is reassigned

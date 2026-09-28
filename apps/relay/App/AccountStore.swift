@@ -568,7 +568,7 @@ final class AccountStore {
         do {
             for try await _ in FileWatch.values(
                 of: file,
-                probe: FileWatch.contentDigest,
+                read: FileWatch.contentDigest,
                 debounce: .milliseconds(300),
             ) where !isSwitching {
                 let before: [UUID: Bool] = Dictionary(
@@ -590,7 +590,7 @@ final class AccountStore {
 
     private func observeRefreshLock(_ lock: URL) async {
         do {
-            for try await present: Bool in FileWatch.values(of: lock, probe: FileWatch.exists, debounce: nil)
+            for try await present: Bool in FileWatch.values(of: lock, read: FileWatch.exists, debounce: nil)
             where !isSwitching && !present {
                 await readSelection()
             }

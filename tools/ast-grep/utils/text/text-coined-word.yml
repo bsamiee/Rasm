@@ -6,11 +6,11 @@ rule:
         - regex: |-
             (?x)(^[_\#$]?|_)(?i:admission|admit|admits|admitted|backbone|beacon|bespoke|blanket|blessed|canon|census|charter|custodian|custody|doctrine
             |estate|furnished|guardrail|harmless|inert|ladder|laddered|lamp|materialize|materialized|mint|minted|phantom|pluggable|posture
-            |pristine|realm|roster|rung|rungs|seat|seated|settle|settled|shim|ship|shipped|shipping|strata|stratum|substrate|toolkit|twin|twins
-            |unrecord|unstock|verb|verbs|weave|wired|wiring)(_|$|[0-9]|[A-Z]([a-z0-9_]|$))
+            |pristine|probe|probed|probes|probing|realm|roster|rung|rungs|seat|seated|settle|settled|shim|ship|shipped|shipping
+            |strata|stratum|substrate|toolkit|twin|twins|unrecord|unstock|verb|verbs|weave|wired|wiring)(_|$|[0-9]|[A-Z]([a-z0-9_]|$))
         - regex: |-
             (?x)(^T|[a-z0-9])(Admission|Admit|Admits|Admitted|Backbone|Beacon|Bespoke|Blanket|Blessed|Canon|Census|Charter|Custodian|Custody|Doctrine
             |Estate|Furnished|Guardrail|Harmless|Inert|Ladder|Laddered|Lamp|Materialize|Materialized|Mint|Minted|Phantom|Pluggable|Posture
-            |Pristine|Realm|Roster|Rung|Rungs|Seat|Seated|Settle|Settled|Shim|Ship|Shipped|Shipping|Strata|Stratum|Substrate|Toolkit|Twin|Twins
-            |Unrecord|Unstock|Verb|Verbs|Weave|Wired|Wiring)([A-Z0-9_]|$)
+            |Pristine|Probe|Probed|Probes|Probing|Realm|Roster|Rung|Rungs|Seat|Seated|Settle|Settled|Shim|Ship|Shipped|Shipping
+            |Strata|Stratum|Substrate|Toolkit|Twin|Twins|Unrecord|Unstock|Verb|Verbs|Weave|Wired|Wiring)([A-Z0-9_]|$)
         - regex: (?i)rasm

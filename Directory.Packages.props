@@ -362,7 +362,7 @@
         <PackageVersion Include="Concentus.Oggfile"                                       Version="1.0.7" />                 <!-- Ogg container reading and writing for Opus audio streams -->
         <PackageVersion Include="FFmpeg.AutoGen"                                          Version="9.0.1.1" />               <!-- Generated P/Invoke bindings for libavcodec, libavformat, and related libraries -->
         <PackageVersion Include="FFmpeg.AutoGen.Bindings.DynamicallyLoaded"               Version="9.0.1.1" />               <!-- Bindings resolved at runtime through dynamic library loading -->
-        <PackageVersion Include="FFMpegCore"                                              Version="5.5.0" />                 <!-- Command-line wrapper for media transcoding and probing -->
+        <PackageVersion Include="FFMpegCore"                                              Version="5.5.0" />                 <!-- Command-line wrapper for ffmpeg and ffprobe -->
         <PackageVersion Include="FlashCap"                                                Version="1.12.0" />                <!-- Camera device frame capture across platforms -->
         <PackageVersion Include="HanumanInstitute.LibMpv"                                 Version="0.10.1" />                <!-- Strongly typed wrapper for the mpv media player -->
         <PackageVersion Include="HanumanInstitute.LibMpv.Avalonia"                        Version="0.10.1" />                <!-- Avalonia video view control for mpv playback -->

@@ -39,7 +39,7 @@ Words that fail take the current term for what they name, and a real term of a f
 |  [12]   | `custody`, `custodian`, `posture`, `guardrail`, `beacon` | `storage`, `holder`, `configuration`, `check`, `signal` |
 |  [13]   | `verb` (for a CLI action), `twin`, `sibling variant`     | `subcommand`, `overload`, `suffix variant`              |
 |  [14]   | `rides`, `carries`, `travels`, `lives` (for a value)     | `holds`, `stores`, `sets`, `belongs to`, `goes in`      |
-|  [15]   | `probe` (as a test double), `fan-out degree`             | `spy`, `degree of parallelism`                          |
+|  [15]   | `probe`, `probing`, `fan-out degree`                     | `run`, `read`, `scan`, `spy`, `degree of parallelism`   |
 |  [16]   | `phantom`, `ghost`, `census`, `sweep` (check)            | `missing`, `undefined`, `coverage check`, `assertion`   |
 |  [17]   | `materialize`, `pristine`, `in-flight` (change)          | `write`, `empty`, `uncommitted`                         |
 |  [18]   | `interior`, `flips`, `mirrors` (as matches)              | `inside`, `disabled`, `matches`                         |
@@ -72,7 +72,7 @@ Facts one run produced are observations, and prose keeps the rule they showed:
 |  [01]   | Duration, size, or count an output printed              | Condition or shape that decides case                 |
 |  [02]   | Line number in a generated or external file             | Literal the code spells, read through a search       |
 |  [03]   | Release version, issue number, or defect of one release | Behavior, and retirement condition when one is known |
-|  [04]   | Path, key, or name of one proof, probe, or session      | Placeholder form (`<proof>`, `<session>`)            |
+|  [04]   | Path, key, or name of one proof, run, or session        | Placeholder form (`<proof>`, `<session>`)            |
 
 Values a declaration, project file, or option states (`timeout: 600000`) are facts and stay with their source named. Size, byte, duration, and count limits stay when a named tool enforces them, every other threshold goes. Examples stay when they are a command, a sequence, or a case of the file's subject, examples with no source on disk or in a tool's documentation go.
 

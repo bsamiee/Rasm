@@ -39,7 +39,7 @@ description: "Use when a task drives a Blender session, a headless Blender, or a
 Both servers answer the GUI the user watches, and a task leaves it as found:
 - Reads and writes go through the API while Blender stays behind the frontmost application
 - Reads through the servers' summary and screenshot tools leave undo history and the modified flag as found
-- Probes that set a value (a sentinel color, a trial setting) restore it in the same call, before the call returns
+- Calls that set a trial value (a sentinel color, a setting) restore it before they return
 - Pictures come from an offscreen draw, an area's framebuffer, or a window capture by id, each with Blender behind other windows
 - Every session and GUI a task opens ends with the task, `stop` for a session and one quit call for a GUI
 - Preference and add-on writes in the GUI persist at quit, a trial sets `preferences.use_preferences_save = False` first
