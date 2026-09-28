@@ -135,7 +135,7 @@ utils:
             - inside: {kind: variable_declaration, has: {field: type, regex: '^((global::)?System\.)?(uint|UInt32)$'}}
     scope:
         kind: method_declaration, constructor_declaration, local_function_statement, lambda_expression, anonymous_method_expression, operator_declaration, accessor_declaration, block, arrow_expression_clause, switch_section, query_expression
-    guid-proof:
+    guid-typed:
         any:
             - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: guid-named}}
             - inside: {stopBy: end, kind: foreach_statement, matches: guid-named}
@@ -144,17 +144,17 @@ utils:
         any:
             - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: guid-nullable-named}}
             - inside: {stopBy: end, kind: foreach_statement, matches: guid-nullable-named}
-    string-proof:
+    string-typed:
         any:
             - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: string-named}}
             - inside: {stopBy: end, kind: foreach_statement, matches: string-named}
             - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(string|String)\s*\??\s*>$'}}
-    int-proof:
+    int-typed:
         any:
             - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: int-named}}
             - inside: {stopBy: end, kind: foreach_statement, matches: int-named}
             - inside: {stopBy: {matches: site}, matches: site, has: {stopBy: end, kind: generic_name, regex: '^(Some|Option)\s*<\s*((global::)?System\.)?(int|Int32)\s*>$'}}
-    uint-proof:
+    uint-typed:
         any:
             - inside: {stopBy: end, matches: scope, has: {stopBy: {kind: 'lambda_expression, anonymous_method_expression, local_function_statement, block'}, matches: uint-named}}
             - inside: {stopBy: end, kind: foreach_statement, matches: uint-named}
@@ -176,11 +176,11 @@ utils:
     present:
         any:
             - all: [{matches: guid-present}, {not: {matches: guid-nullable}}]
-            - all: [{matches: guid-present-default}, {matches: guid-proof}]
+            - all: [{matches: guid-present-default}, {matches: guid-typed}]
             - matches: string-present
-            - all: [{matches: string-present-length}, {matches: string-proof}]
-            - all: [{matches: int-present}, {matches: int-proof}]
-            - all: [{matches: uint-present}, {matches: uint-proof}]
+            - all: [{matches: string-present-length}, {matches: string-typed}]
+            - all: [{matches: int-present}, {matches: int-typed}]
+            - all: [{matches: uint-present}, {matches: uint-typed}]
             - matches: negation
               has: {stopBy: end, pattern: $NEGATED, any: [{matches: absent}, {kind: parenthesized_expression, has: {matches: absent}}]}
             - kind: parenthesized_expression
@@ -188,11 +188,11 @@ utils:
     absent:
         any:
             - all: [{matches: guid-absent}, {not: {matches: guid-nullable}}]
-            - all: [{matches: guid-absent-default}, {matches: guid-proof}]
+            - all: [{matches: guid-absent-default}, {matches: guid-typed}]
             - matches: string-absent
-            - all: [{matches: string-absent-length}, {matches: string-proof}]
-            - all: [{matches: int-absent}, {matches: int-proof}]
-            - all: [{matches: uint-absent}, {matches: uint-proof}]
+            - all: [{matches: string-absent-length}, {matches: string-typed}]
+            - all: [{matches: int-absent}, {matches: int-typed}]
+            - all: [{matches: uint-absent}, {matches: uint-typed}]
             - matches: negation
               has: {stopBy: end, pattern: $NEGATED, any: [{matches: present}, {kind: parenthesized_expression, has: {matches: present}}]}
             - kind: parenthesized_expression

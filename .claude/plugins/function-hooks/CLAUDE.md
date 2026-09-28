@@ -1,7 +1,7 @@
 # [FUNCTION_HOOKS]
 
 Policies refuse tool calls. With `observation` true, hook events become sink rows, and stop boundaries spawn judging agents and deliver findings:
-- Use `observation` skill for sink names, scripts, and readers.
+- Use `observation` skill for sink names, scripts, and readers
 
 [TOOL_CALL]: Function hooks hold one decision the harness takes on every tool call before the tool runs, `deny` or `next`
 - ALWAYS use `plugin-authoring` skill for writing or changing a function hook
@@ -20,7 +20,6 @@ Git, stdin, and wait policies read Bash and Monitor commands, script and walker 
 - Wait policy refuses `sleep`, `pwait`, `wait` with an id, `caffeinate -w` or without a command, `tail --pid`, and `lsof` repeat mode
 - Wait policy refuses every command inside a `while` or `until` loop not driven by `read` and inside a `for ((;;))` loop
 - Git policy checks each operand of `git reset` and `git checkout` through `$.fs.exists`, an existing path passes `reset` and refuses `checkout`
-- Refusal is proven headless through `--plugin-dir`, read back from a denied call's result, and from view `denials` when `observation` is true
 
 ## [02]-[RECORDING]
 
@@ -56,17 +55,13 @@ Declarations of `hooks/observation/sql.ts` are the schema, applied as a delta at
 ## [04]-[EXTENSION]
 
 New purpose takes a view, an agent, or a trigger pair, each touching its own owner and live while `observation` is true:
-- View is one `views` element of `open` in `sql.ts` with its reader in the skill and its count in `views.test.ts`
+- View is one `views` element of `open` in `sql.ts` with its reader in the skill
+- `views.test.ts` prepares every view and rebuilds a changed table over rows through `node:sqlite` under target `check`
 - View reads what rows hold and touches no registration, column, agent, or option
 - Agent is one file under `.claude/agents/` preloading `observation` and its rubric's skill
+- Agent name matching no definition refuses the spawn, one log line names it
 - Agent reads rows and the working tree, writes findings through the skill's scripts, and touches nothing in the module
 - Trigger pair is `<kind>Threshold` and `<kind>Agent` in `userConfig` with a `range_kind` row and a `delivery.ts` trigger over one view
 - Options are read once at `register`, a changed value waits for the module's reload, `observation` false leaves every trigger option unread
 - Evidence no row holds is a gap at the module, one payload key or one matcher entry
-
-## [05]-[PROOF]
-
-`claude plugin validate`, target `typecheck`, and `views.test.ts` pass before a live session proves a module change:
-- `views.test.ts` prepares every view and rebuilds a changed table over rows through `node:sqlite`, run under target `check`
 - Sink change without its skill change is a drift no checker reports, an agent's command fails first
-- Agent name matching no definition refuses the spawn, one log line names it

@@ -16,7 +16,6 @@ workspace = [
     "cloudpickle",                                        # Kernel and closure transfer across process and subinterpreter boundaries
     "cryptography",                                       # AES-GCM envelope and key-wrap primitives for per-subject crypto-shredding
     "cyclopts",                                           # CLI parser from typed signatures
-    "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "expression",                                         # Result and Option types with railway composition
     "google-cloud-secret-manager",                        # Google Cloud Secret Manager secret store
     "google-crc32c",                                      # CRC32C integrity check for Google Cloud secret payloads, no cp315 wheel, the sdist builds the pure implementation
@@ -27,7 +26,7 @@ workspace = [
     "loky",                                               # Reusable process pool with worker restart across process and subinterpreter boundaries
     "lxml",                                               # XML processing
     "mcp",                                                # MCP client session over streamable HTTP to the Rhino document listener
-    "msgspec",                                            # Struct types with JSON, MessagePack, TOML, and YAML codecs
+    "msgspec[yaml]",                                      # Struct types with JSON, MessagePack, TOML, and YAML codecs
     "opentelemetry-api",
     "opentelemetry-exporter-otlp-proto-grpc",             # OTLP gRPC exporter beside the proto-http default
     "opentelemetry-exporter-otlp-proto-http",
@@ -58,7 +57,6 @@ workspace = [
     "tomlkit",
     "wasmtime",                                           # In-process WASM guest sandbox for sandboxed workers
     "watchfiles",
-    "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
     "xxhash",                                             # Content identity hashes matching System.IO.Hashing in C#
     # --- [IO_TRANSPORT]
     "asyncssh",                                           # SSH and SFTP client for remote workers
@@ -197,7 +195,6 @@ workspace = [
     "compas_tna",
     "manifold3d",
     "meshio",
-    "rhino3dm",                                           # openNURBS geometry and 3dm file IO, the sdist builds its extension with the cmake build dependency
     "rtree",
     "small-gicp",
     "trimesh",
@@ -317,11 +314,14 @@ dev = [
     "cattrs",                                             # JSON converter over attrs records the use-blender skill scripts call, bundled in Blender's Python
     "coverage",
     "dirty-equals",
+    "editorconfig",                                       # EditorConfig property resolution for a file path, fence indent sizes in prose.py
     "fake-bpy-module-5.2",                                # bpy, bmesh, mathutils, and gpu stubs matching the installed Blender for skill scripts
-    "rhino-stubs-typed",                                  # RhinoCommon and .NET System stubs for the use-rhino skill scripts that run in Rhino's Python
+    "rhino-stubs-typed",                                  # RhinoCommon and Grasshopper stubs for the use-rhino skill scripts that run in Rhino's Python
+    "rhino3dm",                                           # openNURBS geometry and 3dm file IO, the sdist builds its extension with the cmake build dependency
     "hypothesis",
     "moto[server]",
     "mypy",
+    "netstandard-stubs",                                  # .NET System stubs typed from .NET Standard 2.0 for the Rhino interface and use-rhino skill scripts
     "ruff",
     "yamllint",
     "pandas-stubs",
@@ -348,6 +348,7 @@ dev = [
     "types-regex",
     "types-reportlab",
     "types-shapely",
+    "wcwidth",                                            # Display width of text with wide, combining, and emoji characters
 ]
 mcp = [
     "blender-mcp",                                        # Blender Lab MCP server from the [tool.uv.sources] git row, PyPI holds the community server under this name
@@ -371,85 +372,17 @@ required-environments = [
 ]
 prerelease = "allow"
 python-preference = "only-system"
-
-[tool.uv.workspace]
-members = ["tests/python/support", "tools/interface"]
-
-[tool.uv.sources]
-blender-mcp = { git = "https://projects.blender.org/lab/blender_mcp.git", subdirectory = "mcp" }
-
-[tool.uv.extra-build-variables]
-manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }
-opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" }
-
-[tool.uv.extra-build-dependencies]
-rhino3dm = ["cmake"]
-
-[[tool.uv.dependency-metadata]]
-name = "colour-cxf"
-version = "0.1.1"
-requires-python = ">=3.10"
-requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"]
-
-[[tool.uv.dependency-metadata]]
-name = "colour-science"
-version = "0.4.7"
-requires-python = ">=3.11"
-requires-dist = [
-    "numpy<3,>=2.0.0",
-    "biblib-simple; extra == 'docs'",
-    "pydata-sphinx-theme; extra == 'docs'",
-    "restructuredtext-lint; extra == 'docs'",
-    "sphinx; extra == 'docs'",
-    "sphinxcontrib-bibtex; extra == 'docs'",
-    "trimesh<5,>=4; extra == 'meshing'",
-    "imageio<3,>=2; extra == 'optional'",
-    "matplotlib>=3.9; extra == 'optional'",
-    "networkx<4,>=3.3; extra == 'optional'",
-    "opencolorio<3,>=2; python_version < '3.14' and extra == 'optional'",
-    "openimageio<4,>=3; extra == 'optional'",
-    "pandas<3,>=2.2; extra == 'optional'",
-    "pydot<4,>=3; extra == 'optional'",
-    "scipy<2,>=1.13.0; extra == 'optional'",
-    "tqdm<5,>=4; extra == 'optional'",
-    "xxhash<4,>=3; extra == 'optional'",
+exclude-dependencies = ["dotnet-stubs"]                   # Untyped System-stubs on the same path as netstandard-stubs, rhino-stubs-typed requires both
+workspace = { members = ["tests/python/support", "tools/interface"] }
+sources = { blender-mcp = { git = "https://projects.blender.org/lab/blender_mcp.git", subdirectory = "mcp" } }
+extra-build-variables = { manifold3d = { CMAKE_ARGS = "-DMANIFOLD_USE_BUILTIN_TBB=ON" }, opencolorio = { CMAKE_ARGS = "-DOCIO_BUILD_APPS=OFF" } }
+extra-build-dependencies = { rhino3dm = ["cmake"] }
+dependency-metadata = [                                   # Upstream metadata capped below the interpreter version, restated without the cap and without unrequested extras
+    { name = "colour-cxf", version = "0.1.1", requires-python = ">=3.10", requires-dist = ["typing-extensions<5,>=4", "xsdata>25.4"] },
+    { name = "colour-science", version = "0.4.7", requires-python = ">=3.11", requires-dist = ["numpy<3,>=2.0.0"] },
+    { name = "pytensor", version = "2.35.1", requires-python = ">=3.11", requires-dist = ["setuptools>=59.0.0", "scipy<2,>=1", "numpy>=2.0", "filelock>=3.15", "etuples", "logical-unification", "miniKanren", "cons"] },
+    { name = "substrait", version = "0.34.0", requires-python = ">=3.10", requires-dist = ["protobuf<7,>=5", "substrait-protobuf==0.99.0", "substrait-extensions==0.99.0", "substrait-antlr==0.99.0; extra == 'extensions'", "pyyaml; extra == 'extensions'"], provides-extras = ["extensions"] },
 ]
-provides-extras = ["docs", "meshing", "optional"]
-
-[[tool.uv.dependency-metadata]]
-name = "pytensor"
-version = "2.35.1"
-requires-python = ">=3.11"
-requires-dist = [
-    "setuptools>=59.0.0",
-    "scipy<2,>=1",
-    "numpy>=2.0",
-    "filelock>=3.15",
-    "etuples",
-    "logical-unification",
-    "miniKanren",
-    "cons",
-    "jax; extra == 'jax'",
-    "jaxlib; extra == 'jax'",
-    "numba>=0.57; extra == 'numba'",
-    "llvmlite; extra == 'numba'",
-]
-provides-extras = ["jax", "numba"]
-
-[[tool.uv.dependency-metadata]]
-name = "substrait"
-version = "0.31.0"
-requires-python = ">=3.10"
-requires-dist = [
-    "protobuf<7,>=5",
-    "substrait-protobuf==0.99.0",
-    "substrait-extensions==0.99.0",
-    "substrait-antlr==0.99.0; extra == 'extensions'",
-    "pyyaml; extra == 'extensions'",
-    "sqloxide; extra == 'sql'",
-    "deepdiff; extra == 'sql'",
-]
-provides-extras = ["extensions", "sql"]
 
 # --- [RUFF] -----------------------------------------------------------------------------
 
@@ -459,17 +392,12 @@ preview = true
 line-length = 200
 src = [".", "libs/python", "tools"]
 per-file-target-version = { ".claude/skills/use-blender/scripts/*.py" = "py313", ".claude/skills/use-rhino/scripts/*.py" = "py313" }
-
-[tool.ruff.format]
-line-ending = "lf"
-docstring-code-format = true
-skip-magic-trailing-comma = true
+format = { line-ending = "lf", docstring-code-format = true, skip-magic-trailing-comma = true }
 
 [tool.ruff.lint]
 select = ["ALL"]
 ignore = [
     "missing-trailing-comma",
-    "single-line-implicit-string-concatenation",
     "too-many-return-statements",
     "too-many-branches",
     "too-many-locals",
@@ -486,28 +414,18 @@ ignore = [
     "implicit-namespace-package",
     "missing-copyright-notice",
     "commented-out-code",
-    "suppressible-exception",
 ]
-
-[tool.ruff.lint.per-file-ignores]
-"tests/**" = ["assert"]
-
-[tool.ruff.lint.flake8-bandit]
-check-typed-exception = true
-
-[tool.ruff.lint.flake8-boolean-trap]
-extend-allowed-calls = ["ctypes.c_bool"]
-
-[tool.ruff.lint.flake8-import-conventions.extend-aliases]
-"dask.array" =     "da"
-"dask.dataframe" = "dd"
-"scipy" =          "sp"
-"sympy" =          "sym"
-"xarray" =         "xr"
-
-[tool.ruff.lint.flake8-pytest-style]
-parametrize-names-type = "csv"
-raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"]
+per-file-ignores = { "tests/**" = ["assert"] }
+flake8-bandit = { check-typed-exception = true }
+flake8-boolean-trap = { extend-allowed-calls = ["ctypes.c_bool"] }
+flake8-import-conventions = { extend-aliases = { "dask.array" = "da", "dask.dataframe" = "dd", scipy = "sp", sympy = "sym", xarray = "xr" } }
+flake8-pytest-style = { parametrize-names-type = "csv", raises-extend-require-match-for = ["AttributeError", "KeyError", "RuntimeError", "TypeError", "msgspec.ValidationError", "pydantic.ValidationError"] }
+flake8-type-checking = { runtime-evaluated-base-classes = ["msgspec.Struct"] }
+isort = { combine-as-imports = true, force-sort-within-sections = true, order-by-type = false, split-on-trailing-comma = false }
+pycodestyle = { max-line-length = 300 }
+pydocstyle = { convention = "google" }
+pydoclint = { ignore-one-line-docstrings = true }
+pylint = { allow-magic-value-types = ["str", "bytes", "int"], max-args = 8, max-nested-blocks = 3 }
 
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
@@ -561,48 +479,18 @@ require-lazy = [
 "warnings.warn".msg =                "Return an expression.Result for an expected failure"
 "warnings.warn_explicit".msg =       "Return an expression.Result for an expected failure"
 
-[tool.ruff.lint.flake8-type-checking]
-runtime-evaluated-base-classes = ["msgspec.Struct"]
-
-[tool.ruff.lint.isort]
-combine-as-imports = true
-force-sort-within-sections = true
-order-by-type = false
-split-on-trailing-comma = false
-
-[tool.ruff.lint.pycodestyle]
-max-line-length = 300
-
-[tool.ruff.lint.pydocstyle]
-convention = "google"
-
-[tool.ruff.lint.pydoclint]
-ignore-one-line-docstrings = true
-
-[tool.ruff.lint.pylint]
-allow-magic-value-types = ["str", "bytes", "int"]
-max-args = 8
-max-nested-blocks = 3
-
 # --- [TY] -------------------------------------------------------------------------------
 
-[tool.ty.environment]
-python-platform = "all"
-root = [".", "libs/python", "tools"]
-
-[tool.ty.analysis]
-respect-type-ignore-comments = false
-
-[tool.ty.rules]
-all = "error"
-dynamic-function-decorator-return = "ignore"
-unsound-assignment = "ignore"
-unsound-return-statement = "ignore"
+[tool.ty]
+environment = { python-platform = "all", root = [".", "libs/python", "tools"] }
+analysis = { respect-type-ignore-comments = false }
+rules = { all = "error", dynamic-function-decorator-return = "ignore", unsound-assignment = "ignore", unsound-return-statement = "ignore" }
+overrides = [{ include = ["tools/interface/rhino"], rules = { too-many-positional-arguments = "ignore" } }]
 
 # --- [MYPY] -----------------------------------------------------------------------------
 
 [tool.mypy]
-files = ["tests"]
+files = [".", ".claude"]
 mypy_path = ["libs/python", "tools"]
 cache_dir = "$MYPY_CONFIG_FILE_DIR/.cache/mypy"
 strict = true
@@ -613,31 +501,17 @@ exclude_gitignore = true
 disallow_any_explicit = true
 disallow_any_unimported = true
 plugins = ["pydantic.mypy"]
-enable_error_code = [
-    "exhaustive-match",
-    "explicit-override",
-    "ignore-without-code",
-    "redundant-self",
-    "truthy-bool",
-    "truthy-iterable",
-    "unused-awaitable",
+enable_error_code = ["exhaustive-match", "explicit-override", "ignore-without-code", "redundant-self", "truthy-bool", "truthy-iterable", "unused-awaitable"]
+overrides = [
+    { module = "tests.*", disallow_any_explicit = false, disallow_any_unimported = false, warn_unreachable = false, disable_error_code = ["arg-type"] },
+    { module = ["fsspec", "fsspec.*", "s3fs"], ignore_missing_imports = true },
+    { module = "interface.rhino.*", disable_error_code = ["abstract", "call-arg", "type-abstract"] },
 ]
 
 [tool.pydantic-mypy]
 init_typed = true
 init_forbid_extra = true
 warn_required_dynamic_aliases = true
-
-[[tool.mypy.overrides]]
-module = "tests.*"
-disallow_any_explicit = false
-disallow_any_unimported = false
-warn_unreachable = false
-disable_error_code = ["arg-type"]
-
-[[tool.mypy.overrides]]
-module = ["fsspec", "fsspec.*", "s3fs"]
-ignore_missing_imports = true
 
 # --- [PYTEST] ---------------------------------------------------------------------------
 
@@ -684,19 +558,6 @@ markers = [
 
 # --- [COVERAGE] -------------------------------------------------------------------------
 
-[tool.coverage.run]
-branch = true
-relative_files = true
-data_file = ".artifacts/python/coverage/data/.coverage"
-source = ["libs/python", "tests/python/support"]
-
-[tool.coverage.report]
-show_missing = true
-skip_covered = true
-exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"]
-
-[tool.coverage.xml]
-output = ".artifacts/python/coverage/coverage.xml"
-
-[tool.coverage.lcov]
-output = ".artifacts/python/coverage/coverage.lcov"
+[tool.coverage]
+run = { branch = true, relative_files = true, data_file = ".artifacts/python/coverage/data/.coverage", source = ["libs/python", "tests/python/support"] }
+report = { show_missing = true, skip_covered = true, exclude_also = ["assert_never\\(", "if __name__ == .__main__.:"] }

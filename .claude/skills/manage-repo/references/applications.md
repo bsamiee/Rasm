@@ -183,9 +183,9 @@ Navigation and bindings follow one rule in every application, mouse and trackpad
 - Leader prompts list family names in the status bar, then aliases matching a typed prefix, each grayed outside its acting state
 - Enter or Space runs a typed alias, the last alias on an empty prompt
 - Alias rows resolve commands registered when the leader opens
-- One alias table at the interface root holds every alias with its macro, each application's own extension names families and resolves aliases
+- Each application binds alias keys to its own commands
 
-[ALIASES]: Aliases come from the one alias table, an alias outside it goes:
+[ALIASES]: Aliases come from the root alias module, an alias outside it goes:
 - Macros take the application's dialog-free, locale-independent command form
 - Commands and option forms come from the application's command list
 - Macros that pause for a pick block the scripting server that sent them
@@ -196,9 +196,9 @@ Navigation and bindings follow one rule in every application, mouse and trackpad
 
 ## [07]-[COLOR]
 
-Colors come from one generated palette of named hue families and a neutral scale on shared lightness steps, read through one role module:
+One role module computes one palette of named hue families and a neutral scale on shared lightness steps, and applications read colors through its roles:
 - Hue families seed from a named color with cited provenance
-- Roles needing a missing palette color take a new named family or step the generator writes
+- Roles needing a missing palette color take a new named family or step
 - Neutrals are pure grays at the chrome bytes applications fix, and every application's chrome takes neutral steps
 - Elements without a meaning take the neutral scale, any hue on screen marks a meaning
 - Hue separation is measured in normal vision alone, color-deficiency separation is recorded
@@ -213,7 +213,7 @@ Colors come from one generated palette of named hue families and a neutral scale
 - Settings take the role their meaning names, read from each member's draw path in source, and a row sorts by where it draws
 - Meanings no role names add a role at the palette step for their use, a glance apart from ground and neighbors
 - Document ink (layer, print, and new-layer colors) is black, screen ink (display members outside black-to-white switching) white
-- Roles, alphas, and faces are literals over primitives the palette generator writes, ink raw bytes that paper and shadow take
+- Roles, alphas, and faces are literals over palette steps, ink raw bytes that paper and shadow take
 - New applications map every color member of their theme, skin, and settings stores, members no reader draws take their matching sibling's role
 
 [DEPTH]: Regions separate by lightness alone, darker reading farther back:

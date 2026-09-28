@@ -24,7 +24,7 @@ Before searching a category, read the scope's linter and analyzer rules. Categor
 
 ## [03]-[FIX]
 
-Rewrites edit semantically verified selections alone, unverified forms violating the rule stay findings, an invalid rule is deleted unweakened:
+Rewrites edit only selections where the fix keeps behavior, other forms violating the rule stay findings, an invalid rule is deleted unweakened:
 - Count matches before and after under the same rule and paths over the whole affected scope
 - Counts locate unnecessary structure and justify no deletion of a domain invariant or hiding of complexity in another file
 - Resolve warnings from scoped checkers before deriving a rule

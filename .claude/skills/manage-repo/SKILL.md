@@ -45,7 +45,6 @@ Covers project files, targets, tools, workflows, infra rows, and desktop applica
 - Entry points derive their items from declarations, a configuration, script, or README line per item goes
 - Arguments after `--` select an operation's subject (path, app, filter) and never the operation
 - Command prefixes shared across targets (`doppler run`) state no duplicated fact
-- Generated modules are committed, their generator runs first in `format`
 
 ## [02]-[CHECKS]
 

@@ -32,7 +32,7 @@
         <PackageReference Include="xunit.analyzers" PrivateAssets="all" Condition="'$(ProjectRole)' == 'tests'" />
     </ItemGroup>
 
-    <Target Name="AddPlugInWebSite" AfterTargets="GetAssemblyAttributes" Condition="'$(RhinoPlugIn)' == 'true'">
+    <Target Name="AddPlugInWebSite" AfterTargets="GetAssemblyAttributes" Condition="'$(TargetExt)' == '.rhp'">
         <ItemGroup>
             <AssemblyAttribute Include="Rhino.PlugIns.PlugInDescriptionAttribute">
                 <_Parameter1>Rhino.PlugIns.DescriptionType.WebSite</_Parameter1>
@@ -40,6 +40,15 @@
                 <_Parameter2>$(PrivateRepositoryUrl)</_Parameter2>
             </AssemblyAttribute>
         </ItemGroup>
+    </Target>
+
+    <Target Name="BuildYakPackage" AfterTargets="Publish" Condition="'$(TargetExt)' == '.rhp'">
+        <ItemGroup>
+            <_StalePublishFile Include="$(PublishDir)**" Exclude="@(ResolvedFileToPublish->'$(PublishDir)%(RelativePath)')" />
+        </ItemGroup>
+        <Delete Files="@(_StalePublishFile)" />
+        <Exec Command="yak spec" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
+        <Exec Command="yak build" WorkingDirectory="$(PublishDir)" StandardOutputImportance="low" />
     </Target>
 
     <Target Name="CleanTestResults" BeforeTargets="ComputeRunArguments" Condition="'$(IsTestingPlatformApplication)' == 'true'">

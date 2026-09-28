@@ -5,27 +5,27 @@ description: "Use when writing, rebuilding, or reviewing an agent definition, co
 
 # [AGENT_BUILDER]
 
-Agent definitions hold one role with its discovery steps, procedure, owned files, and gate. Every sentence in one is a sentence its agent acts on during a run.
+Agent definitions hold one role with its discovery steps, procedure, and owned files. Every sentence in one is a sentence its agent acts on during a run.
 
 [REFERENCES]:
-- [01]-[TOOL_FORMS](references/tool-forms.md): Proven forms and facts per CLI tool, MCP tool, and Nx target
+- [01]-[TOOL_FORMS](references/tool-forms.md): Forms and facts per CLI tool, MCP tool, and Nx target
 
 ## [01]-[DIVIDE]
 
 | [INDEX] | [HOLDER] | [CONTENT]                                                                         |
 | :-----: | :------- | :-------------------------------------------------------------------------------- |
 |  [01]   | Skill    | Knowledge of a subject every caller applies: intent, criteria, facts of its tools |
-|  [02]   | Agent    | One role's purpose, scope its prompt supplies, order it works in, proof it gives  |
+|  [02]   | Agent    | One role's purpose, scope its prompt supplies, order it works in                  |
 
 Facts sit in the skill or the agent, once:
 - Step 1 reads the references the role applies as `<reference> of <skill>`, `Skill(<name>)` first for a skill the `skills` list lacks
 - References one branch applies sit under that condition
 - Numbered run orders with commands move from a reference into the procedure, the reference keeps each step's criterion
 - Steps name a reference sequence as `under the <name> sequence of <reference>` with the call or reading it lacks
-- Mistakes a run showed enter as the criterion they imply: a judgment in the skill, a tool behavior as a decision fact, a missing proof as a gate line
+- Mistakes a run showed enter as the criterion they imply: a judgment in the skill, a tool behavior as a decision fact
 - Steps repeated across agents with one reading become a rule or a target each agent names
 
-Runs that repeat the same discovery steps and gate get an agent. Roles with inputs of different kinds, different gates, or disjoint owned files are separate agents, one agent takes a difference the prompt names as scope or direction when discovery steps and gate hold for every value.
+Runs that repeat the same discovery steps get an agent. Roles with inputs of different kinds or disjoint owned files are separate agents, one agent takes a difference the prompt names as scope or direction when discovery steps hold for every value.
 
 ## [02]-[SECTIONS]
 
@@ -41,10 +41,9 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 |  [06]   | `role`              | Addresses the agent as you, states purpose, scope, owned files, and decisions |
 |  [07]   | `context_gathering` | Discovery steps in order before the first edit                                |
 |  [08]   | `sources`           | Question-to-source table                                                      |
-|  [09]   | `decision`          | Proven facts that decide a reading                                            |
+|  [09]   | `decision`          | Tool facts that decide a reading                                              |
 |  [10]   | `procedure`         | Imperative steps in run order, each judgment naming its criterion             |
-|  [11]   | `gate`              | Proof commands run at close                                                   |
-|  [12]   | `done_when`         | Observable conditions of a finished run                                       |
+|  [11]   | `done_when`         | Observable conditions of a finished run                                       |
 
 [ROLES]:
 - Role opens with purpose in one paragraph, scope comes from the prompt, an empty scope defaults to the set a file the role reads declares
@@ -68,30 +67,18 @@ Files open with frontmatter and a `# [NAME]` heading, then sections in run order
 - Tables end with the precedence sentence: file on disk, installed declaration, or binary decides over a page or report
 
 [DECISIONS]:
-- Decision facts are tool behaviors that decide a reading, each with the output line that shows it, confirmed on a second case of another shape
-- Every `decision` holds the evidence sentence: an empty scope is a valid result with the commands that proved it, unseen output is no evidence
+- Decision facts are tool behaviors that decide a reading, each with the output line that shows it
 
 [PROCEDURES]:
 - Steps write paths from repository root and name a tool in call form with a deciding argument
 - Steps spell commands as the allow list grants them
-- Each edit is one exact-string replacement with its result read
+- Each edit is one exact-string replacement
+- Checkers of the role's files sit in one step that runs them over scope and fixes each finding
 - Tables one step uses sit under that step, tables more than one step names sit in their own element between `decision` and `procedure`
-- Procedure bounds its fix-and-prove cycles with a count
-- Checks that print nothing both on a miss and on a broken form prove their positive case first
-- Disposable files sit under a private directory the role table owns, procedure ends by deleting it, then runs the gate
-
-[GATES]:
-- Gate lines pair command with result line: exit 0 and no output, `N passed; 0 failed`, a named line in the output
-- Gates for a check silent on clean hold a coverage count or a line the tool prints when it runs
-- Tools that report a missing input at exit 0 get the missing-input line named beside the exit code
-- Gate commands name their scope selector
-- Gate lines run once at close over scope, through the project's target or the tool's own scoped command
-- Gate lines another agent's edit fails are reported with that file and left
-- Cached targets prove a scope when `inputs` hash it
+- Procedure bounds its fix cycles with a count
+- Disposable files sit under a private directory the role table owns, procedure ends by deleting it
 
 [DONE_WHEN]:
-- Done conditions name the replaced form with the command that proves absence by empty output
-- Done conditions hold every gate result line in the transcript, the empty gate included
 - Done conditions hold no partial edit, deferred value, workaround, or run residue
 
 ## [03]-[INTEGRATION]
@@ -118,7 +105,7 @@ Sentences that state what another file owns, or bind the run past its prompt, go
 - Discovery steps that map a file the next step reads whole
 - Sources rows that restate root instructions tool routing
 - Scope enumerations (`one of <a>, <b>, <c>`), a pattern or the prompt supplies scope
-- Output contracts, a run reports what changed, what proved it, and choices for the user
+- Output contracts, a run reports what changed and choices for the user
 - Steps that write a test, spec, fixture, harness, or proof script to verify the run's own work
 - Soft bounds, replaced by condition, command, or criterion
 - Narration of a past run, replaced by the criterion it showed
@@ -130,7 +117,6 @@ Checks on a finished file:
 - `claude plugin validate <agents dir>` for a project agent, `claude plugin validate <plugin>` for a plugin agent, prints `Validation passed`
 - Every path and `skills` entry the file names exists on disk
 - Every target and MCP tool the file names exists, `nx show project <project> --json | jq '.targets|keys'` and `ToolSearch(query: "select:<tool>")`
-- Every command a step or gate holds ran from repository root in the writing session, over a real and a missing input, with its result line kept
 - Rebuilt files keep every command and row of the earlier revision, `git diff <commit> -- <agent>`, or the report names the drop
 
 ## [06]-[DESCRIPTION]

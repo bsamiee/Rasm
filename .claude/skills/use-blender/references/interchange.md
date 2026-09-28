@@ -1,6 +1,6 @@
 # [INTERCHANGE]
 
-Files from CAD and city tools enter through one importer per format, and every import ends with a world-extent check against a dimension the source states.
+Files from CAD and city tools enter through one importer per format.
 
 ## [01]-[IMPORTERS]
 
@@ -25,10 +25,11 @@ Every importer below is an extension operator, present in the live session and i
 - `wm.usd_export` takes `convert_scene_units` (`METERS`, `INCHES`, `FEET`), operator presets sit under `SCRIPTS/presets/operator/<idname>`
 - Rhino files cross through `.glb` for materials and `.3dm` for layers as collections, OBJ, FBX, and USD lose materials, units, or axes
 - Objects from glTF and STEP imports hold `QUATERNION` rotation, `rotation_euler` and both object tools read zero, `matrix_world` holds it
+- Extents off by 1000 or 25.4 mark a unit error and swapped axes an up-axis error, the import reruns with corrected arguments
 
 ## [02]-[MATERIALS]
 
-Rhino and Blender share the metallic-roughness parameters through glTF, each import's materials read back against the source's values:
+Rhino and Blender share the metallic-roughness parameters through glTF:
 - Materials from a Rhino glTF turn on `use_backface_culling`, read specular at half, and hold emission un-linearized
 - `import_3dm` carries base color, metallic, roughness, specular, IOR, transmission, emission, and alpha, and drops coat, sheen, and subsurface
 - `import_3dm` loads only files embedded in the `.3dm`, leaves data images `sRGB`, and connects no normal image
@@ -43,28 +44,7 @@ Wheels of installed extensions import in every Blender process, factory runs inc
 - Rhino: `rhino3dm.File3dm` with one `Layer` and `ObjectAttributes.LayerIndex` on every object, objects on no layer fail `import_3dm` with `KeyError`
 - DXF: `ezdxf.new("R2018")` with `doc.units = ezdxf.units.MM` setting `$INSUNITS`
 
-## [04]-[CHECK]
-
-```python
-# [HEADLESS_CALL] World extent of the objects an import added from their evaluated meshes, compared with a dimension the source states
-import bpy
-from mathutils import Vector
-
-before = set(bpy.data.objects.keys())
-bpy.ops.<importer>(<arguments>)
-new = [o for o in bpy.data.objects if o.name not in before]
-depsgraph = bpy.context.evaluated_depsgraph_get()
-evaluated = [o.evaluated_get(depsgraph) for o in new if o.type in {"MESH", "CURVE"}]
-points = [e.matrix_world @ Vector(v.co) for e in evaluated for v in e.to_mesh().vertices]
-extent = [max(p[i] for p in points) - min(p[i] for p in points) for i in range(3)]
-for e in evaluated:
-    e.to_mesh_clear()
-result = {"objects": [o.name for o in new], "extent_m": extent, "rotation_modes": {o.name: o.rotation_mode for o in new}}
-```
-
-- Extents off by 1000 or 25.4 mark a unit error and swapped axes an up-axis error, the import reruns with corrected arguments
-
-## [05]-[BATCH]
+## [04]-[BATCH]
 
 `scripts/convert.py` runs in a session of its own and imports each file into an empty factory scene there, then writes it through one exporter:
 

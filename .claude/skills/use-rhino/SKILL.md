@@ -63,7 +63,7 @@ Tasks run steps in order before any change:
 5. Files the task names that no document holds read first with `uv run --script <skill>/scripts/file3dm.py <file>...`
 6. `Fault` lines name files Rhino answers with a modal alert that holds every close in the process, and stay unopened
 7. `open -g -b com.mcneel.rhinoceros.9 <file>...` opens other files behind the user's application, each as its own slot, an open file adds no document
-8. Work in the task's named document, else in a scratchpad copy of its unit system's `Template Files/` template, closed unsaved and deleted at the end
+8. Work in the task's named document, else in a temporary copy of its unit system's `Template Files/` template, closed unsaved and deleted at the end
 9. Record the working document's `serial`, `pid`, and `port`
 10. `describe(doc)` fields decide the next step:
 

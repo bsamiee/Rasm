@@ -59,7 +59,5 @@ Constructs with no identifier (table row, a keyed block inside a document read w
 
 - Compare exact item and member identities, order, and cardinality before signatures, flags, and ranges, a partial comparison accepts extra entries
 - Cardinality is a structural count, `ast-grep scan --inline-rules "$(cat <extractor>)" <path> --json=compact | jq length`
-- Added members prove under `--view expanded`
-- Proof runs `--outline-rules <existing>.yml --outline-rules <new>.yml` against the same command without the new file
 - Check each requested view, omitted member signatures in `digest` prove no failed transformation
 - Check a replaced default for lost constructs and duplicate entries

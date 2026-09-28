@@ -52,7 +52,7 @@ curl -s -X POST <endpoint>/ -H 'Content-Type: application/json' \
 ```
 
 - Resource `rhino://host/environment` names Rhino, OS, and .NET
-- `run_python` takes its code as `script`, sent from a scratchpad file through `--data-binary @<file>`, shell-quoted JSON breaks on a quote
+- `run_python` takes its code as `script`, sent from a file through `--data-binary @<file>`, shell-quoted JSON breaks on a quote
 - Listener calls skip the project hook, a script there opens with `# env: <skill>/scripts` to import skill modules
 - Direct results hold `stdout` and `stderr` blocks, a raise adds an `error` block first and keeps the stdout printed before it
 - `PlugIn.GetPlugInInfo(pair.Key)` over `PlugIn.GetInstalledPlugIns()` pairs lists each plugin's `IsLoaded`, `FileName`, and visible `CommandNames`

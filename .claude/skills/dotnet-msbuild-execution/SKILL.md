@@ -225,7 +225,7 @@ Failed tasks stop their target and the build unless `ContinueOnError` says other
 </Target>
 ```
 
-Command line switches prove what a target returns and control the whole build:
+Command line switches print what a target returns and control the whole build:
 
 | [INDEX] | [SWITCH]                               | [EFFECT]                                                                 |
 | :-----: | :------------------------------------- | :----------------------------------------------------------------------- |

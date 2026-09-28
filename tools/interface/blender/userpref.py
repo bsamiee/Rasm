@@ -1,6 +1,7 @@
 """Blender's stored preferences file read and written through its own SDNA, holding the asset shelf catalog tabs the libraries' catalog trees declare."""
 
 from collections.abc import Iterable, Iterator, Mapping
+from compression import zstd
 from functools import reduce
 from itertools import accumulate, count
 from math import prod
@@ -10,7 +11,6 @@ import struct
 from typing import Final
 from uuid import UUID
 
-from compression import zstd
 import msgspec
 
 from interface.host import Change

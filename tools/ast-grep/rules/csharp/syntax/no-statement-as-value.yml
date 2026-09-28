@@ -90,4 +90,4 @@ rule:
         - matches: invoked-action
         - matches: reread-write
 message: '`$VALUE` spells statements as a value'
-note: Use a block body of host statements, an `if` statement for a discarded branch, and the write before the read that checks it
+note: Use a block body of host statements, an `if` statement for a discarded branch, and the write alone with no read of its target

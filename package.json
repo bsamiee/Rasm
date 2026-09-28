@@ -274,7 +274,6 @@
         "yaml": "catalog:"
     },
     "nx": {
-        "tags": ["language:typescript"],
         "targets": {
             "restore": {
                 "command": "dotnet restore Workspace.slnx",
@@ -292,8 +291,7 @@
                     "commands": [
                         "tree-sitter build --output .cache/ast-grep/xml.so node_modules/@tree-sitter-grammars/tree-sitter-xml/xml",
                         "tree-sitter build --output .cache/ast-grep/sql.so node_modules/@derekstride/tree-sitter-sql"
-                    ],
-                    "parallel": true
+                    ]
                 }
             },
             "rewrite": { "command": "ast-grep scan -U --no-ignore hidden", "parallelism": false, "dependsOn": ["grammar"] },
@@ -326,8 +324,7 @@
                         "actionlint",
                         "fd --hidden --extension java --exec-batch google-java-format --aosp --dry-run --set-exit-if-changed",
                         "fd --hidden --extension java --exec-batch pmd check --rulesets pmd.xml --use-version java-27 --cache .cache/pmd/java --no-progress"
-                    ],
-                    "parallel": true
+                    ]
                 }
             },
             "format": {
@@ -335,7 +332,6 @@
                 "dependsOn": ["restore"],
                 "options": {
                     "commands": [
-                        "node tools/interface/palette.ts",
                         "biome check --write --error-on-warnings",
                         "ruff check --fix",
                         "ruff format",
@@ -347,13 +343,18 @@
                 }
             },
             "typecheck": {
+                "executor": "nx:run-commands",
+                "cache": true,
                 "inputs": [
                     "typescript",
+                    "python",
                     "{workspaceRoot}/tsconfig.json",
                     "{workspaceRoot}/*.config.ts",
-                    "{workspaceRoot}/{infra,tools/nx,tools/interface}/*.ts",
+                    "{workspaceRoot}/{infra,tools/nx}/*.ts",
+                    "{workspaceRoot}/**/*.py",
                     { "externalDependencies": ["typescript"] }
                 ],
+                "options": { "commands": ["tsc --build --pretty false", "ty check", "mypy"] },
                 "outputs": ["{workspaceRoot}/.cache/typescript/out/root"]
             },
             "check": { "dependsOn": ["lint", "typecheck"] },
@@ -369,7 +370,7 @@
                 "executor": "nx:run-commands",
                 "parallelism": false,
                 "dependsOn": [{ "projects": ["tag:language:swift"], "target": "upgrade" }],
-                "outputs": ["{workspaceRoot}/.artifacts/yak", "{workspaceRoot}/.cache/tools/interface"],
+                "outputs": ["{workspaceRoot}/.cache/tools/interface"],
                 "options": {
                     "commands": [
                         "uv sync --upgrade",

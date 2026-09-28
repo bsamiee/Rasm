@@ -1,36 +1,253 @@
-"""Alias families by first key, and the command aliases with their Rhino macros that `aliases.txt` beside this module holds."""
+# ruff: file-ignore[ambiguous-variable-name]
+"""Command alias families by first key and every alias by its typed key with the label every application shows for it."""
 
-from pathlib import Path
-from types import MappingProxyType
-from typing import Final
+from collections.abc import Iterable
+from enum import Enum
 
-# --- [TABLES] ---------------------------------------------------------------------------
+# --- [TYPES] ----------------------------------------------------------------------------
 
-FAMILIES: Final = MappingProxyType({
-    "Q": "Curves and points",
-    "W": "Rectangles and polygonal primitives",
-    "E": "Circles and round primitives",
-    "R": "Rotate, orient, mirror, and view",
-    "T": "Text, scale, and deformation",
-    "A": "Offset, boolean, arrays, and flow",
-    "S": "Surfaces",
-    "D": "Dimensions and measurement",
-    "F": "Trim, join, fillet, and cut",
-    "G": "Group, visibility, and guides",
-    "Z": "Zoom and views",
-    "X": "Extrude, extract, and project",
-    "C": "Copy, construction planes, and clipping",
-    "V": "Move, align, and select",
-    "B": "Blocks",
-    "M": "Merge and match",
-    "L": "Layouts",
-    "I": "Import and insert",
-    "P": "Purge and cleanup",
-})
-COMMAND_ALIASES: Final = MappingProxyType({
-    name: macro for name, _, macro in (entry.partition(" ") for entry in Path(__file__).with_name("aliases.txt").read_text(encoding="utf-8").splitlines() if entry)
-})
+
+class Family(Enum):
+    """Alias families by first key, each named by its commands."""
+
+    Q = "Curves"
+    W = "Rectangles"
+    E = "Circles"
+    R = "Rotate"
+    T = "Text"
+    A = "Offset"
+    S = "Surfaces"
+    D = "Dimensions"
+    F = "Trim"
+    G = "Group"
+    Z = "Zoom"
+    X = "Extrude"
+    C = "Copy"
+    V = "Move"
+    B = "Blocks"
+    M = "Merge"
+    L = "Layouts"
+    I = "Import"
+    P = "Purge"
+
+
+class Alias(Enum):
+    """Aliases by typed key, each valued by the label every application shows for it."""
+
+    Q = "Line"
+    Q1 = "Extend"
+    Q2 = "Connect"
+    Q5 = "Show Ends"
+    QQ = "Polyline"
+    QW = "Arc"
+    QE = "Interpolated Curve"
+    QR = "Tween Curves"
+    QV = "Vertical Line"
+    QA = "Point"
+    QS = "Points"
+    QD = "Divide by Length"
+    QF = "Divide by Segments"
+    QZ = "Point Cloud"
+    QZZ = "Reduce Point Cloud"
+    W = "Rectangle 3 Points"
+    W1 = "Rectangle Corner to Corner"
+    W2 = "Rectangle from Center"
+    W3 = "Rounded Rectangle"
+    WV = "Vertical Rectangle"
+    WQ = "Polygon"
+    WW = "Box"
+    WE = "Tube"
+    WR = "Cone"
+    WA = "Pyramid"
+    E = "Circle"
+    E1 = "Circle 3 Points"
+    E2 = "Circle Tangent with Radius"
+    E3 = "Circle Tangent"
+    E4 = "Circle around Curve"
+    EV = "Vertical Circle"
+    EQ = "Sphere"
+    EW = "Cylinder"
+    EE = "Ellipsoid"
+    ER = "Torus"
+    EA = "Paraboloid"
+    R = "Rotate"
+    R1 = "Symmetry"
+    R2 = "Mirror"
+    RQ = "Orient"
+    RW = "Orient on Curve"
+    RE = "Orient on Surface"
+    RL = "Rotate View Left"
+    RLL = "Rotate View Left Half Turn"
+    RR = "Rotate View Right"
+    RRR = "Rotate View Right Half Turn"
+    RU = "Rotate View Up Half Turn"
+    RD = "Rotate View Down Half Turn"
+    T = "Text"
+    TT = "Text Object"
+    T1 = "Scale 1-D"
+    T2 = "Scale 2-D"
+    T3 = "Scale 3-D"
+    T4 = "Scale Each"
+    TQ = "Stretch"
+    TW = "Shear"
+    TE = "Taper"
+    TA = "Bend"
+    TS = "Twist"
+    A = "Offset"
+    A1 = "Offset Multiple"
+    A2 = "Offset Surface"
+    A3 = "Inset"
+    AQ = "Curve Boolean"
+    AW = "Boolean Union"
+    AE = "Boolean Difference"
+    AR = "Boolean Intersection"
+    AT = "Boolean Split"
+    AA = "Array"
+    AS = "Array along Curve"
+    AD = "Array on Surface"
+    AF = "Flow"
+    AG = "Array along Curve on Surface"
+    AZ = "Array Linear"
+    AX = "Array Polar"
+    S = "Plane"
+    S1 = "Extend Surface"
+    S2 = "Connect Surfaces"
+    S3 = "Plane 3 Points"
+    S4 = "Surface from Planar Curves"
+    S5 = "Surface from Edge Curves"
+    S6 = "Duplicate Edge"
+    SV = "Vertical Plane"
+    SQ = "Sweep 1 Rail"
+    SW = "Sweep 2 Rails"
+    SE = "Loft"
+    SR = "Revolve"
+    ST = "Project"
+    SA = "Cap"
+    SS = "Shell"
+    SD = "Slab"
+    SF = "Pipe"
+    SZ = "Boss"
+    SX = "Rib"
+    D = "Distance"
+    D2 = "Dimension Curve Length"
+    D3 = "Area Centroid"
+    DL = "Length"
+    DA = "Area"
+    DV = "Volume"
+    DQ = "Dimension Aligned"
+    DQQ = "Dimension Aligned on Object Plane"
+    DW = "Dimension Angle"
+    DE = "Dimension Diameter"
+    DR = "Dimension Radius"
+    DT = "Dimension on Object Plane"
+    DZ = "Dot"
+    DS = "Leader"
+    F = "Trim"
+    FF = "Join"
+    F1 = "Fillet"
+    F2 = "Chamfer"
+    F3 = "Blend Curves"
+    F4 = "Blend Surfaces"
+    FQ = "Split"
+    FW = "Divide"
+    FE = "Explode"
+    FR = "Rebuild"
+    FA = "Infinite Plane"
+    FS = "Cutting Plane"
+    FD = "Wire Cut"
+    G = "Group"
+    GU = "Ungroup"
+    GH = "Hide"
+    GJ = "Show"
+    GI = "Isolate"
+    GO = "Unisolate"
+    GL = "Lock"
+    GP = "Unlock"
+    GW = "Add Guide"
+    GE = "Remove Guide"
+    Z = "Zoom Window"
+    ZZ = "Zoom Target"
+    ZE = "Zoom Extents"
+    ZS = "Zoom Selected"
+    ZF = "Front"
+    ZB = "Back"
+    ZT = "Top"
+    ZL = "Left"
+    ZR = "Right"
+    ZC = "Plan"
+    ZP = "Perspective"
+    X = "Push Pull"
+    XQ = "Extrude Curve"
+    XW = "Extrude Surface"
+    XE = "Extract Surface"
+    XR = "Project to Plane"
+    C = "Copy"
+    CC = "Construction Plane 3 Points"
+    CT = "Construction Plane World Top"
+    CS = "Construction Plane to Surface"
+    CO = "Construction Plane to Object"
+    CP = "Construction Plane to Curve"
+    CQ = "Vertical Clipping Plane"
+    CW = "Clipping Plane"
+    CE = "Clipping Box"
+    CR = "Edit Clipping Box"
+    CD = "Clipping Off"
+    CDD = "Clipping On"
+    V = "Move"
+    VA = "Align"
+    VS = "Distribute"
+    VK = "Set Point"
+    VV = "Brush Select"
+    VD = "Select Dimensions"
+    VB = "Select Instances"
+    VL = "Select Last"
+    VP = "Select Previous"
+    VO = "Select All"
+    VI = "Invert Selection"
+    VQ = "Highlight Object Layers"
+    VW = "Set Layer to Object"
+    VE = "Select Layer"
+    B = "Block"
+    BN = "Rename"
+    BQ = "Create Unique Block"
+    BW = "Add Objects to Block"
+    BE = "Block Manager"
+    BA = "Block Edit"
+    BS = "Replace Block"
+    BD = "Explode Block"
+    BF = "Reset Scale"
+    MF = "Merge Faces"
+    MS = "Merge Surfaces"
+    MC = "Merge Curves"
+    ME = "Merge Edges"
+    ML = "Match Layer"
+    MP = "Match Properties"
+    MM = "Match Mapping"
+    LLM = "Layouts"
+    LD = "Add Detail"
+    LN = "Detail from Detail"
+    LS = "Scale Detail"
+    LG = "New Layout"
+    IM = "Import"
+    IN = "Insert"
+    PQ = "Purge"
+    PW = "Delete Duplicates"
+
+    @property
+    def family(self) -> Family:
+        """Family the alias's first key names."""
+        return Family[self.name[0]]
+
+
+# --- [OPERATIONS] -----------------------------------------------------------------------
+
+
+def families(names: Iterable[str]) -> tuple[Family, ...]:
+    """Families holding one of the alias names, in key order."""
+    held = {Alias[name].family for name in names}
+    return tuple(family for family in Family if family in held)
+
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["COMMAND_ALIASES", "FAMILIES"]
+__all__ = ["Alias", "Family", "families"]

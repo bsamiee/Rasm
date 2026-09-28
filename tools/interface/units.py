@@ -25,7 +25,7 @@ class Pen(float, Enum):
     MEDIUM = 0.35 * MILLIMETER
 
 
-class System(NamedTuple):
+class Standard(NamedTuple):
     """Unit system's tokens, sheet scale denominator, and lengths in meters, the page unit, text cap height, sheet and document sizes, and margin on paper."""
 
     length: str
@@ -45,10 +45,10 @@ class System(NamedTuple):
     margin: float
 
 
-class Units(System, Enum):
+class Units(Standard, Enum):
     """Unit systems by the name applications store for them."""
 
-    IMPERIAL = System(
+    IMPERIAL = Standard(
         length="FEET",
         page="INCHES",
         page_unit=INCH,
@@ -65,7 +65,7 @@ class Units(System, Enum):
         document=(8.5 * INCH, 11 * INCH),
         margin=INCH / 2,
     )
-    METRIC = System(
+    METRIC = Standard(
         length="MILLIMETERS",
         page="MILLIMETERS",
         page_unit=MILLIMETER,

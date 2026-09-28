@@ -9,7 +9,7 @@ Review catalog for project and build files, each entry names the smell, the fail
 - `OK` marks a form to leave
 - `ERROR` names a build failure, a wrong value, or a wrong output
 - `STYLE` names a form that builds and costs maintenance or time
-- Entries naming a `BC` code hold their proof in the `-check` build, every other entry in its section's command over the files
+- Entries naming a `BC` code are BuildCheck diagnostics
 - Use `dotnet-msbuild-diagnostics` for the BuildCheck baseline
 - Use `dotnet-msbuild-evaluation` for the evaluation rule behind an entry
 
@@ -17,8 +17,6 @@ Review catalog for project and build files, each entry names the smell, the fail
 - [01]-[WORKED_EXAMPLES](references/worked-examples.md): Corrections that span more than one element
 
 ## [01]-[EVALUATION]
-
-Prove each with `dotnet msbuild <project> -getProperty:<Name>`
 
 ### [01.1]-[AP-01]-[ERROR]-[UNQUOTED_CONDITION_OPERANDS]
 
@@ -88,8 +86,6 @@ GOOD:
 ```
 
 ## [02]-[PLACEMENT]
-
-Prove each with `-getProperty` from one project, and with `-pp:` when the assignment source is in question.
 
 ### [02.1]-[AP-04]-[ERROR]-[PROPERTY_DEFAULTS_IN_TARGETS_FILES]
 
@@ -259,8 +255,6 @@ GOOD in `Directory.Build.props`:
 
 ## [03]-[ITEMS_AND_REFERENCES]
 
-Prove each with `dotnet msbuild <project> -getItem:<Type>`.
-
 ### [03.1]-[AP-11]-[ERROR]-[ITEM_UPDATE_OR_REMOVE_BEFORE_THE_SDK_INCLUDE]
 
 - SMELL: `Update` or `Remove` in `Directory.Build.props`, an `Update` matching no item, or an `Include` of a file the default glob matches
@@ -425,8 +419,6 @@ GOOD in `Directory.Build.targets`:
 
 ## [04]-[TARGETS]
 
-Prove each with a build at `-v:n`, and a repeated build for the incremental case.
-
 ### [04.1]-[AP-18]-[STYLE]-[CUSTOM_TARGETS_MISSING_INPUTS_AND_OUTPUTS]
 
 - SMELL: A target writing files without `Inputs` and `Outputs`, or a target combining unrelated work
@@ -536,8 +528,6 @@ GOOD:
 ```
 
 ## [05]-[EXECUTION_AND_PATHS]
-
-Prove each with a build on the current host, the `Exec` command line reads at `-v:n`.
 
 ### [05.1]-[AP-23]-[STYLE]-[HARDCODED_ABSOLUTE_PATHS]
 
@@ -669,7 +659,7 @@ GOOD:
 
 ## [06]-[BUILD_GRAPH]
 
-Prove each with `binlog_evaluations` on a `-bl:{}.binlog` build, repeated evaluations of one project outside restore share the output paths.
+Repeated evaluations of one project outside restore share the output paths.
 
 ### [06.1]-[AP-28]-[ERROR]-[DUPLICATE_PROJECT_INSTANCE_WITH_SHARED_OUTPUT_PATH]
 

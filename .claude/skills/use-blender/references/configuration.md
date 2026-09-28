@@ -1,6 +1,6 @@
 # [CONFIGURATION]
 
-Preferences, add-on records, repositories, keymaps, themes, fonts, and units, each written through the API in one process and read back from the store that holds it.
+Preferences, add-on records, repositories, keymaps, themes, fonts, and units, each written through the API in one process.
 
 ## [01]-[STORES]
 
@@ -15,19 +15,14 @@ Preferences, add-on records, repositories, keymaps, themes, fonts, and units, ea
 - `filepaths.use_load_ui` False keeps the startup screens when a file opens, the workspace active at `save_homefile` opens the next session
 - Add-on Scene properties save into `startup.blend` and every file made from it, a disabled add-on's keys stay until deleted
 
-## [02]-[READBACK]
+## [02]-[PROPERTIES]
 
-- Writes read back by path, and one walk before and one after a step names every change the step caused
-- Walks follow `bl_rna.properties`, skip `rna_type` and `bl_rna`, record ID pointers by name, and key collection items by `name_property` when unique
-- Nested RNA structs share their owner's address, a cycle guard keys on `(as_pointer(), type)`, the address alone hides whole sections
 - Factory values come from a `--factory-startup` process, `prop.default` misreports `keyframe_new_handle_type`, `audio_device`, and `font_directory`
 - Dynamic enums list `NONE` or `DEFAULT` in `bl_rna` (`display_device`, `view_transform`, `look`, `render.engine`, `length_unit`, `temperature_unit`)
 - Valid items of a dynamic enum come from the `TypeError` of an unknown identifier, `enum "X" not found in (...)`, the value restored after the read
 - `show_statusbar_vram` on Metal, `support_emulation`, and `use_remote_asset_libraries` raise `AttributeError` on write
 - `system.dpi`, `ui_scale`, `pixel_size`, and `ui_line_width` are runtime results of `view.ui_scale` and `view.ui_line_width`
 - `system.gpu_preferred_device` reads METAL in the GUI and AUTO headless
-- Theme structs mix `COLOR_GAMMA` arrays with scalars (`grid_levels`, `dash_alpha`, `noodle_curving`), a walk branches on `subtype` or `array_length`
-- `SpaceNodeEditor.cursor_location`, `SpaceConsole.select_start`, `select_end`, and `Preferences.is_dirty` change with use and leave the comparison
 - `FileSelectParams.directory` is a byte string that reads back with a trailing separator, writes take `f"{folder}/".encode()`
 - `PASSWORD` subtype properties (`access_token`, API keys) store plain text and leave every report
 
@@ -70,7 +65,7 @@ Preferences, add-on records, repositories, keymaps, themes, fonts, and units, ea
 
 ## [06]-[THEME]
 
-- Theme colors store bytes exposed as `COLOR_GAMMA` floats, a write of `byte / 255` reads back quantized, comparisons run on bytes
+- Theme colors store bytes exposed as `COLOR_GAMMA` floats, a write of `byte / 255` reads back quantized
 - `View3DShading.single_color` and `object_outline_color` are `COLOR` properties holding scene linear values
 - Add-on colors drawn through the `gpu` module read as sRGB whatever their subtype
 - Preset clicks run `reset_default_theme` then the preset XML, `Blender_Dark.xml` is a pure reset, and every override written before it goes

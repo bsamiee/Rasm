@@ -210,4 +210,4 @@ mcp__exa__agent_run {
 mcp__exa__agent_run {"runId": "<id>"}
 ```
 
-Research output proposes claims. Confirm versions at registries, releases at tags, issue state through repository APIs, and other facts in source text. Briefs state conclusions with supporting URLs and unresolved questions with sources examined.
+Research output proposes claims. Confirm versions at registries, releases at tags, issue state through repository APIs, and other facts in source text. Reports state conclusions with supporting URLs and unresolved questions with sources examined.

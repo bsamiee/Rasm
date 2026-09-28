@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, invalid-assignment, not-subscriptable, unsupported-operator, no-matching-overload]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, attr-defined, call-overload"
+# ty: ignore[unresolved-import, unresolved-attribute, invalid-argument-type, invalid-assignment, not-subscriptable, unsupported-operator, no-matching-overload, too-many-positional-arguments]
+# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, attr-defined, call-overload, call-arg, type-abstract"
 # /// script
 # dependencies = ["msgspec", "pillow"]
 #
@@ -247,7 +247,7 @@ def _setter(doc: RhinoDoc, properties: Properties) -> Callable[[Layer | ObjectAt
 
 def _objects(doc: RhinoDoc, ids: Iterable[str | Guid]) -> list[RhinoObject] | tuple[Fault, ...]:
     """Return the objects `ids` name, refusing each id the document lacks."""
-    found = [(key, doc.Objects.FindId(Guid(key))) for key in map(str, ids)]
+    found = [(key, doc.Objects.FindId(Guid.Parse(key))) for key in map(str, ids)]
     return tuple(Fault(RhinoObject, key) for key, rhino_object in found if rhino_object is None) or [rhino_object for _, rhino_object in found]
 
 

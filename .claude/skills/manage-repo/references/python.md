@@ -7,6 +7,7 @@ uv owns resolution, lock, and environment of the root project file.
 - Version bounds exist for a resolver conflict, stated in the row comment
 - `default-groups` names groups `uv sync` installs, `"all"` every group, `--only-group <group>` one group without the project
 - `prerelease = "allow"` accepts prereleases for every package
+- CI syncs `dev` and every member, `dev` lists packages that files outside members import and no member installs
 
 ## [02]-[LOCK]
 
@@ -14,13 +15,13 @@ uv owns resolution, lock, and environment of the root project file.
 - `environments` restricts resolution to disjoint PEP 508 markers
 - `required-environments` names platforms a package without a source distribution must publish a wheel for
 - `[tool.uv.workspace] members` globs name the `pyproject.toml` files one root lock covers
+- When packages install one path, `exclude-dependencies` in root `[tool.uv]` drops all but one from resolution however a dependency requests them
 - `uv run` installs a PEP 723 script's inline dependencies into an ephemeral environment `uv.lock` does not pin
 
 ## [03]-[ENVIRONMENT]
 
 - `uv sync` installs the workspace root, `--all-packages` every member
 - `python-preference = "only-system"` excludes uv-managed interpreters, `UV_PYTHON` names the interpreter
-- Script folder a target runs is a workspace member with a `pyproject.toml` naming its dependencies
 - Members without `[build-system]` lock as `virtual` and never install, a packaged member installs when a root dependency group names it
 - Targets run a member as `python -m <member>.<module>` from its parent folder, or with it on `PYTHONPATH` beside root commands
 - Target commands find the synced `.venv` on `PATH` through mise `python.uv_venv_auto`, `uv run` syncs before every run
@@ -35,6 +36,8 @@ uv owns resolution, lock, and environment of the root project file.
 - `respect-type-ignore-comments = false` makes ty read `ty: ignore` comments alone, a line ignoring both checkers carries both comments
 - Packages with no stubs or `py.typed` take a mypy `ignore_missing_imports` override by module, ty reads their source
 - Header `disable-error-code` codes that suppress nothing stay silent in mypy
+- `mypy` skips dot-prefixed children in a directory walk, each hidden tree takes its own `files` row
 - Per-path target versions exist in ruff alone, mypy checks every file at one version, ty checks a PEP 723 script at its `requires-python`
+- PEP 723 scripts are ty projects outside `[[tool.ty.overrides]]`, a header `ty: ignore` exempts one, mypy overrides name its unqualified module
 - `exhaustive-match` notes in mypy offer `case _: pass`, a `case None:` arm with a body or a narrowing before `match` clears the error
 - Calls through a union of bound methods with differing signatures fail mypy and ty, each `match` arm calls its own typed method

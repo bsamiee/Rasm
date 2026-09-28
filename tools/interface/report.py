@@ -16,8 +16,7 @@ class Kind(StrEnum):
     HEADER = auto()
     CHANGE = auto()
     SKIP = auto()
-    MEASURE = auto()
-    PLUGIN = auto()
+    MEASUREMENT = auto()
     ERROR = auto()
 
 
@@ -52,16 +51,16 @@ def digest(content: bytes) -> str:
 
 
 def changes(label: str, before: object, target: object) -> Iterator[str]:
-    """Change line for each value a write moves off its held value, per key at every mapping depth."""
+    """Change line for each value a write moves off its held value, per key of either mapping at every depth, a name labeled `["name"]` and an index `[n]`."""
     match before, target:
         case Mapping() as held, Mapping() as wanted:
-            yield from chain.from_iterable(changes(f"{label} {name}", held.get(name), value) for name, value in wanted.items())
+            yield from chain.from_iterable(changes(f'{label}["{name}"]' if isinstance(name, str) else f"{label}[{name}]", held.get(name), wanted.get(name)) for name in dict.fromkeys((*wanted, *held)))
         case _ if before != target:
             yield line(Kind.CHANGE, label, repr(before), repr(target))
 
 
-def converged(row: Row, plain: Callable[[object], object]) -> Iterator[str]:
-    """Change lines of the row, its target written when the host's plain form of its value differs."""
+def converged(row: Row, plain: Callable[[object], object] = lambda value: value) -> Iterator[str]:
+    """Change lines of the row, its target written when the plain form of its value differs."""
     before, target = plain(row.read()), plain(row.target)
     if before != target:
         row.write()

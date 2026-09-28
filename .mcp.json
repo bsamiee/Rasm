@@ -95,7 +95,8 @@
         },
         "rhino-mcp-platform": {
             "command": "mise",
-            "args": ["exec", "--", "rhino-mcp-router"]
+            "args": ["exec", "--", "rhino-mcp-router"],
+            "env": { "RHINO_PATH": "/Applications/RhinoBETA.app" }
         },
         "blender": {
             "command": "mise",

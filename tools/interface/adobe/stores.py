@@ -18,6 +18,7 @@ from psd_tools.constants import OSType
 from psd_tools.psd.base import ValueElement
 from psd_tools.psd.descriptor import Descriptor, List, String, TYPES
 
+from interface import host
 from interface.adobe import workspaces
 from interface.adobe.aliases import LABEL, Prompt
 from interface.adobe.rows import (
@@ -43,7 +44,6 @@ from interface.adobe.rows import (
     Workspace,
 )
 from interface.adobe.workspaces import Frame, hex_string
-from interface.host import plist
 from interface.render import DPI
 from interface.report import ABSENT, digest, Kind, line
 from interface.units import POINT
@@ -63,19 +63,6 @@ PAGE: Final = 0x1000
 STORE_TEXT: Final = "latin-1"
 
 # --- [MODELS] ---------------------------------------------------------------------------
-
-
-class Bundle(msgspec.Struct, frozen=True, rename={"name": "CFBundleName", "version": "CFBundleShortVersionString", "identifier": "CFBundleIdentifier"}):
-    """Bundle's `Info.plist` keys its stores and report header derive from, the name holding the release channel in parentheses and the identifier naming the preference domain."""
-
-    name: str
-    version: str
-    identifier: str
-
-    @property
-    def channel(self) -> tuple[str, ...]:
-        """Release channel words the bundle name carries in parentheses, none for a release build."""
-        return tuple(re.findall(r"\(([^)]*)\)", self.name))
 
 
 class Identity(msgspec.Struct, frozen=True, rename={"identity": "id", "source": "presetSource"}):
@@ -101,7 +88,7 @@ class Registration(msgspec.Struct, frozen=True, rename="camel"):
 class Folders(msgspec.Struct, frozen=True):
     """Product's stores derived once from its bundle, with the Adobe UXP folder every product's plug-ins, plug-in data, and registries share."""
 
-    bundle: Bundle
+    bundle: host.Bundle
     uxp: anyio.Path
 
 
@@ -215,7 +202,7 @@ def stored(access: Leaf | Shared, target: object) -> object:
         case Leaf(code=3), Fixed(value=number):
             return [3, fixed(number) / fixed(1)]
         case Leaf(code=6), (int() as red, int() as green, int() as blue):
-            return [6, struct.pack("<B3x4i", 1, *(fixed(Fixed.channel(channel).value) for channel in (red, green, blue)), 0)]
+            return [6, struct.pack("<B3x4i", 1, *(fixed(Fixed.channel(byte).value) for byte in (red, green, blue)), 0)]
         case Leaf(code=code), _:
             return [code, target]
         case _:
@@ -254,14 +241,19 @@ async def domain_written(domain: str, declared: tuple[tuple[Row, Leaf | Shared],
 
 
 # --- [FOLDERS]
+def channel(bundle: host.Bundle) -> tuple[str, ...]:
+    """Release channel words the bundle name carries in parentheses, none for a release build."""
+    return tuple(re.findall(r"\(([^)]*)\)", bundle.name))
+
+
 async def located(product: Product, bundle: Path) -> Folders:
     """Product's stores from its bundle and Adobe's UXP folder: Illustrator's settings folders and installed `Presets.localized/<locale>`, Photoshop's settings folder and application support `Presets`, else the bundle's keys alone."""
-    info, library = await plist(bundle, Bundle), (await anyio.Path.home()).joinpath("Library")
+    info, library = await host.bundle(bundle), (await anyio.Path.home()).joinpath("Library")
     adobe = library.joinpath("Application Support", "Adobe")
     match product:
         case Product.ILLUSTRATOR:
             locale = msgspec.convert((await exported("NSGlobalDomain"))["AppleLanguages"], tuple[str, ...])[0].replace("-", "_")
-            settings = PurePosixPath(" ".join((bundle.stem, info.version, *info.channel, "Settings")), locale)
+            settings = PurePosixPath(" ".join((bundle.stem, info.version, *channel(info), "Settings")), locale)
             return Support(info, adobe / "UXP", library.joinpath("Preferences", settings), anyio.Path(bundle.parent, "Presets.localized", locale), adobe / settings)
         case Product.PHOTOSHOP:
             return Settings(info, adobe / "UXP", library.joinpath("Preferences", f"{bundle.stem} Settings"), adobe.joinpath(bundle.stem, "Presets"))
@@ -271,8 +263,10 @@ async def located(product: Product, bundle: Path) -> Folders:
 
 async def storage(folders: Folders, access: Overlay) -> tuple[anyio.Path, bool]:
     """UXP storage folder of the overlay's plug-in, `<product><CHANNEL>/<major>/External/<id>/PluginData`, and whether the product's registry lists the plug-in enabled."""
-    listed, channel = folders.uxp.joinpath("PluginsInfo", "v1", access.registry), "".join(word.upper() for word in folders.bundle.channel)
-    folder = folders.uxp.joinpath("PluginsStorage", f"{access.product}{channel}", folders.bundle.version.partition(".")[0], "External", access.plugin, "PluginData")
+    listed = folders.uxp.joinpath("PluginsInfo", "v1", access.registry)
+    folder = folders.uxp.joinpath(
+        "PluginsStorage", f"{access.product}{''.join(map(str.upper, channel(folders.bundle)))}", folders.bundle.version.partition(".")[0], "External", access.plugin, "PluginData"
+    )
     registry = msgspec.json.decode(await listed.read_bytes(), type=dict[str, tuple[Registration, ...]])["plugins"] if await listed.exists() else ()
     return folder, any(entry.plugin_id == access.plugin and entry.status == "enabled" for entry in registry)
 
@@ -555,7 +549,7 @@ def exchange(library: Library) -> bytes:
 
     blocks = (
         block(0xC001, named(library.name)),
-        *(block(0x0001, named(swatch.name) + b"RGB " + struct.pack(">3fH", *(channel / 255 for channel in swatch.color), 2)) for swatch in library.swatches),
+        *(block(0x0001, named(swatch.name) + b"RGB " + struct.pack(">3fH", *(byte / 255 for byte in swatch.color), 2)) for swatch in library.swatches),
         block(0xC002, b""),
     )
     return struct.pack(">4sHHI", b"ASEF", 1, 0, len(blocks)) + b"".join(blocks)
@@ -571,7 +565,7 @@ def swatch_list(held: bytes, library: Library) -> bytes:
     closed = next((index + 1 for index, (entry, _) in enumerate(paired[opened:], start=opened) if entry.classID == b"groupEnd"), len(paired))
     group = Descriptor(name="\0", classID=b"Grup")
     group.update({b"Nm  ": String(title), b"zuid": String(f"{uuid.uuid5(uuid.NAMESPACE_URL, library.name)}\0")})
-    added = tuple((Descriptor(name="\0", classID=b"preset"), (struct.pack(">5H", 0, *(channel * 0x101 for channel in swatch.color), 0), unicode(swatch.name))) for swatch in library.swatches)
+    added = tuple((Descriptor(name="\0", classID=b"preset"), (struct.pack(">5H", 0, *(byte * 0x101 for byte in swatch.color), 0), unicode(swatch.name))) for swatch in library.swatches)
     entries = (*paired[:opened], *paired[closed:], (group, None), *added, (Descriptor(name="\0", classID=b"groupEnd"), None))
     listed = tuple(swatch for _, swatch in entries if swatch is not None)
     hierarchy[b"hierarchy"] = List(entry for entry, _ in entries)

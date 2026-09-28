@@ -1,69 +1,110 @@
-"""Color roles, sizes, and typefaces every application's interface takes, and the template text naming a role by dotted path."""
+"""Color roles, alphas, typefaces, and the point width every application's interface takes, the palette they read, and the template text naming a role by dotted path."""
 
+import cmath
 from collections.abc import Callable
 from enum import Enum
-from glob import escape
+import math
 from operator import attrgetter
-from pathlib import Path
 from string import Template
 from types import SimpleNamespace
 from typing import Final
 from uuid import NAMESPACE_URL, uuid5
 
-from interface.palette import Palette
-
-# --- [TYPES] ----------------------------------------------------------------------------
-
-type Rgb = tuple[int, int, int]
-
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
-RIGHT_COLUMN: Final = 315
-TREE_ROWS: Final = 13
-LOWER_EDITOR: Final = 450
+FILLS: Final = (17, 26, 33, 50, 57, 62, 71, 82)
 POINT_WIDTH: Final = 6
 
-# --- [MODELS] ---------------------------------------------------------------------------
+# --- [PALETTE] --------------------------------------------------------------------------
 
 
-class Opacity(float):
-    """Opacity fraction, the one float a template renders as a percent."""
+class Palette(Enum):
+    """Twelve display colors of every family, darkest first."""
 
+    @staticmethod
+    def steps(hue: float, solid: float, chroma: float, dark_drift: float, light_drift: float) -> tuple[tuple[int, int, int], ...]:
+        """Twelve display colors of the hue family, eight at the fill grays' OKLab lightness, then the solid, two steps beside it, and the top."""
+        knee, top, pale, gamut_share = 0.0031308, 0.935, 0.8, 0.97
 
-class Placeholders(Template):
-    """Text whose placeholders name a role export or run-time value by dotted path, `$Surface.WELL` or `$Modality.INPUT.mark`."""
+        def linear(lightness: float, ab: complex) -> tuple[float, ...]:
+            cones = [
+                math.sumprod(row, (lightness, ab.real, ab.imag)) ** 3
+                for row in ((1.0, 0.3963377773761749, 0.2158037573099136), (1.0, -0.1055613458156586, -0.0638541728258133), (1.0, -0.0894841775298119, -1.2914855480194092))
+            ]
+            return tuple(math.sumprod(row, cones) for row in ((4.0767416621, -3.3077115913, 0.2309699292), (-1.2684380046, 2.6097574011, -0.3413193965), (-0.0041960863, -0.7034186147, 1.707614701)))
 
-    idpattern = r"(?a:[_a-z][_a-z0-9]*(?:\.[_a-z][_a-z0-9]*)*)"
+        def srgb(lightness: float, ab: complex) -> tuple[int, int, int]:
+            low, high = 0.0, 1 / gamut_share
+            while low < (mid := (low + high) / 2) < high:
+                low, high = (mid, high) if all(0 <= channel <= 1 for channel in linear(lightness, mid * ab)) else (low, mid)
+            red, green, blue = (round(255 * (12.92 * channel if channel <= knee else 1.055 * channel ** (1 / 2.4) - 0.055)) for channel in linear(lightness, gamut_share * low * ab))
+            return (red, green, blue)
+
+        fills = [math.cbrt(value / 12.92 if value <= 12.92 * knee else ((value + 0.055) / 1.055) ** 2.4) for value in (gray / 255 for gray in FILLS)]
+        lightnesses = [*fills, solid, solid - 0.03, min(0.93, solid + 0.05), top] if solid >= pale else [*fills, solid, solid + 0.035, max(pale, solid + 0.06), top]
+        return tuple(
+            srgb(lightness, cmath.rect(share * chroma, math.radians(hue + (lightness - solid) * (dark_drift / (fills[0] - solid) if lightness < solid else light_drift / (top - solid)))))
+            for lightness, share in zip(lightnesses, (0.1, 0.15, 0.34, 0.48, 0.56, 0.6, 0.64, 0.74, 1, 0.95, 0.8, 0.32), strict=True)
+        )
+
+    ROSE = steps(3, 0.7, 0.15, 4, -4)
+    CRIMSON = steps(13, 0.53, 0.18, 0, 0)
+    RED = steps(29, 0.62, 0.17, -6, 4)
+    ORANGE = steps(53, 0.74, 0.14, -8, 6)
+    YELLOW = steps(88, 0.85, 0.145, -16, 3)
+    LIME = steps(121, 0.79, 0.15, -10, -4)
+    GREEN = steps(144, 0.67, 0.145, 6, -4)
+    EMERALD = steps(152, 0.57, 0.14, 0, 0)
+    TEAL = steps(178, 0.71, 0.11, 4, -4)
+    CYAN = steps(213, 0.76, 0.115, 4, -6)
+    CERULEAN = steps(227, 0.54, 0.105, 0, 0)
+    BLUE = steps(259, 0.62, 0.16, 6, -8)
+    ULTRAMARINE = steps(280, 0.56, 0.175, 2, -6)
+    VIOLET = steps(307, 0.63, 0.14, -2, 0)
+    MAGENTA = steps(339, 0.66, 0.18, 2, -4)
+    SLATE = steps(241, 0.62, 0.038, 0, 0)
+    NEUTRAL = tuple((gray, gray, gray) for gray in (*FILLS, 96, 123, 180, 238))
+
+    def __getitem__(self, step: int) -> tuple[int, int, int]:
+        """Display color of the family's step, 1 the darkest."""
+        return self.value[step - 1]
 
 
 # --- [ROLES] ----------------------------------------------------------------------------
 
 
 class Alpha:
-    """Opacities of grids, fills, wires, disabled marks, and theme overlays drawn over their ground, the overlays as byte fractions."""
+    """Opacities of grids, fills, wires, marks, and theme overlays drawn over their ground."""
 
-    GRID_MINOR: Final = Opacity(0.6)
-    GRID_MAJOR: Final = Opacity(1.0)
-    FACE_FILL: Final = Opacity(0.38)
-    SELECTION_FILL: Final = Opacity(0.12)
-    CROSSING_FILL: Final = Opacity(0.0)
-    DISABLED: Final = Opacity(0.4)
-    NULL_WIRE: Final = Opacity(0.5)
-    DISABLED_WIRE: Final = Opacity(0.3)
-    ZONE_FILL: Final = Opacity(0.2)
-    WIRE_SELECTED: Final = Opacity(0.5)
-    GLOW: Final = Opacity(0.35)
-    EDIT_FACE: Final = Opacity(2 / 255)
-    UV_FACE: Final = Opacity(10 / 255)
-    HAIRLINE: Final = Opacity(17 / 255)
-    VEIL: Final = Opacity(31 / 255)
-    ROW_ITEM: Final = Opacity(51 / 255)
-    UNSET: Final = Opacity(77 / 255)
-    TINT: Final = Opacity(102 / 255)
-    HALF: Final = Opacity(128 / 255)
-    HOLD: Final = Opacity(153 / 255)
-    RECEDED: Final = Opacity(179 / 255)
-    INTERPOLATION: Final = Opacity(204 / 255)
+    GRID_MINOR: Final = 0.6
+    GRID_MAJOR: Final = 1.0
+    FACE_FILL: Final = 0.38
+    SELECTION_FILL: Final = 0.12
+    CROSSING_FILL: Final = 0.0
+    DISABLED: Final = 0.4
+    NULL_WIRE: Final = 0.5
+    DISABLED_WIRE: Final = 0.3
+    ZONE_FILL: Final = 0.2
+    WIRE_SELECTED: Final = 0.5
+    GLOW: Final = 0.35
+    EDIT_FACE: Final = 2 / 255
+    UV_FACE: Final = 10 / 255
+    HAIRLINE: Final = 17 / 255
+    VEIL: Final = 31 / 255
+    ROW_ITEM: Final = 51 / 255
+    UNSET_ACTION: Final = 77 / 255
+    ACTIVE_ACTION: Final = 102 / 255
+    EDITED_OBJECT: Final = 102 / 255
+    PREVIEW_RANGE: Final = 102 / 255
+    WIDGET_ITEM: Final = 128 / 255
+    EDIT_WIRE: Final = 128 / 255
+    LOCKED_WEIGHT: Final = 128 / 255
+    STRIP_RANGE: Final = 128 / 255
+    HELD_KEY: Final = 153 / 255
+    TOOLBAR_ICON: Final = 179 / 255
+    BACK_FACE: Final = 179 / 255
+    MIXED_INTERPOLATION: Final = 179 / 255
+    INTERPOLATION: Final = 204 / 255
 
 
 class Ink:
@@ -74,7 +115,7 @@ class Ink:
 
 
 class Surface:
-    """Region fills in depth order, body fills and the ambient light lifting a shaded body's unlit side, the white paper of layout sheets, and the shadow of rims and veils."""
+    """Region fills in depth order, shaded bodies and their ambient light, the paper of layout sheets with a form field's rest fill, and the shadow of rims and veils."""
 
     RECESS: Final = Palette.NEUTRAL[1]
     FRAME: Final = Palette.NEUTRAL[2]
@@ -88,6 +129,7 @@ class Surface:
     SHADED: Final = Palette.NEUTRAL[10]
     AMBIENT: Final = Palette.NEUTRAL[9]
     PAPER: Final = Ink.SCREEN
+    FORM_FIELD: Final = Palette.NEUTRAL[12]
     SHADOW: Final = Ink.DOCUMENT
 
 
@@ -109,13 +151,14 @@ class Text:
 
 
 class Line:
-    """Stroke colors of borders, a form field's rest border on paper, the neutral grids applications draw behind canvases and panels, the green datum grids a user creates, locked objects, edit marks, and timelines."""
+    """Stroke colors of borders, form fields, grids behind canvases, panels, and paper, datum grids a user creates, locked objects, edit marks, and timeline keys."""
 
     BORDER: Final = Palette.NEUTRAL[7]
     BORDER_HOVER: Final = Palette.NEUTRAL[8]
     FORM_FIELD: Final = Palette.NEUTRAL[11]
     GRID: Final = Palette.NEUTRAL[5]
     GRID_PANEL: Final = Palette.NEUTRAL[7]
+    PAPER_GRID: Final = Palette.NEUTRAL[12]
     DATUM_GRID: Final = Palette.GREEN[8]
     LOCKED: Final = Palette.NEUTRAL[8]
     SEAM: Final = Palette.RED[11]
@@ -183,16 +226,8 @@ class Guide:
     TENTATIVE: Final = Palette.MAGENTA[6]
 
 
-class Preview:
-    """Colors of geometry a definition computes and has not baked."""
-
-    INK: Final = Palette.LIME[9]
-    BODY: Final = Surface.SHADED
-    SELECTED: Final = Selection.ITEM
-
-
 class Node:
-    """Node borders by state, each brighter than the body it surrounds."""
+    """Node borders by state."""
 
     BORDER: Final = Palette.NEUTRAL[11]
     SELECTED_BORDER: Final = Selection.ACTIVE
@@ -217,19 +252,16 @@ class Status:
 
 
 class Wire:
-    """Node wire colors, one for every data type over a casing in the canvas color, and widths in logical pixels at zoom 1."""
+    """Node wire colors, one core color for every data type."""
 
     CORE: Final = Palette.NEUTRAL[11]
     CASING: Final = Surface.CANVAS
     SELECTED: Final = Selection.ITEM
     GLOW: Final = Selection.BODY
-    ITEM_WIDTH: Final = 1
-    TWIG_WIDTH: Final = 2
-    TREE_WIDTH: Final = 2
 
 
 class Tag(Enum):
-    """User-assigned tag slots in Blender's slot order, the neutral slot last, each an identity solid clear of the axis, error, construction, tracking, preview, datum grid, and selection steps."""
+    """User-assigned tag slots in Blender's slot order, the neutral slot last."""
 
     COLOR_01 = Palette.CRIMSON[9]
     COLOR_02 = Palette.SLATE[9]
@@ -253,34 +285,25 @@ class Annotation:
 class Modality(Enum):
     """Node, icon, and ribbon categories by data type, orange, yellow, and lime marking neutral bodies."""
 
-    GEOMETRY = (Palette.CYAN[3], Palette.CYAN[6], Palette.CYAN[9], Palette.CYAN[8], Palette.CYAN[11], Palette.CYAN[12])
-    SCALAR = (Palette.NEUTRAL[3], Palette.NEUTRAL[6], Palette.NEUTRAL[9], Palette.NEUTRAL[8], Palette.NEUTRAL[11], Palette.NEUTRAL[12])
-    VECTOR = (Palette.ULTRAMARINE[3], Palette.ULTRAMARINE[6], Palette.ULTRAMARINE[9], Palette.ULTRAMARINE[8], Palette.ULTRAMARINE[11], Palette.ULTRAMARINE[12])
-    TRANSFORM = (Palette.VIOLET[3], Palette.VIOLET[6], Palette.VIOLET[9], Palette.VIOLET[8], Palette.VIOLET[11], Palette.VIOLET[12])
-    TEXT = (Palette.BLUE[3], Palette.BLUE[6], Palette.BLUE[11], Palette.BLUE[8], Palette.BLUE[11], Palette.BLUE[12])
-    DATA = (Palette.SLATE[3], Palette.SLATE[6], Palette.SLATE[9], Palette.SLATE[8], Palette.SLATE[11], Palette.SLATE[12])
-    COLOR = (Palette.NEUTRAL[3], Palette.NEUTRAL[6], Palette.YELLOW[9], Palette.NEUTRAL[8], Palette.YELLOW[11], Palette.YELLOW[12])
-    INPUT = (Palette.ROSE[3], Palette.ROSE[6], Palette.ROSE[9], Palette.ROSE[8], Palette.ROSE[11], Palette.ROSE[12])
-    OUTPUT = (Palette.RED[3], Palette.RED[6], Palette.RED[9], Palette.RED[8], Palette.RED[11], Palette.RED[12])
-    DISPLAY = (Palette.NEUTRAL[3], Palette.NEUTRAL[6], Preview.INK, Palette.NEUTRAL[8], Palette.LIME[11], Palette.LIME[12])
-    ANALYSIS = (Palette.NEUTRAL[3], Palette.NEUTRAL[6], Palette.ORANGE[9], Palette.NEUTRAL[8], Palette.ORANGE[11], Palette.ORANGE[12])
+    GEOMETRY = (Palette.CYAN[6], Palette.CYAN[9], Palette.CYAN[8], Palette.CYAN[11], Palette.CYAN[12])
+    SCALAR = (Palette.NEUTRAL[6], Palette.NEUTRAL[9], Palette.NEUTRAL[8], Palette.NEUTRAL[11], Palette.NEUTRAL[12])
+    VECTOR = (Palette.ULTRAMARINE[6], Palette.ULTRAMARINE[9], Palette.ULTRAMARINE[8], Palette.ULTRAMARINE[11], Palette.ULTRAMARINE[12])
+    TRANSFORM = (Palette.VIOLET[6], Palette.VIOLET[9], Palette.VIOLET[8], Palette.VIOLET[11], Palette.VIOLET[12])
+    TEXT = (Palette.BLUE[6], Palette.BLUE[11], Palette.BLUE[8], Palette.BLUE[11], Palette.BLUE[12])
+    DATA = (Palette.SLATE[6], Palette.SLATE[9], Palette.SLATE[8], Palette.SLATE[11], Palette.SLATE[12])
+    COLOR = (Palette.NEUTRAL[6], Palette.YELLOW[9], Palette.NEUTRAL[8], Palette.YELLOW[11], Palette.YELLOW[12])
+    INPUT = (Palette.ROSE[6], Palette.ROSE[9], Palette.ROSE[8], Palette.ROSE[11], Palette.ROSE[12])
+    OUTPUT = (Palette.RED[6], Palette.RED[9], Palette.RED[8], Palette.RED[11], Palette.RED[12])
+    DISPLAY = (Palette.NEUTRAL[6], Palette.LIME[9], Palette.NEUTRAL[8], Palette.LIME[11], Palette.LIME[12])
+    ANALYSIS = (Palette.NEUTRAL[6], Palette.ORANGE[9], Palette.NEUTRAL[8], Palette.ORANGE[11], Palette.ORANGE[12])
 
-    def __init__(self, fill: Rgb, header: Rgb, mark: Rgb, border: Rgb, token: Rgb, shine: Rgb) -> None:
+    def __init__(self, header: tuple[int, int, int], mark: tuple[int, int, int], border: tuple[int, int, int], token: tuple[int, int, int], shine: tuple[int, int, int]) -> None:
         """Bind the category's steps to their named fields."""
-        self.fill, self.header, self.mark, self.border, self.token, self.shine = fill, header, mark, border, token, shine
-
-
-class Zone:
-    """Node zones, each drawn in the modality whose hue it takes."""
-
-    SIMULATION: Final = Modality.INPUT
-    REPEAT: Final = Modality.TRANSFORM
-    FOR_EACH: Final = Modality.VECTOR
-    CLOSURE: Final = Modality.DATA
+        self.header, self.mark, self.border, self.token, self.shine = header, mark, border, token, shine
 
 
 class Typography(Enum):
-    """Typefaces by text role, each a font file and its family name."""
+    """Typefaces by text role, each a font file in the user font folder and its family name."""
 
     INTERFACE = ("Geist[wght].ttf", "Geist")
     MONOSPACE = ("GeistMono[wght].ttf", "Geist Mono")
@@ -289,34 +312,30 @@ class Typography(Enum):
         """Bind the member's file and family to their named fields."""
         self.file, self.family = file, family
 
-    @property
-    def path(self) -> Path:
-        """Face's file under the user font folder."""
-        return next((Path.home() / "Library" / "Fonts").rglob(escape(self.file)))
-
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
-def blend(top: Rgb, bottom: Rgb, alpha: float) -> Rgb:
-    """Color of `top` drawn at `alpha` over `bottom`."""
+def blend(top: tuple[int, int, int], bottom: tuple[int, int, int], alpha: float) -> tuple[int, int, int]:
+    """Color of `top` drawn at `alpha` over `bottom`, an alpha above 1 the color that draws `top` at `1 / alpha` over `bottom`."""
     red, green, blue = (round(upper * alpha + lower * (1 - alpha)) for upper, lower in zip(top, bottom, strict=True))
     return (red, green, blue)
 
 
-def rendered[T](template: str, spelled: Callable[[T], str], **values: T) -> str:
-    """Template text with each placeholder replaced by the spelling of the run-time value or role its dotted path names."""
-    text, names = Placeholders(template), SimpleNamespace(**globals(), **values)
-    return text.substitute({name: spelled(attrgetter(name)(names)) for name in text.get_identifiers()})
+def substituted[T](template: str, text: Callable[[T], str], **values: T) -> str:
+    """Template text with each `$dotted.path` placeholder replaced by the text of the run-time value or role it names."""
+
+    class Dotted(Template):
+        idpattern = r"(?a:[_a-z]\w*(?:\.[_a-z]\w*)*)"
+
+    dotted, names = Dotted(template), SimpleNamespace(**{name: globals()[name] for name in __all__}, **values)
+    return dotted.substitute({name: text(attrgetter(name)(names)) for name in dotted.get_identifiers()})
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
 __all__ = [
-    "LOWER_EDITOR",
     "POINT_WIDTH",
-    "RIGHT_COLUMN",
-    "TREE_ROWS",
     "Accent",
     "Alpha",
     "Annotation",
@@ -327,9 +346,6 @@ __all__ = [
     "Line",
     "Modality",
     "Node",
-    "Opacity",
-    "Preview",
-    "Rgb",
     "Selection",
     "Status",
     "Surface",
@@ -337,7 +353,6 @@ __all__ = [
     "Text",
     "Typography",
     "Wire",
-    "Zone",
     "blend",
-    "rendered",
+    "substituted",
 ]

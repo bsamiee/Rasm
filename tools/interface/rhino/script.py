@@ -1,11 +1,12 @@
 # ty: ignore[unresolved-attribute, unresolved-import, unsupported-operator, invalid-argument-type, no-matching-overload]
 # mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc, call-overload, operator, no-any-return"
-# ruff: file-ignore[import-outside-top-level]
+# ruff: file-ignore[banned-api, import-outside-top-level]
 """Rows of Rhino's application settings and declared packages converged inside Rhino's CPython, and the entry points the host calls."""
 
 from collections.abc import Callable, Iterable, Iterator, Mapping, Sequence
 from functools import partial, reduce
 from importlib import import_module
+import json
 import math
 from operator import attrgetter
 from pathlib import Path
@@ -31,14 +32,14 @@ from System.Net.Sockets import TcpClient
 from System.Reflection import BindingFlags
 from System.Text import Encoding
 
-from interface.aliases import COMMAND_ALIASES
+from interface.aliases import Alias
 from interface.render import MATERIALS, stocked
 from interface.report import Kind, line, Row
 from interface.rhino import template
 from interface.rhino.grasshopper import configuration
-from interface.rhino.rows import absent, color, emit, found, hex_color, internal_setting, key, member
+from interface.rhino.rows import absent, color, emit, found, hex_color, internal_setting, key, member, SWATCHES
 from interface.rhino.window import bands, Extent, Panel, RIGHT_BOTTOM, RIGHT_TOP, Site
-from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, POINT_WIDTH, Rgb, Selection, Status, Surface, Tag, Text, Typography
+from interface.roles import Accent, Alpha, Axis, blend, Guide, Ink, Line, POINT_WIDTH, Selection, Status, Surface, Text, Typography
 from interface.units import ANGLE_STEP
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
@@ -245,7 +246,7 @@ def panel_rows() -> tuple[Row, ...]:
 
     def open_panel(panel: Panel) -> None:
         """Open the panel in the right column's top container, or in its last container while that one is closed."""
-        held, opened = panels.PanelDockBar(Guid(str(head))), Guid(str(panel))
+        held, opened = panels.PanelDockBar(Guid.Parse(str(head))), Guid.Parse(str(panel))
         if held == Guid.Empty:
             panels.OpenPanel(opened)
         else:
@@ -272,7 +273,7 @@ def panel_rows() -> tuple[Row, ...]:
         key(layer_states, "ViewportPropertiesChecked", target=True, label="layer states"),
         absent(preview, "DisplayModeId", label="block preview"),
         *(
-            Row(label=f"panel {panel.name} open", read=lambda panel=panel: panels.PanelDockBar(Guid(str(panel))) != Guid.Empty, write=lambda _, panel=panel: open_panel(panel), target=True)
+            Row(label=f"panel {panel.name} open", read=lambda panel=panel: panels.PanelDockBar(Guid.Parse(str(panel))) != Guid.Empty, write=lambda _, panel=panel: open_panel(panel), target=True)
             for panel in (*RIGHT_TOP, *RIGHT_BOTTOM)
         ),
     )
@@ -294,7 +295,6 @@ def theme_rows() -> tuple[Row, ...]:
         "Button.Checked.Text": Text.PRIMARY,
         "Button.CheckedHover.Background": Accent.CONTROL_PRESSED,
         "Button.CheckedPressed.Background": Accent.CONTROL_PRESSED,
-        "Button.Disabled.Background": Surface.PANEL,
         "Button.Disabled.Text": Text.DISABLED,
     }
     zones = {
@@ -335,10 +335,8 @@ def theme_rows() -> tuple[Row, ...]:
             },
         ),
     }
-    declared = {
-        f"{zone}.{suffix}": color(rgb, 0.0 if suffix == "Button.Disabled.Background" else 1.0)
-        for zone, (ground, grounded, overrides) in zones.items()
-        for suffix, rgb in {**shared, **dict.fromkeys(grounded, ground), **overrides}.items()
+    declared = {f"{zone}.{suffix}": color(rgb) for zone, (ground, grounded, overrides) in zones.items() for suffix, rgb in {**shared, **dict.fromkeys(grounded, ground), **overrides}.items()} | {
+        f"{zone}.Button.Disabled.Background": color(Surface.PANEL, 0.0) for zone in zones
     }
 
     def strays() -> tuple[str, ...]:
@@ -413,7 +411,6 @@ def color_rows() -> tuple[Row, ...]:
         ("zebraanalysis", Settings.ZebraAnalysisSettings, {"StripeColor": color(Ink.DOCUMENT)}),
         ("tooltip", tooltip, {name: getattr(tooltip.GetDefaultState(), name) for name in ("BackgroundColor", "TextColor")}),
     )
-    swatches = tuple(hex_color(rgb) for rgb in (Ink.DOCUMENT, *(tag.value for tag in Tag)))
     return (
         *(member(label, owner, name, target=target) for label, owner, targets in members for name, target in targets.items()),
         *(member("axis", owner, name, target=axis) for owner, names in triads for name, axis in zip(names, axes, strict=True)),
@@ -424,7 +421,7 @@ def color_rows() -> tuple[Row, ...]:
         *(key(arrow_owner, name, target=axis) for name, axis in zip(arrows, axes, strict=True)),
         key(root.AddChild("SoftTransformSettings"), "FalloffColor", target=color(Guide.TRACKING)),
         *(key(root, f"SelectionFilterCheckedColor{scheme}", target=color(Accent.CONTROL_PRESSED)) for scheme in ("Dark", "Light")),
-        key(ui_settings, "ColorPanelSwatches", target=swatches),
+        key(ui_settings, "ColorPanelSwatches", target=tuple(map(hex_color, SWATCHES.values()))),
     )
 
 
@@ -432,6 +429,8 @@ def color_rows() -> tuple[Row, ...]:
 def command_rows() -> tuple[Row, ...]:
     """Rows of the declared aliases as the whole set, shortcuts, and the settings of plug-ins Rhino bundles."""
     shortcuts, registry = Settings.ShortcutKeySettings, Rhino.PersistentSettings.RhinoAppSettings.AddChild("PlugInRegistry")
+    entries = [entry.partition(" ") for entry in Path(__file__).with_name("aliases.txt").read_text(encoding="utf-8").splitlines() if entry]
+    aliases, instant = {Alias[name]: macro for name, _, macro in entries if macro}, {Alias[name] for name, _, macro in entries if not macro}
     clr.AddReference("RhinoCyclesCore")
     from Commands.Commands import Alerter
     import RhinoCyclesCore.Core
@@ -441,9 +440,9 @@ def command_rows() -> tuple[Row, ...]:
         *((getattr(Settings.ShortcutKey, f"CtrlF{index}"), f"'_SetMaximizedViewport {view}") for index, view in enumerate(("Top", "Front", "Right", "Perspective"), start=1)),
     )
 
-    def folded(aliases: Mapping[str, str]) -> dict[str, str]:
-        """Alias table with macros case-folded as Rhino compares them."""
-        return {name: macro.casefold() for name, macro in aliases.items()}
+    def folded(rows: Iterable[tuple[str, str, bool]]) -> dict[str, tuple[str, bool]]:
+        """Each alias's macro, case-folded as Rhino compares macros, and its instant flag, by upper-cased alias name."""
+        return {name.upper(): (macro.casefold(), flag) for name, macro, flag in rows}
 
     def registry_child(plugin: Guid) -> Rhino.PersistentSettings:
         """Plug-in's registry record under the registry version holding it."""
@@ -452,11 +451,11 @@ def command_rows() -> tuple[Row, ...]:
     return (
         Row(
             label="aliases",
-            read=lambda: folded({pair.Key.upper(): pair.Value for pair in Settings.CommandAliasList.ToDictionary()}),
+            read=lambda: folded((held.Alias, held.Macro, held.Instant) for held in map(Settings.CommandAliasList.GetAlias, range(Settings.CommandAliasList.Count))),
             write=lambda _: Settings.CommandAliasList.Update(
-                List[Settings.CommandAlias]([Settings.CommandAlias(name, macro, instant=False) for name, macro in COMMAND_ALIASES.items()]), replaceAll=True
+                List[Settings.CommandAlias]([Settings.CommandAlias(alias.name, macro, instant=alias in instant) for alias, macro in aliases.items()]), replaceAll=True
             ),
-            target=folded(COMMAND_ALIASES),
+            target=folded((alias.name, macro, alias in instant) for alias, macro in aliases.items()),
         ),
         *(Row(label=f"shortcut {each}", read=partial(shortcuts.GetMacro, each), write=partial(shortcuts.SetMacro, each), target=macro) for each, macro in shortcut_macros),
         *(
@@ -644,11 +643,11 @@ def display_rows() -> tuple[Row, ...]:
         "ClippingEdgeThickness": 1,
     }
 
-    def ground(mode: Guid) -> Rgb:
+    def ground(mode: Guid) -> tuple[int, int, int]:
         """Ground the mode draws on, paper for the drawing modes and the canvas for the rest."""
         return Surface.PAPER if mode in papers else Surface.CANVAS
 
-    def palette(mode: Guid) -> dict[str, Rgb]:
+    def palette(mode: Guid) -> dict[str, tuple[int, int, int]]:
         """Role of each color the mode's store keeps, every line in the ink of its ground, SubD edge colors where their usage draws one color."""
         paper = mode in papers
         ink = Ink.DOCUMENT if paper else Ink.SCREEN
@@ -799,7 +798,7 @@ def display_rows() -> tuple[Row, ...]:
     def remove(_: object) -> None:
         """Delete every display mode beside Rhino's own and its stored settings, then save the display modes."""
         for mode in custom_modes():
-            DisplayModeDescription.DeleteDisplayMode(Guid(mode))
+            DisplayModeDescription.DeleteDisplayMode(Guid.Parse(mode))
             stored.DeleteChild(mode)
         DisplayModeDescription.SaveDisplayModes()
 
@@ -898,12 +897,12 @@ def extents(doc: Rhino.RhinoDoc) -> dict[Site | Extent, float]:
             Extent.LIBRARIES_LIST_MINIMUM: splitter.Panel2MinimumSize,
         }
 
-    top, window = panels.PanelDockBar(Guid(str(head))), Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc).ControlObject.ContentView
-    homes = {panel: panels.PanelDockBar(Guid(str(panel))) for panel in (Panel.LAYERS, Panel.LAYOUTS, Panel.MATERIALS, Panel.LIBRARIES)}
+    top, window = panels.PanelDockBar(Guid.Parse(str(head))), Rhino.UI.RhinoEtoApp.MainWindowForDocument(doc).ControlObject.ContentView
+    homes = {panel: panels.PanelDockBar(Guid.Parse(str(panel))) for panel in (Panel.LAYERS, Panel.LAYOUTS, Panel.MATERIALS, Panel.LIBRARIES)}
 
     def selected(panel: Panel, measure: Callable[[object, object], dict[Site | Extent, float]]) -> dict[Site | Extent, float]:
         """Measures of the panel laid out as its container's selected tab, a background tab holding its last layout's frames."""
-        guid = Guid(str(panel))
+        guid = Guid.Parse(str(panel))
         panels.OpenPanel(top if homes[panel] == Guid.Empty else homes[panel], guid, makeSelectedPanel=True)
         window.LayoutSubtreeIfNeeded()
         return measure(panels.GetPanel(guid, doc), container(panels.PanelDockBar(guid)))
@@ -911,7 +910,7 @@ def extents(doc: Rhino.RhinoDoc) -> dict[Site | Extent, float]:
     try:
         window.LayoutSubtreeIfNeeded()
         width, style, toolbar = (kind.GetProperty(name).GetValue(None) for kind, name in ((resizer, "ResizerWidth"), (tab_panels, "HorizontalDisplayStyle"), (toolbar_settings, "Instance")))
-        osnap = panels.GetPanel(Guid(str(Panel.OSNAP)), doc)
+        osnap = panels.GetPanel(Guid.Parse(str(Panel.OSNAP)), doc)
         grid = contained(osnap, System.Type.GetType("Rhino.UI.Controls.ControlGridLayout, Rhino.UI", throwOnError=True))
         pitch = grid.ItemSize + grid.ItemPadding.Size
         return {
@@ -923,7 +922,7 @@ def extents(doc: Rhino.RhinoDoc) -> dict[Site | Extent, float]:
             Extent.OSNAP_PITCH_X: pitch.Width,
             Extent.OSNAP_PITCH_Y: pitch.Height,
             Extent.OSNAP_INSET: osnap.Padding.Horizontal,
-            Extent.OSNAP_CHROME: container(panels.PanelDockBar(Guid(str(Panel.OSNAP)))).Size.Height - osnap.Size.Height + osnap.GetPreferredSize().Height - grid.Rows * pitch.Height,
+            Extent.OSNAP_CHROME: container(panels.PanelDockBar(Guid.Parse(str(Panel.OSNAP)))).Size.Height - osnap.Size.Height + osnap.GetPreferredSize().Height - grid.Rows * pitch.Height,
             **selected(Panel.LAYERS, layers),
             **selected(Panel.LAYOUTS, lambda panel, shell: {Extent.LAYOUTS_INSET: inset(shell, contained(panel, layout_grid))}),
             **selected(Panel.MATERIALS, materials),
@@ -931,8 +930,8 @@ def extents(doc: Rhino.RhinoDoc) -> dict[Site | Extent, float]:
         }
     finally:
         for panel in (panel for panel, home in homes.items() if home == Guid.Empty):
-            panels.ClosePanel(Guid(str(panel)), doc)
-        panels.OpenPanel(top, Guid(str(head)), makeSelectedPanel=True)
+            panels.ClosePanel(Guid.Parse(str(panel)), doc)
+        panels.OpenPanel(top, Guid.Parse(str(head)), makeSelectedPanel=True)
 
 
 def shifts(doc: Rhino.RhinoDoc, measured: Mapping[Site | Extent, float]) -> dict[Site, float]:
@@ -966,9 +965,9 @@ def applied(doc: Rhino.RhinoDoc, packages: Sequence[str]) -> Iterator[Row | str]
     yield from (row for step in (settings_rows, theme_rows, color_rows, command_rows, partial(package_rows, held), display_rows, template.rows, panel_rows) for row in step())
     measured = extents(doc)
     widths = {str(column): columns.GetMethod("DefaultWidth").Invoke(None, Array[System.Object]([column])) for column in System.Enum.GetValues(kind)}
-    yield from (line(Kind.MEASURE, name, repr(value)) for name, value in {**measured, **widths}.items())
     yield from configuration.rows(doc, point_width(), shifts(doc, measured))
-    yield from (line(Kind.PLUGIN, package, *(() if (file := search.Invoke(None, Array[System.Object]([str(path)]))) is None else (file,))) for package, path, _ in plugins(held))
+    toolbars = [[package, search.Invoke(None, Array[System.Object]([str(path)]))] for package, path, _ in plugins(held)]
+    yield line(Kind.MEASUREMENT, json.dumps({"measures": {**measured, **widths}, "plugins": toolbars}))
     yield from (line(Kind.SKIP, package) for package in packages if package not in held)
     yield from (() if stocked(MATERIALS) else (line(Kind.SKIP, str(MATERIALS)),))
 

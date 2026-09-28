@@ -46,7 +46,7 @@ result = {"inputs": [(i.name, i.identifier) for i in tree.interface.items_tree i
 - Nodes placed by link depth read left to right in the editor
 - `tree.interface.items_tree` maps each socket name to its identifier (`Socket_1`), identifiers follow creation order and survive a rename
 - Interface sockets hold `default_value`, `min_value`, `max_value`, and `subtype`
-- `modifier.node_warnings` stays empty on a tree that outputs nothing, the evaluated vertex count proves output
+- `modifier.node_warnings` stays empty on a tree that outputs nothing, the evaluated vertex count shows output
 
 ## [02]-[INPUTS]
 

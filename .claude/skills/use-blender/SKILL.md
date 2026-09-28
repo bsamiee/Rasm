@@ -1,6 +1,6 @@
 ---
 name: use-blender
-description: "Use when a task drives a Blender session, a headless Blender, or a .blend file through its MCP servers and scripts, covering conduct, files, routing, execution, headless work, API forms, verification, configuration, interface, and extensions."
+description: "Use when a task drives a Blender session, a headless Blender, or a .blend file through its MCP servers and scripts, covering conduct, files, routing, execution, headless work, API forms, captures, configuration, interface, and extensions."
 ---
 
 # [BLENDER]
@@ -9,7 +9,7 @@ description: "Use when a task drives a Blender session, a headless Blender, or a
 
 [REFERENCES]:
 - [01]-[SETUP](references/setup.md): Servers, machine prerequisites, startup state, processes, and failures
-- [02]-[CONFIGURATION](references/configuration.md): Preference stores, read-back, add-on records, repositories, keymaps, themes, fonts, and units
+- [02]-[CONFIGURATION](references/configuration.md): Preference stores, properties, add-on records, repositories, keymaps, themes, fonts, and units
 - [03]-[INTERFACE](references/interface.md): Event-loop timing, workspaces, areas, regions, panels, views, and pictures of the window
 - [04]-[EXTENSIONS](references/extensions.md): Package layout, manifests, installs, wheels, and registration
 - [05]-[MODELING](references/modeling.md): Meshes from dimensions, modifier stacks, cutters, Edit Mode, joins, collections, and parenting
@@ -18,7 +18,7 @@ description: "Use when a task drives a Blender session, a headless Blender, or a
 - [08]-[ANIMATION](references/animation.md): Layered actions, slots, and keyframes
 - [09]-[DRAFTING](references/drafting.md): Sheet scale, Line Art, sections, dimensions, sketches, and SVG and PDF sheets
 - [10]-[GEOMETRY_NODES](references/geometry-nodes.md): Node groups from code, modifier inputs, evaluated results, and Sverchok trees
-- [11]-[INTERCHANGE](references/interchange.md): CAD and city model import and authoring, unit and axis checks, Rhino materials, and batch conversion
+- [11]-[INTERCHANGE](references/interchange.md): CAD and city model import and authoring, Rhino materials, and batch conversion
 - [12]-[BIM](references/bim.md): IFC authoring, Bonsai load behavior, and IFC drawings and sheets
 - [13]-[GEOSPATIAL](references/geospatial.md): Georeferencing, GIS imports, sun position, and climate studies
 
@@ -131,7 +131,6 @@ result = discover["as_result"](discover["discover"]("<word>", "<word>"))
 ## [04]-[EXECUTION]
 
 `execute_blender_code` runs each call in a fresh namespace on Blender's main thread from a timer, the UI waits until the call returns:
-- `result` holds the post-condition read of the same call, the proof of the call
 - Snippets tagged `[EXECUTE_BLENDER_CODE]` run through `blender` `execute_blender_code`, `[MCP_FOR_BLENDER]` through `mcp-for-blender`
 - `"<name>" in dir(bpy.ops.<category>)` is true for a registered operator alone
 - `scripts/wrapper.py` closes every live call with one `Agent (<mode>)` undo step
@@ -152,16 +151,16 @@ result = discover["as_result"](discover["discover"]("<word>", "<word>"))
 - Reports state ft, ft², and ft³ as meters over `0.3048` per dimension, lb as kg over `0.45359237`, and feet and inches by `divmod(m / 0.0254, 12)`
 - Camera `lens` and `sensor_width` take the `CAMERA` unit, millimeters under every system
 - Use `references/interface.md` for the user's view, screen operators, workspace switches, area and region edits, and window pictures
-- Use `references/configuration.md` for preference, add-on, keymap, theme, and unit writes and their read-back
+- Use `references/configuration.md` for preference, add-on, keymap, theme, and unit writes
 
 ```python
-# [EXECUTE_BLENDER_CODE] Selection-dependent operator on a named object, return set and post-condition in one result
+# [EXECUTE_BLENDER_CODE] Selection-dependent operator on a named object
 import bpy
 
 target = bpy.data.objects["<Object>"]
 with bpy.context.temp_override(active_object=target, selected_objects=[target], selected_editable_objects=[target]):
     status = bpy.ops.object.shade_auto_smooth()
-result = {"status": sorted(status), "modifiers": [(m.name, m.type) for m in target.modifiers]}
+result = {"status": sorted(status)}
 ```
 
 ## [05]-[HEADLESS]
@@ -240,11 +239,11 @@ Blender spells each concern one way, a form outside the table comes from `bpy_ap
 - `display_settings.display_device` writes before `view_transform`, a display lacking the current view resets it to `Standard` with no error
 - Mode properties take their value first, `inputs["<Name>"]` then returns the enabled socket of that name, an integer index counts disabled sockets
 - Repeated socket names resolve by identifier (`Value_001`), `describe_node_type` prints identifiers per mode
-- `links.new` on a type mismatch returns a link with `is_valid` false and raises nothing, builds end with `all(link.is_valid for link in tree.links)`
+- `links.new` on a type mismatch returns a link with `is_valid` false and raises nothing
 
-## [07]-[VERIFICATION]
+## [07]-[CAPTURES]
 
-Each change ends with a data read in `result` and one picture from a chosen view, `snapshot` names what changed and `capture` shows it:
+Each change ends with one picture from a chosen view, `snapshot` names what changed and `capture` shows it:
 - Counts and dimensions after modifiers and instances come from `obj.evaluated_get(depsgraph)` or `snapshot`
 - `snapshot("<name>", since="<earlier>")` writes transforms, evaluated bounds with instances, geometry counts, and a shape hash per object
 - Snapshots hold materials, modifier settings, animation, color management, datablock counts, library files, missing paths, and tree digests

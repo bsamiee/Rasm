@@ -15,8 +15,7 @@
         <RhinoHost Condition="'$(_ParentFolder)' == 'rhino'">common</RhinoHost>
     </PropertyGroup>
 
-    <PropertyGroup Label="Rhino Plugin" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
-        <RhinoPlugIn>true</RhinoPlugIn>
+    <PropertyGroup Label="Rhino Plug-In" Condition="'$(ProjectRole)' == 'apps' and '$(RhinoHost)' != ''">
         <TargetExt>.rhp</TargetExt>
         <CopyLocalLockFileAssemblies>true</CopyLocalLockFileAssemblies>
         <IncludeSourceRevisionInInformationalVersion>false</IncludeSourceRevisionInInformationalVersion>

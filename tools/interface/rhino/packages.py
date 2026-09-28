@@ -6,11 +6,10 @@ from typing import Final
 import zipfile
 
 import anyio
-import cyclopts
 import httpx
 import msgspec
 
-from interface.host import Applied, Change, Failed, Host, Outcome
+from interface.host import Applied, Change, Failed, gather, Host
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -104,23 +103,11 @@ class NoRelease(msgspec.Struct, frozen=True):
 
 
 # --- [BUILDS]
-def staging(root: Path, project: str) -> anyio.Path:
-    """Folder holding the plug-in project's built yak package."""
-    return anyio.Path(root, ".artifacts", YAK, project)
-
-
-async def packed(root: Path, project: str) -> Path:
-    """Yak package of the plug-in project, published and built in a temporary directory and copied alone into its staging folder."""
-    folder = staging(root, project)
-    await folder.mkdir(parents=True, exist_ok=True)
-    async with anyio.TemporaryDirectory() as temporary:
-        await anyio.run_process(["dotnet", "publish", str(root / project), "--configuration", "Release", "--output", temporary])
-        for command in ("spec", "build"):
-            await anyio.run_process([YAK, command], cwd=temporary)
-        for stale in [path async for path in folder.iterdir()]:
-            await stale.unlink()
-        (built,) = [path async for path in anyio.Path(temporary).glob("*.yak")]
-        return Path(await built.copy_into(folder))
+async def packed(root: Path, project: str, folder: anyio.Path) -> Path:
+    """Yak package the plug-in project's Release publish into the folder builds."""
+    await anyio.run_process(["dotnet", "publish", str(root / project), "--configuration", "Release", "--output", str(folder)])
+    (built,) = [path async for path in folder.glob("*.yak")]
+    return Path(built)
 
 
 async def downloaded(rhino: Rhino, source: Source, folder: anyio.Path) -> Path:
@@ -193,7 +180,7 @@ async def upgraded(client: httpx.AsyncClient, rhino: Rhino, root: Path, temporar
         case Package(id=identity, source=Source() as source):
             return await converged(rhino, identity, await downloaded(rhino, source, temporary / identity))
         case Package(id=identity, project=str() as project):
-            return await converged(rhino, identity, await packed(root, project))
+            return await converged(rhino, identity, await packed(root, project, temporary / identity))
         case Package(id=identity):
             return await released(client, rhino, identity)
 
@@ -206,40 +193,18 @@ async def declared() -> tuple[Package, ...]:
 # --- [COMPOSITION] ----------------------------------------------------------------------
 
 
-async def upgrade(host: Host) -> tuple[Outcome]:
+async def upgrade(host: Host) -> tuple[Applied | Failed, ...]:
     """Installs each package `packages.toml` declares at the newest build its source publishes for the Rhino `yak` serves."""
     rhino, packages = await Rhino.served(), await declared()
-    handles: list[anyio.TaskHandle[Converged]] = []
-    async with httpx.AsyncClient(follow_redirects=True) as client, anyio.TemporaryDirectory() as temporary, anyio.create_task_group() as group:
-        handles.extend(group.start_soon(upgraded, client, rhino, host.root, anyio.Path(temporary), package) for package in packages)
-    results = tuple(handle.return_value for handle in handles)
+    async with anyio.TemporaryDirectory() as temporary:
+        results = await gather(upgraded(host.client, rhino, host.root, anyio.Path(temporary), package) for package in packages)
     changes = tuple(result for result in results if isinstance(result, Change))
     match tuple(f"{result.identity} publishes no version Rhino {rhino.major}.{rhino.minor} on macOS loads" for result in results if isinstance(result, NoRelease)):
         case ():
-            return (Applied(host.app, rhino.build, str(rhino.directory), changes, (), {}),)
+            return (Applied(host.app, rhino.build, rhino.directory, changes),)
         case errors:
             return (Failed(host.app, errors, changes),)
 
-
-app = cyclopts.App(help="Builds and installs the yak package of a Rhino plug-in project `packages.toml` declares.")
-
-
-@app.command
-async def pack(project: str) -> None:
-    """Builds the plug-in project's yak package under `.artifacts/yak/<project>`."""
-    await packed(Path.cwd(), project)
-
-
-@app.command
-async def install(project: str) -> Change | None:
-    """Installs the plug-in project's built yak package while its version or files differ from the installed build."""
-    (identity,) = [package.id for package in await declared() if package.project == project]
-    (archive,) = [path async for path in staging(Path.cwd(), project).glob("*.yak")]
-    return await converged(await Rhino.served(), identity, Path(archive))
-
-
-if __name__ == "__main__":
-    app()
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 

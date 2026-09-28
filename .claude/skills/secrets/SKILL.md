@@ -26,7 +26,7 @@ Doppler reads each option from the highest source present, a flag, then an envir
 
 | [INDEX] | [TASK]                       | [COMMAND]                                                                                      |
 | :-----: | :--------------------------- | :--------------------------------------------------------------------------------------------- |
-|  [01]   | Auth proof                   | `doppler me`                                                                                   |
+|  [01]   | Signed-in account            | `doppler me`                                                                                   |
 |  [02]   | Effective options per scope  | `doppler configure debug --json \| jq 'with_entries(.value \|= del(.token))'`                  |
 |  [03]   | Every scope entry            | `doppler configure --all --json \| jq 'with_entries(.value \|= del(.token))'`                  |
 |  [04]   | One directory's scope        | `doppler configure get project config --scope <dir> --json`                                    |
@@ -48,7 +48,7 @@ Secret references take the form `op://<vault>/<item>/[<section>/]<field>`:
 
 | [INDEX] | [TASK]                      | [COMMAND]                                                                     |
 | :-----: | :-------------------------- | :---------------------------------------------------------------------------- |
-|  [01]   | Auth proof                  | `op whoami`                                                                   |
+|  [01]   | Signed-in account           | `op whoami`                                                                   |
 |  [02]   | Vault inventory             | `op vault list`                                                               |
 |  [03]   | Item names in a vault       | `op item list --vault <vault> --format json \| jq -r '.[].title'`             |
 |  [04]   | Field names of an item      | `op item get <item> --vault <vault> --format json \| jq -r '.fields[].label'` |

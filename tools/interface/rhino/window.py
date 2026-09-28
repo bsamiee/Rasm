@@ -3,9 +3,10 @@
 from collections.abc import Mapping
 from enum import auto, StrEnum
 import math
+from types import MappingProxyType
 from typing import Final
 
-from interface.roles import RIGHT_COLUMN
+from interface.frame import Place, RIGHT_COLUMN, Role
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -98,8 +99,19 @@ class Extent(StrEnum):
 
 # --- [TABLES] ---------------------------------------------------------------------------
 
-RIGHT_TOP: Final = (Panel.PROPERTIES, Panel.MATERIALS, Panel.BLOCK_DEFINITIONS, Panel.LAYOUTS, Panel.SUN, Panel.DISPLAY, Panel.NAMED_VIEWS, Panel.SNAPSHOTS)
-RIGHT_BOTTOM: Final = (Panel.LAYERS,)
+PANELS: Final = MappingProxyType({
+    Role.PROPERTIES: Panel.PROPERTIES,
+    Role.DOCUMENT: Panel.LAYOUTS,
+    Role.COLOR: Panel.MATERIALS,
+    Role.ASSETS: Panel.BLOCK_DEFINITIONS,
+    Role.LIGHTING: Panel.SUN,
+    Role.DISPLAY: Panel.DISPLAY,
+    Role.VIEWS: Panel.NAMED_VIEWS,
+    Role.SNAPSHOTS: Panel.SNAPSHOTS,
+    Role.STRUCTURE: Panel.LAYERS,
+})
+RIGHT_TOP: Final = tuple(PANELS[role] for role in Place.RIGHT_TOP.value if role in PANELS)
+RIGHT_BOTTOM: Final = tuple(PANELS[role] for role in Place.RIGHT_BOTTOM.value if role in PANELS)
 RETURN_TOP: Final = (
     Panel.ENVIRONMENTS,
     Panel.LIBRARIES,

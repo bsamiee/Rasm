@@ -14,16 +14,15 @@ import msgspec
 from interface.adobe import aliases, workspaces
 from interface.adobe.aliases import LABEL, Prompt
 from interface.adobe.workspaces import Frame
-from interface.palette import Palette
 from interface.render import DPI
-from interface.roles import Alpha, blend, Guide, Ink, Line, Node, POINT_WIDTH, Rgb, Selection, Status, Surface, Tag, Text, Typography
+from interface.roles import Alpha, blend, Guide, Ink, Line, Node, POINT_WIDTH, Selection, Status, Surface, Tag, Text, Typography
 from interface.units import ANGLE_STEP, INCH, MILLIMETER, Pen, POINT, Units
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
 type Scalar = bool | float | str
 type Value = Boolean | Integer | Double | UnitDouble | Enumerated | RgbColor | Members
-type Target = Scalar | Rgb | Fixed | Value | tuple[str, ...] | tuple[Swatch, ...] | Toolbar | Library | DocumentPresets | Frame | Prompt | Template
+type Target = Scalar | tuple[int, int, int] | Fixed | Value | tuple[str, ...] | tuple[Swatch, ...] | Toolbar | Library | DocumentPresets | Frame | Prompt | Template
 
 
 class Kind(StrEnum):
@@ -136,7 +135,7 @@ class Swatch(msgspec.Struct, frozen=True, array_like=True):
     """Named RGB process swatch."""
 
     name: str
-    color: Rgb
+    color: tuple[int, int, int]
 
 
 class Paper(msgspec.Struct, frozen=True):
@@ -170,7 +169,7 @@ class Toolbar(msgspec.Struct, frozen=True):
 class Template(msgspec.Struct, frozen=True):
     """Startup profile document defaults a new document takes from its profile: default stroke color, raster effects resolution, and swatch group."""
 
-    stroke: Rgb
+    stroke: tuple[int, int, int]
     resolution: float
     library: Library
 
@@ -376,7 +375,7 @@ def preference(key: str, *, target: bool | float) -> Row:
             return Row(key, Preference(key, Kind.REAL), ctypes.c_float(target).value)
 
 
-def channels(template: str, names: tuple[str, str, str], target: Rgb, *, kind: Kind = Kind.REAL, scale: int = 1) -> Row:
+def channels(template: str, names: tuple[str, str, str], target: tuple[int, int, int], *, kind: Kind = Kind.REAL, scale: int = 1) -> Row:
     """Row of a color stored as three preference keys, one per channel name the template spells, the target in bytes."""
     return Row(template.format("*"), Channels(tuple(map(template.format, names)), kind, scale), target)
 
@@ -387,13 +386,13 @@ def settings(owner: str, key: str, value: Value) -> Row:
     return Row(f"{owner} {key}", Descriptor(owner), Members(owner, {key: value}))
 
 
-def custom(owner: str, key: str, target: Rgb) -> Row:
+def custom(owner: str, key: str, target: tuple[int, int, int]) -> Row:
     """Row of a guide color key of an application descriptor set to its custom value, with its `<key>`-to-`<key>Custom` color key holding the target."""
     return Row(f"{owner} {key}", Descriptor(owner), Members(owner, {key: Enumerated("guideGridColor", "customEnum"), key.replace("Color", "CustomColor"): RgbColor(*target)}))
 
 
 # --- [DOM]
-def dom(path: str, *, target: Scalar | Rgb) -> Row:
+def dom(path: str, *, target: Scalar | tuple[int, int, int]) -> Row:
     """Row of an application property by its dotted path from `app`."""
     return Row(path, Property(path), target)
 
@@ -410,7 +409,7 @@ def preset(name: str, key: str, target: float | str) -> Row:
 
 
 # --- [ACROBAT]
-def leaf(*path: str, code: int, target: Scalar | Rgb | Fixed | tuple[str, ...]) -> Row:
+def leaf(*path: str, code: int, target: Scalar | tuple[int, int, int] | Fixed | tuple[str, ...]) -> Row:
     """Row of an Acrobat domain leaf by its key path under `DC` and typecode, a color in bytes and a cabinet as its atoms in order."""
     return Row("/".join(path), Leaf(path, code), target)
 
@@ -419,20 +418,15 @@ def leaf(*path: str, code: int, target: Scalar | Rgb | Fixed | tuple[str, ...]) 
 
 
 def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
-    """Every product's rows with lengths in the system's page units, strokes in millimeters, type in points, and grids on the paper grid step."""
+    """Every product's rows with lengths in the system's page units, strokes in millimeters, and type in points."""
     page, increment, snap, ticks = Unit[units.page], units.resolution / POINT, units.snap / POINT, round(units.snap / units.resolution)
-    stroke_unit, type_unit, paper, paper_grid = Unit.MILLIMETERS, Unit.POINTS, {Units.IMPERIAL: "Letter", Units.METRIC: "A4"}, Palette.NEUTRAL[12]
+    stroke_unit, type_unit, paper = Unit.MILLIMETERS, Unit.POINTS, {Units.IMPERIAL: "Letter", Units.METRIC: "A4"}
     presets = {member: f"{member.name.title()} {paper[member]}" for member in Units}
     lines = Enumerated("guideGridStyle", "lens")
     rgb, edges, axes, theme_alpha, app_scale = ("red", "green", "blue"), ("top", "bottom", "left", "right"), ("horizontal", "vertical"), 0.3, 1.0
     capitalized, sixteen_bit = ("Red", "Green", "Blue"), partial(channels, kind=Kind.INTEGER, scale=65535)
     anchor = min((stop for stop in range(14) if 0x2AA0 >> stop & 1), key=lambda stop: (abs(stop + 2 * int(2 * (app_scale % 1)) - POINT_WIDTH), stop))
     angles = tuple(float(index * ANGLE_STEP) for index in range(6))
-
-    def solved(drawn: Rgb) -> Rgb:
-        red, green, blue = (round((top - under * (1 - theme_alpha)) / theme_alpha) for top, under in zip(drawn, Ink.SCREEN, strict=True))
-        return (red, green, blue)
-
     document_presets = DocumentPresets(tuple(Paper(name, member.document, Unit[member.page]) for member, name in presets.items()))
     swatches = tuple(Swatch("Neutral" if tag is Tag.NEUTRAL else f"Tag {slot}", tag.value) for slot, tag in enumerate(Tag, start=1))
     tags, entry, startup = Library("Tags", (Swatch("Black", Ink.DOCUMENT), *swatches)), f"Scripts/{LABEL}.jsx", Profile("startupFileType")
@@ -527,8 +521,8 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             preference("AI WorldReadiness Dict Key", target=2),
             channels("Guide/Color/{}", rgb, Guide.CONSTRUCTION),
             preference("Guide/Style", target=0),
-            channels("Grid/Color/Dark/{}", ("r", "g", "b"), solved(paper_grid)),
-            channels("Grid/Color/Lite/{}", ("r", "g", "b"), solved(blend(paper_grid, Ink.SCREEN, Alpha.GRID_MINOR))),
+            channels("Grid/Color/Dark/{}", ("r", "g", "b"), blend(Line.PAPER_GRID, Surface.PAPER, 1 / theme_alpha)),
+            channels("Grid/Color/Lite/{}", ("r", "g", "b"), blend(blend(Line.PAPER_GRID, Surface.PAPER, Alpha.GRID_MINOR), Surface.PAPER, 1 / theme_alpha)),
             preference("Grid/Style", target=0),
             preference("Grid/Posn", target=False),
             channels("snapomatic/Color/{}_19_2", rgb, Guide.TRACKING),
@@ -589,12 +583,12 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             settings("toolsPreferences", "enableGestures", Boolean(value=True)),
             settings("toolsPreferences", "animationKey", Boolean(value=False)),
             settings("displayPrefs", "cursorStrokeRope", Boolean(value=True)),
-            settings("displayPrefs", "cursorStrokeRopeColor", RgbColor(*Palette.MAGENTA[10])),
+            settings("displayPrefs", "cursorStrokeRopeColor", RgbColor(*Guide.TRACKING)),
             settings("transparencyPrefs", "gamutWarning", RgbColor(*Status.WARNING)),
             settings("typePreferences", "textComposerChoice", Enumerated("textCompMode", "middleEasternInterface")),
             *(custom("guidesPrefs", key, Guide.CONSTRUCTION) for key in ("guidesColor", "activeArtboardGuidesColor", "nonActiveArtboardGuidesColor")),
-            custom("guidesPrefs", "smartGuidesColor", Palette.MAGENTA[10]),
-            custom("guidesPrefs", "gridColor", paper_grid),
+            custom("guidesPrefs", "smartGuidesColor", Guide.TRACKING),
+            custom("guidesPrefs", "gridColor", Line.PAPER_GRID),
             custom("guidesPrefs", "hoverBoundsColor", Selection.HOVER),
             *(settings("guidesPrefs", key, lines) for key in ("guidesStyle", "nonActiveArtboardGuidesStyle", "gridStyle")),
             enumerator("preferences.rulerUnits", "Units", page.photoshop),
@@ -630,8 +624,7 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             dom("documentPreferences.columnGuideColor", target=Line.DATUM_GRID),
             *(dom(f"pasteboardPreferences.{key}", target=Guide.CONSTRUCTION) for key in ("bleedGuideColor", "slugGuideColor")),
             dom("smartGuidePreferences.guideColor", target=Guide.TRACKING),
-            dom("gridPreferences.gridColor", target=Palette.NEUTRAL[10]),
-            *(dom(path, target=paper_grid) for path in ("gridPreferences.baselineColor", "baselineFrameGridOptions.baselineFrameGridColor")),
+            *(dom(path, target=Line.PAPER_GRID) for path in ("gridPreferences.gridColor", "gridPreferences.baselineColor", "baselineFrameGridOptions.baselineFrameGridColor")),
             *(dom(f"gridPreferences.{key}", target=False) for key in ("documentGridShown", "baselineGridShown")),
             dom("gridPreferences.gridsInBack", target=True),
             dom("spellPreferences.misspelledWordColor", target=Status.ERROR),
@@ -689,8 +682,8 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
             *(
                 row
                 for (*section, key), shade in (
-                    (("Originals", "GridColor"), paper_grid),
-                    (("Originals", "GridMinorColor"), blend(paper_grid, Surface.PAPER, Alpha.GRID_MINOR)),
+                    (("Originals", "GridColor"), Line.PAPER_GRID),
+                    (("Originals", "GridMinorColor"), blend(Line.PAPER_GRID, Surface.PAPER, Alpha.GRID_MINOR)),
                     (("Measuring", "HintColor"), Guide.TRACKING),
                 )
                 for row in (
@@ -747,7 +740,7 @@ def rows(units: Units) -> Mapping[Product, tuple[Row, ...]]:
                 leaf("FormsPrefs", key, "Data", code=6, target=shade)
                 for key, shade in (
                     ("RequiredFieldHLColor", Status.ERROR),
-                    ("RuntimeBGIdleColor", paper_grid),
+                    ("RuntimeBGIdleColor", Surface.FORM_FIELD),
                     ("RuntimeBGFocusColor", Surface.PAPER),
                     ("RuntimeBorderIdleColor", Line.FORM_FIELD),
                     ("RuntimeBorderFocusColor", Selection.ACTIVE),

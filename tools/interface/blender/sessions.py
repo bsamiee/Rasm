@@ -12,8 +12,7 @@ import psutil
 from interface.blender import userpref
 from interface.blender.catalog import Catalog, Listed, Local
 from interface.blender.packages import Manifest, packaged
-from interface.host import Application, Applied, bootstrap, DEADLINE, Failed, Host, LAUNCH_ENVIRONMENT, LOOPBACK, Outcome, parse, quit_application, terminated
-from interface.report import Kind, line
+from interface.host import Applied, bootstrap, Bundle, DEADLINE, Error, Failed, Host, joined, LAUNCH_ENVIRONMENT, located, LOOPBACK, outcome, parse, quitted, reopened, Skip, terminated
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -53,12 +52,6 @@ def windowed(executable: Path) -> list[psutil.Process]:
     ]
 
 
-async def bundle(identifier: str) -> str | None:
-    """First application bundle Spotlight finds by bundle id, None when none is installed."""
-    found = (await anyio.run_process(["/usr/bin/mdfind", f"kMDItemCFBundleIdentifier == '{identifier}'"])).stdout.decode().splitlines()
-    return found[0] if found else None
-
-
 def reported(text: str) -> tuple[str, ...]:
     """Innermost frame and exception of each traceback and each registration error line in the session's error output."""
     return tuple(
@@ -96,16 +89,17 @@ async def ended(executable: Path, report: anyio.Path) -> tuple[str, ...]:
 
 
 # --- [SESSION]
-async def session(host: Host, blender: Application, executable: Path, name: str, port: int, rows: tuple[Local | Listed, ...]) -> Outcome:
+async def session(host: Host, blender: Bundle, executable: Path, name: str, port: int, rows: tuple[Local | Listed, ...]) -> Applied | Failed:
     """Outcome of the scripted Blender session from its report, partial report, or last traceback, a crash naming its native and Python frames, each application bundle it reads skipped when absent."""
     report, part, log, stderr = (anyio.Path(host.artifacts, f"{host.app}.{suffix}") for suffix in ("tsv", "part", "log", "err"))
     crash = re.compile(r"^Writing: (?P<report>.+\.crash\.txt)$", re.MULTILINE)
     backtrace = re.compile(r"^\d+\s+.+?\s+0x[0-9a-f]+ _sigtramp \+ \d+\n\d+\s+.+?\s+0x[0-9a-f]+ (?P<frame>\S+) \+ \d+$(?s:.*)^# Python backtrace\n(?P<python>(?s:.*))", re.MULTILINE)
     identifiers = ("com.microsoft.VSCode", "org.inkscape.Inkscape")
-    editor, inkscape = bundles = [await bundle(identifier) for identifier in identifiers]
+    bundles = [await located(identifier) for identifier in identifiers]
+    editor, inkscape = (None if found is None else str(found.path) for found in bundles)
     for path in (report, part, log, stderr):
         await path.unlink(missing_ok=True)
-    call = f"start({str(report)!r}, {name!r}, {port}, {msgspec.json.encode(rows).decode()!r}, {editor!r}, {inkscape!r})"
+    call = t"start({str(report)}, {name}, {port}, {msgspec.json.encode(rows).decode()}, {editor}, {inkscape})"
     with anyio.move_on_after(DEADLINE) as waited:
         await anyio.run_process(
             [
@@ -139,36 +133,30 @@ async def session(host: Host, blender: Application, executable: Path, name: str,
         case None, None:
             ending, frames = f"the session ran past the {DEADLINE:.0f} s deadline" if waited.cancelled_caught else "the session exited before its report", ()
     if await report.exists():
-        outcome = parse(host.app, await report.read_text(encoding="utf-8"))
+        parsed = parse(await report.read_text(encoding="utf-8"))
     elif await part.exists():
-        outcome = parse(host.app, "".join((await part.read_text(encoding="utf-8"), *(f"{line(Kind.ERROR, error)}\n" for error in (ending, *frames)))))
+        parsed = (*parse(await part.read_text(encoding="utf-8")), *(Error(error) for error in (ending, *frames)))
     else:
         last = [match[0].splitlines() for match in STDERR.finditer(text) if match["frames"]][-1:]
-        outcome = Failed(host.app, (ending, *frames, *(entry for lines in last for entry in lines)))
-    errors, absent = reported(text), tuple(identifier for identifier, found in zip(identifiers, bundles, strict=True) if found is None)
-    match outcome, stuck:
-        case Applied(), ():
-            return msgspec.structs.replace(outcome, skipped=(*outcome.skipped, *absent), stderr=errors)
-        case Applied(changes=changes), _:
-            return Failed(host.app, stuck, changes, stderr=errors)
-        case Failed(errors=failures, changes=changes), _:
-            return Failed(host.app, (*failures, *stuck), changes, stderr=errors)
+        parsed = tuple(Error(error) for error in (ending, *frames, *(entry for lines in last for entry in lines)))
+    absent = (Skip(identifier) for identifier, found in zip(identifiers, bundles, strict=True) if found is None)
+    return joined(msgspec.structs.replace(outcome(host.app, (*parsed, *absent)), stderr=reported(text)), stuck)
 
 
-async def staged(host: Host, blender: Application, executable: Path, manifest: Manifest, port: int, rows: tuple[Local | Listed, ...], catalog: Catalog) -> Outcome:
+async def staged(host: Host, blender: Bundle, executable: Path, manifest: Manifest, port: int, rows: tuple[Local | Listed, ...], catalog: Catalog) -> Applied | Failed:
     """Session outcome with the asset shelf catalog tabs written to its stored preferences once it quit."""
     match await session(host, blender, executable, manifest.id, port, rows):
         case Failed() as failed:
             return failed
         case Applied() as ran:
-            match await anyio.to_thread.run_sync(userpref.shelved, Path(ran.settings, "userpref.blend"), Path(catalog.essentials), catalog.types, manifest.shelves):
+            match await anyio.to_thread.run_sync(userpref.shelved, ran.folder / "userpref.blend", Path(catalog.essentials), catalog.types, manifest.shelves):
                 case userpref.Unreadable() as unreadable:
                     return Failed(host.app, (unreadable.message,), ran.changes, stderr=ran.stderr)
                 case shelved:
                     return msgspec.structs.replace(ran, changes=(*ran.changes, *shelved))
 
 
-async def relaunch(host: Host, executable: Path, port: int, blender: Application, declared: tuple[Local | Listed, ...], catalog: Catalog) -> Outcome:
+async def relaunch(host: Host, executable: Path, port: int, blender: Bundle, declared: tuple[Local | Listed, ...], catalog: Catalog) -> Applied | Failed:
     """Build the extension, close and quit the running Blender, run the interface, and reopen a closed Blender on its file."""
     manifest, extension = await packaged(host, executable)
     running = windowed(executable)
@@ -176,14 +164,10 @@ async def relaunch(host: Host, executable: Path, port: int, blender: Application
         case tuple() as errors:
             return Failed(host.app, errors)
         case opened:
-            if stuck := await quit_application(blender.path, running):
+            if stuck := await quitted(blender, running):
                 return Failed(host.app, stuck)
-            try:
+            async with reopened(blender, running, *(() if opened is None or not opened.filepath else (opened.filepath,)), arguments=("--no-window-focus",)):
                 return await staged(host, blender, executable, manifest, port, (*declared, extension), catalog)
-            finally:
-                with anyio.CancelScope(shield=True):
-                    if opened is not None:
-                        await anyio.run_process(["/usr/bin/open", "-n", "-g", "-a", str(blender.path), "--args", "--no-window-focus", *filter(None, (opened.filepath,))], env=LAUNCH_ENVIRONMENT)
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------

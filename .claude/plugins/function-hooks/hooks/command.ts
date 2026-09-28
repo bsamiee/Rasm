@@ -34,6 +34,14 @@ type Enclosing = Pick<Command, 'looped' | 'polled' | 'fed'>;
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _INPUT = "{regex: '^\\d*<'}";
+const _REPORT = /^STDIN:(?<line>\d+):(?<column>\d+): \w+\[(?<rule>\w+)\]: (?<text>.*)$/gmu;
+const _WORD = /^(?!\d*[<>]|&>)./su;
+const _QUOTED = /(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu;
+const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
+const _INLINE = /^-[A-Za-z]*c[A-Za-z]*$/u;
+
+// --- [RULES] ---------------------------------------------------------------------------
+
 const _marker = (id: keyof Enclosing, relation: string): string => `id: ${id}
 language: bash
 utils:
@@ -84,11 +92,6 @@ message: "$C"`,
     '--report-style',
     'short',
 ];
-const _REPORT = /^STDIN:(?<line>\d+):(?<column>\d+): \w+\[(?<rule>\w+)\]: (?<text>.*)$/gmu;
-const _WORD = /^(?!\d*[<>]|&>)./su;
-const _QUOTED = /(?:\$?(?<quote>["'])|\\)(?<body>(?<=')[^']*|(?<=")(?:[^"\\]|\\.)*|(?<=\\)[\s\S])\k<quote>/gu;
-const _ESCAPED = /\\(?<char>["\\$`\n])/gu;
-const _INLINE = /^-[A-Za-z]*c[A-Za-z]*$/u;
 
 // --- [WORDS] ---------------------------------------------------------------------------
 

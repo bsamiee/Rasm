@@ -1,5 +1,5 @@
-# ty: ignore[unresolved-import]
-# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined"
+# ty: ignore[unresolved-import, too-many-positional-arguments]
+# mypy: disable-error-code="import-not-found, import-untyped, no-any-unimported, no-any-return, attr-defined, call-arg, type-abstract"
 # /// script
 # dependencies = ["msgspec"]
 #
@@ -149,7 +149,7 @@ def _partition[K, V](results: Mapping[K, V | tuple[Fault, ...]]) -> tuple[dict[K
 
 def _find(document: Document, canvas_id: str) -> IDocumentObject | tuple[Fault, ...]:
     """Return the document object `canvas_id` names."""
-    found = document.Objects.Find(Guid(canvas_id))
+    found = document.Objects.Find(Guid.Parse(canvas_id))
     return (Fault(IDocumentObject, canvas_id),) if found is None else found
 
 
@@ -449,7 +449,7 @@ def build(document: Document, doc: RhinoDoc, stages: Sequence[Stage], wires: Seq
         return emitted
 
     def created(part: Part | Slider) -> IDocumentObject | tuple[Fault, ...]:
-        match part, None if isinstance(part, Slider) else ObjectProxies.FindById(Guid(part.selector)):
+        match part, None if isinstance(part, Slider) else ObjectProxies.FindById(Guid.Parse(part.selector)):
             case Slider(), _:
                 slider = NumberSliderObject(part.name or part.key, UiNumber(part.decimals, *map(Convert.ToDecimal, (part.value, part.lower, part.upper))))
                 if part.grip is not None:

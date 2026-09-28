@@ -13,6 +13,7 @@ default_tools_approval_mode = "approve"
 [mcp_servers.rhino-mcp-platform]
 command = "mise"
 args = ["exec", "--", "rhino-mcp-router"]
+env = { RHINO_PATH = "/Applications/RhinoBETA.app" }
 startup_timeout_sec = 20
 tool_timeout_sec = 180
 

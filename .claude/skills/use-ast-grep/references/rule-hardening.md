@@ -26,14 +26,13 @@ Before editing, compare the forms a rule reports with the correction its `note` 
 
 ## [02]-[PATTERN]
 
-Before widening, prove siblings take the same correction for the same reason:
+Rules widen to siblings that take the same correction for the same reason:
 1. State the correction as a category in one line, shape before, shape after, and reason, with no instance name
 2. Enumerate package siblings with the same contract
 3. Apply the correction to each sibling and compare its action and reason, keeping equivalent replacement spellings together
-4. Prove the widened rule on every sibling and near miss, over the tree or a snippet
-5. Widen the registered rule and count with `--filter` under the root configuration that loads its utilities
-6. Read the package source and the grammar for unresolved mechanisms and prove each adopted guard against the correction
-7. Keep the widened rule when the count rose by the siblings alone, a match the correction breaks returns to the sameness judgment
+4. Widen the registered rule and count with `--filter` under the root configuration that loads its utilities
+5. Read the package source and the grammar for unresolved mechanisms
+6. Keep the widened rule when the count rose by the siblings alone, a match the correction breaks returns to the sameness judgment
 
 Before the rule widens, import ownership resolves member identity, namespace or default access, aliases, and local shadowing. Escaped module strings stay excluded until their decoded value is known.
 
@@ -81,7 +80,7 @@ Mechanisms changing no result go.
 
 ## [05]-[FIXES]
 
-1. Widen the rule before attaching the fix, a template proven on the instance breaks on the accepted sibling
+1. Widen the rule before attaching the fix, a template written for the instance breaks on the accepted sibling
 2. Widen the template to every variant the correction covers, a rule reports no form its fix leaves uncorrected
 
 ## [06]-[ARCHITECTURE]

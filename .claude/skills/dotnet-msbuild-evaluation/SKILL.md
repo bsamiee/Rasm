@@ -133,7 +133,7 @@ Properties hold one string, the last assignment in evaluation order wins, a glob
 - Reversed arguments return empty from `GetDirectoryNameOfFileAbove(dir, file)` and fail `MSB4184` in `GetPathOfFileAbove(file, dir)`
 - `$(MSBuildThisFileDirectory)` names the evaluating file's folder with a trailing slash, `$(MSBuildProjectDirectory)` the project folder without one
 
-Prove a value without a build with `dotnet msbuild <project> -getProperty:Name`, one name prints the value, a comma list prints JSON, `-p:` shows the effect of a global property.
+Read a value without a build with `dotnet msbuild <project> -getProperty:Name`, one name prints the value, a comma list prints JSON, `-p:` shows the effect of a global property.
 
 ## [04]-[ITEMS]
 
@@ -186,7 +186,7 @@ Item functions and transforms return a new list wherever `@()` is legal:
 |  [07]   | `@(Item->ClearMetadata())`                           | Identities with every metadata value removed                |
 |  [08]   | `@(Item->HasMetadata('Kind'))`, `->Exists()`         | Items with that metadata name, items present on disk        |
 
-Prove items with `dotnet msbuild <project> -getItem:Type`, it prints every item with its well-known metadata as JSON, `jq -r '.Items.Type[].Identity'` lists the identities.
+Read items with `dotnet msbuild <project> -getItem:Type`, it prints every item with its well-known metadata as JSON, `jq -r '.Items.Type[].Identity'` lists the identities.
 
 ## [05]-[FILE_PLACEMENT]
 

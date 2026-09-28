@@ -1,6 +1,6 @@
 # [MODELING]
 
-Architectural and CAD geometry comes from stated dimensions in code, each change read back from the evaluated object.
+Architectural and CAD geometry comes from stated dimensions in code.
 
 ## [01]-[MESH]
 

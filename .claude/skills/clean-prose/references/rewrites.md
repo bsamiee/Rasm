@@ -224,8 +224,8 @@ Identifier and file renames update every reference:
 - BEFORE: `` | Description of each file in scope | `[07]-[DESCRIPTION]` of the skill, graded by a fresh agent | `` (role row, procedure step 9 grades)
 - AFTER: (deleted) procedure step names grading, role sentence names skill
 
-- BEFORE: `` | Whether the description matches the form | `sed -n 's/^description: //p' <agent> \| wc -w` | `` (sources row repeats gate command)
-- AFTER: (deleted) gate line holds command
+- BEFORE: `` | Whether the description matches the form | `sed -n 's/^description: //p' <agent> \| wc -w` | `` (sources row repeats procedure command)
+- AFTER: (deleted) procedure step holds command
 
 - BEFORE: `| Roslyn analyzers detecting common correctness and performance coding issues. |`
 - AFTER: `| Correctness and performance analyzers |`

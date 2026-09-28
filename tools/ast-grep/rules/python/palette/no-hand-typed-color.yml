@@ -10,11 +10,22 @@ utils:
               regex: '^(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d|0[xX][0-9a-fA-F]{1,2}|0[oO][0-3]?[0-7]{1,2}|0[bB][01]{1,8})$'
             - kind: float
               regex: '^(0?\.\d*|1\.0*)$'
+    matrix:
+        kind: 'tuple, list'
+        has:
+            kind: 'tuple, list'
+            has:
+                any:
+                    - kind: unary_operator
+                      has: {kind: 'integer, float'}
+                    - kind: float
+                      not: {regex: '^(0?\.\d*|1\.0*)$'}
     channels:
         kind: 'tuple, list, expression_list, argument_list'
         has: {matches: channel, nthChild: {position: 3, ofRule: {matches: channel}}}
         not:
             any:
+                - inside: {matches: matrix}
                 - has: {matches: channel, nthChild: {position: 5, ofRule: {matches: channel}}}
                 - has: {pattern: $_, not: {any: [{matches: channel}, {kind: comment}]}}
                 - all:
@@ -80,6 +91,6 @@ utils:
 rule:
     pattern: $COLOR
     any: [{matches: channels}, {matches: repeated}, {matches: keyed-channels}, {matches: named}, {matches: spelled}]
-    not: {inside: {stopBy: end, kind: class_definition, has: {field: name, regex: '^(Palette|Ink)$'}}}
+    not: {inside: {stopBy: end, kind: class_definition, has: {field: name, regex: '^Ink$'}}}
 message: '`$COLOR` spells a color by hand'
-note: 'Take the role its meaning needs from `roles.py`, raw bytes stay in the generated `Palette` and the `Ink` role'
+note: 'Take the role its meaning needs from `roles.py`, raw bytes stay in the `Ink` role'

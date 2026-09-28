@@ -6,7 +6,7 @@ from typing import Final
 import msgspec
 
 from interface.adobe.workspaces import Form
-from interface.aliases import FAMILIES
+from interface.aliases import families
 
 # --- [CONSTANTS] ------------------------------------------------------------------------
 
@@ -41,7 +41,7 @@ class Prompt(msgspec.Struct, frozen=True):
     @property
     def families(self) -> Mapping[str, str]:
         """Family names by first key of the families holding a command."""
-        return {key: name for key, name in FAMILIES.items() if any(alias.startswith(key) for alias in self.commands)}
+        return {family.name: family.value for family in families(self.commands)}
 
 
 # --- [TABLES] ---------------------------------------------------------------------------

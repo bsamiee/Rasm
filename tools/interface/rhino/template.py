@@ -91,7 +91,7 @@ RENDER_KEYS: Final = MappingProxyType({
     "CausticsReflective": CAUSTICS,
     "CausticsRefractive": CAUSTICS,
 })
-ANNOTATION_ID: Final = Guid(str(Annotation.ID))
+ANNOTATION_ID: Final = Guid.Parse(str(Annotation.ID))
 
 # --- [TABLES] ---------------------------------------------------------------------------
 

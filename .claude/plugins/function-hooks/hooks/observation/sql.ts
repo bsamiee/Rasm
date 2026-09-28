@@ -9,33 +9,15 @@ type Argv = readonly [string, ...string[]];
 
 const LOCATE: Argv = ['mise', 'where', 'sqlite'];
 
-const normalized = (text: string): string =>
-    `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
-
-const _TABLES: Readonly<Record<string, string>> = {
-    ['observation']:
-        '(event text not null, ts integer not null, session_id text not null, prompt_id text, agent_id text, tool text, tool_use_id text, payload text not null check (json_valid(payload)))',
-    ['transition_state']: '(state text primary key) strict',
-    ['delivery_channel']: '(channel text primary key) strict',
-    ['range_kind']: '(kind text primary key) strict',
-    ['bar_verdict']: '(verdict text primary key, earns integer not null check (earns in (0, 1))) strict',
-    ['finding']: `(category text not null, path text not null, text text not null, ntext text generated always as (${normalized('text')}) stored, text_hash text generated always as (lower(hex(sha3(ntext, 256)))) stored, occurrence integer not null, finding_id text generated always as (lower(hex(sha3(category || char(0) || path || char(0) || text_hash || char(0) || occurrence, 256)))) stored unique, start_line integer not null, start_column integer not null, end_line integer not null, end_column integer not null, byte_start integer, byte_end integer, subject_hash text not null, severity text, message text not null, replacement text, source text not null check (source like 'checker:%' or source like 'agent:%'), session_id text, prompt_id text, agent_id text, tool_use_id text, observed_at integer not null) strict`,
-    ['finding_transition']:
-        "(finding_id text not null references finding(finding_id), state text not null references transition_state(state), subject_hash text not null, path text, start_line integer, start_column integer, end_line integer, end_column integer, byte_start integer, byte_end integer, occurrence integer, at integer not null, by text not null check (by = 'user' or by like 'agent:%' or by like 'check:%'), evidence text check (evidence is not null or state not in ('wrong', 'waived', 'checker_owned', 'checker_silent')), verdict text references bar_verdict(verdict)) strict",
-    ['finding_delivery']:
-        '(finding_id text not null references finding(finding_id), lineage_key text not null, session_id text not null, agent_id text, channel text not null references delivery_channel(channel), delivered_at integer not null) strict',
-    ['judged_range']:
-        "(kind text not null references range_kind(kind), main_worktree text not null, worktree text not null, branch text not null, lineage_key text generated always as (if(worktree = main_worktree, '.', substr(worktree, length(rtrim(worktree, replace(worktree, '/', ''))) + 1)) || '/' || branch) stored, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict",
-};
-
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
+const normalized = (text: string): string =>
+    `replace(replace(replace(replace(replace(replace(${text}, char(9), ' '), char(13), ' '), char(10), ' '), ' ', char(64976, 64977)), char(64977, 64976), ''), char(64976, 64977), ' ')`;
 const quoted = (text: string): string => `'${text.replaceAll("'", "''")}'`;
 const _literal = (cell: Option<string>): string => (cell.kind === 'some' ? quoted(cell.value) : 'null');
 const _directory = (root: string): string => `${root}/.cache/observation`;
-const _delta = (root: string): string => `${_directory(root)}/delta.sql`;
 const _argument = (path: string): string => `"${path.replaceAll('\\', '\\\\').replaceAll('"', '\\"')}"`;
-const keep = (root: string): string => `${_directory(root)}/.keep`;
+const delta = (root: string): string => `${_directory(root)}/delta.sql`;
 const database = (root: string): string => `${_directory(root)}/observation.db`;
 const sqlite3 = (install: string, file: string): Argv => [`${install}/bin/sqlite3`, '-bail', '-cmd', '.timeout 10000', file];
 
@@ -54,6 +36,20 @@ const script = (built: Row): string =>
 // --- [SCRIPTS] -------------------------------------------------------------------------
 
 const open = (root: string): string => {
+    const tables: Readonly<Record<string, string>> = {
+        ['observation']: '(event text not null, ts integer not null, session_id text not null, prompt_id text, agent_id text, tool text, tool_use_id text, payload text not null)',
+        ['transition_state']: '(state text primary key) strict',
+        ['delivery_channel']: '(channel text primary key) strict',
+        ['range_kind']: '(kind text primary key) strict',
+        ['bar_verdict']: '(verdict text primary key, earns integer not null check (earns in (0, 1))) strict',
+        ['finding']: `(category text not null, path text not null, text text not null, ntext text generated always as (${normalized('text')}) stored, text_hash text generated always as (lower(hex(sha3(ntext, 256)))) stored, occurrence integer not null, finding_id text generated always as (lower(hex(sha3(category || char(0) || path || char(0) || text_hash || char(0) || occurrence, 256)))) stored unique, start_line integer not null, start_column integer not null, end_line integer not null, end_column integer not null, byte_start integer, byte_end integer, subject_hash text not null, severity text, message text not null, replacement text, source text not null check (source like 'checker:%' or source like 'agent:%'), session_id text, prompt_id text, agent_id text, tool_use_id text, observed_at integer not null) strict`,
+        ['finding_transition']:
+            "(finding_id text not null references finding(finding_id), state text not null references transition_state(state), subject_hash text not null, path text, start_line integer, start_column integer, end_line integer, end_column integer, byte_start integer, byte_end integer, occurrence integer, at integer not null, by text not null check (by = 'user' or by like 'agent:%' or by like 'check:%'), evidence text check (evidence is not null or state not in ('wrong', 'waived', 'checker_owned', 'checker_silent')), verdict text references bar_verdict(verdict)) strict",
+        ['finding_delivery']:
+            '(finding_id text not null references finding(finding_id), lineage_key text not null, session_id text not null, agent_id text, channel text not null references delivery_channel(channel), delivered_at integer not null) strict',
+        ['judged_range']:
+            "(kind text not null references range_kind(kind), main_worktree text not null, worktree text not null, branch text not null, lineage_key text generated always as (if(worktree = main_worktree, '.', substr(worktree, length(rtrim(worktree, replace(worktree, '/', ''))) + 1)) || '/' || branch) stored, from_ts integer not null, to_ts integer not null, agent_id text not null, at integer not null) strict",
+    };
     const indexes: readonly string[] = [
         'create index if not exists observation_session_ts on observation(session_id, ts);',
         'create index if not exists observation_agent on observation(agent_id);',
@@ -67,13 +63,10 @@ const open = (root: string): string => {
         'create index if not exists finding_delivery_at on finding_delivery(finding_id, delivered_at);',
         'create index if not exists judged_range_to on judged_range(kind, worktree, to_ts);',
     ];
-    const rows: readonly string[] = [
-        "delete from transition_state where state not in ('proposed', 'confirmed', 'wrong', 'checker_owned', 'checker_silent', 'fixed', 'vanished', 'moved', 'waived') and not exists (select 1 from finding_transition t where t.state = transition_state.state);",
-        "insert into transition_state(state) values ('proposed'), ('confirmed'), ('wrong'), ('checker_owned'), ('checker_silent'), ('fixed'), ('vanished'), ('moved'), ('waived') on conflict do nothing;",
-        "delete from delivery_channel where channel not in ('additionalContext', 'prompt.submit', 'stop.block', 'report') and not exists (select 1 from finding_delivery d where d.channel = delivery_channel.channel);",
-        "insert into delivery_channel(channel) values ('additionalContext'), ('prompt.submit'), ('stop.block'), ('report') on conflict do nothing;",
-        "delete from range_kind where kind <> 'edit' and not exists (select 1 from judged_range j where j.kind = range_kind.kind);",
-        "insert into range_kind(kind) values ('edit') on conflict do nothing;",
+    const lookups: readonly (readonly [string, string, string, readonly string[]])[] = [
+        ['transition_state', 'state', 'finding_transition', ['proposed', 'confirmed', 'wrong', 'checker_owned', 'checker_silent', 'fixed', 'vanished', 'moved', 'waived']],
+        ['delivery_channel', 'channel', 'finding_delivery', ['additionalContext', 'report']],
+        ['range_kind', 'kind', 'judged_range', ['edit']],
     ];
     const views: readonly string[] = [
         "create view edited_files as select session_id, prompt_id, agent_id, ts, tool, tool_use_id, coalesce(json_extract(payload, '$.tool_input.file_path'), json_extract(payload, '$.tool_input.notebook_path')) as file_path, json_extract(payload, '$.cwd') as cwd from observation where event = 'PostToolUse' and tool in ('Edit', 'Write', 'NotebookEdit');",
@@ -99,21 +92,24 @@ const open = (root: string): string => {
         "create view category_fires as select f.category, count(distinct f.finding_id) as sites, count(t.rowid) as sightings, count(distinct f.prompt_id) as prompts_fired, (select count(distinct prompt_id) from judged_edits) as prompts_judged, min(t.at) as first_at, max(t.at) as last_at from finding f left join finding_transition t on t.finding_id = f.finding_id and t.by like 'check:%' where f.source like 'checker:%' group by f.category;",
         "create view missed_sites as select finding_id, category, path, start_line, start_column, evidence, at from finding_state where state = 'checker_silent';",
     ];
-    const delta = _argument(_delta(root));
+    const file = _argument(delta(root));
     return [
         'pragma foreign_keys = off;',
-        ...Object.entries(_TABLES).map(([name, body]) => `create temp table ${name}${body};`),
+        ...Object.entries(tables).map(([name, body]) => `create temp table ${name}${body};`),
         ...indexes,
         'begin immediate;',
-        `.output ${delta}`,
+        `.output ${file}`,
         "select 'drop view if exists ' || name || ';' from sqlite_master where type = 'view' union all select 'drop index if exists ' || m.name || ';' from sqlite_master m join sqlite_temp_master w on w.type = 'index' and lower(w.name) = lower(m.name) where m.type = 'index' and m.sql is not w.sql;",
         "select 'create table ' || w.name || '__delta' || substr(w.sql, instr(w.sql, '(')) || ';' || char(10) || 'insert into ' || w.name || '__delta(' || ifnull(c.cols, '') || ') select ' || ifnull(c.cols, '') || ' from ' || w.name || ';' || char(10) || 'drop table ' || w.name || ';' || char(10) || 'alter table ' || w.name || '__delta rename to ' || w.name || ';' from sqlite_temp_master w join sqlite_master m on m.type = 'table' and lower(m.name) = lower(w.name) and substr(m.sql, instr(m.sql, '(')) <> substr(w.sql, instr(w.sql, '(')) left join (select t.name as tbl, group_concat(p.name, ', ' order by p.cid) as cols from sqlite_temp_master t, pragma_table_xinfo(t.name, 'temp') p join pragma_table_info(t.name, 'main') q on q.name = p.name where p.hidden = 0 group by t.name) c on c.tbl = w.name;",
         '.output',
-        ...Object.keys(_TABLES).map((name) => `drop table temp.${name};`),
-        `.read ${delta}`,
-        ...Object.entries(_TABLES).map(([name, body]) => `create table if not exists ${name}${body};`),
+        ...Object.keys(tables).map((name) => `drop table temp.${name};`),
+        `.read ${file}`,
+        ...Object.entries(tables).map(([name, body]) => `create table if not exists ${name}${body};`),
         ...indexes,
-        ...rows,
+        ...lookups.flatMap(([table, column, referrer, values]) => [
+            `delete from ${table} where ${column} not in (${values.map(quoted).join(', ')}) and not exists (select 1 from ${referrer} r where r.${column} = ${table}.${column});`,
+            `insert into ${table}(${column}) values ${values.map((value) => `(${quoted(value)})`).join(', ')} on conflict do nothing;`,
+        ]),
         ...views,
         'commit;',
     ].join('\n');
@@ -122,4 +118,4 @@ const open = (root: string): string => {
 // --- [EXPORTS] -------------------------------------------------------------------------
 
 export type { Argv };
-export { database, keep, LOCATE, normalized, open, quoted, script, sqlite3 };
+export { database, delta, LOCATE, normalized, open, quoted, script, sqlite3 };

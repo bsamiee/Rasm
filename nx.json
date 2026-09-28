@@ -14,7 +14,7 @@
             "{workspaceRoot}/.editorconfig",
             { "runtime": "dotnet --version" }
         ],
-        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }],
+        "python": ["{workspaceRoot}/pyproject.toml", "{workspaceRoot}/uv.lock", { "runtime": "uv --version" }, { "runtime": "python --version" }],
         "xcode": [{ "runtime": "xcodebuild -version" }],
         "typescript": ["{workspaceRoot}/tsconfig.base.json", "{workspaceRoot}/package.json", "{workspaceRoot}/pnpm-workspace.yaml", "{workspaceRoot}/pnpm-lock.yaml", { "runtime": "node --version" }]
     },
@@ -50,11 +50,12 @@
         "pack": [
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "python -m interface.rhino.packages pack {projectRoot}",
+                "command": "dotnet publish {projectRoot} --no-restore --output .artifacts/yak/{projectRoot}",
                 "cache": true,
-                "inputs": ["production", "^production", "dotnet", "python", "{workspaceRoot}/tools/interface/rhino/packages.py", { "runtime": "yak version" }],
+                "dependsOn": [{ "projects": ["rasm"], "target": "restore" }],
+                "inputs": ["production", "^production", "dotnet", { "runtime": "yak version" }],
                 "outputs": ["{workspaceRoot}/.artifacts/yak/{projectRoot}"],
-                "options": { "env": { "PYTHONPATH": "tools" } }
+                "parallelism": false
             }
         ],
         "install": [
@@ -73,9 +74,8 @@
             },
             {
                 "filter": { "projects": ["tag:host:rhino"] },
-                "command": "python -m interface.rhino.packages install {projectRoot}",
+                "command": "python tools/yak/install.py .artifacts/yak/{projectRoot}",
                 "dependsOn": ["pack"],
-                "options": { "env": { "PYTHONPATH": "tools" } },
                 "parallelism": false
             }
         ],
@@ -114,13 +114,6 @@
         "typecheck": [
             { "filter": { "projects": ["tag:language:dotnet"] }, "executor": "nx:noop", "dependsOn": ["build"] },
             {
-                "filter": { "projects": ["tag:language:python"] },
-                "executor": "nx:run-commands",
-                "cache": true,
-                "inputs": ["default", "python"],
-                "options": { "commands": ["ty check {projectRoot}", "mypy {projectRoot}"], "parallel": false }
-            },
-            {
                 "filter": { "projects": ["tag:language:typescript"] },
                 "command": "tsc --build --pretty false",
                 "cache": true,
@@ -152,6 +145,7 @@
         ],
         "check": [
             { "filter": { "projects": ["tag:language:*"] }, "executor": "nx:noop", "dependsOn": ["typecheck", "test"] },
+            { "filter": { "projects": ["tag:language:python"] }, "dependsOn": [{ "projects": ["rasm"], "target": "typecheck" }, "test"] },
             {
                 "filter": { "projects": ["tag:language:swift"] },
                 "dependsOn": [{ "target": "build", "params": "forward" }, "lint"]

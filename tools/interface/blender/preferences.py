@@ -4,6 +4,7 @@
 
 from collections.abc import Iterator, Mapping
 from functools import partial
+from glob import escape
 from itertools import takewhile
 import os
 from pathlib import Path
@@ -89,7 +90,7 @@ def prepared(preferences: bpy.types.Preferences, keyconfigs: bpy.types.KeyConfig
 # --- [SETTINGS]
 def declared_preferences(preferences: bpy.types.Preferences, editor: str | None) -> dict[str, object]:
     """Declared preferences by path with the text editor bundle the host found, online access before its handled flag."""
-    caches, cycles = Path(bpy.app.cachedir), preferences.addons["cycles"].preferences
+    caches, cycles, user_fonts = Path(bpy.app.cachedir), preferences.addons["cycles"].preferences, Path.home() / "Library" / "Fonts"
     style = preferences.ui_styles[0]
     fonts = [prop.identifier for prop in style.bl_rna.properties if isinstance(getattr(style, prop.identifier), bpy.types.ThemeFontStyle)]
     device = next(kind for kind, _, _, value in cycles.get_device_types(bpy.context) if value == type(cycles).default_device())
@@ -98,8 +99,8 @@ def declared_preferences(preferences: bpy.types.Preferences, editor: str | None)
         "view.ui_scale": 0.9,
         "view.ui_line_width": "THIN",
         "view.border_width": 1,
-        "view.font_path_ui": str(Typography.INTERFACE.path),
-        "view.font_path_ui_mono": str(Typography.MONOSPACE.path),
+        "view.font_path_ui": str(next(user_fonts.rglob(escape(Typography.INTERFACE.file)))),
+        "view.font_path_ui_mono": str(next(user_fonts.rglob(escape(Typography.MONOSPACE.file)))),
         "view.show_splash": False,
         "view.use_save_prompt": False,
         "view.use_reduce_motion": True,

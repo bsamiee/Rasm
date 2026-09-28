@@ -1,12 +1,12 @@
 # [LOOK_DEVELOPMENT]
 
-Materials, worlds, lights, and library assets, each change read back through the material's users and slots and proved through a render.
+Materials, worlds, lights, and library assets.
 
 ## [01]-[MATERIALS]
 
 Faces render the slot their `material_index` names:
 - `mesh.materials.append(<material>)` adds a slot no face uses, and the render keeps the look of slot 0
-- `obj.material_slots[<i>].material = <material>` changes the look of every face on slot `<i>`, `material.users` read after it proves the assignment
+- `obj.material_slots[<i>].material = <material>` changes the look of every face on slot `<i>`
 - New materials are Principled BSDF with `use_nodes` on, unassigned faces render 0.8 gray, `edit.material_link` OBDATA links materials to the mesh
 - Principled inputs, `Material.diffuse_color`, `Object.color`, and world and node colors hold scene linear values
 - `mathutils.Color((r / 255, g / 255, b / 255)).from_srgb_to_scene_linear()` converts a hex color for them
@@ -39,7 +39,7 @@ Library tools of `mcp-for-blender` download, build, and pack in one call, each w
 
 ## [03]-[WORLD_AND_LIGHT]
 
-Metals reflect the world, under the flat gray default world a metal proof renders near black, its proofs run under an HDRI or sky:
+Metals reflect the world and render near black under the flat gray default world, an HDRI or sky lights their renders:
 - `ShaderNodeTexSky` defaults to `MULTIPLE_SCATTERING`, `sun_elevation` and `sun_rotation` place its sun, `altitude` is meters above sea level
 - `sun_disc` lights Cycles alone, site light pairs the sky with `sun_disc` False and a SUN lamp at the disc's irradiance
 - Sun to sky on a horizontal plane is 7.4:1 under the physical sky, a 4 W/m² sun reads as overcast

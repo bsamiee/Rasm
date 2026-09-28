@@ -28,9 +28,9 @@ from cattrs.preconf.json import make_converter
 from interface.blender.catalog import Catalog, Listed, Local
 from interface.blender.startup import PLAN_DISTANCE, sun, world_node
 from interface.blender.theme import Encoding, Paint
-from interface.render import DAYLIGHT, DPI, EPSG, LATITUDE, LONGITUDE, MATERIALS, MOMENT, NORTH, OFFSET, SITE, stocked, Survey, ZONE
+from interface.render import DAYLIGHT, DPI, LATITUDE, LONGITUDE, MATERIALS, MOMENT, NORTH, OFFSET, stocked
 from interface.report import digest, Kind, line, Row
-from interface.roles import Alpha, Annotation, Guide, Ink, Line, Modality, POINT_WIDTH, Selection, Status, Surface, Text, Typography
+from interface.roles import Alpha, Annotation, Guide, Ink, Line, Modality, POINT_WIDTH, Selection, Status, Surface, Text
 from interface.units import ANGLE_PRECISION, FOOT, INCH, MILLIMETER, Units
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -298,11 +298,14 @@ def options(
     preferences: bpy.types.Preferences, scene: bpy.types.Scene, port: int, modules: Mapping[str, str], system: ModuleType, inkscape: str | None
 ) -> tuple[dict[tuple[str, Store], dict[str, object]], tuple[str, ...]]:
     """Registered add-on settings by `packages.toml` id and store in the order their update callbacks need, with a skip line per absent add-on or library."""
-    endpoint, grid, drawing, converter = "https://overpass-api.de/api/interpreter", 20, str(Typography.INTERFACE.path), make_converter()
+    endpoint, grid, drawing, converter = "https://overpass-api.de/api/interpreter", 20, preferences.view.font_path_ui, make_converter()
     denominator, standard, library = str(round(INCH / Units.IMPERIAL.resolution)), OFFSET / timedelta(hours=1), stocked(MATERIALS)
     size, places = round(preferences.ui_styles[0].widget.points * preferences.system.ui_scale), round(-log10(Units.METRIC.resolution / MILLIMETER))
-    crs, font, cache, overpass = f"EPSG:{EPSG}", bpy.data.fonts.load(drawing, check_existing=True), Path(bpy.app.cachedir), urlsplit(endpoint).hostname
-    dem, services = Survey.DEM.address("{W},{S},{E},{N}", 4326, 1024), ("sketchfab_api_key", "polypizza_api_key", "hyper3d_api_key", "hunyuan3d_secret_id", "hunyuan3d_secret_key")
+    zone = int((LONGITUDE + 180) // 6) + 1
+    epsg = (32600 if LATITUDE >= 0 else 32700) + zone
+    crs, font, cache, overpass = f"EPSG:{epsg}", bpy.data.fonts.load(drawing, check_existing=True), Path(bpy.app.cachedir), urlsplit(endpoint).hostname
+    dem = "https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage?bbox={W},{S},{E},{N}&bboxSR=4326&imageSR=4326&size=1024,1024&format=tiff&pixelType=F32&interpolation=RSP_BilinearInterpolation&f=image"
+    services = ("sketchfab_api_key", "polypizza_api_key", "hyper3d_api_key", "hunyuan3d_secret_id", "hunyuan3d_secret_key")
     builders: dict[str, Callable[[str], dict[Store, dict[str, object]]]] = {
         "Sverchok": lambda _: {
             Store.PREFERENCES: {
@@ -357,7 +360,7 @@ def options(
                 **{f"{service}_api_key": "" for service in ("opentopography", "maptiler")},
                 "overpassServerJson": converter.dumps([(endpoint, overpass, "Overpass API main instance"), *(gis := import_module(f"{module}.prefs")).DEFAULT_OVERPASS_SERVER]),
                 "overpassServer": endpoint,
-                "predefCrsJson": converter.dumps([(crs, f"UTM {ZONE}{'N' if LATITUDE >= 0 else 'S'}", "Site CRS"), *gis.DEFAULT_CRS]),
+                "predefCrsJson": converter.dumps([(crs, f"UTM {zone}{'N' if LATITUDE >= 0 else 'S'}", "Site CRS"), *gis.DEFAULT_CRS]),
                 "predefCrs": crs,
                 "demServerJson": converter.dumps([(dem, "USGS 3DEP", "USGS 3D Elevation Program bare-earth DEM, United States, keyless"), *gis.DEFAULT_DEM_SERVER]),
                 "demServer": dem,
@@ -488,7 +491,6 @@ def options(
         },
         "auto_reload": lambda _: {Store.PREFERENCES: {"startup_run": True}},
         "VI-Suite": lambda _: {
-            Store.PREFERENCES: {"epweath": str(SITE)},
             Store.ANALYSIS: {
                 "vi_params.latitude": LATITUDE,
                 "vi_params.longitude": LONGITUDE,
@@ -502,7 +504,7 @@ def options(
                 "vi_params.sp_hour_main": Paint(Modality.ANALYSIS.token),
                 "vi_params.sp_sun_colour": Paint(Status.WARNING),
                 "vi_params.sp_globe_colour": Paint(Modality.ANALYSIS.mark, Alpha.ZONE_FILL),
-            },
+            }
         },
         "pin_solver": lambda _: {
             Store.SCENE: {

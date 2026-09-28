@@ -16,8 +16,8 @@ import blf
 import bpy
 from mathutils import Vector
 
+from interface.frame import LOWER_EDITOR, RIGHT_COLUMN, TREE_ROWS
 from interface.report import Kind, line
-from interface.roles import LOWER_EDITOR, RIGHT_COLUMN, TREE_ROWS
 from interface.units import Units
 
 # --- [TYPES] ----------------------------------------------------------------------------

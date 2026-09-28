@@ -1,6 +1,6 @@
 # [TOOL_FORMS]
 
-Forms and facts per tool an agent step names, each proven by a run from repository root.
+Forms and facts per tool an agent step names, run from repository root.
 
 ## [01]-[GIT]
 
@@ -8,7 +8,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `git diff --name-only <commit>` lists a deleted path
 - `git diff --numstat <commit> -- <scope>` prints `added deleted path` whole
 - `git diff --name-only <commit> -- . ':(exclude)<path>'` lists the complement of a scope in one command with every exclude
-- `git diff --exit-code` fails on the run's own edits, a writer's check form over the run's files proves it rewrites nothing
+- `git diff --exit-code` fails on the run's own edits, a writer's check form over the run's files reports what it rewrites
 - `git log -p --follow -- <file>` holds facts a rewrite dropped across a rename
 - `git rev-parse --show-toplevel` is the absolute root a tool outside the shell resolves against
 - `git rev-parse HEAD` is the default commit
@@ -19,7 +19,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `fd` refuses a file as search path with `Search path '<file>' is not a directory`
 - `fd --strip-cwd-prefix` refuses a positional path
 - `fd -e yml . <dir> -x basename {} .yml | paste -sd'|' -` derives an id alternation from file names
-- `rg -n -F '<text>'` proves an old spelling absent at exit 1, `rg -l -F` lists files for `sd`, `rg -c` counts before and after a rewrite
+- `rg -n -F '<text>'` exits 1 on an absent spelling, `rg -l -F` lists files for `sd`
 - `rg` refuses look-around without `--pcre2`, `--pcre2` refuses an unknown escape (`\y`)
 - `rg -nU --pcre2 -e '^[ \t]*(#(?!!)|//|<!--|/\*)' -e '^[ \t]*(message|note):' -e '"""[\s\S]*?"""' <files>` extracts comments and rule text
 - `sd -F '<old>' '<new>' <files>` rewrites a fixed string, `sd` has no `-s` flag
@@ -37,7 +37,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `mise env -s bash` is the environment the `SessionStart` hook writes
 - `mise env --json-extended | jq -r '.[].source'` names each row's file
 - `mise doctor` prints the `config_files:` list
-- `file $(mise which <binary>)` proves the architecture of a binary
+- `file $(mise which <binary>)` prints the architecture of a binary
 
 ## [04]-[NX]
 
@@ -66,7 +66,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `dotnet build <build> --no-restore -t:Rebuild -check -bl:<logs><purpose>-{}.binlog` names a capture, `{}` expands to date, time, pid, and a suffix
 - `dotnet restore <solution> --artifacts-path <tempdir>` then builds under it isolate a pair from other sessions
 - `-p:LangVersion=7.3` produces a failing build without a repository edit
-- `Csc` execution count in `binlog_expensive_tasks` proves a compile, a duration proves nothing
+- `Csc` execution count in `binlog_expensive_tasks` shows a compile, a duration shows none
 
 ## [07]-[AST_GREP]
 
@@ -74,7 +74,7 @@ Forms and facts per tool an agent step names, each proven by a run from reposito
 - `printf '%s' '<code>' | ast-grep scan --inline-rules '<yaml>' --json --stdin` exits 1 on an `error` match, 0 with `[]` on a miss, 8 on a parse error
 - `--stdin` reports every inline rule, `--filter` selects among them
 - Rules below `severity: error` print `warning[<id>]` or `help[<id>]` at exit 0 on a match
-- `ast-grep scan --inspect entity <file> 2>&1 >/dev/null | rg '\|<id>:'` proves a rule registered, `--inspect summary` prints `scannedFileCount`
+- `ast-grep scan --inspect entity <file> 2>&1 >/dev/null | rg '\|<id>:'` lists a registered rule, `--inspect summary` prints `scannedFileCount`
 - `ast-grep scan --no-ignore hidden <scope>` reaches hidden trees
 - `ast-grep run -p '<old>' -r '<new>' -l tsx -U <dir>` rewrites under one directory
 - `ast-grep scan --filter '^(<ids>)$' --json=stream . | jq -r .ruleId | sort | uniq -c` counts hits per rule in one scan

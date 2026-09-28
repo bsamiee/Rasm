@@ -32,10 +32,8 @@ DuckDB scripts run `duckdb -json -cmd "set variable transcript = '<transcript>'"
 - [06]-[ROSLYN](scripts/roslyn.sql): `:worktree`, `:out`, confirms SARIF results with a location, returns as `batch.sql`
 - [07]-[TRANSITION](scripts/transition.sql): `:finding_id`, `:state`, `:by`, `:evidence`, `:verdict`, one transition, returns id and state
 - [08]-[BAR](scripts/bar.sql): `:verdict`, `:earns`, one `bar_verdict` row updated in place, returns nothing
-- [09]-[GATE_CATALOGER](scripts/gate-cataloger.sql): `:id`, the shape-cataloger's gate counts, one named array per select
-- [10]-[GATE_VERIFIER](scripts/gate-verifier.sql): `:id`, `:start`, `:ids`, the shape-verifier's gate counts, one named array per select
-- [11]-[TRANSCRIPT](scripts/transcript.sql): DuckDB, variable `transcript`, messages, model, and tokens of one transcript
-- [12]-[AGENT_TRANSCRIPTS](scripts/agent-transcripts.sql): DuckDB, attached `s`, cost per subagent from its transcript, background ones included
+- [09]-[TRANSCRIPT](scripts/transcript.sql): DuckDB, variable `transcript`, messages, model, and tokens of one transcript
+- [10]-[AGENT_TRANSCRIPTS](scripts/agent-transcripts.sql): DuckDB, attached `s`, cost per subagent from its transcript, background ones included
 
 `site.sql`, `hit.sql`, `span.sql`, `line.sql`, and `insert.sql` serve the scripts above through `.read`, none runs alone. A batch is one transaction, a nonzero exit leaves nothing applied.
 
@@ -180,9 +178,9 @@ Identity, `sha3` of the `sqlite3` shell as sole hasher, every hash lowercase hex
 Rows are stale when `subject_hash` of the latest `confirmed` differs from `<head>` at read time, present when `ntext` occurs in `<normalized>` over `cast(readfile(path) as text)`. Rows are covered when their latest transition is `checker_owned` with a checker rule stating its correction as evidence, and a checker row on an equal span with another correction covers nothing. `readfile` runs from `<worktree>` in a statement alone, views hold none:
 
 ```bash
-# Writer's <id> and <start>, a subagent by :agent, its definition name, the main loop by :literal, text of one of its own Bash commands
-sqlite3 -json -cmd ".param set :agent '<agent>'" -cmd ".param set :worktree '<worktree>'" <db> "select agent_id, ts from observation where event = 'SubagentStart' and json_extract(payload, '$.agent_type') = :agent and (json_extract(payload, '$.cwd') = :worktree or json_extract(payload, '$.cwd') like :worktree || '/%') order by ts desc limit 1"
-sqlite3 -json -cmd ".param set :literal '<literal>'" <db> "select session_id, ts from observation where event = 'PostToolUse' and tool = 'Bash' and json_extract(payload, '$.tool_input.command') like '%' || :literal || '%' order by ts desc limit 1"
+# Writer's <id>, a subagent by :agent, its definition name, the main loop by :literal, text of one of its own Bash commands
+sqlite3 -json -cmd ".param set :agent '<agent>'" -cmd ".param set :worktree '<worktree>'" <db> "select agent_id from observation where event = 'SubagentStart' and json_extract(payload, '$.agent_type') = :agent and (json_extract(payload, '$.cwd') = :worktree or json_extract(payload, '$.cwd') like :worktree || '/%') order by ts desc limit 1"
+sqlite3 -json -cmd ".param set :literal '<literal>'" <db> "select session_id from observation where event = 'PostToolUse' and tool = 'Bash' and json_extract(payload, '$.tool_input.command') like '%' || :literal || '%' order by ts desc limit 1"
 
 # Every finding at its current path with its state, span, hash, and last close
 sqlite3 -json -cmd ".param set :ids '[\"<a>\", \"<b>\"]'" <db> "select * from finding_state where finding_id in (select value from json_each(:ids))"

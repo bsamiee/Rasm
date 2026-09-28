@@ -9,7 +9,7 @@ Files on disk read through openNURBS outside Rhino, open as documents through ma
 - `page_units` and annotation `styles` sit beside model units, and `layouts` lists pages apart from model `views`
 - Counts, `min`, and `max` cover model-space objects outside block definitions
 - `open_by` holds user, computer, and time from the `<file>.rhl` lock Rhino writes beside a file a document holds open
-- Locks outlive a crashed Rhino, `list_slots` and `describe(doc)` confirm which document holds the file
+- Locks outlive a crashed Rhino, `list_slots` and `describe(doc)` name the document holding the file
 - Layer linetypes read `None`, rhino3dm crashes the interpreter on releasing a model whose linetype table it read
 - `rhino3dm` exposes no view display mode, render settings walk, or section style, and `File3dm` inside Rhino reads each
 

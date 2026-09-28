@@ -27,7 +27,7 @@ Paths sit under `~/Library/Application Support/McNeel/Rhinoceros/9.0/` unless ab
 
 ## [02]-[WRITES]
 
-- `Rhino.ApplicationSettings.<Class>.<Member> = value` writes the native object at once and persists, a member read by name proves it
+- `Rhino.ApplicationSettings.<Class>.<Member> = value` writes the native object at once and persists
 - `PersistentSettings.RhinoAppSettings.AddChild("Options").AddChild("<Group>")` reaches a key's child, `GetChild` raises when the child is absent
 - `child.Set<Type>(key, value)` writes, `child.TryGet<Type>(key)` reads `(found, value)`, `Get<Type>(key, default)` writes `default` into the store
 - One-argument getters (`GetBool(key)`) read a registered key and raise `NotSupportedException` when the stored text is another type
@@ -108,7 +108,7 @@ Paths sit under `~/Library/Application Support/McNeel/Rhinoceros/9.0/` unless ab
 - `Resources/Fonts/SansSerif.txt` and `Monospace.txt` under the Grasshopper 2 support folder read once at startup, edited with Rhino closed
 - Each file holds one family cascade, the hidden system face cannot head one, and a named installed family resolves
 - `Grasshopper2.Folders.ResourceFolder(ResourceFolder.Fonts)` names the folder, a `Resources/version` change rewrites every file in it
-- `StandardFonts.Sans(FontSize.Normal).ControlObject.FontName` proves the resolved face, both import from `Eto.Drawing` after `import Grasshopper2`
+- `StandardFonts.Sans(FontSize.Normal).ControlObject.FontName` reads the resolved face, both import from `Eto.Drawing` after `import Grasshopper2`
 
 ## [09]-[GRASSHOPPER_2]
 

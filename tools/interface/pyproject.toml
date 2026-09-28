@@ -20,4 +20,4 @@ dependencies = [
 
 [tool.ruff]
 extend = "../../pyproject.toml"
-per-file-target-version = { "!{cli,host,*/apply,adobe/rows,adobe/stores,adobe/workspaces,rhino/packages,rhino/stores}.py" = "py313" }
+per-file-target-version = { "!{cli,host,*/apply,adobe/rows,adobe/stores,adobe/workspaces,blender/content,blender/packages,blender/sessions,blender/userpref,rhino/packages,rhino/stores}.py" = "py313" }

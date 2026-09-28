@@ -25,12 +25,11 @@ import {
     description,
     due,
     dueCategories,
+    JUDGE,
     type Judging,
-    LEDGER,
     type Lineage,
     lineageOf,
     listed,
-    occupied,
     prompt,
     REPORT,
     resolved,
@@ -43,7 +42,7 @@ import {
     subject,
 } from './observation/delivery.ts';
 import { CALL, CLASSIC, type Columns, type Event, row, session, TURN } from './observation/row.ts';
-import { type Argv, database, keep, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
+import { type Argv, database, delta, LOCATE, open, script, sqlite3 } from './observation/sql.ts';
 import { basename } from './path.ts';
 import type { Place } from './policies/walk.ts';
 
@@ -73,11 +72,7 @@ interface Environment {
 }
 
 type Pending = readonly [string, Spawned, Map<string, Spawned>];
-type Once = (attempt: () => Promise<Result<Sink>>) => Promise<Result<Sink>>;
-
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _CONTROL = /\p{Cc}+/gu;
+type Once = (start: () => Promise<Result<Sink>>) => Promise<Result<Sink>>;
 
 // --- [MEMO] ----------------------------------------------------------------------------
 
@@ -95,8 +90,8 @@ const _memo = (): Memo => {
 
 const _once = (): Once => {
     let opening: Promise<Result<Sink>> | undefined;
-    return (attempt) => {
-        opening ??= attempt();
+    return (start) => {
+        opening ??= start();
         return opening;
     };
 };
@@ -127,9 +122,9 @@ const _applied = ($: EngineInterface, sqlite: Argv, root: string): Promise<Resul
     _run($, sqlite, { stdin: open(root), cwd: root }).then((applied) => (applied.kind === 'fault' ? fault(`schema not applied, ${applied.reason}`) : _switched($, sqlite, root)));
 
 const _prepared = ($: EngineInterface, sqlite: Argv, root: string): Promise<Result<Sink>> =>
-    $.fs.write(keep(root), '').then(
+    $.fs.write(delta(root), '').then(
         () => _applied($, sqlite, root),
-        (cause: unknown) => fault(`${keep(root)} not written, ${String(cause)}`),
+        (cause: unknown) => fault(`${delta(root)} not written, ${String(cause)}`),
     );
 
 const _located = ($: EngineInterface, root: string): Promise<Result<Sink>> =>
@@ -197,24 +192,21 @@ const _launched = ($: EngineInterface, environment: Environment, spawned: Spawne
 
 // --- [SETTLEMENT] ----------------------------------------------------------------------
 
-const _pending = (environment: Result<Environment>, agentId: string | undefined): Option<Pending> => {
-    if (environment.kind === 'fault' || agentId === undefined) {
-        return none;
-    }
-    const found = fromNullable(environment.value.spawned.get(agentId));
-    return found.kind === 'some' ? some([agentId, found.value, environment.value.spawned]) : none;
+const _pending = (spawned: Map<string, Spawned>, agentId: string | undefined): Option<Pending> => {
+    const found = agentId === undefined ? undefined : spawned.get(agentId);
+    return agentId === undefined || found === undefined ? none : some([agentId, found, spawned]);
 };
 
 const _judged = ($: EngineInterface, sink: Sink, e: Completed, [id, judging, spawned]: readonly [string, Judging, Map<string, Spawned>], ts: number): Promise<void> =>
     record($, sink, 'turn.complete', e, TURN, ts)
-        .then(() => _run($, sink.argv, { stdin: LEDGER(judging, id, ts), cwd: judging.lineage.worktree }))
+        .then(() => _run($, sink.argv, { stdin: JUDGE(judging, id, ts), cwd: judging.lineage.worktree }))
         .then((written) => {
             if (written.kind === 'ok' && written.value.trim() === '') {
                 $.ui.log(`${judging.agent} ${id} answered with no transition over ${subject(judging)}, range stays unjudged`);
                 return;
             }
             spawned.delete(id);
-            $.ui.log(written.kind === 'fault' ? `ledger row not written, ${written.reason}` : `${judging.agent} ${id} judged ${subject(judging)}`);
+            $.ui.log(written.kind === 'fault' ? `judged_range row not written, ${written.reason}` : `${judging.agent} ${id} judged ${subject(judging)}`);
         });
 
 const _placed = ($: EngineInterface, e: Completed, building: Building): Promise<Readonly<Record<string, unknown>>> =>
@@ -246,8 +238,8 @@ const _ended = ($: EngineInterface, sink: Sink, e: Completed, [id, pending, spaw
     return pending.kind === 'range' ? _judged($, sink, e, [id, pending, spawned], ts) : _built($, sink, e, [id, pending, spawned], ts);
 };
 
-const _completed = ($: EngineInterface, sink: Sink, e: Completed, ts: number, environment: Result<Environment>): Promise<void> => {
-    const pending = _pending(environment, e.agentId);
+const _completed = ($: EngineInterface, sink: Sink, e: Completed, ts: number, spawned: Map<string, Spawned>): Promise<void> => {
+    const pending = _pending(spawned, e.agentId);
     return pending.kind === 'some' ? _ended($, sink, e, pending.value, ts) : record($, sink, 'turn.complete', e, TURN, ts);
 };
 
@@ -279,7 +271,7 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
             return _skip($, tasks.reason);
         }
         const quiet = seen.value.edits.holding === 0;
-        const busy = occupied(tasks.value, environment.claims);
+        const busy = [...tasks.value, ...environment.claims];
         if (due(seen.value.edits, busy, quiet)) {
             _launched($, environment, { kind: 'range', agent: environment.chosen.edits.agent, lineage, range: seen.value.edits, to });
         }
@@ -292,7 +284,7 @@ const _counted = ($: EngineInterface, sink: Sink, e: Boundary, lineage: Lineage,
 
 const _branched = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment, worktree: string): Promise<readonly string[]> =>
     _run($, ['git', 'branch', '--show-current'], { cwd: e.cwd }).then((branch) =>
-        branch.kind === 'fault' ? _skip($, branch.reason) : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim().replace(_CONTROL, ' ')), to, environment),
+        branch.kind === 'fault' ? _skip($, branch.reason) : _counted($, sink, e, lineageOf(sink.root, worktree, branch.value.trim()), to, environment),
     );
 
 const _boundary = ($: EngineInterface, sink: Sink, e: Boundary, to: number, environment: Environment): Promise<readonly string[]> =>
@@ -300,21 +292,16 @@ const _boundary = ($: EngineInterface, sink: Sink, e: Boundary, to: number, envi
         worktree.kind === 'fault' ? _skip($, worktree.reason) : _branched($, sink, e, to, environment, worktree.value.trim()),
     );
 
-const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Result<Environment>, footer: Memo, to: number): Promise<readonly string[]> =>
+const _observed = ($: EngineInterface, sink: Sink, e: Classic, environment: Environment, to: number): Promise<readonly string[]> =>
     _classic($, sink, e, to).then(() => {
-        if (e.hook_event_name === 'SessionEnd' && footer.set('')) {
+        if (e.hook_event_name === 'SessionEnd' && environment.footer.set('')) {
             $.ui.invalidate('ui.render');
         }
-        if (!_stopping(e)) {
-            return [];
-        }
-        return environment.kind === 'ok' ? _boundary($, sink, e, to, environment.value) : _skip($, `options not read, ${environment.reason}`);
+        return _stopping(e) ? _boundary($, sink, e, to, environment) : [];
     });
 
-const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult => {
-    const earlier = fromNullable(result.additionalContext);
-    return entries.length === 0 ? result : { ...result, additionalContext: earlier.kind === 'some' ? [...earlier.value, ...entries] : [...entries] };
-};
+const _answered = (result: ClassicResult, entries: readonly string[]): ClassicResult =>
+    entries.length === 0 ? result : { ...result, additionalContext: [...(result.additionalContext ?? []), ...entries] };
 
 // --- [COMPOSITION] ---------------------------------------------------------------------
 
@@ -322,7 +309,7 @@ const _observation = (on: On, options: PluginOptions, once: Once): void => {
     const footer = _memo();
     const claims: Set<string> = new Set();
     const spawned: Map<string, Spawned> = new Map();
-    const environment = map(settings(options), (chosen): Environment => ({ chosen, claims, spawned, footer }));
+    const environment: Environment = { chosen: settings(options), claims, spawned, footer };
 
     on(
         'classic.*',
@@ -348,7 +335,7 @@ const _observation = (on: On, options: PluginOptions, once: Once): void => {
         ($, e, next) =>
             next.is('!classic.PreToolUse', e)
                 ? _stamped($, once)
-                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, footer, found.value.ts) : []))
+                      .then((found) => (found.kind === 'ok' ? _observed($, found.value.sink, e, environment, found.value.ts) : []))
                       .then((entries) => next(e).then((result) => _answered(result, entries)))
                 : next(e),
     );
@@ -359,7 +346,7 @@ const _observation = (on: On, options: PluginOptions, once: Once): void => {
                 if (found.kind === 'fault') {
                     return;
                 }
-                return next.is('turn.complete', e) ? _completed($, found.value.sink, e, found.value.ts, environment) : record($, found.value.sink, next.event, e, TURN, found.value.ts);
+                return next.is('turn.complete', e) ? _completed($, found.value.sink, e, found.value.ts, spawned) : record($, found.value.sink, next.event, e, TURN, found.value.ts);
             })
             .then(() => next(e)),
     );
@@ -378,7 +365,7 @@ const register: Register = (on, options) => {
             (path: string) => $.fs.exists(path),
             walking ? some(() => _place($)) : none,
         )
-            .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason.replace(_CONTROL, ' ') } : next(decision.e)))
+            .then((decision) => (decision.kind === 'deny' ? { deny: decision.reason } : next(decision.e)))
             .then<ToolCallResult>((answer) =>
                 answer.deny === undefined || opener.kind === 'none'
                     ? answer

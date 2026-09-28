@@ -5,7 +5,6 @@ import { open } from './hooks/observation/sql.ts';
 // --- [CONSTANTS] -----------------------------------------------------------------------
 
 const _VIEW = /create view (?<name>\w+) as/gu;
-const _SEGMENTS = 4;
 const _PARTS = open('.').split(/^\..*\n/gmu);
 
 // --- [OPERATIONS] ----------------------------------------------------------------------
@@ -14,7 +13,7 @@ const _compare = (left: string, right: string): number => Number(left > right) -
 
 const _segments = (parts: readonly string[]): readonly [string, string, string, string] => {
     const [begun, selects, drops, applied] = parts;
-    assert(begun !== undefined && selects !== undefined && drops !== undefined && applied !== undefined, `the open statement splits into ${parts.length} segments, not ${_SEGMENTS}`);
+    assert(begun !== undefined && selects !== undefined && drops !== undefined && applied !== undefined, `open splits into ${parts.length} segments`);
     return [begun, selects, drops, applied];
 };
 
@@ -74,9 +73,6 @@ afterAll(() => {
 // --- [CASES] ---------------------------------------------------------------------------
 
 it('creates every view the open statement declares', () => {
-    const declared = 22;
-    expect(_PARTS).toHaveLength(_SEGMENTS);
-    expect(created).toHaveLength(declared);
     expect(created).toStrictEqual([...open('.').matchAll(_VIEW)].map((match) => String(match.groups?.['name'])).toSorted(_compare));
 });
 

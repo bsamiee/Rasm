@@ -6,7 +6,7 @@ import { basename } from '../path.ts';
 
 // --- [TYPES] ---------------------------------------------------------------------------
 
-type Refinement = (args: readonly string[], existing: readonly string[]) => readonly string[];
+type Refinement = (args: readonly string[], existing: readonly string[], reason: string) => readonly string[];
 type WorktreeEvent = Extract<ToolCallInput, { readonly tool: 'Agent' | 'EnterWorktree' }>;
 
 interface GitRow {
@@ -37,15 +37,15 @@ const _reset: Refinement = (args, existing) => {
     return target === undefined || args.includes('--') || targets.some((named) => existing.includes(named)) ? [] : [`git reset ${target} moves HEAD and drops commits from the branch`];
 };
 
-const _restore: Refinement = (args) => {
+const _restore: Refinement = (args, _existing, reason) => {
     const staged = args.some((word) => word === '-S' || word === '--staged' || _short(word, 'S'));
     const worktree = args.some((word) => word === '-W' || word === '--worktree' || _short(word, 'W'));
-    return staged && !worktree ? [] : ['git restore overwrites working-tree files'];
+    return staged && !worktree ? [] : [`git restore ${reason}`];
 };
 
-const _config: Refinement = (args) => {
+const _config: Refinement = (args, _existing, reason) => {
     const alias = args.find((word) => word.startsWith('alias.'));
-    return alias !== undefined && args.slice(args.indexOf(alias) + 1).some((word) => !_isFlag(word)) ? [`git config ${alias} defines a git alias that can hide a refused subcommand`] : [];
+    return alias !== undefined && args.slice(args.indexOf(alias) + 1).some((word) => !_isFlag(word)) ? [`git config ${alias} ${reason}`] : [];
 };
 
 const _checkout: Refinement = (args, existing) => {
@@ -72,7 +72,7 @@ const GIT = {
     'reflog drop': { reason: 'erases reflog entries, the last recovery path', any: true },
     'reflog expire': { reason: 'erases reflog entries, the last recovery path', any: true },
     reset: { reason: 'wipes working-tree or index state', flags: ['--hard', '--merge', '--keep'], refine: _reset },
-    restore: { reason: 'discards working-tree state', refine: _restore },
+    restore: { reason: 'overwrites working-tree files', refine: _restore },
     revert: { reason: 'reverses committed history', any: true },
     stash: { reason: 'hides uncommitted work other agents depend on', any: true, safe: ['list', 'show'] },
     switch: { reason: 'discards local changes', flags: ['-f', '-C', '--discard-changes'], prefixes: ['--force'] },
@@ -105,7 +105,7 @@ const _refusals = (head: Head, existing: readonly string[]): readonly string[] =
         return [`git ${head.key} ${row.reason}`];
     }
     const hit = head.args.find((word) => row.flags?.includes(word) === true || row.prefixes?.some((prefix) => word.startsWith(prefix)) === true);
-    return hit === undefined ? (row.refine?.(head.args, existing) ?? []) : [`git ${head.key} ${hit} ${row.reason}`];
+    return hit === undefined ? (row.refine?.(head.args, existing, row.reason) ?? []) : [`git ${head.key} ${hit} ${row.reason}`];
 };
 
 const _reason = (words: readonly string[], existing: readonly string[]): readonly string[] => {

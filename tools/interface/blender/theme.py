@@ -1,5 +1,6 @@
 """Blender's declared theme, each member's color role or value by path."""
 
+from array import array
 from collections.abc import Iterator, Mapping
 from enum import auto, Enum
 from itertools import chain, repeat
@@ -10,7 +11,7 @@ from attrs import asdict, evolve, frozen
 import bpy
 from mathutils import Color
 
-from interface.roles import Accent, Alpha, Axis, blend, Field, Guide, Ink, Line, Modality, Node, POINT_WIDTH, Rgb, Selection, Status, Surface, Tag, Text, Wire, Zone
+from interface.roles import Accent, Alpha, Axis, blend, Field, Guide, Ink, Line, Modality, Node, POINT_WIDTH, Selection, Status, Surface, Tag, Text, Wire
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -35,15 +36,16 @@ ROUNDNESS: Final = 0.4
 class Paint:
     """Color role at an alpha in the encoding its draw path reads."""
 
-    rgb: Rgb
+    rgb: tuple[int, int, int]
     alpha: float = 1.0
     encoding: Encoding = Encoding.DISPLAY
 
     def stored(self, prop: bpy.types.FloatProperty) -> tuple[float, ...]:
-        """Channels Blender stores for the property's array length, rounded as Blender rounds them."""
-        display = tuple(round(channel / 255, 4) for channel in self.rgb)
-        channels = display if self.encoding is Encoding.DISPLAY else tuple(round(channel, 4) for channel in Color(display).from_srgb_to_scene_linear()[:])
-        return (*channels, round(round(self.alpha * 255) / 255, 4))[: prop.array_length]
+        """Channels Blender rereads for the property's array length, each byte at Blender's single-precision byte step."""
+        step = array("f", (1 / 255,))[0]
+        display = tuple(channel * step for channel in self.rgb)
+        channels = display if self.encoding is Encoding.DISPLAY else Color(display).from_srgb_to_scene_linear()[:]
+        return tuple(array("f", (*channels, round(self.alpha * 255) * step)))[: prop.array_length]
 
 
 @frozen(kw_only=True)
@@ -91,20 +93,20 @@ class Gradient(Space):
 
 
 # --- [GRIDS]
-def lowered(rgb: Rgb, shade: int) -> Rgb:
+def lowered(rgb: tuple[int, int, int], shade: int) -> tuple[int, int, int]:
     """Theme color the 3D view draws as `rgb` after adding `shade` and lifting the sum by 255 x srgb_to_linear(b / 255)^(1 / 2.2), each channel at its nearest byte."""
     red, green, blue = (max(0, round(channel * 255) - shade) for channel in Color(tuple((channel / 255) ** 2.2 for channel in rgb)).from_scene_linear_to_srgb()[:])
     return (red, green, blue)
 
 
-def emphasized(minor: Rgb, major: Rgb, ground: Rgb) -> tuple[Rgb, float]:
+def emphasized(minor: tuple[int, int, int], major: tuple[int, int, int], ground: tuple[int, int, int]) -> tuple[tuple[int, int, int], float]:
     """Image editor grid color and byte alpha whose minor line, lifted 10 over the ground, and emphasized line, lifted 20 over the minor line, draw nearest the two roles."""
 
     def drawn(grid: float, alpha: float, base: int) -> tuple[float, float]:
         low = base + alpha * (grid + 10 - base)
         return low, low + alpha * (grid + 20 - low)
 
-    def fitted(alpha: float) -> tuple[float, Rgb, float]:
+    def fitted(alpha: float) -> tuple[float, tuple[int, int, int], float]:
         slopes = (alpha, alpha * (2 - alpha))
         red, green, blue = (
             min(255, max(0, round(sum(slope * (target - start) for slope, target, start in zip(slopes, wanted, drawn(0, alpha, base), strict=True)) / sum(slope**2 for slope in slopes))))
@@ -117,7 +119,7 @@ def emphasized(minor: Rgb, major: Rgb, ground: Rgb) -> tuple[Rgb, float]:
     return grid, alpha
 
 
-def brightened(grid: Rgb, axes: tuple[Rgb, ...]) -> float:
+def brightened(grid: tuple[int, int, int], axes: tuple[tuple[int, int, int], ...]) -> float:
     """Floor axis brightness whose one byte offset, added to each axis the 3D view floors from 0.85 of the axis over 0.15 of the grid, draws the axes nearest their roles by least squares."""
     offset = round(sum(role - int(0.15 * ground + 0.85 * role) for axis in axes for role, ground in zip(axis, grid, strict=True)) / (3 * len(axes)))
     return 0.5 + (offset + 0.5) / 510
@@ -141,18 +143,16 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
     minor, major = (blend(Line.GRID, Surface.CANVAS, alpha) for alpha in (Alpha.GRID_MINOR, Alpha.GRID_MAJOR))
     image, image_alpha = emphasized(minor, major, Surface.CANVAS)
     grid = lowered(minor, 10)
-    text, _, _ = Text.PRIMARY
-    hover, _, _ = Surface.HOVER
-    menu = next(byte for byte in range(256) if int(0.8 * byte + 0.2 * text) == hover)
+    red, green, blue = (next(byte for byte in range(256) if int(0.8 * byte + 0.2 * text) == hover) for text, hover in zip(Text.PRIMARY, Surface.HOVER, strict=True))
     pixel, scale = system.pixel_size, system.ui_scale
     field, pressed, frame, well, border = Paint(Surface.FIELD), Paint(Accent.CONTROL_PRESSED), Paint(Surface.FRAME), Paint(Surface.WELL), Paint(Line.BORDER)
     screen, tab = Paint(Ink.SCREEN), Paint(Accent.TAB_ACTIVE)
     toggle = Widget(outline=field, outline_sel=pressed, inner=field, inner_sel=pressed, item=frame)
     number = Widget(outline=border, outline_sel=Paint(Accent.FOCUS), inner=field, inner_sel=Paint(Field.EDITING), item=Paint(Accent.INDICATOR))
     widgets = {
-        "wcol_regular": Widget(outline=field, outline_sel=pressed, inner=field, inner_sel=pressed, item=Paint(Surface.FRAME, Alpha.HALF)),
+        "wcol_regular": Widget(outline=field, outline_sel=pressed, inner=field, inner_sel=pressed, item=Paint(Surface.FRAME, Alpha.WIDGET_ITEM)),
         "wcol_tool": Widget(outline=field, outline_sel=pressed, inner=field, inner_sel=pressed, item=Paint(Text.PRIMARY)),
-        "wcol_toolbar_item": Widget(outline=Paint(Surface.PANEL), outline_sel=pressed, inner=Paint(Surface.PANEL), inner_sel=pressed, item=Paint(Text.PRIMARY, Alpha.RECEDED)),
+        "wcol_toolbar_item": Widget(outline=Paint(Surface.PANEL), outline_sel=pressed, inner=Paint(Surface.PANEL), inner_sel=pressed, item=Paint(Text.PRIMARY, Alpha.TOOLBAR_ICON)),
         "wcol_radio": toggle,
         "wcol_text": Widget(outline=border, outline_sel=Paint(Accent.FOCUS), inner=field, inner_sel=Paint(Field.EDITING), item=Paint(Accent.TEXT_SELECTED)),
         "wcol_option": Widget(outline=border, outline_sel=Paint(Accent.FOCUS), inner=field, inner_sel=Paint(Accent.CHECKBOX_CHECKED), item=Paint(Text.PRIMARY)),
@@ -167,7 +167,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
         "wcol_pie_menu": Widget(outline=border, outline_sel=Paint(Accent.ROW_ACTIVE), inner=frame, inner_sel=Paint(Accent.ROW_ACTIVE), item=Paint(Surface.HOVER)),
         "wcol_tooltip": Widget(outline=border, outline_sel=border, inner=frame, inner_sel=Paint(Accent.ROW_ACTIVE), item=Paint(Text.SECONDARY)),
         "wcol_menu_item": Widget(
-            outline=Paint(Line.BORDER, 0.0), outline_sel=Paint(Accent.FOCUS, 0.0), inner=Paint((menu, menu, menu), 0.0), inner_sel=Paint(Accent.ROW_ACTIVE), item=Paint(Text.SECONDARY)
+            outline=Paint(Line.BORDER, 0.0), outline_sel=Paint(Accent.FOCUS, 0.0), inner=Paint((red, green, blue), 0.0), inner_sel=Paint(Accent.ROW_ACTIVE), item=Paint(Text.SECONDARY)
         ),
         "wcol_scroll": Widget(outline=border, outline_sel=border, inner=Paint(Surface.FRAME, 0.0), inner_sel=Paint(Surface.HOVER), item=field),
         "wcol_progress": Widget(outline=border, outline_sel=border, inner=frame, inner_sel=Paint(Accent.INDICATOR), item=Paint(Accent.INDICATOR)),
@@ -204,7 +204,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 **dict.fromkeys(("wire", "wire_edit", "gp_vertex", "empty", "vertex_unreferenced"), screen),
                 "camera_passepartout": Paint(Surface.SHADOW),
                 "edge_width": 1,
-                "gp_wire_edit": Paint(Ink.SCREEN, Alpha.HALF),
+                "gp_wire_edit": Paint(Ink.SCREEN, Alpha.EDIT_WIRE),
                 "gp_vertex_size": round(POINT_WIDTH / (2 * pixel)),
                 "text_grease_pencil": Paint(Text.SECONDARY),
                 **dict.fromkeys(("gp_vertex_select", "object_selected", "edge_select", "edge_mode_select", "nurb_sel_uline", "nurb_sel_vline", "bone_pose"), Paint(Selection.ITEM)),
@@ -212,7 +212,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 "face": Paint(Text.PRIMARY, Alpha.EDIT_FACE),
                 **dict.fromkeys(("face_select", "face_mode_select"), Paint(Selection.ITEM, Alpha.FACE_FILL)),
                 "facedot_size": round(POINT_WIDTH / pixel),
-                "face_back": Paint(Status.ERROR, Alpha.RECEDED),
+                "face_back": Paint(Status.ERROR, Alpha.BACK_FACE),
                 "face_front": Paint(Ink.SCREEN, 0.0),
                 "bevel": Paint(Line.BEVEL),
                 "seam": Paint(Line.SEAM),
@@ -224,7 +224,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 **dict.fromkeys(("normal", "vertex_normal", "split_normal", "skin_root"), Paint(Guide.CONSTRUCTION)),
                 "face_retopology": Paint(Surface.SHADED, Alpha.FACE_FILL),
                 **dict.fromkeys(("bone_solid", "bundle_solid"), Paint(Surface.SHADED)),
-                "bone_locked_weight": Paint(Line.LOCKED, Alpha.HALF),
+                "bone_locked_weight": Paint(Line.LOCKED, Alpha.LOCKED_WEIGHT),
                 "before_current_frame": Paint(Line.BEFORE_FRAME),
                 "after_current_frame": Paint(Line.AFTER_FRAME),
                 "transform": Paint(Guide.TRACKING),
@@ -238,8 +238,8 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
             timeline_space,
             {
                 **keyed,
-                "active_action": Paint(Accent.INDICATOR, Alpha.TINT),
-                "active_action_unset": Paint(Line.LOCKED, Alpha.UNSET),
+                "active_action": Paint(Accent.INDICATOR, Alpha.ACTIVE_ACTION),
+                "active_action_unset": Paint(Line.LOCKED, Alpha.UNSET_ACTION),
                 **dict.fromkeys(("strips", "meta_strips", "sound_strips"), field),
                 "transition_strips": Paint(Surface.BOX),
                 **dict.fromkeys(("strips_selected", "transition_strips_selected", "meta_strips_selected", "sound_strips_selected"), Paint(Selection.BODY)),
@@ -255,7 +255,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 "summary": Paint(Surface.BOX),
                 "anim_interpolation_linear": Paint(Text.SECONDARY, Alpha.INTERPOLATION),
                 "anim_interpolation_constant": Paint(Text.DISABLED, Alpha.INTERPOLATION),
-                "anim_interpolation_other": Paint(Line.LOCKED, Alpha.RECEDED),
+                "anim_interpolation_other": Paint(Line.LOCKED, Alpha.MIXED_INTERPOLATION),
                 "simulated_frames": Paint(Accent.INDICATOR),
             },
         ),
@@ -347,8 +347,8 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 },
                 "frame_node": Paint(Surface.RECESS),
                 **{
-                    f"{kind}_zone": Paint(zone.border, Alpha.ZONE_FILL)
-                    for kind, zone in (("simulation", Zone.SIMULATION), ("repeat", Zone.REPEAT), ("foreach_geometry_element", Zone.FOR_EACH), ("closure", Zone.CLOSURE))
+                    f"{kind}_zone": Paint(modality.border, Alpha.ZONE_FILL)
+                    for kind, modality in (("simulation", Modality.INPUT), ("repeat", Modality.TRANSFORM), ("foreach_geometry_element", Modality.VECTOR), ("closure", Modality.DATA))
                 },
                 "noodle_curving": 4,
                 "grid_levels": 3,
@@ -363,7 +363,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 "active": Paint(Accent.ROW_ACTIVE),
                 "selected_object": Paint(Accent.ITEM_SELECTED),
                 "active_object": Paint(Accent.ITEM_ACTIVE),
-                "edited_object": Paint(Accent.INDICATOR, Alpha.TINT),
+                "edited_object": Paint(Accent.INDICATOR, Alpha.EDITED_OBJECT),
                 **alternating,
             },
         ),
@@ -470,8 +470,8 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
         "common": {
             "anim": {
                 "playhead": Paint(Accent.INDICATOR),
-                "preview_range": Paint(Guide.CONSTRUCTION, Alpha.TINT),
-                "scene_strip_range": Paint(Surface.SHADOW, Alpha.HALF),
+                "preview_range": Paint(Guide.CONSTRUCTION, Alpha.PREVIEW_RANGE),
+                "scene_strip_range": Paint(Surface.SHADOW, Alpha.STRIP_RANGE),
                 "channels": Paint(Surface.BOX),
                 **dict.fromkeys(("channels_sub", "channel_group"), Paint(Surface.PANEL)),
                 "channel_group_active": Paint(Accent.ROW_ACTIVE),
@@ -486,7 +486,7 @@ def declared_theme(theme: bpy.types.Theme, system: bpy.types.PreferencesSystem) 
                 **dict.fromkeys(("keyframe_moving_hold_selected", "keyframe_generated_selected"), Paint(Selection.INACTIVE)),
                 "keyframe_generated": Paint(Text.DISABLED),
                 "long_key": Paint(Text.PRIMARY, Alpha.VEIL),
-                "long_key_selected": Paint(Selection.ITEM, Alpha.HOLD),
+                "long_key_selected": Paint(Selection.ITEM, Alpha.HELD_KEY),
             },
             "curves": {
                 **dict.fromkeys(("handle_free", "handle_auto", "handle_vect", "handle_align", "handle_auto_clamped"), Paint(Guide.HANDLE)),

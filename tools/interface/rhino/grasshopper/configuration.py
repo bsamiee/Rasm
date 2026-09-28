@@ -1,11 +1,13 @@
 # ty: ignore[unresolved-attribute, unresolved-import]
-# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, misc, no-any-return, call-overload"
+# mypy: disable-error-code="import-untyped, import-not-found, no-any-unimported, attr-defined, no-any-return"
 # ruff: file-ignore[import-outside-top-level]
 """Grasshopper 2's configuration as rows the Rhino script converges."""
 
 from collections.abc import Mapping
 from functools import partial
 from importlib import import_module
+from math import sumprod
+from operator import sub
 from pathlib import Path
 from types import ModuleType, SimpleNamespace
 
@@ -19,22 +21,21 @@ import Rhino
 from Rhino.PlugIns import PlugIn
 import System
 
+from interface.frame import LOWER_EDITOR
 from interface.report import Row
-from interface.rhino.rows import hex_color, key, member, plain
+from interface.rhino.rows import hex_color, key, member, plain, SWATCHES
 from interface.rhino.window import Site
-from interface.roles import Alpha, Axis, blend, Guide, Ink, Line, LOWER_EDITOR, Opacity, Preview, rendered, Surface, Tag, Text, Typography, Wire
+from interface.roles import Alpha, Axis, blend, Guide, Line, Modality, Selection, substituted, Surface, Tag, Text, Typography, Wire
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
 
 # --- [TEMPLATES]
 def spelled(value: object) -> str:
-    """Placeholder value in Grasshopper 2's file spelling, an opacity as a percent, an enum as its number, and a role as `#RRGGBB`."""
+    """Placeholder value in Grasshopper 2's file spelling, an opacity fraction as a percent and a role as `#RRGGBB`."""
     match value:
-        case Opacity():
+        case float():
             return f"{round(value * 100)}%"
-        case System.Enum():
-            return str(int(value))
         case tuple():
             return hex_color(value)
         case _:
@@ -71,10 +72,10 @@ def saved_skin(skins: object, name: str) -> str | None:
 # --- [GUISES]
 def declared_guises(display: object, point_width: float, stroke: float) -> object:
     """Preview guises from the roles, standard and selected."""
-    ink, selected = Color.FromArgb(*Preview.INK), Color.FromArgb(*Preview.SELECTED)
-    curves, clear = display.GuiseCurve(ink, stroke), display.GuiseCurve(Color.FromArgb(*Preview.INK, 0), stroke)
+    ink, selected = Color.FromArgb(*Modality.DISPLAY.mark), Color.FromArgb(*Selection.ITEM)
+    curves, clear = display.GuiseCurve(ink, stroke), display.GuiseCurve(Color.FromArgb(*Modality.DISPLAY.mark, 0), stroke)
     axes = display.GuisePlane(Color.FromArgb(*Axis.X), Color.FromArgb(*Axis.Y), Color.FromArgb(*Line.DATUM_GRID), stroke, stroke)
-    shaded = display.GuiseFacet(Color.FromArgb(*Preview.BODY), 0.0, display.Stripe.Flat)
+    shaded = display.GuiseFacet(Color.FromArgb(*Surface.SHADED), 0.0, display.Stripe.Flat)
     standard = display.Guise(points=display.GuisePoint(ink, point_width, display.Symbol.Circle), planes=axes, curves=curves, isocurves=clear, planarNatural=shaded)
     chosen = display.Guise(
         points=display.GuisePoint(selected, point_width, display.Symbol.Unset), planes=axes.WithoutLineColours(), curves=display.GuiseCurve(selected, stroke), isocurves=clear, planarNatural=shaded
@@ -105,7 +106,7 @@ def tab_rows(grasshopper: ModuleType, name: str, rules: Path, count: int) -> tup
     folder = grasshopper.SettingsFolder(name)
     control, settings = {"CurrentRuleSet": rules.name, "RowCount": count, "TabPreview": True}, folder.GetSettings("Control")
     return (
-        Row(label=f"grasshopper {name} rule set", read=partial(folder.GetText, rules.name), write=partial(folder.SetText, rules.name), target=rendered(rules.read_text(encoding="utf-8"), spelled)),
+        Row(label=f"grasshopper {name} rule set", read=partial(folder.GetText, rules.name), write=partial(folder.SetText, rules.name), target=substituted(rules.read_text(encoding="utf-8"), spelled)),
         Row(label=f"grasshopper {name} Control", read=partial(stored, settings, control), write=partial(save, settings), target=control),
     )
 
@@ -151,32 +152,33 @@ def rows(doc: Rhino.RhinoDoc, point_width: float, shift: Mapping[Site, float]) -
     loaded_plugin = PlugIn.Find(plugin)
     command, logs, skins, reasons, scratch = loaded_plugin.CommandSettings("GH2"), loaded_plugin.Settings, skinning.SkinServer, grasshopper.Doc.AutoSaveReason, grasshopper.SpecialObjects.ScratchObject
     colors, picker, arrows = grasshopper.Types.Colour, grasshopper.UI.ColourPicker, grasshopper.UI.Canvas.Shapes.ArrowStyle
-    radius, columns, scale, author = 3, 5, Screen.PrimaryScreen.LogicalPixelSize, Rhino.RhinoApp.LicenseUserName.strip()
-    stroke, cell = (scale + 1) / (2 * scale), skinning.CanvasSkin.DefaultDim.GridSkin.Cell
-    (secondary, *_), (disabled, *_), (panel, *_) = Text.SECONDARY, Text.DISABLED, Surface.PANEL
+    radius, columns, wire_width, scale, author = 3, 5, 1, Screen.PrimaryScreen.LogicalPixelSize, Rhino.RhinoApp.LicenseUserName.strip()
+    stroke, cell, spread = (scale + 1) / (2 * scale), skinning.CanvasSkin.DefaultDim.GridSkin.Cell, tuple(map(sub, Text.SECONDARY, Surface.PANEL))
     dashes = SimpleNamespace(**{
-        str(kind): dash(skinning.SkinDefinitionText, edge, Wire.ITEM_WIDTH)
+        str(kind): dash(skinning.SkinDefinitionText, edge, wire_width)
         for kind in System.Enum.GetValues(clr.GetClrType(skinning.WireKind))
         if not (edge := skinning.WiresSkin.DefaultDim[kind].Outer).IsSolid
     })
-    skin_values = {
-        "AUTHOR": author,
-        "GRID_THIN_ALPHA": Opacity(Alpha.GRID_MINOR / scale),
-        "GRID_THICK_ALPHA": Opacity(Alpha.GRID_MAJOR / scale),
-        "GRID_COLUMNS": columns,
-        "GRID_ROWS": round(columns * cell.Width / cell.Height),
-        "VEIL_ALPHA": Opacity((secondary - disabled) / (secondary - panel)),
-        "SELECTED_WIRE": blend(Wire.SELECTED, Wire.CORE, Alpha.WIRE_SELECTED),
-        "CORNER_RADIUS": radius,
-        "Dash": dashes,
-    }
-    definition, _ = skinning.SkinDefinition.Parse(rendered(skin_file.read_text(encoding="utf-8"), spelled, **skin_values))
+    definition, _ = skinning.SkinDefinition.Parse(
+        substituted(
+            skin_file.read_text(encoding="utf-8"),
+            spelled,
+            AUTHOR=author,
+            GRID_THIN_ALPHA=Alpha.GRID_MINOR / scale,
+            GRID_THICK_ALPHA=Alpha.GRID_MAJOR / scale,
+            GRID_COLUMNS=columns,
+            GRID_ROWS=round(columns * cell.Width / cell.Height),
+            VEIL_ALPHA=sumprod(spread, map(sub, Text.SECONDARY, Text.DISABLED)) / sumprod(spread, spread),
+            SELECTED_WIRE=blend(Wire.SELECTED, Wire.CORE, Alpha.WIRE_SELECTED),
+            CORNER_RADIUS=radius,
+            WIRE_WIDTH=wire_width,
+            Dash=dashes,
+        )
+    )
     guises, snap = declared_guises(display, point_width, stroke), snapping.Default.WithFeedback(drawFeedback=True, colour=Color.FromArgb(*Guide.TRACKING))
     match_family = System.Type.GetType("Eto.Drawing.OpenColor, Grasshopper2", throwOnError=True).GetMethod("MatchFamily", System.Array[System.Type]([clr.GetClrType(Color)]))
     family = match_family.Invoke(None, System.Array[System.Object]([Color.FromArgb(*Guide.CONSTRUCTION)]))
-    palette = colors.NamedPalette(
-        System.Array[colors.NamedColour]([colors.NamedColour(name, Color.FromArgb(*rgb)) for name, rgb in (("DOCUMENT", Ink.DOCUMENT), *((tag.name, tag.value) for tag in Tag))])
-    )
+    palette = colors.NamedPalette(System.Array[colors.NamedColour]([colors.NamedColour(name, Color.FromArgb(*rgb)) for name, rgb in SWATCHES.items()]))
     sketch_stroke, doubling, arrow_factor, bezier = 3.0, False, 1.0, 0
     rule_editor = {
         "DefaultColour": hex_color(Tag.COLOR_01.value),

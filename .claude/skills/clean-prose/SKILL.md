@@ -53,9 +53,9 @@ Words that fail take the current term for what they name, and a real term of a f
 |  [26]   | `harmless` (epeated call), `wiring`                      | `changes nothing`, `composing`                          |
 |  [27]   | `building blocks` (after package name)                   | `primitives`                                            |
 |  [28]   | `pool` (concurrent jobs), `migration shim`               | `jobs`, `degree of parallelism`, `the old path`         |
-|  [29]   | `settled` (fact), `hard-won`, `land` (hange)             | `proven`, `proven`, `commit`, `write`                   |
-|  [30]   | `pluggable`, `publication-quality`                       | Delete                                                  |
-|  [31]   | `toolkit`, `suite` (after a package name)                | Delete                                                  |
+|  [29]   | `land` (change)                                          | `commit`, `write`                                       |
+|  [30]   | `pluggable`, `publication-quality`, `settled` (fact)     | Delete                                                  |
+|  [31]   | `toolkit`, `suite` (after a package name), `hard-won`    | Delete                                                  |
 
 Identifiers and every other name in code, build, and rule files say what the thing is in their language's vocabulary, renames go through language tooling to update every reference, test, and file name. Prose writes code names in backticks with exact spelling, shows a tool use as command itself (`ruff check`), and keeps tool or product names used as words plain. Names and text another system resolves or emits stay exact, reports name each coupling. Examples, snippets, and comments in guidance use placeholder names (`<tool>`, `<dir>`, `Item`, `Command`) and neutral values, domain names appear where a fact belongs to that domain. Repository, product, and organization names belong in identifiers an ecosystem requires, package descriptions, CLI help text, opening sentence of their README, and in prose as a contrast with another product.
 
@@ -72,7 +72,7 @@ Facts one run produced are observations, and prose keeps the rule they showed:
 |  [01]   | Duration, size, or count an output printed              | Condition or shape that decides case                 |
 |  [02]   | Line number in a generated or external file             | Literal the code spells, read through a search       |
 |  [03]   | Release version, issue number, or defect of one release | Behavior, and retirement condition when one is known |
-|  [04]   | Path, key, or name of one proof, run, or session        | Placeholder form (`<proof>`, `<session>`)            |
+|  [04]   | Path, key, or name of one run or session                | Placeholder form (`<run>`, `<session>`)              |
 
 Values a declaration, project file, or option states (`timeout: 600000`) are facts and stay with their source named. Size, byte, duration, and count limits stay when a named tool enforces them, every other threshold goes. Examples stay when they are a command, a sequence, or a case of the file's subject, examples with no source on disk or in a tool's documentation go.
 
@@ -119,7 +119,7 @@ Sections follow work or dependency order under `## [NN]-[NOUN]` headings with no
 - Each fact appears once, in its owning file under the heading that names it
 - Sentences that restate what their file, heading, code, or previous sentence supplies at the same scope go
 - Paths and names that locate what a sentence acts on stay
-- Phrasings that differ in subject, scope, or value are separate facts or one wrong fact, the phrasing its owning source proves stays
+- Phrasings that differ in subject, scope, or value are separate facts or one wrong fact, the owning source's phrasing stays
 - Facts a deleted sentence alone held move to the sentence that holds their topic
 - Heading, lead-in, and previous sentence supply subject, its noun repeats where a fact otherwise attaches to another subject
 - Opening sentences state their scope as one category, every other sentence about the file, section, or skill goes
@@ -194,7 +194,6 @@ Rewrite of an existing file:
 6. Rename coined identifiers and files with every reference
 7. Replace coined terms and delete filler by the word map, a word outside the map joins the row of its category
 8. Rewrite each remaining sentence to state one fact in its section
-9. Compare the result with its fact list, `git log -p`
-10. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
+9. Report bytes before and after, renames, coined terms removed, couplings left in place, facts added, corrected, or kept in longer form
 
 New text follows the same rules from its first draft. Reviews report one row per finding: line, rule, offending text, rewrite.

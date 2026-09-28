@@ -11,25 +11,25 @@ utils:
         any:
             - all:
                 - has: {field: function, regex: '^(global::)?(System\.Threading\.)?Monitor\.(Enter|TryEnter)$'}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $GATE}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
             - has:
                 field: function
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(Enter|TryEnter|Wait|WaitAsync|WaitOne|EnterWriteLock|EnterReadLock|EnterUpgradeableReadLock|TryEnterWriteLock|TryEnterReadLock|TryEnterUpgradeableReadLock)$'}
-                    - has: {field: expression, pattern: $GATE, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
+                    - has: {field: expression, pattern: $LOCK, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
     lock-release:
         kind: invocation_expression
         any:
             - all:
                 - has: {field: function, regex: '^(global::)?(System\.Threading\.)?Monitor\.Exit$'}
-                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $GATE}}}
+                - has: {field: arguments, has: {kind: argument, nthChild: 1, has: {pattern: $LOCK}}}
             - has:
                 field: function
                 kind: member_access_expression
                 all:
                     - has: {field: name, regex: '^(Exit|Release|ReleaseMutex|ExitWriteLock|ExitReadLock|ExitUpgradeableReadLock)$'}
-                    - has: {field: expression, pattern: $GATE, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
+                    - has: {field: expression, pattern: $LOCK, not: {regex: '^(global::)?(System\.Threading\.)?Monitor$'}}
     deferred-callback:
         any:
             - kind: local_function_statement

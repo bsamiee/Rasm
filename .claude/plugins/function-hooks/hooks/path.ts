@@ -1,6 +1,6 @@
 // --- [OPERATIONS] ----------------------------------------------------------------------
 
-const basename = (text: string): string => text.split('/').at(-1) ?? '';
+const basename = (text: string): string => text.slice(text.lastIndexOf('/') + 1);
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 

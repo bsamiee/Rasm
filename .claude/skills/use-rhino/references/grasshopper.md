@@ -123,7 +123,7 @@ print(canvas.graph(definition, 3))
 
 `graph(definition, sample)` reads each object's messages, `disabled`, `bounds`, solve `seconds`, input `sources`, and output trees.
 
-Values prove a definition, and a solve with zero errors passes faults in silence:
+Solves with zero errors pass value faults in silence:
 - Typed inputs turn unparsable text into null, `nulls` counts them
 - Generic operators join numbers and text as text (Addition of 1 and `"4"` gives `"14"`), values print quoted
 - Division by zero gives `inf`, `nonfinite` counts it

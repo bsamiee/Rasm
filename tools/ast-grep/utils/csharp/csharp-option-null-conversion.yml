@@ -35,10 +35,10 @@ utils:
                     - not: {has: {nthChild: 2}}
     member:
         kind: method_declaration, local_function_statement, constructor_declaration, accessor_declaration, operator_declaration, lambda_expression, anonymous_method_expression, property_declaration, indexer_declaration
-    proven:
+    option-declaration:
         matches: declaration
         has: {field: type, matches: option-type}
-    unproven:
+    other-declaration:
         matches: declaration
         not: {has: {field: type, matches: option-type}}
     held:
@@ -47,16 +47,16 @@ utils:
             - matches: option
             - any:
                 - all:
-                    - inside: {stopBy: end, matches: member, has: {stopBy: end, matches: proven}}
-                    - not: {inside: {stopBy: end, matches: member, has: {stopBy: end, matches: unproven}}}
+                    - inside: {stopBy: end, matches: member, has: {stopBy: end, matches: option-declaration}}
+                    - not: {inside: {stopBy: end, matches: member, has: {stopBy: end, matches: other-declaration}}}
                 - all:
                     - not: {inside: {stopBy: end, matches: member, has: {stopBy: end, matches: declaration}}}
                     - inside:
                         stopBy: end
                         kind: compilation_unit
                         all:
-                            - has: {stopBy: end, matches: proven}
-                            - not: {has: {stopBy: end, matches: unproven}}
+                            - has: {stopBy: end, matches: option-declaration}
+                            - not: {has: {stopBy: end, matches: other-declaration}}
     case-read:
         any:
             - kind: member_access_expression

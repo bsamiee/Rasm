@@ -5,7 +5,7 @@ description: "Use when listing a file's declarations, reading, searching, or rew
 
 # [AST_GREP]
 
-MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) answer searches and proofs with a match list or a tree. CLI runs `ast-grep outline`, `ast-grep scan`, writes (`-U`, `-i`), and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
+MCP tools (`find_code`, `find_code_by_rule`, `dump_syntax_tree`, `test_match_code_rule`) answer searches with a match list or a tree. CLI runs `ast-grep outline`, `ast-grep scan`, writes (`-U`, `-i`), and runs that need an exit code. Search rules stay inline, durable rules are files under `ruleDirs` of `sgconfig.yml`. Language tooling resolves symbol identity, types, and behavior beyond syntax.
 
 [REFERENCES]:
 - [01]-[RULE_BUILDING](references/rule-building.md): Deriving rules from diffs, code smells, and principles
@@ -43,7 +43,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 - `kind` and `pattern` restrict candidate nodes by kind, `regex` restricts none, `matches: <param>` prunes beside a `kind` alone
 - `has` and `inside` at `stopBy: end` walk the whole subtree or ancestor chain per candidate, `field` narrows `has` to one child first
 - Kindless `any:` arms widen the kind set to every kind, `all:` narrows it to the intersection of its items
-- One `$VAR` across clauses proves sameness, `not:` on a rebound pattern proves difference, `$_VAR` skips both
+- One `$VAR` across clauses requires sameness, `not:` on a rebound pattern requires difference, `$_VAR` skips both
 - `has` binds `$VAR` to the earliest matching child, a later clause rejecting that child fails the rule, the narrower `has` precedes the wider
 - Captures bound on one node re-match their text inside a later `not: {has: ...}` or `not: {inside: ...}`, the form for a fact every sibling repeats
 - `nthChild` counts named siblings, counts include comments the block holds, `ofRule: {not: {kind: comment}}` counts semantic slots
@@ -76,7 +76,7 @@ Patterns are valid code under the language's tree-sitter grammar with whole-node
 
 ## [04]-[FIX]
 
-`fix` replaces a proven match with a template, `transform` derives text, and `rewriters` change structure inside captures.
+`fix` replaces a match with a template, `transform` derives text, and `rewriters` change structure inside captures.
 - Templates are unparsed text, captures substitute anywhere in them without a syntax or precedence check
 - Unfixable variants (guards, discards, exports, valueless members) are `not:` arms before the template
 - Undefined metavariables fail the rule load under `scan` and substitute empty under `run -r`

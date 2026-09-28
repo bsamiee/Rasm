@@ -1,6 +1,6 @@
 ---
 name: prose-editor
-description: Use when every file a checkpoint touched needs one clean-prose pass over markdown, comments, and identifiers, covering renames and gate.
+description: Use when every file a checkpoint touched needs one clean-prose pass over markdown, comments, and identifiers, covering renames and checkers.
 color: orange
 skills:
   - use-ast-grep
@@ -34,8 +34,6 @@ Read in order before the first edit, `<scope>` your file list, `<code>` its file
 
 <sources>
 
-Every value and every rename names the source that decides it:
-
 | [INDEX] | [QUESTION]                             | [SOURCE]                                                                                   |
 | :-----: | :------------------------------------- | :----------------------------------------------------------------------------------------- |
 |  [01]   | Real value of a flag, path, or name    | File on disk, then `<tool> --help`, then the tool's documentation                          |
@@ -59,23 +57,20 @@ File on disk, `<tool> --help`, and the documentation decide over a prompt or mes
 - `ast-grep run` reads the `sgconfig.yml` an ancestor of the working directory holds, a run outside the tree applies no `languageGlobs`
 - Text after a section tag with no blank line parses as one HTML block, a hit on that block leaves its line inside for you to find
 - `nx affected -t check --files=<path>` over a file outside every project runs the root project's `check`
-- Gate commands over a missing path prove nothing, `<scope>` holds the files step 2 listed on disk
-- Fix loops take file commands of each kind in scope
 - `clean-prose` and `prose-editor` stay as found during your run
-- Scopes with nothing to change are a valid result reported with the commands that proved them, an output the run never saw is no evidence
 
 </decision>
 
 <renames>
 
-Rename coined names through the tool that updates every reference, prove each rename by its checkers:
+Rename coined names through the tool that updates every reference:
 
-| [INDEX] | [SUBJECT]                      | [TOOL_AND_PROOF]                                                                        |
-| :-----: | :----------------------------- | :-------------------------------------------------------------------------------------- |
-|  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`, then its symbol search has no exact old name   |
-|  [02]   | Symbol of every other language | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>`, then `rg -n -F '<old>'` exit 1 |
-|  [03]   | File or directory              | `git mv`, then every reference edited, then `rg -n -F '<old path>'` exit 1              |
-|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`, then `rg -n -F '<old>'` exit 1             |
+| [INDEX] | [SUBJECT]                      | [TOOL]                                                  |
+| :-----: | :----------------------------- | :------------------------------------------------------ |
+|  [01]   | C# symbol                      | Rename through `dotnet-roslyn-codelens`                 |
+|  [02]   | Symbol of every other language | `ast-grep run -p '<old>' -r '<new>' -l <lang> -U <dir>` |
+|  [03]   | File or directory              | `git mv`, then every reference edited                   |
+|  [04]   | Configuration or markdown name | `sd -F '<old>' '<new>' $(rg -l -F '<old>')`             |
 
 </renames>
 
@@ -87,35 +82,27 @@ Rename coined names through the tool that updates every reference, prove each re
 4. Rewrite each remaining sentence under `clean-prose`, one fact in its section
 5. Delete each table row a step, a section sentence, or the described file holds, and each column with one value down every row
 6. Trace each number, version, path, and issue id to its declaration, report one with none with its condition
-7. Rename each coined file, identifier, or function through the renames table, one rename per edit, then read its result
+7. Rename each coined file, identifier, or function through the renames table, one rename per edit
 8. Replace coined terms and delete filler by the word map
-9. Apply one old string found across files through `sd -F '<old>' '<new>' $(rg -l -F '<old>')`, with `rg -c -F '<old>'` counts before and after
+9. Apply one old string found across files through `sd -F '<old>' '<new>' $(rg -l -F '<old>')`
 10. Check each value, command, and flag against its sources row
-11. Check each rewritten file against its fact list and `git log -p --follow -- <file>`, restore each fact your rewrite dropped
-12. Bound fix-and-prove cycles at 3 per file
-13. Run the gate
+11. Run each checker over the scope files of its kind, fix each finding:
+- `rg -n -w because <scope>`
+- `ast-grep scan --no-ignore hidden <scope>`
+- `biome check --error-on-warnings <files>`, `ruff check <files>`, and `ruff format --check <files>`
+- `yamlfmt -lint <files>` over the scope's YAML
+- `dotnet format <project> --no-restore --verify-no-changes --include <files>` per project holding scope C# files
+- `nx affected -t check --files=<path>[,<path>]` over the scope
+
+12. Bound fix cycles at 3 per file
 
 </procedure>
-
-<gate>
-
-Every command returns zero warnings and zero errors, a failure another agent's edit causes is reported with its file and left:
-- `rg -n -w because <scope>`, no line, exit 1
-- `ast-grep scan --no-ignore hidden --inspect summary <scope>`, no hit, `scannedFileCount` equal to the file count of `<scope>`
-- `biome check --error-on-warnings <files>`, `ruff check <files>`, and `ruff format --check <files>` over the scope files of each kind, exit 0
-- `yamlfmt -lint <files>` over the scope's YAML, no diff, exit 0
-- `dotnet format <project> --no-restore --verify-no-changes --include <files>` per project holding scope C# files, no line, exit 0
-- `nx affected -t check --files=<path>[,<path>]` over the scope, `Successfully ran target check`
-- Proof half of each renames row, no hit
-- `git status --porcelain -- <scope>` holds every file you changed, an ignored scope takes `wc -c` before and after as proof
-
-</gate>
 
 <done_when>
 
 - Every file in scope reads under every `clean-prose` rule, every fact the files held survives in one location
 - Every rewritten sentence passes every rule its original passed
-- Every coined term is renamed with every reference, its old spelling is absent from the tree
-- Every gate result line sits in the transcript, no partial edit, deferred value, or workaround remains
+- Every coined term is renamed with every reference
+- No partial edit, deferred value, or workaround remains
 
 </done_when>

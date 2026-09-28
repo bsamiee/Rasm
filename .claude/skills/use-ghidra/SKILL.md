@@ -48,7 +48,7 @@ Numbered steps chain, each consuming the step before, bulleted cases are alterna
 
 ## [01]-[READ]
 
-Import once and prove analysis, name the stubs, catalog the program, then decompile seeds with their neighborhood into one file.
+Import and analyze once, name the stubs, catalog the program, then decompile seeds with their neighborhood into one file.
 
 Import, one line per case:
 - Analysis through the bridge started at this heap, `run_in_background`
@@ -176,7 +176,7 @@ Every file opens with `// --- [INDEX]` over `// <program> <language> <counts>`, 
 
 ## [05]-[API]
 
-Behaviors of the Ghidra API that decide how a script reads or writes a program, verified at the installed release:
+Behaviors of the Ghidra API that decide how a script reads or writes a program:
 - Stubs: `Objective-C Message Analyzer` names and types stubs only with `ID` and `SEL` under `/_objc2_`, without them analysis leaves `FUN_<hex>`
 - Stubs: Mach-O import installs the `__objc_msgSend_stub` calling convention, which passes the receiver and message arguments without `x1`
 - Stubs: Selector is the string the stub's load references
@@ -196,10 +196,10 @@ Behaviors of the Ghidra API that decide how a script reads or writes a program, 
 
 ## [06]-[EXTEND]
 
-Each new traversal is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`, proven before a run:
+Each new traversal is one `GhidraScript` file in the bundle, seeds through `Arguments.parse`, lines through `Report.write`:
 1. Bundle compiled against the install's jars with every warning on
 2. Format, PMD, and ast-grep commands of the `rasm:lint` target over the scripts directory, jdtls diagnostics through `jdtls@rasm`
-3. Run on a resident program with the file proven, `run_in_background`
+3. Run on a resident program, `run_in_background`
 
 ```bash
 javac -d <main>/.artifacts/ghidra/classes -Xlint:all,-path -cp "$(fd -p '/lib/[^/]+\.jar$' "$GHIDRA_INSTALL_DIR/Ghidra" | paste -sd: -)" <main>/.claude/skills/use-ghidra/scripts/*.java

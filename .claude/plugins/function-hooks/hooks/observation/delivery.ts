@@ -31,10 +31,6 @@ interface Range {
     readonly running: boolean;
     readonly holding: number;
 }
-interface Task {
-    readonly id: string;
-    readonly agentType: string;
-}
 interface Judging {
     readonly kind: 'range';
     readonly agent: string;
@@ -68,36 +64,21 @@ interface State {
     readonly candidates: readonly Candidate[];
 }
 
-// --- [CONSTANTS] -----------------------------------------------------------------------
-
-const _INTEGER = /^\d+$/u;
-const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 0`;
-
 // --- [SETTINGS] ------------------------------------------------------------------------
 
-const _number = (options: PluginOptions, key: string): Result<number> => {
-    const value = options[key];
-    return typeof value === 'number' ? ok(value) : fault(`${key} is not a number`);
-};
+const _trigger = (options: PluginOptions, kind: Kind, view: string): Trigger => ({ kind, view, threshold: Number(options[`${kind}Threshold`]), agent: String(options[`${kind}Agent`]) });
 
-const _text = (options: PluginOptions, key: string): Result<string> => {
-    const value = options[key];
-    return typeof value === 'string' ? ok(value) : fault(`${key} is not a string`);
-};
-
-const _trigger = (options: PluginOptions, kind: Kind, view: string): Result<Trigger> =>
-    map(all([_number(options, `${kind}Threshold`), _text(options, `${kind}Agent`)]), ([threshold, agent]) => ({ kind, view, threshold, agent }));
-
-const settings = (options: PluginOptions): Result<Settings> =>
-    map(all([_trigger(options, 'edit', 'unjudged_edits'), _number(options, 'categoryThreshold'), _text(options, 'categoryAgent')]), ([edits, categoryThreshold, categoryAgent]) => ({
-        edits,
-        categoryThreshold,
-        categoryAgent,
-    }));
+const settings = (options: PluginOptions): Settings => ({
+    edits: _trigger(options, 'edit', 'unjudged_edits'),
+    categoryThreshold: Number(options['categoryThreshold']),
+    categoryAgent: String(options['categoryAgent']),
+});
 
 const lineageOf = (main: string, worktree: string, branch: string): Lineage => ({ main, worktree, branch, key: `${worktree === main ? '.' : basename(worktree)}/${branch}` });
 
 // --- [STATEMENTS] ----------------------------------------------------------------------
+
+const _PRESENT = `instr(${normalized('cast(readfile(path) as text)')}, ntext) > 0`;
 
 const _under = (column: string, worktree: string): string => {
     const literal = quoted(worktree);
@@ -117,9 +98,8 @@ const STATE = (lineage: Lineage, to: number, chosen: Settings): string => {
     ].join('\n');
 };
 
-const LEDGER = (judging: Judging, agent: string, at: number): string =>
+const JUDGE = (judging: Judging, agent: string, at: number): string =>
     [
-        '.mode tabs',
         'pragma foreign_keys = on;',
         `insert into judged_range(kind, main_worktree, worktree, branch, from_ts, to_ts, agent_id, at) select ${quoted(judging.range.trigger.kind)}, ${quoted(judging.lineage.main)}, ${quoted(judging.lineage.worktree)}, ${quoted(judging.lineage.branch)}, ${judging.range.from}, ${judging.to}, ${quoted(agent)}, ${at} where exists (select 1 from finding_transition t where t.by = ${quoted(`agent:${agent}`)}) returning rowid;`,
     ].join('\n');
@@ -145,10 +125,11 @@ const DELIVER = (lineage: Lineage, session: string, now: number): string => {
 
 // --- [READING] -------------------------------------------------------------------------
 
-const _lines = (stdout: string): readonly string[] => stdout.split('\n').filter((text) => text !== '');
-const _cells = (stdout: string): readonly (readonly string[])[] => _lines(stdout).map((text) => text.split('\t'));
-const _integer = (text: string): Result<number> => (_INTEGER.test(text) ? ok(Number(text)) : fault(`${text} is not an integer`));
-const _flag = (text: string): Result<boolean> => (text === '0' || text === '1' ? ok(text === '1') : fault(`${text} is not 0 or 1`));
+const _cells = (stdout: string): readonly (readonly string[])[] =>
+    stdout
+        .split('\n')
+        .filter((text) => text !== '')
+        .map((text) => text.split('\t'));
 
 const _isStateCells = (cells: readonly string[]): cells is StateCells => {
     const columns = 8;
@@ -160,23 +141,18 @@ const _isCategoryCells = (cells: readonly string[]): cells is CategoryCells => {
     return cells.length === columns;
 };
 
-const _candidateOf = ([category, sites, reported]: CategoryCells): Result<Candidate> =>
-    map(all([_integer(sites), _flag(reported)]), ([counted, flagged]) => ({ category, sites: counted, reported: flagged }));
-
-const _candidate = (cells: readonly string[]): Result<Candidate> => (_isCategoryCells(cells) ? _candidateOf(cells) : fault(`category line holds ${cells.length} cells`));
+const _candidate = (cells: readonly string[]): Result<Candidate> =>
+    _isCategoryCells(cells) ? ok({ category: cells[0], sites: Number(cells[1]), reported: cells[2] === '1' }) : fault(`category line holds ${cells.length} cells`);
 
 const _state = (chosen: Settings, [count, from, running, open, undelivered, categoryRunning, holding, rules]: StateCells, rest: readonly (readonly string[])[]): Result<State> =>
-    map(
-        all([_integer(count), _integer(from), _flag(running), _integer(open), _integer(undelivered), _flag(categoryRunning), _integer(holding), _integer(rules), all(rest.map(_candidate))]),
-        ([counted, since, elsewhere, opened, waiting, categoryElsewhere, held, placed, candidates]) => ({
-            edits: { trigger: chosen.edits, count: counted, from: since, running: elsewhere, holding: held },
-            open: opened,
-            undelivered: waiting,
-            categoryRunning: categoryElsewhere,
-            rules: placed,
-            candidates,
-        }),
-    );
+    map(all(rest.map(_candidate)), (candidates) => ({
+        edits: { trigger: chosen.edits, count: Number(count), from: Number(from), running: running === '1', holding: Number(holding) },
+        open: Number(open),
+        undelivered: Number(undelivered),
+        categoryRunning: categoryRunning === '1',
+        rules: Number(rules),
+        candidates,
+    }));
 
 const state = (stdout: string, chosen: Settings): Result<State> => {
     const [head = [], ...rest] = _cells(stdout);
@@ -185,10 +161,8 @@ const state = (stdout: string, chosen: Settings): Result<State> => {
 
 // --- [DECISIONS] -----------------------------------------------------------------------
 
-const listed = (tasks: ClassicHookInputs['Stop']['background_tasks']): Result<readonly Task[]> =>
-    tasks === undefined ? fault('background_tasks absent') : ok(tasks.flatMap((task) => (task.agent_type === undefined ? [] : [{ id: task.id, agentType: task.agent_type }])));
-
-const occupied = (tasks: readonly Task[], claims: ReadonlySet<string>): readonly string[] => [...tasks.map((task) => task.agentType), ...claims];
+const listed = (tasks: ClassicHookInputs['Stop']['background_tasks']): Result<readonly string[]> =>
+    tasks === undefined ? fault('background_tasks absent') : ok(tasks.flatMap((task) => (task.agent_type === undefined ? [] : [task.agent_type])));
 
 const due = (range: Range, busy: readonly string[], quiet: boolean): boolean =>
     range.trigger.threshold > 0 && range.count >= range.trigger.threshold && !range.running && quiet && !busy.includes(range.trigger.agent);
@@ -239,5 +213,5 @@ const resolved = (spawned: Spawned, result: AgentSpawnResult): string =>
 
 // --- [EXPORTS] -------------------------------------------------------------------------
 
-export type { Building, Candidate, Judging, Lineage, Range, Settings, Spawned, Task };
-export { context, DELIVER, delivering, description, due, dueCategories, LEDGER, lineageOf, listed, occupied, prompt, REPORT, resolved, STATE, settings, state, status, subject };
+export type { Building, Judging, Lineage, Settings, Spawned };
+export { context, DELIVER, delivering, description, due, dueCategories, JUDGE, lineageOf, listed, prompt, REPORT, resolved, STATE, settings, state, status, subject };

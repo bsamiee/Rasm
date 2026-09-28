@@ -9,6 +9,8 @@ import math
 from pathlib import Path
 import sys
 import traceback
+from types import MappingProxyType
+from typing import Final
 
 from Eto.Drawing import Color as EtoColor
 import Rhino
@@ -16,8 +18,12 @@ import System
 from System import Array, Guid, String
 from System.Drawing import Color as DrawingColor
 
-from interface import roles
 from interface.report import converged, Kind, line, Row
+from interface.roles import Ink, Tag
+
+# --- [SWATCHES] -------------------------------------------------------------------------
+
+SWATCHES: Final = MappingProxyType({"DOCUMENT": Ink.DOCUMENT, **{tag.name: tag.value for tag in Tag}})
 
 # --- [OPERATIONS] -----------------------------------------------------------------------
 
@@ -109,16 +115,16 @@ def emit(entries: Iterable[Row | str]) -> None:
 
 
 # --- [COLORS]
-def color(rgb: roles.Rgb, alpha: float = 1.0) -> DrawingColor:
+def color(rgb: tuple[int, int, int], alpha: float = 1.0) -> DrawingColor:
     """System color of a role at the alpha fraction."""
     return DrawingColor.FromArgb(round(alpha * 255), *rgb)
 
 
-def hex_color(rgb: roles.Rgb) -> str:
+def hex_color(rgb: tuple[int, int, int]) -> str:
     """Role as `#RRGGBB`."""
-    return "#{:02X}{:02X}{:02X}".format(*rgb)
+    return f"#{bytes(rgb).hex().upper()}"
 
 
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["absent", "color", "emit", "found", "hex_color", "internal_setting", "key", "member", "plain"]
+__all__ = ["SWATCHES", "absent", "color", "emit", "found", "hex_color", "internal_setting", "key", "member", "plain"]

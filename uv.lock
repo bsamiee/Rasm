@@ -29,6 +29,7 @@ members = [
     "rasm",
     "rasm-test-support",
 ]
+excludes = ["dotnet-stubs"]
 
 [[manifest.dependency-metadata]]
 name = "colour-cxf"
@@ -39,23 +40,21 @@ requires-python = ">=3.10"
 [[manifest.dependency-metadata]]
 name = "colour-science"
 version = "0.4.7"
-requires-dist = ["numpy>=2.0.0,<3", "biblib-simple ; extra == 'docs'", "pydata-sphinx-theme ; extra == 'docs'", "restructuredtext-lint ; extra == 'docs'", "sphinx ; extra == 'docs'", "sphinxcontrib-bibtex ; extra == 'docs'", "trimesh>=4,<5 ; extra == 'meshing'", "imageio>=2,<3 ; extra == 'optional'", "matplotlib>=3.9 ; extra == 'optional'", "networkx>=3.3,<4 ; extra == 'optional'", "opencolorio>=2,<3 ; python_full_version < '3.14' and extra == 'optional'", "openimageio>=3,<4 ; extra == 'optional'", "pandas>=2.2,<3 ; extra == 'optional'", "pydot>=3,<4 ; extra == 'optional'", "scipy>=1.13.0,<2 ; extra == 'optional'", "tqdm>=4,<5 ; extra == 'optional'", "xxhash>=3,<4 ; extra == 'optional'"]
+requires-dist = ["numpy>=2.0.0,<3"]
 requires-python = ">=3.11"
-provides-extras = ["docs", "meshing", "optional"]
 
 [[manifest.dependency-metadata]]
 name = "pytensor"
 version = "2.35.1"
-requires-dist = ["setuptools>=59.0.0", "scipy>=1,<2", "numpy>=2.0", "filelock>=3.15", "etuples", "logical-unification", "minikanren", "cons", "jax ; extra == 'jax'", "jaxlib ; extra == 'jax'", "numba>=0.57 ; extra == 'numba'", "llvmlite ; extra == 'numba'"]
+requires-dist = ["setuptools>=59.0.0", "scipy>=1,<2", "numpy>=2.0", "filelock>=3.15", "etuples", "logical-unification", "minikanren", "cons"]
 requires-python = ">=3.11"
-provides-extras = ["jax", "numba"]
 
 [[manifest.dependency-metadata]]
 name = "substrait"
-version = "0.31.0"
-requires-dist = ["protobuf>=5,<7", "substrait-protobuf==0.99.0", "substrait-extensions==0.99.0", "substrait-antlr==0.99.0 ; extra == 'extensions'", "pyyaml ; extra == 'extensions'", "sqloxide ; extra == 'sql'", "deepdiff ; extra == 'sql'"]
+version = "0.34.0"
+requires-dist = ["protobuf>=5,<7", "substrait-protobuf==0.99.0", "substrait-extensions==0.99.0", "substrait-antlr==0.99.0 ; extra == 'extensions'", "pyyaml ; extra == 'extensions'"]
 requires-python = ">=3.10"
-provides-extras = ["extensions", "sql"]
+provides-extras = ["extensions"]
 
 [[package]]
 name = "absl-py"
@@ -1812,15 +1811,6 @@ wheels = [
 ]
 
 [[package]]
-name = "dotnet-stubs"
-version = "0.0.12"
-source = { registry = "https://pypi.org/simple" }
-sdist = { url = "https://files.pythonhosted.org/packages/ac/6d/55a609def91945925a5564fad6dfffe19d096a0f1837e4ba253d48315d82/dotnet-stubs-0.0.12.tar.gz", hash = "sha256:07cc00f160814564e977574dd071830ad15a3b325a5a07e45e6f7a6c6036730c", size = 59360, upload-time = "2020-09-07T12:54:22.975Z" }
-wheels = [
-    { url = "https://files.pythonhosted.org/packages/6e/92/4bdbe861abbea3501273efb7dba95bd7ea77aaf530d637a6189062708894/dotnet_stubs-0.0.12-py3-none-any.whl", hash = "sha256:a2e9438420335433f68046e0182bcea5972e4232f994d6c8cf7fa24df0a2f78d", size = 79578, upload-time = "2020-09-07T12:54:21.595Z" },
-]
-
-[[package]]
 name = "dragonfly-core"
 version = "1.57.10"
 source = { registry = "https://pypi.org/simple" }
@@ -2360,7 +2350,6 @@ name = "gh-io-stubs-typed"
 version = "8.20.25157"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dotnet-stubs" },
     { name = "netstandard-stubs" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/16/9b/0a9c51be9adb055ec93a101070086e40795833563b6aeb29057256afe79e/gh_io_stubs_typed-8.20.25157.tar.gz", hash = "sha256:a30f66f2d8340914b9cd6d439b090982c8f7cfe254894fb01578092c7d2dcd1f", size = 13042, upload-time = "2025-10-05T03:49:54.764Z" }
@@ -2373,7 +2362,6 @@ name = "gh-util-stubs-typed"
 version = "8.20.25157"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dotnet-stubs" },
     { name = "netstandard-stubs" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/8f/76/4877401ffc8439c9990f0718559be9300a42973cc271905431e77b32ef46/gh_util_stubs_typed-8.20.25157.tar.gz", hash = "sha256:d9410912e4821a6cdda18ae07046edf7126348847b95d81de6ad4a942cf21cb4", size = 4275, upload-time = "2025-10-05T03:49:56.74Z" }
@@ -2493,7 +2481,6 @@ name = "grasshopper-stubs-typed"
 version = "8.20.25157"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dotnet-stubs" },
     { name = "netstandard-stubs" },
 ]
 sdist = { url = "https://files.pythonhosted.org/packages/f3/7a/2f04718ac392accca5cd17819eb994a052f78b8dfb8adaf76ec417ccf6aa/grasshopper_stubs_typed-8.20.25157.tar.gz", hash = "sha256:67a397a04e58a395d8bcfdc01fa0c83122862a912a19aeb094fc453d88615165", size = 538291, upload-time = "2025-10-05T03:50:00.129Z" }
@@ -4213,6 +4200,11 @@ name = "msgspec"
 version = "0.21.1"
 source = { registry = "https://pypi.org/simple" }
 sdist = { url = "https://files.pythonhosted.org/packages/e3/60/f79b9b013a16fa3a58350c9295ddc6789f2e335f36ea61ed10a21b215364/msgspec-0.21.1.tar.gz", hash = "sha256:2313508e394b0d208f8f56892ca9b2799e2561329de9763b19619595a6c0f72c", size = 319193, upload-time = "2026-04-12T21:44:50.394Z" }
+
+[package.optional-dependencies]
+yaml = [
+    { name = "pyyaml" },
+]
 
 [[package]]
 name = "msoffcrypto-tool"
@@ -7174,10 +7166,12 @@ dev = [
     { name = "cattrs" },
     { name = "coverage" },
     { name = "dirty-equals" },
+    { name = "editorconfig" },
     { name = "fake-bpy-module-5-2" },
     { name = "hypothesis" },
     { name = "moto", extra = ["server"] },
     { name = "mypy" },
+    { name = "netstandard-stubs" },
     { name = "pandas-stubs" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
@@ -7187,6 +7181,7 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
     { name = "rhino-stubs-typed" },
+    { name = "rhino3dm" },
     { name = "ruff" },
     { name = "s3fs" },
     { name = "scipy-stubs" },
@@ -7204,6 +7199,7 @@ dev = [
     { name = "types-regex" },
     { name = "types-reportlab" },
     { name = "types-shapely" },
+    { name = "wcwidth" },
     { name = "yamllint" },
 ]
 mcp = [
@@ -7267,7 +7263,6 @@ workspace = [
     { name = "drawpyo" },
     { name = "drawsvg" },
     { name = "duckdb" },
-    { name = "editorconfig" },
     { name = "epdx", marker = "platform_machine == 'x86_64' or sys_platform != 'linux'" },
     { name = "equinox" },
     { name = "expression" },
@@ -7331,7 +7326,7 @@ workspace = [
     { name = "mcp" },
     { name = "meshio" },
     { name = "mpmath" },
-    { name = "msgspec" },
+    { name = "msgspec", extra = ["yaml"] },
     { name = "msoffcrypto-tool" },
     { name = "nanoarrow" },
     { name = "narwhals" },
@@ -7440,7 +7435,6 @@ workspace = [
     { name = "regex" },
     { name = "reportlab" },
     { name = "resvg-py" },
-    { name = "rhino3dm" },
     { name = "rioxarray" },
     { name = "rtree" },
     { name = "ruamel-yaml" },
@@ -7482,7 +7476,6 @@ workspace = [
     { name = "vl-convert-python" },
     { name = "wasmtime" },
     { name = "watchfiles" },
-    { name = "wcwidth" },
     { name = "weasyprint" },
     { name = "xarray" },
     { name = "xlsxwriter" },
@@ -7506,10 +7499,12 @@ dev = [
     { name = "cattrs" },
     { name = "coverage" },
     { name = "dirty-equals" },
+    { name = "editorconfig" },
     { name = "fake-bpy-module-5-2" },
     { name = "hypothesis" },
     { name = "moto", extras = ["server"] },
     { name = "mypy" },
+    { name = "netstandard-stubs" },
     { name = "pandas-stubs" },
     { name = "pytest" },
     { name = "pytest-benchmark" },
@@ -7519,6 +7514,7 @@ dev = [
     { name = "pytest-timeout" },
     { name = "pytest-xdist" },
     { name = "rhino-stubs-typed" },
+    { name = "rhino3dm" },
     { name = "ruff" },
     { name = "s3fs", specifier = ">=2026.7" },
     { name = "scipy-stubs" },
@@ -7536,6 +7532,7 @@ dev = [
     { name = "types-regex" },
     { name = "types-reportlab" },
     { name = "types-shapely" },
+    { name = "wcwidth" },
     { name = "yamllint" },
 ]
 mcp = [{ name = "blender-mcp", git = "https://projects.blender.org/lab/blender_mcp.git?subdirectory=mcp" }]
@@ -7597,7 +7594,6 @@ workspace = [
     { name = "drawpyo" },
     { name = "drawsvg" },
     { name = "duckdb" },
-    { name = "editorconfig" },
     { name = "epdx", marker = "platform_machine != 'aarch64' or sys_platform != 'linux'", specifier = "<1.0" },
     { name = "equinox" },
     { name = "expression" },
@@ -7661,7 +7657,7 @@ workspace = [
     { name = "mcp" },
     { name = "meshio" },
     { name = "mpmath" },
-    { name = "msgspec" },
+    { name = "msgspec", extras = ["yaml"] },
     { name = "msoffcrypto-tool" },
     { name = "nanoarrow" },
     { name = "narwhals" },
@@ -7770,7 +7766,6 @@ workspace = [
     { name = "regex" },
     { name = "reportlab" },
     { name = "resvg-py" },
-    { name = "rhino3dm" },
     { name = "rioxarray" },
     { name = "rtree" },
     { name = "ruamel-yaml" },
@@ -7812,7 +7807,6 @@ workspace = [
     { name = "vl-convert-python" },
     { name = "wasmtime" },
     { name = "watchfiles" },
-    { name = "wcwidth" },
     { name = "weasyprint" },
     { name = "xarray" },
     { name = "xlsxwriter" },
@@ -8027,7 +8021,6 @@ name = "rhino-stubs-typed"
 version = "8.20.25157"
 source = { registry = "https://pypi.org/simple" }
 dependencies = [
-    { name = "dotnet-stubs" },
     { name = "gh-io-stubs-typed" },
     { name = "gh-util-stubs-typed" },
     { name = "grasshopper-stubs-typed" },

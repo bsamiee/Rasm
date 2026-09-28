@@ -9,7 +9,7 @@ from pathlib import Path, PurePosixPath
 import runpy
 import stat
 from subprocess import CalledProcessError
-from typing import Final, Self
+from typing import Self
 import zipfile
 
 import anyio
@@ -18,7 +18,7 @@ import msgspec
 
 from interface import roles
 from interface.blender.catalog import Catalog, Listed, Local
-from interface.host import bootstrap, Change, Failed, Host
+from interface.host import Applied, bootstrap, Change, downloaded, Error, Failed, gather, Host
 from interface.report import ABSENT, digest
 
 # --- [TYPES] ----------------------------------------------------------------------------
@@ -35,11 +35,14 @@ class Access(StrEnum):
     ONLINE = "--online-mode"
 
 
-# --- [CONSTANTS] ------------------------------------------------------------------------
-
-PART: Final = ".part"
-
 # --- [MODELS] ---------------------------------------------------------------------------
+
+
+class Environment(msgspec.Struct, frozen=True, rename="upper"):
+    """Variables of the Blender server row naming the executable and the bridge port."""
+
+    blender_path: str
+    blender_mcp_port: int
 
 
 class GitHub(msgspec.Struct, frozen=True):
@@ -321,18 +324,6 @@ def zipped(tree: Path, target: Path, build: Build) -> Path:
     return target
 
 
-async def downloaded(client: httpx.AsyncClient, identity: str, url: str, target: anyio.Path) -> Unfetched | None:
-    """Stream the address into the target, returning the failed download."""
-    try:
-        async with client.stream("GET", url) as response, await anyio.open_file(target, "wb") as sink:
-            response.raise_for_status()
-            async for chunk in response.aiter_bytes():
-                await sink.write(chunk)
-    except httpx.HTTPError as error:
-        return Unfetched(identity, url, repr(error))
-    return None
-
-
 async def requested[T](client: httpx.AsyncClient, identity: str, url: str, kind: type[T]) -> T | Unfetched:
     """JSON the address answers decoded as the kind, or the failed download."""
     try:
@@ -363,8 +354,8 @@ async def repacked(client: httpx.AsyncClient, executable: Path, package: Package
     """Source archive at the build's address, extracted, patched, given its libraries and run paths, and zipped at the target."""
     async with anyio.TemporaryDirectory() as temporary:
         source, tree, (manifest, _) = Path(temporary, "source.zip"), Path(temporary, "tree"), tooling(executable)
-        if isinstance(failed := await downloaded(client, package.id, build.source, anyio.Path(source)), Unfetched):
-            return failed
+        if isinstance(failed := await downloaded(client, build.source, source), Error):
+            return Unfetched(package.id, build.source, failed.text)
         match await anyio.to_thread.run_sync(extracted, source, tree, package.id, folder, manifest):
             case NoPackage() as missing:
                 return missing
@@ -385,8 +376,8 @@ async def rebuilt(client: httpx.AsyncClient, executable: Path, listing: Listing,
     """Listed archive downloaded, patched, and zipped at the target."""
     async with anyio.TemporaryDirectory() as temporary:
         source, tree, (manifest, _) = Path(temporary, "source.zip"), Path(temporary, "tree"), tooling(executable)
-        if isinstance(failed := await downloaded(client, listing.id, listing.archive_url, anyio.Path(source)), Unfetched):
-            return failed
+        if isinstance(failed := await downloaded(client, listing.archive_url, source), Error):
+            return Unfetched(listing.id, listing.archive_url, failed.text)
         match await anyio.to_thread.run_sync(extracted, source, tree, listing.id, listing.id, manifest):
             case NoPackage() as missing:
                 return missing
@@ -399,10 +390,8 @@ async def refreshed(client: httpx.AsyncClient, identity: str, url: str, target: 
     """File at the target, downloaded into place while its hash differs from the stated one, with a change row when downloaded."""
     if (held := await anyio.to_thread.run_sync(hashed, target)) == stated:
         return ()
-    part = anyio.Path(target.with_suffix(PART))
-    if isinstance(failed := await downloaded(client, identity, url, part), Unfetched):
-        return failed
-    await part.replace(target)
+    if isinstance(failed := await downloaded(client, url, target), Error):
+        return Unfetched(identity, url, failed.text)
     return (Change(f"packages.{identity}.archive", held or ABSENT, stated),)
 
 
@@ -410,10 +399,10 @@ async def refreshed(client: httpx.AsyncClient, identity: str, url: str, target: 
 def decoded(text: str) -> tuple[Package, ...]:
     """Rows a `packages.toml` text declares, each role placeholder as the display channels Blender's draw colors read."""
 
-    def channels(rgb: roles.Rgb) -> str:
+    def channels(rgb: tuple[int, int, int]) -> str:
         return ", ".join(str(round(channel / 255, 4)) for channel in rgb)
 
-    return msgspec.toml.decode(roles.rendered(text, channels), type=Packages).packages
+    return msgspec.toml.decode(roles.substituted(text, channels), type=Packages).packages
 
 
 async def background[T](executable: Path, access: Access, module: str, function: str, kind: type[T]) -> T | ToolError:
@@ -421,7 +410,7 @@ async def background[T](executable: Path, access: Access, module: str, function:
     async with anyio.TemporaryDirectory() as temporary:
         path = anyio.Path(temporary, f"{function}.json")
         try:
-            await anyio.run_process((str(executable), "--background", access, "--python-exit-code", "1", "--python-expr", bootstrap(module, f"{function}({str(path)!r})")))
+            await anyio.run_process((str(executable), "--background", access, "--python-exit-code", "1", "--python-expr", bootstrap(module, t"{function!s}({str(path)})")))
         except CalledProcessError as error:
             return ToolError.raised(error)
         return msgspec.json.decode(await path.read_bytes(), type=kind)
@@ -473,7 +462,7 @@ async def fetched(target: Path, row: Local, held: Build | None, wanted: Build, w
     """Row with its archive at the target, written while its recorded build differs from the wanted one, with a change row when written."""
     if held == wanted:
         return row, ()
-    match await write(wanted, target.with_suffix(PART)):
+    match await write(wanted, target.with_suffix(".part")):
         case Path() as written:
             await anyio.Path(written).replace(target)
             return row, (Change(f"packages.{row.identity}.archive", ABSENT if held is None else msgspec.json.encode(held).decode(), msgspec.json.encode(wanted).decode()),)
@@ -481,9 +470,9 @@ async def fetched(target: Path, row: Local, held: Build | None, wanted: Build, w
             return failed
 
 
-async def resolved(staging: Path, client: httpx.AsyncClient, executable: Path, package: Package, access: Access, core: frozenset[str], listings: tuple[tuple[str, Listing], ...]) -> Resolved:
+async def resolved(folder: Path, client: httpx.AsyncClient, executable: Path, package: Package, access: Access, core: frozenset[str], listings: tuple[tuple[str, Listing], ...]) -> Resolved:
     """Row the session receives with the archive the access resolves, or the reason it does not resolve."""
-    target = Path(staging, f"{package.id}.zip")
+    target = Path(folder, f"{package.id}.zip")
     row = Local(package.id, str(target), package.workspaces)
     match package:
         case Package(source=GitHub() as origin):
@@ -522,27 +511,21 @@ async def resolved(staging: Path, client: httpx.AsyncClient, executable: Path, p
 
 
 async def resolution(
-    host: Host,
-    client: httpx.AsyncClient,
-    executable: Path,
-    declared: tuple[Package, ...],
-    access: Access,
-    content: tuple[Callable[[], Coroutine[object, object, tuple[Change, ...] | Unresolved]], ...],
+    host: Host, executable: Path, declared: tuple[Package, ...], access: Access, content: tuple[Callable[[], Coroutine[object, object, tuple[Change, ...] | Unresolved]], ...]
 ) -> tuple[Catalog, tuple[Local | Listed, ...], tuple[Change, ...]] | Failed:
     """Blender's catalog, session rows, and change rows once every row and content step resolves at the access, or every error."""
-    staging, kept = anyio.Path(host.cache, f"{host.app}-packages"), {f"{package.id}.zip" for package in declared}
-    await staging.mkdir(parents=True, exist_ok=True)
-    for path in [path async for path in staging.iterdir() if path.name not in kept]:
+    folder, kept = anyio.Path(host.cache), {f"{package.id}.zip" for package in declared}
+    await folder.mkdir(parents=True, exist_ok=True)
+    for path in [path async for path in folder.iterdir() if path.name not in kept]:
         await path.unlink()
     match await cataloged(executable, access):
         case ToolError() as failed:
             return Failed(host.app, (failed.message,))
         case catalog, listings:
-            row_handles, content_handles = list[anyio.TaskHandle[Resolved]](), list[anyio.TaskHandle[tuple[Change, ...] | Unresolved]]()
-            async with anyio.create_task_group() as group:
-                row_handles.extend(group.start_soon(resolved, Path(staging), client, executable, package, access, catalog.core, listings) for package in declared)
-                content_handles.extend(group.start_soon(step) for step in content)
-            row_results, content_results = tuple(handle.return_value for handle in row_handles), tuple(handle.return_value for handle in content_handles)
+            row_results, content_results = await gather((
+                gather(resolved(host.cache, host.client, executable, package, access, catalog.core, listings) for package in declared),
+                gather(step() for step in content),
+            ))
             match tuple(result.message for result in (*row_results, *content_results) if not isinstance(result, tuple)):
                 case ():
                     rows = tuple(result for result in row_results if isinstance(result, tuple))
@@ -553,17 +536,30 @@ async def resolution(
 
 
 async def packaged(host: Host, executable: Path) -> tuple[Manifest, Local]:
-    """Manifest and row of the extension package Blender builds from the extension folder and command aliases."""
-    package, source, (name, _) = anyio.Path(host.artifacts, f"{host.app}-extension.zip"), anyio.Path(host.folder, host.app, "extension"), tooling(executable)
+    """Manifest and row of the extension package Blender builds from the extension folder."""
+    package, source, (name, _) = anyio.Path(host.artifacts, f"{host.app}-extension.zip"), anyio.Path(Path(__file__).with_name("extension")), tooling(executable)
     await package.parent.mkdir(parents=True, exist_ok=True)
-    async with anyio.TemporaryDirectory() as staging:
-        folder = await source.copy(anyio.Path(staging, "extension"))
-        await anyio.Path(host.folder, "aliases.txt").copy_into(folder)
+    async with anyio.TemporaryDirectory() as temporary:
+        folder = await source.copy(anyio.Path(temporary, "extension"))
         await anyio.run_process([str(executable), "--factory-startup", "--command", "extension", "build", "--source-dir", str(folder), "--output-filepath", str(package)])
     manifest = msgspec.toml.decode(await anyio.Path(source, name).read_bytes(), type=Manifest)
     return manifest, Local(manifest.id, str(package))
 
 
+# --- [COMPOSITION] ----------------------------------------------------------------------
+
+
+async def upgrade(host: Host) -> tuple[Applied | Failed]:
+    """Upgrades each package `packages.toml` declares to the newest build its source publishes."""
+    executable = Path(msgspec.convert(host.server("blender").env, Environment, strict=False).blender_path)
+    declared = decoded(await anyio.Path(Path(__file__).with_name("packages.toml")).read_text(encoding="utf-8"))
+    match await resolution(host, executable, declared, Access.ONLINE, ()):
+        case Failed() as failed:
+            return (failed,)
+        case catalog, _, changes:
+            return (Applied(host.app, catalog.version, host.cache, changes),)
+
+
 # --- [EXPORTS] --------------------------------------------------------------------------
 
-__all__ = ["PART", "Access", "Manifest", "Package", "Unfetched", "Unresolved", "background", "decoded", "downloaded", "packaged", "resolution"]
+__all__ = ["Access", "Environment", "Manifest", "Package", "Unfetched", "Unresolved", "background", "decoded", "packaged", "resolution", "upgrade"]

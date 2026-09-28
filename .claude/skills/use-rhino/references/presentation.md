@@ -1,6 +1,6 @@
 # [PRESENTATION]
 
-Materials, light, display modes, and saved states come from `document.py` entry points and RhinoCommon, proof comes from `capture`.
+Materials, light, display modes, and saved states come from `document.py` entry points and RhinoCommon.
 
 ## [01]-[MATERIALS]
 

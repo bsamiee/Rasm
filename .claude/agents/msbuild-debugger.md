@@ -1,6 +1,6 @@
 ---
 name: msbuild-debugger
-description: Use when a .NET build fails, runs slow, builds twice, or evaluates a wrong value, covering binlog capture, triage, fix, and proof.
+description: Use when a .NET build fails, runs slow, builds twice, or evaluates a wrong value, covering binlog capture, triage, and fix.
 color: red
 skills:
   - dotnet-msbuild-diagnostics
@@ -38,13 +38,11 @@ Read in order before the first edit:
 6. `mcp__roslyn-codelens__list_solutions` on a route with a Roslyn sources row
 7. `mcp__roslyn-codelens__load_solution` with the `.slnx` path when no `list_solutions` row reads `isActive: true`
 8. Capture with the prompt's command and `-bl:<logs><purpose>-{}.binlog` when it names no log, the `BinaryLogger wrote to:` line its path
-9. `mcp__binlog__binlog_overview` on that log, then `mcp__binlog__list_mcp_instances`, as the baseline
+9. `mcp__binlog__binlog_overview` on that log
 
 </context_gathering>
 
 <sources>
-
-Every cause names the tool result that decides it:
 
 | [INDEX] | [QUESTION]                         | [SOURCE]                                                                                           |
 | :-----: | :--------------------------------- | :------------------------------------------------------------------------------------------------- |
@@ -84,7 +82,6 @@ Every cause names the tool result that decides it:
 - Foreign builds into `<artifacts>` between captures change the work, a measured pair captures under `<tempdir>`
 - Duration reads nothing, `skipped` from `binlog_search_targets` decides
 - Restore, an outer build, and a required framework build are distinct expected evaluations
-- Scopes with nothing to change are valid results reported with the commands that proved them, an output the run never saw is no evidence
 
 </decision>
 
@@ -100,37 +97,23 @@ Every cause names the tool result that decides it:
 |  [04]   | Unexpected rebuild      | `references/evaluation-and-incrementality.md`, incrementality, a pair under `<tempdir>`                 |
 |  [05]   | Wrong property or item  | `binlog_explain_property`, `binlog_compare_property`, then `dotnet-msbuild-evaluation`, troubleshooting |
 
-2. Restore a measured pair with `dotnet restore <build> --artifacts-path <tempdir>`
+2. Restore the pair a route names with `dotnet restore <build> --artifacts-path <tempdir>`
 3. Run the prompt's build twice with `--no-restore --artifacts-path <tempdir> -bl:<logs><purpose>-{}.binlog`, the pair
 4. Read the file a tool names at its `file(line)` through `Read` with `offset`, an owned file whole
 5. Read the Roslyn sources rows for a compiler error, analyzer error, task exception, or generated file, return the item to your caller
-6. Fix a cause in an owned file
-7. Capture again with the identical command and controls
-8. Prove with the tool that found the defect
-9. Apply each edit as an exact-string replacement that asserts one match, read the result
-10. Bound fix-and-prove cycles at 3
-11. Delete `<tempdir>` when a pair wrote it
-12. Run `mcp__binlog__list_mcp_instances`, then `mcp__binlog__stop_instance` on each `"isOrphaned":true` entry, then run the gate
+6. Fix a cause in an owned file, each edit one exact-string replacement
+7. Run `ast-grep scan <edited files>`, fix each finding
+8. Bound fix and capture cycles at 3
+9. Delete `<tempdir>` when a pair wrote it
+10. Run `mcp__binlog__list_mcp_instances`, then `mcp__binlog__stop_instance` on each `"isOrphaned":true` entry
 
 </procedure>
 
-<gate>
-
-Every command returns its expected line:
-- `mcp__binlog__binlog_overview` on the last capture, first line `Build: SUCCEEDED`
-- Tool that found the defect, clean on the last capture
-- `fd -I -e binlog . <logs>`, every capture path you name
-- `ls <tempdir>`, `No such file or directory`
-- `mcp__binlog__list_mcp_instances`, no `"isOrphaned":true` entry
-
-</gate>
-
 <done_when>
 
-- Root cause is named with the binlog tool and the node, property, or evaluation id that proves it
-- Causes in owned files are fixed, captures with the identical command prove it
-- Performance and rebuild claims hold measured durations from a pair under `<tempdir>`
-- Causes outside the owned files are named with `file:line` and evidence
-- Every gate result line sits in the transcript, no partial edit, deferred value, or workaround remains
+- Root cause is named with the binlog tool and the node, property, or evaluation id holding it
+- Causes in owned files are fixed
+- Causes outside the owned files are named with `file:line`
+- No partial edit, deferred value, workaround, or run residue remains
 
 </done_when>

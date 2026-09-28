@@ -4,7 +4,6 @@ Renders run in a render process that `headless.py render` starts under the user'
 
 ## [01]-[SETTINGS]
 
-- Proof renders set their own `scene.cycles.samples`
 - Cycles GPU renders need `scene.cycles.device = "GPU"` and the add-on preference `compute_device_type` with each device's `use` flag on
 - Background processes list no Cycles device until `refresh_devices()`, sessions and `render` refresh the list, and `run` renders on the CPU
 - First Cycles Metal frame on a cold kernel cache compiles for over a minute, later processes reuse it
@@ -55,10 +54,9 @@ out.format.media_type = "MULTI_LAYER_IMAGE"
 for kind, name in (("RGBA", "Image"), ("FLOAT", "Depth"), ("VECTOR", "Normal")):
     out.file_output_items.new(kind, name)
     tree.links.new(layers.outputs[name], out.inputs[name])
-result = {"linked": [i.name for i in out.inputs if i.is_linked], "valid": all(link.is_valid for link in tree.links)}
 ```
 
 - `view_layer.use_pass_z` adds the `Depth` output, `use_pass_normal` adds `Normal`, Cycles-only passes sit on `view_layer.cycles`
-- File Output nodes write on every render, proofs included, `mute = True` on the node skips the write
+- File Output nodes write on every render, `mute = True` on the node skips the write
 - Renders pass through the group while `scene.render.use_compositing` is true
 - Multilayer EXRs hold one part per layer, Blender's bundled `OpenImageIO` reads every part

@@ -18,10 +18,11 @@ from xml.parsers import expat
 import msgspec
 
 from interface import report
-from interface.host import Change, Error, Plugin
+from interface.frame import RIGHT_COLUMN, TREE_ROWS
+from interface.host import Change, Error
 from interface.rhino.packages import Package
 from interface.rhino.window import Extent, osnap_height, Panel, RETURN_BOTTOM, RETURN_TOP, RIGHT_BOTTOM, RIGHT_TOP, Site, Toolbar
-from interface.roles import Guide, RIGHT_COLUMN, Status, Text, TREE_ROWS
+from interface.roles import Guide, Status, Text
 
 # --- [TYPES] ----------------------------------------------------------------------------
 
@@ -98,25 +99,25 @@ ASSETS: Final = ("Contents", "Frameworks", "RhMaterialEditor.framework", "Versio
 
 
 class Stage(msgspec.Struct, frozen=True):
-    """Facts the file edit reads from the run before the quit, the dock site heights and extents by their measure names, and the declared packages."""
+    """Facts the file edit reads from the run before the quit, the dock site heights and extents by their measure names, each package plug-in's package id and toolbar file, and the declared packages."""
 
     settings: Path
     bundle: Path
     measures: Mapping[Site | Extent, float]
     sizes: Mapping[Site, int]
     columns: Mapping[str, float]
-    plugins: tuple[Plugin, ...]
+    plugins: tuple[tuple[str, str | None], ...]
     packages: tuple[Package, ...]
 
     @property
     def present(self) -> tuple[Package, ...]:
         """Declared packages Rhino holds a plug-in of, in declared order."""
-        return tuple(package for package in self.packages if package.id in {plugin.package for plugin in self.plugins})
+        return tuple(package for package in self.packages if package.id in {owner for owner, _ in self.plugins})
 
     @property
     def plugin_toolbars(self) -> tuple[Path, ...]:
         """Toolbar files the packages' plug-ins include, each once."""
-        return tuple(dict.fromkeys(Path(plugin.toolbars) for plugin in self.plugins if plugin.toolbars is not None))
+        return tuple(dict.fromkeys(Path(toolbars) for _, toolbars in self.plugins if toolbars is not None))
 
     @property
     def containers(self) -> Path:
@@ -576,7 +577,7 @@ def button(rui: ET.Element, sources: Sequence[ET.Element], command: str, guid: u
 def placed(rui: ET.Element, stage: Stage) -> None:
     """Place each present package's commands at the end of their role's ribbon tab after one spacer, several opening as a flyout named by package and tab."""
     namespace, tabs = uuid.UUID(rui.attrib[Node.GUID]), {bar.attrib[Node.GUID]: bar for bar in rui.iterfind(f"{Node.TOOL_BARS}/{Node.TOOL_BAR}")}
-    sources = {package.id: tuple(tree(Path(plugin.toolbars).read_bytes()) for plugin in stage.plugins if plugin.package == package.id and plugin.toolbars is not None) for package in stage.present}
+    sources = {package.id: tuple(tree(Path(toolbars).read_bytes()) for owner, toolbars in stage.plugins if owner == package.id and toolbars is not None) for package in stage.present}
     groups = [(Toolbar[name], package.id, commands) for package in stage.present for name, commands in package.commands.items()]
     for toolbar in dict.fromkeys(toolbar for toolbar, *_ in groups):
         ET.SubElement(tabs[toolbar], Node.TOOL_BAR_ITEM, {Node.GUID: str(uuid.uuid5(namespace, toolbar)), Node.BUTTON_STYLE: "spacer"})

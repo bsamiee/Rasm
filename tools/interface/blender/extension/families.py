@@ -12,7 +12,7 @@ import attrs
 import bpy
 from bpy.props import EnumProperty, StringProperty
 
-from .aliases import COMMAND_ALIASES, FAMILIES
+from .aliases import families
 from .navigation import KEYMAPS
 from .system import cap, snapped
 from .units import Units
@@ -373,7 +373,7 @@ class CONTROL_OT_alias(bpy.types.Operator):
             name: (alias, getattr(submodule, member))
             for name, alias in ALIASES[context.area.type].items()
             for category, _, member in (alias.operator.partition("."),)
-            if name in COMMAND_ALIASES and member in dir(submodule := getattr(bpy.ops, category))
+            if member in dir(submodule := getattr(bpy.ops, category))
         }
         self.acting = {name: alias.enabled(context) and operator.poll() for name, (alias, operator) in self.present.items()}
         self.typed = ""
@@ -420,8 +420,8 @@ class CONTROL_OT_alias(bpy.types.Operator):
         def draw(header: bpy.types.Header, _context: bpy.types.Context) -> None:
             layout = header.layout
             if not self.typed:
-                for key in [key for key in FAMILIES if any(name.startswith(key) for name in self.present)]:
-                    layout.label(text=FAMILIES[key].split()[0].rstrip(","), icon=f"EVENT_{key}")
+                for family in families(self.present):
+                    layout.label(text=family.value, icon=f"EVENT_{family.name}")
                 return
             layout.label(text=self.typed)
             for name in [name for name in self.present if name.startswith(self.typed)]:

@@ -18,7 +18,8 @@ Rasm/
 ├── tools/
 │   ├── ast-grep/             # Outlines, rules, and utilities per language
 │   ├── interface/            # Desktop application interfaces, one directory per application
-│   └── nx/                   # Nx plugin inferring a project from each project file
+│   ├── nx/                   # Nx plugin inferring a project from each project file
+│   └── yak/                  # Script installing a published Rhino plug-in's yak package
 ├── mise.toml                 # Tool binaries and process environment
 ├── global.json               # .NET SDK versions
 ├── nx.json                   # Task graph
@@ -83,7 +84,7 @@ flowchart LR
     subgraph commands ["Commands"]
         direction TB
         lint["nx run rasm:lint"] --> checkers["Every portable checker, one process each over the tree"]
-        format_tree["nx run rasm:format"] --> writers["Palette generator, every portable writer, then dotnet format"]
+        format_tree["nx run rasm:format"] --> writers["Every portable writer, then dotnet format"]
         check_all["nx run-many -t check"] --> project_check["Build, typecheck, or test per project"]
         check_affected["nx affected -t check"] --> project_check
         ci["ci.yml"] --> setup["setup action"] --> ci_steps["rasm:check, affected check per host runner, format with git diff --exit-code"]
@@ -95,10 +96,10 @@ flowchart LR
 ## [03]-[TASKS]
 
 - Targets call one tool, arguments on the command, configuration in the tool's own file
-- `nx run rasm:check` runs lint and root typecheck
+- `nx run rasm:check` runs lint and typecheck of root TypeScript files and every Python file
 - `nx run <project>:<target>` runs one target of one project
 - `nx run <project>:install` installs a project's Release product into its host
-- `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/yak/` with a manifest `yak spec` derives from its build
+- `nx run <project>:pack` builds a Rhino plug-in's yak package under `.artifacts/yak/`
 - `nx run rasm:upgrade` moves catalogs, Swift package locks, tool binaries, and application packages to their newest builds
 - `nx run rasm:rewrite -- --filter='^<id>$' <path>` applies one rule's fix across a path
 - `nx run rasm:outline -- <path>` lists a path's declarations, `--items` selects local, exported, imported, or all items, `--view` the depth
